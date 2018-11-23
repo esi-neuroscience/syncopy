@@ -1,0 +1,4 @@
+In [13]: run fft_slalom.py
+sFFT: 100 loops, best of 5: 29.00 sec per loop
+pyFFTW: 100 loops, best of 5: 192.84 sec per loop
+NumPy: 100 loops, best of 5: 250.88 sec per loop
