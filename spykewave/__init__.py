@@ -2,7 +2,7 @@
 # 
 # Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Created: Januar 15 2019
-# Last modified: <2019-01-17 14:29:07>
+# Last modified: <2019-01-17 16:50:04>
 
 # Global version number
 __version__ = "0.1a"

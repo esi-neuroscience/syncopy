@@ -27,6 +27,10 @@
 *.out
 *.app
 
+# HTML documentation
+doc/build
+doc/source/_stubs
+
 # For projects that use Waf for building: http://code.google.com/p/waf/
 .waf-*
 .lock-*
