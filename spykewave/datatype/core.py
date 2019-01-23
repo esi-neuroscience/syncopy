@@ -2,144 +2,27 @@
 # 
 # Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Created: Januar  7 2019
-# Last modified: <2019-01-17 14:25:12>
+# Last modified: <2019-01-23 17:47:47>
 
 # Builtin/3rd party package imports
 import numpy as np
 import getpass
 import socket
 import time
+import numbers
 from collections import OrderedDict
 
 # Local imports
-from spykewave.utils import spw_io_parser, spw_scalar_parser, spw_array_parser, SPWIOError
+from spykewave.utils import (spw_scalar_parser, spw_array_parser,
+                             SPWTypeError, SPWValueError, spw_warning)
+# from spykewave.io import read_data
 from spykewave import __version__
+import spykewave as sw
 
-__all__ = ["BaseData", "read_binary_header"]
+__all__ = ["BaseData", "ChunkData"]
 
-# Base SpykeWave data container
+##########################################################################################
 class BaseData():
-
-    # SpykeWave raw binary dtype-codes
-    dtype = {
-        1 : 'int8',
-        2 : 'uint8', 
-        3 : 'int16', 
-        4 : 'uint16', 
-        5 : 'int32', 
-        6 : 'uint32', 
-        7 : 'int64', 
-        8 : 'uint64', 
-        9 : 'float32',
-        10 : 'float64'
-    }
-
-    # Class instantiation
-    def __init__(self,
-                 dataset="",
-                 len_segment=None,
-                 label="channel",
-                 t0=0,
-                 segmentlabel="trial"):
-
-        # Depending on contents of `dataset`, things work differently in here
-        try:
-            read_ds = bool(len(dataset))
-        except:
-            raise SPWTypeError(dataset, varname="dataset", expected="str")
-
-        # We only parse quantities here that are somewhat independet of `dataset`
-        try:
-            spw_scalar_parser(t0, varname="t0", lims=[-np.inf, np.inf])
-        except Exception as exc:
-            raise exc
-        
-        if not isinstance(segmentlabel, str):
-            raise SPWTypeError(segmentlabel, varname="segmentlabel", expected="str")
-        options = ["trial"]
-        if segmentlabel not in options:
-            raise ValueError("".join(opt + ", " for opt in options)[:-2],
-                             varname="segmentlabel", actual=segmentlabel)
-        self._segmentlabel = segmentlabel
-
-        # Allocate "global" attribute dictionary
-        dlbls = ["label", "sr", "tstart"]
-        self._dimlabels = OrderedDict(zip(dlbls, len(dlbls)*[None]))
-
-        # If dataset was provided, start reading it, otherwise fill in blanks
-        if read_ds:
-            self._stream_dataset(dataset, len_segment, t0, label)
-        else:
-            self._segments = [np.array([])]
-            self._sampleinfo = [(t0,t0)]
-            self._hdr = {"tSample" : 0}
-            self._time = []
-            
-        # In case the segments are trials, dynamically add a "trial" property 
-        # to emulate FieldTrip usage
-        if self._segmentlabel == "trial":
-            setattr(BaseData, "trial", property(lambda self: self._segments))
-
-        # Initialize log by writing header
-        lhd = "\n\t\t>>> SpykeWave v. {ver:s} <<< \n\n" +\
-              "Created: {timestamp:s} \n\n" +\
-              "--- LOG --- "
-        self._log_header = lhd.format(ver=__version__, timestamp=time.asctime())
-        self._log = self._log_header + ""
-
-        # Write first entry to log
-        log = "Instantiated BaseData object using parameters\n" +\
-              "\tdataset = {dset:s}\n" +\
-              "\tlen_segment = {ls:s}\n" +\
-              "\tt0 = {t0:s}\n" +\
-              "\tsegmentlabel = {sl:s}"
-        self.log = log.format(dset=str(dataset) if len(dataset) else "None",
-                              ls=str(len_segment),
-                              t0=str(t0),
-                              sl=segmentlabel)
-
-    # FIXME: this shouldn't be a class method but a routine imported from an I/O package
-    def _stream_dataset(self, dataset, len_segment, t0, label):
-
-        # Get header of dataset
-        self._hdr = read_binary_header(dataset)
-
-        # If no desired segment-length for data chunking was provided, use everything at once
-        if len_segment is None:
-            len_segment = self._hdr["N"]
-        try:
-            spw_scalar_parser(len_segment, varname="len_segment",
-                              ntype="int_like", lims=[1, self._hdr["N"]])
-        except Exception as exc:
-            raise exc
-        
-        # Construct/parse list of channel labels
-        if isinstance(label, str):
-            label = [label + str(i + 1) for i in range(self._hdr["M"])]
-        try:
-            spw_array_parser(label, varname="label", ntype="str", dims=(self._hdr["M"],))
-        except Exception as exc:
-            raise exc
-        self._dimlabels["label"] = label
-        
-        # Split up raw data based on `len_segment`
-        rem = int(self._hdr["N"] % len_segment)
-        n_seg = np.array([len_segment]*int(self._hdr["N"]//len_segment) + [rem]*int(rem >0))
-
-        # Segment timing
-        self._dimlabels["tstart"] = np.cumsum(n_seg) - n_seg + t0
-        self._sampleinfo = [(ts, ts + ls) for (ts, ls) in zip(self._dimlabels['tstart'], n_seg)]
-        self._time = [range(start, end) for (start, end) in self._sampleinfo]
-        
-        # Cycle through segments and allocate memmaps (and use the fact that
-        # by construction if `len(n_seg) > 1` all segments except the
-        # last one have length `len_segment`)
-        self._segments = []
-        for k, N in enumerate(n_seg):
-            self._segments.append(np.memmap(dataset,
-                                            offset=int(self._hdr["length"] + k*len_segment),
-                                            mode="r", dtype=self._hdr["dtype"],
-                                            shape=(self._hdr["M"], N)))
 
     @property
     def dimlabels(self):
@@ -166,7 +49,7 @@ class BaseData():
 
     @property
     def segments(self):
-        return self._segments
+        return map(self.get_segment, range(self._trialinfo.shape[0]))
 
     @property
     def segmentlabel(self):
@@ -178,33 +61,200 @@ class BaseData():
         factor = self._hdr["tSample"]*converter[unit]
         return [np.arange(start, end)*factor for (start, end) in self._sampleinfo]
 
+    # Class instantiation
+    def __init__(self,
+                 filename="",
+                 filetype=None,
+                 trialdefinition=None,
+                 label="channel",
+                 t0=0,
+                 segmentlabel="trial"):
+        """
+        Main SpykeWave data container
+        """
+
+        # Depending on contents of `filename`, class instantiation invokes I/O routines
+        try:
+            read_fl = bool(len(filename))
+        except:
+            raise SPWTypeError(filename, varname="filename", expected="str")
+
+        # We only parse quantities here that are converted to class attributes
+        # even if `filename` is empty
+        if not isinstance(segmentlabel, str):
+            raise SPWTypeError(segmentlabel, varname="segmentlabel", expected="str")
+        options = ["trial"]
+        if segmentlabel not in options:
+            raise SPWValueError("".join(opt + ", " for opt in options)[:-2],
+                                varname="segmentlabel", actual=segmentlabel)
+        self._segmentlabel = segmentlabel
+
+        # Prepare "global" attribute dictionary for reading routines
+        dlbls = ["label", "sr", "tstart"]
+        self._dimlabels = OrderedDict(zip(dlbls, len(dlbls)*[None]))
+
+        # If filename was provided, call appropriate reading routine
+        if read_fl:
+            sw.read_data(filename, filetype=filetype, label=label,
+                         trialdefinition=trialdefinition, t0=t0, out=self)
+        else:
+            self._segments = [np.array([])]
+            self._sampleinfo = [(0,0)]
+            self._hdr = {"tSample" : 0}
+            self._time = []
+            self._trialinfo = np.zeros((3,))
+            
+        # In case the segments are trials, dynamically add a "trial" property 
+        # to emulate FieldTrip usage
+        if self._segmentlabel == "trial":
+            setattr(BaseData, "trial", property(lambda self: self.segments))
+            setattr(BaseData, "trialinfo", property(lambda self: self._trialinfo))
+
+        # Initialize log by writing header information
+        lhd = "\n\t\t>>> SpykeWave v. {ver:s} <<< \n\n" +\
+              "Created: {timestamp:s} \n\n" +\
+              "--- LOG --- "
+        self._log_header = lhd.format(ver=__version__, timestamp=time.asctime())
+        self._log = self._log_header + ""
+
+        # Write first entry to log
+        log = "Instantiated BaseData object using parameters\n" +\
+              "\tfilename = {dset:s}\n" +\
+              "\tt0 = {t0:s}\n" +\
+              "\tsegmentlabel = {sl:s}"
+        self.log = log.format(dset=str(filename) if len(filename) else "None",
+                              t0=str(t0),
+                              sl=segmentlabel)
+
+    # Helper function that leverages `ChunkData`'s getter routine to return a single segment
+    def get_segment(self, segno):
+        # FIXME: make sure `segno` is a valid segment number
+        return self._segments[:, self._trialinfo[segno, 0]: self._trialinfo[segno, 1]]
+
 ##########################################################################################
-# FIXME: this should be in an I/O package
-def read_binary_header(dataset=""):
-    """
-    Docstring
-    """
+class ChunkData():
 
-    # First and foremost, make sure input arguments make sense
-    try:
-        spw_io_parser(dataset, varname="dataset")
-    except Exception as exc:
-        raise exc
+    @property
+    def M(self):
+        return self._M
 
-    # Try to access dataset on disk, abort if this goes wrong
-    try:
-        fid = open(dataset, "r")
-    except:
-        raise SPWIOError(dataset)
+    @property
+    def N(self):
+        return self._N
 
-    # Extract file header
-    hdr = {}
-    hdr["version"] = np.fromfile(fid,dtype='uint8',count=1)[0]
-    hdr["length"] = np.fromfile(fid,dtype='uint16',count=1)[0]
-    hdr["dtype"] = BaseData.dtype[np.fromfile(fid,dtype='uint8',count=1)[0]]
-    hdr["N"] = np.fromfile(fid,dtype='uint64',count=1)[0]
-    hdr["M"] = np.fromfile(fid,dtype='uint64',count=1)[0]
-    hdr["tSample"] = np.fromfile(fid,dtype='uint64',count=1)[0]
-    fid.close()
+    @property
+    def shape(self):
+        return self._shape
 
-    return hdr
+    @property
+    def size(self):
+        return self._size
+    
+    # Class instantiation
+    def __init__(self, chunk_list):
+        """
+        Docstring coming soon...
+        """
+
+        # First, make sure our one mandatary input argument does not contain
+        # any unpleasant surprises
+        if not isinstance(chunk_list, (list, np.ndarray)):
+            raise SPWTypeError(chunk_list, varname="chunk_list", expected="array_like")
+        for chunk in chunk_list:
+            try:
+                spw_array_parser(chunk, varname="chunk", dims=2)
+            except Exception as exc:
+                raise exc
+
+        # Get row number per input chunk and raise error in case col.-no. does not match up
+        shapes = [chunk.shape for chunk in chunk_list]
+        if not np.array_equal([shape[1] for shape in shapes], [shapes[0][1]]*len(shapes)):
+            raise SPWValueError(legal="identical number of samples per chunk",
+                                varname="chunk_list")
+        nrows = [shape[0] for shape in shapes]
+        cumlen = np.cumsum(nrows)
+
+        # Create list of "global" row numbers and assign "global" dimensional info
+        self._nrows = nrows
+        self._rows = [range(start, stop) for (start, stop) in zip(cumlen - nrows, cumlen)]
+        # self._rows = np.array([range(start, stop) \
+        #                        for (start, stop) in zip(cumlen - nrows, cumlen)])
+        self._M = cumlen[-1]
+        self._N = chunk_list[0].shape[1]
+        self._shape = (self._M, self._N)
+        self._size = self._M*self._N
+        self._data = chunk_list
+
+    # Compatibility
+    def __len__(self):
+        return self._size
+
+    # The only part of this class that actually does something
+    def __getitem__(self, idx):
+
+        # Extract queried row/col from input tuple `idx`
+        qrow, qcol = idx
+        
+        # Convert input to slice (if it isn't already) or assign explicit start/stop values
+        if isinstance(qrow, numbers.Number):
+            try:
+                spw_scalar_parser(qrow, varname="row", ntype="int_like", lims=[0, self._M])
+            except Exception as exc:
+                raise exc
+            row = slice(int(qrow), int(qrow + 1))
+        elif isinstance(qrow, slice):
+            start, stop = qrow.start, qrow.stop
+            if qrow.start is None:
+                start = 0
+            if qrow.stop is None:
+                stop = self._M
+            row = slice(start, stop)
+        else:
+            raise SPWTypeError(qrow, varname="row", expected="int_like or slice")    
+        
+        # Convert input to slice (if it isn't already) or assign explicit start/stop values
+        if isinstance(qcol, numbers.Number):
+            try:
+                spw_scalar_parser(qcol, varname="col", ntype="int_like", lims=[0, self._N])
+            except Exception as exc:
+                raise exc
+            col = slice(int(qcol), int(qcol + 1))
+        elif isinstance(qcol, slice):
+            start, stop = qcol.start, qcol.stop
+            if qcol.start is None:
+                start = 0
+            if qcol.stop is None:
+                stop = self._N
+            col = slice(start, stop)
+        else:
+            raise SPWTypeError(qcol, varname="col", expected="int_like or slice")
+
+        # Make sure queried row/col are inside dimensional limits
+        err = "value between {lb:s} and {ub:s}"
+        if not(0 <= row.start < self._M) or not(0 < row.stop <= self._M):
+            raise SPWValueError(err.format(lb="0", ub=str(self._M)),
+                                varname="row", actual=str(row))
+        if not(0 <= col.start < self._N) or not(0 < col.stop <= self._N):
+            raise SPWValueError(err.format(lb="0", ub=str(self._N)),
+                                varname="col", actual=str(col))
+
+        # The interesting part: find out wich chunk(s) `row` is pointing at
+        i1 = np.where([row.start in chunk for chunk in self._rows])[0].item()
+        i2 = np.where([(row.stop - 1) in chunk for chunk in self._rows])[0].item()
+
+        # If start and stop are not within the same chunk, data is loaded into memory
+        if i1 != i2:
+            spw_warning("Loading multiple files into memory", caller="SpykeWave core")
+            data = []
+            data.append(self._data[i1][row.start - self._rows[i1].start:, col])
+            for i in range(i1 + 1, i2):
+                data.append(self._data[i][:, col])
+            data.append(self._data[i2][:row.stop - self._rows[i2].start, col])
+            return np.vstack(data)
+
+        # If start and stop are in the same chunk, return a view of the underlying memory map
+        else:
+            
+            # Convert "global" row index to local chunk-based row-number (by subtracting offset)
+            row = slice(row.start - self._rows[i1].start, row.stop - self._rows[i1].start)
+            return self._data[i1][row,:][:,col]

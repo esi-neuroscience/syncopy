@@ -2,12 +2,12 @@
 # 
 # Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Created: Januar 14 2019
-# Last modified: <2019-01-15 15:38:25>
+# Last modified: <2019-01-23 15:33:59>
 
 # Builtin/3rd party package imports
 import sys
 
-__all__ = ["SPWTypeError", "SPWValueError", "SPWIOError", "spw_print"]
+__all__ = ["SPWTypeError", "SPWValueError", "SPWIOError", "spw_print", "spw_warning"]
 
 class Error(Exception):
     """
@@ -110,3 +110,30 @@ def spw_print(message, caller=sys._getframe().f_back.f_code.co_name):
 
     msg = "{cl:s}{sep:s}{msg:s}"
     print(msg.format(cl=caller, sep=": " if len(caller) > 0 else "", msg=message))
+    return 
+
+##########################################################################################
+def spw_warning(message, caller=sys._getframe().f_back.f_code.co_name):
+    """
+    Custom print function for package-wide standardized warning messages
+
+    Parameters
+    ----------
+    msg : str
+        Warning message
+    caller : str
+        Name of calling routine or module to pre-pend `msg` with
+
+    Notes
+    -----
+    This is an internal routine solely intended to be used by package components. 
+    Thus, this funciton does not perform any error-checking and assumes 
+    the caller knows what it is doing. 
+    """
+
+    msg = "{sep1:s}{cl:s}{sep2:s}WARNING: {msg:s}"
+    print(msg.format(cl=caller,
+                     sep1="<" if len(caller) > 0 else "", 
+                     sep2="> " if len(caller) > 0 else "",
+                     msg=message))
+    return
