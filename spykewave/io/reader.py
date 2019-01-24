@@ -45,7 +45,8 @@ def read_data(filename, filetype=None, out=None, **kwargs):
         for fname in filename:
             try:
                 spw_io_parser(fname, varname="filename", isfile=True,
-                              ext=[".lfp", ".mua"])
+                              ext=[".lfp", ".mua", ".evt", ".dpd", 
+                                   ".apd", ".eye", ".pup"])
             except Exception as exc:
                 raise exc
         return read_binary_esi(filename, out=out, **kwargs)
