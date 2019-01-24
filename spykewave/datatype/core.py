@@ -2,7 +2,7 @@
 # 
 # Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Created: Januar  7 2019
-# Last modified: <2019-01-23 17:47:47>
+# Last modified: <2019-01-24 12:13:06>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -10,7 +10,8 @@ import getpass
 import socket
 import time
 import numbers
-from collections import OrderedDict
+import inspect
+from collections import OrderedDict, Iterator
 
 # Local imports
 from spykewave.utils import (spw_scalar_parser, spw_array_parser,
@@ -131,6 +132,41 @@ class BaseData():
         # FIXME: make sure `segno` is a valid segment number
         return self._segments[:, self._trialinfo[segno, 0]: self._trialinfo[segno, 1]]
 
+    # Legacy support
+    def __repr__(self):
+        return self.__str__()
+
+    # Make class contents readable from the command line
+    def __str__(self):
+
+        # Get list of print-worthy attributes
+        ppattrs = [attr for attr in self.__dir__() if not (attr.startswith("_") or attr == "log")]
+        ppattrs = [attr for attr in ppattrs \
+                   if not (inspect.ismethod(getattr(self, attr)) \
+                           or isinstance(getattr(self, attr), Iterator))]
+
+        # Construct string for pretty-printing class attributes
+        ppstr = "SpykeWave BaseData object with fields\n\n"
+        maxKeyLength = max([len(k) for k in ppattrs])
+        for attr in ppattrs:
+            value = getattr(self, attr)
+            if hasattr(value, 'shape'):            
+                valueString = "[" + " x ".join([str(numel) for numel in value.shape]) \
+                              + "] element " + str(type(value))
+            elif isinstance(value, list):
+                valueString = "{0} element list".format(len(value))
+            elif isinstance(value, dict):
+                msg = "dictionary with {nk:s}keys{ks:s}"
+                keylist = value.keys()
+                showkeys = len(keylist) < 7
+                valueString = msg.format(nk=str(len(keylist)) + " " if not showkeys else "",
+                                         ks=" '" + "', '".join(key for key in keylist) + "'" if showkeys else "")
+            else:
+                valueString = str(value)
+            printString =  "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
+            ppstr += printString.format(attr, valueString)
+        return ppstr
+
 ##########################################################################################
 class ChunkData():
 
@@ -177,8 +213,6 @@ class ChunkData():
         # Create list of "global" row numbers and assign "global" dimensional info
         self._nrows = nrows
         self._rows = [range(start, stop) for (start, stop) in zip(cumlen - nrows, cumlen)]
-        # self._rows = np.array([range(start, stop) \
-        #                        for (start, stop) in zip(cumlen - nrows, cumlen)])
         self._M = cumlen[-1]
         self._N = chunk_list[0].shape[1]
         self._shape = (self._M, self._N)

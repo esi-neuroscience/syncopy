@@ -2,7 +2,10 @@
 # 
 # Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Created: Januar 17 2019
-# Last modified: <2019-01-23 17:47:30>
+# Last modified: <2019-01-24 09:04:47>
+
+# Builtin/3rd party package imports
+import numpy as np
 
 # Add spykewave package to Python search path
 import os
@@ -54,10 +57,10 @@ if __name__ == "__main__":
                     [150000, 200000, 5],
                     [200000, 350000, 4],
                     [350000, 400000, 0]])
-    data = BaseData(filename=[datadir + file for file in files],
-                    filetype="esi",
-                    trialdefinition=trl)
+    data = sw.BaseData(filename=[datadir + file for file in files],
+                       filetype="esi",
+                       trialdefinition=trl)
 
-    # Choose data-set to read
-    filename = "klecks_20180406_rfmapping-bar_1_xWav.lfp"
+    # # Choose data-set to read
+    # filename = "klecks_20180406_rfmapping-bar_1_xWav.lfp"
     

@@ -2,7 +2,7 @@
 # 
 # Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Created: Januar 22 2019
-# Last modified: <2019-01-23 17:48:18>
+# Last modified: <2019-01-24 12:12:20>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -95,8 +95,6 @@ def read_binary_esi(filename,
     out._dimlabels["label"] = label
     out._dimlabels["tstart"] = trialdefinition[:, 0]
     out._sampleinfo = trialdefinition[:, :2]
-    # out._sampleinfo = [(trialdefinition[k, 0], trialdefinition[k, 1]) \
-    #                    for k in range(trialdefinition.shape[0])]
     out._trialinfo = trialdefinition
     out._time = [range(start, end) for (start, end) in out._sampleinfo]
     out._hdr = headers[0]
