@@ -9,7 +9,7 @@ import numpy as np
 
 # Local imports
 from spykewave.utils import (spw_io_parser, spw_scalar_parser, spw_array_parser,
-                             SPWIOError, SPWTypeError)
+                             SPWIOError, SPWTypeError, SPWValueError)
 from spykewave.datatype import BaseData, ChunkData
 
 __all__ = ["read_binary_esi", "read_binary_esi_header"]
@@ -88,7 +88,7 @@ def read_binary_esi(filename,
 
     # If not provided construct (trivial) `trialdefinition` array
     if trialdefinition is None:
-        trialdefinition = np.array([0,data.N,0])
+        trialdefinition = np.array([[0,data.N,0]])
     
     # Everything's ready, attach things to `out` (and return)
     out._segments = data
