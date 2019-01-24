@@ -11,10 +11,12 @@ __version__ = "0.1a"
 from .utils import *
 from .io import *
 from .datatype import *
+from .specest import *
 
 # Take care of `from spykewave import *` statements
 __all__ = []
 __all__.extend(datatype.__all__)
 __all__.extend(io.__all__)
 __all__.extend(utils.__all__)
+__all__.extend(specest.__all__)
 __all__.extend([__version__])
