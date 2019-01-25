@@ -27,13 +27,12 @@
 *.out
 *.app
 
-# For projects that use Waf for building: http://code.google.com/p/waf/
-.waf-*
-.lock-*
+# HTML documentation
+doc/build
+doc/source/_stubs
 
 # Canonical /build directory
 /build
-doc/_build
 
 # Python
 # Byte-compiled / optimized / DLL files
