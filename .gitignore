@@ -39,3 +39,6 @@ doc/source/_stubs
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Dask-related stuff
+dask-worker-space

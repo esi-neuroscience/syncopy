@@ -4,7 +4,7 @@
 # 
 # Author: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
 # Created: January 24 2019
-# Last modified: <2019-01-24>
+# Last modified: <2019-01-25 17:38:11>
 
 
 import dask.bag
@@ -42,7 +42,8 @@ else:
     cluster = LocalCluster(ip=socket.gethostname(),
                            n_workers=8,
                            threads_per_worker=1,
-                           memory_limit="8G")
+                           memory_limit="8G",
+                           processes=False)
 
 print("Waiting for workers to start")    
 while len(cluster.workers) == 0:
