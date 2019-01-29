@@ -12,11 +12,10 @@ import time
 import numbers
 import inspect
 from collections import OrderedDict, Iterator
-
+    
 # Local imports
 from spykewave.utils import (spw_scalar_parser, spw_array_parser,
                              SPWTypeError, SPWValueError, spw_warning)
-# from spykewave.io import read_data
 from spykewave import __version__
 import spykewave as sw
 
@@ -190,17 +189,24 @@ class ChunkData():
     def __init__(self, chunk_list):
         """
         Docstring coming soon...
+
+        Do not confuse chunks with segments: chunks refer to actual raw binary
+        data-files on disk, thus, row- *and* col-numbers MUST match!
         """
 
         # First, make sure our one mandatary input argument does not contain
         # any unpleasant surprises
         if not isinstance(chunk_list, (list, np.ndarray)):
             raise SPWTypeError(chunk_list, varname="chunk_list", expected="array_like")
-        for chunk in chunk_list:
-            try:
-                spw_array_parser(chunk, varname="chunk", dims=2)
-            except Exception as exc:
-                raise exc
+
+        # Do not use ``spw_array_parser`` to validate chunks to not force-load memmaps
+        try:
+            shapes = [chunk.shape for chunk in chunk_list]
+        except:
+            raise SPWTypeError(chunk_list[0], varname="chunk in chunk_list",
+                               expected="2d-array-like")
+        if np.any([len(shape) != 2 for shape in shapes]):
+            raise SPWValueError(legal="2d-array", varname="chunk in chunk_list")
 
         # Get row number per input chunk and raise error in case col.-no. does not match up
         shapes = [chunk.shape for chunk in chunk_list]
@@ -286,7 +292,7 @@ class ChunkData():
             data.append(self._data[i2][:row.stop - self._rows[i2].start, col])
             return np.vstack(data)
 
-        # If start and stop are in the same chunk, return a view of the underlying memory map
+        # If start and stop are in the same chunk, return a view of the underlying memmap
         else:
             
             # Convert "global" row index to local chunk-based row-number (by subtracting offset)
