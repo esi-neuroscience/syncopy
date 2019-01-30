@@ -1,3 +1,9 @@
+# specest.py - SpykeWave spectral estimation methods
+# 
+# Created: January 22 2019
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-01-30 13:49:36>
+
 import numpy as np
 import scipy.signal as signal
 import scipy.signal.windows as windows

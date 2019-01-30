@@ -1,8 +1,8 @@
 # misc.py - Collection of utility classes/functions for SpykeWave
 # 
-# Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Created: Januar 14 2019
-# Last modified: <2019-01-23 15:33:59>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-01-30 13:50:11>
 
 # Builtin/3rd party package imports
 import sys

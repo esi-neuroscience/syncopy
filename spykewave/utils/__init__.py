@@ -1,8 +1,8 @@
 # __init__.py - Initialize utilities package
 # 
-# Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Created: Januar 15 2019
-# Last modified: <2019-01-17 16:25:38>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-01-30 13:49:58>
 """
 SpykeWave Convenience Utilities (:mod:`spykewave.utils`)
 ========================================================

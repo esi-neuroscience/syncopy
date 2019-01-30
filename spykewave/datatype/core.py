@@ -1,8 +1,8 @@
 # core.py - SpykeWave basic datatype reference implementation
 # 
-# Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Created: Januar  7 2019
-# Last modified: <2019-01-24 12:13:06>
+# Created: January 7 2019
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-01-30 13:44:01>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -16,7 +16,6 @@ from collections import OrderedDict, Iterator
 # Local imports
 from spykewave.utils import (spw_scalar_parser, spw_array_parser,
                              SPWTypeError, SPWValueError, spw_warning)
-# from spykewave.io import read_data
 from spykewave import __version__
 import spykewave as sw
 
@@ -68,7 +67,6 @@ class BaseData():
                  filetype=None,
                  trialdefinition=None,
                  label="channel",
-                 t0=0,
                  segmentlabel="trial"):
         """
         Main SpykeWave data container
@@ -97,7 +95,7 @@ class BaseData():
         # If filename was provided, call appropriate reading routine
         if read_fl:
             sw.read_data(filename, filetype=filetype, label=label,
-                         trialdefinition=trialdefinition, t0=t0, out=self)
+                         trialdefinition=trialdefinition, out=self)
         else:
             self._segments = [np.array([])]
             self._sampleinfo = [(0,0)]
@@ -121,10 +119,8 @@ class BaseData():
         # Write first entry to log
         log = "Instantiated BaseData object using parameters\n" +\
               "\tfilename = {dset:s}\n" +\
-              "\tt0 = {t0:s}\n" +\
               "\tsegmentlabel = {sl:s}"
         self.log = log.format(dset=str(filename) if len(filename) else "None",
-                              t0=str(t0),
                               sl=segmentlabel)
 
     # Helper function that leverages `ChunkData`'s getter routine to return a single segment
@@ -278,7 +274,7 @@ class ChunkData():
 
         # If start and stop are not within the same chunk, data is loaded into memory
         if i1 != i2:
-            spw_warning("Loading multiple files into memory", caller="SpykeWave core")
+            # spw_warning("Loading multiple files into memory", caller="SpykeWave core")
             data = []
             data.append(self._data[i1][row.start - self._rows[i1].start:, col])
             for i in range(i1 + 1, i2):

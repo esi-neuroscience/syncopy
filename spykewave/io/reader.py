@@ -1,8 +1,8 @@
 # reader.py - Manager for reading a variety of file formats
 # 
-# Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Created: Januar 23 2019
-# Last modified: <2019-01-23 17:10:59>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-01-30 13:48:15>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -10,7 +10,7 @@ import numpy as np
 # Local imports
 from spykewave.utils import SPWTypeError, spw_io_parser
 from spykewave.io import read_binary_esi
-# from spykewave.datatype import BaseData
+from spykewave.datatype import BaseData
 
 __all__ = ["read_data"]
 

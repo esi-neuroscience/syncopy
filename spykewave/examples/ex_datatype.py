@@ -1,8 +1,8 @@
 # ex_datatype.py - Example script illustrating usage of `BaseData` class
 # 
-# Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Created: Januar 17 2019
-# Last modified: <2019-01-24 09:04:47>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-01-30 13:46:45>
 
 # Builtin/3rd party package imports
 import numpy as np

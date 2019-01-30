@@ -1,8 +1,8 @@
 # __init__.py - Initialize datatype package
 # 
-# Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Created: Januar 15 2019
-# Last modified: <2019-01-17 16:23:14>
+# Created: January 15 2019
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-01-30 13:45:25>
 """
 SpykeWave Data Containers (:mod:`spykewave.datatype`)
 =====================================================

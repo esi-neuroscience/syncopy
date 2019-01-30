@@ -2,7 +2,7 @@
 # 
 # Created: Januar 25 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-01-29 12:08:32>
+# Last modification time: <2019-01-29 12:52:56>
 
 # Builtin/3rd party package imports
 import dask
@@ -29,8 +29,8 @@ import spykewave as sw
 
 # Binary flags controlling program flow
 slurmComputation = False        # turn SLURM usage on/off and
-demo = True                     # compute single-trial powerspectra and plot results
-benchmark = False               # benchmark parallelization techniques
+demo = False                     # compute single-trial powerspectra and plot results
+benchmark = True               # benchmark parallelization techniques
 
 # %% #################### Demo analysis ####################
 if demo:

@@ -1,8 +1,8 @@
 # spw_parsers.py - Module for all kinds of parsing gymnastics
 # 
-# Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Created: Januar  8 2019
-# Last modified: <2019-01-16 16:33:12>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-01-30 13:50:27>
 
 # Builtin/3rd party package imports
 import os

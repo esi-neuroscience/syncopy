@@ -1,8 +1,8 @@
 # read_raw_binary.py - Read binary files from disk
 # 
-# Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Created: Januar 22 2019
-# Last modified: <2019-01-24 12:12:20>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-01-30 13:47:54>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -18,7 +18,6 @@ __all__ = ["read_binary_esi", "read_binary_esi_header"]
 def read_binary_esi(filename,
                     label="channel",
                     trialdefinition=None,
-                    t0=0,
                     segmentlabel="trial",
                     out=None):
     """
@@ -50,12 +49,6 @@ def read_binary_esi(filename,
                                 varname="trialdefinition",
                                 actual="shape = {shp:s}".format(shp=str(trialdefinition.shape)))
 
-    # Parse `t0`
-    try:
-        spw_scalar_parser(t0, varname="t0", lims=[-np.inf, np.inf])
-    except Exception as exc:
-        raise exc
-        
     # Read headers of provided file(s) to get dimensional information
     headers = []
     tsample = []

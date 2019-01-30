@@ -1,8 +1,8 @@
 # __init__.py - Initialize example scripts
 # 
-# Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Created: Januar 17 2019
-# Last modified: <2019-01-17 16:27:32>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-01-30 13:46:18>
 """
 Data Analysis with SpykeWave: Examples (:mod:`spykewave.examples`)
 ==================================================================

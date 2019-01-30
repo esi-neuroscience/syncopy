@@ -1,8 +1,8 @@
 # __init__.py - Import SpykeWave sub-packages
 # 
-# Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Created: Januar 15 2019
-# Last modified: <2019-01-23 16:59:58>
+# Created: January 15 2019
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-01-30 13:45:38>
 
 # Global version number
 __version__ = "0.1a"

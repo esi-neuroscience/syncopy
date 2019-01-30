@@ -2,10 +2,9 @@
 # ex_mtmfft.py - Example script illustrating usage of `BaseData` in
 #                combination with Dask and spectral estimation
 # 
-# Author: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
 # Created: January 24 2019
-# Last modified: <2019-01-25 17:38:11>
-
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-01-30 13:47:12>
 
 import dask.bag
 from dask.distributed import Client, LocalCluster
@@ -61,6 +60,9 @@ def sample2time(s, dt=0.001):
 
 # load test dataset
 datadir = "/mnt/hpx/it/dev/SpykeWave/testdata/"
+datadir = ".." + os.sep + ".." + os.sep + ".." + os.sep + ".." + os.sep + "Data"\
+          + os.sep + "testdata" + os.sep
+
 basename = "MT_RFmapping_session-168a1"
 
 
@@ -133,7 +135,7 @@ tAxis = np.arange(erp.shape[1]) * data.hdr["tSample"]/1E6 - 250
 #%% Plot result
 import matplotlib.pyplot as plt
 plt.ion()
-channels = np.arange(30, 60)
+channels = np.arange(0, 15)
 fig, ax = plt.subplots(2,2)
 ax[0,0].plot(tAxis, erp[channels,:].T)
 ax[0,1].plot(tAxis, erp[channels+256,:].T)

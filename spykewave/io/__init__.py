@@ -1,8 +1,8 @@
 # __init__.py - Initialize I/O package
 # 
-# Author: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Created: Januar 23 2019
-# Last modified: <2019-01-23 17:01:49>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-01-30 13:47:40>
 """
 Coming soon...
 """

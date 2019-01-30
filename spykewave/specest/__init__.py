@@ -1,7 +1,8 @@
 # __init__.py - Initialize specest package
 # 
-# Author: Joscha Schmiedt [joscha.schmiedtr@esi-frankfurt.de]
 # Created: January 22 2019
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-01-30 13:48:35>
 """
 SpykeWave Spectral Estimation Methods (:mod:`spykewave.specest`)
 =====================================================
