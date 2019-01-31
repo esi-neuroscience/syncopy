@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-01-30 13:44:01>
+# Last modification time: <2019-01-31 10:58:47>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -12,6 +12,7 @@ import time
 import numbers
 import inspect
 from collections import OrderedDict, Iterator
+from itertools import islice
     
 # Local imports
 from spykewave.utils import (spw_scalar_parser, spw_array_parser,
@@ -19,7 +20,7 @@ from spykewave.utils import (spw_scalar_parser, spw_array_parser,
 from spykewave import __version__
 import spykewave as sw
 
-__all__ = ["BaseData", "ChunkData"]
+__all__ = ["BaseData", "ChunkData", "Indexer"]
 
 ##########################################################################################
 class BaseData():
@@ -47,10 +48,13 @@ class BaseData():
                                    host=socket.gethostname(),
                                    time=time.asctime()) + msg
 
-    @property
-    def segments(self):
-        return map(self.get_segment, range(self._trialinfo.shape[0]))
 
+    @property
+    def segment(self):
+        return Indexer(map(self.get_segment, range(self._trialinfo.shape[0])),
+                                self._trialinfo.shape[0])
+        # return self._segment
+    
     @property
     def segmentlabel(self):
         return self._segmentlabel
@@ -102,11 +106,11 @@ class BaseData():
             self._hdr = {"tSample" : 0}
             self._time = []
             self._trialinfo = np.zeros((3,))
-            
+
         # In case the segments are trials, dynamically add a "trial" property 
         # to emulate FieldTrip usage
         if self._segmentlabel == "trial":
-            setattr(BaseData, "trial", property(lambda self: self.segments))
+            setattr(BaseData, "trial", property(lambda self: self.segment))
             setattr(BaseData, "trialinfo", property(lambda self: self._trialinfo))
 
         # Initialize log by writing header information
@@ -165,6 +169,10 @@ class BaseData():
 
 ##########################################################################################
 class ChunkData():
+
+    # Pre-allocate slots here - this class is *not* meant to be expanded
+    # and/or monkey-patched later on
+    __slots__ = ["_M", "_N", "_shape", "_size", "_nrows", "_data", "_rows"]
 
     @property
     def M(self):
@@ -295,3 +303,30 @@ class ChunkData():
             # Convert "global" row index to local chunk-based row-number (by subtracting offset)
             row = slice(row.start - self._rows[i1].start, row.stop - self._rows[i1].start)
             return self._data[i1][row,:][:,col]
+
+##########################################################################################
+class Indexer():
+
+    __slots__ = ["_iterobj", "_iterlen"]
+    
+    def __init__(self, iterobj, iterlen):
+        """
+        Make an iterable object subscriptable using itertools magic
+        """
+        self._iterobj = iterobj
+        self._iterlen = iterlen
+
+    def __getitem__(self, idx):
+        if isinstance(idx, numbers.Number):
+            try:
+                spw_scalar_parser(idx, varname="idx", ntype="int_like", lims=[0, self._iterlen])
+            except Exception as exc:
+                raise exc
+            return next(islice(self._iterobj, idx, idx + 1))
+        elif isinstance(idx, slice):
+            return np.hstack(islice(self._iterobj, idx.start, idx.stop, idx.step))
+        else:
+            raise SPWTypeError(idx, varname="idx", expected="int_like or slice")
+
+    def __len__(self):
+        return self._iterlen
