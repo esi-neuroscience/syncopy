@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-04 16:08:17>
+# Last modification time: <2019-02-04 16:28:52>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -108,7 +108,7 @@ class BaseData():
         # In case the segments are trials, dynamically add a "trial" property 
         # to emulate FieldTrip usage
         if self._segmentlabel == "trial":
-            setattr(BaseData, "trial", property(lambda self: self.segment))
+            setattr(BaseData, "trial", property(lambda self: self.segments))
             setattr(BaseData, "trialinfo", property(lambda self: self._trialinfo))
 
         # Initialize log by writing header information
@@ -348,4 +348,9 @@ class Indexer():
     
     def __len__(self):
         return self._iterlen
+
+    def __repr__(self):
+        return self.__str__()
     
+    def __str__(self):
+        return "{} element iterable".format(self._iterlen)
