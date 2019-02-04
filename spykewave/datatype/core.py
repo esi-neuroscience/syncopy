@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-04 16:28:52>
+# Last modification time: <2019-02-04 18:04:30>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -25,10 +25,6 @@ __all__ = ["BaseData", "ChunkData", "Indexer"]
 ##########################################################################################
 class BaseData():
 
-    @property
-    def dimlabels(self):
-        return self._dimlabels
-    
     @property
     def hdr(self):
         return self._hdr
@@ -57,6 +53,10 @@ class BaseData():
     def segmentlabel(self):
         return self._segmentlabel
 
+    @property
+    def segmentshapes(self):
+        return self._segmentshapes
+    
     @property
     def time(self, unit="ns"):
         converter = {"h": 1/360*1e-9, "min": 1/60*1e-9, "s" : 1e-9, "ms" : 1e-6, "ns" : 1}
@@ -99,11 +99,16 @@ class BaseData():
             sw.read_data(filename, filetype=filetype, label=label,
                          trialdefinition=trialdefinition, out=self)
         else:
-            self._segments = [np.array([])]
+            self._chunks = np.empty((0,0))
             self._sampleinfo = [(0,0)]
             self._hdr = {"tSample" : 0}
             self._time = []
-            self._trialinfo = np.zeros((3,))
+            self._trialinfo = np.zeros((1,3))
+            self._dimlabels["label"] = ""
+
+        # Get shapes of segments defined by `trialdefintion`
+        self._segmentshapes = [(len(self.label), tinfo[1] - tinfo[0])\
+                               for tinfo in self._trialinfo]
 
         # In case the segments are trials, dynamically add a "trial" property 
         # to emulate FieldTrip usage
@@ -119,7 +124,7 @@ class BaseData():
         self._log = self._log_header + ""
 
         # Write first entry to log
-        log = "Instantiated BaseData object using parameters\n" +\
+        log = "Created BaseData object using parameters\n" +\
               "\tfilename = {dset:s}\n" +\
               "\tsegmentlabel = {sl:s}"
         self.log = log.format(dset=str(filename) if len(filename) else "None",
@@ -127,7 +132,7 @@ class BaseData():
 
     # Helper function that leverages `ChunkData`'s getter routine to return a single segment
     def _get_segment(self, segno):
-        return self._segments[:, self._trialinfo[segno, 0]: self._trialinfo[segno, 1]]
+        return self._chunks[:, int(self._trialinfo[segno, 0]) : int(self._trialinfo[segno, 1])]
 
     # Legacy support
     def __repr__(self):

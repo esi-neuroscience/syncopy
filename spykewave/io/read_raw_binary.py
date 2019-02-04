@@ -2,7 +2,7 @@
 # 
 # Created: Januar 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-01-30 13:47:54>
+# Last modification time: <2019-02-04 18:04:27>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -84,7 +84,7 @@ def read_binary_esi(filename,
         trialdefinition = np.array([[0,data.N,0]])
     
     # Everything's ready, attach things to `out` (and return)
-    out._segments = data
+    out._chunks = data
     out._dimlabels["label"] = label
     out._dimlabels["tstart"] = trialdefinition[:, 0]
     out._sampleinfo = trialdefinition[:, :2]
