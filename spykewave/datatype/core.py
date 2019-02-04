@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-01-31 10:58:47>
+# Last modification time: <2019-02-04 16:08:17>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -48,12 +48,10 @@ class BaseData():
                                    host=socket.gethostname(),
                                    time=time.asctime()) + msg
 
-
     @property
-    def segment(self):
-        return Indexer(map(self.get_segment, range(self._trialinfo.shape[0])),
+    def segments(self):
+        return Indexer(map(self._get_segment, range(self._trialinfo.shape[0])),
                                 self._trialinfo.shape[0])
-        # return self._segment
     
     @property
     def segmentlabel(self):
@@ -128,8 +126,7 @@ class BaseData():
                               sl=segmentlabel)
 
     # Helper function that leverages `ChunkData`'s getter routine to return a single segment
-    def get_segment(self, segno):
-        # FIXME: make sure `segno` is a valid segment number
+    def _get_segment(self, segno):
         return self._segments[:, self._trialinfo[segno, 0]: self._trialinfo[segno, 1]]
 
     # Legacy support
@@ -316,17 +313,39 @@ class Indexer():
         self._iterobj = iterobj
         self._iterlen = iterlen
 
+    def __iter__(self):
+        return self._iterobj
+
     def __getitem__(self, idx):
         if isinstance(idx, numbers.Number):
             try:
-                spw_scalar_parser(idx, varname="idx", ntype="int_like", lims=[0, self._iterlen])
+                spw_scalar_parser(idx, varname="idx", ntype="int_like",
+                                  lims=[0, self._iterlen - 1])
             except Exception as exc:
                 raise exc
             return next(islice(self._iterobj, idx, idx + 1))
         elif isinstance(idx, slice):
-            return np.hstack(islice(self._iterobj, idx.start, idx.stop, idx.step))
+            start, stop = idx.start, idx.stop
+            if idx.start is None:
+                start = 0
+            if idx.stop is None:
+                stop = self._iterlen
+            index = slice(start, stop, idx.step)
+            if not(0 <= index.start < self._iterlen) or not (0 < index.stop <= self._iterlen):
+                err = "value between {lb:s} and {ub:s}"
+                raise SPWValueError(err.format(lb="0", ub=str(self._iterlen)),
+                                    varname="idx", actual=str(index))
+            return np.hstack(islice(self._iterobj, index.start, index.stop, index.step))
+        elif isinstance(idx, (list, np.ndarray)):
+            try:
+                spw_array_parser(idx, varname="idx", ntype="int_like",
+                                 lims=[0, self._iterlen], dims=1)
+            except Exception as exc:
+                raise exc
+            return np.hstack([next(islice(self._iterobj, int(ix), int(ix + 1))) for ix in idx])
         else:
             raise SPWTypeError(idx, varname="idx", expected="int_like or slice")
-
+    
     def __len__(self):
         return self._iterlen
+    
