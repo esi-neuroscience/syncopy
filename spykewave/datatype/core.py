@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-04 18:04:30>
+# Last modification time: <2019-02-05 11:12:50>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -96,7 +96,7 @@ class BaseData():
 
         # If filename was provided, call appropriate reading routine
         if read_fl:
-            sw.read_data(filename, filetype=filetype, label=label,
+            sw.load_data(filename, filetype=filetype, label=label,
                          trialdefinition=trialdefinition, out=self)
         else:
             self._chunks = np.empty((0,0))

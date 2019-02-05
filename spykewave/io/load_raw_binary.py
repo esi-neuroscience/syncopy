@@ -1,8 +1,8 @@
-# read_raw_binary.py - Read binary files from disk
+# load_raw_binary.py - Read binary files from disk
 # 
 # Created: Januar 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-04 18:04:27>
+# Last modification time: <2019-02-05 11:18:11>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -12,10 +12,10 @@ from spykewave.utils import (spw_io_parser, spw_scalar_parser, spw_array_parser,
                              SPWIOError, SPWTypeError, SPWValueError)
 from spykewave.datatype import BaseData, ChunkData
 
-__all__ = ["read_binary_esi", "read_binary_esi_header"]
+__all__ = ["load_binary_esi", "read_binary_esi_header"]
 
 ##########################################################################################
-def read_binary_esi(filename,
+def load_binary_esi(filename,
                     label="channel",
                     trialdefinition=None,
                     segmentlabel="trial",
@@ -26,8 +26,8 @@ def read_binary_esi(filename,
 
     # Make sure we can handle `out`
     if out is not None:
-        # if not isinstance(out, BaseData):
-        #     raise SPWTypeError(out, varname="out", expected="SpkeWave BaseData object")
+        if not isinstance(out, BaseData):
+            raise SPWTypeError(out, varname="out", expected="SpkeWave BaseData object")
         return_out = False
     else:
         out = BaseData(segmentlabel=segmentlabel)

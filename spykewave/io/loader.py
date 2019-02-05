@@ -1,21 +1,21 @@
-# reader.py - Manager for reading a variety of file formats
+# loader.py - Manager for reading a variety of file formats
 # 
 # Created: Januar 23 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-01-30 13:48:15>
+# Last modification time: <2019-02-05 11:14:39>
 
 # Builtin/3rd party package imports
 import numpy as np
 
 # Local imports
 from spykewave.utils import SPWTypeError, spw_io_parser
-from spykewave.io import read_binary_esi
+from spykewave.io import load_binary_esi
 from spykewave.datatype import BaseData
 
-__all__ = ["read_data"]
+__all__ = ["load_data"]
 
 ##########################################################################################
-def read_data(filename, filetype=None, out=None, **kwargs):
+def load_data(filename, filetype=None, out=None, **kwargs):
     """
     Docstring coming soon...
     """
@@ -25,7 +25,9 @@ def read_data(filename, filetype=None, out=None, **kwargs):
         if not isinstance(filetype, str):
             raise SPWTypeError(filetype, varname="filetype", expected="str")
 
-    # FIXME?: make sure `out` is (a list of) `BaseData` instances
+    # Make sure `out` is a `BaseData` instance
+    if not isinstance(out, BaseData):
+        raise SPWTypeError(out, varname="out", expected="SpkeWave BaseData object")
 
     # Convert input to list (if it is not already)
     if not isinstance(filename, (list, np.ndarray)):
@@ -39,7 +41,7 @@ def read_data(filename, filetype=None, out=None, **kwargs):
             except Exception as exc:
                 raise exc
         raise NotImplementedError("Coming soon...")
-        # FIXME: read_spw(filename)
+        # FIXME: load_spw(filename)
         
     elif filetype == "esi":
         for fname in filename:
@@ -49,4 +51,4 @@ def read_data(filename, filetype=None, out=None, **kwargs):
                                    ".apd", ".eye", ".pup"])
             except Exception as exc:
                 raise exc
-        return read_binary_esi(filename, out=out, **kwargs)
+        return load_binary_esi(filename, out=out, **kwargs)
