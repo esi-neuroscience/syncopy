@@ -2,7 +2,7 @@
 # 
 # Created: February  5 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-05 16:51:41>
+# Last modification time: <2019-02-06 16:28:32>
 
 # Local imports
 from spykewave.utils import SPWTypeError
@@ -23,7 +23,7 @@ def save_data(fname, out, filetype=None, **kwargs):
             raise SPWTypeError(filetype, varname="filetype", expected="str")
 
     # Depending on specified output file-type, call appropriate writing routine
-    if filetype is None:
+    if filetype is None or filetype in ".spw" or filetype in ["native", "spykewave"]:
         save_spw(fname, out, **kwargs)
-    elif filetype == "matlab":
+    elif filetype == "matlab" or filetype in ".mat":
         raise NotImplementedError("Coming soon...")

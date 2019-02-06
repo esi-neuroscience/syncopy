@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-05 11:12:50>
+# Last modification time: <2019-02-06 16:30:49>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -134,6 +134,13 @@ class BaseData():
     def _get_segment(self, segno):
         return self._chunks[:, int(self._trialinfo[segno, 0]) : int(self._trialinfo[segno, 1])]
 
+    # Wrapper that makes saving routine usable as class method
+    def save(self, out_name, filetype=None, **kwargs):
+        """
+        Docstring that mostly points to ``save_data``
+        """
+        sw.save_data(out_name, self, filetype=filetype, **kwargs)
+    
     # Legacy support
     def __repr__(self):
         return self.__str__()

@@ -1,8 +1,8 @@
 # save_spw_container.py - Save BaseData objects on disk
 # 
-# Created: Februar  5 2019
+# Created: February  5 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-06 13:02:34>
+# Last modification time: <2019-02-06 16:13:09>
 
 # Builtin/3rd party package imports
 import os
@@ -12,8 +12,9 @@ from hashlib import blake2b
 from numpy.lib.format import open_memmap  
 
 # Local imports
-from spykewave.utils import spw_io_parser, spw_scalar_parser, SPWIOError, SPWTypeError
+from spykewave.utils import spw_io_parser, SPWIOError, SPWTypeError
 from spykewave.datatype import BaseData
+from spykewave.io import hash_file
 
 __all__ = ["save_spw"]
 
@@ -23,21 +24,11 @@ FILE_EXT = {"out" : "spw",
             "data" : "dat",
             "seg" : "seg"}
 
-# Conversion factor b/w bytes and MB
-conv_b2mb = 1024**2
-
-
-import ipdb
-from memory_profiler import memory_usage
-
-
 ##########################################################################################
-def save_spw(out_name, out, fname=None, memuse=None):
+def save_spw(out_name, out, fname=None):
     """
-    Docstring
+    Docstring coming soon...
     """
-
-    print("Memory usage @ beginning: ", memory_usage())
 
     # Make sure `out_name` is a writable filesystem-location and format it
     if not isinstance(out_name, str):
@@ -71,51 +62,19 @@ def save_spw(out_name, out, fname=None, memuse=None):
         if fext in FILE_EXT:
             fname = fbase
 
-    if memuse is None:
-        memuse = 100 * conv_b2mb
-
-    # Use a random salt to construct a practically unique file-name hash that
-    # resembles a MD5 32-char checksum
-    fname_hsh = blake2b(digest_size=16, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
+    # Use a random salt to construct a hash for differentiating file-names
+    fname_hsh = blake2b(digest_size=2, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
     filename = os.path.join(out_name, fname + "." + fname_hsh + "." + "{ext:s}")
 
-    print("Memory usage before saving seg: ", memory_usage())
-    
     # Start by writing segment-related information
     with open(filename.format(ext=FILE_EXT["seg"]), "wb") as out_seg:
         np.save(out_seg, out.trialinfo, allow_pickle=False)
     
-    print("Memory usage after saving seg: ", memory_usage())
-    
-    print("Memory usage before computing hash: ", memory_usage())
-    
-    # # Create checksum for data
-    # data_hsh = blake2b()
-    # for seg in out.segments:
-    #     data_hsh.update(seg)
-
-    print("Memory usage after computing hash: ", memory_usage())
-
-    # import hashlib
-    # def md5sum(filename, blocksize=65536):
-    #     hash = hashlib.md5()
-    #     with open(filename, "rb") as f:
-    #         for block in iter(lambda: f.read(blocksize), b""):
-    #             hash.update(block)
-    #     return hash.hexdigest()    
-    
-    print("Memory usage before determining dtype: ", memory_usage())
-    
-    # Write data to disk
     # Get hierarchically "highest" dtype of chunks present in `out`
     dtypes = []
     for data in out._chunks._data:
         dtypes.append(data.dtype)
     out_dtype = np.max(dtypes)
-
-    print("Memory usage after determining dtype: ", memory_usage())
-    
-    print("Memory usage before allocating memmap: ", memory_usage())
     
     # Allocate target memmap (a npy file) for saving
     dat = open_memmap(filename.format(ext=FILE_EXT["data"]),
@@ -123,26 +82,15 @@ def save_spw(out_name, out, fname=None, memuse=None):
                       dtype=out_dtype,
                       shape=out._chunks.shape)
     
-    print("Memory usage after allocating memmap: ", memory_usage())
-    
-    # Determine block-dimensions for pumping data from memmap to memmap
-    ncol = int(memuse/(out._chunks.M * out_dtype.itemsize))
-    rem = int(out._chunks.N % ncol)
-    n_blocks = [ncol]*int(out._chunks.N // ncol) + [rem] * int(rem > 0)
-
-    print("Memory usage before copying memmaps: ", memory_usage())
-    
-    # Copy data block-wise from source to target, force write after every block
-    # to not overflow memory
-    # for n, N in enumerate(n_blocks):
-        # dat[:, n*ncol : n*ncol + N] = out._chunks[:, n*ncol : n*ncol + N]
-        # dat.flush()
+    # Point target to source memmaps and force-write by deleting `dat`
     dat = out._chunks
     del dat
 
-    print("Memory usage after copying memmaps: ", memory_usage())
-    
-    # Keep record of what just happened
+    # Compute checksums of created binary files
+    seg_hsh = hash_file(filename.format(ext=FILE_EXT["seg"]))
+    dat_hsh = hash_file(filename.format(ext=FILE_EXT["data"]))
+
+    # Write to log already here so that the entry is saved in json
     out.log = "Wrote files " + filename.format(ext="[dat/info/seg]")
 
     # Assemble dict for JSON output
@@ -155,9 +103,8 @@ def save_spw(out_name, out, fname=None, memuse=None):
     out_dct["label"] = out.label
     out_dct["segmentlabel"] = out.segmentlabel
     out_dct["log"] = out._log
-    # out_dct["checksum"] = data_hsh.hexdigest()
-    
-    print("Memory usage after allocating json dict: ", memory_usage())
+    out_dct["seg_checksum"] = seg_hsh
+    out_dct["dat_checksum"] = dat_hsh
 
     # Finally, write JSON
     with open(filename.format(ext=FILE_EXT["json"]), "w") as out_json:
@@ -165,6 +112,7 @@ def save_spw(out_name, out, fname=None, memuse=None):
               
     return
 
+##########################################################################################
 def _dict_converter(dct, firstrun=True):
     """
     Convert all value in dictionary to strings
