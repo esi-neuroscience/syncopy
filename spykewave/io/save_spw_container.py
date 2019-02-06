@@ -2,7 +2,7 @@
 # 
 # Created: February  5 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-06 16:13:09>
+# Last modification time: <2019-02-06 17:47:11>
 
 # Builtin/3rd party package imports
 import os
@@ -14,23 +14,17 @@ from numpy.lib.format import open_memmap
 # Local imports
 from spykewave.utils import spw_io_parser, SPWIOError, SPWTypeError
 from spykewave.datatype import BaseData
-from spykewave.io import hash_file
+from spykewave.io import hash_file, FILE_EXT
 
 __all__ = ["save_spw"]
 
-# Define SpykeWave's general file-/directory-naming conventions
-FILE_EXT = {"out" : "spw",
-            "json" : "info",
-            "data" : "dat",
-            "seg" : "seg"}
-
 ##########################################################################################
-def save_spw(out_name, out, fname=None):
+def save_spw(out_name, out, fname=None, append_extension=True):
     """
     Docstring coming soon...
     """
 
-    # Make sure `out_name` is a writable filesystem-location and format it
+    # Make sure `out_name` is a writable filesystem-location and massage it 
     if not isinstance(out_name, str):
         raise SPWTypeError(out_name, varname="out_name", expected="str")
     out_base, out_ext = os.path.splitext(out_name)
@@ -45,6 +39,8 @@ def save_spw(out_name, out, fname=None):
     else:
         if not os.path.isdir(out_name):
             raise SPWIOError(out_name)
+
+    # FIXME: try writing to out_name
 
     # Make sure `out` is a `BaseData` instance
     if not isinstance(out, BaseData):

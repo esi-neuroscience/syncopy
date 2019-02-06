@@ -2,7 +2,7 @@
 # 
 # Created: Januar 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-05 11:18:11>
+# Last modification time: <2019-02-06 17:45:59>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -81,7 +81,7 @@ def load_binary_esi(filename,
 
     # If not provided construct (trivial) `trialdefinition` array
     if trialdefinition is None:
-        trialdefinition = np.array([[0,data.N,0]])
+        trialdefinition = np.array([[0, data.N, 0]])
     
     # Everything's ready, attach things to `out` (and return)
     out._chunks = data
@@ -119,7 +119,9 @@ def read_binary_esi_header(filename):
 
     # First and foremost, make sure input arguments make sense
     try:
-        spw_io_parser(filename, varname="filename")
+        spw_io_parser(filename, varname="filename", isfile=True,
+                      ext=[".lfp", ".mua", ".evt", ".dpd", 
+                           ".apd", ".eye", ".pup"])
     except Exception as exc:
         raise exc
 
