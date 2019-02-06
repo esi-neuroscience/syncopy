@@ -2,7 +2,7 @@
 # 
 # Created: Januar  8 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-01-30 13:50:27>
+# Last modification time: <2019-02-05 13:46:52>
 
 # Builtin/3rd party package imports
 import os
@@ -78,7 +78,7 @@ def spw_io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
         return
 
     # Make sure `fs_loc` is actually a string
-    if not isinstance(fs_loc, (str)):
+    if not isinstance(fs_loc, str):
         raise SPWTypeError(fs_loc, varname=varname, expected=str)
 
     # Avoid headaches, use absolute paths...

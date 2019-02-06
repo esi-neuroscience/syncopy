@@ -1,8 +1,8 @@
 # loader.py - Manager for reading a variety of file formats
 # 
-# Created: Januar 23 2019
+# Created: January 23 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-05 11:14:39>
+# Last modification time: <2019-02-05 11:21:19>
 
 # Builtin/3rd party package imports
 import numpy as np
