@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-06 16:30:49>
+# Last modification time: <2019-02-07 17:27:57>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -32,13 +32,15 @@ class BaseData():
     @property
     def label(self):
         return self._dimlabels["label"]
-    
+
     @property
     def log(self):
-        print(self._log)
+        print(self._log_header + self._log)
 
     @log.setter
     def log(self, msg):
+        if not isinstance(msg, str):
+            raise SPWTypeError(log, varname="log", expected="str")
         prefix = "\n\n|=== {user:s}@{host:s}: {time:s} ===|\n\n\t"
         self._log += prefix.format(user=getpass.getuser(),
                                    host=socket.gethostname(),
@@ -53,9 +55,31 @@ class BaseData():
     def segmentlabel(self):
         return self._segmentlabel
 
+    @segmentlabel.setter
+    def segmentlabel(self, seglbl):
+        if not isinstance(seglbl, str):
+            raise SPWTypeError(seglbl, varname="segmentlabel",
+                               expected="str")
+        options = ["trial", "other"]
+        if seglbl not in options:
+            raise SPWValueError("".join(opt + ", " for opt in options)[:-2],
+                                varname="segmentlabel", actual=seglbl)
+        if len(self._segmentlabel) == 0:
+            self._segmentlabel = seglbl
+            if self._segmentlabel == "trial":
+                setattr(BaseData, "trial", property(lambda self: self.segments))
+                setattr(BaseData, "trialinfo", property(lambda self: self._trialinfo))
+        else:
+            if self._segmentlabel != seglbl:
+                msg = "Cannot change `segmentlabel` property from " +\
+                      "'{current:s}' to '{wanted}'. Please create new BaseData object"
+                spw_warning(msg.format(current=self._segmentlabel, wanted=seglbl),
+                            caller="SpykeWave core")
+
     @property
     def segmentshapes(self):
-        return self._segmentshapes
+        return [(len(self.label), tinfo[1] - tinfo[0])\
+                               for tinfo in self._trialinfo]
     
     @property
     def time(self, unit="ns"):
@@ -63,9 +87,13 @@ class BaseData():
         factor = self._hdr["tSample"]*converter[unit]
         return [np.arange(start, end)*factor for (start, end) in self._sampleinfo]
 
+    @property
+    def version(self):
+        return self._version
+    
     # Class instantiation
     def __init__(self,
-                 filename="",
+                 filename=None,
                  filetype=None,
                  trialdefinition=None,
                  label="channel",
@@ -75,29 +103,33 @@ class BaseData():
         """
 
         # Depending on contents of `filename`, class instantiation invokes I/O routines
-        try:
-            read_fl = bool(len(filename))
-        except:
-            raise SPWTypeError(filename, varname="filename", expected="str")
+        read_fl = True
+        if filename is None:
+            read_fl = False
 
-        # We only parse quantities here that are converted to class attributes
-        # even if `filename` is empty
-        if not isinstance(segmentlabel, str):
-            raise SPWTypeError(segmentlabel, varname="segmentlabel", expected="str")
-        options = ["trial"]
-        if segmentlabel not in options:
-            raise SPWValueError("".join(opt + ", " for opt in options)[:-2],
-                                varname="segmentlabel", actual=segmentlabel)
-        self._segmentlabel = segmentlabel
-
-        # Prepare "global" attribute dictionary for reading routines
+        # Prepare necessary "global" attributes
         dlbls = ["label", "sr", "tstart"]
         self._dimlabels = OrderedDict(zip(dlbls, len(dlbls)*[None]))
+        self._segmentlabel = ""
 
-        # If filename was provided, call appropriate reading routine
+        # Write version
+        self._version = __version__
+
+        # Write log-header information
+        lhd = "\n\t\t>>> SpykeWave v. {ver:s} <<< \n\n" +\
+              "Created: {timestamp:s} \n\n" +\
+              "--- LOG ---"
+        self._log_header = lhd.format(ver=__version__, timestamp=time.asctime())
+
+        # Write initial log entry
+        self._log = ""
+        self.log = "Created BaseData object"
+
+        # Finally call appropriate reading routine if filename was provided
         if read_fl:
             sw.load_data(filename, filetype=filetype, label=label,
-                         trialdefinition=trialdefinition, out=self)
+                         trialdefinition=trialdefinition, segmentlabel=segmentlabel,
+                         out=self)
         else:
             self._chunks = np.empty((0,0))
             self._sampleinfo = [(0,0)]
@@ -105,30 +137,6 @@ class BaseData():
             self._time = []
             self._trialinfo = np.zeros((1,3))
             self._dimlabels["label"] = ""
-
-        # Get shapes of segments defined by `trialdefintion`
-        self._segmentshapes = [(len(self.label), tinfo[1] - tinfo[0])\
-                               for tinfo in self._trialinfo]
-
-        # In case the segments are trials, dynamically add a "trial" property 
-        # to emulate FieldTrip usage
-        if self._segmentlabel == "trial":
-            setattr(BaseData, "trial", property(lambda self: self.segments))
-            setattr(BaseData, "trialinfo", property(lambda self: self._trialinfo))
-
-        # Initialize log by writing header information
-        lhd = "\n\t\t>>> SpykeWave v. {ver:s} <<< \n\n" +\
-              "Created: {timestamp:s} \n\n" +\
-              "--- LOG --- "
-        self._log_header = lhd.format(ver=__version__, timestamp=time.asctime())
-        self._log = self._log_header + ""
-
-        # Write first entry to log
-        log = "Created BaseData object using parameters\n" +\
-              "\tfilename = {dset:s}\n" +\
-              "\tsegmentlabel = {sl:s}"
-        self.log = log.format(dset=str(filename) if len(filename) else "None",
-                              sl=segmentlabel)
 
     # Helper function that leverages `ChunkData`'s getter routine to return a single segment
     def _get_segment(self, segno):
@@ -298,7 +306,6 @@ class ChunkData():
 
         # If start and stop are not within the same chunk, data is loaded into memory
         if i1 != i2:
-            # spw_warning("Loading multiple files into memory", caller="SpykeWave core")
             data = []
             data.append(self._data[i1][row.start - self._rows[i1].start:, col])
             for i in range(i1 + 1, i2):

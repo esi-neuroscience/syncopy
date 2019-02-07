@@ -2,9 +2,10 @@
 # 
 # Created: Januar 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-06 17:45:59>
+# Last modification time: <2019-02-07 17:51:52>
 
 # Builtin/3rd party package imports
+import os
 import numpy as np
 
 # Local imports
@@ -30,7 +31,7 @@ def load_binary_esi(filename,
             raise SPWTypeError(out, varname="out", expected="SpkeWave BaseData object")
         return_out = False
     else:
-        out = BaseData(segmentlabel=segmentlabel)
+        out = BaseData()
         return_out = True
 
     # Convert input to list (if it is not already) - parsing is performed
@@ -56,6 +57,7 @@ def load_binary_esi(filename,
         hdr = read_binary_esi_header(fname)
         headers.append(hdr)
         tsample.append(hdr["tSample"])
+    filename = [os.path.abspath(fname) for fname in filename]
 
     # Abort, if files have differing sampling times
     if not np.array_equal(tsample, [tsample[0]]*len(tsample)):
@@ -82,8 +84,9 @@ def load_binary_esi(filename,
     # If not provided construct (trivial) `trialdefinition` array
     if trialdefinition is None:
         trialdefinition = np.array([[0, data.N, 0]])
-    
-    # Everything's ready, attach things to `out` (and return)
+
+    # Everything's ready, attach things to `out`
+    out.segmentlabel = segmentlabel
     out._chunks = data
     out._dimlabels["label"] = label
     out._dimlabels["tstart"] = trialdefinition[:, 0]
@@ -92,6 +95,14 @@ def load_binary_esi(filename,
     out._time = [range(start, end) for (start, end) in out._sampleinfo]
     out._hdr = headers[0]
 
+    # Write log entry
+    log = "Loaded data:\n" +\
+          "\tfile(s) = {fls:s}\n" +\
+          "\tsegmentlabel = {sl:s}"
+    out.log = log.format(fls="\n\t\t  ".join(fl for fl in filename),
+                         sl=segmentlabel)
+
+    # Happy breakdown
     if return_out:
         return out
     else:

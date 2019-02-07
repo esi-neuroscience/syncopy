@@ -2,19 +2,19 @@
 # 
 # Created: February  5 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-06 17:47:11>
+# Last modification time: <2019-02-07 15:54:46>
 
 # Builtin/3rd party package imports
 import os
 import json
 import numpy as np
-from hashlib import blake2b
 from numpy.lib.format import open_memmap  
+from hashlib import blake2b
 
 # Local imports
 from spykewave.utils import spw_io_parser, SPWIOError, SPWTypeError
 from spykewave.datatype import BaseData
-from spykewave.io import hash_file, FILE_EXT
+from spykewave.io import hash_file, write_access, FILE_EXT, MANDATORY_ATTRS
 
 __all__ = ["save_spw"]
 
@@ -24,12 +24,14 @@ def save_spw(out_name, out, fname=None, append_extension=True):
     Docstring coming soon...
     """
 
-    # Make sure `out_name` is a writable filesystem-location and massage it 
+    # Make sure `out_name` is a writable filesystem-location and make
+    # some layout changes
     if not isinstance(out_name, str):
         raise SPWTypeError(out_name, varname="out_name", expected="str")
-    out_base, out_ext = os.path.splitext(out_name)
-    if out_ext != FILE_EXT["out"]:
-        out_name += "." + FILE_EXT["out"]
+    if append_extension:
+        out_base, out_ext = os.path.splitext(out_name)
+        if out_ext != FILE_EXT["dir"]:
+            out_name += FILE_EXT["dir"]
     out_name = os.path.abspath(out_name)
     if not os.path.exists(out_name):
         try:
@@ -39,12 +41,15 @@ def save_spw(out_name, out, fname=None, append_extension=True):
     else:
         if not os.path.isdir(out_name):
             raise SPWIOError(out_name)
+    if not write_access(out_name):
+        raise SPWIOError(out_name)
 
-    # FIXME: try writing to out_name
-
-    # Make sure `out` is a `BaseData` instance
+    # Make sure `out` is a valid `BaseData` object
     if not isinstance(out, BaseData):
         raise SPWTypeError(out, varname="out", expected="SpkeWave BaseData object")
+    if not all([hasattr(out, attr) for attr in MANDATORY_ATTRS]):
+        legal = "mandatory fields " + "".join(attr + ", " for attr in MANDATORY_ATTRS)[:-2]
+        raise SPWValueError(legal=legal, varname="out")
 
     # Assign default value to `fname` or ensure validity of provided file-name
     if fname is None:
@@ -60,7 +65,7 @@ def save_spw(out_name, out, fname=None, append_extension=True):
 
     # Use a random salt to construct a hash for differentiating file-names
     fname_hsh = blake2b(digest_size=2, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
-    filename = os.path.join(out_name, fname + "." + fname_hsh + "." + "{ext:s}")
+    filename = os.path.join(out_name, fname + "." + fname_hsh + "{ext:s}")
 
     # Start by writing segment-related information
     with open(filename.format(ext=FILE_EXT["seg"]), "wb") as out_seg:
@@ -86,19 +91,24 @@ def save_spw(out_name, out, fname=None, append_extension=True):
     seg_hsh = hash_file(filename.format(ext=FILE_EXT["seg"]))
     dat_hsh = hash_file(filename.format(ext=FILE_EXT["data"]))
 
-    # Write to log already here so that the entry is saved in json
+    # Write to log already here so that the entry can be exported to json
     out.log = "Wrote files " + filename.format(ext="[dat/info/seg]")
 
-    # Assemble dict for JSON output
+    # Assemble dict for JSON output: start by extracting mandatory attributes
     out_dct = {}
+    out_dct["label"] = out.label
+    out_dct["segmentlabel"] = out.segmentlabel
+    out_dct["log"] = out._log
+    out_dct["version"] = out.version
+    
+    # Convert any non-standard data-types to Python builtins
     for attr in ["hdr", "cfg", "notes"]:
         if hasattr(out, attr):
             dct = getattr(out, attr)
             _dict_converter(dct)
             out_dct[attr] = dct
-    out_dct["label"] = out.label
-    out_dct["segmentlabel"] = out.segmentlabel
-    out_dct["log"] = out._log
+
+    # Save computed file-hashes
     out_dct["seg_checksum"] = seg_hsh
     out_dct["dat_checksum"] = dat_hsh
 
@@ -111,21 +121,21 @@ def save_spw(out_name, out, fname=None, append_extension=True):
 ##########################################################################################
 def _dict_converter(dct, firstrun=True):
     """
-    Convert all value in dictionary to strings
+    Convert all dict values having NumPy dtypes to corresponding builtin types
 
     Also works w/ nested dict of dicts and is cycle-save, i.e., it can
     handle self-referencing dictionaires. For instance, consider a nested dict 
     w/ back-edge (the dict is no longer an n-ary tree):
 
     dct = {}
-    dct["key1"] = {}
-    dct["key1"]["key1.1"] = 3
-    dct["key2"]  = {}
-    dct["key2"]["key2.1"] = 4000
-    dct["key2"]["key2.2"] = dct["key1"]
-    dct["key2"]["key2.3"] = dct
+    dct["a"] = {}
+    dct["a"]["a.1"] = 3
+    dct["b"]  = {}
+    dct["b"]["b.1"] = 4000
+    dct["b"]["b.2"] = dct["a"]
+    dct["b"]["b.3"] = dct
 
-    Here, key2.2 points to the dict of key1 and key2.3 is a self-reference. 
+    Here, b.2 points to value of `a` and b.3 is a self-reference. 
 
     https://stackoverflow.com/questions/10756427/loop-through-all-nested-dictionary-values
     """
