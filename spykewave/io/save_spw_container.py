@@ -2,7 +2,7 @@
 # 
 # Created: February  5 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-07 15:54:46>
+# Last modification time: <2019-02-08 12:20:17>
 
 # Builtin/3rd party package imports
 import os
@@ -102,7 +102,13 @@ def save_spw(out_name, out, fname=None, append_extension=True):
     out_dct["version"] = out.version
     
     # Convert any non-standard data-types to Python builtins
-    for attr in ["hdr", "cfg", "notes"]:
+    if hasattr(out, "hdr"):
+        hdr = []
+        for hd in out.hdr:
+            _dict_converter(hd)
+            hdr.append(hd)
+        out_dct["hdr"] = hdr
+    for attr in ["cfg", "notes"]:
         if hasattr(out, attr):
             dct = getattr(out, attr)
             _dict_converter(dct)
