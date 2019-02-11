@@ -2,7 +2,7 @@
 # 
 # Created: Januar  8 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-08 14:04:46>
+# Last modification time: <2019-02-11 18:20:33>
 
 # Builtin/3rd party package imports
 import os
@@ -12,6 +12,7 @@ from inspect import signature
 
 # Local imports
 from spykewave.utils import SPWIOError, SPWTypeError, SPWValueError, spw_print
+import spykewave as sw
 
 __all__ = ["spw_io_parser", "spw_scalar_parser", "spw_array_parser",
            "spw_basedata_parser", "spw_get_defaults"]
@@ -370,12 +371,14 @@ def spw_basedata_parser(data, varname="", writable=True, dimlabels=None, seglabe
     Docstring
     """
     
-    # Make sure `data` is a `BaseData` instance
-    if not isinstance(out, BaseData):
-        raise SPWTypeError(data, varname=varname, expected="SpkeWave BaseData object")
+    # Make sure `data` is (derived from) `BaseData`
+    # FIXME
+    # ... out.__class__.__bases__ 
+    if not isinstance(data, sw.BaseData):
+        raise SPWTypeError(data, varname=varname, expected="SpkeWave data object")
 
     # Ensure proper access to object
-    legal = "{access:s} to SpykeWave BaseData object"
+    legal = "{access:s} to SpykeWave data object"
     actual = "mode = {mode:s}"
     if writable and data.mode == "r":
         raise SPWValueError(legal=legal.format(access="write-access"),
@@ -388,7 +391,7 @@ def spw_basedata_parser(data, varname="", writable=True, dimlabels=None, seglabe
 
     # If requested, check integrity of dimensional information
     if dimlabels is not None:
-        base = "SpykeWave {diminfo:s} BaseData object"
+        base = "SpykeWave {diminfo:s} data object"
         if data.dimord[:len(dimlabels)] != dimlabels:
             legal = base.format(diminfo="'" + "' x '".join(str(dim) for dim in dimlabels) + "'")
             actual = base.format(diminfo="'" + "' x '".join(str(dim) for dim in self.dimord) \
@@ -397,7 +400,7 @@ def spw_basedata_parser(data, varname="", writable=True, dimlabels=None, seglabe
 
     # If wanted, match segment label
     if seglabel is not None:
-        base = "SpykeWave BaseData object with segmentlabel = {seglbl:s}"
+        base = "SpykeWave data object with segmentlabel = {seglbl:s}"
         if data.segmentlabel not in [None, seglabel]:
             legal = base.format(seglbl="None/" + seglabel)
             actual = base.format(seglbl=str(self.segmentlabel))

@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-08 17:52:32>
+# Last modification time: <2019-02-11 18:00:15>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -13,6 +13,7 @@ import numbers
 import inspect
 from collections import OrderedDict, Iterator
 from itertools import islice
+from copy import deepcopy
     
 # Local imports
 from spykewave.utils import (spw_scalar_parser, spw_array_parser,
@@ -20,7 +21,7 @@ from spykewave.utils import (spw_scalar_parser, spw_array_parser,
 from spykewave import __version__
 import spykewave as sw
 
-__all__ = ["BaseData", "ChunkData", "Indexer"]
+__all__ = ["BaseData", "AnalogData", "ChunkData", "Indexer"]
 
 ##########################################################################################
 class BaseData():
@@ -52,9 +53,12 @@ class BaseData():
     
     @property
     def segments(self):
-        return Indexer(map(self._get_segment, range(self._trialinfo.shape[0])),
-                                self._trialinfo.shape[0]) \
-                                if hasattr(self, "_trialinfo") else None
+        return Indexer(map(self._get_segment, range(self._segmentinfo.shape[0])),
+                                self._segmentinfo.shape[0]) if self._segmentinfo is not None else None
+
+    @property
+    def segmentinfo(self):
+        return self._segmentinfo
     
     @property
     def segmentlabel(self):
@@ -70,64 +74,34 @@ class BaseData():
                                 varname="segmentlabel", actual=seglbl)
         if self._segmentlabel is None:
             self._segmentlabel = seglbl
-            if seglbl == "trial":
-                setattr(BaseData, "trial", property(lambda self: self.segments))
-                setattr(BaseData, "trialinfo", property(lambda self: self._trialinfo))
-                setattr(BaseData, "sampleinfo", property(lambda self: self._sampleinfo))
         else:
             if self._segmentlabel != seglbl:
                 msg = "Cannot change `segmentlabel` property from " +\
-                      "'{current:s}' to '{wanted}'. Please create new BaseData object"
+                      "'{current:s}' to '{wanted:s}'. Please create new BaseData object"
                 spw_warning(msg.format(current=str(self._segmentlabel), wanted=seglbl),
                             caller="SpykeWave core")
 
     @property
     def segmentshapes(self):
-        return [(len(self.label), tinfo[1] - tinfo[0]) for tinfo in self._trialinfo] \
+        return [(len(self.label), tinfo[1] - tinfo[0]) for tinfo in self._segmentinfo] \
             if self.label else None
-
-    @property
-    def time(self, unit="s"):
-        converter = {"h": 1/360, "min": 1/60, "s" : 1, "ms" : 1e3, "ns" : 1e9}
-        if not isinstance(unit, str):
-            raise SPWTypeError(unit, varname="unit", expected="str")
-        if unit not in converter.keys():
-            raise SPWValueError("".join(opt + ", " for opt in converter.keys())[:-2],
-                                varname="unit", actual=unit)
-        return [np.arange(start, end)*converter[unit]/self.samplerate \
-                for (start, end) in self._sampleinfo] if hasattr(self, "samplerate") else None
 
     @property
     def version(self):
         return self._version
 
-    # # Class creation
-    # def __new__(cls, 
-    #             filename=None,
-    #             filetype=None,
-    #             trialdefinition=None,
-    #             label=None,
-    #             segmentlabel=None):
-    #     """
-    #     Main SpykeWave data container
-    #     """
-    #     # print('here')
-    #     import ipdb; ipdb.set_trace()
-    #     # return object.__new__(cls, **kwargs)
-    #     #                       # filename=None,
-    #     #                       # filetype=None,
-    #     #                       # trialdefinition=None,
-    #     #                       # label=None,
-    #     #                       # segmentlabel=None)
-    #                           
-    #     return super(BaseData, cls).__new__(cls)
-    #     # return super(BaseData, cls).__new__(cls,
-    #     #                                     filename=None,
-    #     #                                     filetype=None,
-    #     #                                     trialdefinition=None,
-    #     #                                     label=None,
-    #     #                                     segmentlabel=None)
-        
+    @property
+    def _prop_sampleinfo(self):
+        return self._dimlabels.get("sample")
+
+    @property
+    def _prop_trial(self):
+        return self.segments
+
+    @property
+    def _prop_trialinfo(self):
+        return self.segmentinfo
+
     # Class customization
     def __init__(self,
                  filename=None,
@@ -139,19 +113,6 @@ class BaseData():
         Docstring
         """
 
-        # import ipdb; ipdb.set_trace()
-
-        # In case `BaseData` has been instantiated before, remove potentially
-        # created dynamic properties
-        if hasattr(self, "trialinfo"):
-            delattr(self, "trial")
-            delattr(self, "trialinfo")
-            delattr(self, "sampleinfo")
-        if hasattr(self, "hdr"):
-            delattr(self, "hdr")
-        if hasattr(self, "samplerate"):
-            delattr(self, "samplerate")
-
         # Depending on contents of `filename`, class instantiation invokes I/O routines
         read_fl = True
         if filename is None:
@@ -159,6 +120,7 @@ class BaseData():
 
         # Prepare necessary "global" parsing attributes
         self._dimlabels = OrderedDict()
+        self._segmentinfo = None
         self._segmentlabel = None
         self._mode = "w"
 
@@ -173,14 +135,7 @@ class BaseData():
 
         # Write initial log entry
         self._log = ""
-        self.log = "Created BaseData object"
-
-        # self._init_empty()
-
-        # if read_fl:
-        #     self.load(filename, filetype=filetype, label=label,
-        #               trialdefinition=trialdefinition, segmentlabel=segmentlabel,
-        #               out=self)
+        self.log = "Created {clname:s} object".format(clname=self.__class__.__name__)
 
         # Finally call appropriate reading routine if filename was provided
         if read_fl:
@@ -191,34 +146,7 @@ class BaseData():
             sw.load_data(filename, filetype=filetype, label=label,
                          trialdefinition=trialdefinition, segmentlabel=segmentlabel,
                          out=self)
-        # else:
-        #     self._init_empty()
-            
 
-    # def _init_empty(self):
-    #     
-    #     # In case `BaseData` has been instantiated before, remove potentially
-    #     # created dynamic properties
-    #     if hasattr(self, "trialinfo"):
-    #         delattr(self, "trial")
-    #         delattr(self, "trialinfo")
-    #         delattr(self, "sampleinfo")
-    #     if hasattr(self, "hdr"):
-    #         delattr(self, "hdr")
-    #     if hasattr(self, "samplerate"):
-    #         delattr(self, "samplerate")
-
-    # Helper function that leverages `ChunkData`'s getter routine to return a single segment
-    def _get_segment(self, segno):
-        return self._chunks[:, int(self._trialinfo[segno, 0]) : int(self._trialinfo[segno, 1])]
-
-    # Wrapper that makes saving routine usable as class method
-    def save(self, out_name, filetype=None, **kwargs):
-        """
-        Docstring that mostly points to ``save_data``
-        """
-        sw.save_data(out_name, self, filetype=filetype, **kwargs)
-    
     # Legacy support
     def __repr__(self):
         return self.__str__()
@@ -234,9 +162,10 @@ class BaseData():
         ppattrs.sort()
 
         # Construct string for pretty-printing class attributes
-        hdstr = "SpykeWave {diminfo:s}BaseData object with fields\n\n"
+        hdstr = "SpykeWave {diminfo:s}{clname:s} object with fields\n\n"
         ppstr = hdstr.format(diminfo="'" + "' x '".join(dim for dim in self.dimord) \
-                             + "' " if self.dimord else "")
+                             + "' " if self.dimord else "",
+                             clname=self.__class__.__name__)
         maxKeyLength = max([len(k) for k in ppattrs])
         for attr in ppattrs:
             value = getattr(self, attr)
@@ -258,6 +187,81 @@ class BaseData():
         ppstr += "\nUse `.log` to see object history"
         return ppstr
 
+    # Helper function that leverages `ChunkData`'s getter routine to return a single segment
+    def _get_segment(self, segno):
+        return self._chunks[:, int(self._segmentinfo[segno, 0]) : int(self._segmentinfo[segno, 1])]
+
+    # Return a deep-copy of the current class instance
+    def copy(self):
+        return deepcopy(self)
+
+    # Wrapper that makes saving routine usable as class method
+    def save(self, out_name, filetype=None, **kwargs):
+        """
+        Docstring that mostly points to ``save_data``
+        """
+        sw.save_data(out_name, self, filetype=filetype, **kwargs)
+    
+##########################################################################################
+class AnalogData(BaseData):
+
+    @property
+    def hdr(self):
+        return self._hdr
+    
+    @property
+    def sampleinfo(self):
+        return self._dimlabels.get("sample")
+    
+    @property
+    def samplerate(self):
+        return self._samplerate
+    
+    @property
+    def time(self, unit="s"):
+        converter = {"h": 1/360, "min": 1/60, "s" : 1, "ms" : 1e3, "ns" : 1e9}
+        if not isinstance(unit, str):
+            raise SPWTypeError(unit, varname="unit", expected="str")
+        if unit not in converter.keys():
+            raise SPWValueError("".join(opt + ", " for opt in converter.keys())[:-2],
+                                varname="unit", actual=unit)
+        return [np.arange(start, end)*converter[unit]/self._samplerate \
+                for (start, end) in self._sampleinfo] if self._samplerate else None
+
+    # Constructor
+    def __new__(cls,
+                basedataobj=None,
+                copy=True,
+                **kwargs):
+
+        # Either create new instance from scratch or copy/convert existing BaseData object
+        if isinstance(basedataobj, BaseData):
+            if copy:
+                obj = basedataobj.copy()
+                basedataobj.log = "Copied self to create {} object".format(cls.__name__)
+                msg = "Created {new:s} object from {old:s} object"
+            else:
+                obj = basedataobj
+                msg = "Converted {old:s} object to {new:s} object"
+            obj.log = msg.format(old=basedataobj.__class__.__name__,
+                                 new=cls.__name__)
+            obj.__class__ = cls
+            return obj
+        else:
+            return super().__new__(cls, **kwargs)
+
+    # Customizer
+    def __init__(self, basedataobj=None, **kwargs):
+
+        # If we're starting from scratch, call parent class initializer
+        if basedataobj is None:
+            super().__init__()
+
+        # Set default values for necessary attributes
+        self._hdr = None
+        self._samplerate = None
+        self._sampleinfo = None
+    
 ##########################################################################################
 class ChunkData():
 
@@ -447,3 +451,24 @@ class Indexer():
     
     def __str__(self):
         return "{} element iterable".format(self._iterlen)
+
+###########
+# class Celsius():
+#     """Fundamental Temperature Descriptor."""
+#     def __init__( self, value=0.0 ):
+#         self.value = float(value)
+#     def __get__( self, obj, objtype ):
+#         print("retrieving self")
+#         return self.value
+#     def __set__( self, obj, val ):
+#         self.value= float(val)
+
+class PerInstancePropertyProxy(object):
+    def __init__(self, prop):
+        self.prop = prop
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        return instance.__dict__[self.prop].__get__(instance, owner)
+    def __set__(self, instance, value):
+        instance.__dict__[self.prop].__set__(instance, value)        
