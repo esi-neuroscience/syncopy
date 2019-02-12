@@ -2,18 +2,19 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-11 18:00:15>
+# Last modification time: <2019-02-12 13:06:36>
 
 # Builtin/3rd party package imports
 import numpy as np
 import getpass
 import socket
 import time
+import sys
 import numbers
 import inspect
 from collections import OrderedDict, Iterator
 from itertools import islice
-from copy import deepcopy
+from copy import copy
     
 # Local imports
 from spykewave.utils import (spw_scalar_parser, spw_array_parser,
@@ -21,11 +22,21 @@ from spykewave.utils import (spw_scalar_parser, spw_array_parser,
 from spykewave import __version__
 import spykewave as sw
 
-__all__ = ["BaseData", "AnalogData", "ChunkData", "Indexer"]
+__all__ = ["BaseData", "AnalogData", "VirtualData", "Indexer"]
 
 ##########################################################################################
 class BaseData():
 
+    @property
+    def cfg(self):
+        return self._cfg
+
+    @cfg.setter
+    def cfg(self, dct):
+        if not isinstance(dct, dict):
+            raise SPWTypeError(dct, varname="cfg", expected="dictionary")
+        self._cfg = self._set_cfg(self._cfg, dct)
+   
     @property
     def dimord(self):
         return list(self._dimlabels.keys())
@@ -41,25 +52,28 @@ class BaseData():
     @log.setter
     def log(self, msg):
         if not isinstance(msg, str):
-            raise SPWTypeError(log, varname="log", expected="str")
-        prefix = "\n\n|=== {user:s}@{host:s}: {time:s} ===|\n\n\t"
+            raise SPWTypeError(msg, varname="log", expected="str")
+        prefix = "\n\n|=== {user:s}@{host:s}: {time:s} ===|\n\n\t{caller:s}"
+        clr = sys._getframe().f_back.f_code.co_name
         self._log += prefix.format(user=getpass.getuser(),
                                    host=socket.gethostname(),
-                                   time=time.asctime()) + msg
+                                   time=time.asctime(),
+                                   caller=clr + ": " if clr != "<module>" else "")\
+                                   + msg
 
     @property
     def mode(self):
         return self._mode
     
     @property
-    def segments(self):
-        return Indexer(map(self._get_segment, range(self._segmentinfo.shape[0])),
-                                self._segmentinfo.shape[0]) if self._segmentinfo is not None else None
-
-    @property
-    def segmentinfo(self):
-        return self._segmentinfo
+    def seg(self):
+        return self._seg
     
+    @property
+    def segments(self):
+        return Indexer(map(self._get_segment, range(self._seg.shape[0])),
+                                self._seg.shape[0]) if self._seg is not None else None
+
     @property
     def segmentlabel(self):
         return self._segmentlabel
@@ -82,25 +96,13 @@ class BaseData():
                             caller="SpykeWave core")
 
     @property
-    def segmentshapes(self):
-        return [(len(self.label), tinfo[1] - tinfo[0]) for tinfo in self._segmentinfo] \
+    def shapes(self):
+        return [(len(self.label), tseg[1] - tseg[0]) for tseg in self._seg] \
             if self.label else None
 
     @property
     def version(self):
         return self._version
-
-    @property
-    def _prop_sampleinfo(self):
-        return self._dimlabels.get("sample")
-
-    @property
-    def _prop_trial(self):
-        return self.segments
-
-    @property
-    def _prop_trialinfo(self):
-        return self.segmentinfo
 
     # Class customization
     def __init__(self,
@@ -119,8 +121,9 @@ class BaseData():
             read_fl = False
 
         # Prepare necessary "global" parsing attributes
+        self._cfg = {}
         self._dimlabels = OrderedDict()
-        self._segmentinfo = None
+        self._seg = None
         self._segmentlabel = None
         self._mode = "w"
 
@@ -135,7 +138,7 @@ class BaseData():
 
         # Write initial log entry
         self._log = ""
-        self.log = "Created {clname:s} object".format(clname=self.__class__.__name__)
+        self.log = "created {clname:s} object".format(clname=self.__class__.__name__)
 
         # Finally call appropriate reading routine if filename was provided
         if read_fl:
@@ -147,6 +150,33 @@ class BaseData():
                          trialdefinition=trialdefinition, segmentlabel=segmentlabel,
                          out=self)
 
+    # Helper function that leverages `VirtualData`'s getter routine to return a single segment
+    def _get_segment(self, segno):
+        return self.data[:, int(self._seg[segno, 0]) : int(self._seg[segno, 1])]
+
+    # Helper function that digs into cfg dictionaries
+    def _set_cfg(self, cfg, dct):
+        if not cfg:
+            cfg = dct
+        else:
+            if "cfg" in cfg.keys():
+                self._set_cfg(cfg["cfg"], dct)
+            else:
+                cfg["cfg"] = dct
+                return cfg
+        return cfg
+    
+    # Return a deep-copy of the current class instance
+    def copy(self):
+        return copy(self)
+
+    # Wrapper that makes saving routine usable as class method
+    def save(self, out_name, filetype=None, **kwargs):
+        """
+        Docstring that mostly points to ``save_data``
+        """
+        sw.save_data(out_name, self, filetype=filetype, **kwargs)
+    
     # Legacy support
     def __repr__(self):
         return self.__str__()
@@ -187,21 +217,6 @@ class BaseData():
         ppstr += "\nUse `.log` to see object history"
         return ppstr
 
-    # Helper function that leverages `ChunkData`'s getter routine to return a single segment
-    def _get_segment(self, segno):
-        return self._chunks[:, int(self._segmentinfo[segno, 0]) : int(self._segmentinfo[segno, 1])]
-
-    # Return a deep-copy of the current class instance
-    def copy(self):
-        return deepcopy(self)
-
-    # Wrapper that makes saving routine usable as class method
-    def save(self, out_name, filetype=None, **kwargs):
-        """
-        Docstring that mostly points to ``save_data``
-        """
-        sw.save_data(out_name, self, filetype=filetype, **kwargs)
-    
 ##########################################################################################
 class AnalogData(BaseData):
 
@@ -226,8 +241,16 @@ class AnalogData(BaseData):
             raise SPWValueError("".join(opt + ", " for opt in converter.keys())[:-2],
                                 varname="unit", actual=unit)
         return [np.arange(start, end)*converter[unit]/self._samplerate \
-                for (start, end) in self._sampleinfo] if self._samplerate else None
+                for (start, end) in self.sampleinfo] if self._samplerate else None
 
+    @property
+    def trial(self):
+        return self.segments
+
+    @property
+    def trialinfo(self):
+        return self.seg
+    
     # Constructor
     def __new__(cls,
                 basedataobj=None,
@@ -238,11 +261,11 @@ class AnalogData(BaseData):
         if isinstance(basedataobj, BaseData):
             if copy:
                 obj = basedataobj.copy()
-                basedataobj.log = "Copied self to create {} object".format(cls.__name__)
-                msg = "Created {new:s} object from {old:s} object"
+                basedataobj.log = "copied self to create {} object".format(cls.__name__)
+                msg = "created {new:s} object from {old:s} object"
             else:
                 obj = basedataobj
-                msg = "Converted {old:s} object to {new:s} object"
+                msg = "converted {old:s} object to {new:s} object"
             obj.log = msg.format(old=basedataobj.__class__.__name__,
                                  new=cls.__name__)
             obj.__class__ = cls
@@ -260,10 +283,9 @@ class AnalogData(BaseData):
         # Set default values for necessary attributes
         self._hdr = None
         self._samplerate = None
-        self._sampleinfo = None
     
 ##########################################################################################
-class ChunkData():
+class VirtualData():
 
     # Pre-allocate slots here - this class is *not* meant to be expanded
     # and/or monkey-patched later on
@@ -398,6 +420,17 @@ class ChunkData():
             row = slice(row.start - self._rows[i1].start, row.stop - self._rows[i1].start)
             return self._data[i1][row,:][:,col]
 
+    # Legacy support
+    def __repr__(self):
+        return self.__str__()
+
+    # Make class contents comprehensible from the command line
+    def __str__(self):
+        ppstr = "{shape:s} element {name:s} object mapping {numfiles:s} file(s)"
+        return ppstr.format(shape="[" + " x ".join([str(numel) for numel in self.shape]) + "]",
+                            name=self.__class__.__name__,
+                            numfiles=str(len(self._nrows)))
+        
 ##########################################################################################
 class Indexer():
 

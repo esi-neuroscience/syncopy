@@ -2,7 +2,7 @@
 # 
 # Created: February  6 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-07 17:48:16>
+# Last modification time: <2019-02-12 12:56:44>
 
 # Builtin/3rd party package imports
 import os
@@ -15,7 +15,7 @@ from glob import iglob
 # Local imports
 from spykewave.utils import spw_io_parser, SPWTypeError, SPWValueError
 from spykewave.datatype import BaseData
-from spykewave.io import hash_file, FILE_EXT, MANDATORY_ATTRS
+from spykewave.io import hash_file, FILE_EXT
 
 __all__ = ["load_spw"]
 

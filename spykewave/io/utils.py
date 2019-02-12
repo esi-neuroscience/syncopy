@@ -2,22 +2,19 @@
 # 
 # Created: February  6 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-07 15:45:50>
+# Last modification time: <2019-02-12 12:57:58>
 
 # Builtin/3rd party package imports
 import tempfile
 from hashlib import blake2b
 
-__all__ = ["FILE_EXT", "MANDATORY_ATTRS", "hash_file", "write_access"]
+__all__ = ["FILE_EXT", "hash_file", "write_access"]
 
 # Define SpykeWave's general file-/directory-naming conventions
 FILE_EXT = {"dir" : ".spw",
             "json" : ".info",
             "data" : ".dat",
             "seg" : ".seg"}
-
-# These attributes must be present in every valid SpykeWave BaseData object
-MANDATORY_ATTRS = ["label", "segmentlabel", "log", "version"]
 
 ##########################################################################################
 def hash_file(fname, bsize=65536):

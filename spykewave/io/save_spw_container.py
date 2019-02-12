@@ -2,7 +2,7 @@
 # 
 # Created: February  5 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-08 12:20:17>
+# Last modification time: <2019-02-12 13:39:20>
 
 # Builtin/3rd party package imports
 import os
@@ -12,9 +12,9 @@ from numpy.lib.format import open_memmap
 from hashlib import blake2b
 
 # Local imports
-from spykewave.utils import spw_io_parser, SPWIOError, SPWTypeError
+from spykewave.utils import spw_io_parser, spw_basedata_parser, SPWIOError, SPWTypeError
 from spykewave.datatype import BaseData
-from spykewave.io import hash_file, write_access, FILE_EXT, MANDATORY_ATTRS
+from spykewave.io import hash_file, write_access, FILE_EXT
 
 __all__ = ["save_spw"]
 
@@ -45,11 +45,10 @@ def save_spw(out_name, out, fname=None, append_extension=True):
         raise SPWIOError(out_name)
 
     # Make sure `out` is a valid `BaseData` object
-    if not isinstance(out, BaseData):
-        raise SPWTypeError(out, varname="out", expected="SpkeWave BaseData object")
-    if not all([hasattr(out, attr) for attr in MANDATORY_ATTRS]):
-        legal = "mandatory fields " + "".join(attr + ", " for attr in MANDATORY_ATTRS)[:-2]
-        raise SPWValueError(legal=legal, varname="out")
+    try:
+        spw_basedata_parser(out, varname="out", writable=None)
+    except Exception as exc:
+        raise exc
 
     # Assign default value to `fname` or ensure validity of provided file-name
     if fname is None:
@@ -69,11 +68,11 @@ def save_spw(out_name, out, fname=None, append_extension=True):
 
     # Start by writing segment-related information
     with open(filename.format(ext=FILE_EXT["seg"]), "wb") as out_seg:
-        np.save(out_seg, out.trialinfo, allow_pickle=False)
+        np.save(out_seg, out.seg, allow_pickle=False)
     
-    # Get hierarchically "highest" dtype of chunks present in `out`
+    # Get hierarchically "highest" dtype of data present in `out`
     dtypes = []
-    for data in out._chunks._data:
+    for data in out.data._data:
         dtypes.append(data.dtype)
     out_dtype = np.max(dtypes)
     
@@ -81,10 +80,10 @@ def save_spw(out_name, out, fname=None, append_extension=True):
     dat = open_memmap(filename.format(ext=FILE_EXT["data"]),
                       mode="w+",
                       dtype=out_dtype,
-                      shape=out._chunks.shape)
+                      shape=out.data.shape)
     
     # Point target to source memmaps and force-write by deleting `dat`
-    dat = out._chunks
+    dat = out.data
     del dat
 
     # Compute checksums of created binary files
@@ -94,26 +93,38 @@ def save_spw(out_name, out, fname=None, append_extension=True):
     # Write to log already here so that the entry can be exported to json
     out.log = "Wrote files " + filename.format(ext="[dat/info/seg]")
 
-    # Assemble dict for JSON output: start by extracting mandatory attributes
+    # Assemble dict for JSON output: extract essential `BaseData` props
     out_dct = {}
-    out_dct["label"] = out.label
+    out_dct["type"] = out.__class__.__name__
+    out_dct["dimord"] = out.dimord
     out_dct["segmentlabel"] = out.segmentlabel
-    out_dct["log"] = out._log
     out_dct["version"] = out.version
-    
-    # Convert any non-standard data-types to Python builtins
-    if hasattr(out, "hdr"):
-        hdr = []
-        for hd in out.hdr:
-            _dict_converter(hd)
-            hdr.append(hd)
-        out_dct["hdr"] = hdr
+    out_dct["log"] = out._log
+    out_dct["label"] = out.label
+
+    # Convert any non-standard data-types in dicts to Python builtins
     for attr in ["cfg", "notes"]:
         if hasattr(out, attr):
             dct = getattr(out, attr)
             _dict_converter(dct)
             out_dct[attr] = dct
 
+    # Point to actual data files (readable reference for user) - use relative
+    # paths here to avoid confusions in case the parent directory is moved/copied
+    out_dct["data"] = os.path.basename(filename.format(ext=FILE_EXT["data"]))
+    out_dct["seg"] = os.path.basename(filename.format(ext=FILE_EXT["seg"]))
+
+    # Take care of `BaseData` subclass properties (if present)
+    for attr in ["samplerate"]:
+        if hasattr(out, attr):
+            out_dct[attr] = getattr(out, attr)
+    if hasattr(out, "hdr"):
+        hdr = []
+        for hd in out.hdr:
+            _dict_converter(hd)
+            hdr.append(hd)
+        out_dct["hdr"] = hdr
+    
     # Save computed file-hashes
     out_dct["seg_checksum"] = seg_hsh
     out_dct["dat_checksum"] = dat_hsh

@@ -2,7 +2,7 @@
 # 
 # Created: Januar 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-11 18:16:46>
+# Last modification time: <2019-02-12 12:53:45>
 
 # Builtin/3rd party package imports
 import os
@@ -11,7 +11,7 @@ import numpy as np
 # Local imports
 from spykewave.utils import (spw_io_parser, spw_scalar_parser, spw_array_parser,
                              spw_basedata_parser, SPWIOError, SPWTypeError, SPWValueError)
-from spykewave.datatype import AnalogData, ChunkData
+from spykewave.datatype import AnalogData, VirtualData
 
 __all__ = ["load_binary_esi", "read_binary_esi_header"]
 
@@ -27,7 +27,8 @@ def load_binary_esi(filename,
 
     # Make sure `out` does not contain unpleasant surprises (for this, we need
     # to parse segmentlabel first)
-    # FIXME: parse segmentlabel... 
+    if not isinstance(segmentlabel, str):
+        raise SPWTypeError(segmentlabel, varname="segmentlabel", expected="str")
     if out is not None:
         try:
             spw_basedata_parser(out, varname="out", seglabel=str(segmentlabel))
@@ -76,8 +77,8 @@ def load_binary_esi(filename,
                                mode="r", dtype=headers[fk]["dtype"],
                                shape=(headers[fk]["M"], headers[fk]["N"])))
 
-    # Instantiate ChunkData class w/ constructed memmaps (error checking is done in there)
-    data = ChunkData(dsets)
+    # Instantiate VirtualData class w/ constructed memmaps (error checking is done in there)
+    data = VirtualData(dsets)
 
     # Construct/parse list of channel labels
     if isinstance(label, str):
@@ -95,25 +96,21 @@ def load_binary_esi(filename,
     out._dimlabels["label"] = label
     out._dimlabels["sample"] = trialdefinition[:, :2]
 
-    # Write global experiment-related info (and add dynamic attributes)
-    out._segmentinfo = trialdefinition
-    import ipdb; ipdb.set_trace()
-    # out._sampleinfo = 
-    # out.sampleinfo = AnalogData._prop_sampleinfo.fget(out)
-    out.trialinfo = AnalogData._prop_trialinfo.fget(out)
-    out.trial = AnalogData._prop_trial.fget(out)
-    
-    out.segmentlabel = segmentlabel
-    out._samplerate = float(1/headers[0]["tSample"]*1e9)
-    out._hdr = headers
+    # Fill up mandatory `BaseData` attributes
+    out.data = data
     out._mode = "r"
-
-    # Attach actual data and dynamic atttributes
-    out._chunks = data
-    out._time = [range(start, end) for (start, end) in out._sampleinfo]
+    out.segmentlabel = segmentlabel
+    out.cfg = {"filename" : filename,
+               "segmentlabel" : segmentlabel}
+    
+    # Write attributes specific to `AnalogData` class
+    out._hdr = headers
+    out._samplerate = float(1/headers[0]["tSample"]*1e9)
+    out._seg = trialdefinition
+    out._time = [range(start, end) for (start, end) in out.sampleinfo]
     
     # Write log entry
-    log = "Loaded data:\n" +\
+    log = "loaded data:\n" +\
           "\tfile(s) = {fls:s}\n" +\
           "\tsegmentlabel = {sl:s}"
     out.log = log.format(fls="\n\t\t  ".join(fl for fl in filename),

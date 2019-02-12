@@ -2,7 +2,7 @@
 # 
 # Created: Januar  8 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-11 18:20:33>
+# Last modification time: <2019-02-12 13:28:57>
 
 # Builtin/3rd party package imports
 import os
@@ -12,7 +12,6 @@ from inspect import signature
 
 # Local imports
 from spykewave.utils import SPWIOError, SPWTypeError, SPWValueError, spw_print
-import spykewave as sw
 
 __all__ = ["spw_io_parser", "spw_scalar_parser", "spw_array_parser",
            "spw_basedata_parser", "spw_get_defaults"]
@@ -369,25 +368,27 @@ def spw_array_parser(var, varname="", ntype=None, lims=None, dims=None):
 def spw_basedata_parser(data, varname="", writable=True, dimlabels=None, seglabel=None):
     """
     Docstring
+
+    writable = True/False/None
     """
     
     # Make sure `data` is (derived from) `BaseData`
-    # FIXME
-    # ... out.__class__.__bases__ 
-    if not isinstance(data, sw.BaseData):
+    if data.__class__.__name__ != "BaseData" \
+       and not any(["BaseData" in str(base) for base in data.__class__.__bases__]):
         raise SPWTypeError(data, varname=varname, expected="SpkeWave data object")
 
-    # Ensure proper access to object
-    legal = "{access:s} to SpykeWave data object"
-    actual = "mode = {mode:s}"
-    if writable and data.mode == "r":
-        raise SPWValueError(legal=legal.format(access="write-access"),
-                            varname=varname,
-                            actual=actual.format(mode=data.mode))
-    elif not writable and data.mode != "r":
-        raise SPWValueError(legal=legal.format(access="read-only-access"),
-                            varname=varname,
-                            actual=actual.format(mode=data.mode))
+    # If requested, ensure proper access to object
+    if writable is not None:
+        legal = "{access:s} to SpykeWave data object"
+        actual = "mode = {mode:s}"
+        if writable and data.mode == "r":
+            raise SPWValueError(legal=legal.format(access="write-access"),
+                                varname=varname,
+                                actual=actual.format(mode=data.mode))
+        elif not writable and data.mode != "r":
+            raise SPWValueError(legal=legal.format(access="read-only-access"),
+                                varname=varname,
+                                actual=actual.format(mode=data.mode))
 
     # If requested, check integrity of dimensional information
     if dimlabels is not None:
