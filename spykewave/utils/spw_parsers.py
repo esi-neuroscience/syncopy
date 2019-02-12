@@ -2,7 +2,7 @@
 # 
 # Created: Januar  8 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-12 13:28:57>
+# Last modification time: <2019-02-12 17:01:57>
 
 # Builtin/3rd party package imports
 import os
@@ -365,7 +365,7 @@ def spw_array_parser(var, varname="", ntype=None, lims=None, dims=None):
     return 
 
 ##########################################################################################
-def spw_basedata_parser(data, varname="", writable=True, dimlabels=None, seglabel=None):
+def spw_basedata_parser(data, varname="", writable=True, dimord=None, seglabel=None):
     """
     Docstring
 
@@ -391,7 +391,7 @@ def spw_basedata_parser(data, varname="", writable=True, dimlabels=None, seglabe
                                 actual=actual.format(mode=data.mode))
 
     # If requested, check integrity of dimensional information
-    if dimlabels is not None:
+    if dimord is not None:
         base = "SpykeWave {diminfo:s} data object"
         if data.dimord[:len(dimlabels)] != dimlabels:
             legal = base.format(diminfo="'" + "' x '".join(str(dim) for dim in dimlabels) + "'")

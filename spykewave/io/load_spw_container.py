@@ -2,7 +2,7 @@
 # 
 # Created: February  6 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-12 12:56:44>
+# Last modification time: <2019-02-12 18:32:24>
 
 # Builtin/3rd party package imports
 import os
@@ -14,8 +14,9 @@ from glob import iglob
 
 # Local imports
 from spykewave.utils import spw_io_parser, SPWTypeError, SPWValueError
-from spykewave.datatype import BaseData
+# from spykewave.datatype import BaseData
 from spykewave.io import hash_file, FILE_EXT
+import spykewave.datatype as swd
 
 __all__ = ["load_spw"]
 
@@ -51,7 +52,7 @@ def load_spw(in_name, fname=None, out=None):
         except Exception as exc:
             raise exc
 
-    # Prepare dictionary of relevant file-extensions
+    # Prepare dictionary of relevant filename-extensions
     f_ext = dict(FILE_EXT)
     f_ext.pop("dir")
     
@@ -81,8 +82,8 @@ def load_spw(in_name, fname=None, out=None):
             legal = "no extension or " + "".join(ex + ", " for ex in f_ext.values())[:-2]
             raise SPWValueError(legal=legal, varname="fname", actual=fname)
 
-        # Use `iglob` to not accidentally construct a gigantic list in pathological
-        # situations (`fname = "*"`)
+        # Specifically use `iglob` to not accidentally construct a gigantic
+        # list in pathological situations (`fname = "*"`)
         in_count = 0
         for fk, fle in enumerate(iglob(os.path.join(in_name, fname))):
             in_count = fk + 1
@@ -97,21 +98,76 @@ def load_spw(in_name, fname=None, out=None):
     in_files = {}
     for kind, ext in f_ext.items():
         in_files[kind] = in_base + ext
-            
-    # If provided, make sure `out` is a `BaseData` instance
-    if out is not None:
-        if not isinstance(out, BaseData):
-            raise SPWTypeError(out, varname="out", expected="SpkeWave BaseData object")
-        return_out = False
-    else:
-        out = BaseData()
-        return_out = True
 
-    ipdb.set_trace()
-
-    # Start by loading contents of json file
+    # Load contents of json file and make sure nothing was lost in translation
+    expected = {"dimord" : list,
+                "segmentlabel" : str,
+                "version" : str,
+                "log" : str,
+                "label" : list}
     with open(in_files["json"], "r") as fle:
         json_dict = json.load(fle)
+    mandatory = set(["type"] + list(expected.keys()))
+    if not mandatory.issubset(json_dict.keys()):
+        legal = "mandatory fields " + "".join(attr + ", " for attr in mandatory)[:-2]
+        actual = "keys " + "".join(attr + ", " for attr in json_dict.keys())[:-2]
+        raise SPWValueError(legal=legal, varname=in_files["json"], actual=actual)
+
+    # Start by vetting meta-information in JSON file
+    legal_types = [attr for attr in dir(swd) \
+                   if not (attr.startswith("_") \
+                           or attr in ["core", "Indexer", "VirtualData"])]
+    if json_dict["type"] not in legal_types:
+        legal = "one of " + "".join(ltype + ", " for ltype in legal_types)[:-2]
+        raise SPWValueError(legal=legal, varname="JSON: type", actual=json_dict["type"])
+    for key, tp in expected.items():
+        if not isinstance(json_dict[key], tp):
+            raise TypeError(json_dict[key], varname="JSON: {}".format(key),
+                            expected=tp)
+    if json_dict["type"] == "AnalogData":
+        expected = {"samplerate" : float,
+                    "hdr" : list}
+        _parse_json(expected)
+    
+    # If provided, make sure `out` is a `BaseData` instance and/or convert it
+    # to appropriate subclass 
+    if out is not None:
+        try:
+            spw_basedata_parser(out, varname="out", writable=True,
+                                dimord=json_dict["dimord"],
+                                seglabel=json_dict["segmentlabel"])
+        except Exception as exc:
+            raise exc
+        if out.__class__.__name__ != json_dict["type"]:
+            out = getattr(swd, json_dict["type"])(out, copy=False)
+        return_out = False
+    else:
+        out = getattr(swd, json_dict["type"])()
+        return_out = True
+
+    # Assign mandatory meta-info (`dimlabels` is populated later with info from seg file)
+    out.segmentlabel = json_dict["segmentlabel"]
+    out._log = json_dict["log"]
+    out._dimlabels = OrderedDict(zip(json_dict["dimord"],
+                                     [None]*len(json_dict["dimord"])))
+
+    # Optional fields
+    for key in ["cfg", "notes", "samplerate", "hdr"]:
+        if json_dict.get(key):
+            setattr(out, "_{}".format(key)) = json_dict["key"]
+
+    # Load and attach segment information
+    out._seg = np.load(in_files["seg"])
+
+    # # Sub-class specific stuff
+    # if json_dict["type"] == "AnalogData":
+    #     out._samplerate = 
+    
+    # if out._dimlabels.get("sample"):
+    #     out._dimlabels["sample"] = 
+    # Take care of label!
+
+    ipdb.set_trace()
 
     # Assign manadatory attributes and subsequently remove them from `json_dict`
     if not set(MANDATORY_ATTRS).issubset(json_dict.keys()):

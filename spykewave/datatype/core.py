@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-12 13:06:36>
+# Last modification time: <2019-02-12 17:38:03>
 
 # Builtin/3rd party package imports
 import numpy as np
