@@ -2,24 +2,24 @@
 # 
 # Created: February  5 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-12 13:39:20>
+# Last modification time: <2019-02-14 17:18:06>
 
 # Builtin/3rd party package imports
 import os
 import json
+import shutil
 import numpy as np
 from numpy.lib.format import open_memmap  
 from hashlib import blake2b
 
 # Local imports
 from spykewave.utils import spw_io_parser, spw_basedata_parser, SPWIOError, SPWTypeError
-from spykewave.datatype import BaseData
 from spykewave.io import hash_file, write_access, FILE_EXT
 
 __all__ = ["save_spw"]
 
 ##########################################################################################
-def save_spw(out_name, out, fname=None, append_extension=True):
+def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
     """
     Docstring coming soon...
     """
@@ -44,9 +44,9 @@ def save_spw(out_name, out, fname=None, append_extension=True):
     if not write_access(out_name):
         raise SPWIOError(out_name)
 
-    # Make sure `out` is a valid `BaseData` object
+    # Make sure `out` is a valid (inherited) `BaseData` object
     try:
-        spw_basedata_parser(out, varname="out", writable=None)
+        spw_basedata_parser(out, varname="out", writable=None, empty=False)
     except Exception as exc:
         raise exc
 
@@ -70,22 +70,34 @@ def save_spw(out_name, out, fname=None, append_extension=True):
     with open(filename.format(ext=FILE_EXT["seg"]), "wb") as out_seg:
         np.save(out_seg, out.seg, allow_pickle=False)
     
-    # Get hierarchically "highest" dtype of data present in `out`
-    dtypes = []
-    for data in out.data._data:
-        dtypes.append(data.dtype)
-    out_dtype = np.max(dtypes)
-    
-    # Allocate target memmap (a npy file) for saving
-    dat = open_memmap(filename.format(ext=FILE_EXT["data"]),
-                      mode="w+",
-                      dtype=out_dtype,
-                      shape=out.data.shape)
-    
-    # Point target to source memmaps and force-write by deleting `dat`
-    dat = out.data
-    del dat
+    # In case `out` hosts a `VirtualData` object, things are more elaborate
+    if out.data.__class__.__name__ == "VirtualData":
+        
+        # Given memory cap, compute how many channel blocks can be grabbed
+        # per swipe (divide by 2 since we're working with an add'l tmp array)
+        conv_b2mb = 1024**2
+        memuse *= conv_b2mb/2
+        nrow = int(memuse/(out.data.N * out.data.dtype.itemsize))
+        rem = int(out.data.M % nrow)
+        n_blocks = [nrow]*int(out.data.M // nrow) + [rem] * int(rem > 0)
 
+        # Here's the fun part: the awkward looking `del` and `clear` commands
+        # in the loop are crucial to prevent Python from keeping all blocks
+        # of the mem-maps in memory
+        dat = open_memmap(filename.format(ext=FILE_EXT["data"]), mode="w+",
+                          dtype=out.data.dtype, shape=(out.data.M, out.data.N))
+        del dat
+        for m, M in enumerate(n_blocks):
+            dat = open_memmap(filename.format(ext=FILE_EXT["data"]), mode="r+")
+            dat[m*nrow : m*nrow + M:, :] = out.data[m*nrow : m*nrow + M:, :]
+            del dat
+            out.clear()
+
+    # Much simpler: make sure on-disk memmap is up-to-date and simply copy it
+    else:
+        out.data.flush()
+        shutil.copyfile(out.data.filename, filename.format(ext=FILE_EXT["data"]))
+        
     # Compute checksums of created binary files
     seg_hsh = hash_file(filename.format(ext=FILE_EXT["seg"]))
     dat_hsh = hash_file(filename.format(ext=FILE_EXT["data"]))
@@ -115,19 +127,18 @@ def save_spw(out_name, out, fname=None, append_extension=True):
     out_dct["seg"] = os.path.basename(filename.format(ext=FILE_EXT["seg"]))
 
     # Take care of `BaseData` subclass properties (if present)
-    for attr in ["samplerate"]:
-        if hasattr(out, attr):
-            out_dct[attr] = getattr(out, attr)
-    if hasattr(out, "hdr"):
-        hdr = []
-        for hd in out.hdr:
-            _dict_converter(hd)
-            hdr.append(hd)
-        out_dct["hdr"] = hdr
+    if out.__class__.__name__ == "AnalogData":
+        out_dct["samplerate"] = out.samplerate
+        if out.hdr:
+            hdr = []
+            for hd in out.hdr:
+                _dict_converter(hd)
+                hdr.append(hd)
+            out_dct["hdr"] = hdr
     
     # Save computed file-hashes
     out_dct["seg_checksum"] = seg_hsh
-    out_dct["dat_checksum"] = dat_hsh
+    out_dct["data_checksum"] = dat_hsh
 
     # Finally, write JSON
     with open(filename.format(ext=FILE_EXT["json"]), "w") as out_json:

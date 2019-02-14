@@ -2,35 +2,29 @@
 # 
 # Created: February  6 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-12 18:32:24>
+# Last modification time: <2019-02-14 17:35:29>
 
 # Builtin/3rd party package imports
 import os
 import json
 import numpy as np
-from hashlib import blake2b
+from collections import OrderedDict
 from numpy.lib.format import open_memmap
 from glob import iglob
 
 # Local imports
-from spykewave.utils import spw_io_parser, SPWTypeError, SPWValueError
-# from spykewave.datatype import BaseData
+from spykewave.utils import spw_io_parser, spw_json_parser, spw_basedata_parser, SPWTypeError, SPWValueError
 from spykewave.io import hash_file, FILE_EXT
 import spykewave.datatype as swd
 
 __all__ = ["load_spw"]
 
-
-
-import ipdb
-
-
 ##########################################################################################
-def load_spw(in_name, fname=None, out=None):
+def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
     """
     Docstring coming soon...
 
-    in case 'dir' and 'dir.spw' exists, preference will be given to 'dir.spw'
+    in case 'dir' and 'dir.spw' exist, preference will be given to 'dir.spw'
 
     fname can be search pattern 'session1*' or base file-name ('asdf' will
     load 'asdf.<hash>.json/.dat.seg') or hash-id ('d4c1' will load 
@@ -113,24 +107,44 @@ def load_spw(in_name, fname=None, out=None):
         actual = "keys " + "".join(attr + ", " for attr in json_dict.keys())[:-2]
         raise SPWValueError(legal=legal, varname=in_files["json"], actual=actual)
 
-    # Start by vetting meta-information in JSON file
+    # Make sure the implied data-genre makes sense
     legal_types = [attr for attr in dir(swd) \
                    if not (attr.startswith("_") \
                            or attr in ["core", "Indexer", "VirtualData"])]
     if json_dict["type"] not in legal_types:
         legal = "one of " + "".join(ltype + ", " for ltype in legal_types)[:-2]
         raise SPWValueError(legal=legal, varname="JSON: type", actual=json_dict["type"])
-    for key, tp in expected.items():
-        if not isinstance(json_dict[key], tp):
-            raise TypeError(json_dict[key], varname="JSON: {}".format(key),
-                            expected=tp)
+    
+    # Parse remaining meta-info fields
+    try:
+        spw_json_parser(json_dict, expected)
+    except Exception as exc:
+        raise exc
+
+    # Depending on data genre specified in file, check respective fields
     if json_dict["type"] == "AnalogData":
         expected = {"samplerate" : float,
                     "hdr" : list}
-        _parse_json(expected)
+        try:
+            spw_json_parser(json_dict, expected)
+        except Exception as exc:
+            raise exc
+        if json_dict["dimord"] != ["label", "sample"]:
+            raise SPWValueError(legal="dimord = ['label', 'sample']",
+                                varname="JSON: dimord",
+                                actual=str(json_dict["dimord"]))
+
+    # If wanted, perform checksum matching
+    if checksum:
+        hsh_msg = "hash = {hsh:s}"
+        for fle in ["seg", "data"]:
+            hsh = hash_file(in_files[fle])
+            if hsh != json_dict[fle + "_checksum"]:
+                raise SPWValueError(legal=hsh_msg.format(hsh=json_dict[fle + "_checksum"]),
+                                    varname=os.path.basename(in_files[fle]),
+                                    actual=hsh_msg.format(hsh=hsh))
     
-    # If provided, make sure `out` is a `BaseData` instance and/or convert it
-    # to appropriate subclass 
+    # Parsing is done, create new or check provided container 
     if out is not None:
         try:
             spw_basedata_parser(out, varname="out", writable=True,
@@ -140,47 +154,36 @@ def load_spw(in_name, fname=None, out=None):
             raise exc
         if out.__class__.__name__ != json_dict["type"]:
             out = getattr(swd, json_dict["type"])(out, copy=False)
-        return_out = False
+        new_out = False
     else:
         out = getattr(swd, json_dict["type"])()
-        return_out = True
+        new_out = True
 
-    # Assign mandatory meta-info (`dimlabels` is populated later with info from seg file)
+    # Assign meta-info common to all sub-classes
     out.segmentlabel = json_dict["segmentlabel"]
     out._log = json_dict["log"]
-    out._dimlabels = OrderedDict(zip(json_dict["dimord"],
-                                     [None]*len(json_dict["dimord"])))
-
-    # Optional fields
-    for key in ["cfg", "notes", "samplerate", "hdr"]:
+    out._dimlabels = OrderedDict(zip(json_dict["dimord"], [None]*len(json_dict["dimord"])))
+    for key in ["cfg", "notes"]:
         if json_dict.get(key):
-            setattr(out, "_{}".format(key)) = json_dict["key"]
+            setattr(out, "_{}".format(key), json_dict[key])
 
     # Load and attach segment information
     out._seg = np.load(in_files["seg"])
 
-    # # Sub-class specific stuff
-    # if json_dict["type"] == "AnalogData":
-    #     out._samplerate = 
+    # Sub-class-specific things follow
+    if json_dict["type"] == "AnalogData":
+        out._samplerate = json_dict["samplerate"]
+        out._hdr = json_dict["hdr"]
+        out._dimlabels["label"] = json_dict["label"]
+        out._dimlabels["sample"] = out._seg[:, :2]
+
+    # Finally, access data on disk
+    out.data = open_memmap(in_files["data"], mode="r+")
+
+    # Write log-entry
+    msg = "Read files v. {ver:s} {fname:s}"
+    out.log = msg.format(ver=json_dict["version"], fname=in_base + "[dat/info/seg]")
+
+    # Happy breakdown
+    return out if new_out else None
     
-    # if out._dimlabels.get("sample"):
-    #     out._dimlabels["sample"] = 
-    # Take care of label!
-
-    ipdb.set_trace()
-
-    # Assign manadatory attributes and subsequently remove them from `json_dict`
-    if not set(MANDATORY_ATTRS).issubset(json_dict.keys()):
-        legal = "mandatory fields " + "".join(attr + ", " for attr in MANDATORY_ATTRS)[:-2]
-        raise SPWValueError(legal=legal, varname=in_files["json"])
-    out._dimlabels["label"] = json_dict["label"]
-    out._segmentlabel = json_dict["segmentlabel"]
-    out._log = json_dict["log"]
-    for attr in MANDATORY_ATTRS:
-        json_dict.pop(attr)
-
-    # Log entry: Loaded data:...  SpykeWave v. 0.1a -> use json_dict["version"]
-        
-    # # mode = "r+"
-    # open_memmap(file, mode="r+")
-    # out._chunks = 

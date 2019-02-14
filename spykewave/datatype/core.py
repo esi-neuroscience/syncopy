@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-12 17:38:03>
+# Last modification time: <2019-02-14 17:36:15>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -13,8 +13,9 @@ import sys
 import numbers
 import inspect
 from collections import OrderedDict, Iterator
-from itertools import islice
 from copy import copy
+from itertools import islice
+from numpy.lib.format import open_memmap  
     
 # Local imports
 from spykewave.utils import (spw_scalar_parser, spw_array_parser,
@@ -69,11 +70,6 @@ class BaseData():
     def seg(self):
         return self._seg
     
-    @property
-    def segments(self):
-        return Indexer(map(self._get_segment, range(self._seg.shape[0])),
-                                self._seg.shape[0]) if self._seg is not None else None
-
     @property
     def segmentlabel(self):
         return self._segmentlabel
@@ -150,10 +146,6 @@ class BaseData():
                          trialdefinition=trialdefinition, segmentlabel=segmentlabel,
                          out=self)
 
-    # Helper function that leverages `VirtualData`'s getter routine to return a single segment
-    def _get_segment(self, segno):
-        return self.data[:, int(self._seg[segno, 0]) : int(self._seg[segno, 1])]
-
     # Helper function that digs into cfg dictionaries
     def _set_cfg(self, cfg, dct):
         if not cfg:
@@ -165,6 +157,18 @@ class BaseData():
                 cfg["cfg"] = dct
                 return cfg
         return cfg
+
+    # Convenience function, wiping attached memmap or pointing to class-specific `clear` method
+    def clear(self):
+        if hasattr(self, "data"):
+            if hasattr(self.data, "clear"):
+                self.data.clear()
+            else:
+                filename, mode = self.data.filename, self.data.mode
+                self.data.flush()
+                self.data = None
+                self.data = open_memmap(filename, mode=mode)
+        return
     
     # Return a deep-copy of the current class instance
     def copy(self):
@@ -233,6 +237,11 @@ class AnalogData(BaseData):
         return self._samplerate
     
     @property
+    def segments(self):
+        return Indexer(map(self._get_segment, range(self._seg.shape[0])),
+                                self._seg.shape[0]) if self._seg is not None else None
+
+    @property
     def time(self, unit="s"):
         converter = {"h": 1/360, "min": 1/60, "s" : 1, "ms" : 1e3, "ns" : 1e9}
         if not isinstance(unit, str):
@@ -252,10 +261,7 @@ class AnalogData(BaseData):
         return self.seg
     
     # Constructor
-    def __new__(cls,
-                basedataobj=None,
-                copy=True,
-                **kwargs):
+    def __new__(cls, basedataobj=None, copy=True, **kwargs):
 
         # Either create new instance from scratch or copy/convert existing BaseData object
         if isinstance(basedataobj, BaseData):
@@ -271,30 +277,40 @@ class AnalogData(BaseData):
             obj.__class__ = cls
             return obj
         else:
-            return super().__new__(cls, **kwargs)
+            return super().__new__(cls)
 
     # Customizer
     def __init__(self, basedataobj=None, **kwargs):
 
         # If we're starting from scratch, call parent class initializer
         if basedataobj is None:
-            super().__init__()
+            super().__init__(**kwargs)
 
-        # Set default values for necessary attributes
-        self._hdr = None
-        self._samplerate = None
+        # Set default values for necessary attributes (if not already set
+        # by reading routine invoked in `BaseData`'s `__init__`)
+        if not hasattr(self, "hdr"):
+            self._hdr = None
+            self._samplerate = None
     
+    # Helper function that leverages `VirtualData`'s getter routine to return a single segment
+    def _get_segment(self, segno):
+        return self.data[:, int(self._seg[segno, 0]) : int(self._seg[segno, 1])]
+
 ##########################################################################################
 class VirtualData():
 
     # Pre-allocate slots here - this class is *not* meant to be expanded
     # and/or monkey-patched later on
-    __slots__ = ["_M", "_N", "_shape", "_size", "_nrows", "_data", "_rows"]
+    __slots__ = ["_M", "_N", "_shape", "_size", "_nrows", "_data", "_rows", "_dtype"]
+
+    @property
+    def dtype(self):
+        return self._dtype
 
     @property
     def M(self):
         return self._M
-
+    
     @property
     def N(self):
         return self._N
@@ -318,7 +334,7 @@ class VirtualData():
 
         # First, make sure our one mandatary input argument does not contain
         # any unpleasant surprises
-        if not isinstance(chunk_list, (list, np.ndarray)):
+        if not isinstance(chunk_list, (list, np.memmap)):
             raise SPWTypeError(chunk_list, varname="chunk_list", expected="array_like")
 
         # Do not use ``spw_array_parser`` to validate chunks to not force-load memmaps
@@ -338,6 +354,12 @@ class VirtualData():
         nrows = [shape[0] for shape in shapes]
         cumlen = np.cumsum(nrows)
 
+        # Get hierarchically "highest" dtype of data present in `chunk_list`
+        dtypes = []
+        for chunk in chunk_list:
+            dtypes.append(chunk.dtype)
+        cdtype = np.max(dtypes)
+
         # Create list of "global" row numbers and assign "global" dimensional info
         self._nrows = nrows
         self._rows = [range(start, stop) for (start, stop) in zip(cumlen - nrows, cumlen)]
@@ -345,6 +367,7 @@ class VirtualData():
         self._N = chunk_list[0].shape[1]
         self._shape = (self._M, self._N)
         self._size = self._M*self._N
+        self._dtype = cdtype
         self._data = chunk_list
 
     # Compatibility
@@ -424,13 +447,31 @@ class VirtualData():
     def __repr__(self):
         return self.__str__()
 
-    # Make class contents comprehensible from the command line
+    # Make class contents comprehensible when viewed from the command line
     def __str__(self):
         ppstr = "{shape:s} element {name:s} object mapping {numfiles:s} file(s)"
         return ppstr.format(shape="[" + " x ".join([str(numel) for numel in self.shape]) + "]",
                             name=self.__class__.__name__,
                             numfiles=str(len(self._nrows)))
-        
+
+    # Free memory by force-closing resident memory maps
+    def clear(self):
+        shapes = []
+        dtypes = []
+        fnames = []
+        offset = []
+        for mmp in self._data:
+            shapes.append(mmp.shape)
+            dtypes.append(mmp.dtype)
+            fnames.append(mmp.filename)
+            offset.append(mmp.offset)
+        self._data = []
+        for k in range(len(fnames)):
+            self._data.append(np.memmap(fnames[k], offset=offset[k],
+                                             mode="r", dtype=dtypes[k],
+                                             shape=shapes[k]))
+        return
+    
 ##########################################################################################
 class Indexer():
 
@@ -484,24 +525,3 @@ class Indexer():
     
     def __str__(self):
         return "{} element iterable".format(self._iterlen)
-
-###########
-# class Celsius():
-#     """Fundamental Temperature Descriptor."""
-#     def __init__( self, value=0.0 ):
-#         self.value = float(value)
-#     def __get__( self, obj, objtype ):
-#         print("retrieving self")
-#         return self.value
-#     def __set__( self, obj, val ):
-#         self.value= float(val)
-
-class PerInstancePropertyProxy(object):
-    def __init__(self, prop):
-        self.prop = prop
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-        return instance.__dict__[self.prop].__get__(instance, owner)
-    def __set__(self, instance, value):
-        instance.__dict__[self.prop].__set__(instance, value)        
