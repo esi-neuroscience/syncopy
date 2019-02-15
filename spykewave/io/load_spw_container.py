@@ -2,7 +2,7 @@
 # 
 # Created: February  6 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-14 17:35:29>
+# Last modification time: <2019-02-15 11:53:36>
 
 # Builtin/3rd party package imports
 import os
@@ -129,7 +129,7 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
             spw_json_parser(json_dict, expected)
         except Exception as exc:
             raise exc
-        if json_dict["dimord"] != ["label", "sample"]:
+        if set(json_dict["dimord"]) != set(["label", "sample"]):
             raise SPWValueError(legal="dimord = ['label', 'sample']",
                                 varname="JSON: dimord",
                                 actual=str(json_dict["dimord"]))

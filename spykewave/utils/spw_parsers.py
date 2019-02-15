@@ -2,7 +2,7 @@
 # 
 # Created: Januar  8 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-14 17:14:58>
+# Last modification time: <2019-02-15 10:00:48>
 
 # Builtin/3rd party package imports
 import os
@@ -406,7 +406,7 @@ def spw_basedata_parser(data, varname="", writable=True, empty=None, dimord=None
     # If requested, check integrity of dimensional information (if non-empty)
     if dimord is not None and len(data.dimord):
         base = "SpykeWave {diminfo:s} data object"
-        if data.dimord[:len(dimord)] != dimord:
+        if not set(dimord).issubset(data.dimord):
             legal = base.format(diminfo="'" + "' x '".join(str(dim) for dim in dimord) + "'")
             actual = base.format(diminfo="'" + "' x '".join(str(dim) for dim in data.dimord) \
                              + "' " if data.dimord else "empty")

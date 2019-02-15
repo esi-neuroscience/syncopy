@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-14 17:36:15>
+# Last modification time: <2019-02-15 16:03:58>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -296,6 +296,61 @@ class AnalogData(BaseData):
     def _get_segment(self, segno):
         return self.data[:, int(self._seg[segno, 0]) : int(self._seg[segno, 1])]
 
+##########################################################################################
+class SpectralData(BaseData):
+
+    @property
+    def samplerate(self):
+        return self._samplerate
+    
+    @property
+    def segments(self):
+        return Indexer(map(self._get_segment, range(self._seg.shape[0])),
+                                self._seg.shape[0]) if self._seg is not None else None
+
+    @property
+    def trial(self):
+        return self.segments
+
+    @property
+    def trialinfo(self):
+        return self.seg
+    
+    # Constructor
+    def __new__(cls, basedataobj=None, copy=True, **kwargs):
+
+        # Either create new instance from scratch or copy/convert existing BaseData object
+        if isinstance(basedataobj, BaseData):
+            if copy:
+                obj = basedataobj.copy()
+                basedataobj.log = "copied self to create {} object".format(cls.__name__)
+                msg = "created {new:s} object from {old:s} object"
+            else:
+                obj = basedataobj
+                msg = "converted {old:s} object to {new:s} object"
+            obj.log = msg.format(old=basedataobj.__class__.__name__,
+                                 new=cls.__name__)
+            obj.__class__ = cls
+            return obj
+        else:
+            return super().__new__(cls)
+
+    # Customizer
+    def __init__(self, basedataobj=None, **kwargs):
+
+        # If we're starting from scratch, call parent class initializer
+        if basedataobj is None:
+            super().__init__(**kwargs)
+
+        # Set default values for necessary attributes (if not already set
+        # by reading routine invoked in `BaseData`'s `__init__`)
+        if not hasattr(self, "samplerate"):
+            self._samplerate = None
+    
+    # Helper function that leverages `VirtualData`'s getter routine to return a single segment
+    def _get_segment(self, segno):
+        return self.data[:, int(self._seg[segno, 0]) : int(self._seg[segno, 1])]
+    
 ##########################################################################################
 class VirtualData():
 

@@ -2,10 +2,11 @@
 # 
 # Created: Januar 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-13 15:34:32>
+# Last modification time: <2019-02-15 10:15:26>
 
 # Builtin/3rd party package imports
 import os
+import sys
 import numpy as np
 
 # Local imports
@@ -100,7 +101,8 @@ def load_binary_esi(filename,
     out.data = data
     out._mode = "r"
     out.segmentlabel = segmentlabel
-    out.cfg = {"filename" : filename,
+    out.cfg = {"method" : sys._getframe().f_code.co_name,
+               "filename" : filename,
                "segmentlabel" : segmentlabel}
     
     # Write attributes specific to `AnalogData` class
