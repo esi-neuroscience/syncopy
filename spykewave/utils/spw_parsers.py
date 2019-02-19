@@ -2,7 +2,7 @@
 # 
 # Created: Januar  8 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-15 10:00:48>
+# Last modification time: <2019-02-19 11:03:44>
 
 # Builtin/3rd party package imports
 import os
@@ -381,11 +381,11 @@ def spw_basedata_parser(data, varname="", writable=True, empty=None, dimord=None
     # If requested, ensure object contains data (or not)
     if empty is not None:
         legal = "{status:s} SpkeWave data object"
-        if empty and hasattr(data, "data"):
+        if empty and data.data is not None:
             raise SPWValueError(legal=legal.format(status="empty"),
                                 varname=varname,
                                 actual="non-empty")
-        elif not empty and not hasattr(data, "data"):
+        elif not empty and data.data is None:
             raise SPWValueError(legal=legal.format(status="non-empty"),
                                 varname=varname,
                                 actual="empty")

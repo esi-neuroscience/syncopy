@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-15 16:03:58>
+# Last modification time: <2019-02-19 14:40:47>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -10,12 +10,14 @@ import getpass
 import socket
 import time
 import sys
+import os
 import numbers
 import inspect
 from collections import OrderedDict, Iterator
 from copy import copy
+from hashlib import blake2b
 from itertools import islice
-from numpy.lib.format import open_memmap  
+from numpy.lib.format import open_memmap
     
 # Local imports
 from spykewave.utils import (spw_scalar_parser, spw_array_parser,
@@ -23,7 +25,9 @@ from spykewave.utils import (spw_scalar_parser, spw_array_parser,
 from spykewave import __version__
 import spykewave as sw
 
-__all__ = ["BaseData", "AnalogData", "VirtualData", "Indexer"]
+__all__ = ["BaseData", "AnalogData", "SpectralData", "VirtualData", "Indexer"]
+
+__storage__ = os.path.join(os.path.expanduser("~"), ".spy")
 
 ##########################################################################################
 class BaseData():
@@ -37,6 +41,10 @@ class BaseData():
         if not isinstance(dct, dict):
             raise SPWTypeError(dct, varname="cfg", expected="dictionary")
         self._cfg = self._set_cfg(self._cfg, dct)
+
+    @property
+    def data(self):
+        return self._data
    
     @property
     def dimord(self):
@@ -100,7 +108,7 @@ class BaseData():
     def version(self):
         return self._version
 
-    # Class customization
+    # Class "constructor"
     def __init__(self,
                  filename=None,
                  filetype=None,
@@ -118,10 +126,21 @@ class BaseData():
 
         # Prepare necessary "global" parsing attributes
         self._cfg = {}
+        self._data = None
         self._dimlabels = OrderedDict()
+        fname_hsh = blake2b(digest_size=4, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
+        self._filename = os.path.join(__storage__, "spy_{}.npy".format(fname_hsh))
         self._seg = None
         self._segmentlabel = None
         self._mode = "w"
+
+        # Create temporary working directory if not already present
+        # tmpdir = os.path.join(os.path.expanduser("~"), __storage__)
+        if not os.path.exists(__storage__):
+            try:
+                os.mkdir(__storage__)
+            except:
+                raise SPWIOError(__storage__)
 
         # Write version
         self._version = __version__
@@ -160,17 +179,17 @@ class BaseData():
 
     # Convenience function, wiping attached memmap or pointing to class-specific `clear` method
     def clear(self):
-        if hasattr(self, "data"):
-            if hasattr(self.data, "clear"):
-                self.data.clear()
+        if self._data is not None:
+            if hasattr(self._data, "clear"):
+                self._data.clear()
             else:
-                filename, mode = self.data.filename, self.data.mode
-                self.data.flush()
-                self.data = None
-                self.data = open_memmap(filename, mode=mode)
+                filename, mode = self._data.filename, self._data.mode
+                self._data.flush()
+                self._data = None
+                self._data = open_memmap(filename, mode=mode)
         return
     
-    # Return a deep-copy of the current class instance
+    # Return a copy of the current class instance
     def copy(self):
         return copy(self)
 
@@ -220,6 +239,12 @@ class BaseData():
             ppstr += printString.format(attr, valueString)
         ppstr += "\nUse `.log` to see object history"
         return ppstr
+
+    # Destructor
+    def __del__(self):
+        if __storage__ in self._filename and self._data is not None:
+            del self._data
+            os.unlink(self._filename)
 
 ##########################################################################################
 class AnalogData(BaseData):
@@ -291,11 +316,16 @@ class AnalogData(BaseData):
         if not hasattr(self, "hdr"):
             self._hdr = None
             self._samplerate = None
-    
-    # Helper function that leverages `VirtualData`'s getter routine to return a single segment
-    def _get_segment(self, segno):
-        return self.data[:, int(self._seg[segno, 0]) : int(self._seg[segno, 1])]
 
+    # Helper function that returns a single segment
+    def _get_segment(self, segno):
+        return self._data[:, int(self._seg[segno, 0]) : int(self._seg[segno, 1])]
+
+    # Helper function that reads a single segment into memory
+    @staticmethod
+    def _copy_segment(segno, filename, seg):
+        return open_memmap(filename, mode="c")[:, int(seg[segno, 0]) : int(seg[segno, 1])]
+    
 ##########################################################################################
 class SpectralData(BaseData):
 
@@ -347,9 +377,9 @@ class SpectralData(BaseData):
         if not hasattr(self, "samplerate"):
             self._samplerate = None
     
-    # Helper function that leverages `VirtualData`'s getter routine to return a single segment
+    # Helper function that returns a single segment
     def _get_segment(self, segno):
-        return self.data[:, int(self._seg[segno, 0]) : int(self._seg[segno, 1])]
+        return self._data[:, int(self._seg[segno, 0]) : int(self._seg[segno, 1])]
     
 ##########################################################################################
 class VirtualData():

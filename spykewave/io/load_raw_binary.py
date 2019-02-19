@@ -2,7 +2,7 @@
 # 
 # Created: Januar 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-15 10:15:26>
+# Last modification time: <2019-02-19 14:34:34>
 
 # Builtin/3rd party package imports
 import os
@@ -98,7 +98,8 @@ def load_binary_esi(filename,
     out._dimlabels["sample"] = trialdefinition[:, :2]
 
     # Fill up mandatory `BaseData` attributes
-    out.data = data
+    out._data = data
+    out._filename = filename
     out._mode = "r"
     out.segmentlabel = segmentlabel
     out.cfg = {"method" : sys._getframe().f_code.co_name,

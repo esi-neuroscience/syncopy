@@ -2,7 +2,7 @@
 # 
 # Created: February  6 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-15 11:53:36>
+# Last modification time: <2019-02-19 14:22:08>
 
 # Builtin/3rd party package imports
 import os
@@ -178,7 +178,8 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
         out._dimlabels["sample"] = out._seg[:, :2]
 
     # Finally, access data on disk
-    out.data = open_memmap(in_files["data"], mode="r+")
+    out._data = open_memmap(in_files["data"], mode="r+")
+    out._filename = in_files["data"]
 
     # Write log-entry
     msg = "Read files v. {ver:s} {fname:s}"

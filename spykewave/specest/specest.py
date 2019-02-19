@@ -2,7 +2,7 @@
 # 
 # Created: January 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-18 17:37:19>
+# Last modification time: <2019-02-19 17:13:12>
 
 ###########
 # Add spykewave package to Python search path
@@ -29,10 +29,14 @@ from spykewave import __dask__
 if __dask__:
     import dask
     import dask.array as da
-    from dask.distributed import Lock
+    from dask.distributed import Lock, get_worker
+
+
+from copy import copy
 
 # Local imports
 from spykewave.utils import spw_basedata_parser
+from spykewave.datatype import SpectralData
 
 __all__ = ["mtmfft"]
 
@@ -59,7 +63,7 @@ def mtmfft(obj, dt=0.001, taper=windows.hann, pad="nextpow2", padtype="zero",
             raise exc
         new_out = False
     else:
-        # out = SpectralData()
+        out = SpectralData()
         new_out = True
 
     # Set parameters applying to all segments: FIXME: make sure segments
@@ -76,21 +80,18 @@ def mtmfft(obj, dt=0.001, taper=windows.hann, pad="nextpow2", padtype="zero",
     # Compute taper in shape nTaper x nSamples and determine size of freq. axis
     win = np.atleast_2d(taper(nSamples, **taperopt))
     nFreq = int(np.floor(nSamples / 2) + 1)
-
-    # # Construct frequency axis
-    # df = obj.samplerate / nSamples
-    # freq = np.arange(0, np.floor(nSamples / 2) + 1) * df
-
+    freq = np.arange(0, np.floor(nSamples / 2) + 1) * obj.samplerate/nSamples
+    
     # Allocate memory map for results
-    fd, tmpname = mkstemp(prefix="spw_")
-    data = open_memmap(tmpname,
-                       shape=(win.shape[0], obj.data.shape[0], nFreq*len(obj.segments)),
-                       dtype="complex",
-                       mode="w+")
+    res = open_memmap(out._filename,
+                      shape=(win.shape[0], obj.shapes[0][0], nFreq*len(obj.segments)),
+                      dtype="complex",
+                      mode="w+")
+    del res
 
-    # Point to data segments on disk by using delayed method calls
-    lazy_segment = dask.delayed(obj._get_segment)
-    lazy_segs = [lazy_segment(segno) for segno in range(obj._seg.shape[0])]
+    # Point to data segments on disk by using delayed **static** method calls
+    lazy_segment = dask.delayed(obj._copy_segment, traverse=False)
+    lazy_segs = [lazy_segment(segno, obj._filename, obj.seg) for segno in range(obj._seg.shape[0])]
 
     # Construct a distributed dask array block by stacking delayed segments
     seg_block = da.hstack([da.from_delayed(seg,
@@ -98,25 +99,50 @@ def mtmfft(obj, dt=0.001, taper=windows.hann, pad="nextpow2", padtype="zero",
                                            dtype=obj.data.dtype) for sk, seg in enumerate(lazy_segs)])
     
     # Use `map_blocks` to compute spectra for each segment in the constructred dask array
-    specs = seg_block.map_blocks(_mtmfft_byseg, win, nFreq,  pad, padtype, fftAxis, obj,
+    specs = seg_block.map_blocks(_mtmfft_byseg, win, nFreq,  pad, padtype, fftAxis, 
                                  dtype="complex",
                                  chunks=(win.shape[0], obj.data.shape[0], nFreq),
                                  new_axis=[0])
 
-    # specs = specs.persist()
-    # obj.clear()
+    # Write computed spectra in pre-allocated memmap
+    result = specs.map_blocks(_mtmfft_writer, nFreq, out._filename,
+                          dtype="complex",
+                          chunks=(1,),
+                          drop_axis=[0,1])
 
-    import ipdb; ipdb.set_trace()
-   
-    # # Compute spectra w/ the constructed dask array/bags
+    # Perform actual computation
+    result.compute()
 
-# def _mtmfft_saver(blk, dat):
-#     global col_count
-#     da.store(blk, dat[...])
-#     col_count += ???
-#     blk_count += 1
+    # Attach results to output object: start w/ dimensional info (order matters!)
+    out._dimlabels["taper"] = ["taper"] * win.shape[0]
+    out._dimlabels["label"] = obj.label
+    out._dimlabels["freq"] = freq
+    out.segmentlabel = obj.segmentlabel
+    out._data = open_memmap(out._filename, mode="r+")
 
-def _mtmfft_byseg(seg, win, nFreq,  pad, padtype, fftAxis, obj):
+    # Write log
+    log = "computed multi-taper FFT with settings..."
+    out.log = log
+    
+    # Happy breakdown
+    return out if new_out else None
+    
+##########################################################################################
+def _mtmfft_writer(blk, nFreq, resname, block_info=None):
+    """
+    Pumps computed spectra into target memmap
+    """
+    idx = block_info[0]["chunk-location"][-1]
+    res = open_memmap(resname, mode="r+")[:, :, idx*nFreq : (idx + 1)*nFreq]
+    res[...] = blk
+    del res
+    return idx
+
+##########################################################################################
+def _mtmfft_byseg(seg, win, nFreq,  pad, padtype, fftAxis):
+    """
+    Performs the actual heavy-lifting
+    """
 
     # move fft/samples dimension into first place
     seg = np.moveaxis(np.atleast_2d(seg), fftAxis, 1)
@@ -145,7 +171,6 @@ def _mtmfft_byseg(seg, win, nFreq,  pad, padtype, fftAxis, obj):
                 tap = np.tile(tap, (nChannels, 1))
             prod = da.from_array(seg * tap, chunks=(1, seg.shape[1]))
             spex.append(da.fft.rfft(prod))
-            # spex.append(prod.map_blocks(_mtmfft_bychan, dtype="complex", chunks=(1, int(seg.shape[1]/2 + 1))))
         spec = da.stack(spex)
     else:
         # taper x chan x freq
@@ -155,11 +180,6 @@ def _mtmfft_byseg(seg, win, nFreq,  pad, padtype, fftAxis, obj):
                 tap = np.tile(tap, (nChannels, 1))
             spec[wIdx, ...] = np.fft.rfft(seg * tap, axis=1)
 
-    # with Lock('clear') as lock:
-    #     lock.acquire()
-    #     obj.clear()
-    #     lock.release()
-            
     return spec
         
 ##########################################################################################
