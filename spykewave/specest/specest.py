@@ -2,7 +2,7 @@
 # 
 # Created: January 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-19 17:13:12>
+# Last modification time: <2019-02-20 13:15:28>
 
 ###########
 # Add spykewave package to Python search path
@@ -41,7 +41,7 @@ from spykewave.datatype import SpectralData
 __all__ = ["mtmfft"]
 
 ##########################################################################################
-def mtmfft(obj, dt=0.001, taper=windows.hann, pad="nextpow2", padtype="zero",
+def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
            polyorder=None, taperopt={}, fftAxis=1, tapsmofrq=None, out=None):
 
     # FIXME: parse remaining input arguments
@@ -50,7 +50,8 @@ def mtmfft(obj, dt=0.001, taper=windows.hann, pad="nextpow2", padtype="zero",
 
     # Make sure input object can be processed
     try:
-        spw_basedata_parser(obj, varname="obj", dimord=["label", "sample"], empty=False)
+        spw_basedata_parser(obj, varname="obj", dimord=["label", "sample"],
+                            writable=None, empty=False)
     except Exception as exc:
         raise exc
     
@@ -58,7 +59,7 @@ def mtmfft(obj, dt=0.001, taper=windows.hann, pad="nextpow2", padtype="zero",
     if out is not None:
         try:
             spw_basedata_parser(out, varname="out", writable=True,
-                                dimord=["freq", "spec"])
+                                dimord=["freq", "spec"], segmentlabel="freq")
         except Exception as exc:
             raise exc
         new_out = False
@@ -91,7 +92,8 @@ def mtmfft(obj, dt=0.001, taper=windows.hann, pad="nextpow2", padtype="zero",
 
     # Point to data segments on disk by using delayed **static** method calls
     lazy_segment = dask.delayed(obj._copy_segment, traverse=False)
-    lazy_segs = [lazy_segment(segno, obj._filename, obj.seg) for segno in range(obj._seg.shape[0])]
+    lazy_segs = [lazy_segment(segno, obj._filename, obj.seg, obj.hdr, obj.dimord, obj.segmentlabel)\
+                 for segno in range(obj._seg.shape[0])]
 
     # Construct a distributed dask array block by stacking delayed segments
     seg_block = da.hstack([da.from_delayed(seg,
@@ -114,15 +116,30 @@ def mtmfft(obj, dt=0.001, taper=windows.hann, pad="nextpow2", padtype="zero",
     result.compute()
 
     # Attach results to output object: start w/ dimensional info (order matters!)
-    out._dimlabels["taper"] = ["taper"] * win.shape[0]
+    out._dimlabels["taper"] = [taper.__name__] * win.shape[0]
     out._dimlabels["label"] = obj.label
     out._dimlabels["freq"] = freq
-    out.segmentlabel = obj.segmentlabel
+
+    # Write data and meta-info
+    out._samplerate = obj.samplerate
+    seg = obj.seg
+    for k in range(seg.shape[0]):
+        seg[k, [0, 1]] = [k*nFreq, (k+1)*nFreq]
+    out._seg = seg
     out._data = open_memmap(out._filename, mode="r+")
+    out.cfg = {"method" : sys._getframe().f_code.co_name,
+               "taper" : taper.__name__,
+               "padding" : pad,
+               "padtype" : padtype,
+               "polyorder" : polyorder,
+               "taperopt" : taperopt,
+               "tapsmofrq" : tapsmofrq}
 
     # Write log
     log = "computed multi-taper FFT with settings..."
     out.log = log
+
+    # import ipdb; ipdb.set_trace()
     
     # Happy breakdown
     return out if new_out else None
@@ -181,60 +198,6 @@ def _mtmfft_byseg(seg, win, nFreq,  pad, padtype, fftAxis):
             spec[wIdx, ...] = np.fft.rfft(seg * tap, axis=1)
 
     return spec
-        
-##########################################################################################
-def _mtmfft_compute(data, dt=0.001, taper=windows.hann, pad="nextpow2", padtype="zero",
-           polyorder=None, taperopt={}, fftAxis=1, tapsmofrq=None):
-
-    # move fft/samples dimension into first place
-    data = np.moveaxis(np.atleast_2d(data), fftAxis, 1)
-
-    nSamples = data.shape[1]
-    nChannels = data.shape[0]
-    T = nSamples * dt
-    fsample = 1 / dt
-
-    # padding
-    if pad:
-        padWidth = np.zeros((data.ndim, 2), dtype=int)
-        if pad == "nextpow2":
-            padWidth[1, 0] = _nextpow2(nSamples) - nSamples
-        else:
-            padWidth[1, 0] = np.ceil((pad - T) / dt).astype(int)
-        if padtype == "zero":
-            data = np.pad(data, pad_width=padWidth,
-                          mode="constant", constant_values=0)
-
-        # update number of samples
-        nSamples = data.shape[1]
-
-    if taper == windows.dpss and (not taperopt):
-        nTaper = np.int(np.floor(tapsmofrq * T))
-        taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
-
-    # compute taper in shape nTaper x nSamples
-    win = np.atleast_2d(taper(nSamples, **taperopt))
-
-    # construct frequency axis
-    df = fsample / nSamples
-    freq = np.arange(0, np.floor(nSamples / 2) + 1) * df
-
-    import ipdb
-    ipdb.set_trace()
-    
-    # compute spectra
-    spec = np.zeros((win.shape[0],) + (nChannels,) +
-                    (freq.size,), dtype=complex)
-    for wIdx, tap in enumerate(win):
-
-        if data.ndim > 1:
-            tap = np.tile(tap, (nChannels, 1))
-
-        # taper x chan x freq
-        spec[wIdx, ...] = np.fft.rfft(data * tap, axis=1)
-
-    # return freq, spec.squeeze()
-    return spec.squeeze()
 
 ##########################################################################################
 def _nextpow2(number):
@@ -258,9 +221,16 @@ def create_test_data(frequencies=(6.5, 22.75, 67.2, 100.5)):
 
 if __name__ == '__main__':
 
+    datadir = ".." + os.sep + ".." + os.sep + ".." + os.sep + ".." + os.sep + "Data"\
+              + os.sep + "testdata" + os.sep
+    basename = "MT_RFmapping_session-168a1"
+    intervals = np.load('../examples/intervals.npy')
+    dataFiles = [os.path.join(datadir, basename + ext) for ext in ["_xWav.lfp", "_xWav.mua"]]
+    data = sw.BaseData(filename=dataFiles, trialdefinition=intervals, filetype="esi")
+
     tdata = sw.load_spw('../examples/regular_segs')
-    # tdata = sw.load_spw('../examples/mtmfft')
-    mtmfft(tdata)
+    # # tdata = sw.load_spw('../examples/mtmfft')
+    res = mtmfft(data)
     # import matplotlib.pyplot as plt
     # plt.ion()
     # data = create_test_data()

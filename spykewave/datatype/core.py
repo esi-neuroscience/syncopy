@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-19 14:40:47>
+# Last modification time: <2019-02-20 13:20:05>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -86,7 +86,7 @@ class BaseData():
     def segmentlabel(self, seglbl):
         if not isinstance(seglbl, str):
             raise SPWTypeError(seglbl, varname="segmentlabel", expected="str")
-        options = ["trial", "other"]
+        options = ["sample", "freq"]
         if seglbl not in options:
             raise SPWValueError("".join(opt + ", " for opt in options)[:-2],
                                 varname="segmentlabel", actual=seglbl)
@@ -113,8 +113,7 @@ class BaseData():
                  filename=None,
                  filetype=None,
                  trialdefinition=None,
-                 label=None,
-                 segmentlabel=None):
+                 label=None):
         """
         Docstring
         """
@@ -159,11 +158,33 @@ class BaseData():
         if read_fl:
             if label is None:
                 label = "channel"
-            if segmentlabel is None:
-                segmentlabel = "trial"
             sw.load_data(filename, filetype=filetype, label=label,
-                         trialdefinition=trialdefinition, segmentlabel=segmentlabel,
-                         out=self)
+                         trialdefinition=trialdefinition, out=self)
+
+    # Helper function that reads a single segment into memory
+    @staticmethod
+    def _copy_segment(segno, filename, seg, hdr, dimord, segmentlabel):
+        idx = [slice(None)] * len(dimord)
+        idx[dimord.index(segmentlabel)] = slice(int(seg[segno, 0]), int(seg[segno, 1]))
+        idx = tuple(idx)
+        if hdr is None:
+            # For pre-processed npy files
+            return np.array(open_memmap(filename, mode="c")[idx])
+        else:
+            # For VirtualData objects
+            dsets = []
+            for fk, fname in enumerate(filename):
+                dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
+                                       mode="r", dtype=hdr[fk]["dtype"],
+                                       shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
+            return np.vstack(dsets)
+        
+    # Helper function that grabs a single segment from memory-map(s)
+    def _get_segment(self, segno):
+        idx = [slice(None)] * len(self.dimord)
+        sid = self.dimord.index(self.segmentlabel)
+        idx[sid] = slice(int(self._seg[segno, 0]), int(self._seg[segno, 1]))
+        return self._data[tuple(idx)]
 
     # Helper function that digs into cfg dictionaries
     def _set_cfg(self, cfg, dct):
@@ -316,15 +337,7 @@ class AnalogData(BaseData):
         if not hasattr(self, "hdr"):
             self._hdr = None
             self._samplerate = None
-
-    # Helper function that returns a single segment
-    def _get_segment(self, segno):
-        return self._data[:, int(self._seg[segno, 0]) : int(self._seg[segno, 1])]
-
-    # Helper function that reads a single segment into memory
-    @staticmethod
-    def _copy_segment(segno, filename, seg):
-        return open_memmap(filename, mode="c")[:, int(seg[segno, 0]) : int(seg[segno, 1])]
+            self.segmentlabel = "sample"
     
 ##########################################################################################
 class SpectralData(BaseData):
@@ -337,10 +350,6 @@ class SpectralData(BaseData):
     def segments(self):
         return Indexer(map(self._get_segment, range(self._seg.shape[0])),
                                 self._seg.shape[0]) if self._seg is not None else None
-
-    @property
-    def trial(self):
-        return self.segments
 
     @property
     def trialinfo(self):
@@ -376,10 +385,7 @@ class SpectralData(BaseData):
         # by reading routine invoked in `BaseData`'s `__init__`)
         if not hasattr(self, "samplerate"):
             self._samplerate = None
-    
-    # Helper function that returns a single segment
-    def _get_segment(self, segno):
-        return self._data[:, int(self._seg[segno, 0]) : int(self._seg[segno, 1])]
+            self.segmentlabel = "freq"
     
 ##########################################################################################
 class VirtualData():
