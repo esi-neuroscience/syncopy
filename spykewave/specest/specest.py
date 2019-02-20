@@ -2,7 +2,7 @@
 # 
 # Created: January 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-20 13:15:28>
+# Last modification time: <2019-02-20 17:46:40>
 
 ###########
 # Add spykewave package to Python search path
@@ -24,15 +24,10 @@ import numpy as np
 import scipy.signal as signal
 import scipy.signal.windows as windows
 from numpy.lib.format import open_memmap
-from tempfile import mkstemp
 from spykewave import __dask__
 if __dask__:
     import dask
     import dask.array as da
-    from dask.distributed import Lock, get_worker
-
-
-from copy import copy
 
 # Local imports
 from spykewave.utils import spw_basedata_parser
@@ -160,7 +155,7 @@ def _mtmfft_byseg(seg, win, nFreq,  pad, padtype, fftAxis):
     """
     Performs the actual heavy-lifting
     """
-
+    
     # move fft/samples dimension into first place
     seg = np.moveaxis(np.atleast_2d(seg), fftAxis, 1)
     nSamples = seg.shape[1]
@@ -221,6 +216,13 @@ def create_test_data(frequencies=(6.5, 22.75, 67.2, 100.5)):
 
 if __name__ == '__main__':
 
+    from dask.distributed import Client, get_client
+    import importlib
+    try:
+        get_client()
+    except:
+        client = Client()
+    importlib.reload(sw)
     datadir = ".." + os.sep + ".." + os.sep + ".." + os.sep + ".." + os.sep + "Data"\
               + os.sep + "testdata" + os.sep
     basename = "MT_RFmapping_session-168a1"
@@ -228,9 +230,9 @@ if __name__ == '__main__':
     dataFiles = [os.path.join(datadir, basename + ext) for ext in ["_xWav.lfp", "_xWav.mua"]]
     data = sw.BaseData(filename=dataFiles, trialdefinition=intervals, filetype="esi")
 
-    tdata = sw.load_spw('../examples/regular_segs')
+    # tdata = sw.load_spw('../examples/regular_segs')
     # # tdata = sw.load_spw('../examples/mtmfft')
-    res = mtmfft(data)
+    # res = mtmfft(data)
     # import matplotlib.pyplot as plt
     # plt.ion()
     # data = create_test_data()

@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-20 13:20:05>
+# Last modification time: <2019-02-20 18:09:09>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -13,6 +13,7 @@ import sys
 import os
 import numbers
 import inspect
+import scipy as sp
 from collections import OrderedDict, Iterator
 from copy import copy
 from hashlib import blake2b
@@ -22,12 +23,12 @@ from numpy.lib.format import open_memmap
 # Local imports
 from spykewave.utils import (spw_scalar_parser, spw_array_parser,
                              SPWTypeError, SPWValueError, spw_warning)
-from spykewave import __version__
+from spykewave import __version__, __storage__, __dask__
+if __dask__:
+    import dask
 import spykewave as sw
 
 __all__ = ["BaseData", "AnalogData", "SpectralData", "VirtualData", "Indexer"]
-
-__storage__ = os.path.join(os.path.expanduser("~"), ".spy")
 
 ##########################################################################################
 class BaseData():
@@ -101,8 +102,12 @@ class BaseData():
 
     @property
     def shapes(self):
-        return [(len(self.label), tseg[1] - tseg[0]) for tseg in self._seg] \
-            if self.label else None
+        if self.seg is not None:
+            sid = self.dimord.index(self.segmentlabel)
+            shp = [list(self._data.shape) for k in range(self._seg.shape[0])]
+            for k, sg in enumerate(self._seg):
+                shp[k][sid] = sg[1] - sg[0]
+            return [tuple(sp) for sp in shp]
 
     @property
     def version(self):
@@ -147,8 +152,18 @@ class BaseData():
         # Write log-header information
         lhd = "\n\t\t>>> SpykeWave v. {ver:s} <<< \n\n" +\
               "Created: {timestamp:s} \n\n" +\
+              "System Profile: \n" +\
+              "{sysver:s} \n" +\
+              "NumPy: {npver:s}\n" +\
+              "SciPy: {spver:s}\n" +\
+              "Dask:  {daver:s}\n\n" +\
               "--- LOG ---"
-        self._log_header = lhd.format(ver=__version__, timestamp=time.asctime())
+        self._log_header = lhd.format(ver=__version__,
+                                      timestamp=time.asctime(),
+                                      sysver=sys.version,
+                                      npver=np.__version__,
+                                      spver=sp.__version__,
+                                      daver=dask.__version__ if __dask__ else "--")
 
         # Write initial log entry
         self._log = ""
