@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-20 18:09:09>
+# Last modification time: <2019-02-21 17:59:01>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -132,8 +132,7 @@ class BaseData():
         self._cfg = {}
         self._data = None
         self._dimlabels = OrderedDict()
-        fname_hsh = blake2b(digest_size=4, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
-        self._filename = os.path.join(__storage__, "spy_{}.npy".format(fname_hsh))
+        self._filename = self._gen_filename()
         self._seg = None
         self._segmentlabel = None
         self._mode = "w"
@@ -201,6 +200,12 @@ class BaseData():
         idx[sid] = slice(int(self._seg[segno, 0]), int(self._seg[segno, 1]))
         return self._data[tuple(idx)]
 
+    # Helper function generating pseudo-random temp file-names
+    @staticmethod
+    def _gen_filename():
+        fname_hsh = blake2b(digest_size=4, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
+        return os.path.join(__storage__, "spy_{}.npy".format(fname_hsh))
+
     # Helper function that digs into cfg dictionaries
     def _set_cfg(self, cfg, dct):
         if not cfg:
@@ -225,9 +230,50 @@ class BaseData():
                 self._data = open_memmap(filename, mode=mode)
         return
     
-    # Return a copy of the current class instance
-    def copy(self):
+    # Return a (deep) copy of the current class instance
+    def copy(self, deep=False):
         return copy(self)
+
+    # Selector method
+    def select(self, segments=None, deepcopy=False, **kwargs):
+        if not set(kwargs.keys()).issubset(self.dimord):
+            raise SPWValueError(legal=self.dimord, actual=list(kwargs.keys()))
+        if segments is None:
+            segments = range(self.seg.shape[0])
+        if not set(segments).issubset(range(self.seg.shape[0])):
+            lgl = "segment selection between 0 and {}".format(str(self.seg.shape[0]))
+            raise SPWValueError(legal=lgl, varname="segments")
+
+        # Build multi-index for selection and warn in case shallow copy is not feasible
+        idx = [slice(None)] * len(self.dimord)
+        target_shape = list(self.data.shape)
+        for lbl, selection in kwargs.items():
+            id = self.dimord.index(lbl) 
+            idx[id] = selection
+            if isinstance(selection, slice):
+                target_shape[id] = len(range(*selection.indices(self.data.shape[id])))
+            elif isinstance(selection, int):
+                target_shape[id] = 1
+            else:
+                if not deepcopy:
+                    spw_warning("Shallow copy only possible for int or slice selectors",
+                                caller="SpykeWave core:select")
+                    deepcopy = True
+                target_shape[id] = len(selection)
+
+        # FIXME: renumber samples in segments!
+        if deepcopy:
+            sid = self.dimord.index(self.segmentlabel)
+            target_shape[sid] = sum([shp[sid] for shp in np.array(self.shapes)[segments]])
+            target = self.copy()
+            target._filename = self._gen_filename()
+            dat = open_memmap(target._filename, mode="w+",
+                              dtype=self..data.dtype, shape=target_shape)
+            del dat
+            for sk, seg in enumerate(segments):
+                dat = open_memmap(target._filename, mode="r+")[
+            
+            
 
     # Wrapper that makes saving routine usable as class method
     def save(self, out_name, filetype=None, **kwargs):
@@ -235,7 +281,7 @@ class BaseData():
         Docstring that mostly points to ``save_data``
         """
         sw.save_data(out_name, self, filetype=filetype, **kwargs)
-    
+
     # Legacy support
     def __repr__(self):
         return self.__str__()
@@ -278,7 +324,7 @@ class BaseData():
 
     # Destructor
     def __del__(self):
-        if __storage__ in self._filename and self._data is not None:
+        if __storage__ in self._filename and os.path.exists(self._filename):
             del self._data
             os.unlink(self._filename)
 
@@ -353,7 +399,7 @@ class AnalogData(BaseData):
             self._hdr = None
             self._samplerate = None
             self.segmentlabel = "sample"
-    
+
 ##########################################################################################
 class SpectralData(BaseData):
 
