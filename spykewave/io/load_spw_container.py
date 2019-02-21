@@ -2,7 +2,7 @@
 # 
 # Created: February  6 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-19 14:22:08>
+# Last modification time: <2019-02-20 10:28:48>
 
 # Builtin/3rd party package imports
 import os
@@ -173,7 +173,6 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
     # Sub-class-specific things follow
     if json_dict["type"] == "AnalogData":
         out._samplerate = json_dict["samplerate"]
-        out._hdr = json_dict["hdr"]
         out._dimlabels["label"] = json_dict["label"]
         out._dimlabels["sample"] = out._seg[:, :2]
 

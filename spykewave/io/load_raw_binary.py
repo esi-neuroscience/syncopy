@@ -2,7 +2,7 @@
 # 
 # Created: Januar 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-19 14:34:34>
+# Last modification time: <2019-02-20 13:01:52>
 
 # Builtin/3rd party package imports
 import os
@@ -20,19 +20,15 @@ __all__ = ["load_binary_esi", "read_binary_esi_header"]
 def load_binary_esi(filename,
                     label="channel",
                     trialdefinition=None,
-                    segmentlabel="trial",
                     out=None):
     """
     Docstring
     """
 
-    # Make sure `out` does not contain unpleasant surprises (for this, we need
-    # to parse segmentlabel first)
-    if not isinstance(segmentlabel, str):
-        raise SPWTypeError(segmentlabel, varname="segmentlabel", expected="str")
+    # Make sure `out` does not contain unpleasant surprises
     if out is not None:
         try:
-            spw_basedata_parser(out, varname="out", seglabel=str(segmentlabel))
+            spw_basedata_parser(out, varname="out", seglabel="sample")
         except Exception as exc:
             raise exc
         new_out = False
@@ -101,10 +97,9 @@ def load_binary_esi(filename,
     out._data = data
     out._filename = filename
     out._mode = "r"
-    out.segmentlabel = segmentlabel
+    out.segmentlabel = "sample"
     out.cfg = {"method" : sys._getframe().f_code.co_name,
-               "filename" : filename,
-               "segmentlabel" : segmentlabel}
+               "hdr" : headers}
     
     # Write attributes specific to `AnalogData` class
     out._hdr = headers
@@ -114,10 +109,8 @@ def load_binary_esi(filename,
     
     # Write log entry
     log = "loaded data:\n" +\
-          "\tfile(s) = {fls:s}\n" +\
-          "\tsegmentlabel = {sl:s}"
-    out.log = log.format(fls="\n\t\t  ".join(fl for fl in filename),
-                         sl=segmentlabel)
+          "\tfile(s) = {fls:s}\n"
+    out.log = log.format(fls="\n\t\t  ".join(fl for fl in filename))
 
     # Happy breakdown
     return out if new_out else None

@@ -2,37 +2,18 @@
 # 
 # Created: January 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-19 17:13:12>
-
-###########
-# Add spykewave package to Python search path
-import os
-import sys
-spw_path = os.path.abspath(".." + os.sep + "..")
-if spw_path not in sys.path:
-    sys.path.insert(0, spw_path)
-
-# Import Spykewave
-import spykewave as sw
-
-from memory_profiler import memory_usage
-
-###########
+# Last modification time: <2019-02-21 12:37:24>
 
 # Builtin/3rd party package imports
+import sys
 import numpy as np
 import scipy.signal as signal
 import scipy.signal.windows as windows
 from numpy.lib.format import open_memmap
-from tempfile import mkstemp
 from spykewave import __dask__
 if __dask__:
     import dask
     import dask.array as da
-    from dask.distributed import Lock, get_worker
-
-
-from copy import copy
 
 # Local imports
 from spykewave.utils import spw_basedata_parser
@@ -41,7 +22,7 @@ from spykewave.datatype import SpectralData
 __all__ = ["mtmfft"]
 
 ##########################################################################################
-def mtmfft(obj, dt=0.001, taper=windows.hann, pad="nextpow2", padtype="zero",
+def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
            polyorder=None, taperopt={}, fftAxis=1, tapsmofrq=None, out=None):
 
     # FIXME: parse remaining input arguments
@@ -50,7 +31,8 @@ def mtmfft(obj, dt=0.001, taper=windows.hann, pad="nextpow2", padtype="zero",
 
     # Make sure input object can be processed
     try:
-        spw_basedata_parser(obj, varname="obj", dimord=["label", "sample"], empty=False)
+        spw_basedata_parser(obj, varname="obj", dimord=["label", "sample"],
+                            writable=None, empty=False)
     except Exception as exc:
         raise exc
     
@@ -58,7 +40,7 @@ def mtmfft(obj, dt=0.001, taper=windows.hann, pad="nextpow2", padtype="zero",
     if out is not None:
         try:
             spw_basedata_parser(out, varname="out", writable=True,
-                                dimord=["freq", "spec"])
+                                dimord=["freq", "spec"], segmentlabel="freq")
         except Exception as exc:
             raise exc
         new_out = False
@@ -89,41 +71,77 @@ def mtmfft(obj, dt=0.001, taper=windows.hann, pad="nextpow2", padtype="zero",
                       mode="w+")
     del res
 
-    # Point to data segments on disk by using delayed **static** method calls
-    lazy_segment = dask.delayed(obj._copy_segment, traverse=False)
-    lazy_segs = [lazy_segment(segno, obj._filename, obj.seg) for segno in range(obj._seg.shape[0])]
+    # See if a dask client is running
+    try:
+        use_dask = bool(get_client())
+    except:
+        use_dask = False
 
-    # Construct a distributed dask array block by stacking delayed segments
-    seg_block = da.hstack([da.from_delayed(seg,
-                                           shape=obj.shapes[sk],
-                                           dtype=obj.data.dtype) for sk, seg in enumerate(lazy_segs)])
-    
-    # Use `map_blocks` to compute spectra for each segment in the constructred dask array
-    specs = seg_block.map_blocks(_mtmfft_byseg, win, nFreq,  pad, padtype, fftAxis, 
-                                 dtype="complex",
-                                 chunks=(win.shape[0], obj.data.shape[0], nFreq),
-                                 new_axis=[0])
+    # Perform parallel computation
+    if use_dask:
 
-    # Write computed spectra in pre-allocated memmap
-    result = specs.map_blocks(_mtmfft_writer, nFreq, out._filename,
-                          dtype="complex",
-                          chunks=(1,),
-                          drop_axis=[0,1])
+        # Point to data segments on disk by using delayed **static** method calls
+        lazy_segment = dask.delayed(obj._copy_segment, traverse=False)
+        lazy_segs = [lazy_segment(segno,
+                                  obj._filename,
+                                  obj.seg,
+                                  obj.hdr,
+                                  obj.dimord,
+                                  obj.segmentlabel)\
+                     for segno in range(obj._seg.shape[0])]
 
-    # Perform actual computation
-    result.compute()
+        # Construct a distributed dask array block by stacking delayed segments
+        seg_block = da.hstack([da.from_delayed(seg,
+                                               shape=obj.shapes[sk],
+                                               dtype=obj.data.dtype) for sk, seg in enumerate(lazy_segs)])
 
+        # Use `map_blocks` to compute spectra for each segment in the constructred dask array
+        specs = seg_block.map_blocks(_mtmfft_byseg, win, nFreq,  pad, padtype, fftAxis, use_dask,
+                                     dtype="complex",
+                                     chunks=(win.shape[0], obj.data.shape[0], nFreq),
+                                     new_axis=[0])
+
+        # Write computed spectra in pre-allocated memmap
+        result = specs.map_blocks(_mtmfft_writer, nFreq, out._filename,
+                              dtype="complex",
+                              chunks=(1,),
+                              drop_axis=[0,1])
+
+        # Perform actual computation
+        result.compute()
+
+    # Serial calculation solely relying on NumPy
+    else:
+        for sk, seg in enumerate(obj.segments):
+            res = open_memmap(out._filename, mode="r+")[:, :, sk*nFreq : (sk + 1)*nFreq]
+            res[...] = _mtmfft_byseg(seg, win, nFreq,  pad, padtype, fftAxis, use_dask)
+            del res
+            obj.clear()
+        
     # Attach results to output object: start w/ dimensional info (order matters!)
-    out._dimlabels["taper"] = ["taper"] * win.shape[0]
+    out._dimlabels["taper"] = [taper.__name__] * win.shape[0]
     out._dimlabels["label"] = obj.label
     out._dimlabels["freq"] = freq
-    out.segmentlabel = obj.segmentlabel
+
+    # Write data and meta-info
+    out._samplerate = obj.samplerate
+    seg = np.array(obj.seg)
+    for k in range(seg.shape[0]):
+        seg[k, [0, 1]] = [k*nFreq, (k+1)*nFreq]
+    out._seg = seg
     out._data = open_memmap(out._filename, mode="r+")
+    out.cfg = {"method" : sys._getframe().f_code.co_name,
+               "taper" : taper.__name__,
+               "padding" : pad,
+               "padtype" : padtype,
+               "polyorder" : polyorder,
+               "taperopt" : taperopt,
+               "tapsmofrq" : tapsmofrq}
 
     # Write log
     log = "computed multi-taper FFT with settings..."
     out.log = log
-    
+
     # Happy breakdown
     return out if new_out else None
     
@@ -139,7 +157,7 @@ def _mtmfft_writer(blk, nFreq, resname, block_info=None):
     return idx
 
 ##########################################################################################
-def _mtmfft_byseg(seg, win, nFreq,  pad, padtype, fftAxis):
+def _mtmfft_byseg(seg, win, nFreq,  pad, padtype, fftAxis, use_dask):
     """
     Performs the actual heavy-lifting
     """
@@ -164,7 +182,7 @@ def _mtmfft_byseg(seg, win, nFreq,  pad, padtype, fftAxis):
         nSamples = seg.shape[1]
 
     # Decide whether to further parallelize or plow through entire chunk
-    if seg.size * seg.dtype.itemsize * 1024**(-2) > 1000:
+    if use_dask and seg.size * seg.dtype.itemsize * 1024**(-2) > 1000:
         spex = []
         for tap in win:
             if seg.ndim > 1:
@@ -181,60 +199,6 @@ def _mtmfft_byseg(seg, win, nFreq,  pad, padtype, fftAxis):
             spec[wIdx, ...] = np.fft.rfft(seg * tap, axis=1)
 
     return spec
-        
-##########################################################################################
-def _mtmfft_compute(data, dt=0.001, taper=windows.hann, pad="nextpow2", padtype="zero",
-           polyorder=None, taperopt={}, fftAxis=1, tapsmofrq=None):
-
-    # move fft/samples dimension into first place
-    data = np.moveaxis(np.atleast_2d(data), fftAxis, 1)
-
-    nSamples = data.shape[1]
-    nChannels = data.shape[0]
-    T = nSamples * dt
-    fsample = 1 / dt
-
-    # padding
-    if pad:
-        padWidth = np.zeros((data.ndim, 2), dtype=int)
-        if pad == "nextpow2":
-            padWidth[1, 0] = _nextpow2(nSamples) - nSamples
-        else:
-            padWidth[1, 0] = np.ceil((pad - T) / dt).astype(int)
-        if padtype == "zero":
-            data = np.pad(data, pad_width=padWidth,
-                          mode="constant", constant_values=0)
-
-        # update number of samples
-        nSamples = data.shape[1]
-
-    if taper == windows.dpss and (not taperopt):
-        nTaper = np.int(np.floor(tapsmofrq * T))
-        taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
-
-    # compute taper in shape nTaper x nSamples
-    win = np.atleast_2d(taper(nSamples, **taperopt))
-
-    # construct frequency axis
-    df = fsample / nSamples
-    freq = np.arange(0, np.floor(nSamples / 2) + 1) * df
-
-    import ipdb
-    ipdb.set_trace()
-    
-    # compute spectra
-    spec = np.zeros((win.shape[0],) + (nChannels,) +
-                    (freq.size,), dtype=complex)
-    for wIdx, tap in enumerate(win):
-
-        if data.ndim > 1:
-            tap = np.tile(tap, (nChannels, 1))
-
-        # taper x chan x freq
-        spec[wIdx, ...] = np.fft.rfft(data * tap, axis=1)
-
-    # return freq, spec.squeeze()
-    return spec.squeeze()
 
 ##########################################################################################
 def _nextpow2(number):
@@ -242,35 +206,3 @@ def _nextpow2(number):
     while n < number:
         n *= 2
     return n
-
-
-def create_test_data(frequencies=(6.5, 22.75, 67.2, 100.5)):
-    freq = np.array(frequencies)
-    amp = np.ones(freq.shape)
-    phi = np.random.rand(len(freq)) * 2 * np.pi
-    signal = np.random.rand(2000) + 0.3
-    dt = 0.001
-    t = np.arange(signal.size) * dt
-    for idx, f in enumerate(freq):
-        signal += amp[idx] * np.sin(2 * np.pi * f * t + phi[idx])
-    return signal
-
-
-if __name__ == '__main__':
-
-    tdata = sw.load_spw('../examples/regular_segs')
-    # tdata = sw.load_spw('../examples/mtmfft')
-    mtmfft(tdata)
-    # import matplotlib.pyplot as plt
-    # plt.ion()
-    # data = create_test_data()
-    # data = np.vstack([data, data])
-    # spec = _mtmfft_compute(data, dt=0.001, pad="nextpow2",
-    #                                   taper=windows.hann,
-    #                                   tapsmofrq=2)
-    # fig, ax = plt.subplots(2)
-    # ax[0].plot(data)
-    # ax[1].plot(freq, np.squeeze(np.mean(np.absolute(spec), axis=0)), '.-')
-    # 
-    # ax[1].set_xlim([-0.5, 105.5])
-    # plt.draw()
