@@ -2,7 +2,7 @@
 # 
 # Created: January 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-21 12:37:24>
+# Last modification time: <2019-02-22 17:04:07>
 
 # Builtin/3rd party package imports
 import sys
@@ -31,7 +31,7 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
 
     # Make sure input object can be processed
     try:
-        spw_basedata_parser(obj, varname="obj", dimord=["label", "sample"],
+        spw_basedata_parser(obj, varname="obj", dimord=["channel", "sample"],
                             writable=None, empty=False)
     except Exception as exc:
         raise exc
@@ -40,7 +40,7 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
     if out is not None:
         try:
             spw_basedata_parser(out, varname="out", writable=True,
-                                dimord=["freq", "spec"], segmentlabel="freq")
+                                dimord=["taper", "channel", "freq"], segmentlabel="freq")
         except Exception as exc:
             raise exc
         new_out = False
@@ -120,7 +120,7 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
         
     # Attach results to output object: start w/ dimensional info (order matters!)
     out._dimlabels["taper"] = [taper.__name__] * win.shape[0]
-    out._dimlabels["label"] = obj.label
+    out._dimlabels["channel"] = obj.label
     out._dimlabels["freq"] = freq
 
     # Write data and meta-info

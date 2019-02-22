@@ -2,7 +2,7 @@
 # 
 # Created: February  5 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-14 17:18:06>
+# Last modification time: <2019-02-22 17:15:51>
 
 # Builtin/3rd party package imports
 import os
@@ -96,7 +96,7 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
     # Much simpler: make sure on-disk memmap is up-to-date and simply copy it
     else:
         out.data.flush()
-        shutil.copyfile(out.data.filename, filename.format(ext=FILE_EXT["data"]))
+        shutil.copyfile(out._filename, filename.format(ext=FILE_EXT["data"]))
         
     # Compute checksums of created binary files
     seg_hsh = hash_file(filename.format(ext=FILE_EXT["seg"]))
@@ -135,6 +135,11 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
                 _dict_converter(hd)
                 hdr.append(hd)
             out_dct["hdr"] = hdr
+            
+    elif out.__class__.__name__ == "SpectralData":
+        out_dct["samplerate"] = out.samplerate
+        out_dct["taper"] = out._dimlabels["taper"]
+        out_dct["freq"] = out._dimlabels["freq"]
     
     # Save computed file-hashes
     out_dct["seg_checksum"] = seg_hsh

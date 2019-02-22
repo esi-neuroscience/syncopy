@@ -2,7 +2,7 @@
 # 
 # Created: February  6 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-20 10:28:48>
+# Last modification time: <2019-02-22 17:08:38>
 
 # Builtin/3rd party package imports
 import os
@@ -98,7 +98,7 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
                 "segmentlabel" : str,
                 "version" : str,
                 "log" : str,
-                "label" : list}
+                "channel" : list}
     with open(in_files["json"], "r") as fle:
         json_dict = json.load(fle)
     mandatory = set(["type"] + list(expected.keys()))
@@ -129,8 +129,19 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
             spw_json_parser(json_dict, expected)
         except Exception as exc:
             raise exc
-        if set(json_dict["dimord"]) != set(["label", "sample"]):
-            raise SPWValueError(legal="dimord = ['label', 'sample']",
+        if set(json_dict["dimord"]) != set(["channel", "sample"]):
+            raise SPWValueError(legal="dimord = ['channel', 'sample']",
+                                varname="JSON: dimord",
+                                actual=str(json_dict["dimord"]))
+        
+    elif json_dict["type"] == "SpectralData":
+        expected = {"samplerate" : float}
+        try:
+            spw_json_parser(json_dict, expected)
+        except Exception as exc:
+            raise exc
+        if set(json_dict["dimord"]) != set(["taper", "channel", "freq"]):
+            raise SPWValueError(legal="dimord = ['taper', 'channel', 'freq']",
                                 varname="JSON: dimord",
                                 actual=str(json_dict["dimord"]))
 
@@ -173,8 +184,14 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
     # Sub-class-specific things follow
     if json_dict["type"] == "AnalogData":
         out._samplerate = json_dict["samplerate"]
-        out._dimlabels["label"] = json_dict["label"]
+        out._dimlabels["channel"] = json_dict["label"]
         out._dimlabels["sample"] = out._seg[:, :2]
+        
+    elif json_dict["type"] == "SpectralData":
+        out._samplerate = json_dict["samplerate"]
+        out._dimlabels["channel"] = json_dict["label"]
+        out._dimlabels["taper"] = json_dict["taper"]
+        out._dimlabels["freq"] = json_dict["freq"]
 
     # Finally, access data on disk
     out._data = open_memmap(in_files["data"], mode="r+")

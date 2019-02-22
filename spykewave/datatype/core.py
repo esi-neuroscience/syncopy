@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-21 17:59:01>
+# Last modification time: <2019-02-22 17:20:56>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -53,7 +53,7 @@ class BaseData():
 
     @property
     def label(self):
-        return self._dimlabels.get("label")
+        return self._dimlabels.get(self.segmentlabel)
 
     @property
     def log(self):
@@ -118,7 +118,7 @@ class BaseData():
                  filename=None,
                  filetype=None,
                  trialdefinition=None,
-                 label=None):
+                 channel=None):
         """
         Docstring
         """
@@ -170,9 +170,9 @@ class BaseData():
 
         # Finally call appropriate reading routine if filename was provided
         if read_fl:
-            if label is None:
-                label = "channel"
-            sw.load_data(filename, filetype=filetype, label=label,
+            if channel is None:
+                channel = "channel"
+            sw.load_data(filename, filetype=filetype, channel=channel,
                          trialdefinition=trialdefinition, out=self)
 
     # Helper function that reads a single segment into memory
@@ -232,17 +232,33 @@ class BaseData():
     
     # Return a (deep) copy of the current class instance
     def copy(self, deep=False):
-        return copy(self)
+        cpy = copy(self)
+        if deep:
+            if isinstance(self.data, VirtualData):
+                spw_warning("Deep copy not possible for VirtualData objects. " +\
+                            "Please use `save_spw` instead. ",
+                            caller="SpykeWave core: copy")
+                return
+            self.data.flush()
+            cpy._filename = self._gen_filename()            
+            shutil.copyfile(self._filename, cpy._filename)
+        return cpy
 
     # Selector method
     def select(self, segments=None, deepcopy=False, **kwargs):
         if not set(kwargs.keys()).issubset(self.dimord):
             raise SPWValueError(legal=self.dimord, actual=list(kwargs.keys()))
+        if kwargs.get(self.segmentlabel) and segments is not None:
+            lgl = "selection by segment or by {}".format(self.segmentlabel)
+            act = "both provided"
+            raise SPWValueError(legal=lgl, actual=act)
         if segments is None:
             segments = range(self.seg.shape[0])
         if not set(segments).issubset(range(self.seg.shape[0])):
             lgl = "segment selection between 0 and {}".format(str(self.seg.shape[0]))
             raise SPWValueError(legal=lgl, varname="segments")
+        if isinstance(segments, int):
+            segments = [segments]
 
         # Build multi-index for selection and warn in case shallow copy is not feasible
         idx = [slice(None)] * len(self.dimord)
@@ -261,19 +277,33 @@ class BaseData():
                     deepcopy = True
                 target_shape[id] = len(selection)
 
-        # FIXME: renumber samples in segments!
+        # FIXME: either copy by-sample or by-segment
+        target = self.copy()
         if deepcopy:
             sid = self.dimord.index(self.segmentlabel)
             target_shape[sid] = sum([shp[sid] for shp in np.array(self.shapes)[segments]])
-            target = self.copy()
+            target_idx = [slice(None)] * len(self.dimord)
+            target_sid = 0
             target._filename = self._gen_filename()
-            dat = open_memmap(target._filename, mode="w+",
+            target_dat = open_memmap(target._filename, mode="w+",
                               dtype=self..data.dtype, shape=target_shape)
-            del dat
-            for sk, seg in enumerate(segments):
-                dat = open_memmap(target._filename, mode="r+")[
-            
-            
+            del target_dat
+            for segno in segments:
+                source_seg = self._copy_segment(segno,
+                                                self._filename,
+                                                self.seg,
+                                                self.hdr,
+                                                self.dimord,
+                                                self.segmentlabel)
+                seg_len = source_seg.shape[sid]
+                target_idx[sid] = slice(target_sid, target_sid + seg_len)
+                target_dat = open_memmap(target._filename, mode="r+")[target_idx]
+                target_dat = source_seg[idx]
+                target_sid += seg_len
+        else:
+            target._data = open_memmap(self._filename, mode="r")[idx]
+
+        return target
 
     # Wrapper that makes saving routine usable as class method
     def save(self, out_name, filetype=None, **kwargs):

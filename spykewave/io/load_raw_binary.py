@@ -2,7 +2,7 @@
 # 
 # Created: Januar 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-20 13:01:52>
+# Last modification time: <2019-02-22 17:00:50>
 
 # Builtin/3rd party package imports
 import os
@@ -18,7 +18,7 @@ __all__ = ["load_binary_esi", "read_binary_esi_header"]
 
 ##########################################################################################
 def load_binary_esi(filename,
-                    label="channel",
+                    channel="channel",
                     trialdefinition=None,
                     out=None):
     """
@@ -78,10 +78,10 @@ def load_binary_esi(filename,
     data = VirtualData(dsets)
 
     # Construct/parse list of channel labels
-    if isinstance(label, str):
-        label = [label + str(i + 1) for i in range(data.M)]
+    if isinstance(channel, str):
+        channel = [channel + str(i + 1) for i in range(data.M)]
     try:
-        spw_array_parser(label, varname="label", ntype="str", dims=(data.M,))
+        spw_array_parser(channel, varname="channel", ntype="str", dims=(data.M,))
     except Exception as exc:
         raise exc
 
@@ -90,7 +90,7 @@ def load_binary_esi(filename,
         trialdefinition = np.array([[0, data.N, 0]])
 
     # Write dimensional information - order matters here!
-    out._dimlabels["label"] = label
+    out._dimlabels["channel"] = channel
     out._dimlabels["sample"] = trialdefinition[:, :2]
 
     # Fill up mandatory `BaseData` attributes
