@@ -1,8 +1,8 @@
-# core.py - SpykeWave basic datatype reference implementation
+# data_classes.py - SpykeWave data classes
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-22 17:20:56>
+# Last modification time: <2019-02-25 16:16:49>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -21,6 +21,7 @@ from itertools import islice
 from numpy.lib.format import open_memmap
     
 # Local imports
+from spykewave.datatype import _selectdata_continuous
 from spykewave.utils import (spw_scalar_parser, spw_array_parser,
                              SPWTypeError, SPWValueError, spw_warning)
 from spykewave import __version__, __storage__, __dask__
@@ -245,65 +246,11 @@ class BaseData():
         return cpy
 
     # Selector method
-    def select(self, segments=None, deepcopy=False, **kwargs):
-        if not set(kwargs.keys()).issubset(self.dimord):
-            raise SPWValueError(legal=self.dimord, actual=list(kwargs.keys()))
-        if kwargs.get(self.segmentlabel) and segments is not None:
-            lgl = "selection by segment or by {}".format(self.segmentlabel)
-            act = "both provided"
-            raise SPWValueError(legal=lgl, actual=act)
-        if segments is None:
-            segments = range(self.seg.shape[0])
-        if not set(segments).issubset(range(self.seg.shape[0])):
-            lgl = "segment selection between 0 and {}".format(str(self.seg.shape[0]))
-            raise SPWValueError(legal=lgl, varname="segments")
-        if isinstance(segments, int):
-            segments = [segments]
-
-        # Build multi-index for selection and warn in case shallow copy is not feasible
-        idx = [slice(None)] * len(self.dimord)
-        target_shape = list(self.data.shape)
-        for lbl, selection in kwargs.items():
-            id = self.dimord.index(lbl) 
-            idx[id] = selection
-            if isinstance(selection, slice):
-                target_shape[id] = len(range(*selection.indices(self.data.shape[id])))
-            elif isinstance(selection, int):
-                target_shape[id] = 1
-            else:
-                if not deepcopy:
-                    spw_warning("Shallow copy only possible for int or slice selectors",
-                                caller="SpykeWave core:select")
-                    deepcopy = True
-                target_shape[id] = len(selection)
-
-        # FIXME: either copy by-sample or by-segment
-        target = self.copy()
-        if deepcopy:
-            sid = self.dimord.index(self.segmentlabel)
-            target_shape[sid] = sum([shp[sid] for shp in np.array(self.shapes)[segments]])
-            target_idx = [slice(None)] * len(self.dimord)
-            target_sid = 0
-            target._filename = self._gen_filename()
-            target_dat = open_memmap(target._filename, mode="w+",
-                              dtype=self..data.dtype, shape=target_shape)
-            del target_dat
-            for segno in segments:
-                source_seg = self._copy_segment(segno,
-                                                self._filename,
-                                                self.seg,
-                                                self.hdr,
-                                                self.dimord,
-                                                self.segmentlabel)
-                seg_len = source_seg.shape[sid]
-                target_idx[sid] = slice(target_sid, target_sid + seg_len)
-                target_dat = open_memmap(target._filename, mode="r+")[target_idx]
-                target_dat = source_seg[idx]
-                target_sid += seg_len
-        else:
-            target._data = open_memmap(self._filename, mode="r")[idx]
-
-        return target
+    def selectdata(self, segments=None, deepcopy=False, **kwargs):
+        """
+        Docstring mostly pointing to ``selectdata``
+        """
+        return _selectdata_continuous(self, segments, deepcopy, **kwargs)
 
     # Wrapper that makes saving routine usable as class method
     def save(self, out_name, filetype=None, **kwargs):
@@ -357,7 +304,11 @@ class BaseData():
         if __storage__ in self._filename and os.path.exists(self._filename):
             del self._data
             os.unlink(self._filename)
-
+            
+##########################################################################################
+class ContinuousData(BaseData):
+    pass
+            
 ##########################################################################################
 class AnalogData(BaseData):
 
