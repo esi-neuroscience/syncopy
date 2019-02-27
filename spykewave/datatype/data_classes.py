@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-25 16:16:49>
+# Last modification time: <2019-02-27 13:45:28>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -14,6 +14,7 @@ import os
 import numbers
 import inspect
 import scipy as sp
+from abc import ABC, abstractmethod
 from collections import OrderedDict, Iterator
 from copy import copy
 from hashlib import blake2b
@@ -21,18 +22,18 @@ from itertools import islice
 from numpy.lib.format import open_memmap
     
 # Local imports
-from spykewave.datatype import _selectdata_continuous
+from .data_methods import _selectdata_continuous
 from spykewave.utils import (spw_scalar_parser, spw_array_parser,
                              SPWTypeError, SPWValueError, spw_warning)
 from spykewave import __version__, __storage__, __dask__
 if __dask__:
     import dask
-import spykewave as sw
+import spykewave as spy
 
-__all__ = ["BaseData", "AnalogData", "SpectralData", "VirtualData", "Indexer"]
+__all__ = ["AnalogData", "SpectralData", "VirtualData", "Indexer"]
 
 ##########################################################################################
-class BaseData():
+class BaseData(ABC):
 
     @property
     def cfg(self):
@@ -51,10 +52,6 @@ class BaseData():
     @property
     def dimord(self):
         return list(self._dimlabels.keys())
-
-    @property
-    def label(self):
-        return self._dimlabels.get(self.segmentlabel)
 
     @property
     def log(self):
@@ -77,39 +74,9 @@ class BaseData():
         return self._mode
     
     @property
-    def seg(self):
-        return self._seg
+    def trialinfo(self):
+        return self._trialinfo
     
-    @property
-    def segmentlabel(self):
-        return self._segmentlabel
-
-    @segmentlabel.setter
-    def segmentlabel(self, seglbl):
-        if not isinstance(seglbl, str):
-            raise SPWTypeError(seglbl, varname="segmentlabel", expected="str")
-        options = ["sample", "freq"]
-        if seglbl not in options:
-            raise SPWValueError("".join(opt + ", " for opt in options)[:-2],
-                                varname="segmentlabel", actual=seglbl)
-        if self._segmentlabel is None:
-            self._segmentlabel = seglbl
-        else:
-            if self._segmentlabel != seglbl:
-                msg = "Cannot change `segmentlabel` property from " +\
-                      "'{current:s}' to '{wanted:s}'. Please create new BaseData object"
-                spw_warning(msg.format(current=str(self._segmentlabel), wanted=seglbl),
-                            caller="SpykeWave core")
-
-    @property
-    def shapes(self):
-        if self.seg is not None:
-            sid = self.dimord.index(self.segmentlabel)
-            shp = [list(self._data.shape) for k in range(self._seg.shape[0])]
-            for k, sg in enumerate(self._seg):
-                shp[k][sid] = sg[1] - sg[0]
-            return [tuple(sp) for sp in shp]
-
     @property
     def version(self):
         return self._version
@@ -134,8 +101,7 @@ class BaseData():
         self._data = None
         self._dimlabels = OrderedDict()
         self._filename = self._gen_filename()
-        self._seg = None
-        self._segmentlabel = None
+        self._trialinfo = None
         self._mode = "w"
 
         # Create temporary working directory if not already present
@@ -173,34 +139,50 @@ class BaseData():
         if read_fl:
             if channel is None:
                 channel = "channel"
-            sw.load_data(filename, filetype=filetype, channel=channel,
+            spy.load_data(filename, filetype=filetype, channel=channel,
                          trialdefinition=trialdefinition, out=self)
 
-    # Helper function that reads a single segment into memory
-    @staticmethod
-    def _copy_segment(segno, filename, seg, hdr, dimord, segmentlabel):
-        idx = [slice(None)] * len(dimord)
-        idx[dimord.index(segmentlabel)] = slice(int(seg[segno, 0]), int(seg[segno, 1]))
-        idx = tuple(idx)
-        if hdr is None:
-            # For pre-processed npy files
-            return np.array(open_memmap(filename, mode="c")[idx])
-        else:
-            # For VirtualData objects
-            dsets = []
-            for fk, fname in enumerate(filename):
-                dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
-                                       mode="r", dtype=hdr[fk]["dtype"],
-                                       shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
-            return np.vstack(dsets)
-        
-    # Helper function that grabs a single segment from memory-map(s)
-    def _get_segment(self, segno):
-        idx = [slice(None)] * len(self.dimord)
-        sid = self.dimord.index(self.segmentlabel)
-        idx[sid] = slice(int(self._seg[segno, 0]), int(self._seg[segno, 1]))
-        return self._data[tuple(idx)]
+        # Make instantiation persistent in all subclasses
+        super().__init__()
 
+    # Convenience function, wiping attached memmap
+    def clear(self):
+        if self.data is not None:
+                filename, mode = self.data.filename, self.data.mode
+                self.data.flush()
+                self.data = None
+                self.data = open_memmap(filename, mode=mode)
+        return
+    
+    # Return a (deep) copy of the current class instance
+    def copy(self, deep=False):
+        cpy = copy(self)
+        if deep:
+            if isinstance(self.data, VirtualData):
+                spw_warning("Deep copy not possible for VirtualData objects. " +\
+                            "Please use `save_spw` instead. ",
+                            caller="SpykeWave core: copy")
+                return
+            self.data.flush()
+            cpy._filename = self._gen_filename()            
+            shutil.copyfile(self._filename, cpy._filename)
+        return cpy
+
+    # Wrapper that makes saving routine usable as class method
+    def save(self, out_name, filetype=None, **kwargs):
+        """
+        Docstring that mostly points to ``save_data``
+        """
+        spy.save_data(out_name, self, filetype=filetype, **kwargs)
+
+    # Selector method
+    @abstractmethod
+    def selectdata(self, trials=None, deepcopy=False, **kwargs):
+        """
+        Docstring mostly pointing to ``selectdata``
+        """
+        pass
+    
     # Helper function generating pseudo-random temp file-names
     @staticmethod
     def _gen_filename():
@@ -218,46 +200,6 @@ class BaseData():
                 cfg["cfg"] = dct
                 return cfg
         return cfg
-
-    # Convenience function, wiping attached memmap or pointing to class-specific `clear` method
-    def clear(self):
-        if self._data is not None:
-            if hasattr(self._data, "clear"):
-                self._data.clear()
-            else:
-                filename, mode = self._data.filename, self._data.mode
-                self._data.flush()
-                self._data = None
-                self._data = open_memmap(filename, mode=mode)
-        return
-    
-    # Return a (deep) copy of the current class instance
-    def copy(self, deep=False):
-        cpy = copy(self)
-        if deep:
-            if isinstance(self.data, VirtualData):
-                spw_warning("Deep copy not possible for VirtualData objects. " +\
-                            "Please use `save_spw` instead. ",
-                            caller="SpykeWave core: copy")
-                return
-            self.data.flush()
-            cpy._filename = self._gen_filename()            
-            shutil.copyfile(self._filename, cpy._filename)
-        return cpy
-
-    # Selector method
-    def selectdata(self, segments=None, deepcopy=False, **kwargs):
-        """
-        Docstring mostly pointing to ``selectdata``
-        """
-        return _selectdata_continuous(self, segments, deepcopy, **kwargs)
-
-    # Wrapper that makes saving routine usable as class method
-    def save(self, out_name, filetype=None, **kwargs):
-        """
-        Docstring that mostly points to ``save_data``
-        """
-        sw.save_data(out_name, self, filetype=filetype, **kwargs)
 
     # Legacy support
     def __repr__(self):
@@ -306,11 +248,54 @@ class BaseData():
             os.unlink(self._filename)
             
 ##########################################################################################
-class ContinuousData(BaseData):
-    pass
-            
+class ContinuousData(BaseData, ABC):
+
+    @property
+    def channel(self):
+        return self._dimlabels.get("channel")
+
+    @property
+    def samplerate(self):
+        return self._samplerate
+    
+    @property
+    @abstractmethod
+    def _shapes(self):
+        pass
+
+    @property
+    @abstractmethod
+    def trials(self):
+        pass
+    
+    @property
+    @abstractmethod
+    def time(self, unit="s"):
+        pass
+
+    # Make instantiation persistent in all subclasses
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    # Selector method
+    def selectdata(self, trials=None, deepcopy=False, **kwargs):
+        """
+        Docstring mostly pointing to ``selectdata``
+        """
+        return _selectdata_continuous(self, trials, deepcopy, **kwargs)
+
+    # Define helper functions for extracting data by trial
+    @staticmethod
+    @abstractmethod
+    def _copy_trial(trialno, filename, sampleinfo, hdr, dimord):
+        pass
+    
+    @abstractmethod
+    def _get_trial(self, trialno):
+        pass
+        
 ##########################################################################################
-class AnalogData(BaseData):
+class AnalogData(ContinuousData):
 
     @property
     def hdr(self):
@@ -318,116 +303,137 @@ class AnalogData(BaseData):
     
     @property
     def sampleinfo(self):
-        return self._dimlabels.get("sample")
+        return self._sampleinfo
     
     @property
-    def samplerate(self):
-        return self._samplerate
-    
-    @property
-    def segments(self):
-        return Indexer(map(self._get_segment, range(self._seg.shape[0])),
-                                self._seg.shape[0]) if self._seg is not None else None
-
-    @property
-    def time(self, unit="s"):
+    def trialtimes(self, unit="s"):
         converter = {"h": 1/360, "min": 1/60, "s" : 1, "ms" : 1e3, "ns" : 1e9}
         if not isinstance(unit, str):
             raise SPWTypeError(unit, varname="unit", expected="str")
         if unit not in converter.keys():
             raise SPWValueError("".join(opt + ", " for opt in converter.keys())[:-2],
                                 varname="unit", actual=unit)
-        return [np.arange(start, end)*converter[unit]/self._samplerate \
-                for (start, end) in self.sampleinfo] if self._samplerate else None
+        return [np.arange(start, end)*converter[unit]/self.samplerate \
+                for (start, end) in self.trials[:,:2]] if self.samplerate else None
 
     @property
-    def trial(self):
-        return self.segments
+    def time(self):
+        return None
+        
+    @property
+    def trials(self):
+        return Indexer(map(self._get_trial, range(self.sampleinfo.shape[0])),
+                                self.sampleinfo.shape[0]) if self.sampleinfo is not None else None
 
     @property
-    def trialinfo(self):
-        return self.seg
-    
-    # Constructor
-    def __new__(cls, basedataobj=None, copy=True, **kwargs):
+    def _shapes(self):
+        if self.sampleinfo is not None:
+            sid = self.dimord.index("time")
+            shp = [list(self._data.shape) for k in range(self.sampleinfo.shape[0])]
+            for k, sg in enumerate(self.sampleinfo):
+                shp[k][sid] = sg[1] - sg[0]
+            return [tuple(sp) for sp in shp]
 
-        # Either create new instance from scratch or copy/convert existing BaseData object
-        if isinstance(basedataobj, BaseData):
-            if copy:
-                obj = basedataobj.copy()
-                basedataobj.log = "copied self to create {} object".format(cls.__name__)
-                msg = "created {new:s} object from {old:s} object"
-            else:
-                obj = basedataobj
-                msg = "converted {old:s} object to {new:s} object"
-            obj.log = msg.format(old=basedataobj.__class__.__name__,
-                                 new=cls.__name__)
-            obj.__class__ = cls
-            return obj
-        else:
-            return super().__new__(cls)
+    # "Constructor"
+    def __init__(self, **kwargs):
 
-    # Customizer
-    def __init__(self, basedataobj=None, **kwargs):
-
-        # If we're starting from scratch, call parent class initializer
-        if basedataobj is None:
-            super().__init__(**kwargs)
+        # Call parent initializer
+        super().__init__(**kwargs)
 
         # Set default values for necessary attributes (if not already set
         # by reading routine invoked in `BaseData`'s `__init__`)
         if not hasattr(self, "hdr"):
             self._hdr = None
+            self._sampleinfo = None
             self._samplerate = None
-            self.segmentlabel = "sample"
-
-##########################################################################################
-class SpectralData(BaseData):
-
-    @property
-    def samplerate(self):
-        return self._samplerate
-    
-    @property
-    def segments(self):
-        return Indexer(map(self._get_segment, range(self._seg.shape[0])),
-                                self._seg.shape[0]) if self._seg is not None else None
-
-    @property
-    def trialinfo(self):
-        return self.seg
-    
-    # Constructor
-    def __new__(cls, basedataobj=None, copy=True, **kwargs):
-
-        # Either create new instance from scratch or copy/convert existing BaseData object
-        if isinstance(basedataobj, BaseData):
-            if copy:
-                obj = basedataobj.copy()
-                basedataobj.log = "copied self to create {} object".format(cls.__name__)
-                msg = "created {new:s} object from {old:s} object"
+            
+    # Overload clear method to account for `VirtualData` memmaps
+    def clear(self):
+        if self.data is not None:
+            if hasattr(self.data, "clear"):
+                self.data.clear()
             else:
-                obj = basedataobj
-                msg = "converted {old:s} object to {new:s} object"
-            obj.log = msg.format(old=basedataobj.__class__.__name__,
-                                 new=cls.__name__)
-            obj.__class__ = cls
-            return obj
+                filename, mode = self.data.filename, self.data.mode
+                self.data.flush()
+                self.data = None
+                self.data = open_memmap(filename, mode=mode)
+        return
+    
+    # Helper function that reads a single trial into memory
+    @staticmethod
+    def _copy_trial(trialno, filename, sampleinfo, hdr, dimord):
+        idx = [slice(None)] * len(dimord)
+        idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
+        idx = tuple(idx)
+        if hdr is None:
+            # For pre-processed npy files
+            return np.array(open_memmap(filename, mode="c")[idx])
         else:
-            return super().__new__(cls)
+            # For VirtualData objects
+            dsets = []
+            for fk, fname in enumerate(filename):
+                dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
+                                       mode="r", dtype=hdr[fk]["dtype"],
+                                       shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
+            return np.vstack(dsets)
+        
+    # Helper function that grabs a single trial from memory-map(s)
+    def _get_trial(self, trialno):
+        idx = [slice(None)] * len(self.dimord)
+        sid = self.dimord.index("time")
+        idx[sid] = slice(int(self.sampleinfo[trialno, 0]), int(self.sampleinfo[trialno, 1]))
+        return self._data[tuple(idx)]
 
-    # Customizer
-    def __init__(self, basedataobj=None, **kwargs):
-
-        # If we're starting from scratch, call parent class initializer
-        if basedataobj is None:
-            super().__init__(**kwargs)
-
-        # Set default values for necessary attributes (if not already set
-        # by reading routine invoked in `BaseData`'s `__init__`)
-        if not hasattr(self, "samplerate"):
-            self._samplerate = None
-            self.segmentlabel = "freq"
+class SpectralData():
+    pass
+    
+# ##########################################################################################
+# class SpectralData(ContinuousData):
+# 
+#     @property
+#     def samplerate(self):
+#         return self._samplerate
+#     
+#     @property
+#     def segments(self):
+#         return Indexer(map(self._get_segment, range(self._seg.shape[0])),
+#                                 self._seg.shape[0]) if self._seg is not None else None
+# 
+#     @property
+#     def trialinfo(self):
+#         return self.seg
+#     
+#     # Constructor
+#     def __new__(cls, basedataobj=None, copy=True, **kwargs):
+# 
+#         # Either create new instance from scratch or copy/convert existing BaseData object
+#         if isinstance(basedataobj, BaseData):
+#             if copy:
+#                 obj = basedataobj.copy()
+#                 basedataobj.log = "copied self to create {} object".format(cls.__name__)
+#                 msg = "created {new:s} object from {old:s} object"
+#             else:
+#                 obj = basedataobj
+#                 msg = "converted {old:s} object to {new:s} object"
+#             obj.log = msg.format(old=basedataobj.__class__.__name__,
+#                                  new=cls.__name__)
+#             obj.__class__ = cls
+#             return obj
+#         else:
+#             return super().__new__(cls)
+# 
+#     # Customizer
+#     def __init__(self, basedataobj=None, **kwargs):
+# 
+#         # If we're starting from scratch, call parent class initializer
+#         if basedataobj is None:
+#             super().__init__(**kwargs)
+# 
+#         # Set default values for necessary attributes (if not already set
+#         # by reading routine invoked in `BaseData`'s `__init__`)
+#         if not hasattr(self, "samplerate"):
+#             self._samplerate = None
+#             self.segmentlabel = "freq"
     
 ##########################################################################################
 class VirtualData():
