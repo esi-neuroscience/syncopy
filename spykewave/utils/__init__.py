@@ -2,7 +2,7 @@
 # 
 # Created: Januar 15 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-01-30 13:49:58>
+# Last modification time: <2019-02-27 15:58:11>
 """
 SpykeWave Convenience Utilities (:mod:`spykewave.utils`)
 ========================================================
@@ -25,9 +25,9 @@ We built some tools...
 
 # Import __all__ routines from local modules
 from .misc import *
-from .spw_parsers import *
+from .spy_parsers import *
 
 # Populate local __all__ namespace
 __all__ = []
 __all__.extend(misc.__all__)
-__all__.extend(spw_parsers.__all__)
+__all__.extend(spy_parsers.__all__)

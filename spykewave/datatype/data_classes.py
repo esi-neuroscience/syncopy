@@ -2,7 +2,7 @@
 # 
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-27 13:45:28>
+# Last modification time: <2019-02-27 17:31:59>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -23,7 +23,7 @@ from numpy.lib.format import open_memmap
     
 # Local imports
 from .data_methods import _selectdata_continuous
-from spykewave.utils import (spw_scalar_parser, spw_array_parser,
+from spykewave.utils import (spy_scalar_parser, spy_array_parser,
                              SPWTypeError, SPWValueError, spw_warning)
 from spykewave import __version__, __storage__, __dask__
 if __dask__:
@@ -82,18 +82,14 @@ class BaseData(ABC):
         return self._version
 
     # Class "constructor"
-    def __init__(self,
-                 filename=None,
-                 filetype=None,
-                 trialdefinition=None,
-                 channel=None):
+    def __init__(self, **kwargs):
         """
         Docstring
         """
 
         # Depending on contents of `filename`, class instantiation invokes I/O routines
         read_fl = True
-        if filename is None:
+        if not kwargs.get("filename"):
             read_fl = False
 
         # Prepare necessary "global" parsing attributes
@@ -137,10 +133,10 @@ class BaseData(ABC):
 
         # Finally call appropriate reading routine if filename was provided
         if read_fl:
-            if channel is None:
-                channel = "channel"
-            spy.load_data(filename, filetype=filetype, channel=channel,
-                         trialdefinition=trialdefinition, out=self)
+            if not kwargs.get("channel"):
+                kwargs["channel"] = "channel"
+            filename = kwargs.pop("filename")
+            spy.load_data(filename, out=self, **kwargs)
 
         # Make instantiation persistent in all subclasses
         super().__init__()
@@ -269,9 +265,8 @@ class ContinuousData(BaseData, ABC):
         pass
     
     @property
-    @abstractmethod
-    def time(self, unit="s"):
-        pass
+    def time(self):
+        return self._dimlabels.get("time")
 
     # Make instantiation persistent in all subclasses
     def __init__(self, **kwargs):
@@ -306,21 +301,6 @@ class AnalogData(ContinuousData):
         return self._sampleinfo
     
     @property
-    def trialtimes(self, unit="s"):
-        converter = {"h": 1/360, "min": 1/60, "s" : 1, "ms" : 1e3, "ns" : 1e9}
-        if not isinstance(unit, str):
-            raise SPWTypeError(unit, varname="unit", expected="str")
-        if unit not in converter.keys():
-            raise SPWValueError("".join(opt + ", " for opt in converter.keys())[:-2],
-                                varname="unit", actual=unit)
-        return [np.arange(start, end)*converter[unit]/self.samplerate \
-                for (start, end) in self.trials[:,:2]] if self.samplerate else None
-
-    @property
-    def time(self):
-        return None
-        
-    @property
     def trials(self):
         return Indexer(map(self._get_trial, range(self.sampleinfo.shape[0])),
                                 self.sampleinfo.shape[0]) if self.sampleinfo is not None else None
@@ -335,10 +315,17 @@ class AnalogData(ContinuousData):
             return [tuple(sp) for sp in shp]
 
     # "Constructor"
-    def __init__(self, **kwargs):
+    def __init__(self,
+                 filename=None,
+                 filetype=None,
+                 trialdefinition=None,
+                 channel=None):
 
         # Call parent initializer
-        super().__init__(**kwargs)
+        super().__init__(filename=filename,
+                         filetype=filetype,
+                         trialdefinition=trialdefinition,
+                         channel=channel)
 
         # Set default values for necessary attributes (if not already set
         # by reading routine invoked in `BaseData`'s `__init__`)
@@ -384,11 +371,26 @@ class AnalogData(ContinuousData):
         idx[sid] = slice(int(self.sampleinfo[trialno, 0]), int(self.sampleinfo[trialno, 1]))
         return self._data[tuple(idx)]
 
+    # Convenience-function returning by-trial timings
+    def trialtimes(self, unit="s"):
+        converter = {"h": 1/360, "min": 1/60, "s" : 1, "ms" : 1e3, "ns" : 1e9}
+        if not isinstance(unit, str):
+            raise SPWTypeError(unit, varname="unit", expected="str")
+        if unit not in converter.keys():
+            raise SPWValueError("".join(opt + ", " for opt in converter.keys())[:-2],
+                                varname="unit", actual=unit)
+        return [np.arange(start, end)*converter[unit]/self.samplerate \
+                for (start, end) in self.sampleinfo] if self.samplerate else None
+
 class SpectralData():
     pass
     
 # ##########################################################################################
 # class SpectralData(ContinuousData):
+    # # "Constructor"
+    # def __init__(self,
+    #              filename=None,
+    #              filetype=None):
 # 
 #     @property
 #     def samplerate(self):
@@ -476,7 +478,7 @@ class VirtualData():
         if not isinstance(chunk_list, (list, np.memmap)):
             raise SPWTypeError(chunk_list, varname="chunk_list", expected="array_like")
 
-        # Do not use ``spw_array_parser`` to validate chunks to not force-load memmaps
+        # Do not use ``spy_array_parser`` to validate chunks to not force-load memmaps
         try:
             shapes = [chunk.shape for chunk in chunk_list]
         except:
@@ -522,7 +524,7 @@ class VirtualData():
         # Convert input to slice (if it isn't already) or assign explicit start/stop values
         if isinstance(qrow, numbers.Number):
             try:
-                spw_scalar_parser(qrow, varname="row", ntype="int_like", lims=[0, self._M])
+                spy_scalar_parser(qrow, varname="row", ntype="int_like", lims=[0, self._M])
             except Exception as exc:
                 raise exc
             row = slice(int(qrow), int(qrow + 1))
@@ -539,7 +541,7 @@ class VirtualData():
         # Convert input to slice (if it isn't already) or assign explicit start/stop values
         if isinstance(qcol, numbers.Number):
             try:
-                spw_scalar_parser(qcol, varname="col", ntype="int_like", lims=[0, self._N])
+                spy_scalar_parser(qcol, varname="col", ntype="int_like", lims=[0, self._N])
             except Exception as exc:
                 raise exc
             col = slice(int(qcol), int(qcol + 1))
@@ -629,7 +631,7 @@ class Indexer():
     def __getitem__(self, idx):
         if isinstance(idx, numbers.Number):
             try:
-                spw_scalar_parser(idx, varname="idx", ntype="int_like",
+                spy_scalar_parser(idx, varname="idx", ntype="int_like",
                                   lims=[0, self._iterlen - 1])
             except Exception as exc:
                 raise exc
@@ -648,7 +650,7 @@ class Indexer():
             return np.hstack(islice(self._iterobj, index.start, index.stop, index.step))
         elif isinstance(idx, (list, np.ndarray)):
             try:
-                spw_array_parser(idx, varname="idx", ntype="int_like",
+                spy_array_parser(idx, varname="idx", ntype="int_like",
                                  lims=[0, self._iterlen], dims=1)
             except Exception as exc:
                 raise exc

@@ -1,8 +1,8 @@
-# load_spw_container.py - Fill BaseData object with data from disk
+# load_spw_container.py - Fill object with data from disk
 # 
 # Created: February  6 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-22 17:08:38>
+# Last modification time: <2019-02-27 17:36:19>
 
 # Builtin/3rd party package imports
 import os
@@ -13,7 +13,7 @@ from numpy.lib.format import open_memmap
 from glob import iglob
 
 # Local imports
-from spykewave.utils import spw_io_parser, spw_json_parser, spw_basedata_parser, SPWTypeError, SPWValueError
+from spykewave.utils import spy_io_parser, spy_json_parser, spy_data_parser, SPWTypeError, SPWValueError
 from spykewave.io import hash_file, FILE_EXT
 import spykewave.datatype as swd
 
@@ -27,8 +27,8 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
     in case 'dir' and 'dir.spw' exist, preference will be given to 'dir.spw'
 
     fname can be search pattern 'session1*' or base file-name ('asdf' will
-    load 'asdf.<hash>.json/.dat.seg') or hash-id ('d4c1' will load 
-    'asdf.d4c1.json/.dat/.seg')
+    load 'asdf.<hash>.json/.dat/.trl') or hash-id ('d4c1' will load 
+    'asdf.d4c1.json/.dat/.trl')
     """
 
     # Make sure `in_name` is a valid filesystem-location: in case 'dir' and
@@ -39,10 +39,10 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
     if in_ext != FILE_EXT["dir"]:
         in_spw = in_name + FILE_EXT["dir"]
     try:
-        in_name = spw_io_parser(in_spw, varname="in_name", isfile=False, exists=True)
+        in_name = spy_io_parser(in_spw, varname="in_name", isfile=False, exists=True)
     except:
         try:
-            in_name = spw_io_parser(in_name, varname="in_name", isfile=False, exists=True)
+            in_name = spy_io_parser(in_name, varname="in_name", isfile=False, exists=True)
         except Exception as exc:
             raise exc
 
@@ -61,12 +61,12 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
 
         # Remove (if any) path as well as extension from provided file-name(-pattern)
         # and convert `fname` to search pattern if it does not already conatin wildcards
-        fname = os.path.basename(fname)
+        fname = os.path.basename(os.path.expanduser(fname))
         if "*" not in fname:
             fname = "*" + fname + "*"
         in_base, in_ext = os.path.splitext(fname)
 
-        # If `fname` contains a dat/seg/json extension, we expect to find
+        # If `fname` contains a dat/trl/json extension, we expect to find
         # exactly one match, otherwise we want to see exactly three files 
         if in_ext in f_ext.values():
             expected_count = 1
@@ -95,13 +95,12 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
 
     # Load contents of json file and make sure nothing was lost in translation
     expected = {"dimord" : list,
-                "segmentlabel" : str,
                 "version" : str,
                 "log" : str,
                 "channel" : list}
     with open(in_files["json"], "r") as fle:
         json_dict = json.load(fle)
-    mandatory = set(["type"] + list(expected.keys()))
+    mandatory = set(["type", "cfg"] + list(expected.keys()))
     if not mandatory.issubset(json_dict.keys()):
         legal = "mandatory fields " + "".join(attr + ", " for attr in mandatory)[:-2]
         actual = "keys " + "".join(attr + ", " for attr in json_dict.keys())[:-2]
@@ -110,45 +109,48 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
     # Make sure the implied data-genre makes sense
     legal_types = [attr for attr in dir(swd) \
                    if not (attr.startswith("_") \
-                           or attr in ["core", "Indexer", "VirtualData"])]
+                           or attr in ["data_classes", "Indexer", "VirtualData"])]
     if json_dict["type"] not in legal_types:
         legal = "one of " + "".join(ltype + ", " for ltype in legal_types)[:-2]
         raise SPWValueError(legal=legal, varname="JSON: type", actual=json_dict["type"])
     
     # Parse remaining meta-info fields
     try:
-        spw_json_parser(json_dict, expected)
+        spy_json_parser(json_dict, expected)
     except Exception as exc:
         raise exc
 
     # Depending on data genre specified in file, check respective fields
     if json_dict["type"] == "AnalogData":
         expected = {"samplerate" : float,
-                    "hdr" : list}
+                    "channel" : list}
         try:
-            spw_json_parser(json_dict, expected)
+            spy_json_parser(json_dict, expected)
         except Exception as exc:
             raise exc
-        if set(json_dict["dimord"]) != set(["channel", "sample"]):
-            raise SPWValueError(legal="dimord = ['channel', 'sample']",
+        if set(json_dict["dimord"]) != set(["channel", "time"]):
+            raise SPWValueError(legal="dimord = ['channel', 'time']",
                                 varname="JSON: dimord",
                                 actual=str(json_dict["dimord"]))
         
     elif json_dict["type"] == "SpectralData":
-        expected = {"samplerate" : float}
+        expected = {"samplerate" : float,
+                    "channel" : list,
+                    "time" : list,
+                    "taper" : list}
         try:
-            spw_json_parser(json_dict, expected)
+            spy_json_parser(json_dict, expected)
         except Exception as exc:
             raise exc
-        if set(json_dict["dimord"]) != set(["taper", "channel", "freq"]):
-            raise SPWValueError(legal="dimord = ['taper', 'channel', 'freq']",
+        if set(json_dict["dimord"]) != set(["taper", "channel", "freq", "time"]):
+            raise SPWValueError(legal="dimord = ['taper', 'channel', 'freq', 'time']",
                                 varname="JSON: dimord",
                                 actual=str(json_dict["dimord"]))
 
     # If wanted, perform checksum matching
     if checksum:
         hsh_msg = "hash = {hsh:s}"
-        for fle in ["seg", "data"]:
+        for fle in ["trl", "data"]:
             hsh = hash_file(in_files[fle])
             if hsh != json_dict[fle + "_checksum"]:
                 raise SPWValueError(legal=hsh_msg.format(hsh=json_dict[fle + "_checksum"]),
@@ -158,48 +160,45 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
     # Parsing is done, create new or check provided container 
     if out is not None:
         try:
-            spw_basedata_parser(out, varname="out", writable=True,
-                                dimord=json_dict["dimord"],
-                                seglabel=json_dict["segmentlabel"])
+            spy_data_parser(out, varname="out", writable=True,
+                            dimord=json_dict["dimord"], dataclass=json_dict["type"])
         except Exception as exc:
             raise exc
-        if out.__class__.__name__ != json_dict["type"]:
-            out = getattr(swd, json_dict["type"])(out, copy=False)
         new_out = False
     else:
         out = getattr(swd, json_dict["type"])()
         new_out = True
 
     # Assign meta-info common to all sub-classes
-    out.segmentlabel = json_dict["segmentlabel"]
     out._log = json_dict["log"]
     out._dimlabels = OrderedDict(zip(json_dict["dimord"], [None]*len(json_dict["dimord"])))
     for key in ["cfg", "notes"]:
         if json_dict.get(key):
             setattr(out, "_{}".format(key), json_dict[key])
 
-    # Load and attach segment information
-    out._seg = np.load(in_files["seg"])
-
-    # Sub-class-specific things follow
-    if json_dict["type"] == "AnalogData":
-        out._samplerate = json_dict["samplerate"]
-        out._dimlabels["channel"] = json_dict["label"]
-        out._dimlabels["sample"] = out._seg[:, :2]
-        
-    elif json_dict["type"] == "SpectralData":
-        out._samplerate = json_dict["samplerate"]
-        out._dimlabels["channel"] = json_dict["label"]
-        out._dimlabels["taper"] = json_dict["taper"]
-        out._dimlabels["freq"] = json_dict["freq"]
-
-    # Finally, access data on disk
+    # Access data on disk
     out._data = open_memmap(in_files["data"], mode="r+")
     out._filename = in_files["data"]
 
+    # Sub-class-specific things follow
+    trialdef = np.load(in_files["trl"])
+    if json_dict["type"] == "AnalogData":
+        out._samplerate = json_dict["samplerate"]
+        out._dimlabels["channel"] = json_dict["channel"]
+        out._dimlabels["time"] = range(out.data.shape[out.dimord.index("time")])
+        out._sampleinfo = trialdef[:,:2]
+        out._trialinfo = trialdef[:,2:]
+    elif json_dict["type"] == "SpectralData":
+        out._samplerate = json_dict["samplerate"]
+        out._dimlabels["channel"] = json_dict["channel"]
+        out._dimlabels["taper"] = json_dict["taper"]
+        out._dimlabels["freq"] = json_dict["freq"]
+        out._dimlabels["time"] = json_dict["time"]
+        out._trialinfo = trialdef
+
     # Write log-entry
     msg = "Read files v. {ver:s} {fname:s}"
-    out.log = msg.format(ver=json_dict["version"], fname=in_base + "[dat/info/seg]")
+    out.log = msg.format(ver=json_dict["version"], fname=in_base + "[dat/info/trl]")
 
     # Happy breakdown
     return out if new_out else None

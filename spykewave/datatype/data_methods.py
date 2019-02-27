@@ -2,14 +2,14 @@
 # 
 # Created: February 25 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-27 13:30:15>
+# Last modification time: <2019-02-27 16:00:14>
 
 # Builtin/3rd party package imports
 import numbers
 import numpy as np
 
 # Local imports
-from spykewave.utils import SPWTypeError, SPWValueError, spw_basedata_parser
+from spykewave.utils import SPWTypeError, SPWValueError, spy_data_parser
 
 __all__ = ["selectdata"]
 

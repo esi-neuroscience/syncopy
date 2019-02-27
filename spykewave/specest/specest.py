@@ -2,7 +2,7 @@
 # 
 # Created: January 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-22 17:04:07>
+# Last modification time: <2019-02-27 16:06:27>
 
 # Builtin/3rd party package imports
 import sys
@@ -16,7 +16,7 @@ if __dask__:
     import dask.array as da
 
 # Local imports
-from spykewave.utils import spw_basedata_parser
+from spykewave.utils import spy_data_parser
 from spykewave.datatype import SpectralData
 
 __all__ = ["mtmfft"]
@@ -31,16 +31,16 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
 
     # Make sure input object can be processed
     try:
-        spw_basedata_parser(obj, varname="obj", dimord=["channel", "sample"],
-                            writable=None, empty=False)
+        spy_data_parser(obj, varname="obj", dimord=["channel", "sample"],
+                        writable=None, empty=False)
     except Exception as exc:
         raise exc
     
     # If provided, make sure output object is appropriate 
     if out is not None:
         try:
-            spw_basedata_parser(out, varname="out", writable=True,
-                                dimord=["taper", "channel", "freq"], segmentlabel="freq")
+            spy_data_parser(out, varname="out", writable=True,
+                            dimord=["taper", "channel", "freq"])
         except Exception as exc:
             raise exc
         new_out = False
