@@ -2,7 +2,7 @@
 # 
 # Created: January 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-27 16:06:27>
+# Last modification time: <2019-02-28 12:00:40>
 
 # Builtin/3rd party package imports
 import sys
@@ -10,10 +10,12 @@ import numpy as np
 import scipy.signal as signal
 import scipy.signal.windows as windows
 from numpy.lib.format import open_memmap
+from tqdm import tqdm
 from spykewave import __dask__
 if __dask__:
     import dask
     import dask.array as da
+    from dask.distributed import get_client
 
 # Local imports
 from spykewave.utils import spy_data_parser
@@ -31,7 +33,7 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
 
     # Make sure input object can be processed
     try:
-        spy_data_parser(obj, varname="obj", dimord=["channel", "sample"],
+        spy_data_parser(obj, varname="obj", dataclass="AnalogData",
                         writable=None, empty=False)
     except Exception as exc:
         raise exc
@@ -40,7 +42,7 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
     if out is not None:
         try:
             spy_data_parser(out, varname="out", writable=True,
-                            dimord=["taper", "channel", "freq"])
+                            dataclass="SpectralData")
         except Exception as exc:
             raise exc
         new_out = False
@@ -48,11 +50,11 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
         out = SpectralData()
         new_out = True
 
-    # Set parameters applying to all segments: FIXME: make sure segments
-    # are consistent, i.e., padding results in same no. of freqs across all segments
-    fftAxis = obj.dimord.index("sample")
+    # Set parameters applying to all trials: FIXME: make sure trials
+    # are consistent, i.e., padding results in same no. of freqs across all trials
+    fftAxis = obj.dimord.index("time")
     if pad == "nextpow2":
-        nSamples = _nextpow2(obj.shapes[0][1])
+        nSamples = _nextpow2(obj._shapes[0][fftAxis])
     else:
         raise NotImplementedError("Coming soon...")
     if taper == windows.dpss and (not taperopt):
@@ -66,7 +68,7 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
     
     # Allocate memory map for results
     res = open_memmap(out._filename,
-                      shape=(win.shape[0], obj.shapes[0][0], nFreq*len(obj.segments)),
+                      shape=(win.shape[0], obj._shapes[0][0], nFreq, len(obj.trials)),
                       dtype="complex",
                       mode="w+")
     del res
@@ -76,59 +78,56 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
         use_dask = bool(get_client())
     except:
         use_dask = False
-
+    
     # Perform parallel computation
     if use_dask:
 
-        # Point to data segments on disk by using delayed **static** method calls
-        lazy_segment = dask.delayed(obj._copy_segment, traverse=False)
-        lazy_segs = [lazy_segment(segno,
-                                  obj._filename,
-                                  obj.seg,
-                                  obj.hdr,
-                                  obj.dimord,
-                                  obj.segmentlabel)\
-                     for segno in range(obj._seg.shape[0])]
+        # Point to trials on disk by using delayed **static** method calls
+        lazy_trial = dask.delayed(obj._copy_trial, traverse=False)
+        lazy_trls = [lazy_trial(trialno,
+                                obj._filename,
+                                obj.dimord,
+                                obj.sampleinfo,
+                                obj.hdr)\
+                     for trialno in range(obj.sampleinfo.shape[0])]
 
-        # Construct a distributed dask array block by stacking delayed segments
-        seg_block = da.hstack([da.from_delayed(seg,
-                                               shape=obj.shapes[sk],
-                                               dtype=obj.data.dtype) for sk, seg in enumerate(lazy_segs)])
+        # Construct a distributed dask array block by stacking delayed trials
+        trl_block = da.hstack([da.from_delayed(trl,
+                                               shape=obj._shapes[sk],
+                                               dtype=obj.data.dtype) for sk, trl in enumerate(lazy_trls)])
 
-        # Use `map_blocks` to compute spectra for each segment in the constructred dask array
-        specs = seg_block.map_blocks(_mtmfft_byseg, win, nFreq,  pad, padtype, fftAxis, use_dask,
+        # Use `map_blocks` to compute spectra for each trial in the constructred dask array
+        specs = trl_block.map_blocks(_mtmfft_bytrl, win, nFreq,  pad, padtype, fftAxis, use_dask,
                                      dtype="complex",
                                      chunks=(win.shape[0], obj.data.shape[0], nFreq),
                                      new_axis=[0])
 
         # Write computed spectra in pre-allocated memmap
-        result = specs.map_blocks(_mtmfft_writer, nFreq, out._filename,
-                              dtype="complex",
-                              chunks=(1,),
-                              drop_axis=[0,1])
+        result = specs.map_blocks(_mtmfft_writer, out._filename,
+                                  dtype="complex",
+                                  chunks=(1,),
+                                  drop_axis=[0,1])
 
         # Perform actual computation
         result.compute()
 
     # Serial calculation solely relying on NumPy
     else:
-        for sk, seg in enumerate(obj.segments):
-            res = open_memmap(out._filename, mode="r+")[:, :, sk*nFreq : (sk + 1)*nFreq]
-            res[...] = _mtmfft_byseg(seg, win, nFreq,  pad, padtype, fftAxis, use_dask)
+        for tk, trl in enumerate(tqdm(obj.trials, desc="Computing MTMFFT...")):
+            res = open_memmap(out._filename, mode="r+")[:, :, :, tk]
+            res[...] = _mtmfft_bytrl(trl, win, nFreq, pad, padtype, fftAxis, use_dask)
             del res
             obj.clear()
         
     # Attach results to output object: start w/ dimensional info (order matters!)
     out._dimlabels["taper"] = [taper.__name__] * win.shape[0]
-    out._dimlabels["channel"] = obj.label
+    out._dimlabels["channel"] = list(obj.channel)
     out._dimlabels["freq"] = freq
+    out._dimlabels["time"] = np.arange(len(obj.trials))
 
     # Write data and meta-info
     out._samplerate = obj.samplerate
-    seg = np.array(obj.seg)
-    for k in range(seg.shape[0]):
-        seg[k, [0, 1]] = [k*nFreq, (k+1)*nFreq]
-    out._seg = seg
+    out._trialinfo = np.array(obj.trialinfo)
     out._data = open_memmap(out._filename, mode="r+")
     out.cfg = {"method" : sys._getframe().f_code.co_name,
                "taper" : taper.__name__,
@@ -146,57 +145,57 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
     return out if new_out else None
     
 ##########################################################################################
-def _mtmfft_writer(blk, nFreq, resname, block_info=None):
+def _mtmfft_writer(blk, resname, block_info=None):
     """
     Pumps computed spectra into target memmap
     """
     idx = block_info[0]["chunk-location"][-1]
-    res = open_memmap(resname, mode="r+")[:, :, idx*nFreq : (idx + 1)*nFreq]
+    res = open_memmap(resname, mode="r+")[:, :, :, idx]
     res[...] = blk
     del res
     return idx
 
 ##########################################################################################
-def _mtmfft_byseg(seg, win, nFreq,  pad, padtype, fftAxis, use_dask):
+def _mtmfft_bytrl(trl, win, nFreq,  pad, padtype, fftAxis, use_dask):
     """
     Performs the actual heavy-lifting
     """
 
     # move fft/samples dimension into first place
-    seg = np.moveaxis(np.atleast_2d(seg), fftAxis, 1)
-    nSamples = seg.shape[1]
-    nChannels = seg.shape[0]
+    trl = np.moveaxis(np.atleast_2d(trl), fftAxis, 1)
+    nSamples = trl.shape[1]
+    nChannels = trl.shape[0]
 
     # padding
     if pad:
-        padWidth = np.zeros((seg.ndim, 2), dtype=int)
+        padWidth = np.zeros((trl.ndim, 2), dtype=int)
         if pad == "nextpow2":
             padWidth[1, 0] = _nextpow2(nSamples) - nSamples
         else:
             padWidth[1, 0] = np.ceil((pad - T) / dt).astype(int)
         if padtype == "zero":
-            seg = np.pad(seg, pad_width=padWidth,
+            trl = np.pad(trl, pad_width=padWidth,
                           mode="constant", constant_values=0)
 
         # update number of samples
-        nSamples = seg.shape[1]
+        nSamples = trl.shape[1]
 
     # Decide whether to further parallelize or plow through entire chunk
-    if use_dask and seg.size * seg.dtype.itemsize * 1024**(-2) > 1000:
+    if use_dask and trl.size * trl.dtype.itemsize * 1024**(-2) > 1000:
         spex = []
         for tap in win:
-            if seg.ndim > 1:
+            if trl.ndim > 1:
                 tap = np.tile(tap, (nChannels, 1))
-            prod = da.from_array(seg * tap, chunks=(1, seg.shape[1]))
+            prod = da.from_array(trl * tap, chunks=(1, trl.shape[1]))
             spex.append(da.fft.rfft(prod))
         spec = da.stack(spex)
     else:
         # taper x chan x freq
         spec = np.zeros((win.shape[0],) + (nChannels,) + (nFreq,), dtype=complex)
         for wIdx, tap in enumerate(win):
-            if seg.ndim > 1:
+            if trl.ndim > 1:
                 tap = np.tile(tap, (nChannels, 1))
-            spec[wIdx, ...] = np.fft.rfft(seg * tap, axis=1)
+            spec[wIdx, ...] = np.fft.rfft(trl * tap, axis=1)
 
     return spec
 

@@ -2,7 +2,7 @@
 # 
 # Created: February  6 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-27 17:36:19>
+# Last modification time: <2019-02-28 11:36:43>
 
 # Builtin/3rd party package imports
 import os
@@ -192,8 +192,8 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
         out._samplerate = json_dict["samplerate"]
         out._dimlabels["channel"] = json_dict["channel"]
         out._dimlabels["taper"] = json_dict["taper"]
-        out._dimlabels["freq"] = json_dict["freq"]
-        out._dimlabels["time"] = json_dict["time"]
+        out._dimlabels["freq"] = np.array(json_dict["freq"])
+        out._dimlabels["time"] = np.array(json_dict["time"])
         out._trialinfo = trialdef
 
     # Write log-entry
