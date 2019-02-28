@@ -2,7 +2,7 @@
 # 
 # Created: February  6 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-12 12:57:58>
+# Last modification time: <2019-02-27 16:31:37>
 
 # Builtin/3rd party package imports
 import tempfile
@@ -11,10 +11,10 @@ from hashlib import blake2b
 __all__ = ["FILE_EXT", "hash_file", "write_access"]
 
 # Define SpykeWave's general file-/directory-naming conventions
-FILE_EXT = {"dir" : ".spw",
+FILE_EXT = {"dir" : ".spy",
             "json" : ".info",
             "data" : ".dat",
-            "seg" : ".seg"}
+            "trl" : ".trl"}
 
 ##########################################################################################
 def hash_file(fname, bsize=65536):

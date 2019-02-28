@@ -2,7 +2,7 @@
 # 
 # Created: January 15 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-01-30 13:45:25>
+# Last modification time: <2019-02-25 15:40:52>
 """
 SpykeWave Data Containers (:mod:`spykewave.datatype`)
 =====================================================
@@ -20,8 +20,10 @@ Some info highlighting the boundless wisdom underlying the class design...
 """
 
 # Import __all__ routines from local modules
-from .core import *
+from .data_classes import *
+from .data_methods import *
 
 # Populate local __all__ namespace
 __all__ = []
-__all__.extend(core.__all__)
+__all__.extend(data_classes.__all__)
+__all__.extend(data_methods.__all__)

@@ -1,8 +1,8 @@
-# spw_parsers.py - Module for all kinds of parsing gymnastics
+# spy_parsers.py - Module for all kinds of parsing gymnastics
 # 
 # Created: Januar  8 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-19 11:03:44>
+# Last modification time: <2019-02-27 16:26:41>
 
 # Builtin/3rd party package imports
 import os
@@ -13,11 +13,11 @@ from inspect import signature
 # Local imports
 from spykewave.utils import SPWIOError, SPWTypeError, SPWValueError, spw_print
 
-__all__ = ["spw_io_parser", "spw_scalar_parser", "spw_array_parser",
-           "spw_basedata_parser", "spw_json_parser", "spw_get_defaults"]
+__all__ = ["spy_io_parser", "spy_scalar_parser", "spy_array_parser",
+           "spy_data_parser", "spy_json_parser", "spy_get_defaults"]
 
 ##########################################################################################
-def spw_io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
+def spy_io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
     """
     Parse file-system location strings for reading/writing files/directories
 
@@ -52,20 +52,20 @@ def spw_io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
     To test whether `"/path/to/dataset.lfp"` points to an existing file, one
     might use
 
-    >>> spw_io_parser("/path/to/dataset.lfp")
+    >>> spy_io_parser("/path/to/dataset.lfp")
     '/path/to', 'dataset.lfp'
 
     The following call ensures that a folder called "mydata" can be safely 
     created in the current working directory
 
-    >>> spw_io_parser("mydata", isfile=False, exists=False)
+    >>> spy_io_parser("mydata", isfile=False, exists=False)
     '/path/to/cwd/mydata'
 
     Suppose a routine wants to save data to a file with potential
     extensions `".lfp"` or `".mua"`. The following call may be used to ensure
     the user input `dsetname = "relative/dir/dataset.mua"` is a valid choice:
 
-    >>> abs_path, filename = spw_io_parser(dsetname, varname="dsetname", ext=["lfp", "mua"], exists=False)
+    >>> abs_path, filename = spy_io_parser(dsetname, varname="dsetname", ext=["lfp", "mua"], exists=False)
     >>> abs_path
     '/full/path/to/relative/dir/'
     >>> filename
@@ -75,7 +75,7 @@ def spw_io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
     # Start by resovling potential conflicts
     if not isfile and len(ext) > 0:
         spw_print("WARNING: filename extension(s) specified but `isfile = False`. Exiting...",
-                  caller="spw_io_parser")
+                  caller="spy_io_parser")
         return
 
     # Make sure `fs_loc` is actually a string
@@ -83,7 +83,7 @@ def spw_io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
         raise SPWTypeError(fs_loc, varname=varname, expected=str)
 
     # Avoid headaches, use absolute paths...
-    fs_loc = os.path.abspath(fs_loc)
+    fs_loc = os.path.abspath(os.path.expanduser(fs_loc))
 
     # First, take care of directories...
     if not isfile:
@@ -123,7 +123,7 @@ def spw_io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
             return fs_loc.split(file_name)[0], file_name
 
 ##########################################################################################
-def spw_scalar_parser(var, varname="", ntype=None, lims=None):
+def spy_scalar_parser(var, varname="", ntype=None, lims=None):
     """
     Parse scalars 
 
@@ -158,28 +158,28 @@ def spw_scalar_parser(var, varname="", ntype=None, lims=None):
     10 and 1000. The following calls confirm the validity of `freq` 
 
     >>> freq = 440
-    >>> spw_scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
+    >>> spy_scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
     >>> freq = 440.0
-    >>> spw_scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
+    >>> spy_scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
         
     Conversely, these values of `freq` yield errors
 
     >>> freq = 440.5    # not integer-like
-    >>> spw_scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
+    >>> spy_scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
     >>> freq = 2        # outside bounds
-    >>> spw_scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
+    >>> spy_scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
     >>> freq = '440'    # not a scalar
-    >>> spw_scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
+    >>> spy_scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
 
     For complex scalars bounds-checking is performed element-wise on both 
     real and imaginary part:
 
-    >>> spw_scalar_parser(complex(2,-1), lims=[-3, 5])  # valid
-    >>> spw_scalar_parser(complex(2,-1), lims=[-3, 1])  # invalid since real part is greater than 1
+    >>> spy_scalar_parser(complex(2,-1), lims=[-3, 5])  # valid
+    >>> spy_scalar_parser(complex(2,-1), lims=[-3, 1])  # invalid since real part is greater than 1
 
     See also
     --------
-    spw_array_parser : similar functionality for parsing array-like objects
+    spy_array_parser : similar functionality for parsing array-like objects
     """
 
     # Make sure `var` is a scalar-like number
@@ -212,7 +212,7 @@ def spw_scalar_parser(var, varname="", ntype=None, lims=None):
     return
 
 ##########################################################################################
-def spw_array_parser(var, varname="", ntype=None, lims=None, dims=None):
+def spy_array_parser(var, varname="", ntype=None, lims=None, dims=None):
     """
     Parse array-like objects
 
@@ -263,8 +263,8 @@ def spw_array_parser(var, varname="", ntype=None, lims=None, dims=None):
     bounded by 0 and 10. The following calls confirm the validity of `time` 
 
     >>> time = np.linspace(0, 10, 100)
-    >>> spw_array_parser(time, varname="time", lims=[0, 10], dims=1)
-    >>> spw_array_parser(time, varname="time", lims=[0, 10], dims=(100,))
+    >>> spy_array_parser(time, varname="time", lims=[0, 10], dims=1)
+    >>> spy_array_parser(time, varname="time", lims=[0, 10], dims=(100,))
 
     Artificially appending a singleton dimension to `time` does not affect 
     parsing:
@@ -272,34 +272,34 @@ def spw_array_parser(var, varname="", ntype=None, lims=None, dims=None):
     >>> time = time[:,np.newaxis]
     >>> time.shape
     (100, 1)
-    >>> spw_array_parser(time, varname="time", lims=[0, 10], dims=1)
-    >>> spw_array_parser(time, varname="time", lims=[0, 10], dims=(100,))
+    >>> spy_array_parser(time, varname="time", lims=[0, 10], dims=1)
+    >>> spy_array_parser(time, varname="time", lims=[0, 10], dims=(100,))
 
     However, explicitly querying for a row-vector fails
 
-    >>> spw_array_parser(time, varname="time", lims=[0, 10], dims=(1,100))
+    >>> spy_array_parser(time, varname="time", lims=[0, 10], dims=(1,100))
 
     Complex arrays are parsed analogously:
 
     >>> spec = np.array([np.complex(2,3), np.complex(2,-2)])
-    >>> spw_array_parser(spec, varname="spec", dims=1)
-    >>> spw_array_parser(spec, varname="spec", dims=(2,))
+    >>> spy_array_parser(spec, varname="spec", dims=1)
+    >>> spy_array_parser(spec, varname="spec", dims=(2,))
 
     Note that bounds-checking is performed component-wise on both real and 
     imaginary parts:
 
-    >>> spw_array_parser(spec, varname="spec", lims=[-3, 5])    # valid
-    >>> spw_array_parser(spec, varname="spec", lims=[-1, 5])    # invalid since spec[1].imag < lims[0]
+    >>> spy_array_parser(spec, varname="spec", lims=[-3, 5])    # valid
+    >>> spy_array_parser(spec, varname="spec", lims=[-1, 5])    # invalid since spec[1].imag < lims[0]
 
     Character lists can be parsed as well:
 
     >>> channels = ["channel1", "channel2", "channel3"]
-    >>> spw_array_parser(channels, varname="channels", dims=1)
-    >>> spw_array_parser(channels, varname="channels", dims=(3,))
+    >>> spy_array_parser(channels, varname="channels", dims=1)
+    >>> spy_array_parser(channels, varname="channels", dims=(3,))
     
     See also
     --------
-    spw_scalar_parser : similar functionality for parsing numeric scalars
+    spy_scalar_parser : similar functionality for parsing numeric scalars
     """
 
     # Make sure `var` is array-like and convert it to ndarray to simplify parsing
@@ -365,7 +365,7 @@ def spw_array_parser(var, varname="", ntype=None, lims=None, dims=None):
     return 
 
 ##########################################################################################
-def spw_basedata_parser(data, varname="", writable=True, empty=None, dimord=None, seglabel=None):
+def spy_data_parser(data, varname="", dataclass=None, writable=True, empty=None, dimord=None):
     """
     Docstring
 
@@ -374,9 +374,14 @@ def spw_basedata_parser(data, varname="", writable=True, empty=None, dimord=None
     """
     
     # Make sure `data` is (derived from) `BaseData`
-    if data.__class__.__name__ != "BaseData" \
-       and not any(["BaseData" in str(base) for base in data.__class__.__bases__]):
-        raise SPWTypeError(data, varname=varname, expected="SpkeWave data object")
+    if not any(["BaseData" in str(base) for base in data.__class__.__mro__]):
+        raise SPWTypeError(data, varname=varname, expected="SpykeWave data object")
+
+    # If requested, check specific data-class of object
+    if dataclass is not None:
+        if data.__class__.__name__ != dataclass:
+            msg = "SpykeWave {} object".format(dataclass)
+            raise SPWTypeError(data, varname=varname, expected=msg)
 
     # If requested, ensure object contains data (or not)
     if empty is not None:
@@ -412,18 +417,10 @@ def spw_basedata_parser(data, varname="", writable=True, empty=None, dimord=None
                              + "' " if data.dimord else "empty")
             raise SPWValueError(legal=legal, varname=varname, actual=actual)
 
-    # If wanted, match segment label (if non-empty)
-    if seglabel is not None and data.segmentlabel is not None:
-        base = "SpykeWave data object with segmentlabel = {seglbl:s}"
-        if data.segmentlabel == seglabel:
-            legal = base.format(seglbl="None/" + seglabel)
-            actual = base.format(seglbl=str(data.segmentlabel))
-            raise SPWValueError(legal=legal, varname=varname, actual=actual)
-        
     return
 
 ##########################################################################################
-def spw_json_parser(json_dct, wanted_dct):
+def spy_json_parser(json_dct, wanted_dct):
     """
     Docstring coming soon(ish)
     """
@@ -435,7 +432,7 @@ def spw_json_parser(json_dct, wanted_dct):
     return
 
 ##########################################################################################
-def spw_get_defaults(obj):
+def spy_get_defaults(obj):
     """
     Parse input arguments of `obj` and return dictionary
 
@@ -455,7 +452,7 @@ def spw_get_defaults(obj):
     --------
     To see the default input arguments of :meth:`spykewave.core.BaseData` use
     
-    >>> sw.spw_get_defaults(sw.BaseData)
+    >>> sw.spy_get_defaults(sw.BaseData)
     """
 
     if not callable(obj):

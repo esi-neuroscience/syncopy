@@ -2,7 +2,7 @@
 # 
 # Created: Januar 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-20 13:01:52>
+# Last modification time: <2019-02-28 09:34:01>
 
 # Builtin/3rd party package imports
 import os
@@ -10,15 +10,15 @@ import sys
 import numpy as np
 
 # Local imports
-from spykewave.utils import (spw_io_parser, spw_scalar_parser, spw_array_parser,
-                             spw_basedata_parser, SPWIOError, SPWTypeError, SPWValueError)
+from spykewave.utils import (spy_io_parser, spy_scalar_parser, spy_array_parser,
+                             spy_data_parser, SPWIOError, SPWTypeError, SPWValueError)
 from spykewave.datatype import AnalogData, VirtualData
 
 __all__ = ["load_binary_esi", "read_binary_esi_header"]
 
 ##########################################################################################
 def load_binary_esi(filename,
-                    label="channel",
+                    channel="channel",
                     trialdefinition=None,
                     out=None):
     """
@@ -28,11 +28,10 @@ def load_binary_esi(filename,
     # Make sure `out` does not contain unpleasant surprises
     if out is not None:
         try:
-            spw_basedata_parser(out, varname="out", seglabel="sample")
+            spy_data_parser(out, varname="out", dataclass="AnalogData")
         except Exception as exc:
             raise exc
         new_out = False
-        out = AnalogData(out, copy=False)
     else:
         out = AnalogData()
         new_out = True
@@ -45,7 +44,7 @@ def load_binary_esi(filename,
     # Parse `trialdefinition`
     if trialdefinition is not None:
         try:
-            spw_array_parser(trialdefinition, varname="trialdefinition", dims=2)
+            spy_array_parser(trialdefinition, varname="trialdefinition", dims=2)
         except Exception as exc:
             raise exc
         if trialdefinition.shape[1] < 3:
@@ -78,10 +77,10 @@ def load_binary_esi(filename,
     data = VirtualData(dsets)
 
     # Construct/parse list of channel labels
-    if isinstance(label, str):
-        label = [label + str(i + 1) for i in range(data.M)]
+    if isinstance(channel, str):
+        channel = [channel + str(i + 1) for i in range(data.M)]
     try:
-        spw_array_parser(label, varname="label", ntype="str", dims=(data.M,))
+        spy_array_parser(channel, varname="channel", ntype="str", dims=(data.M,))
     except Exception as exc:
         raise exc
 
@@ -90,22 +89,21 @@ def load_binary_esi(filename,
         trialdefinition = np.array([[0, data.N, 0]])
 
     # Write dimensional information - order matters here!
-    out._dimlabels["label"] = label
-    out._dimlabels["sample"] = trialdefinition[:, :2]
+    out._dimlabels["channel"] = channel
+    out._dimlabels["time"] = range(data.N)
 
     # Fill up mandatory `BaseData` attributes
     out._data = data
     out._filename = filename
     out._mode = "r"
-    out.segmentlabel = "sample"
     out.cfg = {"method" : sys._getframe().f_code.co_name,
                "hdr" : headers}
     
     # Write attributes specific to `AnalogData` class
     out._hdr = headers
     out._samplerate = float(1/headers[0]["tSample"]*1e9)
-    out._seg = trialdefinition
-    out._time = [range(start, end) for (start, end) in out.sampleinfo]
+    out._trialinfo = trialdefinition[:,2:]
+    out._sampleinfo = trialdefinition[:,:2]
     
     # Write log entry
     log = "loaded data:\n" +\
@@ -137,7 +135,7 @@ def read_binary_esi_header(filename):
 
     # First and foremost, make sure input arguments make sense
     try:
-        spw_io_parser(filename, varname="filename", isfile=True,
+        spy_io_parser(filename, varname="filename", isfile=True,
                       ext=[".lfp", ".mua", ".evt", ".dpd", 
                            ".apd", ".eye", ".pup"])
     except Exception as exc:

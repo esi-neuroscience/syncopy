@@ -1,19 +1,20 @@
-# save_spw_container.py - Save BaseData objects on disk
+# save_spw_container.py - Save data objects on disk
 # 
 # Created: February  5 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-14 17:18:06>
+# Last modification time: <2019-02-28 11:36:59>
 
 # Builtin/3rd party package imports
 import os
 import json
 import shutil
 import numpy as np
+from collections import OrderedDict
 from numpy.lib.format import open_memmap  
 from hashlib import blake2b
 
 # Local imports
-from spykewave.utils import spw_io_parser, spw_basedata_parser, SPWIOError, SPWTypeError
+from spykewave.utils import spy_io_parser, spy_data_parser, SPWIOError, SPWTypeError
 from spykewave.io import hash_file, write_access, FILE_EXT
 
 __all__ = ["save_spw"]
@@ -32,7 +33,7 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
         out_base, out_ext = os.path.splitext(out_name)
         if out_ext != FILE_EXT["dir"]:
             out_name += FILE_EXT["dir"]
-    out_name = os.path.abspath(out_name)
+    out_name = os.path.abspath(os.path.expanduser(out_name))
     if not os.path.exists(out_name):
         try:
             os.makedirs(out_name)
@@ -44,9 +45,9 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
     if not write_access(out_name):
         raise SPWIOError(out_name)
 
-    # Make sure `out` is a valid (inherited) `BaseData` object
+    # Make sure `out` inherits from `BaseData`
     try:
-        spw_basedata_parser(out, varname="out", writable=None, empty=False)
+        spy_data_parser(out, varname="out", writable=None, empty=False)
     except Exception as exc:
         raise exc
 
@@ -55,7 +56,7 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
         fname = os.path.splitext(os.path.basename(out_name))[0]
     else:
         try:
-            spw_io_parser(fname, varname="filename", isfile=True, exists=False)
+            spy_io_parser(fname, varname="filename", isfile=True, exists=False)
         except Exception as exc:
             raise exc
         fbase, fext = os.path.splitext(fname)
@@ -66,9 +67,12 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
     fname_hsh = blake2b(digest_size=2, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
     filename = os.path.join(out_name, fname + "." + fname_hsh + "{ext:s}")
 
-    # Start by writing segment-related information
-    with open(filename.format(ext=FILE_EXT["seg"]), "wb") as out_seg:
-        np.save(out_seg, out.seg, allow_pickle=False)
+    # Start by writing trial-related information
+    with open(filename.format(ext=FILE_EXT["trl"]), "wb") as out_trl:
+        trl = np.array(out.trialinfo)
+        if hasattr(out, "sampleinfo"):
+            trl = np.hstack([out.sampleinfo, trl]) 
+        np.save(out_trl, trl, allow_pickle=False)
     
     # In case `out` hosts a `VirtualData` object, things are more elaborate
     if out.data.__class__.__name__ == "VirtualData":
@@ -96,49 +100,64 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
     # Much simpler: make sure on-disk memmap is up-to-date and simply copy it
     else:
         out.data.flush()
-        shutil.copyfile(out.data.filename, filename.format(ext=FILE_EXT["data"]))
+        shutil.copyfile(out._filename, filename.format(ext=FILE_EXT["data"]))
         
     # Compute checksums of created binary files
-    seg_hsh = hash_file(filename.format(ext=FILE_EXT["seg"]))
+    trl_hsh = hash_file(filename.format(ext=FILE_EXT["trl"]))
     dat_hsh = hash_file(filename.format(ext=FILE_EXT["data"]))
 
     # Write to log already here so that the entry can be exported to json
-    out.log = "Wrote files " + filename.format(ext="[dat/info/seg]")
+    out.log = "Wrote files " + filename.format(ext="[dat/info/trl]")
 
-    # Assemble dict for JSON output: extract essential `BaseData` props
-    out_dct = {}
+    # Assemble dict for JSON output: order things by their "readability"
+    out_dct = OrderedDict()
     out_dct["type"] = out.__class__.__name__
     out_dct["dimord"] = out.dimord
-    out_dct["segmentlabel"] = out.segmentlabel
     out_dct["version"] = out.version
-    out_dct["log"] = out._log
-    out_dct["label"] = out.label
-
-    # Convert any non-standard data-types in dicts to Python builtins
-    for attr in ["cfg", "notes"]:
-        if hasattr(out, attr):
-            dct = getattr(out, attr)
-            _dict_converter(dct)
-            out_dct[attr] = dct
 
     # Point to actual data files (readable reference for user) - use relative
-    # paths here to avoid confusions in case the parent directory is moved/copied
+    # paths here to avoid confusion in case the parent directory is moved/copied
     out_dct["data"] = os.path.basename(filename.format(ext=FILE_EXT["data"]))
-    out_dct["seg"] = os.path.basename(filename.format(ext=FILE_EXT["seg"]))
+    out_dct["trl"] = os.path.basename(filename.format(ext=FILE_EXT["trl"]))
 
-    # Take care of `BaseData` subclass properties (if present)
-    if out.__class__.__name__ == "AnalogData":
+    # Continue w/ scalar-valued props
+    if hasattr(out, "samplerate"):
         out_dct["samplerate"] = out.samplerate
-        if out.hdr:
-            hdr = []
-            for hd in out.hdr:
-                _dict_converter(hd)
-                hdr.append(hd)
-            out_dct["hdr"] = hdr
-    
-    # Save computed file-hashes
-    out_dct["seg_checksum"] = seg_hsh
+
+    # Computed file-hashes
+    out_dct["trl_checksum"] = trl_hsh
     out_dct["data_checksum"] = dat_hsh
+
+    # Object history
+    out_dct["log"] = out._log
+
+    # Stuff that is potentially vector-valued
+    if hasattr(out, "hdr"):
+        hdr = []
+        for hd in out.hdr:
+            _dict_converter(hd)
+            hdr.append(hd)
+        out_dct["hdr"] = hdr
+    if hasattr(out, "taper"):           
+        out_dct["taper"] = out.taper            # where is a taper, 
+        out_dct["freq"] = out.freq.tolist()     # there is a frequency 
+        out_dct["time"] = out.time.tolist()     # and a time-vector worth saving
+        
+    # Stuff that is definitely vector-valued
+    if hasattr(out, "channel"):
+        out_dct["channel"] = out.channel
+    
+    # Here for some nested dicts and potentially long-winded notes
+    if out.cfg is not None:
+        cfg = out.cfg
+        _dict_converter(cfg)
+        out_dct["cfg"] = cfg
+    else:
+        out_dct["cfg"] = None
+    if hasattr(out, "notes"):
+        notes = out.notes
+        _dict_converter(notes)
+        out_dct["notes"] = notes
 
     # Finally, write JSON
     with open(filename.format(ext=FILE_EXT["json"]), "w") as out_json:
