@@ -2,7 +2,7 @@
 # 
 # Created: January 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-28 12:00:40>
+# Last modification time: <2019-02-28 13:18:00>
 
 # Builtin/3rd party package imports
 import sys
@@ -68,7 +68,7 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
     
     # Allocate memory map for results
     res = open_memmap(out._filename,
-                      shape=(win.shape[0], obj._shapes[0][0], nFreq, len(obj.trials)),
+                      shape=(len(obj.trials), win.shape[0], obj._shapes[0][0], nFreq),
                       dtype="complex",
                       mode="w+")
     del res
@@ -114,7 +114,7 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
     # Serial calculation solely relying on NumPy
     else:
         for tk, trl in enumerate(tqdm(obj.trials, desc="Computing MTMFFT...")):
-            res = open_memmap(out._filename, mode="r+")[:, :, :, tk]
+            res = open_memmap(out._filename, mode="r+")[tk, :, :, :]
             res[...] = _mtmfft_bytrl(trl, win, nFreq, pad, padtype, fftAxis, use_dask)
             del res
             obj.clear()
@@ -150,8 +150,9 @@ def _mtmfft_writer(blk, resname, block_info=None):
     Pumps computed spectra into target memmap
     """
     idx = block_info[0]["chunk-location"][-1]
-    res = open_memmap(resname, mode="r+")[:, :, :, idx]
+    res = open_memmap(resname, mode="r+")[idx, :, :, :]
     res[...] = blk
+    res = None
     del res
     return idx
 
