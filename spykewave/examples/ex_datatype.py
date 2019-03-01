@@ -46,9 +46,9 @@ if __name__ == "__main__":
     # d = ChunkData([a,b,c]) 
 
     # Set path to data directory
-    datadir = ".." + os.sep + ".." + os.sep + ".." + os.sep + ".." + os.sep + "Data"\
-              + os.sep + "testdata" + os.sep
-    # datadir = os.path.join(os.sep, "mnt", "hpx", "it", "dev", "SpykeWave", "testdata")
+    #datadir = ".." + os.sep + ".." + os.sep + ".." + os.sep + ".." + os.sep + "Data"\
+    #          + os.sep + "testdata" + os.sep
+    datadir = os.path.join(os.sep, "mnt", "hpx", "it", "dev", "SpykeWave", "testdata") + os.sep
 
     files = ["MT_RFmapping_session-168a1_xWav.lfp", "MT_RFmapping_session-168a1_xWav.lfp"]
     trl = np.array([[0, 20000, 2],
