@@ -1,8 +1,8 @@
 # data_classes.py - SpykeWave data classes
 #
 # Created: January 7 2019
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-01 11:34:54>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-03-01 17:56:13>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -307,6 +307,14 @@ class AnalogData(ContinuousData):
     def sampleinfo(self):
         return self._sampleinfo
 
+    @sampleinfo.setter
+    def sampleinfo(self, sinfo):
+        try:
+            spy_array_parser(sinfo, varname="sampleinfo", dims=2, ntype="int_like")
+        except Exception as exc:
+            raise exc
+        self._sampleinfo = np.array(sinfo, dtype=int)
+
     @property
     def _shapes(self):
         if self.sampleinfo is not None:
@@ -331,7 +339,7 @@ class AnalogData(ContinuousData):
 
         # Set default values for necessary attributes (if not already set
         # by reading routine invoked in `BaseData`'s `__init__`)
-        if not hasattr(self, "hdr"):
+        if not hasattr(self, "samplerate"):
             self._hdr = None
             self._sampleinfo = None
             self._samplerate = None

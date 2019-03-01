@@ -2,7 +2,7 @@
 # 
 # Created: February  6 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-28 11:36:43>
+# Last modification time: <2019-03-01 16:34:24>
 
 # Builtin/3rd party package imports
 import os
@@ -188,6 +188,7 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
         out._dimlabels["time"] = range(out.data.shape[out.dimord.index("time")])
         out._sampleinfo = trialdef[:,:2]
         out._trialinfo = trialdef[:,2:]
+        out._hdr = None
     elif json_dict["type"] == "SpectralData":
         out._samplerate = json_dict["samplerate"]
         out._dimlabels["channel"] = json_dict["channel"]

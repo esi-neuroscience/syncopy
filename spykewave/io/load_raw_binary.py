@@ -2,7 +2,7 @@
 # 
 # Created: Januar 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-28 09:34:01>
+# Last modification time: <2019-03-01 17:59:29>
 
 # Builtin/3rd party package imports
 import os
@@ -51,7 +51,7 @@ def load_binary_esi(filename,
             raise SPWValueError("array of shape (no. of trials, 3+)",
                                 varname="trialdefinition",
                                 actual="shape = {shp:s}".format(shp=str(trialdefinition.shape)))
-
+        
     # Read headers of provided file(s) to get dimensional information
     headers = []
     tsample = []
@@ -88,6 +88,14 @@ def load_binary_esi(filename,
     if trialdefinition is None:
         trialdefinition = np.array([[0, data.N, 0]])
 
+    # Ensure the `sampleinfo`-part of `trialdefinition` is consistent
+    # (`dims` and `ntype` is parsed by the property setter)
+    try:
+        spy_array_parser(trialdefinition[:,:2], varname="sampleinfo",
+                         lims=[0, data.N])
+    except Exception as exc:
+        raise exc
+        
     # Write dimensional information - order matters here!
     out._dimlabels["channel"] = channel
     out._dimlabels["time"] = range(data.N)
@@ -103,7 +111,7 @@ def load_binary_esi(filename,
     out._hdr = headers
     out._samplerate = float(1/headers[0]["tSample"]*1e9)
     out._trialinfo = trialdefinition[:,2:]
-    out._sampleinfo = trialdefinition[:,:2]
+    out.sampleinfo = trialdefinition[:,:2]
     
     # Write log entry
     log = "loaded data:\n" +\
