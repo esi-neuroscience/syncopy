@@ -2,7 +2,7 @@
 # 
 # Created: Januar 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-01 17:59:29>
+# Last modification time: <2019-03-01 18:07:14>
 
 # Builtin/3rd party package imports
 import os
@@ -97,7 +97,7 @@ def load_binary_esi(filename,
         raise exc
         
     # Write dimensional information - order matters here!
-    out._dimlabels["channel"] = channel
+    out._dimlabels["channel"] = np.array(channel)
     out._dimlabels["time"] = range(data.N)
 
     # Fill up mandatory `BaseData` attributes

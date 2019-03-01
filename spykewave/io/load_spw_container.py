@@ -2,7 +2,7 @@
 # 
 # Created: February  6 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-01 16:34:24>
+# Last modification time: <2019-03-01 18:09:45>
 
 # Builtin/3rd party package imports
 import os
@@ -184,15 +184,15 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
     trialdef = np.load(in_files["trl"])
     if json_dict["type"] == "AnalogData":
         out._samplerate = json_dict["samplerate"]
-        out._dimlabels["channel"] = json_dict["channel"]
+        out._dimlabels["channel"] = np.array(json_dict["channel"])
         out._dimlabels["time"] = range(out.data.shape[out.dimord.index("time")])
         out._sampleinfo = trialdef[:,:2]
         out._trialinfo = trialdef[:,2:]
         out._hdr = None
     elif json_dict["type"] == "SpectralData":
         out._samplerate = json_dict["samplerate"]
-        out._dimlabels["channel"] = json_dict["channel"]
-        out._dimlabels["taper"] = json_dict["taper"]
+        out._dimlabels["channel"] = np.array(json_dict["channel"])
+        out._dimlabels["taper"] = np.array(json_dict["taper"])
         out._dimlabels["freq"] = np.array(json_dict["freq"])
         out._dimlabels["time"] = np.array(json_dict["time"])
         out._trialinfo = trialdef
