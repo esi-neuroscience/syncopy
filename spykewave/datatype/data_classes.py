@@ -1,8 +1,8 @@
 # data_classes.py - SpykeWave data classes
-# 
+#
 # Created: January 7 2019
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-28 10:54:38>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-03-01 11:34:54>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -20,10 +20,11 @@ from copy import copy
 from hashlib import blake2b
 from itertools import islice
 from numpy.lib.format import open_memmap
-    
+import shutil
+
 # Local imports
 from .data_methods import _selectdata_continuous
-from spykewave.utils import (spy_scalar_parser, spy_array_parser,
+from spykewave.utils import (spy_scalar_parser, spy_array_parser, SPWIOError,
                              SPWTypeError, SPWValueError, spw_warning)
 from spykewave import __version__, __storage__, __dask__
 if __dask__:
@@ -33,6 +34,8 @@ import spykewave as spy
 __all__ = ["AnalogData", "SpectralData", "VirtualData", "Indexer"]
 
 ##########################################################################################
+
+
 class BaseData(ABC):
 
     @property
@@ -48,7 +51,7 @@ class BaseData(ABC):
     @property
     def data(self):
         return self._data
-   
+
     @property
     def dimord(self):
         return list(self._dimlabels.keys())
@@ -67,16 +70,16 @@ class BaseData(ABC):
                                    host=socket.gethostname(),
                                    time=time.asctime(),
                                    caller=clr + ": " if clr != "<module>" else "")\
-                                   + msg
+            + msg
 
     @property
     def mode(self):
         return self._mode
-    
+
     @property
     def trialinfo(self):
         return self._trialinfo
-    
+
     @property
     def version(self):
         return self._version
@@ -88,27 +91,27 @@ class BaseData(ABC):
         Docstring mostly pointing to ``selectdata``
         """
         pass
-    
+
     # Convenience function, wiping attached memmap
     def clear(self):
         if self.data is not None:
-                filename, mode = self.data.filename, self.data.mode
-                self.data.flush()
-                self.data = None
-                self.data = open_memmap(filename, mode=mode)
+            filename, mode = self.data.filename, self.data.mode
+            self.data.flush()
+            self.data = None
+            self.data = open_memmap(filename, mode=mode)
         return
-    
+
     # Return a (deep) copy of the current class instance
     def copy(self, deep=False):
         cpy = copy(self)
         if deep:
             if isinstance(self.data, VirtualData):
-                spw_warning("Deep copy not possible for VirtualData objects. " +\
+                spw_warning("Deep copy not possible for VirtualData objects. " +
                             "Please use `save_spw` instead. ",
                             caller="SpykeWave core: copy")
                 return
             self.data.flush()
-            cpy._filename = self._gen_filename()            
+            cpy._filename = self._gen_filename()
             shutil.copyfile(self._filename, cpy._filename)
         return cpy
 
@@ -146,20 +149,20 @@ class BaseData(ABC):
 
         # Get list of print-worthy attributes
         ppattrs = [attr for attr in self.__dir__() if not (attr.startswith("_") or attr == "log")]
-        ppattrs = [attr for attr in ppattrs \
-                   if not (inspect.ismethod(getattr(self, attr)) \
+        ppattrs = [attr for attr in ppattrs
+                   if not (inspect.ismethod(getattr(self, attr))
                            or isinstance(getattr(self, attr), Iterator))]
         ppattrs.sort()
 
         # Construct string for pretty-printing class attributes
         hdstr = "SpykeWave {diminfo:s}{clname:s} object with fields\n\n"
-        ppstr = hdstr.format(diminfo="'" + "' x '".join(dim for dim in self.dimord) \
+        ppstr = hdstr.format(diminfo="'" + "' x '".join(dim for dim in self.dimord)
                              + "' " if self.dimord else "",
                              clname=self.__class__.__name__)
         maxKeyLength = max([len(k) for k in ppattrs])
         for attr in ppattrs:
             value = getattr(self, attr)
-            if hasattr(value, 'shape'):            
+            if hasattr(value, 'shape'):
                 valueString = "[" + " x ".join([str(numel) for numel in value.shape]) \
                               + "] element " + str(type(value))
             elif isinstance(value, list):
@@ -172,7 +175,7 @@ class BaseData(ABC):
                                          ks=" '" + "', '".join(key for key in keylist) + "'" if showkeys else "")
             else:
                 valueString = str(value)
-            printString =  "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
+            printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
             ppstr += printString.format(attr, valueString)
         ppstr += "\nUse `.log` to see object history"
         return ppstr
@@ -182,7 +185,7 @@ class BaseData(ABC):
         if __storage__ in self._filename and os.path.exists(self._filename):
             del self._data
             os.unlink(self._filename)
-            
+
     # Class "constructor"
     def __init__(self, **kwargs):
         """
@@ -244,6 +247,8 @@ class BaseData(ABC):
         super().__init__()
 
 ##########################################################################################
+
+
 class ContinuousData(BaseData, ABC):
 
     @property
@@ -254,8 +259,8 @@ class ContinuousData(BaseData, ABC):
     @property
     def trials(self):
         return Indexer(map(self._get_trial, range(self.trialinfo.shape[0])),
-                                self.trialinfo.shape[0]) if self.trialinfo is not None else None
-    
+                       self.trialinfo.shape[0]) if self.trialinfo is not None else None
+
     @property
     def channel(self):
         return self._dimlabels.get("channel")
@@ -263,7 +268,7 @@ class ContinuousData(BaseData, ABC):
     @property
     def samplerate(self):
         return self._samplerate
-    
+
     @property
     def time(self):
         return self._dimlabels.get("time")
@@ -273,7 +278,7 @@ class ContinuousData(BaseData, ABC):
     @abstractmethod
     def _copy_trial(trialno, filename, sampleinfo, hdr, dimord):
         pass
-    
+
     @abstractmethod
     def _get_trial(self, trialno):
         pass
@@ -290,16 +295,18 @@ class ContinuousData(BaseData, ABC):
         super().__init__(**kwargs)
 
 ##########################################################################################
+
+
 class AnalogData(ContinuousData):
 
     @property
     def hdr(self):
         return self._hdr
-    
+
     @property
     def sampleinfo(self):
         return self._sampleinfo
-    
+
     @property
     def _shapes(self):
         if self.sampleinfo is not None:
@@ -328,7 +335,7 @@ class AnalogData(ContinuousData):
             self._hdr = None
             self._sampleinfo = None
             self._samplerate = None
-            
+
     # Overload clear method to account for `VirtualData` memmaps
     def clear(self):
         if self.data is not None:
@@ -340,7 +347,7 @@ class AnalogData(ContinuousData):
                 self.data = None
                 self.data = open_memmap(filename, mode=mode)
         return
-    
+
     # Helper function that reads a single trial into memory
     @staticmethod
     def _copy_trial(trialno, filename, dimord, sampleinfo, hdr):
@@ -358,7 +365,7 @@ class AnalogData(ContinuousData):
                                        mode="r", dtype=hdr[fk]["dtype"],
                                        shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
             return np.vstack(dsets)
-        
+
     # Helper function that grabs a single trial from memory-map(s)
     def _get_trial(self, trialno):
         idx = [slice(None)] * len(self.dimord)
@@ -368,20 +375,23 @@ class AnalogData(ContinuousData):
 
     # Convenience-function returning by-trial timings
     def trialtimes(self, trialno, unit="s"):
-        converter = {"h": 1/360, "min": 1/60, "s" : 1, "ms" : 1e3, "ns" : 1e9}
+        converter = {"h": 1 / 360, "min": 1 / 60, "s": 1, "ms": 1e3, "ns": 1e9}
         if not isinstance(unit, str):
             raise SPWTypeError(unit, varname="unit", expected="str")
         if unit not in converter.keys():
             raise SPWValueError("".join(opt + ", " for opt in converter.keys())[:-2],
                                 varname="unit", actual=unit)
         try:
-            spy_scalar_parser(trialno, varname="trialno", ntype="int_like", lims=[0, len(self.trials) - 1])
+            spy_scalar_parser(trialno, varname="trialno", ntype="int_like",
+                              lims=[0, len(self.trials) - 1])
         except Exception as exc:
             raise exc
         start, end = self.sampleinfo[trialno, :]
-        return np.arange(start, end)*converter[unit]/self.samplerate if self.samplerate else None
+        return np.arange(start, end) * converter[unit] / self.samplerate if self.samplerate else None
 
 ##########################################################################################
+
+
 class SpectralData(ContinuousData):
 
     @property
@@ -398,7 +408,7 @@ class SpectralData(ContinuousData):
             shp = list(self.data.shape)
             shp[self.dimord.index("time")] = 1
             return [tuple(shp)] * len(self.trials)
-    
+
     # Helper function that reads a single trial into memory
     @staticmethod
     def _copy_trial(trialno, filename, dimord, sampleinfo=None, hdr=None):
@@ -406,13 +416,13 @@ class SpectralData(ContinuousData):
         idx[dimord.index("time")] = trialno
         idx = tuple(idx)
         return np.array(open_memmap(filename, mode="c")[idx])
-        
+
     # Helper function that grabs a single trial from memory-map(s)
     def _get_trial(self, trialno):
         idx = [slice(None)] * len(self.dimord)
         idx[self.dimord.index("time")] = trialno
         return self._data[tuple(idx)]
-    
+
     # "Constructor"
     def __init__(self,
                  filename=None,
@@ -426,8 +436,10 @@ class SpectralData(ContinuousData):
         # by reading routine invoked in `BaseData`'s `__init__`)
         if not hasattr(self, "samplerate"):
             self._samplerate = None
-        
+
 ##########################################################################################
+
+
 class VirtualData():
 
     # Pre-allocate slots here - this class is *not* meant to be expanded
@@ -441,7 +453,7 @@ class VirtualData():
     @property
     def M(self):
         return self._M
-    
+
     @property
     def N(self):
         return self._N
@@ -453,7 +465,7 @@ class VirtualData():
     @property
     def size(self):
         return self._size
-    
+
     # Class instantiation
     def __init__(self, chunk_list):
         """
@@ -479,7 +491,7 @@ class VirtualData():
 
         # Get row number per input chunk and raise error in case col.-no. does not match up
         shapes = [chunk.shape for chunk in chunk_list]
-        if not np.array_equal([shape[1] for shape in shapes], [shapes[0][1]]*len(shapes)):
+        if not np.array_equal([shape[1] for shape in shapes], [shapes[0][1]] * len(shapes)):
             raise SPWValueError(legal="identical number of samples per chunk",
                                 varname="chunk_list")
         nrows = [shape[0] for shape in shapes]
@@ -497,7 +509,7 @@ class VirtualData():
         self._M = cumlen[-1]
         self._N = chunk_list[0].shape[1]
         self._shape = (self._M, self._N)
-        self._size = self._M*self._N
+        self._size = self._M * self._N
         self._dtype = cdtype
         self._data = chunk_list
 
@@ -510,7 +522,7 @@ class VirtualData():
 
         # Extract queried row/col from input tuple `idx`
         qrow, qcol = idx
-        
+
         # Convert input to slice (if it isn't already) or assign explicit start/stop values
         if isinstance(qrow, numbers.Number):
             try:
@@ -526,8 +538,8 @@ class VirtualData():
                 stop = self._M
             row = slice(start, stop)
         else:
-            raise SPWTypeError(qrow, varname="row", expected="int_like or slice")    
-        
+            raise SPWTypeError(qrow, varname="row", expected="int_like or slice")
+
         # Convert input to slice (if it isn't already) or assign explicit start/stop values
         if isinstance(qcol, numbers.Number):
             try:
@@ -569,10 +581,10 @@ class VirtualData():
 
         # If start and stop are in the same chunk, return a view of the underlying memmap
         else:
-            
+
             # Convert "global" row index to local chunk-based row-number (by subtracting offset)
             row = slice(row.start - self._rows[i1].start, row.stop - self._rows[i1].start)
-            return self._data[i1][row,:][:,col]
+            return self._data[i1][row, :][:, col]
 
     # Legacy support
     def __repr__(self):
@@ -599,15 +611,17 @@ class VirtualData():
         self._data = []
         for k in range(len(fnames)):
             self._data.append(np.memmap(fnames[k], offset=offset[k],
-                                             mode="r", dtype=dtypes[k],
-                                             shape=shapes[k]))
+                                        mode="r", dtype=dtypes[k],
+                                        shape=shapes[k]))
         return
-    
+
 ##########################################################################################
+
+
 class Indexer():
 
     __slots__ = ["_iterobj", "_iterlen"]
-    
+
     def __init__(self, iterobj, iterlen):
         """
         Make an iterable object subscriptable using itertools magic
@@ -647,12 +661,12 @@ class Indexer():
             return np.hstack([next(islice(self._iterobj, int(ix), int(ix + 1))) for ix in idx])
         else:
             raise SPWTypeError(idx, varname="idx", expected="int_like or slice")
-    
+
     def __len__(self):
         return self._iterlen
 
     def __repr__(self):
         return self.__str__()
-    
+
     def __str__(self):
         return "{} element iterable".format(self._iterlen)
