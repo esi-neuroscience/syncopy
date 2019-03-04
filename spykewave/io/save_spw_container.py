@@ -2,7 +2,7 @@
 # 
 # Created: February  5 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-28 11:36:59>
+# Last modification time: <2019-03-01 18:08:22>
 
 # Builtin/3rd party package imports
 import os
@@ -139,13 +139,13 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
             hdr.append(hd)
         out_dct["hdr"] = hdr
     if hasattr(out, "taper"):           
-        out_dct["taper"] = out.taper            # where is a taper, 
+        out_dct["taper"] = out.taper.tolist()   # where is a taper, 
         out_dct["freq"] = out.freq.tolist()     # there is a frequency 
         out_dct["time"] = out.time.tolist()     # and a time-vector worth saving
         
     # Stuff that is definitely vector-valued
     if hasattr(out, "channel"):
-        out_dct["channel"] = out.channel
+        out_dct["channel"] = out.channel.tolist()
     
     # Here for some nested dicts and potentially long-winded notes
     if out.cfg is not None:
