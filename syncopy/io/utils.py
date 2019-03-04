@@ -1,8 +1,10 @@
-# utils.py - Collection of I/O utility functions
+# -*- coding: utf-8 -*-
+#
+# Collection of I/O utility functions
 # 
-# Created: February  6 2019
+# Created: 2019-02-06 14:30:17
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-27 16:31:37>
+# Last modification time: <2019-03-04 15:06:18>
 
 # Builtin/3rd party package imports
 import tempfile
@@ -10,7 +12,7 @@ from hashlib import blake2b
 
 __all__ = ["FILE_EXT", "hash_file", "write_access"]
 
-# Define SpykeWave's general file-/directory-naming conventions
+# Define SynCoPy's general file-/directory-naming conventions
 FILE_EXT = {"dir" : ".spy",
             "json" : ".info",
             "data" : ".dat",

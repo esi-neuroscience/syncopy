@@ -1,23 +1,25 @@
-# misc.py - Collection of utility classes/functions for SpykeWave
+# -*- coding: utf-8 -*-
+#
+# Collection of utility classes/functions for SynCoPy
 # 
-# Created: Januar 14 2019
+# Created: 2019-01-14 10:23:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-04 16:47:39>
+# Last modification time: <2019-03-04 18:23:44>
 
 # Builtin/3rd party package imports
 import sys
 
-__all__ = ["SPWTypeError", "SPWValueError", "SPWIOError", "spw_print", "spw_warning"]
+__all__ = ["SPYTypeError", "SPYValueError", "SPYIOError", "spy_print", "spy_warning"]
 
 class Error(Exception):
     """
-    Base class for SpykeWave errors
+    Base class for SynCoPy errors
     """
     pass
 
-class SPWTypeError(Error):
+class SPYTypeError(Error):
     """
-    SpykeWave-specific version of a TypeError
+    SynCoPy-specific version of a TypeError
 
     Attributes
     ----------
@@ -40,9 +42,9 @@ class SPWTypeError(Error):
                           ex=" expected " + self.expected if len(self.expected) else "",
                           fd=" found " + self.found)
 
-class SPWValueError(Error):
+class SPYValueError(Error):
     """
-    SpykeWave-specific version of a ValueError
+    SynCoPy-specific version of a ValueError
 
     Attributes
     ----------
@@ -65,9 +67,9 @@ class SPWValueError(Error):
                           fd=" `" + self.actual + "`;" if len(self.actual) else "",
                           ex=self.legal)
 
-class SPWIOError(Error):
+class SPYIOError(Error):
     """
-    SpykeWave-specific version of an IO/OSError
+    SynCoPy-specific version of an IO/OSError
 
     Attributes
     ----------
@@ -90,7 +92,7 @@ class SPWIOError(Error):
                           else ": object does not exist" if self.exists is False else "")
     
 ##########################################################################################
-def spw_print(message, caller=sys._getframe().f_back.f_code.co_name):
+def spy_print(message, caller=sys._getframe().f_back.f_code.co_name):
     """
     Custom print function for package-wide standardized CL output
 
@@ -113,7 +115,7 @@ def spw_print(message, caller=sys._getframe().f_back.f_code.co_name):
     return 
 
 ##########################################################################################
-def spw_warning(message, caller=sys._getframe().f_back.f_code.co_name):
+def spy_warning(message, caller=sys._getframe().f_back.f_code.co_name):
     """
     Custom print function for package-wide standardized warning messages
 

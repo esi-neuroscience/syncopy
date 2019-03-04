@@ -1,12 +1,14 @@
-# saver.py - Manager for writing various file formats
+# -*- coding: utf-8 -*-
+#
+# Manager for writing various file formats
 # 
-# Created: February  5 2019
+# Created: 2019-02-05 12:55:36
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-07 13:20:22>
+# Last modification time: <2019-03-04 15:05:29>
 
 # Local imports
-from spykewave.utils import SPWTypeError
-from spykewave.io import save_spw
+from syncopy.utils import SPYTypeError
+from syncopy.io import save_spw
 
 __all__ = ["save_data"]
 
@@ -20,10 +22,10 @@ def save_data(out_name, out, filetype=None, **kwargs):
     # only check `filetype` in here
     if filetype is not None:
         if not isinstance(filetype, str):
-            raise SPWTypeError(filetype, varname="filetype", expected="str")
+            raise SPYTypeError(filetype, varname="filetype", expected="str")
 
     # Depending on specified output file-type, call appropriate writing routine
-    if filetype is None or filetype in ".spw" or filetype in ["native", "spykewave"]:
+    if filetype is None or filetype in ".spw" or filetype in ["native", "syncopy"]:
         save_spw(out_name, out, **kwargs)
     elif filetype == "matlab" or filetype in ".mat":
         raise NotImplementedError("Coming soon...")

@@ -1,14 +1,16 @@
-# __init__.py - Initialize example scripts
-# 
-# Created: Januar 17 2019
+# -*- coding: utf-8 -*-
+#
+#
+#
+# Created: 2019-01-17 09:17:02
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-01-30 13:46:18>
+# Last modification time: <2019-03-04 14:34:57>
 """
-Data Analysis with SpykeWave: Examples (:mod:`spykewave.examples`)
+Data Analysis with SynCoPy: Examples (:mod:`syncopy.examples`)
 ==================================================================
 Some profoundly insightful text here...
 
-SpykeWave Data Containers
+SynCoPy Data Containers
 -------------------------------
 This should be really informative and easy to understand...
 

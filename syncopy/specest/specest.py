@@ -1,8 +1,10 @@
-# specest.py - SpykeWave spectral estimation methods
+# -*- coding: utf-8 -*-
+#
+# SynCoPy spectral estimation methods
 # 
-# Created: January 22 2019
+# Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-01 18:08:51>
+# Last modification time: <2019-03-04 18:28:44>
 
 # Builtin/3rd party package imports
 import sys
@@ -11,15 +13,15 @@ import scipy.signal as signal
 import scipy.signal.windows as windows
 from numpy.lib.format import open_memmap
 from tqdm import tqdm
-from spykewave import __dask__
+from syncopy import __dask__
 if __dask__:
     import dask
     import dask.array as da
     from dask.distributed import get_client
 
 # Local imports
-from spykewave.utils import spy_data_parser
-from spykewave.datatype import SpectralData
+from syncopy.utils import spy_data_parser
+from syncopy.datatype import SpectralData
 
 __all__ = ["mtmfft"]
 

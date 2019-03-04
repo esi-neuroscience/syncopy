@@ -1,8 +1,10 @@
-# data_classes.py - SpykeWave data classes
+# -*- coding: utf-8 -*-
 #
-# Created: January 7 2019
+# SynCoPy data classes
+#
+# Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-01 17:56:13>
+# Last modification time: <2019-03-04 18:28:19>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -24,17 +26,16 @@ import shutil
 
 # Local imports
 from .data_methods import _selectdata_continuous
-from spykewave.utils import (spy_scalar_parser, spy_array_parser, SPWIOError,
-                             SPWTypeError, SPWValueError, spw_warning)
-from spykewave import __version__, __storage__, __dask__
+from syncopy.utils import (spy_scalar_parser, spy_array_parser, SPYIOError,
+                             SPYTypeError, SPYValueError, spy_warning)
+from syncopy import __version__, __storage__, __dask__
 if __dask__:
     import dask
-import spykewave as spy
+import syncopy as spy
 
 __all__ = ["AnalogData", "SpectralData", "VirtualData", "Indexer"]
 
 ##########################################################################################
-
 
 class BaseData(ABC):
 
@@ -45,7 +46,7 @@ class BaseData(ABC):
     @cfg.setter
     def cfg(self, dct):
         if not isinstance(dct, dict):
-            raise SPWTypeError(dct, varname="cfg", expected="dictionary")
+            raise SPYTypeError(dct, varname="cfg", expected="dictionary")
         self._cfg = self._set_cfg(self._cfg, dct)
 
     @property
@@ -63,7 +64,7 @@ class BaseData(ABC):
     @log.setter
     def log(self, msg):
         if not isinstance(msg, str):
-            raise SPWTypeError(msg, varname="log", expected="str")
+            raise SPYTypeError(msg, varname="log", expected="str")
         prefix = "\n\n|=== {user:s}@{host:s}: {time:s} ===|\n\n\t{caller:s}"
         clr = sys._getframe().f_back.f_code.co_name
         self._log += prefix.format(user=getpass.getuser(),
@@ -106,9 +107,9 @@ class BaseData(ABC):
         cpy = copy(self)
         if deep:
             if isinstance(self.data, VirtualData):
-                spw_warning("Deep copy not possible for VirtualData objects. " +
-                            "Please use `save_spw` instead. ",
-                            caller="SpykeWave core: copy")
+                spy_warning("Deep copy not possible for VirtualData objects. " +
+                            "Please use `save_spy` instead. ",
+                            caller="SynCoPy core: copy")
                 return
             self.data.flush()
             cpy._filename = self._gen_filename()
@@ -155,7 +156,7 @@ class BaseData(ABC):
         ppattrs.sort()
 
         # Construct string for pretty-printing class attributes
-        hdstr = "SpykeWave {diminfo:s}{clname:s} object with fields\n\n"
+        hdstr = "SynCoPy {diminfo:s}{clname:s} object with fields\n\n"
         ppstr = hdstr.format(diminfo="'" + "' x '".join(dim for dim in self.dimord)
                              + "' " if self.dimord else "",
                              clname=self.__class__.__name__)
@@ -211,13 +212,13 @@ class BaseData(ABC):
             try:
                 os.mkdir(__storage__)
             except:
-                raise SPWIOError(__storage__)
+                raise SPYIOError(__storage__)
 
         # Write version
         self._version = __version__
 
         # Write log-header information
-        lhd = "\n\t\t>>> SpykeWave v. {ver:s} <<< \n\n" +\
+        lhd = "\n\t\t>>> SynCopy v. {ver:s} <<< \n\n" +\
               "Created: {timestamp:s} \n\n" +\
               "System Profile: \n" +\
               "{sysver:s} \n" +\
@@ -385,9 +386,9 @@ class AnalogData(ContinuousData):
     def trialtimes(self, trialno, unit="s"):
         converter = {"h": 1 / 360, "min": 1 / 60, "s": 1, "ms": 1e3, "ns": 1e9}
         if not isinstance(unit, str):
-            raise SPWTypeError(unit, varname="unit", expected="str")
+            raise SPYTypeError(unit, varname="unit", expected="str")
         if unit not in converter.keys():
-            raise SPWValueError("".join(opt + ", " for opt in converter.keys())[:-2],
+            raise SPYValueError("".join(opt + ", " for opt in converter.keys())[:-2],
                                 varname="unit", actual=unit)
         try:
             spy_scalar_parser(trialno, varname="trialno", ntype="int_like",
@@ -486,21 +487,21 @@ class VirtualData():
         # First, make sure our one mandatary input argument does not contain
         # any unpleasant surprises
         if not isinstance(chunk_list, (list, np.memmap)):
-            raise SPWTypeError(chunk_list, varname="chunk_list", expected="array_like")
+            raise SPYTypeError(chunk_list, varname="chunk_list", expected="array_like")
 
         # Do not use ``spy_array_parser`` to validate chunks to not force-load memmaps
         try:
             shapes = [chunk.shape for chunk in chunk_list]
         except:
-            raise SPWTypeError(chunk_list[0], varname="chunk in chunk_list",
+            raise SPYTypeError(chunk_list[0], varname="chunk in chunk_list",
                                expected="2d-array-like")
         if np.any([len(shape) != 2 for shape in shapes]):
-            raise SPWValueError(legal="2d-array", varname="chunk in chunk_list")
+            raise SPYValueError(legal="2d-array", varname="chunk in chunk_list")
 
         # Get row number per input chunk and raise error in case col.-no. does not match up
         shapes = [chunk.shape for chunk in chunk_list]
         if not np.array_equal([shape[1] for shape in shapes], [shapes[0][1]] * len(shapes)):
-            raise SPWValueError(legal="identical number of samples per chunk",
+            raise SPYValueError(legal="identical number of samples per chunk",
                                 varname="chunk_list")
         nrows = [shape[0] for shape in shapes]
         cumlen = np.cumsum(nrows)
@@ -546,7 +547,7 @@ class VirtualData():
                 stop = self._M
             row = slice(start, stop)
         else:
-            raise SPWTypeError(qrow, varname="row", expected="int_like or slice")
+            raise SPYTypeError(qrow, varname="row", expected="int_like or slice")
 
         # Convert input to slice (if it isn't already) or assign explicit start/stop values
         if isinstance(qcol, numbers.Number):
@@ -563,15 +564,15 @@ class VirtualData():
                 stop = self._N
             col = slice(start, stop)
         else:
-            raise SPWTypeError(qcol, varname="col", expected="int_like or slice")
+            raise SPYTypeError(qcol, varname="col", expected="int_like or slice")
 
         # Make sure queried row/col are inside dimensional limits
         err = "value between {lb:s} and {ub:s}"
         if not(0 <= row.start < self._M) or not(0 < row.stop <= self._M):
-            raise SPWValueError(err.format(lb="0", ub=str(self._M)),
+            raise SPYValueError(err.format(lb="0", ub=str(self._M)),
                                 varname="row", actual=str(row))
         if not(0 <= col.start < self._N) or not(0 < col.stop <= self._N):
-            raise SPWValueError(err.format(lb="0", ub=str(self._N)),
+            raise SPYValueError(err.format(lb="0", ub=str(self._N)),
                                 varname="col", actual=str(col))
 
         # The interesting part: find out wich chunk(s) `row` is pointing at
@@ -657,7 +658,7 @@ class Indexer():
             index = slice(start, stop, idx.step)
             if not(0 <= index.start < self._iterlen) or not (0 < index.stop <= self._iterlen):
                 err = "value between {lb:s} and {ub:s}"
-                raise SPWValueError(err.format(lb="0", ub=str(self._iterlen)),
+                raise SPYValueError(err.format(lb="0", ub=str(self._iterlen)),
                                     varname="idx", actual=str(index))
             return np.hstack(islice(self._iterobj, index.start, index.stop, index.step))
         elif isinstance(idx, (list, np.ndarray)):
@@ -668,7 +669,7 @@ class Indexer():
                 raise exc
             return np.hstack([next(islice(self._iterobj, int(ix), int(ix + 1))) for ix in idx])
         else:
-            raise SPWTypeError(idx, varname="idx", expected="int_like or slice")
+            raise SPYTypeError(idx, varname="idx", expected="int_like or slice")
 
     def __len__(self):
         return self._iterlen
