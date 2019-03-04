@@ -2,7 +2,7 @@
 #
 # Created: January 7 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-01 17:56:13>
+# Last modification time: <2019-03-04 13:25:24>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -23,7 +23,7 @@ from numpy.lib.format import open_memmap
 import shutil
 
 # Local imports
-from .data_methods import _selectdata_continuous
+from .data_methods import _selectdata_continuous, redefinetrial
 from spykewave.utils import (spy_scalar_parser, spy_array_parser, SPWIOError,
                              SPWTypeError, SPWValueError, spw_warning)
 from spykewave import __version__, __storage__, __dask__
@@ -266,6 +266,18 @@ class ContinuousData(BaseData, ABC):
         return self._dimlabels.get("channel")
 
     @property
+    def sampleinfo(self):
+        return self._sampleinfo
+
+    @sampleinfo.setter
+    def sampleinfo(self, sinfo):
+        try:
+            spy_array_parser(sinfo, varname="sampleinfo", dims=2, ntype="int_like")
+        except Exception as exc:
+            raise exc
+        self._sampleinfo = np.array(sinfo, dtype=int)
+
+    @property
     def samplerate(self):
         return self._samplerate
 
@@ -273,15 +285,15 @@ class ContinuousData(BaseData, ABC):
     def time(self):
         return self._dimlabels.get("time")
 
-    # Define helper functions for extracting data by trial
-    @staticmethod
-    @abstractmethod
-    def _copy_trial(trialno, filename, sampleinfo, hdr, dimord):
-        pass
-
-    @abstractmethod
-    def _get_trial(self, trialno):
-        pass
+    # # Define helper functions for extracting data by trial
+    # @staticmethod
+    # @abstractmethod
+    # def _copy_trial(trialno, filename, sampleinfo, hdr, dimord):
+    #     pass
+    # 
+    # @abstractmethod
+    # def _get_trial(self, trialno):
+    #     pass
 
     # Selector method
     def selectdata(self, trials=None, deepcopy=False, **kwargs):
@@ -290,6 +302,35 @@ class ContinuousData(BaseData, ABC):
         """
         return _selectdata_continuous(self, trials, deepcopy, **kwargs)
 
+    # Change trialdef of object
+    def redefinetrial(self, trl):
+        redefinetrial(self, trl)
+
+    # Helper function that reads a single trial into memory
+    @staticmethod
+    def _copy_trial(trialno, filename, dimord, sampleinfo, hdr):
+        idx = [slice(None)] * len(dimord)
+        idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
+        idx = tuple(idx)
+        if hdr is None:
+            # For pre-processed npy files
+            return np.array(open_memmap(filename, mode="c")[idx])
+        else:
+            # For VirtualData objects
+            dsets = []
+            for fk, fname in enumerate(filename):
+                dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
+                                       mode="r", dtype=hdr[fk]["dtype"],
+                                       shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
+            return np.vstack(dsets)
+
+    # Helper function that grabs a single trial from memory-map(s)
+    def _get_trial(self, trialno):
+        idx = [slice(None)] * len(self.dimord)
+        sid = self.dimord.index("time")
+        idx[sid] = slice(int(self.sampleinfo[trialno, 0]), int(self.sampleinfo[trialno, 1]))
+        return self._data[tuple(idx)]
+    
     # Make instantiation persistent in all subclasses
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -302,18 +343,6 @@ class AnalogData(ContinuousData):
     @property
     def hdr(self):
         return self._hdr
-
-    @property
-    def sampleinfo(self):
-        return self._sampleinfo
-
-    @sampleinfo.setter
-    def sampleinfo(self, sinfo):
-        try:
-            spy_array_parser(sinfo, varname="sampleinfo", dims=2, ntype="int_like")
-        except Exception as exc:
-            raise exc
-        self._sampleinfo = np.array(sinfo, dtype=int)
 
     @property
     def _shapes(self):
@@ -356,30 +385,30 @@ class AnalogData(ContinuousData):
                 self.data = open_memmap(filename, mode=mode)
         return
 
-    # Helper function that reads a single trial into memory
-    @staticmethod
-    def _copy_trial(trialno, filename, dimord, sampleinfo, hdr):
-        idx = [slice(None)] * len(dimord)
-        idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
-        idx = tuple(idx)
-        if hdr is None:
-            # For pre-processed npy files
-            return np.array(open_memmap(filename, mode="c")[idx])
-        else:
-            # For VirtualData objects
-            dsets = []
-            for fk, fname in enumerate(filename):
-                dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
-                                       mode="r", dtype=hdr[fk]["dtype"],
-                                       shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
-            return np.vstack(dsets)
-
-    # Helper function that grabs a single trial from memory-map(s)
-    def _get_trial(self, trialno):
-        idx = [slice(None)] * len(self.dimord)
-        sid = self.dimord.index("time")
-        idx[sid] = slice(int(self.sampleinfo[trialno, 0]), int(self.sampleinfo[trialno, 1]))
-        return self._data[tuple(idx)]
+    # # Helper function that reads a single trial into memory
+    # @staticmethod
+    # def _copy_trial(trialno, filename, dimord, sampleinfo, hdr):
+    #     idx = [slice(None)] * len(dimord)
+    #     idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
+    #     idx = tuple(idx)
+    #     if hdr is None:
+    #         # For pre-processed npy files
+    #         return np.array(open_memmap(filename, mode="c")[idx])
+    #     else:
+    #         # For VirtualData objects
+    #         dsets = []
+    #         for fk, fname in enumerate(filename):
+    #             dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
+    #                                    mode="r", dtype=hdr[fk]["dtype"],
+    #                                    shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
+    #         return np.vstack(dsets)
+    # 
+    # # Helper function that grabs a single trial from memory-map(s)
+    # def _get_trial(self, trialno):
+    #     idx = [slice(None)] * len(self.dimord)
+    #     sid = self.dimord.index("time")
+    #     idx[sid] = slice(int(self.sampleinfo[trialno, 0]), int(self.sampleinfo[trialno, 1]))
+    #     return self._data[tuple(idx)]
 
     # Convenience-function returning by-trial timings
     def trialtimes(self, trialno, unit="s"):
@@ -410,26 +439,27 @@ class SpectralData(ContinuousData):
     def freq(self):
         return self._dimlabels.get("freq")
 
-    @property
-    def _shapes(self):
-        if self.trials is not None:
-            shp = list(self.data.shape)
-            shp[self.dimord.index("time")] = 1
-            return [tuple(shp)] * len(self.trials)
-
-    # Helper function that reads a single trial into memory
-    @staticmethod
-    def _copy_trial(trialno, filename, dimord, sampleinfo=None, hdr=None):
-        idx = [slice(None)] * len(dimord)
-        idx[dimord.index("time")] = trialno
-        idx = tuple(idx)
-        return np.array(open_memmap(filename, mode="c")[idx])
+    # @property
+    # def _shapes(self):
+    #     if self.trials is not None:
+    #         shp = list(self.data.shape)
+    #         shp[self.dimord.index("time")] = 1
+    #         return [tuple(shp)] * len(self.trials)
+    # 
+    # # Helper function that reads a single trial into memory
+    # @staticmethod
+    # def _copy_trial(trialno, filename, dimord, sampleinfo=None, hdr=None):
+    #     idx = [slice(None)] * len(dimord)
+    #     idx[dimord.index("time")] = trialno
+    #     idx = tuple(idx)
+    #     return np.array(open_memmap(filename, mode="c")[idx])
 
     # Helper function that grabs a single trial from memory-map(s)
     def _get_trial(self, trialno):
         idx = [slice(None)] * len(self.dimord)
         idx[self.dimord.index("time")] = trialno
         return self._data[tuple(idx)]
+
 
     # "Constructor"
     def __init__(self,
@@ -444,6 +474,7 @@ class SpectralData(ContinuousData):
         # by reading routine invoked in `BaseData`'s `__init__`)
         if not hasattr(self, "samplerate"):
             self._samplerate = None
+            self._sampleinfo = None
 
 ##########################################################################################
 

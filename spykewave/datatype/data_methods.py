@@ -2,7 +2,7 @@
 # 
 # Created: February 25 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-27 16:00:14>
+# Last modification time: <2019-03-04 13:25:40>
 
 # Builtin/3rd party package imports
 import numbers
@@ -11,7 +11,7 @@ import numpy as np
 # Local imports
 from spykewave.utils import SPWTypeError, SPWValueError, spy_data_parser
 
-__all__ = ["selectdata"]
+__all__ = ["selectdata", "redefinetrial"]
 
 ##########################################################################################
 def selectdata(obj, segments=None, deepcopy=False, exact_match=False, **kwargs):
@@ -312,3 +312,17 @@ def _makeidx(obj, segments, deepcopy, exact_match, **kwargs):
                                expected="tuple, list-like, slice, float or int")
         
     return selectors, segments
+
+##########################################################################################
+def redefinetrial(obj, trl):
+    """
+    Docstring coming soon(ish)
+    """
+
+    
+    try:
+        spy_data_parser(obj, varname="obj", writeable=True, empty=False)
+    except Exception as exc:
+        raise exc
+
+    

@@ -2,7 +2,7 @@
 # 
 # Created: Januar  8 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-27 16:26:41>
+# Last modification time: <2019-03-04 11:15:27>
 
 # Builtin/3rd party package imports
 import os
@@ -457,4 +457,4 @@ def spy_get_defaults(obj):
 
     if not callable(obj):
         raise SPWTypeError(obj, varname="obj", expected="SpykeWave function or class")
-    return {k:v.default for k,v in signature(obj).parameters.items()}        
+    return {k:v.default for k,v in signature(obj).parameters.items() if v.default != v.empty}

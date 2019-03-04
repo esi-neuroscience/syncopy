@@ -2,7 +2,7 @@
 # 
 # Created: January 22 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-01 18:08:51>
+# Last modification time: <2019-03-04 11:34:58>
 
 # Builtin/3rd party package imports
 import sys
@@ -120,12 +120,15 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
             obj.clear()
         
     # Attach results to output object: start w/ dimensional info (order matters!)
-    out._dimlabels["time"] = np.arange(len(obj.trials))
+    time = np.arange(len(obj.trials))
+    out._dimlabels["time"] = time.copy()
     out._dimlabels["taper"] = np.array([taper.__name__] * win.shape[0])
     out._dimlabels["channel"] = np.array(obj.channel)
     out._dimlabels["freq"] = freq
 
     # Write data and meta-info
+    time = time.reshape((time.size, 1))
+    out.sampleinfo = np.hstack([time, time + 1])
     out._samplerate = obj.samplerate
     out._trialinfo = np.array(obj.trialinfo)
     out._data = open_memmap(out._filename, mode="r+")
