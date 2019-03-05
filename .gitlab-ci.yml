@@ -1,12 +1,3 @@
-workstationTests:
-  stage: test
-  only: 
-    - master
-    - workstation
-  script:
-    - source $HOME/miniconda3/bin/activate
-    - tox
-    
 clusterTests:
     stage: test
     tags: 
