@@ -1,0 +1,6 @@
+toxtests:
+  stage: test
+  where: master
+  script:
+    - tox
+
