@@ -1,14 +1,16 @@
-# __init__.py - Initialize datatype package
-# 
-# Created: January 15 2019
+# -*- coding: utf-8 -*-
+#
+#
+#
+# Created: 2019-01-15 10:03:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-25 15:40:52>
+# Last modification time: <2019-03-04 14:34:00>
 """
-SpykeWave Data Containers (:mod:`spykewave.datatype`)
+SynCoPy Data Containers (:mod:`syncopy.datatype`)
 =====================================================
 Some profoundly insightful text here...
 
-The SpykeWave `BaseData` Data Container
+The SynCoPy `BaseData` Data Container
 ---------------------------------------
 Some info highlighting the boundless wisdom underlying the class design...
 

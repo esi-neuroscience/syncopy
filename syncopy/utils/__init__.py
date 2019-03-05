@@ -1,25 +1,27 @@
-# __init__.py - Initialize utilities package
+# -*- coding: utf-8 -*-
+#
+#
 # 
-# Created: Januar 15 2019
+# Created: 2019-01-15 11:04:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-27 15:58:11>
+# Last modification time: <2019-03-04 18:22:30>
 """
-SpykeWave Convenience Utilities (:mod:`spykewave.utils`)
-========================================================
+SynCoPy Convenience Utilities (:mod:`syncopy.utils`)
+====================================================
 Some profoundly insightful text here...
 
-Tools for SpykeWave development
--------------------------------
+Tools for SynCoPy development
+-----------------------------
 We built some tools...
 
 .. autosummary::
    :toctree: _stubs 
    
-   spw_io_parser
-   spw_scalar_parser
-   spw_array_parser
-   spw_get_defaults
-   spw_print
+   spy_io_parser
+   spy_scalar_parser
+   spy_array_parser
+   spy_get_defaults
+   spy_print
 
 """
 

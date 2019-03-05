@@ -1,8 +1,10 @@
-# load_spw_container.py - Fill object with data from disk
+# -*- coding: utf-8 -*-
+#
+# Load data from SynCoPy containers
 # 
-# Created: February  6 2019
+# Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-01 18:09:45>
+# Last modification time: <2019-03-04 14:44:51>
 
 # Builtin/3rd party package imports
 import os
@@ -13,9 +15,9 @@ from numpy.lib.format import open_memmap
 from glob import iglob
 
 # Local imports
-from spykewave.utils import spy_io_parser, spy_json_parser, spy_data_parser, SPWTypeError, SPWValueError
-from spykewave.io import hash_file, FILE_EXT
-import spykewave.datatype as swd
+from syncopy.utils import spy_io_parser, spy_json_parser, spy_data_parser, SPYTypeError, SPYValueError
+from syncopy.io import hash_file, FILE_EXT
+import syncopy.datatype as swd
 
 __all__ = ["load_spw"]
 
@@ -34,7 +36,7 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
     # Make sure `in_name` is a valid filesystem-location: in case 'dir' and
     # 'dir.spw' exists, preference will be given to 'dir.spw'
     if not isinstance(in_name, str):
-        raise SPWTypeError(in_name, varname="in_name", expected="str")
+        raise SPYTypeError(in_name, varname="in_name", expected="str")
     _, in_ext = os.path.splitext(in_name)
     if in_ext != FILE_EXT["dir"]:
         in_spw = in_name + FILE_EXT["dir"]
@@ -74,7 +76,7 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
             expected_count = 3
         else:
             legal = "no extension or " + "".join(ex + ", " for ex in f_ext.values())[:-2]
-            raise SPWValueError(legal=legal, varname="fname", actual=fname)
+            raise SPYValueError(legal=legal, varname="fname", actual=fname)
 
         # Specifically use `iglob` to not accidentally construct a gigantic
         # list in pathological situations (`fname = "*"`)
@@ -84,7 +86,7 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
             in_file = fle
         if in_count != expected_count:
             legal = "{exp:d} file(s), found {cnt:d}"
-            raise SPWValueError(legal=legal.format(exp=expected_count, cnt=in_count),
+            raise SPYValueError(legal=legal.format(exp=expected_count, cnt=in_count),
                                 varname="fname", actual=fname)
 
     # Construct dictionary of files to read from 
@@ -104,7 +106,7 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
     if not mandatory.issubset(json_dict.keys()):
         legal = "mandatory fields " + "".join(attr + ", " for attr in mandatory)[:-2]
         actual = "keys " + "".join(attr + ", " for attr in json_dict.keys())[:-2]
-        raise SPWValueError(legal=legal, varname=in_files["json"], actual=actual)
+        raise SPYValueError(legal=legal, varname=in_files["json"], actual=actual)
 
     # Make sure the implied data-genre makes sense
     legal_types = [attr for attr in dir(swd) \
@@ -112,7 +114,7 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
                            or attr in ["data_classes", "Indexer", "VirtualData"])]
     if json_dict["type"] not in legal_types:
         legal = "one of " + "".join(ltype + ", " for ltype in legal_types)[:-2]
-        raise SPWValueError(legal=legal, varname="JSON: type", actual=json_dict["type"])
+        raise SPYValueError(legal=legal, varname="JSON: type", actual=json_dict["type"])
     
     # Parse remaining meta-info fields
     try:
@@ -129,7 +131,7 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
         except Exception as exc:
             raise exc
         if set(json_dict["dimord"]) != set(["channel", "time"]):
-            raise SPWValueError(legal="dimord = ['channel', 'time']",
+            raise SPYValueError(legal="dimord = ['channel', 'time']",
                                 varname="JSON: dimord",
                                 actual=str(json_dict["dimord"]))
         
@@ -143,7 +145,7 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
         except Exception as exc:
             raise exc
         if set(json_dict["dimord"]) != set(["taper", "channel", "freq", "time"]):
-            raise SPWValueError(legal="dimord = ['taper', 'channel', 'freq', 'time']",
+            raise SPYValueError(legal="dimord = ['taper', 'channel', 'freq', 'time']",
                                 varname="JSON: dimord",
                                 actual=str(json_dict["dimord"]))
 
@@ -153,7 +155,7 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
         for fle in ["trl", "data"]:
             hsh = hash_file(in_files[fle])
             if hsh != json_dict[fle + "_checksum"]:
-                raise SPWValueError(legal=hsh_msg.format(hsh=json_dict[fle + "_checksum"]),
+                raise SPYValueError(legal=hsh_msg.format(hsh=json_dict[fle + "_checksum"]),
                                     varname=os.path.basename(in_files[fle]),
                                     actual=hsh_msg.format(hsh=hsh))
     

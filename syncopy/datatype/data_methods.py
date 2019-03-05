@@ -1,15 +1,17 @@
-# data_methods.py - Base functions for interacting with SpykeWave data objects
+# -*- coding: utf-8 -*-
+#
+# Base functions for interacting with SyNCoPy data objects
 # 
-# Created: February 25 2019
+# Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-04 13:25:40>
+# Last modification time: <2019-03-04 18:27:45>
 
 # Builtin/3rd party package imports
 import numbers
 import numpy as np
 
 # Local imports
-from spykewave.utils import SPWTypeError, SPWValueError, spy_data_parser
+from syncopy.utils import SPYTypeError, SPYValueError, spy_data_parser
 
 __all__ = ["selectdata", "redefinetrial"]
 
@@ -31,23 +33,23 @@ def selectdata(obj, segments=None, deepcopy=False, exact_match=False, **kwargs):
     elif any(["DiscreteData" in str(base) for base in obj.__class__.__bases__]):
         raise NotImplementedError("coming soon")
     else:
-        raise SPWTypeError(obj, varname="obj", expected="SpkeWave data object")
+        raise SPYTypeError(obj, varname="obj", expected="SpkeWave data object")
     
 ##########################################################################################
 def _selectdata_continuous(obj, segments, deepcopy, exact_match, **kwargs):
 
     # Make sure provided object is inherited from `ContinuousData`
     if not any(["ContinuousData" in str(base) for base in obj.__class__.__bases__]):
-        raise SPWTypeError(obj, varname="obj", expected="SpkeWave ContinuousData object")
+        raise SPYTypeError(obj, varname="obj", expected="SpkeWave ContinuousData object")
         
     # Convert provided selectors to array indices
     segments, selectors = _makeidx(obj, segments, deepcopy, exact_match, **kwargs)
 
     # Make sure our Boolean switches are actuall Boolean
     if not isinstance(deepcopy, bool):
-        raise SPWTypeError(deepcopy, varname="deepcopy", expected="bool")
+        raise SPYTypeError(deepcopy, varname="deepcopy", expected="bool")
     if not isinstance(exact_match, bool):
-        raise SPWTypeError(exact_match, varname="exact_match", expected="bool")
+        raise SPYTypeError(exact_match, varname="exact_match", expected="bool")
 
     # If time-based selection is requested, make some necessary preparations
     if "time" in selectors.keys():
@@ -56,7 +58,7 @@ def _selectdata_continuous(obj, segments, deepcopy, exact_match, **kwargs):
         time_slice = [None, None]
         if isinstance(time_sel, tuple):
             if len(time_sel) != 2:
-                raise SPWValueError(legal="two-element tuple",
+                raise SPYValueError(legal="two-element tuple",
                                     actual="tuple of length {}".format(str(len(time_sel))),
                                     varname="time")
             for tk, ts in enumerate(time_sel):
@@ -67,22 +69,22 @@ def _selectdata_continuous(obj, segments, deepcopy, exact_match, **kwargs):
                         try:
                             time_slice[tk] = list(time_ref).index(ts)
                         except:
-                            raise SPWValueError(legal="exact time-point", actual=ts)
+                            raise SPYValueError(legal="exact time-point", actual=ts)
             time_slice = slice(*time_slice)
         elif isinstance(time_sel, slice):
             if not len(range(*time_sel.indices(time_ref.size))):
                 lgl = "non-empty time-selection"
                 act = "empty selector"
-                raise SPWValueError(legal=lgl, varname=lbl, actual=act)
+                raise SPYValueError(legal=lgl, varname=lbl, actual=act)
             time_slice = slice(time_sel.start, time_sel.stop, time_sel.step)
         elif isinstance(time_sel, (list, np.ndarray)):
             if not set(time_sel).issubset(range(time_ref.size))\
                or np.unique(np.diff(time_sel)).size != 1:
                 vname = "contiguous list of time-points"
-                raise SPWValueError(legal=lgl, varname=vname)
+                raise SPYValueError(legal=lgl, varname=vname)
             time_slice = slice(time_sel[0], time_sel[-1] + 1)
         else:
-            raise SPWTypeError(time_sel, varname="time-selection",
+            raise SPYTypeError(time_sel, varname="time-selection",
                                expected="tuple, slice or list-like")
     else:
         time_slice = slice(0, None)
@@ -164,7 +166,7 @@ def _selectdata_continuous(obj, segments, deepcopy, exact_match, **kwargs):
             mem_size = np.prod(target_shape)*self.data.dtype*1024**(-2)
             if mem_size >= 100:
                 spw_warning("Memory footprint of by-sample selection larger than 100MB",
-                            caller="SpykeWave core:select")
+                            caller="SyNCoPy core:select")
             target_dat[...] = self.data[idx]
             del target_dat
             self.clear()
@@ -211,7 +213,7 @@ def _makeidx(obj, segments, deepcopy, exact_match, **kwargs):
 
     # Make sure the input dimensions make sense
     if not set(kwargs.keys()).issubset(self.dimord):
-        raise SPWValueError(legal=self.dimord, actual=list(kwargs.keys()))
+        raise SPYValueError(legal=self.dimord, actual=list(kwargs.keys()))
 
     # Process `segments`
     if segments is not None:
@@ -224,7 +226,7 @@ def _makeidx(obj, segments, deepcopy, exact_match, **kwargs):
             segments = np.arange(start, stop)
         if not set(segments).issubset(range(self.seg.shape[0])):
             lgl = "segment selection between 0 and {}".format(str(self.seg.shape[0]))
-            raise SPWValueError(legal=lgl, varname="segments")
+            raise SPYValueError(legal=lgl, varname="segments")
         if isinstance(segments, int):
             segments = np.array([segments])
     else:
@@ -244,7 +246,7 @@ def _makeidx(obj, segments, deepcopy, exact_match, **kwargs):
         # Value-range selection
         if isinstance(selection, tuple):
             if len(selection) != 2:
-                raise SPWValueError(legal="two-element tuple",
+                raise SPYValueError(legal="two-element tuple",
                                     actual="tuple of length {}".format(str(len(selection))),
                                     varname=lbl)
             bounds = [None, None]
@@ -253,7 +255,7 @@ def _makeidx(obj, segments, deepcopy, exact_match, **kwargs):
                     try:
                         bounds[sk] = list(ref).index(sel)
                     except:
-                        raise SPWValueError(legal=lgl, actual=sel)
+                        raise SPYValueError(legal=lgl, actual=sel)
                 elif isinstance(sel, numbers.Number):
                     if not exact_match:
                         bounds[sk] = ref[np.abs(ref - sel).argmin()]
@@ -261,14 +263,14 @@ def _makeidx(obj, segments, deepcopy, exact_match, **kwargs):
                         try:
                             bounds[sk] = list(ref).index(sel)
                         except:
-                            raise SPWValueError(legal=lgl, actual=sel)
+                            raise SPYValueError(legal=lgl, actual=sel)
                 elif sel is None:
                     if sk == 0:
                         bounds[sk] = ref[0]
                     if sk == 1:
                         bounds[sk] = ref[-1]
                 else:
-                    raise SPWTypeError(sel, varname=lbl, expected="string, number or None")
+                    raise SPYTypeError(sel, varname=lbl, expected="string, number or None")
             bounds[1] += 1
             selectors[lbl] = slice(*bounds)
 
@@ -277,14 +279,14 @@ def _makeidx(obj, segments, deepcopy, exact_match, **kwargs):
             if not len(range(*selection.indices(ref.size))):
                 lgl = "non-empty selection"
                 act = "empty selector"
-                raise SPWValueError(legal=lgl, varname=lbl, actual=act)
+                raise SPYValueError(legal=lgl, varname=lbl, actual=act)
             selectors[lbl] = slice(selection.start, selection.stop, selection.step)
             
         # Multi-index selection: try to convert contiguous lists to slices
         elif isinstance(selection, (list, np.ndarray)):
             if not set(selection).issubset(range(ref.size)):
                 vname = "list-selector for `obj.{}`".format(lbl)
-                raise SPWValueError(legal=lgl, varname=vname)
+                raise SPYValueError(legal=lgl, varname=vname)
             if np.unique(np.diff(selection)).size == 1:
                 selectors[lbl] = slice(selection[0], selection[-1] + 1)
             else:
@@ -298,17 +300,17 @@ def _makeidx(obj, segments, deepcopy, exact_match, **kwargs):
                 try:
                     selectors[lbl] = list(ref).index(selection)
                 except:
-                    raise SPWValueError(legal=lgl, actual=selection)
+                    raise SPYValueError(legal=lgl, actual=selection)
 
         # Single-index selection
         elif isinstance(selection, int):
             if selection not in range(ref.size):
-                raise SPWValueError(legal=lgl, actual=selection)
+                raise SPYValueError(legal=lgl, actual=selection)
             selectors[lbl] = selection
 
         # You had your chance...
         else:
-            raise SPWTypeError(selection, varname=lbl,
+            raise SPYTypeError(selection, varname=lbl,
                                expected="tuple, list-like, slice, float or int")
         
     return selectors, segments

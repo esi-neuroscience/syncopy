@@ -1,8 +1,10 @@
-# save_spw_container.py - Save data objects on disk
+# -*- coding: utf-8 -*-
+#
+# Save SynCoPy data objects on disk
 # 
-# Created: February  5 2019
+# Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-01 18:08:22>
+# Last modification time: <2019-03-04 15:04:39>
 
 # Builtin/3rd party package imports
 import os
@@ -14,8 +16,8 @@ from numpy.lib.format import open_memmap
 from hashlib import blake2b
 
 # Local imports
-from spykewave.utils import spy_io_parser, spy_data_parser, SPWIOError, SPWTypeError
-from spykewave.io import hash_file, write_access, FILE_EXT
+from syncopy.utils import spy_io_parser, spy_data_parser, SPYIOError, SPYTypeError
+from syncopy.io import hash_file, write_access, FILE_EXT
 
 __all__ = ["save_spw"]
 
@@ -28,7 +30,7 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
     # Make sure `out_name` is a writable filesystem-location and make
     # some layout changes
     if not isinstance(out_name, str):
-        raise SPWTypeError(out_name, varname="out_name", expected="str")
+        raise SPYTypeError(out_name, varname="out_name", expected="str")
     if append_extension:
         out_base, out_ext = os.path.splitext(out_name)
         if out_ext != FILE_EXT["dir"]:
@@ -38,12 +40,12 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
         try:
             os.makedirs(out_name)
         except:
-            raise SPWIOError(out_name)
+            raise SPYIOError(out_name)
     else:
         if not os.path.isdir(out_name):
-            raise SPWIOError(out_name)
+            raise SPYIOError(out_name)
     if not write_access(out_name):
-        raise SPWIOError(out_name)
+        raise SPYIOError(out_name)
 
     # Make sure `out` inherits from `BaseData`
     try:

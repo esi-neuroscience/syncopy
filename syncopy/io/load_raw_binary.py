@@ -1,8 +1,10 @@
-# load_raw_binary.py - Read binary files from disk
+# -*- coding: utf-8 -*-
+#
+# Read binary files from disk
 # 
-# Created: Januar 22 2019
+# Created: 2019-01-22 09:13:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-01 18:07:14>
+# Last modification time: <2019-03-04 14:43:27>
 
 # Builtin/3rd party package imports
 import os
@@ -10,9 +12,9 @@ import sys
 import numpy as np
 
 # Local imports
-from spykewave.utils import (spy_io_parser, spy_scalar_parser, spy_array_parser,
-                             spy_data_parser, SPWIOError, SPWTypeError, SPWValueError)
-from spykewave.datatype import AnalogData, VirtualData
+from syncopy.utils import (spy_io_parser, spy_scalar_parser, spy_array_parser,
+                             spy_data_parser, SPYIOError, SPYTypeError, SPYValueError)
+from syncopy.datatype import AnalogData, VirtualData
 
 __all__ = ["load_binary_esi", "read_binary_esi_header"]
 
@@ -48,7 +50,7 @@ def load_binary_esi(filename,
         except Exception as exc:
             raise exc
         if trialdefinition.shape[1] < 3:
-            raise SPWValueError("array of shape (no. of trials, 3+)",
+            raise SPYValueError("array of shape (no. of trials, 3+)",
                                 varname="trialdefinition",
                                 actual="shape = {shp:s}".format(shp=str(trialdefinition.shape)))
         
@@ -64,7 +66,7 @@ def load_binary_esi(filename,
 
     # Abort, if files have differing sampling times
     if not np.array_equal(tsample, [tsample[0]]*len(tsample)):
-        raise SPWValueError(legal="identical sampling interval per file")
+        raise SPYValueError(legal="identical sampling interval per file")
 
     # Allocate memmaps for each file
     dsets = []
@@ -127,7 +129,7 @@ def read_binary_esi_header(filename):
     Docstring
     """
 
-    # SpykeWave raw binary dtype-codes
+    # SynCoPy raw binary dtype-codes
     dtype = {
         1 : 'int8',
         2 : 'uint8', 
@@ -153,7 +155,7 @@ def read_binary_esi_header(filename):
     try:
         fid = open(filename, "r")
     except:
-        raise SPWIOError(filename)
+        raise SPYIOError(filename)
 
     # Extract file header
     hdr = {}

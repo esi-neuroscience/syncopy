@@ -4,7 +4,7 @@
 #
 # Created: 2019-02-25 13:08:56
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-01 12:58:07>
+# Last modification time: <2019-03-01 15:43:26>
 
 
 # Builtin/3rd party package imports
@@ -18,7 +18,7 @@ if spw_path not in sys.path:
     sys.path.insert(0, spw_path)
 
 # Import Spykewave
-import spykewave as sw
+import spykewave as spy
 
 
 def ex_datatype():
@@ -55,8 +55,8 @@ if __name__ == "__main__":
     channelLabels.extend(["vprobeLfp_{:03d}".format(idx) for idx in range(24)])
     channelLabels.extend(["vprobeMua_{:03d}".format(idx) for idx in range(24)])
 
-    data = sw.AnalogData(filename=[os.path.join(datadir, file) for file in files],
-                         filetype="esi")
+    data = spy.AnalogData(filename=[os.path.join(datadir, file) for file in files],
+                          filetype="esi")
 
     # define trials from photodiode onsets
     pdFile = os.path.join(datadir, basename + ".dpd")
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     trl = np.stack((iOnset, iOffset, np.ones(iOnset.shape, dtype=np.uint64) * iZero), axis=1)
 
     trl = trl[trl[:, 1] - trl[:, 0] > 500, :].astype(int)
-    data = sw.AnalogData(filename=[os.path.join(datadir, file) for file in files],
-                         filetype="esi", trialdefinition=trl, channel=channelLabels)
+    data = spy.AnalogData(filename=[os.path.join(datadir, file) for file in files],
+                          filetype="esi", trialdefinition=trl, channel=channelLabels)
 
-    data.save(os.path.join(datadir, 'testdata'))
+    data.save(os.path.join(datadir, basename))

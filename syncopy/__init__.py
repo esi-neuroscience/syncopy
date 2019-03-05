@@ -1,8 +1,10 @@
-# __init__.py - Import SpykeWave sub-packages
+# -*- coding: utf-8 -*-
+#
 # 
-# Created: January 15 2019
+# 
+# Created: 2019-01-15 09:03:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-02-20 18:07:24>
+# Last modification time: <2019-03-04 14:33:48>
 
 # Builtin/3rd party package imports
 import os
