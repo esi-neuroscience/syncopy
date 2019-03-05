@@ -1,10 +1,21 @@
-before_script:
-  - export PATH="/home/gitlab-runner/miniconda3/bin:$PATH"
 
-toxtests:
+workstationtests:
   stage: test
   only: 
     - master
+    - workstation
   script:
+    - source $HOME/miniconda3/bin/activate
     - tox
+    
+clustertests:
+    stage: test
+    only:
+     - slurm
+     - master
+     script:
+     - source $HOME/miniconda3/bin/activate
+     - pip install --upgrade pip
+     - pip install --upgrade tox
+     - tox
 
