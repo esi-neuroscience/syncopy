@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-15 09:03:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-04 14:33:48>
+# Last modification time: <2019-03-05 13:54:45>
 
 # Builtin/3rd party package imports
 import os
@@ -23,8 +23,13 @@ try:
 except ImportError:
     __dask__ = False
 
-# Define package-wide temp directory
+# Define package-wide temp directory (and create it if not already present)
 __storage__ = os.path.join(os.path.expanduser("~"), ".spy")
+if not os.path.exists(__storage__):
+    try:
+        os.mkdir(__storage__)
+    except:
+        raise IOError("Cannot create SyNCoPy storage directory `{}`".format( __storage__))
     
 # Fill up namespace
 from .utils import *

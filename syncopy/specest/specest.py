@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-04 18:28:44>
+# Last modification time: <2019-03-05 18:01:44>
 
 # Builtin/3rd party package imports
 import sys
@@ -120,6 +120,9 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
             res[...] = _mtmfft_bytrl(trl, win, nFreq, pad, padtype, fftAxis, use_dask)
             del res
             obj.clear()
+
+    # First things first: attach data to output object
+    out._data = open_memmap(out._filename, mode="r+")
         
     # Attach results to output object: start w/ dimensional info (order matters!)
     time = np.arange(len(obj.trials))
@@ -133,7 +136,6 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
     out.sampleinfo = np.hstack([time, time + 1])
     out._samplerate = obj.samplerate
     out._trialinfo = np.array(obj.trialinfo)
-    out._data = open_memmap(out._filename, mode="r+")
     out.cfg = {"method" : sys._getframe().f_code.co_name,
                "taper" : taper.__name__,
                "padding" : pad,

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:13:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-04 14:43:27>
+# Last modification time: <2019-03-05 18:01:34>
 
 # Builtin/3rd party package imports
 import os
@@ -14,7 +14,7 @@ import numpy as np
 # Local imports
 from syncopy.utils import (spy_io_parser, spy_scalar_parser, spy_array_parser,
                              spy_data_parser, SPYIOError, SPYTypeError, SPYValueError)
-from syncopy.datatype import AnalogData, VirtualData
+from syncopy.datatype import AnalogData, VirtualData, redefinetrial
 
 __all__ = ["load_binary_esi", "read_binary_esi_header"]
 
@@ -35,7 +35,7 @@ def load_binary_esi(filename,
             raise exc
         new_out = False
     else:
-        out = AnalogData()
+        out = AnalogData(dimord=["channel", "time"])
         new_out = True
 
     # Convert input to list (if it is not already) - parsing is performed
@@ -43,17 +43,6 @@ def load_binary_esi(filename,
     if not isinstance(filename, (list, np.ndarray)):
         filename = [filename]
 
-    # Parse `trialdefinition`
-    if trialdefinition is not None:
-        try:
-            spy_array_parser(trialdefinition, varname="trialdefinition", dims=2)
-        except Exception as exc:
-            raise exc
-        if trialdefinition.shape[1] < 3:
-            raise SPYValueError("array of shape (no. of trials, 3+)",
-                                varname="trialdefinition",
-                                actual="shape = {shp:s}".format(shp=str(trialdefinition.shape)))
-        
     # Read headers of provided file(s) to get dimensional information
     headers = []
     tsample = []
@@ -78,42 +67,32 @@ def load_binary_esi(filename,
     # Instantiate VirtualData class w/ constructed memmaps (error checking is done in there)
     data = VirtualData(dsets)
 
-    # Construct/parse list of channel labels
+    # If necessary, construct list of channel labels (parsing is done by setter)
     if isinstance(channel, str):
         channel = [channel + str(i + 1) for i in range(data.M)]
-    try:
-        spy_array_parser(channel, varname="channel", ntype="str", dims=(data.M,))
-    except Exception as exc:
-        raise exc
 
-    # If not provided construct (trivial) `trialdefinition` array
+    # If not provided construct (trivial) `trialdefinition` array (parsing is
+    # done by corresponding property setter)
     if trialdefinition is None:
         trialdefinition = np.array([[0, data.N, 0]])
 
-    # Ensure the `sampleinfo`-part of `trialdefinition` is consistent
-    # (`dims` and `ntype` is parsed by the property setter)
-    try:
-        spy_array_parser(trialdefinition[:,:2], varname="sampleinfo",
-                         lims=[0, data.N])
-    except Exception as exc:
-        raise exc
-        
-    # Write dimensional information - order matters here!
-    out._dimlabels["channel"] = np.array(channel)
-    out._dimlabels["time"] = range(data.N)
-
-    # Fill up mandatory `BaseData` attributes
+    # First things first: attach data to output object
     out._data = data
     out._filename = filename
     out._mode = "r"
+
+    # Now we can abuse ``redefinetrial`` to set trial-related props and
+    # write dimensional information - order matters here!
+    redefinetrial(out, trialdefinition)
+    
+    # Set remaining attributes
+    out._dimlabels["channel"] = np.array(channel)
+    out._hdr = headers
+    out.samplerate = float(1/headers[0]["tSample"]*1e9)
+    
+    # Write `cfg` entries
     out.cfg = {"method" : sys._getframe().f_code.co_name,
                "hdr" : headers}
-    
-    # Write attributes specific to `AnalogData` class
-    out._hdr = headers
-    out._samplerate = float(1/headers[0]["tSample"]*1e9)
-    out._trialinfo = trialdefinition[:,2:]
-    out.sampleinfo = trialdefinition[:,:2]
     
     # Write log entry
     log = "loaded data:\n" +\
