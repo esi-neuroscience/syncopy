@@ -9,8 +9,9 @@ workstationTests:
     
 clusterTests:
     stage: test
-    only:
+    tags: 
     - slurm
+    only:
     - master
     script:
     - source $HOME/miniconda3/bin/activate
