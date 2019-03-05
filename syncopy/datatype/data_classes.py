@@ -3,8 +3,8 @@
 # SynCoPy data classes
 #
 # Created: 2019-01-07 09:22:33
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-04 18:28:19>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-03-05 15:01:06>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -17,7 +17,8 @@ import numbers
 import inspect
 import scipy as sp
 from abc import ABC, abstractmethod
-from collections import OrderedDict, Iterator
+from collections import OrderedDict
+from collections.abc import Iterator
 from copy import copy
 from hashlib import blake2b
 from itertools import islice
