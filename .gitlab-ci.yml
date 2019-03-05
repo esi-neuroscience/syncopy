@@ -1,5 +1,5 @@
 before_script:
-  - export PATH="/home/gitlab-runner/miniconda3/bin:$PATH
+  - export PATH="/home/gitlab-runner/miniconda3/bin:$PATH"
 
 toxtests:
   stage: test
