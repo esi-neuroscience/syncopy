@@ -383,7 +383,7 @@ def spy_data_parser(data, varname="", dataclass=None, writable=True, empty=None,
 
     # If requested, check specific data-class of object
     if dataclass is not None:
-        if data.__class__.__name__ != dataclass:
+        if data.__class__.__name__ not in str(dataclass):
             msg = "SynCoPy {} object".format(dataclass)
             raise SPYTypeError(data, varname=varname, expected=msg)
 
@@ -429,6 +429,10 @@ def spy_json_parser(json_dct, wanted_dct):
     Docstring coming soon(ish)
     """
 
+    if not set(wanted_dct.keys()).issubset(json_dct.keys()):
+        legal = "mandatory fields " + "".join(key + ", " for key in wanted_dct.keys())[:-2]
+        raise SPYValueError(legal=legal, varname="JSON")
+    
     for key, tp in wanted_dct.items():
         if not isinstance(json_dct[key], tp):
             raise SPYTypeError(json_dct[key], varname="JSON: {}".format(key),
@@ -455,10 +459,10 @@ def spy_get_defaults(obj):
     Examples
     --------
     To see the default input arguments of :meth:`syncopy.core.BaseData` use
-
-    >>> sw.spy_get_defaults(sw.BaseData)
+    
+    >>> spy.spy_get_defaults(spy.mtmfft)
     """
 
     if not callable(obj):
-        raise SPYTypeError(obj, varname="obj", expected="SynCoPy function or class")
-    return {k: v.default for k, v in signature(obj).parameters.items()}
+        raise SPYTypeError(obj, varname="obj", expected="SpykeWave function or class")
+    return {k:v.default for k,v in signature(obj).parameters.items() if v.default != v.empty}

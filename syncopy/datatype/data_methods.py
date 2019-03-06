@@ -1,19 +1,20 @@
 # -*- coding: utf-8 -*-
 #
-# Base functions for interacting with Syncopy data objects
+# Base functions for interacting with SyNCoPy data objects
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-04 18:27:45>
+# Last modification time: <2019-03-06 10:36:26>
 
 # Builtin/3rd party package imports
 import numbers
+import sys
 import numpy as np
 
 # Local imports
-from syncopy.utils import SPYTypeError, SPYValueError, spy_data_parser
+from syncopy.utils import SPYTypeError, SPYValueError, spy_data_parser, spy_array_parser
 
-__all__ = ["selectdata"]
+__all__ = ["selectdata", "redefinetrial"]
 
 ##########################################################################################
 def selectdata(obj, segments=None, deepcopy=False, exact_match=False, **kwargs):
@@ -166,7 +167,7 @@ def _selectdata_continuous(obj, segments, deepcopy, exact_match, **kwargs):
             mem_size = np.prod(target_shape)*self.data.dtype*1024**(-2)
             if mem_size >= 100:
                 spw_warning("Memory footprint of by-sample selection larger than 100MB",
-                            caller="SynCoPy core:select")
+                            caller="SyNCoPy core:select")
             target_dat[...] = self.data[idx]
             del target_dat
             self.clear()
@@ -314,3 +315,46 @@ def _makeidx(obj, segments, deepcopy, exact_match, **kwargs):
                                expected="tuple, list-like, slice, float or int")
         
     return selectors, segments
+
+##########################################################################################
+def redefinetrial(obj, trialdefinition):
+    """
+    Docstring coming soon(ish)
+    """
+
+    # Start vetting input args
+    try:
+        spy_data_parser(obj, varname="obj", writable=None, empty=False)
+    except Exception as exc:
+        raise exc
+
+    # Independent from concrete data object at hand, the trialdefinition array
+    # has to be pass some basal sanity checks
+    try:
+        spy_array_parser(trialdefinition, varname="trialdefinition", dims=2)
+    except Exception as exc:
+        raise exc
+    
+    # Depending on the actual data-genre we're working with here, the trial-
+    # definition array has to satisfy different needs
+    if any(["ContinuousData" in str(base) for base in obj.__class__.__mro__]):
+        if trialdefinition.shape[1] < 3:
+            raise SPYValueError("array of shape (no. of trials, 3+)",
+                                varname="trialdefinition",
+                                actual="shape = {shp:s}".format(shp=str(trialdefinition.shape)))
+        obj.sampleinfo = trialdefinition[:,:2]
+        obj._t0 = trialdefinition[:,2]
+        obj.trialinfo = trialdefinition[:,3:]
+    else:
+        raise NotImplementedError("DiscreteData not yet implemented")
+
+    # # Update `cfg` and object log
+    # obj.cfg = {"method" : sys._getframe().f_code.co_name,
+    #            "trialdefinition" : trialdefinition}
+    
+    # Write log entry
+    obj.log = "updated trial-definition with [" \
+              + " x ".join([str(numel) for numel in trialdefinition.shape]) \
+              + "] element array"
+    
+    return

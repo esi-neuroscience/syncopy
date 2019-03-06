@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-04 18:28:44>
+# Last modification time: <2019-03-06 11:25:39>
 
 # Builtin/3rd party package imports
 import sys
@@ -60,7 +60,7 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
     else:
         raise NotImplementedError("Coming soon...")
     if taper == windows.dpss and (not taperopt):
-        nTaper = np.int(np.floor(tapsmofrq * T))
+        nTaper = np.int(np.floor(tapsmofrq * nSamples/obj.samplerate))
         taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
 
     # Compute taper in shape nTaper x nSamples and determine size of freq. axis
@@ -120,28 +120,47 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
             res[...] = _mtmfft_bytrl(trl, win, nFreq, pad, padtype, fftAxis, use_dask)
             del res
             obj.clear()
-        
-    # Attach results to output object: start w/ dimensional info (order matters!)
-    out._dimlabels["time"] = np.arange(len(obj.trials))
-    out._dimlabels["taper"] = np.array([taper.__name__] * win.shape[0])
-    out._dimlabels["channel"] = np.array(obj.channel)
-    out._dimlabels["freq"] = freq
 
-    # Write data and meta-info
-    out._samplerate = obj.samplerate
-    out._trialinfo = np.array(obj.trialinfo)
+    # First things first: attach data to output object
     out._data = open_memmap(out._filename, mode="r+")
-    out.cfg = {"method" : sys._getframe().f_code.co_name,
-               "taper" : taper.__name__,
-               "padding" : pad,
-               "padtype" : padtype,
-               "polyorder" : polyorder,
-               "taperopt" : taperopt,
-               "tapsmofrq" : tapsmofrq}
+
+    # We can't simply use ``redefinetrial`` here, prep things by hand
+    time = np.arange(len(obj.trials))
+    time = time.reshape((time.size, 1))
+    out.sampleinfo = np.hstack([time, time + 1])
+    out.trialinfo = np.array(obj.trialinfo)
+    out._t0 = np.zeros((len(obj.trials),))
+    
+    # Attach meta-data
+    out.samplerate = obj.samplerate
+    out.channel = np.array(obj.channel)
+    out.taper = np.array([taper.__name__] * win.shape[0])
+    out.freq = freq
+    cfg = {"method" : sys._getframe().f_code.co_name,
+           "taper" : taper.__name__,
+           "padding" : pad,
+           "padtype" : padtype,
+           "polyorder" : polyorder,
+           "taperopt" : taperopt,
+           "tapsmofrq" : tapsmofrq}
+    out.cfg = cfg
+    out.cfg = dict(obj.cfg)
 
     # Write log
-    log = "computed multi-taper FFT with settings..."
-    out.log = log
+    out._log = str(obj._log) + out._log
+    log = "computed multi-taper FFT with settings\n" +\
+          "\ttaper = {tpr:s}\n" +\
+          "\tpadding = {pad:s}\n" +\
+          "\tpadtype = {pat:s}\n" +\
+          "\tpolyorder = {pol:s}\n" +\
+          "\ttaperopt = {topt:s}\n" +\
+          "\ttapsmofrq = {tfr:s}\n"
+    out.log = log.format(tpr=cfg["taper"],
+                         pad=cfg["padding"],
+                         pat=cfg["padtype"],
+                         pol=str(cfg["polyorder"]),
+                         topt=str(cfg["taperopt"]),
+                         tfr=str(cfg["tapsmofrq"]))
 
     # Happy breakdown
     return out if new_out else None

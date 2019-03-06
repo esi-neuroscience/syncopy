@@ -3,8 +3,8 @@
 # SynCoPy data classes
 #
 # Created: 2019-01-07 09:22:33
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-05 15:01:06>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-03-06 10:24:36>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -26,7 +26,7 @@ from numpy.lib.format import open_memmap
 import shutil
 
 # Local imports
-from .data_methods import _selectdata_continuous
+from .data_methods import _selectdata_continuous, redefinetrial
 from syncopy.utils import (spy_scalar_parser, spy_array_parser, SPYIOError,
                              SPYTypeError, SPYValueError, spy_warning)
 from syncopy import __version__, __storage__, __dask__
@@ -36,7 +36,6 @@ import syncopy as spy
 
 __all__ = ["AnalogData", "SpectralData", "VirtualData", "Indexer"]
 
-##########################################################################################
 
 class BaseData(ABC):
 
@@ -82,6 +81,14 @@ class BaseData(ABC):
     def trialinfo(self):
         return self._trialinfo
 
+    @trialinfo.setter
+    def trialinfo(self, trl):
+        try:
+            spy_array_parser(trl, varname="trialinfo")
+        except Exception as exc:
+            raise exc
+        self._trialinfo = trl
+
     @property
     def version(self):
         return self._version
@@ -99,8 +106,8 @@ class BaseData(ABC):
         if self.data is not None:
             filename, mode = self.data.filename, self.data.mode
             self.data.flush()
-            self.data = None
-            self.data = open_memmap(filename, mode=mode)
+            self._data = None
+            self._data = open_memmap(filename, mode=mode)
         return
 
     # Return a (deep) copy of the current class instance
@@ -150,14 +157,14 @@ class BaseData(ABC):
     def __str__(self):
 
         # Get list of print-worthy attributes
-        ppattrs = [attr for attr in self.__dir__() if not (attr.startswith("_") or attr == "log")]
+        ppattrs = [attr for attr in self.__dir__() if not (attr.startswith("_") or attr in ["log", "t0"])]
         ppattrs = [attr for attr in ppattrs
                    if not (inspect.ismethod(getattr(self, attr))
                            or isinstance(getattr(self, attr), Iterator))]
         ppattrs.sort()
 
         # Construct string for pretty-printing class attributes
-        hdstr = "SynCoPy {diminfo:s}{clname:s} object with fields\n\n"
+        hdstr = "SyNCoPy {diminfo:s}{clname:s} object with fields\n\n"
         ppstr = hdstr.format(diminfo="'" + "' x '".join(dim for dim in self.dimord)
                              + "' " if self.dimord else "",
                              clname=self.__class__.__name__)
@@ -194,32 +201,24 @@ class BaseData(ABC):
         Docstring
         """
 
-        # Depending on contents of `filename`, class instantiation invokes I/O routines
-        read_fl = True
-        if not kwargs.get("filename"):
+        # Depending on contents of `filename` and `data` class instantiation invokes I/O routines
+        if kwargs.get("filename") and not kwargs.get("data"):
+            read_fl = True
+            filename = kwargs.pop("filename")
+            for key in ["data", "samplerate", "mode"]:
+                kwargs.pop(key)
+            self._filename = None
+        else:
             read_fl = False
+            self._filename = self._gen_filename()
 
-        # Prepare necessary "global" parsing attributes
+        # Iniital allocation of attributes (where necessary)
         self._cfg = {}
-        self._data = None
         self._dimlabels = OrderedDict()
-        self._filename = self._gen_filename()
-        self._trialinfo = None
-        self._mode = "w"
-
-        # Create temporary working directory if not already present
-        # tmpdir = os.path.join(os.path.expanduser("~"), __storage__)
-        if not os.path.exists(__storage__):
-            try:
-                os.mkdir(__storage__)
-            except:
-                raise SPYIOError(__storage__)
-
-        # Write version
-        self._version = __version__
-
-        # Write log-header information
-        lhd = "\n\t\t>>> SynCopy v. {ver:s} <<< \n\n" +\
+        dimord = kwargs.pop("dimord")
+        for dim in dimord:
+            self._dimlabels[dim] = None
+        lhd = "\n\t\t>>> SyNCopy v. {ver:s} <<< \n\n" +\
               "Created: {timestamp:s} \n\n" +\
               "System Profile: \n" +\
               "{sysver:s} \n" +\
@@ -233,89 +232,28 @@ class BaseData(ABC):
                                       npver=np.__version__,
                                       spver=sp.__version__,
                                       daver=dask.__version__ if __dask__ else "--")
-
-        # Write initial log entry
         self._log = ""
+
+        # Now assign (default) values
+        self._data = kwargs.get("data", None)
+        self._mode = kwargs.get("mode", "w")
+        self._trialinfo = None
+
+        # Write very first log entry
         self.log = "created {clname:s} object".format(clname=self.__class__.__name__)
+
+        # Write version
+        self._version = __version__
 
         # Finally call appropriate reading routine if filename was provided
         if read_fl:
-            if not kwargs.get("channel"):
-                kwargs["channel"] = "channel"
-            filename = kwargs.pop("filename")
             spy.load_data(filename, out=self, **kwargs)
 
         # Make instantiation persistent in all subclasses
         super().__init__()
 
-##########################################################################################
-
 
 class ContinuousData(BaseData, ABC):
-
-    @property
-    @abstractmethod
-    def _shapes(self):
-        pass
-
-    @property
-    def trials(self):
-        return Indexer(map(self._get_trial, range(self.trialinfo.shape[0])),
-                       self.trialinfo.shape[0]) if self.trialinfo is not None else None
-
-    @property
-    def channel(self):
-        return self._dimlabels.get("channel")
-
-    @property
-    def samplerate(self):
-        return self._samplerate
-
-    @property
-    def time(self):
-        return self._dimlabels.get("time")
-
-    # Define helper functions for extracting data by trial
-    @staticmethod
-    @abstractmethod
-    def _copy_trial(trialno, filename, sampleinfo, hdr, dimord):
-        pass
-
-    @abstractmethod
-    def _get_trial(self, trialno):
-        pass
-
-    # Selector method
-    def selectdata(self, trials=None, deepcopy=False, **kwargs):
-        """
-        Docstring mostly pointing to ``selectdata``
-        """
-        return _selectdata_continuous(self, trials, deepcopy, **kwargs)
-
-    # Make instantiation persistent in all subclasses
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-##########################################################################################
-
-
-class AnalogData(ContinuousData):
-
-    @property
-    def hdr(self):
-        return self._hdr
-
-    @property
-    def sampleinfo(self):
-        return self._sampleinfo
-
-    @sampleinfo.setter
-    def sampleinfo(self, sinfo):
-        try:
-            spy_array_parser(sinfo, varname="sampleinfo", dims=2, ntype="int_like")
-        except Exception as exc:
-            raise exc
-        self._sampleinfo = np.array(sinfo, dtype=int)
 
     @property
     def _shapes(self):
@@ -326,37 +264,81 @@ class AnalogData(ContinuousData):
                 shp[k][sid] = sg[1] - sg[0]
             return [tuple(sp) for sp in shp]
 
-    # "Constructor"
-    def __init__(self,
-                 filename=None,
-                 filetype=None,
-                 trialdefinition=None,
-                 channel=None):
+    @property
+    def trials(self):
+        return Indexer(map(self._get_trial, range(self.trialinfo.shape[0])),
+                       self.trialinfo.shape[0]) if self.trialinfo is not None else None
 
-        # Call parent initializer
-        super().__init__(filename=filename,
-                         filetype=filetype,
-                         trialdefinition=trialdefinition,
-                         channel=channel)
+    @property
+    def channel(self):
+        return self._dimlabels.get("channel")
 
-        # Set default values for necessary attributes (if not already set
-        # by reading routine invoked in `BaseData`'s `__init__`)
-        if not hasattr(self, "samplerate"):
-            self._hdr = None
-            self._sampleinfo = None
-            self._samplerate = None
+    @channel.setter
+    def channel(self, chan):
+        if self.data is None:
+            spy_warning("Cannot assign `channels` without data. "+\
+                        "Please assing data first`",
+                        caller="SyNCoPy core: channel")
+            return
+        nchan = self.data.shape[self.dimord.index("channel")]
+        try:
+            spy_array_parser(chan, varname="channel", ntype="str", dims=(nchan,))
+        except Exception as exc:
+            raise exc
+        self._dimlabels["channel"] = chan
 
-    # Overload clear method to account for `VirtualData` memmaps
-    def clear(self):
-        if self.data is not None:
-            if hasattr(self.data, "clear"):
-                self.data.clear()
-            else:
-                filename, mode = self.data.filename, self.data.mode
-                self.data.flush()
-                self.data = None
-                self.data = open_memmap(filename, mode=mode)
-        return
+    @property
+    def sampleinfo(self):
+        return self._sampleinfo
+
+    @sampleinfo.setter
+    def sampleinfo(self, sinfo):
+        if self.data is None:
+            spy_warning("Cannot assign `sampleinfo` without data. "+\
+                        "Please assing data first`",
+                        caller="SyNCoPy core: sampleinfo")
+            return
+        scount = self.data.shape[self.dimord.index("time")]
+        try:
+            spy_array_parser(sinfo, varname="sampleinfo", dims=2,
+                             ntype="int_like", lims=[0, scount])
+        except Exception as exc:
+            raise exc
+        self._sampleinfo = np.array(sinfo, dtype=int)
+
+    @property
+    def samplerate(self):
+        return self._samplerate
+
+    @samplerate.setter
+    def samplerate(self, sr):
+        try:
+            spy_scalar_parser(sr, varname="samplerate", lims=[1, np.inf])
+        except Exception as exc:
+            raise exc
+        self._samplerate = sr
+
+    @property
+    def time(self):
+        return [np.arange(-self.t0[tk], end - start - self.t0[tk]) * 1/self.samplerate \
+                for tk, (start, end) in enumerate(self.sampleinfo)] if self.t0 is not None else None
+        
+        return self._dimlabels.get("time")
+
+    @property
+    def t0(self):
+        return self._t0
+
+    # Selector method
+    def selectdata(self, trials=None, deepcopy=False, **kwargs):
+        """
+        Docstring mostly pointing to ``selectdata``
+        """
+        return _selectdata_continuous(self, trials, deepcopy, **kwargs)
+
+    # Change trialdef of object
+    def redefinetrial(self, trl):
+        redefinetrial(self, trl)
 
     # Helper function that reads a single trial into memory
     @staticmethod
@@ -382,6 +364,90 @@ class AnalogData(ContinuousData):
         sid = self.dimord.index("time")
         idx[sid] = slice(int(self.sampleinfo[trialno, 0]), int(self.sampleinfo[trialno, 1]))
         return self._data[tuple(idx)]
+    
+    # Make instantiation persistent in all subclasses
+    def __init__(self, **kwargs):
+
+        # Call `BaseData` initializer
+        super().__init__(**kwargs)
+
+        # If data was attached, be careful
+        if self.data is not None:
+
+            # In case of manual data allocation (reading routine would leave a
+            # mark in `cfg`), fill in missing info
+            if len(self.cfg) == 0:
+                
+                # First, fill in dimensional info
+                redefinetrial(self, kwargs.get("trialdefinition"))
+
+                # If necessary, construct list of channel labels (parsing is done by setter)
+                channel = kwargs.get("channel")
+                if isinstance(channel, str):
+                    channel = [channel + str(i + 1) for i in range(self.data.shape[self.dimord.index("channel")])]
+                self.channel = channel
+
+                # Finally, assign samplerate
+                self.samplerate = kwargs.get("samplerate")
+
+        # Set up blank object
+        else:
+            self._sampleinfo = None
+            self._samplerate = None
+            self._t0 = None
+                
+
+class AnalogData(ContinuousData):
+
+    @property
+    def hdr(self):
+        return self._hdr
+
+    # "Constructor"
+    def __init__(self,
+                 data=None,
+                 filename=None,
+                 filetype=None,
+                 trialdefinition=None,
+                 samplerate=1000,
+                 channel="channel",
+                 mode="w",
+                 dimord=["channel", "time"]):
+
+        # The one thing we check right here and now
+        expected = ["channel", "time"]
+        if not set(dimord).issubset(expected):
+            base = "dimensional labels {}"
+            lgl = base.format("'" + "' x '".join(str(dim) for dim in expected) + "'")
+            act = base.format("'" + "' x '".join(str(dim) for dim in dimord) + "'")
+            raise SPYValueError(legal=lgl, varname="dimord", actual=act)
+
+        # Call parent initializer
+        super().__init__(data=data,
+                         filename=filename,
+                         filetype=filetype,
+                         trialdefinition=trialdefinition,
+                         samplerate=samplerate,
+                         channel=channel,
+                         mode=mode,
+                         dimord=dimord)
+        
+        # In case of manual data allocation (reading routine would leave a
+        # mark in `cfg`), fill in required info
+        if len(self.cfg) == 0:
+            self._hdr = None
+
+    # Overload clear method to account for `VirtualData` memmaps
+    def clear(self):
+        if self.data is not None:
+            if hasattr(self.data, "clear"):
+                self.data.clear()
+            else:
+                filename, mode = self.data.filename, self.data.mode
+                self.data.flush()
+                self._data = None
+                self._data = open_memmap(filename, mode=mode)
+        return
 
     # Convenience-function returning by-trial timings
     def trialtimes(self, trialno, unit="s"):
@@ -399,55 +465,77 @@ class AnalogData(ContinuousData):
         start, end = self.sampleinfo[trialno, :]
         return np.arange(start, end) * converter[unit] / self.samplerate if self.samplerate else None
 
-##########################################################################################
-
-
+    
 class SpectralData(ContinuousData):
 
     @property
     def taper(self):
         return self._dimlabels.get("taper")
 
+    @taper.setter
+    def taper(self, tpr):
+        if self.data is None:
+            spy_warning("Cannot assign `taper` without data. "+\
+                        "Please assing data first`",
+                        caller="SyNCoPy core: taper")
+            return
+        ntap = self.data.shape[self.dimord.index("taper")]
+        try:
+            spy_array_parser(tpr, varname="taper", ntype="str", dims=(ntap,))
+        except Exception as exc:
+            raise exc
+        self._dimlabels["taper"] = tpr
+
     @property
     def freq(self):
         return self._dimlabels.get("freq")
 
-    @property
-    def _shapes(self):
-        if self.trials is not None:
-            shp = list(self.data.shape)
-            shp[self.dimord.index("time")] = 1
-            return [tuple(shp)] * len(self.trials)
-
-    # Helper function that reads a single trial into memory
-    @staticmethod
-    def _copy_trial(trialno, filename, dimord, sampleinfo=None, hdr=None):
-        idx = [slice(None)] * len(dimord)
-        idx[dimord.index("time")] = trialno
-        idx = tuple(idx)
-        return np.array(open_memmap(filename, mode="c")[idx])
-
-    # Helper function that grabs a single trial from memory-map(s)
-    def _get_trial(self, trialno):
-        idx = [slice(None)] * len(self.dimord)
-        idx[self.dimord.index("time")] = trialno
-        return self._data[tuple(idx)]
-
+    @freq.setter
+    def freq(self, freq):
+        if self.data is None:
+            spy_warning("Cannot assign `freq` without data. "+\
+                        "Please assing data first`",
+                        caller="SyNCoPy core: freq")
+            return
+        nfreq = self.data.shape[self.dimord.index("freq")]
+        try:
+            spy_array_parser(freq, varname="freq", dims=(nfreq,))
+        except Exception as exc:
+            raise exc
+        self._dimlabels["freq"] = freq
+    
     # "Constructor"
     def __init__(self,
+                 data=None,
                  filename=None,
-                 filetype=None):
+                 filetype=None,
+                 trialdefinition=None,
+                 samplerate=1000,
+                 channel="channel",
+                 taper=None,
+                 freq=None,
+                 mode="w",
+                 dimord=["time", "taper", "channel", "freq"]):
+
+        # The one thing we check right here and now
+        expected = ["time", "taper", "channel", "freq"]
+        if not set(dimord).issubset(expected):
+            base = "dimensional labels {}"
+            lgl = base.format("'" + "' x '".join(str(dim) for dim in expected) + "'")
+            act = base.format("'" + "' x '".join(str(dim) for dim in dimord) + "'")
+            raise SPYValueError(legal=lgl, varname="dimord", actual=act)
 
         # Call parent initializer
-        super().__init__(filename=filename,
-                         filetype=filetype)
-
-        # Set default values for necessary attributes (if not already set
-        # by reading routine invoked in `BaseData`'s `__init__`)
-        if not hasattr(self, "samplerate"):
-            self._samplerate = None
-
-##########################################################################################
+        super().__init__(data=data,
+                         filename=filename,
+                         filetype=filetype,
+                         trialdefinition=trialdefinition,
+                         samplerate=samplerate,
+                         channel=channel,
+                         taper=taper,
+                         freq=freq,
+                         mode=mode,
+                         dimord=dimord)
 
 
 class VirtualData():
@@ -624,8 +712,6 @@ class VirtualData():
                                         mode="r", dtype=dtypes[k],
                                         shape=shapes[k]))
         return
-
-##########################################################################################
 
 
 class Indexer():
