@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-06 10:52:42>
+# Last modification time: <2019-03-06 12:00:47>
 
 # Builtin/3rd party package imports
 import os
@@ -151,7 +151,7 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
     
     # Here for some nested dicts and potentially long-winded notes
     if out.cfg is not None:
-        cfg = out.cfg
+        cfg = dict(out.cfg)
         _dict_converter(cfg)
         out_dct["cfg"] = cfg
     else:
@@ -160,6 +160,7 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
         notes = out.notes
         _dict_converter(notes)
         out_dct["notes"] = notes
+
 
     # Finally, write JSON
     with open(filename.format(ext=FILE_EXT["json"]), "w") as out_json:
@@ -196,10 +197,13 @@ def _dict_converter(dct, firstrun=True):
             if key not in visited:
                 visited.add(key)
                 _dict_converter(dct[key], firstrun=False)
+        elif isinstance(value, list):
+            if key not in visited:
+                visited.add(key)
+                for el in value:
+                    if isinstance(el, dict):
+                        _dict_converter(el, firstrun=False)
         else:
-            if key == "trialdefinition":
-                dct.pop(key)
-                break
             if hasattr(value, "item"):
                 value = value.item()
             dct[key] = value

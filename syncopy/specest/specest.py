@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-06 10:37:22>
+# Last modification time: <2019-03-06 11:25:39>
 
 # Builtin/3rd party package imports
 import sys
@@ -60,7 +60,7 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
     else:
         raise NotImplementedError("Coming soon...")
     if taper == windows.dpss and (not taperopt):
-        nTaper = np.int(np.floor(tapsmofrq * T))
+        nTaper = np.int(np.floor(tapsmofrq * nSamples/obj.samplerate))
         taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
 
     # Compute taper in shape nTaper x nSamples and determine size of freq. axis
@@ -143,11 +143,11 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
            "polyorder" : polyorder,
            "taperopt" : taperopt,
            "tapsmofrq" : tapsmofrq}
-    out.cfg = obj.cfg
     out.cfg = cfg
+    out.cfg = dict(obj.cfg)
 
     # Write log
-    out._log = obj._log + out._log
+    out._log = str(obj._log) + out._log
     log = "computed multi-taper FFT with settings\n" +\
           "\ttaper = {tpr:s}\n" +\
           "\tpadding = {pad:s}\n" +\

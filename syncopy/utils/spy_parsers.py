@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-06 10:51:00>
+# Last modification time: <2019-03-06 11:00:45>
 
 # Builtin/3rd party package imports
 import os
@@ -381,7 +381,7 @@ def spy_data_parser(data, varname="", dataclass=None, writable=True, empty=None,
 
     # If requested, check specific data-class of object
     if dataclass is not None:
-        if data.__class__.__name__ != dataclass:
+        if data.__class__.__name__ not in str(dataclass):
             msg = "SynCoPy {} object".format(dataclass)
             raise SPYTypeError(data, varname=varname, expected=msg)
 
