@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
 # SynCoPy spectral estimation methods
-# 
+#
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-06 11:25:39>
+# Last modification time: <2019-03-06 15:36:20>
 
 # Builtin/3rd party package imports
 import sys
@@ -25,7 +25,7 @@ from syncopy.datatype import SpectralData
 
 __all__ = ["mtmfft"]
 
-##########################################################################################
+
 def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
            polyorder=None, taperopt={}, fftAxis=1, tapsmofrq=None, out=None):
 
@@ -39,8 +39,8 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
                         writable=None, empty=False)
     except Exception as exc:
         raise exc
-    
-    # If provided, make sure output object is appropriate 
+
+    # If provided, make sure output object is appropriate
     if out is not None:
         try:
             spy_data_parser(out, varname="out", writable=True,
@@ -60,14 +60,14 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
     else:
         raise NotImplementedError("Coming soon...")
     if taper == windows.dpss and (not taperopt):
-        nTaper = np.int(np.floor(tapsmofrq * nSamples/obj.samplerate))
+        nTaper = np.int(np.floor(tapsmofrq * nSamples / obj.samplerate))
         taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
 
     # Compute taper in shape nTaper x nSamples and determine size of freq. axis
     win = np.atleast_2d(taper(nSamples, **taperopt))
     nFreq = int(np.floor(nSamples / 2) + 1)
-    freq = np.arange(0, np.floor(nSamples / 2) + 1) * obj.samplerate/nSamples
-    
+    freq = np.arange(0, np.floor(nSamples / 2) + 1) * obj.samplerate / nSamples
+
     # Allocate memory map for results
     res = open_memmap(out._filename,
                       shape=(len(obj.trials), win.shape[0], obj._shapes[0][0], nFreq),
@@ -80,7 +80,7 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
         use_dask = bool(get_client())
     except:
         use_dask = False
-    
+
     # Perform parallel computation
     if use_dask:
 
@@ -90,7 +90,7 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
                                 obj._filename,
                                 obj.dimord,
                                 obj.sampleinfo,
-                                obj.hdr)\
+                                obj.hdr)
                      for trialno in range(obj.sampleinfo.shape[0])]
 
         # Construct a distributed dask array block by stacking delayed trials
@@ -99,7 +99,7 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
                                                dtype=obj.data.dtype) for sk, trl in enumerate(lazy_trls)])
 
         # Use `map_blocks` to compute spectra for each trial in the constructred dask array
-        specs = trl_block.map_blocks(_mtmfft_bytrl, win, nFreq,  pad, padtype, fftAxis, use_dask,
+        specs = trl_block.map_blocks(_mtmfft_bytrl, win, nFreq, pad, padtype, fftAxis, use_dask,
                                      dtype="complex",
                                      chunks=(win.shape[0], obj.data.shape[0], nFreq),
                                      new_axis=[0])
@@ -108,7 +108,7 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
         result = specs.map_blocks(_mtmfft_writer, out._filename,
                                   dtype="complex",
                                   chunks=(1,),
-                                  drop_axis=[0,1])
+                                  drop_axis=[0, 1])
 
         # Perform actual computation
         result.compute()
@@ -130,19 +130,19 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
     out.sampleinfo = np.hstack([time, time + 1])
     out.trialinfo = np.array(obj.trialinfo)
     out._t0 = np.zeros((len(obj.trials),))
-    
+
     # Attach meta-data
     out.samplerate = obj.samplerate
     out.channel = np.array(obj.channel)
     out.taper = np.array([taper.__name__] * win.shape[0])
     out.freq = freq
-    cfg = {"method" : sys._getframe().f_code.co_name,
-           "taper" : taper.__name__,
-           "padding" : pad,
-           "padtype" : padtype,
-           "polyorder" : polyorder,
-           "taperopt" : taperopt,
-           "tapsmofrq" : tapsmofrq}
+    cfg = {"method": sys._getframe().f_code.co_name,
+           "taper": taper.__name__,
+           "padding": pad,
+           "padtype": padtype,
+           "polyorder": polyorder,
+           "taperopt": taperopt,
+           "tapsmofrq": tapsmofrq}
     out.cfg = cfg
     out.cfg = dict(obj.cfg)
 
@@ -164,8 +164,8 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
 
     # Happy breakdown
     return out if new_out else None
-    
-##########################################################################################
+
+
 def _mtmfft_writer(blk, resname, block_info=None):
     """
     Pumps computed spectra into target memmap
@@ -177,8 +177,8 @@ def _mtmfft_writer(blk, resname, block_info=None):
     del res
     return idx
 
-##########################################################################################
-def _mtmfft_bytrl(trl, win, nFreq,  pad, padtype, fftAxis, use_dask):
+
+def _mtmfft_bytrl(trl, win, nFreq, pad, padtype, fftAxis, use_dask):
     """
     Performs the actual heavy-lifting
     """
@@ -197,7 +197,7 @@ def _mtmfft_bytrl(trl, win, nFreq,  pad, padtype, fftAxis, use_dask):
             padWidth[1, 0] = np.ceil((pad - T) / dt).astype(int)
         if padtype == "zero":
             trl = np.pad(trl, pad_width=padWidth,
-                          mode="constant", constant_values=0)
+                         mode="constant", constant_values=0)
 
         # update number of samples
         nSamples = trl.shape[1]
@@ -221,7 +221,7 @@ def _mtmfft_bytrl(trl, win, nFreq,  pad, padtype, fftAxis, use_dask):
 
     return spec
 
-##########################################################################################
+
 def _nextpow2(number):
     n = 1
     while n < number:
