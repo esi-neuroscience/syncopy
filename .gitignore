@@ -42,3 +42,6 @@ __pycache__/
 
 # Dask-related stuff
 dask-worker-space
+
+# Test-related files
+.tox
