@@ -2,23 +2,55 @@
 #
 # Created: 2019-03-05 16:22:56
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-05 17:14:14>
+# Last modification time: <2019-03-06 12:50:40>
 
 from syncopy import (spy_io_parser, spy_scalar_parser, spy_array_parser,
                      spy_data_parser, spy_json_parser, spy_get_defaults)
-from syncopy import SPYValueError, SPYTypeError
+from syncopy import SPYValueError, SPYTypeError, SPYIOError
 from syncopy import AnalogData, SpectralData
-
+import os.path
 import pytest
 import numpy as np
+import tempfile
 
 
-def test_spy_io_parser():
-    # FIXME: Write tests for io_parser
-    assert True
+class TestIoParser(object):
+    existingFolder = tempfile.gettempdir()
+    nonExistingFolder = os.path.join("unlikely", "folder", "to", "exist")
+
+    def test_none(self):
+        with pytest.raises(SPYTypeError):
+            spy_io_parser(None)
+
+    def test_exists(self):
+        spy_io_parser(self.existingFolder, varname="existingFolder",
+                      isfile=False, exists=True)
+        with pytest.raises(SPYIOError):
+            spy_io_parser(self.existingFolder, varname="existingFolder",
+                          isfile=False, exists=False)
+
+        spy_io_parser(self.nonExistingFolder, varname="nonExistingFolder",
+                      exists=False)
+
+        with pytest.raises(SPYIOError):
+            spy_io_parser(self.nonExistingFolder, varname="nonExistingFolder",
+                          exists=True)
+
+    def test_isfile(self):
+        with tempfile.NamedTemporaryFile() as f:
+            spy_io_parser(f.name, isfile=True, exists=True)
+            with pytest.raises(SPYIOError):
+                spy_io_parser(f.name, isfile=False, exists=True)
+
+    def test_ext(self):
+        with tempfile.NamedTemporaryFile(suffix='a7f3.lfp') as f:
+            spy_io_parser(f.name, ext=['lfp', 'mua'], exists=True)
+            spy_io_parser(f.name, ext='lfp', exists=True)
+            with pytest.raises(SPYValueError):
+                spy_io_parser(f.name, ext='mua', exists=True)
 
 
-class TestSpyScalarParser(object):
+class TestScalarParser(object):
     def test_none(self):
         with pytest.raises(SPYTypeError):
             spy_scalar_parser(None, varname="value",
