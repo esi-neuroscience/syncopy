@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-05 17:28:35>
+# Last modification time: <2019-03-06 10:36:26>
 
 # Builtin/3rd party package imports
 import numbers
@@ -317,12 +317,10 @@ def _makeidx(obj, segments, deepcopy, exact_match, **kwargs):
     return selectors, segments
 
 ##########################################################################################
-def redefinetrial(obj, trl):
+def redefinetrial(obj, trialdefinition):
     """
     Docstring coming soon(ish)
     """
-
-    trialdefinition = trl.copy()
 
     # Start vetting input args
     try:
@@ -350,9 +348,9 @@ def redefinetrial(obj, trl):
     else:
         raise NotImplementedError("DiscreteData not yet implemented")
 
-    # Update `cfg` and object log
-    obj.cfg = {"method" : sys._getframe().f_code.co_name,
-               "trialdefinition" : trialdefinition}
+    # # Update `cfg` and object log
+    # obj.cfg = {"method" : sys._getframe().f_code.co_name,
+    #            "trialdefinition" : trialdefinition}
     
     # Write log entry
     obj.log = "updated trial-definition with [" \

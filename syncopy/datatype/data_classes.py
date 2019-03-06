@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-05 18:06:51>
+# Last modification time: <2019-03-06 10:24:36>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -105,8 +105,8 @@ class BaseData(ABC):
         if self.data is not None:
             filename, mode = self.data.filename, self.data.mode
             self.data.flush()
-            self.data = None
-            self.data = open_memmap(filename, mode=mode)
+            self._data = None
+            self._data = open_memmap(filename, mode=mode)
         return
 
     # Return a (deep) copy of the current class instance
@@ -444,8 +444,8 @@ class AnalogData(ContinuousData):
             else:
                 filename, mode = self.data.filename, self.data.mode
                 self.data.flush()
-                self.data = None
-                self.data = open_memmap(filename, mode=mode)
+                self._data = None
+                self._data = open_memmap(filename, mode=mode)
         return
 
     # Convenience-function returning by-trial timings
@@ -471,10 +471,38 @@ class SpectralData(ContinuousData):
     def taper(self):
         return self._dimlabels.get("taper")
 
+    @taper.setter
+    def taper(self, tpr):
+        if self.data is None:
+            spy_warning("Cannot assign `taper` without data. "+\
+                        "Please assing data first`",
+                        caller="SyNCoPy core: taper")
+            return
+        ntap = self.data.shape[self.dimord.index("taper")]
+        try:
+            spy_array_parser(tpr, varname="taper", ntype="str", dims=(ntap,))
+        except Exception as exc:
+            raise exc
+        self._dimlabels["taper"] = tpr
+
     @property
     def freq(self):
         return self._dimlabels.get("freq")
 
+    @freq.setter
+    def freq(self, freq):
+        if self.data is None:
+            spy_warning("Cannot assign `freq` without data. "+\
+                        "Please assing data first`",
+                        caller="SyNCoPy core: freq")
+            return
+        nfreq = self.data.shape[self.dimord.index("freq")]
+        try:
+            spy_array_parser(freq, varname="freq", dims=(nfreq,))
+        except Exception as exc:
+            raise exc
+        self._dimlabels["freq"] = freq
+    
     # "Constructor"
     def __init__(self,
                  data=None,

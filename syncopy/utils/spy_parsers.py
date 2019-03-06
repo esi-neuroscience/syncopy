@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-05 09:37:47>
+# Last modification time: <2019-03-06 10:51:00>
 
 # Builtin/3rd party package imports
 import os
@@ -426,6 +426,10 @@ def spy_json_parser(json_dct, wanted_dct):
     """
     Docstring coming soon(ish)
     """
+
+    if not set(wanted_dct.keys()).issubset(json_dct.keys()):
+        legal = "mandatory fields " + "".join(key + ", " for key in wanted_dct.keys())[:-2]
+        raise SPYValueError(legal=legal, varname="JSON")
     
     for key, tp in wanted_dct.items():
         if not isinstance(json_dct[key], tp):

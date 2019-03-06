@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-04 14:44:51>
+# Last modification time: <2019-03-06 10:52:37>
 
 # Builtin/3rd party package imports
 import os
@@ -19,10 +19,10 @@ from syncopy.utils import spy_io_parser, spy_json_parser, spy_data_parser, SPYTy
 from syncopy.io import hash_file, FILE_EXT
 import syncopy.datatype as swd
 
-__all__ = ["load_spw"]
+__all__ = ["load_spy"]
 
 ##########################################################################################
-def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
+def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     """
     Docstring coming soon...
 
@@ -138,7 +138,6 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
     elif json_dict["type"] == "SpectralData":
         expected = {"samplerate" : float,
                     "channel" : list,
-                    "time" : list,
                     "taper" : list}
         try:
             spy_json_parser(json_dict, expected)
@@ -182,22 +181,20 @@ def load_spw(in_name, fname=None, checksum=False, out=None, **kwargs):
     out._data = open_memmap(in_files["data"], mode="r+")
     out._filename = in_files["data"]
 
-    # Sub-class-specific things follow
+    # Abuse ``redefinetrial`` to set trial-related props
     trialdef = np.load(in_files["trl"])
+    out.redefinetrial(trialdef)
+
+    # Sub-class-specific things follow
     if json_dict["type"] == "AnalogData":
-        out._samplerate = json_dict["samplerate"]
-        out._dimlabels["channel"] = np.array(json_dict["channel"])
-        out._dimlabels["time"] = range(out.data.shape[out.dimord.index("time")])
-        out._sampleinfo = trialdef[:,:2]
-        out._trialinfo = trialdef[:,2:]
-        out._hdr = None
+        out.samplerate = json_dict["samplerate"]
+        out.channel = np.array(json_dict["channel"])
+        # out._hdr = None
     elif json_dict["type"] == "SpectralData":
-        out._samplerate = json_dict["samplerate"]
-        out._dimlabels["channel"] = np.array(json_dict["channel"])
-        out._dimlabels["taper"] = np.array(json_dict["taper"])
-        out._dimlabels["freq"] = np.array(json_dict["freq"])
-        out._dimlabels["time"] = np.array(json_dict["time"])
-        out._trialinfo = trialdef
+        out.samplerate = json_dict["samplerate"]
+        out.channel = np.array(json_dict["channel"])
+        out.taper = np.array(json_dict["taper"])
+        out.freq = np.array(json_dict["freq"])
 
     # Write log-entry
     msg = "Read files v. {ver:s} {fname:s}"

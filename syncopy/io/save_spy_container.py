@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-04 15:04:39>
+# Last modification time: <2019-03-06 10:52:42>
 
 # Builtin/3rd party package imports
 import os
@@ -72,8 +72,9 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
     # Start by writing trial-related information
     with open(filename.format(ext=FILE_EXT["trl"]), "wb") as out_trl:
         trl = np.array(out.trialinfo)
+        t0 = np.array(out.t0).reshape((out.t0.size,1))
         if hasattr(out, "sampleinfo"):
-            trl = np.hstack([out.sampleinfo, trl]) 
+            trl = np.hstack([out.sampleinfo, t0, trl])
         np.save(out_trl, trl, allow_pickle=False)
     
     # In case `out` hosts a `VirtualData` object, things are more elaborate
@@ -143,7 +144,6 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
     if hasattr(out, "taper"):           
         out_dct["taper"] = out.taper.tolist()   # where is a taper, 
         out_dct["freq"] = out.freq.tolist()     # there is a frequency 
-        out_dct["time"] = out.time.tolist()     # and a time-vector worth saving
         
     # Stuff that is definitely vector-valued
     if hasattr(out, "channel"):
@@ -197,6 +197,9 @@ def _dict_converter(dct, firstrun=True):
                 visited.add(key)
                 _dict_converter(dct[key], firstrun=False)
         else:
+            if key == "trialdefinition":
+                dct.pop(key)
+                break
             if hasattr(value, "item"):
                 value = value.item()
             dct[key] = value

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:13:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-05 18:01:34>
+# Last modification time: <2019-03-06 10:14:47>
 
 # Builtin/3rd party package imports
 import os
@@ -14,7 +14,7 @@ import numpy as np
 # Local imports
 from syncopy.utils import (spy_io_parser, spy_scalar_parser, spy_array_parser,
                              spy_data_parser, SPYIOError, SPYTypeError, SPYValueError)
-from syncopy.datatype import AnalogData, VirtualData, redefinetrial
+from syncopy.datatype import AnalogData, VirtualData
 
 __all__ = ["load_binary_esi", "read_binary_esi_header"]
 
@@ -83,7 +83,7 @@ def load_binary_esi(filename,
 
     # Now we can abuse ``redefinetrial`` to set trial-related props and
     # write dimensional information - order matters here!
-    redefinetrial(out, trialdefinition)
+    out.redefinetrial(trialdefinition)
     
     # Set remaining attributes
     out._dimlabels["channel"] = np.array(channel)
@@ -96,7 +96,7 @@ def load_binary_esi(filename,
     
     # Write log entry
     log = "loaded data:\n" +\
-          "\tfile(s) = {fls:s}\n"
+          "\tfile(s) = {fls:s}"
     out.log = log.format(fls="\n\t\t  ".join(fl for fl in filename))
 
     # Happy breakdown

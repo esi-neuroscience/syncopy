@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-05 18:01:44>
+# Last modification time: <2019-03-06 10:37:22>
 
 # Builtin/3rd party package imports
 import sys
@@ -123,30 +123,44 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
 
     # First things first: attach data to output object
     out._data = open_memmap(out._filename, mode="r+")
-        
-    # Attach results to output object: start w/ dimensional info (order matters!)
-    time = np.arange(len(obj.trials))
-    out._dimlabels["time"] = time.copy()
-    out._dimlabels["taper"] = np.array([taper.__name__] * win.shape[0])
-    out._dimlabels["channel"] = np.array(obj.channel)
-    out._dimlabels["freq"] = freq
 
-    # Write data and meta-info
+    # We can't simply use ``redefinetrial`` here, prep things by hand
+    time = np.arange(len(obj.trials))
     time = time.reshape((time.size, 1))
     out.sampleinfo = np.hstack([time, time + 1])
-    out._samplerate = obj.samplerate
-    out._trialinfo = np.array(obj.trialinfo)
-    out.cfg = {"method" : sys._getframe().f_code.co_name,
-               "taper" : taper.__name__,
-               "padding" : pad,
-               "padtype" : padtype,
-               "polyorder" : polyorder,
-               "taperopt" : taperopt,
-               "tapsmofrq" : tapsmofrq}
+    out.trialinfo = np.array(obj.trialinfo)
+    out._t0 = np.zeros((len(obj.trials),))
+    
+    # Attach meta-data
+    out.samplerate = obj.samplerate
+    out.channel = np.array(obj.channel)
+    out.taper = np.array([taper.__name__] * win.shape[0])
+    out.freq = freq
+    cfg = {"method" : sys._getframe().f_code.co_name,
+           "taper" : taper.__name__,
+           "padding" : pad,
+           "padtype" : padtype,
+           "polyorder" : polyorder,
+           "taperopt" : taperopt,
+           "tapsmofrq" : tapsmofrq}
+    out.cfg = obj.cfg
+    out.cfg = cfg
 
     # Write log
-    log = "computed multi-taper FFT with settings..."
-    out.log = log
+    out._log = obj._log + out._log
+    log = "computed multi-taper FFT with settings\n" +\
+          "\ttaper = {tpr:s}\n" +\
+          "\tpadding = {pad:s}\n" +\
+          "\tpadtype = {pat:s}\n" +\
+          "\tpolyorder = {pol:s}\n" +\
+          "\ttaperopt = {topt:s}\n" +\
+          "\ttapsmofrq = {tfr:s}\n"
+    out.log = log.format(tpr=cfg["taper"],
+                         pad=cfg["padding"],
+                         pat=cfg["padtype"],
+                         pol=str(cfg["polyorder"]),
+                         topt=str(cfg["taperopt"]),
+                         tfr=str(cfg["tapsmofrq"]))
 
     # Happy breakdown
     return out if new_out else None
