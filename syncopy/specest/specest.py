@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-06 11:25:39>
+# Last modification time: <2019-03-08 15:41:42>
 
 # Builtin/3rd party package imports
 import sys
@@ -20,7 +20,7 @@ if __dask__:
     from dask.distributed import get_client
 
 # Local imports
-from syncopy.utils import spy_data_parser
+from syncopy.utils import data_parser
 from syncopy.datatype import SpectralData
 
 __all__ = ["mtmfft"]
@@ -35,16 +35,16 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
 
     # Make sure input object can be processed
     try:
-        spy_data_parser(obj, varname="obj", dataclass="AnalogData",
-                        writable=None, empty=False)
+        data_parser(obj, varname="obj", dataclass="AnalogData",
+                    writable=None, empty=False)
     except Exception as exc:
         raise exc
     
     # If provided, make sure output object is appropriate 
     if out is not None:
         try:
-            spy_data_parser(out, varname="out", writable=True,
-                            dataclass="SpectralData")
+            data_parser(out, varname="out", writable=True,
+                        dataclass="SpectralData")
         except Exception as exc:
             raise exc
         new_out = False

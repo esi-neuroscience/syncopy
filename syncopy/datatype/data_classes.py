@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-06 10:24:36>
+# Last modification time: <2019-03-08 17:03:34>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -26,8 +26,8 @@ import shutil
 
 # Local imports
 from .data_methods import _selectdata_continuous, redefinetrial
-from syncopy.utils import (spy_scalar_parser, spy_array_parser, SPYIOError,
-                             SPYTypeError, SPYValueError, spy_warning)
+from syncopy.utils import (scalar_parser, array_parser, SPYIOError,
+                             SPYTypeError, SPYValueError)
 from syncopy import __version__, __storage__, __dask__
 if __dask__:
     import dask
@@ -83,7 +83,7 @@ class BaseData(ABC):
     @trialinfo.setter
     def trialinfo(self, trl):
         try:
-            spy_array_parser(trl, varname="trialinfo")
+            array_parser(trl, varname="trialinfo")
         except Exception as exc:
             raise exc
         self._trialinfo = trl
@@ -102,7 +102,7 @@ class BaseData(ABC):
 
     # Convenience function, wiping attached memmap
     def clear(self):
-        if self.data is not None:
+        if hasattr(self.data, "flush"):
             filename, mode = self.data.filename, self.data.mode
             self.data.flush()
             self._data = None
@@ -112,12 +112,7 @@ class BaseData(ABC):
     # Return a (deep) copy of the current class instance
     def copy(self, deep=False):
         cpy = copy(self)
-        if deep:
-            if isinstance(self.data, VirtualData):
-                spy_warning("Deep copy not possible for VirtualData objects. " +
-                            "Please use `save_spy` instead. ",
-                            caller="SynCoPy core: copy")
-                return
+        if deep and hasattr(self.data, "flush"):
             self.data.flush()
             cpy._filename = self._gen_filename()
             shutil.copyfile(self._filename, cpy._filename)
@@ -198,19 +193,38 @@ class BaseData(ABC):
     def __init__(self, **kwargs):
         """
         Docstring
+
+        filename + data = create memmap @filename
+        filename no data = read from file
+        just data = don't create anything
         """
 
         # Depending on contents of `filename` and `data` class instantiation invokes I/O routines
-        if kwargs.get("filename") and not kwargs.get("data"):
-            read_fl = True
-            filename = kwargs.pop("filename")
-            for key in ["data", "samplerate", "mode"]:
-                kwargs.pop(key)
-            self._filename = None
+        if kwargs.get("filename"):
+            if kwargs.get("data"):
+                read_fl = False
+                filename = kwargs.pop("filename")
+                data = kwargs.pop("data")
+                self._filename = filename
+                self._data = open_memmap(filename, mode="w+", dtype=data.dtype, shape=data.shape)
+                self._data[...] = data
+                self._data.flush()
+                del data
+            else:
+                read_fl = True
+                filename = kwargs.pop("filename")
+                for key in ["data", "samplerate", "mode"]:
+                    kwargs.pop(key)
+                self._filename = None
         else:
             read_fl = False
-            self._filename = self._gen_filename()
-
+            if kwargs.get("data"):
+                self._data = kwargs.pop("data")
+                self._filename = None
+            else:
+                self._data = None
+                self._filename = self._gen_filename()
+            
         # Iniital allocation of attributes (where necessary)
         self._cfg = {}
         self._dimlabels = OrderedDict()
@@ -234,7 +248,6 @@ class BaseData(ABC):
         self._log = ""
 
         # Now assign (default) values
-        self._data = kwargs.get("data", None)
         self._mode = kwargs.get("mode", "w")
         self._trialinfo = None
 
@@ -275,13 +288,12 @@ class ContinuousData(BaseData, ABC):
     @channel.setter
     def channel(self, chan):
         if self.data is None:
-            spy_warning("Cannot assign `channels` without data. "+\
-                        "Please assing data first`",
-                        caller="SyNCoPy core: channel")
+            print("SyNCoPy core - channel: Cannot assign `channels` without data. "+\
+                  "Please assing data first")
             return
         nchan = self.data.shape[self.dimord.index("channel")]
         try:
-            spy_array_parser(chan, varname="channel", ntype="str", dims=(nchan,))
+            array_parser(chan, varname="channel", ntype="str", dims=(nchan,))
         except Exception as exc:
             raise exc
         self._dimlabels["channel"] = chan
@@ -293,13 +305,12 @@ class ContinuousData(BaseData, ABC):
     @sampleinfo.setter
     def sampleinfo(self, sinfo):
         if self.data is None:
-            spy_warning("Cannot assign `sampleinfo` without data. "+\
-                        "Please assing data first`",
-                        caller="SyNCoPy core: sampleinfo")
+            print("SyNCoPy core - sampleinfo: Cannot assign `sampleinfo` without data. "+\
+                  "Please assing data first")
             return
         scount = self.data.shape[self.dimord.index("time")]
         try:
-            spy_array_parser(sinfo, varname="sampleinfo", dims=2,
+            array_parser(sinfo, varname="sampleinfo", dims=2,
                              ntype="int_like", lims=[0, scount])
         except Exception as exc:
             raise exc
@@ -312,7 +323,7 @@ class ContinuousData(BaseData, ABC):
     @samplerate.setter
     def samplerate(self, sr):
         try:
-            spy_scalar_parser(sr, varname="samplerate", lims=[1, np.inf])
+            scalar_parser(sr, varname="samplerate", lims=[1, np.inf])
         except Exception as exc:
             raise exc
         self._samplerate = sr
@@ -436,7 +447,7 @@ class AnalogData(ContinuousData):
         if len(self.cfg) == 0:
             self._hdr = None
 
-    # Overload clear method to account for `VirtualData` memmaps
+    # Overload ``clear`` method to account for `VirtualData` memmaps
     def clear(self):
         if self.data is not None:
             if hasattr(self.data, "clear"):
@@ -448,6 +459,19 @@ class AnalogData(ContinuousData):
                 self._data = open_memmap(filename, mode=mode)
         return
 
+    # Overload ``copy`` method to account for `VirtualData` memmaps
+    def copy(self, deep=False):
+        cpy = copy(self)
+        if deep:
+            if isinstance(self.data, VirtualData):
+                print("SyNCoPy core - copy: Deep copy not possible for " +
+                      "VirtualData objects. Please use `save_spy` instead. ")
+                return
+            self.data.flush()
+            cpy._filename = self._gen_filename()
+            shutil.copyfile(self._filename, cpy._filename)
+        return cpy
+
     # Convenience-function returning by-trial timings
     def trialtimes(self, trialno, unit="s"):
         converter = {"h": 1 / 360, "min": 1 / 60, "s": 1, "ms": 1e3, "ns": 1e9}
@@ -457,7 +481,7 @@ class AnalogData(ContinuousData):
             raise SPYValueError("".join(opt + ", " for opt in converter.keys())[:-2],
                                 varname="unit", actual=unit)
         try:
-            spy_scalar_parser(trialno, varname="trialno", ntype="int_like",
+            scalar_parser(trialno, varname="trialno", ntype="int_like",
                               lims=[0, len(self.trials) - 1])
         except Exception as exc:
             raise exc
@@ -474,13 +498,12 @@ class SpectralData(ContinuousData):
     @taper.setter
     def taper(self, tpr):
         if self.data is None:
-            spy_warning("Cannot assign `taper` without data. "+\
-                        "Please assing data first`",
-                        caller="SyNCoPy core: taper")
+            print("SyNCoPy core - taper: Cannot assign `taper` without data. "+\
+                  "Please assing data first")
             return
         ntap = self.data.shape[self.dimord.index("taper")]
         try:
-            spy_array_parser(tpr, varname="taper", ntype="str", dims=(ntap,))
+            array_parser(tpr, varname="taper", ntype="str", dims=(ntap,))
         except Exception as exc:
             raise exc
         self._dimlabels["taper"] = tpr
@@ -492,13 +515,12 @@ class SpectralData(ContinuousData):
     @freq.setter
     def freq(self, freq):
         if self.data is None:
-            spy_warning("Cannot assign `freq` without data. "+\
-                        "Please assing data first`",
-                        caller="SyNCoPy core: freq")
+            print("SyNCoPy core - freq: Cannot assign `freq` without data. "+\
+                  "Please assing data first")
             return
         nfreq = self.data.shape[self.dimord.index("freq")]
         try:
-            spy_array_parser(freq, varname="freq", dims=(nfreq,))
+            array_parser(freq, varname="freq", dims=(nfreq,))
         except Exception as exc:
             raise exc
         self._dimlabels["freq"] = freq
@@ -577,7 +599,7 @@ class VirtualData():
         if not isinstance(chunk_list, (list, np.memmap)):
             raise SPYTypeError(chunk_list, varname="chunk_list", expected="array_like")
 
-        # Do not use ``spy_array_parser`` to validate chunks to not force-load memmaps
+        # Do not use ``array_parser`` to validate chunks to not force-load memmaps
         try:
             shapes = [chunk.shape for chunk in chunk_list]
         except:
@@ -623,7 +645,7 @@ class VirtualData():
         # Convert input to slice (if it isn't already) or assign explicit start/stop values
         if isinstance(qrow, numbers.Number):
             try:
-                spy_scalar_parser(qrow, varname="row", ntype="int_like", lims=[0, self._M])
+                scalar_parser(qrow, varname="row", ntype="int_like", lims=[0, self._M])
             except Exception as exc:
                 raise exc
             row = slice(int(qrow), int(qrow + 1))
@@ -640,7 +662,7 @@ class VirtualData():
         # Convert input to slice (if it isn't already) or assign explicit start/stop values
         if isinstance(qcol, numbers.Number):
             try:
-                spy_scalar_parser(qcol, varname="col", ntype="int_like", lims=[0, self._N])
+                scalar_parser(qcol, varname="col", ntype="int_like", lims=[0, self._N])
             except Exception as exc:
                 raise exc
             col = slice(int(qcol), int(qcol + 1))
@@ -730,7 +752,7 @@ class Indexer():
     def __getitem__(self, idx):
         if isinstance(idx, numbers.Number):
             try:
-                spy_scalar_parser(idx, varname="idx", ntype="int_like",
+                scalar_parser(idx, varname="idx", ntype="int_like",
                                   lims=[0, self._iterlen - 1])
             except Exception as exc:
                 raise exc
@@ -749,7 +771,7 @@ class Indexer():
             return np.hstack(islice(self._iterobj, index.start, index.stop, index.step))
         elif isinstance(idx, (list, np.ndarray)):
             try:
-                spy_array_parser(idx, varname="idx", ntype="int_like",
+                array_parser(idx, varname="idx", ntype="int_like",
                                  lims=[0, self._iterlen], dims=1)
             except Exception as exc:
                 raise exc

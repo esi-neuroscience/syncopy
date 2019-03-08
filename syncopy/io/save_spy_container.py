@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-06 12:00:47>
+# Last modification time: <2019-03-08 15:41:13>
 
 # Builtin/3rd party package imports
 import os
@@ -16,13 +16,13 @@ from numpy.lib.format import open_memmap
 from hashlib import blake2b
 
 # Local imports
-from syncopy.utils import spy_io_parser, spy_data_parser, SPYIOError, SPYTypeError
+from syncopy.utils import io_parser, data_parser, SPYIOError, SPYTypeError
 from syncopy.io import hash_file, write_access, FILE_EXT
 
-__all__ = ["save_spw"]
+__all__ = ["save_spy"]
 
 ##########################################################################################
-def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
+def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
     """
     Docstring coming soon...
     """
@@ -47,9 +47,9 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
     if not write_access(out_name):
         raise SPYIOError(out_name)
 
-    # Make sure `out` inherits from `BaseData`
+    # Make sure `out` is a valid SyNCoPy data object
     try:
-        spy_data_parser(out, varname="out", writable=None, empty=False)
+        data_parser(out, varname="out", writable=None, empty=False)
     except Exception as exc:
         raise exc
 
@@ -58,7 +58,7 @@ def save_spw(out_name, out, fname=None, append_extension=True, memuse=100):
         fname = os.path.splitext(os.path.basename(out_name))[0]
     else:
         try:
-            spy_io_parser(fname, varname="filename", isfile=True, exists=False)
+            io_parser(fname, varname="filename", isfile=True, exists=False)
         except Exception as exc:
             raise exc
         fbase, fext = os.path.splitext(fname)
