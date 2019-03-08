@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 15:46:03
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-04 15:07:15>
+# Last modification time: <2019-03-07 13:07:53>
 """
 SynCoPy Spectral Estimation Methods (:mod:`syncopy.specest`)
 ============================================================
@@ -21,6 +21,7 @@ Some text
 """
 # Import __all__ routines from local modules
 from .specest import *
+from .wavelets import *
 
 # Populate local __all__ namespace
 __all__ = []

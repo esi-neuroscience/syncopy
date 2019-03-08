@@ -3,27 +3,31 @@
 # SynCoPy spectral estimation methods
 #
 # Created: 2019-01-22 09:07:47
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-06 15:36:20>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-03-08 16:37:35>
 
 # Builtin/3rd party package imports
 import sys
 import numpy as np
-import scipy.signal as signal
 import scipy.signal.windows as windows
 from numpy.lib.format import open_memmap
 from tqdm import tqdm
+
+# Local imports
+import syncopy as spy
+from syncopy import spy_data_parser
+from syncopy import SpectralData
+from syncopy.specest.wavelets import cwt, Morlet
+
+
 from syncopy import __dask__
 if __dask__:
     import dask
     import dask.array as da
     from dask.distributed import get_client
 
-# Local imports
-from syncopy.utils import spy_data_parser
-from syncopy.datatype import SpectralData
 
-__all__ = ["mtmfft"]
+__all__ = ["mtmfft", "wavelet"]
 
 
 def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
@@ -227,3 +231,87 @@ def _nextpow2(number):
     while n < number:
         n *= 2
     return n
+
+
+def wavelet(data=None, pad=None, padtype=None, freqoi=None, timeoi=None,
+            width=6, polyorder=None, out=None, wavelet=Morlet):
+    if out is None:
+        out = spy.SpectralData()
+    wav = Morlet(w0=width)
+
+    minTrialLength = np.array(data._shapes)[:, 1].min()
+    totalTriallength = np.sum(np.array(data._shapes)[:, 1])
+
+    if freqoi is None:
+        scales = _get_optimal_wavelet_scales(minTrialLength,
+                                             1 / data.samplerate,
+                                             dj=0.25)
+    else:
+        scales = wav.scale_from_period(np.reciprocal(freqoi))
+
+    result = open_memmap(out._filename,
+                         shape=(totalTriallength, 1, len(data.channel), len(scales)),
+                         dtype="complex",
+                         mode="w+")
+    del result
+
+    for idx, trial in enumerate(tqdm(data.trials, desc="Computing Wavelet spectrum...")):
+        selector = slice(data.sampleinfo[idx, 0], data.sampleinfo[idx, 1])
+        res = open_memmap(out._filename, mode="r+")[selector, :, :, :]
+        tmp = _wavelet_compute(dat=trial,
+                               wavelet=wav,
+                               dt=1 / data.samplerate,
+                               scales=scales,
+                               axis=1)[:, :, np.newaxis, ...].transpose()
+        res[...] = tmp
+        # del res
+        # data.clear()
+
+    out._data = open_memmap(out._filename, mode="r+")
+    # We can't simply use ``redefinetrial`` here, prep things by hand
+    time = np.arange(len(data.trials))
+    time = time.reshape((time.size, 1))
+    out.sampleinfo = data.sampleinfo
+    out.trialinfo = np.array(data.trialinfo)
+    out._t0 = np.zeros((len(data.trials),))
+
+    # Attach meta-data
+    out.samplerate = data.samplerate
+    out.channel = np.array(data.channel)
+    out.freq = np.reciprocal(wav.fourier_period(scales))
+
+    return out
+
+
+def _wavelet_compute(dat, wavelet, dt, scales, axis=1):
+    # def compute_wavelet
+    return cwt(dat, axis=axis, wavelet=wavelet, widths=scales, dt=dt)
+
+
+def _get_optimal_wavelet_scales(nSamples, dt, dj=0.25, s0=1):
+    """Form a set of scales to use in the wavelet transform.
+
+    For non-orthogonal wavelet analysis, one can use an
+    arbitrary set of scales.
+
+    It is convenient to write the scales as fractional powers of
+    two:
+
+        s_j = s_0 * 2 ** (j * dj), j = 0, 1, ..., J
+
+        J = (1 / dj) * log2(N * dt / s_0)
+
+    s0 - smallest resolvable scale
+    J - largest scale
+
+    choose s0 so that the equivalent Fourier period is 2 * dt.
+
+    The choice of dj depends on the width in spectral space of
+    the wavelet function. For the Morlet, dj=0.5 is the largest
+    that still adequately samples scale. Smaller dj gives finer
+    scale resolution.
+    """
+    s0 = 2 * dt
+    # Largest scale
+    J = int((1 / dj) * np.log2(nSamples * dt / s0))
+    return s0 * 2 ** (dj * np.arange(0, J + 1))
