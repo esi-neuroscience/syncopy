@@ -4,7 +4,7 @@
 #
 # Created: 2019-02-25 13:08:56
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-01 15:43:26>
+# Last modification time: <2019-03-07 12:36:57>
 
 
 # Builtin/3rd party package imports
@@ -18,7 +18,7 @@ if spw_path not in sys.path:
     sys.path.insert(0, spw_path)
 
 # Import Spykewave
-import spykewave as spy
+import syncopy as spy
 
 
 def ex_datatype():
