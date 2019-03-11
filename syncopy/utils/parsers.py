@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-08 15:39:24>
+# Last modification time: <2019-03-11 16:35:39>
 
 # Builtin/3rd party package imports
 import os
@@ -18,7 +18,7 @@ from syncopy.utils import SPYIOError, SPYTypeError, SPYValueError
 __all__ = ["io_parser", "scalar_parser", "array_parser",
            "data_parser", "json_parser", "get_defaults"]
 
-##########################################################################################
+
 def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
     """
     Parse file-system location strings for reading/writing files/directories
@@ -87,6 +87,12 @@ def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
     # Avoid headaches, use absolute paths...
     fs_loc = os.path.abspath(os.path.expanduser(fs_loc))
 
+    # Ensure that filesystem object does/does not exist
+    if exists and not os.path.exists(fs_loc):
+        raise SPYIOError(fs_loc, exists=False)
+    if not exists and os.path.exists(fs_loc):
+        raise SPYIOError(fs_loc, exists=True)
+
     # First, take care of directories...
     if not isfile:
         isdir = os.path.isdir(fs_loc)
@@ -128,7 +134,7 @@ def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
         else:
             return fs_loc.split(file_name)[0], file_name
 
-##########################################################################################
+        
 def scalar_parser(var, varname="", ntype=None, lims=None):
     """
     Parse scalars 
@@ -217,8 +223,9 @@ def scalar_parser(var, varname="", ntype=None, lims=None):
 
     return
 
-##########################################################################################
-def array_parser(var, varname="", ntype=None, lims=None, dims=None):
+
+def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
+                 lims=None, dims=None):
     """
     Parse array-like objects
 
@@ -235,29 +242,38 @@ def array_parser(var, varname="", ntype=None, lims=None, dims=None):
         (all elements of `var` are expected to have no significant digits 
         after the decimal point, e.g., 3.0, -12.0 etc.). 
         If `ntype` is `None` the data type of `var` is not checked. 
+    hasinf : None or bool
+        If `hasinf` is `False` the input array `var` is considered invalid 
+        if it contains non-finite elements (`np.inf`), vice-versa if `hasinf`
+        is `True`. If `hasinf` is `None` elements of `var` are not probed 
+        for finiteness. 
+    hasnan : None or bool
+        If `hasnan` is `False` the input array `var` is considered invalid 
+        if it contains undefined elements (`np.nan`), vice-versa if `hasnan`
+        is `True`. If `hasnan` is `None` elements of `var` are not probed 
+        for well-posedness. 
     lims : None or two-element list_like
         Lower (`lims[0]`) and upper (`lims[1]`) bounds for legal values of `var`'s 
         elements. Note that the code checks for non-strict inequality, 
         i.e., `var[i] = lims[0]` or `var[i] = lims[1]` are both considered 
-        to be valid elements of `var`. Using `lims = [-np.inf, np.inf]` may 
-        be employed to ensure that all elements of `var` are finite and non-NaN. 
+        to be valid elements of `var`. 
         For complex arrays bounds-checking is performed on both real and 
         imaginary parts of each component of `var`. That is, all elements of 
         `var` have to satisfy `lims[0] <= var[i].real <= lims[1]` as well as 
         `lims[0] <= var[i].imag <= lims[1]` (see Examples for details). 
+        Note that `np.inf` and `np.nan` entries are ignored during bounds-
+        checking. Use the keywords `hasinf` and `hasnan` to probe an array 
+        for infinite and non-numeric entries, respectively. 
         If `lims` is `None` bounds-checking is not performed. 
     dims : None or int or tuple
         Expected number of dimensions (if `dims` is an integer) or shape 
         (if `dims` is a tuple) of `var`. By default, singleton dimensions 
-        of `var` are ignored, i.e., for `dims = 1` or `dims = (10,)` an array
+        of `var` are ignored, i.e., for `dims = (10,)` an array
         `var` with `var.shape = (10,1)` is considered valid. However, if 
         singleton dimensions are explicitly queried by setting `dims = (10,1)`
         any array `var` with `var.shape = (10,)` or `var.shape = (1,10)` is 
-        considered invalid. This level of fine-grained control is only available
-        when working with tuples, i.e., `dims = 1` accepts any array `var` 
-        of "vector-like" shape such as `var.shape = (10,)`, `var.shape = (10,1)`,
-        `var.shape = (1,10)` etc. (see Examples for details). 
-        If `dims` is `None` the dimensional layout of `var` is ignored. 
+        considered invalid.  If `dims` is `None` the dimensional layout of 
+        `var` is ignored. 
     
     Returns
     -------
@@ -278,7 +294,6 @@ def array_parser(var, varname="", ntype=None, lims=None, dims=None):
     >>> time = time[:,np.newaxis]
     >>> time.shape
     (100, 1)
-    >>> array_parser(time, varname="time", lims=[0, 10], dims=1)
     >>> array_parser(time, varname="time", lims=[0, 10], dims=(100,))
 
     However, explicitly querying for a row-vector fails
@@ -333,8 +348,31 @@ def array_parser(var, varname="", ntype=None, lims=None, dims=None):
                 raise SPYValueError(msg.format(dt=ntype), varname=varname,
                                     actual=msg.format(dt=str(arr.dtype)))
 
-    # If required perform component-wise bounds-check
+    # If required, parse finiteness of array-elements
+    if hasinf is not None:
+        if not hasinf and np.isinf(arr).any():
+            lgl = "finite numerical array"
+            act = "array with {} `inf` entries".format(str(np.isinf(arr).sum()))
+            raise SPYValueError(legal=lgl, varname=varname, actual=act)
+        if hasinf and not np.isinf(arr).any():
+            lgl = "numerical array with infinite (`np.inf`) entries"
+            act = "finite numerical array"
+            raise SPYValueError(legal=lgl, varname=varname, actual=act)
+
+    # If required, parse well-posedness of array-elements
+    if hasnan is not None:
+        if not hasnan and np.isnan(arr).any():
+            lgl = "well-defined numerical array"
+            act = "array with {} `NaN` entries".format(str(np.isnan(arr).sum()))
+            raise SPYValueError(legal=lgl, varname=varname, actual=act)
+        if hasnan and not np.isnan(arr).any():
+            lgl = "numerical array with undefined (`np.nan`) entries"
+            act = "well-defined numerical array"
+            raise SPYValueError(legal=lgl, varname=varname, actual=act)
+            
+    # If required perform component-wise bounds-check (remove NaN's and Inf's first)
     if lims is not None:
+        arr = np.isfinite(arr)
         if np.issubdtype(arr.dtype, np.dtype("complex").type):
             amin = min(arr.real.min(), arr.imag.min())
             amax = max(arr.real.max(), arr.imag.max())
@@ -363,14 +401,14 @@ def array_parser(var, varname="", ntype=None, lims=None, dims=None):
                 raise SPYValueError("array of shape " + str(dims),
                                     varname=varname, actual="shape = " + str(arr.shape))
         else:
-            ndim = max(ischar, arr.squeeze().ndim)
+            ndim = max(ischar, arr.ndim)
             if ndim != dims:
                 raise SPYValueError(str(dims) + "d-array", varname=varname,
                                     actual=str(ndim) + "d-array")
 
     return 
 
-##########################################################################################
+
 def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dimord=None):
     """
     Docstring
@@ -425,7 +463,7 @@ def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dim
 
     return
 
-##########################################################################################
+
 def json_parser(json_dct, wanted_dct):
     """
     Docstring coming soon(ish)
@@ -438,10 +476,10 @@ def json_parser(json_dct, wanted_dct):
     for key, tp in wanted_dct.items():
         if not isinstance(json_dct[key], tp):
             raise SPYTypeError(json_dct[key], varname="JSON: {}".format(key),
-                               wanted_dct=tp)
+                               expected=tp)
     return
 
-##########################################################################################
+
 def get_defaults(obj):
     """
     Parse input arguments of `obj` and return dictionary

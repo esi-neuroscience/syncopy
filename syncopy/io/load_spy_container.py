@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-08 15:40:33>
+# Last modification time: <2019-03-11 16:29:05>
 
 # Builtin/3rd party package imports
 import os
@@ -21,7 +21,7 @@ import syncopy.datatype as swd
 
 __all__ = ["load_spy"]
 
-##########################################################################################
+
 def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     """
     Docstring coming soon...
@@ -202,4 +202,3 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
 
     # Happy breakdown
     return out if new_out else None
-    

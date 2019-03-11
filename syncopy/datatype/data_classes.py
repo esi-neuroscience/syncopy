@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-08 17:03:34>
+# Last modification time: <2019-03-11 16:38:41>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -21,12 +21,12 @@ from collections import OrderedDict, Iterator
 from copy import copy
 from hashlib import blake2b
 from itertools import islice
-from numpy.lib.format import open_memmap
+from numpy.lib.format import open_memmap, read_magic
 import shutil
 
 # Local imports
 from .data_methods import _selectdata_continuous, redefinetrial
-from syncopy.utils import (scalar_parser, array_parser, SPYIOError,
+from syncopy.utils import (scalar_parser, array_parser, io_parser, SPYIOError,
                              SPYTypeError, SPYValueError)
 from syncopy import __version__, __storage__, __dask__
 if __dask__:
@@ -51,6 +51,79 @@ class BaseData(ABC):
     @property
     def data(self):
         return self._data
+    
+    @data.setter
+    def data(self, in_data):
+
+        # If input is a string, try to load memmap
+        if isinstance(in_data, str):
+            try:
+                fpath, fname = io_parser(in_data, varname="filename", isfile=True, exists=True)
+            except Exception as exc:
+                raise exc
+            in_data = os.path.join(fpath, fname)
+            try:
+                with open(in_data, "rb") as fd:
+                    read_magic(fd)
+            except ValueError:
+                raise SPYValueError("memory-mapped npy-file", varname="data")
+            md = self.mode
+            if md == "w":
+                md = "r+"
+            self._data = open_memmap(in_data, mode=md)
+            self._filename = in_data
+
+        # If input is already a memmap, check its dimensions
+        elif isinstance(in_data, np.memmap):
+            if in_data.ndim != self._ndim:
+                lgl = "two-dimensional data"
+                act = "{}-dimensional memmap".format(dat.ndim)
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
+            md = self.mode
+            if md == "w":
+                md = "r+"
+            if in_data.mode != md:
+                lgl = "memmap in {}-mode".format(in_data.mode)
+                act = "{}-object in {}-mode".format(self.__class__.__name__, str(self.mode))
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
+            self._data = in_data
+            self._filename = in_data.filename
+
+        # If input is an array, either fill existing memmap or directly attach it
+        elif isinstance(in_data, np.ndarray):
+            try:
+                array_parser(in_data, varname="data", dims=self._ndim)
+            except Exception as exc:
+                raise exc
+            if isinstance(self._data, np.memmap):
+                if self.mode == "r":
+                    lgl = "memmap with write or copy-on-write access"
+                    act = "read-only memmap"
+                    raise SPYValueError(legal=lgl, varname="mode", actual=act)
+                if self.data.shape != in_data.shape:
+                    lgl = "memmap with shape {}".format(str(self.data.shape))
+                    act = "data with shape {}".format(str(in_data.shape))
+                    raise SPYValueError(legal=lgl, varname="data", actual=act)
+                if self.data.dtype != in_data.dtype:
+                    print("SyNCoPy core - data: WARNING >> Input data-type mismatch << ")
+                self._data[...] = in_data
+            else:
+                self._data = in_data
+
+        # If input is a `VirtualData` object, make sure the object class makes sense
+        elif isinstance(in_data, VirtualData):
+            if not isinstance(self, AnalogData):
+                lgl = "(filename of) memmap or NumPy array"
+                act = "VirtualData (only valid for `AnalogData` objects)"
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
+            self._data = in_data
+            self._filename = [dat.filename for dat in in_data._data]
+            self.mode = "r"
+
+        # Whatever type input is, it's not supported
+        else:
+            msg = "(filename of) memmap, NumPy array or VirtualData object"
+            raise SPYTypeError(in_data, varname="data", expected=msg)
 
     @property
     def dimord(self):
@@ -76,6 +149,16 @@ class BaseData(ABC):
     def mode(self):
         return self._mode
 
+    @mode.setter
+    def mode(self, md):
+        if not isinstance(md, str):
+            raise SPYTypeError(md, varname="mode", expected="str")
+        options = ["r", "r+", "w", "c"]
+        if md not in options:
+            raise SPYValueError("".join(opt + ", " for opt in options)[:-2],
+                                varname="mode", actual=md)
+        self._mode = md
+            
     @property
     def trialinfo(self):
         return self._trialinfo
@@ -102,7 +185,7 @@ class BaseData(ABC):
 
     # Convenience function, wiping attached memmap
     def clear(self):
-        if hasattr(self.data, "flush"):
+        if isinstance(self.data, np.memmap):
             filename, mode = self.data.filename, self.data.mode
             self.data.flush()
             self._data = None
@@ -112,10 +195,11 @@ class BaseData(ABC):
     # Return a (deep) copy of the current class instance
     def copy(self, deep=False):
         cpy = copy(self)
-        if deep and hasattr(self.data, "flush"):
+        if deep and isinstance(self.data, np.memmap):
             self.data.flush()
-            cpy._filename = self._gen_filename()
-            shutil.copyfile(self._filename, cpy._filename)
+            filename = self._gen_filename()
+            shutil.copyfile(self._filename, filename)
+            cpy.data = filename
         return cpy
 
     # Wrapper that makes saving routine usable as class method
@@ -185,9 +269,10 @@ class BaseData(ABC):
 
     # Destructor
     def __del__(self):
-        if __storage__ in self._filename and os.path.exists(self._filename):
-            del self._data
-            os.unlink(self._filename)
+        if self._filename is not None:
+            if __storage__ in self._filename and os.path.exists(self._filename):
+                del self._data
+                os.unlink(self._filename)
 
     # Class "constructor"
     def __init__(self, **kwargs):
@@ -195,32 +280,31 @@ class BaseData(ABC):
         Docstring
 
         filename + data = create memmap @filename
-        filename no data = read from file
-        just data = don't create anything
+        filename no data = read from file or memmap
+        just data = try to attach data (error checking done by data.setter)
         """
+
+        # First things first: initialize (dummy) default values
+        self._data = None
+        self.mode = kwargs.get("mode", "r+")
+        self._trialinfo = None
+        self._filename = None
 
         # Depending on contents of `filename` and `data` class instantiation invokes I/O routines
         if kwargs.get("filename"):
-            if kwargs.get("data"):
+            filename = kwargs.pop("filename")
+            if kwargs.get("data") is not None:
                 read_fl = False
-                filename = kwargs.pop("filename")
-                data = kwargs.pop("data")
-                self._filename = filename
-                self._data = open_memmap(filename, mode="w+", dtype=data.dtype, shape=data.shape)
-                self._data[...] = data
-                self._data.flush()
-                del data
+                self.data = filename
+                self.data = kwargs.pop("data")
             else:
                 read_fl = True
-                filename = kwargs.pop("filename")
                 for key in ["data", "samplerate", "mode"]:
                     kwargs.pop(key)
-                self._filename = None
         else:
             read_fl = False
-            if kwargs.get("data"):
-                self._data = kwargs.pop("data")
-                self._filename = None
+            if kwargs.get("data") is not None:
+                self.data = kwargs.pop("data")
             else:
                 self._data = None
                 self._filename = self._gen_filename()
@@ -246,10 +330,6 @@ class BaseData(ABC):
                                       spver=sp.__version__,
                                       daver=dask.__version__ if __dask__ else "--")
         self._log = ""
-
-        # Now assign (default) values
-        self._mode = kwargs.get("mode", "w")
-        self._trialinfo = None
 
         # Write very first log entry
         self.log = "created {clname:s} object".format(clname=self.__class__.__name__)
@@ -310,8 +390,8 @@ class ContinuousData(BaseData, ABC):
             return
         scount = self.data.shape[self.dimord.index("time")]
         try:
-            array_parser(sinfo, varname="sampleinfo", dims=2,
-                             ntype="int_like", lims=[0, scount])
+            array_parser(sinfo, varname="sampleinfo", dims=2, hasnan=False, 
+                             hasinf=False, ntype="int_like", lims=[0, scount])
         except Exception as exc:
             raise exc
         self._sampleinfo = np.array(sinfo, dtype=int)
@@ -378,10 +458,15 @@ class ContinuousData(BaseData, ABC):
     # Make instantiation persistent in all subclasses
     def __init__(self, **kwargs):
 
-        # Call `BaseData` initializer
+        # Assign default (blank) values
+        self._sampleinfo = None
+        self._samplerate = None
+        self._t0 = None
+            
+        # Call initializer
         super().__init__(**kwargs)
 
-        # If data was attached, be careful
+        # If __init__ attached data, be careful
         if self.data is not None:
 
             # In case of manual data allocation (reading routine would leave a
@@ -395,16 +480,10 @@ class ContinuousData(BaseData, ABC):
                 channel = kwargs.get("channel")
                 if isinstance(channel, str):
                     channel = [channel + str(i + 1) for i in range(self.data.shape[self.dimord.index("channel")])]
-                self.channel = channel
+                self.channel = np.array(channel)
 
                 # Finally, assign samplerate
-                self.samplerate = kwargs.get("samplerate")
-
-        # Set up blank object
-        else:
-            self._sampleinfo = None
-            self._samplerate = None
-            self._t0 = None
+                self.samplerate = kwargs["samplerate"]
                 
 
 class AnalogData(ContinuousData):
@@ -419,10 +498,17 @@ class AnalogData(ContinuousData):
                  filename=None,
                  filetype=None,
                  trialdefinition=None,
-                 samplerate=1000,
+                 samplerate=1000.0,
                  channel="channel",
                  mode="w",
                  dimord=["channel", "time"]):
+        """
+        Docstring
+
+        filename + data = create memmap @filename
+        filename no data = read from file or memmap
+        just data = try to attach data (error checking done by data.setter)
+        """
 
         # The one thing we check right here and now
         expected = ["channel", "time"]
@@ -431,6 +517,12 @@ class AnalogData(ContinuousData):
             lgl = base.format("'" + "' x '".join(str(dim) for dim in expected) + "'")
             act = base.format("'" + "' x '".join(str(dim) for dim in dimord) + "'")
             raise SPYValueError(legal=lgl, varname="dimord", actual=act)
+
+        # Hard constraint: required no. of data-dimensions
+        self._ndim = 2
+
+        # Assign default (blank) values
+        self._hdr = None
 
         # Call parent initializer
         super().__init__(data=data,
@@ -442,21 +534,15 @@ class AnalogData(ContinuousData):
                          mode=mode,
                          dimord=dimord)
         
-        # In case of manual data allocation (reading routine would leave a
-        # mark in `cfg`), fill in required info
-        if len(self.cfg) == 0:
-            self._hdr = None
-
     # Overload ``clear`` method to account for `VirtualData` memmaps
     def clear(self):
-        if self.data is not None:
-            if hasattr(self.data, "clear"):
-                self.data.clear()
-            else:
-                filename, mode = self.data.filename, self.data.mode
-                self.data.flush()
-                self._data = None
-                self._data = open_memmap(filename, mode=mode)
+        if isinstance(self.data, np.memmap):
+            filename, mode = self.data.filename, self.data.mode
+            self.data.flush()
+            self._data = None
+            self._data = open_memmap(filename, mode=mode)
+        elif hasattr(self.data, "clear"):       # `VirtualData`
+            self.data.clear()
         return
 
     # Overload ``copy`` method to account for `VirtualData` memmaps
@@ -467,9 +553,11 @@ class AnalogData(ContinuousData):
                 print("SyNCoPy core - copy: Deep copy not possible for " +
                       "VirtualData objects. Please use `save_spy` instead. ")
                 return
-            self.data.flush()
-            cpy._filename = self._gen_filename()
-            shutil.copyfile(self._filename, cpy._filename)
+            elif isinstance(self.data, np.memmap):
+                self.data.flush()
+                filename = self._gen_filename()
+                shutil.copyfile(self._filename, filename)
+                cpy.data = filename
         return cpy
 
     # Convenience-function returning by-trial timings
@@ -520,7 +608,7 @@ class SpectralData(ContinuousData):
             return
         nfreq = self.data.shape[self.dimord.index("freq")]
         try:
-            array_parser(freq, varname="freq", dims=(nfreq,))
+            array_parser(freq, varname="freq", dims=(nfreq,), hasnan=False, hasinf=False)
         except Exception as exc:
             raise exc
         self._dimlabels["freq"] = freq
@@ -531,7 +619,7 @@ class SpectralData(ContinuousData):
                  filename=None,
                  filetype=None,
                  trialdefinition=None,
-                 samplerate=1000,
+                 samplerate=1000.0,
                  channel="channel",
                  taper=None,
                  freq=None,
@@ -546,6 +634,9 @@ class SpectralData(ContinuousData):
             act = base.format("'" + "' x '".join(str(dim) for dim in dimord) + "'")
             raise SPYValueError(legal=lgl, varname="dimord", actual=act)
 
+        # Hard constraint: required no. of data-dimensions
+        self._ndim = 4
+
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
@@ -558,7 +649,16 @@ class SpectralData(ContinuousData):
                          mode=mode,
                          dimord=dimord)
 
+        # If __init__ attached data, be careful
+        if self.data is not None:
 
+            # In case of manual data allocation (reading routine would leave a
+            # mark in `cfg`), fill in missing info
+            if len(self.cfg) == 0:
+                self.freq = np.arange(self.data.shape[self.dimord.index("freq")])
+                self.taper = np.array(["dummy_taper"] * self.data.shape[self.dimord.index("taper")])
+
+                
 class VirtualData():
 
     # Pre-allocate slots here - this class is *not* meant to be expanded
@@ -594,7 +694,7 @@ class VirtualData():
         data-files on disk, thus, row- *and* col-numbers MUST match!
         """
 
-        # First, make sure our one mandatary input argument does not contain
+        # First, make sure our one mandatory input argument does not contain
         # any unpleasant surprises
         if not isinstance(chunk_list, (list, np.memmap)):
             raise SPYTypeError(chunk_list, varname="chunk_list", expected="array_like")
@@ -771,8 +871,8 @@ class Indexer():
             return np.hstack(islice(self._iterobj, index.start, index.stop, index.step))
         elif isinstance(idx, (list, np.ndarray)):
             try:
-                array_parser(idx, varname="idx", ntype="int_like",
-                                 lims=[0, self._iterlen], dims=1)
+                array_parser(idx, varname="idx", ntype="int_like", hasnan=False,
+                             hasinf=False, lims=[0, self._iterlen], dims=1)
             except Exception as exc:
                 raise exc
             return np.hstack([next(islice(self._iterobj, int(ix), int(ix + 1))) for ix in idx])

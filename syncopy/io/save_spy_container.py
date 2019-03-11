@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-08 15:41:13>
+# Last modification time: <2019-03-11 16:57:28>
 
 # Builtin/3rd party package imports
 import os
@@ -18,6 +18,7 @@ from hashlib import blake2b
 # Local imports
 from syncopy.utils import io_parser, data_parser, SPYIOError, SPYTypeError
 from syncopy.io import hash_file, write_access, FILE_EXT
+from syncopy import __storage__
 
 __all__ = ["save_spy"]
 
@@ -100,10 +101,13 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
             del dat
             out.clear()
 
-    # Much simpler: make sure on-disk memmap is up-to-date and simply copy it
-    else:
+    # Much simpler: copy memmap or save ndarray
+    elif isinstance(out.data, np.memmap):
         out.data.flush()
         shutil.copyfile(out._filename, filename.format(ext=FILE_EXT["data"]))
+    else:
+        with open(filename.format(ext=FILE_EXT["data"]), "wb") as out_dat:
+            np.save(out_dat, out.data, allow_pickle=False)
         
     # Compute checksums of created binary files
     trl_hsh = hash_file(filename.format(ext=FILE_EXT["trl"]))
@@ -135,7 +139,7 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
     out_dct["log"] = out._log
 
     # Stuff that is potentially vector-valued
-    if hasattr(out, "hdr"):
+    if getattr(out, "hdr", None) is not None:
         hdr = []
         for hd in out.hdr:
             _dict_converter(hd)
@@ -161,10 +165,17 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
         _dict_converter(notes)
         out_dct["notes"] = notes
 
-
     # Finally, write JSON
     with open(filename.format(ext=FILE_EXT["json"]), "w") as out_json:
         json.dump(out_dct, out_json, indent=4)
+
+    # Last but definitely not least: if source data came from memmap,
+    # re-assign filename after saving (and remove source in case it came
+    # from `__storage__`)
+    if out._filename is not None:
+        if __storage__ in out._filename:
+            os.unlink(out._filename)
+        out.data = filename.format(ext=FILE_EXT["data"])
               
     return
 

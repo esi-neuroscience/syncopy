@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:13:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-08 15:40:12>
+# Last modification time: <2019-03-11 15:53:52>
 
 # Builtin/3rd party package imports
 import os
@@ -70,22 +70,14 @@ def load_binary_esi(filename,
     if isinstance(channel, str):
         channel = [channel + str(i + 1) for i in range(data.M)]
 
-    # If not provided construct (trivial) `trialdefinition` array (parsing is
-    # done by corresponding property setter)
-    if trialdefinition is None:
-        trialdefinition = np.array([[0, data.N, 0]])
-
     # First things first: attach data to output object
-    out._data = data
-    out._filename = filename
-    out._mode = "r"
+    out.data = data
 
-    # Now we can abuse ``redefinetrial`` to set trial-related props and
-    # write dimensional information - order matters here!
+    # Now we can abuse ``redefinetrial`` to set trial-related props
     out.redefinetrial(trialdefinition)
     
     # Set remaining attributes
-    out._dimlabels["channel"] = np.array(channel)
+    out.channel = np.array(channel)
     out._hdr = headers
     out.samplerate = float(1/headers[0]["tSample"]*1e9)
     
