@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-06 10:36:26>
+# Last modification time: <2019-03-11 15:31:51>
 
 # Builtin/3rd party package imports
 import numbers
@@ -12,7 +12,7 @@ import sys
 import numpy as np
 
 # Local imports
-from syncopy.utils import SPYTypeError, SPYValueError, spy_data_parser, spy_array_parser
+from syncopy.utils import SPYTypeError, SPYValueError, data_parser, array_parser
 
 __all__ = ["selectdata", "redefinetrial"]
 
@@ -317,23 +317,29 @@ def _makeidx(obj, segments, deepcopy, exact_match, **kwargs):
     return selectors, segments
 
 ##########################################################################################
-def redefinetrial(obj, trialdefinition):
+def redefinetrial(obj, trialdefinition=None):
     """
     Docstring coming soon(ish)
     """
 
     # Start vetting input args
     try:
-        spy_data_parser(obj, varname="obj", writable=None, empty=False)
+        data_parser(obj, varname="obj", writable=None, empty=False)
     except Exception as exc:
         raise exc
 
     # Independent from concrete data object at hand, the trialdefinition array
-    # has to be pass some basal sanity checks
-    try:
-        spy_array_parser(trialdefinition, varname="trialdefinition", dims=2)
-    except Exception as exc:
-        raise exc
+    # has to pass some basal sanity checks
+    if trialdefinition is not None:
+        try:
+            array_parser(trialdefinition, varname="trialdefinition", dims=2)
+        except Exception as exc:
+            raise exc
+    else:
+        if any(["ContinuousData" in str(base) for base in obj.__class__.__mro__]):
+            trialdefinition = np.array([[0, obj.data.shape[obj.dimord.index("time")], 0]])
+        else:
+            raise NotImplementedError("DiscreteData not yet implemented")
     
     # Depending on the actual data-genre we're working with here, the trial-
     # definition array has to satisfy different needs
@@ -348,10 +354,6 @@ def redefinetrial(obj, trialdefinition):
     else:
         raise NotImplementedError("DiscreteData not yet implemented")
 
-    # # Update `cfg` and object log
-    # obj.cfg = {"method" : sys._getframe().f_code.co_name,
-    #            "trialdefinition" : trialdefinition}
-    
     # Write log entry
     obj.log = "updated trial-definition with [" \
               + " x ".join([str(numel) for numel in trialdefinition.shape]) \

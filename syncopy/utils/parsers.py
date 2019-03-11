@@ -3,8 +3,8 @@
 # Module for all kinds of parsing gymnastics
 #
 # Created: 2019-01-08 09:58:11
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-06 12:03:29>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-03-11 16:35:39>
 
 # Builtin/3rd party package imports
 import os
@@ -13,13 +13,13 @@ import numbers
 from inspect import signature
 
 # Local imports
-from syncopy.utils import SPYIOError, SPYTypeError, SPYValueError, spy_print
+from syncopy.utils import SPYIOError, SPYTypeError, SPYValueError
 
-__all__ = ["spy_io_parser", "spy_scalar_parser", "spy_array_parser",
-           "spy_data_parser", "spy_json_parser", "spy_get_defaults"]
+__all__ = ["io_parser", "scalar_parser", "array_parser",
+           "data_parser", "json_parser", "get_defaults"]
 
 
-def spy_io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
+def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
     """
     Parse file-system location strings for reading/writing files/directories
 
@@ -54,20 +54,20 @@ def spy_io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
     To test whether `"/path/to/dataset.lfp"` points to an existing file, one
     might use
 
-    >>> spy_io_parser("/path/to/dataset.lfp")
+    >>> io_parser("/path/to/dataset.lfp")
     '/path/to', 'dataset.lfp'
 
     The following call ensures that a folder called "mydata" can be safely
     created in the current working directory
 
-    >>> spy_io_parser("mydata", isfile=False, exists=False)
+    >>> io_parser("mydata", isfile=False, exists=False)
     '/path/to/cwd/mydata'
 
     Suppose a routine wants to save data to a file with potential
     extensions `".lfp"` or `".mua"`. The following call may be used to ensure
     the user input `dsetname = "relative/dir/dataset.mua"` is a valid choice:
 
-    >>> abs_path, filename = spy_io_parser(dsetname, varname="dsetname", ext=["lfp", "mua"], exists=False)
+    >>> abs_path, filename = io_parser(dsetname, varname="dsetname", ext=["lfp", "mua"], exists=False)
     >>> abs_path
     '/full/path/to/relative/dir/'
     >>> filename
@@ -76,8 +76,8 @@ def spy_io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
 
     # Start by resovling potential conflicts
     if not isfile and len(ext) > 0:
-        spy_print("WARNING: filename extension(s) specified but `isfile = False`. Exiting...",
-                  caller="spy_io_parser")
+        print("<io_parser> WARNING: filename extension(s) specified but " +\
+              "`isfile = False`. Exiting...")
         return
 
     # Make sure `fs_loc` is actually a string
@@ -87,11 +87,19 @@ def spy_io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
     # Avoid headaches, use absolute paths...
     fs_loc = os.path.abspath(os.path.expanduser(fs_loc))
 
+    # Ensure that filesystem object does/does not exist
+    if exists and not os.path.exists(fs_loc):
+        raise SPYIOError(fs_loc, exists=False)
+    if not exists and os.path.exists(fs_loc):
+        raise SPYIOError(fs_loc, exists=True)
+
     # First, take care of directories...
     if not isfile:
         isdir = os.path.isdir(fs_loc)
-        if (isdir and not exists) or (not isdir and exists):
-            raise SPYIOError(fs_loc, exists=isdir)
+        if (isdir and not exists):
+            raise SPYIOError (fs_loc, exists=isdir)
+        elif (not isdir and exists):
+            raise SPYValueError(legal="directory", actual="file")
         else:
             return fs_loc
 
@@ -119,13 +127,15 @@ def spy_io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
 
         # Now make sure file does or does not exist
         isfile = os.path.isfile(fs_loc)
-        if (isfile and not exists) or (not isfile and exists):
+        if (isfile and not exists):
             raise SPYIOError(fs_loc, exists=isfile)
+        elif (not isfile and exists):
+            raise SPYValueError(legal="file", actual="directory")
         else:
             return fs_loc.split(file_name)[0], file_name
 
-
-def spy_scalar_parser(var, varname="", ntype=None, lims=None):
+        
+def scalar_parser(var, varname="", ntype=None, lims=None):
     """
     Parse scalars
 
@@ -160,28 +170,28 @@ def spy_scalar_parser(var, varname="", ntype=None, lims=None):
     10 and 1000. The following calls confirm the validity of `freq`
 
     >>> freq = 440
-    >>> spy_scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
+    >>> scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
     >>> freq = 440.0
-    >>> spy_scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
-
+    >>> scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
+        
     Conversely, these values of `freq` yield errors
 
     >>> freq = 440.5    # not integer-like
-    >>> spy_scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
+    >>> scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
     >>> freq = 2        # outside bounds
-    >>> spy_scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
+    >>> scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
     >>> freq = '440'    # not a scalar
-    >>> spy_scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
+    >>> scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
 
     For complex scalars bounds-checking is performed element-wise on both
     real and imaginary part:
 
-    >>> spy_scalar_parser(complex(2,-1), lims=[-3, 5])  # valid
-    >>> spy_scalar_parser(complex(2,-1), lims=[-3, 1])  # invalid since real part is greater than 1
+    >>> scalar_parser(complex(2,-1), lims=[-3, 5])  # valid
+    >>> scalar_parser(complex(2,-1), lims=[-3, 1])  # invalid since real part is greater than 1
 
     See also
     --------
-    spy_array_parser : similar functionality for parsing array-like objects
+    array_parser : similar functionality for parsing array-like objects
     """
 
     # Make sure `var` is a scalar-like number
@@ -214,7 +224,8 @@ def spy_scalar_parser(var, varname="", ntype=None, lims=None):
     return
 
 
-def spy_array_parser(var, varname="", ntype=None, lims=None, dims=None):
+def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
+                 lims=None, dims=None):
     """
     Parse array-like objects
 
@@ -227,34 +238,43 @@ def spy_array_parser(var, varname="", ntype=None, lims=None, dims=None):
     ntype : None or str
         Expected data type of `var`. Possible options are any valid
         builtin type, all NumPy dtypes as as well as `"numeric"` (a catch-all
-        to ensure `var` only contains numeric elements) and "int_like"`
-        (all elements of `var` are expected to have no significant digits
-        after the decimal point, e.g., 3.0, -12.0 etc.).
-        If `ntype` is `None` the data type of `var` is not checked.
+        to ensure `var` only contains numeric elements) and "int_like"` 
+        (all elements of `var` are expected to have no significant digits 
+        after the decimal point, e.g., 3.0, -12.0 etc.). 
+        If `ntype` is `None` the data type of `var` is not checked. 
+    hasinf : None or bool
+        If `hasinf` is `False` the input array `var` is considered invalid 
+        if it contains non-finite elements (`np.inf`), vice-versa if `hasinf`
+        is `True`. If `hasinf` is `None` elements of `var` are not probed 
+        for finiteness. 
+    hasnan : None or bool
+        If `hasnan` is `False` the input array `var` is considered invalid 
+        if it contains undefined elements (`np.nan`), vice-versa if `hasnan`
+        is `True`. If `hasnan` is `None` elements of `var` are not probed 
+        for well-posedness. 
     lims : None or two-element list_like
-        Lower (`lims[0]`) and upper (`lims[1]`) bounds for legal values of `var`'s
-        elements. Note that the code checks for non-strict inequality,
-        i.e., `var[i] = lims[0]` or `var[i] = lims[1]` are both considered
-        to be valid elements of `var`. Using `lims = [-np.inf, np.inf]` may
-        be employed to ensure that all elements of `var` are finite and non-NaN.
-        For complex arrays bounds-checking is performed on both real and
-        imaginary parts of each component of `var`. That is, all elements of
-        `var` have to satisfy `lims[0] <= var[i].real <= lims[1]` as well as
-        `lims[0] <= var[i].imag <= lims[1]` (see Examples for details).
-        If `lims` is `None` bounds-checking is not performed.
+        Lower (`lims[0]`) and upper (`lims[1]`) bounds for legal values of `var`'s 
+        elements. Note that the code checks for non-strict inequality, 
+        i.e., `var[i] = lims[0]` or `var[i] = lims[1]` are both considered 
+        to be valid elements of `var`. 
+        For complex arrays bounds-checking is performed on both real and 
+        imaginary parts of each component of `var`. That is, all elements of 
+        `var` have to satisfy `lims[0] <= var[i].real <= lims[1]` as well as 
+        `lims[0] <= var[i].imag <= lims[1]` (see Examples for details). 
+        Note that `np.inf` and `np.nan` entries are ignored during bounds-
+        checking. Use the keywords `hasinf` and `hasnan` to probe an array 
+        for infinite and non-numeric entries, respectively. 
+        If `lims` is `None` bounds-checking is not performed. 
     dims : None or int or tuple
-        Expected number of dimensions (if `dims` is an integer) or shape
-        (if `dims` is a tuple) of `var`. By default, singleton dimensions
-        of `var` are ignored, i.e., for `dims = 1` or `dims = (10,)` an array
-        `var` with `var.shape = (10,1)` is considered valid. However, if
+        Expected number of dimensions (if `dims` is an integer) or shape 
+        (if `dims` is a tuple) of `var`. By default, singleton dimensions 
+        of `var` are ignored, i.e., for `dims = (10,)` an array
+        `var` with `var.shape = (10,1)` is considered valid. However, if 
         singleton dimensions are explicitly queried by setting `dims = (10,1)`
-        any array `var` with `var.shape = (10,)` or `var.shape = (1,10)` is
-        considered invalid. This level of fine-grained control is only available
-        when working with tuples, i.e., `dims = 1` accepts any array `var`
-        of "vector-like" shape such as `var.shape = (10,)`, `var.shape = (10,1)`,
-        `var.shape = (1,10)` etc. (see Examples for details).
-        If `dims` is `None` the dimensional layout of `var` is ignored.
-
+        any array `var` with `var.shape = (10,)` or `var.shape = (1,10)` is 
+        considered invalid.  If `dims` is `None` the dimensional layout of 
+        `var` is ignored. 
+    
     Returns
     -------
     Nothing : None
@@ -265,8 +285,8 @@ def spy_array_parser(var, varname="", ntype=None, lims=None, dims=None):
     bounded by 0 and 10. The following calls confirm the validity of `time`
 
     >>> time = np.linspace(0, 10, 100)
-    >>> spy_array_parser(time, varname="time", lims=[0, 10], dims=1)
-    >>> spy_array_parser(time, varname="time", lims=[0, 10], dims=(100,))
+    >>> array_parser(time, varname="time", lims=[0, 10], dims=1)
+    >>> array_parser(time, varname="time", lims=[0, 10], dims=(100,))
 
     Artificially appending a singleton dimension to `time` does not affect
     parsing:
@@ -274,36 +294,33 @@ def spy_array_parser(var, varname="", ntype=None, lims=None, dims=None):
     >>> time = time[:,np.newaxis]
     >>> time.shape
     (100, 1)
-    >>> spy_array_parser(time, varname="time", lims=[0, 10], dims=1)
-    >>> spy_array_parser(time, varname="time", lims=[0, 10], dims=(100,))
+    >>> array_parser(time, varname="time", lims=[0, 10], dims=(100,))
 
     However, explicitly querying for a row-vector fails
 
-    >>> spy_array_parser(time, varname="time", lims=[0, 10], dims=(1,100))
+    >>> array_parser(time, varname="time", lims=[0, 10], dims=(1,100))
 
     Complex arrays are parsed analogously:
 
     >>> spec = np.array([np.complex(2,3), np.complex(2,-2)])
-    >>> spy_array_parser(spec, varname="spec", dims=1)
-    >>> spy_array_parser(spec, varname="spec", dims=(2,))
+    >>> array_parser(spec, varname="spec", dims=1)
+    >>> array_parser(spec, varname="spec", dims=(2,))
 
     Note that bounds-checking is performed component-wise on both real and
     imaginary parts:
 
-    # valid
-    >>> spy_array_parser(spec, varname="spec", lims=[-3, 5])
-    # invalid since spec[1].imag < lims[0]
-    >>> spy_array_parser(spec, varname="spec", lims=[-1, 5])
+    >>> array_parser(spec, varname="spec", lims=[-3, 5])    # valid
+    >>> array_parser(spec, varname="spec", lims=[-1, 5])    # invalid since spec[1].imag < lims[0]
 
     Character lists can be parsed as well:
 
     >>> channels = ["channel1", "channel2", "channel3"]
-    >>> spy_array_parser(channels, varname="channels", dims=1)
-    >>> spy_array_parser(channels, varname="channels", dims=(3,))
-
+    >>> array_parser(channels, varname="channels", dims=1)
+    >>> array_parser(channels, varname="channels", dims=(3,))
+    
     See also
     --------
-    spy_scalar_parser : similar functionality for parsing numeric scalars
+    scalar_parser : similar functionality for parsing numeric scalars
     """
 
     # Make sure `var` is array-like and convert it to ndarray to simplify parsing
@@ -331,8 +348,31 @@ def spy_array_parser(var, varname="", ntype=None, lims=None, dims=None):
                 raise SPYValueError(msg.format(dt=ntype), varname=varname,
                                     actual=msg.format(dt=str(arr.dtype)))
 
-    # If required perform component-wise bounds-check
+    # If required, parse finiteness of array-elements
+    if hasinf is not None:
+        if not hasinf and np.isinf(arr).any():
+            lgl = "finite numerical array"
+            act = "array with {} `inf` entries".format(str(np.isinf(arr).sum()))
+            raise SPYValueError(legal=lgl, varname=varname, actual=act)
+        if hasinf and not np.isinf(arr).any():
+            lgl = "numerical array with infinite (`np.inf`) entries"
+            act = "finite numerical array"
+            raise SPYValueError(legal=lgl, varname=varname, actual=act)
+
+    # If required, parse well-posedness of array-elements
+    if hasnan is not None:
+        if not hasnan and np.isnan(arr).any():
+            lgl = "well-defined numerical array"
+            act = "array with {} `NaN` entries".format(str(np.isnan(arr).sum()))
+            raise SPYValueError(legal=lgl, varname=varname, actual=act)
+        if hasnan and not np.isnan(arr).any():
+            lgl = "numerical array with undefined (`np.nan`) entries"
+            act = "well-defined numerical array"
+            raise SPYValueError(legal=lgl, varname=varname, actual=act)
+            
+    # If required perform component-wise bounds-check (remove NaN's and Inf's first)
     if lims is not None:
+        arr = np.isfinite(arr)
         if np.issubdtype(arr.dtype, np.dtype("complex").type):
             amin = min(arr.real.min(), arr.imag.min())
             amax = max(arr.real.max(), arr.imag.max())
@@ -361,7 +401,7 @@ def spy_array_parser(var, varname="", ntype=None, lims=None, dims=None):
                 raise SPYValueError("array of shape " + str(dims),
                                     varname=varname, actual="shape = " + str(arr.shape))
         else:
-            ndim = max(ischar, arr.squeeze().ndim)
+            ndim = max(ischar, arr.ndim)
             if ndim != dims:
                 raise SPYValueError(str(dims) + "d-array", varname=varname,
                                     actual=str(ndim) + "d-array")
@@ -369,7 +409,7 @@ def spy_array_parser(var, varname="", ntype=None, lims=None, dims=None):
     return
 
 
-def spy_data_parser(data, varname="", dataclass=None, writable=True, empty=None, dimord=None):
+def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dimord=None):
     """
     Docstring
 
@@ -424,7 +464,7 @@ def spy_data_parser(data, varname="", dataclass=None, writable=True, empty=None,
     return
 
 
-def spy_json_parser(json_dct, wanted_dct):
+def json_parser(json_dct, wanted_dct):
     """
     Docstring coming soon(ish)
     """
@@ -436,11 +476,11 @@ def spy_json_parser(json_dct, wanted_dct):
     for key, tp in wanted_dct.items():
         if not isinstance(json_dct[key], tp):
             raise SPYTypeError(json_dct[key], varname="JSON: {}".format(key),
-                               wanted_dct=tp)
+                               expected=tp)
     return
 
 
-def spy_get_defaults(obj):
+def get_defaults(obj):
     """
     Parse input arguments of `obj` and return dictionary
 
@@ -460,7 +500,7 @@ def spy_get_defaults(obj):
     --------
     To see the default input arguments of :meth:`syncopy.core.BaseData` use
     
-    >>> spy.spy_get_defaults(spy.mtmfft)
+    >>> spy.get_defaults(spy.mtmfft)
     """
 
     if not callable(obj):
