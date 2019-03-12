@@ -4,11 +4,12 @@
 # 
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-11 16:29:05>
+# Last modification time: <2019-03-12 11:57:03>
 
 # Builtin/3rd party package imports
 import os
 import json
+import sys
 import numpy as np
 from collections import OrderedDict
 from numpy.lib.format import open_memmap
@@ -189,13 +190,16 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     if json_dict["type"] == "AnalogData":
         out.samplerate = json_dict["samplerate"]
         out.channel = np.array(json_dict["channel"])
-        # out._hdr = None
     elif json_dict["type"] == "SpectralData":
         out.samplerate = json_dict["samplerate"]
         out.channel = np.array(json_dict["channel"])
         out.taper = np.array(json_dict["taper"])
         out.freq = np.array(json_dict["freq"])
 
+    # Write `cfg` entries
+    out.cfg = {"method" : sys._getframe().f_code.co_name,
+               "files" : in_base + "[dat/info/trl]"}
+    
     # Write log-entry
     msg = "Read files v. {ver:s} {fname:s}"
     out.log = msg.format(ver=json_dict["version"], fname=in_base + "[dat/info/trl]")
