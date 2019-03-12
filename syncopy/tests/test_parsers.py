@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 # Created: 2019-03-05 16:22:56
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-06 12:50:40>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-03-12 13:38:34>
 
 from syncopy import (io_parser, scalar_parser, array_parser,
                      data_parser, json_parser, get_defaults)
@@ -12,6 +12,7 @@ import os.path
 import pytest
 import numpy as np
 import tempfile
+from collections import OrderedDict
 
 
 class TestIoParser(object):
@@ -39,7 +40,7 @@ class TestIoParser(object):
     def test_isfile(self):
         with tempfile.NamedTemporaryFile() as f:
             io_parser(f.name, isfile=True, exists=True)
-            with pytest.raises(SPYIOError):
+            with pytest.raises(SPYValueError):
                 io_parser(f.name, isfile=False, exists=True)
 
     def test_ext(self):
@@ -121,7 +122,6 @@ class TestArrayParser(object):
         # parsing:
         time = self.time[:, np.newaxis]
         assert time.shape == (100, 1)
-        array_parser(time, varname="time", dims=1)
         array_parser(time, varname="time", dims=(100,))
 
     def test_1d_lims(self):
@@ -166,12 +166,18 @@ class TestDataParser(object):
     def test_empty(self):
         with pytest.raises(SPYValueError):
             data_parser(self.data, empty=False)
+        self.data.data = np.ones((3,10))
+        data_parser(self.data, empty=False)
 
-        # FIXME: fill in some data and test for non-emptiness
+    def test_writable(self):
+        self.data.mode = "r+"
+        data_parser(self.data, writable=True)
+        with pytest.raises(SPYValueError):
+            data_parser(self.data, writable=False)
 
     def test_dimord(self):
-        # FIXME: fill in some data and test dimord
-        assert True
+        with pytest.raises(SPYValueError):
+            data_parser(self.data, dimord=["freq", "chan"])
 
 
 def func(input, keyword=None):
@@ -184,5 +190,14 @@ def test_get_defaults():
 
 
 def test_json_parser():
-    # FIXME: implement testing for json parser
-    assert True
+    # wanted is subset + order shouldn't matter
+    actual = OrderedDict({"entry1": 1, "entry2": "2", "entry99": 99.9})
+    wanted = OrderedDict({"entry2": str, "entry1": int})
+    json_parser(actual, wanted)
+    # not all keys present (`wanted` and `actual` simply swap roles)
+    with pytest.raises(SPYValueError):
+        json_parser(wanted, actual)
+    # key is of wrong type
+    actual["entry2"] = 2
+    with pytest.raises(SPYTypeError):
+        json_parser(actual, wanted)

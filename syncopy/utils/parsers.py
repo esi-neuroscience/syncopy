@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-11 16:35:39>
+# Last modification time: <2019-03-12 13:04:34>
 
 # Builtin/3rd party package imports
 import os
@@ -369,17 +369,17 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
             lgl = "numerical array with undefined (`np.nan`) entries"
             act = "well-defined numerical array"
             raise SPYValueError(legal=lgl, varname=varname, actual=act)
-            
+
     # If required perform component-wise bounds-check (remove NaN's and Inf's first)
     if lims is not None:
-        arr = np.isfinite(arr)
-        if np.issubdtype(arr.dtype, np.dtype("complex").type):
-            amin = min(arr.real.min(), arr.imag.min())
-            amax = max(arr.real.max(), arr.imag.max())
+        fi_arr = arr[np.isfinite(arr)]
+        if np.issubdtype(fi_arr.dtype, np.dtype("complex").type):
+            amin = min(fi_arr.real.min(), fi_arr.imag.min())
+            amax = max(fi_arr.real.max(), fi_arr.imag.max())
         else:
-            amin = arr.min()
-            amax = arr.max()
-        if amin < lims[0] or amax > lims[1] or not np.all(np.isfinite(arr)):
+            amin = fi_arr.min()
+            amax = fi_arr.max()
+        if amin < lims[0] or amax > lims[1]:
             legal = "all array elements to be bounded by {lb:s} and {ub:s}"
             raise SPYValueError(legal.format(lb=str(lims[0]), ub=str(lims[1])),
                                 varname=varname)
@@ -498,7 +498,7 @@ def get_defaults(obj):
 
     Examples
     --------
-    To see the default input arguments of :meth:`syncopy.core.BaseData` use
+    To see the default input arguments of :meth:`syncopy.specest.mtmfft` use
     
     >>> spy.get_defaults(spy.mtmfft)
     """
