@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-11 15:31:51>
+# Last modification time: <2019-03-12 09:36:58>
 
 # Builtin/3rd party package imports
 import numbers
@@ -17,7 +17,7 @@ from syncopy.utils import SPYTypeError, SPYValueError, data_parser, array_parser
 __all__ = ["selectdata", "redefinetrial"]
 
 ##########################################################################################
-def selectdata(obj, segments=None, deepcopy=False, exact_match=False, **kwargs):
+def selectdata(obj, trials=None, deepcopy=False, exact_match=False, **kwargs):
     """
     Docstring coming soon(ish)
 
@@ -30,21 +30,21 @@ def selectdata(obj, segments=None, deepcopy=False, exact_match=False, **kwargs):
 
     # Depending on input object, pass things right on to actual working routines
     if any(["ContinuousData" in str(base) for base in obj.__class__.__bases__]):
-        return _selectdata_continuous(obj, segments, deepcopy, exact_match, **kwargs)
+        return _selectdata_continuous(obj, trials, deepcopy, exact_match, **kwargs)
     elif any(["DiscreteData" in str(base) for base in obj.__class__.__bases__]):
-        raise NotImplementedError("coming soon")
+        raise NotImplementedError("Coming soon")
     else:
-        raise SPYTypeError(obj, varname="obj", expected="SpkeWave data object")
+        raise SPYTypeError(obj, varname="obj", expected="SyNCoPy data object")
     
 ##########################################################################################
-def _selectdata_continuous(obj, segments, deepcopy, exact_match, **kwargs):
+def _selectdata_continuous(obj, trials, deepcopy, exact_match, **kwargs):
 
     # Make sure provided object is inherited from `ContinuousData`
-    if not any(["ContinuousData" in str(base) for base in obj.__class__.__bases__]):
+    if not any(["ContinuousData" in str(base) for base in obj.__class__.__mro__]):
         raise SPYTypeError(obj, varname="obj", expected="SpkeWave ContinuousData object")
         
     # Convert provided selectors to array indices
-    segments, selectors = _makeidx(obj, segments, deepcopy, exact_match, **kwargs)
+    trials, selectors = _makeidx(obj, trials, deepcopy, exact_match, **kwargs)
 
     # Make sure our Boolean switches are actuall Boolean
     if not isinstance(deepcopy, bool):
@@ -55,7 +55,7 @@ def _selectdata_continuous(obj, segments, deepcopy, exact_match, **kwargs):
     # If time-based selection is requested, make some necessary preparations
     if "time" in selectors.keys():
         time_sel = selectors.pop("time")
-        time_ref = np.array(obj.time[segments[0]])
+        time_ref = np.array(obj.time[trials[0]])
         time_slice = [None, None]
         if isinstance(time_sel, tuple):
             if len(time_sel) != 2:
@@ -91,9 +91,9 @@ def _selectdata_continuous(obj, segments, deepcopy, exact_match, **kwargs):
         time_slice = slice(0, None)
 
         # SHALLOWCOPY
-        sampleinfo = np.empty((segments.size, 2))
-        for sk, seg in enumerate(segments):
-            sinfo = range(*obj.sampleinfo[seg, :])[time_slice]
+        sampleinfo = np.empty((trials.size, 2))
+        for sk, trl in enumerate(trials):
+            sinfo = range(*obj.sampleinfo[trl, :])[time_slice]
             sampleinfo[sk, :] = [sinfo.start, sinfo.stop - 1]
         
             
@@ -120,8 +120,8 @@ def _selectdata_continuous(obj, segments, deepcopy, exact_match, **kwargs):
     # First, we handle deep copies of `obj`
     if deepcopy:
 
-        # Re-number segments: offset correction + close gaps b/w segments
-        sampleinfo = obj.sampleinfo[segments, :] - obj.sampleinfo[segments[0], 0]
+        # Re-number trials: offset correction + close gaps b/w trials
+        sampleinfo = obj.sampleinfo[trials, :] - obj.sampleinfo[trials[0], 0]
         stop = 0
         for sk in range(sampleinfo.shape[0]):
             sinfo = range(*sampleinfo[sk, :])[time_slice]
@@ -131,8 +131,8 @@ def _selectdata_continuous(obj, segments, deepcopy, exact_match, **kwargs):
             sampleinfo[sk, :] = [start, start + nom_len]
             stop = start + real_len + 1
             
-        # Based on requested segments, set shape of target array (accounting
-        # for overlapping segments)
+        # Based on requested trials, set shape of target array (accounting
+        # for overlapping trials)
         target_shape[tid] = sampleinfo[-1][1]
 
         # Allocate target memorymap
@@ -141,19 +141,19 @@ def _selectdata_continuous(obj, segments, deepcopy, exact_match, **kwargs):
                                  dtype=obj.data.dtype, shape=target_shape)
         del target_dat
 
-        # The crucial part here: `idx` is a "local" by-segment index of the
+        # The crucial part here: `idx` is a "local" by-trial index of the
         # form `[:,:,2:10]` whereas `target_idx` has to keep track of the
         # global progression in `target_data`
-        for sk, seg in enumerate(segments):
-            source_seg = self._copy_segment(segno,
+        for sk, trl in enumerate(trials):
+            source_trl = self._copy_trial(trialno,
                                             obj._filename,
-                                            obj.seg,
+                                            obj.trl,
                                             obj.hdr,
                                             obj.dimord,
                                             obj.segmentlabel)
             target_idx[tid] = slice(*sampleinfo[sk, :])
             target_dat = open_memmap(target._filename, mode="r+")[target_idx]
-            target_dat[...] = source_seg[idx]
+            target_dat[...] = source_trl[idx]
             del target_dat
 
         # FIXME: Clarify how we want to do this...
@@ -163,7 +163,7 @@ def _selectdata_continuous(obj, segments, deepcopy, exact_match, **kwargs):
         
 
         # By-sample copy
-        if segments is None:
+        if trials is None:
             mem_size = np.prod(target_shape)*self.data.dtype*1024**(-2)
             if mem_size >= 100:
                 spw_warning("Memory footprint of by-sample selection larger than 100MB",
@@ -172,36 +172,36 @@ def _selectdata_continuous(obj, segments, deepcopy, exact_match, **kwargs):
             del target_dat
             self.clear()
 
-        # By-segment copy
+        # By-trial copy
         else:
             del target_dat
             sid = self.dimord.index(self.segmentlabel)
-            target_shape[sid] = sum([shp[sid] for shp in np.array(self.shapes)[segments]])
+            target_shape[sid] = sum([shp[sid] for shp in np.array(self.shapes)[trials]])
             target_idx = [slice(None)] * len(self.dimord)
             target_sid = 0
-            for segno in segments:
-                source_seg = self._copy_segment(segno,
+            for trialno in trials:
+                source_trl = self._copy_trial(trialno,
                                                 self._filename,
-                                                self.seg,
+                                                self.trl,
                                                 self.hdr,
                                                 self.dimord,
                                                 self.segmentlabel)
-                seg_len = source_seg.shape[sid]
-                target_idx[sid] = slice(target_sid, target_sid + seg_len)
+                trl_len = source_trl.shape[sid]
+                target_idx[sid] = slice(target_sid, target_sid + trl_len)
                 target_dat = open_memmap(target._filename, mode="r+")[target_idx]
-                target_dat[...] = source_seg[idx]
+                target_dat[...] = source_trl[idx]
                 del target_dat
-                target_sid += seg_len
+                target_sid += trl_len
 
     # Shallow copy: simply create a view of the source memmap
-    # Cover the case: channel=3, all segments!
+    # Cover the case: channel=3, all trials!
     else:
         target._data = open_memmap(self._filename, mode="r")[idx]
 
     return target
 
 ##########################################################################################
-def _makeidx(obj, segments, deepcopy, exact_match, **kwargs):
+def _makeidx(obj, trials, deepcopy, exact_match, **kwargs):
     """
     Local input parser
     """
@@ -216,22 +216,22 @@ def _makeidx(obj, segments, deepcopy, exact_match, **kwargs):
     if not set(kwargs.keys()).issubset(self.dimord):
         raise SPYValueError(legal=self.dimord, actual=list(kwargs.keys()))
 
-    # Process `segments`
-    if segments is not None:
-        if isinstance(segments, tuple):
-            start = segments[0]
-            if segments[1] is None:
-                stop = self.seg.shape[0]
+    # Process `trials`
+    if trials is not None:
+        if isinstance(trials, tuple):
+            start = trials[0]
+            if trials[1] is None:
+                stop = self.trl.shape[0]
             else:
-                stop = segments[1]
-            segments = np.arange(start, stop)
-        if not set(segments).issubset(range(self.seg.shape[0])):
-            lgl = "segment selection between 0 and {}".format(str(self.seg.shape[0]))
-            raise SPYValueError(legal=lgl, varname="segments")
-        if isinstance(segments, int):
-            segments = np.array([segments])
+                stop = trials[1]
+            trials = np.arange(start, stop)
+        if not set(trials).issubset(range(self.trl.shape[0])):
+            lgl = "trial selection between 0 and {}".format(str(self.trl.shape[0]))
+            raise SPYValueError(legal=lgl, varname="trials")
+        if isinstance(trials, int):
+            trials = np.array([trials])
     else:
-        segments = np.arange(self.seg.shape[0])
+        trials = np.arange(self.trl.shape[0])
 
     # Time-based selectors work differently for continuous/discrete data,
     # handle those separately from other dimensional labels
@@ -314,7 +314,7 @@ def _makeidx(obj, segments, deepcopy, exact_match, **kwargs):
             raise SPYTypeError(selection, varname=lbl,
                                expected="tuple, list-like, slice, float or int")
         
-    return selectors, segments
+    return selectors, trials
 
 ##########################################################################################
 def redefinetrial(obj, trialdefinition=None):

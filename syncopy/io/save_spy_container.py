@@ -4,12 +4,13 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-11 16:57:28>
+# Last modification time: <2019-03-12 11:56:30>
 
 # Builtin/3rd party package imports
 import os
 import json
 import shutil
+import sys
 import numpy as np
 from collections import OrderedDict
 from numpy.lib.format import open_memmap  
@@ -115,6 +116,10 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
 
     # Write to log already here so that the entry can be exported to json
     out.log = "Wrote files " + filename.format(ext="[dat/info/trl]")
+
+    # While we're at it, write cfg entries
+    out.cfg = {"method" : sys._getframe().f_code.co_name,
+               "files" : filename.format(ext="[dat/info/trl]")}
 
     # Assemble dict for JSON output: order things by their "readability"
     out_dct = OrderedDict()
