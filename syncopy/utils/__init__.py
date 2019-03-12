@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-15 11:04:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-04 18:22:30>
+# Last modification time: <2019-03-08 13:30:23>
 """
 SynCoPy Convenience Utilities (:mod:`syncopy.utils`)
 ====================================================
@@ -27,9 +27,9 @@ We built some tools...
 
 # Import __all__ routines from local modules
 from .misc import *
-from .spy_parsers import *
+from .parsers import *
 
 # Populate local __all__ namespace
 __all__ = []
 __all__.extend(misc.__all__)
-__all__.extend(spy_parsers.__all__)
+__all__.extend(parsers.__all__)

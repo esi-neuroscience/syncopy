@@ -43,16 +43,16 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     # Make sure input object can be processed
     try:
-        spy_data_parser(data, varname="data", dataclass="AnalogData",
-                        writable=None, empty=False)
+        data_parser(obj, varname="obj", dataclass="AnalogData",
+                    writable=None, empty=False)
     except Exception as exc:
         raise exc
 
     # If provided, make sure output object is appropriate
     if out is not None:
         try:
-            spy_data_parser(out, varname="out", writable=True,
-                            dataclass="SpectralData")
+            data_parser(out, varname="out", writable=True,
+                        dataclass="SpectralData")
         except Exception as exc:
             raise exc
         new_out = False

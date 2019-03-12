@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:13:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-06 10:14:47>
+# Last modification time: <2019-03-11 15:53:52>
 
 # Builtin/3rd party package imports
 import os
@@ -12,8 +12,7 @@ import sys
 import numpy as np
 
 # Local imports
-from syncopy.utils import (spy_io_parser, spy_scalar_parser, spy_array_parser,
-                             spy_data_parser, SPYIOError, SPYTypeError, SPYValueError)
+from syncopy.utils import io_parser, data_parser, SPYIOError, SPYTypeError, SPYValueError
 from syncopy.datatype import AnalogData, VirtualData
 
 __all__ = ["load_binary_esi", "read_binary_esi_header"]
@@ -30,7 +29,7 @@ def load_binary_esi(filename,
     # Make sure `out` does not contain unpleasant surprises
     if out is not None:
         try:
-            spy_data_parser(out, varname="out", dataclass="AnalogData")
+            data_parser(out, varname="out", writable=True, dataclass="AnalogData")
         except Exception as exc:
             raise exc
         new_out = False
@@ -71,22 +70,14 @@ def load_binary_esi(filename,
     if isinstance(channel, str):
         channel = [channel + str(i + 1) for i in range(data.M)]
 
-    # If not provided construct (trivial) `trialdefinition` array (parsing is
-    # done by corresponding property setter)
-    if trialdefinition is None:
-        trialdefinition = np.array([[0, data.N, 0]])
-
     # First things first: attach data to output object
-    out._data = data
-    out._filename = filename
-    out._mode = "r"
+    out.data = data
 
-    # Now we can abuse ``redefinetrial`` to set trial-related props and
-    # write dimensional information - order matters here!
+    # Now we can abuse ``redefinetrial`` to set trial-related props
     out.redefinetrial(trialdefinition)
     
     # Set remaining attributes
-    out._dimlabels["channel"] = np.array(channel)
+    out.channel = np.array(channel)
     out._hdr = headers
     out.samplerate = float(1/headers[0]["tSample"]*1e9)
     
@@ -124,7 +115,7 @@ def read_binary_esi_header(filename):
 
     # First and foremost, make sure input arguments make sense
     try:
-        spy_io_parser(filename, varname="filename", isfile=True,
+        io_parser(filename, varname="filename", isfile=True,
                       ext=[".lfp", ".mua", ".evt", ".dpd", 
                            ".apd", ".eye", ".pup"])
     except Exception as exc:

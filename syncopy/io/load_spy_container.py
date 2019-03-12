@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-06 10:52:37>
+# Last modification time: <2019-03-11 16:29:05>
 
 # Builtin/3rd party package imports
 import os
@@ -15,13 +15,13 @@ from numpy.lib.format import open_memmap
 from glob import iglob
 
 # Local imports
-from syncopy.utils import spy_io_parser, spy_json_parser, spy_data_parser, SPYTypeError, SPYValueError
+from syncopy.utils import io_parser, json_parser, data_parser, SPYTypeError, SPYValueError
 from syncopy.io import hash_file, FILE_EXT
 import syncopy.datatype as swd
 
 __all__ = ["load_spy"]
 
-##########################################################################################
+
 def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     """
     Docstring coming soon...
@@ -41,10 +41,10 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     if in_ext != FILE_EXT["dir"]:
         in_spw = in_name + FILE_EXT["dir"]
     try:
-        in_name = spy_io_parser(in_spw, varname="in_name", isfile=False, exists=True)
+        in_name = io_parser(in_spw, varname="in_name", isfile=False, exists=True)
     except:
         try:
-            in_name = spy_io_parser(in_name, varname="in_name", isfile=False, exists=True)
+            in_name = io_parser(in_name, varname="in_name", isfile=False, exists=True)
         except Exception as exc:
             raise exc
 
@@ -118,7 +118,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     
     # Parse remaining meta-info fields
     try:
-        spy_json_parser(json_dict, expected)
+        json_parser(json_dict, expected)
     except Exception as exc:
         raise exc
 
@@ -127,7 +127,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
         expected = {"samplerate" : float,
                     "channel" : list}
         try:
-            spy_json_parser(json_dict, expected)
+            json_parser(json_dict, expected)
         except Exception as exc:
             raise exc
         if set(json_dict["dimord"]) != set(["channel", "time"]):
@@ -140,7 +140,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
                     "channel" : list,
                     "taper" : list}
         try:
-            spy_json_parser(json_dict, expected)
+            json_parser(json_dict, expected)
         except Exception as exc:
             raise exc
         if set(json_dict["dimord"]) != set(["taper", "channel", "freq", "time"]):
@@ -161,8 +161,8 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     # Parsing is done, create new or check provided container 
     if out is not None:
         try:
-            spy_data_parser(out, varname="out", writable=True,
-                            dimord=json_dict["dimord"], dataclass=json_dict["type"])
+            data_parser(out, varname="out", writable=True,
+                        dimord=json_dict["dimord"], dataclass=json_dict["type"])
         except Exception as exc:
             raise exc
         new_out = False
@@ -202,4 +202,3 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
 
     # Happy breakdown
     return out if new_out else None
-    
