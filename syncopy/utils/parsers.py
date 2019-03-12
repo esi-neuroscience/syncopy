@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # Module for all kinds of parsing gymnastics
-# 
+#
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Last modification time: <2019-03-11 16:35:39>
@@ -26,28 +26,28 @@ def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
     Parameters
     ----------
     fs_loc : str
-        String pointing to (hopefully valid) file-system location 
-        (absolute/relative path of file or directory ). 
+        String pointing to (hopefully valid) file-system location
+        (absolute/relative path of file or directory ).
     varname : str
-        Local variable name used in caller, see Examples for details. 
+        Local variable name used in caller, see Examples for details.
     isfile : bool
         Indicates whether `fs_loc` points to a file (`isfile = True`) or
         directory (`isfile = False`)
     ext : str or 1darray-like
         Valid filename extension(s). Can be a single string (e.g., `ext = "lfp"`)
-        or a list/1darray of valid extensions (e.g., `ext = ["lfp", "mua"]`). 
+        or a list/1darray of valid extensions (e.g., `ext = ["lfp", "mua"]`).
     exists : bool
         If `exists = True` ensure that file-system location specified by `fs_loc` exists
-        (typically used when reading from `fs_loc`), otherwise (`exists = False`) 
-        check for already present conflicting files/directories (typically used when 
-        creating/writing to `fs_loc`). 
+        (typically used when reading from `fs_loc`), otherwise (`exists = False`)
+        check for already present conflicting files/directories (typically used when
+        creating/writing to `fs_loc`).
 
     Returns
     -------
     fs_path : str
-        Absolute path of `fs_loc`. 
+        Absolute path of `fs_loc`.
     fs_name : str (only if `isfile = True`)
-        Name (including extension) of input file (without path). 
+        Name (including extension) of input file (without path).
 
     Examples
     --------
@@ -57,7 +57,7 @@ def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
     >>> io_parser("/path/to/dataset.lfp")
     '/path/to', 'dataset.lfp'
 
-    The following call ensures that a folder called "mydata" can be safely 
+    The following call ensures that a folder called "mydata" can be safely
     created in the current working directory
 
     >>> io_parser("mydata", isfile=False, exists=False)
@@ -102,7 +102,7 @@ def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
             raise SPYValueError(legal="directory", actual="file")
         else:
             return fs_loc
-        
+
     # ...now files
     else:
 
@@ -114,7 +114,7 @@ def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
 
             # Extract filename extension and get rid of its dot
             file_ext = os.path.splitext(file_name)[1]
-            file_ext = file_ext.replace(".","")
+            file_ext = file_ext.replace(".", "")
 
             # In here, having no extension counts as an error
             error = False
@@ -137,28 +137,28 @@ def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
         
 def scalar_parser(var, varname="", ntype=None, lims=None):
     """
-    Parse scalars 
+    Parse scalars
 
     Parameters
     ----------
     var : scalar
         Scalar quantity to verify
     varname : str
-        Local variable name used in caller, see Examples for details. 
+        Local variable name used in caller, see Examples for details.
     ntype : None or str
         Expected numerical type of `var`. Possible options include any valid
-        builtin type as well as `"int_like"` (`var` is expected to have 
-        no significant digits after its decimal point, e.g., 3.0, -12.0 etc.). 
-        If `ntype` is `None` the numerical type of `var` is not checked. 
+        builtin type as well as `"int_like"` (`var` is expected to have
+        no significant digits after its decimal point, e.g., 3.0, -12.0 etc.).
+        If `ntype` is `None` the numerical type of `var` is not checked.
     lims : None or two-element list_like
-        Lower (`lims[0]`) and upper (`lims[1]`) bounds for legal values of `var`. 
-        Note that the code checks for non-strict inequality, i.e., `var = lims[0]` or 
-        `var = lims[1]` are both considered to be valid values of `var`. 
-        Using `lims = [-np.inf, np.inf]` may be employed to ensure that `var` is 
-        finite and non-NaN. For complex scalars bounds-checking is performed 
-        element-wise, that is both real and imaginary part of `var` have to be 
-        inside the  bounds provided by `lims` (see Examples for details). 
-        If `lims` is `None` bounds-checking is not performed. 
+        Lower (`lims[0]`) and upper (`lims[1]`) bounds for legal values of `var`.
+        Note that the code checks for non-strict inequality, i.e., `var = lims[0]` or
+        `var = lims[1]` are both considered to be valid values of `var`.
+        Using `lims = [-np.inf, np.inf]` may be employed to ensure that `var` is
+        finite and non-NaN. For complex scalars bounds-checking is performed
+        element-wise, that is both real and imaginary part of `var` have to be
+        inside the  bounds provided by `lims` (see Examples for details).
+        If `lims` is `None` bounds-checking is not performed.
 
     Returns
     -------
@@ -167,7 +167,7 @@ def scalar_parser(var, varname="", ntype=None, lims=None):
     Examples
     --------
     Assume `freq` is supposed to be a scalar with integer-like values between
-    10 and 1000. The following calls confirm the validity of `freq` 
+    10 and 1000. The following calls confirm the validity of `freq`
 
     >>> freq = 440
     >>> scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
@@ -183,7 +183,7 @@ def scalar_parser(var, varname="", ntype=None, lims=None):
     >>> freq = '440'    # not a scalar
     >>> scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
 
-    For complex scalars bounds-checking is performed element-wise on both 
+    For complex scalars bounds-checking is performed element-wise on both
     real and imaginary part:
 
     >>> scalar_parser(complex(2,-1), lims=[-3, 5])  # valid
@@ -207,7 +207,7 @@ def scalar_parser(var, varname="", ntype=None, lims=None):
             if type(var) != getattr(__builtins__, ntype):
                 raise SPYTypeError(var, varname=varname, expected=ntype)
 
-    # If required perform bounds-check: transform scalar to NumPy array 
+    # If required perform bounds-check: transform scalar to NumPy array
     # to be able to handle complex scalars too
     if lims is not None:
         if isinstance(var, complex):
@@ -218,7 +218,7 @@ def scalar_parser(var, varname="", ntype=None, lims=None):
             legal = "value to be "
         if np.any(val < lims[0]) or np.any(val > lims[1]) or not np.isfinite(var):
             legal += "greater or equals {lb:s} and less or equals {ub:s}"
-            raise SPYValueError(legal.format(lb=str(lims[0]),ub=str(lims[1])),
+            raise SPYValueError(legal.format(lb=str(lims[0]), ub=str(lims[1])),
                                 varname=varname, actual=str(var))
 
     return
@@ -234,9 +234,9 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
     var : array_like
         Array object to verify
     varname : str
-        Local variable name used in caller, see Examples for details. 
+        Local variable name used in caller, see Examples for details.
     ntype : None or str
-        Expected data type of `var`. Possible options are any valid 
+        Expected data type of `var`. Possible options are any valid
         builtin type, all NumPy dtypes as as well as `"numeric"` (a catch-all
         to ensure `var` only contains numeric elements) and "int_like"` 
         (all elements of `var` are expected to have no significant digits 
@@ -281,14 +281,14 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
 
     Examples
     --------
-    Assume `time` is supposed to be a 1d-array with floating point components 
-    bounded by 0 and 10. The following calls confirm the validity of `time` 
+    Assume `time` is supposed to be a 1d-array with floating point components
+    bounded by 0 and 10. The following calls confirm the validity of `time`
 
     >>> time = np.linspace(0, 10, 100)
     >>> array_parser(time, varname="time", lims=[0, 10], dims=1)
     >>> array_parser(time, varname="time", lims=[0, 10], dims=(100,))
 
-    Artificially appending a singleton dimension to `time` does not affect 
+    Artificially appending a singleton dimension to `time` does not affect
     parsing:
 
     >>> time = time[:,np.newaxis]
@@ -306,7 +306,7 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
     >>> array_parser(spec, varname="spec", dims=1)
     >>> array_parser(spec, varname="spec", dims=(2,))
 
-    Note that bounds-checking is performed component-wise on both real and 
+    Note that bounds-checking is performed component-wise on both real and
     imaginary parts:
 
     >>> array_parser(spec, varname="spec", lims=[-3, 5])    # valid
@@ -328,7 +328,7 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
         raise SPYTypeError(var, varname=varname, expected="array_like")
     arr = np.array(var)
 
-    # If bounds-checking is requested but `ntype` is not set, use the 
+    # If bounds-checking is requested but `ntype` is not set, use the
     # generic "numeric" option to ensure array is actually numeric
     if lims is not None and ntype is None:
         ntype = "numeric"
@@ -381,9 +381,9 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
             amax = arr.max()
         if amin < lims[0] or amax > lims[1] or not np.all(np.isfinite(arr)):
             legal = "all array elements to be bounded by {lb:s} and {ub:s}"
-            raise SPYValueError(legal.format(lb=str(lims[0]),ub=str(lims[1])),
+            raise SPYValueError(legal.format(lb=str(lims[0]), ub=str(lims[1])),
                                 varname=varname)
-            
+
     # If required parse dimensional layout of array
     if dims is not None:
 
@@ -397,7 +397,7 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
                 ashape = arr.shape
             else:
                 ashape = max((ischar,), arr.squeeze().shape)
-            if not ashape  == dims:
+            if not ashape == dims:
                 raise SPYValueError("array of shape " + str(dims),
                                     varname=varname, actual="shape = " + str(arr.shape))
         else:
@@ -406,7 +406,7 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
                 raise SPYValueError(str(dims) + "d-array", varname=varname,
                                     actual=str(ndim) + "d-array")
 
-    return 
+    return
 
 
 def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dimord=None):
@@ -416,7 +416,7 @@ def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dim
     writable = True/False/None
     empty=True/False (False: ensure we're working with some contents)
     """
-    
+
     # Make sure `data` is (derived from) `BaseData`
     if not any(["BaseData" in str(base) for base in data.__class__.__mro__]):
         raise SPYTypeError(data, varname=varname, expected="SynCoPy data object")
@@ -457,8 +457,8 @@ def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dim
         base = "SynCoPy {diminfo:s} data object"
         if not set(dimord).issubset(data.dimord):
             legal = base.format(diminfo="'" + "' x '".join(str(dim) for dim in dimord) + "'")
-            actual = base.format(diminfo="'" + "' x '".join(str(dim) for dim in data.dimord) \
-                             + "' " if data.dimord else "empty")
+            actual = base.format(diminfo="'" + "' x '".join(str(dim) for dim in data.dimord)
+                                 + "' " if data.dimord else "empty")
             raise SPYValueError(legal=legal, varname=varname, actual=actual)
 
     return
@@ -487,14 +487,14 @@ def get_defaults(obj):
     Parameters
     ----------
     obj : function or class
-        Object whose input arguments to parse. Can be either a class or 
-        function. 
-    
+        Object whose input arguments to parse. Can be either a class or
+        function.
+
     Returns
     -------
     argdict : dictionary
-        Dictionary of `argument : default value` pairs constructed from 
-        `obj`'s call-signature/instantiation. 
+        Dictionary of `argument : default value` pairs constructed from
+        `obj`'s call-signature/instantiation.
 
     Examples
     --------

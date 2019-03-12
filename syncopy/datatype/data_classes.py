@@ -17,7 +17,8 @@ import numbers
 import inspect
 import scipy as sp
 from abc import ABC, abstractmethod
-from collections import OrderedDict, Iterator
+from collections import OrderedDict
+from collections.abc import Iterator
 from copy import copy
 from hashlib import blake2b
 from itertools import islice

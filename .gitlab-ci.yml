@@ -1,0 +1,12 @@
+clusterTests:
+    stage: test
+    tags: 
+    - slurm
+    only:
+    - master
+    script:
+    - source $HOME/miniconda3/bin/activate
+    - pip install --upgrade pip
+    - pip install --upgrade tox
+    - srun -p 8GBS -c 4 tox --parallel 4
+
