@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-11 16:38:41>
+# Last modification time: <2019-03-12 11:25:33>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -291,23 +291,60 @@ class BaseData(ABC):
         self._trialinfo = None
         self._filename = None
 
+
+        # if isinstance(kwargs.get("filename"), np.ndarray):
+        # filename = None
+        # data = None
+        # if kwargs.get("filename") is not None:
+        #     if isinstance(kwargs["filename"], np.ndarray):
+        #         data = kwargs.pop("filename")
+        #     else:
+        #         filename = kwargs.pop("filename")
+        # if kwargs.get("data") is not None:
+        #     if isinstance(kwargs["data"], str):
+        #         filename = kwargs.pop("data")
+        #     else:
+        #         data = kwargs.pop("data")
+
         # Depending on contents of `filename` and `data` class instantiation invokes I/O routines
-        if kwargs.get("filename"):
+        if kwargs.get("filename") is not None:
+
+            # Remove `filename` from `kwargs` and start checking `data`
             filename = kwargs.pop("filename")
+            
+            # Case 1: filename + data = memmap @filename
             if kwargs.get("data") is not None:
                 read_fl = False
                 self.data = filename
                 self.data = kwargs.pop("data")
+
+            # Case 2: filename w/o data = read from file/container
             else:
                 read_fl = True
                 for key in ["data", "samplerate", "mode"]:
                     kwargs.pop(key)
         else:
-            read_fl = False
+
+            # Case 3: just data = either attach array/memmap or load container
             if kwargs.get("data") is not None:
-                self.data = kwargs.pop("data")
+                data = kwargs.pop("data")
+                if isinstance(data, str):
+                    if os.path.isdir(data) or \
+                       os.path.isdir(os.path.splitext(data)[0] + spy.FILE_EXT["dir"]):
+                        read_fl = True
+                        filename = data
+                        for key in ["samplerate", "mode"]:
+                            kwargs.pop(key)
+                    else:
+                        read_fl = False
+                        self.data = data
+                else:
+                    read_fl = False
+                    self.data = data
+
+            # Case 4: nothing here: create empty object
             else:
-                self._data = None
+                read_fl = False
                 self._filename = self._gen_filename()
             
         # Iniital allocation of attributes (where necessary)
