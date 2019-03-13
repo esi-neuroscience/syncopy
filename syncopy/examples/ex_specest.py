@@ -2,7 +2,7 @@
 ##
 # Created: 2019-02-25 13:08:56
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-11 16:06:36>
+# Last modification time: <2019-03-13 16:16:57>
 
 
 # Builtin/3rd party package imports
@@ -17,16 +17,16 @@ if spw_path not in sys.path:
     sys.path.insert(0, spw_path)
 
 from syncopy import __dask__
-if __dask__:
-    import dask
-    import dask.array as da
-    from dask.distributed import get_client
+import dask
+import dask.array as da
+from dask.distributed import get_client
+from dask.distributed import Client, LocalCluster
 
 # Import Spykewave
 import syncopy as spy
 
 
-def generate_artifical_data(nTrials=2, nChannels=2):
+def generate_artifical_data(nTrials=100, nChannels=64):
     dt = 0.001
     t = np.arange(0, 3, dt) - 1.0
     sig = np.cos(2 * np.pi * (7 * (np.heaviside(t, 1) * t - 1) + 10) * t)
@@ -45,5 +45,26 @@ def generate_artifical_data(nTrials=2, nChannels=2):
 
 
 if __name__ == "__main__":
-    dat = generate_artifical_data()
-    spec = spy.freqanalysis(dat)
+    print("Generate data")
+    dat = generate_artifical_data(nTrials=80, nChannels=6)
+    print("Save data")
+    dat.save('example.spy')
+    del dat
+    print("Load data")
+    data = spy.AnalogData(filename="example.spy")
+    import socket
+    cluster = LocalCluster(ip=socket.gethostname(),
+                           n_workers=6,
+                           threads_per_worker=1,
+                           memory_limit="2G",
+                           processes=False)
+    client = Client(cluster)
+
+    print("Calculate spectra")
+    # result = spy.freqanalysis(data)
+    out = spy.SpectralData()
+    mtmfft = spy.MultiTaperFFT()
+    mtmfft.initialize(data)
+    result = dask.delayed(mtmfft.calculate(data, out))
+    # spec.visualize('test.pdf')
+    out = result.compute()
