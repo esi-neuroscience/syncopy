@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-13 16:32:34>
+# Last modification time: <2019-03-13 17:42:15>
 
 # Builtin/3rd party package imports
 import sys
@@ -62,19 +62,21 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         new_out = True
 
     methods = {
-        "mtmfft": MultiTaperFFT(taper=hann, tapsmofrq=tapsmofrq,
-                                pad=pad, padtype=padtype,
-                                polyorder=polyremoval)
+        "mtmfft": (MultiTaperFFT(taper=hann, tapsmofrq=tapsmofrq,
+                                 pad=pad, padtype=padtype,
+                                 polyorder=polyremoval),
+                   1 / data.samplerate)
     }
 
-    specestMethod = methods[method]
-    specestMethod.initialize(data)
+    specestMethod = methods[method][0]
+    argv = methods[method][1]
+    specestMethod.initialize(data, argv)
     specestMethod.calculate(data, out)
 
-    if output == "power":
-        powerOut = out.copy(deep=T)
-        for trial in out.trials:
-            trial = np.absolute(trial)
+    # if output == "power":
+    #     powerOut = out.copy(deep=T)
+    #     for trial in out.trials:
+    #         trial = np.absolute(trial)
 
     return out if newOut else None
 
@@ -125,72 +127,75 @@ def mtmfft(dat, dt,
     return spec
 
 
-class MultiTaperFFT():
-    computeFunction = staticmethod(mtmfft)
-    dtype = np.complex128
+class ComputationalRoutine(ABC):
 
-    def __init__(self, **kwargs):
+    computeFunction = None
+    dtype = None
+
+    def __init__(self, *argv, **kwargs):
         self.defaultCfg = spy.get_defaults(self.computeFunction)
         self.cfg = copy(self.defaultCfg)
         self.cfg.update(**kwargs)
-
-        # self.outputfile = None
+        self.argv = argv
+        self.outputShape = None
 
     def initialize(self, data):
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
         self.outputShape = self.computeFunction(data.trials[0],
-                                                1 / data.samplerate,
+                                                *self.argv,
                                                 **dryRunKwargs)
 
     def calculate(self, data, out):
+
+        self.preallocate_output(data, out)
+        useDask = True
+        result = None
+        if useDask:
+            self.compute_dask(data, out)
+        else:
+            self.compute_sequential(data, out)
+
+        self.handle_metadata(data, out)
+        self.write_log(data, out)
+        return out
+
+    @abstractmethod
+    def preallocate_output(self):
+        pass
+
+    @abstractmethod
+    def handle_metadata(self):
+        pass
+
+    @abstractmethod
+    def compute_dask(self):
+        pass
+
+    @abstractmethod
+    def compute_sequential(self):
+        pass
+
+    @abstractmethod
+    def write_log(self):
+        pass
+
+
+class MultiTaperFFT(ComputationalRoutine):
+    computeFunction = staticmethod(mtmfft)
+    dtype = np.complex128
+
+    def __init__(self, *argv, **kwargs):
+        super().__init__(*argv, **kwargs)
+
+    def preallocate_output(self, data, out):
         res = open_memmap(out._filename,
                           shape=(len(data.trials),) + self.outputShape,
                           dtype=self.dtype,
                           mode="w+")
         del res
 
-        useDask = True
-        result = None
-        if useDask:
-
-            # Point to trials on disk by using delayed **static** method calls
-            lazy_trial = dask.delayed(data._copy_trial, traverse=False)
-            lazy_trls = [lazy_trial(trialno,
-                                    data._filename,
-                                    data.dimord,
-                                    data.sampleinfo,
-                                    data.hdr)
-                         for trialno in range(data.sampleinfo.shape[0])]
-
-            # Construct a distributed dask array block by stacking delayed trials
-            trl_block = da.hstack([da.from_delayed(trl, shape=data._shapes[sk],
-                                                   dtype=data.data.dtype)
-                                   for sk, trl in enumerate(lazy_trls)])
-
-            # Use `map_blocks` to compute spectra for each trial in the
-            # constructed dask array
-            specs = trl_block.map_blocks(self.computeFunction,
-                                         1 / data.samplerate,
-                                         **self.cfg,
-                                         dtype="complex",
-                                         chunks=self.outputShape,
-                                         new_axis=[0])
-
-            # # Write computed spectra in pre-allocated memmap
-            if out is not None:
-                daskResult = specs.map_blocks(write_block, out._filename,
-                                              dtype=self.dtype, drop_axis=[0, 1],
-                                              chunks=(1,))
-
-        else:
-            for tk, trl in enumerate(tqdm(data.trials, desc="Computing MTMFFT...")):
-                res = open_memmap(out._filename, mode="r+")[tk, :, :, :]
-                res[...] = self.computeFunction(trl, 1 / data.samplerate,
-                                                **self.cfg)
-                del res
-                data.clear()
-
+    def handle_metadata(self, data, out):
         out.data = open_memmap(out._filename, mode="r+")
 
         # We can't simply use ``redefinetrial`` here, prep things by hand
@@ -207,22 +212,60 @@ class MultiTaperFFT():
         out.freq = np.linspace(0, 1, self.outputShape[2]) * (data.samplerate / 2)
         out.cfg = self.cfg
 
-        # return out
-        # # Write log
-        # out._log = str(obj._log) + out._log
-        # log = "computed multi-taper FFT with settings\n" +\
-        #       "\ttaper = {tpr:s}\n" +\
-        #       "\tpadding = {pad:s}\n" +\
-        #       "\tpadtype = {pat:s}\n" +\
-        #       "\tpolyorder = {pol:s}\n" +\
-        #       "\ttaperopt = {topt:s}\n" +\
-        #       "\ttapsmofrq = {tfr:s}\n"
-        # out.log = log.format(tpr=cfg["taper"],
-        #                      pad=cfg["padding"],
-        #                      pat=cfg["padtype"],
-        #                      pol=str(cfg["polyorder"]),
-        #                      topt=str(cfg["taperopt"]),
-        #                      tfr=str(cfg["tapsmofrq"]))
+    def write_log(self, data, out):
+        # Write log
+        out._log = str(data._log) + out._log
+        log = "computed multi-taper FFT with settings\n" +\
+              "\ttaper = {tpr:s}\n" +\
+              "\tpadding = {pad:s}\n" +\
+              "\tpadtype = {pat:s}\n" +\
+              "\tpolyorder = {pol:s}\n" +\
+              "\ttaperopt = {topt:s}\n" +\
+              "\ttapsmofrq = {tfr:s}\n"
+        # out.log = log.format(tpr=self.cfg["taper"],
+        #                      pad=self.cfg["pad"],
+        #                      pat=self.cfg["padtype"],
+        #                      pol=str(self.cfg["polyorder"]),
+        #                      topt=str(self.cfg["taperopt"]),
+        #                      tfr=str(self.cfg["tapsmofrq"]))
+
+    def compute_dask(self, data, out):
+        # Point to trials on disk by using delayed **static** method calls
+        lazy_trial = dask.delayed(data._copy_trial, traverse=False)
+        lazy_trls = [lazy_trial(trialno,
+                                data._filename,
+                                data.dimord,
+                                data.sampleinfo,
+                                data.hdr)
+                     for trialno in range(data.sampleinfo.shape[0])]
+
+        # Construct a distributed dask array block by stacking delayed trials
+        trl_block = da.hstack([da.from_delayed(trl, shape=data._shapes[sk],
+                                               dtype=data.data.dtype)
+                               for sk, trl in enumerate(lazy_trls)])
+
+        # Use `map_blocks` to compute spectra for each trial in the
+        # constructed dask array
+        specs = trl_block.map_blocks(self.computeFunction,
+                                     *self.argv,
+                                     **self.cfg,
+                                     dtype="complex",
+                                     chunks=self.outputShape,
+                                     new_axis=[0])
+
+        # # Write computed spectra in pre-allocated memmap
+        if out is not None:
+            daskResult = specs.map_blocks(write_block, out._filename,
+                                          dtype=self.dtype, drop_axis=[0, 1],
+                                          chunks=(1,))
+
+    def compute_sequential(self, data, out):
+        for tk, trl in enumerate(tqdm(data.trials, desc="Computing MTMFFT...")):
+            res = open_memmap(out._filename, mode="r+")[tk, :, :, :]
+            res[...] = self.computeFunction(trl, 1 / data.samplerate,
+                                            **self.cfg)
+            del res
+            data.clear()
 
 
 def write_block(blk, filename, block_info=None):

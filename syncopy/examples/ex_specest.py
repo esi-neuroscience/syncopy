@@ -2,7 +2,7 @@
 ##
 # Created: 2019-02-25 13:08:56
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-13 16:16:57>
+# Last modification time: <2019-03-13 17:37:43>
 
 
 # Builtin/3rd party package imports
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     print("Calculate spectra")
     # result = spy.freqanalysis(data)
     out = spy.SpectralData()
-    mtmfft = spy.MultiTaperFFT()
+    mtmfft = spy.MultiTaperFFT((1/data.samplerate,))
     mtmfft.initialize(data)
     result = dask.delayed(mtmfft.calculate(data, out))
     # spec.visualize('test.pdf')
