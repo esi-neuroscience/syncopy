@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-13 17:42:15>
+# Last modification time: <2019-03-14 15:27:16>
 
 # Builtin/3rd party package imports
 import sys
@@ -71,7 +71,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     specestMethod = methods[method][0]
     argv = methods[method][1]
     specestMethod.initialize(data, argv)
-    specestMethod.calculate(data, out)
+    specestMethod.compute(data, out)
 
     # if output == "power":
     #     powerOut = out.copy(deep=T)
@@ -146,7 +146,7 @@ class ComputationalRoutine(ABC):
                                                 *self.argv,
                                                 **dryRunKwargs)
 
-    def calculate(self, data, out):
+    def compute(self, data, out):
 
         self.preallocate_output(data, out)
         useDask = True
@@ -159,6 +159,17 @@ class ComputationalRoutine(ABC):
         self.handle_metadata(data, out)
         self.write_log(data, out)
         return out
+
+    def write_log(self, data, out):
+        # Write log
+        out._log = str(data._log) + out._log
+        logHead = "computed {name:s} with settings\n".format(name=self.computeFunction.__name__)
+
+        logOpts = ""
+        for k, v in self.cfg.items():
+            logOpts += "\t{key:s} = {value:s}\n".format(key=k, value=str(v))
+
+        out.log = logHead + logOpts
 
     @abstractmethod
     def preallocate_output(self):
@@ -176,9 +187,6 @@ class ComputationalRoutine(ABC):
     def compute_sequential(self):
         pass
 
-    @abstractmethod
-    def write_log(self):
-        pass
 
 
 class MultiTaperFFT(ComputationalRoutine):
@@ -212,23 +220,6 @@ class MultiTaperFFT(ComputationalRoutine):
         out.freq = np.linspace(0, 1, self.outputShape[2]) * (data.samplerate / 2)
         out.cfg = self.cfg
 
-    def write_log(self, data, out):
-        # Write log
-        out._log = str(data._log) + out._log
-        log = "computed multi-taper FFT with settings\n" +\
-              "\ttaper = {tpr:s}\n" +\
-              "\tpadding = {pad:s}\n" +\
-              "\tpadtype = {pat:s}\n" +\
-              "\tpolyorder = {pol:s}\n" +\
-              "\ttaperopt = {topt:s}\n" +\
-              "\ttapsmofrq = {tfr:s}\n"
-        # out.log = log.format(tpr=self.cfg["taper"],
-        #                      pad=self.cfg["pad"],
-        #                      pat=self.cfg["padtype"],
-        #                      pol=str(self.cfg["polyorder"]),
-        #                      topt=str(self.cfg["taperopt"]),
-        #                      tfr=str(self.cfg["tapsmofrq"]))
-
     def compute_dask(self, data, out):
         # Point to trials on disk by using delayed **static** method calls
         lazy_trial = dask.delayed(data._copy_trial, traverse=False)
@@ -247,17 +238,18 @@ class MultiTaperFFT(ComputationalRoutine):
         # Use `map_blocks` to compute spectra for each trial in the
         # constructed dask array
         specs = trl_block.map_blocks(self.computeFunction,
-                                     *self.argv,
-                                     **self.cfg,
+                                     *self.argv, **self.cfg,
                                      dtype="complex",
                                      chunks=self.outputShape,
                                      new_axis=[0])
 
         # # Write computed spectra in pre-allocated memmap
-        if out is not None:
-            daskResult = specs.map_blocks(write_block, out._filename,
+        # if out is not None:
+        if True:
+            daskResult = specs.map_blocks(self.write_block, out._filename,
                                           dtype=self.dtype, drop_axis=[0, 1],
                                           chunks=(1,))
+        return daskResult.compute()
 
     def compute_sequential(self, data, out):
         for tk, trl in enumerate(tqdm(data.trials, desc="Computing MTMFFT...")):
@@ -267,17 +259,15 @@ class MultiTaperFFT(ComputationalRoutine):
             del res
             data.clear()
 
+    @staticmethod
+    def write_block(blk, filename, block_info=None):
+        idx = block_info[0]["chunk-location"][-1]
 
-def write_block(blk, filename, block_info=None):
-    # print(block_info)
-    idx = block_info[0]["chunk-location"][-1]
-    print(blk.shape)
-    print(idx)
-    res = open_memmap(filename, mode="r+")[idx, :, :, :]
-    res[...] = blk
-    res = None
-    del res
-    return idx
+        res = open_memmap(filename, mode="r+")[idx, :, :, :]
+        res[...] = blk
+        res = None
+        del res
+        return idx
 
 
 def _nextpow2(number):
