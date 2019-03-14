@@ -2,7 +2,7 @@
 ##
 # Created: 2019-02-25 13:08:56
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-14 15:23:53>
+# Last modification time: <2019-03-14 17:34:18>
 
 
 # Builtin/3rd party package imports
@@ -46,7 +46,7 @@ def generate_artifical_data(nTrials=100, nChannels=64):
 
 if __name__ == "__main__":
     print("Generate data")
-    dat = generate_artifical_data(nTrials=80, nChannels=6)
+    dat = generate_artifical_data(nTrials=50, nChannels=6)
     print("Save data")
     dat.save('example.spy')
     del dat
@@ -63,11 +63,19 @@ if __name__ == "__main__":
     print("Calculate spectra")
     # result = spy.freqanalysis(data)
     out = spy.SpectralData()
-    mtmfft = spy.MultiTaperFFT((1/data.samplerate,))
+    mtmfft = spy.MultiTaperFFT(1 / data.samplerate)
     mtmfft.initialize(data)
     result = dask.delayed(mtmfft.compute(data, out))
     # spec.visualize('test.pdf')
     out = result.compute()
     # plt.ion()
-    plt.plot(out.freq, np.squeeze(np.absolute(out.trials[0]).T))
+    # plt.plot(out.freq, np.squeeze(np.absolute(out.trials[0]).T))
+
+    print("Calculate wavelet spectra")
+    outWavelet = spy.SpectralData()
+    wavelet = spy.WaveletTransform(1 / data.samplerate)
+    wavelet.initialize(data)
+    wavelet.compute(data, outWavelet)
+    plt.pcolormesh(outWavelet.time[0], outWavelet.freq,
+                   np.absolute(outWavelet.trials[0][:, 0, 0, :]).T)
     plt.show()

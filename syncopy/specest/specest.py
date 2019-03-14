@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-14 15:27:16>
+# Last modification time: <2019-03-14 17:31:34>
 
 # Builtin/3rd party package imports
 import sys
@@ -29,7 +29,7 @@ if __dask__:
     from dask.distributed import get_client
 
 
-__all__ = ["freqanalysis", "mtmfft", "wavelet", "MultiTaperFFT"]
+__all__ = ["freqanalysis", "mtmfft", "wavelet", "MultiTaperFFT", "WaveletTransform"]
 
 
 def freqanalysis(data, method='mtmfft', output='fourier',
@@ -140,17 +140,18 @@ class ComputationalRoutine(ABC):
         self.outputShape = None
 
     def initialize(self, data):
+        # FIXME: this only works for data with equal output trial lengths
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
         self.outputShape = self.computeFunction(data.trials[0],
                                                 *self.argv,
                                                 **dryRunKwargs)
 
-    def compute(self, data, out):
+    def compute(self, data, out, useDask=False):
 
         self.preallocate_output(data, out)
-        useDask = True
         result = None
+        useDask = False
         if useDask:
             self.compute_dask(data, out)
         else:
@@ -186,7 +187,6 @@ class ComputationalRoutine(ABC):
     @abstractmethod
     def compute_sequential(self):
         pass
-
 
 
 class MultiTaperFFT(ComputationalRoutine):
@@ -277,59 +277,82 @@ def _nextpow2(number):
     return n
 
 
-def wavelet(data=None, pad=None, padtype=None, freqoi=None, timeoi=None,
-            width=6, polyorder=None, out=None, wavelet=Morlet):
-    if out is None:
-        out = spy.SpectralData()
-    wav = Morlet(w0=width)
-
-    minTrialLength = np.array(data._shapes)[:, 1].min()
-    totalTriallength = np.sum(np.array(data._shapes)[:, 1])
-
-    if freqoi is None:
-        scales = _get_optimal_wavelet_scales(minTrialLength,
-                                             1 / data.samplerate,
-                                             dj=0.25)
-    else:
-        scales = wav.scale_from_period(np.reciprocal(freqoi))
-
-    result = open_memmap(out._filename,
-                         shape=(totalTriallength, 1, len(data.channel), len(scales)),
-                         dtype="complex",
-                         mode="w+")
-    del result
-
-    for idx, trial in enumerate(tqdm(data.trials, desc="Computing Wavelet spectrum...")):
-        selector = slice(data.sampleinfo[idx, 0], data.sampleinfo[idx, 1])
-        res = open_memmap(out._filename, mode="r+")[selector, :, :, :]
-        tmp = _wavelet_compute(dat=trial,
-                               wavelet=wav,
-                               dt=1 / data.samplerate,
-                               scales=scales,
-                               axis=1)[:, :, np.newaxis, ...].transpose()
-        res[...] = tmp
-        # del res
-        # data.clear()
-
-    out._data = open_memmap(out._filename, mode="r+")
-    # We can't simply use ``redefinetrial`` here, prep things by hand
-    time = np.arange(len(data.trials))
-    time = time.reshape((time.size, 1))
-    out.sampleinfo = data.sampleinfo
-    out.trialinfo = np.array(data.trialinfo)
-    out._t0 = np.zeros((len(data.trials),))
-
-    # Attach meta-data
-    out.samplerate = data.samplerate
-    out.channel = np.array(data.channel)
-    out.freq = np.reciprocal(wav.fourier_period(scales))
-
-    return out
+# def mtmfft(dat, dt,
+#            taper=hann, taperopt={}, tapsmofrq=None,
+#            pad="nextpow2", padtype="zero",
+#            polyorder=None, fftAxis=1,
+#            noCompute=False):
 
 
-def _wavelet_compute(dat, wavelet, dt, scales, axis=1):
-    # def compute_wavelet
-    return cwt(dat, axis=axis, wavelet=wavelet, widths=scales, dt=dt)
+def wavelet(dat, dt,
+            freqoi=None,
+            polyorder=None, wav=Morlet(w0=6), axis=1, noCompute=False):
+
+    scales = wav.scale_from_period(np.reciprocal(freqoi))
+
+    if noCompute:
+        # time x taper x chan x freq
+        return (dat.shape[1], 1, dat.shape[0], len(scales))
+
+    return cwt(dat,
+               axis=axis,
+               wavelet=wav,
+               widths=scales, dt=dt)[:, :, np.newaxis, ...].transpose()
+
+
+class WaveletTransform(ComputationalRoutine):
+    computeFunction = staticmethod(wavelet)
+    dtype = np.complex128
+
+    def __init__(self, *argv, **kwargs):
+        super().__init__(*argv, **kwargs)
+
+    def initialize(self, data):
+        minTrialLength = np.array(data._shapes)[:, 1].min()
+        if self.cfg["freqoi"] is None:
+            self.cfg["freqoi"] = 1 / _get_optimal_wavelet_scales(minTrialLength,
+                                                                 1 / data.samplerate,
+                                                                 dj=0.25)
+
+        dryRunKwargs = copy(self.cfg)
+        dryRunKwargs["noCompute"] = True
+        self.outputShape = self.computeFunction(data.trials[0], *self.argv, **dryRunKwargs)
+
+    def preallocate_output(self, data, out):
+        totalTriallength = np.sum(np.array(data._shapes)[:, 1])
+        result = open_memmap(out._filename,
+                             shape=(totalTriallength,) + self.outputShape[1:],
+                             dtype=self.dtype,
+                             mode="w+")
+        del result
+
+    def compute_sequential(self, data, out):
+        for idx, trial in enumerate(tqdm(data.trials, desc="Computing Wavelet spectrum...")):
+            selector = slice(data.sampleinfo[idx, 0], data.sampleinfo[idx, 1])
+            res = open_memmap(out._filename, mode="r+")[selector, :, :, :]
+            # pdb.set_trace()
+            tmp = self.computeFunction(trial, *self.argv, **self.cfg)
+
+            res[...] = tmp
+            data.clear()
+
+    def compute_dask(self, data, out):
+        raise NotImplementedError('Dask computation of wavelet transform is not yet implemented')
+
+    def handle_metadata(self, data, out):
+        out.data = open_memmap(out._filename, mode="r+")
+        # We can't simply use ``redefinetrial`` here, prep things by hand
+        time = np.arange(len(data.trials))
+        time = time.reshape((time.size, 1))
+        out.sampleinfo = data.sampleinfo
+        out.trialinfo = np.array(data.trialinfo)
+        out._t0 = np.zeros((len(data.trials),))
+
+        # Attach meta-data
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel)
+        out.freq = self.cfg["freqoi"]
+        return out
 
 
 def _get_optimal_wavelet_scales(nSamples, dt, dj=0.25, s0=1):
