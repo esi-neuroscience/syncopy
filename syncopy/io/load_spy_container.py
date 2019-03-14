@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-12 11:57:03>
+# Last modification time: <2019-03-14 13:32:21>
 
 # Builtin/3rd party package imports
 import os
@@ -100,7 +100,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     expected = {"dimord" : list,
                 "version" : str,
                 "log" : str,
-                "channel" : list}
+                "mode" : str}
     with open(in_files["json"], "r") as fle:
         json_dict = json.load(fle)
     mandatory = set(["type", "cfg"] + list(expected.keys()))
@@ -139,6 +139,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     elif json_dict["type"] == "SpectralData":
         expected = {"samplerate" : float,
                     "channel" : list,
+                    "freq": list,
                     "taper" : list}
         try:
             json_parser(json_dict, expected)
@@ -195,6 +196,9 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
         out.channel = np.array(json_dict["channel"])
         out.taper = np.array(json_dict["taper"])
         out.freq = np.array(json_dict["freq"])
+    elif json_dict["type"] == "SpikeData":
+        out.channel = np.array(json_dict["channel"])
+        out.unit = np.array(json_dict["unit"])
 
     # Write `cfg` entries
     out.cfg = {"method" : sys._getframe().f_code.co_name,

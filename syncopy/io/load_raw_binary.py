@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:13:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-11 15:53:52>
+# Last modification time: <2019-03-14 13:51:13>
 
 # Builtin/3rd party package imports
 import os
@@ -26,6 +26,11 @@ def load_binary_esi(filename,
     Docstring
     """
 
+    # Convert input to list (if it is not already) - parsing is performed
+    # by ``read_binary_esi_header``
+    if not isinstance(filename, (list, np.ndarray)):
+        filename = [filename]
+
     # Make sure `out` does not contain unpleasant surprises
     if out is not None:
         try:
@@ -36,11 +41,6 @@ def load_binary_esi(filename,
     else:
         out = AnalogData(dimord=["channel", "time"])
         new_out = True
-
-    # Convert input to list (if it is not already) - parsing is performed
-    # by ``read_binary_esi_header``
-    if not isinstance(filename, (list, np.ndarray)):
-        filename = [filename]
 
     # Read headers of provided file(s) to get dimensional information
     headers = []
@@ -99,7 +99,7 @@ def read_binary_esi_header(filename):
     Docstring
     """
 
-    # SynCoPy raw binary dtype-codes
+    # SyNCoPy raw binary dtype-codes
     dtype = {
         1 : 'int8',
         2 : 'uint8', 
@@ -115,9 +115,9 @@ def read_binary_esi_header(filename):
 
     # First and foremost, make sure input arguments make sense
     try:
-        io_parser(filename, varname="filename", isfile=True,
-                      ext=[".lfp", ".mua", ".evt", ".dpd", 
-                           ".apd", ".eye", ".pup"])
+        io_parser(filename, varname="filename", isfile=True, exists=True
+                  ext=[".lfp", ".mua", ".evt", ".dpd", 
+                       ".apd", ".eye", ".pup", ".spk"])
     except Exception as exc:
         raise exc
 

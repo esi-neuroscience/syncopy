@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-11 15:55:47>
+# Last modification time: <2019-03-12 16:09:37>
 
 # Builtin/3rd party package imports
 import sys
@@ -104,11 +104,17 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
                                      chunks=(win.shape[0], obj.data.shape[0], nFreq),
                                      new_axis=[0])
 
+        import ipdb; ipdb.set_trace()
+        
+
         # Write computed spectra in pre-allocated memmap
         result = specs.map_blocks(_mtmfft_writer, out._filename,
-                                  dtype="complex",
-                                  chunks=(1,),
-                                  drop_axis=[0,1])
+                                  dtype="int",
+                                  chunks=(2,np.nan,np.nan))
+        # result = specs.map_blocks(_mtmfft_writer, out._filename,
+        #                           dtype="complex",
+        #                           chunks=(1,),
+        #                           drop_axis=[0,1])
 
         # Perform actual computation
         result.compute()
@@ -170,12 +176,13 @@ def _mtmfft_writer(blk, resname, block_info=None):
     """
     Pumps computed spectra into target memmap
     """
+    print(block_info)
     idx = block_info[0]["chunk-location"][-1]
     res = open_memmap(resname, mode="r+")[idx, :, :, :]
     res[...] = blk
     res = None
     del res
-    return idx
+    return ((idx,0),None,None)
 
 ##########################################################################################
 def _mtmfft_bytrl(trl, win, nFreq,  pad, padtype, fftAxis, use_dask):
