@@ -87,7 +87,7 @@ def cwt(data, wavelet=None, widths=None, dt=1, frequency=False, axis=-1):
 
 def cwt_time(data, wavelet, widths, dt, axis):
     # wavelets can be complex so output is complex
-    output = np.zeros((len(widths),) + data.shape, dtype=np.complex)
+    output = np.zeros((len(widths),) + data.shape, dtype=np.complex64)
 
     # compute in time
     slices = [None for _ in data.shape]

@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-14 17:31:34>
+# Last modification time: <2019-03-15 15:11:06>
 
 # Builtin/3rd party package imports
 import sys
@@ -14,6 +14,7 @@ from numpy.lib.format import open_memmap
 from tqdm import tqdm
 from abc import ABC, abstractmethod
 import pdb
+from memory_profiler import profile
 
 # Local imports
 import syncopy as spy
@@ -147,11 +148,11 @@ class ComputationalRoutine(ABC):
                                                 *self.argv,
                                                 **dryRunKwargs)
 
+    @profile
     def compute(self, data, out, useDask=False):
 
         self.preallocate_output(data, out)
         result = None
-        useDask = False
         if useDask:
             self.compute_dask(data, out)
         else:
@@ -220,7 +221,9 @@ class MultiTaperFFT(ComputationalRoutine):
         out.freq = np.linspace(0, 1, self.outputShape[2]) * (data.samplerate / 2)
         out.cfg = self.cfg
 
+    @profile
     def compute_dask(self, data, out):
+        print('Dask!')
         # Point to trials on disk by using delayed **static** method calls
         lazy_trial = dask.delayed(data._copy_trial, traverse=False)
         lazy_trls = [lazy_trial(trialno,
@@ -285,24 +288,27 @@ def _nextpow2(number):
 
 
 def wavelet(dat, dt,
-            freqoi=None,
-            polyorder=None, wav=Morlet(w0=6), axis=1, noCompute=False):
+            freqoi=None, polyorder=None, wav=Morlet(w0=6), axis=1,
+            stepsize=100, noCompute=False):
 
+    dat = np.atleast_2d(dat)
     scales = wav.scale_from_period(np.reciprocal(freqoi))
 
     if noCompute:
         # time x taper x chan x freq
-        return (dat.shape[1], 1, dat.shape[0], len(scales))
+        return (np.floor(dat.shape[1] / stepsize), 1, dat.shape[0], len(scales))
 
-    return cwt(dat,
-               axis=axis,
-               wavelet=wav,
-               widths=scales, dt=dt)[:, :, np.newaxis, ...].transpose()
+    # cwt returns (len(data), len(widths)).
+    transformed = cwt(dat, axis=axis, wavelet=wav, widths=scales, dt=dt)
+    transformed = transformed[:, :, np.newaxis, ...].transpose()
+
+    # time x taper x chan x freq
+    return np.complex64(transformed[0:-1:int(stepsize), ...])
 
 
 class WaveletTransform(ComputationalRoutine):
     computeFunction = staticmethod(wavelet)
-    dtype = np.complex128
+    dtype = np.complex64
 
     def __init__(self, *argv, **kwargs):
         super().__init__(*argv, **kwargs)
@@ -319,21 +325,25 @@ class WaveletTransform(ComputationalRoutine):
         self.outputShape = self.computeFunction(data.trials[0], *self.argv, **dryRunKwargs)
 
     def preallocate_output(self, data, out):
-        totalTriallength = np.sum(np.array(data._shapes)[:, 1])
+        totalTriallength = np.int(np.sum(np.floor(np.array(data._shapes)[:, 1] /
+                                                  self.cfg["stepsize"])))
+
         result = open_memmap(out._filename,
                              shape=(totalTriallength,) + self.outputShape[1:],
                              dtype=self.dtype,
                              mode="w+")
+        # pdb.set_trace()
         del result
 
     def compute_sequential(self, data, out):
-        for idx, trial in enumerate(tqdm(data.trials, desc="Computing Wavelet spectrum...")):
-            selector = slice(data.sampleinfo[idx, 0], data.sampleinfo[idx, 1])
-            res = open_memmap(out._filename, mode="r+")[selector, :, :, :]
-            # pdb.set_trace()
+        outIndex = 0
+        for idx, trial in enumerate(tqdm(data.trials,
+                                         desc="Computing Wavelet spectrum...")):
             tmp = self.computeFunction(trial, *self.argv, **self.cfg)
-
+            selector = slice(outIndex, outIndex + tmp.shape[0])
+            res = open_memmap(out._filename, mode="r+")[selector, :, :, :]
             res[...] = tmp
+            del res
             data.clear()
 
     def compute_dask(self, data, out):
@@ -342,14 +352,12 @@ class WaveletTransform(ComputationalRoutine):
     def handle_metadata(self, data, out):
         out.data = open_memmap(out._filename, mode="r+")
         # We can't simply use ``redefinetrial`` here, prep things by hand
-        time = np.arange(len(data.trials))
-        time = time.reshape((time.size, 1))
-        out.sampleinfo = data.sampleinfo
+        out.sampleinfo = np.floor(data.sampleinfo / self.cfg["stepsize"]).astype(np.int)
         out.trialinfo = np.array(data.trialinfo)
-        out._t0 = np.zeros((len(data.trials),))
+        out._t0 = data._t0 / self.cfg["stepsize"]
 
         # Attach meta-data
-        out.samplerate = data.samplerate
+        out.samplerate = data.samplerate / self.cfg["stepsize"]
         out.channel = np.array(data.channel)
         out.freq = self.cfg["freqoi"]
         return out
