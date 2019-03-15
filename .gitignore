@@ -45,3 +45,7 @@ dask-worker-space
 
 # Test-related files
 .tox
+
+# spy containers
+*.spy
+
