@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:13:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-14 13:51:13>
+# Last modification time: <2019-03-15 17:31:00>
 
 # Builtin/3rd party package imports
 import os
@@ -27,22 +27,11 @@ def load_binary_esi(filename,
     """
 
     # Convert input to list (if it is not already) - parsing is performed
-    # by ``read_binary_esi_header``
+    # by ``read_binary_esi_header`` below
     if not isinstance(filename, (list, np.ndarray)):
         filename = [filename]
 
-    # Make sure `out` does not contain unpleasant surprises
-    if out is not None:
-        try:
-            data_parser(out, varname="out", writable=True, dataclass="AnalogData")
-        except Exception as exc:
-            raise exc
-        new_out = False
-    else:
-        out = AnalogData(dimord=["channel", "time"])
-        new_out = True
-
-    # Read headers of provided file(s) to get dimensional information
+    # Read headers of provided file(s) to see what we're dealing with here
     headers = []
     tsample = []
     filename = [os.path.abspath(fname) for fname in filename]
@@ -52,38 +41,75 @@ def load_binary_esi(filename,
         headers.append(hdr)
         tsample.append(hdr["tSample"])
 
+    # Make sure we're not mixing file-types
+    exts = [os.path.splitext(fname)[1] for fname in filename]
+    if np.unique(exts).size > 1:
+        lgl = "files of identical type"
+        act = "{}-files".format("".join(ext + ", " for ext in exts)[:-2])
+        raise SPYValueError(legal=lgl, actual=act, varname="filename")
+
+    # In case of spike data, we only support reading single ".spk" files
+    if exts[0] == ".spk" and len(exts) > 1:
+        lgl = "single .spk file"
+        act = "{} .spk files".format(str(len(exts)))
+        raise SPYValueError(legal=lgl, varname="filename", actual=act)
+
+    # FIXME: does this make sense for every type of data?
     # Abort, if files have differing sampling times
     if not np.array_equal(tsample, [tsample[0]]*len(tsample)):
         raise SPYValueError(legal="identical sampling interval per file")
 
-    # Allocate memmaps for each file
-    dsets = []
-    for fk, fname in enumerate(filename):
-        dsets.append(np.memmap(fname, offset=int(headers[fk]["length"]),
-                               mode="r", dtype=headers[fk]["dtype"],
-                               shape=(headers[fk]["M"], headers[fk]["N"])))
+    # Depending on file-extension, we either deal with LFP/MUA or Spike/Event data
+    if exts[0] == ".spk":
+        dclass = "SpikeData"
+    elif exts[0] in [".lfp", ".mua"]:
+        dclass = "AnalogData"
+    else:
+        raise NotImplementedError("Cannot handle {}-files atm".format(exts[0]))
 
-    # Instantiate VirtualData class w/ constructed memmaps (error checking is done in there)
-    data = VirtualData(dsets)
+    # Make sure `out` does not contain unpleasant surprises (if provided)
+    new_out = True
+    if out is not None:
+        try:
+            data_parser(out, varname="out", writable=True, dataclass=dclass)
+        except Exception as exc:
+            raise exc
+        new_out = False
+    else:
+        out = AnalogData()
+        new_out = True
 
-    # If necessary, construct list of channel labels (parsing is done by setter)
-    if isinstance(channel, str):
-        channel = [channel + str(i + 1) for i in range(data.M)]
+    # Deal with MUA/LFP data
+    if dclass == "AnalogData":
 
-    # First things first: attach data to output object
-    out.data = data
+        # Allocate memmaps for each file
+        dsets = []
+        for fk, fname in enumerate(filename):
+            dsets.append(np.memmap(fname, offset=int(headers[fk]["length"]),
+                                   mode="r", dtype=headers[fk]["dtype"],
+                                   shape=(headers[fk]["M"], headers[fk]["N"])))
 
-    # Now we can abuse ``redefinetrial`` to set trial-related props
-    out.redefinetrial(trialdefinition)
-    
-    # Set remaining attributes
-    out.channel = np.array(channel)
-    out._hdr = headers
-    out.samplerate = float(1/headers[0]["tSample"]*1e9)
-    
-    # Write `cfg` entries
-    out.cfg = {"method" : sys._getframe().f_code.co_name,
-               "hdr" : headers}
+        # Instantiate VirtualData class w/ constructed memmaps (error checking is done in there)
+        data = VirtualData(dsets)
+
+        # If necessary, construct list of channel labels (parsing is done by setter)
+        if isinstance(channel, str):
+            channel = [channel + str(i + 1) for i in range(data.M)]
+
+        # First things first: attach data to output object
+        out.data = data
+
+        # Now we can abuse ``redefinetrial`` to set trial-related props
+        out.redefinetrial(trialdefinition)
+
+        # Set remaining attributes
+        out.channel = np.array(channel)
+        out._hdr = headers
+        out.samplerate = float(1/headers[0]["tSample"]*1e9)
+
+        # Write `cfg` entries
+        out.cfg = {"method" : sys._getframe().f_code.co_name,
+                   "hdr" : headers}
     
     # Write log entry
     log = "loaded data:\n" +\
@@ -115,7 +141,7 @@ def read_binary_esi_header(filename):
 
     # First and foremost, make sure input arguments make sense
     try:
-        io_parser(filename, varname="filename", isfile=True, exists=True
+        io_parser(filename, varname="filename", isfile=True, exists=True,
                   ext=[".lfp", ".mua", ".evt", ".dpd", 
                        ".apd", ".eye", ".pup", ".spk"])
     except Exception as exc:
