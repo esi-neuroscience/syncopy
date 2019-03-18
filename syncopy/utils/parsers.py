@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-12 13:04:34>
+# Last modification time: <2019-03-18 12:40:55>
 
 # Builtin/3rd party package imports
 import os
@@ -268,12 +268,19 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
     dims : None or int or tuple
         Expected number of dimensions (if `dims` is an integer) or shape 
         (if `dims` is a tuple) of `var`. By default, singleton dimensions 
-        of `var` are ignored, i.e., for `dims = (10,)` an array
-        `var` with `var.shape = (10,1)` is considered valid. However, if 
-        singleton dimensions are explicitly queried by setting `dims = (10,1)`
-        any array `var` with `var.shape = (10,)` or `var.shape = (1,10)` is 
-        considered invalid.  If `dims` is `None` the dimensional layout of 
-        `var` is ignored. 
+        of `var` are ignored if `dims` is a tuple, i.e., for `dims = (10, )` 
+        an array `var` with `var.shape = (10, 1)` is considered valid. However, 
+        if singleton dimensions are explicitly queried by setting `dims = (10, 1)`
+        any array `var` with `var.shape = (10, )` or `var.shape = (1, 10)` is 
+        considered invalid. 
+        Unknown dimensions can be represented as `None`, i.e., for 
+        `dims = (10, None)` arrays with shape `(10, 1)`, `(10, 100)` or 
+        `(10, 0)` are all considered valid, however, any 1d-array (e.g., 
+        `var.shape = (10,)`) is invalid. 
+        If `dims` is an integer, `var.ndim` has to match `dims` exactly, i.e.,
+        any array `var` with `var.shape = (10, )` is considered invalid if 
+        `dims = 2` and conversely, `dims = 1` and `var.shape = (10,  1)` 
+        triggers an exception. 
     
     Returns
     -------
@@ -393,13 +400,18 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
 
         # Compare shape or dimension number
         if isinstance(dims, tuple):
-            if min(dims) == 1:
+            if len(dims) > 1:
                 ashape = arr.shape
             else:
                 ashape = max((ischar,), arr.squeeze().shape)
-            if not ashape == dims:
-                raise SPYValueError("array of shape " + str(dims),
-                                    varname=varname, actual="shape = " + str(arr.shape))
+            if len(dims) != len(ashape):
+                msg = "{}-dimensional array"
+                raise SPYValueError(legal=msg.format(len(dims)), varname=varname,
+                                    actual=msg.format(len(ashape)))
+            for dk, dim in enumerate(dims):
+                if dim is not None and ashape[dk] != dim:
+                    raise SPYValueError("array of shape " + str(dims),
+                                        varname=varname, actual="shape = " + str(arr.shape))
         else:
             ndim = max(ischar, arr.ndim)
             if ndim != dims:
