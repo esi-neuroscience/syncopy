@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-14 13:43:08>
+# Last modification time: <2019-03-18 13:26:21>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -34,7 +34,7 @@ if __dask__:
     import dask
 import syncopy as spy
 
-__all__ = ["AnalogData", "SpectralData", "VirtualData", "Indexer"]
+__all__ = ["AnalogData", "SpectralData", "SpikeData", "VirtualData", "Indexer"]
 
 
 class BaseData(ABC):
@@ -80,18 +80,20 @@ class BaseData(ABC):
                 lgl = "two-dimensional data"
                 act = "{}-dimensional memmap".format(dat.ndim)
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
-            md = self.mode
-            if md == "w":
-                md = "r+"
-            if in_data.mode != md:
-                lgl = "memmap in {}-mode".format(in_data.mode)
-                act = "{}-object in {}-mode".format(self.__class__.__name__, str(self.mode))
-                raise SPYValueError(legal=lgl, varname="data", actual=act)
+            self.mode = in_data.mode
+            # md = self.mode
+            # if md == "w":
+            #     md = "r+"
+            # if in_data.mode != md:
+            #     lgl = "memmap in {}-mode".format(in_data.mode)
+            #     act = "{}-object in {}-mode".format(self.__class__.__name__, str(self.mode))
+            #     raise SPYValueError(legal=lgl, varname="data", actual=act)
             self._data = in_data
             self._filename = in_data.filename
 
         # If input is an array, either fill existing memmap or directly attach it
         elif isinstance(in_data, np.ndarray):
+            print('here')
             try:
                 array_parser(in_data, varname="data", dims=self._ndim)
             except Exception as exc:
@@ -188,6 +190,10 @@ class BaseData(ABC):
         self._sampleinfo = np.array(sinfo, dtype=int)
 
     @property
+    def t0(self):
+        return self._t0
+
+    @property
     def trials(self):
         return Indexer(map(self._get_trial, range(self.sampleinfo.shape[0])),
                        self.sampleinfo.shape[0]) if self.sampleinfo is not None else None
@@ -205,7 +211,7 @@ class BaseData(ABC):
             array_parser(trl, varname="trialinfo", dims=(self.sampleinfo.shape[0], None))
         except Exception as exc:
             raise exc
-        self._trialinfo = trl
+        self._trialinfo = np.array(trl)
 
     @property
     def version(self):
@@ -287,9 +293,18 @@ class BaseData(ABC):
         ppattrs.sort()
 
         # Construct string for pretty-printing class attributes
-        hdstr = "SyNCoPy {diminfo:s}{clname:s} object with fields\n\n"
-        ppstr = hdstr.format(diminfo="'" + "' x '".join(dim for dim in self.dimord)
-                             + "' " if self.dimord else "",
+        if isinstance(self, SpikeData):
+            dinfo = " 'spike' x "
+            dsep = "'-'"
+        # elif isinstance(self, EventData): # coming soon...
+        #     dinfo = "'event' x "
+        #     dsep = "'-'"
+        else:
+            dinfo = ""
+            dsep = "' x '"
+        hdstr = "SyNCoPy{diminfo:s}{clname:s} object with fields\n\n"
+        ppstr = hdstr.format(diminfo=dinfo + " '"  + \
+                             dsep.join(dim for dim in self.dimord) + "' ",
                              clname=self.__class__.__name__)
         maxKeyLength = max([len(k) for k in ppattrs])
         for attr in ppattrs:
@@ -359,8 +374,10 @@ class BaseData(ABC):
             # Case 2: filename w/o data = read from file/container
             else:
                 read_fl = True
-                for key in ["data", "samplerate", "mode"]:
+                for key in ["data", "mode"]:
                     kwargs.pop(key)
+                if "samplerate" in kwargs.keys():
+                    kwargs.pop("samplerate")
                     
         else:
 
@@ -441,7 +458,7 @@ class ContinuousData(BaseData, ABC):
             array_parser(chan, varname="channel", ntype="str", dims=(nchan,))
         except Exception as exc:
             raise exc
-        self._dimlabels["channel"] = chan
+        self._dimlabels["channel"] = np.array(chan)
 
     @property
     def samplerate(self):
@@ -459,10 +476,6 @@ class ContinuousData(BaseData, ABC):
     def time(self):
         return [np.arange(-self.t0[tk], end - start - self.t0[tk]) * 1/self.samplerate \
                 for tk, (start, end) in enumerate(self.sampleinfo)] if self.t0 is not None else None
-
-    @property
-    def t0(self):
-        return self._t0
 
     # Selector method
     def selectdata(self, trials=None, deepcopy=False, **kwargs):
@@ -617,7 +630,7 @@ class SpectralData(ContinuousData):
             array_parser(tpr, varname="taper", ntype="str", dims=(ntap,))
         except Exception as exc:
             raise exc
-        self._dimlabels["taper"] = tpr
+        self._dimlabels["taper"] = np.array(tpr)
 
     @property
     def freq(self):
@@ -634,7 +647,7 @@ class SpectralData(ContinuousData):
             array_parser(freq, varname="freq", dims=(nfreq,), hasnan=False, hasinf=False)
         except Exception as exc:
             raise exc
-        self._dimlabels["freq"] = freq
+        self._dimlabels["freq"] = np.array(freq)
     
     # "Constructor"
     def __init__(self,
@@ -700,8 +713,8 @@ class DiscreteData(BaseData, ABC):
             return
         scount = np.nanmax(self.data[:, self.dimord.index("sample")])
         try:
-            array_parser(trlid, varname="trialid", dims=(scount,), hasnan=False,
-                         hasinf=False, ntype="int_like", lims=[0, data.shape[0]])
+            array_parser(trlid, varname="trialid", dims=(self.data.shape[0],), hasnan=False,
+                         hasinf=False, ntype="int_like", lims=[0, scount])
         except Exception as exc:
             raise exc
         self._trialid = np.array(trlid, dtype=int)
@@ -713,8 +726,8 @@ class DiscreteData(BaseData, ABC):
 
     @property
     def trialtime(self):
-        return [np.arange(-self.t0[tk],
-                          self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0] - self.t0[tk]) \
+        return [range(-self.t0[tk],
+                      self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0] - self.t0[tk]) \
                 for tk in self.trialid] if self.trialid is not None else None
     
     # Selector method
@@ -730,6 +743,9 @@ class DiscreteData(BaseData, ABC):
     
     # Make instantiation persistent in all subclasses
     def __init__(self, **kwargs):
+
+        # Assign default (blank) values
+        self._trialid = None
 
         # Call initializer
         super().__init__(**kwargs)
@@ -757,13 +773,25 @@ class SpikeData(DiscreteData):
             print("SyNCoPy core - channel: Cannot assign `channels` without data. "+\
                   "Please assing data first")
             return
-        nchan = np.unique(self.data[:,self.dimord.index("channel")]).size
+        nchan = np.unique(self.data[:, self.dimord.index("channel")]).size
         try:
             array_parser(chan, varname="channel", ntype="str", dims=(nchan,))
         except Exception as exc:
             raise exc
         self._dimlabels["channel"] = np.array(chan)
     
+    @property
+    def samplerate(self):
+        return self._samplerate
+    
+    @samplerate.setter
+    def samplerate(self, sr):
+        try:
+            scalar_parser(sr, varname="samplerate", lims=[1, np.inf])
+        except Exception as exc:
+            raise exc
+        self._samplerate = sr
+        
     @property
     def unit(self):
         return self._dimlabels.get("unit")
@@ -774,9 +802,9 @@ class SpikeData(DiscreteData):
             print("SyNCoPy core - unit: Cannot assign `unit` without data. "+\
                   "Please assing data first")
             return
-        nunit = np.unique(self.data[:,self.dimord.index("unit")]).size
+        nunit = np.unique(self.data[:, self.dimord.index("unit")]).size
         try:
-            array_parser(chan, varname="unit", ntype="str", dims=(nunit,))
+            array_parser(unit, varname="unit", ntype="str", dims=(nunit,))
         except Exception as exc:
             raise exc
         self._dimlabels["unit"] = np.array(unit)
@@ -787,6 +815,7 @@ class SpikeData(DiscreteData):
                  filename=None,
                  filetype=None,
                  trialdefinition=None,
+                 samplerate=None,
                  channel="channel",
                  unit="unit",
                  mode="w",
@@ -812,12 +841,14 @@ class SpikeData(DiscreteData):
 
         # Assign default (blank) values
         self._hdr = None
-
+        self._samplerate = None
+            
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
                          filetype=filetype,
                          trialdefinition=trialdefinition,
+                         samplerate=samplerate,
                          channel=channel,
                          unit=unit,
                          mode=mode,

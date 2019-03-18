@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-14 11:42:52>
+# Last modification time: <2019-03-18 13:21:58>
 
 # Builtin/3rd party package imports
 import numbers
@@ -344,9 +344,10 @@ def redefinetrial(obj, trialdefinition=None):
             trialdefinition = np.array([[0, obj.data.shape[obj.dimord.index("time")], 0]])
         else:
             sidx = obj.dimord.index("sample")
-            trialdefinition = np.array([[0, np.nanmin(obj.data[:,sidx]),
+            trialdefinition = np.array([[np.nanmin(obj.data[:,sidx]),
                                          np.nanmax(obj.data[:,sidx]), 0]])
-    
+
+
     # The triplet `sampleinfo`, `t0` and `trialinfo` works identically for
     # all data genres
     if trialdefinition.shape[1] < 3:
@@ -354,7 +355,7 @@ def redefinetrial(obj, trialdefinition=None):
                             varname="trialdefinition",
                             actual="shape = {shp:s}".format(shp=str(trialdefinition.shape)))
     obj.sampleinfo = trialdefinition[:,:2]
-    obj._t0 = trialdefinition[:,2]
+    obj._t0 = np.array(trialdefinition[:,2], dtype=int)
     obj.trialinfo = trialdefinition[:,3:]
 
     # In the discrete case, we have some additinal work to do

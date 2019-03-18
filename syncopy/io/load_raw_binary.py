@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:13:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-15 17:31:00>
+# Last modification time: <2019-03-18 12:30:08>
 
 # Builtin/3rd party package imports
 import os
@@ -14,12 +14,15 @@ import numpy as np
 # Local imports
 from syncopy.utils import io_parser, data_parser, SPYIOError, SPYTypeError, SPYValueError
 from syncopy.datatype import AnalogData, VirtualData
+import syncopy.datatype as swd
 
 __all__ = ["load_binary_esi", "read_binary_esi_header"]
 
 ##########################################################################################
 def load_binary_esi(filename,
                     channel="channel",
+                    unit="unit",
+                    event="event",
                     trialdefinition=None,
                     out=None):
     """
@@ -43,7 +46,7 @@ def load_binary_esi(filename,
 
     # Make sure we're not mixing file-types
     exts = [os.path.splitext(fname)[1] for fname in filename]
-    if np.unique(exts).size > 1:
+    if not set(exts).issubset([".lfp", ".mua"]) and np.unique(exts).size > 1:
         lgl = "files of identical type"
         act = "{}-files".format("".join(ext + ", " for ext in exts)[:-2])
         raise SPYValueError(legal=lgl, actual=act, varname="filename")
@@ -76,13 +79,13 @@ def load_binary_esi(filename,
             raise exc
         new_out = False
     else:
-        out = AnalogData()
+        out = getattr(swd, dclass)()
         new_out = True
 
     # Deal with MUA/LFP data
     if dclass == "AnalogData":
 
-        # Allocate memmaps for each file
+        # Open each file as memmap
         dsets = []
         for fk, fname in enumerate(filename):
             dsets.append(np.memmap(fname, offset=int(headers[fk]["length"]),
@@ -92,25 +95,46 @@ def load_binary_esi(filename,
         # Instantiate VirtualData class w/ constructed memmaps (error checking is done in there)
         data = VirtualData(dsets)
 
+        # First things first: attach data to output object
+        out.data = data
+
         # If necessary, construct list of channel labels (parsing is done by setter)
         if isinstance(channel, str):
             channel = [channel + str(i + 1) for i in range(data.M)]
 
-        # First things first: attach data to output object
-        out.data = data
-
-        # Now we can abuse ``redefinetrial`` to set trial-related props
-        out.redefinetrial(trialdefinition)
-
         # Set remaining attributes
         out.channel = np.array(channel)
-        out._hdr = headers
-        out.samplerate = float(1/headers[0]["tSample"]*1e9)
 
-        # Write `cfg` entries
-        out.cfg = {"method" : sys._getframe().f_code.co_name,
-                   "hdr" : headers}
-    
+    elif dclass == "SpikeData":
+
+        # Open provided data-file as memmap and attach it to `out`
+        out.data = np.memmap(filename[0], offset=int(headers[0]["length"]),
+                             mode="r", dtype=headers[0]["dtype"],
+                             shape=(headers[0]["M"], headers[0]["N"]))
+
+        # If necessary, construct lists for channel and unit labels
+        if isinstance(channel, str):
+            nchan = np.unique(out.data[:, out.dimord.index("channel")]).size
+            channel = [channel + str(i + 1) for i in range(nchan)]
+        if isinstance(unit, str):
+            nunit = np.unique(out.data[:, out.dimord.index("unit")]).size
+            unit = [unit + str(i + 1) for i in range(nunit)]
+
+        # Set meta-data
+        out.channel = channel
+        out.unit = unit
+
+    # Attach file-header and detected samplerate
+    out._hdr = headers
+    out.samplerate = float(1/headers[0]["tSample"]*1e9)
+
+    # Now we can abuse ``redefinetrial`` to set trial-related props
+    out.redefinetrial(trialdefinition)
+
+    # Write `cfg` entries
+    out.cfg = {"method" : sys._getframe().f_code.co_name,
+               "hdr" : headers}
+
     # Write log entry
     log = "loaded data:\n" +\
           "\tfile(s) = {fls:s}"
@@ -158,8 +182,12 @@ def read_binary_esi_header(filename):
     hdr["version"] = np.fromfile(fid,dtype='uint8',count=1)[0]
     hdr["length"] = np.fromfile(fid,dtype='uint16',count=1)[0]
     hdr["dtype"] = dtype[np.fromfile(fid,dtype='uint8',count=1)[0]]
-    hdr["N"] = np.fromfile(fid,dtype='uint64',count=1)[0]
-    hdr["M"] = np.fromfile(fid,dtype='uint64',count=1)[0]
+    if os.path.splitext(filename)[1] in [".lfp", ".mua"]:
+        hdr["N"] = np.fromfile(fid,dtype='uint64',count=1)[0]
+        hdr["M"] = np.fromfile(fid,dtype='uint64',count=1)[0]
+    else:
+        hdr["M"] = np.fromfile(fid,dtype='uint64',count=1)[0]
+        hdr["N"] = np.fromfile(fid,dtype='uint64',count=1)[0]
     hdr["tSample"] = np.fromfile(fid,dtype='uint64',count=1)[0]
     fid.close()
 

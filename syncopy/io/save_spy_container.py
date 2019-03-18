@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-14 13:05:52>
+# Last modification time: <2019-03-18 13:29:15>
 
 # Builtin/3rd party package imports
 import os
@@ -174,6 +174,8 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
     # Finally, write JSON
     with open(filename.format(ext=FILE_EXT["json"]), "w") as out_json:
         json.dump(out_dct, out_json, indent=4)
+
+    import ipdb; ipdb.set_trace()
 
     # Last but definitely not least: if source data came from memmap,
     # re-assign filename after saving (and remove source in case it came

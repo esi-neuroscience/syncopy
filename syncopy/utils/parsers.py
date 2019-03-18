@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-14 12:55:18>
+# Last modification time: <2019-03-18 12:40:55>
 
 # Builtin/3rd party package imports
 import os
@@ -400,7 +400,7 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
 
         # Compare shape or dimension number
         if isinstance(dims, tuple):
-            if dims.count(1):
+            if len(dims) > 1:
                 ashape = arr.shape
             else:
                 ashape = max((ischar,), arr.squeeze().shape)
