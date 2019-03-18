@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-18 13:26:21>
+# Last modification time: <2019-03-18 18:31:38>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -81,19 +81,11 @@ class BaseData(ABC):
                 act = "{}-dimensional memmap".format(dat.ndim)
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             self.mode = in_data.mode
-            # md = self.mode
-            # if md == "w":
-            #     md = "r+"
-            # if in_data.mode != md:
-            #     lgl = "memmap in {}-mode".format(in_data.mode)
-            #     act = "{}-object in {}-mode".format(self.__class__.__name__, str(self.mode))
-            #     raise SPYValueError(legal=lgl, varname="data", actual=act)
             self._data = in_data
             self._filename = in_data.filename
 
         # If input is an array, either fill existing memmap or directly attach it
         elif isinstance(in_data, np.ndarray):
-            print('here')
             try:
                 array_parser(in_data, varname="data", dims=self._ndim)
             except Exception as exc:
@@ -721,8 +713,8 @@ class DiscreteData(BaseData, ABC):
 
     @property
     def trials(self):
-        return Indexer(map(self._get_trial, self.trialid), self.trialid.size) \
-                       if self.trialid is not None else None
+        return Indexer(map(self._get_trial, np.unique(self.trialid)),
+                       np.unique(self.trialid).size) if self.trialid is not None else None
 
     @property
     def trialtime(self):
@@ -862,15 +854,13 @@ class SpikeData(DiscreteData):
             if len(self.cfg) == 0:
                 
                 # If necessary, construct list of channel labels (parsing is done by setter)
-                channel = kwargs.get("channel")
                 if isinstance(channel, str):
-                    channel = [channel + str(i + 1) for i in np.unique(self.data[:,self.dimord.index("channel")])]
+                    channel = [channel + str(int(i)) for i in np.unique(self.data[:,self.dimord.index("channel")])]
                 self.channel = np.array(channel)
 
                 # If necessary, construct list of unit labels (parsing is done by setter)
-                unit = kwargs.get("unit")
                 if isinstance(unit, str):
-                    unit = [unit + str(i + 1) for i in np.unique(self.data[:,self.dimord.index("unit")])]
+                    unit = [unit + str(int(i)) for i in np.unique(self.data[:,self.dimord.index("unit")])]
                 self.unit = np.array(unit)
 
         

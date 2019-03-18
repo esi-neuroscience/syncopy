@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-18 13:29:15>
+# Last modification time: <2019-03-18 18:16:17>
 
 # Builtin/3rd party package imports
 import os
@@ -13,7 +13,7 @@ import shutil
 import sys
 import numpy as np
 from collections import OrderedDict
-from numpy.lib.format import open_memmap  
+from numpy.lib.format import open_memmap, read_magic
 from hashlib import blake2b
 
 # Local imports
@@ -101,10 +101,27 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
             del dat
             out.clear()
 
-    # Much simpler: copy memmap or save ndarray
+    # We need to handle two kinds of memmaps in here...
     elif isinstance(out.data, np.memmap):
-        out.data.flush()
-        shutil.copyfile(out._filename, filename.format(ext=FILE_EXT["data"]))
+
+        # We need to differentiate b/w memmaped npy-files and "plain" binaries
+        try:
+            with open(out._filename, "rb") as fd:
+                read_magic(fd)
+            npy_map = True
+        except ValueError:
+            npy_map = False
+
+        # If we're dealing with a "raw" memmap, save it using NumPy's saving
+        # routine, otherwise simply copy the underlying npy file
+        if npy_map:
+            out.data.flush()
+            shutil.copyfile(out._filename, filename.format(ext=FILE_EXT["data"]))
+        else:
+            with open(filename.format(ext=FILE_EXT["data"]), "wb") as out_dat:
+                np.save(out_dat, out.data, allow_pickle=False)
+
+    # The simplest case: `out` hosts a NumPy array in its `data` property
     else:
         with open(filename.format(ext=FILE_EXT["data"]), "wb") as out_dat:
             np.save(out_dat, out.data, allow_pickle=False)
@@ -174,8 +191,6 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
     # Finally, write JSON
     with open(filename.format(ext=FILE_EXT["json"]), "w") as out_json:
         json.dump(out_dct, out_json, indent=4)
-
-    import ipdb; ipdb.set_trace()
 
     # Last but definitely not least: if source data came from memmap,
     # re-assign filename after saving (and remove source in case it came
