@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-18 18:25:21>
+# Last modification time: <2019-03-19 10:39:08>
 
 # Builtin/3rd party package imports
 import os
@@ -65,12 +65,13 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
         # Remove (if any) path as well as extension from provided file-name(-pattern)
         # and convert `fname` to search pattern if it does not already conatin wildcards
         fname = os.path.basename(os.path.expanduser(fname))
+        in_base, in_ext = os.path.splitext(fname)
         if "*" not in fname:
             fname = "*" + fname + "*"
-        in_base, in_ext = os.path.splitext(fname)
 
         # If `fname` contains a dat/trl/json extension, we expect to find
-        # exactly one match, otherwise we want to see exactly three files 
+        # exactly one match, otherwise we want to see exactly three files
+        in_ext = in_ext.replace("*", "")
         if in_ext in f_ext.values():
             expected_count = 1
         elif in_ext == "":
