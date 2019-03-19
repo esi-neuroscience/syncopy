@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-12 09:36:58>
+# Last modification time: <2019-03-18 13:21:58>
 
 # Builtin/3rd party package imports
 import numbers
@@ -16,7 +16,7 @@ from syncopy.utils import SPYTypeError, SPYValueError, data_parser, array_parser
 
 __all__ = ["selectdata", "redefinetrial"]
 
-##########################################################################################
+
 def selectdata(obj, trials=None, deepcopy=False, exact_match=False, **kwargs):
     """
     Docstring coming soon(ish)
@@ -36,7 +36,7 @@ def selectdata(obj, trials=None, deepcopy=False, exact_match=False, **kwargs):
     else:
         raise SPYTypeError(obj, varname="obj", expected="SyNCoPy data object")
     
-##########################################################################################
+
 def _selectdata_continuous(obj, trials, deepcopy, exact_match, **kwargs):
 
     # Make sure provided object is inherited from `ContinuousData`
@@ -200,7 +200,11 @@ def _selectdata_continuous(obj, trials, deepcopy, exact_match, **kwargs):
 
     return target
 
-##########################################################################################
+
+def _selectdata_discrete():
+    pass
+
+
 def _makeidx(obj, trials, deepcopy, exact_match, **kwargs):
     """
     Local input parser
@@ -316,7 +320,7 @@ def _makeidx(obj, trials, deepcopy, exact_match, **kwargs):
         
     return selectors, trials
 
-##########################################################################################
+
 def redefinetrial(obj, trialdefinition=None):
     """
     Docstring coming soon(ish)
@@ -339,20 +343,35 @@ def redefinetrial(obj, trialdefinition=None):
         if any(["ContinuousData" in str(base) for base in obj.__class__.__mro__]):
             trialdefinition = np.array([[0, obj.data.shape[obj.dimord.index("time")], 0]])
         else:
-            raise NotImplementedError("DiscreteData not yet implemented")
-    
-    # Depending on the actual data-genre we're working with here, the trial-
-    # definition array has to satisfy different needs
-    if any(["ContinuousData" in str(base) for base in obj.__class__.__mro__]):
-        if trialdefinition.shape[1] < 3:
-            raise SPYValueError("array of shape (no. of trials, 3+)",
-                                varname="trialdefinition",
-                                actual="shape = {shp:s}".format(shp=str(trialdefinition.shape)))
-        obj.sampleinfo = trialdefinition[:,:2]
-        obj._t0 = trialdefinition[:,2]
-        obj.trialinfo = trialdefinition[:,3:]
-    else:
-        raise NotImplementedError("DiscreteData not yet implemented")
+            sidx = obj.dimord.index("sample")
+            trialdefinition = np.array([[np.nanmin(obj.data[:,sidx]),
+                                         np.nanmax(obj.data[:,sidx]), 0]])
+
+
+    # The triplet `sampleinfo`, `t0` and `trialinfo` works identically for
+    # all data genres
+    if trialdefinition.shape[1] < 3:
+        raise SPYValueError("array of shape (no. of trials, 3+)",
+                            varname="trialdefinition",
+                            actual="shape = {shp:s}".format(shp=str(trialdefinition.shape)))
+    obj.sampleinfo = trialdefinition[:,:2]
+    obj._t0 = np.array(trialdefinition[:,2], dtype=int)
+    obj.trialinfo = trialdefinition[:,3:]
+
+    # In the discrete case, we have some additinal work to do
+    if any(["DiscreteData" in str(base) for base in obj.__class__.__mro__]):
+
+        # First, make sure `data` does not contain anything weird
+        if not np.isfinite(obj.data).any():
+            lgl = "well-defined finite spike-data array"
+            act = "array containing Inf and/or NaN entries"
+            raise SPYValueError(legal=lgl, varname="data", actual=act)
+
+        # Compute trial-IDs by matching data samples with provided trial-bounds
+        samples = obj.data[:, obj.dimord.index("sample")]
+        starts = obj.sampleinfo[:, 0]
+        sorted = starts.argsort()
+        obj.trialid = np.searchsorted(starts, samples, side="right", sorter=sorted) - 1
 
     # Write log entry
     obj.log = "updated trial-definition with [" \
