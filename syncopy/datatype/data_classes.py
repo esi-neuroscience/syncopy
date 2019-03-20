@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-18 18:31:38>
+# Last modification time: <2019-03-19 14:42:31>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -34,7 +34,7 @@ if __dask__:
     import dask
 import syncopy as spy
 
-__all__ = ["AnalogData", "SpectralData", "SpikeData", "VirtualData", "Indexer"]
+__all__ = ["AnalogData", "SpectralData", "SpikeData"]
 
 
 class BaseData(ABC):
@@ -77,8 +77,8 @@ class BaseData(ABC):
         # If input is already a memmap, check its dimensions
         elif isinstance(in_data, np.memmap):
             if in_data.ndim != self._ndim:
-                lgl = "two-dimensional data"
-                act = "{}-dimensional memmap".format(dat.ndim)
+                lgl = "{}-dimensional data".format(self._ndim)
+                act = "{}-dimensional memmap".format(in_data.ndim)
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             self.mode = in_data.mode
             self._data = in_data
@@ -462,7 +462,7 @@ class ContinuousData(BaseData, ABC):
             scalar_parser(sr, varname="samplerate", lims=[1, np.inf])
         except Exception as exc:
             raise exc
-        self._samplerate = sr
+        self._samplerate = float(sr)
 
     @property
     def time(self):
@@ -863,11 +863,11 @@ class SpikeData(DiscreteData):
                     unit = [unit + str(int(i)) for i in np.unique(self.data[:,self.dimord.index("unit")])]
                 self.unit = np.array(unit)
 
-        
+
 class VirtualData():
 
     # Pre-allocate slots here - this class is *not* meant to be expanded
-    # and/or monkey-patched later on
+    # and/or monkey-patched at runtime
     __slots__ = ["_M", "_N", "_shape", "_size", "_nrows", "_data", "_rows", "_dtype"]
 
     @property
@@ -895,7 +895,7 @@ class VirtualData():
         """
         Docstring coming soon...
 
-        Do not confuse chunks with segments: chunks refer to actual raw binary
+        Do not confuse chunks with trials: chunks refer to actual raw binary
         data-files on disk, thus, row- *and* col-numbers MUST match!
         """
 
