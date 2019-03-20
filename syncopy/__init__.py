@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-15 09:03:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-05 13:54:45>
+# Last modification time: <2019-03-20 10:56:31>
 
 # Builtin/3rd party package imports
 import os
@@ -24,7 +24,10 @@ except ImportError:
     __dask__ = False
 
 # Define package-wide temp directory (and create it if not already present)
-__storage__ = os.path.join(os.path.expanduser("~"), ".spy")
+if os.environ.get("SPYTMPDIR"):
+    __storage__ = os.path.abspath(os.path.expanduser(os.environ["SPYTMPDIR"]))
+else:
+    __storage__ = os.path.join(os.path.expanduser("~"), ".spy")
 if not os.path.exists(__storage__):
     try:
         os.mkdir(__storage__)

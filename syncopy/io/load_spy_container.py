@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-19 10:39:08>
+# Last modification time: <2019-03-20 10:55:55>
 
 # Builtin/3rd party package imports
 import os
@@ -64,7 +64,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
 
         # Remove (if any) path as well as extension from provided file-name(-pattern)
         # and convert `fname` to search pattern if it does not already conatin wildcards
-        fname = os.path.basename(os.path.expanduser(fname))
+        fname = os.path.basename(os.path.abspath(os.path.expanduser(fname)))
         in_base, in_ext = os.path.splitext(fname)
         if "*" not in fname:
             fname = "*" + fname + "*"
