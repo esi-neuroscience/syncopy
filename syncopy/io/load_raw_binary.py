@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:13:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-19 15:27:56>
+# Last modification time: <2019-03-20 11:31:14>
 
 # Builtin/3rd party package imports
 import os
@@ -14,7 +14,7 @@ import numpy as np
 # Local imports
 from syncopy.utils import io_parser, data_parser, SPYIOError, SPYTypeError, SPYValueError
 from syncopy.datatype import AnalogData
-from syncopy.datatype.data_classes import VirtualData
+from syncopy.datatype.base_data import VirtualData
 import syncopy.datatype as swd
 
 __all__ = ["load_binary_esi", "read_binary_esi_header"]
