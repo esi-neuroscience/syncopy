@@ -4,7 +4,15 @@
 # 
 # Created: 2019-03-19 14:21:12
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-22 14:54:46>
+# Last modification time: <2019-03-25 11:41:46>
+
+import os
+import tempfile
+import pytest
+import numpy as np
+from syncopy.io import load_spy, hash_file
+from syncopy.utils import SPYValueError, SPYTypeError
+import syncopy.datatype as swd
 
 class TestSpyIO(object):
 
@@ -42,15 +50,40 @@ class TestSpyIO(object):
     def test_logging(self):
         with tempfile.TemporaryDirectory() as tdir:
             for dclass in self.classes:
-                dummy = getattr(swd, dclass)(self.data, trialdefinition=self.trl)
-                ldum = dummy._log
+                dummy = getattr(swd, dclass)(self.data[dclass],
+                                             trialdefinition=self.trl[dclass])
+                ldum = len(dummy._log)
                 dummy.save("dummy")
 
                 # ensure saving is logged correctly
-                assert len(dummy.log) > ldum
+                assert len(dummy._log) > ldum
                 assert dummy.cfg["method"] == "save_spy"
 
-    # CHECK CHECKSUM-MATCHING!
+    # Test consistency of generated checksums
+    def test_checksum(self):
+        with tempfile.TemporaryDirectory() as tdir:
+            for dclass in self.classes:
+                fname = os.path.join(tdir, "dummy")
+                
+                dummy = getattr(swd, dclass)(self.data[dclass],
+                                             trialdefinition=self.trl[dclass])
+                dummy.save(fname)
+
+                # perform checksum-matching - this must work
+                dummy = load_spy(fname, checksum=True)
+
+                # manipulate data file
+                dat = np.array(dummy.data)
+                dat += 1
+                with open(dummy._filename, "wb") as fn:
+                    np.save(fn, dat, allow_pickle=False)
+                with pytest.raises(SPYValueError):
+                    load_spy(fname, checksum=True)
+                
+                
+    # def test_fname(self):
+    #     asdf
+
     # CHECK FNAME
     # CHECK APPEND_EXT
     # CHECK MEMUSE

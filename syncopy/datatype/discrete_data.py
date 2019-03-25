@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-20 11:25:28>
+# Last modification time: <2019-03-25 15:07:36>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -24,6 +24,18 @@ class DiscreteData(BaseData, ABC):
     def sample(self):
         return self._dimlabels.get("sample")
     
+    @property
+    def samplerate(self):
+        return self._samplerate
+    
+    @samplerate.setter
+    def samplerate(self, sr):
+        try:
+            scalar_parser(sr, varname="samplerate", lims=[1, np.inf])
+        except Exception as exc:
+            raise exc
+        self._samplerate = sr
+        
     @property
     def trialid(self):
         return self._trialid
@@ -69,6 +81,7 @@ class DiscreteData(BaseData, ABC):
 
         # Assign default (blank) values
         self._trialid = None
+        self._samplerate = None
 
         # Call initializer
         super().__init__(**kwargs)
@@ -103,18 +116,6 @@ class SpikeData(DiscreteData):
             raise exc
         self._dimlabels["channel"] = np.array(chan)
     
-    @property
-    def samplerate(self):
-        return self._samplerate
-    
-    @samplerate.setter
-    def samplerate(self, sr):
-        try:
-            scalar_parser(sr, varname="samplerate", lims=[1, np.inf])
-        except Exception as exc:
-            raise exc
-        self._samplerate = sr
-        
     @property
     def unit(self):
         return self._dimlabels.get("unit")
@@ -162,10 +163,6 @@ class SpikeData(DiscreteData):
         # Hard constraint: required no. of data-dimensions
         self._ndim = 2
 
-        # Assign default (blank) values
-        self._hdr = None
-        self._samplerate = None
-            
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
@@ -194,4 +191,64 @@ class SpikeData(DiscreteData):
                     unit = [unit + str(int(i)) for i in np.unique(self.data[:,self.dimord.index("unit")])]
                 self.unit = np.array(unit)
 
+
+class EventData(DiscreteData):
+
+    @property
+    def eventid(self):
+        return self._dimlabels.get("eventid")
+    
+    # "Constructor"
+    def __init__(self,
+                 data=None,
+                 filename=None,
+                 filetype=None,
+                 trialdefinition=None,
+                 samplerate=None,
+                 mode="w",
+                 dimord=["sample", "eventid"]):
+        """
+        Docstring
+
+        filename + data = create memmap @filename
+        filename no data = read from file or memmap
+        just data = try to attach data (error checking done by data.setter)
+        """
+
+        # The one thing we check right here and now
+        expected = ["sample", "eventid"]
+        if not set(dimord).issubset(expected):
+            base = "dimensional labels {}"
+            lgl = base.format("'" + "' x '".join(str(dim) for dim in expected) + "'")
+            act = base.format("'" + "' x '".join(str(dim) for dim in dimord) + "'")
+            raise SPYValueError(legal=lgl, varname="dimord", actual=act)
+
+        # Hard constraint: required no. of data-dimensions
+        self._ndim = 2
+
+        # Call parent initializer
+        super().__init__(data=data,
+                         filename=filename,
+                         filetype=filetype,
+                         trialdefinition=trialdefinition,
+                         samplerate=samplerate,
+                         mode=mode,
+                         dimord=dimord)
+
+        # If a super-class``__init__`` attached data, be careful
+        if self.data is not None:
+
+            # In case of manual data allocation (reading routine would leave a
+            # mark in `cfg`), fill in missing info
+            if len(self.cfg) == 0:
+                
+                # If necessary, construct list of channel labels (parsing is done by setter)
+                if isinstance(channel, str):
+                    channel = [channel + str(int(i)) for i in np.unique(self.data[:,self.dimord.index("channel")])]
+                self.channel = np.array(channel)
+
+                # If necessary, construct list of unit labels (parsing is done by setter)
+                if isinstance(unit, str):
+                    unit = [unit + str(int(i)) for i in np.unique(self.data[:,self.dimord.index("unit")])]
+                self.unit = np.array(unit)
 

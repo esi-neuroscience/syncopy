@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-18 13:21:58>
+# Last modification time: <2019-03-25 15:35:18>
 
 # Builtin/3rd party package imports
 import numbers
@@ -321,7 +321,8 @@ def _makeidx(obj, trials, deepcopy, exact_match, **kwargs):
     return selectors, trials
 
 
-def redefinetrial(obj, trialdefinition=None):
+def redefinetrial(obj, trialdefinition=None, evt=None, pre=None, post=None, start=None,
+                  trigger=None, stop=None):
     """
     Docstring coming soon(ish)
     """
@@ -339,6 +340,9 @@ def redefinetrial(obj, trialdefinition=None):
             array_parser(trialdefinition, varname="trialdefinition", dims=2)
         except Exception as exc:
             raise exc
+
+    # If nothing was provided, allocate a basic `trialdefinition` array 
+    # (the entire data-set represents one trial)
     else:
         if any(["ContinuousData" in str(base) for base in obj.__class__.__mro__]):
             trialdefinition = np.array([[0, obj.data.shape[obj.dimord.index("time")], 0]])
@@ -347,6 +351,28 @@ def redefinetrial(obj, trialdefinition=None):
             trialdefinition = np.array([[np.nanmin(obj.data[:,sidx]),
                                          np.nanmax(obj.data[:,sidx]), 0]])
 
+    # If any `EventData`-related keywords were provided, try building a
+    # `trialdefintion` array given an `EventData` object
+    if any([kw is not None for kw in [pre, post, start, trigger, stop]]):
+        if obj.__class__.__name__ == "EventData" and evt is None: 
+            ref = obj
+        elif obj.__class__.__name__ == "AnalogData" and evt.__class__.__name__ == "EventData":
+            ref = evt
+        else:
+            print('warning')
+
+        for kw in [pre, post, start, trigger, stop]:
+            if kw is not None:
+                if isinstance(kw, numbers.Number):
+                    scalar_parser
+                else:
+                    array_parser
+            else:
+                kwargs[kw] = array
+
+        trialdefintion = np.empty((ref.data.shape[0], 3))
+        for trialno in range(ref.data.shape[0]):
+            pass
 
     # The triplet `sampleinfo`, `t0` and `trialinfo` works identically for
     # all data genres
@@ -360,12 +386,6 @@ def redefinetrial(obj, trialdefinition=None):
 
     # In the discrete case, we have some additinal work to do
     if any(["DiscreteData" in str(base) for base in obj.__class__.__mro__]):
-
-        # First, make sure `data` does not contain anything weird
-        if not np.isfinite(obj.data).any():
-            lgl = "well-defined finite spike-data array"
-            act = "array containing Inf and/or NaN entries"
-            raise SPYValueError(legal=lgl, varname="data", actual=act)
 
         # Compute trial-IDs by matching data samples with provided trial-bounds
         samples = obj.data[:, obj.dimord.index("sample")]

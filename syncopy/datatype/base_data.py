@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-22 09:39:19>
+# Last modification time: <2019-03-25 12:59:54>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -125,6 +125,10 @@ class BaseData(ABC):
         # In case we're working with a `DiscreteData` object, fill up samples
         if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
             self._dimlabels["sample"] = np.unique(self.data[:,self.dimord.index("sample")])
+
+        # In case we're working with an `EventData` object, fill up eventid's
+        if self.__class__.__name__ == "EventData":
+            self._dimlabels["eventid"] = np.unique(self.data[:,self.dimord.index("eventid")])
 
     @property
     def dimord(self):
@@ -285,7 +289,8 @@ class BaseData(ABC):
         ppattrs.sort()
 
         # Construct string for pretty-printing class attributes
-        if isinstance(self, SpikeData):
+        if self.__class__.__name__ == "SpikeData":
+        # if isinstance(self, SpikeData):
             dinfo = " 'spike' x "
             dsep = "'-'"
         # elif isinstance(self, EventData): # coming soon...
