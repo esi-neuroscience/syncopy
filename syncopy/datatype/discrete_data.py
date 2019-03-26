@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-25 15:07:36>
+# Last modification time: <2019-03-26 16:31:37>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -15,7 +15,7 @@ from .base_data import BaseData, Indexer
 from .data_methods import _selectdata_discrete, redefinetrial
 from syncopy.utils import scalar_parser, array_parser, SPYValueError
 
-__all__ = ["SpikeData"]
+__all__ = ["SpikeData", "EventData"]
 
 
 class DiscreteData(BaseData, ABC):
@@ -234,21 +234,3 @@ class EventData(DiscreteData):
                          samplerate=samplerate,
                          mode=mode,
                          dimord=dimord)
-
-        # If a super-class``__init__`` attached data, be careful
-        if self.data is not None:
-
-            # In case of manual data allocation (reading routine would leave a
-            # mark in `cfg`), fill in missing info
-            if len(self.cfg) == 0:
-                
-                # If necessary, construct list of channel labels (parsing is done by setter)
-                if isinstance(channel, str):
-                    channel = [channel + str(int(i)) for i in np.unique(self.data[:,self.dimord.index("channel")])]
-                self.channel = np.array(channel)
-
-                # If necessary, construct list of unit labels (parsing is done by setter)
-                if isinstance(unit, str):
-                    unit = [unit + str(int(i)) for i in np.unique(self.data[:,self.dimord.index("unit")])]
-                self.unit = np.array(unit)
-

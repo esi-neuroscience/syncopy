@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-25 12:59:54>
+# Last modification time: <2019-03-26 16:45:47>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -290,12 +290,11 @@ class BaseData(ABC):
 
         # Construct string for pretty-printing class attributes
         if self.__class__.__name__ == "SpikeData":
-        # if isinstance(self, SpikeData):
             dinfo = " 'spike' x "
             dsep = "'-'"
-        # elif isinstance(self, EventData): # coming soon...
-        #     dinfo = "'event' x "
-        #     dsep = "'-'"
+        elif self.__class__.__name__ == "EventData":
+            dinfo = " 'event' x "
+            dsep = "'-'"
         else:
             dinfo = ""
             dsep = "' x '"

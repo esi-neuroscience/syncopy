@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-25 15:35:18>
+# Last modification time: <2019-03-26 16:44:15>
 
 # Builtin/3rd party package imports
 import numbers
@@ -12,7 +12,8 @@ import sys
 import numpy as np
 
 # Local imports
-from syncopy.utils import SPYTypeError, SPYValueError, data_parser, array_parser
+from syncopy.utils import (SPYTypeError, SPYValueError, data_parser,
+                           array_parser, scalar_parser)
 
 __all__ = ["selectdata", "redefinetrial"]
 
@@ -321,81 +322,196 @@ def _makeidx(obj, trials, deepcopy, exact_match, **kwargs):
     return selectors, trials
 
 
-def redefinetrial(obj, trialdefinition=None, evt=None, pre=None, post=None, start=None,
+def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                   trigger=None, stop=None):
     """
     Docstring coming soon(ish)
+
+    Supports the following assignments:
+
+    obj + None
+    obj + trialdefinition array
+    AnalogData + EventData w/sampleinfo/t0/trialinfo
+    AnalogData + EventData + pre/post/start/stop/trigger keywords
     """
 
-    # Start vetting input args
+    # Start by vetting input object
     try:
         data_parser(obj, varname="obj", writable=None, empty=False)
     except Exception as exc:
         raise exc
 
-    # Independent from concrete data object at hand, the trialdefinition array
-    # has to pass some basal sanity checks
+    # Check array/object holding trial specifications
     if trialdefinition is not None:
-        try:
-            array_parser(trialdefinition, varname="trialdefinition", dims=2)
-        except Exception as exc:
-            raise exc
-
-    # If nothing was provided, allocate a basic `trialdefinition` array 
-    # (the entire data-set represents one trial)
+        if trialdefinition.__class__.__name__ == "EventData":
+            try:
+                data_parser(trialdefinition, varname="trialdefinition",
+                            writable=None, empty=False)
+            except Exception as exc:
+                raise exc
+            evt = True
+        else:
+            try:
+                array_parser(trialdefinition, varname="trialdefinition", dims=2)
+            except Exception as exc:
+                raise exc
+            trl = trialdefinition
+            ref = obj
+            tgt = obj
+            evt = False
     else:
+        # Construct object-class-specific `trl` arrays treating data-set as single trial
         if any(["ContinuousData" in str(base) for base in obj.__class__.__mro__]):
-            trialdefinition = np.array([[0, obj.data.shape[obj.dimord.index("time")], 0]])
+            trl = np.array([[0, obj.data.shape[obj.dimord.index("time")], 0]])
         else:
             sidx = obj.dimord.index("sample")
-            trialdefinition = np.array([[np.nanmin(obj.data[:,sidx]),
-                                         np.nanmax(obj.data[:,sidx]), 0]])
+            trl = np.array([[np.nanmin(obj.data[:,sidx]),
+                             np.nanmax(obj.data[:,sidx]), 0]])
+        ref = obj
+        tgt = obj
+        evt = False
 
-    # If any `EventData`-related keywords were provided, try building a
-    # `trialdefintion` array given an `EventData` object
-    if any([kw is not None for kw in [pre, post, start, trigger, stop]]):
-        if obj.__class__.__name__ == "EventData" and evt is None: 
+    # AnalogData + EventData w/sampleinfo
+    if obj.__class__.__name__ == "AnalogData" and evt and evt.sampleinfo is not None:
+        trl = ...
+        ref = trialdefinition
+        tgt = obj
+
+    # AnalogData + EventData w/keywords or just EventData w/keywords
+    elif any([kw is not None for kw in [pre, post, start, trigger, stop]]):
+        if obj.__class__.__name__ == "EventData" and evt is False: 
             ref = obj
-        elif obj.__class__.__name__ == "AnalogData" and evt.__class__.__name__ == "EventData":
-            ref = evt
+            tgt = obj
+        elif obj.__class__.__name__ == "AnalogData" and evt is True:
+            ref = trialdefinition
+            tgt = obj
         else:
             print('warning')
 
-        for kw in [pre, post, start, trigger, stop]:
-            if kw is not None:
-                if isinstance(kw, numbers.Number):
-                    scalar_parser
+        # Get input dimensions
+        nevent = ref.data.shape[0]
+
+        # If both `pre` and `start` or `post` and `stop` are `None`, abort
+        if (pre is None and start is None) or (post is None and stop is None):
+            lgl = "`pre` or `start` and `post` or `stop` to be not `None`"
+            act = "both `pre` and `start` and/or `post` and `stop` are simultaneously `None`"
+            raise SPYValueError(legal=lgl, actual=act)
+
+        # If provided, ensure keywords make sense, otherwise allocate defaults
+        kwrds = {}
+        vnames = ["pre", "post"]
+        vdict = {"pre": {"var": pre, "hasnan": False, "ntype": None, "fillvalue": 0},
+                 "post": {"var": post, "hasnan": False, "ntype": None, "fillvalue": 0},
+                 "start": {"var": start, "hasnan": None, "ntype": "int_like", "fillvalue": np.nan}, 
+                 "trigger": {"var": trigger, "hasnan": None, "ntype": "int_like", "fillvalue": np.nan},
+                 "stop": {"var": stop, "hasnan": None, "ntype": "int_like", "fillvalue": np.nan}}
+        for vname, opts in vdict.items():
+            if opts["var"] is not None:
+                if isinstance(opts["var"], numbers.Number):
+                    try:
+                        scalar_parser(opts["var"], varname=vname, ntype=opts["ntype"],
+                                      lims=[-np.inf, np.inf])
+                    except Exception as exc:
+                        raise exc
+                    var = np.full((nevent,), opts["var"])
                 else:
-                    array_parser
+                    try:
+                        array_parser(opts["var"], varname=vname, hasinf=False,
+                                     hasnan=opts["hasnan"], ntype=opts["ntype"],
+                                     dims=(nevent,))
+                    except Exception as exc:
+                        raise exc
+                kwrds[vnames[vk]] = opts["var"]
             else:
-                kwargs[kw] = array
+                kwrds[vnames[vk]] = np.full((nevent,), opts["fillvalue"])
 
-        trialdefintion = np.empty((ref.data.shape[0], 3))
-        for trialno in range(ref.data.shape[0]):
-            pass
+        # Prepare `trl` array and convert event-codes + sample-numbers to lists
+        trl = np.empty((nevent, 3))
+        evtid = list(ref.data[ref.dimord.index("eventid")])
+        evtsp = list(ref.data[ref.dimord.index("sample")])
 
+        # Do this line-by-line: halt on error (if event-id is not found in `ref`)
+        for trialno in range(nevent):
+
+            # Allocate begin and end of trial
+            begin = None
+            end = None
+            t0 = 0
+
+            # First, try to assign `start`, then `t0`
+            if not np.isnan(kwrds["start"][trialno]):
+                try:
+                    idx = evtid.index(kwrds["start"][trialno])
+                except:
+                    act = str(kwrds["start"][trialno])
+                    lgl = "existing event-id"
+                    raise SPYValueError(legal=lgl, varname="start", actual=act)
+                begin = evtsp.pop(idx)
+                evtid.pop(idx)
+                
+            if not np.isnan(kwrds["trigger"][trialno]):
+                try:
+                    idx = evtid.index(kwrds["trigger"][trialno])
+                except:
+                    act = str(kwrds["trigger"][trialno])
+                    lgl = "existing event-id"
+                    raise SPYValueError(legal=lgl, varname="trigger", actual=act)
+                t0 = evtsp.pop(idx)
+                evtid.pop(idx)
+
+            # Trial-begin is either `trigger-pre` or `start-pre`
+            if begin is not None:
+                t0 -= begin
+                begin -= pre
+            else:
+                begin = t0 - pre
+
+            # Try to assign `stop`, if we got nothing, use `t0+post`
+            if not np.isnan(kwrds["stop"][trialno]):
+                try:
+                    idx = evtid.index(kwrds["stop"][trialno])
+                except:
+                    act = str(kwrds["stop"][trialno])
+                    lgl = "existing event-id"
+                    raise SPYValueError(legal=lgl, varname="stop", actual=act)
+                end = evtsp.pop(idx) + post
+                evtid.pop(idx)
+            else:
+                end = t0 + post
+
+            # Finally, write line of `trl`
+            trl[trialno, :] = [begin, end, t0]
+                
     # The triplet `sampleinfo`, `t0` and `trialinfo` works identically for
     # all data genres
-    if trialdefinition.shape[1] < 3:
+    if trl.shape[1] < 3:
         raise SPYValueError("array of shape (no. of trials, 3+)",
                             varname="trialdefinition",
-                            actual="shape = {shp:s}".format(shp=str(trialdefinition.shape)))
-    obj.sampleinfo = trialdefinition[:,:2]
-    obj._t0 = np.array(trialdefinition[:,2], dtype=int)
-    obj.trialinfo = trialdefinition[:,3:]
+                            actual="shape = {shp:s}".format(shp=str(trl.shape)))
+    for obt in [ref, tgt]:
+        tgt.sampleinfo = trl[:,:2]
+        tgt._t0 = np.array(trl[:,2], dtype=int)
+        tgt.trialinfo = trl[:,3:]
 
-    # In the discrete case, we have some additinal work to do
-    if any(["DiscreteData" in str(base) for base in obj.__class__.__mro__]):
+        # In the discrete case, we have some additinal work to do
+        if any(["DiscreteData" in str(base) for base in obt.__class__.__mro__]):
 
-        # Compute trial-IDs by matching data samples with provided trial-bounds
-        samples = obj.data[:, obj.dimord.index("sample")]
-        starts = obj.sampleinfo[:, 0]
-        sorted = starts.argsort()
-        obj.trialid = np.searchsorted(starts, samples, side="right", sorter=sorted) - 1
+            # Compute trial-IDs by matching data samples with provided trial-bounds
+            samples = obj.data[:, obj.dimord.index("sample")]
+            starts = obj.sampleinfo[:, 0]
+            sorted = starts.argsort()
+            obj.trialid = np.searchsorted(starts, samples, side="right", sorter=sorted) - 1
 
     # Write log entry
-    obj.log = "updated trial-definition with [" \
-              + " x ".join([str(numel) for numel in trialdefinition.shape]) \
-              + "] element array"
+    logmsg = "updated trial-definition with [" \
+             + " x ".join([str(numel) for numel in trl.shape]) \
+             + "] element array"
+    if ref == tgt:
+        ref.log = logmsg
+    else:
+        ref_log = ref._log.replace("\n\n", "\n\t")
+        tgt.log = "trial-definition extracted from EventData object: "
+        tgt._log += ref_log
+        ref.log = logmsg
     
     return
