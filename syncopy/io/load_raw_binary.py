@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:13:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-20 11:31:14>
+# Last modification time: <2019-03-27 11:46:03>
 
 # Builtin/3rd party package imports
 import os
@@ -23,7 +23,7 @@ __all__ = ["load_binary_esi", "read_binary_esi_header"]
 def load_binary_esi(filename,
                     channel="channel",
                     unit="unit",
-                    event="event",
+                    # event="event",
                     trialdefinition=None,
                     out=None):
     """
@@ -52,10 +52,10 @@ def load_binary_esi(filename,
         act = "{}-files".format("".join(ext + ", " for ext in exts)[:-2])
         raise SPYValueError(legal=lgl, actual=act, varname="filename")
 
-    # In case of spike data, we only support reading single ".spk" files
-    if exts[0] == ".spk" and len(exts) > 1:
-        lgl = "single .spk file"
-        act = "{} .spk files".format(str(len(exts)))
+    # In case of spike or event data, we only support reading single files
+    if exts[0] in [".spk", ".dpd", ".evt"] and len(exts) > 1:
+        lgl = "single .spk/.dpd/.evt file"
+        act = "{} .spk/.dpd/.evt files".format(str(len(exts)))
         raise SPYValueError(legal=lgl, varname="filename", actual=act)
 
     # FIXME: does this make sense for every type of data?
@@ -68,6 +68,8 @@ def load_binary_esi(filename,
         dclass = "SpikeData"
     elif exts[0] in [".lfp", ".mua"]:
         dclass = "AnalogData"
+    elif exts[0] in [".dpd", ".evt"]:
+        dclass = "EventData"
     else:
         raise NotImplementedError("Cannot handle {}-files atm".format(exts[0]))
 
@@ -80,7 +82,7 @@ def load_binary_esi(filename,
             raise exc
         new_out = False
     else:
-        out = getattr(swd, dclass)()
+        out = getattr(swd, dclass)() # dynamically spawn new data object
         new_out = True
 
     # Deal with MUA/LFP data
@@ -106,12 +108,13 @@ def load_binary_esi(filename,
         # Set remaining attributes
         out.channel = np.array(channel)
 
+    # Handle spike patterns
     elif dclass == "SpikeData":
 
         # Open provided data-file as memmap and attach it to `out`
         out.data = np.memmap(filename[0], offset=int(headers[0]["length"]),
                              mode="r", dtype=headers[0]["dtype"],
-                             shape=(headers[0]["M"], headers[0]["N"]))
+                             shape=(headers[0]["N"], headers[0]["M"])).T
 
         # If necessary, construct lists for channel and unit labels
         if isinstance(channel, str):
@@ -125,12 +128,21 @@ def load_binary_esi(filename,
         out.channel = channel
         out.unit = unit
 
+    # Handle event data
+    elif dclass == "EventData":
+
+        # Open provided data-file as memmap and attach it to `out`
+        out.data = np.memmap(filename[0], offset=int(headers[0]["length"]),
+                             mode="r", dtype=headers[0]["dtype"],
+                             shape=(headers[0]["N"], headers[0]["M"])).T
+
     # Attach file-header and detected samplerate
     out._hdr = headers
     out.samplerate = float(1/headers[0]["tSample"]*1e9)
 
     # Now we can abuse ``redefinetrial`` to set trial-related props
-    out.redefinetrial(trialdefinition)
+    if dclass != "EventData" or (dclass == "EventData" and trialdefinition is not None):
+        out.redefinetrial(trialdefinition)
 
     # Write `cfg` entries
     out.cfg = {"method" : sys._getframe().f_code.co_name,

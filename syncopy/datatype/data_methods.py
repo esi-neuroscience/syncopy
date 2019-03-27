@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-26 16:44:15>
+# Last modification time: <2019-03-27 14:34:08>
 
 # Builtin/3rd party package imports
 import numbers
@@ -372,8 +372,10 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
         evt = False
 
     # AnalogData + EventData w/sampleinfo
-    if obj.__class__.__name__ == "AnalogData" and evt and evt.sampleinfo is not None:
-        trl = ...
+    if obj.__class__.__name__ == "AnalogData" and evt and trialdefinition.sampleinfo is not None:
+        trl = np.array(trialdefinition.trialinfo)
+        t0 = np.array(trialdefinition.t0).reshape((trialdefinition.t0.size,1))
+        trl = np.hstack([trialdefinition.sampleinfo, t0, trl])
         ref = trialdefinition
         tgt = obj
 
@@ -389,7 +391,21 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
             print('warning')
 
         # Get input dimensions
-        nevent = ref.data.shape[0]
+        ntrials = ref.data.shape[0]
+        szin = []
+        for var in [pre, post, start, trigger, stop]:
+            if isinstance(var, (np.ndarray, list)):
+                szin.appen(len(var))
+        if np.unique(szin).size > 1:
+            lgl = "all trial-related arrays to have the same length"
+            act = "arrays with sizes {}".format(str(np.unique(szin)).replace("[","").replace("]",""))
+            raise SPYValueError(legal=lgl, varname="trial-keywords", actual=act)
+        if len(szin):
+            ntrials = szin[0]
+            ninc = 1
+        else:
+            ntrials = 1
+            ninc = 0
 
         # If both `pre` and `start` or `post` and `stop` are `None`, abort
         if (pre is None and start is None) or (post is None and stop is None):
@@ -399,7 +415,6 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
 
         # If provided, ensure keywords make sense, otherwise allocate defaults
         kwrds = {}
-        vnames = ["pre", "post"]
         vdict = {"pre": {"var": pre, "hasnan": False, "ntype": None, "fillvalue": 0},
                  "post": {"var": post, "hasnan": False, "ntype": None, "fillvalue": 0},
                  "start": {"var": start, "hasnan": None, "ntype": "int_like", "fillvalue": np.nan}, 
@@ -413,25 +428,30 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                                       lims=[-np.inf, np.inf])
                     except Exception as exc:
                         raise exc
-                    var = np.full((nevent,), opts["var"])
+                    opts["var"] = np.full((ntrials,), opts["var"])
                 else:
                     try:
                         array_parser(opts["var"], varname=vname, hasinf=False,
                                      hasnan=opts["hasnan"], ntype=opts["ntype"],
-                                     dims=(nevent,))
+                                     dims=(ntrials,))
                     except Exception as exc:
                         raise exc
-                kwrds[vnames[vk]] = opts["var"]
+                kwrds[vname] = opts["var"]
             else:
-                kwrds[vnames[vk]] = np.full((nevent,), opts["fillvalue"])
+                kwrds[vname] = np.full((ntrials,), opts["fillvalue"])
 
-        # Prepare `trl` array and convert event-codes + sample-numbers to lists
-        trl = np.empty((nevent, 3))
-        evtid = list(ref.data[ref.dimord.index("eventid")])
-        evtsp = list(ref.data[ref.dimord.index("sample")])
+        # Prepare `trl` and convert event-codes + sample-numbers to lists
+        trl = []
+        evtid = list(ref.data[:, ref.dimord.index("eventid")])
+        evtsp = list(ref.data[:, ref.dimord.index("sample")])
+        nevents = len(evtid)
+        searching = True
+        trialno = 0
+        cnt = 0
+        act = ""
 
         # Do this line-by-line: halt on error (if event-id is not found in `ref`)
-        for trialno in range(nevent):
+        while searching:
 
             # Allocate begin and end of trial
             begin = None
@@ -444,8 +464,8 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                     idx = evtid.index(kwrds["start"][trialno])
                 except:
                     act = str(kwrds["start"][trialno])
-                    lgl = "existing event-id"
-                    raise SPYValueError(legal=lgl, varname="start", actual=act)
+                    vname = "start"
+                    break
                 begin = evtsp.pop(idx)
                 evtid.pop(idx)
                 
@@ -454,8 +474,8 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                     idx = evtid.index(kwrds["trigger"][trialno])
                 except:
                     act = str(kwrds["trigger"][trialno])
-                    lgl = "existing event-id"
-                    raise SPYValueError(legal=lgl, varname="trigger", actual=act)
+                    vname = "trigger"
+                    break
                 t0 = evtsp.pop(idx)
                 evtid.pop(idx)
 
@@ -472,15 +492,30 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                     idx = evtid.index(kwrds["stop"][trialno])
                 except:
                     act = str(kwrds["stop"][trialno])
-                    lgl = "existing event-id"
-                    raise SPYValueError(legal=lgl, varname="stop", actual=act)
+                    vname = "stop"
+                    break
                 end = evtsp.pop(idx) + post
                 evtid.pop(idx)
             else:
                 end = t0 + post
 
             # Finally, write line of `trl`
-            trl[trialno, :] = [begin, end, t0]
+            trl.append([begin, end, t0])
+
+            # Update counters and end this mess when we're done
+            trialno += ninc
+            cnt += 1
+            if trialno == ntrials or cnt == nevents:
+                searching = False
+
+        # Abort if the above loop ran into troubles
+        if len(trl) < ntrials:
+            if len(act) > 0:
+                raise SPYValueError(legal="existing event-id",
+                                    varname=vname, actual=act)
+
+        # Convert `trl` into a NumPy array and go on
+        trl = np.array(trl)
                 
     # The triplet `sampleinfo`, `t0` and `trialinfo` works identically for
     # all data genres
@@ -488,6 +523,8 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
         raise SPYValueError("array of shape (no. of trials, 3+)",
                             varname="trialdefinition",
                             actual="shape = {shp:s}".format(shp=str(trl.shape)))
+
+    # Finally: assign `sampleinfo`, `t0` and `trialinfo` (and potentially `trialid`)
     for obt in [ref, tgt]:
         tgt.sampleinfo = trl[:,:2]
         tgt._t0 = np.array(trl[:,2], dtype=int)
@@ -499,8 +536,14 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
             # Compute trial-IDs by matching data samples with provided trial-bounds
             samples = obj.data[:, obj.dimord.index("sample")]
             starts = obj.sampleinfo[:, 0]
+            ends = obj.sampleinfo[:, 1]
             sorted = starts.argsort()
-            obj.trialid = np.searchsorted(starts, samples, side="right", sorter=sorted) - 1
+            startids = np.searchsorted(starts, samples, side="right", sorter=sorted)
+            endids = np.searchsorted(ends, samples, side="left", sorter=sorted)
+            mask = startids == endids
+            startids -= 1
+            startids[mask] = -1
+            obj.trialid = startids
 
     # Write log entry
     logmsg = "updated trial-definition with [" \

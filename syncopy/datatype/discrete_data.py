@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-26 16:31:37>
+# Last modification time: <2019-03-27 14:40:14>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -19,6 +19,10 @@ __all__ = ["SpikeData", "EventData"]
 
 
 class DiscreteData(BaseData, ABC):
+
+    @property
+    def hdr(self):
+        return self._hdr
 
     @property
     def sample(self):
@@ -48,16 +52,17 @@ class DiscreteData(BaseData, ABC):
             return
         scount = np.nanmax(self.data[:, self.dimord.index("sample")])
         try:
-            array_parser(trlid, varname="trialid", dims=(self.data.shape[0],), hasnan=False,
-                         hasinf=False, ntype="int_like", lims=[0, scount])
+            array_parser(trlid, varname="trialid", dims=(self.data.shape[0],),
+                         hasnan=False, hasinf=False, ntype="int_like", lims=[-1, scount])
         except Exception as exc:
             raise exc
         self._trialid = np.array(trlid, dtype=int)
 
     @property
     def trials(self):
-        return Indexer(map(self._get_trial, np.unique(self.trialid)),
-                       np.unique(self.trialid).size) if self.trialid is not None else None
+        valid_trls = np.unique(self.trialid[self.trialid >= 0])
+        return Indexer(map(self._get_trial, valid_trls),
+                       valid_trls.size) if self.trialid is not None else None
 
     @property
     def trialtime(self):
@@ -79,9 +84,13 @@ class DiscreteData(BaseData, ABC):
     # Make instantiation persistent in all subclasses
     def __init__(self, **kwargs):
 
+        # Hard constraint: required no. of data-dimensions
+        self._ndim = 2
+        
         # Assign default (blank) values
         self._trialid = None
         self._samplerate = None
+        self._hdr = None
 
         # Call initializer
         super().__init__(**kwargs)
@@ -160,9 +169,6 @@ class SpikeData(DiscreteData):
             act = base.format("'" + "' x '".join(str(dim) for dim in dimord) + "'")
             raise SPYValueError(legal=lgl, varname="dimord", actual=act)
 
-        # Hard constraint: required no. of data-dimensions
-        self._ndim = 2
-
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
@@ -222,9 +228,6 @@ class EventData(DiscreteData):
             lgl = base.format("'" + "' x '".join(str(dim) for dim in expected) + "'")
             act = base.format("'" + "' x '".join(str(dim) for dim in dimord) + "'")
             raise SPYValueError(legal=lgl, varname="dimord", actual=act)
-
-        # Hard constraint: required no. of data-dimensions
-        self._ndim = 2
 
         # Call parent initializer
         super().__init__(data=data,

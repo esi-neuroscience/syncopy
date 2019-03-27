@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-26 16:45:47>
+# Last modification time: <2019-03-27 12:12:43>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -246,8 +246,9 @@ class BaseData(ABC):
         return cpy
 
     # Change trialdef of object
-    def redefinetrial(self, trl):
-        redefinetrial(self, trl)
+    def redefinetrial(self, trl=None, pre=None, post=None, start=None, trigger=None, stop=None):
+        redefinetrial(self, trialdefinition=trl, pre=pre, post=post,
+                      start=start, trigger=trigger, stop=stop)
 
     # Wrapper that makes saving routine usable as class method
     def save(self, out_name, filetype=None, **kwargs):
@@ -286,6 +287,8 @@ class BaseData(ABC):
         ppattrs = [attr for attr in ppattrs
                    if not (inspect.ismethod(getattr(self, attr))
                            or isinstance(getattr(self, attr), Iterator))]
+        if getattr(self, "hdr") is None:
+            ppattrs.pop(ppattrs.index("hdr"))
         ppattrs.sort()
 
         # Construct string for pretty-printing class attributes
