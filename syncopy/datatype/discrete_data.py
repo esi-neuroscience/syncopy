@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-27 14:40:14>
+# Last modification time: <2019-03-28 09:18:53>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -60,9 +60,12 @@ class DiscreteData(BaseData, ABC):
 
     @property
     def trials(self):
-        valid_trls = np.unique(self.trialid[self.trialid >= 0])
-        return Indexer(map(self._get_trial, valid_trls),
-                       valid_trls.size) if self.trialid is not None else None
+        if self.trialid is not None:
+            valid_trls = np.unique(self.trialid[self.trialid >= 0])
+            return Indexer(map(self._get_trial, valid_trls),
+                           valid_trls.size)
+        else:
+            return None
 
     @property
     def trialtime(self):

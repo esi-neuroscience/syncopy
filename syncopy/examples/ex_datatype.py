@@ -1,24 +1,23 @@
 # -*- coding: utf-8 -*-
 #
-# Example script illustrating usage of `AnalogData` class
+# Example script illustrating usage of SyNCoPy data objects
 #
 # Created: 2019-02-25 13:08:56
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-01 15:43:26>
-
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-03-28 16:49:23>
 
 # Builtin/3rd party package imports
 import numpy as np
 
-# Add spykewave package to Python search path
+# Add SynCoPy package to Python search path
 import os
 import sys
-spw_path = os.path.abspath(".." + os.sep + "..")
-if spw_path not in sys.path:
-    sys.path.insert(0, spw_path)
+spy_path = os.path.abspath(".." + os.sep + "..")
+if spy_path not in sys.path:
+    sys.path.insert(0, spy_path)
 
-# Import Spykewave
-import spykewave as spy
+# Import SynCoPy
+import syncopy as spy
 
 
 def ex_datatype():

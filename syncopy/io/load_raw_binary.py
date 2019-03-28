@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:13:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-27 11:46:03>
+# Last modification time: <2019-03-28 09:14:03>
 
 # Builtin/3rd party package imports
 import os
@@ -93,7 +93,8 @@ def load_binary_esi(filename,
         for fk, fname in enumerate(filename):
             dsets.append(np.memmap(fname, offset=int(headers[fk]["length"]),
                                    mode="r", dtype=headers[fk]["dtype"],
-                                   shape=(headers[fk]["M"], headers[fk]["N"])))
+                                   shape=(headers[fk]["M"], headers[fk]["N"]),
+                                   order="F"))
 
         # Instantiate VirtualData class w/ constructed memmaps (error checking is done in there)
         data = VirtualData(dsets)
@@ -114,7 +115,7 @@ def load_binary_esi(filename,
         # Open provided data-file as memmap and attach it to `out`
         out.data = np.memmap(filename[0], offset=int(headers[0]["length"]),
                              mode="r", dtype=headers[0]["dtype"],
-                             shape=(headers[0]["N"], headers[0]["M"])).T
+                             shape=(headers[0]["M"], headers[0]["N"]), order="F")
 
         # If necessary, construct lists for channel and unit labels
         if isinstance(channel, str):
@@ -134,7 +135,7 @@ def load_binary_esi(filename,
         # Open provided data-file as memmap and attach it to `out`
         out.data = np.memmap(filename[0], offset=int(headers[0]["length"]),
                              mode="r", dtype=headers[0]["dtype"],
-                             shape=(headers[0]["N"], headers[0]["M"])).T
+                             shape=(headers[0]["M"], headers[0]["N"]), order="F")
 
     # Attach file-header and detected samplerate
     out._hdr = headers

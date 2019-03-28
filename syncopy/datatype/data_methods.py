@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-27 14:34:08>
+# Last modification time: <2019-03-28 15:29:28>
 
 # Builtin/3rd party package imports
 import numbers
@@ -373,11 +373,12 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
 
     # AnalogData + EventData w/sampleinfo
     if obj.__class__.__name__ == "AnalogData" and evt and trialdefinition.sampleinfo is not None:
-        trl = np.array(trialdefinition.trialinfo)
-        t0 = np.array(trialdefinition.t0).reshape((trialdefinition.t0.size,1))
-        trl = np.hstack([trialdefinition.sampleinfo, t0, trl])
         ref = trialdefinition
         tgt = obj
+        trl = np.array(ref.trialinfo)
+        t0 = np.array(ref.t0).reshape((ref.t0.size,1))
+        trl = np.hstack([ref.sampleinfo, t0, trl])
+        trl = np.round((trl/ref.samplerate) * tgt.samplerate).astype(int)
 
     # AnalogData + EventData w/keywords or just EventData w/keywords
     elif any([kw is not None for kw in [pre, post, start, trigger, stop]]):
@@ -391,7 +392,6 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
             print('warning')
 
         # Get input dimensions
-        ntrials = ref.data.shape[0]
         szin = []
         for var in [pre, post, start, trigger, stop]:
             if isinstance(var, (np.ndarray, list)):
@@ -466,7 +466,7 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                     act = str(kwrds["start"][trialno])
                     vname = "start"
                     break
-                begin = evtsp.pop(idx)
+                begin = evtsp.pop(idx)/ref.samplerate
                 evtid.pop(idx)
                 
             if not np.isnan(kwrds["trigger"][trialno]):
@@ -476,15 +476,14 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                     act = str(kwrds["trigger"][trialno])
                     vname = "trigger"
                     break
-                t0 = evtsp.pop(idx)
+                t0 = evtsp.pop(idx)/ref.samplerate
                 evtid.pop(idx)
 
             # Trial-begin is either `trigger-pre` or `start-pre`
             if begin is not None:
-                t0 -= begin
-                begin -= pre
+                begin -= kwrds["pre"][trialno]
             else:
-                begin = t0 - pre
+                begin = t0 - kwrds["pre"][trialno]
 
             # Try to assign `stop`, if we got nothing, use `t0+post`
             if not np.isnan(kwrds["stop"][trialno]):
@@ -494,10 +493,13 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                     act = str(kwrds["stop"][trialno])
                     vname = "stop"
                     break
-                end = evtsp.pop(idx) + post
+                end = evtsp.pop(idx)/ref.samplerate + kwrds["post"][trialno]
                 evtid.pop(idx)
             else:
-                end = t0 + post
+                end = t0 + kwrds["post"][trialno]
+
+            # Off-set `t0`
+            t0 -= begin
 
             # Finally, write line of `trl`
             trl.append([begin, end, t0])
@@ -515,7 +517,8 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                                     varname=vname, actual=act)
 
         # Convert `trl` into a NumPy array and go on
-        trl = np.array(trl)
+        trl = np.array(trl) * tgt.samplerate
+        trl = trl.astype(int)
                 
     # The triplet `sampleinfo`, `t0` and `trialinfo` works identically for
     # all data genres
@@ -525,36 +528,36 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                             actual="shape = {shp:s}".format(shp=str(trl.shape)))
 
     # Finally: assign `sampleinfo`, `t0` and `trialinfo` (and potentially `trialid`)
-    for obt in [ref, tgt]:
-        tgt.sampleinfo = trl[:,:2]
-        tgt._t0 = np.array(trl[:,2], dtype=int)
-        tgt.trialinfo = trl[:,3:]
+    tgt.sampleinfo = trl[:,:2]
+    tgt._t0 = np.array(trl[:,2], dtype=int)
+    tgt.trialinfo = trl[:,3:]
 
-        # In the discrete case, we have some additinal work to do
-        if any(["DiscreteData" in str(base) for base in obt.__class__.__mro__]):
+    # In the discrete case, we have some additinal work to do
+    if any(["DiscreteData" in str(base) for base in tgt.__class__.__mro__]):
 
-            # Compute trial-IDs by matching data samples with provided trial-bounds
-            samples = obj.data[:, obj.dimord.index("sample")]
-            starts = obj.sampleinfo[:, 0]
-            ends = obj.sampleinfo[:, 1]
-            sorted = starts.argsort()
-            startids = np.searchsorted(starts, samples, side="right", sorter=sorted)
-            endids = np.searchsorted(ends, samples, side="left", sorter=sorted)
-            mask = startids == endids
-            startids -= 1
-            startids[mask] = -1
-            obj.trialid = startids
+        # Compute trial-IDs by matching data samples with provided trial-bounds
+        samples = tgt.data[:, tgt.dimord.index("sample")]
+        starts = tgt.sampleinfo[:, 0]
+        ends = tgt.sampleinfo[:, 1]
+        sorted = starts.argsort()
+        startids = np.searchsorted(starts, samples, side="right", sorter=sorted)
+        endids = np.searchsorted(ends, samples, side="left", sorter=sorted)
+        mask = startids == endids
+        startids -= 1
+        startids[mask] = -1
+        tgt.trialid = startids
 
     # Write log entry
-    logmsg = "updated trial-definition with [" \
-             + " x ".join([str(numel) for numel in trl.shape]) \
-             + "] element array"
     if ref == tgt:
-        ref.log = logmsg
+        ref.log = "updated trial-definition with [" \
+                  + " x ".join([str(numel) for numel in trl.shape]) \
+                  + "] element array"
     else:
         ref_log = ref._log.replace("\n\n", "\n\t")
         tgt.log = "trial-definition extracted from EventData object: "
         tgt._log += ref_log
-        ref.log = logmsg
+        tgt.cfg = {"method" : sys._getframe().f_code.co_name,
+                   "EventData ojbect": ref.cfg}
+        ref.log = "updated trial-defnition of {} object".format(tgt.__class__.__name__)
     
     return
