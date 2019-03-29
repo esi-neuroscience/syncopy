@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-20 13:33:52>
+# Last modification time: <2019-03-29 10:41:08>
 
 import os
 import tempfile
@@ -127,8 +127,14 @@ class TestBaseData(object):
                                    seed.choice(int(nc/2), size=nd)]).T
     trl["SpikeData"] = trl["AnalogData"]
 
+    # Use a simple binary trigger pattern to simulate EventData
+    data["EventData"] = np.vstack([np.arange(0, ns, 5),
+                                   np.zeros((int(ns/5), ))]).T
+    data["EventData"][1::2, 1] = 1 
+    trl["EventData"] = trl["AnalogData"]
+
     # Define data classes to be used in tests below
-    classes = ["AnalogData", "SpectralData", "SpikeData"]
+    classes = ["AnalogData", "SpectralData", "SpikeData", "EventData"]
 
     # Allocation to `data` property is tested with all members of `classes`
     def test_mmap(self):

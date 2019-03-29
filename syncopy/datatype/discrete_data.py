@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-28 09:18:53>
+# Last modification time: <2019-03-29 15:19:58>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -90,9 +90,12 @@ class DiscreteData(BaseData, ABC):
         # Hard constraint: required no. of data-dimensions
         self._ndim = 2
         
-        # Assign default (blank) values
+        # Assign (default) values
         self._trialid = None
-        self._samplerate = None
+        if kwargs.get("samplerate") is not None:
+            self.samplerate = kwargs["samplerate"]      # use setter for error-checking
+        else:
+            self._samplerate = None
         self._hdr = None
 
         # Call initializer
@@ -199,6 +202,13 @@ class SpikeData(DiscreteData):
                 if isinstance(unit, str):
                     unit = [unit + str(int(i)) for i in np.unique(self.data[:,self.dimord.index("unit")])]
                 self.unit = np.array(unit)
+
+        # Dummy assignment: if we have no data but channel labels, assign bogus to tigger setter warning
+        else:
+            if channel is not None:
+                self.channel = ['channel']
+            if unit is not None:
+                self.unit = ['unit']
 
 
 class EventData(DiscreteData):

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:13:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-28 09:14:03>
+# Last modification time: <2019-03-29 09:15:23>
 
 # Builtin/3rd party package imports
 import os
@@ -193,16 +193,16 @@ def read_binary_esi_header(filename):
 
     # Extract file header
     hdr = {}
-    hdr["version"] = np.fromfile(fid,dtype='uint8',count=1)[0]
-    hdr["length"] = np.fromfile(fid,dtype='uint16',count=1)[0]
+    hdr["version"] = int(np.fromfile(fid,dtype='uint8',count=1)[0])
+    hdr["length"] = int(np.fromfile(fid,dtype='uint16',count=1)[0])
     hdr["dtype"] = dtype[np.fromfile(fid,dtype='uint8',count=1)[0]]
     if os.path.splitext(filename)[1] in [".lfp", ".mua"]:
-        hdr["N"] = np.fromfile(fid,dtype='uint64',count=1)[0]
-        hdr["M"] = np.fromfile(fid,dtype='uint64',count=1)[0]
+        hdr["N"] = int(np.fromfile(fid,dtype='uint64',count=1)[0])
+        hdr["M"] = int(np.fromfile(fid,dtype='uint64',count=1)[0])
     else:
-        hdr["M"] = np.fromfile(fid,dtype='uint64',count=1)[0]
-        hdr["N"] = np.fromfile(fid,dtype='uint64',count=1)[0]
-    hdr["tSample"] = np.fromfile(fid,dtype='uint64',count=1)[0]
+        hdr["M"] = int(np.fromfile(fid,dtype='uint64',count=1)[0])
+        hdr["N"] = int(np.fromfile(fid,dtype='uint64',count=1)[0])
+    hdr["tSample"] = int(np.fromfile(fid,dtype='uint64',count=1)[0])
     fid.close()
 
     return hdr

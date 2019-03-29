@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-28 15:31:48>
+# Last modification time: <2019-03-29 13:48:22>
 
 # Builtin/3rd party package imports
 import os
@@ -188,7 +188,6 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
         _dict_converter(notes)
         out_dct["notes"] = notes
 
-    import ipdb; ipdb.set_trace()
 
     # Finally, write JSON
     with open(filename.format(ext=FILE_EXT["json"]), "w") as out_json:

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-20 11:36:48>
+# Last modification time: <2019-03-29 15:16:05>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -101,8 +101,8 @@ class ContinuousData(BaseData, ABC):
     # Make instantiation persistent in all subclasses
     def __init__(self, **kwargs):
 
-        # Assign default (blank) values
-        self._samplerate = None
+        # Assign (blank) values
+        self.samplerate = kwargs.get("samplerate")
             
         # Call initializer
         super().__init__(**kwargs)
@@ -123,9 +123,10 @@ class ContinuousData(BaseData, ABC):
                     channel = [channel + str(i + 1) for i in range(self.data.shape[self.dimord.index("channel")])]
                 self.channel = np.array(channel)
 
-                # Finally, assign samplerate
-                self.samplerate = kwargs["samplerate"]
-                
+        # Dummy assignment: if we have no data but channel labels, assign bogus to tigger setter warning
+        else:
+            if channel is not None:
+                self.channel = ['channel']
 
 class AnalogData(ContinuousData):
 
@@ -282,3 +283,11 @@ class SpectralData(ContinuousData):
             if len(self.cfg) == 0:
                 self.freq = np.arange(self.data.shape[self.dimord.index("freq")])
                 self.taper = np.array(["dummy_taper"] * self.data.shape[self.dimord.index("taper")])
+
+        # Dummy assignment: if we have no data but freq/taper labels,
+        # assign bogus to tigger setter warnings
+        else:
+            if freq is not None:
+                self.freq = [1]
+            if taper is not None:
+                self.taper = ['taper']

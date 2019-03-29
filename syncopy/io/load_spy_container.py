@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-20 10:55:55>
+# Last modification time: <2019-03-29 14:13:40>
 
 # Builtin/3rd party package imports
 import os
@@ -123,7 +123,8 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     except Exception as exc:
         raise exc
 
-    # Depending on data genre specified in file, check respective fields
+    # Depending on data genre specified in file, check respective add'l fields
+    # Note: `EventData` currently does not have any mandatory add' fields
     if json_dict["type"] == "AnalogData":
         expected = {"samplerate" : float,
                     "channel" : list}
@@ -147,6 +148,18 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
             raise exc
         if set(json_dict["dimord"]) != set(["taper", "channel", "freq", "time"]):
             raise SPYValueError(legal="dimord = ['taper', 'channel', 'freq', 'time']",
+                                varname="JSON: dimord",
+                                actual=str(json_dict["dimord"]))
+
+    elif json_dict["type"] == "SpikeData":
+        expected = {"channel" : list,
+                    "unit": list}
+        try:
+            json_parser(json_dict, expected)
+        except Exception as exc:
+            raise exc
+        if set(json_dict["dimord"]) != set(["sample", "unit", "channel"]):
+            raise SPYValueError(legal="dimord = ['sample', 'unit', 'channel']",
                                 varname="JSON: dimord",
                                 actual=str(json_dict["dimord"]))
 
@@ -200,6 +213,9 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
             out.samplerate = json_dict["samplerate"]
         out.channel = np.array(json_dict["channel"])
         out.unit = np.array(json_dict["unit"])
+    elif json_dict["type"] == "EventData":
+        if json_dict.get("samplerate") is not None:
+            out.samplerate = json_dict["samplerate"]
 
     # Write `cfg` entries
     out.cfg = {"method" : sys._getframe().f_code.co_name,

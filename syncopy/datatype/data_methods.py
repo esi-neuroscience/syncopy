@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-28 15:29:28>
+# Last modification time: <2019-03-29 08:54:34>
 
 # Builtin/3rd party package imports
 import numbers
@@ -557,7 +557,7 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
         tgt.log = "trial-definition extracted from EventData object: "
         tgt._log += ref_log
         tgt.cfg = {"method" : sys._getframe().f_code.co_name,
-                   "EventData ojbect": ref.cfg}
+                   "EventData object": ref.cfg}
         ref.log = "updated trial-defnition of {} object".format(tgt.__class__.__name__)
     
     return
