@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-19 12:42:08>
+# Last modification time: <2019-04-01 12:45:04>
 
 # Builtin/3rd party package imports
 import os
@@ -516,5 +516,5 @@ def get_defaults(obj):
     """
 
     if not callable(obj):
-        raise SPYTypeError(obj, varname="obj", expected="SpykeWave function or class")
+        raise SPYTypeError(obj, varname="obj", expected="SyNCoPy function or class")
     return {k:v.default for k,v in signature(obj).parameters.items() if v.default != v.empty}

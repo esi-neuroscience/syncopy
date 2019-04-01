@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-21 15:44:03
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-29 16:57:19>
+# Last modification time: <2019-04-01 16:44:20>
 
 import os
 import tempfile
@@ -214,22 +214,49 @@ class TestEventData(object):
             assert dummy2.data.shape == dummy.data.shape
 
     def test_trialsetting(self):
+
+        # Create sampleinfo w/ EventData vs. AnalogData samplerate
         sr_e = 2
         sr_a = 1
         pre = 2
         post = 1
         msk = self.data[:,1] == 1
-        sinfo_e = np.round(np.vstack([self.data[msk,0]/sr_e - pre,
-                                      self.data[msk,0]/sr_e + post])*sr_e).astype(int).T
-        sinfo_a = np.round(np.vstack([self.data[msk,0]/sr_e - pre,
-                                      self.data[msk,0]/sr_e + post])*sr_a).astype(int).T
-        
+        sinfo = np.vstack([self.data[msk,0]/sr_e - pre,
+                           self.data[msk,0]/sr_e + post]).T
+        sinfo_e = np.round(sinfo*sr_e).astype(int)
+        sinfo_a = np.round(sinfo*sr_a).astype(int)
+
+        # Compute sampleinfo w/pre, post and trigger
         evt_dummy = EventData(self.data, samplerate=sr_e, mode="r")
         evt_dummy.redefinetrial(pre=pre, post=post, trigger=1)
         assert np.array_equal(evt_dummy.sampleinfo, sinfo_e)
 
+        # Compute sampleinfo w/ start/stop combination
+        evt_dummy = EventData(self.data, samplerate=sr_e)
+        evt.redefinetrial(start=0, stop=1)
+
+        # Compute sampleinfo w/start array
+        samples = np.arange(0, int(ns/3), 3)[1:]
+        dappend = np.vstack([samples, np.full(samples.shape, 2)]).T
+        data3 = np.vstack([self.data, dappend])
+        idx = np.argsort(data3[:,0])
+        data3 = data3[idx, :]
+        evt_dummy = EventData(data3, samplerate=sr_e)
+        evt_dummy.redefinetrial(start=[2,2,1], stop=[1,2,0])
+        
+
+
+        # Attach computed sampleinfo to AnalogData
         ang_dummy = AnalogData(self.adata, samplerate=sr_a)
         ang_dummy.redefinetrial(evt_dummy)
         assert np.array_equal(ang_dummy.sampleinfo, sinfo_a)
+
+        # Compute and attach sampleinfo on the fly
+        ang_dummy = AnalogData(self.adata, samplerate=sr_a)
+        ang_dummy.redefinetrial(EventData(samplerate=sr_e), pre=pre, post=post, trigger=1)
+        assert np.array_equal(ang_dummy.sampleinfo, sinfo_a)
         
-    # FIXME: test start=array alloc
+    # FIXME: check both pre/start and/or post/stop being None
+    # FIXME: try to define trials w/o samplerate set
+    # FIXME: trigger error w/ only pre+post AND pre=x, post=None
+    # FIXME: test clip_edges

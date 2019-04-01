@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-29 08:54:34>
+# Last modification time: <2019-04-01 17:38:55>
 
 # Builtin/3rd party package imports
 import numbers
@@ -323,7 +323,7 @@ def _makeidx(obj, trials, deepcopy, exact_match, **kwargs):
 
 
 def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
-                  trigger=None, stop=None):
+                  trigger=None, stop=None, clip_edges=False):
     """
     Docstring coming soon(ish)
 
@@ -333,6 +333,10 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
     obj + trialdefinition array
     AnalogData + EventData w/sampleinfo/t0/trialinfo
     AnalogData + EventData + pre/post/start/stop/trigger keywords
+
+    start=eventid, stop=eventid, trigger=eventid, pre=time [sec], post = time [sec]
+
+    clip_edges : trim trials to actual data-boundaries
     """
 
     # Start by vetting input object
@@ -373,6 +377,10 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
 
     # AnalogData + EventData w/sampleinfo
     if obj.__class__.__name__ == "AnalogData" and evt and trialdefinition.sampleinfo is not None:
+        if obj.samplerate is None or trialdefinition.samplerate is None:
+            lgl = "non-`None` value - make sure `samplerate` is set before defining trials"
+            act = "None"
+            raise SPYValueError(legal=lgl, varname="samplerate", actual=act)
         ref = trialdefinition
         tgt = obj
         trl = np.array(ref.trialinfo)
@@ -382,6 +390,8 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
 
     # AnalogData + EventData w/keywords or just EventData w/keywords
     elif any([kw is not None for kw in [pre, post, start, trigger, stop]]):
+
+        # Make sure we actually have valid data objects to work with
         if obj.__class__.__name__ == "EventData" and evt is False: 
             ref = obj
             tgt = obj
@@ -389,13 +399,26 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
             ref = trialdefinition
             tgt = obj
         else:
-            print('warning')
+            lgl = "AnalogData with associated EventData object"
+            act = "{} and {}".format(obj.__class__.__name__,
+                                     trialdefinition.__class__.__name__)
+            raise SPYValueError(legal=lgl, actual=act, varname="input")
+
+        # The only case we might actually need it: ensure `clip_edges` is valid
+        if not isinstance(clip_edges, bool):
+            raise SPYTypeError(clip_edges, varname="clip_edges", expected="Boolean")
+
+        # Ensure that objects have their sampling-rates set, otherwise break
+        if ref.samplerate is None or tgt.samplerate is None:
+            lgl = "non-`None` value - make sure `samplerate` is set before defining trials"
+            act = "None"
+            raise SPYValueError(legal=lgl, varname="samplerate", actual=act)
 
         # Get input dimensions
         szin = []
         for var in [pre, post, start, trigger, stop]:
             if isinstance(var, (np.ndarray, list)):
-                szin.appen(len(var))
+                szin.append(len(var))
         if np.unique(szin).size > 1:
             lgl = "all trial-related arrays to have the same length"
             act = "arrays with sizes {}".format(str(np.unique(szin)).replace("[","").replace("]",""))
@@ -411,6 +434,10 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
         if (pre is None and start is None) or (post is None and stop is None):
             lgl = "`pre` or `start` and `post` or `stop` to be not `None`"
             act = "both `pre` and `start` and/or `post` and `stop` are simultaneously `None`"
+            raise SPYValueError(legal=lgl, actual=act)
+        if (trigger is None) and (pre is not None or post is not None):
+            lgl = "non-None `trigger` with `pre`/`post` timing information"
+            act = "`trigger` = `None`"
             raise SPYValueError(legal=lgl, actual=act)
 
         # If provided, ensure keywords make sense, otherwise allocate defaults
@@ -457,17 +484,21 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
             begin = None
             end = None
             t0 = 0
+            idxl = []
 
             # First, try to assign `start`, then `t0`
             if not np.isnan(kwrds["start"][trialno]):
                 try:
-                    idx = evtid.index(kwrds["start"][trialno])
+                    sidx = evtid.index(kwrds["start"][trialno])
                 except:
                     act = str(kwrds["start"][trialno])
                     vname = "start"
                     break
-                begin = evtsp.pop(idx)/ref.samplerate
-                evtid.pop(idx)
+                begin = evtsp[sidx]/ref.samplerate
+                evtid[sidx] = -np.pi
+                # begin = evtsp.pop(idx)/ref.samplerate
+                # evtid.pop(idx)
+                idxl.append(sidx)
                 
             if not np.isnan(kwrds["trigger"][trialno]):
                 try:
@@ -476,49 +507,78 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                     act = str(kwrds["trigger"][trialno])
                     vname = "trigger"
                     break
-                t0 = evtsp.pop(idx)/ref.samplerate
-                evtid.pop(idx)
+                t0 = evtsp[idx]/ref.samplerate
+                evtid[idx] = -np.pi
+                # t0 = evtsp.pop(idx)/ref.samplerate
+                # evtid.pop(idx)
+                idxl.append(idx)
 
-            # Trial-begin is either `trigger-pre` or `start-pre`
+            # Trial-begin is either `trigger - pre` or `start - pre`
             if begin is not None:
                 begin -= kwrds["pre"][trialno]
             else:
                 begin = t0 - kwrds["pre"][trialno]
 
-            # Try to assign `stop`, if we got nothing, use `t0+post`
+            # Try to assign `stop`, if we got nothing, use `t0 + post`
             if not np.isnan(kwrds["stop"][trialno]):
+                evtid[:sidx] = [np.pi]*sidx
                 try:
                     idx = evtid.index(kwrds["stop"][trialno])
                 except:
                     act = str(kwrds["stop"][trialno])
                     vname = "stop"
                     break
-                end = evtsp.pop(idx)/ref.samplerate + kwrds["post"][trialno]
-                evtid.pop(idx)
+                end = evtsp[idx]/ref.samplerate + kwrds["post"][trialno]
+                evtid[idx] = -np.pi
+                # end = evtsp.pop(idx)/ref.samplerate + kwrds["post"][trialno]
+                # evtid.pop(idx)
+                idxl.append(idx)
             else:
                 end = t0 + kwrds["post"][trialno]
+
+            print(idxl)
+            print(evtid)
 
             # Off-set `t0`
             t0 -= begin
 
+            # Make sure current trial setup makes (some) sense
+            if begin >= end:
+                lgl = "non-overlapping trial begin-/end-samples"
+                act = "trial-begin at {}, trial-end at {}".format(str(begin), str(end))
+                raise SPYValueError(legal=lgl, actual=act)
+            
             # Finally, write line of `trl`
             trl.append([begin, end, t0])
 
             # Update counters and end this mess when we're done
             trialno += ninc
             cnt += 1
+            evtsp = evtsp[max(idxl, default=-1) + 1:]
+            evtid = evtid[max(idxl, default=-1) + 1:]
             if trialno == ntrials or cnt == nevents:
                 searching = False
 
+            print(evtid)
+
         # Abort if the above loop ran into troubles
         if len(trl) < ntrials:
+            import ipdb; ipdb.set_trace()
             if len(act) > 0:
                 raise SPYValueError(legal="existing event-id",
                                     varname=vname, actual=act)
 
-        # Convert `trl` into a NumPy array and go on
+        # Make `trl` a NumPy array and clip it to AnalogData object's bounds if wanted
         trl = np.array(trl) * tgt.samplerate
         trl = trl.astype(int)
+        if clip_edges and evt:
+            msk = trl[:, 0] < 0
+            trl[msk, 0] = 0
+            dmax = tgt.data.shape[tgt.dimord.index("time")]
+            msk = trl[:, 1] > dmax
+            trl[msk, 1] = dmax
+            if np.any(trl[: 0] >= trl[:, 1]):
+                raise SPYValueError()
                 
     # The triplet `sampleinfo`, `t0` and `trialinfo` works identically for
     # all data genres
