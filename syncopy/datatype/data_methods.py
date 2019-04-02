@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-01 17:38:55>
+# Last modification time: <2019-04-02 14:08:08>
 
 # Builtin/3rd party package imports
 import numbers
@@ -568,17 +568,21 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                 raise SPYValueError(legal="existing event-id",
                                     varname=vname, actual=act)
 
-        # Make `trl` a NumPy array and clip it to AnalogData object's bounds if wanted
+        # Make `trl` a NumPy array
         trl = np.array(trl) * tgt.samplerate
         trl = trl.astype(int)
-        if clip_edges and evt:
-            msk = trl[:, 0] < 0
-            trl[msk, 0] = 0
-            dmax = tgt.data.shape[tgt.dimord.index("time")]
-            msk = trl[:, 1] > dmax
-            trl[msk, 1] = dmax
-            if np.any(trl[: 0] >= trl[:, 1]):
-                raise SPYValueError()
+
+    # If appropriate, clip `trl` to AnalogData object's bounds (if wanted)
+    if clip_edges and evt:
+        msk = trl[:, 0] < 0
+        trl[msk, 0] = 0
+        dmax = tgt.data.shape[tgt.dimord.index("time")]
+        msk = trl[:, 1] > dmax
+        trl[msk, 1] = dmax
+        if np.any(trl[:, 0] >= trl[:, 1]):
+            lgl = "non-overlapping trials"
+            act = "some trials are overlapping after clipping to AnalogData object range"
+            raise SPYValueError(legal=lgl, actual=act)
                 
     # The triplet `sampleinfo`, `t0` and `trialinfo` works identically for
     # all data genres

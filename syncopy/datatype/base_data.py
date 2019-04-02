@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-27 12:12:43>
+# Last modification time: <2019-04-02 13:12:48>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -246,9 +246,11 @@ class BaseData(ABC):
         return cpy
 
     # Change trialdef of object
-    def redefinetrial(self, trl=None, pre=None, post=None, start=None, trigger=None, stop=None):
+    def redefinetrial(self, trl=None, pre=None, post=None, start=None,
+                      trigger=None, stop=None, clip_edges=False):
         redefinetrial(self, trialdefinition=trl, pre=pre, post=post,
-                      start=start, trigger=trigger, stop=stop)
+                      start=start, trigger=trigger, stop=stop,
+                      clip_edges=clip_edges)
 
     # Wrapper that makes saving routine usable as class method
     def save(self, out_name, filetype=None, **kwargs):
