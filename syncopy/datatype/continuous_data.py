@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-20 11:36:48>
+# Last modification time: <2019-04-03 11:56:06>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -15,7 +15,7 @@ from numpy.lib.format import open_memmap
 
 # Local imports
 from .base_data import BaseData, VirtualData
-from .data_methods import _selectdata_continuous, redefinetrial
+from .data_methods import _selectdata_continuous, definetrial
 from syncopy.utils import scalar_parser, array_parser, io_parser, SPYValueError
 
 __all__ = ["AnalogData", "SpectralData"]
@@ -101,8 +101,11 @@ class ContinuousData(BaseData, ABC):
     # Make instantiation persistent in all subclasses
     def __init__(self, **kwargs):
 
-        # Assign default (blank) values
-        self._samplerate = None
+        # Assign (blank) values
+        if kwargs.get("samplerate") is not None:
+            self.samplerate = kwargs["samplerate"]      # use setter for error-checking
+        else:
+            self._samplerate = None
             
         # Call initializer
         super().__init__(**kwargs)
@@ -115,7 +118,7 @@ class ContinuousData(BaseData, ABC):
             if len(self.cfg) == 0:
                 
                 # First, fill in dimensional info
-                redefinetrial(self, kwargs.get("trialdefinition"))
+                definetrial(self, kwargs.get("trialdefinition"))
 
                 # If necessary, construct list of channel labels (parsing is done by setter)
                 channel = kwargs.get("channel")
@@ -123,9 +126,10 @@ class ContinuousData(BaseData, ABC):
                     channel = [channel + str(i + 1) for i in range(self.data.shape[self.dimord.index("channel")])]
                 self.channel = np.array(channel)
 
-                # Finally, assign samplerate
-                self.samplerate = kwargs["samplerate"]
-                
+        # Dummy assignment: if we have no data but channel labels, assign bogus to tigger setter warning
+        else:
+            if isinstance(kwargs.get("channel"), (list, np.ndarray)):
+                self.channel = ['channel']
 
 class AnalogData(ContinuousData):
 
@@ -139,10 +143,10 @@ class AnalogData(ContinuousData):
                  filename=None,
                  filetype=None,
                  trialdefinition=None,
-                 samplerate=1000.0,
+                 samplerate=None,
                  channel="channel",
                  mode="w",
-                 dimord=["channel", "time"]):
+                 dimord=["time", "channel"]):
         """
         Docstring
 
@@ -152,7 +156,7 @@ class AnalogData(ContinuousData):
         """
 
         # The one thing we check right here and now
-        expected = ["channel", "time"]
+        expected = ["time", "channel"]
         if not set(dimord).issubset(expected):
             base = "dimensional labels {}"
             lgl = base.format("'" + "' x '".join(str(dim) for dim in expected) + "'")
@@ -244,7 +248,7 @@ class SpectralData(ContinuousData):
                  filename=None,
                  filetype=None,
                  trialdefinition=None,
-                 samplerate=1000.0,
+                 samplerate=None,
                  channel="channel",
                  taper=None,
                  freq=None,
@@ -282,3 +286,11 @@ class SpectralData(ContinuousData):
             if len(self.cfg) == 0:
                 self.freq = np.arange(self.data.shape[self.dimord.index("freq")])
                 self.taper = np.array(["dummy_taper"] * self.data.shape[self.dimord.index("taper")])
+
+        # Dummy assignment: if we have no data but freq/taper labels,
+        # assign bogus to tigger setter warnings
+        else:
+            if freq is not None:
+                self.freq = [1]
+            if taper is not None:
+                self.taper = ['taper']

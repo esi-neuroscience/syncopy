@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-15 09:03:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-20 10:56:31>
+# Last modification time: <2019-04-01 12:46:16>
 
 # Builtin/3rd party package imports
 import os
@@ -40,7 +40,7 @@ from .io import *
 from .datatype import *
 from .specest import *
 
-# Take care of `from spykewave import *` statements
+# Take care of `from syncopy import *` statements
 __all__ = []
 __all__.extend(datatype.__all__)
 __all__.extend(io.__all__)

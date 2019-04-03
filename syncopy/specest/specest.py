@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-12 16:09:37>
+# Last modification time: <2019-04-03 10:23:34>
 
 # Builtin/3rd party package imports
 import sys
@@ -130,7 +130,7 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
     # First things first: attach data to output object
     out.data = open_memmap(out._filename, mode="r+")
 
-    # We can't simply use ``redefinetrial`` here, prep things by hand
+    # We can't simply use ``definetrial`` here, prep things by hand
     time = np.arange(len(obj.trials))
     time = time.reshape((time.size, 1))
     out.sampleinfo = np.hstack([time, time + 1])
