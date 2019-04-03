@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-28 16:48:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 10:24:10>
+# Last modification time: <2019-04-03 14:10:57>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -47,3 +47,4 @@ ddata.definetrial(pre=0.25, post=0.5, trigger=1)
 
 # Apply `ddata` to `adata` to define trials
 adata.definetrial(ddata)
+

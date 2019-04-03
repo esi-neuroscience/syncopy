@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 10:25:57>
+# Last modification time: <2019-04-03 10:55:06>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -437,7 +437,7 @@ class VirtualData():
 
     # Pre-allocate slots here - this class is *not* meant to be expanded
     # and/or monkey-patched at runtime
-    __slots__ = ["_M", "_N", "_shape", "_size", "_nrows", "_data", "_rows", "_dtype"]
+    __slots__ = ["_M", "_N", "_shape", "_size", "_ncols", "_data", "_cols", "_dtype"]
 
     @property
     def dtype(self):
@@ -484,11 +484,11 @@ class VirtualData():
 
         # Get row number per input chunk and raise error in case col.-no. does not match up
         shapes = [chunk.shape for chunk in chunk_list]
-        if not np.array_equal([shape[1] for shape in shapes], [shapes[0][1]] * len(shapes)):
+        if not np.array_equal([shape[0] for shape in shapes], [shapes[0][0]] * len(shapes)):
             raise SPYValueError(legal="identical number of samples per chunk",
                                 varname="chunk_list")
-        nrows = [shape[0] for shape in shapes]
-        cumlen = np.cumsum(nrows)
+        ncols = [shape[1] for shape in shapes]
+        cumlen = np.cumsum(ncols)
 
         # Get hierarchically "highest" dtype of data present in `chunk_list`
         dtypes = []
@@ -497,10 +497,10 @@ class VirtualData():
         cdtype = np.max(dtypes)
 
         # Create list of "global" row numbers and assign "global" dimensional info
-        self._nrows = nrows
-        self._rows = [range(start, stop) for (start, stop) in zip(cumlen - nrows, cumlen)]
-        self._M = cumlen[-1]
-        self._N = chunk_list[0].shape[1]
+        self._ncols = ncols
+        self._cols = [range(start, stop) for (start, stop) in zip(cumlen - ncols, cumlen)]
+        self._M = chunk_list[0].shape[0]
+        self._N = cumlen[-1]
         self._shape = (self._M, self._N)
         self._size = self._M * self._N
         self._dtype = cdtype
@@ -559,25 +559,25 @@ class VirtualData():
             raise SPYValueError(err.format(lb="0", ub=str(self._N)),
                                 varname="col", actual=str(col))
 
-        # The interesting part: find out wich chunk(s) `row` is pointing at
-        i1 = np.where([row.start in chunk for chunk in self._rows])[0].item()
-        i2 = np.where([(row.stop - 1) in chunk for chunk in self._rows])[0].item()
+        # The interesting part: find out wich chunk(s) `col` is pointing at
+        i1 = np.where([col.start in chunk for chunk in self._cols])[0].item()
+        i2 = np.where([(col.stop - 1) in chunk for chunk in self._cols])[0].item()
 
         # If start and stop are not within the same chunk, data is loaded into memory
         if i1 != i2:
             data = []
-            data.append(self._data[i1][row.start - self._rows[i1].start:, col])
+            data.append(self._data[i1][row, col.start - self._cols[i1].start:])
             for i in range(i1 + 1, i2):
-                data.append(self._data[i][:, col])
-            data.append(self._data[i2][:row.stop - self._rows[i2].start, col])
-            return np.vstack(data)
+                data.append(self._data[i][row, :])
+            data.append(self._data[i2][row, :col.stop - self._cols[i2].start])
+            return np.hstack(data)
 
         # If start and stop are in the same chunk, return a view of the underlying memmap
         else:
 
             # Convert "global" row index to local chunk-based row-number (by subtracting offset)
-            row = slice(row.start - self._rows[i1].start, row.stop - self._rows[i1].start)
-            return self._data[i1][row, :][:, col]
+            col = slice(col.start - self._cols[i1].start, col.stop - self._cols[i1].start)
+            return self._data[i1][:, col][row, :]
 
     # Legacy support
     def __repr__(self):
@@ -588,7 +588,7 @@ class VirtualData():
         ppstr = "{shape:s} element {name:s} object mapping {numfiles:s} file(s)"
         return ppstr.format(shape="[" + " x ".join([str(numel) for numel in self.shape]) + "]",
                             name=self.__class__.__name__,
-                            numfiles=str(len(self._nrows)))
+                            numfiles=str(len(self._ncols)))
 
     # Free memory by force-closing resident memory maps
     def clear(self):

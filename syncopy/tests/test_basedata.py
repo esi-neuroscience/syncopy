@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-29 10:41:08>
+# Last modification time: <2019-04-03 14:14:31>
 
 import os
 import tempfile
@@ -22,7 +22,7 @@ class TestVirtualData(object):
     # Allocate test-dataset
     nc = 5
     ns = 30
-    data = np.arange(1, nc*ns + 1).reshape(nc, ns)
+    data = np.arange(1, nc*ns + 1).reshape(ns, nc)
 
     def test_alloc(self):
         with tempfile.TemporaryDirectory() as tdir:
@@ -46,24 +46,35 @@ class TestVirtualData(object):
                 VirtualData([dmap, dmap.T])
 
             # check consistency of VirtualData object
-            vdata = VirtualData([dmap, dmap])
-            assert vdata.dtype == dmap.dtype
-            assert vdata.M == 2*dmap.shape[0]
-            assert vdata.N == dmap.shape[1]
+            for vk in range(2,6):
+                vdata = VirtualData([dmap] * vk)
+                assert vdata.dtype == dmap.dtype
+                assert vdata.M == dmap.shape[0]
+                assert vdata.N == vk*dmap.shape[1]
 
     def test_retrieval(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "vdat.npy")
+            fname2 = os.path.join(tdir, "vdat2.npy")
             np.save(fname, self.data)
+            np.save(fname2, self.data*2)
             dmap = open_memmap(fname)
+            dmap2 = open_memmap(fname2)
 
             # ensure stacking is performed correctly
-            vdata = VirtualData([dmap, dmap])
-            assert np.array_equal(vdata[:self.nc, :], self.data)
-            assert np.array_equal(vdata[self.nc:, :], self.data)
-            assert np.array_equal(vdata[0, :].flatten(), self.data[0, :].flatten())
-            assert np.array_equal(vdata[self.nc, :].flatten(), self.data[0, :].flatten())
-            assert np.array_equal(vdata[:, 0].flatten(), np.hstack([self.data[:, 0], self.data[:, 0]]))
+            vdata = VirtualData([dmap, dmap2])
+            assert np.array_equal(vdata[:, :self.nc], self.data)
+            assert np.array_equal(vdata[:, self.nc:], 2*self.data)
+            assert np.array_equal(vdata[:, 0].flatten(), self.data[:, 0].flatten())
+            assert np.array_equal(vdata[:, self.nc].flatten(), 2*self.data[:, 0].flatten())
+            assert np.array_equal(vdata[0, :].flatten(), np.hstack([self.data[0, :], 2*self.data[0, :]]))
+            vdata = VirtualData([dmap, dmap2, dmap])
+            assert np.array_equal(vdata[:, :self.nc], self.data)
+            assert np.array_equal(vdata[:, self.nc:2*self.nc], 2*self.data)
+            assert np.array_equal(vdata[:, 2*self.nc:], self.data)
+            assert np.array_equal(vdata[:, 0].flatten(), self.data[:, 0].flatten())
+            assert np.array_equal(vdata[:, self.nc].flatten(), 2*self.data[:, 0].flatten())
+            assert np.array_equal(vdata[0, :].flatten(), np.hstack([self.data[0, :], 2*self.data[0, :], self.data[0, :]]))
 
             # illegal indexing type
             with pytest.raises(SPYTypeError):
@@ -71,21 +82,21 @@ class TestVirtualData(object):
 
             # queried indices out of bounds
             with pytest.raises(SPYValueError):
-                vdata[self.nc*3, :]
+                vdata[:, self.nc*3]
             with pytest.raises(SPYValueError):
-                vdata[0, self.ns*2]
+                vdata[self.ns*2, 0]
 
     def test_memory(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "vdat.npy")
-            data = np.ones((5000, 1000)) # ca. 38.2 MB
+            data = np.ones((1000, 5000)) # ca. 38.2 MB
             np.save(fname, data)
             del data
             dmap = open_memmap(fname)
 
             # allocation of VirtualData object must not consume memory
             mem = memory_usage()[0]
-            vdata = VirtualData([dmap, dmap])
+            vdata = VirtualData([dmap, dmap, dmap])
             assert np.abs(mem - memory_usage()[0]) < 1
 
             # test consistency and efficacy of clear method
@@ -94,7 +105,7 @@ class TestVirtualData(object):
             assert np.array_equal(vd, vdata[:,:])
             mem = memory_usage()[0]
             vdata.clear()
-            assert np.abs(mem - memory_usage()[0]) > 30
+            assert (mem - memory_usage()[0]) > 100
             
 
 # Test BaseData methods that work identically for all regular classes            
@@ -110,7 +121,7 @@ class TestBaseData(object):
     trl = {}
 
     # Generate 2D array simulating an AnalogData array
-    data["AnalogData"] = np.arange(1, nc*ns + 1).reshape(nc, ns)
+    data["AnalogData"] = np.arange(1, nc*ns + 1).reshape(ns, nc)
     trl["AnalogData"] = np.vstack([np.arange(0, ns, 5),
                                    np.arange(5, ns + 5, 5),
                                    np.ones((int(ns/5), )),
@@ -187,7 +198,7 @@ class TestBaseData(object):
     def test_clear(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "dummy.npy")
-            data = np.ones((1000, 5000)) # ca. 38.2 MB
+            data = np.ones((5000, 1000)) # ca. 38.2 MB
             np.save(fname, data)
             del data
             dmap = open_memmap(fname)

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 10:25:27>
+# Last modification time: <2019-04-03 11:56:06>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -102,7 +102,10 @@ class ContinuousData(BaseData, ABC):
     def __init__(self, **kwargs):
 
         # Assign (blank) values
-        self.samplerate = kwargs.get("samplerate")
+        if kwargs.get("samplerate") is not None:
+            self.samplerate = kwargs["samplerate"]      # use setter for error-checking
+        else:
+            self._samplerate = None
             
         # Call initializer
         super().__init__(**kwargs)
@@ -125,7 +128,7 @@ class ContinuousData(BaseData, ABC):
 
         # Dummy assignment: if we have no data but channel labels, assign bogus to tigger setter warning
         else:
-            if channel is not None:
+            if isinstance(kwargs.get("channel"), (list, np.ndarray)):
                 self.channel = ['channel']
 
 class AnalogData(ContinuousData):
@@ -140,10 +143,10 @@ class AnalogData(ContinuousData):
                  filename=None,
                  filetype=None,
                  trialdefinition=None,
-                 samplerate=1000.0,
+                 samplerate=None,
                  channel="channel",
                  mode="w",
-                 dimord=["channel", "time"]):
+                 dimord=["time", "channel"]):
         """
         Docstring
 
@@ -153,7 +156,7 @@ class AnalogData(ContinuousData):
         """
 
         # The one thing we check right here and now
-        expected = ["channel", "time"]
+        expected = ["time", "channel"]
         if not set(dimord).issubset(expected):
             base = "dimensional labels {}"
             lgl = base.format("'" + "' x '".join(str(dim) for dim in expected) + "'")
@@ -245,7 +248,7 @@ class SpectralData(ContinuousData):
                  filename=None,
                  filetype=None,
                  trialdefinition=None,
-                 samplerate=1000.0,
+                 samplerate=None,
                  channel="channel",
                  taper=None,
                  freq=None,

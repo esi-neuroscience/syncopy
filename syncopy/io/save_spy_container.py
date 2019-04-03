@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-29 13:48:22>
+# Last modification time: <2019-04-03 14:11:20>
 
 # Builtin/3rd party package imports
 import os
@@ -83,11 +83,10 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
         
         # Given memory cap, compute how many channel blocks can be grabbed
         # per swipe (divide by 2 since we're working with an add'l tmp array)
-        conv_b2mb = 1024**2
-        memuse *= conv_b2mb/2
-        nrow = int(memuse/(out.data.N * out.data.dtype.itemsize))
-        rem = int(out.data.M % nrow)
-        n_blocks = [nrow]*int(out.data.M // nrow) + [rem] * int(rem > 0)
+        memuse *= 1024**2/2
+        ncol = int(memuse/(out.data.M * out.data.dtype.itemsize))
+        rem = int(out.data.N % ncol)
+        n_blocks = [ncol]*int(out.data.N // ncol) + [rem] * int(rem > 0)
 
         # Here's the fun part: the awkward looking `del` and `clear` commands
         # in the loop are crucial to prevent Python from keeping all blocks
@@ -95,9 +94,9 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
         dat = open_memmap(filename.format(ext=FILE_EXT["data"]), mode="w+",
                           dtype=out.data.dtype, shape=(out.data.M, out.data.N))
         del dat
-        for m, M in enumerate(n_blocks):
+        for n, N in enumerate(n_blocks):
             dat = open_memmap(filename.format(ext=FILE_EXT["data"]), mode="r+")
-            dat[m*nrow : m*nrow + M:, :] = out.data[m*nrow : m*nrow + M:, :]
+            dat[:, n*ncol : n*ncol + N] = out.data[:, n*ncol : n*ncol + N]
             del dat
             out.clear()
 

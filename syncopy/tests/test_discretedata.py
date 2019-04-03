@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-21 15:44:03
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 10:23:54>
+# Last modification time: <2019-04-03 11:00:35>
 
 import os
 import tempfile
@@ -134,7 +134,7 @@ class TestEventData(object):
     num_smp = np.unique(data[:, 0]).size
     num_evt = np.unique(data[:, 1]).size
 
-    adata = np.arange(1, nc*ns + 1).reshape(nc, ns)
+    adata = np.arange(1, nc*ns + 1).reshape(ns, nc)
 
     def test_empty(self):
         dummy = EventData()

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 10:25:37>
+# Last modification time: <2019-04-03 11:53:39>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -205,9 +205,9 @@ class SpikeData(DiscreteData):
 
         # Dummy assignment: if we have no data but channel labels, assign bogus to tigger setter warning
         else:
-            if channel is not None:
+            if isinstance(channel, (list, np.ndarray)):
                 self.channel = ['channel']
-            if unit is not None:
+            if isinstance(unit, (list, np.ndarray)):
                 self.unit = ['unit']
 
 
