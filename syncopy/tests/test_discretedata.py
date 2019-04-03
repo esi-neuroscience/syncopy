@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-21 15:44:03
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-02 15:11:33>
+# Last modification time: <2019-04-03 10:23:54>
 
 import os
 import tempfile
@@ -228,12 +228,12 @@ class TestEventData(object):
 
         # Compute sampleinfo w/pre, post and trigger
         evt_dummy = EventData(self.data, samplerate=sr_e, mode="r")
-        evt_dummy.redefinetrial(pre=pre, post=post, trigger=1)
+        evt_dummy.definetrial(pre=pre, post=post, trigger=1)
         assert np.array_equal(evt_dummy.sampleinfo, sinfo_e)
 
         # Compute sampleinfo w/ start/stop combination
         evt_dummy = EventData(self.data, samplerate=sr_e)
-        evt_dummy.redefinetrial(start=0, stop=1)
+        evt_dummy.definetrial(start=0, stop=1)
         sinfo2 = np.vstack([self.data[np.where(self.data[:,1] == 0)[0], 0],
                             self.data[np.where(self.data[:,1] == 1)[0], 0]]).T
         assert np.array_equal(sinfo2, evt_dummy.sampleinfo)
@@ -245,7 +245,7 @@ class TestEventData(object):
         idx = np.argsort(data3[:,0])
         data3 = data3[idx, :]
         evt_dummy = EventData(data3, samplerate=sr_e)
-        evt_dummy.redefinetrial(start=0, stop=1)
+        evt_dummy.definetrial(start=0, stop=1)
         assert np.array_equal(sinfo2, evt_dummy.sampleinfo)
         
         # Compute sampleinfo w/start/stop arrays instead of scalars
@@ -265,28 +265,28 @@ class TestEventData(object):
             dsamps = dsamps[idx + 1:]
             sinfo3[sk, :] = [start, stop]
         evt_dummy = EventData(data3, samplerate=sr_e)
-        evt_dummy.redefinetrial(start=[2,2,1], stop=[1,2,0])
+        evt_dummy.definetrial(start=[2,2,1], stop=[1,2,0])
         assert np.array_equal(evt_dummy.sampleinfo, sinfo3)
         
         # Attach computed sampleinfo to AnalogData (data and data3 must yield identical resutls)
         evt_dummy = EventData(data=self.data, samplerate=sr_e)
-        evt_dummy.redefinetrial(pre=pre, post=post, trigger=1)
+        evt_dummy.definetrial(pre=pre, post=post, trigger=1)
         ang_dummy = AnalogData(self.adata, samplerate=sr_a)
-        ang_dummy.redefinetrial(evt_dummy)
+        ang_dummy.definetrial(evt_dummy)
         assert np.array_equal(ang_dummy.sampleinfo, sinfo_a)
         evt_dummy = EventData(data=data3, samplerate=sr_e)
-        evt_dummy.redefinetrial(pre=pre, post=post, trigger=1)
-        ang_dummy.redefinetrial(evt_dummy)
+        evt_dummy.definetrial(pre=pre, post=post, trigger=1)
+        ang_dummy.definetrial(evt_dummy)
         assert np.array_equal(ang_dummy.sampleinfo, sinfo_a)
 
         # Compute and attach sampleinfo on the fly
         evt_dummy = EventData(data=self.data, samplerate=sr_e)
         ang_dummy = AnalogData(self.adata, samplerate=sr_a)
-        ang_dummy.redefinetrial(evt_dummy, pre=pre, post=post, trigger=1)
+        ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
         assert np.array_equal(ang_dummy.sampleinfo, sinfo_a)
         evt_dummy = EventData(data=data3, samplerate=sr_e)
         ang_dummy = AnalogData(self.adata, samplerate=sr_a)
-        ang_dummy.redefinetrial(evt_dummy, pre=pre, post=post, trigger=1)
+        ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
         assert np.array_equal(ang_dummy.sampleinfo, sinfo_a)
 
         # Extend data and provoke an exception due to out of bounds erro
@@ -295,53 +295,53 @@ class TestEventData(object):
         smp[1::2, 1] = 1
         data4 = np.vstack([data3, smp])
         evt_dummy = EventData(data=data4, samplerate=sr_e)
-        evt_dummy.redefinetrial(pre=pre, post=post, trigger=1)
+        evt_dummy.definetrial(pre=pre, post=post, trigger=1)
         with pytest.raises(SPYValueError):
-            ang_dummy.redefinetrial(evt_dummy)
+            ang_dummy.definetrial(evt_dummy)
 
         # Trimming edges produces zero-length trial
         with pytest.raises(SPYValueError):
-            ang_dummy.redefinetrial(evt_dummy, clip_edges=True)
+            ang_dummy.definetrial(evt_dummy, clip_edges=True)
 
         # We need `clip_edges` to make trial-definition work
         data4 = data4[:-2, :]
         data4[-2, 0] = data4[-1, 0]
         evt_dummy = EventData(data=data4, samplerate=sr_e)
-        evt_dummy.redefinetrial(pre=pre, post=post, trigger=1)
+        evt_dummy.definetrial(pre=pre, post=post, trigger=1)
         with pytest.raises(SPYValueError):
-            ang_dummy.redefinetrial(evt_dummy)
-        ang_dummy.redefinetrial(evt_dummy, clip_edges=True)
+            ang_dummy.definetrial(evt_dummy)
+        ang_dummy.definetrial(evt_dummy, clip_edges=True)
         assert ang_dummy.sampleinfo[-1, 1] == self.ns
 
         # Check both pre/start and/or post/stop being None
         evt_dummy = EventData(data=self.data, samplerate=sr_e)
         with pytest.raises(SPYValueError):
-            evt_dummy.redefinetrial(trigger=1, post=post)
+            evt_dummy.definetrial(trigger=1, post=post)
         with pytest.raises(SPYValueError):
-            evt_dummy.redefinetrial(pre=pre, trigger=1)
+            evt_dummy.definetrial(pre=pre, trigger=1)
         with pytest.raises(SPYValueError):
-            evt_dummy.redefinetrial(start=0)
+            evt_dummy.definetrial(start=0)
         with pytest.raises(SPYValueError):
-            evt_dummy.redefinetrial(stop=1)
+            evt_dummy.definetrial(stop=1)
         with pytest.raises(SPYValueError):
-            evt_dummy.redefinetrial(trigger=1)
+            evt_dummy.definetrial(trigger=1)
         with pytest.raises(SPYValueError):
-            evt_dummy.redefinetrial(pre=pre, post=post)
+            evt_dummy.definetrial(pre=pre, post=post)
 
         # Try to define trials w/o samplerate set
         evt_dummy = EventData(data=self.data)
         with pytest.raises(SPYValueError):
-            evt_dummy.redefinetrial(pre=pre, post=post, trigger=1)
+            evt_dummy.definetrial(pre=pre, post=post, trigger=1)
         evt_dummy = EventData(data=self.data, samplerate=sr_e)
         ang_dummy = AnalogData(self.adata)
         with pytest.raises(SPYValueError):
-            ang_dummy.redefinetrial(evt_dummy, pre=pre, post=post, trigger=1)
+            ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
             
         # Try to define trials w/o data
         evt_dummy = EventData(samplerate=sr_e)
         with pytest.raises(SPYValueError):
-            evt_dummy.redefinetrial(pre=pre, post=post, trigger=1)
+            evt_dummy.definetrial(pre=pre, post=post, trigger=1)
         ang_dummy = AnalogData(self.adata, samplerate=sr_a)
         with pytest.raises(SPYValueError):
-            ang_dummy.redefinetrial(evt_dummy, pre=pre, post=post, trigger=1)
+            ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
         

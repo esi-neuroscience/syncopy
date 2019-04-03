@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-29 15:16:05>
+# Last modification time: <2019-04-03 10:25:27>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -15,7 +15,7 @@ from numpy.lib.format import open_memmap
 
 # Local imports
 from .base_data import BaseData, VirtualData
-from .data_methods import _selectdata_continuous, redefinetrial
+from .data_methods import _selectdata_continuous, definetrial
 from syncopy.utils import scalar_parser, array_parser, io_parser, SPYValueError
 
 __all__ = ["AnalogData", "SpectralData"]
@@ -115,7 +115,7 @@ class ContinuousData(BaseData, ABC):
             if len(self.cfg) == 0:
                 
                 # First, fill in dimensional info
-                redefinetrial(self, kwargs.get("trialdefinition"))
+                definetrial(self, kwargs.get("trialdefinition"))
 
                 # If necessary, construct list of channel labels (parsing is done by setter)
                 channel = kwargs.get("channel")

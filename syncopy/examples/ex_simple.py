@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-28 16:48:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-28 16:52:25>
+# Last modification time: <2019-04-03 10:24:10>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -42,8 +42,8 @@ ddataFiles = os.path.join(datadir, basename + ".dpd")
 ddata = spy.EventData(filename=ddataFiles, filetype="esi", dimord=["sample", "eventid"])
 
 # Define trials for both `EventData` objects
-edata.redefinetrial(pre=40, post=90, trigger=23001)
-ddata.redefinetrial(pre=0.25, post=0.5, trigger=1)
+edata.definetrial(pre=40, post=90, trigger=23001)
+ddata.definetrial(pre=0.25, post=0.5, trigger=1)
 
 # Apply `ddata` to `adata` to define trials
-adata.redefinetrial(ddata)
+adata.definetrial(ddata)

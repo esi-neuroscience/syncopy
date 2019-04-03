@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-29 14:13:40>
+# Last modification time: <2019-04-03 10:24:56>
 
 # Builtin/3rd party package imports
 import os
@@ -195,9 +195,9 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     # Access data on disk
     out.data = in_files["data"]
 
-    # Abuse ``redefinetrial`` to set trial-related props
+    # Abuse ``definetrial`` to set trial-related props
     trialdef = np.load(in_files["trl"])
-    out.redefinetrial(trialdef)
+    out.definetrial(trialdef)
 
     # Sub-class-specific things follow
     if json_dict["type"] == "AnalogData":

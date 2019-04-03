@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-02 14:08:08>
+# Last modification time: <2019-04-03 10:25:13>
 
 # Builtin/3rd party package imports
 import numbers
@@ -15,7 +15,7 @@ import numpy as np
 from syncopy.utils import (SPYTypeError, SPYValueError, data_parser,
                            array_parser, scalar_parser)
 
-__all__ = ["selectdata", "redefinetrial"]
+__all__ = ["selectdata", "definetrial"]
 
 
 def selectdata(obj, trials=None, deepcopy=False, exact_match=False, **kwargs):
@@ -322,7 +322,7 @@ def _makeidx(obj, trials, deepcopy, exact_match, **kwargs):
     return selectors, trials
 
 
-def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
+def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                   trigger=None, stop=None, clip_edges=False):
     """
     Docstring coming soon(ish)
@@ -389,7 +389,7 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
         trl = np.round((trl/ref.samplerate) * tgt.samplerate).astype(int)
 
     # AnalogData + EventData w/keywords or just EventData w/keywords
-    elif any([kw is not None for kw in [pre, post, start, trigger, stop]]):
+    if any([kw is not None for kw in [pre, post, start, trigger, stop]]):
 
         # Make sure we actually have valid data objects to work with
         if obj.__class__.__name__ == "EventData" and evt is False: 
@@ -496,8 +496,6 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                     break
                 begin = evtsp[sidx]/ref.samplerate
                 evtid[sidx] = -np.pi
-                # begin = evtsp.pop(idx)/ref.samplerate
-                # evtid.pop(idx)
                 idxl.append(sidx)
                 
             if not np.isnan(kwrds["trigger"][trialno]):
@@ -509,8 +507,6 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                     break
                 t0 = evtsp[idx]/ref.samplerate
                 evtid[idx] = -np.pi
-                # t0 = evtsp.pop(idx)/ref.samplerate
-                # evtid.pop(idx)
                 idxl.append(idx)
 
             # Trial-begin is either `trigger - pre` or `start - pre`
@@ -530,14 +526,9 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                     break
                 end = evtsp[idx]/ref.samplerate + kwrds["post"][trialno]
                 evtid[idx] = -np.pi
-                # end = evtsp.pop(idx)/ref.samplerate + kwrds["post"][trialno]
-                # evtid.pop(idx)
                 idxl.append(idx)
             else:
                 end = t0 + kwrds["post"][trialno]
-
-            print(idxl)
-            print(evtid)
 
             # Off-set `t0`
             t0 -= begin
@@ -559,8 +550,6 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
             if trialno == ntrials or cnt == nevents:
                 searching = False
 
-            print(evtid)
-
         # Abort if the above loop ran into troubles
         if len(trl) < ntrials:
             import ipdb; ipdb.set_trace()
@@ -569,8 +558,7 @@ def redefinetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                                     varname=vname, actual=act)
 
         # Make `trl` a NumPy array
-        trl = np.array(trl) * tgt.samplerate
-        trl = trl.astype(int)
+        trl = np.round(np.array(trl) * tgt.samplerate).astype(int)
 
     # If appropriate, clip `trl` to AnalogData object's bounds (if wanted)
     if clip_edges and evt:

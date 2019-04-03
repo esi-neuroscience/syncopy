@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-29 15:19:58>
+# Last modification time: <2019-04-03 10:25:37>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -12,7 +12,7 @@ from abc import ABC
 
 # Local imports
 from .base_data import BaseData, Indexer
-from .data_methods import _selectdata_discrete, redefinetrial
+from .data_methods import _selectdata_discrete, definetrial
 from syncopy.utils import scalar_parser, array_parser, SPYValueError
 
 __all__ = ["SpikeData", "EventData"]
@@ -109,7 +109,7 @@ class DiscreteData(BaseData, ABC):
             if len(self.cfg) == 0:
                 
                 # Fill in dimensional info
-                redefinetrial(self, kwargs.get("trialdefinition"))
+                definetrial(self, kwargs.get("trialdefinition"))
                 
 
 class SpikeData(DiscreteData):

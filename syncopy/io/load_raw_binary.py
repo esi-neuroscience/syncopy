@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:13:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-29 09:15:23>
+# Last modification time: <2019-04-03 10:24:39>
 
 # Builtin/3rd party package imports
 import os
@@ -141,9 +141,9 @@ def load_binary_esi(filename,
     out._hdr = headers
     out.samplerate = float(1/headers[0]["tSample"]*1e9)
 
-    # Now we can abuse ``redefinetrial`` to set trial-related props
+    # Now we can abuse ``definetrial`` to set trial-related props
     if dclass != "EventData" or (dclass == "EventData" and trialdefinition is not None):
-        out.redefinetrial(trialdefinition)
+        out.definetrial(trialdefinition)
 
     # Write `cfg` entries
     out.cfg = {"method" : sys._getframe().f_code.co_name,
