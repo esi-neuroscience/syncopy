@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:46:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-21 15:43:07>
+# Last modification time: <2019-04-03 11:59:37>
 
 import os
 import tempfile
@@ -21,7 +21,7 @@ class TestAnalogData(object):
     # Allocate test-dataset
     nc = 10
     ns = 30
-    data = np.arange(1, nc*ns + 1).reshape(nc, ns)
+    data = np.arange(1, nc*ns + 1).reshape(ns, nc)
     trl = np.vstack([np.arange(0, ns, 5),
                      np.arange(5, ns + 5, 5),
                      np.ones((int(ns/5), )),
@@ -30,8 +30,8 @@ class TestAnalogData(object):
     def test_empty(self):
         dummy = AnalogData()
         assert len(dummy.cfg) == 0
-        assert dummy.dimord == ["channel", "time"]
-        for attr in ["channel", "data", "hdr", "sampleinfo", "samplerate", "trialinfo"]:
+        assert dummy.dimord == ["time", "channel"]
+        for attr in ["channel", "data", "hdr", "sampleinfo", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
             AnalogData({})
@@ -62,14 +62,14 @@ class TestAnalogData(object):
         # test ``_get_trial`` with NumPy array: regular order
         dummy = AnalogData(self.data, trialdefinition=self.trl)
         for trlno, start in enumerate(range(0, self.ns, 5)):
-            trl_ref = self.data[:, start:start + 5]
+            trl_ref = self.data[start:start + 5, :]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
         # test ``_get_trial`` with NumPy array: swapped dimensions
         dummy = AnalogData(self.data.T, trialdefinition=self.trl,
-                           dimord=["time", "channel"])
+                           dimord=["channel", "time"])
         for trlno, start in enumerate(range(0, self.ns, 5)):
-            trl_ref = self.data.T[start:start + 5, :]
+            trl_ref = self.data.T[:, start:start + 5]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
             
         # test ``_copy_trial`` with memmap'ed data
@@ -79,7 +79,7 @@ class TestAnalogData(object):
             mm = open_memmap(fname, mode="r")
             dummy = AnalogData(mm, trialdefinition=self.trl)
             for trlno, start in enumerate(range(0, self.ns, 5)):
-                trl_ref = self.data[:, start:start + 5]
+                trl_ref = self.data[start:start + 5, :]
                 trl_tmp = dummy._copy_trial(trlno,
                                             dummy._filename,
                                             dummy.dimord,
@@ -92,7 +92,7 @@ class TestAnalogData(object):
             fname = os.path.join(tdir, "dummy")
             
             # basic but most important: ensure object integrity is preserved
-            dummy = AnalogData(self.data)
+            dummy = AnalogData(self.data, samplerate=1000)
             dummy.save(fname)
             dummy2 = AnalogData(fname)
             for attr in ["channel", "data", "dimord", "sampleinfo", "samplerate", "trialinfo"]:
@@ -103,7 +103,7 @@ class TestAnalogData(object):
             np.save(fname + ".npy", self.data)
             dmap = open_memmap(fname + ".npy", mode="r")
             vdata = VirtualData([dmap, dmap])
-            dummy = AnalogData(vdata)
+            dummy = AnalogData(vdata, samplerate=1000)
             dummy.save(fname)
             dummy2 = AnalogData(fname)
             assert dummy2.mode == "w"
@@ -118,7 +118,7 @@ class TestAnalogData(object):
             assert dummy2.samplerate == 20
 
             # ensure trialdefinition is saved and loaded correctly
-            dummy = AnalogData(self.data, trialdefinition=self.trl)
+            dummy = AnalogData(self.data, trialdefinition=self.trl, samplerate=1000)
             dummy.save(fname + "_trl")
             dummy2 = AnalogData(fname + "_trl")
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
@@ -126,7 +126,7 @@ class TestAnalogData(object):
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
 
             # swap dimensions and ensure `dimord` is preserved
-            dummy = AnalogData(self.data, dimord=["time", "channel"])
+            dummy = AnalogData(self.data, dimord=["channel", "time"], samplerate=1000)
             dummy.save(fname + "_dimswap")
             dummy2 = AnalogData(fname + "_dimswap")
             assert dummy2.dimord == dummy.dimord
@@ -152,8 +152,7 @@ class TestSpectralData(object):
         dummy = SpectralData()
         assert len(dummy.cfg) == 0
         assert dummy.dimord == ["time", "taper", "channel", "freq"]
-        for attr in ["channel", "data", "freq", "sampleinfo", "samplerate", \
-                     "taper", "trialinfo"]:
+        for attr in ["channel", "data", "freq", "sampleinfo", "taper", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
             SpectralData({})
@@ -206,7 +205,7 @@ class TestSpectralData(object):
             fname = os.path.join(tdir, "dummy")
             
             # basic but most important: ensure object integrity is preserved
-            dummy = SpectralData(self.data)
+            dummy = SpectralData(self.data, samplerate=1000)
             dummy.save(fname)
             dummy2 = SpectralData(fname)
             for attr in ["channel", "data", "dimord", "freq", "sampleinfo", \
@@ -214,7 +213,7 @@ class TestSpectralData(object):
                 assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
             
             # ensure trialdefinition is saved and loaded correctly
-            dummy = SpectralData(self.data, trialdefinition=self.trl)
+            dummy = SpectralData(self.data, trialdefinition=self.trl, samplerate=1000)
             dummy.save(fname)
             dummy2 = SpectralData(fname)
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
@@ -222,7 +221,8 @@ class TestSpectralData(object):
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
 
             # swap dimensions and ensure `dimord` is preserved
-            dummy = SpectralData(self.data, dimord=["time", "channel", "taper", "freq"])
+            dummy = SpectralData(self.data, dimord=["time", "channel", "taper", "freq"],
+                                 samplerate=1000)
             dummy.save(fname + "_dimswap")
             dummy2 = SpectralData(fname + "_dimswap")
             assert dummy2.dimord == dummy.dimord
