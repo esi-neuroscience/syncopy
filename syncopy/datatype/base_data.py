@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 10:55:06>
+# Last modification time: <2019-04-05 13:47:49>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -289,8 +289,9 @@ class BaseData(ABC):
         ppattrs = [attr for attr in ppattrs
                    if not (inspect.ismethod(getattr(self, attr))
                            or isinstance(getattr(self, attr), Iterator))]
-        if getattr(self, "hdr") is None:
-            ppattrs.pop(ppattrs.index("hdr"))
+        if hasattr(self, "hdr"):
+            if getattr(self, "hdr") is None:
+                ppattrs.pop(ppattrs.index("hdr"))
         ppattrs.sort()
 
         # Construct string for pretty-printing class attributes
