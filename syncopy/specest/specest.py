@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-03-15 15:11:06>
+# Last modification time: <2019-04-05 16:45:33>
 
 # Builtin/3rd party package imports
 import sys
@@ -31,6 +31,13 @@ if __dask__:
 
 
 __all__ = ["freqanalysis", "mtmfft", "wavelet", "MultiTaperFFT", "WaveletTransform"]
+
+spectralDTypes = {"pow": np.float32,
+                  "fourier": np.complex128,
+                  "abs": np.float32}
+spectralConversions = {"pow": lambda x: np.float32(x * np.conj(x)),
+                       "fourier": lambda x: np.complex128(x),
+                       "abs": lambda x: np.float32(np.absolute(x))}
 
 
 def freqanalysis(data, method='mtmfft', output='fourier',
@@ -85,19 +92,17 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 def mtmfft(dat, dt,
            taper=hann, taperopt={}, tapsmofrq=None,
            pad="nextpow2", padtype="zero",
-           polyorder=None, fftAxis=1,
+           polyorder=None, output="pow",
            noCompute=False):
 
-    # move fft/samples dimension into first place
-    dat = np.moveaxis(np.atleast_2d(dat), fftAxis, 1)
-    nSamples = dat.shape[1]
-    nChannels = dat.shape[0]
+    nSamples = dat.shape[0]
+    nChannels = dat.shape[1]
 
     # padding
     if pad:
         padWidth = np.zeros((dat.ndim, 2), dtype=int)
         if pad == "nextpow2":
-            padWidth[1, 0] = _nextpow2(nSamples) - nSamples
+            padWidth[0, 0] = _nextpow2(nSamples) - nSamples
         else:
             raise NotImplementedError('padding not implemented')
 
@@ -106,24 +111,26 @@ def mtmfft(dat, dt,
                          mode="constant", constant_values=0)
 
         # update number of samples
-        nSamples = dat.shape[1]
+        nSamples = dat.shape[0]
 
     if taper == dpss and (not taperopt):
         nTaper = np.int(np.floor(tapsmofrq * nSamples * dt))
         taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
     win = np.atleast_2d(taper(nSamples, **taperopt))
+    nTaper = win.shape[0]
 
     nFreq = int(np.floor(nSamples / 2) + 1)
-    outputShape = (win.shape[0], nChannels, nFreq)
-    if noCompute:
-        return outputShape
+    # taper x freq x channel
+    outputShape = (nTaper, nFreq, nChannels)
 
-    # taper x chan x freq
-    spec = np.zeros((win.shape[0], nChannels, nFreq), dtype=complex)
+    if noCompute:
+        return outputShape, spectralDTypes[output]
+
+    spec = np.zeros(outputShape, dtype=spectralDTypes[output])
     for taperIdx, taper in enumerate(win):
         if dat.ndim > 1:
-            taper = np.tile(taper, (nChannels, 1))
-        spec[taperIdx, ...] = np.fft.rfft(dat * taper, axis=1)
+            taper = np.tile(taper, (nChannels, 1)).T
+        spec[taperIdx, ...] = spectralConversions[output](np.fft.rfft(dat * taper, axis=0))
 
     return spec
 
@@ -131,7 +138,7 @@ def mtmfft(dat, dt,
 class ComputationalRoutine(ABC):
 
     computeFunction = None
-    dtype = None
+    computeMethod = None
 
     def __init__(self, *argv, **kwargs):
         self.defaultCfg = spy.get_defaults(self.computeFunction)
@@ -139,24 +146,25 @@ class ComputationalRoutine(ABC):
         self.cfg.update(**kwargs)
         self.argv = argv
         self.outputShape = None
+        self.dtype = None
+
+    # def __call__(self, data, out=None)
 
     def initialize(self, data):
         # FIXME: this only works for data with equal output trial lengths
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
-        self.outputShape = self.computeFunction(data.trials[0],
-                                                *self.argv,
-                                                **dryRunKwargs)
+        self.outputShape, self.dtype = self.computeFunction(data.trials[0],
+                                                            *self.argv,
+                                                            **dryRunKwargs)
 
     @profile
-    def compute(self, data, out, useDask=False):
+    def compute(self, data, out, computeMethod="sequential"):
 
         self.preallocate_output(data, out)
         result = None
-        if useDask:
-            self.compute_dask(data, out)
-        else:
-            self.compute_sequential(data, out)
+
+        self.computeMethods[computeMethod](self, data, out)
 
         self.handle_metadata(data, out)
         self.write_log(data, out)
@@ -182,17 +190,12 @@ class ComputationalRoutine(ABC):
         pass
 
     @abstractmethod
-    def compute_dask(self):
-        pass
-
-    @abstractmethod
-    def compute_sequential(self):
+    def compute_sequentially(self):
         pass
 
 
 class MultiTaperFFT(ComputationalRoutine):
     computeFunction = staticmethod(mtmfft)
-    dtype = np.complex128
 
     def __init__(self, *argv, **kwargs):
         super().__init__(*argv, **kwargs)
@@ -218,12 +221,11 @@ class MultiTaperFFT(ComputationalRoutine):
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel)
         out.taper = np.array([self.cfg["taper"].__name__] * self.outputShape[0])
-        out.freq = np.linspace(0, 1, self.outputShape[2]) * (data.samplerate / 2)
+        nFreqs = self.outputShape[out.dimord.index("freq") - 1]
+        out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
         out.cfg = self.cfg
 
-    @profile
-    def compute_dask(self, data, out):
-        print('Dask!')
+    def compute_with_dask(self, data, out):
         # Point to trials on disk by using delayed **static** method calls
         lazy_trial = dask.delayed(data._copy_trial, traverse=False)
         lazy_trls = [lazy_trial(trialno,
@@ -254,7 +256,7 @@ class MultiTaperFFT(ComputationalRoutine):
                                           chunks=(1,))
         return daskResult.compute()
 
-    def compute_sequential(self, data, out):
+    def compute_sequentially(self, data, out):
         for tk, trl in enumerate(tqdm(data.trials, desc="Computing MTMFFT...")):
             res = open_memmap(out._filename, mode="r+")[tk, :, :, :]
             res[...] = self.computeFunction(trl, 1 / data.samplerate,
@@ -273,6 +275,10 @@ class MultiTaperFFT(ComputationalRoutine):
         return idx
 
 
+MultiTaperFFT.computeMethods = {"dask": MultiTaperFFT.compute_with_dask,
+                                "sequential": MultiTaperFFT.compute_sequentially}
+
+
 def _nextpow2(number):
     n = 1
     while n < number:
@@ -280,41 +286,39 @@ def _nextpow2(number):
     return n
 
 
-# def mtmfft(dat, dt,
-#            taper=hann, taperopt={}, tapsmofrq=None,
-#            pad="nextpow2", padtype="zero",
-#            polyorder=None, fftAxis=1,
-#            noCompute=False):
-
-
 def wavelet(dat, dt,
-            freqoi=None, polyorder=None, wav=Morlet(w0=6), axis=1,
-            stepsize=100, noCompute=False):
+            freqoi=None, polyorder=None, wav=Morlet(w0=6),
+            stepsize=100, output="pow", noCompute=False):
+    """ dat = samples x channel
+    """
 
     dat = np.atleast_2d(dat)
     scales = wav.scale_from_period(np.reciprocal(freqoi))
 
+    # time x taper=1 x freq x channel
+    outputShape = (int(np.floor(dat.shape[0] / stepsize)),
+                   1,
+                   len(scales),
+                   dat.shape[1])
     if noCompute:
-        # time x taper x chan x freq
-        return (np.floor(dat.shape[1] / stepsize), 1, dat.shape[0], len(scales))
+        return outputShape, spectralDTypes[output]
 
-    # cwt returns (len(data), len(widths)).
-    transformed = cwt(dat, axis=axis, wavelet=wav, widths=scales, dt=dt)
-    transformed = transformed[:, :, np.newaxis, ...].transpose()
+    # cwt returns (len(scales),) + dat.shape
+    transformed = cwt(dat, axis=0, wavelet=wav, widths=scales, dt=dt)
+    transformed = transformed[:, 0:-1:int(stepsize), :, np.newaxis].transpose([1, 3, 0, 2])
 
-    # time x taper x chan x freq
-    return np.complex64(transformed[0:-1:int(stepsize), ...])
+    return spectralConversions[output](transformed)
 
 
 class WaveletTransform(ComputationalRoutine):
     computeFunction = staticmethod(wavelet)
-    dtype = np.complex64
 
     def __init__(self, *argv, **kwargs):
         super().__init__(*argv, **kwargs)
 
     def initialize(self, data):
-        minTrialLength = np.array(data._shapes)[:, 1].min()
+        timeAxis = data.dimord.index("time")
+        minTrialLength = np.array(data._shapes)[:, timeAxis].min()
         if self.cfg["freqoi"] is None:
             self.cfg["freqoi"] = 1 / _get_optimal_wavelet_scales(minTrialLength,
                                                                  1 / data.samplerate,
@@ -322,20 +326,20 @@ class WaveletTransform(ComputationalRoutine):
 
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
-        self.outputShape = self.computeFunction(data.trials[0], *self.argv, **dryRunKwargs)
+        self.outputShape, self.dtype = self.computeFunction(data.trials[0],
+                                                            *self.argv, **dryRunKwargs)
 
     def preallocate_output(self, data, out):
-        totalTriallength = np.int(np.sum(np.floor(np.array(data._shapes)[:, 1] /
+        totalTriallength = np.int(np.sum(np.floor(np.array(data._shapes)[:, 0] /
                                                   self.cfg["stepsize"])))
 
         result = open_memmap(out._filename,
                              shape=(totalTriallength,) + self.outputShape[1:],
                              dtype=self.dtype,
                              mode="w+")
-        # pdb.set_trace()
         del result
 
-    def compute_sequential(self, data, out):
+    def compute_sequentially(self, data, out):
         outIndex = 0
         for idx, trial in enumerate(tqdm(data.trials,
                                          desc="Computing Wavelet spectrum...")):
@@ -346,7 +350,7 @@ class WaveletTransform(ComputationalRoutine):
             del res
             data.clear()
 
-    def compute_dask(self, data, out):
+    def compute_with_dask(self, data, out):
         raise NotImplementedError('Dask computation of wavelet transform is not yet implemented')
 
     def handle_metadata(self, data, out):
@@ -361,6 +365,10 @@ class WaveletTransform(ComputationalRoutine):
         out.channel = np.array(data.channel)
         out.freq = self.cfg["freqoi"]
         return out
+
+
+WaveletTransform.computeMethods = {"dask": WaveletTransform.compute_with_dask,
+                                   "sequential": WaveletTransform.compute_sequentially}
 
 
 def _get_optimal_wavelet_scales(nSamples, dt, dj=0.25, s0=1):
