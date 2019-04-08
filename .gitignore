@@ -49,3 +49,4 @@ dask-worker-space
 # spy containers
 *.spy
 
+.vscode
