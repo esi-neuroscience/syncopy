@@ -3,8 +3,8 @@
 # SynCoPy ContinuousData abstract class + regular children
 # 
 # Created: 2019-03-20 11:11:44
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 11:56:06>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-04-05 16:33:33>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -253,10 +253,10 @@ class SpectralData(ContinuousData):
                  taper=None,
                  freq=None,
                  mode="w",
-                 dimord=["time", "taper", "channel", "freq"]):
+                 dimord=["time", "taper", "freq", "channel"]):
 
         # The one thing we check right here and now
-        expected = ["time", "taper", "channel", "freq"]
+        expected = ["time", "taper", "freq", "channel"]
         if not set(dimord).issubset(expected):
             base = "dimensional labels {}"
             lgl = base.format("'" + "' x '".join(str(dim) for dim in expected) + "'")

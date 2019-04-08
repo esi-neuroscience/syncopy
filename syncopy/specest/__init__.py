@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 15:46:03
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-04 15:07:15>
+# Last modification time: <2019-03-14 16:52:53>
 """
 SynCoPy Spectral Estimation Methods (:mod:`syncopy.specest`)
 ============================================================
