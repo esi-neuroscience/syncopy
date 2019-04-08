@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 10:55:06>
+# Last modification time: <2019-04-08 09:31:03>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -310,7 +310,16 @@ class BaseData(ABC):
         maxKeyLength = max([len(k) for k in ppattrs])
         for attr in ppattrs:
             value = getattr(self, attr)
-            if hasattr(value, 'shape'):
+            if hasattr(value, 'shape') and attr == "data" and self.sampleinfo is not None:
+                tlen = np.unique([sinfo[1] - sinfo[0] for sinfo in self.sampleinfo])
+                if tlen.size == 1:
+                    trlstr = "of length {} ".format(str(tlen[0]))
+                else:
+                    trlstr = ""
+                valueString = "{} trials {}defined on ".format(str(len(self.trials)), trlstr)
+                valueString += "[" + " x ".join([str(numel) for numel in value.shape]) \
+                              + "] array"
+            elif hasattr(value, 'shape'):
                 valueString = "[" + " x ".join([str(numel) for numel in value.shape]) \
                               + "] element " + str(type(value))
             elif isinstance(value, list):
