@@ -137,8 +137,8 @@ def mtmfft(dat, dt,
 
 class ComputationalRoutine(ABC):
 
-    computeFunction = None
-    computeMethod = None
+    computeFunction = lambda x: None
+    computeMethod = lambda x: None
 
     def __init__(self, *argv, **kwargs):
         self.defaultCfg = spy.get_defaults(self.computeFunction)
@@ -159,12 +159,16 @@ class ComputationalRoutine(ABC):
                                                             **dryRunKwargs)
 
     @profile
-    def compute(self, data, out, computeMethod="sequential"):
+    def compute(self, data, out, methodName="sequentially"):
 
         self.preallocate_output(data, out)
         result = None
 
-        self.computeMethods[computeMethod](self, data, out)
+        computeMethod = getattr(self, "compute_" + methodName, None)
+        if computeMethod is None:
+            raise AttributeError
+
+        computeMethod(data, out)
 
         self.handle_metadata(data, out)
         self.write_log(data, out)
@@ -182,15 +186,15 @@ class ComputationalRoutine(ABC):
         out.log = logHead + logOpts
 
     @abstractmethod
-    def preallocate_output(self):
+    def preallocate_output(self, *args):
         pass
 
     @abstractmethod
-    def handle_metadata(self):
+    def handle_metadata(self, *args):
         pass
 
     @abstractmethod
-    def compute_sequentially(self):
+    def compute_sequentially(self, *args):
         pass
 
 
@@ -274,9 +278,6 @@ class MultiTaperFFT(ComputationalRoutine):
         del res
         return idx
 
-
-MultiTaperFFT.computeMethods = {"dask": MultiTaperFFT.compute_with_dask,
-                                "sequential": MultiTaperFFT.compute_sequentially}
 
 
 def _nextpow2(number):

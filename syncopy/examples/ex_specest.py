@@ -70,13 +70,13 @@ if __name__ == "__main__":
     out = spy.SpectralData()
     mtmfft = spy.MultiTaperFFT(1 / data.samplerate, output="abs")
     mtmfft.initialize(data)
-    result = mtmfft.compute(data, out, computeMethod=method)
+    result = mtmfft.compute(data, out, methodName="sequentially")
 
     print("Calculate wavelet spectra")
     outWavelet = spy.SpectralData()
     wavelet = spy.WaveletTransform(1 / data.samplerate, stepsize=10, output="abs")
     wavelet.initialize(data)
-    wavelet.compute(data, outWavelet, computeMethod="sequential")
+    wavelet.compute(data, outWavelet, methodName="sequentially")
 
     #
     fig, ax = plt.subplots(3, 1)
