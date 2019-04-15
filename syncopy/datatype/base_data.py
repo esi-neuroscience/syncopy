@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-15 13:55:06>
+# Last modification time: <2019-04-15 15:21:59>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -15,6 +15,7 @@ import sys
 import os
 import numbers
 import inspect
+import h5py
 import scipy as sp
 from abc import ABC, abstractmethod
 from collections import OrderedDict
@@ -57,53 +58,77 @@ class BaseData(ABC):
     @data.setter
     def data(self, in_data):
 
-        # If input is a string, try to load memmap
+        # If input is a string, try to load memmap/HDF5 dataset
         if isinstance(in_data, str):
             try:
                 fpath, fname = io_parser(in_data, varname="filename", isfile=True, exists=True)
             except Exception as exc:
                 raise exc
             in_data = os.path.join(fpath, fname)
+
+            is_npy = False
+            is_hdf = False
             try:
                 with open(in_data, "rb") as fd:
                     read_magic(fd)
+                is_npy = True
             except ValueError:
-                raise SPYValueError("memory-mapped npy-file", varname="data")
+                pass
+            try:
+                h5f = h5py.File(in_data)
+                is_hdf = True
+            except OSError:
+                pass
+            if not is_npy and not is_hdf:
+                raise SPYValueError("HDF5 container or memory-mapped npy-file", varname="data")
+            
             md = self.mode
             if md == "w":
                 md = "r+"
-            self._data = open_memmap(in_data, mode=md)
+            if is_hdf:
+                if len(h5f.keys()) > 1:
+                    lgl = "HDF5 container with single dataset"
+                    act = "HDF5 container holding {} datasets"
+                    raise SPYValueError(legal=lgl, actual=act.format(str(len(h5f.keys()))), varname="data")
+                self._data = h5f[list(h5f.keys())[0]]
+            if is_npy:
+                self._data = open_memmap(in_data, mode=md)
             self._filename = in_data
 
-        # If input is already a memmap, check its dimensions
-        elif isinstance(in_data, np.memmap):
+        # If input is already a memmap/HDF5 dataset, check its dimensions
+        elif isinstance(in_data, (np.memmap, h5py.Dataset)):
             if in_data.ndim != self._ndim:
                 lgl = "{}-dimensional data".format(self._ndim)
-                act = "{}-dimensional memmap".format(in_data.ndim)
+                act = "{}-dimensional HDF5 dataset or memmap".format(in_data.ndim)
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
-            self.mode = in_data.mode
+            if isinstance(in_data, h5py.Dataset):
+                md = in_data.file.mode
+                fn = in_data.file.filename
+            else:
+                md = in_data.mode
+                fn = in_data.filename
+            self.mode = md
+            self._filename = os.path.abspath(fn)
             self._data = in_data
-            self._filename = in_data.filename
-
-        # If input is an array, either fill existing memmap or directly attach it
+            
+        # If input is an array, either fill existing data property or directly attach it
         elif isinstance(in_data, np.ndarray):
             try:
                 array_parser(in_data, varname="data", dims=self._ndim)
             except Exception as exc:
                 raise exc
-            if isinstance(self._data, np.memmap):
+            if isinstance(self._data, (np.memmap, h5py.Dataset)):
                 if self.mode == "r":
-                    lgl = "memmap with write or copy-on-write access"
+                    lgl = "HDF5 dataset/memmap with write or copy-on-write access"
                     act = "read-only memmap"
                     raise SPYValueError(legal=lgl, varname="mode", actual=act)
                 if self.data.shape != in_data.shape:
-                    lgl = "memmap with shape {}".format(str(self.data.shape))
+                    lgl = "HDF5 dataset/memmap with shape {}".format(str(self.data.shape))
                     act = "data with shape {}".format(str(in_data.shape))
                     raise SPYValueError(legal=lgl, varname="data", actual=act)
                 if self.data.dtype != in_data.dtype:
                     print("SyNCoPy core - data: WARNING >> Input data-type mismatch << ")
                 self._data[...] = in_data
-                self._filename = self._data.filename
             else:
                 self._data = in_data
                 self._filename = None
@@ -229,9 +254,9 @@ class BaseData(ABC):
     
     # Convenience function, wiping attached memmap
     def clear(self):
+        self.data.flush()
         if isinstance(self.data, np.memmap):
             filename, mode = self.data.filename, self.data.mode
-            self.data.flush()
             self._data = None
             self._data = open_memmap(filename, mode=mode)
         return
@@ -239,7 +264,7 @@ class BaseData(ABC):
     # Return a (deep) copy of the current class instance
     def copy(self, deep=False):
         cpy = copy(self)
-        if deep and isinstance(self.data, np.memmap):
+        if deep and isinstance(self.data, (np.memmap, h5py.Dataset)):
             self.data.flush()
             filename = self._gen_filename()
             shutil.copyfile(self._filename, filename)
