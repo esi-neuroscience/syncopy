@@ -10,7 +10,7 @@ clusterTests:
     - pip install --upgrade tox
     - srun -p 8GBS -c 4 tox --parallel 4
 
-clusterTests:
+windowsTests:
     stage: test
     tags: 
     - windows10
