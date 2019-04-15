@@ -3,8 +3,8 @@
 # SynCoPy ContinuousData abstract class + regular children
 # 
 # Created: 2019-03-20 11:11:44
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-04-05 16:33:33>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-04-15 13:25:06>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -64,7 +64,7 @@ class ContinuousData(BaseData, ABC):
     @property
     def time(self):
         return [np.arange(-self.t0[tk], end - start - self.t0[tk]) * 1/self.samplerate \
-                for tk, (start, end) in enumerate(self.sampleinfo)] if self.t0 is not None else None
+                for tk, (start, end) in enumerate(self.sampleinfo)] if self.samplerate is not None else None
 
     # Selector method
     def selectdata(self, trials=None, deepcopy=False, **kwargs):
@@ -178,7 +178,7 @@ class AnalogData(ContinuousData):
                          channel=channel,
                          mode=mode,
                          dimord=dimord)
-        
+
     # Overload ``clear`` method to account for `VirtualData` memmaps
     def clear(self):
         if isinstance(self.data, np.memmap):
