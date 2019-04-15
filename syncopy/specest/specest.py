@@ -1,46 +1,63 @@
 # -*- coding: utf-8 -*-
 #
 # SynCoPy spectral estimation methods
-# 
+#
 # Created: 2019-01-22 09:07:47
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 10:23:34>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-04-05 16:45:33>
 
 # Builtin/3rd party package imports
 import sys
 import numpy as np
-import scipy.signal as signal
-import scipy.signal.windows as windows
+from scipy.signal.windows import hann, dpss
 from numpy.lib.format import open_memmap
 from tqdm import tqdm
+from abc import ABC, abstractmethod
+import pdb
+from memory_profiler import profile
+
+# Local imports
+import syncopy as spy
+from syncopy import data_parser
+from syncopy import SpectralData
+from syncopy.specest.wavelets import cwt, Morlet
+from copy import copy
+
 from syncopy import __dask__
 if __dask__:
     import dask
     import dask.array as da
     from dask.distributed import get_client
 
-# Local imports
-from syncopy.utils import data_parser
-from syncopy.datatype import SpectralData
 
-__all__ = ["mtmfft"]
+__all__ = ["freqanalysis", "mtmfft", "wavelet", "MultiTaperFFT", "WaveletTransform"]
 
-##########################################################################################
-def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
-           polyorder=None, taperopt={}, fftAxis=1, tapsmofrq=None, out=None):
+spectralDTypes = {"pow": np.float32,
+                  "fourier": np.complex128,
+                  "abs": np.float32}
+spectralConversions = {"pow": lambda x: np.float32(x * np.conj(x)),
+                       "fourier": lambda x: np.complex128(x),
+                       "abs": lambda x: np.float32(np.absolute(x))}
 
+
+def freqanalysis(data, method='mtmfft', output='fourier',
+                 keeptrials=True, keeptapers=True,
+                 pad='nextpow2', polyremoval=0, padtype='zero',
+                 taper=hann, tapsmofrq=None,
+                 foi=None, toi=None,
+                 width=6, outputfile=None, out=None):
     # FIXME: parse remaining input arguments
-    if polyorder:
+    if polyremoval:
         raise NotImplementedError("Detrending has not been implemented yet.")
 
     # Make sure input object can be processed
     try:
-        data_parser(obj, varname="obj", dataclass="AnalogData",
+        data_parser(data, varname="data", dataclass="AnalogData",
                     writable=None, empty=False)
     except Exception as exc:
         raise exc
-    
-    # If provided, make sure output object is appropriate 
+
+    # If provided, make sure output object is appropriate
     if out is not None:
         try:
             data_parser(out, varname="out", writable=True,
@@ -52,185 +69,333 @@ def mtmfft(obj, taper=windows.hann, pad="nextpow2", padtype="zero",
         out = SpectralData()
         new_out = True
 
-    # Set parameters applying to all trials: FIXME: make sure trials
-    # are consistent, i.e., padding results in same no. of freqs across all trials
-    fftAxis = obj.dimord.index("time")
-    if pad == "nextpow2":
-        nSamples = _nextpow2(obj._shapes[0][fftAxis])
-    else:
-        raise NotImplementedError("Coming soon...")
-    if taper == windows.dpss and (not taperopt):
-        nTaper = np.int(np.floor(tapsmofrq * nSamples/obj.samplerate))
-        taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
+    methods = {
+        "mtmfft": (MultiTaperFFT(taper=hann, tapsmofrq=tapsmofrq,
+                                 pad=pad, padtype=padtype,
+                                 polyorder=polyremoval),
+                   1 / data.samplerate)
+    }
 
-    # Compute taper in shape nTaper x nSamples and determine size of freq. axis
-    win = np.atleast_2d(taper(nSamples, **taperopt))
-    nFreq = int(np.floor(nSamples / 2) + 1)
-    freq = np.arange(0, np.floor(nSamples / 2) + 1) * obj.samplerate/nSamples
-    
-    # Allocate memory map for results
-    res = open_memmap(out._filename,
-                      shape=(len(obj.trials), win.shape[0], obj._shapes[0][0], nFreq),
-                      dtype="complex",
-                      mode="w+")
-    del res
+    specestMethod = methods[method][0]
+    argv = methods[method][1]
+    specestMethod.initialize(data, argv)
+    specestMethod.compute(data, out)
 
-    # See if a dask client is running
-    try:
-        use_dask = bool(get_client())
-    except:
-        use_dask = False
-    
-    # Perform parallel computation
-    if use_dask:
+    # if output == "power":
+    #     powerOut = out.copy(deep=T)
+    #     for trial in out.trials:
+    #         trial = np.absolute(trial)
 
-        # Point to trials on disk by using delayed **static** method calls
-        lazy_trial = dask.delayed(obj._copy_trial, traverse=False)
-        lazy_trls = [lazy_trial(trialno,
-                                obj._filename,
-                                obj.dimord,
-                                obj.sampleinfo,
-                                obj.hdr)\
-                     for trialno in range(obj.sampleinfo.shape[0])]
+    return out if newOut else None
 
-        # Construct a distributed dask array block by stacking delayed trials
-        trl_block = da.hstack([da.from_delayed(trl,
-                                               shape=obj._shapes[sk],
-                                               dtype=obj.data.dtype) for sk, trl in enumerate(lazy_trls)])
 
-        # Use `map_blocks` to compute spectra for each trial in the constructred dask array
-        specs = trl_block.map_blocks(_mtmfft_bytrl, win, nFreq,  pad, padtype, fftAxis, use_dask,
-                                     dtype="complex",
-                                     chunks=(win.shape[0], obj.data.shape[0], nFreq),
-                                     new_axis=[0])
+def mtmfft(dat, dt,
+           taper=hann, taperopt={}, tapsmofrq=None,
+           pad="nextpow2", padtype="zero",
+           polyorder=None, output="pow",
+           noCompute=False):
 
-        import ipdb; ipdb.set_trace()
-        
-
-        # Write computed spectra in pre-allocated memmap
-        result = specs.map_blocks(_mtmfft_writer, out._filename,
-                                  dtype="int",
-                                  chunks=(2,np.nan,np.nan))
-        # result = specs.map_blocks(_mtmfft_writer, out._filename,
-        #                           dtype="complex",
-        #                           chunks=(1,),
-        #                           drop_axis=[0,1])
-
-        # Perform actual computation
-        result.compute()
-
-    # Serial calculation solely relying on NumPy
-    else:
-        for tk, trl in enumerate(tqdm(obj.trials, desc="Computing MTMFFT...")):
-            res = open_memmap(out._filename, mode="r+")[tk, :, :, :]
-            res[...] = _mtmfft_bytrl(trl, win, nFreq, pad, padtype, fftAxis, use_dask)
-            del res
-            obj.clear()
-
-    # First things first: attach data to output object
-    out.data = open_memmap(out._filename, mode="r+")
-
-    # We can't simply use ``definetrial`` here, prep things by hand
-    time = np.arange(len(obj.trials))
-    time = time.reshape((time.size, 1))
-    out.sampleinfo = np.hstack([time, time + 1])
-    out.trialinfo = np.array(obj.trialinfo)
-    out._t0 = np.zeros((len(obj.trials),))
-    
-    # Attach meta-data
-    out.samplerate = obj.samplerate
-    out.channel = np.array(obj.channel)
-    out.taper = np.array([taper.__name__] * win.shape[0])
-    out.freq = freq
-    cfg = {"method" : sys._getframe().f_code.co_name,
-           "taper" : taper.__name__,
-           "padding" : pad,
-           "padtype" : padtype,
-           "polyorder" : polyorder,
-           "taperopt" : taperopt,
-           "tapsmofrq" : tapsmofrq}
-    out.cfg = cfg
-    out.cfg = dict(obj.cfg)
-
-    # Write log
-    out._log = str(obj._log) + out._log
-    log = "computed multi-taper FFT with settings\n" +\
-          "\ttaper = {tpr:s}\n" +\
-          "\tpadding = {pad:s}\n" +\
-          "\tpadtype = {pat:s}\n" +\
-          "\tpolyorder = {pol:s}\n" +\
-          "\ttaperopt = {topt:s}\n" +\
-          "\ttapsmofrq = {tfr:s}\n"
-    out.log = log.format(tpr=cfg["taper"],
-                         pad=cfg["padding"],
-                         pat=cfg["padtype"],
-                         pol=str(cfg["polyorder"]),
-                         topt=str(cfg["taperopt"]),
-                         tfr=str(cfg["tapsmofrq"]))
-
-    # Happy breakdown
-    return out if new_out else None
-    
-##########################################################################################
-def _mtmfft_writer(blk, resname, block_info=None):
-    """
-    Pumps computed spectra into target memmap
-    """
-    print(block_info)
-    idx = block_info[0]["chunk-location"][-1]
-    res = open_memmap(resname, mode="r+")[idx, :, :, :]
-    res[...] = blk
-    res = None
-    del res
-    return ((idx,0),None,None)
-
-##########################################################################################
-def _mtmfft_bytrl(trl, win, nFreq,  pad, padtype, fftAxis, use_dask):
-    """
-    Performs the actual heavy-lifting
-    """
-
-    # move fft/samples dimension into first place
-    trl = np.moveaxis(np.atleast_2d(trl), fftAxis, 1)
-    nSamples = trl.shape[1]
-    nChannels = trl.shape[0]
+    nSamples = dat.shape[0]
+    nChannels = dat.shape[1]
 
     # padding
     if pad:
-        padWidth = np.zeros((trl.ndim, 2), dtype=int)
+        padWidth = np.zeros((dat.ndim, 2), dtype=int)
         if pad == "nextpow2":
-            padWidth[1, 0] = _nextpow2(nSamples) - nSamples
+            padWidth[0, 0] = _nextpow2(nSamples) - nSamples
         else:
-            padWidth[1, 0] = np.ceil((pad - T) / dt).astype(int)
+            raise NotImplementedError('padding not implemented')
+
         if padtype == "zero":
-            trl = np.pad(trl, pad_width=padWidth,
-                          mode="constant", constant_values=0)
+            dat = np.pad(dat, pad_width=padWidth,
+                         mode="constant", constant_values=0)
 
         # update number of samples
-        nSamples = trl.shape[1]
+        nSamples = dat.shape[0]
 
-    # Decide whether to further parallelize or plow through entire chunk
-    if use_dask and trl.size * trl.dtype.itemsize * 1024**(-2) > 1000:
-        spex = []
-        for tap in win:
-            if trl.ndim > 1:
-                tap = np.tile(tap, (nChannels, 1))
-            prod = da.from_array(trl * tap, chunks=(1, trl.shape[1]))
-            spex.append(da.fft.rfft(prod))
-        spec = da.stack(spex)
-    else:
-        # taper x chan x freq
-        spec = np.zeros((win.shape[0],) + (nChannels,) + (nFreq,), dtype=complex)
-        for wIdx, tap in enumerate(win):
-            if trl.ndim > 1:
-                tap = np.tile(tap, (nChannels, 1))
-            spec[wIdx, ...] = np.fft.rfft(trl * tap, axis=1)
+    if taper == dpss and (not taperopt):
+        nTaper = np.int(np.floor(tapsmofrq * nSamples * dt))
+        taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
+    win = np.atleast_2d(taper(nSamples, **taperopt))
+    nTaper = win.shape[0]
+
+    nFreq = int(np.floor(nSamples / 2) + 1)
+    # taper x freq x channel
+    outputShape = (nTaper, nFreq, nChannels)
+
+    if noCompute:
+        return outputShape, spectralDTypes[output]
+
+    spec = np.zeros(outputShape, dtype=spectralDTypes[output])
+    for taperIdx, taper in enumerate(win):
+        if dat.ndim > 1:
+            taper = np.tile(taper, (nChannels, 1)).T
+        spec[taperIdx, ...] = spectralConversions[output](np.fft.rfft(dat * taper, axis=0))
 
     return spec
 
-##########################################################################################
+
+class ComputationalRoutine(ABC):
+
+    computeFunction = lambda x: None
+    computeMethod = lambda x: None
+
+    def __init__(self, *argv, **kwargs):
+        self.defaultCfg = spy.get_defaults(self.computeFunction)
+        self.cfg = copy(self.defaultCfg)
+        self.cfg.update(**kwargs)
+        self.argv = argv
+        self.outputShape = None
+        self.dtype = None
+
+    # def __call__(self, data, out=None)
+
+    def initialize(self, data):
+        # FIXME: this only works for data with equal output trial lengths
+        dryRunKwargs = copy(self.cfg)
+        dryRunKwargs["noCompute"] = True
+        self.outputShape, self.dtype = self.computeFunction(data.trials[0],
+                                                            *self.argv,
+                                                            **dryRunKwargs)
+
+    @profile
+    def compute(self, data, out, methodName="sequentially"):
+
+        self.preallocate_output(data, out)
+        result = None
+
+        computeMethod = getattr(self, "compute_" + methodName, None)
+        if computeMethod is None:
+            raise AttributeError
+
+        computeMethod(data, out)
+
+        self.handle_metadata(data, out)
+        self.write_log(data, out)
+        return out
+
+    def write_log(self, data, out):
+        # Write log
+        out._log = str(data._log) + out._log
+        logHead = "computed {name:s} with settings\n".format(name=self.computeFunction.__name__)
+
+        logOpts = ""
+        for k, v in self.cfg.items():
+            logOpts += "\t{key:s} = {value:s}\n".format(key=k, value=str(v))
+
+        out.log = logHead + logOpts
+
+    @abstractmethod
+    def preallocate_output(self, *args):
+        pass
+
+    @abstractmethod
+    def handle_metadata(self, *args):
+        pass
+
+    @abstractmethod
+    def compute_sequentially(self, *args):
+        pass
+
+
+class MultiTaperFFT(ComputationalRoutine):
+    computeFunction = staticmethod(mtmfft)
+
+    def __init__(self, *argv, **kwargs):
+        super().__init__(*argv, **kwargs)
+
+    def preallocate_output(self, data, out):
+        res = open_memmap(out._filename,
+                          shape=(len(data.trials),) + self.outputShape,
+                          dtype=self.dtype,
+                          mode="w+")
+        del res
+
+    def handle_metadata(self, data, out):
+        out.data = open_memmap(out._filename, mode="r+")
+
+        # We can't simply use ``redefinetrial`` here, prep things by hand
+        time = np.arange(len(data.trials))
+        time = time.reshape((time.size, 1))
+        out.sampleinfo = np.hstack([time, time + 1])
+        out.trialinfo = np.array(data.trialinfo)
+        out._t0 = np.zeros((len(data.trials),))
+
+        # Attach meta-data
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel)
+        out.taper = np.array([self.cfg["taper"].__name__] * self.outputShape[0])
+        nFreqs = self.outputShape[out.dimord.index("freq") - 1]
+        out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
+        out.cfg = self.cfg
+
+    def compute_with_dask(self, data, out):
+        # Point to trials on disk by using delayed **static** method calls
+        lazy_trial = dask.delayed(data._copy_trial, traverse=False)
+        lazy_trls = [lazy_trial(trialno,
+                                data._filename,
+                                data.dimord,
+                                data.sampleinfo,
+                                data.hdr)
+                     for trialno in range(data.sampleinfo.shape[0])]
+
+        # Construct a distributed dask array block by stacking delayed trials
+        trl_block = da.hstack([da.from_delayed(trl, shape=data._shapes[sk],
+                                               dtype=data.data.dtype)
+                               for sk, trl in enumerate(lazy_trls)])
+
+        # Use `map_blocks` to compute spectra for each trial in the
+        # constructed dask array
+        specs = trl_block.map_blocks(self.computeFunction,
+                                     *self.argv, **self.cfg,
+                                     dtype="complex",
+                                     chunks=self.outputShape,
+                                     new_axis=[0])
+
+        # # Write computed spectra in pre-allocated memmap
+        # if out is not None:
+        if True:
+            daskResult = specs.map_blocks(self.write_block, out._filename,
+                                          dtype=self.dtype, drop_axis=[0, 1],
+                                          chunks=(1,))
+        return daskResult.compute()
+
+    def compute_sequentially(self, data, out):
+        for tk, trl in enumerate(tqdm(data.trials, desc="Computing MTMFFT...")):
+            res = open_memmap(out._filename, mode="r+")[tk, :, :, :]
+            res[...] = self.computeFunction(trl, 1 / data.samplerate,
+                                            **self.cfg)
+            del res
+            data.clear()
+
+    @staticmethod
+    def write_block(blk, filename, block_info=None):
+        idx = block_info[0]["chunk-location"][-1]
+
+        res = open_memmap(filename, mode="r+")[idx, :, :, :]
+        res[...] = blk
+        res = None
+        del res
+        return idx
+
+
+
 def _nextpow2(number):
     n = 1
     while n < number:
         n *= 2
     return n
+
+
+def wavelet(dat, dt,
+            freqoi=None, polyorder=None, wav=Morlet(w0=6),
+            stepsize=100, output="pow", noCompute=False):
+    """ dat = samples x channel
+    """
+
+    dat = np.atleast_2d(dat)
+    scales = wav.scale_from_period(np.reciprocal(freqoi))
+
+    # time x taper=1 x freq x channel
+    outputShape = (int(np.floor(dat.shape[0] / stepsize)),
+                   1,
+                   len(scales),
+                   dat.shape[1])
+    if noCompute:
+        return outputShape, spectralDTypes[output]
+
+    # cwt returns (len(scales),) + dat.shape
+    transformed = cwt(dat, axis=0, wavelet=wav, widths=scales, dt=dt)
+    transformed = transformed[:, 0:-1:int(stepsize), :, np.newaxis].transpose([1, 3, 0, 2])
+
+    return spectralConversions[output](transformed)
+
+
+class WaveletTransform(ComputationalRoutine):
+    computeFunction = staticmethod(wavelet)
+
+    def __init__(self, *argv, **kwargs):
+        super().__init__(*argv, **kwargs)
+
+    def initialize(self, data):
+        timeAxis = data.dimord.index("time")
+        minTrialLength = np.array(data._shapes)[:, timeAxis].min()
+        if self.cfg["freqoi"] is None:
+            self.cfg["freqoi"] = 1 / _get_optimal_wavelet_scales(minTrialLength,
+                                                                 1 / data.samplerate,
+                                                                 dj=0.25)
+
+        dryRunKwargs = copy(self.cfg)
+        dryRunKwargs["noCompute"] = True
+        self.outputShape, self.dtype = self.computeFunction(data.trials[0],
+                                                            *self.argv, **dryRunKwargs)
+
+    def preallocate_output(self, data, out):
+        totalTriallength = np.int(np.sum(np.floor(np.array(data._shapes)[:, 0] /
+                                                  self.cfg["stepsize"])))
+
+        result = open_memmap(out._filename,
+                             shape=(totalTriallength,) + self.outputShape[1:],
+                             dtype=self.dtype,
+                             mode="w+")
+        del result
+
+    def compute_sequentially(self, data, out):
+        outIndex = 0
+        for idx, trial in enumerate(tqdm(data.trials,
+                                         desc="Computing Wavelet spectrum...")):
+            tmp = self.computeFunction(trial, *self.argv, **self.cfg)
+            selector = slice(outIndex, outIndex + tmp.shape[0])
+            res = open_memmap(out._filename, mode="r+")[selector, :, :, :]
+            res[...] = tmp
+            del res
+            data.clear()
+
+    def compute_with_dask(self, data, out):
+        raise NotImplementedError('Dask computation of wavelet transform is not yet implemented')
+
+    def handle_metadata(self, data, out):
+        out.data = open_memmap(out._filename, mode="r+")
+        # We can't simply use ``redefinetrial`` here, prep things by hand
+        out.sampleinfo = np.floor(data.sampleinfo / self.cfg["stepsize"]).astype(np.int)
+        out.trialinfo = np.array(data.trialinfo)
+        out._t0 = data._t0 / self.cfg["stepsize"]
+
+        # Attach meta-data
+        out.samplerate = data.samplerate / self.cfg["stepsize"]
+        out.channel = np.array(data.channel)
+        out.freq = self.cfg["freqoi"]
+        return out
+
+
+WaveletTransform.computeMethods = {"dask": WaveletTransform.compute_with_dask,
+                                   "sequential": WaveletTransform.compute_sequentially}
+
+
+def _get_optimal_wavelet_scales(nSamples, dt, dj=0.25, s0=1):
+    """Form a set of scales to use in the wavelet transform.
+
+    For non-orthogonal wavelet analysis, one can use an
+    arbitrary set of scales.
+
+    It is convenient to write the scales as fractional powers of
+    two:
+
+        s_j = s_0 * 2 ** (j * dj), j = 0, 1, ..., J
+
+        J = (1 / dj) * log2(N * dt / s_0)
+
+    s0 - smallest resolvable scale
+    J - largest scale
+
+    choose s0 so that the equivalent Fourier period is 2 * dt.
+
+    The choice of dj depends on the width in spectral space of
+    the wavelet function. For the Morlet, dj=0.5 is the largest
+    that still adequately samples scale. Smaller dj gives finer
+    scale resolution.
+    """
+    s0 = 2 * dt
+    # Largest scale
+    J = int((1 / dj) * np.log2(nSamples * dt / s0))
+    return s0 * 2 ** (dj * np.arange(0, J + 1))

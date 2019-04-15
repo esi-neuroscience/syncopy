@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:46:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 11:59:37>
+# Last modification time: <2019-04-15 14:13:25>
 
 import os
 import tempfile
@@ -141,7 +141,7 @@ class TestSpectralData(object):
     ns = 30
     nt = 5
     nf = 15
-    data = np.arange(1, nc*ns*nt*nf + 1).reshape(ns, nt, nc, nf)
+    data = np.arange(1, nc*ns*nt*nf + 1).reshape(ns, nt, nf, nc)
     trl = np.vstack([np.arange(0, ns, 5),
                      np.arange(5, ns + 5, 5),
                      np.ones((int(ns/5), )),
@@ -151,7 +151,7 @@ class TestSpectralData(object):
     def test_empty(self):
         dummy = SpectralData()
         assert len(dummy.cfg) == 0
-        assert dummy.dimord == ["time", "taper", "channel", "freq"]
+        assert dummy.dimord == ["time", "taper", "freq", "channel"]
         for attr in ["channel", "data", "freq", "sampleinfo", "taper", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
@@ -227,5 +227,5 @@ class TestSpectralData(object):
             dummy2 = SpectralData(fname + "_dimswap")
             assert dummy2.dimord == dummy.dimord
             assert dummy2.channel.size == self.nt # swapped
-            assert dummy2.taper.size == self.nc # swapped
+            assert dummy2.taper.size == self.nf # swapped
             assert dummy2.data.shape == dummy.data.shape

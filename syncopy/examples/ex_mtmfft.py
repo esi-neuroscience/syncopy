@@ -4,7 +4,7 @@
 #
 # Created: January 24 2019
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-01 17:39:11>
+# Last modification time: <2019-03-07 12:53:09>
 
 
 from dask.distributed import Client, LocalCluster
@@ -22,7 +22,7 @@ spw_path = os.path.abspath(".." + os.sep + "..")
 if spw_path not in sys.path:
     sys.path.insert(0, spw_path)
 
-import spykewave as spy
+import syncopy as spy
 
 slurmComputation = False
 #%%
@@ -61,7 +61,6 @@ if __name__ == "__main__":
                           mode='r')
 
     cfg = spy.spy_get_defaults(spy.mtmfft)
-    cfg.pop("obj")
     print(cfg)
     cfg["taper"] = windows.hanning
     cfg["pad"] = "nextpow2"

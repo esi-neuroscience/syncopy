@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 14:14:31>
+# Last modification time: <2019-04-15 14:09:55>
 
 import os
 import tempfile
@@ -128,7 +128,7 @@ class TestBaseData(object):
                                    np.ones((int(ns/5), )) * np.pi]).T
 
     # Generate a 4D array simulating a SpectralData array
-    data["SpectralData"] = np.arange(1, nc*ns*nt*nf + 1).reshape(ns, nt, nc, nf)
+    data["SpectralData"] = np.arange(1, nc*ns*nt*nf + 1).reshape(ns, nt, nf, nc)
     trl["SpectralData"] = trl["AnalogData"]
 
     # Use a fixed random number generator seed to simulate a 2D SpikeData array

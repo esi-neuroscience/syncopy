@@ -292,8 +292,9 @@ class BaseData(ABC):
         ppattrs = [attr for attr in ppattrs
                    if not (inspect.ismethod(getattr(self, attr))
                            or isinstance(getattr(self, attr), Iterator))]
-        if getattr(self, "hdr") is None:
-            ppattrs.pop(ppattrs.index("hdr"))
+        if hasattr(self, "hdr"):
+            if getattr(self, "hdr") is None:
+                ppattrs.pop(ppattrs.index("hdr"))
         ppattrs.sort()
 
         # Construct string for pretty-printing class attributes

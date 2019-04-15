@@ -253,10 +253,10 @@ class SpectralData(ContinuousData):
                  taper=None,
                  freq=None,
                  mode="w",
-                 dimord=["time", "taper", "channel", "freq"]):
+                 dimord=["time", "taper", "freq", "channel"]):
 
         # The one thing we check right here and now
-        expected = ["time", "taper", "channel", "freq"]
+        expected = ["time", "taper", "freq", "channel"]
         if not set(dimord).issubset(expected):
             base = "dimensional labels {}"
             lgl = base.format("'" + "' x '".join(str(dim) for dim in expected) + "'")
