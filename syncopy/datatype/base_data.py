@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-08 09:31:03>
+# Last modification time: <2019-04-15 13:55:06>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -20,6 +20,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections.abc import Iterator
 from copy import copy
+from datetime import datetime
 from hashlib import blake2b
 from itertools import islice
 from numpy.lib.format import open_memmap, read_magic
@@ -29,7 +30,7 @@ import shutil
 from .data_methods import definetrial
 from syncopy.utils import (scalar_parser, array_parser, io_parser, 
                            SPYTypeError, SPYValueError)
-from syncopy import __version__, __storage__, __dask__
+from syncopy import __version__, __storage__, __dask__, __sessionid__
 if __dask__:
     import dask
 import syncopy as spy
@@ -263,7 +264,9 @@ class BaseData(ABC):
     @staticmethod
     def _gen_filename():
         fname_hsh = blake2b(digest_size=4, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
-        return os.path.join(__storage__, "spy_{}.npy".format(fname_hsh))
+        return os.path.join(__storage__,
+                            "spy_{sess:s}_{fname:s}.dat".format(sess=__sessionid__,
+                                                                fname=fname_hsh))
 
     # Helper function that digs into cfg dictionaries
     def _set_cfg(self, cfg, dct):
@@ -670,3 +673,27 @@ class Indexer():
 
     def __str__(self):
         return "{} element iterable".format(self._iterlen)
+
+    
+class SessionLogger():
+
+    __slots__ = ["sessionfile"]
+
+    def __init__(self):
+        sess_log = "{user:s}@{host:s}: <{time:s}> started session {sess:s}"
+        self.sessionfile = os.path.join(__storage__,
+                                        "session_{}.id".format(__sessionid__))
+        with open(self.sessionfile, "w") as fid:
+            fid.write(sess_log.format(user=getpass.getuser(),
+                                      host=socket.gethostname(),
+                                      time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                      sess=__sessionid__))
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return "Session {}".format(__sessionid__)
+
+    def __del__(self):
+        os.unlink(self.sessionfile)

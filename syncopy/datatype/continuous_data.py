@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-08 09:05:26>
+# Last modification time: <2019-04-15 13:25:06>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -178,7 +178,7 @@ class AnalogData(ContinuousData):
                          channel=channel,
                          mode=mode,
                          dimord=dimord)
-        
+
     # Overload ``clear`` method to account for `VirtualData` memmaps
     def clear(self):
         if isinstance(self.data, np.memmap):
