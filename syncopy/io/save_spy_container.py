@@ -4,12 +4,12 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 14:11:20>
+# Last modification time: <2019-04-16 16:13:04>
 
 # Builtin/3rd party package imports
 import os
 import json
-import shutil
+import h5py
 import sys
 import numpy as np
 from collections import OrderedDict
@@ -17,7 +17,8 @@ from numpy.lib.format import open_memmap, read_magic
 from hashlib import blake2b
 
 # Local imports
-from syncopy.utils import io_parser, data_parser, SPYIOError, SPYTypeError
+from syncopy.utils import (io_parser, data_parser, SPYIOError,
+                           SPYTypeError, SPYValueError)
 from syncopy.io import hash_file, write_access, FILE_EXT
 from syncopy import __storage__
 
@@ -54,6 +55,10 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
         data_parser(out, varname="out", writable=None, empty=False)
     except Exception as exc:
         raise exc
+    if getattr(out, "samplerate", 1) is None:
+        lgl = "SyNCoPy object with well-defined samplerate"
+        act = "None"
+        raise SPYValueError(legal=lgl, actual=act, varname="samplerate")
 
     # Assign default value to `fname` or ensure validity of provided file-name
     if fname is None:
@@ -71,70 +76,47 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
     fname_hsh = blake2b(digest_size=2, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
     filename = os.path.join(out_name, fname + "." + fname_hsh + "{ext:s}")
 
-    # Start by writing trial-related information
-    with open(filename.format(ext=FILE_EXT["trl"]), "wb") as out_trl:
-        trl = np.array(out.trialinfo)
-        t0 = np.array(out.t0).reshape((out.t0.size,1))
-        trl = np.hstack([out.sampleinfo, t0, trl])
-        np.save(out_trl, trl, allow_pickle=False)
-    
-    # In case `out` hosts a `VirtualData` object, things are more elaborate
-    if out.data.__class__.__name__ == "VirtualData":
-        
-        # Given memory cap, compute how many channel blocks can be grabbed
+    # Start by creating a HDF5 container and write actual data 
+    h5f = h5py.File(filename.format(ext=FILE_EXT["data"]), mode="w")
+
+    # The most generic case: `out` hosts a `h5py.Dataset` object
+    if isinstance(out.data, h5py.Dataset):
+        dat = h5f.create_dataset(out.__class__.__name__, data=out.data)
+
+    # In case `out` hosts a memory-map-like object, things are more elaborate
+    elif isinstance(out.data, np.memmap) or out.data.__class__.__name__ == "VirtualData":
+
+        # Given memory cap, compute how many data blocks can be grabbed
         # per swipe (divide by 2 since we're working with an add'l tmp array)
         memuse *= 1024**2/2
-        ncol = int(memuse/(out.data.M * out.data.dtype.itemsize))
-        rem = int(out.data.N % ncol)
-        n_blocks = [ncol]*int(out.data.N // ncol) + [rem] * int(rem > 0)
+        nrow = int(memuse/(np.prod(out.data.shape[1:]) * out.data.dtype.itemsize))
+        rem = int(out.data.shape[0] % nrow)
+        n_blocks = [nrow]*int(out.data.shape[0] // nrow) + [rem] * int(rem > 0)
 
-        # Here's the fun part: the awkward looking `del` and `clear` commands
-        # in the loop are crucial to prevent Python from keeping all blocks
-        # of the mem-maps in memory
-        dat = open_memmap(filename.format(ext=FILE_EXT["data"]), mode="w+",
-                          dtype=out.data.dtype, shape=(out.data.M, out.data.N))
-        del dat
-        for n, N in enumerate(n_blocks):
-            dat = open_memmap(filename.format(ext=FILE_EXT["data"]), mode="r+")
-            dat[:, n*ncol : n*ncol + N] = out.data[:, n*ncol : n*ncol + N]
-            del dat
+        # Write data block-wise to dataset (use `clear` to wipe blocks of
+        # mem-maps from memory)
+        dat = h5f.create_dataset(out.__class__.__name__,
+                                dtype=out.data.dtype, shape=out.data.shape)
+        for m, M in enumerate(n_blocks):
+            dat[m*nrow : m*nrow + M, :] = out.data[m*nrow : m*nrow + M, :]
             out.clear()
-
-    # We need to handle two kinds of memmaps in here...
-    elif isinstance(out.data, np.memmap):
-
-        # We need to differentiate b/w memmaped npy-files and "plain" binaries
-        try:
-            with open(out._filename, "rb") as fd:
-                read_magic(fd)
-            npy_map = True
-        except ValueError:
-            npy_map = False
-
-        # If we're dealing with a "raw" memmap, save it using NumPy's saving
-        # routine, otherwise simply copy the underlying npy file
-        if npy_map:
-            out.data.flush()
-            shutil.copyfile(out._filename, filename.format(ext=FILE_EXT["data"]))
-        else:
-            with open(filename.format(ext=FILE_EXT["data"]), "wb") as out_dat:
-                np.save(out_dat, out.data, allow_pickle=False)
 
     # The simplest case: `out` hosts a NumPy array in its `data` property
     else:
-        with open(filename.format(ext=FILE_EXT["data"]), "wb") as out_dat:
-            np.save(out_dat, out.data, allow_pickle=False)
-        
-    # Compute checksums of created binary files
-    trl_hsh = hash_file(filename.format(ext=FILE_EXT["trl"]))
-    dat_hsh = hash_file(filename.format(ext=FILE_EXT["data"]))
+        dat = h5f.create_dataset(out.__class__.__name__, data=out.data)
+
+    # Now write trial-related information
+    trl = np.array(out.trialinfo)
+    t0 = np.array(out.t0).reshape((out.t0.size,1))
+    trl = np.hstack([out.sampleinfo, t0, trl])
+    trl = h5f.create_dataset("trialdefinition", data=trl)
 
     # Write to log already here so that the entry can be exported to json
     out.log = "Wrote files " + filename.format(ext="[dat/info/trl]")
 
     # While we're at it, write cfg entries
     out.cfg = {"method" : sys._getframe().f_code.co_name,
-               "files" : filename.format(ext="[dat/info/trl]")}
+               "files" : filename.format(ext="[dat/info]")}
 
     # Assemble dict for JSON output: order things by their "readability"
     out_dct = OrderedDict()
@@ -142,18 +124,22 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
     out_dct["dimord"] = out.dimord
     out_dct["version"] = out.version
 
-    # Point to actual data files (readable reference for user) - use relative
-    # paths here to avoid confusion in case the parent directory is moved/copied
+    # Point to actual data file (readable reference for user) - use relative
+    # path here to avoid confusion in case the parent directory is moved/copied
     out_dct["data"] = os.path.basename(filename.format(ext=FILE_EXT["data"]))
-    out_dct["trl"] = os.path.basename(filename.format(ext=FILE_EXT["trl"]))
+    out_dct["data_dtype"] = dat.dtype.name
+    out_dct["data_shape"] = dat.shape
+    out_dct["data_offset"] = dat.id.get_offset()
+    out_dct["trl_dtype"] = trl.dtype.name
+    out_dct["trl_shape"] = trl.shape
+    out_dct["trl_offset"] = trl.id.get_offset()
 
     # Continue w/ scalar-valued props
     if hasattr(out, "samplerate"):
         out_dct["samplerate"] = out.samplerate
 
-    # Computed file-hashes
-    out_dct["trl_checksum"] = trl_hsh
-    out_dct["data_checksum"] = dat_hsh
+    # Computed file-hashes (placeholder)
+    out_dct["data_checkusm"] = None
 
     # Object history
     out_dct["log"] = out._log
@@ -187,12 +173,27 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
         _dict_converter(notes)
         out_dct["notes"] = notes
 
+    # Save relevant stuff as HDF5 attributes
+    noh5 = ["data", "data_dtype", "data_shape", "data_offset", "data_checkusm",
+            "trl_dtype", "trl_shape", "trl_offset", "hdr", "cfg", "notes", "log"]
+    for key in set(out_dct.keys()).difference(noh5):
+        if out_dct[key] is None:
+            h5f.attrs[key] = "None"
+        else:
+            try:
+                h5f.attrs[key] = out_dct[key]
+            except:
+                import ipdb; ipdb.set_trace()
+
+    # Close container and compute its checksum
+    h5f.close()
+    out_dct["data_checkusm"] = hash_file(filename.format(ext=FILE_EXT["data"]))
 
     # Finally, write JSON
     with open(filename.format(ext=FILE_EXT["json"]), "w") as out_json:
         json.dump(out_dct, out_json, indent=4)
 
-    # Last but definitely not least: if source data came from memmap,
+    # Last but definitely not least: if source data came from HDF dataset,
     # re-assign filename after saving (and remove source in case it came
     # from `__storage__`)
     if out._filename is not None:

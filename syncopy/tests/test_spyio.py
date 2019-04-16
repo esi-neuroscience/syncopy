@@ -4,10 +4,11 @@
 # 
 # Created: 2019-03-19 14:21:12
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 14:21:18>
+# Last modification time: <2019-04-16 16:07:46>
 
 import os
 import tempfile
+import h5py
 import pytest
 import shutil
 import numpy as np
@@ -64,7 +65,8 @@ class TestSpyIO(object):
             for dclass in self.classes:
                 dname = os.path.join(tdir, "dummy")
                 dummy = getattr(swd, dclass)(self.data[dclass],
-                                             trialdefinition=self.trl[dclass])
+                                             trialdefinition=self.trl[dclass],
+                                             samplerate=1000)
                 ldum = len(dummy._log)
                 save_spy(dname, dummy)
 
@@ -86,14 +88,16 @@ class TestSpyIO(object):
                 dummy = load_spy(dname, checksum=True)
 
                 # manipulate data file
-                dat = np.array(dummy.data)
-                dat += 1
-                with open(dummy._filename, "wb") as fn:
-                    np.save(fn, dat, allow_pickle=False)
+                hname = dummy._filename
+                del dummy
+                h5f = h5py.File(hname, "r+")
+                dset = h5f[dclass]
+                dset[()] += 1
+                h5f.close()
                 with pytest.raises(SPYValueError):
                     load_spy(dname, checksum=True)
                 shutil.rmtree(dname + ".spy")
-                
+
     # Test correct handling of user-provided file-names
     def test_fname(self):
         with tempfile.TemporaryDirectory() as tdir:
@@ -106,7 +110,7 @@ class TestSpyIO(object):
                 save_spy(dname, dummy, fname=newname)
 
                 # ensure provided file-name was actually used
-                assert len(glob(os.path.join(dname + ".spy", newname + "*"))) == 3
+                assert len(glob(os.path.join(dname + ".spy", newname + "*"))) == 2
                 
                 # load container using various versions of specific file-name
                 fext = FILE_EXT.copy()
@@ -119,7 +123,7 @@ class TestSpyIO(object):
                             assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
                 shutil.rmtree(dname + dext)
                 
-    # Test if directory-name "extenstions" work as intended
+    # Test if directory-name "extensions" work as intended
     def test_appendext(self):
         with tempfile.TemporaryDirectory() as tdir:
             for dclass in self.classes:
@@ -148,7 +152,7 @@ class TestSpyIO(object):
             np.save(fname, vdata)
             del vdata
             dmap = open_memmap(fname)
-            adata = AnalogData(VirtualData([dmap, dmap, dmap]))
+            adata = AnalogData(VirtualData([dmap, dmap, dmap]), samplerate=10)
 
             # Ensure memory consumption stays within provided bounds
             mem = memory_usage()[0]

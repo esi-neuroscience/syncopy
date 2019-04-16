@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:46:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-15 14:13:25>
+# Last modification time: <2019-04-16 16:00:28>
 
 import os
 import tempfile
@@ -97,6 +97,7 @@ class TestAnalogData(object):
             dummy2 = AnalogData(fname)
             for attr in ["channel", "data", "dimord", "sampleinfo", "samplerate", "trialinfo"]:
                 assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
+            del dummy2
             
             # save object hosting VirtualData; preference must be given to
             # spy container over identically named npy file
@@ -105,18 +106,21 @@ class TestAnalogData(object):
             vdata = VirtualData([dmap, dmap])
             dummy = AnalogData(vdata, samplerate=1000)
             dummy.save(fname)
+            del dummy
             dummy2 = AnalogData(fname)
             assert dummy2.mode == "w"
-            assert np.array_equal(dummy.data, vdata[:,:])
+            assert np.array_equal(dummy2.data, vdata[:,:])
             
             # newer files must be loaded from existing "dummy.spy" folder
             # (enforce one second pause to prevent race-condition)
             time.sleep(1)
-            dummy.samplerate = 20
-            dummy.save(fname)
-            dummy2 = AnalogData(filename=fname)
-            assert dummy2.samplerate == 20
-
+            dummy2.samplerate = 20
+            dummy2.save(fname)
+            del dummy2
+            dummy = AnalogData(filename=fname)
+            assert dummy.samplerate == 20
+            del dummy
+            
             # ensure trialdefinition is saved and loaded correctly
             dummy = AnalogData(self.data, trialdefinition=self.trl, samplerate=1000)
             dummy.save(fname + "_trl")
@@ -124,7 +128,8 @@ class TestAnalogData(object):
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
             assert np.array_equal(dummy.t0, dummy2.t0)
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
-
+            del dummy, dummy2
+            
             # swap dimensions and ensure `dimord` is preserved
             dummy = AnalogData(self.data, dimord=["channel", "time"], samplerate=1000)
             dummy.save(fname + "_dimswap")

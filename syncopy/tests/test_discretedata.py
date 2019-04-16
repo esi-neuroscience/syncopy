@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-21 15:44:03
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 11:00:35>
+# Last modification time: <2019-04-16 16:03:49>
 
 import os
 import tempfile
@@ -84,7 +84,7 @@ class TestSpikeData(object):
             fname = os.path.join(tdir, "dummy")
             
             # basic but most important: ensure object integrity is preserved
-            dummy = SpikeData(self.data)
+            dummy = SpikeData(self.data, samplerate=10)
             dummy.save(fname)
             dummy2 = SpikeData(fname)
             for attr in ["channel", "data", "dimord", "sampleinfo", \
@@ -100,7 +100,7 @@ class TestSpikeData(object):
             assert dummy2.samplerate == 20
 
             # ensure trialdefinition is saved and loaded correctly
-            dummy = SpikeData(self.data, trialdefinition=self.trl)
+            dummy = SpikeData(self.data, trialdefinition=self.trl, samplerate=10)
             dummy.save(fname)
             dummy2 = SpikeData(fname)
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
@@ -108,7 +108,7 @@ class TestSpikeData(object):
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
 
             # swap dimensions and ensure `dimord` is preserved
-            dummy = SpikeData(self.data, dimord=["unit", "channel", "sample"])
+            dummy = SpikeData(self.data, dimord=["unit", "channel", "sample"], samplerate=10)
             dummy.save(fname + "_dimswap")
             dummy2 = SpikeData(fname + "_dimswap")
             assert dummy2.dimord == dummy.dimord
@@ -183,7 +183,7 @@ class TestEventData(object):
             fname = os.path.join(tdir, "dummy")
             
             # basic but most important: ensure object integrity is preserved
-            dummy = EventData(self.data)
+            dummy = EventData(self.data, samplerate=10)
             dummy.save(fname)
             dummy2 = EventData(fname)
             for attr in ["data", "dimord", "sampleinfo", "samplerate", "trialinfo"]:
@@ -198,7 +198,7 @@ class TestEventData(object):
             assert dummy2.samplerate == 20
 
             # ensure trialdefinition is saved and loaded correctly
-            dummy = EventData(self.data, trialdefinition=self.trl)
+            dummy = EventData(self.data, trialdefinition=self.trl, samplerate=10)
             dummy.save(fname)
             dummy2 = EventData(fname)
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
@@ -206,7 +206,7 @@ class TestEventData(object):
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
 
             # swap dimensions and ensure `dimord` is preserved
-            dummy = EventData(self.data, dimord=["eventid", "sample"])
+            dummy = EventData(self.data, dimord=["eventid", "sample"], samplerate=10)
             dummy.save(fname + "_dimswap")
             dummy2 = EventData(fname + "_dimswap")
             assert dummy2.dimord == dummy.dimord
