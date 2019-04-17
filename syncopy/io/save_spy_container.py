@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-16 16:13:04>
+# Last modification time: <2019-04-17 11:42:29>
 
 # Builtin/3rd party package imports
 import os
@@ -175,15 +175,21 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
 
     # Save relevant stuff as HDF5 attributes
     noh5 = ["data", "data_dtype", "data_shape", "data_offset", "data_checkusm",
-            "trl_dtype", "trl_shape", "trl_offset", "hdr", "cfg", "notes", "log"]
+            "trl_dtype", "trl_shape", "trl_offset", "hdr", "cfg", "notes"]
     for key in set(out_dct.keys()).difference(noh5):
         if out_dct[key] is None:
             h5f.attrs[key] = "None"
         else:
             try:
                 h5f.attrs[key] = out_dct[key]
-            except:
-                import ipdb; ipdb.set_trace()
+            except RuntimeError:
+                msg = "SyNCoPy save_spy: WARNING >>> Too many entries in `{}` " +\
+                      "- truncating HDF5 attribute. Please refer to {} for " +\
+                      "complete listing. <<<"
+                info_fle = os.path.split(os.path.split(filename.format(ext=FILE_EXT["json"]))[0])[1]
+                info_fle = os.path.join(info_fle, os.path.basename(filename.format(ext=FILE_EXT["json"])))
+                print(msg.format(key, info_fle))
+                h5f.attrs[key] = [out_dct[key][0], "...", out_dct[key][-1]]
 
     # Close container and compute its checksum
     h5f.close()
