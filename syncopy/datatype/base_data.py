@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-15 13:55:06>
+# Last modification time: <2019-04-16 15:56:57>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -15,6 +15,7 @@ import sys
 import os
 import numbers
 import inspect
+import h5py
 import scipy as sp
 from abc import ABC, abstractmethod
 from collections import OrderedDict
@@ -52,58 +53,100 @@ class BaseData(ABC):
 
     @property
     def data(self):
+        if getattr(self._data, "id", None) is not None:
+            if self._data.id.valid == 0:
+                lgl = "open HDF5 container"
+                act = "backing HDF5 container {} has been closed"
+                raise SPYValueError(legal=lgl, actual=act.format(self._filename),
+                                    varname="data")
         return self._data
     
     @data.setter
     def data(self, in_data):
 
-        # If input is a string, try to load memmap
+        # If input is a string, try to load memmap/HDF5 dataset
         if isinstance(in_data, str):
             try:
                 fpath, fname = io_parser(in_data, varname="filename", isfile=True, exists=True)
             except Exception as exc:
                 raise exc
             in_data = os.path.join(fpath, fname)
-            try:
-                with open(in_data, "rb") as fd:
-                    read_magic(fd)
-            except ValueError:
-                raise SPYValueError("memory-mapped npy-file", varname="data")
+
             md = self.mode
             if md == "w":
                 md = "r+"
-            self._data = open_memmap(in_data, mode=md)
+                
+            is_npy = False
+            is_hdf = False
+            try:
+                with open(in_data, "rb") as fd:
+                    read_magic(fd)
+                is_npy = True
+            except ValueError as exc:
+                err = "NumPy memorymap: " + str(exc)
+            try:
+                h5f = h5py.File(in_data, mode=md)
+                is_hdf = True
+            except OSError as exc:
+                err = "HDF5: " + str(exc)
+            if not is_npy and not is_hdf:
+                raise SPYValueError("accessible HDF5 container or memory-mapped npy-file",
+                                    actual=err, varname="data")
+            
+            if is_hdf:
+                h5keys = list(h5f.keys())
+                idx = [h5keys.count(dclass) for dclass in spy.datatype.__all__ \
+                       if not (inspect.isfunction(getattr(spy.datatype, dclass)))]
+                if len(h5keys) !=1 and sum(idx) != 1:
+                    lgl = "HDF5 container holding one data-object"
+                    act = "HDF5 container holding {} data-objects"
+                    raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname="data")
+                if len(h5keys) == 1:
+                    self._data = h5f[h5keys[0]]
+                else:
+                    self._data = h5f[spy.datatype.__all__[idx.index(1)]]
+            if is_npy:
+                self._data = open_memmap(in_data, mode=md)
             self._filename = in_data
 
-        # If input is already a memmap, check its dimensions
-        elif isinstance(in_data, np.memmap):
+        # If input is already a memmap/HDF5 dataset, check its dimensions
+        elif isinstance(in_data, (np.memmap, h5py.Dataset)):
+            if isinstance(in_data, h5py.Dataset):
+                if in_data.id.valid == 0:
+                    lgl = "open HDF5 container"
+                    act = "backing HDF5 container is closed"
+                    raise SPYValueError(legal=lgl, actual=act, varname="data")
+                md = in_data.file.mode
+                fn = in_data.file.filename
+            else:
+                md = in_data.mode
+                fn = in_data.filename
             if in_data.ndim != self._ndim:
                 lgl = "{}-dimensional data".format(self._ndim)
-                act = "{}-dimensional memmap".format(in_data.ndim)
+                act = "{}-dimensional HDF5 dataset or memmap".format(in_data.ndim)
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
-            self.mode = in_data.mode
+            self.mode = md
+            self._filename = os.path.abspath(fn)
             self._data = in_data
-            self._filename = in_data.filename
-
-        # If input is an array, either fill existing memmap or directly attach it
+            
+        # If input is an array, either fill existing data property or directly attach it
         elif isinstance(in_data, np.ndarray):
             try:
                 array_parser(in_data, varname="data", dims=self._ndim)
             except Exception as exc:
                 raise exc
-            if isinstance(self._data, np.memmap):
+            if isinstance(self._data, (np.memmap, h5py.Dataset)):
                 if self.mode == "r":
-                    lgl = "memmap with write or copy-on-write access"
+                    lgl = "HDF5 dataset/memmap with write or copy-on-write access"
                     act = "read-only memmap"
                     raise SPYValueError(legal=lgl, varname="mode", actual=act)
                 if self.data.shape != in_data.shape:
-                    lgl = "memmap with shape {}".format(str(self.data.shape))
+                    lgl = "HDF5 dataset/memmap with shape {}".format(str(self.data.shape))
                     act = "data with shape {}".format(str(in_data.shape))
                     raise SPYValueError(legal=lgl, varname="data", actual=act)
                 if self.data.dtype != in_data.dtype:
                     print("SyNCoPy core - data: WARNING >> Input data-type mismatch << ")
                 self._data[...] = in_data
-                self._filename = self._data.filename
             else:
                 self._data = in_data
                 self._filename = None
@@ -229,9 +272,9 @@ class BaseData(ABC):
     
     # Convenience function, wiping attached memmap
     def clear(self):
+        self.data.flush()
         if isinstance(self.data, np.memmap):
             filename, mode = self.data.filename, self.data.mode
-            self.data.flush()
             self._data = None
             self._data = open_memmap(filename, mode=mode)
         return
@@ -239,7 +282,7 @@ class BaseData(ABC):
     # Return a (deep) copy of the current class instance
     def copy(self, deep=False):
         cpy = copy(self)
-        if deep and isinstance(self.data, np.memmap):
+        if deep and isinstance(self.data, (np.memmap, h5py.Dataset)):
             self.data.flush()
             filename = self._gen_filename()
             shutil.copyfile(self._filename, filename)
@@ -344,8 +387,11 @@ class BaseData(ABC):
     # Destructor
     def __del__(self):
         if self._filename is not None:
-            if __storage__ in self._filename and os.path.exists(self._filename):
+            if isinstance(self._data, h5py.Dataset):
+                self._data.file.close()
+            else:
                 del self._data
+            if __storage__ in self._filename and os.path.exists(self._filename):
                 os.unlink(self._filename)
 
     # Class "constructor"
@@ -678,7 +724,7 @@ class Indexer():
     
 class SessionLogger():
 
-    __slots__ = ["sessionfile"]
+    __slots__ = ["sessionfile", "_rm"]
 
     def __init__(self):
         sess_log = "{user:s}@{host:s}: <{time:s}> started session {sess:s}"
@@ -689,6 +735,7 @@ class SessionLogger():
                                       host=socket.gethostname(),
                                       time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                                       sess=__sessionid__))
+        self._rm = os.unlink # workaround to prevent Python from garbage-collectiing ``os.unlink``
 
     def __repr__(self):
         return self.__str__()
@@ -697,4 +744,4 @@ class SessionLogger():
         return "Session {}".format(__sessionid__)
 
     def __del__(self):
-        os.unlink(self.sessionfile)
+        self._rm(self.sessionfile)

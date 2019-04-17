@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:13:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 10:56:39>
+# Last modification time: <2019-04-16 11:12:08>
 
 # Builtin/3rd party package imports
 import os
@@ -15,7 +15,7 @@ import numpy as np
 from syncopy.utils import io_parser, data_parser, SPYIOError, SPYTypeError, SPYValueError
 from syncopy.datatype import AnalogData
 from syncopy.datatype.base_data import VirtualData
-import syncopy.datatype as swd
+import syncopy.datatype as spd
 
 __all__ = ["load_binary_esi", "read_binary_esi_header"]
 
@@ -23,7 +23,6 @@ __all__ = ["load_binary_esi", "read_binary_esi_header"]
 def load_binary_esi(filename,
                     channel="channel",
                     unit="unit",
-                    # event="event",
                     trialdefinition=None,
                     out=None):
     """
@@ -82,7 +81,7 @@ def load_binary_esi(filename,
             raise exc
         new_out = False
     else:
-        out = getattr(swd, dclass)() # dynamically spawn new data object
+        out = getattr(spd, dclass)() # dynamically spawn new data object
         new_out = True
 
     # Deal with MUA/LFP data

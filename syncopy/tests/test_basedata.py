@@ -4,9 +4,10 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-15 14:09:55>
+# Last modification time: <2019-04-16 15:02:08>
 
 import os
+import h5py
 import tempfile
 import pytest
 import numpy as np
@@ -148,9 +149,10 @@ class TestBaseData(object):
     classes = ["AnalogData", "SpectralData", "SpikeData", "EventData"]
 
     # Allocation to `data` property is tested with all members of `classes`
-    def test_mmap(self):
+    def test_data_alloc(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "dummy.npy")
+            hname = os.path.join(tdir, "dummy.h5")
             
             for dclass in self.classes:
                 # attempt allocation with random file
@@ -158,6 +160,22 @@ class TestBaseData(object):
                     f.write("dummy")
                 with pytest.raises(SPYValueError):
                     getattr(swd, dclass)(fname)
+
+                # allocation with HDF5 file
+                h5f = h5py.File(hname, mode="w")
+                h5f.create_dataset("dummy", data=self.data[dclass])
+                h5f.close()
+                dummy = getattr(swd, dclass)(hname)
+                assert np.array_equal(dummy.data, self.data[dclass])
+                assert dummy._filename == hname
+                del dummy
+                    
+                # allocation using HDF5 dataset directly
+                dset = h5py.File(hname, mode="r")["dummy"]
+                dummy = getattr(swd, dclass)(dset)
+                assert np.array_equal(dummy.data, self.data[dclass])
+                assert dummy.mode == "r", dummy.data.file.mode
+                del dummy
                 
                 # allocation with memmaped npy file
                 np.save(fname, self.data[dclass])
@@ -175,16 +193,44 @@ class TestBaseData(object):
                 with pytest.raises(SPYValueError):
                     dummy.data = self.data[dclass]
 
-                # allocation using array + filename for target memmap
+                # allocation using array + filename
                 dummy = getattr(swd, dclass)(self.data[dclass], fname)
                 assert dummy._filename == fname
                 assert np.array_equal(dummy.data, self.data[dclass])
 
+                # attempt allocation using HDF5 dataset of wrong shape
+                h5f = h5py.File(hname, mode="r+")
+                del h5f["dummy"]
+                dset = h5f.create_dataset("dummy", data=np.ones((self.nc,)))
+                with pytest.raises(SPYValueError):
+                    getattr(swd, dclass)(dset)
+
+                # attempt allocation using illegal HDF5 container
+                del h5f["dummy"]
+                h5f.create_dataset("dummy1", data=self.data[dclass])
+                h5f.create_dataset("dummy2", data=self.data[dclass])
+                h5f.close()
+                with pytest.raises(SPYValueError):
+                    getattr(swd, dclass)(hname)
+
+                # allocate with valid dataset of "illegal" container
+                dset = h5py.File(hname, mode="r")["dummy1"]
+                dummy = getattr(swd, dclass)(dset, fname)
+
+                # attempt data access after backing file of dataset has been closed
+                dset.file.close()
+                with pytest.raises(SPYValueError):
+                    dummy.data[0, ...]
+                
+                # attempt allocation with HDF5 dataset of closed container
+                with pytest.raises(SPYValueError):
+                    getattr(swd, dclass)(dset)
+                
                 # attempt allocation using memmap of wrong shape
                 np.save(fname, np.ones((self.nc,)))
                 with pytest.raises(SPYValueError):
                     getattr(swd, dclass)(open_memmap(fname))
-
+                    
     # Assignment of trialdefinition array is tested with all members of `classes`
     def test_trialdef(self):
         for dclass in self.classes:
@@ -238,15 +284,19 @@ class TestBaseData(object):
             assert hash(str(dummy.t0)) == hash(str(dummy2.t0))
             assert hash(str(dummy.trialinfo)) == hash(str(dummy2.trialinfo))
     
-        # test shallow + deep copies of memmaps
+        # test shallow + deep copies of memmaps + HDF5 containers
         with tempfile.TemporaryDirectory() as tdir:
             for dclass in self.classes:
                 fname = os.path.join(tdir, "dummy.npy")
+                hname = os.path.join(tdir, "dummy.h5")
                 np.save(fname, self.data[dclass])
+                h5f = h5py.File(hname, mode="w")
+                h5f.create_dataset("dummy", data=self.data[dclass])
+                h5f.close()
                 mm = open_memmap(fname, mode="r")
-                dummy = getattr(swd, dclass)(mm, trialdefinition=self.trl[dclass])
 
                 # hash-matching of shallow-copied memmap
+                dummy = getattr(swd, dclass)(mm, trialdefinition=self.trl[dclass])
                 dummy2 = dummy.copy()
                 assert dummy._filename == dummy2._filename
                 assert hash(str(dummy.data)) == hash(str(dummy2.data))
@@ -261,3 +311,23 @@ class TestBaseData(object):
                 assert np.array_equal(dummy.t0, dummy3.t0)
                 assert np.array_equal(dummy.trialinfo, dummy3.trialinfo)
                 assert np.array_equal(dummy.data, dummy3.data)
+
+                # hash-matching of shallow-copied HDF5 dataset
+                dummy = getattr(swd, dclass)(hname, trialdefinition=self.trl[dclass])
+                dummy2 = dummy.copy()
+                assert dummy._filename == dummy2._filename
+                assert hash(str(dummy.data)) == hash(str(dummy2.data))
+                assert hash(str(dummy.sampleinfo)) == hash(str(dummy2.sampleinfo))
+                assert hash(str(dummy.t0)) == hash(str(dummy2.t0))
+                assert hash(str(dummy.trialinfo)) == hash(str(dummy2.trialinfo))
+
+                # test integrity of deep-copy
+                dummy3 = dummy.copy(deep=True)
+                assert dummy3._filename != dummy._filename
+                assert np.array_equal(dummy.sampleinfo, dummy3.sampleinfo)
+                assert np.array_equal(dummy.t0, dummy3.t0)
+                assert np.array_equal(dummy.trialinfo, dummy3.trialinfo)
+                assert np.array_equal(dummy.data, dummy3.data)
+                
+                # remove container for next round
+                os.unlink(hname)

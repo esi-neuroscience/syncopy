@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 14:30:17
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-15 13:42:15>
+# Last modification time: <2019-04-16 09:14:51>
 
 # Builtin/3rd party package imports
 import os
@@ -21,8 +21,7 @@ __all__ = ["FILE_EXT", "hash_file", "write_access", "user_yesno", "cleanup"]
 # Define SynCoPy's general file-/directory-naming conventions
 FILE_EXT = {"dir" : ".spy",
             "json" : ".info",
-            "data" : ".dat",
-            "trl" : ".trl"}
+            "data" : ".dat"}
 
 
 def hash_file(fname, bsize=65536):

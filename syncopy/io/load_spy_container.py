@@ -4,11 +4,13 @@
 # 
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 10:24:56>
+# Last modification time: <2019-04-16 16:10:08>
 
 # Builtin/3rd party package imports
 import os
 import json
+import inspect
+import h5py
 import sys
 import numpy as np
 from collections import OrderedDict
@@ -18,7 +20,7 @@ from glob import iglob
 # Local imports
 from syncopy.utils import io_parser, json_parser, data_parser, SPYTypeError, SPYValueError
 from syncopy.io import hash_file, FILE_EXT
-import syncopy.datatype as swd
+import syncopy.datatype as spd
 
 __all__ = ["load_spy"]
 
@@ -30,8 +32,8 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     in case 'dir' and 'dir.spw' exist, preference will be given to 'dir.spw'
 
     fname can be search pattern 'session1*' or base file-name ('asdf' will
-    load 'asdf.<hash>.json/.dat/.trl') or hash-id ('d4c1' will load 
-    'asdf.d4c1.json/.dat/.trl')
+    load 'asdf.<hash>.json/.dat') or hash-id ('d4c1' will load 
+    'asdf.d4c1.json/.dat')
     """
 
     # Make sure `in_name` is a valid filesystem-location: in case 'dir' and
@@ -69,13 +71,13 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
         if "*" not in fname:
             fname = "*" + fname + "*"
 
-        # If `fname` contains a dat/trl/json extension, we expect to find
-        # exactly one match, otherwise we want to see exactly three files
+        # If `fname` contains a dat/json extension, we expect to find
+        # exactly one match, otherwise we want to see exactly two files
         in_ext = in_ext.replace("*", "")
         if in_ext in f_ext.values():
             expected_count = 1
         elif in_ext == "":
-            expected_count = 3
+            expected_count = 2
         else:
             legal = "no extension or " + "".join(ex + ", " for ex in f_ext.values())[:-2]
             raise SPYValueError(legal=legal, varname="fname", actual=fname)
@@ -100,19 +102,26 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     # Load contents of json file and make sure nothing was lost in translation
     expected = {"dimord" : list,
                 "version" : str,
-                "log" : str}
+                "log" : str,
+                "cfg" : dict,
+                "data" : str,
+                "data_dtype" : str,
+                "data_shape" : list,
+                "data_offset" : int,
+                "trl_dtype" : str,
+                "trl_shape" : list,
+                "trl_offset" : int}
     with open(in_files["json"], "r") as fle:
         json_dict = json.load(fle)
-    mandatory = set(["type", "cfg"] + list(expected.keys()))
+    mandatory = set(["type"] + list(expected.keys()))
     if not mandatory.issubset(json_dict.keys()):
         legal = "mandatory fields " + "".join(attr + ", " for attr in mandatory)[:-2]
         actual = "keys " + "".join(attr + ", " for attr in json_dict.keys())[:-2]
         raise SPYValueError(legal=legal, varname=in_files["json"], actual=actual)
 
     # Make sure the implied data-genre makes sense
-    legal_types = [attr for attr in dir(swd) \
-                   if not (attr.startswith("_") \
-                           or attr in ["data_classes", "Indexer", "VirtualData"])]
+    legal_types = [dclass for dclass in spd.__all__ \
+                   if not (inspect.isfunction(getattr(spd, dclass)))]
     if json_dict["type"] not in legal_types:
         legal = "one of " + "".join(ltype + ", " for ltype in legal_types)[:-2]
         raise SPYValueError(legal=legal, varname="JSON: type", actual=json_dict["type"])
@@ -124,7 +133,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
         raise exc
 
     # Depending on data genre specified in file, check respective add'l fields
-    # Note: `EventData` currently does not have any mandatory add' fields
+    # Note: `EventData` currently does not have any mandatory add'l fields
     if json_dict["type"] == "AnalogData":
         expected = {"samplerate" : float,
                     "channel" : list}
@@ -166,12 +175,11 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     # If wanted, perform checksum matching
     if checksum:
         hsh_msg = "hash = {hsh:s}"
-        for fle in ["trl", "data"]:
-            hsh = hash_file(in_files[fle])
-            if hsh != json_dict[fle + "_checksum"]:
-                raise SPYValueError(legal=hsh_msg.format(hsh=json_dict[fle + "_checksum"]),
-                                    varname=os.path.basename(in_files[fle]),
-                                    actual=hsh_msg.format(hsh=hsh))
+        hsh = hash_file(in_files["data"])
+        if hsh != json_dict["data_checkusm"]:
+            raise SPYValueError(legal=hsh_msg.format(hsh=json_dict["data_checkusm"]),
+                                varname=os.path.basename(in_files["data"]),
+                                actual=hsh_msg.format(hsh=hsh))
     
     # Parsing is done, create new or check provided container 
     if out is not None:
@@ -182,7 +190,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
             raise exc
         new_out = False
     else:
-        out = getattr(swd, json_dict["type"])()
+        out = getattr(spd, json_dict["type"])()
         new_out = True
 
     # Assign meta-info common to all sub-classes
@@ -196,7 +204,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     out.data = in_files["data"]
 
     # Abuse ``definetrial`` to set trial-related props
-    trialdef = np.load(in_files["trl"])
+    trialdef = h5py.File(in_files["data"], mode="r")["trialdefinition"][()]
     out.definetrial(trialdef)
 
     # Sub-class-specific things follow
@@ -219,7 +227,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
 
     # Write `cfg` entries
     out.cfg = {"method" : sys._getframe().f_code.co_name,
-               "files" : in_base + "[dat/info/trl]"}
+               "files" : in_base + "[dat/info]"}
     
     # Write log-entry
     msg = "Read files v. {ver:s} {fname:s}"

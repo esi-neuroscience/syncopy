@@ -4,12 +4,13 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-15 13:25:06>
+# Last modification time: <2019-04-16 12:35:10>
 
 # Builtin/3rd party package imports
+import h5py
+import shutil
 import numpy as np
 from abc import ABC
-import shutil
 from copy import copy
 from numpy.lib.format import open_memmap
 
@@ -198,7 +199,7 @@ class AnalogData(ContinuousData):
                 print("SyNCoPy core - copy: Deep copy not possible for " +
                       "VirtualData objects. Please use `save_spy` instead. ")
                 return
-            elif isinstance(self.data, np.memmap):
+            elif isinstance(self.data, (np.memmap, h5py.Dataset)):
                 self.data.flush()
                 filename = self._gen_filename()
                 shutil.copyfile(self._filename, filename)
