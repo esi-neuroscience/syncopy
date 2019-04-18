@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-18 11:36:00>
+# Last modification time: <2019-04-18 15:24:46>
 
 import os
 import h5py
@@ -14,9 +14,13 @@ import numpy as np
 from numpy.lib.format import open_memmap
 from memory_profiler import memory_usage
 from syncopy.datatype import AnalogData
-import syncopy.datatype as swd
+import syncopy.datatype as spd
 from syncopy.datatype.base_data import VirtualData
 from syncopy.utils import SPYValueError, SPYTypeError
+from syncopy.tests.misc import is_win_vm
+
+# Construct decorator for skipping certain tests if we're running inside a Win VM
+skip_in_vm = pytest.mark.skipif(is_win_vm(), reason="running in Win VM")
 
 class TestVirtualData(object):
 
@@ -92,7 +96,8 @@ class TestVirtualData(object):
 
             # Delete all open references to file objects b4 closing tmp dir
             del dmap, dmap2, vdata
-            
+
+    @skip_in_vm
     def test_memory(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "vdat.npy")
@@ -167,34 +172,34 @@ class TestBaseData(object):
                 with open(fname, "w") as f:
                     f.write("dummy")
                 with pytest.raises(SPYValueError):
-                    getattr(swd, dclass)(fname)
+                    getattr(spd, dclass)(fname)
 
                 # allocation with HDF5 file
                 h5f = h5py.File(hname, mode="w")
                 h5f.create_dataset("dummy", data=self.data[dclass])
                 h5f.close()
-                dummy = getattr(swd, dclass)(hname)
+                dummy = getattr(spd, dclass)(hname)
                 assert np.array_equal(dummy.data, self.data[dclass])
                 assert dummy._filename == hname
                 del dummy
                     
                 # allocation using HDF5 dataset directly
                 dset = h5py.File(hname, mode="r")["dummy"]
-                dummy = getattr(swd, dclass)(dset)
+                dummy = getattr(spd, dclass)(dset)
                 assert np.array_equal(dummy.data, self.data[dclass])
                 assert dummy.mode == "r", dummy.data.file.mode
                 del dummy
                 
                 # allocation with memmaped npy file
                 np.save(fname, self.data[dclass])
-                dummy = getattr(swd, dclass)(fname)
+                dummy = getattr(spd, dclass)(fname)
                 assert np.array_equal(dummy.data, self.data[dclass])
                 assert dummy._filename == fname
                 del dummy
 
                 # allocation using memmap directly
                 mm = open_memmap(fname, mode="r")
-                dummy = getattr(swd, dclass)(mm)
+                dummy = getattr(spd, dclass)(mm)
                 assert np.array_equal(dummy.data, self.data[dclass])
                 assert dummy.mode == "r"
 
@@ -204,7 +209,7 @@ class TestBaseData(object):
 
                 # allocation using array + filename
                 del dummy, mm
-                dummy = getattr(swd, dclass)(self.data[dclass], fname)
+                dummy = getattr(spd, dclass)(self.data[dclass], fname)
                 assert dummy._filename == fname
                 assert np.array_equal(dummy.data, self.data[dclass])
                 del dummy
@@ -214,7 +219,7 @@ class TestBaseData(object):
                 del h5f["dummy"]
                 dset = h5f.create_dataset("dummy", data=np.ones((self.nc,)))
                 with pytest.raises(SPYValueError):
-                    getattr(swd, dclass)(dset)
+                    getattr(spd, dclass)(dset)
 
                 # attempt allocation using illegal HDF5 container
                 del h5f["dummy"]
@@ -222,11 +227,11 @@ class TestBaseData(object):
                 h5f.create_dataset("dummy2", data=self.data[dclass])
                 h5f.close()
                 with pytest.raises(SPYValueError):
-                    getattr(swd, dclass)(hname)
+                    getattr(spd, dclass)(hname)
 
                 # allocate with valid dataset of "illegal" container
                 dset = h5py.File(hname, mode="r")["dummy1"]
-                dummy = getattr(swd, dclass)(dset, fname)
+                dummy = getattr(spd, dclass)(dset, fname)
 
                 # attempt data access after backing file of dataset has been closed
                 dset.file.close()
@@ -235,23 +240,24 @@ class TestBaseData(object):
                 
                 # attempt allocation with HDF5 dataset of closed container
                 with pytest.raises(SPYValueError):
-                    getattr(swd, dclass)(dset)
+                    getattr(spd, dclass)(dset)
                 
                 # attempt allocation using memmap of wrong shape
                 np.save(fname, np.ones((self.nc,)))
                 with pytest.raises(SPYValueError):
-                    getattr(swd, dclass)(open_memmap(fname))
+                    getattr(spd, dclass)(open_memmap(fname))
                     
     # Assignment of trialdefinition array is tested with all members of `classes`
     def test_trialdef(self):
         for dclass in self.classes:
-            dummy = getattr(swd, dclass)(self.data[dclass],
+            dummy = getattr(spd, dclass)(self.data[dclass],
                                          trialdefinition=self.trl[dclass])
             assert np.array_equal(dummy.sampleinfo, self.trl[dclass][:, :2])
             assert np.array_equal(dummy.t0, self.trl[dclass][:, 2])
             assert np.array_equal(dummy.trialinfo.flatten(), self.trl[dclass][:, 3])
 
     # Test ``clear`` with `AnalogData` only - method is independent from concrete data object
+    @skip_in_vm
     def test_clear(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "dummy.npy")
@@ -289,7 +295,7 @@ class TestBaseData(object):
         # test shallow copy of data arrays (hashes must match up, since
         # shallow copies are views in memory)
         for dclass in self.classes:
-            dummy = getattr(swd, dclass)(self.data[dclass],
+            dummy = getattr(spd, dclass)(self.data[dclass],
                                          trialdefinition=self.trl[dclass])
             dummy2 = dummy.copy()
             assert dummy._filename == dummy2._filename
@@ -310,7 +316,7 @@ class TestBaseData(object):
                 mm = open_memmap(fname, mode="r")
 
                 # hash-matching of shallow-copied memmap
-                dummy = getattr(swd, dclass)(mm, trialdefinition=self.trl[dclass])
+                dummy = getattr(spd, dclass)(mm, trialdefinition=self.trl[dclass])
                 dummy2 = dummy.copy()
                 assert dummy._filename == dummy2._filename
                 assert hash(str(dummy.data)) == hash(str(dummy2.data))
@@ -327,7 +333,7 @@ class TestBaseData(object):
                 assert np.array_equal(dummy.data, dummy3.data)
 
                 # hash-matching of shallow-copied HDF5 dataset
-                dummy = getattr(swd, dclass)(hname, trialdefinition=self.trl[dclass])
+                dummy = getattr(spd, dclass)(hname, trialdefinition=self.trl[dclass])
                 dummy2 = dummy.copy()
                 assert dummy._filename == dummy2._filename
                 assert hash(str(dummy.data)) == hash(str(dummy2.data))
