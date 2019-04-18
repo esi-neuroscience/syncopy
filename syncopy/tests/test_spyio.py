@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 14:21:12
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-16 16:07:46>
+# Last modification time: <2019-04-18 13:09:30>
 
 import os
 import tempfile
@@ -73,6 +73,9 @@ class TestSpyIO(object):
                 # ensure saving is logged correctly
                 assert len(dummy._log) > ldum
                 assert dummy.cfg["method"] == "save_spy"
+                
+            # Delete all open references to file objects b4 closing tmp dir
+            del dummy
 
     # Test consistency of generated checksums
     def test_checksum(self):
@@ -83,10 +86,10 @@ class TestSpyIO(object):
                                              trialdefinition=self.trl[dclass],
                                              samplerate=1000)
                 save_spy(dname, dummy)
-
+    
                 # perform checksum-matching - this must work
                 dummy = load_spy(dname, checksum=True)
-
+    
                 # manipulate data file
                 hname = dummy._filename
                 del dummy
@@ -97,7 +100,7 @@ class TestSpyIO(object):
                 with pytest.raises(SPYValueError):
                     load_spy(dname, checksum=True)
                 shutil.rmtree(dname + ".spy")
-
+    
     # Test correct handling of user-provided file-names
     def test_fname(self):
         with tempfile.TemporaryDirectory() as tdir:
@@ -108,7 +111,7 @@ class TestSpyIO(object):
                                              trialdefinition=self.trl[dclass],
                                              samplerate=1000)
                 save_spy(dname, dummy, fname=newname)
-
+    
                 # ensure provided file-name was actually used
                 assert len(glob(os.path.join(dname + ".spy", newname + "*"))) == 2
                 
@@ -121,6 +124,9 @@ class TestSpyIO(object):
                         dummy2 = load_spy(dname + de, fname=newname + fe)
                         for attr in ["data", "sampleinfo", "trialinfo"]:
                             assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
+
+                # Delete all open references to file objects b4 closing tmp dir
+                del dummy, dummy2
                 shutil.rmtree(dname + dext)
                 
     # Test if directory-name "extensions" work as intended
@@ -133,14 +139,16 @@ class TestSpyIO(object):
                                              samplerate=1000)
                 save_spy(dname, dummy, append_extension=False)
                 save_spy(dname, dummy, fname="preferred")
-
+    
                 # in case dir and dir.spw exist, prefence must be given to dir.spw
                 dummy = load_spy(dname)
                 assert "preferred" in dummy._filename
-
+    
                 # remove "regular" .spy-dir and re-load object from ".spy"-less dir
+                del dummy
                 shutil.rmtree(dname + ".spy")
                 dummy = load_spy(dname)
+                del dummy
                 shutil.rmtree(dname)
                 
     # Test memory usage when saving big VirtualData files
@@ -153,8 +161,11 @@ class TestSpyIO(object):
             del vdata
             dmap = open_memmap(fname)
             adata = AnalogData(VirtualData([dmap, dmap, dmap]), samplerate=10)
-
+    
             # Ensure memory consumption stays within provided bounds
             mem = memory_usage()[0]
             save_spy(dname, adata, memuse=60)
             assert (mem - memory_usage()[0]) < 70
+
+            # Delete all open references to file objects b4 closing tmp dir
+            del dmap, adata

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-16 15:02:08>
+# Last modification time: <2019-04-18 11:36:00>
 
 import os
 import h5py
@@ -53,6 +53,9 @@ class TestVirtualData(object):
                 assert vdata.M == dmap.shape[0]
                 assert vdata.N == vk*dmap.shape[1]
 
+            # Delete all open references to file objects b4 closing tmp dir
+            del dmap, vdata, d3map
+
     def test_retrieval(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "vdat.npy")
@@ -61,7 +64,7 @@ class TestVirtualData(object):
             np.save(fname2, self.data*2)
             dmap = open_memmap(fname)
             dmap2 = open_memmap(fname2)
-
+    
             # ensure stacking is performed correctly
             vdata = VirtualData([dmap, dmap2])
             assert np.array_equal(vdata[:, :self.nc], self.data)
@@ -76,17 +79,20 @@ class TestVirtualData(object):
             assert np.array_equal(vdata[:, 0].flatten(), self.data[:, 0].flatten())
             assert np.array_equal(vdata[:, self.nc].flatten(), 2*self.data[:, 0].flatten())
             assert np.array_equal(vdata[0, :].flatten(), np.hstack([self.data[0, :], 2*self.data[0, :], self.data[0, :]]))
-
+    
             # illegal indexing type
             with pytest.raises(SPYTypeError):
                 vdata[{}, :]
-
+    
             # queried indices out of bounds
             with pytest.raises(SPYValueError):
                 vdata[:, self.nc*3]
             with pytest.raises(SPYValueError):
                 vdata[self.ns*2, 0]
 
+            # Delete all open references to file objects b4 closing tmp dir
+            del dmap, dmap2, vdata
+            
     def test_memory(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "vdat.npy")
@@ -108,6 +114,8 @@ class TestVirtualData(object):
             vdata.clear()
             assert (mem - memory_usage()[0]) > 100
             
+            # Delete all open references to file objects b4 closing tmp dir
+            del dmap, vdata
 
 # Test BaseData methods that work identically for all regular classes            
 class TestBaseData(object):
@@ -182,6 +190,7 @@ class TestBaseData(object):
                 dummy = getattr(swd, dclass)(fname)
                 assert np.array_equal(dummy.data, self.data[dclass])
                 assert dummy._filename == fname
+                del dummy
 
                 # allocation using memmap directly
                 mm = open_memmap(fname, mode="r")
@@ -194,9 +203,11 @@ class TestBaseData(object):
                     dummy.data = self.data[dclass]
 
                 # allocation using array + filename
+                del dummy, mm
                 dummy = getattr(swd, dclass)(self.data[dclass], fname)
                 assert dummy._filename == fname
                 assert np.array_equal(dummy.data, self.data[dclass])
+                del dummy
 
                 # attempt allocation using HDF5 dataset of wrong shape
                 h5f = h5py.File(hname, mode="r+")
@@ -257,6 +268,9 @@ class TestBaseData(object):
             mem = memory_usage()[0]
             dummy.clear()
             assert np.abs(mem - memory_usage()[0]) > 30
+
+            # Delete all open references to file objects b4 closing tmp dir
+            del dmap, dummy
             
     # Test ``_gen_filename`` with `AnalogData` only - method is independent from concrete data object
     def test_filename(self):
@@ -328,6 +342,9 @@ class TestBaseData(object):
                 assert np.array_equal(dummy.t0, dummy3.t0)
                 assert np.array_equal(dummy.trialinfo, dummy3.trialinfo)
                 assert np.array_equal(dummy.data, dummy3.data)
+                
+                # Delete all open references to file objects b4 closing tmp dir
+                del mm, dummy, dummy2, dummy3
                 
                 # remove container for next round
                 os.unlink(hname)
