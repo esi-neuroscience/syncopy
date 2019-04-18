@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-18 15:07:14>
+# Last modification time: <2019-04-18 15:24:46>
 
 import os
 import h5py
@@ -257,6 +257,7 @@ class TestBaseData(object):
             assert np.array_equal(dummy.trialinfo.flatten(), self.trl[dclass][:, 3])
 
     # Test ``clear`` with `AnalogData` only - method is independent from concrete data object
+    @skip_in_vm
     def test_clear(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "dummy.npy")
