@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-21 15:44:03
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-16 16:03:49>
+# Last modification time: <2019-04-18 11:51:49>
 
 import os
 import tempfile
@@ -115,6 +115,8 @@ class TestSpikeData(object):
             assert dummy2.unit.size == self.num_smp # swapped
             assert dummy2.data.shape == dummy.data.shape
             
+            # Delete all open references to file objects b4 closing tmp dir
+            del dummy, dummy2
 
 class TestEventData(object):
 
@@ -212,6 +214,9 @@ class TestEventData(object):
             assert dummy2.dimord == dummy.dimord
             assert dummy2.eventid.size == self.num_smp # swapped
             assert dummy2.data.shape == dummy.data.shape
+
+            # Delete all open references to file objects b4 closing tmp dir
+            del dummy, dummy2
 
     def test_trialsetting(self):
 

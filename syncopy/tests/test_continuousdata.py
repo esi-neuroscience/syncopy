@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:46:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-16 16:00:28>
+# Last modification time: <2019-04-18 11:41:02>
 
 import os
 import tempfile
@@ -57,6 +57,7 @@ class TestAnalogData(object):
             dummy = AnalogData(vdata)
             assert dummy.channel.size == 2*self.nc
             assert len(dummy._filename) == 2
+            del dmap, dummy, vdata
     
     def test_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order
@@ -86,6 +87,9 @@ class TestAnalogData(object):
                                             dummy.sampleinfo,
                                             dummy.hdr)
                 assert np.array_equal(trl_tmp, trl_ref)
+
+            # Delete all open references to file objects b4 closing tmp dir
+            del mm, dummy
             
     def test_saveload(self):
         with tempfile.TemporaryDirectory() as tdir:
@@ -138,6 +142,8 @@ class TestAnalogData(object):
             assert dummy2.channel.size == self.ns # swapped
             assert dummy2.data.shape == dummy.data.shape
 
+            # Delete all open references to file objects b4 closing tmp dir
+            del dmap, vdata, dummy, dummy2
 
 class TestSpectralData(object):
 
@@ -204,6 +210,7 @@ class TestSpectralData(object):
                                             dummy.sampleinfo,
                                             None)
                 assert np.array_equal(trl_tmp, trl_ref)
+            del mm, dummy
             
     def test_saveload(self):
         with tempfile.TemporaryDirectory() as tdir:
@@ -234,3 +241,6 @@ class TestSpectralData(object):
             assert dummy2.channel.size == self.nt # swapped
             assert dummy2.taper.size == self.nf # swapped
             assert dummy2.data.shape == dummy.data.shape
+
+            # Delete all open references to file objects b4 closing tmp dir
+            del dummy, dummy2
