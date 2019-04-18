@@ -4,12 +4,12 @@
 # 
 # Created: 2019-01-14 10:23:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-08 13:31:40>
+# Last modification time: <2019-04-18 17:10:05>
 
 # Builtin/3rd party package imports
 import sys
 
-__all__ = ["SPYTypeError", "SPYValueError", "SPYIOError", "get_caller"]
+__all__ = ["SPYTypeError", "SPYValueError", "SPYIOError", "SPYExceptionHandler", "get_caller"]
 
 
 class Error(Exception):
@@ -94,6 +94,30 @@ class SPYIOError(Error):
                           fs_loc=self.fs_loc,
                           ex=": object already exists" if self.exists is True \
                           else ": object does not exist" if self.exists is False else "")
+
+    
+def SPYExceptionHandler(exc_type, exc_val, exc_trace):
+    """
+    Docstring coming soon(ish)...
+    """
+
+    # Pass KeyboardInterrupt on to regular excepthook so that CTRL + C
+    # can still be used to abort program execution
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_val, exc_trace)
+        return
+
+    msg = "some text \n" +\
+          "{etype:s} \n" +\
+          "{eval:s} \n" +\
+          "{trace:s}" +\
+          "more info..."
+
+    print("HEEEEEEEEEEEEEEEEEEEEEEEre")
+    
+    # print(msg.format(etype=str(exc_type),
+    #                  eval=str(exc_val),
+    #                  trace=str(exc_trace)))
 
     
 def get_caller():

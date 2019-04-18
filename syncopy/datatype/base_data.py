@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-16 15:56:57>
+# Last modification time: <2019-04-18 16:36:50>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -363,9 +363,19 @@ class BaseData(ABC):
                     trlstr = "of length {} ".format(str(tlen[0]))
                 else:
                     trlstr = ""
+                dsize = np.prod(self.data.shape)*self.data.dtype.itemsize/1024**2
+                dunit = "MB"
+                if dsize > 1000:
+                    dsize /= 1024
+                    dunit = "GB"
                 valueString = "{} trials {}defined on ".format(str(len(self.trials)), trlstr)
                 valueString += "[" + " x ".join([str(numel) for numel in value.shape]) \
-                              + "] array"
+                              + "] {dt:s} {tp:s} " +\
+                              "of size {sz:3.2f} {szu:s}"
+                valueString = valueString.format(dt=self.data.dtype.name,
+                                                 tp=self.data.__class__.__name__,
+                                                 sz=dsize,
+                                                 szu=dunit)
             elif hasattr(value, 'shape'):
                 valueString = "[" + " x ".join([str(numel) for numel in value.shape]) \
                               + "] element " + str(type(value))

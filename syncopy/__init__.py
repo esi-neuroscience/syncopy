@@ -4,10 +4,11 @@
 # 
 # Created: 2019-01-15 09:03:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-17 17:39:35>
+# Last modification time: <2019-04-18 17:36:58>
 
 # Builtin/3rd party package imports
 import os
+import sys
 import numpy as np
 from hashlib import blake2b
 
@@ -58,6 +59,15 @@ from .specest import *
 
 # Register session
 __session__ = datatype.base_data.SessionLogger()
+
+# try:
+#     get_ipython()
+#     isipy = True
+#     import IPython
+#     IPython.core.interactiveshell.InteractiveShell.showtraceback = showtraceback 
+# except:
+#     isipy = False
+#     sys.excepthook = SPYExceptionHandler
 
 # Take care of `from syncopy import *` statements
 __all__ = []
