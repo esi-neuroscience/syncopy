@@ -4,10 +4,12 @@
 # 
 # Created: 2019-01-14 10:23:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-18 17:10:05>
+# Last modification time: <2019-04-23 16:16:52>
 
 # Builtin/3rd party package imports
 import sys
+import traceback
+from collections import OrderedDict
 
 __all__ = ["SPYTypeError", "SPYValueError", "SPYIOError", "SPYExceptionHandler", "get_caller"]
 
@@ -96,28 +98,85 @@ class SPYIOError(Error):
                           else ": object does not exist" if self.exists is False else "")
 
     
-def SPYExceptionHandler(exc_type, exc_val, exc_trace):
+def SPYExceptionHandler(*excargs):
     """
     Docstring coming soon(ish)...
     """
 
+    # Max. depth for printing traceback information
+    max_count = 5
+
+    # Depending on the number of input arguments, we're either in Jupyter/iPython
+    # or "regular" Python - this matters for coloring error messages
+    if len(excargs) == 3:
+        isipy = False
+        etype, evalue, etb = excargs
+    else:
+        isipy = True
+        etype, evalue, etb = sys.exc_info()
+        cols = get_ipython().InteractiveTB.Colors
+        cols.filename = cols.filenameEm
+        # self, etype, evalue, etb = excargs
+
     # Pass KeyboardInterrupt on to regular excepthook so that CTRL + C
-    # can still be used to abort program execution
-    if issubclass(exc_type, KeyboardInterrupt):
-        sys.__excepthook__(exc_type, exc_val, exc_trace)
+    # can still be used to abort program execution (only relevant in "regular"
+    # Python prompts
+    if issubclass(etype, KeyboardInterrupt) and not isipy:
+        sys.__excepthook__(etype, evalue, etb)
         return
 
-    msg = "some text \n" +\
-          "{etype:s} \n" +\
-          "{eval:s} \n" +\
-          "{trace:s}" +\
-          "more info..."
+    # Starty by putting together first line of error message
+    emsg = "{}\nSyNCoPy encountered an error in{} \n\n".format(cols.topline if isipy else "",
+                                                            cols.Normal if isipy else "")
 
-    print("HEEEEEEEEEEEEEEEEEEEEEEEre")
-    
-    # print(msg.format(etype=str(exc_type),
-    #                  eval=str(exc_val),
-    #                  trace=str(exc_trace)))
+    # Build an ordered(!) dictionary that encodes separators for traceback components
+    sep = OrderedDict({"filename": ", line ",
+                       "lineno": " in ",
+                       "name": "\n\t",
+                       "line": "\n"})
+
+    # Go through traceback and put together a list of strings for printing
+    tb_list = []
+    tb_count = 0
+    for frame in traceback.extract_tb(etb):
+        if frame.filename.find("site-packages") < 0:
+            tb_entry = ""
+            for attr in sep.keys():
+                tb_entry += "{}{}{}{}".format(getattr(cols, attr) if isipy else "",
+                                              getattr(frame, attr),
+                                              cols.Normal if isipy else "",
+                                              sep.get(attr))
+            if tb_count == 0:
+                tb_entry += "\n" + "-"*30 + "\n"
+            tb_list.append(tb_entry)
+            tb_count += 1
+            if tb_count == max_count:
+                break
+    emsg += "".join(tb_list)
+
+    # Format the exception-part of the traceback - the resulting list usually
+    # contains only a single string - if we find more (e.g., in case of a
+    # SyntaxError), use everything
+    exc_fmt = traceback.format_exception_only(etype, evalue)
+    if len(exc_fmt) == 1:
+        exc_msg = exc_fmt[0]
+        idx = exc_msg.rfind(etype.__name__)
+        if idx >= 0:
+            exc_msg = exc_msg[idx + len(etype.__name__):]
+    else:
+        exc_msg = "".join(exc_fmt)
+
+    # Highlight (if we're running in iPython) the name of the encountered exception
+    emsg += "\n{}{}{}".format(cols.excName if isipy else "",
+                              etype.__name__,
+                              cols.Normal if isipy else "")
+
+    # Finally, append the actual exception message and some general info
+    emsg += exc_msg
+    emsg += "\nUse `sys.last_traceback` to inspect the full error traceback"
+
+    # Show generated message and get outta here
+    print(emsg)
 
     
 def get_caller():
@@ -125,3 +184,4 @@ def get_caller():
     A very elaborate docstring...
     """
     return sys._getframe().f_back.f_code.co_name
+

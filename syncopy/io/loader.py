@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-23 14:33:12
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-11 16:29:37>
+# Last modification time: <2019-04-23 12:37:01>
 
 # Local imports
 from syncopy.utils import SPYTypeError, SPYValueError
@@ -31,5 +31,6 @@ def load_data(in_name, filetype=None, out=None, **kwargs):
         return load_binary_esi(in_name, out=out, **kwargs)
 
     else:
+        lgl = "any of spy, syncopy, native, esi, esi-binary"
         act = "unknown data-format: `{}`".format(filetype)
-        raise SPYValueError(varname="filetype", actual=act)
+        raise SPYValueError(legal=lgl, varname="filetype", actual=act)

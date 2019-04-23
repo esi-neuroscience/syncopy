@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-15 09:03:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-18 17:36:58>
+# Last modification time: <2019-04-23 16:03:44>
 
 # Builtin/3rd party package imports
 import os
@@ -60,14 +60,13 @@ from .specest import *
 # Register session
 __session__ = datatype.base_data.SessionLogger()
 
-# try:
-#     get_ipython()
-#     isipy = True
-#     import IPython
-#     IPython.core.interactiveshell.InteractiveShell.showtraceback = showtraceback 
-# except:
-#     isipy = False
-#     sys.excepthook = SPYExceptionHandler
+# Override default traceback (differentiate b/w Jupyter/iPython and regular Python)
+try:
+    get_ipython()
+    import IPython
+    IPython.core.interactiveshell.InteractiveShell._showtraceback = SPYExceptionHandler
+except:
+    sys.excepthook = SPYExceptionHandler
 
 # Take care of `from syncopy import *` statements
 __all__ = []
