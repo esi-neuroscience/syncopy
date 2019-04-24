@@ -4,10 +4,11 @@
 # 
 # Created: 2019-01-15 09:03:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-17 17:39:35>
+# Last modification time: <2019-04-24 15:17:29>
 
 # Builtin/3rd party package imports
 import os
+import sys
 import numpy as np
 from hashlib import blake2b
 
@@ -50,6 +51,9 @@ with os.scandir(__storage__) as scan:
 __sessionid__ = blake2b(digest_size=2, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
 __sessionfile__ = os.path.join(__storage__, "session_{}.id".format(__sessionid__))
         
+# Set max. depth of traceback info shown in prompt
+__tbcount__ = 5
+
 # Fill up namespace
 from .utils import *
 from .io import *
@@ -59,6 +63,18 @@ from .specest import *
 # Register session
 __session__ = datatype.base_data.SessionLogger()
 
+# Override default traceback (differentiate b/w Jupyter/iPython and regular Python)
+try:
+    ipy = get_ipython()
+    import IPython
+    if ipy.has_trait("kernel"):
+        IPython.core.interactiveshell.InteractiveShell.showtraceback = SPYExceptionHandler      # Jupyter notebook
+    else:
+        IPython.core.interactiveshell.InteractiveShell._showtraceback = SPYExceptionHandler     # iPython shell
+    sys.excepthook = SPYExceptionHandler
+except:
+    sys.excepthook = SPYExceptionHandler
+
 # Take care of `from syncopy import *` statements
 __all__ = []
 __all__.extend(datatype.__all__)
@@ -66,5 +82,4 @@ __all__.extend(io.__all__)
 __all__.extend(utils.__all__)
 __all__.extend(specest.__all__)
 __all__.extend([__version__, __dask__, __storage__, __storagelimit__,
-                __session__, __sessionid__])
-
+                __session__, __sessionid__, __tbcount__])
