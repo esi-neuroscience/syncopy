@@ -40,6 +40,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Jupyter notebook clutter
+.ipynb_checkpoints/
+
 # Dask-related stuff
 dask-worker-space
 
@@ -49,4 +52,5 @@ dask-worker-space
 # spy containers
 *.spy
 
+# Editor-related stuff
 .vscode
