@@ -3,8 +3,8 @@
 # SynCoPy spectral estimation methods
 #
 # Created: 2019-01-22 09:07:47
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-04-05 16:45:33>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-04-25 12:27:25>
 
 # Builtin/3rd party package imports
 import sys
@@ -12,6 +12,9 @@ import numpy as np
 from scipy.signal.windows import hann, dpss
 from numpy.lib.format import open_memmap
 from tqdm import tqdm
+if sys.platform == "win32":
+    # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
+    import colorama; colorama.deinit(); colorama.init(strip=False)
 from abc import ABC, abstractmethod
 import pdb
 from memory_profiler import profile
