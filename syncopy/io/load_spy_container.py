@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-16 16:10:08>
+# Last modification time: <2019-04-25 15:57:51>
 
 # Builtin/3rd party package imports
 import os
@@ -29,7 +29,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     """
     Docstring coming soon...
 
-    in case 'dir' and 'dir.spw' exist, preference will be given to 'dir.spw'
+    in case 'dir' and 'dir.spy' exist, preference will be given to 'dir.spy'
 
     fname can be search pattern 'session1*' or base file-name ('asdf' will
     load 'asdf.<hash>.json/.dat') or hash-id ('d4c1' will load 
@@ -37,14 +37,15 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     """
 
     # Make sure `in_name` is a valid filesystem-location: in case 'dir' and
-    # 'dir.spw' exists, preference will be given to 'dir.spw'
+    # 'dir.spy' exists, preference will be given to 'dir.spy'
+    # >>>>>>>>>>>>>>>>> FIXME: this doesn't work with arbitrary extensions, e.g., test.pxw!!!
     if not isinstance(in_name, str):
         raise SPYTypeError(in_name, varname="in_name", expected="str")
     _, in_ext = os.path.splitext(in_name)
     if in_ext != FILE_EXT["dir"]:
-        in_spw = in_name + FILE_EXT["dir"]
+        in_spy = in_name + FILE_EXT["dir"]
     try:
-        in_name = io_parser(in_spw, varname="in_name", isfile=False, exists=True)
+        in_name = io_parser(in_spy, varname="in_name", isfile=False, exists=True)
     except:
         try:
             in_name = io_parser(in_name, varname="in_name", isfile=False, exists=True)
