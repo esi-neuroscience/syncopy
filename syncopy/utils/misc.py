@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-14 10:23:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-29 16:42:40>
+# Last modification time: <2019-04-30 16:20:09>
 
 # Builtin/3rd party package imports
 import sys
@@ -120,6 +120,7 @@ def SPYExceptionHandler(*excargs, **exckwargs):
             cols = get_ipython().InteractiveTB.Colors
             cols.filename = cols.filenameEm
             cols.bold = "\033[1m"
+            nbpdb = False
             if ipy.has_trait("kernel"): # Monkey patch ``sys`` in case we're running in a notebook
                 sys.last_traceback = etb
                 if ipy.call_pdb:

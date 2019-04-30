@@ -1,13 +1,13 @@
-% -*- coding: utf-8 -*-
 %
 % Load data from SynCoPy containers
 % 
 % Created: 2019-04-24 16:40:56
 % Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-% Last modification time: <2019-04-25 17:27:53>
+% Last modification time: <2019-04-30 16:16:43>
 
-function load_spy(in_name, varargin)
-    
+function [data, trl, attrs] = load_spy(in_name, varargin)
+
+    % Import custom exceptions
     import spy.utils.spy_error;
     
     % Default values for optional inputs
@@ -49,7 +49,7 @@ function load_spy(in_name, varargin)
             spy_error(['Cannot find .info file in ', in_name], 'io')
         end
         [~, idx] = max([files.datenum]);
-        in_file = fullfile(in_name, files(idx).name)
+        in_file = fullfile(in_name, files(idx).name);
         
     else
 
@@ -85,6 +85,24 @@ function load_spy(in_name, varargin)
     in_files.info = fullfile(in_path, [in_base, '.info']);
     in_files.dat = fullfile(in_path, [in_base, '.dat']);
     
+    % % FIXME: >>>>>>>>>>>>>>> parse json file...
     % jsondecode(fileread(in_files.info))
+    % and as the case may be vet contents of HDF5 container for consistency
     
-    keyboard;
+    % Get content info of dat-HDF5 container 
+    h5toc = h5info(in_files.dat);
+    dset_names = {h5toc.Datasets.Name};
+    msk = ~strcmp(dset_names, 'trialdefinition');
+    dclass = dset_names{msk};
+    ndim = length(h5toc.Datasets(msk).Dataspace.Size);
+    
+    % Account for C-ordering by permuting contents of dataset
+    data = permute(h5read(in_files.dat, ['/', dclass]), [ndim : -1 : 1]);
+
+    % The `trialdefinition` part is always 2D -just transpose it
+    trl = h5read(in_files.dat, '/trialdefinition')';
+    
+    % Finally (and probably only for the time being): extract container attributes
+    attrs = h5toc.Attributes;
+    
+    return;
