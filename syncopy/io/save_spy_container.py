@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
 # Save SynCoPy data objects on disk
-# 
+#
 # Created: 2019-02-05 13:12:58
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-17 11:42:29>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-04-29 11:49:02>
 
 # Builtin/3rd party package imports
 import os
@@ -13,7 +13,6 @@ import h5py
 import sys
 import numpy as np
 from collections import OrderedDict
-from numpy.lib.format import open_memmap, read_magic
 from hashlib import blake2b
 
 # Local imports
@@ -24,7 +23,7 @@ from syncopy import __storage__
 
 __all__ = ["save_spy"]
 
-##########################################################################################
+
 def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
     """
     Docstring coming soon...
@@ -76,7 +75,7 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
     fname_hsh = blake2b(digest_size=2, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
     filename = os.path.join(out_name, fname + "." + fname_hsh + "{ext:s}")
 
-    # Start by creating a HDF5 container and write actual data 
+    # Start by creating a HDF5 container and write actual data
     h5f = h5py.File(filename.format(ext=FILE_EXT["data"]), mode="w")
 
     # The most generic case: `out` hosts a `h5py.Dataset` object
@@ -88,17 +87,17 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
 
         # Given memory cap, compute how many data blocks can be grabbed
         # per swipe (divide by 2 since we're working with an add'l tmp array)
-        memuse *= 1024**2/2
-        nrow = int(memuse/(np.prod(out.data.shape[1:]) * out.data.dtype.itemsize))
+        memuse *= 1024**2 / 2
+        nrow = int(memuse / (np.prod(out.data.shape[1:]) * out.data.dtype.itemsize))
         rem = int(out.data.shape[0] % nrow)
-        n_blocks = [nrow]*int(out.data.shape[0] // nrow) + [rem] * int(rem > 0)
+        n_blocks = [nrow] * int(out.data.shape[0] // nrow) + [rem] * int(rem > 0)
 
         # Write data block-wise to dataset (use `clear` to wipe blocks of
         # mem-maps from memory)
         dat = h5f.create_dataset(out.__class__.__name__,
-                                dtype=out.data.dtype, shape=out.data.shape)
+                                 dtype=out.data.dtype, shape=out.data.shape)
         for m, M in enumerate(n_blocks):
-            dat[m*nrow : m*nrow + M, :] = out.data[m*nrow : m*nrow + M, :]
+            dat[m * nrow: m * nrow + M, :] = out.data[m * nrow: m * nrow + M, :]
             out.clear()
 
     # The simplest case: `out` hosts a NumPy array in its `data` property
@@ -107,7 +106,7 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
 
     # Now write trial-related information
     trl = np.array(out.trialinfo)
-    t0 = np.array(out.t0).reshape((out.t0.size,1))
+    t0 = np.array(out.t0).reshape((out.t0.size, 1))
     trl = np.hstack([out.sampleinfo, t0, trl])
     trl = h5f.create_dataset("trialdefinition", data=trl)
 
@@ -115,8 +114,8 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
     out.log = "Wrote files " + filename.format(ext="[dat/info/trl]")
 
     # While we're at it, write cfg entries
-    out.cfg = {"method" : sys._getframe().f_code.co_name,
-               "files" : filename.format(ext="[dat/info]")}
+    out.cfg = {"method": sys._getframe().f_code.co_name,
+               "files": filename.format(ext="[dat/info]")}
 
     # Assemble dict for JSON output: order things by their "readability"
     out_dct = OrderedDict()
@@ -139,7 +138,7 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
         out_dct["samplerate"] = out.samplerate
 
     # Computed file-hashes (placeholder)
-    out_dct["data_checkusm"] = None
+    out_dct["data_checksum"] = None
 
     # Object history
     out_dct["log"] = out._log
@@ -151,16 +150,16 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
             _dict_converter(hd)
             hdr.append(hd)
         out_dct["hdr"] = hdr
-    if hasattr(out, "taper"):           
-        out_dct["taper"] = out.taper.tolist()   # where is a taper, 
-        out_dct["freq"] = out.freq.tolist()     # there is a frequency 
-        
+    if hasattr(out, "taper"):
+        out_dct["taper"] = out.taper.tolist()   # where is a taper,
+        out_dct["freq"] = out.freq.tolist()     # there is a frequency
+
     # Stuff that is definitely vector-valued
     if hasattr(out, "channel"):
         out_dct["channel"] = out.channel.tolist()
     if hasattr(out, "unit"):
         out_dct["unit"] = out.unit.tolist()
-    
+
     # Here for some nested dicts and potentially long-winded notes
     if out.cfg is not None:
         cfg = dict(out.cfg)
@@ -187,7 +186,8 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
                       "- truncating HDF5 attribute. Please refer to {} for " +\
                       "complete listing. <<<"
                 info_fle = os.path.split(os.path.split(filename.format(ext=FILE_EXT["json"]))[0])[1]
-                info_fle = os.path.join(info_fle, os.path.basename(filename.format(ext=FILE_EXT["json"])))
+                info_fle = os.path.join(info_fle, os.path.basename(
+                    filename.format(ext=FILE_EXT["json"])))
                 print(msg.format(key, info_fle))
                 h5f.attrs[key] = [out_dct[key][0], "...", out_dct[key][-1]]
 
@@ -206,16 +206,16 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
         if __storage__ in out._filename:
             os.unlink(out._filename)
         out.data = filename.format(ext=FILE_EXT["data"])
-              
+
     return
 
-##########################################################################################
+
 def _dict_converter(dct, firstrun=True):
     """
     Convert all dict values having NumPy dtypes to corresponding builtin types
 
     Also works w/ nested dict of dicts and is cycle-save, i.e., it can
-    handle self-referencing dictionaires. For instance, consider a nested dict 
+    handle self-referencing dictionaires. For instance, consider a nested dict
     w/ back-edge (the dict is no longer an n-ary tree):
 
     dct = {}
@@ -226,7 +226,7 @@ def _dict_converter(dct, firstrun=True):
     dct["b"]["b.2"] = dct["a"]
     dct["b"]["b.3"] = dct
 
-    Here, b.2 points to value of `a` and b.3 is a self-reference. 
+    Here, b.2 points to value of `a` and b.3 is a self-reference.
 
     https://stackoverflow.com/questions/10756427/loop-through-all-nested-dictionary-values
     """

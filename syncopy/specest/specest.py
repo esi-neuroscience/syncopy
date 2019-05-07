@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # SynCoPy spectral estimation methods
-#
+# 
 # Created: 2019-01-22 09:07:47
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-25 12:27:25>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-04-29 15:23:19>
 
 # Builtin/3rd party package imports
 import sys
@@ -12,9 +12,12 @@ import numpy as np
 from scipy.signal.windows import hann, dpss
 from numpy.lib.format import open_memmap
 from tqdm import tqdm
+import h5py
 if sys.platform == "win32":
     # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
-    import colorama; colorama.deinit(); colorama.init(strip=False)
+    import colorama
+    colorama.deinit()
+    colorama.init(strip=False)
 from abc import ABC, abstractmethod
 import pdb
 from memory_profiler import profile
@@ -140,8 +143,9 @@ def mtmfft(dat, dt,
 
 class ComputationalRoutine(ABC):
 
-    computeFunction = lambda x: None
-    computeMethod = lambda x: None
+    def computeFunction(x): return None
+
+    def computeMethod(x): return None
 
     def __init__(self, *argv, **kwargs):
         self.defaultCfg = spy.get_defaults(self.computeFunction)
@@ -208,16 +212,15 @@ class MultiTaperFFT(ComputationalRoutine):
         super().__init__(*argv, **kwargs)
 
     def preallocate_output(self, data, out):
-        res = open_memmap(out._filename,
-                          shape=(len(data.trials),) + self.outputShape,
-                          dtype=self.dtype,
-                          mode="w+")
-        del res
+        with h5py.File(out._filename, mode="w") as h5f:
+            h5f.create_dataset(name="SpectralData",
+                               dtype=self.dtype,
+                               shape=(len(data.trials),) + self.outputShape)
 
     def handle_metadata(self, data, out):
-        out.data = open_memmap(out._filename, mode="r+")
+        h5f = h5py.File(out._filename, mode="r")
+        out.data = h5f["SpectralData"]
 
-        # We can't simply use ``redefinetrial`` here, prep things by hand
         time = np.arange(len(data.trials))
         time = time.reshape((time.size, 1))
         out.sampleinfo = np.hstack([time, time + 1])
@@ -264,23 +267,18 @@ class MultiTaperFFT(ComputationalRoutine):
         return daskResult.compute()
 
     def compute_sequentially(self, data, out):
-        for tk, trl in enumerate(tqdm(data.trials, desc="Computing MTMFFT...")):
-            res = open_memmap(out._filename, mode="r+")[tk, :, :, :]
-            res[...] = self.computeFunction(trl, 1 / data.samplerate,
-                                            **self.cfg)
-            del res
-            data.clear()
+        with h5py.File(out._filename, "r+") as h5f:
+            for tk, trl in enumerate(tqdm(data.trials, desc="Computing MTMFFT...")):                
+                h5f["SpectralData"][tk, :,:,:] = self.computeFunction(trl, 1 / data.samplerate,
+                                                                      **self.cfg)                          
+                h5f.flush()
 
     @staticmethod
     def write_block(blk, filename, block_info=None):
         idx = block_info[0]["chunk-location"][-1]
-
-        res = open_memmap(filename, mode="r+")[idx, :, :, :]
-        res[...] = blk
-        res = None
-        del res
+        with h5py.File(filename, "r+") as h5f:
+             h5f["SpectralData"][idx, :, :, :] = blk
         return idx
-
 
 
 def _nextpow2(number):

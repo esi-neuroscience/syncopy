@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
 # Load data from SynCoPy containers
-# 
+#
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-25 15:57:51>
+# Last modification time: <2019-04-29 11:58:29>
 
 # Builtin/3rd party package imports
 import os
@@ -14,7 +14,6 @@ import h5py
 import sys
 import numpy as np
 from collections import OrderedDict
-from numpy.lib.format import open_memmap
 from glob import iglob
 
 # Local imports
@@ -32,7 +31,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     in case 'dir' and 'dir.spy' exist, preference will be given to 'dir.spy'
 
     fname can be search pattern 'session1*' or base file-name ('asdf' will
-    load 'asdf.<hash>.json/.dat') or hash-id ('d4c1' will load 
+    load 'asdf.<hash>.json/.dat') or hash-id ('d4c1' will load
     'asdf.d4c1.json/.dat')
     """
 
@@ -55,14 +54,14 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     # Prepare dictionary of relevant filename-extensions
     f_ext = dict(FILE_EXT)
     f_ext.pop("dir")
-    
+
     # Either (try to) load newest fileset or look for a specific one
     if fname is None:
 
         # Get most recent json file in `in_name`, default to "*.json" if not found
         in_file = max(iglob(os.path.join(in_name, "*" + FILE_EXT["json"])),
                       key=os.path.getctime, default="*.json")
-        
+
     else:
 
         # Remove (if any) path as well as extension from provided file-name(-pattern)
@@ -94,24 +93,24 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
             raise SPYValueError(legal=legal.format(exp=expected_count, cnt=in_count),
                                 varname="fname", actual=fname)
 
-    # Construct dictionary of files to read from 
-    in_base  = os.path.splitext(in_file)[0]
+    # Construct dictionary of files to read from
+    in_base = os.path.splitext(in_file)[0]
     in_files = {}
     for kind, ext in f_ext.items():
         in_files[kind] = in_base + ext
 
     # Load contents of json file and make sure nothing was lost in translation
-    expected = {"dimord" : list,
-                "version" : str,
-                "log" : str,
-                "cfg" : dict,
-                "data" : str,
-                "data_dtype" : str,
-                "data_shape" : list,
-                "data_offset" : int,
-                "trl_dtype" : str,
-                "trl_shape" : list,
-                "trl_offset" : int}
+    expected = {"dimord": list,
+                "version": str,
+                "log": str,
+                "cfg": dict,
+                "data": str,
+                "data_dtype": str,
+                "data_shape": list,
+                "data_offset": int,
+                "trl_dtype": str,
+                "trl_shape": list,
+                "trl_offset": int}
     with open(in_files["json"], "r") as fle:
         json_dict = json.load(fle)
     mandatory = set(["type"] + list(expected.keys()))
@@ -121,12 +120,12 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
         raise SPYValueError(legal=legal, varname=in_files["json"], actual=actual)
 
     # Make sure the implied data-genre makes sense
-    legal_types = [dclass for dclass in spd.__all__ \
+    legal_types = [dclass for dclass in spd.__all__
                    if not (inspect.isfunction(getattr(spd, dclass)))]
     if json_dict["type"] not in legal_types:
         legal = "one of " + "".join(ltype + ", " for ltype in legal_types)[:-2]
         raise SPYValueError(legal=legal, varname="JSON: type", actual=json_dict["type"])
-    
+
     # Parse remaining meta-info fields
     try:
         json_parser(json_dict, expected)
@@ -136,8 +135,8 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     # Depending on data genre specified in file, check respective add'l fields
     # Note: `EventData` currently does not have any mandatory add'l fields
     if json_dict["type"] == "AnalogData":
-        expected = {"samplerate" : float,
-                    "channel" : list}
+        expected = {"samplerate": float,
+                    "channel": list}
         try:
             json_parser(json_dict, expected)
         except Exception as exc:
@@ -146,12 +145,12 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
             raise SPYValueError(legal="dimord = ['channel', 'time']",
                                 varname="JSON: dimord",
                                 actual=str(json_dict["dimord"]))
-        
+
     elif json_dict["type"] == "SpectralData":
-        expected = {"samplerate" : float,
-                    "channel" : list,
+        expected = {"samplerate": float,
+                    "channel": list,
                     "freq": list,
-                    "taper" : list}
+                    "taper": list}
         try:
             json_parser(json_dict, expected)
         except Exception as exc:
@@ -162,7 +161,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
                                 actual=str(json_dict["dimord"]))
 
     elif json_dict["type"] == "SpikeData":
-        expected = {"channel" : list,
+        expected = {"channel": list,
                     "unit": list}
         try:
             json_parser(json_dict, expected)
@@ -177,12 +176,12 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     if checksum:
         hsh_msg = "hash = {hsh:s}"
         hsh = hash_file(in_files["data"])
-        if hsh != json_dict["data_checkusm"]:
-            raise SPYValueError(legal=hsh_msg.format(hsh=json_dict["data_checkusm"]),
+        if hsh != json_dict["data_checksum"]:
+            raise SPYValueError(legal=hsh_msg.format(hsh=json_dict["data_checksum"]),
                                 varname=os.path.basename(in_files["data"]),
                                 actual=hsh_msg.format(hsh=hsh))
-    
-    # Parsing is done, create new or check provided container 
+
+    # Parsing is done, create new or check provided container
     if out is not None:
         try:
             data_parser(out, varname="out", writable=True,
@@ -196,7 +195,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
 
     # Assign meta-info common to all sub-classes
     out._log = json_dict["log"]
-    out._dimlabels = OrderedDict(zip(json_dict["dimord"], [None]*len(json_dict["dimord"])))
+    out._dimlabels = OrderedDict(zip(json_dict["dimord"], [None] * len(json_dict["dimord"])))
     for key in ["cfg", "notes"]:
         if json_dict.get(key):
             setattr(out, "_{}".format(key), json_dict[key])
@@ -227,9 +226,9 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
             out.samplerate = json_dict["samplerate"]
 
     # Write `cfg` entries
-    out.cfg = {"method" : sys._getframe().f_code.co_name,
-               "files" : in_base + "[dat/info]"}
-    
+    out.cfg = {"method": sys._getframe().f_code.co_name,
+               "files": in_base + "[dat/info]"}
+
     # Write log-entry
     msg = "Read files v. {ver:s} {fname:s}"
     out.log = msg.format(ver=json_dict["version"], fname=in_base + "[dat/info/trl]")
