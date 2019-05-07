@@ -4,7 +4,7 @@
 #
 # Created: 2019-02-05 13:12:58
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-04-29 11:49:02>
+# Last modification time: <2019-05-07 16:41:57>
 
 # Builtin/3rd party package imports
 import os
@@ -173,7 +173,7 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
         out_dct["notes"] = notes
 
     # Save relevant stuff as HDF5 attributes
-    noh5 = ["data", "data_dtype", "data_shape", "data_offset", "data_checkusm",
+    noh5 = ["data", "data_dtype", "data_shape", "data_offset", "data_checksum",
             "trl_dtype", "trl_shape", "trl_offset", "hdr", "cfg", "notes"]
     for key in set(out_dct.keys()).difference(noh5):
         if out_dct[key] is None:
@@ -193,7 +193,7 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
 
     # Close container and compute its checksum
     h5f.close()
-    out_dct["data_checkusm"] = hash_file(filename.format(ext=FILE_EXT["data"]))
+    out_dct["data_checksum"] = hash_file(filename.format(ext=FILE_EXT["data"]))
 
     # Finally, write JSON
     with open(filename.format(ext=FILE_EXT["json"]), "w") as out_json:
