@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-28 16:48:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-23 11:36:37>
+# Last modification time: <2019-04-30 16:20:58>
 
 # Builtin/3rd party package imports
 import h5py
@@ -20,6 +20,8 @@ if spy_path not in sys.path:
 # Import SynCoPy
 import syncopy as spy
 
+asdf
+
 # Define location of test data
 # datadir = "/mnt/hpx/it/dev/SpykeWave/testdata/"
 datadir = ".." + os.sep + ".." + os.sep + ".." + os.sep + ".." + os.sep + "Data"\
@@ -29,6 +31,8 @@ basename = "MT_RFmapping_session-168a1"
 # Create `AnalogData` object from *.lfp/*.mua files
 adataFiles = [os.path.join(datadir, basename + ext) for ext in ["_xWav.lfp", "_xWav.mua"]]
 adata = spy.AnalogData(filename=adataFiles, filetype="esis")
+
+sys.exit()
 
 # Create `SpikeData` object from *.spk file
 sdataFiles = os.path.join(datadir, basename + "_Raws.spk")
