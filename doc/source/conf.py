@@ -20,7 +20,7 @@ print(sys.path)
 
 # -- Project information -----------------------------------------------------
 
-project = 'SpykeWave'
+project = 'SyNCoPy'
 copyright = '2019, Joscha Schmiedt and Stefan Fuertinger'
 author = 'Joscha Schmiedt and Stefan Fuertinger'
 
@@ -51,6 +51,7 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
+    'sphinx.ext.inheritance_diagram'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -129,7 +130,7 @@ html_show_copyright = False
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'SpykeWavedoc'
+htmlhelp_basename = 'SyNCoPyDoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -156,7 +157,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'SpykeWave.tex', 'SpykeWave Documentation',
+    (master_doc, 'SynCoPy.tex', 'SynCoPy Documentation',
      'Joscha Schmiedt and Stefan Fuertinger', 'manual'),
 ]
 
@@ -166,7 +167,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'spykewave', 'SpykeWave Documentation',
+    (master_doc, 'SyNCoPy', 'SyNCoPy Documentation',
      [author], 1)
 ]
 
@@ -177,8 +178,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'SpykeWave', 'SpykeWave Documentation',
-     author, 'SpykeWave', 'One line description of project.',
+    (master_doc, 'SyNCoPy', 'SyNCoPy Documentation',
+     author, 'SynCoPy', 'One line description of project.',
      'Miscellaneous'),
 ]
 
@@ -212,3 +213,6 @@ intersphinx_mapping = {'https://docs.python.org/': None}
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
+
+inheritance_graph_attrs = dict(rankdir="TB", size='"6.0, 8.0"',
+                               fontsize=14, ratio='compress')

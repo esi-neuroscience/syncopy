@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-15 11:04:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-08 13:30:23>
+# Last modification time: <2019-05-07 17:32:23>
 """
 SynCoPy Convenience Utilities (:mod:`syncopy.utils`)
 ====================================================
@@ -17,11 +17,10 @@ We built some tools...
 .. autosummary::
    :toctree: _stubs 
    
-   spy_io_parser
-   spy_scalar_parser
-   spy_array_parser
-   spy_get_defaults
-   spy_print
+   io_parser
+   scalar_parser
+   array_parser
+   get_defaults   
 
 """
 

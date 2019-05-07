@@ -4,20 +4,31 @@
 #
 # Created: 2019-01-15 10:03:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-20 11:27:13>
+# Last modification time: <2019-05-07 17:31:00>
 """
-SynCoPy Data Containers (:mod:`syncopy.datatype`)
-=====================================================
+SyNCoPy Data Classes (:mod:`syncopy.datatype`)
+=================================================
 Some profoundly insightful text here...
 
-The SynCoPy `BaseData` Data Container
+.. inheritance-diagram:: AnalogData SpectralData SpikeData EventData
+   :top-classes: datatype.base_data.BaseData
+   :parts: 1
+
+The SyNCoPy `BaseData` Data Container
 ---------------------------------------
 Some info highlighting the boundless wisdom underlying the class design...
 
 .. autosummary::
    :toctree: _stubs 
    
-   BaseData
+   AnalogData
+   SpectralData
+   SpikeData
+   EventData
+
+
+
+
 
 """
 
