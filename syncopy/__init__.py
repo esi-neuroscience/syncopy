@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-15 09:03:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-09 14:37:58>
+# Last modification time: <2019-05-09 16:54:02>
 
 # Builtin/3rd party package imports
 import os
@@ -68,10 +68,8 @@ from .shared.errors import SPYExceptionHandler
 try:
     ipy = get_ipython()
     import IPython
-    if ipy.has_trait("kernel"):
-        IPython.core.interactiveshell.InteractiveShell.showtraceback = SPYExceptionHandler      # Jupyter notebook
-    else:
-        IPython.core.interactiveshell.InteractiveShell._showtraceback = SPYExceptionHandler     # iPython shell
+    IPython.core.interactiveshell.InteractiveShell.showtraceback = SPYExceptionHandler
+    IPython.core.interactiveshell.InteractiveShell.showsyntaxerror = SPYExceptionHandler
     sys.excepthook = SPYExceptionHandler
 except:
     sys.excepthook = SPYExceptionHandler

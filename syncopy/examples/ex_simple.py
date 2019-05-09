@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-28 16:48:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-09 14:39:49>
+# Last modification time: <2019-05-09 16:44:00>
 
 # Builtin/3rd party package imports
 import h5py
@@ -28,7 +28,7 @@ basename = "MT_RFmapping_session-168a1"
 
 # Create `AnalogData` object from *.lfp/*.mua files
 adataFiles = [os.path.join(datadir, basename + ext) for ext in ["_xWav.lfp", "_xWav.mua"]]
-adata = spy.AnalogData(filename=adataFiles, filetype="esi")
+adata = spy.AnalogData(filename=adataFiles, filetype="esis")
 
 sys.exit()
 
