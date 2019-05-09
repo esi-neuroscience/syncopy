@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:13:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-16 11:12:08>
+# Last modification time: <2019-05-09 13:54:59>
 
 # Builtin/3rd party package imports
 import os
@@ -12,7 +12,8 @@ import sys
 import numpy as np
 
 # Local imports
-from syncopy.utils import io_parser, data_parser, SPYIOError, SPYTypeError, SPYValueError
+from syncopy.shared import io_parser, data_parser
+from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
 from syncopy.datatype import AnalogData
 from syncopy.datatype.base_data import VirtualData
 import syncopy.datatype as spd

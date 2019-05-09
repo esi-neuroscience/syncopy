@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-14 10:23:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-30 16:20:09>
+# Last modification time: <2019-05-09 13:50:15>
 
 # Builtin/3rd party package imports
 import sys
@@ -14,7 +14,7 @@ from collections import OrderedDict
 # Local imports
 from syncopy import __tbcount__
 
-__all__ = ["SPYTypeError", "SPYValueError", "SPYIOError", "SPYExceptionHandler", "get_caller"]
+__all__ = ["get_caller"]
 
 
 class Error(Exception):
@@ -129,7 +129,7 @@ def SPYExceptionHandler(*excargs, **exckwargs):
             isipy = False
             nbpdb = False
 
-    # Pass KeyboardInterrupt on to regular excepthook so that CTRL + C
+    # Pass ``KeyboardInterrupt`` on to regular excepthook so that CTRL + C
     # can still be used to abort program execution (only relevant in "regular"
     # Python prompts)
     if issubclass(etype, KeyboardInterrupt) and not isipy:

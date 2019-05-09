@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-21 15:44:03
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-18 11:51:49>
+# Last modification time: <2019-05-09 13:52:12>
 
 import os
 import tempfile
@@ -12,7 +12,7 @@ import pytest
 import time
 import numpy as np
 from syncopy.datatype import AnalogData, SpikeData, EventData
-from syncopy.utils import SPYValueError, SPYTypeError
+from syncopy.shared.errors import SPYValueError, SPYTypeError
 
 class TestSpikeData(object):
 

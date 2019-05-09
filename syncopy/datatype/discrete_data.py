@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 11:53:39>
+# Last modification time: <2019-05-09 13:57:11>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -13,7 +13,8 @@ from abc import ABC
 # Local imports
 from .base_data import BaseData, Indexer
 from .data_methods import _selectdata_discrete, definetrial
-from syncopy.utils import scalar_parser, array_parser, SPYValueError
+from syncopy.shared import scalar_parser, array_parser
+from syncopy.shared.errors import SPYValueError
 
 __all__ = ["SpikeData", "EventData"]
 

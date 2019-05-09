@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-18 15:24:46>
+# Last modification time: <2019-05-09 13:52:54>
 
 import os
 import h5py
@@ -16,7 +16,7 @@ from memory_profiler import memory_usage
 from syncopy.datatype import AnalogData
 import syncopy.datatype as spd
 from syncopy.datatype.base_data import VirtualData
-from syncopy.utils import SPYValueError, SPYTypeError
+from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests.misc import is_win_vm
 
 # Construct decorator for skipping certain tests if we're running inside a Win VM

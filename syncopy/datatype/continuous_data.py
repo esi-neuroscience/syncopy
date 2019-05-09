@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-16 12:35:10>
+# Last modification time: <2019-05-09 13:56:59>
 
 # Builtin/3rd party package imports
 import h5py
@@ -17,7 +17,8 @@ from numpy.lib.format import open_memmap
 # Local imports
 from .base_data import BaseData, VirtualData
 from .data_methods import _selectdata_continuous, definetrial
-from syncopy.utils import scalar_parser, array_parser, io_parser, SPYValueError
+from syncopy.shared import scalar_parser, array_parser, io_parser
+from syncopy.shared.errors import SPYValueError
 
 __all__ = ["AnalogData", "SpectralData"]
 

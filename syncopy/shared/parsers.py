@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-16 11:41:06>
+# Last modification time: <2019-05-09 13:53:11>
 
 # Builtin/3rd party package imports
 import os
@@ -13,7 +13,7 @@ import numbers
 from inspect import signature
 
 # Local imports
-from syncopy.utils import SPYIOError, SPYTypeError, SPYValueError
+from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
 
 __all__ = ["io_parser", "scalar_parser", "array_parser",
            "data_parser", "json_parser", "get_defaults"]

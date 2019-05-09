@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-18 16:36:50>
+# Last modification time: <2019-05-09 13:51:34>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -29,8 +29,8 @@ import shutil
 
 # Local imports
 from .data_methods import definetrial
-from syncopy.utils import (scalar_parser, array_parser, io_parser, 
-                           SPYTypeError, SPYValueError)
+from syncopy.shared import scalar_parser, array_parser, io_parser
+from syncopy.shared.errors import SPYTypeError, SPYValueError
 from syncopy import __version__, __storage__, __dask__, __sessionid__
 if __dask__:
     import dask
