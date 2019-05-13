@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-09 13:51:34>
+# Last modification time: <2019-05-13 11:30:39>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -48,7 +48,7 @@ class BaseData(ABC):
     @cfg.setter
     def cfg(self, dct):
         if not isinstance(dct, dict):
-            raise SPYTypeError(dct, varname="cfg", expected="dictionary")
+            raise SPYTypeError(dct, varname="cfg", expected="dictionary-like object")
         self._cfg = self._set_cfg(self._cfg, dct)
 
     @property
@@ -313,6 +313,7 @@ class BaseData(ABC):
 
     # Helper function that digs into cfg dictionaries
     def _set_cfg(self, cfg, dct):
+        dct = StructDict(dct)
         if not cfg:
             cfg = dct
         else:
@@ -755,3 +756,14 @@ class SessionLogger():
 
     def __del__(self):
         self._rm(self.sessionfile)
+
+
+class StructDict(dict):
+    
+    def __init__(self, *args, **kwargs):
+        """
+        Create a child-class of dict whose attributes are its keys
+        (thus ensuring that attributes and items are always in sync)
+        """
+        super().__init__(*args, **kwargs)
+        self.__dict__ = self        

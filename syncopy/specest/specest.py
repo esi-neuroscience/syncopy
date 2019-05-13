@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
 # 
-# SynCoPy spectral estimation methods
+# SyNCoPy spectral estimation methods
 # 
 # Created: 2019-01-22 09:07:47
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-04-29 15:23:19>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-05-13 17:25:54>
 
 # Builtin/3rd party package imports
 import sys
 import numpy as np
 from scipy.signal.windows import hann, dpss
-from numpy.lib.format import open_memmap
 from tqdm import tqdm
 import h5py
 if sys.platform == "win32":
@@ -18,26 +17,21 @@ if sys.platform == "win32":
     import colorama
     colorama.deinit()
     colorama.init(strip=False)
-from abc import ABC, abstractmethod
-import pdb
-from memory_profiler import profile
-
-# Local imports
-import syncopy as spy
-from syncopy import data_parser
-from syncopy import SpectralData
-from syncopy.specest.wavelets import cwt, Morlet
 from copy import copy
 
+# Local imports
+from syncopy.shared import (data_parser, scalar_parser, array_parser,
+                            get_defaults, ComputationalRoutine)
+from syncopy.datatype import SpectralData
+from syncopy.specest.wavelets import cwt, Morlet
+from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.shared.parsers import unwrap_cfg
 from syncopy import __dask__
 if __dask__:
     import dask
     import dask.array as da
-    from dask.distributed import get_client
 
-
-__all__ = ["freqanalysis", "mtmfft", "wavelet", "MultiTaperFFT", "WaveletTransform"]
-
+# Module-wide output specs
 spectralDTypes = {"pow": np.float32,
                   "fourier": np.complex128,
                   "abs": np.float32}
@@ -45,23 +39,100 @@ spectralConversions = {"pow": lambda x: np.float32(x * np.conj(x)),
                        "fourier": lambda x: np.complex128(x),
                        "abs": lambda x: np.float32(np.absolute(x))}
 
+__all__ = ["freqanalysis", "mtmfft", "wavelet", "MultiTaperFFT", "WaveletTransform"]
 
+
+@unwrap_cfg
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, keeptapers=True,
                  pad='nextpow2', polyremoval=0, padtype='zero',
                  taper=hann, tapsmofrq=None,
                  foi=None, toi=None,
-                 width=6, outputfile=None, out=None):
-    # FIXME: parse remaining input arguments
-    if polyremoval:
-        raise NotImplementedError("Detrending has not been implemented yet.")
-
-    # Make sure input object can be processed
+                 width=6, out=None, cfg=None):
+    
+    # Make sure our one mandatory input object can be processed
     try:
         data_parser(data, varname="data", dataclass="AnalogData",
                     writable=None, empty=False)
     except Exception as exc:
         raise exc
+
+    # Get everything in local namespace
+    lcls = locals()
+
+    # Ensure a valid computational method was selected
+    options = ["mtmfft", "wavelet"]
+    if method not in options:
+        raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
+                            varname="method", actual=method)
+
+    # Ensure a valid output format was selected
+    options = ["pow", "fourier", "abs"]
+    if output not in options:
+        raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
+                            varname="output", actual=output)
+
+    # Parse all Boolean keyword arguments
+    for vname in ["keeptrials", "keeptapers"]:
+        if not isinstance(lcls[vname], bool):
+            raise SPYTypeError(lcls[vname], varname=vname, expected="Bool")
+
+    # Ensure padding selection makes sense
+    options = [None, "nextpow2"]
+    if pad not in options:
+        raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
+                            varname="pad", actual=pad)
+    options = ["zero"]
+    if padtype not in options:
+        raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
+                            varname="padtype", actual=padtype)
+
+    # Ensure frequency-of-interest is below Nyquist
+    if foi is not None:
+        try:
+            array_parser(foi, varname="foi", hasinf=False, hasnan=False,
+                         lims=[0.1, data.samplerate/2], dims=(None,))
+        except Exception as exc:
+            raise exc
+
+    # Ensure time-of-interest is within data bounds
+    if toi is not None:
+        timing = np.array([[-data.t0[tk]/data.samplerate,
+                            (end - start - data.t0[tk])/data.samplerate] \
+                           for tk, (start, end) in enumerate(data.sampleinfo)])
+        try:
+            array_parser(toi, varname="toi", hasinf=False, hasnan=False,
+                         lims=[timing.min(), timing.max()], dims=(None,))
+        except Exception as exc:
+            raise exc
+    
+    # FIXME: implement detrending
+    if polyremoval:
+        raise NotImplementedError("Detrending has not been implemented yet.")
+
+    # Ensure consistency of method-specific options
+    defaults = get_defaults(freqanalysis)
+    if method == "mtmfft":
+        options = [hann, dpss]
+        if taper not in options:
+            raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
+                                varname="taper", actual=taper)
+        try:
+            scalar_parse(tapsmofrq, varname="tapsmofrq", lims=[0.1, np.inf])
+        except Exception as exc:
+            raise exc
+        if width != defaults["width"]:
+            wrng = "<freqanalysis> WARNING: `width` keyword ignored by mtmfft method"
+            print(wrng)
+    elif method == "wavelet":
+        try:
+            scalar_parse(width, varname="width", lims=[1, np.inf])
+        except Exception as exc:
+            raise exc
+        for vname in ["taper", "tapsmofrq"]:
+            if lcls[vname] != defaults[vname]:
+                wrng = "<freqanalysis> WARNING: `{}` keyword ignored by wavelet method"
+                print(wrng.format(vname))
 
     # If provided, make sure output object is appropriate
     if out is not None:
@@ -75,6 +146,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         out = SpectralData()
         new_out = True
 
+    # >>>>>>>>>> taperopt????
     methods = {
         "mtmfft": (MultiTaperFFT(taper=hann, tapsmofrq=tapsmofrq,
                                  pad=pad, padtype=padtype,
@@ -109,8 +181,6 @@ def mtmfft(dat, dt,
         padWidth = np.zeros((dat.ndim, 2), dtype=int)
         if pad == "nextpow2":
             padWidth[0, 0] = _nextpow2(nSamples) - nSamples
-        else:
-            raise NotImplementedError('padding not implemented')
 
         if padtype == "zero":
             dat = np.pad(dat, pad_width=padWidth,
@@ -139,70 +209,6 @@ def mtmfft(dat, dt,
         spec[taperIdx, ...] = spectralConversions[output](np.fft.rfft(dat * taper, axis=0))
 
     return spec
-
-
-class ComputationalRoutine(ABC):
-
-    def computeFunction(x): return None
-
-    def computeMethod(x): return None
-
-    def __init__(self, *argv, **kwargs):
-        self.defaultCfg = spy.get_defaults(self.computeFunction)
-        self.cfg = copy(self.defaultCfg)
-        self.cfg.update(**kwargs)
-        self.argv = argv
-        self.outputShape = None
-        self.dtype = None
-
-    # def __call__(self, data, out=None)
-
-    def initialize(self, data):
-        # FIXME: this only works for data with equal output trial lengths
-        dryRunKwargs = copy(self.cfg)
-        dryRunKwargs["noCompute"] = True
-        self.outputShape, self.dtype = self.computeFunction(data.trials[0],
-                                                            *self.argv,
-                                                            **dryRunKwargs)
-
-    @profile
-    def compute(self, data, out, methodName="sequentially"):
-
-        self.preallocate_output(data, out)
-        result = None
-
-        computeMethod = getattr(self, "compute_" + methodName, None)
-        if computeMethod is None:
-            raise AttributeError
-
-        computeMethod(data, out)
-
-        self.handle_metadata(data, out)
-        self.write_log(data, out)
-        return out
-
-    def write_log(self, data, out):
-        # Write log
-        out._log = str(data._log) + out._log
-        logHead = "computed {name:s} with settings\n".format(name=self.computeFunction.__name__)
-
-        logOpts = ""
-        for k, v in self.cfg.items():
-            logOpts += "\t{key:s} = {value:s}\n".format(key=k, value=str(v))
-
-        out.log = logHead + logOpts
-
-    @abstractmethod
-    def preallocate_output(self, *args):
-        pass
-
-    @abstractmethod
-    def handle_metadata(self, *args):
-        pass
-
-    @abstractmethod
-    def compute_sequentially(self, *args):
-        pass
 
 
 class MultiTaperFFT(ComputationalRoutine):

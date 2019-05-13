@@ -4,16 +4,19 @@
 #
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-09 13:53:11>
+# Last modification time: <2019-05-13 17:30:14>
 
 # Builtin/3rd party package imports
 import os
 import numpy as np
 import numbers
+import functools
 from inspect import signature
 
 # Local imports
 from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
+import syncopy as spy
+# from syncopy.datatype.base_data import StructDict
 
 __all__ = ["io_parser", "scalar_parser", "array_parser",
            "data_parser", "json_parser", "get_defaults"]
@@ -517,4 +520,35 @@ def get_defaults(obj):
 
     if not callable(obj):
         raise SPYTypeError(obj, varname="obj", expected="SyNCoPy function or class")
-    return {k:v.default for k,v in signature(obj).parameters.items() if v.default != v.empty}
+    dct = {k: v.default for k, v in signature(obj).parameters.items()\
+           if v.default != v.empty and v.name != "cfg"}
+    return spy.StructDict(dct)
+
+
+def unwrap_cfg(func):
+    """
+    Decorator that unwraps cfg object in function call
+    """
+    
+    @functools.wraps(func)
+    def wrapper_cfg(*args, **kwargs):
+
+        # If a non-`None` `cfg` keyword is found, vet it and ensure no other
+        # (potentially conflicting) keyword arguments have been provided.
+        # Subsequently call the function with `cfg` unwrapped
+        if kwargs.get("cfg") is not None:
+            if not isinstance(cfg, dict):
+                raise SPYTypeError(kwargs["cfg"], varname="cfg", expected="dictionary-like")
+            defaults = get_defaults(freqanalysis)
+            for key, value in kwargs.items():
+                if defaults[key] != value:
+                    raise SPYValueError(legal="no keyword arguments",
+                                        varname=key,
+                                        actual="non-default value for {}".format(key))
+            return func(*args, **kwargs["cfg"])
+
+        # No meaningful `cfg` keyword found, proceed with regular function call
+        else:
+            return func(*args, **kwargs)
+        
+    return wrapper_cfg
