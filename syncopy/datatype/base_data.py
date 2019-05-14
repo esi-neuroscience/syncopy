@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-13 11:30:39>
+# Last modification time: <2019-05-14 10:12:30>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -36,7 +36,7 @@ if __dask__:
     import dask
 import syncopy as spy
 
-__all__ = []
+__all__ = ["StructDict"]
 
 
 class BaseData(ABC):

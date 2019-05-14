@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-13 16:09:57>
+# Last modification time: <2019-05-14 10:18:54>
 
 # Builtin/3rd party package imports
 from abc import ABC, abstractmethod
@@ -13,7 +13,7 @@ from copy import copy
 # Local imports
 from .parsers import get_defaults
 
-__all__ = ["ComputationalRoutine"]
+__all__ = []
 
 
 class ComputationalRoutine(ABC):

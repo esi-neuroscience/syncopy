@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-13 17:30:14>
+# Last modification time: <2019-05-14 10:14:32>
 
 # Builtin/3rd party package imports
 import os
@@ -16,7 +16,6 @@ from inspect import signature
 # Local imports
 from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
 import syncopy as spy
-# from syncopy.datatype.base_data import StructDict
 
 __all__ = ["io_parser", "scalar_parser", "array_parser",
            "data_parser", "json_parser", "get_defaults"]

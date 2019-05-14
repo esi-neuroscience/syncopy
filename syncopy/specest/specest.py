@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-13 17:25:54>
+# Last modification time: <2019-05-14 16:43:09>
 
 # Builtin/3rd party package imports
 import sys
@@ -20,8 +20,8 @@ if sys.platform == "win32":
 from copy import copy
 
 # Local imports
-from syncopy.shared import (data_parser, scalar_parser, array_parser,
-                            get_defaults, ComputationalRoutine)
+from syncopy.shared import data_parser, scalar_parser, array_parser, get_defaults
+from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.datatype import SpectralData
 from syncopy.specest.wavelets import cwt, Morlet
 from syncopy.shared.errors import SPYValueError, SPYTypeError
@@ -39,7 +39,7 @@ spectralConversions = {"pow": lambda x: np.float32(x * np.conj(x)),
                        "fourier": lambda x: np.complex128(x),
                        "abs": lambda x: np.float32(np.absolute(x))}
 
-__all__ = ["freqanalysis", "mtmfft", "wavelet", "MultiTaperFFT", "WaveletTransform"]
+__all__ = ["freqanalysis"]
 
 
 @unwrap_cfg
@@ -121,9 +121,22 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             scalar_parse(tapsmofrq, varname="tapsmofrq", lims=[0.1, np.inf])
         except Exception as exc:
             raise exc
-        if width != defaults["width"]:
-            wrng = "<freqanalysis> WARNING: `width` keyword ignored by mtmfft method"
-            print(wrng)
+
+        # Warn the user in case other method-specifc options are set
+        settings = set()
+        mth_defaults = {}
+        for mth in [wavelet]:
+            m_defaults = get_defaults(mth)
+            settings = settings.union(set(m_defaults.keys()).difference(defaults.keys()))
+            mth_defaults.update(m_defaults)
+        for key in settings:
+            if lcls[key] != mth_defaults[key]:
+                wrng = "<freqanalysis> WARNING: `{}` keyword ignored by mtmfft method"
+                print(wrng.format(key))
+        # if width != defaults["width"]:
+        #     wrng = "<freqanalysis> WARNING: `width` keyword ignored by mtmfft method"
+        #     print(wrng)
+        
     elif method == "wavelet":
         try:
             scalar_parse(width, varname="width", lims=[1, np.inf])
