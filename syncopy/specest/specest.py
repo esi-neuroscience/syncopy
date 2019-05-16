@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-14 16:43:09>
+# Last modification time: <2019-05-16 16:48:18>
 
 # Builtin/3rd party package imports
 import sys
@@ -46,9 +46,12 @@ __all__ = ["freqanalysis"]
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, keeptapers=True,
                  pad='nextpow2', polyremoval=0, padtype='zero',
-                 taper=hann, tapsmofrq=None,
+                 taper=hann, taperopt={}, tapsmofrq=None,
                  foi=None, toi=None,
                  width=6, out=None, cfg=None):
+    """
+    Explain taperopt...
+    """
     
     # Make sure our one mandatory input object can be processed
     try:
@@ -61,9 +64,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     lcls = locals()
 
     # Ensure a valid computational method was selected
-    options = ["mtmfft", "wavelet"]
-    if method not in options:
-        raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
+    avail_methods = ["mtmfft", "wavelet"]
+    if method not in avail_methods:
+        raise SPYValueError(legal="".join(opt + ", " for opt in avail_methods)[:-2],
                             varname="method", actual=method)
 
     # Ensure a valid output format was selected
@@ -117,22 +120,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         if taper not in options:
             raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
                                 varname="taper", actual=taper)
+        if not isinstance(taperopt, dict):
+            raise SPYTypeError(taperopt, varname="taperopt", expected="dictionary")
         try:
             scalar_parse(tapsmofrq, varname="tapsmofrq", lims=[0.1, np.inf])
         except Exception as exc:
             raise exc
 
-        # Warn the user in case other method-specifc options are set
-        settings = set()
-        mth_defaults = {}
-        for mth in [wavelet]:
-            m_defaults = get_defaults(mth)
-            settings = settings.union(set(m_defaults.keys()).difference(defaults.keys()))
-            mth_defaults.update(m_defaults)
-        for key in settings:
-            if lcls[key] != mth_defaults[key]:
-                wrng = "<freqanalysis> WARNING: `{}` keyword ignored by mtmfft method"
-                print(wrng.format(key))
         # if width != defaults["width"]:
         #     wrng = "<freqanalysis> WARNING: `width` keyword ignored by mtmfft method"
         #     print(wrng)
@@ -147,6 +141,21 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 wrng = "<freqanalysis> WARNING: `{}` keyword ignored by wavelet method"
                 print(wrng.format(vname))
 
+    # Warn the user in case other method-specifc options are set
+    other = list(avail_methods)
+    other.pop(other.index(method))
+    settings = set()
+    mth_defaults = {}
+    glbls = globals()
+    for mth_str in other:
+        mth_defaults.update(get_defaults(glbls[mth_str]))
+    settings = set(mth_defaults.keys()).difference(defaults.keys())
+    for key in settings:
+        if lcls[key] != mth_defaults[key]:
+            wrng = "<freqanalysis> WARNING: `{kw:s}` keyword has no effect in " +\
+                   "chosen method {m:s}"
+            print(wrng.format(kw=key, m=method))
+
     # If provided, make sure output object is appropriate
     if out is not None:
         try:
@@ -159,13 +168,26 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         out = SpectralData()
         new_out = True
 
-    # >>>>>>>>>> taperopt????
+    # Prepare dict of optional keywords for computational class constructor
+    kws = get_defaults(glbls[method]).keys()
+    for kw in ["output", "noCompute"]:
+        kws.pop(kws.index(kw))
+    mth_input = {}
+    for kw in kws:
+        mth_input[kw] = lcls[kw]
+
+    import ipdb; ipdb.set_trace()
+
+    # Construct dict for classes of available methods
     methods = {
-        "mtmfft": (MultiTaperFFT(taper=hann, tapsmofrq=tapsmofrq,
-                                 pad=pad, padtype=padtype,
-                                 polyorder=polyremoval),
-                   1 / data.samplerate)
+        "mtmfft": (MultiTaperFFT(**kws), 1/data.samplerate)
     }
+    # methods = {
+    #     "mtmfft": (MultiTaperFFT(taper=hann, tapsmofrq=tapsmofrq,
+    #                              pad=pad, padtype=padtype,
+    #                              polyorder=polyremoval),
+    #                1 / data.samplerate)
+    # }
 
     specestMethod = methods[method][0]
     argv = methods[method][1]
