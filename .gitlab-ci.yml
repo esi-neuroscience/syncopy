@@ -22,8 +22,7 @@ windowsTests:
     - tox
 
 docs:
-    stage: test
-    when: manual
+    stage: deploy
     tags:
     - docs
     only:
@@ -40,8 +39,9 @@ docs:
     - conda update --yes conda
     - conda env update --file environment.yml
     - conda activate SyNCoPy
-    - pip install --upgrade sphinx
+    - conda  install -y sphinx
     - pip install --upgrade sphinx-bootstrap-theme
+    - conda install -y python-graphviz
     - cd doc
     - make html
     - rsync -av -e "ssh" --delete build/html/* root@monitor:/var/www/html/syncopy
