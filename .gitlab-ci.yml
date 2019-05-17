@@ -26,18 +26,19 @@ docs:
     tags:
     - docs
     only:
-    - datatype_docs
+    - master
     script:
     - if bash $HOME/miniconda/bin/conda 2>/dev/null; 
       then
          export PATH="$HOME/miniconda/bin:$PATH";
       else
-        wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh;
+        wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
         bash miniconda.sh -b -p $HOME/miniconda;
         export PATH="$HOME/miniconda/bin:$PATH";
       fi
     - conda update --yes conda
     - pip install --upgrade sphinx
+    - pip install --upgrade sphinx-bootstrap-theme
     - cd doc
     - make html
-    - rsync -av -e "ssh -p 222"  --delete build/html/* root@monitor:/var/www/html/syncopy
+    - rsync -av -e "ssh" --delete build/html/* root@monitor:/var/www/html/syncopy
