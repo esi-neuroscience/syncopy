@@ -1,1 +1,1 @@
-.. automodule:: spykewave.examples
+.. automodule:: syncopy.examples

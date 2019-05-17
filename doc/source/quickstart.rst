@@ -1,4 +1,4 @@
-A Short Guide to SpykeWave
+A Short Guide to SyNCoPy
 ==========================
 Coming soon...
 
