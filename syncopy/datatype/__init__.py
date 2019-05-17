@@ -3,18 +3,18 @@
 #
 #
 # Created: 2019-01-15 10:03:44
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-07 17:31:00>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-05-17 16:32:23>
 """
 SyNCoPy Data Classes (:mod:`syncopy.datatype`)
-=================================================
+==============================================
 Some profoundly insightful text here...
 
 .. inheritance-diagram:: AnalogData SpectralData SpikeData EventData
-   :top-classes: datatype.base_data.BaseData
+   :top-classes: BaseData
    :parts: 1
 
-The SyNCoPy `BaseData` Data Container
+The usable SyNCoPy data classes
 ---------------------------------------
 Some info highlighting the boundless wisdom underlying the class design...
 
