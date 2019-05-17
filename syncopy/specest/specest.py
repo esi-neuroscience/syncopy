@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-16 16:48:18>
+# Last modification time: <2019-05-17 11:09:12>
 
 # Builtin/3rd party package imports
 import sys
@@ -123,7 +123,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         if not isinstance(taperopt, dict):
             raise SPYTypeError(taperopt, varname="taperopt", expected="dictionary")
         try:
-            scalar_parse(tapsmofrq, varname="tapsmofrq", lims=[0.1, np.inf])
+            scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[0.1, np.inf])
         except Exception as exc:
             raise exc
 
@@ -133,7 +133,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         
     elif method == "wavelet":
         try:
-            scalar_parse(width, varname="width", lims=[1, np.inf])
+            scalar_parser(width, varname="width", lims=[1, np.inf])
         except Exception as exc:
             raise exc
         for vname in ["taper", "tapsmofrq"]:

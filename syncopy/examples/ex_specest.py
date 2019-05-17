@@ -3,54 +3,30 @@
 # 
 # 
 # Created: 2019-02-25 13:08:56
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-04-29 15:22:16>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-05-17 10:58:41>
 
-
-
-# Builtin/3rd party package imports
-import numpy as np
-import scipy.signal as signal
-# Add spykewave package to Python search path
+# Add SynCoPy package to Python search path
 import os
 import sys
-import matplotlib.pyplot as plt
-spw_path = os.path.abspath(".." + os.sep + "..")
-if spw_path not in sys.path:
-    sys.path.insert(0, spw_path)
+spy_path = os.path.abspath(".." + os.sep + "..")
+if spy_path not in sys.path:
+    sys.path.insert(0, spy_path)
 
-from syncopy import __dask__
-import dask
-import dask.array as da
-from dask.distributed import get_client
-from dask.distributed import Client, LocalCluster
-
-# Import Spykewave
+# Import SynCoPy
 import syncopy as spy
-spy.cleanup()
 
-def generate_artifical_data(nTrials=200, nChannels=512):
-    dt = 0.001
-    t = np.arange(0, 3, dt, dtype=np.float32) - 1.0
-    sig = np.sin(2 * np.pi * (50 + 10 * np.sin(2 * np.pi * t))) * np.heaviside(t, 1)
-    sig += 0.3 * np.sin(2 * np.pi * 4 * t)
-    sig = np.repeat(sig[:, np.newaxis], axis=1, repeats=nChannels)
-    sig = np.tile(sig, [nTrials, 1])
-    sig += np.random.randn(*sig.shape) * 0.5
-    sig = np.float32(sig)
-
-    trialdefinition = np.zeros((nTrials, 3), dtype='int')
-    for iTrial in range(nTrials):
-        trialdefinition[iTrial, :] = np.array([iTrial * t.size, (iTrial + 1) * t.size, 1000])
-
-    return spy.AnalogData(data=sig, dimord=["time", "channel"],
-                          channel='channel', samplerate=1 / dt,
-                          trialdefinition=trialdefinition)
-
+# Import artificial data generator
+from syncopy.tests.misc import generate_artifical_data
 
 if __name__ == "__main__":
-    print("Generate data")
-    dat = generate_artifical_data(nTrials=20, nChannels=3)
+    
+    adata = generate_artifical_data(nTrials=20, nChannels=256)
+
+    spec = spy.freqanalysis(adata)
+
+    sys.exit()
+    
     print("Save data")
     dat.save('example2.spy')
     dat = None

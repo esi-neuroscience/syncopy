@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 14:30:17
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-16 09:14:51>
+# Last modification time: <2019-05-17 17:40:59>
 
 # Builtin/3rd party package imports
 import os
@@ -90,7 +90,8 @@ def cleanup():
     # Get current date + time and scan package's temp directory 
     now = datetime.now()
     sessions = glob(os.path.join(__storage__, "session*"))
-    msg = "Found {numf:d} files created by session {sess:s} {age:3.1f} days ago." +\
+    msg = "Found{numf:s} files created by session {sess:s} {age:3.1f} " +\
+          "days ago{sizeinfo:s}" +\
           " Do you want to permanently delete these files?"
 
     # Cycle through session-logs and identify those older than 24hrs
@@ -104,9 +105,11 @@ def cleanup():
             age_hr = (now - timeobj).total_seconds()/3600
             if age_hr >= 24:
                 files = glob(os.path.join(__storage__, "*_{}_*".format(sessid)))
-                sz_fl = sum([os.stat(file).st_size/1024**2 for file in files])
-                if user_yesno(msg.format(numf=len(files),
+                sz_fl = round(sum([os.stat(file).st_size/1024**2 for file in files]))
+                if user_yesno(msg.format(numf=" " + str(len(files)) if len(files) else "",
                                          sess=sesslog[:sesslog.find(":")],
-                                         age=age_hr/24)):
+                                         age=age_hr/24,
+                                         sizeinfo=" using " + str(sz_fl) + \
+                                         " MB of disk space." if len(files) else ".")):
                     [os.unlink(file) for file in files]
                     os.unlink(sess)

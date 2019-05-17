@@ -4,11 +4,11 @@
 # 
 # Created: 2019-04-18 14:41:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-13 10:02:52>
+# Last modification time: <2019-05-17 11:06:57>
 
 import subprocess
 import sys
-import numpy as mnp
+import numpy as np
 
 # Local imports
 import syncopy as spy
