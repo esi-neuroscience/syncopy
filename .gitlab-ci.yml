@@ -21,4 +21,23 @@ windowsTests:
     - pip install --upgrade --user tox
     - tox
 
-
+docs:
+    stage: deploy
+    tags:
+    - docs
+    only:
+    - datatype_docs
+    script:
+    - if bash $HOME/miniconda/bin/conda 2>/dev/null; 
+      then
+         export PATH="$HOME/miniconda/bin:$PATH";
+      else
+        wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh;
+        bash miniconda.sh -b -p $HOME/miniconda;
+        export PATH="$HOME/miniconda/bin:$PATH";
+      fi
+    - conda update --yes conda
+    - pip install --upgrade sphinx
+    - cd doc
+    - make html
+    - rsync -av -e "ssh -p 222"  --delete build/html/* root@monitor:/var/www/html/syncopy
