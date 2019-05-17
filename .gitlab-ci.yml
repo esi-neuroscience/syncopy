@@ -22,7 +22,7 @@ windowsTests:
     - tox
 
 docs:
-    stage: deploy
+    stage: test
     when: manual
     tags:
     - docs
