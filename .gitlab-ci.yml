@@ -38,6 +38,8 @@ docs:
         export PATH="$HOME/miniconda/bin:$PATH";
       fi
     - conda update --yes conda
+    - conda env update --file environment.yml
+    - conda activate SyNCoPy
     - pip install --upgrade sphinx
     - pip install --upgrade sphinx-bootstrap-theme
     - cd doc
