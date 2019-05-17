@@ -23,12 +23,13 @@ windowsTests:
 
 docs:
     stage: deploy
+    when: manual
     tags:
     - docs
     only:
     - master
     script:
-    - if bash $HOME/miniconda/bin/conda 2>/dev/null; 
+    - if hash $HOME/miniconda/bin/conda 2>/dev/null; 
       then
          export PATH="$HOME/miniconda/bin:$PATH";
       else
