@@ -4,12 +4,12 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-17 11:09:12>
+# Last modification time: <2019-05-20 18:20:53>
 
 # Builtin/3rd party package imports
 import sys
 import numpy as np
-from scipy.signal.windows import hann, dpss
+import scipy.signal.windows as spwin
 from tqdm import tqdm
 import h5py
 if sys.platform == "win32":
@@ -23,7 +23,7 @@ from copy import copy
 from syncopy.shared import data_parser, scalar_parser, array_parser, get_defaults
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.datatype import SpectralData
-from syncopy.specest.wavelets import cwt, Morlet
+import syncopy.specest.wavelets as spywave 
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.parsers import unwrap_cfg
 from syncopy import __dask__
@@ -44,13 +44,14 @@ __all__ = ["freqanalysis"]
 
 @unwrap_cfg
 def freqanalysis(data, method='mtmfft', output='fourier',
-                 keeptrials=True, keeptapers=True,
-                 pad='nextpow2', polyremoval=0, padtype='zero',
-                 taper=hann, taperopt={}, tapsmofrq=None,
-                 foi=None, toi=None,
-                 width=6, out=None, cfg=None):
+                 keeptrials=True, keeptapers=True, foi=None, 
+                 pad='nextpow2', polyremoval=False, polyorder=None, padtype='zero',
+                 taper="hann", taperopt={}, tapsmofrq=None,
+                 wav="Morlet", toi=None, width=6,
+                 out=None, cfg=None):
     """
     Explain taperopt...
+    Explain default of toi
     """
     
     # Make sure our one mandatory input object can be processed
@@ -60,8 +61,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     except Exception as exc:
         raise exc
 
-    # Get everything in local namespace
+    # Get everything of interest in local namespace
+    defaults = get_defaults(freqanalysis)
     lcls = locals()
+    glbls = globals()
 
     # Ensure a valid computational method was selected
     avail_methods = ["mtmfft", "wavelet"]
@@ -76,7 +79,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                             varname="output", actual=output)
 
     # Parse all Boolean keyword arguments
-    for vname in ["keeptrials", "keeptapers"]:
+    for vname in ["keeptrials", "keeptapers", "polyremoval"]:
         if not isinstance(lcls[vname], bool):
             raise SPYTypeError(lcls[vname], varname=vname, expected="Bool")
 
@@ -90,68 +93,88 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
                             varname="padtype", actual=padtype)
 
-    # Ensure frequency-of-interest is below Nyquist
+    # For vetting `toi` and `foi`: get timing information of input object
+    timing = np.array([np.array([-data.t0[k], end - start - data.t0[k]])/data.samplerate
+                       for k, (start, end) in enumerate(data.sampleinfo)])
+    
+    # Ensure frequency-of-interest is below Nyquist and above reciprocal min trial length
     if foi is not None:
+        minlen = timing[0, :].max() - timing[1, :].min()
         try:
             array_parser(foi, varname="foi", hasinf=False, hasnan=False,
-                         lims=[0.1, data.samplerate/2], dims=(None,))
+                         lims=[1/minlen, data.samplerate/2], dims=(None,))
         except Exception as exc:
             raise exc
+        foi = np.array(foi)
+        foi.sort()
 
-    # Ensure time-of-interest is within data bounds
-    if toi is not None:
-        timing = np.array([[-data.t0[tk]/data.samplerate,
-                            (end - start - data.t0[tk])/data.samplerate] \
-                           for tk, (start, end) in enumerate(data.sampleinfo)])
-        try:
-            array_parser(toi, varname="toi", hasinf=False, hasnan=False,
-                         lims=[timing.min(), timing.max()], dims=(None,))
-        except Exception as exc:
-            raise exc
-    
     # FIXME: implement detrending
-    if polyremoval:
+    if polyremoval or polyorder is not None:
         raise NotImplementedError("Detrending has not been implemented yet.")
+    
+    # # Check detrending options for consistency
+    # if polyremoval:
+    #     try:
+    #         scalar_parser(polyorder, varname="polyorder", lims=[0, 8], ntype="int_like")
+    #     except Exception as exc:
+    #         raise exc
+    # else:
+    #     if polyorder != defaults["polyorder"]:
+    #         print("<freqanalysis> WARNING: `polyorder` keyword will be ignored " +\
+    #               "since `polyremoval` is `False`!")
 
     # Ensure consistency of method-specific options
-    defaults = get_defaults(freqanalysis)
     if method == "mtmfft":
-        options = [hann, dpss]
+        options = ["hann", "dpss"]
         if taper not in options:
             raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
                                 varname="taper", actual=taper)
+        taper = getattr(spwin, taper)
         if not isinstance(taperopt, dict):
             raise SPYTypeError(taperopt, varname="taperopt", expected="dictionary")
-        try:
-            scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[0.1, np.inf])
-        except Exception as exc:
-            raise exc
+        if tapsmofrq is not None:
+            try:
+                scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[0.1, np.inf])
+            except Exception as exc:
+                raise exc
 
-        # if width != defaults["width"]:
-        #     wrng = "<freqanalysis> WARNING: `width` keyword ignored by mtmfft method"
-        #     print(wrng)
-        
     elif method == "wavelet":
-        try:
-            scalar_parser(width, varname="width", lims=[1, np.inf])
-        except Exception as exc:
-            raise exc
-        for vname in ["taper", "tapsmofrq"]:
-            if lcls[vname] != defaults[vname]:
-                wrng = "<freqanalysis> WARNING: `{}` keyword ignored by wavelet method"
-                print(wrng.format(vname))
+        
+        options = ["Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat"]
+        if wav not in options:
+            raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
+                                varname="wav", actual=wav)
+        wav = getattr(spywave, wav)
+        
+        if toi is not None:
+            try:
+                array_parser(toi, varname="toi", hasinf=False, hasnan=False,
+                             lims=[timing.min(), timing.max()], dims=(None,))
+            except Exception as exc:
+                raise exc
+            toi = np.array(toi)
+            toi.sort()
+            
+        if width is not None:
+            try:
+                scalar_parser(width, varname="width", lims=[1, np.inf])
+            except Exception as exc:
+                raise exc
 
     # Warn the user in case other method-specifc options are set
     other = list(avail_methods)
     other.pop(other.index(method))
-    settings = set()
     mth_defaults = {}
-    glbls = globals()
     for mth_str in other:
         mth_defaults.update(get_defaults(glbls[mth_str]))
-    settings = set(mth_defaults.keys()).difference(defaults.keys())
+    kws = list(get_defaults(glbls[method]).keys())
+    shared_kws = set(defaults.keys()).difference(kws)
+    settings = shared_kws.intersection(mth_defaults.keys()) 
     for key in settings:
-        if lcls[key] != mth_defaults[key]:
+        m_default = mth_defaults[key]
+        if callable(m_default):
+            m_default = m_default.__name__
+        if lcls[key] != m_default:
             wrng = "<freqanalysis> WARNING: `{kw:s}` keyword has no effect in " +\
                    "chosen method {m:s}"
             print(wrng.format(kw=key, m=method))
@@ -169,7 +192,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         new_out = True
 
     # Prepare dict of optional keywords for computational class constructor
-    kws = get_defaults(glbls[method]).keys()
     for kw in ["output", "noCompute"]:
         kws.pop(kws.index(kw))
     mth_input = {}
@@ -180,7 +202,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     # Construct dict for classes of available methods
     methods = {
-        "mtmfft": (MultiTaperFFT(**kws), 1/data.samplerate)
+        "mtmfft": (MultiTaperFFT(**mth_input), 1/data.samplerate)
     }
     # methods = {
     #     "mtmfft": (MultiTaperFFT(taper=hann, tapsmofrq=tapsmofrq,
@@ -203,8 +225,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
 
 def mtmfft(dat, dt,
-           taper=hann, taperopt={}, tapsmofrq=None,
-           pad="nextpow2", padtype="zero",
+           taper=spwin.hann, taperopt={}, tapsmofrq=None,
+           pad="nextpow2", padtype="zero", foi=None, 
            polyorder=None, output="pow",
            noCompute=False):
 
@@ -330,15 +352,16 @@ def _nextpow2(number):
 
 
 def wavelet(dat, dt,
-            freqoi=None, polyorder=None, wav=Morlet(w0=6),
-            stepsize=100, output="pow", noCompute=False):
+            toi=None, foi=None, polyorder=None, wav=spywave.Morlet,
+            width=6, output="pow", noCompute=False):
     """ dat = samples x channel
     """
 
     dat = np.atleast_2d(dat)
-    scales = wav.scale_from_period(np.reciprocal(freqoi))
+    scales = wav.scale_from_period(1/foi)
 
     # time x taper=1 x freq x channel
+    stepsize = 100 # FIXME: stepsize = toi
     outputShape = (int(np.floor(dat.shape[0] / stepsize)),
                    1,
                    len(scales),
@@ -362,10 +385,14 @@ class WaveletTransform(ComputationalRoutine):
     def initialize(self, data):
         timeAxis = data.dimord.index("time")
         minTrialLength = np.array(data._shapes)[:, timeAxis].min()
-        if self.cfg["freqoi"] is None:
-            self.cfg["freqoi"] = 1 / _get_optimal_wavelet_scales(minTrialLength,
-                                                                 1 / data.samplerate,
-                                                                 dj=0.25)
+        if self.cfg["foi"] is None:
+            self.cfg["foi"] = 1 / _get_optimal_wavelet_scales(minTrialLength,
+                                                              1 / data.samplerate,
+                                                              dj=0.25)
+
+        if self.cfg["toi"] is None:
+            asdf
+            1/foi[-1] * w0
 
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
@@ -394,7 +421,7 @@ class WaveletTransform(ComputationalRoutine):
             data.clear()
 
     def compute_with_dask(self, data, out):
-        raise NotImplementedError('Dask computation of wavelet transform is not yet implemented')
+        raise NotImplementedError("Dask computation of wavelet transform is not yet implemented")
 
     def handle_metadata(self, data, out):
         out.data = open_memmap(out._filename, mode="r+")
