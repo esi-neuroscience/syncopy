@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-21 13:51:39>
+# Last modification time: <2019-05-21 18:01:15>
 
 # Builtin/3rd party package imports
 import sys
@@ -262,11 +262,11 @@ def mtmfft(dat, dt,
 
     # Compute frequency band and shape of output (taper x freq x channel)
     nFreq = int(np.floor(nSamples / 2) + 1)
-    outputShape = (max(1, nTaper * keeptapers), nFreq, nChannels)
+    chunkShape = (max(1, nTaper * keeptapers), nFreq, nChannels)
 
     # For initialization of computational routine, just return output shape and dtype
     if noCompute:
-        return outputShape, spectralDTypes[output]
+        return chunkShape, spectralDTypes[output]
 
     # Actual computation
     spec = np.zeros((nTaper, nFreq, nChannels), dtype=spectralDTypes[output])
@@ -292,7 +292,7 @@ class MultiTaperFFT(ComputationalRoutine):
         with h5py.File(out._filename, mode="w") as h5f:
             h5f.create_dataset(name="SpectralData",
                                dtype=self.dtype,
-                               shape=(len(data.trials),) + self.outputShape)
+                               shape=(len(data.trials),) + self.chunkShape)
 
     def handle_metadata(self, data, out):
         h5f = h5py.File(out._filename, mode="r")
@@ -307,8 +307,8 @@ class MultiTaperFFT(ComputationalRoutine):
         # Attach meta-data
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel)
-        out.taper = np.array([self.cfg["taper"].__name__] * self.outputShape[0])
-        nFreqs = self.outputShape[out.dimord.index("freq") - 1]
+        out.taper = np.array([self.cfg["taper"].__name__] * self.chunkShape[0])
+        nFreqs = self.chunkShape[out.dimord.index("freq") - 1]
         out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
         out.cfg = self.cfg
 
@@ -332,7 +332,7 @@ class MultiTaperFFT(ComputationalRoutine):
         specs = trl_block.map_blocks(self.computeFunction,
                                      *self.argv, **self.cfg,
                                      dtype="complex",
-                                     chunks=self.outputShape,
+                                     chunks=self.chunkShape,
                                      new_axis=[0])
 
         # # Write computed spectra in pre-allocated memmap
@@ -376,12 +376,12 @@ def wavelet(dat, dt,
 
     # time x taper=1 x freq x channel
     stepsize = 100 # FIXME: stepsize = toi
-    outputShape = (int(np.floor(dat.shape[0] / stepsize)),
+    chunkShape = (int(np.floor(dat.shape[0] / stepsize)),
                    1,
                    len(scales),
                    dat.shape[1])
     if noCompute:
-        return outputShape, spectralDTypes[output]
+        return chunkShape, spectralDTypes[output]
 
     # cwt returns (len(scales),) + dat.shape
     transformed = cwt(dat, axis=0, wavelet=wav, widths=scales, dt=dt)
@@ -410,7 +410,7 @@ class WaveletTransform(ComputationalRoutine):
 
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
-        self.outputShape, self.dtype = self.computeFunction(data.trials[0],
+        self.chunkShape, self.dtype = self.computeFunction(data.trials[0],
                                                             *self.argv, **dryRunKwargs)
 
     def preallocate_output(self, data, out):
@@ -418,7 +418,7 @@ class WaveletTransform(ComputationalRoutine):
                                                   self.cfg["stepsize"])))
 
         result = open_memmap(out._filename,
-                             shape=(totalTriallength,) + self.outputShape[1:],
+                             shape=(totalTriallength,) + self.chunkShape[1:],
                              dtype=self.dtype,
                              mode="w+")
         del result
