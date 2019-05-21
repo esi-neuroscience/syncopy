@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-14 10:14:32>
+# Last modification time: <2019-05-21 11:16:35>
 
 # Builtin/3rd party package imports
 import os
@@ -534,7 +534,6 @@ def unwrap_cfg(func):
 
         # If a non-`None` `cfg` keyword is found, vet it and ensure no other
         # (potentially conflicting) keyword arguments have been provided.
-        # Subsequently call the function with `cfg` unwrapped
         if kwargs.get("cfg") is not None:
             if not isinstance(cfg, dict):
                 raise SPYTypeError(kwargs["cfg"], varname="cfg", expected="dictionary-like")
@@ -544,6 +543,14 @@ def unwrap_cfg(func):
                     raise SPYValueError(legal="no keyword arguments",
                                         varname=key,
                                         actual="non-default value for {}".format(key))
+
+            # Translate any existing "yes" and "no" fields to `True` and `False`,
+            # respectively, and subsequently call the function with `cfg` unwrapped
+            for key in cfg.keys():
+                if cfg[key] == "yes":
+                    cfg[key] = True
+                elif cfg[key] == "no":
+                    cfg[key] = False
             return func(*args, **kwargs["cfg"])
 
         # No meaningful `cfg` keyword found, proceed with regular function call

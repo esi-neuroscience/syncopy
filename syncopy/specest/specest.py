@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-20 18:20:53>
+# Last modification time: <2019-05-21 13:51:39>
 
 # Builtin/3rd party package imports
 import sys
@@ -30,6 +30,7 @@ from syncopy import __dask__
 if __dask__:
     import dask
     import dask.array as da
+    import dask.distributed as dd
 
 # Module-wide output specs
 spectralDTypes = {"pow": np.float32,
@@ -44,9 +45,9 @@ __all__ = ["freqanalysis"]
 
 @unwrap_cfg
 def freqanalysis(data, method='mtmfft', output='fourier',
-                 keeptrials=True, keeptapers=True, foi=None, 
-                 pad='nextpow2', polyremoval=False, polyorder=None, padtype='zero',
-                 taper="hann", taperopt={}, tapsmofrq=None,
+                 keeptrials=True, foi=None, pad='nextpow2', polyremoval=False,
+                 polyorder=None, padtype='zero',
+                 taper="hann", taperopt={}, tapsmofrq=None, keeptapers=True,
                  wav="Morlet", toi=None, width=6,
                  out=None, cfg=None):
     """
@@ -84,7 +85,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise SPYTypeError(lcls[vname], varname=vname, expected="Bool")
 
     # Ensure padding selection makes sense
-    options = [None, "nextpow2"]
+    options = [None, "nextpow2", "zero"]
     if pad not in options:
         raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
                             varname="pad", actual=pad)
@@ -192,80 +193,93 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         new_out = True
 
     # Prepare dict of optional keywords for computational class constructor
+    # (update `lcls` to reflect changes in method-specifc options)
+    lcls = locals()
     for kw in ["output", "noCompute"]:
         kws.pop(kws.index(kw))
     mth_input = {}
     for kw in kws:
         mth_input[kw] = lcls[kw]
 
+    # Construct dict of classes of available methods
+    methods = {
+        "mtmfft": MultiTaperFFT(1/data.samplerate, **mth_input)
+    }
+
+    # Compute length of trials in output object to get stacking size
+    stacking = {"mtmfft" : len(data.trials),
+                "wavelet" : np.int(np.sum(np.floor(np.array(data._shapes)[:, 0] /
+                                                  self.cfg["stepsize"])))}
+
     import ipdb; ipdb.set_trace()
 
-    # Construct dict for classes of available methods
-    methods = {
-        "mtmfft": (MultiTaperFFT(**mth_input), 1/data.samplerate)
-    }
-    # methods = {
-    #     "mtmfft": (MultiTaperFFT(taper=hann, tapsmofrq=tapsmofrq,
-    #                              pad=pad, padtype=padtype,
-    #                              polyorder=polyremoval),
-    #                1 / data.samplerate)
-    # }
-
-    specestMethod = methods[method][0]
-    argv = methods[method][1]
-    specestMethod.initialize(data, argv)
-    specestMethod.compute(data, out)
+    # Perform actual computation (w/ or w/o dask)
+    try:
+        dd.get_client()
+        use_dask = True
+    except:
+        use_dask = False
+    specestMethod = methods[method]
+    specestMethod.initialize(data, stacking[method])
+    specestMethod.compute(data, out, parallel=use_dask)
 
     # if output == "power":
     #     powerOut = out.copy(deep=T)
     #     for trial in out.trials:
     #         trial = np.absolute(trial)
 
+    # Either return newly created output container or simply quit
     return out if newOut else None
 
 
+# Local workhorse that performs the computational heavy lifting
 def mtmfft(dat, dt,
            taper=spwin.hann, taperopt={}, tapsmofrq=None,
-           pad="nextpow2", padtype="zero", foi=None, 
+           pad="nextpow2", padtype="zero", foi=None, keeptapers=True,
            polyorder=None, output="pow",
            noCompute=False):
 
+    # Get dimensional information
     nSamples = dat.shape[0]
     nChannels = dat.shape[1]
 
-    # padding
+    # Padding (updates no. of samples)
     if pad:
         padWidth = np.zeros((dat.ndim, 2), dtype=int)
         if pad == "nextpow2":
             padWidth[0, 0] = _nextpow2(nSamples) - nSamples
-
         if padtype == "zero":
             dat = np.pad(dat, pad_width=padWidth,
                          mode="constant", constant_values=0)
-
-        # update number of samples
         nSamples = dat.shape[0]
 
+    # Construct taper(s)
     if taper == dpss and (not taperopt):
         nTaper = np.int(np.floor(tapsmofrq * nSamples * dt))
         taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
     win = np.atleast_2d(taper(nSamples, **taperopt))
     nTaper = win.shape[0]
 
+    # Compute frequency band and shape of output (taper x freq x channel)
     nFreq = int(np.floor(nSamples / 2) + 1)
-    # taper x freq x channel
-    outputShape = (nTaper, nFreq, nChannels)
+    outputShape = (max(1, nTaper * keeptapers), nFreq, nChannels)
 
+    # For initialization of computational routine, just return output shape and dtype
     if noCompute:
         return outputShape, spectralDTypes[output]
 
-    spec = np.zeros(outputShape, dtype=spectralDTypes[output])
+    # Actual computation
+    spec = np.zeros((nTaper, nFreq, nChannels), dtype=spectralDTypes[output])
     for taperIdx, taper in enumerate(win):
         if dat.ndim > 1:
             taper = np.tile(taper, (nChannels, 1)).T
         spec[taperIdx, ...] = spectralConversions[output](np.fft.rfft(dat * taper, axis=0))
 
-    return spec
+    # Average across tapers if wanted
+    if not keeptapers:
+        return spec.mean(axis=0)
+    else:
+        return spec
 
 
 class MultiTaperFFT(ComputationalRoutine):
@@ -274,7 +288,7 @@ class MultiTaperFFT(ComputationalRoutine):
     def __init__(self, *argv, **kwargs):
         super().__init__(*argv, **kwargs)
 
-    def preallocate_output(self, data, out):
+    def preallocate_output(self, data, out, parallel=False):
         with h5py.File(out._filename, mode="w") as h5f:
             h5f.create_dataset(name="SpectralData",
                                dtype=self.dtype,
@@ -298,7 +312,7 @@ class MultiTaperFFT(ComputationalRoutine):
         out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
         out.cfg = self.cfg
 
-    def compute_with_dask(self, data, out):
+    def compute_parallel(self, data, out):
         # Point to trials on disk by using delayed **static** method calls
         lazy_trial = dask.delayed(data._copy_trial, traverse=False)
         lazy_trls = [lazy_trial(trialno,
@@ -329,7 +343,7 @@ class MultiTaperFFT(ComputationalRoutine):
                                           chunks=(1,))
         return daskResult.compute()
 
-    def compute_sequentially(self, data, out):
+    def compute_sequential(self, data, out):
         with h5py.File(out._filename, "r+") as h5f:
             for tk, trl in enumerate(tqdm(data.trials, desc="Computing MTMFFT...")):                
                 h5f["SpectralData"][tk, :,:,:] = self.computeFunction(trl, 1 / data.samplerate,
@@ -409,7 +423,7 @@ class WaveletTransform(ComputationalRoutine):
                              mode="w+")
         del result
 
-    def compute_sequentially(self, data, out):
+    def compute_sequential(self, data, out):
         outIndex = 0
         for idx, trial in enumerate(tqdm(data.trials,
                                          desc="Computing Wavelet spectrum...")):
@@ -438,7 +452,7 @@ class WaveletTransform(ComputationalRoutine):
 
 
 WaveletTransform.computeMethods = {"dask": WaveletTransform.compute_with_dask,
-                                   "sequential": WaveletTransform.compute_sequentially}
+                                   "sequential": WaveletTransform.compute_sequential}
 
 
 def _get_optimal_wavelet_scales(nSamples, dt, dj=0.25, s0=1):
