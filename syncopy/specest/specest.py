@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-21 18:01:15>
+# Last modification time: <2019-05-22 12:35:42>
 
 # Builtin/3rd party package imports
 import sys
@@ -283,36 +283,21 @@ def mtmfft(dat, dt,
 
 
 class MultiTaperFFT(ComputationalRoutine):
+
     computeFunction = staticmethod(mtmfft)
 
     def __init__(self, *argv, **kwargs):
         super().__init__(*argv, **kwargs)
 
-    def preallocate_output(self, data, out, parallel=False):
-        with h5py.File(out._filename, mode="w") as h5f:
-            h5f.create_dataset(name="SpectralData",
-                               dtype=self.dtype,
-                               shape=(len(data.trials),) + self.chunkShape)
+    # def preallocate_output(self, data, out, parallel=False):
+    #     with h5py.File(out._filename, mode="w") as h5f:
+    #         h5f.create_dataset(name="SpectralData",
+    #                            dtype=self.dtype,
+    #                            shape=(len(data.trials),) + self.chunkShape)
 
-    def handle_metadata(self, data, out):
-        h5f = h5py.File(out._filename, mode="r")
-        out.data = h5f["SpectralData"]
-
-        time = np.arange(len(data.trials))
-        time = time.reshape((time.size, 1))
-        out.sampleinfo = np.hstack([time, time + 1])
-        out.trialinfo = np.array(data.trialinfo)
-        out._t0 = np.zeros((len(data.trials),))
-
-        # Attach meta-data
-        out.samplerate = data.samplerate
-        out.channel = np.array(data.channel)
-        out.taper = np.array([self.cfg["taper"].__name__] * self.chunkShape[0])
-        nFreqs = self.chunkShape[out.dimord.index("freq") - 1]
-        out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
-        out.cfg = self.cfg
 
     def compute_parallel(self, data, out):
+        
         # Point to trials on disk by using delayed **static** method calls
         lazy_trial = dask.delayed(data._copy_trial, traverse=False)
         lazy_trls = [lazy_trial(trialno,
@@ -332,16 +317,27 @@ class MultiTaperFFT(ComputationalRoutine):
         specs = trl_block.map_blocks(self.computeFunction,
                                      *self.argv, **self.cfg,
                                      dtype="complex",
-                                     chunks=self.chunkShape,
+                                     chunks=self.outputChunks,
                                      new_axis=[0])
+        
+        # specs = trl_block.map_blocks(self.computeFunction,
+        #                              *self.argv, **self.cfg,
+        #                              dtype="complex",
+        #                              chunks=self.chunkShape,
+        #                              new_axis=[0])
 
-        # # Write computed spectra in pre-allocated memmap
-        # if out is not None:
-        if True:
-            daskResult = specs.map_blocks(self.write_block, out._filename,
-                                          dtype=self.dtype, drop_axis=[0, 1],
-                                          chunks=(1,))
-        return daskResult.compute()
+        if not keeptrials:
+            specs = specs.mean(axis=0)
+
+        return specs
+
+        # # # Write computed spectra in pre-allocated memmap
+        # # if out is not None:
+        # if True:
+        #     daskResult = specs.map_blocks(self.write_block, out._filename,
+        #                                   dtype=self.dtype, drop_axis=[0, 1],
+        #                                   chunks=(1,))
+        # return daskResult.compute()
 
     def compute_sequential(self, data, out):
         with h5py.File(out._filename, "r+") as h5f:
@@ -350,12 +346,30 @@ class MultiTaperFFT(ComputationalRoutine):
                                                                       **self.cfg)                          
                 h5f.flush()
 
-    @staticmethod
-    def write_block(blk, filename, block_info=None):
-        idx = block_info[0]["chunk-location"][-1]
-        with h5py.File(filename, "r+") as h5f:
-             h5f["SpectralData"][idx, :, :, :] = blk
-        return idx
+    def handle_metadata(self, data, out):
+        h5f = h5py.File(out._filename, mode="r")
+        out.data = h5f["SpectralData"]
+
+        time = np.arange(len(data.trials))
+        time = time.reshape((time.size, 1))
+        out.sampleinfo = np.hstack([time, time + 1])
+        out.trialinfo = np.array(data.trialinfo)
+        out._t0 = np.zeros((len(data.trials),))
+
+        # Attach meta-data
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel)
+        out.taper = np.array([self.cfg["taper"].__name__] * self.chunkShape[0])
+        nFreqs = self.chunkShape[out.dimord.index("freq") - 1]
+        out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
+        out.cfg = self.cfg
+        
+    # @staticmethod
+    # def write_block(blk, filename, block_info=None):
+    #     idx = block_info[0]["chunk-location"][-1]
+    #     with h5py.File(filename, "r+") as h5f:
+    #          h5f["SpectralData"][idx, :, :, :] = blk
+    #     return idx
 
 
 def _nextpow2(number):

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 14:30:17
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-17 17:40:59>
+# Last modification time: <2019-05-22 16:19:50>
 
 # Builtin/3rd party package imports
 import os
@@ -15,13 +15,14 @@ from hashlib import blake2b
 
 # Local imports
 from syncopy import __storage__, __sessionid__
-
-__all__ = ["FILE_EXT", "hash_file", "write_access", "user_yesno", "cleanup"]
+from syncopy.shared.queries import user_yesno
 
 # Define SynCoPy's general file-/directory-naming conventions
 FILE_EXT = {"dir" : ".spy",
             "json" : ".info",
             "data" : ".dat"}
+
+__all__ = ["FILE_EXT", "hash_file", "write_access", "cleanup"]
 
 
 def hash_file(fname, bsize=65536):
@@ -53,31 +54,6 @@ def write_access(directory):
         return True
     except:
         return False
-
-
-def user_yesno(msg, default=None):
-    """
-    Docstring
-    """
-
-    # Parse optional `default` answer
-    valid = {"yes": True, "y": True, "ye":True, "no":False, "n":False}
-    if default is None:
-        suffix = " [y/n] "
-    elif default == "yes":
-        suffix = " [Y/n] "
-    elif default == "no":
-        suffix = " [y/N] "
-
-    # Start actually doing something
-    while True:
-        choice = input(msg + suffix).lower()
-        if default is not None and choice == "":
-            return valid[default]
-        elif choice in valid.keys():
-            return valid[choice]
-        else:
-            print("Please respond with 'yes' or 'no' (or 'y' or 'n').\n")
 
 
 def cleanup():

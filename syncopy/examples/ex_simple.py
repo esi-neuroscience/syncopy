@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-28 16:48:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-13 16:11:01>
+# Last modification time: <2019-05-22 13:53:54>
 
 # Builtin/3rd party package imports
 import h5py
@@ -19,6 +19,8 @@ if spy_path not in sys.path:
 
 # Import SynCoPy
 import syncopy as spy
+
+sys.exit()
 
 # Define location of test data
 # datadir = "/mnt/hpx/it/dev/SpykeWave/testdata/"

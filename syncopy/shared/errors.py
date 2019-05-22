@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-14 10:23:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-09 17:16:59>
+# Last modification time: <2019-05-22 14:04:16>
 
 # Builtin/3rd party package imports
 import sys
@@ -71,8 +71,8 @@ class SPYValueError(Error):
         
     def __str__(self):
         msg = "Invalid value{vn:s}{fd:s} expected {ex:s}"
-        return msg.format(vn=" of " + self.varname + ":" if len(self.varname) else ":",
-                          fd=" `" + self.actual + "`;" if len(self.actual) else "",
+        return msg.format(vn=" of `" + self.varname + "`:" if len(self.varname) else ":",
+                          fd=" '" + self.actual + "';" if len(self.actual) else "",
                           ex=self.legal)
 
     
