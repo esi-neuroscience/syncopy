@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-14 10:12:30>
+# Last modification time: <2019-05-23 10:37:59>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -204,8 +204,8 @@ class BaseData(ABC):
             raise SPYTypeError(md, varname="mode", expected="str")
         options = ["r", "r+", "w", "c"]
         if md not in options:
-            raise SPYValueError("".join(opt + ", " for opt in options)[:-2],
-                                varname="mode", actual=md)
+            lgl = "'" + "or '".join(opt + "' " for opt in options)
+            raise SPYValueError(lgl, varname="mode", actual=md)
         self._mode = md
             
     @property

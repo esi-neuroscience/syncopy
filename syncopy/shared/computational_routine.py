@@ -4,9 +4,13 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-22 11:31:46>
+# Last modification time: <2019-05-23 16:23:08>
 
 # Builtin/3rd party package imports
+import os
+import time
+import h5py
+import numpy as np
 from abc import ABC, abstractmethod
 from copy import copy
 
@@ -33,14 +37,16 @@ class ComputationalRoutine(ABC):
         self.cfg.update(**kwargs)
         self.argv = argv
         self.chunkShape = None
-        self.outputChunks = None        # DO WE NEED THIS???
         self.outputShape = None
         self.dtype = None
         self.vdsdir = None
 
-    def initialize(self, data, stackingdepth):
-        
-        # FIXME: this only works for data with equal output trial lengths
+    def initialize(self, data):
+
+        # # Make sure stacking array can be used for indexing
+        # stacking = np.array(stackingdepth, dtype=int)
+
+        # Get output chunk-shape and dtype of first trial
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
         self.chunkShape, self.dtype = self.computeFunction(data.trials[0],
@@ -48,18 +54,25 @@ class ComputationalRoutine(ABC):
                                                             **dryRunKwargs)
 
         # For trials of unequal length, compute output chunk-shape individually
-        chk_list = [self.chunkShape]
+        # to identify varying dimension and insert `np.nan` entry in `self.chunkShape`
         if np.any([data._shapes[0] != sh for sh in data._shapes]):
+            self.chunkShape = list(self.chunkShape)
+            chk_list = [self.chunkShape]
             for tk in range(1, len(data.trials)):
-                chk_list.append(self.computeFunction(data.trials[tk],
-                                                     *self.argv,
-                                                     **dryRunKwargs)[0])
-        else:
-            chk_list += [chk] * (len(data.trials) -  1)
-        self.outputChunks = chk_list
+                chk_list.append(list(self.computeFunction(data.trials[tk],
+                                                          *self.argv,
+                                                          **dryRunKwargs)[0]))
+            chk_arr = np.array(chk_list)
+            for col in range(chk_arr.shape[1]):
+                if np.unique(chk_arr[:, col]).size > 1:
+                    self.chunkShape[col] = np.nan
+            self.chunkShape = tuple(self.chunkShape)
+        # else:
+        #     chk_list += [self.chunkShape] * (len(data.trials) -  1)
+        # self.outputChunks = (tuple(stacking), tuple(chk_list))
 
-        # Finally compute aggregate shape of output data
-        self.outputShape = (stackingdepth,) + self.chunkShape
+        # # Finally compute aggregate shape of output data
+        # self.outputShape = (len(stacking),) + self.chunkShape
 
     def compute(self, data, out, parallel=False, parallel_store=None, method=None):
 
@@ -73,9 +86,9 @@ class ComputationalRoutine(ABC):
         # The `method` keyword can be used to override the `parallel` flag
         if method is None:
             if parallel:
-                computeMethod = compute_parallel
+                computeMethod = self.compute_parallel
             else:
-                computeMethod = compute_sequential
+                computeMethod = self.compute_sequential
         else:
             computeMethod = getattr(self, "compute_" + method, None)
 
@@ -98,7 +111,7 @@ class ComputationalRoutine(ABC):
         if parallel_store:
             vdsdir = os.path.splitext(os.path.basename(out._filename))[0]
             self.vdsdir = os.path.join(__storage__, vdsdir)
-            os.mkdir(vdsdir)
+            os.mkdir(self.vdsdir)
 
         # Create regular HDF5 dataset for sequential writing
         else:
@@ -112,8 +125,9 @@ class ComputationalRoutine(ABC):
         if parallel_store:
 
             # Map `da_arr` chunk by chunk onto ``_write_parallel``
-            writers = da_arr.map_blocks(self._write_parallel, self.vdsdir,
-                                        dtype="int", chunks=(1, 1))
+            nchk = len(da_arr.chunksize)
+            writers = da_arr.map_blocks(self._write_parallel, nchk, self.vdsdir,
+                                        dtype="int", chunks=(1,)*nchk)
             # res = result.persist()
 
             # Make sure that all futures are actually executed (i.e., data is written
@@ -125,7 +139,7 @@ class ComputationalRoutine(ABC):
             # Construct virtual layout from created HDF5 files
             layout = h5py.VirtualLayout(shape=da_arr.shape, dtype=da_arr.dtype)
             for k in range(len(futures)):
-                fname = os.path.join(vdsdir, "{0:d}.h5".format(k))
+                fname = os.path.join(self.vdsdir, "{0:d}.h5".format(k))
                 with h5py.File(fname, "r") as h5f:
                     idx = tuple([slice(*dim) for dim in h5f["idx"]])
                     shp = h5f["chk"].shape
@@ -133,7 +147,7 @@ class ComputationalRoutine(ABC):
 
             # Use generated layout to create virtual dataset
             with h5py.File(out._filename, mode="w") as h5f:
-                h5f.create_virtual_dataset(name=out.__class__.__name__, layout)
+                h5f.create_virtual_dataset(out.__class__.__name__, layout)
 
         # or use a semaphore to write to a single container sequentially
         else:
@@ -142,7 +156,7 @@ class ComputationalRoutine(ABC):
             lck = dd.lock.Lock(name='writer_lock')
 
             # Map `da_arr` chunk by chunk onto ``_write_sequential``
-            writers = da_arr.map_blocks(self._write_sequential, out._filename,
+            writers = da_arr.map_blocks(self._write_sequential, nchk, out._filename,
                                         out.__class__.__name__, lck, dtype="int",
                                         chunks=(1, 1))
 
@@ -164,7 +178,7 @@ class ComputationalRoutine(ABC):
         out.log = logHead + logOpts
 
     @staticmethod
-    def _write_parallel(chk, vdsdir, block_info=None):
+    def _write_parallel(chk, nchk, vdsdir, block_info=None):
 
         # Convert chunk-location tuple to 1D index for numbering current
         # HDF5 container and get index-location of current chunk in array
@@ -174,15 +188,16 @@ class ComputationalRoutine(ABC):
 
         # Save data and its original location within the array
         fname = os.path.join(vdsdir, "{0:d}.h5".format(cnt))
+        print("\t\t", fname, "!!!!")
         with h5py.File(fname, "w") as h5f:
             h5f.create_dataset('chk', data=chk)
             h5f.create_dataset('idx', data=idx)
             h5f.flush()
 
-        return (cnt, 1)
+        return (cnt,) * nchk
 
     @staticmethod
-    def _write_sequential(chk, h5name, dsname, lck, block_info=None):
+    def _write_sequential(chk, nchk, h5name, dsname, lck, block_info=None):
 
         # Convert chunk-location tuple to 1D index for numbering current
         # HDF5 container and get index-location of current chunk in array
@@ -204,7 +219,7 @@ class ComputationalRoutine(ABC):
         while lck.locked():
             time.sleep(0.05)
 
-        return (cnt, 1)
+        return (cnt,) * nchk
     
     # @abstractmethod
     # def preallocate_output(self, *args, parallel=False):

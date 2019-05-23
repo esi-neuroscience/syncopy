@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-13 17:08:45>
+# Last modification time: <2019-05-23 16:39:59>
 
 # Builtin/3rd party package imports
 import h5py
@@ -81,8 +81,11 @@ class ContinuousData(BaseData, ABC):
         idx = [slice(None)] * len(dimord)
         idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
         idx = tuple(idx)
+        if filename is None:
+            return asdff
         if hdr is None:
             # For pre-processed npy files
+            np.array()
             return np.array(open_memmap(filename, mode="c")[idx])
         else:
             # For VirtualData objects

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-22 12:35:42>
+# Last modification time: <2019-05-23 16:11:07>
 
 # Builtin/3rd party package imports
 import sys
@@ -70,14 +70,18 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # Ensure a valid computational method was selected
     avail_methods = ["mtmfft", "wavelet"]
     if method not in avail_methods:
-        raise SPYValueError(legal="".join(opt + ", " for opt in avail_methods)[:-2],
-                            varname="method", actual=method)
+        lgl = "'" + "or '".join(opt + "' " for opt in avail_methods)
+        raise SPYValueError(legal=lgl, varname="method", actual=method)
 
     # Ensure a valid output format was selected
     options = ["pow", "fourier", "abs"]
     if output not in options:
-        raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
-                            varname="output", actual=output)
+        lgl = "'" + "or '".join(opt + "' " for opt in options)
+        raise SPYValueError(legal=lgl, varname="output", actual=output)
+
+    # Patch `output` keyword to not collide w/dask's ``blockwise`` output
+    defaults["output_fmt"] = defaults.pop("output")
+    output_fmt = output
 
     # Parse all Boolean keyword arguments
     for vname in ["keeptrials", "keeptapers", "polyremoval"]:
@@ -87,12 +91,12 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # Ensure padding selection makes sense
     options = [None, "nextpow2", "zero"]
     if pad not in options:
-        raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
-                            varname="pad", actual=pad)
+        lgl = "'" + "or '".join(opt + "' " for opt in options)
+        raise SPYValueError(legal=lgl, varname="pad", actual=pad)
     options = ["zero"]
     if padtype not in options:
-        raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
-                            varname="padtype", actual=padtype)
+        lgl = "'" + "or '".join(opt + "' " for opt in options)
+        raise SPYValueError(legal=lgl, varname="padtype", actual=padtype)
 
     # For vetting `toi` and `foi`: get timing information of input object
     timing = np.array([np.array([-data.t0[k], end - start - data.t0[k]])/data.samplerate
@@ -128,8 +132,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     if method == "mtmfft":
         options = ["hann", "dpss"]
         if taper not in options:
-            raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
-                                varname="taper", actual=taper)
+            lgl = "'" + "or '".join(opt + "' " for opt in options)
+            raise SPYValueError(legal=lgl, varname="taper", actual=taper)
         taper = getattr(spwin, taper)
         if not isinstance(taperopt, dict):
             raise SPYTypeError(taperopt, varname="taperopt", expected="dictionary")
@@ -143,8 +147,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         
         options = ["Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat"]
         if wav not in options:
-            raise SPYValueError(legal="".join(opt + ", " for opt in options)[:-2],
-                                varname="wav", actual=wav)
+            lgl = "'" + "or '".join(opt + "' " for opt in options)
+            raise SPYValueError(legal=lgl, varname="wav", actual=wav)
         wav = getattr(spywave, wav)
         
         if toi is not None:
@@ -195,9 +199,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # Prepare dict of optional keywords for computational class constructor
     # (update `lcls` to reflect changes in method-specifc options)
     lcls = locals()
-    for kw in ["output", "noCompute"]:
-        kws.pop(kws.index(kw))
     mth_input = {}
+    kws.remove("noCompute")
     for kw in kws:
         mth_input[kw] = lcls[kw]
 
@@ -207,11 +210,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     }
 
     # Compute length of trials in output object to get stacking size
-    stacking = {"mtmfft" : len(data.trials),
-                "wavelet" : np.int(np.sum(np.floor(np.array(data._shapes)[:, 0] /
-                                                  self.cfg["stepsize"])))}
+    # stacking = {"mtmfft" : np.ones((len(data.trials),))}
+    # stacking = {"mtmfft" : len(data.trials),
+    #             "wavelet" : np.int(np.sum(np.floor(np.array(data._shapes)[:, 0] /
+    #                                                self.cfg["stepsize"])))}
 
-    import ipdb; ipdb.set_trace()
 
     # Perform actual computation (w/ or w/o dask)
     try:
@@ -220,8 +223,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     except:
         use_dask = False
     specestMethod = methods[method]
-    specestMethod.initialize(data, stacking[method])
+    specestMethod.initialize(data)
     specestMethod.compute(data, out, parallel=use_dask)
+    import ipdb; ipdb.set_trace()
 
     # if output == "power":
     #     powerOut = out.copy(deep=T)
@@ -235,8 +239,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 # Local workhorse that performs the computational heavy lifting
 def mtmfft(dat, dt,
            taper=spwin.hann, taperopt={}, tapsmofrq=None,
-           pad="nextpow2", padtype="zero", foi=None, keeptapers=True,
-           polyorder=None, output="pow",
+           pad="nextpow2", padtype="zero", foi=None, keeptapers=True, keeptrials=True,
+           polyorder=None, output_fmt="pow",
            noCompute=False):
 
     # Get dimensional information
@@ -254,26 +258,33 @@ def mtmfft(dat, dt,
         nSamples = dat.shape[0]
 
     # Construct taper(s)
-    if taper == dpss and (not taperopt):
+    if taper == spwin.dpss and (not taperopt):
         nTaper = np.int(np.floor(tapsmofrq * nSamples * dt))
         taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
     win = np.atleast_2d(taper(nSamples, **taperopt))
     nTaper = win.shape[0]
 
-    # Compute frequency band and shape of output (taper x freq x channel)
+    # Determine frequency band and shape of output (taper x freq x channel)
     nFreq = int(np.floor(nSamples / 2) + 1)
+    fidx = slice(None)
+    if foi is not None:
+        freqs = np.linspace(0, 1, nFreq) * 1/(2*dt)
+        foi = foi[foi <= freqs.max()]
+        foi = foi[foi >= freqs.min()]
+        fidx = np.unique(np.searchsorted(freqs, foi))
+        nFreq = fidx.size
     chunkShape = (max(1, nTaper * keeptapers), nFreq, nChannels)
 
     # For initialization of computational routine, just return output shape and dtype
     if noCompute:
-        return chunkShape, spectralDTypes[output]
+        return chunkShape, spectralDTypes[output_fmt]
 
     # Actual computation
-    spec = np.zeros((nTaper, nFreq, nChannels), dtype=spectralDTypes[output])
+    spec = np.zeros((nTaper, nFreq, nChannels), dtype=spectralDTypes[output_fmt])
     for taperIdx, taper in enumerate(win):
         if dat.ndim > 1:
             taper = np.tile(taper, (nChannels, 1)).T
-        spec[taperIdx, ...] = spectralConversions[output](np.fft.rfft(dat * taper, axis=0))
+        spec[taperIdx, ...] = spectralConversions[output_fmt](np.fft.rfft(dat * taper, axis=0)[fidx, :])
 
     # Average across tapers if wanted
     if not keeptapers:
@@ -317,18 +328,15 @@ class MultiTaperFFT(ComputationalRoutine):
         specs = trl_block.map_blocks(self.computeFunction,
                                      *self.argv, **self.cfg,
                                      dtype="complex",
-                                     chunks=self.outputChunks,
+                                     chunks=self.chunkShape,
                                      new_axis=[0])
         
-        # specs = trl_block.map_blocks(self.computeFunction,
-        #                              *self.argv, **self.cfg,
-        #                              dtype="complex",
-        #                              chunks=self.chunkShape,
-        #                              new_axis=[0])
-
-        if not keeptrials:
+        # Average across trials if wanted
+        if not self.cfg["keeptrials"]:
             specs = specs.mean(axis=0)
 
+        import ipdb;ipdb.set_trace()
+        
         return specs
 
         # # # Write computed spectra in pre-allocated memmap
@@ -360,7 +368,7 @@ class MultiTaperFFT(ComputationalRoutine):
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel)
         out.taper = np.array([self.cfg["taper"].__name__] * self.chunkShape[0])
-        nFreqs = self.chunkShape[out.dimord.index("freq") - 1]
+        nFreqs = self.outputShape[out.dimord.index("freq") - 1]
         out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
         out.cfg = self.cfg
         
@@ -381,7 +389,7 @@ def _nextpow2(number):
 
 def wavelet(dat, dt,
             toi=None, foi=None, polyorder=None, wav=spywave.Morlet,
-            width=6, output="pow", noCompute=False):
+            width=6, output_fmt="pow", noCompute=False):
     """ dat = samples x channel
     """
 
@@ -395,13 +403,13 @@ def wavelet(dat, dt,
                    len(scales),
                    dat.shape[1])
     if noCompute:
-        return chunkShape, spectralDTypes[output]
+        return chunkShape, spectralDTypes[output_fmt]
 
     # cwt returns (len(scales),) + dat.shape
     transformed = cwt(dat, axis=0, wavelet=wav, widths=scales, dt=dt)
     transformed = transformed[:, 0:-1:int(stepsize), :, np.newaxis].transpose([1, 3, 0, 2])
 
-    return spectralConversions[output](transformed)
+    return spectralConversions[output_fmt](transformed)
 
 
 class WaveletTransform(ComputationalRoutine):

@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-21 11:16:35>
+# Last modification time: <2019-05-23 10:30:57>
 
 # Builtin/3rd party package imports
 import os
@@ -124,7 +124,7 @@ def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
                 error = True
             if file_ext not in str(ext) or error:
                 if isinstance(ext, (list, np.ndarray)):
-                    ext = "".join(ex + ", " for ex in ext)[:-2]
+                    ext = "'" + "or '".join(ex + "' " for ex in ext)
                 raise SPYValueError(ext, varname="filename-extension", actual=file_ext)
 
         # Now make sure file does or does not exist
