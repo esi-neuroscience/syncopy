@@ -4,7 +4,7 @@
 # 
 # Created: 2019-04-18 14:41:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-17 11:06:57>
+# Last modification time: <2019-05-23 10:02:01>
 
 import subprocess
 import sys
@@ -27,7 +27,7 @@ def is_win_vm():
     # Use the windows management instrumentation command-line to extract machine manufacturer
     out, err = subprocess.Popen("wmic computersystem get manufacturer",
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                universal_newlines=True).communicate()
+                                text=True, shell=True).communicate()
 
     # If the vendor name contains any "virtual"-flavor, we're probably running
     # in a VM - if the above command triggered an error, abort
