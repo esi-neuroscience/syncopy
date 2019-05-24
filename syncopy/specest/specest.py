@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-04-29 15:23:19>
+# Last modification time: <2019-05-17 16:47:25>
 
 # Builtin/3rd party package imports
 import sys
@@ -20,7 +20,7 @@ if sys.platform == "win32":
     colorama.init(strip=False)
 from abc import ABC, abstractmethod
 import pdb
-from memory_profiler import profile
+
 
 # Local imports
 import syncopy as spy
@@ -165,7 +165,6 @@ class ComputationalRoutine(ABC):
                                                             *self.argv,
                                                             **dryRunKwargs)
 
-    @profile
     def compute(self, data, out, methodName="sequentially"):
 
         self.preallocate_output(data, out)
