@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-23 16:11:07>
+# Last modification time: <2019-05-24 16:55:03>
 
 # Builtin/3rd party package imports
 import sys
@@ -211,7 +211,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     # Compute length of trials in output object to get stacking size
     # stacking = {"mtmfft" : np.ones((len(data.trials),))}
-    # stacking = {"mtmfft" : len(data.trials),
+    stacking = {"mtmfft" : len(data.trials)}
     #             "wavelet" : np.int(np.sum(np.floor(np.array(data._shapes)[:, 0] /
     #                                                self.cfg["stepsize"])))}
 
@@ -223,7 +223,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     except:
         use_dask = False
     specestMethod = methods[method]
-    specestMethod.initialize(data)
+    specestMethod.initialize(data, stacking[method])
     specestMethod.compute(data, out, parallel=use_dask)
     import ipdb; ipdb.set_trace()
 
@@ -237,7 +237,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
 
 # Local workhorse that performs the computational heavy lifting
-def mtmfft(dat, dt,
+def mtmfft(dat, dt,  
            taper=spwin.hann, taperopt={}, tapsmofrq=None,
            pad="nextpow2", padtype="zero", foi=None, keeptapers=True, keeptrials=True,
            polyorder=None, output_fmt="pow",
@@ -280,15 +280,20 @@ def mtmfft(dat, dt,
         return chunkShape, spectralDTypes[output_fmt]
 
     # Actual computation
-    spec = np.zeros((nTaper, nFreq, nChannels), dtype=spectralDTypes[output_fmt])
+    spec = np.zeros((1, nTaper, nFreq, nChannels), dtype=spectralDTypes[output_fmt])
     for taperIdx, taper in enumerate(win):
         if dat.ndim > 1:
             taper = np.tile(taper, (nChannels, 1)).T
-        spec[taperIdx, ...] = spectralConversions[output_fmt](np.fft.rfft(dat * taper, axis=0)[fidx, :])
+        spec[0, taperIdx, ...] = spectralConversions[output_fmt](np.fft.rfft(dat * taper, axis=0)[fidx, :])
+
+    # asdf_idx = tuple([slice(*dim) for dim in block_info[1]["array-location"]])
+    # cnt = np.ravel_multi_index(block_info[1]["chunk-location"],
+    #                            block_info[1]["num-chunks"])
+    # asdf[asdf_idx] = cnt
 
     # Average across tapers if wanted
     if not keeptapers:
-        return spec.mean(axis=0)
+        return spec.mean(axis=0) #FIXME!
     else:
         return spec
 
@@ -318,10 +323,32 @@ class MultiTaperFFT(ComputationalRoutine):
                                 data.hdr)
                      for trialno in range(data.sampleinfo.shape[0])]
 
+        trl_block = da.vstack([da.from_delayed(trl, shape=data._shapes[sk],
+                                               dtype=data.data.dtype)
+                              for sk, trl in enumerate(lazy_trls)])
+
+
+        # b = db.from_sequence(['1.dat', '2.dat', ...]).map(load_from_filename)
+
+        import dask.bag as db
+        trl_bag = db.from_sequence([trialno for trialno in range(data.sampleinfo.shape[0])]).map(data._copy_trial,
+                                                                                                 data._filename,
+                                                                                                 data.dimord,
+                                                                                                 data.sampleinfo,
+                                                                                                 data.hdr)
+
+        specs_bag = trl_bag.map(self.computeFunction, *self.argv, **self.cfg)
+        
+        # import dask.bag as dbb
+        # bb = dbb.from_sequence([da.from_delayed(trl, shape=data._shapes[sk], dtype=data.data.dtype) for sk, trl in enumerate(lazy_trls)])   
+        
+        # import ipdb; ipdb.set_trace()
+
         # Construct a distributed dask array block by stacking delayed trials
         trl_block = da.hstack([da.from_delayed(trl, shape=data._shapes[sk],
                                                dtype=data.data.dtype)
                                for sk, trl in enumerate(lazy_trls)])
+
 
         # Use `map_blocks` to compute spectra for each trial in the
         # constructed dask array
@@ -331,11 +358,44 @@ class MultiTaperFFT(ComputationalRoutine):
                                      chunks=self.chunkShape,
                                      new_axis=[0])
         
+        import ipdb;ipdb.set_trace()
+        
+        # bb = da.empty(self.outputShape, dtype="complex", chunks=(1,) + self.chunkShape)
+        # 
+        # self.cfg.pop("block_info")
+        # da.map_blocks(self.computeFunction, trl_block, bb, **self.cfg, dtype="complex", chunks=self.chunkShape, new_axis=[0])
+        # 
+        # def ff(x, block_info=None):
+        #     print(x.shape)
+        #     print(block_info)
+        #     return x
+        # 
+        # 
+        # 
+        # 
+        # da.map_blocks(self.computeFunction, trl_block, bb, **self.cfg, dtype="complex", chunks=self.chunkShape, new_axis=[0])
+        # 
+        # specs = trl_block.map_blocks(self.computeFunction, b,
+        #                              *self.argv, **self.cfg,
+        #                              dtype="complex",
+        #                              chunks=self.chunkShape,
+        #                              new_axis=[0])
+        
         # Average across trials if wanted
         if not self.cfg["keeptrials"]:
             specs = specs.mean(axis=0)
 
+        import inspect
+        import syncopy as spy
+
+        h5f = h5py.File(data._filename, mode="r")  
+        h5keys = list(h5f.keys())
+        idx = [h5keys.count(dclass) for dclass in spy.datatype.__all__ \
+               if not (inspect.isfunction(getattr(spy.datatype, dclass)))]
+
         import ipdb;ipdb.set_trace()
+
+        chksh = 20*(1,), *tuple((s,) for s in self.chunkShape)
         
         return specs
 

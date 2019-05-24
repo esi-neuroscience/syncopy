@@ -4,11 +4,12 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-23 16:39:59>
+# Last modification time: <2019-05-24 10:32:26>
 
 # Builtin/3rd party package imports
 import h5py
 import shutil
+import inspect
 import numpy as np
 from abc import ABC
 from copy import copy
@@ -18,7 +19,8 @@ from numpy.lib.format import open_memmap
 from .base_data import BaseData, VirtualData
 from .data_methods import _selectdata_continuous, definetrial
 from syncopy.shared import scalar_parser, array_parser, io_parser
-from syncopy.shared.errors import SPYValueError
+from syncopy.shared.errors import SPYValueError, SPYIOError
+import syncopy as spy
 
 __all__ = ["AnalogData", "SpectralData"]
 
@@ -81,12 +83,23 @@ class ContinuousData(BaseData, ABC):
         idx = [slice(None)] * len(dimord)
         idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
         idx = tuple(idx)
-        if filename is None:
-            return asdff
         if hdr is None:
-            # For pre-processed npy files
-            np.array()
-            return np.array(open_memmap(filename, mode="c")[idx])
+            # Generic case: data is either a HDF5 dataset or memmap
+            try:
+                with h5py.File(filename, mode="r") as h5f:
+                    h5keys = list(h5f.keys())
+                    cnt = [h5keys.count(dclass) for dclass in spy.datatype.__all__ \
+                           if not (inspect.isfunction(getattr(spy.datatype, dclass)))]
+                    if len(h5keys) == 1:
+                        arr = h5f[h5keys[0]][idx]
+                    else:
+                        arr = h5f[spy.datatype.__all__[cnt.index(1)]][idx]
+            except:
+                try:
+                    arr = np.array(open_memmap(filename, mode="c")[idx])
+                except:
+                    raise SPYIOError(filename)
+            return arr
         else:
             # For VirtualData objects
             dsets = []

@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-23 10:37:59>
+# Last modification time: <2019-05-24 09:46:11>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -130,6 +130,7 @@ class BaseData(ABC):
             self._data = in_data
             
         # If input is an array, either fill existing data property or directly attach it
+        # and create backing container on disk
         elif isinstance(in_data, np.ndarray):
             try:
                 array_parser(in_data, varname="data", dims=self._ndim)
@@ -149,7 +150,9 @@ class BaseData(ABC):
                 self._data[...] = in_data
             else:
                 self._data = in_data
-                self._filename = None
+                self._filename = self._gen_filename()
+                with h5py.File(self._filename, "w") as h5f:
+                    h5f.create_dataset(self.__class__.__name__, data=in_data)
 
         # If input is a `VirtualData` object, make sure the object class makes sense
         elif isinstance(in_data, VirtualData):
@@ -161,7 +164,7 @@ class BaseData(ABC):
             self._filename = [dat.filename for dat in in_data._data]
             self.mode = "r"
 
-        # Whatever type input is, it's not supported
+        # Whatever type the input is, it's not supported
         else:
             msg = "(filename of) memmap, NumPy array or VirtualData object"
             raise SPYTypeError(in_data, varname="data", expected=msg)

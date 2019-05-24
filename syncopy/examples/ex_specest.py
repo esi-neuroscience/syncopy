@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 13:08:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-23 10:46:38>
+# Last modification time: <2019-05-24 16:57:49>
 
 # Builtin/3rd party package imports
 import dask.distributed as dd
@@ -24,7 +24,8 @@ from syncopy.tests.misc import generate_artifical_data
 
 if __name__ == "__main__":
     
-    adata = generate_artifical_data(nTrials=20, nChannels=256)
+    # adata = generate_artifical_data(nTrials=20, nChannels=256)        # ~50MB
+    adata = generate_artifical_data(nTrials=100, nChannels=1024)        # ~1.14GB
 
     client = dd.Client()
 

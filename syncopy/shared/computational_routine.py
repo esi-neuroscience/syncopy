@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-23 16:23:08>
+# Last modification time: <2019-05-24 13:53:40>
 
 # Builtin/3rd party package imports
 import os
@@ -41,7 +41,7 @@ class ComputationalRoutine(ABC):
         self.dtype = None
         self.vdsdir = None
 
-    def initialize(self, data):
+    def initialize(self, data, stackingdepth):
 
         # # Make sure stacking array can be used for indexing
         # stacking = np.array(stackingdepth, dtype=int)
@@ -55,6 +55,7 @@ class ComputationalRoutine(ABC):
 
         # For trials of unequal length, compute output chunk-shape individually
         # to identify varying dimension and insert `np.nan` entry in `self.chunkShape`
+        # The aggregate `outputShape` is computed as max across all chunks
         if np.any([data._shapes[0] != sh for sh in data._shapes]):
             self.chunkShape = list(self.chunkShape)
             chk_list = [self.chunkShape]
@@ -67,12 +68,28 @@ class ComputationalRoutine(ABC):
                 if np.unique(chk_arr[:, col]).size > 1:
                     self.chunkShape[col] = np.nan
             self.chunkShape = tuple(self.chunkShape)
+            self.outputShape = (stackingdepth,) + tuple(chk_arr.max(axis=0))
+        else:
+            self.outputShape = (stackingdepth,) + self.chunkShape
+            
         # else:
         #     chk_list += [self.chunkShape] * (len(data.trials) -  1)
         # self.outputChunks = (tuple(stacking), tuple(chk_list))
 
-        # # Finally compute aggregate shape of output data
-        # self.outputShape = (len(stacking),) + self.chunkShape
+    def preallocate_output(self, out, parallel_store=False):
+
+        # In case parallel writing via VDS storage is requested, prepare
+        # directory for by-chunk HDF5 containers
+        if parallel_store:
+            vdsdir = os.path.splitext(os.path.basename(out._filename))[0]
+            self.vdsdir = os.path.join(__storage__, vdsdir)
+            os.mkdir(self.vdsdir)
+
+        # Create regular HDF5 dataset for sequential writing
+        else:
+            with h5py.File(out._filename, mode="w") as h5f:
+                h5f.create_dataset(name=out.__class__.__name__,
+                                   dtype=self.dtype, shape=self.outputShape)
 
     def compute(self, data, out, parallel=False, parallel_store=None, method=None):
 
@@ -103,21 +120,6 @@ class ComputationalRoutine(ABC):
         self.handle_metadata(data, out)
         self.write_log(data, out)
         # return out
-
-    def preallocate_output(self, out, parallel_store=False):
-
-        # In case parallel writing via VDS storage is requested, prepare
-        # directory for by-chunk HDF5 containers
-        if parallel_store:
-            vdsdir = os.path.splitext(os.path.basename(out._filename))[0]
-            self.vdsdir = os.path.join(__storage__, vdsdir)
-            os.mkdir(self.vdsdir)
-
-        # Create regular HDF5 dataset for sequential writing
-        else:
-            with h5py.File(out._filename, mode="w") as h5f:
-                h5f.create_dataset(name=out.__class__.__name__,
-                                   dtype=self.dtype, shape=self.outputShape)
 
     def save_distributed(self, da_arr, out, parallel_store=True):
 
@@ -188,7 +190,6 @@ class ComputationalRoutine(ABC):
 
         # Save data and its original location within the array
         fname = os.path.join(vdsdir, "{0:d}.h5".format(cnt))
-        print("\t\t", fname, "!!!!")
         with h5py.File(fname, "w") as h5f:
             h5f.create_dataset('chk', data=chk)
             h5f.create_dataset('idx', data=idx)
