@@ -19,7 +19,7 @@ windowsTests:
     script:
     - pip install --upgrade --user pip
     - pip install --upgrade --user tox
-    - tox
+    - tox --parallel 3
 
 docs:
     stage: deploy
