@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-24 13:53:40>
+# Last modification time: <2019-06-03 14:21:27>
 
 # Builtin/3rd party package imports
 import os
@@ -25,10 +25,10 @@ __all__ = []
 
 class ComputationalRoutine(ABC):
 
-    # The actual workhorse 
+    # Placeholder: the actual workhorse 
     def computeFunction(x): return None
 
-    # Manager that calls ``computeFunction`` (sets up `dask` etc. )
+    # Placeholder: manager that calls ``computeFunction`` (sets up `dask` etc. )
     def computeMethod(x): return None
 
     def __init__(self, *argv, **kwargs):
@@ -36,45 +36,37 @@ class ComputationalRoutine(ABC):
         self.cfg = copy(self.defaultCfg)
         self.cfg.update(**kwargs)
         self.argv = argv
-        self.chunkShape = None
         self.outputShape = None
         self.dtype = None
         self.vdsdir = None
 
-    def initialize(self, data, stackingdepth):
-
-        # # Make sure stacking array can be used for indexing
-        # stacking = np.array(stackingdepth, dtype=int)
+    def initialize(self, data):
 
         # Get output chunk-shape and dtype of first trial
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
-        self.chunkShape, self.dtype = self.computeFunction(data.trials[0],
+        chunkShape, self.dtype = self.computeFunction(data.trials[0],
                                                             *self.argv,
                                                             **dryRunKwargs)
 
         # For trials of unequal length, compute output chunk-shape individually
-        # to identify varying dimension and insert `np.nan` entry in `self.chunkShape`
-        # The aggregate `outputShape` is computed as max across all chunks
+        # to identify varying dimension(s). The aggregate shape is computed
+        # as max across all chunks
         if np.any([data._shapes[0] != sh for sh in data._shapes]):
-            self.chunkShape = list(self.chunkShape)
-            chk_list = [self.chunkShape]
+            chunkShape = list(chunkShape)
+            chk_list = [chunkShape]
             for tk in range(1, len(data.trials)):
                 chk_list.append(list(self.computeFunction(data.trials[tk],
                                                           *self.argv,
                                                           **dryRunKwargs)[0]))
             chk_arr = np.array(chk_list)
-            for col in range(chk_arr.shape[1]):
-                if np.unique(chk_arr[:, col]).size > 1:
-                    self.chunkShape[col] = np.nan
-            self.chunkShape = tuple(self.chunkShape)
-            self.outputShape = (stackingdepth,) + tuple(chk_arr.max(axis=0))
+            chunkShape = tuple(chk_arr.max(axis=0))
+            self.outputShape = (chk_arr[:, 0].sum(),) + chunkShape[1:]
         else:
-            self.outputShape = (stackingdepth,) + self.chunkShape
-            
-        # else:
-        #     chk_list += [self.chunkShape] * (len(data.trials) -  1)
-        # self.outputChunks = (tuple(stacking), tuple(chk_list))
+            self.outputShape = (len(data.trials),) + chunkShape[1:]
+
+        # Assign computed chunkshape to cfg dict
+        self.cfg["chunkShape"] = chunkShape
 
     def preallocate_output(self, out, parallel_store=False):
 

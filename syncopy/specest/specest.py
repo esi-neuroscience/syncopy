@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-24 16:55:03>
+# Last modification time: <2019-06-03 14:55:44>
 
 # Builtin/3rd party package imports
 import sys
@@ -61,6 +61,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                     writable=None, empty=False)
     except Exception as exc:
         raise exc
+    timeAxis = data.dimord.index("time")
 
     # Get everything of interest in local namespace
     defaults = get_defaults(freqanalysis)
@@ -112,6 +113,19 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise exc
         foi = np.array(foi)
         foi.sort()
+
+    # # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>> DO WE WANT THIS HERE???
+    # # Determine frequency band and shape of output (taper x freq x channel)
+    # nFreq = int(np.floor(nSamples / 2) + 1)
+    # fidx = slice(None)
+    # if foi is not None:
+    #     freqs = np.linspace(0, 1, nFreq) * 1/(2*dt)
+    #     foi = foi[foi <= freqs.max()]
+    #     foi = foi[foi >= freqs.min()]
+    #     fidx = np.unique(np.searchsorted(freqs, foi))
+    #     nFreq = fidx.size
+    # chunkShape = (max(1, nTaper * keeptapers), nFreq, nChannels)
+        
 
     # FIXME: implement detrending
     if polyremoval or polyorder is not None:
@@ -188,7 +202,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     if out is not None:
         try:
             data_parser(out, varname="out", writable=True,
-                        dataclass="SpectralData")
+                        dataclass="SpectralData",
+                        dimord=SpectralData().dimord)
         except Exception as exc:
             raise exc
         new_out = False
@@ -201,20 +216,14 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     lcls = locals()
     mth_input = {}
     kws.remove("noCompute")
+    kws.remove("chunkShape")
     for kw in kws:
         mth_input[kw] = lcls[kw]
 
     # Construct dict of classes of available methods
     methods = {
-        "mtmfft": MultiTaperFFT(1/data.samplerate, **mth_input)
+        "mtmfft": MultiTaperFFT(1/data.samplerate, timeAxis, **mth_input)
     }
-
-    # Compute length of trials in output object to get stacking size
-    # stacking = {"mtmfft" : np.ones((len(data.trials),))}
-    stacking = {"mtmfft" : len(data.trials)}
-    #             "wavelet" : np.int(np.sum(np.floor(np.array(data._shapes)[:, 0] /
-    #                                                self.cfg["stepsize"])))}
-
 
     # Perform actual computation (w/ or w/o dask)
     try:
@@ -223,7 +232,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     except:
         use_dask = False
     specestMethod = methods[method]
-    specestMethod.initialize(data, stacking[method])
+    specestMethod.initialize(data)
     specestMethod.compute(data, out, parallel=use_dask)
     import ipdb; ipdb.set_trace()
 
@@ -233,17 +242,21 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     #         trial = np.absolute(trial)
 
     # Either return newly created output container or simply quit
-    return out if newOut else None
+    return out if new_out else None
 
 
 # Local workhorse that performs the computational heavy lifting
-def mtmfft(dat, dt,  
+def mtmfft(trl_dat, dt, timeAxis, 
            taper=spwin.hann, taperopt={}, tapsmofrq=None,
            pad="nextpow2", padtype="zero", foi=None, keeptapers=True, keeptrials=True,
            polyorder=None, output_fmt="pow",
-           noCompute=False):
+           noCompute=False, chunkShape=None):
 
-    # Get dimensional information
+    # Re-arrange array if necessary and get dimensional information
+    if timeAxis != 0:
+        dat = trl_dat.T.squeeze()       # does not copy but creates a view of `trl_dat`
+    else:
+        dat = trl_dat
     nSamples = dat.shape[0]
     nChannels = dat.shape[1]
 
@@ -264,7 +277,7 @@ def mtmfft(dat, dt,
     win = np.atleast_2d(taper(nSamples, **taperopt))
     nTaper = win.shape[0]
 
-    # Determine frequency band and shape of output (taper x freq x channel)
+    # Determine frequency band and shape of output (time=1 x taper x freq x channel)
     nFreq = int(np.floor(nSamples / 2) + 1)
     fidx = slice(None)
     if foi is not None:
@@ -273,27 +286,23 @@ def mtmfft(dat, dt,
         foi = foi[foi >= freqs.min()]
         fidx = np.unique(np.searchsorted(freqs, foi))
         nFreq = fidx.size
-    chunkShape = (max(1, nTaper * keeptapers), nFreq, nChannels)
+    outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
 
     # For initialization of computational routine, just return output shape and dtype
     if noCompute:
-        return chunkShape, spectralDTypes[output_fmt]
+        return outShape, spectralDTypes[output_fmt]
 
     # Actual computation
-    spec = np.zeros((1, nTaper, nFreq, nChannels), dtype=spectralDTypes[output_fmt])
+    spec = np.full(chunkShape, np.nan, dtype=spectralDTypes[output_fmt])
+    fill_idx = tuple([slice(None, dim) for dim in outShape[2:]])
     for taperIdx, taper in enumerate(win):
         if dat.ndim > 1:
             taper = np.tile(taper, (nChannels, 1)).T
-        spec[0, taperIdx, ...] = spectralConversions[output_fmt](np.fft.rfft(dat * taper, axis=0)[fidx, :])
-
-    # asdf_idx = tuple([slice(*dim) for dim in block_info[1]["array-location"]])
-    # cnt = np.ravel_multi_index(block_info[1]["chunk-location"],
-    #                            block_info[1]["num-chunks"])
-    # asdf[asdf_idx] = cnt
+        spec[(0, taperIdx,) + fill_idx] = spectralConversions[output_fmt](np.fft.rfft(dat * taper, axis=0)[fidx, :])
 
     # Average across tapers if wanted
     if not keeptapers:
-        return spec.mean(axis=0) #FIXME!
+        return spec.mean(axis=0)
     else:
         return spec
 
@@ -304,13 +313,6 @@ class MultiTaperFFT(ComputationalRoutine):
 
     def __init__(self, *argv, **kwargs):
         super().__init__(*argv, **kwargs)
-
-    # def preallocate_output(self, data, out, parallel=False):
-    #     with h5py.File(out._filename, mode="w") as h5f:
-    #         h5f.create_dataset(name="SpectralData",
-    #                            dtype=self.dtype,
-    #                            shape=(len(data.trials),) + self.chunkShape)
-
 
     def compute_parallel(self, data, out):
         
@@ -323,31 +325,10 @@ class MultiTaperFFT(ComputationalRoutine):
                                 data.hdr)
                      for trialno in range(data.sampleinfo.shape[0])]
 
-        trl_block = da.vstack([da.from_delayed(trl, shape=data._shapes[sk],
-                                               dtype=data.data.dtype)
+        # Stack trials along new (3rd) axis inserted on the left
+        trl_block = da.stack([da.from_delayed(trl, shape=data._shapes[sk],
+                                              dtype=data.data.dtype)
                               for sk, trl in enumerate(lazy_trls)])
-
-
-        # b = db.from_sequence(['1.dat', '2.dat', ...]).map(load_from_filename)
-
-        import dask.bag as db
-        trl_bag = db.from_sequence([trialno for trialno in range(data.sampleinfo.shape[0])]).map(data._copy_trial,
-                                                                                                 data._filename,
-                                                                                                 data.dimord,
-                                                                                                 data.sampleinfo,
-                                                                                                 data.hdr)
-
-        specs_bag = trl_bag.map(self.computeFunction, *self.argv, **self.cfg)
-        
-        # import dask.bag as dbb
-        # bb = dbb.from_sequence([da.from_delayed(trl, shape=data._shapes[sk], dtype=data.data.dtype) for sk, trl in enumerate(lazy_trls)])   
-        
-        # import ipdb; ipdb.set_trace()
-
-        # Construct a distributed dask array block by stacking delayed trials
-        trl_block = da.hstack([da.from_delayed(trl, shape=data._shapes[sk],
-                                               dtype=data.data.dtype)
-                               for sk, trl in enumerate(lazy_trls)])
 
 
         # Use `map_blocks` to compute spectra for each trial in the
@@ -355,57 +336,15 @@ class MultiTaperFFT(ComputationalRoutine):
         specs = trl_block.map_blocks(self.computeFunction,
                                      *self.argv, **self.cfg,
                                      dtype="complex",
-                                     chunks=self.chunkShape,
+                                     chunks=self.cfg["chunkShape"],
                                      new_axis=[0])
-        
-        import ipdb;ipdb.set_trace()
-        
-        # bb = da.empty(self.outputShape, dtype="complex", chunks=(1,) + self.chunkShape)
-        # 
-        # self.cfg.pop("block_info")
-        # da.map_blocks(self.computeFunction, trl_block, bb, **self.cfg, dtype="complex", chunks=self.chunkShape, new_axis=[0])
-        # 
-        # def ff(x, block_info=None):
-        #     print(x.shape)
-        #     print(block_info)
-        #     return x
-        # 
-        # 
-        # 
-        # 
-        # da.map_blocks(self.computeFunction, trl_block, bb, **self.cfg, dtype="complex", chunks=self.chunkShape, new_axis=[0])
-        # 
-        # specs = trl_block.map_blocks(self.computeFunction, b,
-        #                              *self.argv, **self.cfg,
-        #                              dtype="complex",
-        #                              chunks=self.chunkShape,
-        #                              new_axis=[0])
+        specs = specs.reshape(self.outputShape)
         
         # Average across trials if wanted
         if not self.cfg["keeptrials"]:
             specs = specs.mean(axis=0)
 
-        import inspect
-        import syncopy as spy
-
-        h5f = h5py.File(data._filename, mode="r")  
-        h5keys = list(h5f.keys())
-        idx = [h5keys.count(dclass) for dclass in spy.datatype.__all__ \
-               if not (inspect.isfunction(getattr(spy.datatype, dclass)))]
-
-        import ipdb;ipdb.set_trace()
-
-        chksh = 20*(1,), *tuple((s,) for s in self.chunkShape)
-        
         return specs
-
-        # # # Write computed spectra in pre-allocated memmap
-        # # if out is not None:
-        # if True:
-        #     daskResult = specs.map_blocks(self.write_block, out._filename,
-        #                                   dtype=self.dtype, drop_axis=[0, 1],
-        #                                   chunks=(1,))
-        # return daskResult.compute()
 
     def compute_sequential(self, data, out):
         with h5py.File(out._filename, "r+") as h5f:
@@ -415,8 +354,6 @@ class MultiTaperFFT(ComputationalRoutine):
                 h5f.flush()
 
     def handle_metadata(self, data, out):
-        h5f = h5py.File(out._filename, mode="r")
-        out.data = h5f["SpectralData"]
 
         time = np.arange(len(data.trials))
         time = time.reshape((time.size, 1))
@@ -427,9 +364,12 @@ class MultiTaperFFT(ComputationalRoutine):
         # Attach meta-data
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel)
-        out.taper = np.array([self.cfg["taper"].__name__] * self.chunkShape[0])
-        nFreqs = self.outputShape[out.dimord.index("freq") - 1]
-        out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
+        out.taper = np.array([self.cfg["taper"].__name__] * self.outputShape[out.dimord.index("taper")])
+        if self.cfg["foi"] is not None:
+            out.freq = self.cfg["foi"]
+        else:
+            nFreqs = self.outputShape[out.dimord.index("freq")] - 1
+            out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
         out.cfg = self.cfg
         
     # @staticmethod
