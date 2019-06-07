@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-22 15:40:19
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-22 16:19:41>
+# Last modification time: <2019-06-07 11:52:24>
 
 __all__ = []
 
@@ -39,8 +39,8 @@ def user_input(msg, valid, default=None):
     Docstring
 
     msg = str (message)
-    valid = list (avail. options)
-    default = str (default option)
+    valid = list (avail. options, no need specifying 'a', and '[a]', code strips brackets)
+    default = str (default option, same as above)
     """
 
     # Add trailing whitespace to `msg` if not already present and append

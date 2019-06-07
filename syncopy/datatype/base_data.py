@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-03 14:20:44>
+# Last modification time: <2019-06-07 10:08:46>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -743,7 +743,7 @@ class SessionLogger():
     def __init__(self):
         sess_log = "{user:s}@{host:s}: <{time:s}> started session {sess:s}"
         self.sessionfile = os.path.join(__storage__,
-                                        "session_{}.id".format(__sessionid__))
+                                        "session_{}_log.id".format(__sessionid__))
         with open(self.sessionfile, "w") as fid:
             fid.write(sess_log.format(user=getpass.getuser(),
                                       host=socket.gethostname(),
