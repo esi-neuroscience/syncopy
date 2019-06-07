@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-07 10:08:46>
+# Last modification time: <2019-06-07 18:07:09>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -407,6 +407,8 @@ class BaseData(ABC):
                 del self._data
             if __storage__ in self._filename and os.path.exists(self._filename):
                 os.unlink(self._filename)
+                shutil.rmtree(os.path.splitext(self._filename)[0],
+                              ignore_errors=True)
 
     # Class "constructor"
     def __init__(self, **kwargs):

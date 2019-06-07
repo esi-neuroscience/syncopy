@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 13:08:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-24 16:57:49>
+# Last modification time: <2019-06-07 18:02:39>
 
 # Builtin/3rd party package imports
 import dask.distributed as dd
@@ -21,6 +21,8 @@ import syncopy as spy
 
 # Import artificial data generator
 from syncopy.tests.misc import generate_artifical_data
+
+sys.exit()
 
 if __name__ == "__main__":
     
