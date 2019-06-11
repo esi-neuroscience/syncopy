@@ -6,7 +6,7 @@
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
 # Last modification time: <2019-05-21 15:00:07>
 """
-SyNCoPy Data Classes (:mod:`syncopy.datatype`)
+Syncopy Data Classes (:mod:`syncopy.datatype`)
 ==============================================
 Some profoundly insightful text here...
 
@@ -14,8 +14,8 @@ Some profoundly insightful text here...
    :top-classes: BaseData
    :parts: 1
 
-The usable SyNCoPy data classes
----------------------------------------
+The usable Syncopy data classes
+-------------------------------
 Some info highlighting the boundless wisdom underlying the class design...
 
 .. autosummary::
@@ -29,8 +29,15 @@ Some info highlighting the boundless wisdom underlying the class design...
    DiscreteData
 
 
+Functions for handling data
+---------------------------
+These functions are useful for editing and slicing data:
 
-
+.. autosummary::      
+    :toctree: _stubs
+    
+    selectdata
+    definetrial
 
 """
 

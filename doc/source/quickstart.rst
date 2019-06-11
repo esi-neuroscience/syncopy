@@ -1,4 +1,4 @@
-A Short Guide to SyNCoPy
+A Short Guide to Syncopy
 ==========================
 Coming soon...
 
