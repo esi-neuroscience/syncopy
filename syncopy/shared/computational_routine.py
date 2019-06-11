@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-03 14:21:27>
+# Last modification time: <2019-06-11 16:30:00>
 
 # Builtin/3rd party package imports
 import os
@@ -108,10 +108,12 @@ class ComputationalRoutine(ABC):
         if parallel:
             self.save_distributed(result, out, parallel_store)
 
+        # Attach computed results to output object
+        out.data = h5py.File(out._filename, mode="r+")[out.__class__.__name__]
+
         # Store meta-data, write log and get outta here
         self.handle_metadata(data, out)
         self.write_log(data, out)
-        # return out
 
     def save_distributed(self, da_arr, out, parallel_store=True):
 

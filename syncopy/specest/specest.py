@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-03 14:55:44>
+# Last modification time: <2019-06-11 16:41:44>
 
 # Builtin/3rd party package imports
 import sys
@@ -158,7 +158,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 raise exc
 
     elif method == "wavelet":
-        
         options = ["Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat"]
         if wav not in options:
             lgl = "'" + "or '".join(opt + "' " for opt in options)
@@ -234,7 +233,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     specestMethod = methods[method]
     specestMethod.initialize(data)
     specestMethod.compute(data, out, parallel=use_dask)
-    import ipdb; ipdb.set_trace()
 
     # if output == "power":
     #     powerOut = out.copy(deep=T)
@@ -368,7 +366,7 @@ class MultiTaperFFT(ComputationalRoutine):
         if self.cfg["foi"] is not None:
             out.freq = self.cfg["foi"]
         else:
-            nFreqs = self.outputShape[out.dimord.index("freq")] - 1
+            nFreqs = self.outputShape[out.dimord.index("freq")]
             out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
         out.cfg = self.cfg
         
