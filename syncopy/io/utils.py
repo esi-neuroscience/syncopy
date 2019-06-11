@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 14:30:17
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-07 18:50:54>
+# Last modification time: <2019-06-11 09:45:35>
 
 # Builtin/3rd party package imports
 import os
@@ -81,12 +81,14 @@ def cleanup(older_than=24):
         raise exc
     older_than = int(older_than)
 
-    # Get current date + time and scan package's temp directory 
+    # Get current date + time and scan package's temp directory for session files
     now = datetime.now()
     sessions = glob(os.path.join(__storage__, "session*"))
     all_ids = []
     for sess in sessions:
         all_ids.append(os.path.splitext(os.path.basename(sess))[0].split("_")[1])
+
+    # Also check for dangling data (not associated to any session)
     data = glob(os.path.join(__storage__, "spy_*"))
     dangling = []
     for dat in data:
@@ -94,11 +96,6 @@ def cleanup(older_than=24):
         if sessid not in all_ids:
             dangling.append(dat)
 
-
-
-    ## FIXME!!!: dangling objects lacking an associated session log file???
-    # sessions += glob(os.path.join(__storage__, "spy_*"))
-    
     # Cycle through session-logs and identify stuff older than `older_than` hrs
     ses_list = []       # full path to session files
     age_list = []       # session age in days
@@ -128,9 +125,9 @@ def cleanup(older_than=24):
                                         for dirpth, _, fnames in os.walk(file) \
                                         for fname in fnames) for file in files))
 
-    # Abort if we didn't find any session data satisfying the provided criteria
+    # Tell the user if we didn't find any session data satisfying the provided criteria
     if len(ses_list) == 0:
-        ext = "Syncopy cleanup: Did not find any syncopy session data older than {} hours."
+        ext = "\n| Syncopy cleanup | Did not find any syncopy session data older than {} hours."
         print(ext.format(older_than))
 
     else:
@@ -140,53 +137,68 @@ def cleanup(older_than=24):
         gb_list = [sz/1024**3 for sz in siz_list]
 
         # Ask the user how to proceed from here
-        qst = "| Syncopy cleanup | Found data of {numsess:d} syncopy sessions between {agemin:d} " +\
-              "and {agemax:d} days old created by user{users:s} taking up a total " +\
-              "of {gbsz:4.1f} GB of disk space. \n\n" +\
+        ageinfo = ""
+        qst = "\n| Syncopy cleanup | Found data of {numsess:d} syncopy sessions {ageinfo:s} " +\
+              "created by user{users:s}' taking up {gbinfo:s} of disk space. \n\n" +\
               "Do you want to\n" +\
               "[1] permanently delete all files at once (you will not be prompted for confirmation)?\n" +\
               "[2] go through each session and decide interactively?\n" +\
               "[3] abort?\n"
-        import ipdb; ipdb.set_trace()
         choice = user_input(qst.format(numsess=len(ses_list),
-                                       agemin=min(age_list),
-                                       agemax=max(age_list),
-                                       users="(s) " + ",".join(usr + ", " for usr in usr_list)[:-2] \
-                                       if len(usr_list) > 1 else " " + usr_list[0],
-                                       gbsz=sum(gb_list)),
+                                       ageinfo="between {agemin:d} and {agemax:d} days old".format(agemin=min(age_list),
+                                                                                                   agemax=max(age_list))
+                                       if min(age_list) < max(age_list) else "from {} days ago".format(age_list[0]),
+                                       users="(s) '" + ",".join(usr + ", " for usr in usr_list)[:-2] \
+                                       if len(usr_list) > 1 else " '" + usr_list[0],
+                                       gbinfo="a total of {gbsz:4.1f} GB".format(gbsz=sum(gb_list))
+                                       if sum(gb_list) > 1 else "less than 1 GB"),
                             valid=["1", "2", "3"])
 
         # Force-delete everything
         if choice == "1":
-            for sk, sess in enumerate(tqdm(ses_list, desc="Deleting session data...")):
-                _rm_session(sess, fls_list[sk])
+            for fls in tqdm(fls_list, desc="Deleting session data..."):
+                _rm_session(fls)
 
         # Query deletion for each session separately
         elif choice == "2":
             msg = "Found{numf:s} files created by session {sess:s} {age:d} " +\
                   "days ago{sizeinfo:s}" +\
                   " Do you want to permanently delete these files?"
-            for sk, sess in enumerate(ses_list):
+            for sk in range(len(ses_list)):
                 if user_yesno(msg.format(numf=" " + str(len(fls_list[sk])),
                                          sess=own_list[sk],
                                          age=age_list[sk],
                                          sizeinfo=" using " + \
                                          str(round(siz_list[sk]/1024**2)) + \
                                          " MB of disk space.")):
-                    _rm_session(sess, fls_list[sk])
+                    _rm_session(fls_list[sk])
 
-        # Don't do anything, continue w/dangling data
+        # Don't do anything for now, continue w/dangling data
         else:
-            pass        
+            print("Aborting...")        
 
     # If we found data not associated to any registered session, ask what to do
     if len(dangling) > 0:
-        qry = "| Syncopy cleanup | Found {numdang:d} dangling files not " +\
-            "associated to any session using {szdang:4.1f} GB of disk space. \n\n" +\
-            "Do you want to\n"
+        qst = "\n| Syncopy cleanup | Found {numdang:d} dangling files not " +\
+              "associated to any session using {szdang:4.1f} GB of disk space. \n\n" +\
+              "Do you want to\n" +\
+              "[1] permanently delete these files (you will not be prompted for confirmation)?\n" +\
+              "[2] abort?\n"
+        choice = user_input(qst.format(numdang=len(dangling),
+                                       szdang=sum(os.path.getsize(file)/1024**3 if os.path.isfile(file) else \
+                                                  sum(os.path.getsize(os.path.join(dirpth, fname))/1024**3 \
+                                                      for dirpth, _, fnames in os.walk(file) \
+                                                      for fname in fnames) for file in dangling)),
+                            valid=["1", "2"])
+
+        if choice == "1":
+            for dat in tqdm(dangling, desc="Deleting dangling data..."):
+                _rm_session([dat])
+        else:
+            print("Aborting...")        
         
                 
-def _rm_session(session, session_files):
+def _rm_session(session_files):
     """
     Local helper for deleting tmp data of a given spy session
     """
@@ -195,46 +207,3 @@ def _rm_session(session, session_files):
      for file in session_files]
 
     return
-
-
-def _get_session_info(session):
-    """
-    Local helper to extract session hash, log and age from session file
-
-    This collection of one-liners is encapsulated in a separate function to 
-    enforce a unique canonical way of extracting this infor from a session's
-    log file
-    """
-
-    session_id = os.path.splitext(os.path.basename(session))[0].split("_")[1]
-    with open(session, "r") as fid:
-        session_log = fid.read()
-    timestr = session_log[session_log.find("<") + 1:session_log.find(">")]
-    timeobj = datetime.strptime(timestr, '%Y-%m-%d %H:%M:%S')
-    session_age = round((now - timeobj).total_seconds()/3600)
-    session_owner = session_log[:session_log.find(":")]
-
-    return session_id, session_owner, session_age
-
-
-def _get_session_files(sessid):
-    """
-    Local helper that fetches all files found on disk related to provided session
-    """
-
-    return glob(os.path.join(__storage__, "*_{}_*".format(sessid)))
-
-
-def _get_session_size(sessfiles, unit="MB"):
-    """
-    Local helper to calculate the on-disk size of provided session-related files
-    """
-
-    raw_size = sum(os.path.getsize(file) if os.path.isfile(file) else \
-                   sum(os.path.getsize(os.path.join(dirpth, fname)) \
-                       for dirpth, _, fnames in os.walk(file) \
-                       for fname in fnames) for file in sessfiles)
-    factor = 1024
-    scale = {"GB": factor**3, "MB": factor**2, "KB": factor}
-
-    return raw_size/scale[unit]
