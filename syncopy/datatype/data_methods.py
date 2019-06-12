@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-03 10:25:13>
+# Last modification time: <2019-05-09 13:56:20>
 
 # Builtin/3rd party package imports
 import numbers
@@ -12,8 +12,8 @@ import sys
 import numpy as np
 
 # Local imports
-from syncopy.utils import (SPYTypeError, SPYValueError, data_parser,
-                           array_parser, scalar_parser)
+from syncopy.shared import data_parser, array_parser, scalar_parser
+from syncopy.shared.errors import SPYTypeError, SPYValueError
 
 __all__ = ["selectdata", "definetrial"]
 

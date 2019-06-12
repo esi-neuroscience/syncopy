@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-18 16:36:50>
+# Last modification time: <2019-06-11 15:47:31>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -29,14 +29,14 @@ import shutil
 
 # Local imports
 from .data_methods import definetrial
-from syncopy.utils import (scalar_parser, array_parser, io_parser, 
-                           SPYTypeError, SPYValueError)
+from syncopy.shared import scalar_parser, array_parser, io_parser
+from syncopy.shared.errors import SPYTypeError, SPYValueError
 from syncopy import __version__, __storage__, __dask__, __sessionid__
 if __dask__:
     import dask
 import syncopy as spy
 
-__all__ = []
+__all__ = ["StructDict"]
 
 
 class BaseData(ABC):
@@ -48,7 +48,7 @@ class BaseData(ABC):
     @cfg.setter
     def cfg(self, dct):
         if not isinstance(dct, dict):
-            raise SPYTypeError(dct, varname="cfg", expected="dictionary")
+            raise SPYTypeError(dct, varname="cfg", expected="dictionary-like object")
         self._cfg = self._set_cfg(self._cfg, dct)
 
     @property
@@ -130,6 +130,7 @@ class BaseData(ABC):
             self._data = in_data
             
         # If input is an array, either fill existing data property or directly attach it
+        # and create backing container on disk
         elif isinstance(in_data, np.ndarray):
             try:
                 array_parser(in_data, varname="data", dims=self._ndim)
@@ -149,7 +150,9 @@ class BaseData(ABC):
                 self._data[...] = in_data
             else:
                 self._data = in_data
-                self._filename = None
+                self._filename = self._gen_filename()
+                with h5py.File(self._filename, "w") as h5f:
+                    h5f.create_dataset(self.__class__.__name__, data=in_data)
 
         # If input is a `VirtualData` object, make sure the object class makes sense
         elif isinstance(in_data, VirtualData):
@@ -161,7 +164,7 @@ class BaseData(ABC):
             self._filename = [dat.filename for dat in in_data._data]
             self.mode = "r"
 
-        # Whatever type input is, it's not supported
+        # Whatever type the input is, it's not supported
         else:
             msg = "(filename of) memmap, NumPy array or VirtualData object"
             raise SPYTypeError(in_data, varname="data", expected=msg)
@@ -204,8 +207,8 @@ class BaseData(ABC):
             raise SPYTypeError(md, varname="mode", expected="str")
         options = ["r", "r+", "w", "c"]
         if md not in options:
-            raise SPYValueError("".join(opt + ", " for opt in options)[:-2],
-                                varname="mode", actual=md)
+            lgl = "'" + "or '".join(opt + "' " for opt in options)
+            raise SPYValueError(lgl, varname="mode", actual=md)
         self._mode = md
             
     @property
@@ -313,6 +316,7 @@ class BaseData(ABC):
 
     # Helper function that digs into cfg dictionaries
     def _set_cfg(self, cfg, dct):
+        dct = StructDict(dct)
         if not cfg:
             cfg = dct
         else:
@@ -403,6 +407,8 @@ class BaseData(ABC):
                 del self._data
             if __storage__ in self._filename and os.path.exists(self._filename):
                 os.unlink(self._filename)
+                shutil.rmtree(os.path.splitext(self._filename)[0],
+                              ignore_errors=True)
 
     # Class "constructor"
     def __init__(self, **kwargs):
@@ -739,7 +745,7 @@ class SessionLogger():
     def __init__(self):
         sess_log = "{user:s}@{host:s}: <{time:s}> started session {sess:s}"
         self.sessionfile = os.path.join(__storage__,
-                                        "session_{}.id".format(__sessionid__))
+                                        "session_{}_log.id".format(__sessionid__))
         with open(self.sessionfile, "w") as fid:
             fid.write(sess_log.format(user=getpass.getuser(),
                                       host=socket.gethostname(),
@@ -755,3 +761,14 @@ class SessionLogger():
 
     def __del__(self):
         self._rm(self.sessionfile)
+
+
+class StructDict(dict):
+    
+    def __init__(self, *args, **kwargs):
+        """
+        Create a child-class of dict whose attributes are its keys
+        (thus ensuring that attributes and items are always in sync)
+        """
+        super().__init__(*args, **kwargs)
+        self.__dict__ = self        

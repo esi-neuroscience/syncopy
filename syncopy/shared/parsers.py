@@ -4,16 +4,18 @@
 #
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-16 11:41:06>
+# Last modification time: <2019-05-23 10:30:57>
 
 # Builtin/3rd party package imports
 import os
 import numpy as np
 import numbers
+import functools
 from inspect import signature
 
 # Local imports
-from syncopy.utils import SPYIOError, SPYTypeError, SPYValueError
+from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
+import syncopy as spy
 
 __all__ = ["io_parser", "scalar_parser", "array_parser",
            "data_parser", "json_parser", "get_defaults"]
@@ -122,7 +124,7 @@ def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
                 error = True
             if file_ext not in str(ext) or error:
                 if isinstance(ext, (list, np.ndarray)):
-                    ext = "".join(ex + ", " for ex in ext)[:-2]
+                    ext = "'" + "or '".join(ex + "' " for ex in ext)
                 raise SPYValueError(ext, varname="filename-extension", actual=file_ext)
 
         # Now make sure file does or does not exist
@@ -517,4 +519,42 @@ def get_defaults(obj):
 
     if not callable(obj):
         raise SPYTypeError(obj, varname="obj", expected="SyNCoPy function or class")
-    return {k:v.default for k,v in signature(obj).parameters.items() if v.default != v.empty}
+    dct = {k: v.default for k, v in signature(obj).parameters.items()\
+           if v.default != v.empty and v.name != "cfg"}
+    return spy.StructDict(dct)
+
+
+def unwrap_cfg(func):
+    """
+    Decorator that unwraps cfg object in function call
+    """
+    
+    @functools.wraps(func)
+    def wrapper_cfg(*args, **kwargs):
+
+        # If a non-`None` `cfg` keyword is found, vet it and ensure no other
+        # (potentially conflicting) keyword arguments have been provided.
+        if kwargs.get("cfg") is not None:
+            if not isinstance(cfg, dict):
+                raise SPYTypeError(kwargs["cfg"], varname="cfg", expected="dictionary-like")
+            defaults = get_defaults(freqanalysis)
+            for key, value in kwargs.items():
+                if defaults[key] != value:
+                    raise SPYValueError(legal="no keyword arguments",
+                                        varname=key,
+                                        actual="non-default value for {}".format(key))
+
+            # Translate any existing "yes" and "no" fields to `True` and `False`,
+            # respectively, and subsequently call the function with `cfg` unwrapped
+            for key in cfg.keys():
+                if cfg[key] == "yes":
+                    cfg[key] = True
+                elif cfg[key] == "no":
+                    cfg[key] = False
+            return func(*args, **kwargs["cfg"])
+
+        # No meaningful `cfg` keyword found, proceed with regular function call
+        else:
+            return func(*args, **kwargs)
+        
+    return wrapper_cfg

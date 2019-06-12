@@ -4,10 +4,10 @@
 # 
 # Created: 2019-01-23 14:33:12
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-23 12:37:01>
+# Last modification time: <2019-05-09 13:54:21>
 
 # Local imports
-from syncopy.utils import SPYTypeError, SPYValueError
+from syncopy.shared.errors import SPYTypeError, SPYValueError
 from syncopy.io import load_binary_esi, load_spy
 
 __all__ = ["load_data"]

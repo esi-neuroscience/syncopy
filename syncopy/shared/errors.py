@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-14 10:23:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-30 16:20:09>
+# Last modification time: <2019-05-22 14:04:16>
 
 # Builtin/3rd party package imports
 import sys
@@ -14,7 +14,7 @@ from collections import OrderedDict
 # Local imports
 from syncopy import __tbcount__
 
-__all__ = ["SPYTypeError", "SPYValueError", "SPYIOError", "SPYExceptionHandler", "get_caller"]
+__all__ = ["get_caller"]
 
 
 class Error(Exception):
@@ -71,8 +71,8 @@ class SPYValueError(Error):
         
     def __str__(self):
         msg = "Invalid value{vn:s}{fd:s} expected {ex:s}"
-        return msg.format(vn=" of " + self.varname + ":" if len(self.varname) else ":",
-                          fd=" `" + self.actual + "`;" if len(self.actual) else "",
+        return msg.format(vn=" of `" + self.varname + "`:" if len(self.varname) else ":",
+                          fd=" '" + self.actual + "';" if len(self.actual) else "",
                           ex=self.legal)
 
     
@@ -110,26 +110,20 @@ def SPYExceptionHandler(*excargs, **exckwargs):
     # or "regular" Python - this matters for coloring error messages
     if len(excargs) == 3:
         isipy = False
-        nbpdb = False
         etype, evalue, etb = excargs
     else:
         etype, evalue, etb = sys.exc_info()
-        try:                            # careful: if ipython is used to launch a script, ``get_ipython`` is not defined
+        try:                            # careful: if iPython is used to launch a script, ``get_ipython`` is not defined
             ipy = get_ipython()
             isipy = True
             cols = get_ipython().InteractiveTB.Colors
             cols.filename = cols.filenameEm
             cols.bold = "\033[1m"
-            nbpdb = False
-            if ipy.has_trait("kernel"): # Monkey patch ``sys`` in case we're running in a notebook
-                sys.last_traceback = etb
-                if ipy.call_pdb:
-                    nbpdb = True        # if %pdb was used in notebook, manually launch it at the end
+            sys.last_traceback = etb    # smartify ``sys``
         except:
             isipy = False
-            nbpdb = False
 
-    # Pass KeyboardInterrupt on to regular excepthook so that CTRL + C
+    # Pass ``KeyboardInterrupt`` on to regular excepthook so that CTRL + C
     # can still be used to abort program execution (only relevant in "regular"
     # Python prompts)
     if issubclass(etype, KeyboardInterrupt) and not isipy:
@@ -140,6 +134,41 @@ def SPYExceptionHandler(*excargs, **exckwargs):
     emsg = "{}\nSyNCoPy encountered an error in{} \n\n".format(cols.topline if isipy else "",
                                                                cols.Normal if isipy else "")
 
+    # If we're dealing with a `SyntaxError`, show it and getta outta here
+    if issubclass(etype, SyntaxError):
+    
+        # Just format exception, don't mess around w/ traceback
+        exc_fmt = traceback.format_exception_only(etype, evalue)
+        for eline in exc_fmt:
+            if "File" in eline:
+                eline = eline.split("File ")[1]
+                fname, lineno = eline.split(", line ")
+                emsg += "{}{}{}".format(cols.filename if isipy else "",
+                                        fname,
+                                        cols.Normal if isipy else "")
+                emsg += ", line {}{}{}".format(cols.lineno if isipy else "",
+                                               lineno,
+                                               cols.Normal if isipy else "")
+            elif "SyntaxError" in eline:
+                smsg = eline.split("SyntaxError: ")[1]
+                emsg += "{}{}SyntaxError{}: {}{}{}".format(cols.excName if isipy else "",
+                                                           cols.bold if isipy else "",
+                                                           cols.Normal if isipy else "",
+                                                           cols.bold if isipy else "",
+                                                           smsg,
+                                                           cols.Normal if isipy else "")
+            else:
+                emsg += "{}{}{}".format(cols.line if isipy else "",
+                                        eline,
+                                        cols.Normal if isipy else "")
+    
+        # Show generated message and leave (or kick-off debugging in Jupyer/iPython if %pdb is on)
+        print(emsg)
+        if isipy:
+            if ipy.call_pdb:
+                ipy.InteractiveTB.debugger()
+        return
+        
     # Build an ordered(!) dictionary that encodes separators for traceback components
     sep = OrderedDict({"filename": ", line ",
                        "lineno": " in ",
@@ -164,8 +193,7 @@ def SPYExceptionHandler(*excargs, **exckwargs):
             keepgoing = False
     
     # Format the exception-part of the traceback - the resulting list usually
-    # contains only a single string - if we find more (e.g., in case of a
-    # SyntaxError), use everything
+    # contains only a single string - if we find more just use everything
     exc_fmt = traceback.format_exception_only(etype, evalue)
     if len(exc_fmt) == 1:
         exc_msg = exc_fmt[0]
@@ -181,13 +209,14 @@ def SPYExceptionHandler(*excargs, **exckwargs):
         exc_name = ""
 
     # Glue actual Exception name + message to output string
-    emsg += "\n{}{}{}{}".format(exc_name,
+    emsg += "{}{}{}{}{}".format("\n" if isipy else "",
+                                exc_name,
                                 cols.bold if isipy else "",
                                 exc_msg,
                                 cols.Normal if isipy else "",)
 
     # Now go through traceback and put together a list of strings for printing
-    if __tbcount__:
+    if __tbcount__ and etb is not None:
         emsg += "\n" + "-"*30 + "\nAbbreviated traceback:\n\n"
         tb_count = 0
         tb_list = []
@@ -208,15 +237,17 @@ def SPYExceptionHandler(*excargs, **exckwargs):
         emsg += "".join(tb_list)
 
     # Finally, another info message
-    emsg += "\nUse `import traceback; traceback.print_tb(sys.last_traceback)` " + \
-            "to inspect the full error traceback"
+    if etb is not None:
+        emsg += "\nUse `import traceback; traceback.print_tb(sys.last_traceback)` " + \
+                "to inspect the full error traceback"
 
     # Show generated message and get outta here
     print(emsg)
 
-    # Kick-start debugging in case we're running in a notebook with %pdb enabled
-    if nbpdb:
-        ipy.InteractiveTB.debugger()
+    # Kick-start debugging in case %pdb is enabled in Jupyter/iPython
+    if isipy:
+        if ipy.call_pdb:
+            ipy.InteractiveTB.debugger()
     
 def get_caller():
     """

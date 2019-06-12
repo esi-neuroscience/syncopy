@@ -3,8 +3,8 @@
 # Save SynCoPy data objects on disk
 #
 # Created: 2019-02-05 13:12:58
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-05-07 16:41:57>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-05-09 13:54:34>
 
 # Builtin/3rd party package imports
 import os
@@ -16,8 +16,8 @@ from collections import OrderedDict
 from hashlib import blake2b
 
 # Local imports
-from syncopy.utils import (io_parser, data_parser, SPYIOError,
-                           SPYTypeError, SPYValueError)
+from syncopy.shared import io_parser, data_parser
+from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
 from syncopy.io import hash_file, write_access, FILE_EXT
 from syncopy import __storage__
 

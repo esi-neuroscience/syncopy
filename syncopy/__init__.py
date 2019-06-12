@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-15 09:03:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-24 15:17:29>
+# Last modification time: <2019-05-09 16:54:02>
 
 # Builtin/3rd party package imports
 import os
@@ -55,7 +55,7 @@ __sessionfile__ = os.path.join(__storage__, "session_{}.id".format(__sessionid__
 __tbcount__ = 5
 
 # Fill up namespace
-from .utils import *
+from .shared import *
 from .io import *
 from .datatype import *
 from .specest import *
@@ -64,13 +64,12 @@ from .specest import *
 __session__ = datatype.base_data.SessionLogger()
 
 # Override default traceback (differentiate b/w Jupyter/iPython and regular Python)
+from .shared.errors import SPYExceptionHandler
 try:
     ipy = get_ipython()
     import IPython
-    if ipy.has_trait("kernel"):
-        IPython.core.interactiveshell.InteractiveShell.showtraceback = SPYExceptionHandler      # Jupyter notebook
-    else:
-        IPython.core.interactiveshell.InteractiveShell._showtraceback = SPYExceptionHandler     # iPython shell
+    IPython.core.interactiveshell.InteractiveShell.showtraceback = SPYExceptionHandler
+    IPython.core.interactiveshell.InteractiveShell.showsyntaxerror = SPYExceptionHandler
     sys.excepthook = SPYExceptionHandler
 except:
     sys.excepthook = SPYExceptionHandler
@@ -79,7 +78,7 @@ except:
 __all__ = []
 __all__.extend(datatype.__all__)
 __all__.extend(io.__all__)
-__all__.extend(utils.__all__)
+__all__.extend(shared.__all__)
 __all__.extend(specest.__all__)
 __all__.extend([__version__, __dask__, __storage__, __storagelimit__,
                 __session__, __sessionid__, __tbcount__])
