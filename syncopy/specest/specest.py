@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-11 16:41:44>
+# Last modification time: <2019-06-12 10:25:06>
 
 # Builtin/3rd party package imports
 import sys
@@ -114,33 +114,20 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         foi = np.array(foi)
         foi.sort()
 
-    # # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>> DO WE WANT THIS HERE???
-    # # Determine frequency band and shape of output (taper x freq x channel)
-    # nFreq = int(np.floor(nSamples / 2) + 1)
-    # fidx = slice(None)
-    # if foi is not None:
-    #     freqs = np.linspace(0, 1, nFreq) * 1/(2*dt)
-    #     foi = foi[foi <= freqs.max()]
-    #     foi = foi[foi >= freqs.min()]
-    #     fidx = np.unique(np.searchsorted(freqs, foi))
-    #     nFreq = fidx.size
-    # chunkShape = (max(1, nTaper * keeptapers), nFreq, nChannels)
-        
-
     # FIXME: implement detrending
-    if polyremoval or polyorder is not None:
+    if polyremoval is True or polyorder is not None:
         raise NotImplementedError("Detrending has not been implemented yet.")
     
-    # # Check detrending options for consistency
-    # if polyremoval:
-    #     try:
-    #         scalar_parser(polyorder, varname="polyorder", lims=[0, 8], ntype="int_like")
-    #     except Exception as exc:
-    #         raise exc
-    # else:
-    #     if polyorder != defaults["polyorder"]:
-    #         print("<freqanalysis> WARNING: `polyorder` keyword will be ignored " +\
-    #               "since `polyremoval` is `False`!")
+    # Check detrending options for consistency
+    if polyremoval:
+        try:
+            scalar_parser(polyorder, varname="polyorder", lims=[0, 8], ntype="int_like")
+        except Exception as exc:
+            raise exc
+    else:
+        if polyorder != defaults["polyorder"]:
+            print("<freqanalysis> WARNING: `polyorder` keyword will be ignored " +\
+                  "since `polyremoval` is `False`!")
 
     # Ensure consistency of method-specific options
     if method == "mtmfft":
