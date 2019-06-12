@@ -13,6 +13,7 @@ This module holds classes to represent data with a uniformly sampled time axis.
 # Builtin/3rd party package imports
 import h5py
 import shutil
+import inspect
 import numpy as np
 from abc import ABC
 from copy import copy
@@ -21,7 +22,9 @@ from numpy.lib.format import open_memmap
 # Local imports
 from .base_data import BaseData, VirtualData
 from .data_methods import _selectdata_continuous, definetrial
-from syncopy.utils import scalar_parser, array_parser, io_parser, SPYValueError
+from syncopy.shared import scalar_parser, array_parser, io_parser
+from syncopy.shared.errors import SPYValueError, SPYIOError
+import syncopy as spy
 
 __all__ = ["AnalogData", "SpectralData"]
 
@@ -94,8 +97,22 @@ class ContinuousData(BaseData, ABC):
         idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
         idx = tuple(idx)
         if hdr is None:
-            # For pre-processed npy files
-            return np.array(open_memmap(filename, mode="c")[idx])
+            # Generic case: data is either a HDF5 dataset or memmap
+            try:
+                with h5py.File(filename, mode="r") as h5f:
+                    h5keys = list(h5f.keys())
+                    cnt = [h5keys.count(dclass) for dclass in spy.datatype.__all__ \
+                           if not (inspect.isfunction(getattr(spy.datatype, dclass)))]
+                    if len(h5keys) == 1:
+                        arr = h5f[h5keys[0]][idx]
+                    else:
+                        arr = h5f[spy.datatype.__all__[cnt.index(1)]][idx]
+            except:
+                try:
+                    arr = np.array(open_memmap(filename, mode="c")[idx])
+                except:
+                    raise SPYIOError(filename)
+            return arr
         else:
             # For VirtualData objects
             dsets = []

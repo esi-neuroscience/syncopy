@@ -4,7 +4,7 @@
 #
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-29 11:58:29>
+# Last modification time: <2019-05-23 10:40:05>
 
 # Builtin/3rd party package imports
 import os
@@ -17,7 +17,8 @@ from collections import OrderedDict
 from glob import iglob
 
 # Local imports
-from syncopy.utils import io_parser, json_parser, data_parser, SPYTypeError, SPYValueError
+from syncopy.shared import io_parser, json_parser, data_parser
+from syncopy.shared.errors import SPYTypeError, SPYValueError
 from syncopy.io import hash_file, FILE_EXT
 import syncopy.datatype as spd
 
@@ -79,7 +80,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
         elif in_ext == "":
             expected_count = 2
         else:
-            legal = "no extension or " + "".join(ex + ", " for ex in f_ext.values())[:-2]
+            legal = "no extension of '" + "or '".join(ex + "' " for ex in f_ext.values())
             raise SPYValueError(legal=legal, varname="fname", actual=fname)
 
         # Specifically use `iglob` to not accidentally construct a gigantic
@@ -123,7 +124,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     legal_types = [dclass for dclass in spd.__all__
                    if not (inspect.isfunction(getattr(spd, dclass)))]
     if json_dict["type"] not in legal_types:
-        legal = "one of " + "".join(ltype + ", " for ltype in legal_types)[:-2]
+        legal = "one of '" + "or '".join(ltype + "' " for ltype in legal_types)
         raise SPYValueError(legal=legal, varname="JSON: type", actual=json_dict["type"])
 
     # Parse remaining meta-info fields

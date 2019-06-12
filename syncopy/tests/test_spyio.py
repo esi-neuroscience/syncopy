@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 14:21:12
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-18 13:09:30>
+# Last modification time: <2019-05-09 13:52:41>
 
 import os
 import tempfile
@@ -18,7 +18,7 @@ from memory_profiler import memory_usage
 from syncopy.datatype import AnalogData
 from syncopy.datatype.base_data import VirtualData
 from syncopy.io import save_spy, load_spy, FILE_EXT
-from syncopy.utils import SPYValueError, SPYTypeError
+from syncopy.shared.errors import SPYValueError, SPYTypeError
 import syncopy.datatype as swd
 
 class TestSpyIO(object):

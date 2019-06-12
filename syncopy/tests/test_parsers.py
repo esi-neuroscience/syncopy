@@ -2,11 +2,11 @@
 #
 # Created: 2019-03-05 16:22:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-12 13:38:34>
+# Last modification time: <2019-05-09 14:41:52>
 
 from syncopy import (io_parser, scalar_parser, array_parser,
                      data_parser, json_parser, get_defaults)
-from syncopy import SPYValueError, SPYTypeError, SPYIOError
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError
 from syncopy import AnalogData, SpectralData
 import os.path
 import pytest

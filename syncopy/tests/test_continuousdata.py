@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:46:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-04-18 11:41:02>
+# Last modification time: <2019-05-09 13:52:30>
 
 import os
 import tempfile
@@ -14,7 +14,7 @@ import numpy as np
 from numpy.lib.format import open_memmap
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.datatype.base_data import VirtualData
-from syncopy.utils import SPYValueError, SPYTypeError
+from syncopy.shared.errors import SPYValueError, SPYTypeError
 
 class TestAnalogData(object):
 

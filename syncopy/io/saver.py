@@ -4,10 +4,10 @@
 # 
 # Created: 2019-02-05 12:55:36
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-08 13:34:34>
+# Last modification time: <2019-05-09 13:55:11>
 
 # Local imports
-from syncopy.utils import SPYTypeError
+from syncopy.shared.errors import SPYTypeError
 from syncopy.io import save_spy
 
 __all__ = ["save_data"]
