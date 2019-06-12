@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
 # ALREADY KNOW YOU THAT WHICH YOU NEED
-# 
+#
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-11 16:30:00>
+# Last modification time: <2019-06-12 17:27:43>
 
 # Builtin/3rd party package imports
 import os
@@ -25,11 +25,14 @@ __all__ = []
 
 class ComputationalRoutine(ABC):
 
-    # Placeholder: the actual workhorse 
-    def computeFunction(x): return None
+    # Placeholder: the actual workhorse
+    @staticmethod
+    def computeFunction():
+        return None
 
     # Placeholder: manager that calls ``computeFunction`` (sets up `dask` etc. )
-    def computeMethod(x): return None
+    def computeMethod(self):
+        return None
 
     def __init__(self, *argv, **kwargs):
         self.defaultCfg = get_defaults(self.computeFunction)
@@ -46,8 +49,8 @@ class ComputationalRoutine(ABC):
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
         chunkShape, self.dtype = self.computeFunction(data.trials[0],
-                                                            *self.argv,
-                                                            **dryRunKwargs)
+                                                      *self.argv,
+                                                      **dryRunKwargs)
 
         # For trials of unequal length, compute output chunk-shape individually
         # to identify varying dimension(s). The aggregate shape is computed
@@ -88,7 +91,7 @@ class ComputationalRoutine(ABC):
         # By default, use VDS storage for parallel computing
         if parallel_store is None:
             parallel_store = parallel
-        
+
         # Create HDF5 dataset of appropriate dimension
         self.preallocate_output(out, parallel_store=parallel_store)
 
@@ -163,14 +166,18 @@ class ComputationalRoutine(ABC):
                 time.sleep(0.1)
 
     def write_log(self, data, out):
-        # Write log
+
+        # Copy log from source object and write header
         out._log = str(data._log) + out._log
         logHead = "computed {name:s} with settings\n".format(name=self.computeFunction.__name__)
 
+        # Remove implementation-specific keywords and write log
         logOpts = ""
-        for k, v in self.cfg.items():
+        cfg = dict(self.cfg)
+        for key in ["noCompute", "chunkShape"]:
+            cfg.pop(key)
+        for k, v in cfg.items():
             logOpts += "\t{key:s} = {value:s}\n".format(key=k, value=str(v))
-
         out.log = logHead + logOpts
 
     @staticmethod
@@ -215,10 +222,6 @@ class ComputationalRoutine(ABC):
             time.sleep(0.05)
 
         return (cnt,) * nchk
-    
-    # @abstractmethod
-    # def preallocate_output(self, *args, parallel=False):
-    #     pass
 
     @abstractmethod
     def handle_metadata(self, *args):
@@ -231,4 +234,3 @@ class ComputationalRoutine(ABC):
     @abstractmethod
     def compute_parallel(self, *args):
         pass
-    
