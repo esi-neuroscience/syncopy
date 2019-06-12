@@ -9,11 +9,11 @@ Reviewer Checklist
 - [ ] Are testing routines present?
 - [ ] Do **parallel** loops have a set length and correct termination conditions?
 - [ ] Do objects in the global package namespace perform proper parsing of their input? 
-- [ ] Can code-blocks be re-factored using builtin/external packages?
+- [ ] Do code-blocks provide novel functionality, i.e., no re-factoring using builtin/external packages possible?
 - [ ] Code layout
   - [ ] Is the code PEP8 compliant?
   - [ ] Does the code adhere to agreed-upon naming conventions?
   - [ ] Are keywords clearly named and easy to understand?
-  - [ ] Is there any commented-out code?
+  - [ ] No commented-out code?
   - [ ] Is a file header present/properly updated?
 - [ ] Are all docstrings complete and accurate?
