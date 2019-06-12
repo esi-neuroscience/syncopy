@@ -8,7 +8,7 @@ clusterTests:
     - source $HOME/miniconda3/bin/activate
     - pip install --upgrade pip
     - pip install --upgrade tox
-    - srun -p 8GBS -c 4 tox --parallel 4
+    - srun -p 8GBS --mem=8000m -c 4 tox -r --parallel 4
 
 windowsTests:
     stage: test
@@ -19,6 +19,29 @@ windowsTests:
     script:
     - pip install --upgrade --user pip
     - pip install --upgrade --user tox
-    - tox
+    - tox -r --parallel 3
 
-
+docs:
+    stage: deploy
+    tags:
+    - docs
+    only:
+    - master
+    script:
+    - if hash $HOME/miniconda/bin/conda 2>/dev/null; 
+      then
+         export PATH="$HOME/miniconda/bin:$PATH";
+      else
+        wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+        bash miniconda.sh -b -p $HOME/miniconda;
+        export PATH="$HOME/miniconda/bin:$PATH";
+      fi
+    - conda update --yes conda
+    - conda env update --file environment.yml
+    - conda activate SyNCoPy
+    - conda  install -y sphinx
+    - pip install --upgrade sphinx-bootstrap-theme
+    - conda install -y python-graphviz
+    - cd doc
+    - make html
+    - rsync -av -e "ssh" --delete build/html/* root@monitor:/var/www/html/syncopy

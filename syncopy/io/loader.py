@@ -14,8 +14,14 @@ __all__ = ["load_data"]
 
 
 def load_data(in_name, filetype=None, out=None, **kwargs):
-    """
-    Docstring coming soon...
+    """Load data from file into data object
+
+    Supported data formats currently are
+
+    Parameters
+    ----------
+        in_name : 
+    
     """
 
     # Parsing of the actual file(s) happens later, first check `filetype`

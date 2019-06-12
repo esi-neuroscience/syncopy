@@ -1,1 +1,1 @@
-.. automodule:: spykewave.datatype
+.. automodule:: syncopy.datatype

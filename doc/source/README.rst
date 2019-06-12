@@ -1,22 +1,20 @@
-.. SpykeWave documentation master file, created by
-   sphinx-quickstart on Thu Jan 17 15:21:00 2019.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+.. SynCoPy documentation master file, created by
 
-.. title:: SpykeWave Documentation
+.. title:: SyNCoPy Documentation
    
-Welcome to SpykeWave's Documentation!
-=====================================
-Documentation is available in the docstrings and in the ``build`` folder of
-the ``doc`` directory. 
+Welcome to SyNCoPy's Documentation!
+===================================
+SyNCoPy is the *the* python toolkit for user-friendly, large-scale electrophysiology data analysis.
 
 Contents
 ========
 .. toctree::
    :maxdepth: 1
 
-   quickstart 
-   basedata
+   quickstart    
+   datatype
+   examples
+   utils
 
 
 

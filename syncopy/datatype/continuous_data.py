@@ -4,8 +4,12 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-24 10:32:26>
+# Last modification time: <2019-05-21 14:46:19>
+"""Uniformly sampled (continuous data).
 
+This module holds classes to represent data with a uniformly sampled time axis.
+
+"""
 # Builtin/3rd party package imports
 import h5py
 import shutil
@@ -26,7 +30,13 @@ __all__ = ["AnalogData", "SpectralData"]
 
 
 class ContinuousData(BaseData, ABC):
+    """ Abstract class for uniformly sampled data
 
+    Notes
+    -----
+    This class cannot be instantiated. Use one of the children instead.
+
+    """
     @property
     def _shapes(self):
         if self.sampleinfo is not None:
@@ -38,6 +48,7 @@ class ContinuousData(BaseData, ABC):
 
     @property
     def channel(self):
+        """ :class:`numpy.ndarray` of recording channel names """
         return self._dimlabels.get("channel")
 
     @channel.setter
@@ -55,6 +66,7 @@ class ContinuousData(BaseData, ABC):
 
     @property
     def samplerate(self):
+        """float: sampling rate of uniformly sampled data in Hz"""
         return self._samplerate
 
     @samplerate.setter
@@ -67,6 +79,7 @@ class ContinuousData(BaseData, ABC):
 
     @property
     def time(self):
+        """ list (float): trigger-relative time axes of each trial """
         return [np.arange(-self.t0[tk], end - start - self.t0[tk]) * 1/self.samplerate \
                 for tk, (start, end) in enumerate(self.sampleinfo)] if self.samplerate is not None else None
 
@@ -150,7 +163,18 @@ class ContinuousData(BaseData, ABC):
                 self.channel = ['channel']
 
 class AnalogData(ContinuousData):
+    """Multi-channel, uniformly-sampled, analog (real float) data
 
+    This class can be used for representing any analog signal data with a time
+    and a channel axis such as local field potentials, firing rates, eye
+    position etc.
+
+    The data is always stored as a two-dimensional array on disk. Trials are
+    concatenated along the time axis. 
+
+    Data is only read from disk on demand, similar to memory maps and HDF5
+    files.
+    """
     @property
     def hdr(self):
         return self._hdr
@@ -165,12 +189,27 @@ class AnalogData(ContinuousData):
                  channel="channel",
                  mode="w",
                  dimord=["time", "channel"]):
-        """
-        Docstring
+        """Initialize an `AnalogData` object.
+        
+        Parameters
+        ----------
+            data : array_like 
+            filename : str, path to filename or folder (spy container)
+            filetype : str
+            trialdefinition : :class:`EventData` object or Mx3 array
+            samplerate : float, sample rate in Hz
+            channel : str or list/array(str)
 
-        filename + data = create memmap @filename
-        filename no data = read from file or memmap
-        just data = try to attach data (error checking done by data.setter)
+        Usage
+        -----
+        1. `filename` + :param:`data` : create hdf dataset incl. sampleinfo @filename
+        2. `filename` no :param:`data` : read from file or memmap (spy, hdf5, npy file array -> memmap)
+        3. just :param:`data` : try to attach data (error checking done by data.setter)
+        
+        See also
+        --------
+        :func:`syncopy.definetrial`
+        
         """
 
         # The one thing we check right here and now
@@ -225,7 +264,12 @@ class AnalogData(ContinuousData):
 
     
 class SpectralData(ContinuousData):
+    """Class for multi-channel, time-continuous spectral data
 
+    This class can be used for representing any data with a frequency, channel,
+    and optionally a time axis. The datatype can be complex or float.
+
+    """
     @property
     def taper(self):
         return self._dimlabels.get("taper")
@@ -245,6 +289,7 @@ class SpectralData(ContinuousData):
 
     @property
     def freq(self):
+        """ """
         return self._dimlabels.get("freq")
 
     @freq.setter

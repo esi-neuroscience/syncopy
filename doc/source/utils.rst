@@ -1,1 +1,1 @@
-.. automodule:: spykewave.utils
+.. automodule:: syncopy.utils
