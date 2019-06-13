@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-12 17:53:25>
+# Last modification time: <2019-06-13 17:54:43>
 
 # Builtin/3rd party package imports
 import sys
@@ -32,9 +32,6 @@ if __dask__:
     import dask
     import dask.array as da
     import dask.distributed as dd
-
-
-from memory_profiler import memory_usage
 
 # Module-wide output specs
 spectralDTypes = {"pow": np.float32,
@@ -119,6 +116,14 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         foi = np.array(foi)
         foi.sort()
 
+        # Match desired frequencies as close as possible to actually attainable freqs
+        minSampleNum = minTrialLength*data.samplerate
+        nFreq = int(np.floor(minSampleNum / 2) + 1)
+        freqs = np.linspace(0, 1, nFreq) * data.samplerate/2
+        foi = foi[foi <= freqs.max()]
+        foi = foi[foi >= freqs.min()]
+        foi = freqs[np.unique(np.searchsorted(freqs, foi))]
+
     # FIXME: implement detrending
     if polyremoval is True or polyorder is not None:
         raise NotImplementedError("Detrending has not been implemented yet.")
@@ -189,9 +194,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     for mth_str in other:
         mth_defaults.update(get_defaults(glbls[mth_str]))
     kws = list(get_defaults(glbls[method]).keys())
-    shared_kws = set(defaults.keys()).difference(kws)
-    settings = shared_kws.intersection(mth_defaults.keys()) 
-    for key in settings:
+    distinct_kws = set(defaults.keys()).difference(kws)
+    other_opts = distinct_kws.intersection(mth_defaults.keys()) 
+    for key in other_opts:
         m_default = mth_defaults[key]
         if callable(m_default):
             m_default = m_default.__name__
@@ -199,6 +204,14 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             wrng = "<freqanalysis> WARNING: `{kw:s}` keyword has no effect in " +\
                    "chosen method {m:s}"
             print(wrng.format(kw=key, m=method))
+
+    # Construct dict of "global" keywords sans alien method keywords for logging
+    log_dct = {}
+    log_kws = set(defaults.keys()).difference(other_opts)
+    log_kws = [kw for kw in log_kws if kw != "out"]
+    log_kws[log_kws.index("output_fmt")] = "output"
+    for key in log_kws:
+        log_dct[key] = lcls[key]
 
     # If provided, make sure output object is appropriate
     if out is not None:
@@ -228,15 +241,23 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         "wavelet": WaveletTransform(1/data.samplerate, timeAxis, foi, **mth_input)
     }
 
-    # Perform actual computation (w/ or w/o dask)
+    # Detect if dask client is running
     try:
         dd.get_client()
         use_dask = True
     except ValueError:
         use_dask = False
+
+    # Initialize computational routine
     specestMethod = methods[method]
     specestMethod.initialize(data)
-    specestMethod.compute(data, out, parallel=use_dask)
+
+    # If trials are supposed to be thrown away, modify output dimension
+    if not keeptrials:
+        shp = list(specestMethod.outputShape)
+        shp[0] = 1
+        specestMethod.outputShape = tuple(shp)
+    specestMethod.compute(data, out, parallel=use_dask, log_dict=log_dct)
 
     # if output == "power":
     #     powerOut = out.copy(deep=T)
@@ -256,7 +277,7 @@ def mtmfft(trl_dat, dt, timeAxis,
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
-        dat = trl_dat.T.squeeze()       # does not copy but creates a view of `trl_dat`
+        dat = trl_dat.T.squeeze()       # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
     nSamples = dat.shape[0]
@@ -304,7 +325,7 @@ def mtmfft(trl_dat, dt, timeAxis,
 
     # Average across tapers if wanted
     if not keeptapers:
-        return spec.mean(axis=0)
+        return spec.mean(axis=0, keepdims=True)
     else:
         return spec
 
@@ -339,41 +360,55 @@ class MultiTaperFFT(ComputationalRoutine):
                                      dtype="complex",
                                      chunks=self.cfg["chunkShape"],
                                      new_axis=[0])
-        specs = specs.reshape(self.outputShape)
 
         # Average across trials if wanted
         if not self.cfg["keeptrials"]:
-            specs = specs.mean(axis=0)
+            specs = specs.mean(axis=0, keepdims=True)
 
-        # Rename `output_fmt` back to `output` for logging
-        self.cfg["output"] = str(self.cfg["output_fmt"])
-        self.cfg.pop("output_fmt")
+        # Re-arrange dimensional order
+        specs = specs.reshape(self.outputShape)
 
         return specs
 
     def compute_sequential(self, data, out):
 
-        # Iterate through trials and wirte directly to HDF5 container (flush
-        # after each trial to avoid memory leakage)
+        # Iterate across trials and write directly to HDF5 container (flush
+        # after each trial to avoid memory leakage) - if trials are not to
+        # be preserved, compute average across trials manually to avoid 
+        # allocation of unnecessarily large dataset
         with h5py.File(out._filename, "r+") as h5f:
-            for tk, trl in enumerate(tqdm(data.trials, desc="Computing MTMFFT...")):
-                h5f["SpectralData"][tk, ...] = self.computeFunction(trl,
-                                                                    *self.argv,
-                                                                    **self.cfg)
-                h5f.flush()
+            dset = h5f["SpectralData"]
+            if self.cfg["keeptrials"]:
+                for tk, trl in enumerate(tqdm(data.trials,
+                                              desc="Computing MTMFFT...")):
+                    dset[tk, ...] = self.computeFunction(trl,
+                                                         *self.argv,
+                                                         **self.cfg)
+                    h5f.flush()
+            else:
+                for trl in tqdm(data.trials,desc="Computing MTMFFT..."):
+                    dset[()] = np.nansum([dset, self.computeFunction(trl,
+                                                                     *self.argv,
+                                                                     **self.cfg)],
+                                         axis=0)
+                    h5f.flush()
+                dset[()] /= len(data.trials)
 
-        # Rename `output_fmt` back to `output` for logging
-        self.cfg["output"] = str(self.cfg["output_fmt"])
-        self.cfg.pop("output_fmt")
-        
+        return
+
     def handle_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
-        time = np.arange(len(data.trials))
-        time = time.reshape((time.size, 1))
-        out.sampleinfo = np.hstack([time, time + 1])
-        out.trialinfo = np.array(data.trialinfo)
-        out._t0 = np.zeros((len(data.trials),))
+        if self.cfg["keeptrials"]:
+            time = np.arange(len(data.trials))
+            time = time.reshape((time.size, 1))
+            out.sampleinfo = np.hstack([time, time + 1])
+            out.trialinfo = np.array(data.trialinfo)
+            out._t0 = np.zeros((len(data.trials),))
+        else:
+            out.sampleinfo = np.array([[0, 1]])
+            out.trialinfo = out.sampleinfo[:, 3:]
+            out._t0 = np.array([0])
 
         # Attach remaining meta-data
         out.samplerate = data.samplerate

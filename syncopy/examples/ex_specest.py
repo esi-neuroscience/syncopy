@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 13:08:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-12 17:28:24>
+# Last modification time: <2019-06-13 17:19:23>
 
 # Builtin/3rd party package imports
 import dask.distributed as dd
@@ -28,13 +28,16 @@ if __name__ == "__main__":
     
     # client = dd.Client()
     
-    adata = generate_artifical_data(nTrials=20, nChannels=256)        # ~50MB
-    # adata = generate_artifical_data(nTrials=100, nChannels=1024)        # ~1.14GB
+    # FIXME: channel assignment is only temporarily necessary
+    adata = generate_artifical_data(nTrials=20, nChannels=256, equidistant=False, overlapping=True)        # ~50MB
+    adata.channel = ["channel" + str(i + 1) for i in range(256)]
+    # adata = generate_artifical_data(nTrials=100, nChannels=1024, equidistant=False)        # ~1.14GB
+    # adata.channel = ["channel" + str(i + 1) for i in range(1024)]
 
 
     # ff = spy.SpectralData()
-
-    spec = spy.freqanalysis(adata, method="wavelet")
+    import numpy as np
+    spec = spy.freqanalysis(adata, method="mtmfft", keeptrials=False, keeptapers=False, foi=np.linspace(200,400,100))
 
     sys.exit()
     # 

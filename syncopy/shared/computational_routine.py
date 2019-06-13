@@ -4,7 +4,7 @@
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-12 17:27:43>
+# Last modification time: <2019-06-13 15:17:21>
 
 # Builtin/3rd party package imports
 import os
@@ -86,7 +86,8 @@ class ComputationalRoutine(ABC):
                 h5f.create_dataset(name=out.__class__.__name__,
                                    dtype=self.dtype, shape=self.outputShape)
 
-    def compute(self, data, out, parallel=False, parallel_store=None, method=None):
+    def compute(self, data, out, parallel=False, parallel_store=None,
+                method=None, log_dict=None):
 
         # By default, use VDS storage for parallel computing
         if parallel_store is None:
@@ -116,7 +117,7 @@ class ComputationalRoutine(ABC):
 
         # Store meta-data, write log and get outta here
         self.handle_metadata(data, out)
-        self.write_log(data, out)
+        self.write_log(data, out, log_dict)
 
     def save_distributed(self, da_arr, out, parallel_store=True):
 
@@ -165,17 +166,21 @@ class ComputationalRoutine(ABC):
             while any(f.status == 'pending' for f in futures):
                 time.sleep(0.1)
 
-    def write_log(self, data, out):
+    def write_log(self, data, out, log_dict=None):
 
         # Copy log from source object and write header
         out._log = str(data._log) + out._log
         logHead = "computed {name:s} with settings\n".format(name=self.computeFunction.__name__)
 
-        # Remove implementation-specific keywords and write log
+        # Either use `computeFunction`'s keywords (sans implementation-specific
+        # stuff) or rely on provided `log_dict` dictionary for logging
+        if log_dict is None:
+            cfg = dict(self.cfg)
+            for key in ["noCompute", "chunkShape"]:
+                cfg.pop(key)
+        else:
+            cfg = log_dict    
         logOpts = ""
-        cfg = dict(self.cfg)
-        for key in ["noCompute", "chunkShape"]:
-            cfg.pop(key)
         for k, v in cfg.items():
             logOpts += "\t{key:s} = {value:s}\n".format(key=k, value=str(v))
         out.log = logHead + logOpts

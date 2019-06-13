@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-11 15:47:31>
+# Last modification time: <2019-06-13 13:03:52>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -174,6 +174,10 @@ class BaseData(ABC):
             self._dimlabels["sample"] = np.unique(self.data[:,self.dimord.index("sample")])
 
         # In case we're working with an `EventData` object, fill up eventid's
+        if self.__class__.__name__ == "EventData":
+            self._dimlabels["eventid"] = np.unique(self.data[:,self.dimord.index("eventid")])
+
+        # In case we're working with an `AnaData` object, fill up eventid's
         if self.__class__.__name__ == "EventData":
             self._dimlabels["eventid"] = np.unique(self.data[:,self.dimord.index("eventid")])
 
