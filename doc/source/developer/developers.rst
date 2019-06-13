@@ -1,5 +1,6 @@
+****************************
 Developer's guide to Syncopy
-============================
+****************************
 
 The following information is meant for advanced users with an understanding of
 class hierarchies.
@@ -7,6 +8,7 @@ class hierarchies.
 .. toctree::
     :glob:
 
-.. automodule:: syncopy.datatype
+.. include:: datatype.rst
+   
 
-.. automodule:: syncopy.utils
+.. include:: tools.rst

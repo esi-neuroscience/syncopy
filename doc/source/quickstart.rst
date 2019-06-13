@@ -1,7 +1,19 @@
-A Short Guide to Syncopy
-==========================
-Coming soon...
+Getting started with Syncopy
+============================
 
-Prerequisites
--------------
-Here's a link to `Numpy <https://www.scipy.org>`_. 
+Installing Syncopy
+------------------
+
+
+
+Setting up your environment
+---------------------------
+
+.. code-block:: bash
+
+    SPYTMPDIR=~/.spy
+
+
+
+Importing Syncopy
+-----------------

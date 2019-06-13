@@ -43,6 +43,7 @@ class BaseData(ABC):
 
     @property
     def cfg(self):
+        """Dictionary of previous operations on data"""
         return self._cfg
 
     @cfg.setter
@@ -183,6 +184,8 @@ class BaseData(ABC):
 
     @property
     def log(self):
+        """str: log of previous operations on data
+        """
         print(self._log_header + self._log)
 
     @log.setter
@@ -272,9 +275,14 @@ class BaseData(ABC):
     @abstractmethod
     def _get_trial(self, trialno):
         pass
-    
-    # Convenience function, wiping attached memmap
+        
     def clear(self):
+        """Clear loaded data from memory
+
+        Calls `flush` method of HDF5 dataset or memory map. Memory maps are
+        deleted and re-instantiated.        
+
+        """
         self.data.flush()
         if isinstance(self.data, np.memmap):
             filename, mode = self.data.filename, self.data.mode
@@ -284,6 +292,23 @@ class BaseData(ABC):
 
     # Return a (deep) copy of the current class instance
     def copy(self, deep=False):
+        """Create a copy of the data object in memory.
+
+        Parameters
+        ----------
+            deep : bool
+                If `True`, a copy of the underlying data file is created in the temporary Syncopy folder
+
+        Returns
+        -------
+            BaseData
+                in-memory copy of BaseData object
+
+        See also
+        --------
+        save_spy
+
+        """
         cpy = copy(self)
         if deep and isinstance(self.data, (np.memmap, h5py.Dataset)):
             self.data.flush()
@@ -295,9 +320,17 @@ class BaseData(ABC):
     # Change trialdef of object
     def definetrial(self, trl=None, pre=None, post=None, start=None,
                     trigger=None, stop=None, clip_edges=False):
+        """(Re-)define trials for data
+
+        See also
+        --------
+        syncopy.definetrial
+
+        """
         definetrial(self, trialdefinition=trl, pre=pre, post=post,
                     start=start, trigger=trigger, stop=stop,
                     clip_edges=clip_edges)
+
 
     # Wrapper that makes saving routine usable as class method
     def save(self, out_name, filetype=None, **kwargs):
@@ -509,6 +542,12 @@ class BaseData(ABC):
 
         
 class VirtualData():
+    """Class for handling 2D-data spread across multiple files
+
+    Arrays from individual files (chunks) are concatenated along 
+    the 2nd dimension (dim=1).
+
+    """
 
     # Pre-allocate slots here - this class is *not* meant to be expanded
     # and/or monkey-patched at runtime
@@ -667,6 +706,11 @@ class VirtualData():
 
     # Free memory by force-closing resident memory maps
     def clear(self):
+        """Clear read data from memory
+
+        Reinstantiates memory maps of all open files.
+
+        """
         shapes = []
         dtypes = []
         fnames = []
@@ -764,6 +808,14 @@ class SessionLogger():
 
 
 class StructDict(dict):
+    """Child-class of dict for emulating MATLAB structs
+
+    Examples
+    --------
+    cfg = StructDict()
+    cfg.a = [0, 25]
+
+    """
     
     def __init__(self, *args, **kwargs):
         """
