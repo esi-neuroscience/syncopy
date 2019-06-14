@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-13 17:54:43>
+# Last modification time: <2019-06-14 17:23:26>
 
 # Builtin/3rd party package imports
 import sys
@@ -48,9 +48,9 @@ __all__ = ["freqanalysis"]
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, pad='nextpow2', polyremoval=False,
                  polyorder=None, padtype='zero',
-                 taper="hann", taperopt={}, tapsmofrq=None, keeptapers=True,
+                 taper="hann", tapsmofrq=None, keeptapers=True,
                  wav="Morlet", toi=0.1, width=6,
-                 out=None, cfg=None):
+                 out=None, cfg=None, **kwargs):
     """
     Explain taperopt...
     Explain default of toi (value b/w 0 and 1 indicating percentage of samplerate
@@ -141,18 +141,36 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     # Ensure consistency of method-specific options
     if method == "mtmfft":
+        
         options = ["hann", "dpss"]
         if taper not in options:
             lgl = "'" + "or '".join(opt + "' " for opt in options)
             raise SPYValueError(legal=lgl, varname="taper", actual=taper)
         taper = getattr(spwin, taper)
+
+        # Advanced usage: see if `taperopt` was provided - if not, leave it empty
+        taperopt = kwargs.get("taperopt", {})
         if not isinstance(taperopt, dict):
             raise SPYTypeError(taperopt, varname="taperopt", expected="dictionary")
-        if tapsmofrq is not None:
-            try:
-                scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[0.1, np.inf])
-            except Exception as exc:
-                raise exc
+
+        # Set/get `tapsmofrq` if we're working w/Slepian tapers
+        if taper.__name__ == "dpss":
+
+            # Try to derive "sane" settings by using 3/4 octave smoothing of highest `foi`
+            # following Hill et al. "Oscillatory Synchronization in Large-Scale
+            # Cortical Networks Predicts Perception", Neuron, 2011
+            if tapsmofrq is None:
+                foimax = foi.max()
+                tapsmofrq = (foimax*2**(3/4/2) - foimax*2**(-3/4/2))/2
+            else:
+                try:
+                    scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[1, np.inf])
+                except Exception as exc:
+                    raise exc
+
+        # Warn the user in case `tapsmofrq` has no effect
+        if tapsmofrq is not None and taper.__name__ != "dpss":
+            print("<freqanalysis> WARNING: `tapsmofrq` is only used if `taper` is `dpss`!")
 
     elif method == "wavelet":
         options = ["Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat"]
@@ -259,11 +277,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         specestMethod.outputShape = tuple(shp)
     specestMethod.compute(data, out, parallel=use_dask, log_dict=log_dct)
 
-    # if output == "power":
-    #     powerOut = out.copy(deep=T)
-    #     for trial in out.trials:
-    #         trial = np.absolute(trial)
-
     # Either return newly created output container or simply quit
     return out if new_out else None
 
@@ -293,9 +306,9 @@ def mtmfft(trl_dat, dt, timeAxis,
                          mode="constant", constant_values=0)
         nSamples = dat.shape[0]
 
-    # Construct taper(s)
+    # Construct at least 1 and max. 50 taper(s)
     if taper == spwin.dpss and (not taperopt):
-        nTaper = np.int(np.floor(tapsmofrq * nSamples * dt))
+        nTaper = int(max(1, min(50, np.floor(tapsmofrq * nSamples * dt))))
         taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
     win = np.atleast_2d(taper(nSamples, **taperopt))
     nTaper = win.shape[0]
@@ -419,7 +432,7 @@ class MultiTaperFFT(ComputationalRoutine):
         else:
             nFreqs = self.outputShape[out.dimord.index("freq")]
             out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
-        out.cfg = self.cfg
+        # out.cfg = self.cfg
 
 
 def _nextpow2(number):

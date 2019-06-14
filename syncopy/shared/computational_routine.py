@@ -4,7 +4,7 @@
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-13 15:17:21>
+# Last modification time: <2019-06-14 17:28:54>
 
 # Builtin/3rd party package imports
 import os
@@ -173,17 +173,22 @@ class ComputationalRoutine(ABC):
         logHead = "computed {name:s} with settings\n".format(name=self.computeFunction.__name__)
 
         # Either use `computeFunction`'s keywords (sans implementation-specific
-        # stuff) or rely on provided `log_dict` dictionary for logging
+        # stuff) or rely on provided `log_dict` dictionary for logging/`cfg`
         if log_dict is None:
             cfg = dict(self.cfg)
             for key in ["noCompute", "chunkShape"]:
                 cfg.pop(key)
         else:
-            cfg = log_dict    
+            cfg = log_dict
+            
+        # Write log and set `cfg` prop of `out`
         logOpts = ""
         for k, v in cfg.items():
-            logOpts += "\t{key:s} = {value:s}\n".format(key=k, value=str(v))
+            logOpts += "\t{key:s} = {value:s}\n".format(key=k,
+                                                        value=str(v) if len(str(v)) < 80
+                                                        else str(v)[:30] + ", ..., " + str(v)[-30:])
         out.log = logHead + logOpts
+        out.cfg = cfg
 
     @staticmethod
     def _write_parallel(chk, nchk, vdsdir, block_info=None):

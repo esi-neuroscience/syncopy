@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 13:08:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-13 17:19:23>
+# Last modification time: <2019-06-14 17:28:46>
 
 # Builtin/3rd party package imports
 import dask.distributed as dd
@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     # ff = spy.SpectralData()
     import numpy as np
-    spec = spy.freqanalysis(adata, method="mtmfft", keeptrials=False, keeptapers=False, foi=np.linspace(200,400,100))
+    spec = spy.freqanalysis(adata, method="mtmfft", taper="hann", keeptrials=False, keeptapers=True, foi=np.linspace(200,400,100))
 
     sys.exit()
     # 
