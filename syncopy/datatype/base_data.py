@@ -54,6 +54,8 @@ class BaseData(ABC):
 
     @property
     def data(self):
+        """array-like object representing data without trials"""
+
         if getattr(self._data, "id", None) is not None:
             if self._data.id.valid == 0:
                 lgl = "open HDF5 container"
@@ -180,12 +182,12 @@ class BaseData(ABC):
 
     @property
     def dimord(self):
+        """list(str): ordered list of data dimension labels"""
         return list(self._dimlabels.keys())
 
     @property
     def log(self):
-        """str: log of previous operations on data
-        """
+        """str: log of previous operations on data"""
         print(self._log_header + self._log)
 
     @log.setter
@@ -202,6 +204,11 @@ class BaseData(ABC):
 
     @property
     def mode(self):
+        """str: write mode for data, 'r' for read-only, 'w' for writable
+
+        FIXME: append/replace with HDF5?
+        """
+
         return self._mode
 
     @mode.setter
@@ -216,6 +223,7 @@ class BaseData(ABC):
             
     @property
     def sampleinfo(self):
+        """nTrials x 3 :class:`numpy.ndarray` of [start, end, offset] sample indices"""
         return self._sampleinfo
 
     @sampleinfo.setter
@@ -237,14 +245,20 @@ class BaseData(ABC):
 
     @property
     def t0(self):
+        """FIXME: should be hidden"""
         return self._t0
 
     @property
     def trials(self):
+        """list-like array of trials"""
         return Indexer(map(self._get_trial, range(self.sampleinfo.shape[0])),
                        self.sampleinfo.shape[0]) if self.sampleinfo is not None else None
     @property
     def trialinfo(self):
+        """nTrials x M :class:`numpy.ndarray` with numeric information about each trial
+
+        Each trial can have M properties (condition, original trial no., ...) coded by 
+        """
         return self._trialinfo
 
     @trialinfo.setter
@@ -261,6 +275,7 @@ class BaseData(ABC):
 
     @property
     def version(self):
+        """FIXME: should be hidden"""
         return self._version
 
     # Selector method
