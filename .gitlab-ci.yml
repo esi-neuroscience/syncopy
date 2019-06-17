@@ -26,7 +26,7 @@ docs:
     tags:
     - docs
     only:
-    - master
+    - dev
     script:
     - if hash $HOME/miniconda/bin/conda 2>/dev/null; 
       then
@@ -38,7 +38,6 @@ docs:
       fi
     - conda update --yes conda
     - conda env update --file environment.yml
-    - conda activate SyNCoPy
     - conda  install -y sphinx
     - pip install --upgrade sphinx-bootstrap-theme
     - conda install -y python-graphviz
