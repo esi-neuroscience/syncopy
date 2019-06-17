@@ -16,8 +16,8 @@ Input parsing and error checking
    syncopy.shared.parsers.get_defaults   
 
 
-Writing a new type of analysis routine
---------------------------------------
+Writing a new analysis routine
+------------------------------
 
 Any analysis routine that operates on Syncopy data is always structured in three
 (hierarchical) parts:

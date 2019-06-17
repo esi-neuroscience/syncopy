@@ -6,8 +6,11 @@ Coming soon
 
 Reading Syncopy (``*.spy``) data from disk
 ------------------------------------------
+.. autosummary::
+    :toctree: _stubs
 
-
+    syncopy.load_spy
+    syncopy.load_data
 
 
 
@@ -20,3 +23,13 @@ These functions are useful for editing and slicing data:
     
     syncopy.selectdata
     syncopy.definetrial
+
+Saving results to disk
+----------------------
+
+.. autosummary::      
+    :toctree: _stubs
+    
+    syncopy.save_data
+    syncopy.save_spy
+

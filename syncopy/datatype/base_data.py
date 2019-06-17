@@ -349,8 +349,20 @@ class BaseData(ABC):
 
     # Wrapper that makes saving routine usable as class method
     def save(self, out_name, filetype=None, **kwargs):
-        """
-        Docstring that mostly points to ``save_data``
+        """Save data object as new ``spy`` HDF container to disk (:func:`syncopy.save_data`)
+        
+        Parameters
+        ----------
+            out_name : str
+                filename of output file
+            filetype : str
+                filetype to use for storing data. See func:`syncopy.save_data`
+                for supported filetypes        
+
+        See also
+        --------
+            :func:syncopy.`save_data` 
+
         """
         spy.save_data(out_name, self, filetype=filetype, **kwargs)
 

@@ -1,5 +1,6 @@
 
 Syncopy data classes (:mod:`syncopy.datatype`)
+==============================================
  
 
 Different types electrophysiology data often share different properties (e.g.

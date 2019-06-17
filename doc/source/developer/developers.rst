@@ -8,7 +8,6 @@ class hierarchies.
 .. toctree::
     :glob:
 
-.. include:: datatype.rst
-   
+    datatype
+    tools
 
-.. include:: tools.rst

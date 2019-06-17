@@ -4,7 +4,9 @@
    
 Welcome to Syncopy's Documentation!
 ===================================
-Syncopy is the *the* python toolkit for user-friendly, large-scale electrophysiology data analysis.
+
+Syncopy (Systems Neuroscience COmputing in Python) is a
+python toolkit for user-friendly, large-scale electrophysiology data analysis.
 
 Contents
 ========
