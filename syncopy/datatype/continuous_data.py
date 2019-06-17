@@ -30,7 +30,7 @@ __all__ = ["AnalogData", "SpectralData"]
 
 
 class ContinuousData(BaseData, ABC):
-    """ Abstract class for uniformly sampled data
+    """Abstract class for uniformly sampled data
 
     Notes
     -----
@@ -48,7 +48,7 @@ class ContinuousData(BaseData, ABC):
 
     @property
     def channel(self):
-        """ :class:`numpy.ndarray` of recording channel names """
+        """ :class:`numpy.ndarray` : list of recording channel names """
         return self._dimlabels.get("channel")
 
     @channel.setter
@@ -79,7 +79,7 @@ class ContinuousData(BaseData, ABC):
 
     @property
     def time(self):
-        """ list (float): trigger-relative time axes of each trial """
+        """list(float): trigger-relative time axes of each trial """
         return [np.arange(-self.t0[tk], end - start - self.t0[tk]) * 1/self.samplerate \
                 for tk, (start, end) in enumerate(self.sampleinfo)] if self.samplerate is not None else None
 
@@ -169,7 +169,7 @@ class AnalogData(ContinuousData):
     and a channel axis such as local field potentials, firing rates, eye
     position etc.
 
-    The data is always stored as a two-dimensional array on disk. Trials are
+    The data is always stored as a two-dimensional array on disk. On disk, Trials are
     concatenated along the time axis. 
 
     Data is only read from disk on demand, similar to memory maps and HDF5
@@ -177,6 +177,10 @@ class AnalogData(ContinuousData):
     """
     @property
     def hdr(self):
+        """dict with information about raw data
+        
+        This property is empty for data created by Syncopy.
+        """
         return self._hdr
 
     # "Constructor"
@@ -189,22 +193,28 @@ class AnalogData(ContinuousData):
                  channel="channel",
                  mode="w",
                  dimord=["time", "channel"]):
-        """Initialize an `AnalogData` object.
+        """Initialize an :class:`AnalogData` object.
         
         Parameters
         ----------
-            data : array_like 
-            filename : str, path to filename or folder (spy container)
+            data : 2D :class:numpy.ndarray    
+                multi-channel time series data with uniform sampling            
+            filename : str
+                path to filename or folder (spy container)
             filetype : str
-            trialdefinition : :class:`EventData` object or Mx3 array
-            samplerate : float, sample rate in Hz
+            trialdefinition : :class:`EventData` object or Mx3 array 
+                [start, stop, trigger_offset] sample indices for `M` trials
+            samplerate : float
+                sampling rate in Hz
             channel : str or list/array(str)
+            mode : str
+                write mode for data. 'r' for read-only, 'w' for writable
+            dimord : list(str)
+                ordered list of dimension labels
 
-        Usage
-        -----
-        1. `filename` + :param:`data` : create hdf dataset incl. sampleinfo @filename
-        2. `filename` no :param:`data` : read from file or memmap (spy, hdf5, npy file array -> memmap)
-        3. just :param:`data` : try to attach data (error checking done by data.setter)
+        1. `filename` + `data` : create hdf dataset incl. sampleinfo @filename
+        2. `filename` no `data` : read from file or memmap (spy, hdf5, npy file array -> memmap)
+        3. just `data` : try to attach data (error checking done by :meth:`AnalogData.data.setter`)
         
         See also
         --------
@@ -249,6 +259,25 @@ class AnalogData(ContinuousData):
 
     # Overload ``copy`` method to account for `VirtualData` memmaps
     def copy(self, deep=False):
+        """Create a copy of the data object in memory.
+
+        Parameters
+        ----------
+            deep : bool
+                If `True`, a copy of the underlying data file is created in the temporary Syncopy folder
+
+        
+        Returns
+        -------
+            AnalogData
+                in-memory copy of AnalogData object
+
+        See also
+        --------
+        save_spy
+
+        """
+
         cpy = copy(self)
         if deep:
             if isinstance(self.data, VirtualData):
@@ -264,7 +293,7 @@ class AnalogData(ContinuousData):
 
     
 class SpectralData(ContinuousData):
-    """Class for multi-channel, time-continuous spectral data
+    """Multi-channel, real or complex spectral data
 
     This class can be used for representing any data with a frequency, channel,
     and optionally a time axis. The datatype can be complex or float.
@@ -289,7 +318,7 @@ class SpectralData(ContinuousData):
 
     @property
     def freq(self):
-        """ """
+        """:class:`numpy.ndarray`: frequency axis in Hz """
         return self._dimlabels.get("freq")
 
     @freq.setter

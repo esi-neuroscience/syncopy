@@ -30,6 +30,7 @@
 # HTML documentation
 doc/build
 doc/source/_stubs
+*_stubs
 
 # Canonical /build directory
 /build
