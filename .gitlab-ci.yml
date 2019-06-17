@@ -6,7 +6,7 @@ clusterTests:
     - master
     - dev
     variables:
-        PYTEST_ADDOPTS: "--color=yes -q --tb=no"
+        PYTEST_ADDOPTS: "--color=yes -q --tb=line"
     script:
     - source $HOME/miniconda3/bin/activate
     - pip install --upgrade pip
@@ -21,7 +21,7 @@ windowsTests:
     - master
     - dev
     variables:
-        PYTEST_ADDOPTS: "--color=yes -q --tb=no"
+        PYTEST_ADDOPTS: "--color=yes -q --tb=line"
     script:
     - pip install --upgrade --user pip
     - pip install --upgrade --user tox
