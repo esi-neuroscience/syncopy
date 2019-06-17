@@ -4,7 +4,7 @@
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-14 17:28:54>
+# Last modification time: <2019-06-17 16:18:18>
 
 # Builtin/3rd party package imports
 import os
@@ -44,6 +44,9 @@ class ComputationalRoutine(ABC):
         self.vdsdir = None
 
     def initialize(self, data):
+        """
+        chunkShape is CRUCIAL if trials have different lenghts!
+        """
 
         # Get output chunk-shape and dtype of first trial
         dryRunKwargs = copy(self.cfg)

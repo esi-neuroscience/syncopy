@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-14 17:23:26>
+# Last modification time: <2019-06-17 16:35:12>
 
 # Builtin/3rd party package imports
 import sys
@@ -106,7 +106,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                        for k, (start, end) in enumerate(data.sampleinfo)])
     minTrialLength = timing[0, :].max() - timing[1, :].min()
 
-    # Ensure frequency-of-interest is below Nyquist and above reciprocal min trial length
+    # Construct array of maximally attainable frequency band and set/align `foi`
+    minSampleNum = minTrialLength*data.samplerate
+    nFreq = int(np.floor(minSampleNum / 2) + 1)
+    freqs = np.linspace(0, data.samplerate/2, nFreq)
     if foi is not None:
         try:
             array_parser(foi, varname="foi", hasinf=False, hasnan=False,
@@ -117,12 +120,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         foi.sort()
 
         # Match desired frequencies as close as possible to actually attainable freqs
-        minSampleNum = minTrialLength*data.samplerate
-        nFreq = int(np.floor(minSampleNum / 2) + 1)
-        freqs = np.linspace(0, 1, nFreq) * data.samplerate/2
         foi = foi[foi <= freqs.max()]
         foi = foi[foi >= freqs.min()]
         foi = freqs[np.unique(np.searchsorted(freqs, foi))]
+    else:
+        foi = freqs
 
     # FIXME: implement detrending
     if polyremoval is True or polyorder is not None:
@@ -271,6 +273,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     specestMethod.initialize(data)
 
     # If trials are supposed to be thrown away, modify output dimension
+    # FIXME: include keeptrials as keyword in ComputationalRoutine
     if not keeptrials:
         shp = list(specestMethod.outputShape)
         shp[0] = 1
@@ -308,7 +311,7 @@ def mtmfft(trl_dat, dt, timeAxis,
 
     # Construct at least 1 and max. 50 taper(s)
     if taper == spwin.dpss and (not taperopt):
-        nTaper = int(max(1, min(50, np.floor(tapsmofrq * nSamples * dt))))
+        nTaper = int(max(2, min(50, np.floor(tapsmofrq * nSamples * dt))))
         taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
     win = np.atleast_2d(taper(nSamples, **taperopt))
     nTaper = win.shape[0]
@@ -317,7 +320,7 @@ def mtmfft(trl_dat, dt, timeAxis,
     nFreq = int(np.floor(nSamples / 2) + 1)
     fidx = slice(None)
     if foi is not None:
-        freqs = np.linspace(0, 1, nFreq) * 1/(2*dt)
+        freqs = np.linspace(0, 1/(2*dt), nFreq)
         foi = foi[foi <= freqs.max()]
         foi = foi[foi >= freqs.min()]
         fidx = np.unique(np.searchsorted(freqs, foi))
@@ -328,9 +331,15 @@ def mtmfft(trl_dat, dt, timeAxis,
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
 
-    # Actual computation
+    # In case tapers aren't kept allocate `spec` "too big" and average afterwards
+    if not keeptapers:
+        shp = list(chunkShape)
+        shp[1] = nTaper
+        chunkShape = tuple(shp)
     spec = np.full(chunkShape, np.nan, dtype=spectralDTypes[output_fmt])
     fill_idx = tuple([slice(None, dim) for dim in outShape[2:]])
+    
+    # Actual computation
     for taperIdx, taper in enumerate(win):
         if dat.ndim > 1:
             taper = np.tile(taper, (nChannels, 1)).T
@@ -338,7 +347,7 @@ def mtmfft(trl_dat, dt, timeAxis,
 
     # Average across tapers if wanted
     if not keeptapers:
-        return spec.mean(axis=0, keepdims=True)
+        return spec.mean(axis=1, keepdims=True)
     else:
         return spec
 
