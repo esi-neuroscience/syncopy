@@ -4,6 +4,7 @@ clusterTests:
     - slurm
     only:
     - master
+    - dev
     script:
     - source $HOME/miniconda3/bin/activate
     - pip install --upgrade pip
@@ -16,6 +17,7 @@ windowsTests:
     - windows10
     only:
     - master
+    - dev
     script:
     - pip install --upgrade --user pip
     - pip install --upgrade --user tox
