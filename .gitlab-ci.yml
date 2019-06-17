@@ -28,7 +28,8 @@ windowsTests:
     - tox -r --parallel 3
 
 docs:
-    stage: deploy
+    stage: test
+    when: manual
     tags:
     - docs
     only:
