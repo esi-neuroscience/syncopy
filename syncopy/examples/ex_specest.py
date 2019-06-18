@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 13:08:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-17 14:42:04>
+# Last modification time: <2019-06-18 15:19:26>
 
 # Builtin/3rd party package imports
 import dask.distributed as dd
@@ -52,7 +52,8 @@ if __name__ == "__main__":
 
     adata = spy.AnalogData(data=sig, samplerate=fs, trialdefinition=trialdefinition)
 
-    spec = spy.freqanalysis(adata, method="mtmfft", taper="hann", output="pow")
+    # spec = spy.freqanalysis(adata, method="mtmfft", taper="hann", output="pow",
+    #                         pad=)
     
 
     plt.ion()

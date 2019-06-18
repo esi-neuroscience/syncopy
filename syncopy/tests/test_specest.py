@@ -4,7 +4,7 @@
 #
 # Created: 2019-06-17 09:45:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-17 16:38:58>
+# Last modification time: <2019-06-18 09:36:59>
 
 import os
 import tempfile
@@ -40,6 +40,9 @@ class TestMTMFFT(object):
 
     adata = AnalogData(data=sig, samplerate=fs,
                        trialdefinition=trialdefinition)
+
+    def test_padding(self):
+        asdff
 
     # TODO: check padding
     # TODO: check allocation of output object
@@ -86,5 +89,3 @@ class TestMTMFFT(object):
 
         # ensure amplitude is consistent across all channels/trials
         assert np.all(np.diff(amps) < 1)
-            
-        # import pdb; pdb.set_trace()

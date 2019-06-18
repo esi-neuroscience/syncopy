@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-17 16:35:12>
+# Last modification time: <2019-06-18 09:41:35>
 
 # Builtin/3rd party package imports
 import sys
@@ -300,14 +300,15 @@ def mtmfft(trl_dat, dt, timeAxis,
     nChannels = dat.shape[1]
 
     # Padding (updates no. of samples)
-    if pad:
-        padWidth = np.zeros((dat.ndim, 2), dtype=int)
-        if pad == "nextpow2":
-            padWidth[0, 0] = _nextpow2(nSamples) - nSamples
-        if padtype == "zero":
-            dat = np.pad(dat, pad_width=padWidth,
-                         mode="constant", constant_values=0)
-        nSamples = dat.shape[0]
+    padWidth = np.zeros((dat.ndim, 2), dtype=int)
+    if pad == "nextpow2":
+        padWidth[0, 0] = _nextpow2(nSamples) - nSamples
+    if padtype == "zero":
+        dat = np.pad(dat, pad_width=padWidth,
+                     mode="constant", constant_values=0)
+    nSamples = dat.shape[0]
+
+    import ipdb; ipdb.set_trace()
 
     # Construct at least 1 and max. 50 taper(s)
     if taper == spwin.dpss and (not taperopt):
