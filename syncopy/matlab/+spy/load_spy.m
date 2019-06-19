@@ -5,47 +5,45 @@
 % Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 % Last modification time: <2019-04-30 16:16:43>
 
-function [data, trl, attrs] = load_spy(in_name, varargin)
-
+function [data, trl, attrs, json] = load_spy(in_name, varargin)
+    % LOAD_SPY Load data from HDF5/JSON SPY container 
+    
     % Import custom exceptions
     import spy.utils.spy_error;
     
     % Default values for optional inputs
-    fname = '';
-    checksum = false;
+    fname = '';    
 
     % Parse inputs 
     valid_fsloc = @(x) validateattributes(x, {'char'}, {'scalartext', 'nonempty'});
     p = inputParser;
     addRequired(p, 'in_name', valid_fsloc);
     addParameter(p, 'fname', fname, valid_fsloc);
-    addParameter(p, 'checksum', checksum, ... 
-                 @(x) validateattributes(x, {'numeric'}, {'scalar', 'binary'}));
     parse(p, in_name, varargin{:});
     
     % Make sure `in_name` is a valid filesystem-location: in case 'dir' and
     % 'dir.spy' exists, preference will be given to 'dir.spy'
     [~, ~, ext] = fileparts(p.Results.in_name);
-    if length(ext) == 0
+    if isempty(ext) == 0
         in_spy = [in_name, '.spy'];
-        if length(what(in_spy)) == 0;
+        if isempty(what(in_spy))
             in_spy = in_name;
-        end;
+        end
     else
         in_spy = in_name;
     end
     w_spy = what(in_spy);
-    if length(w_spy) == 0
+    if isempty(w_spy)
         spy_error(['Cannot read ', in_name, ': object does not exist. '], 'io');
     end
     in_name = w_spy.path;       % get absolute path of provided spy-dir
     
     % Either (try to) load newest fileset or look for a specific one
-    if length(p.Results.fname) == 0
+    if isempty(p.Results.fname)
         
         % Get most recent json file in `in_name` (abort if we don't find one)
         files = dir(fullfile(in_name, '*.info'));
-        if length(files) == 0
+        if isempty(files)
             spy_error(['Cannot find .info file in ', in_name], 'io')
         end
         [~, idx] = max([files.datenum]);
@@ -61,7 +59,7 @@ function [data, trl, attrs] = load_spy(in_name, varargin)
             fname = ['*', fname, '*'];
         end
         in_ext = strrep(in_ext, '*', '');
-        if length(in_ext) == 0
+        if isempty(in_ext)
             expected_count = 2;
         else
             validatestring(in_ext, {'.info', '.dat'}, mfilename, 'fname')
@@ -85,9 +83,6 @@ function [data, trl, attrs] = load_spy(in_name, varargin)
     in_files.info = fullfile(in_path, [in_base, '.info']);
     in_files.dat = fullfile(in_path, [in_base, '.dat']);
     
-    % % FIXME: >>>>>>>>>>>>>>> parse json file...
-    % jsondecode(fileread(in_files.info))
-    % and as the case may be vet contents of HDF5 container for consistency
     
     % Get content info of dat-HDF5 container 
     h5toc = h5info(in_files.dat);
@@ -102,7 +97,26 @@ function [data, trl, attrs] = load_spy(in_name, varargin)
     % The `trialdefinition` part is always 2D -just transpose it
     trl = h5read(in_files.dat, '/trialdefinition')';
     
-    % Finally (and probably only for the time being): extract container attributes
-    attrs = h5toc.Attributes;
+    % extract container attributes
+    h5attrs = h5toc.Attributes;
     
-    return;
+    % read json file and compare to HDF5 attributes
+    json = jsondecode(fileread(in_files.info));
+    
+    attrs = struct('name', cell(size(h5attrs)), ...
+        'value', cell(size(h5attrs)));
+    for iAttr = 1:length(h5attrs)
+        name = h5attrs(iAttr).Name;
+        value = h5attrs(iAttr).Value;
+        if iscell(value) && numel(value) == 1
+            value = value{1};
+        end
+        attrs(iAttr).(name) = value;        
+        assert(isequal(json.(name), value), ...
+            'JSON/HDF5 mismatch for attribute %s', name)
+    end
+    
+    % FIXME: check other json attributes: data_dtype, data_shape, ...
+        
+    return
+end
