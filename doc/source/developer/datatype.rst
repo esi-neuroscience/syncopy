@@ -2,6 +2,17 @@
 Syncopy data classes (:mod:`syncopy.datatype`)
 ==============================================
  
+The data structure in Syncopy is based around the idea that all
+electrophysiology data can be represented as multidimensional arrays. For
+example, a multi-channel local field potential can be stored as a
+two-dimensional `float` array with the dimensions being time (sample) and
+channel. Hence, 
+
+.. note:: Each Syncopy data object is simply an anotated multi-dimensional array.
+
+This array is always stored in the :attr:`data` property and can be
+indexed using `NumPy indexing
+<https://docs.scipy.org/doc/numpy/user/basics.indexing.html#indexing-multi-dimensional-arrays>`_. 
 
 Different types electrophysiology data often share different properties (e.g.
 having channel/electrode labels, having a time axis, etc.). An efficient way of
@@ -20,7 +31,7 @@ The bottom classes in the class tree are for active use in analyses.
 The usable Syncopy data classes
 -------------------------------
 
-Some info highlighting the boundless wisdom underlying the class design...
+The classes that
 
 .. autosummary::
     :toctree: _stubs
@@ -30,6 +41,7 @@ Some info highlighting the boundless wisdom underlying the class design...
     syncopy.SpectralData
     syncopy.SpikeData
     syncopy.EventData
+
 
 
 
