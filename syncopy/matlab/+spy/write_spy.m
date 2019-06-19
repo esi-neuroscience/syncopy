@@ -21,6 +21,18 @@ h5writeatt(filename, '/', 'version', version)
 cellstr_h5writeatt(filename, 'channel', channel)
 cellstr_h5writeatt(filename, 'dimord', dimord)
 
+% json info file
+spyInfo = spy.SyncopyInfo();
+spyInfo.data_dtype = dtype;
+spyInfo.log = log;
+spyInfo.version = version;
+spyInfo.data = filename;
+spyInfo.dimord = dimord;
+spyInfo.samplerate = samplerate
+spyInfo.type = dclass;
+spyInfo.write_to_file('test.json')
+
+
 
 function cellstr_h5writeatt(filename, attname, value)
 
