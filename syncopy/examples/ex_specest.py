@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 13:08:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-18 15:19:26>
+# Last modification time: <2019-06-21 16:50:39>
 
 # Builtin/3rd party package imports
 import dask.distributed as dd
@@ -52,21 +52,20 @@ if __name__ == "__main__":
 
     adata = spy.AnalogData(data=sig, samplerate=fs, trialdefinition=trialdefinition)
 
-    # spec = spy.freqanalysis(adata, method="mtmfft", taper="hann", output="pow",
-    #                         pad=)
+    spec = spy.freqanalysis(adata, method="mtmfft", taper="hann", output="pow")
     
 
-    plt.ion()
-    ax = plt.subplot2grid((2, nTrials), (0, 0), colspan=nTrials)
+    # plt.ion()
+    # ax = plt.subplot2grid((2, nTrials), (0, 0), colspan=nTrials)
     # (fig, ax_arr) = plt.subplots(2, nTrials, tight_layout=True,
     #                              gridspec_kw={'wspace':0.32,'left':0.01,'right':0.93,
     #                                           'hspace':0.01},
     #                              figsize=[5.6,4.3])
     # ax = plt.subplot(ax_arr[0, :])
-    ax.plot(t, sig.flatten())
-    for ntrial in range(nTrials):
-        ax = plt.subplot2grid((2, nTrials), (1, ntrial))
-        ax.plot(spec.data[ntrial, ...].flatten())
+    # ax.plot(t, sig.flatten())
+    # for ntrial in range(nTrials):
+    #     ax = plt.subplot2grid((2, nTrials), (1, ntrial))
+    #     ax.plot(spec.data[ntrial, ...].flatten())
 
     sys.exit()
     

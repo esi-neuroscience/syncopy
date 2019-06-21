@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-18 09:41:35>
+# Last modification time: <2019-06-21 17:00:32>
 
 # Builtin/3rd party package imports
 import sys
@@ -23,7 +23,7 @@ from numbers import Number
 # Local imports
 from syncopy.shared import data_parser, scalar_parser, array_parser, get_defaults
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.datatype import SpectralData
+from syncopy.datatype import SpectralData, padding
 import syncopy.specest.wavelets as spywave 
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.parsers import unwrap_cfg
@@ -92,6 +92,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise SPYTypeError(lcls[vname], varname=vname, expected="Bool")
 
     # Ensure padding selection makes sense
+    # FIXME: use padding's error checking...
     options = [None, "nextpow2", "zero"]
     if pad not in options:
         lgl = "'" + "or '".join(opt + "' " for opt in options)
@@ -308,7 +309,9 @@ def mtmfft(trl_dat, dt, timeAxis,
                      mode="constant", constant_values=0)
     nSamples = dat.shape[0]
 
-    import ipdb; ipdb.set_trace()
+    ff = padding(dat, padtype, pad=pad, prepadlength=True)
+    if not np.any(np.isclose(ff, dat)):
+        print("ERRRRRRRRRRRRRRORRRRRRRRRRRRRRRRRRRR")
 
     # Construct at least 1 and max. 50 taper(s)
     if taper == spwin.dpss and (not taperopt):
@@ -397,7 +400,7 @@ class MultiTaperFFT(ComputationalRoutine):
 
         # Iterate across trials and write directly to HDF5 container (flush
         # after each trial to avoid memory leakage) - if trials are not to
-        # be preserved, compute average across trials manually to avoid 
+        # be preserved, compute average across trials manually to avoid
         # allocation of unnecessarily large dataset
         with h5py.File(out._filename, "r+") as h5f:
             dset = h5f["SpectralData"]
@@ -444,14 +447,7 @@ class MultiTaperFFT(ComputationalRoutine):
             out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
         # out.cfg = self.cfg
 
-
-def _nextpow2(number):
-    n = 1
-    while n < number:
-        n *= 2
-    return n
-
-
+        
 def wavelet(trl_dat, dt, timeAxis, foi,
             toi=0.1, polyorder=None, wav=spywave.Morlet,
             width=6, output_fmt="pow",
@@ -620,3 +616,10 @@ def _get_optimal_wavelet_scales(nSamples, dt, dj=0.25, s0=1):
     # Largest scale
     J = int((1 / dj) * np.log2(nSamples * dt / s0))
     return s0 * 2 ** (dj * np.arange(0, J + 1))
+
+
+def _nextpow2(number):
+    n = 1
+    while n < number:
+        n *= 2
+    return n

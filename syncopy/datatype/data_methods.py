@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-19 16:57:41>
+# Last modification time: <2019-06-21 17:00:49>
 
 # Builtin/3rd party package imports
 import numbers
@@ -15,7 +15,7 @@ import numpy as np
 from syncopy.shared import data_parser, array_parser, scalar_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError
 
-__all__ = ["selectdata", "definetrial"]
+__all__ = ["selectdata", "definetrial", "padding"]
 
 
 def selectdata(obj, trials=None, deepcopy=False, exact_match=False, **kwargs):
@@ -614,27 +614,38 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
     
     return
 
+
 def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
             postpadlength=None, unit="samples", create_new=True, cfg=None):
     """
     data can be array/syncopy object
+
+    if data is array, timeAxis is assumed to be 0!!!!!!!!!!!!!!!!!!!!!!
 
     create_new : if True actually pad data and create new array/object, 
                  return len(trial)-long list of `pad_dict`'s otherwise
 
     pad = "absolute" pad object to get desired absolute length (i.e, 
            pad = 5s -> all trials are (if necessary) padded to 5s length)
+           `padlength` HAS to be provided, pre/post can be True/False
 
     pad = "relative" pad object by provided `padlength` (i.e., pad = 5s ->
            add 5s to each trial)
+           Use padlength = 5s and prepadlength=True OR directly prepadlength=5s 
+           to pad before trial
 
     pad = "maxlen" pad to max. trial length found in data
+           all padding lengths have to be Bool/None (if all are None, symmetric
+           padding is performed)
 
     pad = "nextpow2" pad each trial to closest power of 2
+           all padding lengths have to be Bool/None (if all are None, symmetric
+           padding is performed)
 
     (pre/post)padlength : either None, bool or number
            if `True` indicate where to pad (e.g., pad = "maxlen" and  prepadlength=True
            -> data is padded upfront)
+           >>> ONLY if `pad` is "relative", pre/post can be numbers <<<
 
     """
 
@@ -653,7 +664,13 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         except Exception as exc:
             raise exc
         spydata = False
-    
+
+    # FIXME: Creation of new spy-object currently not supported
+    if not isinstance(create_new, bool):
+        raise SPYTypeError(create_new, varname="create_new", expected="bool")
+    if spydata and create_new:
+        raise NotImplementedError("Creation of padded spy objects currently not supported. ")
+
     # FIXME: FT option 'remove' currently not supported
     if not isinstance(padtype, str):
         raise SPYTypeError(padtype, varname="padtype", expected="string")
@@ -669,10 +686,10 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     if pad not in options:
         lgl = "'" + "or '".join(opt + "' " for opt in options)
         raise SPYValueError(legal=lgl, varname="pad", actual=pad)
-    if pad in ["absolute", "maxlen"] and not spydata:
-        lgl = "syncopy data object when using option 'maxlen' or 'absolute'"
+    if pad == "maxlen" and not spydata:
+        lgl = "syncopy data object when using option 'maxlen'"
         raise SPYValueError(legal=lgl,
-                            varname="pad", actual="maxlen/absolute")
+                            varname="pad", actual="maxlen")
 
     # Make sure a data object was provided if we're working with time values
     if not isinstance(unit, str):
@@ -685,10 +702,16 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         raise SPYValueError(legal="syncopy data object when using option 'time'",
                             varname="unit", actual="time")
 
+    # Set up dictionary for type-checking of provided padding lengths
+    nt_dict = {"samples": "int_like", "time": None}
+
     # If we're padding up to an absolute bound or the max. length across
     # trials, compute lower bound for padding (in samples or seconds)
     if pad in ["absolute", "maxlen"]:
-        maxTrialLen = np.diff(data.sampleinfo).max()
+        if spydata:
+            maxTrialLen = np.diff(data.sampleinfo).max()
+        else:
+            maxTrialLen = data.shape[0] # if `pad="absolute" and data is array
     else:
         maxTrialLen = np.inf
     if unit == "time":
@@ -696,75 +719,160 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     else:
         padlim = maxTrialLen
 
-    # Padding can be performed using either `padlength` alone or `pre` and/or
-    # `post` specs
-    
     # To ease option processing, collect padding length keywords in dict
     plengths = {"padlength": padlength, "prepadlength": prepadlength,
                 "postpadlength": postpadlength}
 
-    # In case of absolute or relative padding, we need numerical values for
-    # padding length(s)
-    if pad in ["absolute", "relative"]:
-        for key, value in plengths.items():
-            if value is not None:
-                try:
-                    scalar_parser(value, varname=key, ntype="int_like",
-                                  lims=[0, np.inf])
-                except Exception as exc:
-                    raise exc
-            else:
-                prepost[key] = 0
+    # In case of relative padding, we need at least one scalar value to proceed
+    if pad == "relative":
 
-        # We need at least one padding length value to proceed
-        if sum(plengths.values()) == 0:
+        # If `padlength = None`, pre- or post- need to be set; if `padlength`
+        # is set, both pre- and post- need to be `None` or `True`/`False`.
+        # After this code block, pre- and post- are guaranteed to be numeric.
+        if padlength is None:
+            for key in ["prepadlength", "postpadlength"]:
+                if plengths[key] is not None:
+                    try:
+                        scalar_parser(plengths[key], varname=key, ntype=nt_dict[unit],
+                                      lims=[0, np.inf])
+                    except Exception as exc:
+                        raise exc
+                else:
+                    plengths[key] = 0
+        else:
+            try:
+                scalar_parser(padlength, varname="padlength", ntype=nt_dict[unit],
+                              lims=[0, np.inf])
+            except Exception as exc:
+                raise exc
+            for key in ["prepadlength", "postpadlength"]:
+                if not isinstance(plengths[key], (bool, type(None))):
+                    raise SPYTypeError(plengths[key], varname=key, expected="bool or None")
+
+            if prepadlength and postpadlength:
+                plengths["prepadlength"] = padlength/2
+                plengths["postpadlength"] = padlength/2
+            else:
+                plengths["prepadlength"] = prepadlength*padlength
+                plengths["postpadlength"] = postpadlength*padlength
+                
+        # Under-determined: abort if requested padding length is 0
+        if all(value == 0 for value in plengths.values() if value is not None):
             lgl = "either non-zero value of `padlength` or `prepadlength` " + \
                   "and/or `postpadlength` to be set"
             raise SPYValueError(legal=lgl, varname="padlength", actual="0|None")
 
-        # In case of an absolute bound, ensure its consistency
+    else:
+
+        # For absolute padding, the desired length has to be >= max. trial length
         if pad == "absolute":
-            if sum(plengths.values()) <= padlim:
-                lgl = "total padding length > {} (=longest trial in object)"
-                raise SPYValueError(legal=lgl.format(padlim), varname="padlength")
+            try:
+                scalar_parser(padlength, varname="padlength", ntype=nt_dict[unit],
+                              lims=[padlim, np.inf])
+            except Exception as exc:
+                raise exc
+            for key in ["prepadlength", "postpadlength"]:
+                if not isinstance(plengths[key], (bool, type(None))):
+                    raise SPYTypeError(plengths[key], varname=key, expected="bool or None")
 
-    # For `maxlen` or `nextpow2` we don't want any numeric entries here
+        # For `maxlen` or `nextpow2` we don't want any numeric entries at all
+        else:
+            for key, value in plengths.items():
+                if not isinstance(value, (bool, type(None))):
+                    raise SPYTypeError(value, varname=key, expected="bool or None")
+
+            # Warn of potential conflicts
+            if padlength and (prepadlength or postpadlength):
+                print("WARNING: Found `padlength` and `prepadlength` and/or " +\
+                      "`postpadlength`. Symmetric padding is performed. ")
+
+        # If both pre-/post- are `None`, set them to `True` to use symmetric
+        # padding, otherwise convert `None` entries to `False`
+        if prepadlength is None and postpadlength is None:
+            plengths["prepadlength"] = True
+            plengths["postpadlength"] = True
+        else:
+            plengths["prepadlength"] = plengths["prepadlength"] is not None
+            plengths["postpadlength"] = plengths["postpadlength"] is not None
+
+    # Update pre-/post-padding and (if required) convert time to samples
+    prepadlength = plengths["prepadlength"]
+    postpadlength = plengths["postpadlength"]
+    if unit == "time":
+        if pad == "relative":
+            prepadlength = int(prepadlength*data.samplerate)
+            postpadlength = int(postpadlength*data.samplerate)
+        elif pad == "absolute":
+            padlength = int(padlength*data.samplerate)
+
+    # Construct dict of keywords for ``np.pad`` depending on chosen `padtype`
+    kws = {"zero": {"mode": "constant", "constant_values": 0},
+           "nan": {"mode": "constant", "constant_values": np.nan},
+           "mean": {"mode": "constant", "constant_values": -1},
+           "localmean": {"mode": "mean"},
+           "edge": {"mode": "edge"},
+           "mirror": {"mode": "reflect"}}
+
+    # If in put was syncopy data object, padding is done on a per-trial basis
+    if spydata:
+
+        # A list of input keywords for ``np.pad`` is constructed, no matter if
+        # we actually want to build a new object or not
+        if padtype == "mean":
+            avg = 0
+        pad_opts = []
+
+        for trl in data.trials:
+            nSamples = trl.shape[timeAxis]
+            if pad == "absolute":
+                padding = (padlength - nSamples)/(prepadlength + postpadlength)
+            elif pad == "relative":
+                padding = True
+            elif pad == "maxlen":
+                padding = maxTrialLen - nSamples
+            elif pad == "nextpow2":
+                padding = _nextpow2(nSamples) - nSamples
+            pw = np.zeros((2, 2), dtype=int)
+            pw[timeAxis, :] = [prepadlength * padding, postpadlength * padding]
+            pad_opts.append(dict({"pad_width": pw}, **kws[padtype]))
+            if padtype == "mean":
+                avg += np.nansum(trl)
+
+        if padtype == "mean":
+            avg /= len(data.trials)
+            for trk in range(len(data.trials)):
+                pad_opts[trk]["constant_values"] = avg
+
+        if create_new:
+            pass
+        else:
+            return pad_opts
+
+    # Input was a array (i.e., single trial) - we have to do the padding just once
     else:
-        for key, value in plengths.items():
-            if not isinstance(value, (bool, type(None))):
-                raise SPYTypeError(value, varname=key, expected="bool or None")
 
-        # If all padding lengths are `None` use symmetric padding as default
-        if all(value is None for value in plengths.values()):
-            plengths["padlength"] = True
-                
-    # Warn of potential conflicts
-    if plengths["padlength"] and (plengths["prepadlength"] or plengths["postpadlength"]):
-        print("WARNING: Found `padlength` and `prepadlength` and/or `postpadlength`. " +
-              "Only `padlength` is used, other values are discarded. ")
-        
-    # From here on, we only use pre- and post-padding length - update those
-    padlength = plengths["padlength"]
-    if padlength:
-        prepadlength = padlength
-        postpadlength = padlength
-    else:
-        prepadlength = plengths["prepadlength"]
-        postpadlength = plengths["postpadlength"]
+        # In the single-trial case, 'mean' and 'localmean' are identical
+        kws["mean"] = kws["localmean"]
 
-    # Depending on provided `pad` choice, compute actual numerical values
-    # for pre-/post-padding lengths (we calculate everything in samples)
+        nSamples = data.shape[0]
+        if pad == "absolute":
+            padding = (padlength - nSamples)/(prepadlength + postpadlength)
+        elif pad == "relative":
+            padding = True
+        elif pad == "nextpow2":
+            padding = _nextpow2(nSamples) - nSamples
+        pw = np.zeros((2, 2), dtype=int)
+        pw[0, :] = [prepadlength * padding, postpadlength * padding]
+        pad_opts = dict({"pad_width": pw}, **kws[padtype])
 
-    # Start actually doing something
-    padWidth = np.zeros((arr.ndim, 2), dtype=int)
-    padWidth[0, 0] = _nextpow2(nSamples) - nSamples
+        if create_new:
+            return np.pad(data, **pad_opts)
+        else:
+            return pad_opts
 
 
-    
-    if pad == "nextpow2":
-        padWidth[0, 0] = _nextpow2(nSamples) - nSamples
-    if padtype == "zero":
-        dat = np.pad(dat, pad_width=padWidth,
-                     mode="constant", constant_values=0)
-    nSamples = dat.shape[0]
-    
+def _nextpow2(number):
+    n = 1
+    while n < number:
+        n *= 2
+    return n
