@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-21 17:00:49>
+# Last modification time: <2019-06-24 16:18:02>
 
 # Builtin/3rd party package imports
 import numbers
@@ -671,7 +671,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     if spydata and create_new:
         raise NotImplementedError("Creation of padded spy objects currently not supported. ")
 
-    # FIXME: FT option 'remove' currently not supported
+    # Use FT-compatible options (sans FT option 'remove')
     if not isinstance(padtype, str):
         raise SPYTypeError(padtype, varname="padtype", expected="string")
     options = ["zero", "nan", "mean", "localmean", "edge", "mirror"]
@@ -749,6 +749,13 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
                 if not isinstance(plengths[key], (bool, type(None))):
                     raise SPYTypeError(plengths[key], varname=key, expected="bool or None")
 
+            if prepadlength is None and postpadlength is None:
+                prepadlength = True
+                postpadlength = True
+            else:
+                prepadlength = prepadlength is not None
+                postpadlength = postpadlength is not None
+                
             if prepadlength and postpadlength:
                 plengths["prepadlength"] = padlength/2
                 plengths["postpadlength"] = padlength/2
@@ -808,8 +815,8 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     # Construct dict of keywords for ``np.pad`` depending on chosen `padtype`
     kws = {"zero": {"mode": "constant", "constant_values": 0},
            "nan": {"mode": "constant", "constant_values": np.nan},
-           "mean": {"mode": "constant", "constant_values": -1},
-           "localmean": {"mode": "mean"},
+           "localmean": {"mode": "mean", "stat_length": -1},
+           "mean": {"mode": "mean"},
            "edge": {"mode": "edge"},
            "mirror": {"mode": "reflect"}}
 
@@ -818,10 +825,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
 
         # A list of input keywords for ``np.pad`` is constructed, no matter if
         # we actually want to build a new object or not
-        if padtype == "mean":
-            avg = 0
         pad_opts = []
-
         for trl in data.trials:
             nSamples = trl.shape[timeAxis]
             if pad == "absolute":
@@ -829,19 +833,14 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
             elif pad == "relative":
                 padding = True
             elif pad == "maxlen":
-                padding = maxTrialLen - nSamples
+                padding = (maxTrialLen - nSamples)/(prepadlength + postpadlength)
             elif pad == "nextpow2":
-                padding = _nextpow2(nSamples) - nSamples
+                padding = (_nextpow2(nSamples) - nSamples)/(prepadlength + postpadlength)
             pw = np.zeros((2, 2), dtype=int)
             pw[timeAxis, :] = [prepadlength * padding, postpadlength * padding]
             pad_opts.append(dict({"pad_width": pw}, **kws[padtype]))
-            if padtype == "mean":
-                avg += np.nansum(trl)
-
-        if padtype == "mean":
-            avg /= len(data.trials)
-            for trk in range(len(data.trials)):
-                pad_opts[trk]["constant_values"] = avg
+            if padtype == "localmean":
+                pad_opts[-1]["stat_length"] = pw[timeAxis, :]
 
         if create_new:
             pass
@@ -851,19 +850,18 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     # Input was a array (i.e., single trial) - we have to do the padding just once
     else:
 
-        # In the single-trial case, 'mean' and 'localmean' are identical
-        kws["mean"] = kws["localmean"]
-
         nSamples = data.shape[0]
         if pad == "absolute":
             padding = (padlength - nSamples)/(prepadlength + postpadlength)
         elif pad == "relative":
             padding = True
         elif pad == "nextpow2":
-            padding = _nextpow2(nSamples) - nSamples
+            padding = (_nextpow2(nSamples) - nSamples)/(prepadlength + postpadlength)
         pw = np.zeros((2, 2), dtype=int)
         pw[0, :] = [prepadlength * padding, postpadlength * padding]
         pad_opts = dict({"pad_width": pw}, **kws[padtype])
+        if padtype == "localmean":
+            pad_opts["stat_length"] = pw[0, :]
 
         if create_new:
             return np.pad(data, **pad_opts)

@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-21 17:00:32>
+# Last modification time: <2019-06-24 09:10:57>
 
 # Builtin/3rd party package imports
 import sys
@@ -46,8 +46,8 @@ __all__ = ["freqanalysis"]
 
 @unwrap_cfg
 def freqanalysis(data, method='mtmfft', output='fourier',
-                 keeptrials=True, foi=None, pad='nextpow2', polyremoval=False,
-                 polyorder=None, padtype='zero',
+                 keeptrials=True, foi=None, pad='nextpow2', padtype='zero',
+                 padlength=None, polyremoval=False, polyorder=None, 
                  taper="hann", tapsmofrq=None, keeptapers=True,
                  wav="Morlet", toi=0.1, width=6,
                  out=None, cfg=None, **kwargs):
@@ -91,16 +91,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         if not isinstance(lcls[vname], bool):
             raise SPYTypeError(lcls[vname], varname=vname, expected="Bool")
 
-    # Ensure padding selection makes sense
-    # FIXME: use padding's error checking...
-    options = [None, "nextpow2", "zero"]
-    if pad not in options:
-        lgl = "'" + "or '".join(opt + "' " for opt in options)
-        raise SPYValueError(legal=lgl, varname="pad", actual=pad)
-    options = ["zero"]
-    if padtype not in options:
-        lgl = "'" + "or '".join(opt + "' " for opt in options)
-        raise SPYValueError(legal=lgl, varname="padtype", actual=padtype)
+    # Ensure padding selection makes sense (just leverage `padding`'s error checking)
+    try:
+        padding(data.trials[0], padtype, pad=pad, padlength=padlength, prepadlength=True)
+    except Exception as exc:
+        raise exc
 
     # For vetting `toi` and `foi`: get timing information of input object
     timing = np.array([np.array([-data.t0[k], end - start - data.t0[k]])/data.samplerate
@@ -288,8 +283,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 # Local workhorse that performs the computational heavy lifting
 def mtmfft(trl_dat, dt, timeAxis,
            taper=spwin.hann, taperopt={}, tapsmofrq=None,
-           pad="nextpow2", padtype="zero", foi=None, keeptapers=True,
-           keeptrials=True, polyorder=None, output_fmt="pow",
+           pad="nextpow2", padtype="zero", padlength=None, foi=None,
+           keeptapers=True, keeptrials=True, polyorder=None, output_fmt="pow",
            noCompute=False, chunkShape=None):
 
     # Re-arrange array if necessary and get dimensional information
@@ -309,7 +304,7 @@ def mtmfft(trl_dat, dt, timeAxis,
                      mode="constant", constant_values=0)
     nSamples = dat.shape[0]
 
-    ff = padding(dat, padtype, pad=pad, prepadlength=True)
+    ff = padding(dat, padtype, pad=pad, padlength=padlength, prepadlength=True)
     if not np.any(np.isclose(ff, dat)):
         print("ERRRRRRRRRRRRRRORRRRRRRRRRRRRRRRRRRR")
 

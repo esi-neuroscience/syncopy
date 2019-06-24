@@ -4,7 +4,7 @@
 # 
 # Created: 2019-04-18 14:41:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-13 12:43:52>
+# Last modification time: <2019-06-24 16:00:39>
 
 import subprocess
 import sys
@@ -41,7 +41,7 @@ def is_win_vm():
 
 
 def generate_artifical_data(nTrials=2, nChannels=2, equidistant=True,
-                            overlapping=False, inmemory=True):
+                            overlapping=False, inmemory=True, dimord="default"):
     """
     Populate `AnalogData` object w/ artificial signal
     """
@@ -51,16 +51,18 @@ def generate_artifical_data(nTrials=2, nChannels=2, equidistant=True,
     t = np.arange(0, 3, dt, dtype="float32") - 1.0
     sig = np.cos(2 * np.pi * (7 * (np.heaviside(t, 1) * t - 1) + 10) * t)
 
-    # Get default position of time-axis in AnalogData objects and reshape
-    # signal to construct a single trial
-    timeAxis = spy.AnalogData().dimord.index("time")
+    # Depending on chosen `dimord` either get default position of time-axis
+    # in `AnalogData` objects or use provided `dimord` and reshape signal accordingly
+    if dimord == "default":
+        dimord = spy.AnalogData().dimord
+    timeAxis = dimord.index("time")
     idx = [1, 1]
     idx[timeAxis] = -1
     sig = np.repeat(sig.reshape(*idx), axis=idx.index(1), repeats=nChannels)
 
     # Either create the full data array in memory using array tiling or
     # create an HDF5 container in `__storage__` and fill it trial-by-trial
-    out = spy.AnalogData(samplerate=1/dt)
+    out = spy.AnalogData(samplerate=1/dt, dimord=dimord)
     if inmemory:
         idx[timeAxis] = nTrials 
         sig = np.tile(sig, idx)

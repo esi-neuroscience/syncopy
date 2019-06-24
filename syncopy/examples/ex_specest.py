@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 13:08:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-21 16:50:39>
+# Last modification time: <2019-06-24 13:33:49>
 
 # Builtin/3rd party package imports
 import dask.distributed as dd
@@ -27,6 +27,18 @@ from syncopy.tests.misc import generate_artifical_data
 # sys.exit()
 
 if __name__ == "__main__":
+    
+    nc = 10
+    ns = 30
+    data = np.arange(1, nc*ns + 1, dtype="float").reshape(ns, nc)
+    trl = np.vstack([np.arange(0, ns, 5),
+                     np.arange(5, ns + 5, 5),
+                     np.ones((int(ns/5), )),
+                     np.ones((int(ns/5), )) * np.pi]).T
+
+    from syncopy.datatype import padding
+
+    sys.exit()
     
     # client = dd.Client()
 
