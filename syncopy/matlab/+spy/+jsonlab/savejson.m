@@ -109,6 +109,8 @@ function json=savejson(rootname,obj,varargin)
 %
 % -- this function is part of JSONLab toolbox (http://iso2mesh.sf.net/cgi-bin/index.cgi?jsonlab)
 %
+import spy.jsonlab.*
+
 
 if(nargin==1)
    varname=inputname(1);
@@ -209,6 +211,7 @@ end
 
 %%-------------------------------------------------------------------------
 function txt=obj2json(name,item,level,varargin)
+import spy.jsonlab.*
 
 if(iscell(item) || isa(item,'string'))
     txt=cell2json(name,item,level,varargin{:});
@@ -234,6 +237,8 @@ end
 
 %%-------------------------------------------------------------------------
 function txt=cell2json(name,item,level,varargin)
+import spy.jsonlab.*
+
 txt={};
 if(~iscell(item) && ~isa(item,'string'))
         error('input is not a cell or string array');
@@ -297,6 +302,8 @@ txt = sprintf('%s',txt{:});
 
 %%-------------------------------------------------------------------------
 function txt=struct2json(name,item,level,varargin)
+import spy.jsonlab.*
+
 txt={};
 if(~isstruct(item))
 	error('input is not a struct');
@@ -373,6 +380,8 @@ txt = sprintf('%s',txt{:});
 
 %%-------------------------------------------------------------------------
 function txt=map2json(name,item,level,varargin)
+import spy.jsonlab.*
+
 txt={};
 if(~isa(item,'containers.Map'))
 	error('input is not a containers.Map class');
@@ -441,6 +450,8 @@ txt = sprintf('%s',txt{:});
 
 %%-------------------------------------------------------------------------
 function txt=str2json(name,item,level,varargin)
+import spy.jsonlab.*
+
 txt={};
 if(~ischar(item))
         error('input is not a string');
@@ -486,6 +497,8 @@ txt = sprintf('%s',txt{:});
 
 %%-------------------------------------------------------------------------
 function txt=mat2json(name,item,level,varargin)
+import spy.jsonlab.*
+
 if(~isnumeric(item) && ~islogical(item))
         error('input is not an array');
 end
@@ -603,6 +616,8 @@ txt=sprintf('%s%s%s',txt,padding1,'}');
 
 %%-------------------------------------------------------------------------
 function txt=matlabobject2json(name,item,level,varargin)
+import spy.jsonlab.*
+
 if numel(item) == 0 %empty object
     st = struct();
 elseif numel(item) == 1 %
@@ -621,6 +636,8 @@ txt=struct2json(name,st,level,varargin{:});
 
 %%-------------------------------------------------------------------------
 function txt=matlabtable2json(name,item,level,varargin)
+import spy.jsonlab.*
+
 st=containers.Map();
 st('_TableRecords_')=table2cell(item);
 st('_TableRows_')=item.Properties.RowNames';
@@ -635,6 +652,7 @@ end
 
 %%-------------------------------------------------------------------------
 function txt=matdata2json(mat,level,varargin)
+import spy.jsonlab.*
 
 ws=struct('tab',sprintf('\t'),'newline',sprintf('\n'),'sep',sprintf(',\n'));
 ws=jsonopt('whitespaces_',ws,varargin{:});
@@ -700,6 +718,8 @@ end
 
 %%-------------------------------------------------------------------------
 function newname=checkname(name,varargin)
+import spy.jsonlab.*
+
 isunpack=jsonopt('UnpackHex',1,varargin{:});
 newname=name;
 if(isempty(regexp(name,'0x([0-9a-fA-F]+)_','once')))
@@ -729,6 +749,8 @@ end
 
 %%-------------------------------------------------------------------------
 function newstr=escapejsonstring(str)
+import spy.jsonlab.*
+
 newstr=str;
 isoct=isoctave;
 if(isoct)
