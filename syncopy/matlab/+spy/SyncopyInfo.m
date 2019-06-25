@@ -10,6 +10,7 @@ classdef SyncopyInfo
         data_dtype
         data_shape
         data_offset
+        data_checksum
         trl_dtype
         trl_shape
         trl_offset
@@ -64,20 +65,7 @@ classdef SyncopyInfo
         end
         
         function write_to_file(obj, filename)
-            try % try using jsonlab
-                savejson('', struct(obj), filename);
-            catch me
-                if strcmp(me.identifier, 'MATLAB:UndefinedFunction')
-                jsonStr = jsonencode(obj);
-                jsonStr = strrep(jsonStr, ',', sprintf(',\r'));
-                jsonStr = strrep(jsonStr, '[{', sprintf('[\r{\r'));
-                jsonStr = strrep(jsonStr, '}]', sprintf('\r}\r]'));
-                fid = fopen(filename, 'w');
-                fprintf(fid, jsonStr);
-                fclose(fid);
-                end
-            end
-            
+            spy.jsonlab.savejson('', struct(obj), filename);
         end
         
     end
