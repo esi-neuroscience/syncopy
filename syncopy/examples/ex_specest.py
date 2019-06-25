@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 13:08:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-24 13:33:49>
+# Last modification time: <2019-06-25 16:56:40>
 
 # Builtin/3rd party package imports
 import dask.distributed as dd
@@ -36,7 +36,32 @@ if __name__ == "__main__":
                      np.ones((int(ns/5), )),
                      np.ones((int(ns/5), )) * np.pi]).T
 
-    from syncopy.datatype import padding
+    from syncopy.datatype import AnalogData, SpectralData, StructDict, padding
+    from syncopy.specest import freqanalysis
+
+    # Constructe simple trigonometric signal to check FFT consistency: each
+    # channel is a sine wave of frequency `freqs[nchan]` with single unique
+    # amplitude `amp` and sampling frequency `fs`
+    nChannels = 32
+    nTrials = 8
+    fs = 1024
+    fband = np.linspace(0, fs/2, int(np.floor(fs/2) + 1))
+    freqs = np.random.choice(fband[1:-1], size=nChannels, replace=False)
+    amp = np.pi
+    phases = np.random.permutation(np.linspace(0, 2*np.pi, nChannels))
+    t = np.linspace(0, nTrials, nTrials*fs)
+    sig = np.zeros((t.size, nChannels), dtype="float32")
+    for nchan in range(nChannels):
+        sig[:, nchan] = amp*np.sin(2*np.pi*freqs[nchan]*t + phases[nchan])
+
+    trialdefinition = np.zeros((nTrials, 3), dtype="int")
+    for ntrial in range(nTrials):
+        trialdefinition[ntrial, :] = np.array([ntrial*fs, (ntrial + 1)*fs, 0])
+
+    adata = AnalogData(data=sig, samplerate=fs,
+                       trialdefinition=trialdefinition)
+    
+    
 
     sys.exit()
     

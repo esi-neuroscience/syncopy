@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-23 10:30:57>
+# Last modification time: <2019-06-25 15:51:04>
 
 # Builtin/3rd party package imports
 import os
@@ -528,16 +528,49 @@ def unwrap_cfg(func):
     """
     Decorator that unwraps cfg object in function call
     """
-    
+
     @functools.wraps(func)
     def wrapper_cfg(*args, **kwargs):
 
-        # If a non-`None` `cfg` keyword is found, vet it and ensure no other
-        # (potentially conflicting) keyword arguments have been provided.
+        # First, parse positional arguments for dict-type inputs
+        cfg = None
+        k = 0
+        for argidx, arg in enumerate(args):
+            if isinstance(arg, dict):
+                cfgidx = argidx
+                k += 1
+
+        # If a dict was found, assume it's a `cfg` dict and extract it from
+        # the positional argument list; if more than one dict was found, abort
+        # IMPORTANT: create a copy of `cfg` using `StructDict` constructor to
+        # not manipulate `cfg` in user's namespace!
+        if k == 1:
+            args = list(args)
+            cfg = spy.StructDict(args.pop(cfgidx))
+        elif k > 1:
+            raise SPYValueError(legal="single `cfg` input",
+                                varname="cfg",
+                                actual="{0:d} `cfg` objects in input arguments".format(k))
+
+        # Now parse provided keywords for `cfg` entry - if `cfg` was already
+        # provided as positional argument, abort
+        # IMPORTANT: create a copy of `cfg` using `StructDict` constructor to
+        # not manipulate `cfg` in user's namespace!
         if kwargs.get("cfg") is not None:
+            if cfg:
+                lgl = "`cfg` either as positional or keyword argument, not both"
+                raise SPYValueError(legal=lgl, varname="cfg")
+            cfg = spy.StructDict(kwargs.pop("cfg"))
             if not isinstance(cfg, dict):
-                raise SPYTypeError(kwargs["cfg"], varname="cfg", expected="dictionary-like")
-            defaults = get_defaults(freqanalysis)
+                raise SPYTypeError(kwargs["cfg"], varname="cfg",
+                                   expected="dictionary-like")
+
+        # If `cfg` was detected either in positional or keyword arguments, process it
+        if cfg:
+
+            # If a method is called using `cfg`, non-default values for
+            # keyword arguments *have* to be provided within the `cfg`
+            defaults = get_defaults(func)
             for key, value in kwargs.items():
                 if defaults[key] != value:
                     raise SPYValueError(legal="no keyword arguments",
@@ -551,10 +584,23 @@ def unwrap_cfg(func):
                     cfg[key] = True
                 elif cfg[key] == "no":
                     cfg[key] = False
-            return func(*args, **kwargs["cfg"])
+
+            # If `cfg` contains keys 'data' or 'dataset' extract corresponding
+            # entry and make it a positional argument (abort if both 'data'
+            # and 'dataset' are present)
+            data = cfg.pop("data", None)
+            if cfg.get("dataset"):
+                if data:
+                    lgl = "either 'data' or 'dataset' field in `cfg`, not both"
+                    raise SPYValueError(legal=lgl, varname="cfg")
+                data = cfg.pop("dataset")
+            if data:
+                args = [data] + args
+
+            # Call function with modified positional/keyword arguments
+            return func(*args, **cfg)
 
         # No meaningful `cfg` keyword found, proceed with regular function call
-        else:
-            return func(*args, **kwargs)
-        
+        return func(*args, **kwargs)
+
     return wrapper_cfg

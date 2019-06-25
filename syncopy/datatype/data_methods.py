@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-24 16:18:02>
+# Last modification time: <2019-06-25 12:41:27>
 
 # Builtin/3rd party package imports
 import numbers
@@ -616,7 +616,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
 
 
 def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
-            postpadlength=None, unit="samples", create_new=True, cfg=None):
+            postpadlength=None, unit="samples", create_new=True):
     """
     data can be array/syncopy object
 

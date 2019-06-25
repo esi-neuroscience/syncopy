@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-13 13:03:52>
+# Last modification time: <2019-06-25 14:28:22>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -177,6 +177,11 @@ class BaseData(ABC):
         if self.__class__.__name__ == "EventData":
             self._dimlabels["eventid"] = np.unique(self.data[:,self.dimord.index("eventid")])
 
+        # In case we're working with an `AnalogData` object, tentatively fill up channel labels
+        if self.__class__.__name__ == "AnalogData":
+            channel = ["channel" + str(i + 1) for i in range(self.data.shape[self.dimord.index("channel")])]
+            self.channel = np.array(channel)
+            
         # In case we're working with an `AnaData` object, fill up eventid's
         if self.__class__.__name__ == "EventData":
             self._dimlabels["eventid"] = np.unique(self.data[:,self.dimord.index("eventid")])

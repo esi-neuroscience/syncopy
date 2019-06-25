@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-21 14:46:19>
+# Last modification time: <2019-06-25 14:38:15>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -150,12 +150,6 @@ class ContinuousData(BaseData, ABC):
                 
                 # First, fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
-
-                # If necessary, construct list of channel labels (parsing is done by setter)
-                channel = kwargs.get("channel")
-                if isinstance(channel, str):
-                    channel = [channel + str(i + 1) for i in range(self.data.shape[self.dimord.index("channel")])]
-                self.channel = np.array(channel)
 
         # Dummy assignment: if we have no data but channel labels, assign bogus to tigger setter warning
         else:

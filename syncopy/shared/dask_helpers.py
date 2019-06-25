@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-22 12:38:16
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-22 17:10:53>
+# Last modification time: <2019-06-25 17:04:31>
 
 # Builtin/3rd party package imports
 import os
@@ -12,6 +12,9 @@ import sys
 import socket
 import subprocess
 import getpass
+import time
+import numpy as np
+from dask_jobqueue import SLURMCluster
 from datetime import datetime
 from tqdm import tqdm
 if sys.platform == "win32":
@@ -34,7 +37,7 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     """
     Coming soon(ish)
     """
-    
+
     # Retrieve all partitions currently available in SLURM
     out, err = subprocess.Popen("sinfo -h -o %P",
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -43,10 +46,10 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
         msg = "SLURM queuing system from node {}".format(socket.gethostname())
         raise SPYIOError(msg)
     options = out.split()
-    
+
     # Make sure we're in a valid partition (exclude IT partitions from output message)
     if partition not in options:
-        valid = list(set(options).difference(["DEV", "ESI*", "PPC"])) 
+        valid = list(set(options).difference(["DEV", "PPC"]))
         raise SPYValueError(legal="'" + "or '".join(opt + "' " for opt in valid),
                             varname="partition", actual=partition)
 
@@ -60,7 +63,7 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     if mem_per_job is not None:
         if not isinstance(mem_per_job, str):
             raise SPYTypeError(mem_per_job, varname="mem_per_job", expected="string")
-        if not any [szstr in mem_per_job for sz_str in ["MB", "GB"]]:
+        if not any(szstr in mem_per_job for szstr in ["MB", "GB"]):
             lgl = "string representation of requested memory (e.g., '8GB', '12000MB')"
             raise SPYValueError(legal=lgl, varname="mem_per_job", actual=mem_per_job)
 
@@ -83,7 +86,7 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
         mem_per_job = str(mem_lim) + "GB"
     else:
         if "MB" in mem_per_job:
-            mem_req = round(int(mem_per_job[:mem_per_job.find("MB")])/1000, 1)
+            mem_req = round(int(mem_per_job[:mem_per_job.find("MB")]) / 1000, 1)
             if int(mem_req) == mem_req:
                 mem_req = int(mem_req)
         else:
@@ -107,14 +110,14 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
                       ntype="int_like", lims=[1, 8])
     except Exception as exc:
         raise exc
-    
+
     n_cores = kwargs.get("n_cores", 1)
     try:
         scalar_parser(n_cores, varname="n_cores",
                       ntype="int_like", lims=[1, np.inf])
     except Exception as exc:
         raise exc
-    
+
     slurm_wdir = kwargs.get("slurmWorkingDirectory", None)
     if slurm_wdir is None:
         usr = getpass.getuser()
@@ -126,7 +129,7 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
             io_parser(slurm_wdir, varname="slurmWorkingDirectory", isfile=False)
         except Exception as exc:
             raise exc
-    
+
     # Create `SLURMCluster` object using provided parameters
     out_files = os.path.join(slurm_wdir, "slurm-%j.out")
     cluster = SLURMCluster(cores=n_cores,
@@ -149,14 +152,15 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
 
     # Highlight how to connect to dask performance monitor
     print("Cluster dashboard accessible at {}".format(cluster.dashboard_link))
-    
+
     return cluster
+
 
 def _cluster_waiter(cluster, timeout):
     """
     Local helper that can be called recursively
     """
-    
+
     # Wait until all workers have been started successfully or we run out of time
     wrkrs = cluster._count_active_workers()
     to = str(datetime.timedelta(seconds=timeout))[2:]
@@ -201,4 +205,3 @@ def _cluster_waiter(cluster, timeout):
                     sys.exit()
 
     return
-

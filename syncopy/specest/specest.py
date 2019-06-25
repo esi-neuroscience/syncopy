@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-24 09:10:57>
+# Last modification time: <2019-06-25 16:56:12>
 
 # Builtin/3rd party package imports
 import sys
@@ -47,10 +47,10 @@ __all__ = ["freqanalysis"]
 @unwrap_cfg
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, pad='nextpow2', padtype='zero',
-                 padlength=None, polyremoval=False, polyorder=None, 
+                 padlength=None, polyremoval=False, polyorder=None,
                  taper="hann", tapsmofrq=None, keeptapers=True,
                  wav="Morlet", toi=0.1, width=6,
-                 out=None, cfg=None, **kwargs):
+                 out=None, **kwargs):
     """
     Explain taperopt...
     Explain default of toi (value b/w 0 and 1 indicating percentage of samplerate
@@ -92,20 +92,28 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise SPYTypeError(lcls[vname], varname=vname, expected="Bool")
 
     # Ensure padding selection makes sense (just leverage `padding`'s error checking)
-    try:
-        padding(data.trials[0], padtype, pad=pad, padlength=padlength, prepadlength=True)
-    except Exception as exc:
-        raise exc
+    if pad is not None:
+        try:
+            padding(data.trials[0], padtype, pad=pad, padlength=padlength,
+                    prepadlength=True)
+        except Exception as exc:
+            raise exc
 
     # For vetting `toi` and `foi`: get timing information of input object
     timing = np.array([np.array([-data.t0[k], end - start - data.t0[k]])/data.samplerate
                        for k, (start, end) in enumerate(data.sampleinfo)])
-    minTrialLength = timing[0, :].max() - timing[1, :].min()
 
     # Construct array of maximally attainable frequency band and set/align `foi`
-    minSampleNum = minTrialLength*data.samplerate
+    minSampleNum = np.diff(data.sampleinfo).min()
+    if pad:
+        minSamplePos = np.diff(data.sampleinfo).argmin()
+        minSampleNum = padding(data.trials[minSamplePos], padtype, pad=pad,
+                               padlength=padlength, prepadlength=True).shape[timeAxis]
+    minTrialLength = minSampleNum/data.samplerate
     nFreq = int(np.floor(minSampleNum / 2) + 1)
     freqs = np.linspace(0, data.samplerate/2, nFreq)
+
+    # Match desired frequencies as close as possible to actually attainable freqs
     if foi is not None:
         try:
             array_parser(foi, varname="foi", hasinf=False, hasnan=False,
@@ -114,11 +122,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise exc
         foi = np.array(foi)
         foi.sort()
-
-        # Match desired frequencies as close as possible to actually attainable freqs
         foi = foi[foi <= freqs.max()]
         foi = foi[foi >= freqs.min()]
-        foi = freqs[np.unique(np.searchsorted(freqs, foi))]
+        foi = freqs[np.unique(np.searchsorted(freqs, foi, side="right") - 1)]
     else:
         foi = freqs
 
@@ -159,7 +165,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             # Cortical Networks Predicts Perception", Neuron, 2011
             if tapsmofrq is None:
                 foimax = foi.max()
-                tapsmofrq = (foimax*2**(3/4/2) - foimax*2**(-3/4/2))/2
+                tapsmofrq = (foimax * 2**(3/4/2) - foimax * 2**(-3/4/2)) / 2
             else:
                 try:
                     scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[1, np.inf])
@@ -292,21 +298,12 @@ def mtmfft(trl_dat, dt, timeAxis,
         dat = trl_dat.T.squeeze()       # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
-    nSamples = dat.shape[0]
-    nChannels = dat.shape[1]
 
     # Padding (updates no. of samples)
-    padWidth = np.zeros((dat.ndim, 2), dtype=int)
-    if pad == "nextpow2":
-        padWidth[0, 0] = _nextpow2(nSamples) - nSamples
-    if padtype == "zero":
-        dat = np.pad(dat, pad_width=padWidth,
-                     mode="constant", constant_values=0)
+    if pad is not None:
+        dat = padding(dat, padtype, pad=pad, padlength=padlength, prepadlength=True)
     nSamples = dat.shape[0]
-
-    ff = padding(dat, padtype, pad=pad, padlength=padlength, prepadlength=True)
-    if not np.any(np.isclose(ff, dat)):
-        print("ERRRRRRRRRRRRRRORRRRRRRRRRRRRRRRRRRR")
+    nChannels = dat.shape[1]
 
     # Construct at least 1 and max. 50 taper(s)
     if taper == spwin.dpss and (not taperopt):
@@ -319,10 +316,10 @@ def mtmfft(trl_dat, dt, timeAxis,
     nFreq = int(np.floor(nSamples / 2) + 1)
     fidx = slice(None)
     if foi is not None:
-        freqs = np.linspace(0, 1/(2*dt), nFreq)
+        freqs = np.linspace(0, 1 / (2 * dt), nFreq)
         foi = foi[foi <= freqs.max()]
         foi = foi[foi >= freqs.min()]
-        fidx = np.unique(np.searchsorted(freqs, foi))
+        fidx = np.searchsorted(freqs, foi, side="right") - 1
         nFreq = fidx.size
     outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
 
@@ -337,7 +334,7 @@ def mtmfft(trl_dat, dt, timeAxis,
         chunkShape = tuple(shp)
     spec = np.full(chunkShape, np.nan, dtype=spectralDTypes[output_fmt])
     fill_idx = tuple([slice(None, dim) for dim in outShape[2:]])
-    
+
     # Actual computation
     for taperIdx, taper in enumerate(win):
         if dat.ndim > 1:
