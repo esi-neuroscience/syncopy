@@ -1,4 +1,4 @@
-function dtype = matlab_to_numpy_dtype(matType)
+function dtype = dtype_mat2py(matType)
 
 if ~ischar(matType)
     matType = class(matType);
