@@ -2,15 +2,16 @@ classdef SyncopyInfo
     % Class for required fields in Syncopy INFO file
     
     properties
+        filename
         dimord
         version
         log
         cfg
-        data
         data_dtype
         data_shape
         data_offset
         data_checksum
+        checksum_algorithm
         trl_dtype
         trl_shape
         trl_offset
@@ -20,7 +21,33 @@ classdef SyncopyInfo
         hdr
     end
     
+    properties ( Access = private, Constant = true )
+        supportedDataTypes = {'int8', 'uint8', 'int16', 'uint16', ...
+            'int32', 'uint32', 'int64', 'uint64', ...
+            'float32', 'float64', ...
+            'complex64', 'complex128'};
+    end
+    
     methods
+        function obj = SyncopyInfo(infoStruct)
+            if nargin > 0
+                if ischar(infoStruct) 
+                    assert(exist(infoStruct, 'file') == 2)
+                    infoStruct = spy.jsonlab.loadjson(infoStruct);
+                end
+                
+                fields = fieldnames(infoStruct);
+                for iField = 1:length(fields)
+                    name = fields{iField};
+                    if ~isprop(obj, name) || isempty(infoStruct.(name))
+                        continue
+                    end
+                    obj.(name) = infoStruct.(name);
+                    
+                end
+            end
+        end
+        
         function obj = set.dimord(obj, value)
             assert(iscell(value), 'dimord must be cell array of strings')
             assert(all(cellfun(@ischar, value)), 'dimord must be cell array of strings')
@@ -35,33 +62,34 @@ classdef SyncopyInfo
         % FIXME: implement other set functions as sanity checks
         
         function obj = set.data_dtype(obj, value)
-            switch value
-                case {'double', 'float64'}
-                    value = 'float64';
-                case {'single', 'float32'}
-                    value = 'float32';
-                case {'uint8', 'uint16', 'uint32', 'uint64', ...
-                        'int8', 'int16', 'int32', 'int64'}
-                    
-                otherwise
-                    error('Unsupported data type %s', value)
-            end
+            assert(ismember(value, obj.supportedDataTypes), ...
+                'Unsupported dtype %s', value)
             obj.data_dtype = value;
         end
         
         function obj = set.trl_dtype(obj, value)
-            switch value
-                case 'double'
-                    value = 'float64';
-                case 'single'
-                    value = 'float32';
-                case {'uint8', 'uint16', 'uint32', 'uint64', ...
-                        'int8', 'int16', 'int32', 'int64'}
-                    
-                otherwise
-                    error('Unsupported data type %s', value)
-            end
+            assert(ismember(value, obj.supportedDataTypes), ...
+                'Unsupported dtype %s', value)
             obj.trl_dtype = value;
+        end
+        
+        function output_struct = struct(obj)
+            properties = fieldnames(obj); % works on structs & classes (public properties)
+            for i = 1:length(properties)
+                val = obj.(properties{i});
+                if ~isstruct(val) && ~isobject(val)
+                    output_struct.(properties{i}) = val;
+                else
+                    if isa(val, 'serial') || isa(val, 'visa') || isa(val, 'tcpip')
+                        % don't convert communication objects
+                        continue
+                    end
+                    temp = obj2struct(val);
+                    if ~isempty(temp)
+                        output_struct.(properties{i}) = temp;
+                    end
+                end
+            end
         end
         
         function write_to_file(obj, filename)

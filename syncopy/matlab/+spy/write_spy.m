@@ -1,27 +1,24 @@
-function write_spy(filename, data, trialdata, ...
+function [hdfFile, jsonFile, spyInfo] = write_spy(filename, data, trialdata, ...
     log, samplerate, version, channel, dimord)
 
 [path, base, ext] = fileparts(filename);
 
-randomHash = spy.hash.DataHash(now, 'SHA-1');
-randomHash = randomHash(1:4);
-
 %% HDF5 data file
-hdfFile = fullfile(path, [base, '.', randomHash, '.dat']);
+hdfFile = fullfile(path, [base, '.ang']);
 
-% dataset
+% datasets
 dclass = 'AnalogData';
 
 dataSize = size(data);
 dataSize = dataSize(end:-1:1);
 
-h5create(hdfFile, ['/' dclass], dataSize)
+h5create(hdfFile, ['/' dclass], dataSize, 'Datatype', class(data) )
 h5write(hdfFile, ['/' dclass], permute(data, ndims(data):-1:1))
 
 trlSize = size(trialdata);
 trlSize = trlSize(end:-1:1);
-h5create(hdfFile, '/trialdefinition', trlSize)
-h5write(hdfFile, '/trialdefinition', trialdata')
+h5create(hdfFile, '/trialdefinition', trlSize, 'Datatype', class(trialdata))
+h5write(hdfFile, '/trialdefinition', (trialdata-1)')
 
 % attributes
 h5writeatt(hdfFile, '/', 'log', log)
@@ -36,21 +33,24 @@ cellstr_h5writeatt(hdfFile, 'dimord', dimord)
 %% json info file
 hdfHash = spy.hash.DataHash(hdfFile, 'SHA-1', 'file');
 
-jsonFile = fullfile(path, [base, '.', randomHash, '.info']);
+jsonFile = fullfile(path, [base, '.ang.info']);
 spyInfo = spy.SyncopyInfo();
 
-
+spyInfo.filename = hdfFile;
 spyInfo.log = log;
 spyInfo.version = version;
-spyInfo.data = filename;
 spyInfo.dimord = dimord;
 spyInfo.samplerate = samplerate;
 spyInfo.type = dclass;
+spyInfo.channel = channel;
 spyInfo.data_checksum = hdfHash;
-% FIXME: h5write always writes double precision
-% spyInfo.data_dtype = spy.matlab_to_numpy_dtype(data);
-spyInfo.data_dtype = 'float64';
+spyInfo.checksum_algorithm = 'SHA-1';
+spyInfo.data_dtype = spy.dtype_mat2py(data);
 spyInfo.data_shape = size(data);
+spyInfo.data_offset = h5getoffset(hdfFile, ['/' dclass]);
+spyInfo.trl_shape = size(trialdata);
+spyInfo.trl_dtype = spy.dtype_mat2py(trialdata);
+spyInfo.trl_offset = h5getoffset(hdfFile, '/trialdefinition');
 spyInfo.write_to_file(jsonFile)
 
 
@@ -84,3 +84,13 @@ H5T.close(VLstr_type);
 H5S.close(dspace);
 H5A.close(attr);
 H5F.close(fid);
+
+function offsetBytes = h5getoffset(filename, dataset)
+
+fid = H5F.open(filename);
+dset_id = H5D.open(fid, dataset);
+offsetBytes = H5D.get_offset(dset_id);
+H5D.close(dset_id);
+H5F.close(fid);
+
+
