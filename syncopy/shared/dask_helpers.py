@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-22 12:38:16
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-25 17:04:31>
+# Last modification time: <2019-06-26 14:53:57>
 
 # Builtin/3rd party package imports
 import os
@@ -15,7 +15,8 @@ import getpass
 import time
 import numpy as np
 from dask_jobqueue import SLURMCluster
-from datetime import datetime
+from dask.distributed import Client
+from datetime import datetime, timedelta
 from tqdm import tqdm
 if sys.platform == "win32":
     # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
@@ -33,9 +34,14 @@ __all__ = ["esi_cluster_setup"]
 
 # Setup SLURM cluster
 def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
-                      timeout=180, **kwargs):
+                      timeout=180, interactive=True, start_client=True,
+                      **kwargs):
     """
     Coming soon(ish)
+
+    if start_client = True, client is returned (underlying SLURMCluster 
+    instance is accessible via client.cluster), otherwise cluster object is
+    returned
     """
 
     # Retrieve all partitions currently available in SLURM
@@ -74,12 +80,13 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
         mem_lim = int(partition[:idx])
     else:
         if partition == "PREPO":
-            mem_lim = "16GB"
+            mem_lim = 16
         else:
             if mem_per_job is None:
                 lgl = "explicit memory amount as required by partition '{}'"
                 raise SPYValueError(legal=lgl.format(partition),
                                     varname="mem_per_job", actual=mem_per_job)
+        mem_lim = np.inf
 
     # Consolidate requested memory with chosen partition (or assign default memory)
     if mem_per_job is None:
@@ -103,6 +110,14 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     except Exception as exc:
         raise exc
 
+    # Determine if cluster allocation is happening interactively
+    if not isinstance(interactive, bool):
+        raise SPYTypeError(interactive, varname="interactive", expected="bool")
+
+    # Determine if a dask client was requested
+    if not isinstance(start_client, bool):
+        raise SPYTypeError(start_client, varname="start_client", expected="bool")
+
     # Set/get "hidden" kwargs
     workers_per_job = kwargs.get("workers_per_job", 1)
     try:
@@ -124,6 +139,7 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
         slurm_wdir = "/mnt/hpx/slurm/{usr:s}/{usr:s}_{date:s}"
         slurm_wdir = slurm_wdir.format(usr=usr,
                                        date=datetime.now().strftime('%Y%m%d-%H%M%S'))
+        os.makedirs(slurm_wdir, exist_ok=True)
     else:
         try:
             io_parser(slurm_wdir, varname="slurmWorkingDirectory", isfile=False)
@@ -148,23 +164,33 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     cluster.scale(total_workers)
 
     # Fire up waiting routine to avoid premature cluster setups
-    _cluster_waiter(cluster, timeout)
+    _cluster_waiter(cluster, total_workers, timeout, interactive)
 
+    # Kill a zombie cluster in non-interactive mode
+    if not interactive and cluster._count_active_workers() == 0:
+        cluster.close()
+        err = "SLURM swarm could not be started within given time-out " +\
+              "interval of {0:d} seconds"
+        raise TimeoutError(err.format(timeout))
+    
     # Highlight how to connect to dask performance monitor
     print("Cluster dashboard accessible at {}".format(cluster.dashboard_link))
 
-    return cluster
+    # If client was requested, return that instead of the created cluster
+    if start_client:
+        return Client(cluster)
+    else:
+        return cluster
 
 
-def _cluster_waiter(cluster, timeout):
+def _cluster_waiter(cluster, total_workers, timeout, interactive):
     """
     Local helper that can be called recursively
     """
 
     # Wait until all workers have been started successfully or we run out of time
     wrkrs = cluster._count_active_workers()
-    to = str(datetime.timedelta(seconds=timeout))[2:]
-    total_workers = cluster._count_active_and_pending_workers()
+    to = str(timedelta(seconds=timeout))[2:]
     fmt = "{desc}: {n}/{total} \t[elapsed time {elapsed} | timeout at " + to + "]"
     ani = tqdm(desc="SLURM workers ready", total=total_workers,
                leave=True, bar_format=fmt, initial=wrkrs)
@@ -178,7 +204,7 @@ def _cluster_waiter(cluster, timeout):
     ani.close()
 
     # If we ran out of time before all workers could be started, ask what to do
-    if counter == timeout:
+    if counter == timeout and interactive:
         msg = "SLURM swarm could not be started within given time-out " +\
               "interval of {0:d} seconds"
         print(msg.format(timeout))
@@ -187,7 +213,7 @@ def _cluster_waiter(cluster, timeout):
         choice = user_input(query.format(wrkrs), valid=["k", "a", "c"])
 
         if choice == "k":
-            _cluster_waiter(cluster, 60)
+            _cluster_waiter(cluster, total_workers, 60, True)
         elif choice == "a":
             print("Closing cluster...")
             cluster.close()
@@ -198,7 +224,7 @@ def _cluster_waiter(cluster, timeout):
                         "[k]eep waiting for 60s or [a]bort?"
                 choice = user_input(query, valid=["k", "a"])
                 if choice == "k":
-                    _cluster_waiter(cluster, 60)
+                    _cluster_waiter(cluster, total_workers, 60, True)
                 else:
                     print("Closing cluster...")
                     cluster.close()

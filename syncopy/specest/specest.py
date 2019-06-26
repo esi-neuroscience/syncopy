@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-25 16:56:12>
+# Last modification time: <2019-06-26 17:43:27>
 
 # Builtin/3rd party package imports
 import sys
@@ -31,6 +31,7 @@ from syncopy import __dask__
 if __dask__:
     import dask
     import dask.array as da
+    import dask.bag as db
     import dask.distributed as dd
 
 # Module-wide output specs
@@ -295,9 +296,10 @@ def mtmfft(trl_dat, dt, timeAxis,
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
-        dat = trl_dat.T.squeeze()       # does not copy but creates view of `trl_dat`
+        dat = trl_dat.T       # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
+    dat = dat.squeeze()
 
     # Padding (updates no. of samples)
     if pad is not None:
@@ -357,27 +359,50 @@ class MultiTaperFFT(ComputationalRoutine):
 
     def compute_parallel(self, data, out):
 
-        # Point to trials on disk by using delayed **static** method calls
-        lazy_trial = dask.delayed(data._copy_trial, traverse=False)
-        lazy_trls = [lazy_trial(trialno,
-                                data._filename,
-                                data.dimord,
-                                data.sampleinfo,
-                                data.hdr)
-                     for trialno in range(data.sampleinfo.shape[0])]
+        # Depending on equidistance of trials use dask arrays directly... 
+        if np.all([data._shapes[0] == sh for sh in data._shapes]):
 
-        # Stack trials along new (3rd) axis inserted on the left
-        trl_block = da.stack([da.from_delayed(trl, shape=data._shapes[sk],
-                                              dtype=data.data.dtype)
-                              for sk, trl in enumerate(lazy_trls)])
+            # Point to trials on disk by using delayed **static** method calls
+            lazy_trial = dask.delayed(data._copy_trial, traverse=False)
+            lazy_trls = [lazy_trial(trialno,
+                                    data._filename,
+                                    data.dimord,
+                                    data.sampleinfo,
+                                    data.hdr)
+                         for trialno in range(len(data.trials))]
 
-        # Use `map_blocks` to compute spectra for each trial in the
-        # constructed dask array
-        specs = trl_block.map_blocks(self.computeFunction,
-                                     *self.argv, **self.cfg,
-                                     dtype="complex",
-                                     chunks=self.cfg["chunkShape"],
-                                     new_axis=[0])
+            # Stack trials along new (3rd) axis inserted on the left
+            trl_block = da.stack([da.from_delayed(trl, shape=data._shapes[sk],
+                                                  dtype=data.data.dtype)
+                                  for sk, trl in enumerate(lazy_trls)])
+
+            # Use `map_blocks` to compute spectra for each trial in the
+            # constructed dask array
+            specs = trl_block.map_blocks(self.computeFunction,
+                                         *self.argv, **self.cfg,
+                                         dtype="complex",
+                                         chunks=self.cfg["chunkShape"],
+                                         new_axis=[0])
+
+        # ...or work w/bags to account for diverging trial dimensions
+        else:
+
+            # Construct bag of trials
+            trl_bag = db.from_sequence([trialno for trialno in
+                                        range(len(data.trials))]).map(data._copy_trial,
+                                                                      data._filename,
+                                                                      data.dimord,
+                                                                      data.sampleinfo,
+                                                                      data.hdr)
+            
+            # Map each element of the bag onto `mtmfft` to get a new bag
+            specs_bag = trl_bag.map(self.computeFunction, *self.argv, **self.cfg)
+
+            # The "spectral bag" only contains elements of identical dimension that
+            # can be stacked
+            specs = da.stack([sbag for sbag in specs_bag])
+
+        import ipdb; ipdb.set_trace()
 
         # Average across trials if wanted
         if not self.cfg["keeptrials"]:
@@ -385,10 +410,13 @@ class MultiTaperFFT(ComputationalRoutine):
 
         # Re-arrange dimensional order
         specs = specs.reshape(self.outputShape)
-
+        
         return specs
 
     def compute_sequential(self, data, out):
+
+        print(self.cfg["chunkShape"])
+        print(self.outputShape)
 
         # Iterate across trials and write directly to HDF5 container (flush
         # after each trial to avoid memory leakage) - if trials are not to

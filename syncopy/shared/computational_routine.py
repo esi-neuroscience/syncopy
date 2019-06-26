@@ -4,7 +4,7 @@
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-17 16:18:18>
+# Last modification time: <2019-06-26 16:55:54>
 
 # Builtin/3rd party package imports
 import os
@@ -45,7 +45,7 @@ class ComputationalRoutine(ABC):
 
     def initialize(self, data):
         """
-        chunkShape is CRUCIAL if trials have different lenghts!
+        Coming soon...
         """
 
         # Get output chunk-shape and dtype of first trial
@@ -131,7 +131,6 @@ class ComputationalRoutine(ABC):
             nchk = len(da_arr.chunksize)
             writers = da_arr.map_blocks(self._write_parallel, nchk, self.vdsdir,
                                         dtype="int", chunks=(1,)*nchk)
-            # res = result.persist()
 
             # Make sure that all futures are actually executed (i.e., data is written
             # to the container)

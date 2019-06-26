@@ -4,7 +4,7 @@
 #
 # Created: 2019-06-17 09:45:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-25 17:57:58>
+# Last modification time: <2019-06-26 17:13:38>
 
 import os
 import tempfile
@@ -14,10 +14,14 @@ import numpy as np
 from numpy.lib.format import open_memmap
 from syncopy.datatype import AnalogData, SpectralData, StructDict, padding
 from syncopy.datatype.base_data import VirtualData
+from syncopy.shared import esi_cluster_setup
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.specest import freqanalysis
-from syncopy.tests.misc import generate_artifical_data
+from syncopy.tests.misc import generate_artifical_data, is_slurm_node
 
+# Decorator to run SLURM tests only on cluster nodes
+skip_without_slurm = pytest.mark.skipif(not is_slurm_node(),
+                                        reason="not running on cluster node")
 
 class TestMTMFFT(object):
 
@@ -184,9 +188,6 @@ class TestMTMFFT(object):
         freqanalysis(cfg)
         assert cfg.out.taper.size == 1
 
-    def test_slurm(self):
-        pass
-
     def test_vdata(self):
         # test constant padding w/`VirtualData` objects (trials have identical lengths)
         with tempfile.TemporaryDirectory() as tdir:
@@ -201,5 +202,60 @@ class TestMTMFFT(object):
                                 keeptapers=False, output="abs", pad="relative",
                                 padlength=npad)
             assert (np.diff(avdata.sampleinfo)[0][0] + npad)/2 + 1 == spec.freq.size
+
+    @skip_without_slurm
+    def test_slurm(self):
+        # # start dask client running atop of SLURM cluster
+        # client = esi_cluster_setup(partition="DEV", mem_per_job="4GB",
+        #                            timeout=600, interactive=False,
+        #                            start_client=True)
+        import dask.distributed as dd
+        client = dd.Client()
+
+        # create uniform `cfg` for testing on SLURM
+        cfg = StructDict()
+        cfg.method = "mtmfft"
+        cfg.taper = "dpss"
+        cfg.tapsmofrq = 9.3
+        
+        # simplest case: equidistant trial spacing, all in memory
+        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                          inmemory=True)
+        spec = freqanalysis(artdata, cfg)
+        assert spec.data.is_virtual
+        assert len(spec.data.virtual_sources()) == self.nTrials
+        
+        # non-equidistant trial spacing
+        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                          inmemory=True, equidistant=False)
+        spec = freqanalysis(artdata, cfg)
+        timeAxis = artdata.dimord.index("time")
+        mintrlno = np.diff(artdata.sampleinfo).argmin()
+        tmp = padding(artdata.trials[mintrlno], "zero", spec.cfg.pad,
+                      spec.cfg.padlength, prepadlength=True)
+        assert spec.freq.size == int(np.floor(tmp.shape[timeAxis] / 2) + 1)
+
+        # equidistant trial spacing average tapers
+        cfg.output = "abs"
+        cfg.keeptapers = False
+        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                          inmemory=False)
+        spec = freqanalysis(artdata, cfg)
+        assert spec.taper.size == 1
+
+        # non-equidistant, overlapping trial spacing, throw away trials and tapers
+        cfg.keeptrials = "no"
+        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                          inmemory=False, equidistant=False,
+                                          overlapping=True)
+        spec = freqanalysis(artdata, cfg)
+        timeAxis = artdata.dimord.index("time")
+        mintrlno = np.diff(artdata.sampleinfo).argmin()
+        tmp = padding(artdata.trials[mintrlno], "zero", spec.cfg.pad,
+                      spec.cfg.padlength, prepadlength=True)
+        assert spec.freq.size == int(np.floor(tmp.shape[timeAxis] / 2) + 1)
+        assert spec.taper.size == 1
+        assert len(spec.time) == 1
+        assert spec.time[0] == 1
 
     # FIXME: check polyorder/polyremoval once supported

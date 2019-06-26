@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-25 14:38:15>
+# Last modification time: <2019-06-26 17:45:52>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -98,20 +98,20 @@ class ContinuousData(BaseData, ABC):
         idx = tuple(idx)
         if hdr is None:
             # Generic case: data is either a HDF5 dataset or memmap
-            try:
-                with h5py.File(filename, mode="r") as h5f:
-                    h5keys = list(h5f.keys())
-                    cnt = [h5keys.count(dclass) for dclass in spy.datatype.__all__ \
-                           if not (inspect.isfunction(getattr(spy.datatype, dclass)))]
-                    if len(h5keys) == 1:
-                        arr = h5f[h5keys[0]][idx]
-                    else:
-                        arr = h5f[spy.datatype.__all__[cnt.index(1)]][idx]
-            except:
-                try:
-                    arr = np.array(open_memmap(filename, mode="c")[idx])
-                except:
-                    raise SPYIOError(filename)
+            # try:
+            with h5py.File(filename, mode="r", swmr=True) as h5f:
+                h5keys = list(h5f.keys())
+                cnt = [h5keys.count(dclass) for dclass in spy.datatype.__all__ \
+                       if not (inspect.isfunction(getattr(spy.datatype, dclass)))]
+                if len(h5keys) == 1:
+                    arr = h5f[h5keys[0]][idx]
+                else:
+                    arr = h5f[spy.datatype.__all__[cnt.index(1)]][idx]
+            # except:
+            #     try:
+            #         arr = np.array(open_memmap(filename, mode="c")[idx])
+            #     except:
+            #         raise SPYIOError(filename)
             return arr
         else:
             # For VirtualData objects

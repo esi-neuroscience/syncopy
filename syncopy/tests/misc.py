@@ -4,7 +4,7 @@
 # 
 # Created: 2019-04-18 14:41:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-24 16:00:39>
+# Last modification time: <2019-06-26 11:34:06>
 
 import subprocess
 import sys
@@ -40,6 +40,22 @@ def is_win_vm():
         return False
 
 
+def is_slurm_node():
+    """
+    Returns `True` if code is running on a SLURM-managed cluster node, `False`
+    otherwise
+    """
+
+    # Simply test if the srun command is available
+    out, err = subprocess.Popen("srun --version",
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, shell=True).communicate()
+    if len(out) > 0:
+        return True
+    else:
+        return False
+
+    
 def generate_artifical_data(nTrials=2, nChannels=2, equidistant=True,
                             overlapping=False, inmemory=True, dimord="default"):
     """
