@@ -21,6 +21,8 @@ function opt=varargin2struct(varargin)
 %
 % -- this function is part of jsonlab toolbox (http://iso2mesh.sf.net/cgi-bin/index.cgi?jsonlab)
 %
+import spy.jsonlab.*
+
 
 len=length(varargin);
 opt=struct;

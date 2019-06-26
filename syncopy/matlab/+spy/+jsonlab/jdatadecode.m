@@ -49,6 +49,7 @@ function newdata=jdatadecode(data,varargin)
 %
 % -- this function is part of JSONLab toolbox (http://iso2mesh.sf.net/cgi-bin/index.cgi?jsonlab)
 %
+    import spy.jsonlab.*
 
     newdata=data;
     if(~isstruct(data))

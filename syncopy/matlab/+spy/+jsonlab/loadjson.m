@@ -68,6 +68,8 @@ function data = loadjson(fname,varargin)
 %
 % -- this function is part of JSONLab toolbox (http://iso2mesh.sf.net/cgi-bin/index.cgi?jsonlab)
 %
+import spy.jsonlab.*
+
 
     if(regexp(fname,'^\s*(?:\[.*\])|(?:\{.*\})\s*$','once'))
        string=fname;
@@ -127,6 +129,8 @@ end
 %% all functions
 
 function [object, pos,index_esc] = parse_array(inputstr, pos, esc, index_esc, varargin) % JSON array is written in row-major order
+    import spy.jsonlab.*
+
     pos=parse_char(inputstr, pos, '[');
     object = cell(0, 1);
     arraydepth=jsonopt('arraydepth_',1,varargin{:});
@@ -256,6 +260,8 @@ end
 %%-------------------------------------------------------------------------
 
 function pos=parse_char(inputstr, pos, c)
+    import spy.jsonlab.*
+
     pos=skip_whitespace(pos, inputstr);
     if pos > length(inputstr) || inputstr(pos) ~= c
         pos=error_pos(sprintf('Expected %c at position %%d', c),inputstr,pos);
@@ -267,6 +273,8 @@ end
 %%-------------------------------------------------------------------------
 
 function [c, pos] = next_char(inputstr, pos)
+    import spy.jsonlab.*
+
     pos=skip_whitespace(pos, inputstr);
     if pos > length(inputstr)
         c = [];
@@ -277,6 +285,8 @@ end
 
 %%-------------------------------------------------------------------------
 function [str, pos,index_esc] = parseStr(inputstr, pos, esc, index_esc, varargin)
+    import spy.jsonlab.*
+
     if inputstr(pos) ~= '"'
         pos=error_pos('String starting with " expected at position %d',inputstr,pos);
     else
@@ -340,6 +350,8 @@ end
 %%-------------------------------------------------------------------------
 
 function [num, pos] = parse_number(inputstr, pos, varargin)
+    import spy.jsonlab.*
+
     currstr=inputstr(pos:min(pos+30,end));
     [num, one, err, delta] = sscanf(currstr, '%f', 1);
     if ~isempty(err)
@@ -350,6 +362,8 @@ end
 %%-------------------------------------------------------------------------
 
 function [val, pos,index_esc] = parse_value(inputstr, pos, esc, index_esc, varargin)
+    import spy.jsonlab.*
+
     len=length(inputstr);
     if(isfield(varargin{1},'progressbar_'))
         waitbar(pos/len,varargin{1}.progressbar_,'loading ...');
@@ -392,6 +406,9 @@ end
 
 %%-------------------------------------------------------------------------
 function [object, pos, index_esc] = parse_object(inputstr, pos, esc, index_esc, varargin)
+    import spy.jsonlab.*
+
+
     pos=parse_char(inputstr, pos, '{');
     object = [];
     [cc,pos]=next_char(inputstr,pos);
@@ -421,6 +438,8 @@ end
 %%-------------------------------------------------------------------------
 
 function pos=error_pos(msg, inputstr, pos)
+    import spy.jsonlab.*
+
     poShow = max(min([pos-15 pos-1 pos pos+20],length(inputstr)),1);
     if poShow(3) == poShow(2)
         poShow(3:4) = poShow(2)+[0 -1];  % display nothing after
@@ -437,6 +456,8 @@ function str = valid_field(str,varargin)
 % followed by any combination of letters, digits, and underscores.
 % Invalid characters will be converted to underscores, and the prefix
 % "x0x[Hex code]_" will be added if the first character is not a letter.
+    import spy.jsonlab.*
+
     if(~isempty(regexp(str,'^[^A-Za-z]','once')))
         if(~isoctave && str(1)+0 > 255)
             str=regexprep(str,'^([^A-Za-z])','x0x${sprintf(''%X'',unicode2native($1))}_','once');
@@ -468,6 +489,8 @@ end
 %%-------------------------------------------------------------------------
 
 function newpos=skip_whitespace(pos, inputstr)
+    import spy.jsonlab.*
+
     newpos=pos;
     while newpos <= length(inputstr) && isspace(inputstr(newpos))
         newpos = newpos + 1;
@@ -476,6 +499,8 @@ end
 
 %%-------------------------------------------------------------------------
 function newstr=unescapejsonstring(str)
+    import spy.jsonlab.*
+
     newstr=str;
     if(~ischar(str))
         return;
@@ -489,6 +514,9 @@ end
 
 %%-------------------------------------------------------------------------
 function arraystr=sscanf_prep(str)
+    import spy.jsonlab.*
+
+
     arraystr=str;
     if(regexp(str,'"','once'))
         arraystr=regexprep(arraystr,'"_NaN_"','NaN');
@@ -500,6 +528,8 @@ end
 
 %%-------------------------------------------------------------------------
 function [obj, nextidx,nextdim]=parse2darray(inputstr,startpos,arraystr)
+    import spy.jsonlab.*
+
     rowend=match_bracket(inputstr,startpos);
     rowstr=sscanf_prep(inputstr(startpos-1:rowend));
     [vec1, nextdim, errmsg, nextidx]=sscanf(rowstr,'%f,',[1 inf]);
