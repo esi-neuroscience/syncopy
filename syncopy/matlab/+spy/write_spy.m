@@ -1,5 +1,44 @@
-function [hdfFile, jsonFile, spyInfo] = write_spy(filename, data, trialdata, ...
-    log, samplerate, version, channel, dimord)
+function [hdfFile, jsonFile, spyInfo] = write_spy(filename, ...
+    data, trialdefinition, ...
+    log, samplerate, version, channel, dimord, ...
+    varargin)
+% SPY.WRITE_SPY Write Syncopy data array to HDF5/JSON files
+%
+%   write_spy(filename, data, trialdata, log, samplerate, version, channel, dimord, ...
+%             {dclass, cfg})
+%
+% See also 
+%
+
+p = inputParser;
+p.addRequired('filename', ...
+    @(x)validateattributes(x,{'char', 'string'},{'nonempty', 'scalartext'},'','FILENAME'));
+p.addRequired('data', ...
+    @(x)validateattributes(x,{'numeric'},{'nonempty', '2d'},'','DATA'));
+p.addRequired('trialdefinition', ...
+    @(x)validateattributes(x,{'numeric'},{'nonempty', '2d', 'ncols', 3},'','trialdefinition'));
+p.addRequired('log', ...
+    @(x)validateattributes(x,{'char', 'string'},{'nonempty', 'scalartext'},'','LOG'));
+p.addRequired('samplerate', ...
+    @(x)validateattributes(x,{'numeric'},{'nonempty', 'scalar'},'','SAMPLERATE'));
+p.addRequired('version', ...
+    @(x)validateattributes(x,{'char'},{'nonempty', 'scalartext'},'','VERSION'));
+p.addRequired('channel', ...
+    @(x)validateattributes(x,{'cell'},{'nonempty', '2d'},'','CHANNEL'));
+p.addRequired('dimord', ...
+    @(x)validateattributes(x,{'cell'},{'nonempty', '2d'},'','DIMORD'));
+p.addOptional('dclass', 'AnalogData');
+p.addOptional('cfg', []);
+
+p.parse(filename, data, trialdefinition, log, samplerate, version, channel, dimord, varargin{:});
+
+dclass = p.Results.dclass;
+cfg = p.Results.cfg;
+
+%% defaults
+% if ~exist('dclass', 'var'); dclass = 'AnalogData'; end
+% if ~exist('cfg', 'var'); cfg = []; end
+% 
 
 [path, base, ext] = fileparts(filename);
 
@@ -7,18 +46,20 @@ function [hdfFile, jsonFile, spyInfo] = write_spy(filename, data, trialdata, ...
 hdfFile = fullfile(path, [base, '.ang']);
 
 % datasets
-dclass = 'AnalogData';
+
+
 
 dataSize = size(data);
 dataSize = dataSize(end:-1:1);
 
+delete(hdfFile)
 h5create(hdfFile, ['/' dclass], dataSize, 'Datatype', class(data) )
 h5write(hdfFile, ['/' dclass], permute(data, ndims(data):-1:1))
 
-trlSize = size(trialdata);
+trlSize = size(trialdefinition);
 trlSize = trlSize(end:-1:1);
-h5create(hdfFile, '/trialdefinition', trlSize, 'Datatype', class(trialdata))
-h5write(hdfFile, '/trialdefinition', (trialdata-1)')
+h5create(hdfFile, '/trialdefinition', trlSize, 'Datatype', class(trialdefinition))
+h5write(hdfFile, '/trialdefinition', (trialdefinition-1)')
 
 % attributes
 h5writeatt(hdfFile, '/', 'log', log)
@@ -48,9 +89,15 @@ spyInfo.checksum_algorithm = 'SHA-1';
 spyInfo.data_dtype = spy.dtype_mat2py(data);
 spyInfo.data_shape = size(data);
 spyInfo.data_offset = h5getoffset(hdfFile, ['/' dclass]);
-spyInfo.trl_shape = size(trialdata);
-spyInfo.trl_dtype = spy.dtype_mat2py(trialdata);
+spyInfo.trl_shape = size(trialdefinition);
+spyInfo.trl_dtype = spy.dtype_mat2py(trialdefinition);
 spyInfo.trl_offset = h5getoffset(hdfFile, '/trialdefinition');
+spyInfo.cfg = [];
+spyInfo.cfg.previous = cfg;
+spyInfo.cfg.function = 'write_spy';
+spyInfo.cfg.time = datestr(now);
+spyInfo.cfg.user = char(java.lang.System.getProperty('user.name'));
+spyInfo.cfg.hostname = char(java.net.InetAddress.getLocalHost().getHostName());
 spyInfo.write_to_file(jsonFile)
 
 

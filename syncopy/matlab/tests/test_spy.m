@@ -1,6 +1,6 @@
 
 addpath('..')
-
+clear
 
 
 %% generate data
@@ -39,8 +39,9 @@ delete([fullfile(filename) '.*'])
 loaded = [];
 [loaded.data, loaded.trl, loaded.attrs, loaded.json] = spy.load_spy(fullfile([filename '.ang']));
 
-% compare json
-assert(isequal(generated.spyInfo, spy.SyncopyInfo(jsonFile)))
+% compare generated and loaded INFO
+loaded.spyInfo = spy.SyncopyInfo(jsonFile);
+assert(isequal(generated.spyInfo, loaded.spyInfo))
 
 % compare HDF attributes
 assert(isequal(generated.data, loaded.data))
@@ -50,3 +51,28 @@ assert(isequal('AnalogData', loaded.attrs.type))
 assert(isequal(generated.dimord, loaded.attrs.dimord))
 assert(isequal(generated.version, loaded.attrs.version))
 assert(isequal(generated.channel, loaded.attrs.channel))
+
+
+%% write Fieldtrip raw data to SPY
+
+data = [];
+data.label = {'channel1', 'channel2'};
+data.fsample = 1000;
+data.trial = {rand(2, 3000), rand(2,3200)};
+data.time = cellfun(@(x) (0:length(x)-1)/data.fsample, data.trial, 'unif', false);
+data.dimord = '{rpt}_label_time';
+data.sampleinfo = [1 3000; ...
+                   3001 6200];
+data = ft_checkdata(data, 'datatype', 'raw', 'hassampleinfo', 'yes');
+data.trialinfo = [65 34 1; 69 25 2];
+
+cfg = [];
+cfg.filename = 'ft_testdata';
+
+spy.ft_write_spy(cfg, data)
+
+[data, trl, attrs, json] = spy.load_spy([cfg.filename, '.ang']);
+
+
+% spy.ft_write_spy
+
