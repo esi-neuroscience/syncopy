@@ -4,7 +4,7 @@
 # 
 # Created: 2019-04-18 14:41:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-26 11:34:06>
+# Last modification time: <2019-06-27 11:18:01>
 
 import subprocess
 import sys
@@ -85,6 +85,19 @@ def generate_artifical_data(nTrials=2, nChannels=2, equidistant=True,
         sig += np.random.standard_normal(sig.shape).astype(sig.dtype) * 0.5
         out.data = sig
     else:
+        # h5f = h5py.File(out._filename, "w", libver="latest")
+        # h5f.swmr_mode = True
+        # shp = list(sig.shape)
+        # shp[timeAxis] *= nTrials
+        # dset = h5f.create_dataset("AnalogData", shape=tuple(shp), dtype=sig.dtype)
+        # shp = [slice(None), slice(None)]
+        # for iTrial in range(nTrials):
+        #     shp[timeAxis] = slice(iTrial*t.size, (iTrial + 1)*t.size)
+        #     dset[tuple(shp)] = sig + np.random.standard_normal(sig.shape).astype(sig.dtype) * 0.5
+        #     dset.flush()
+        # h5f.close()
+        # # import ipdb; ipdb.set_trace()
+        # out.data = h5py.File(out._filename, "r", swmr=True)["AnalogData"]
         with h5py.File(out._filename, "w") as h5f:
             shp = list(sig.shape)
             shp[timeAxis] *= nTrials

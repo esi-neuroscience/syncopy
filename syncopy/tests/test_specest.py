@@ -4,18 +4,17 @@
 #
 # Created: 2019-06-17 09:45:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-26 17:13:38>
+# Last modification time: <2019-06-27 16:38:44>
 
 import os
 import tempfile
 import pytest
-import time
 import numpy as np
 from numpy.lib.format import open_memmap
 from syncopy.datatype import AnalogData, SpectralData, StructDict, padding
 from syncopy.datatype.base_data import VirtualData
 from syncopy.shared import esi_cluster_setup
-from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.shared.errors import SPYValueError
 from syncopy.specest import freqanalysis
 from syncopy.tests.misc import generate_artifical_data, is_slurm_node
 
@@ -23,7 +22,8 @@ from syncopy.tests.misc import generate_artifical_data, is_slurm_node
 skip_without_slurm = pytest.mark.skipif(not is_slurm_node(),
                                         reason="not running on cluster node")
 
-class TestMTMFFT(object):
+
+class TestMTMFFT():
 
     # Construct simple trigonometric signal to check FFT consistency: each
     # channel is a sine wave of frequency `freqs[nchan]` with single unique
@@ -31,18 +31,18 @@ class TestMTMFFT(object):
     nChannels = 32
     nTrials = 8
     fs = 1024
-    fband = np.linspace(0, fs/2, int(np.floor(fs/2) + 1))
+    fband = np.linspace(0, fs / 2, int(np.floor(fs / 2) + 1))
     freqs = np.random.choice(fband[1:-1], size=nChannels, replace=False)
     amp = np.pi
-    phases = np.random.permutation(np.linspace(0, 2*np.pi, nChannels))
-    t = np.linspace(0, nTrials, nTrials*fs)
+    phases = np.random.permutation(np.linspace(0, 2 * np.pi, nChannels))
+    t = np.linspace(0, nTrials, nTrials * fs)
     sig = np.zeros((t.size, nChannels), dtype="float32")
     for nchan in range(nChannels):
-        sig[:, nchan] = amp*np.sin(2*np.pi*freqs[nchan]*t + phases[nchan])
+        sig[:, nchan] = amp * np.sin(2 * np.pi * freqs[nchan] * t + phases[nchan])
 
     trialdefinition = np.zeros((nTrials, 3), dtype="int")
     for ntrial in range(nTrials):
-        trialdefinition[ntrial, :] = np.array([ntrial*fs, (ntrial + 1)*fs, 0])
+        trialdefinition[ntrial, :] = np.array([ntrial * fs, (ntrial + 1) * fs, 0])
 
     adata = AnalogData(data=sig, samplerate=fs,
                        trialdefinition=trialdefinition)
@@ -78,7 +78,7 @@ class TestMTMFFT(object):
         # `foi` lims outside valid bounds
         with pytest.raises(SPYValueError):
             freqanalysis(self.adata, method="mtmfft", taper="hann",
-                         foi=[0.5, self.fs/3])
+                         foi=[0.5, self.fs / 3])
         with pytest.raises(SPYValueError):
             freqanalysis(self.adata, method="mtmfft", taper="hann",
                          foi=[1, self.fs])
@@ -201,30 +201,28 @@ class TestMTMFFT(object):
             spec = freqanalysis(avdata, method="mtmfft", taper="dpss",
                                 keeptapers=False, output="abs", pad="relative",
                                 padlength=npad)
-            assert (np.diff(avdata.sampleinfo)[0][0] + npad)/2 + 1 == spec.freq.size
+            assert (np.diff(avdata.sampleinfo)[0][0] + npad) / 2 + 1 == spec.freq.size
 
     @skip_without_slurm
     def test_slurm(self):
-        # # start dask client running atop of SLURM cluster
-        # client = esi_cluster_setup(partition="DEV", mem_per_job="4GB",
-        #                            timeout=600, interactive=False,
-        #                            start_client=True)
-        import dask.distributed as dd
-        client = dd.Client()
+        # start dask client running atop of SLURM cluster
+        client = esi_cluster_setup(partition="DEV", mem_per_job="4GB",
+                                   timeout=600, interactive=False,
+                                   start_client=True)
 
         # create uniform `cfg` for testing on SLURM
         cfg = StructDict()
         cfg.method = "mtmfft"
         cfg.taper = "dpss"
         cfg.tapsmofrq = 9.3
-        
+
         # simplest case: equidistant trial spacing, all in memory
         artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
                                           inmemory=True)
         spec = freqanalysis(artdata, cfg)
         assert spec.data.is_virtual
         assert len(spec.data.virtual_sources()) == self.nTrials
-        
+
         # non-equidistant trial spacing
         artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
                                           inmemory=True, equidistant=False)
@@ -256,6 +254,6 @@ class TestMTMFFT(object):
         assert spec.freq.size == int(np.floor(tmp.shape[timeAxis] / 2) + 1)
         assert spec.taper.size == 1
         assert len(spec.time) == 1
-        assert spec.time[0] == 1
+        assert len(spec.time[0]) == 1
 
     # FIXME: check polyorder/polyremoval once supported

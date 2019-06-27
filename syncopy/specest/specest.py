@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-26 17:43:27>
+# Last modification time: <2019-06-27 16:39:12>
 
 # Builtin/3rd party package imports
 import sys
@@ -264,24 +264,23 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         "wavelet": WaveletTransform(1/data.samplerate, timeAxis, foi, **mth_input)
     }
 
-    # Detect if dask client is running
+    # Detect if dask client is running and ensure `data` is openend read-only
+    # to permit concurrent reading access for workers
+    md = data.mode
     try:
         dd.get_client()
         use_dask = True
+        data.mode = "r"
     except ValueError:
         use_dask = False
 
-    # Initialize computational routine
+    # Perform actual computation
     specestMethod = methods[method]
-    specestMethod.initialize(data)
-
-    # If trials are supposed to be thrown away, modify output dimension
-    # FIXME: include keeptrials as keyword in ComputationalRoutine
-    if not keeptrials:
-        shp = list(specestMethod.outputShape)
-        shp[0] = 1
-        specestMethod.outputShape = tuple(shp)
+    specestMethod.initialize(data, keeptrials=keeptrials)
     specestMethod.compute(data, out, parallel=use_dask, log_dict=log_dct)
+
+    # Reset data access mode (in case it was changed for parallel computation)
+    data.mode = md
 
     # Either return newly created output container or simply quit
     return out if new_out else None
@@ -394,7 +393,7 @@ class MultiTaperFFT(ComputationalRoutine):
                                                                       data.dimord,
                                                                       data.sampleinfo,
                                                                       data.hdr)
-            
+
             # Map each element of the bag onto `mtmfft` to get a new bag
             specs_bag = trl_bag.map(self.computeFunction, *self.argv, **self.cfg)
 
@@ -402,7 +401,7 @@ class MultiTaperFFT(ComputationalRoutine):
             # can be stacked
             specs = da.stack([sbag for sbag in specs_bag])
 
-        import ipdb; ipdb.set_trace()
+        # import ipdb; ipdb.set_trace()
 
         # Average across trials if wanted
         if not self.cfg["keeptrials"]:
@@ -410,7 +409,7 @@ class MultiTaperFFT(ComputationalRoutine):
 
         # Re-arrange dimensional order
         specs = specs.reshape(self.outputShape)
-        
+
         return specs
 
     def compute_sequential(self, data, out):

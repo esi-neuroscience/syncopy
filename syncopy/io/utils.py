@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 14:30:17
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-11 09:45:35>
+# Last modification time: <2019-06-27 15:36:26>
 
 # Builtin/3rd party package imports
 import os
@@ -46,7 +46,7 @@ def hash_file(fname, bsize=65536):
     with open(fname, "rb") as f:
         for block in iter(lambda: f.read(bsize), b""):
             hash.update(block)
-    return hash.hexdigest()    
+    return hash.hexdigest()
 
 
 def write_access(directory):

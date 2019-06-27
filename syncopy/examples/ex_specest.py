@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 13:08:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-26 17:19:57>
+# Last modification time: <2019-06-27 12:36:53>
 
 # Builtin/3rd party package imports
 import dask.distributed as dd
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     cfg.method = "mtmfft"
     cfg.taper = "dpss"
     cfg.tapsmofrq = 9.3
-    artdata = generate_artifical_data(nTrials=5, nChannels=16, equidistant=True, inmemory=False)
+    artdata = generate_artifical_data(nTrials=5, nChannels=16, equidistant=False, inmemory=True)
     spec = freqanalysis(artdata, cfg)
     
 

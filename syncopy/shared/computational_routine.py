@@ -4,7 +4,7 @@
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-26 16:55:54>
+# Last modification time: <2019-06-27 17:03:49>
 
 # Builtin/3rd party package imports
 import os
@@ -24,6 +24,13 @@ __all__ = []
 
 
 class ComputationalRoutine(ABC):
+    """Abstract class for encapsulating sequential/parallel algorithms
+
+    This class provides a template for implementing algorithmic strategies 
+    in Syncopy. Every computational method in Syncopy consists of a core 
+    routine, the :func:`computeFunction`, which can be executed either 
+    sequentially or fully parallel. 
+    """
 
     # Placeholder: the actual workhorse
     @staticmethod
@@ -43,7 +50,7 @@ class ComputationalRoutine(ABC):
         self.dtype = None
         self.vdsdir = None
 
-    def initialize(self, data):
+    def initialize(self, data, keeptrials=True):
         """
         Coming soon...
         """
@@ -70,6 +77,10 @@ class ComputationalRoutine(ABC):
             self.outputShape = (chk_arr[:, 0].sum(),) + chunkShape[1:]
         else:
             self.outputShape = (len(data.trials),) + chunkShape[1:]
+
+        # In case the result is averaged across trials
+        if not keeptrials:
+            self.outputShape = (1, ) + self.outputShape[1:]
 
         # Assign computed chunkshape to cfg dict
         self.cfg["chunkShape"] = chunkShape

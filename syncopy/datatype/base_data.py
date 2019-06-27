@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-25 14:28:22>
+# Last modification time: <2019-06-27 15:28:57>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -70,12 +70,12 @@ class BaseData(ABC):
                 fpath, fname = io_parser(in_data, varname="filename", isfile=True, exists=True)
             except Exception as exc:
                 raise exc
-            in_data = os.path.join(fpath, fname)
+            in_data = os.path.join(fpath, fname)  # ensure `in_data` is absolute path
 
             md = self.mode
             if md == "w":
                 md = "r+"
-                
+
             is_npy = False
             is_hdf = False
             try:
@@ -129,8 +129,8 @@ class BaseData(ABC):
             self._filename = os.path.abspath(fn)
             self._data = in_data
             
-        # If input is an array, either fill existing data property or directly attach it
-        # and create backing container on disk
+        # If input is an array, either fill existing data property
+        # or create backing container on disk
         elif isinstance(in_data, np.ndarray):
             try:
                 array_parser(in_data, varname="data", dims=self._ndim)
@@ -149,10 +149,14 @@ class BaseData(ABC):
                     print("SyNCoPy core - data: WARNING >> Input data-type mismatch << ")
                 self._data[...] = in_data
             else:
-                self._data = in_data
                 self._filename = self._gen_filename()
+                dsetname = self.__class__.__name__
                 with h5py.File(self._filename, "w") as h5f:
-                    h5f.create_dataset(self.__class__.__name__, data=in_data)
+                    h5f.create_dataset(dsetname, data=in_data)
+                md = self.mode
+                if md == "w":
+                    md = "r+"
+                self._data = h5py.File(self._filename, md)[dsetname]
 
         # If input is a `VirtualData` object, make sure the object class makes sense
         elif isinstance(in_data, VirtualData):
@@ -173,16 +177,12 @@ class BaseData(ABC):
         if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
             self._dimlabels["sample"] = np.unique(self.data[:,self.dimord.index("sample")])
 
-        # In case we're working with an `EventData` object, fill up eventid's
-        if self.__class__.__name__ == "EventData":
-            self._dimlabels["eventid"] = np.unique(self.data[:,self.dimord.index("eventid")])
-
         # In case we're working with an `AnalogData` object, tentatively fill up channel labels
-        if self.__class__.__name__ == "AnalogData":
+        if any(["ContinuousData" in str(base) for base in self.__class__.__mro__]):
             channel = ["channel" + str(i + 1) for i in range(self.data.shape[self.dimord.index("channel")])]
             self.channel = np.array(channel)
-            
-        # In case we're working with an `AnaData` object, fill up eventid's
+
+        # In case we're working with an `EventData` object, fill up eventid's
         if self.__class__.__name__ == "EventData":
             self._dimlabels["eventid"] = np.unique(self.data[:,self.dimord.index("eventid")])
 
@@ -212,14 +212,39 @@ class BaseData(ABC):
 
     @mode.setter
     def mode(self, md):
+
+        # Ensure input makes sense and we actually have permission to change
+        # the data access mode
         if not isinstance(md, str):
             raise SPYTypeError(md, varname="mode", expected="str")
         options = ["r", "r+", "w", "c"]
         if md not in options:
             lgl = "'" + "or '".join(opt + "' " for opt in options)
             raise SPYValueError(lgl, varname="mode", actual=md)
+        if isinstance(self.data, VirtualData):
+            print("syncopy core - mode: WARNING >> Cannot change read-only " +
+                  "access mode of VirtualData datasets << ")
+            return
+
+        # If data is already attached to the object, change its access mode
+        # as requested (if `md` is actually any different from `self.mode`)
+        # NOTE: prevent accidental data loss by not allowing mode ="w" in h5py
+        if self.data is not None:
+            if md == self._mode:
+                return
+            if md == "w":
+                md = "r+"
+            self.data.flush()
+            if isinstance(self.data, np.memmap):
+                self._data = None
+                self._data = open_memmap(self._filename, mode=md)
+            else:
+                dsetname = self.data.name
+                self._data.file.close()
+                self._data = h5py.File(self._filename, mode=md)[dsetname]
+
         self._mode = md
-            
+
     @property
     def sampleinfo(self):
         return self._sampleinfo
@@ -281,14 +306,15 @@ class BaseData(ABC):
     @abstractmethod
     def _get_trial(self, trialno):
         pass
-    
-    # Convenience function, wiping attached memmap
+
+    # Convenience function, wiping contents of backing device from memory
     def clear(self):
-        self.data.flush()
-        if isinstance(self.data, np.memmap):
-            filename, mode = self.data.filename, self.data.mode
-            self._data = None
-            self._data = open_memmap(filename, mode=mode)
+        if self.data is not None:
+            self.data.flush()
+            if isinstance(self.data, np.memmap):
+                filename, mode = self.data.filename, self.data.mode
+                self._data = None
+                self._data = open_memmap(filename, mode=mode)
         return
 
     # Return a (deep) copy of the current class instance
@@ -691,6 +717,10 @@ class VirtualData():
                                         mode="r", dtype=dtypes[k],
                                         shape=shapes[k]))
         return
+
+    # Ensure compatibility b/w `VirtualData`, HDF5 datasets and memmaps
+    def flush(self):
+        self.clear()
 
 
 class Indexer():

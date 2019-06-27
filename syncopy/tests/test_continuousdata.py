@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
 # Test proper functionality of SyNCoPy ContinousData-type classes
-# 
+#
 # Created: 2019-03-20 11:46:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-24 16:50:21>
+# Last modification time: <2019-06-27 14:54:05>
 
 import os
 import tempfile
@@ -18,16 +18,16 @@ from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests.misc import generate_artifical_data
 
 
-class TestAnalogData(object):
+class TestAnalogData():
 
     # Allocate test-dataset
     nc = 10
     ns = 30
-    data = np.arange(1, nc*ns + 1, dtype="float").reshape(ns, nc)
+    data = np.arange(1, nc * ns + 1, dtype="float").reshape(ns, nc)
     trl = np.vstack([np.arange(0, ns, 5),
                      np.arange(5, ns + 5, 5),
-                     np.ones((int(ns/5), )),
-                     np.ones((int(ns/5), )) * np.pi]).T
+                     np.ones((int(ns / 5), )),
+                     np.ones((int(ns / 5), )) * np.pi]).T
 
     def test_empty(self):
         dummy = AnalogData()
@@ -56,7 +56,7 @@ class TestAnalogData(object):
             dmap = open_memmap(fname, mode="r")
             vdata = VirtualData([dmap, dmap])
             dummy = AnalogData(vdata)
-            assert dummy.channel.size == 2*self.nc
+            assert dummy.channel.size == 2 * self.nc
             assert len(dummy._filename) == 2
             del dmap, dummy, vdata
 
@@ -152,7 +152,7 @@ class TestAnalogData(object):
         n_center = 5
         n_pre = 2
         n_post = 3
-        n_half = int(n_center/2)
+        n_half = int(n_center / 2)
 
         # dict for for calling `padding`
         lockws = {"center": {"padlength": n_center},
@@ -209,7 +209,7 @@ class TestAnalogData(object):
                         "prepost": [slice(None, n_pre), slice(-n_post, None)]}
 
         # expected shape of resulting array
-        expected_shape = {"center": self.data.shape[0] + 2*n_half,
+        expected_shape = {"center": self.data.shape[0] + 2 * n_half,
                           "pre": self.data.shape[0] + n_pre,
                           "post": self.data.shape[0] + n_post,
                           "prepost": self.data.shape[0] + n_pre + n_post}
@@ -262,22 +262,25 @@ class TestAnalogData(object):
         for pad, n_total in pad_count.items():
 
             n_fillin = n_total - self.ns
-            n_half = int(n_fillin/2)
+            n_half = int(n_fillin / 2)
 
             arr = padding(self.data, "zero", pad=pad, padlength=kws[pad])
             assert np.all(arr[:n_half, :] == 0)
             assert np.all(arr[-n_half:, :] == 0)
             assert arr.shape[0] == n_total
 
-            arr = padding(self.data, "zero", pad=pad, padlength=kws[pad], prepadlength=True)
+            arr = padding(self.data, "zero", pad=pad, padlength=kws[pad],
+                          prepadlength=True)
             assert np.all(arr[:n_fillin, :] == 0)
             assert arr.shape[0] == n_total
 
-            arr = padding(self.data, "zero", pad=pad, padlength=kws[pad], postpadlength=True)
+            arr = padding(self.data, "zero", pad=pad, padlength=kws[pad],
+                          postpadlength=True)
             assert np.all(arr[-n_fillin:, :] == 0)
             assert arr.shape[0] == n_total
 
-            arr = padding(self.data, "zero", pad=pad, padlength=kws[pad], prepadlength=True, postpadlength=True)
+            arr = padding(self.data, "zero", pad=pad, padlength=kws[pad],
+                          prepadlength=True, postpadlength=True)
             assert np.all(arr[:n_half, :] == 0)
             assert np.all(arr[-n_half:, :] == 0)
             assert arr.shape[0] == n_total
@@ -313,7 +316,7 @@ class TestAnalogData(object):
         for tk, trl in enumerate(adata.trials):
             assert "pad_width" in pad_list[tk].keys()
             assert "constant_values" in pad_list[tk].keys()
-            trl_time = (pad_list[tk]["pad_width"][timeAxis, :].sum() + trl.shape[timeAxis])/adata.samplerate
+            trl_time = (pad_list[tk]["pad_width"][timeAxis, :].sum() + trl.shape[timeAxis]) / adata.samplerate
             assert trl_time - total_time < 1/adata.samplerate
 
         # jumble axes of `AnalogData` object and compute max. trial length
@@ -357,23 +360,23 @@ class TestAnalogData(object):
             padding(adata, "zero", pad="maxlen", padlength=self.ns, prepadlength=True,
                     create_new=False)
 
-        # FIXME: implement as soon as object padding is supported
+        # FIXME: implement as soon as object padding is supported:
         # test absolute + time + non-equidistant!
         # test relative + time + non-equidistant + overlapping!
 
 
-class TestSpectralData(object):
+class TestSpectralData():
 
     # Allocate test-dataset
     nc = 10
     ns = 30
     nt = 5
     nf = 15
-    data = np.arange(1, nc*ns*nt*nf + 1).reshape(ns, nt, nf, nc)
+    data = np.arange(1, nc * ns * nt * nf + 1).reshape(ns, nt, nf, nc)
     trl = np.vstack([np.arange(0, ns, 5),
                      np.arange(5, ns + 5, 5),
-                     np.ones((int(ns/5), )),
-                     np.ones((int(ns/5), )) * np.pi]).T
+                     np.ones((int(ns / 5), )),
+                     np.ones((int(ns / 5), )) * np.pi]).T
     data2 = np.moveaxis(data, 0, -1)
 
     def test_empty(self):
