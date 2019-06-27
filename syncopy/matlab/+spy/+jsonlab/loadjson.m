@@ -256,6 +256,9 @@ function [object, pos,index_esc] = parse_array(inputstr, pos, esc, index_esc, va
     if(pbar>0)
         waitbar(pos/length(inputstr),pbar,'loading ...');
     end
+    if isempty(object)
+        object = [];
+    end
 end
 %%-------------------------------------------------------------------------
 
@@ -346,6 +349,9 @@ function [str, pos,index_esc] = parseStr(inputstr, pos, esc, index_esc, varargin
     end
     str=unescapejsonstring(str);
     pos=error_pos('End of file while expecting end of inputstr',inputstr,pos);
+    if isempty(str)
+        str = [];
+    end
 end
 %%-------------------------------------------------------------------------
 
@@ -402,6 +408,9 @@ function [val, pos,index_esc] = parse_value(inputstr, pos, esc, index_esc, varar
             end
     end
     pos=error_pos('Value expected at position %d',inputstr,pos);
+    if isempty(val)
+        val = [];
+    end
 end
 
 %%-------------------------------------------------------------------------
@@ -432,6 +441,9 @@ function [object, pos, index_esc] = parse_object(inputstr, pos, esc, index_esc, 
     if(isstruct(object) && jsonopt('JDataDecode',1,varargin{:})==1)
         varargin{:}.Recursive=0;
         object=jdatadecode(object,varargin{:});
+    end
+    if isempty(object)
+        object = [];
     end
 end
 
