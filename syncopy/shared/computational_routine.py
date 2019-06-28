@@ -4,7 +4,7 @@
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-27 17:03:49>
+# Last modification time: <2019-06-28 16:11:37>
 
 # Builtin/3rd party package imports
 import os
@@ -26,10 +26,65 @@ __all__ = []
 class ComputationalRoutine(ABC):
     """Abstract class for encapsulating sequential/parallel algorithms
 
-    This class provides a template for implementing algorithmic strategies 
+    This class provides a blueprint for implementing algorithmic strategies 
     in Syncopy. Every computational method in Syncopy consists of a core 
     routine, the :func:`computeFunction`, which can be executed either 
-    sequentially or fully parallel. 
+    sequentially or fully parallel. To unify common instruction sequences 
+    and minimize code redundancy, Syncopy's :class:`ComputationalRoutine`
+    manages all pre- and post-processing steps necessary during preparation 
+    and after termination of a calculation. This permits to focus exclusively 
+    on the implementation of the actual algorithmic details when including 
+    a new computational method in Syncopy. 
+
+    How to Write a :func:`computeFunction`
+    --------------------------------------
+
+    For enabling :class:`ComputationalRoutine` to perform all required 
+    computational management tasks, :func:`computeFunction` has to satisfy 
+    a few basic requirements. Syncopy leverages a hierarchical parallelization
+    paradigm whose low-level foundation is represented by trial-based parallelism (its 
+    open-ended higher levels may constitute by-object, by-experiment or 
+    by-session parallelization). With :func:`computeFunction` representing 
+    the computational core of an (arbitrarily complex) superseding algorithm, 
+    it has to be structured to support trial-based parallel computing. 
+    Specifically, this means the scope of work of a :func:`computeFunction` 
+    is **a single trial**. Note that this also implies that any parallelism
+    integrated in :func:`computeFunction` has to be designed with higher-level
+    parallel execution in mind (e.g., concurrent processing of sessions on 
+    top of trials). 
+
+    Technically, a :func:`computeFunction` is a regular stand-alone Python 
+    function that accepts a :class:`numpy.ndarray` as its first positional 
+    argument and supports (at least) the two keyword arguments `chunkShape` 
+    and `noCompute`. The :class:`numpy.ndarray` represents aggregate data from 
+    one trial (only data, no meta-information). Any required meta-information 
+    (like channel labels, trial definition records etc.) has to be passed 
+    to :func:`computeFunction` either as additional (2nd an onward) positional or named 
+    keyword argument (`chunkShape` and `noCompute` are the only reserved 
+    keywords).
+
+    the following basic requirements:
+
+    * more
+    * and more
+
+    Technically, a Syncopy :class:`ComputationalRoutine` wraps an external 
+    :func:`computeFunction` by executing all necessary auxiliary routines 
+    leading up to and post termination of the actual computation (memory 
+    pre-allocation, generation of parallel/sequential instruction trees, 
+    processing and storage of results, etc.). The operational principle of a
+    :class:`ComputationalRoutine` consists of two steps:
+
+    1. :func:`initialize`
+
+       Coming soon...
+
+
+    2. :func:`compute`
+
+       Coming soon...
+
+    And more...
     """
 
     # Placeholder: the actual workhorse

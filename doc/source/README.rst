@@ -16,7 +16,7 @@ Contents
    examples
    utils
 
-
+.. automodule:: syncopy.shared.computational_routine.ComputationalRoutine
 
 Indices and tables
 ==================
