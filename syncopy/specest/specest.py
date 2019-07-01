@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-27 16:39:12>
+# Last modification time: <2019-07-01 16:04:36>
 
 # Builtin/3rd party package imports
 import sys
@@ -146,7 +146,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     # Ensure consistency of method-specific options
     if method == "mtmfft":
-        
+
         options = ["hann", "dpss"]
         if taper not in options:
             lgl = "'" + "or '".join(opt + "' " for opt in options)
@@ -255,6 +255,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     mth_input = {}
     kws.remove("noCompute")
     kws.remove("chunkShape")
+    kws.append("keeptrials")
     for kw in kws:
         mth_input[kw] = lcls[kw]
 
@@ -276,7 +277,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     # Perform actual computation
     specestMethod = methods[method]
-    specestMethod.initialize(data, keeptrials=keeptrials)
+    specestMethod.initialize(data)
     specestMethod.compute(data, out, parallel=use_dask, log_dict=log_dct)
 
     # Reset data access mode (in case it was changed for parallel computation)
@@ -290,7 +291,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 def mtmfft(trl_dat, dt, timeAxis,
            taper=spwin.hann, taperopt={}, tapsmofrq=None,
            pad="nextpow2", padtype="zero", padlength=None, foi=None,
-           keeptapers=True, keeptrials=True, polyorder=None, output_fmt="pow",
+           keeptapers=True, polyorder=None, output_fmt="pow",
            noCompute=False, chunkShape=None):
 
     # Re-arrange array if necessary and get dimensional information
@@ -356,95 +357,10 @@ class MultiTaperFFT(ComputationalRoutine):
     def __init__(self, *argv, **kwargs):
         super().__init__(*argv, **kwargs)
 
-    def compute_parallel(self, data, out):
-
-        # Depending on equidistance of trials use dask arrays directly... 
-        if np.all([data._shapes[0] == sh for sh in data._shapes]):
-
-            # Point to trials on disk by using delayed **static** method calls
-            lazy_trial = dask.delayed(data._copy_trial, traverse=False)
-            lazy_trls = [lazy_trial(trialno,
-                                    data._filename,
-                                    data.dimord,
-                                    data.sampleinfo,
-                                    data.hdr)
-                         for trialno in range(len(data.trials))]
-
-            # Stack trials along new (3rd) axis inserted on the left
-            trl_block = da.stack([da.from_delayed(trl, shape=data._shapes[sk],
-                                                  dtype=data.data.dtype)
-                                  for sk, trl in enumerate(lazy_trls)])
-
-            # Use `map_blocks` to compute spectra for each trial in the
-            # constructed dask array
-            specs = trl_block.map_blocks(self.computeFunction,
-                                         *self.argv, **self.cfg,
-                                         dtype="complex",
-                                         chunks=self.cfg["chunkShape"],
-                                         new_axis=[0])
-
-        # ...or work w/bags to account for diverging trial dimensions
-        else:
-
-            # Construct bag of trials
-            trl_bag = db.from_sequence([trialno for trialno in
-                                        range(len(data.trials))]).map(data._copy_trial,
-                                                                      data._filename,
-                                                                      data.dimord,
-                                                                      data.sampleinfo,
-                                                                      data.hdr)
-
-            # Map each element of the bag onto `mtmfft` to get a new bag
-            specs_bag = trl_bag.map(self.computeFunction, *self.argv, **self.cfg)
-
-            # The "spectral bag" only contains elements of identical dimension that
-            # can be stacked
-            specs = da.stack([sbag for sbag in specs_bag])
-
-        # import ipdb; ipdb.set_trace()
-
-        # Average across trials if wanted
-        if not self.cfg["keeptrials"]:
-            specs = specs.mean(axis=0, keepdims=True)
-
-        # Re-arrange dimensional order
-        specs = specs.reshape(self.outputShape)
-
-        return specs
-
-    def compute_sequential(self, data, out):
-
-        print(self.cfg["chunkShape"])
-        print(self.outputShape)
-
-        # Iterate across trials and write directly to HDF5 container (flush
-        # after each trial to avoid memory leakage) - if trials are not to
-        # be preserved, compute average across trials manually to avoid
-        # allocation of unnecessarily large dataset
-        with h5py.File(out._filename, "r+") as h5f:
-            dset = h5f["SpectralData"]
-            if self.cfg["keeptrials"]:
-                for tk, trl in enumerate(tqdm(data.trials,
-                                              desc="Computing MTMFFT...")):
-                    dset[tk, ...] = self.computeFunction(trl,
-                                                         *self.argv,
-                                                         **self.cfg)
-                    h5f.flush()
-            else:
-                for trl in tqdm(data.trials,desc="Computing MTMFFT..."):
-                    dset[()] = np.nansum([dset, self.computeFunction(trl,
-                                                                     *self.argv,
-                                                                     **self.cfg)],
-                                         axis=0)
-                    h5f.flush()
-                dset[()] /= len(data.trials)
-
-        return
-
     def handle_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
-        if self.cfg["keeptrials"]:
+        if self.keeptrials:
             time = np.arange(len(data.trials))
             time = time.reshape((time.size, 1))
             out.sampleinfo = np.hstack([time, time + 1])
@@ -464,9 +380,7 @@ class MultiTaperFFT(ComputationalRoutine):
         else:
             nFreqs = self.outputShape[out.dimord.index("freq")]
             out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
-        # out.cfg = self.cfg
 
-        
 def wavelet(trl_dat, dt, timeAxis, foi,
             toi=0.1, polyorder=None, wav=spywave.Morlet,
             width=6, output_fmt="pow",
@@ -544,7 +458,7 @@ class WaveletTransform(ComputationalRoutine):
         specs = specs.reshape(self.outputShape)
 
         # Average across trials if wanted
-        if not self.cfg["keeptrials"]:
+        if not self.keeptrials:
             specs = specs.mean(axis=0)
 
         return specs

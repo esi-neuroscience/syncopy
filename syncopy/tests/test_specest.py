@@ -4,10 +4,11 @@
 #
 # Created: 2019-06-17 09:45:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-27 16:38:44>
+# Last modification time: <2019-07-01 16:28:13>
 
 import os
 import tempfile
+import inspect
 import pytest
 import numpy as np
 from numpy.lib.format import open_memmap
@@ -203,14 +204,24 @@ class TestMTMFFT():
                                 padlength=npad)
             assert (np.diff(avdata.sampleinfo)[0][0] + npad) / 2 + 1 == spec.freq.size
 
-    @skip_without_slurm
+    # @skip_without_slurm
     def test_slurm(self):
         # start dask client running atop of SLURM cluster
-        client = esi_cluster_setup(partition="DEV", mem_per_job="4GB",
-                                   timeout=600, interactive=False,
-                                   start_client=True)
+        # client = esi_cluster_setup(partition="DEV", mem_per_job="4GB",
+        #                            timeout=600, interactive=False,
+        #                            start_client=True)
+        import dask.distributed as dd
+        dd.Client()
 
-        # create uniform `cfg` for testing on SLURM
+        # collect all tests of current class and repeat them using dask
+        # (skip VirtualData tests since ``_copy_trial`` expects valid headers)
+        all_tests = [attr for attr in self.__dir__()
+                     if (inspect.ismethod(getattr(self, attr)) and attr != "test_slurm")]
+        all_tests.remove("test_vdata")
+        for test in all_tests:
+            getattr(self, test)()
+
+        # now create uniform `cfg` for remaining SLURM tests
         cfg = StructDict()
         cfg.method = "mtmfft"
         cfg.taper = "dpss"
@@ -241,7 +252,17 @@ class TestMTMFFT():
         spec = freqanalysis(artdata, cfg)
         assert spec.taper.size == 1
 
+        # equidistant trial spacing average trials
+        cfg.output = "abs"
+        cfg.keeptapers = True
+        cfg.keeptrials = False
+        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                          inmemory=False)
+        spec = freqanalysis(artdata, cfg)
+        assert len(spec.trials) == 1
+
         # non-equidistant, overlapping trial spacing, throw away trials and tapers
+        cfg.keeptapers = False
         cfg.keeptrials = "no"
         artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
                                           inmemory=False, equidistant=False,

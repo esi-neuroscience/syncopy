@@ -4,21 +4,31 @@
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-28 16:11:37>
+# Last modification time: <2019-07-01 17:37:51>
 
 # Builtin/3rd party package imports
 import os
+import sys
 import time
 import h5py
 import numpy as np
 from abc import ABC, abstractmethod
 from copy import copy
+from tqdm import tqdm
+if sys.platform == "win32":
+    # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
+    import colorama
+    colorama.deinit()
+    colorama.init(strip=False)
 
 # Local imports
 from .parsers import get_defaults
 from syncopy import __storage__, __dask__
 if __dask__:
+    import dask
     import dask.distributed as dd
+    import dask.array as da
+    import dask.bag as db
 
 __all__ = []
 
@@ -36,15 +46,14 @@ class ComputationalRoutine(ABC):
     on the implementation of the actual algorithmic details when including 
     a new computational method in Syncopy. 
 
-    How to Write a :func:`computeFunction`
-    --------------------------------------
-
+    Designing a :func:`computeFunction`
+    -----------------------------------
     For enabling :class:`ComputationalRoutine` to perform all required 
-    computational management tasks, :func:`computeFunction` has to satisfy 
+    computational management tasks, a :func:`computeFunction` has to satisfy 
     a few basic requirements. Syncopy leverages a hierarchical parallelization
     paradigm whose low-level foundation is represented by trial-based parallelism (its 
     open-ended higher levels may constitute by-object, by-experiment or 
-    by-session parallelization). With :func:`computeFunction` representing 
+    by-session parallelization). Thus, with :func:`computeFunction` representing 
     the computational core of an (arbitrarily complex) superseding algorithm, 
     it has to be structured to support trial-based parallel computing. 
     Specifically, this means the scope of work of a :func:`computeFunction` 
@@ -54,37 +63,109 @@ class ComputationalRoutine(ABC):
     top of trials). 
 
     Technically, a :func:`computeFunction` is a regular stand-alone Python 
-    function that accepts a :class:`numpy.ndarray` as its first positional 
+    function (**not** a class method) that accepts a :class:`numpy.ndarray` as its first positional 
     argument and supports (at least) the two keyword arguments `chunkShape` 
     and `noCompute`. The :class:`numpy.ndarray` represents aggregate data from 
-    one trial (only data, no meta-information). Any required meta-information 
-    (like channel labels, trial definition records etc.) has to be passed 
+    one trial (only data, no meta-information). Any required meta-info
+    (such as channel labels, trial definition records etc.) has to be passed 
     to :func:`computeFunction` either as additional (2nd an onward) positional or named 
-    keyword argument (`chunkShape` and `noCompute` are the only reserved 
-    keywords).
+    keyword arguments (`chunkShape` and `noCompute` are the only reserved 
+    keywords). 
 
-    the following basic requirements:
+    The return values of BLAH are controlled by the `noCompute` keyword. 
+    In general, BLAH returns exactly one BLAH representing the result of processing
+    a single trial. The `noCompute` keyword is used to perform a 'dry-run' 
+    of the processing operations to propagate the expected numerical type
+    and memory footprint of the result to BLAH without actually performing 
+    any calculations. To optimize performance, BLAH uses the 
+    information gathered in the dry-runs for each trial to allocate identically-sized array-blocks 
+    accommodating the largest (by shape) result-array across all trials. 
+    The in this manner identified global block-size can subsequently be accessed inside BLAH
+    via the `chunkShape` keyword during the actual computation. 
 
-    * more
-    * and more
+    Summarized, a valid BLAH, `cfunc`, meets the following basic requirements:
 
-    Technically, a Syncopy :class:`ComputationalRoutine` wraps an external 
+    * **Call signature** 
+
+      >>> def cfunc(arr, arg1, arg2, ..., argN, chunkShape=None, noCompute=None, **kwargs)
+
+      where `arr` is a BLAH representing trial data, `arg1`, ..., `argN` are
+      arbitrary positional arguments and `chunkShape` (a tuple if not `None`) 
+      as well as `noCompute` (bool if not `None`) are reserved keywords. 
+
+    * **Return values**
+
+      During the dry-run phase, i.e., if `noCompute` is `True`, the expected
+      output shape and its :class:`numpy.dtype` are returned, otherwise the
+      result of the computation (a :class:`numpy.ndarray`) is returned:
+
+      >>> def cfunc(arr, arg1, arg2, ..., argN, chunkShape=None, noCompute=None, **kwargs)
+      >>> # determine expected output shape and numerical type...
+      >>> if noCompute:
+      >>>     return outShape, outdtype
+      >>> # the actual computation is happening here...
+      >>> return res
+
+      Note that dtype and shape of `res` have to agree with `outShape` and `outdtype`
+      specified in the dry-run. 
+
+    A simple example of a BLAH illustrating these concepts is given in `Examples`. 
+
+    The Algorithmic Layout of :class:`ComputationalRoutine`
+    -------------------------------------------------------
+    Technically, Syncopy's :class:`ComputationalRoutine` wraps an external 
     :func:`computeFunction` by executing all necessary auxiliary routines 
     leading up to and post termination of the actual computation (memory 
     pre-allocation, generation of parallel/sequential instruction trees, 
-    processing and storage of results, etc.). The operational principle of a
-    :class:`ComputationalRoutine` consists of two steps:
+    processing and storage of results, etc.). Specifically, BLAH represents
+    an abstract base class that can represent any trial-concurrent computational 
+    tree. Thus, any arbitrarily complex algorithmic pattern satisfying this 
+    single criterion can be incorporated as a regular class into Syncopy 
+    with minimal implementation effort by simply inheriting from BLAH. 
+
+    Internally, the operational principle of a :class:`ComputationalRoutine` 
+    consists of two fundamental routines:
 
     1. :func:`initialize`
 
-       Coming soon...
+       The class is instantiated with (at least) the positional and keyword 
+       arguments of the associated compBLAH minus the trial-data array (the 
+       the first positional argument of compBLAH) and the reserved keywords
+       `chunkShape` and `noCompute`. Thus, let ``Algo`` be a concrete subclass 
+       of compBLAH, and let ``cfunc``, defined akin to above 
 
+       >>> def cfunc(arr, arg1, arg2, argN, chunkShape=None, noCompute=None, kwarg1="this", kwarg2=False)
+       
+       be its corresponding BLAH. Then a valid instantiation of ``Algo`` may 
+       look as follows:
+
+       >>> algorithm = Algo(arg1, arg1, arg2, argN, kwarg1="this", kwarg2=False)
+
+       Before the `algorithm` instance of ``Algo`` can be used, a dry-run of 
+       the actual computation has to be performed to determine the expected 
+       dimensionality and numerical type of the result,
+
+       >>> algorithm.initialize(data)
+
+       where `data` is a Syncopy data object representing the input quantity
+       to be processed by `algorithm`. 
 
     2. :func:`compute`
 
-       Coming soon...
+       This management class method constitutes the functional core of BLAH. 
+       It handles memory pre-allocation, storage provisioning, 
+       the actual computation and processing of meta-information. 
+       Depending on the `parallel` keyword, processing is done either sequentially
+       trial by trial (`parallel = False`) or concurrently across all trials 
+       (if `parallel` is `True`). 
 
     And more...
+
+    FIXME: mention abstractmethod handle_metadata!
+
+    Examples
+    --------
+    Coming soon.. 
     """
 
     # Placeholder: the actual workhorse
@@ -99,13 +180,16 @@ class ComputationalRoutine(ABC):
     def __init__(self, *argv, **kwargs):
         self.defaultCfg = get_defaults(self.computeFunction)
         self.cfg = copy(self.defaultCfg)
-        self.cfg.update(**kwargs)
+        for key in set(self.cfg.keys()).intersection(kwargs.keys()):
+            self.cfg[key] = kwargs[key]
+        self.keeptrials = kwargs.get("keeptrials", True)
         self.argv = argv
         self.outputShape = None
         self.dtype = None
         self.vdsdir = None
+        self.dsetname = None
 
-    def initialize(self, data, keeptrials=True):
+    def initialize(self, data):
         """
         Coming soon...
         """
@@ -133,27 +217,8 @@ class ComputationalRoutine(ABC):
         else:
             self.outputShape = (len(data.trials),) + chunkShape[1:]
 
-        # In case the result is averaged across trials
-        if not keeptrials:
-            self.outputShape = (1, ) + self.outputShape[1:]
-
         # Assign computed chunkshape to cfg dict
         self.cfg["chunkShape"] = chunkShape
-
-    def preallocate_output(self, out, parallel_store=False):
-
-        # In case parallel writing via VDS storage is requested, prepare
-        # directory for by-chunk HDF5 containers
-        if parallel_store:
-            vdsdir = os.path.splitext(os.path.basename(out._filename))[0]
-            self.vdsdir = os.path.join(__storage__, vdsdir)
-            os.mkdir(self.vdsdir)
-
-        # Create regular HDF5 dataset for sequential writing
-        else:
-            with h5py.File(out._filename, mode="w") as h5f:
-                h5f.create_dataset(name=out.__class__.__name__,
-                                   dtype=self.dtype, shape=self.outputShape)
 
     def compute(self, data, out, parallel=False, parallel_store=None,
                 method=None, log_dict=None):
@@ -182,11 +247,120 @@ class ComputationalRoutine(ABC):
             self.save_distributed(result, out, parallel_store)
 
         # Attach computed results to output object
-        out.data = h5py.File(out._filename, mode="r+")[out.__class__.__name__]
+        out.data = h5py.File(out._filename, mode="r+")[self.dsetname]
 
         # Store meta-data, write log and get outta here
         self.handle_metadata(data, out)
         self.write_log(data, out, log_dict)
+
+    def preallocate_output(self, out, parallel_store=False):
+
+        # The output object's type determines dataset name for result
+        self.dsetname = out.__class__.__name__
+
+        # In case parallel writing via VDS storage is requested, prepare
+        # directory for by-chunk HDF5 containers
+        if parallel_store:
+            vdsdir = os.path.splitext(os.path.basename(out._filename))[0]
+            self.vdsdir = os.path.join(__storage__, vdsdir)
+            os.mkdir(self.vdsdir)
+
+        # Create regular HDF5 dataset for sequential writing
+        else:
+            if not self.keeptrials:
+                shp = self.cfg["chunkShape"]
+            else:
+                shp = self.outputShape
+            with h5py.File(out._filename, mode="w") as h5f:
+                h5f.create_dataset(name=self.dsetname,
+                                   dtype=self.dtype, shape=shp)
+
+    def compute_parallel(self, data, out):
+
+        # Depending on equidistance of trials use dask arrays directly...
+        if np.all([data._shapes[0] == sh for sh in data._shapes]):
+
+            # Point to trials on disk by using delayed **static** method calls
+            lazy_trial = dask.delayed(data._copy_trial, traverse=False)
+            lazy_trls = [lazy_trial(trialno,
+                                    data._filename,
+                                    data.dimord,
+                                    data.sampleinfo,
+                                    data.hdr)
+                         for trialno in range(len(data.trials))]
+
+            # Stack trials along new (3rd) axis inserted on the left
+            trl_block = da.stack([da.from_delayed(trl, shape=data._shapes[sk],
+                                                  dtype=data.data.dtype)
+                                  for sk, trl in enumerate(lazy_trls)])
+
+            # If result of computation has diverging chunk dimension, account for that
+            chunkdiff = abs(len(trl_block.chunksize) - len(self.cfg["chunkShape"]))
+            if chunkdiff > 0:
+                mbkwargs = {"new_axis": list(range(chunkdiff))}
+            else:
+                mbkwargs = {}
+
+            # Use `map_blocks` to perform computation for each trial in the
+            # constructed dask array
+            result = trl_block.map_blocks(self.computeFunction,
+                                          *self.argv, **self.cfg,
+                                          dtype=self.dtype,
+                                          chunks=self.cfg["chunkShape"],
+                                          **mbkwargs)
+
+        # ...or work w/bags to account for diverging trial dimensions
+        else:
+
+            # Construct bag of trials
+            trl_bag = db.from_sequence([trialno for trialno in
+                                        range(len(data.trials))]).map(data._copy_trial,
+                                                                      data._filename,
+                                                                      data.dimord,
+                                                                      data.sampleinfo,
+                                                                      data.hdr)
+
+            # Map each element of the bag onto ``computeFunction`` to get a new bag
+            res_bag = trl_bag.map(self.computeFunction, *self.argv, **self.cfg)
+
+            # The "result bag" only contains elements of identical dimension that
+            # can be stacked
+            result = da.stack([rbag for rbag in res_bag])
+
+        # Re-arrange dimensional order
+        result = result.reshape(self.outputShape)
+
+        # Average across trials if wanted
+        if not self.keeptrials:
+            result = result.mean(axis=0, keepdims=True)
+
+        return result
+
+    def compute_sequential(self, data, out):
+
+        # Iterate across trials and write directly to HDF5 container (flush
+        # after each trial to avoid memory leakage) - if trials are not to
+        # be preserved, compute average across trials manually to avoid
+        # allocation of unnecessarily large dataset
+        with h5py.File(out._filename, "r+") as h5f:
+            dset = h5f[self.dsetname]
+            if self.keeptrials:
+                for tk, trl in enumerate(tqdm(data.trials,
+                                              desc="Computing MTMFFT...")):
+                    dset[tk, ...] = self.computeFunction(trl,
+                                                         *self.argv,
+                                                         **self.cfg)
+                    h5f.flush()
+            else:
+                for trl in tqdm(data.trials, desc="Computing MTMFFT..."):
+                    dset[()] = np.nansum([dset, self.computeFunction(trl,
+                                                                     *self.argv,
+                                                                     **self.cfg)],
+                                         axis=0)
+                    h5f.flush()
+                dset[()] /= len(data.trials)
+
+        return
 
     def save_distributed(self, da_arr, out, parallel_store=True):
 
@@ -215,7 +389,7 @@ class ComputationalRoutine(ABC):
 
             # Use generated layout to create virtual dataset
             with h5py.File(out._filename, mode="w") as h5f:
-                h5f.create_virtual_dataset(out.__class__.__name__, layout)
+                h5f.create_virtual_dataset(self.dsetname, layout)
 
         # or use a semaphore to write to a single container sequentially
         else:
@@ -225,7 +399,7 @@ class ComputationalRoutine(ABC):
 
             # Map `da_arr` chunk by chunk onto ``_write_sequential``
             writers = da_arr.map_blocks(self._write_sequential, nchk, out._filename,
-                                        out.__class__.__name__, lck, dtype="int",
+                                        self.dsetname, lck, dtype="int",
                                         chunks=(1, 1))
 
             # Make sure that all futures are actually executed (i.e., data is written
@@ -303,12 +477,4 @@ class ComputationalRoutine(ABC):
 
     @abstractmethod
     def handle_metadata(self, *args):
-        pass
-
-    @abstractmethod
-    def compute_sequential(self, *args):
-        pass
-
-    @abstractmethod
-    def compute_parallel(self, *args):
         pass

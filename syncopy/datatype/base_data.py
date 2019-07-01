@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-27 15:28:57>
+# Last modification time: <2019-07-01 16:01:13>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -370,7 +370,8 @@ class BaseData(ABC):
     def __str__(self):
 
         # Get list of print-worthy attributes
-        ppattrs = [attr for attr in self.__dir__() if not (attr.startswith("_") or attr in ["log", "t0"])]
+        ppattrs = [attr for attr in self.__dir__()
+                   if not (attr.startswith("_") or attr in ["log", "t0"])]
         ppattrs = [attr for attr in ppattrs
                    if not (inspect.ismethod(getattr(self, attr))
                            or isinstance(getattr(self, attr), Iterator))]
