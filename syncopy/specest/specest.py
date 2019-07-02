@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-01 16:04:36>
+# Last modification time: <2019-07-02 16:13:15>
 
 # Builtin/3rd party package imports
 import sys
@@ -357,7 +357,7 @@ class MultiTaperFFT(ComputationalRoutine):
     def __init__(self, *argv, **kwargs):
         super().__init__(*argv, **kwargs)
 
-    def handle_metadata(self, data, out):
+    def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
         if self.keeptrials:
@@ -504,7 +504,7 @@ class WaveletTransform(ComputationalRoutine):
     def compute_with_dask(self, data, out):
         raise NotImplementedError("Dask computation of wavelet transform is not yet implemented")
 
-    def handle_metadata(self, data, out):
+    def process_metadata(self, data, out):
         out.data = open_memmap(out._filename, mode="r+")
         # We can't simply use ``redefinetrial`` here, prep things by hand
         out.sampleinfo = np.floor(data.sampleinfo / self.cfg["stepsize"]).astype(np.int)

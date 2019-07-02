@@ -4,7 +4,7 @@
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-01 17:37:51>
+# Last modification time: <2019-07-02 16:23:24>
 
 # Builtin/3rd party package imports
 import os
@@ -42,7 +42,7 @@ class ComputationalRoutine(ABC):
     sequentially or fully parallel. To unify common instruction sequences 
     and minimize code redundancy, Syncopy's :class:`ComputationalRoutine`
     manages all pre- and post-processing steps necessary during preparation 
-    and after termination of a calculation. This permits to focus exclusively 
+    and after termination of a calculation. This permits developers to focus exclusively 
     on the implementation of the actual algorithmic details when including 
     a new computational method in Syncopy. 
 
@@ -72,24 +72,24 @@ class ComputationalRoutine(ABC):
     keyword arguments (`chunkShape` and `noCompute` are the only reserved 
     keywords). 
 
-    The return values of BLAH are controlled by the `noCompute` keyword. 
-    In general, BLAH returns exactly one BLAH representing the result of processing
-    a single trial. The `noCompute` keyword is used to perform a 'dry-run' 
+    The return values of :func:`computeFunction` are controlled by the `noCompute` keyword. 
+    In general, :func:`computeFunction` returns exactly one :class:`numpy.ndarray` representing the result of processing
+    data from a single trial. The `noCompute` keyword is used to perform a 'dry-run' 
     of the processing operations to propagate the expected numerical type
-    and memory footprint of the result to BLAH without actually performing 
-    any calculations. To optimize performance, BLAH uses the 
+    and memory footprint of the result to :class:`ComputationalRoutine` without actually performing 
+    any calculations. To optimize performance, :class:`ComputationalRoutine` uses the 
     information gathered in the dry-runs for each trial to allocate identically-sized array-blocks 
     accommodating the largest (by shape) result-array across all trials. 
-    The in this manner identified global block-size can subsequently be accessed inside BLAH
+    In this manner a global block-size is identified, which can subsequently be accessed inside :func:`computeFunction`
     via the `chunkShape` keyword during the actual computation. 
 
-    Summarized, a valid BLAH, `cfunc`, meets the following basic requirements:
+    Summarized, a valid :func:`computeFunction`, `cfunc`, meets the following basic requirements:
 
     * **Call signature** 
 
       >>> def cfunc(arr, arg1, arg2, ..., argN, chunkShape=None, noCompute=None, **kwargs)
 
-      where `arr` is a BLAH representing trial data, `arg1`, ..., `argN` are
+      where `arr` is a :class:`numpy.ndarray` representing trial data, `arg1`, ..., `argN` are
       arbitrary positional arguments and `chunkShape` (a tuple if not `None`) 
       as well as `noCompute` (bool if not `None`) are reserved keywords. 
 
@@ -109,7 +109,7 @@ class ComputationalRoutine(ABC):
       Note that dtype and shape of `res` have to agree with `outShape` and `outdtype`
       specified in the dry-run. 
 
-    A simple example of a BLAH illustrating these concepts is given in `Examples`. 
+    A simple example of a :func:`computeFunction` illustrating these concepts is given in `Examples`. 
 
     The Algorithmic Layout of :class:`ComputationalRoutine`
     -------------------------------------------------------
@@ -117,31 +117,31 @@ class ComputationalRoutine(ABC):
     :func:`computeFunction` by executing all necessary auxiliary routines 
     leading up to and post termination of the actual computation (memory 
     pre-allocation, generation of parallel/sequential instruction trees, 
-    processing and storage of results, etc.). Specifically, BLAH represents
+    processing and storage of results, etc.). Specifically, :class:`ComputationalRoutine` is
     an abstract base class that can represent any trial-concurrent computational 
     tree. Thus, any arbitrarily complex algorithmic pattern satisfying this 
     single criterion can be incorporated as a regular class into Syncopy 
-    with minimal implementation effort by simply inheriting from BLAH. 
+    with minimal implementation effort by simply inheriting from :class:`ComputationalRoutine`. 
 
     Internally, the operational principle of a :class:`ComputationalRoutine` 
-    consists of two fundamental routines:
+    is encapsulated in two class methods:
 
     1. :func:`initialize`
 
        The class is instantiated with (at least) the positional and keyword 
-       arguments of the associated compBLAH minus the trial-data array (the 
-       the first positional argument of compBLAH) and the reserved keywords
-       `chunkShape` and `noCompute`. Thus, let ``Algo`` be a concrete subclass 
-       of compBLAH, and let ``cfunc``, defined akin to above 
+       arguments of the associated :func:`computeFunction` minus the trial-data array (the 
+       the first positional argument of :func:`computeFunction`) and the reserved keywords
+       `chunkShape` and `noCompute`. Thus, let `Algo` be a concrete subclass 
+       of :class:`ComputationalRoutine` , and let `cfunc`, defined akin to above 
 
        >>> def cfunc(arr, arg1, arg2, argN, chunkShape=None, noCompute=None, kwarg1="this", kwarg2=False)
        
-       be its corresponding BLAH. Then a valid instantiation of ``Algo`` may 
+       be its corresponding :func:`computeFunction`. Then a valid instantiation of `Algo` may 
        look as follows:
 
        >>> algorithm = Algo(arg1, arg1, arg2, argN, kwarg1="this", kwarg2=False)
 
-       Before the `algorithm` instance of ``Algo`` can be used, a dry-run of 
+       Before the `algorithm` instance of `Algo` can be used, a dry-run of 
        the actual computation has to be performed to determine the expected 
        dimensionality and numerical type of the result,
 
@@ -152,16 +152,61 @@ class ComputationalRoutine(ABC):
 
     2. :func:`compute`
 
-       This management class method constitutes the functional core of BLAH. 
-       It handles memory pre-allocation, storage provisioning, 
-       the actual computation and processing of meta-information. 
-       Depending on the `parallel` keyword, processing is done either sequentially
-       trial by trial (`parallel = False`) or concurrently across all trials 
-       (if `parallel` is `True`). 
+       This management class method constitutes the functional core of :class:`ComputationalRoutine`. 
+       It handles memory pre-allocation, storage provisioning, the actual 
+       computation and processing of meta-information. Theses tasks are 
+       encapsulated in distinct class methods which are designed to perform 
+       the respective operations independently from the concrete computational procedure. 
+       Thus, most of these methods do not require any problem-specific adaptions 
+       and act as stand-alone administration routines. The only exception to 
+       this design-concept is :func:`process_metadata`, which is intended to 
+       attach meta-information to the final output object. Since modifications
+       of meta-data are highly dependent on the nature of the performed 
+       calculation, :func:`process_metadata` is the only abstract method
+       of :class:`ComputationalRoutine` that needs to be supplied in addition to :func:`computeFunction`. 
 
-    And more...
+       Several keywords control the workflow in :class:`ComputationalRoutine`:  
 
-    FIXME: mention abstractmethod handle_metadata!
+       * Depending on the `parallel` keyword, processing is done either sequentially
+         trial by trial (``parallel = False``) or concurrently across all trials 
+         (if `parallel` is `True`). The two scenarios are handled by separate class methods,
+         :func:`compute_sequential` and :func:`compute_parallel`, respectively, that use 
+         independent operational frameworks for processing. However, both 
+         :func:`compute_sequential` and :func:`compute_parallel` call an external :func:`computeFunction`
+         to perform the actual calculation. 
+
+       * The `parallel_store` keyword controls the employed storage mechanism: if `True`, the result of the computation 
+         is stored in a fully concurrent manner where each worker saves its 
+         locally held data segment on disk leveraging the distributed access capabilities 
+         of virtual HDF5 datasets. If ``parallel_store = False``, a mutex is used 
+         to lock a single HDF5 file for sequential writing. 
+
+       * The `method` keyword can be used to override the default selection of the
+         processing function (:func:`compute_parallel` if `parallel` is `True` or
+         :func:`compute_sequential` otherwise). Refer to the docstrings of :func:`compute_parallel`
+         or :func:`compute_sequential` for details on the required structure of a concurrent or serial
+         processing function. 
+
+       * The keyword `log_dict` can be used to provide a dictionary of keyword-value
+         pairs that are passed on to :func:`process_metadata` to be attached to 
+         the final output object. 
+
+       Going back to the exemplary `algorithm` instance of `Algo` discussed above, 
+       after initialization, the actual computation is kicked off with a single
+       call of :func:`compute` with keywords pursuant to the intended computational
+       workflow. For instance, 
+
+       >>> algorithm.compute(data, out, parallel=True)
+
+       launches the parallel processing of `data` using the computational 
+       scheme implemented in `cfunc` and stores the result in the Syncopy 
+       object `out`. 
+       
+    To further clarify these concepts, `Examples` illustrates how to encapsulate a 
+    simple algorithmic scheme in a subclass of :class:`ComputationalRoutine` 
+    that calls a custom :func:`computeFunction`.
+
+    >>>>>>>>>>>>>>>>>>>>>>>>>>>>>> FIXME: mention keeptrials!!!!
 
     Examples
     --------
@@ -173,7 +218,7 @@ class ComputationalRoutine(ABC):
     def computeFunction():
         return None
 
-    # Placeholder: manager that calls ``computeFunction`` (sets up `dask` etc. )
+    # Placeholder: manager that calls `computeFunction` (sets up `dask` etc. )
     def computeMethod(self):
         return None
 
@@ -215,7 +260,7 @@ class ComputationalRoutine(ABC):
             chunkShape = tuple(chk_arr.max(axis=0))
             self.outputShape = (chk_arr[:, 0].sum(),) + chunkShape[1:]
         else:
-            self.outputShape = (len(data.trials),) + chunkShape[1:]
+            self.outputShape = (len(data.trials) * chunkShape[0],) + chunkShape[1:]
 
         # Assign computed chunkshape to cfg dict
         self.cfg["chunkShape"] = chunkShape
@@ -250,7 +295,7 @@ class ComputationalRoutine(ABC):
         out.data = h5py.File(out._filename, mode="r+")[self.dsetname]
 
         # Store meta-data, write log and get outta here
-        self.handle_metadata(data, out)
+        self.process_metadata(data, out)
         self.write_log(data, out, log_dict)
 
     def preallocate_output(self, out, parallel_store=False):
@@ -344,15 +389,16 @@ class ComputationalRoutine(ABC):
         # allocation of unnecessarily large dataset
         with h5py.File(out._filename, "r+") as h5f:
             dset = h5f[self.dsetname]
+            import ipdb; ipdb.set_trace()
             if self.keeptrials:
                 for tk, trl in enumerate(tqdm(data.trials,
-                                              desc="Computing MTMFFT...")):
+                                              desc="Computing...")):
                     dset[tk, ...] = self.computeFunction(trl,
                                                          *self.argv,
                                                          **self.cfg)
                     h5f.flush()
             else:
-                for trl in tqdm(data.trials, desc="Computing MTMFFT..."):
+                for trl in tqdm(data.trials, desc="Computing..."):
                     dset[()] = np.nansum([dset, self.computeFunction(trl,
                                                                      *self.argv,
                                                                      **self.cfg)],
@@ -476,5 +522,5 @@ class ComputationalRoutine(ABC):
         return (cnt,) * nchk
 
     @abstractmethod
-    def handle_metadata(self, *args):
+    def process_metadata(self, *args):
         pass

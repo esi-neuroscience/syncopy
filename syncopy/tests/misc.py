@@ -4,7 +4,7 @@
 # 
 # Created: 2019-04-18 14:41:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-27 11:18:01>
+# Last modification time: <2019-07-02 15:23:48>
 
 import subprocess
 import sys
@@ -76,8 +76,8 @@ def generate_artifical_data(nTrials=2, nChannels=2, equidistant=True,
     idx[timeAxis] = -1
     sig = np.repeat(sig.reshape(*idx), axis=idx.index(1), repeats=nChannels)
 
-    # Either create the full data array in memory using array tiling or
-    # create an HDF5 container in `__storage__` and fill it trial-by-trial
+    # Either construct the full data array in memory using tiling or create
+    # an HDF5 container in `__storage__` and fill it trial-by-trial
     out = spy.AnalogData(samplerate=1/dt, dimord=dimord)
     if inmemory:
         idx[timeAxis] = nTrials 
@@ -85,19 +85,6 @@ def generate_artifical_data(nTrials=2, nChannels=2, equidistant=True,
         sig += np.random.standard_normal(sig.shape).astype(sig.dtype) * 0.5
         out.data = sig
     else:
-        # h5f = h5py.File(out._filename, "w", libver="latest")
-        # h5f.swmr_mode = True
-        # shp = list(sig.shape)
-        # shp[timeAxis] *= nTrials
-        # dset = h5f.create_dataset("AnalogData", shape=tuple(shp), dtype=sig.dtype)
-        # shp = [slice(None), slice(None)]
-        # for iTrial in range(nTrials):
-        #     shp[timeAxis] = slice(iTrial*t.size, (iTrial + 1)*t.size)
-        #     dset[tuple(shp)] = sig + np.random.standard_normal(sig.shape).astype(sig.dtype) * 0.5
-        #     dset.flush()
-        # h5f.close()
-        # # import ipdb; ipdb.set_trace()
-        # out.data = h5py.File(out._filename, "r", swmr=True)["AnalogData"]
         with h5py.File(out._filename, "w") as h5f:
             shp = list(sig.shape)
             shp[timeAxis] *= nTrials
