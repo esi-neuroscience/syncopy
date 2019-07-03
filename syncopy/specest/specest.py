@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-02 16:13:15>
+# Last modification time: <2019-07-03 10:51:35>
 
 # Builtin/3rd party package imports
 import sys
@@ -239,7 +239,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # If provided, make sure output object is appropriate
     if out is not None:
         try:
-            data_parser(out, varname="out", writable=True,
+            data_parser(out, varname="out", writable=True, empty=True,
                         dataclass="SpectralData",
                         dimord=SpectralData().dimord)
         except Exception as exc:
@@ -265,13 +265,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         "wavelet": WaveletTransform(1/data.samplerate, timeAxis, foi, **mth_input)
     }
 
-    # Detect if dask client is running and ensure `data` is openend read-only
-    # to permit concurrent reading access for workers
-    md = data.mode
+    # Detect if dask client is running and set `parallel` keyword accordingly
     try:
         dd.get_client()
         use_dask = True
-        data.mode = "r"
     except ValueError:
         use_dask = False
 
@@ -279,9 +276,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     specestMethod = methods[method]
     specestMethod.initialize(data)
     specestMethod.compute(data, out, parallel=use_dask, log_dict=log_dct)
-
-    # Reset data access mode (in case it was changed for parallel computation)
-    data.mode = md
 
     # Either return newly created output container or simply quit
     return out if new_out else None
