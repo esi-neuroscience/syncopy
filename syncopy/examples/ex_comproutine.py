@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
-#
+# Exemplary implementation of an algorithmic strategy in Syncopy
 #
 # Created: 2019-07-02 14:25:52
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-03 17:00:35>
+# Last modification time: <2019-07-04 12:01:00>
 
 # Add SynCoPy package to Python search path
 import os
@@ -21,6 +21,19 @@ import syncopy as spy
 from syncopy.shared.computational_routine import ComputationalRoutine
 if spy.__dask__:
     import dask.distributed as dd
+
+
+# Dummy function for generating a docstring and function links
+def ex_datatype():
+    """
+    Exemplary implementation of a filtering routine in Syncopy to illustrate
+    the concept of :class:`ComputationalRoutine` and its use in practice.
+
+    See also
+    --------
+    ComputationalRoutine : abstract parent class for implementing algorithmic strategies in Syncopy
+    """
+
 
 if __name__ == "__main__":
 
@@ -89,9 +102,6 @@ if __name__ == "__main__":
     # for the result of the filtering
     class LowPassFilter(ComputationalRoutine):
         computeFunction = staticmethod(lowpass)
-
-        def __init__(self, *argv, **kwargs):
-            super().__init__(*argv, **kwargs)
 
         def process_metadata(self, data, out):
             if self.keeptrials:

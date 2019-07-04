@@ -4,7 +4,7 @@
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-03 17:45:26>
+# Last modification time: <2019-07-04 13:01:20>
 
 # Builtin/3rd party package imports
 import os
@@ -45,6 +45,26 @@ class ComputationalRoutine(ABC):
     and after termination of a calculation. This permits developers to
     focus exclusively on the implementation of the actual algorithmic
     details when including a new computational method in Syncopy.
+
+    Summary
+    -------
+    A Syncopy compute kernel consists of a
+    :class:`ComputationalRoutine`-subclass that binds a static
+    :func:`computeFunction` and provides the class method
+    `process_metadata`.
+
+    Requirements for :func:`computeFunction`:
+
+    * First positional argument is a :class:`numpy.ndarray`, the keywords
+      `chunkShape` and `noCompute` are supported 
+    * Returns a :class:`numpy.ndarray` if `noCompute` is `False` and expected 
+      shape and numerical type of output array otherwise.
+    
+    Requirements for :class:`ComputationalRoutine`:
+
+    * Child of :class:`ComputationalRoutine`, binds :func:`computeFunction`
+      as static method 
+    * Provides class method :func:`process_data`
 
     Designing a :func:`computeFunction`
     -----------------------------------
@@ -156,6 +176,14 @@ class ComputationalRoutine(ABC):
 
        >>> algorithm = Algo(arg1, arg1, arg2, argN, kwarg1="this", kwarg2=False)
 
+       Now `algorithm` is a regular Python class instance that inherits all
+       required attributes from the parent base class :class:`ComputationalRoutine`.  
+       **Note**: :class:`ComputationalRoutine` uses regular Python class attributes
+       (``__dict__`` keys, not slots) to ensure maximal design flexibility
+       for implementing novel computational strategies while keeping memory
+       overhead limited due to the encapsulation of the actual
+       computational workload in the static method :func:`computeFunction`.
+
        Before the `algorithm` instance of `Algo` can be used, a dry-run of 
        the actual computation has to be performed to determine the expected 
        dimensionality and numerical type of the result,
@@ -230,18 +258,138 @@ class ComputationalRoutine(ABC):
 
     Examples
     --------
-    Coming soon.. 
+    Consider the following example illustrating the implementation of a
+    (deliberately simple) filtering routine by subclassing
+    :class:`ComputationalRoutine` and designing a :func:`computeFunction`.
+    Please refer to :func:`syncopy.ex_comproutine` to review the source
+    code of a fully executed standalone version of this example.
 
-    >>>>>>>>>>>>>>>>>>>>>>>>>>>>>> FIXME: add slots
+    As a first step, a :func:`computeFunction` is defined:
+
+    >>> import numpy as np
+    >>> from scipy import signal
+    >>> def lowpass(arr, b, a, noCompute=None, chunkShape=None):
+    >>>     if noCompute:
+    >>>         return arr.shape, arr.dtype
+    >>>     res = signal.filtfilt(b, a, arr.T, padlen=200).T
+    >>>     return res
+
+    As detailed above, the first positional argument of `lowpass` is a
+    :class:`numpy.ndarray` representing numerical data from a single trial,
+    the second and third positional arguments, `b` and `a` respectively,
+    represent filter coefficients.  The only keyword arguments of `lowpass`
+    are the mandatory reserved keywords `noCompute` and `chunkShape`.  With
+    the :func:`computeFunction` in place, a subclass of
+    :class:`ComputationalRoutine` can be implemented:
+
+    >>> from syncopy.shared.computational_routine import ComputationalRoutine
+    >>> class LowPassFilter(ComputationalRoutine):
+    >>>     computeFunction = staticmethod(lowpass)
+    >>>  
+    >>>     def process_metadata(self, data, out):
+    >>>         if self.keeptrials:
+    >>>             out.sampleinfo = np.array(data.sampleinfo)
+    >>>             out.trialinfo = np.array(data.trialinfo)
+    >>>             out._t0 = np.zeros((len(data.trials),))
+    >>>         else:
+    >>>             trl = np.array([[0, data.sampleinfo[0, 1], 0]])
+    >>>             out.sampleinfo = trl[:, :2]
+    >>>             out._t0 = trl[:, 2]
+    >>>             out.trialinfo = trl[:, 3:]
+    >>>         out.samplerate = data.samplerate
+    >>>         out.channel = np.array(data.channel)
+
+    Note that `LowPassFilter` simply binds the :func:`computeFunction`
+    `lowpass` as static method - no additional modifications are
+    required. It further provides `process_metadata` as regular class
+    method for setting all required attributes of the output object `out`.
+
+    Suppose `data` is a Syncopy :class:`AnalogData` object holding data to
+    be filtered.  To use the introduced filtering routine, the concrete
+    class `LowPassFilter` has to be instantiated first:
+
+    >>> myfilter = LowPassFilter(b, a)
+
+    This step performs the actual class initialization and allocates the
+    attributes of :class:`ComputationalRoutine`. Next, all necessary
+    pre-calculation management tasks need to be performed:
+
+    >>> myfilter.initialize(data)
+
+    Now, the `myfilter` instance holds references to the expected shape of the
+    resulting output and its numerical type. The actual filtering is then
+    performed by first allocating an empty Syncopy object for the result 
+
+    >>> out = spy.AnalogData()
+
+    and subsequently invoking
+
+    >>> myfilter.compute(data, out)
+
+    This call performs several tasks: first, an HDF5 data-set of
+    appropriate dimensions is allocated, then the actual filtering is
+    performed sequentially, in a trial-by-trial succession (results are
+    stored in the created HDF5 data-set, which is subsequently attached to
+    `out`), and finally meta-data is written to the output object `out`
+    using the supplied `process_metadata` class method.
+
+    To perform the calculation in a trial-concurrent manner, first launch a
+    dask client (using e.g., :func:`syncopy.esi_cluster_setup`),
+    re-initialize the `myfilter` instance (to reset its attributes) and
+    simply call `compute` with the `parallel` keyword set to `True`:
+
+    >>> client = spy.esi_cluster_setup()
+    >>> myfilter.initialize(data)
+    >>> myfilter.compute(data, out, parallel=True)
+
+    The full source code of this particular example can be found in
+    :func:`syncopy.ex_comproutine`.  For realizing more complex mechanisms,
+    consult the implementations of :func:`syncopy.freqanalysis` or other
+    computing kernels in Syncopy.
     """
 
     # Placeholder: the actual workhorse
     @staticmethod
-    def computeFunction():
-        return None
+    def computeFunction(arr, *argv, chunkShape=None, noCompute=None, **kwargs):
+        """Computational core routine
 
-    # Placeholder: manager that calls `computeFunction` (sets up `dask` etc. )
-    def computeMethod(self):
+        Parameters
+        ----------
+        arr : :class:`numpy.ndarray`
+           Numerical data from a single trial
+        *argv : list
+           Arbitrary list of positional arguments
+        chunkShape : `None` or `tuple`
+           Mandatory keyword. If not `None`, represents global block-size of 
+           processed trial. 
+        noCompute : `None` or `bool`
+           Preprocessing flag. If `True`, do not perform actual calculation but
+           instead return expected shape and :class:`numpy.dtype` of output
+           array. 
+        **kwargs: `dict`
+           Other keyword arguments. 
+        
+        Returns
+        -------
+        if ``noCompute == True``
+        outShape : `tuple`
+           expected shape of output array
+        outDtype : :class:`numpy.dtype`
+           expected numerical type of output array
+
+        otherwise
+        res : :class:`numpy.ndarray`
+           Result of processing input `arr`
+
+        Notes
+        -----
+        This concrete method is a placeholder that is intended to be 
+        overloaded. 
+
+        See also
+        --------
+        ComputationalRoutine : Developer documentation
+        """
         return None
 
     def __init__(self, *argv, **kwargs):

@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-03 10:51:35>
+# Last modification time: <2019-07-04 10:09:46>
 
 # Builtin/3rd party package imports
 import sys
@@ -347,9 +347,6 @@ def mtmfft(trl_dat, dt, timeAxis,
 class MultiTaperFFT(ComputationalRoutine):
 
     computeFunction = staticmethod(mtmfft)
-
-    def __init__(self, *argv, **kwargs):
-        super().__init__(*argv, **kwargs)
 
     def process_metadata(self, data, out):
 

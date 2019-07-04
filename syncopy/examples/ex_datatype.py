@@ -4,7 +4,7 @@
 #
 # Created: 2019-02-25 13:08:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-28 16:49:23>
+# Last modification time: <2019-07-04 11:53:58>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -20,6 +20,7 @@ if spy_path not in sys.path:
 import syncopy as spy
 
 
+# Dummy function for generating a docstring and function links
 def ex_datatype():
     """
     Docstring...
