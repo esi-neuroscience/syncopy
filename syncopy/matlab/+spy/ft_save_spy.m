@@ -1,9 +1,9 @@
-function ft_write_spy(cfg, datain)
+function ft_save_spy(cfg, datain)
 % ft_write_spy Write Fieldtrip raw data to Syncopy SPY files
 %
 % 
 %
-% See also ft_datatype_raw, spy.write_spy
+% See also ft_datatype_raw, spy.save_spy
 
 % these are used by the ft_preamble/ft_postamble function and scripts
 % ft_revision = '$Id$';
@@ -28,6 +28,11 @@ datain = ft_checkdata(datain, 'datatype', 'raw', ...
 cfg = ft_checkconfig(cfg, 'required', {'filename'});
 
 filename = ft_getopt(cfg, 'filename');        % there is no default
+
+[folder, basename, ext] = fileparts(filename);
+if ~strcmp(ext, '.ang')
+    filename = [filename '.ang'];
+end
 
 dimord = tokenize(datain.dimord, '_');
 dimord(strcmp(dimord, '{rpt}')) = '';
@@ -59,7 +64,7 @@ version = '0.1a';
 spy.save_spy(filename, ...
     cat(2, datain.trial{:}), trl, ...
     log, datain.fsample, ...
-    version, datain.label, dimord);
+    datain.label, dimord);
 
 ft_postamble debug               % this clears the onCleanup function used for debugging in case of an error
 ft_postamble trackconfig         % this converts the config object back into a struct and can report on the unused fields

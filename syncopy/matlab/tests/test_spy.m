@@ -1,4 +1,5 @@
 
+% add Fieldtrip to path if on ESI Linux cluster
 if isfolder('/mnt/hpx/opt/fieldtrip_github/')
     addpath('/mnt/hpx/opt/fieldtrip_github/')
     ft_defaults
@@ -8,7 +9,7 @@ addpath('..')
 clear
 
 
-%% generate data
+%% test low-level functions load_spy and save_spy
 
 filename = 'matlab-testdata_test';
 
@@ -26,7 +27,6 @@ generated.trl = trl;
 
 generated.dimord = {'time', 'channel'};
 generated.log = 'Created some test data';
-generated.version = '0.1a';
 generated.channel = cell(1, nChannels);
 for iChannel = 1:nChannels
     generated.channel{iChannel} = sprintf('channel_%02d', iChannel);
@@ -38,7 +38,7 @@ delete([fullfile(filename) '.*'])
 [datFile, jsonFile, generated.spyInfo] = spy.save_spy(filename, ...
     generated.data, generated.trl, ...
     generated.log, generated.samplerate, ...
-    generated.version, generated.channel, generated.dimord);
+    generated.channel, generated.dimord);
 
 % load data and compare
 loaded = [];
@@ -56,6 +56,8 @@ assert(isequal(generated.trl, loaded.trl))
 %% write Fieldtrip raw data to SPY
 
 if exist('ft_defaults', 'file') == 2
+    
+    % create Fieldtrip data struct
     data = [];
     data.label = {'channel1', 'channel2'};
     data.fsample = 1000;
@@ -65,15 +67,29 @@ if exist('ft_defaults', 'file') == 2
     data.sampleinfo = [1 3000; ...
         3001 6200];
     data = ft_checkdata(data, 'datatype', 'raw', 'hassampleinfo', 'yes');
-    data.trialinfo = [65 34 1; 69 25 2];
+    data.trialinfo = [65 34 1; 69 25.3 2];
     
     cfg = [];
-    cfg.filename = 'ft_testdata';
+    cfg.filename = 'ft_testdata.ang';
     
+    % save data to file
     spy.ft_save_spy(cfg, data);
     
-    [data, trl, spyInfo] = spy.load_spy([cfg.filename, '.ang']);
+    % read data back in
+    loadedData = spy.ft_load_spy(cfg.filename);
+    
+    % test and compare only fields that exist in generated data as Fieldtrip
+    % may add additional fields on load.
+    
+    fields = fieldnames(data);
+    for iField = 1:length(fields)
+        name = fields{iField};
+        assert(isequal(data.(name), loadedData.(name)), ...
+            'Mismatch in field %s between generated and loaded data', ...
+            name)
+    end
+    
 end
 
-% spy.ft_write_spy
+
 

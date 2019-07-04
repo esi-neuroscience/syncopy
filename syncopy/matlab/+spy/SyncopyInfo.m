@@ -101,7 +101,7 @@ classdef SyncopyInfo
         end
         
         function write_to_file(obj, filename)
-            obj.assert_has_all_required()
+            obj.assert_has_all_required();
             spy.jsonlab.savejson('', struct(obj), filename);
         end
         

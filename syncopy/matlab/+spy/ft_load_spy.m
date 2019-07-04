@@ -37,6 +37,6 @@ switch spyInfo.type
             'dimord', '{rpt}_label_time');
         
     otherwise
-        error('Currently unsupported Syncopy object type %s', spyInfo.type)
+        error('Currently unsupported Syncopy data class %s', spyInfo.type)
         
 end

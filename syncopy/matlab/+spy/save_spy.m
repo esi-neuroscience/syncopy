@@ -1,14 +1,33 @@
-function [hdfFile, jsonFile, spyInfo] = write_spy(filename, ...
-    data, trialdefinition, ...
-    log, samplerate, version, channel, dimord, ...
+function [hdfFile, jsonFile, spyInfo] = save_spy(filename, ...
+    data, trialdefinition, log, samplerate, channel, dimord, ...
     varargin)
-% SPY.WRITE_SPY Write Syncopy data array to HDF5/JSON files
+% SPY.WRITE_SPY Write data array to Syncopy-compatible HDF5/JSON files
 %
-%   write_spy(filename, data, trialdata, log, samplerate, version, channel, dimord, ...
+%   write_spy(filename, data, trialdefinition, log, samplerate, channel, dimord, ...
 %             {dclass, cfg})
 %
-% See also 
+% INPUT
+% -----
+%  filename   : filename to be used for saving. The resulting filenames will 
+%               be <filename>.ang (HDF5) and <filename>.ang.info (JSON).
+%  data       : data array to be stored in HDF5 file
+%  trialdefinition : [nTrials x 3+N] array describing beginning, end and
+%                    time zero of each trial as well as N additional
+%                    columns with scalar metadata about each trial.
+%  log        : char array containing a prosaic log of the data history
+%  samplerate : sampling rate of the data in Hz
+%  channel    : cell array with channel names
+%  dimord     : cell array with array dimension names
 %
+% OUTPUT
+% ------
+%   hdfFile   : filename of written HDF5 file
+%   jsonFile  : filename of written JSON file
+%   spyInfo   : spy.SyncopyInfo object with metainformation in JSON file
+%
+% See also ft_save_spy
+
+version = '0.1a';
 
 p = inputParser;
 p.addRequired('filename', ...
@@ -21,8 +40,6 @@ p.addRequired('log', ...
     @(x)validateattributes(x,{'char', 'string'},{'nonempty', 'scalartext'},'','LOG'));
 p.addRequired('samplerate', ...
     @(x)validateattributes(x,{'numeric'},{'nonempty', 'scalar'},'','SAMPLERATE'));
-p.addRequired('version', ...
-    @(x)validateattributes(x,{'char'},{'nonempty', 'scalartext'},'','VERSION'));
 p.addRequired('channel', ...
     @(x)validateattributes(x,{'cell'},{'nonempty', '2d'},'','CHANNEL'));
 p.addRequired('dimord', ...
@@ -30,25 +47,24 @@ p.addRequired('dimord', ...
 p.addOptional('dclass', 'AnalogData');
 p.addOptional('cfg', []);
 
-p.parse(filename, data, trialdefinition, log, samplerate, version, channel, dimord, varargin{:});
+p.parse(filename, data, trialdefinition, log, samplerate, channel, dimord, varargin{:});
 
 dclass = p.Results.dclass;
 cfg = p.Results.cfg;
 
-%% defaults
-% if ~exist('dclass', 'var'); dclass = 'AnalogData'; end
-% if ~exist('cfg', 'var'); cfg = []; end
-% 
+switch dclass
+    case 'AnalogData'
+        ext = '.ang';
+    otherwise
+        error('Currently not supported Syncopy data class %s', dclass)
+end
 
-[path, base, ext] = fileparts(filename);
+[path, base, ~] = fileparts(filename);
 
 %% HDF5 data file
-hdfFile = fullfile(path, [base, '.ang']);
+hdfFile = fullfile(path, [base, ext]);
 
 % datasets
-
-
-
 dataSize = size(data);
 dataSize = dataSize(end:-1:1);
 
