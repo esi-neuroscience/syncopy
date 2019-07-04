@@ -20,10 +20,10 @@ are also "high-level" functions that operate with Fieldtrip data structs:
 
 If you want to save typing letters, you can issue an `import` command at the
 beginning of your code:
-:::matlab
+```matlab
 import spy.*
 ft_save_spy(filename)
-
+```
 
 The Syncopy-MATLAB interface uses and distributes external code according to
 their licenses (JSONlab [2], DataHash [3]). This code is distributed under the
