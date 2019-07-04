@@ -4,7 +4,7 @@
 #
 # Created: 2019-06-17 09:45:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-01 16:28:13>
+# Last modification time: <2019-07-04 14:20:17>
 
 import os
 import tempfile
@@ -204,14 +204,14 @@ class TestMTMFFT():
                                 padlength=npad)
             assert (np.diff(avdata.sampleinfo)[0][0] + npad) / 2 + 1 == spec.freq.size
 
-    # @skip_without_slurm
+    @skip_without_slurm
     def test_slurm(self):
         # start dask client running atop of SLURM cluster
-        # client = esi_cluster_setup(partition="DEV", mem_per_job="4GB",
-        #                            timeout=600, interactive=False,
-        #                            start_client=True)
-        import dask.distributed as dd
-        dd.Client()
+        client = esi_cluster_setup(partition="DEV", mem_per_job="4GB",
+                                   timeout=600, interactive=False,
+                                   start_client=True)
+        # import dask.distributed as dd
+        # dd.Client()
 
         # collect all tests of current class and repeat them using dask
         # (skip VirtualData tests since ``_copy_trial`` expects valid headers)

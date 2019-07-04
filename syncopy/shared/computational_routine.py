@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
-# ALREADY KNOW YOU THAT WHICH YOU NEED
+# Base class for all computational kernels in Syncopy
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-04 13:01:20>
+# Last modification time: <2019-07-04 17:32:17>
 
 # Builtin/3rd party package imports
 import os
@@ -23,7 +23,7 @@ if sys.platform == "win32":
 
 # Local imports
 from .parsers import get_defaults
-from syncopy import __storage__, __dask__
+from syncopy import __storage__, __dask__, __path__
 if __dask__:
     import dask
     import dask.distributed as dd
@@ -56,14 +56,14 @@ class ComputationalRoutine(ABC):
     Requirements for :func:`computeFunction`:
 
     * First positional argument is a :class:`numpy.ndarray`, the keywords
-      `chunkShape` and `noCompute` are supported 
+      `chunkShape` and `noCompute` are supported
     * Returns a :class:`numpy.ndarray` if `noCompute` is `False` and expected 
       shape and numerical type of output array otherwise.
-    
+
     Requirements for :class:`ComputationalRoutine`:
 
     * Child of :class:`ComputationalRoutine`, binds :func:`computeFunction`
-      as static method 
+      as static method
     * Provides class method :func:`process_data`
 
     Designing a :func:`computeFunction`
@@ -109,10 +109,10 @@ class ComputationalRoutine(ABC):
     :func:`computeFunction` via the `chunkShape` keyword during the actual
     computation.
 
-    Summarized, a valid :func:`computeFunction`, `cfunc`, meets the 
+    Summarized, a valid :func:`computeFunction`, `cfunc`, meets the
     following basic requirements:
 
-    * **Call signature** 
+    * **Call signature**
 
       >>> def cfunc(arr, arg1, arg2, ..., argN, chunkShape=None, noCompute=None, **kwargs)
 
@@ -134,11 +134,11 @@ class ComputationalRoutine(ABC):
       >>> # the actual computation is happening here...
       >>> return res
 
-      Note that dtype and shape of `res` have to agree with `outShape` and 
+      Note that dtype and shape of `res` have to agree with `outShape` and
       `outdtype` specified in the dry-run. 
 
     A simple example of a :func:`computeFunction` illustrating these concepts 
-    is given in `Examples`. 
+    is given in `Examples`.
 
     The Algorithmic Layout of :class:`ComputationalRoutine`
     -------------------------------------------------------
@@ -154,7 +154,7 @@ class ComputationalRoutine(ABC):
     minimal implementation effort by simply inheriting from
     :class:`ComputationalRoutine`.
 
-    Internally, the operational principle of a :class:`ComputationalRoutine` 
+    Internally, the operational principle of a :class:`ComputationalRoutine`
     is encapsulated in two class methods:
 
     1. :func:`initialize`
@@ -170,28 +170,28 @@ class ComputationalRoutine(ABC):
        let `cfunc`, defined akin to above
 
        >>> def cfunc(arr, arg1, arg2, argN, chunkShape=None, noCompute=None, kwarg1="this", kwarg2=False)
-       
-       be its corresponding :func:`computeFunction`. Then a valid 
+
+       be its corresponding :func:`computeFunction`. Then a valid
        instantiation of `Algo` may look as follows:
 
        >>> algorithm = Algo(arg1, arg1, arg2, argN, kwarg1="this", kwarg2=False)
 
        Now `algorithm` is a regular Python class instance that inherits all
-       required attributes from the parent base class :class:`ComputationalRoutine`.  
+       required attributes from the parent base class :class:`ComputationalRoutine`.
        **Note**: :class:`ComputationalRoutine` uses regular Python class attributes
        (``__dict__`` keys, not slots) to ensure maximal design flexibility
        for implementing novel computational strategies while keeping memory
        overhead limited due to the encapsulation of the actual
        computational workload in the static method :func:`computeFunction`.
 
-       Before the `algorithm` instance of `Algo` can be used, a dry-run of 
-       the actual computation has to be performed to determine the expected 
+       Before the `algorithm` instance of `Algo` can be used, a dry-run of
+       the actual computation has to be performed to determine the expected
        dimensionality and numerical type of the result,
 
        >>> algorithm.initialize(data)
 
        where `data` is a Syncopy data object representing the input quantity
-       to be processed by `algorithm`. 
+       to be processed by `algorithm`.
 
     2. :func:`compute`
 
@@ -210,7 +210,7 @@ class ComputationalRoutine(ABC):
        method of :class:`ComputationalRoutine` that needs to be supplied in
        addition to :func:`computeFunction`.
 
-       Several keywords control the workflow in :class:`ComputationalRoutine`:  
+       Several keywords control the workflow in :class:`ComputationalRoutine`:
 
        * Depending on the `parallel` keyword, processing is done either
          sequentially trial by trial (``parallel = False``) or concurrently
@@ -248,10 +248,10 @@ class ComputationalRoutine(ABC):
 
        >>> algorithm.compute(data, out, parallel=True)
 
-       launches the parallel processing of `data` using the computational 
-       scheme implemented in `cfunc` and stores the result in the Syncopy 
-       object `out`. 
-       
+       launches the parallel processing of `data` using the computational
+       scheme implemented in `cfunc` and stores the result in the Syncopy
+       object `out`.
+
     To further clarify these concepts, `Examples` illustrates how to
     encapsulate a simple algorithmic scheme in a subclass of
     :class:`ComputationalRoutine` that calls a custom :func:`computeFunction`.
@@ -285,7 +285,7 @@ class ComputationalRoutine(ABC):
     >>> from syncopy.shared.computational_routine import ComputationalRoutine
     >>> class LowPassFilter(ComputationalRoutine):
     >>>     computeFunction = staticmethod(lowpass)
-    >>>  
+    >>>
     >>>     def process_metadata(self, data, out):
     >>>         if self.keeptrials:
     >>>             out.sampleinfo = np.array(data.sampleinfo)
@@ -318,7 +318,7 @@ class ComputationalRoutine(ABC):
 
     Now, the `myfilter` instance holds references to the expected shape of the
     resulting output and its numerical type. The actual filtering is then
-    performed by first allocating an empty Syncopy object for the result 
+    performed by first allocating an empty Syncopy object for the result
 
     >>> out = spy.AnalogData()
 
@@ -360,15 +360,15 @@ class ComputationalRoutine(ABC):
         *argv : list
            Arbitrary list of positional arguments
         chunkShape : `None` or `tuple`
-           Mandatory keyword. If not `None`, represents global block-size of 
-           processed trial. 
+           Mandatory keyword. If not `None`, represents global block-size of
+           processed trial.
         noCompute : `None` or `bool`
            Preprocessing flag. If `True`, do not perform actual calculation but
            instead return expected shape and :class:`numpy.dtype` of output
-           array. 
+           array.
         **kwargs: `dict`
-           Other keyword arguments. 
-        
+           Other keyword arguments.
+
         Returns
         -------
         if ``noCompute == True``
@@ -383,8 +383,8 @@ class ComputationalRoutine(ABC):
 
         Notes
         -----
-        This concrete method is a placeholder that is intended to be 
-        overloaded. 
+        This concrete method is a placeholder that is intended to be
+        overloaded.
 
         See also
         --------
@@ -448,6 +448,14 @@ class ComputationalRoutine(ABC):
         # By default, use VDS storage for parallel computing
         if parallel_store is None:
             parallel_store = parallel
+
+        # In some cases distributed dask workers suffer from spontaneous
+        # dementia and forget the `sys.path` of their parent process. Fun!
+        if parallel:
+            def init_syncopy(dask_worker):
+                sys.path.insert(0, os.path.split(__path__[0])[0])
+            client = dd.get_client()
+            client.register_worker_callbacks(init_syncopy)
 
         # Create HDF5 dataset of appropriate dimension
         self.preallocate_output(out, parallel_store=parallel_store)
@@ -605,9 +613,6 @@ class ComputationalRoutine(ABC):
                     idx[0] = slice(cnt, cnt + res.shape[0])
                     dset[tuple(idx)] = res
                     cnt += res.shape[0]
-                    # dset[tk, ...] = self.computeFunction(trl,
-                    #                                      *self.argv,
-                    #                                      **self.cfg)
                     h5f.flush()
             else:
                 for trl in tqdm(data.trials, desc="Computing..."):
@@ -665,7 +670,7 @@ class ComputationalRoutine(ABC):
             futures = dd.client.futures_of(writers.persist())
             while any(f.status == 'pending' for f in futures):
                 time.sleep(0.1)
-        
+
     def write_log(self, data, out, log_dict=None):
 
         # Copy log from source object and write header
@@ -680,7 +685,7 @@ class ComputationalRoutine(ABC):
                 cfg.pop(key)
         else:
             cfg = log_dict
-            
+
         # Write log and set `cfg` prop of `out`
         logOpts = ""
         for k, v in cfg.items():

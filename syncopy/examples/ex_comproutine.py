@@ -4,9 +4,9 @@
 #
 # Created: 2019-07-02 14:25:52
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-04 12:01:00>
+# Last modification time: <2019-07-04 17:33:22>
 
-# Add SynCoPy package to Python search path
+# Builtin/3rd party package imports
 import os
 import sys
 import numpy as np
@@ -33,6 +33,34 @@ def ex_datatype():
     --------
     ComputationalRoutine : abstract parent class for implementing algorithmic strategies in Syncopy
     """
+
+    
+# The `computeFunction` that performs the actual filtering
+def lowpass(arr, b, a, noCompute=None, chunkShape=None):
+    if noCompute:
+        return arr.shape, arr.dtype
+    res = signal.filtfilt(b, a, arr.T, padlen=200).T
+    return res
+
+
+# A subclass of `ComputationalRoutine` that binds `lowpass` (our `computeFunction`)
+# as static method and provides a class method for processing meta-information
+# for the result of the filtering
+class LowPassFilter(ComputationalRoutine):
+    computeFunction = staticmethod(lowpass)
+
+    def process_metadata(self, data, out):
+        if self.keeptrials:
+            out.sampleinfo = np.array(data.sampleinfo)
+            out.trialinfo = np.array(data.trialinfo)
+            out._t0 = np.zeros((len(data.trials),))
+        else:
+            trl = np.array([[0, data.sampleinfo[0, 1], 0]])
+            out.sampleinfo = trl[:, :2]
+            out._t0 = trl[:, 2]
+            out.trialinfo = trl[:, 3:]
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel)
 
 
 if __name__ == "__main__":
@@ -90,32 +118,6 @@ if __name__ == "__main__":
     data = spy.AnalogData(data=sig, samplerate=fs, trialdefinition=trl,
                           dimord=["time", "channel"])
 
-    # The `computeFunction` that performs the actual filtering
-    def lowpass(arr, b, a, noCompute=None, chunkShape=None):
-        if noCompute:
-            return arr.shape, arr.dtype
-        res = signal.filtfilt(b, a, arr.T, padlen=200).T
-        return res
-
-    # A subclass of `ComputationalRoutine` that binds `lowpass` (our `computeFunction`)
-    # as static method and provides a class method for processing meta-information
-    # for the result of the filtering
-    class LowPassFilter(ComputationalRoutine):
-        computeFunction = staticmethod(lowpass)
-
-        def process_metadata(self, data, out):
-            if self.keeptrials:
-                out.sampleinfo = np.array(data.sampleinfo)
-                out.trialinfo = np.array(data.trialinfo)
-                out._t0 = np.zeros((len(data.trials),))
-            else:
-                trl = np.array([[0, data.sampleinfo[0, 1], 0]])
-                out.sampleinfo = trl[:, :2]
-                out._t0 = trl[:, 2]
-                out.trialinfo = trl[:, 3:]
-            out.samplerate = data.samplerate
-            out.channel = np.array(data.channel)
-
     # Allocate an empty object for storing the result
     out = spy.AnalogData()
 
@@ -144,6 +146,7 @@ if __name__ == "__main__":
         myfilter.initialize(data)
         myfilter.compute(data, out_parallel, parallel=True)
         print(msg.format(np.abs(out_parallel.data - orig).max()))
+        print("Was the result written in parallel?", out_parallel.data.is_virtual)
 
     # Filter `data` again, this time average result across trials (re-instantiation
     # is necessary to propagate `keeptrials` keyword)
@@ -155,10 +158,10 @@ if __name__ == "__main__":
 
     # If available, perform the same computation in parallel (note that
     # re-instantiation is not necessary as long as `b`, `a` and `keeptrials`
-    # remain unchanged)
+    # remain unchanged) - do not write result concurrently
     if spy.__dask__:
-        client = dd.Client()
         out_parallel = spy.AnalogData()
         myfilter.initialize(data)
-        myfilter.compute(data, out_parallel, parallel=True)
+        myfilter.compute(data, out_parallel, parallel=True, parallel_store=False)
         print(msg.format(np.abs(out_parallel.data - orig[:t.size, :]).max()))
+        print("Was the result written in parallel?", out_parallel.data.is_virtual)

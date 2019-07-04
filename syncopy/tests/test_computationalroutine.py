@@ -4,7 +4,7 @@
 #
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-04 10:09:33>
+# Last modification time: <2019-07-04 17:33:03>
 
 import pytest
 import numpy as np
@@ -105,15 +105,15 @@ class TestComputationalRoutine():
             myfilter.compute(nonequidata, out)
             assert out.data.shape[0] == np.diff(nonequidata.sampleinfo).sum()
 
-    # @skip_without_slurm
+    @skip_without_slurm
     def test_parallel_equidistant(self):
         # start dask client running atop of SLURM cluster
-        # client = esi_cluster_setup(partition="DEV", mem_per_job="4GB",
-        #                            timeout=600, interactive=False,
-        #                            start_client=True)
-        import dask.distributed as dd
-        dd.Client()
-
+        client = esi_cluster_setup(partition="DEV", mem_per_job="4GB",
+                                   timeout=600, interactive=False,
+                                   start_client=True)
+        # import dask.distributed as dd
+        # dd.Client()
+            
         for parallel_store in [True, False]:
             myfilter = LowPassFilter(self.b, self.a)
             myfilter.initialize(self.equidata)
@@ -129,14 +129,14 @@ class TestComputationalRoutine():
             assert np.abs(out.data - self.orig[:self.t.size, :]).max() < self.tol
             assert out.data.is_virtual == parallel_store
 
-    # @skip_without_slurm
+    @skip_without_slurm
     def test_parallel_nonequidistant(self):
         # start dask client running atop of SLURM cluster
-        # client = esi_cluster_setup(partition="DEV", mem_per_job="4GB",
-        #                            timeout=600, interactive=False,
-        #                            start_client=True)
-        import dask.distributed as dd
-        dd.Client()
+        client = esi_cluster_setup(partition="DEV", mem_per_job="4GB",
+                                   timeout=600, interactive=False,
+                                   start_client=True)
+        # import dask.distributed as dd
+        # dd.Client()
 
         for overlapping in [False, True]:
             for parallel_store in [True, False]:
