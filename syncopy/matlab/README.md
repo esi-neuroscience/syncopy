@@ -1,14 +1,14 @@
 MATLAB interface for Syncopy files
 ==================================
 
-The functions provided here provide loading and saving routines for Syncopy
-data files, i.e. data arrays stored in an HDF5 file with metadata in a JSON
+The functions provided here offer loading and saving routines for Syncopy
+data files, i.e., data arrays stored in an HDF5 file with metadata in a JSON
 file. 
 
-To get started simply add the `+spy` folder to your MATLAB path. It is not
-necessary to include all subfolders. 
+To get started, simply add the folder containing the `+spy` directory to your 
+MATLAB path. It is not necessary to include all subfolders. 
 
-For both loading and saving there are two different. The "low-level"
+For both loading and saving there are two different routines. The "low-level"
 functions work with data arrays (matrices):
 * `spy.save_spy`
 * `spy.load_spy`
@@ -18,8 +18,7 @@ are also "high-level" functions that operate with Fieldtrip data structs:
 * `spy.ft_save_spy`
 * `spy.ft_load_spy`
 
-If you want to save typing letters, you can issue an `import` command at the
-beginning of your code:
+As a shortcut, you can issue an `import` command at the beginning of your code:
 ```matlab
 import spy.*
 ft_save_spy(filename)
