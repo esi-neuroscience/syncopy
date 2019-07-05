@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-09 13:56:20>
+# Last modification time: <2019-06-25 12:41:27>
 
 # Builtin/3rd party package imports
 import numbers
@@ -15,7 +15,7 @@ import numpy as np
 from syncopy.shared import data_parser, array_parser, scalar_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError
 
-__all__ = ["selectdata", "definetrial"]
+__all__ = ["selectdata", "definetrial", "padding"]
 
 
 def selectdata(obj, trials=None, deepcopy=False, exact_match=False, **kwargs):
@@ -657,3 +657,264 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
         ref.log = "updated trial-defnition of {} object".format(tgt.__class__.__name__)
     
     return
+
+
+def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
+            postpadlength=None, unit="samples", create_new=True):
+    """
+    data can be array/syncopy object
+
+    if data is array, timeAxis is assumed to be 0!!!!!!!!!!!!!!!!!!!!!!
+
+    create_new : if True actually pad data and create new array/object, 
+                 return len(trial)-long list of `pad_dict`'s otherwise
+
+    pad = "absolute" pad object to get desired absolute length (i.e, 
+           pad = 5s -> all trials are (if necessary) padded to 5s length)
+           `padlength` HAS to be provided, pre/post can be True/False
+
+    pad = "relative" pad object by provided `padlength` (i.e., pad = 5s ->
+           add 5s to each trial)
+           Use padlength = 5s and prepadlength=True OR directly prepadlength=5s 
+           to pad before trial
+
+    pad = "maxlen" pad to max. trial length found in data
+           all padding lengths have to be Bool/None (if all are None, symmetric
+           padding is performed)
+
+    pad = "nextpow2" pad each trial to closest power of 2
+           all padding lengths have to be Bool/None (if all are None, symmetric
+           padding is performed)
+
+    (pre/post)padlength : either None, bool or number
+           if `True` indicate where to pad (e.g., pad = "maxlen" and  prepadlength=True
+           -> data is padded upfront)
+           >>> ONLY if `pad` is "relative", pre/post can be numbers <<<
+
+    """
+
+    # Detect whether input is data object or array-like
+    if any(["BaseData" in str(base) for base in data.__class__.__mro__]):
+        try:
+            data_parser(data, varname="data", dataclass="AnalogData",
+                        empty=False)
+        except Exception as exc:
+            raise exc
+        timeAxis = data.dimord.index("time")
+        spydata = True
+    else:
+        try:
+            array_parser(data, varname="data", dims=2)
+        except Exception as exc:
+            raise exc
+        spydata = False
+
+    # FIXME: Creation of new spy-object currently not supported
+    if not isinstance(create_new, bool):
+        raise SPYTypeError(create_new, varname="create_new", expected="bool")
+    if spydata and create_new:
+        raise NotImplementedError("Creation of padded spy objects currently not supported. ")
+
+    # Use FT-compatible options (sans FT option 'remove')
+    if not isinstance(padtype, str):
+        raise SPYTypeError(padtype, varname="padtype", expected="string")
+    options = ["zero", "nan", "mean", "localmean", "edge", "mirror"]
+    if padtype not in options:
+        lgl = "'" + "or '".join(opt + "' " for opt in options)
+        raise SPYValueError(legal=lgl, varname="padtype", actual=padtype)
+
+    # Check `pad` and ensure we can actually perform the requested operation
+    if not isinstance(pad, str):
+        raise SPYTypeError(pad, varname="pad", expected="string")
+    options = ["absolute", "relative", "maxlen", "nextpow2"]
+    if pad not in options:
+        lgl = "'" + "or '".join(opt + "' " for opt in options)
+        raise SPYValueError(legal=lgl, varname="pad", actual=pad)
+    if pad == "maxlen" and not spydata:
+        lgl = "syncopy data object when using option 'maxlen'"
+        raise SPYValueError(legal=lgl,
+                            varname="pad", actual="maxlen")
+
+    # Make sure a data object was provided if we're working with time values
+    if not isinstance(unit, str):
+        raise SPYTypeError(unit, varname="unit", expected="string")
+    options = ["samples", "time"]
+    if unit not in options:
+        lgl = "'" + "or '".join(opt + "' " for opt in options)
+        raise SPYValueError(legal=lgl, varname="unit", actual=unit)
+    if unit == "time" and not spydata:
+        raise SPYValueError(legal="syncopy data object when using option 'time'",
+                            varname="unit", actual="time")
+
+    # Set up dictionary for type-checking of provided padding lengths
+    nt_dict = {"samples": "int_like", "time": None}
+
+    # If we're padding up to an absolute bound or the max. length across
+    # trials, compute lower bound for padding (in samples or seconds)
+    if pad in ["absolute", "maxlen"]:
+        if spydata:
+            maxTrialLen = np.diff(data.sampleinfo).max()
+        else:
+            maxTrialLen = data.shape[0] # if `pad="absolute" and data is array
+    else:
+        maxTrialLen = np.inf
+    if unit == "time":
+        padlim = maxTrialLen/data.samplerate
+    else:
+        padlim = maxTrialLen
+
+    # To ease option processing, collect padding length keywords in dict
+    plengths = {"padlength": padlength, "prepadlength": prepadlength,
+                "postpadlength": postpadlength}
+
+    # In case of relative padding, we need at least one scalar value to proceed
+    if pad == "relative":
+
+        # If `padlength = None`, pre- or post- need to be set; if `padlength`
+        # is set, both pre- and post- need to be `None` or `True`/`False`.
+        # After this code block, pre- and post- are guaranteed to be numeric.
+        if padlength is None:
+            for key in ["prepadlength", "postpadlength"]:
+                if plengths[key] is not None:
+                    try:
+                        scalar_parser(plengths[key], varname=key, ntype=nt_dict[unit],
+                                      lims=[0, np.inf])
+                    except Exception as exc:
+                        raise exc
+                else:
+                    plengths[key] = 0
+        else:
+            try:
+                scalar_parser(padlength, varname="padlength", ntype=nt_dict[unit],
+                              lims=[0, np.inf])
+            except Exception as exc:
+                raise exc
+            for key in ["prepadlength", "postpadlength"]:
+                if not isinstance(plengths[key], (bool, type(None))):
+                    raise SPYTypeError(plengths[key], varname=key, expected="bool or None")
+
+            if prepadlength is None and postpadlength is None:
+                prepadlength = True
+                postpadlength = True
+            else:
+                prepadlength = prepadlength is not None
+                postpadlength = postpadlength is not None
+                
+            if prepadlength and postpadlength:
+                plengths["prepadlength"] = padlength/2
+                plengths["postpadlength"] = padlength/2
+            else:
+                plengths["prepadlength"] = prepadlength*padlength
+                plengths["postpadlength"] = postpadlength*padlength
+                
+        # Under-determined: abort if requested padding length is 0
+        if all(value == 0 for value in plengths.values() if value is not None):
+            lgl = "either non-zero value of `padlength` or `prepadlength` " + \
+                  "and/or `postpadlength` to be set"
+            raise SPYValueError(legal=lgl, varname="padlength", actual="0|None")
+
+    else:
+
+        # For absolute padding, the desired length has to be >= max. trial length
+        if pad == "absolute":
+            try:
+                scalar_parser(padlength, varname="padlength", ntype=nt_dict[unit],
+                              lims=[padlim, np.inf])
+            except Exception as exc:
+                raise exc
+            for key in ["prepadlength", "postpadlength"]:
+                if not isinstance(plengths[key], (bool, type(None))):
+                    raise SPYTypeError(plengths[key], varname=key, expected="bool or None")
+
+        # For `maxlen` or `nextpow2` we don't want any numeric entries at all
+        else:
+            for key, value in plengths.items():
+                if not isinstance(value, (bool, type(None))):
+                    raise SPYTypeError(value, varname=key, expected="bool or None")
+
+            # Warn of potential conflicts
+            if padlength and (prepadlength or postpadlength):
+                print("WARNING: Found `padlength` and `prepadlength` and/or " +\
+                      "`postpadlength`. Symmetric padding is performed. ")
+
+        # If both pre-/post- are `None`, set them to `True` to use symmetric
+        # padding, otherwise convert `None` entries to `False`
+        if prepadlength is None and postpadlength is None:
+            plengths["prepadlength"] = True
+            plengths["postpadlength"] = True
+        else:
+            plengths["prepadlength"] = plengths["prepadlength"] is not None
+            plengths["postpadlength"] = plengths["postpadlength"] is not None
+
+    # Update pre-/post-padding and (if required) convert time to samples
+    prepadlength = plengths["prepadlength"]
+    postpadlength = plengths["postpadlength"]
+    if unit == "time":
+        if pad == "relative":
+            prepadlength = int(prepadlength*data.samplerate)
+            postpadlength = int(postpadlength*data.samplerate)
+        elif pad == "absolute":
+            padlength = int(padlength*data.samplerate)
+
+    # Construct dict of keywords for ``np.pad`` depending on chosen `padtype`
+    kws = {"zero": {"mode": "constant", "constant_values": 0},
+           "nan": {"mode": "constant", "constant_values": np.nan},
+           "localmean": {"mode": "mean", "stat_length": -1},
+           "mean": {"mode": "mean"},
+           "edge": {"mode": "edge"},
+           "mirror": {"mode": "reflect"}}
+
+    # If in put was syncopy data object, padding is done on a per-trial basis
+    if spydata:
+
+        # A list of input keywords for ``np.pad`` is constructed, no matter if
+        # we actually want to build a new object or not
+        pad_opts = []
+        for trl in data.trials:
+            nSamples = trl.shape[timeAxis]
+            if pad == "absolute":
+                padding = (padlength - nSamples)/(prepadlength + postpadlength)
+            elif pad == "relative":
+                padding = True
+            elif pad == "maxlen":
+                padding = (maxTrialLen - nSamples)/(prepadlength + postpadlength)
+            elif pad == "nextpow2":
+                padding = (_nextpow2(nSamples) - nSamples)/(prepadlength + postpadlength)
+            pw = np.zeros((2, 2), dtype=int)
+            pw[timeAxis, :] = [prepadlength * padding, postpadlength * padding]
+            pad_opts.append(dict({"pad_width": pw}, **kws[padtype]))
+            if padtype == "localmean":
+                pad_opts[-1]["stat_length"] = pw[timeAxis, :]
+
+        if create_new:
+            pass
+        else:
+            return pad_opts
+
+    # Input was a array (i.e., single trial) - we have to do the padding just once
+    else:
+
+        nSamples = data.shape[0]
+        if pad == "absolute":
+            padding = (padlength - nSamples)/(prepadlength + postpadlength)
+        elif pad == "relative":
+            padding = True
+        elif pad == "nextpow2":
+            padding = (_nextpow2(nSamples) - nSamples)/(prepadlength + postpadlength)
+        pw = np.zeros((2, 2), dtype=int)
+        pw[0, :] = [prepadlength * padding, postpadlength * padding]
+        pad_opts = dict({"pad_width": pw}, **kws[padtype])
+        if padtype == "localmean":
+            pad_opts["stat_length"] = pw[0, :]
+
+        if create_new:
+            return np.pad(data, **pad_opts)
+        else:
+            return pad_opts
+
+
+def _nextpow2(number):
+    n = 1
+    while n < number:
+        n *= 2
+    return n

@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # SyNCoPy spectral estimation methods
-# 
+#
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-12 10:25:06>
+# Last modification time: <2019-07-04 10:09:46>
 
 # Builtin/3rd party package imports
 import sys
@@ -18,11 +18,12 @@ if sys.platform == "win32":
     colorama.deinit()
     colorama.init(strip=False)
 from copy import copy
+from numbers import Number
 
 # Local imports
 from syncopy.shared import data_parser, scalar_parser, array_parser, get_defaults
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.datatype import SpectralData
+from syncopy.datatype import SpectralData, padding
 import syncopy.specest.wavelets as spywave 
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.parsers import unwrap_cfg
@@ -30,6 +31,7 @@ from syncopy import __dask__
 if __dask__:
     import dask
     import dask.array as da
+    import dask.bag as db
     import dask.distributed as dd
 
 # Module-wide output specs
@@ -45,16 +47,17 @@ __all__ = ["freqanalysis"]
 
 @unwrap_cfg
 def freqanalysis(data, method='mtmfft', output='fourier',
-                 keeptrials=True, foi=None, pad='nextpow2', polyremoval=False,
-                 polyorder=None, padtype='zero',
-                 taper="hann", taperopt={}, tapsmofrq=None, keeptapers=True,
-                 wav="Morlet", toi=None, width=6,
-                 out=None, cfg=None):
+                 keeptrials=True, foi=None, pad='nextpow2', padtype='zero',
+                 padlength=None, polyremoval=False, polyorder=None,
+                 taper="hann", tapsmofrq=None, keeptapers=True,
+                 wav="Morlet", toi=0.1, width=6,
+                 out=None, **kwargs):
     """
     Explain taperopt...
-    Explain default of toi
+    Explain default of toi (value b/w 0 and 1 indicating percentage of samplerate
+    to use as stepsize)
     """
-    
+
     # Make sure our one mandatory input object can be processed
     try:
         data_parser(data, varname="data", dataclass="AnalogData",
@@ -89,35 +92,47 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         if not isinstance(lcls[vname], bool):
             raise SPYTypeError(lcls[vname], varname=vname, expected="Bool")
 
-    # Ensure padding selection makes sense
-    options = [None, "nextpow2", "zero"]
-    if pad not in options:
-        lgl = "'" + "or '".join(opt + "' " for opt in options)
-        raise SPYValueError(legal=lgl, varname="pad", actual=pad)
-    options = ["zero"]
-    if padtype not in options:
-        lgl = "'" + "or '".join(opt + "' " for opt in options)
-        raise SPYValueError(legal=lgl, varname="padtype", actual=padtype)
+    # Ensure padding selection makes sense (just leverage `padding`'s error checking)
+    if pad is not None:
+        try:
+            padding(data.trials[0], padtype, pad=pad, padlength=padlength,
+                    prepadlength=True)
+        except Exception as exc:
+            raise exc
 
     # For vetting `toi` and `foi`: get timing information of input object
     timing = np.array([np.array([-data.t0[k], end - start - data.t0[k]])/data.samplerate
                        for k, (start, end) in enumerate(data.sampleinfo)])
-    
-    # Ensure frequency-of-interest is below Nyquist and above reciprocal min trial length
+
+    # Construct array of maximally attainable frequency band and set/align `foi`
+    minSampleNum = np.diff(data.sampleinfo).min()
+    if pad:
+        minSamplePos = np.diff(data.sampleinfo).argmin()
+        minSampleNum = padding(data.trials[minSamplePos], padtype, pad=pad,
+                               padlength=padlength, prepadlength=True).shape[timeAxis]
+    minTrialLength = minSampleNum/data.samplerate
+    nFreq = int(np.floor(minSampleNum / 2) + 1)
+    freqs = np.linspace(0, data.samplerate/2, nFreq)
+
+    # Match desired frequencies as close as possible to actually attainable freqs
     if foi is not None:
-        minlen = timing[0, :].max() - timing[1, :].min()
         try:
             array_parser(foi, varname="foi", hasinf=False, hasnan=False,
-                         lims=[1/minlen, data.samplerate/2], dims=(None,))
+                         lims=[1/minTrialLength, data.samplerate/2], dims=(None,))
         except Exception as exc:
             raise exc
         foi = np.array(foi)
         foi.sort()
+        foi = foi[foi <= freqs.max()]
+        foi = foi[foi >= freqs.min()]
+        foi = freqs[np.unique(np.searchsorted(freqs, foi, side="right") - 1)]
+    else:
+        foi = freqs
 
     # FIXME: implement detrending
     if polyremoval is True or polyorder is not None:
         raise NotImplementedError("Detrending has not been implemented yet.")
-    
+
     # Check detrending options for consistency
     if polyremoval:
         try:
@@ -126,23 +141,41 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise exc
     else:
         if polyorder != defaults["polyorder"]:
-            print("<freqanalysis> WARNING: `polyorder` keyword will be ignored " +\
+            print("<freqanalysis> WARNING: `polyorder` keyword will be ignored " +
                   "since `polyremoval` is `False`!")
 
     # Ensure consistency of method-specific options
     if method == "mtmfft":
+
         options = ["hann", "dpss"]
         if taper not in options:
             lgl = "'" + "or '".join(opt + "' " for opt in options)
             raise SPYValueError(legal=lgl, varname="taper", actual=taper)
         taper = getattr(spwin, taper)
+
+        # Advanced usage: see if `taperopt` was provided - if not, leave it empty
+        taperopt = kwargs.get("taperopt", {})
         if not isinstance(taperopt, dict):
             raise SPYTypeError(taperopt, varname="taperopt", expected="dictionary")
-        if tapsmofrq is not None:
-            try:
-                scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[0.1, np.inf])
-            except Exception as exc:
-                raise exc
+
+        # Set/get `tapsmofrq` if we're working w/Slepian tapers
+        if taper.__name__ == "dpss":
+
+            # Try to derive "sane" settings by using 3/4 octave smoothing of highest `foi`
+            # following Hill et al. "Oscillatory Synchronization in Large-Scale
+            # Cortical Networks Predicts Perception", Neuron, 2011
+            if tapsmofrq is None:
+                foimax = foi.max()
+                tapsmofrq = (foimax * 2**(3/4/2) - foimax * 2**(-3/4/2)) / 2
+            else:
+                try:
+                    scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[1, np.inf])
+                except Exception as exc:
+                    raise exc
+
+        # Warn the user in case `tapsmofrq` has no effect
+        if tapsmofrq is not None and taper.__name__ != "dpss":
+            print("<freqanalysis> WARNING: `tapsmofrq` is only used if `taper` is `dpss`!")
 
     elif method == "wavelet":
         options = ["Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat"]
@@ -150,8 +183,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             lgl = "'" + "or '".join(opt + "' " for opt in options)
             raise SPYValueError(legal=lgl, varname="wav", actual=wav)
         wav = getattr(spywave, wav)
-        
-        if toi is not None:
+
+        if isinstance(toi, Number):
+            try:
+                scalar_parser(toi, varname="toi", lims=[0, 1])
+            except Exception as exc:
+                raise exc
+        else:
             try:
                 array_parser(toi, varname="toi", hasinf=False, hasnan=False,
                              lims=[timing.min(), timing.max()], dims=(None,))
@@ -159,7 +197,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 raise exc
             toi = np.array(toi)
             toi.sort()
-            
+
+        if foi is None:
+            foi = 1 / _get_optimal_wavelet_scales(minTrialLength,
+                                                  1/data.samplerate,
+                                                  dj=0.25)
+
+        # FIXME: width setting depends on chosen wavelet
         if width is not None:
             try:
                 scalar_parser(width, varname="width", lims=[1, np.inf])
@@ -173,9 +217,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     for mth_str in other:
         mth_defaults.update(get_defaults(glbls[mth_str]))
     kws = list(get_defaults(glbls[method]).keys())
-    shared_kws = set(defaults.keys()).difference(kws)
-    settings = shared_kws.intersection(mth_defaults.keys()) 
-    for key in settings:
+    distinct_kws = set(defaults.keys()).difference(kws)
+    other_opts = distinct_kws.intersection(mth_defaults.keys()) 
+    for key in other_opts:
         m_default = mth_defaults[key]
         if callable(m_default):
             m_default = m_default.__name__
@@ -184,10 +228,18 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                    "chosen method {m:s}"
             print(wrng.format(kw=key, m=method))
 
+    # Construct dict of "global" keywords sans alien method keywords for logging
+    log_dct = {}
+    log_kws = set(defaults.keys()).difference(other_opts)
+    log_kws = [kw for kw in log_kws if kw != "out"]
+    log_kws[log_kws.index("output_fmt")] = "output"
+    for key in log_kws:
+        log_dct[key] = lcls[key]
+
     # If provided, make sure output object is appropriate
     if out is not None:
         try:
-            data_parser(out, varname="out", writable=True,
+            data_parser(out, varname="out", writable=True, empty=True,
                         dataclass="SpectralData",
                         dimord=SpectralData().dimord)
         except Exception as exc:
@@ -203,39 +255,129 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     mth_input = {}
     kws.remove("noCompute")
     kws.remove("chunkShape")
+    kws.append("keeptrials")
     for kw in kws:
         mth_input[kw] = lcls[kw]
 
     # Construct dict of classes of available methods
     methods = {
-        "mtmfft": MultiTaperFFT(1/data.samplerate, timeAxis, **mth_input)
+        "mtmfft": MultiTaperFFT(1/data.samplerate, timeAxis, **mth_input),
+        "wavelet": WaveletTransform(1/data.samplerate, timeAxis, foi, **mth_input)
     }
 
-    # Perform actual computation (w/ or w/o dask)
+    # Detect if dask client is running and set `parallel` keyword accordingly
     try:
         dd.get_client()
         use_dask = True
-    except:
+    except ValueError:
         use_dask = False
+
+    # Perform actual computation
     specestMethod = methods[method]
     specestMethod.initialize(data)
-    specestMethod.compute(data, out, parallel=use_dask)
-
-    # if output == "power":
-    #     powerOut = out.copy(deep=T)
-    #     for trial in out.trials:
-    #         trial = np.absolute(trial)
+    specestMethod.compute(data, out, parallel=use_dask, log_dict=log_dct)
 
     # Either return newly created output container or simply quit
     return out if new_out else None
 
 
 # Local workhorse that performs the computational heavy lifting
-def mtmfft(trl_dat, dt, timeAxis, 
+def mtmfft(trl_dat, dt, timeAxis,
            taper=spwin.hann, taperopt={}, tapsmofrq=None,
-           pad="nextpow2", padtype="zero", foi=None, keeptapers=True, keeptrials=True,
-           polyorder=None, output_fmt="pow",
+           pad="nextpow2", padtype="zero", padlength=None, foi=None,
+           keeptapers=True, polyorder=None, output_fmt="pow",
            noCompute=False, chunkShape=None):
+
+    # Re-arrange array if necessary and get dimensional information
+    if timeAxis != 0:
+        dat = trl_dat.T       # does not copy but creates view of `trl_dat`
+    else:
+        dat = trl_dat
+    dat = dat.squeeze()
+
+    # Padding (updates no. of samples)
+    if pad is not None:
+        dat = padding(dat, padtype, pad=pad, padlength=padlength, prepadlength=True)
+    nSamples = dat.shape[0]
+    nChannels = dat.shape[1]
+
+    # Construct at least 1 and max. 50 taper(s)
+    if taper == spwin.dpss and (not taperopt):
+        nTaper = int(max(2, min(50, np.floor(tapsmofrq * nSamples * dt))))
+        taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
+    win = np.atleast_2d(taper(nSamples, **taperopt))
+    nTaper = win.shape[0]
+
+    # Determine frequency band and shape of output (time=1 x taper x freq x channel)
+    nFreq = int(np.floor(nSamples / 2) + 1)
+    fidx = slice(None)
+    if foi is not None:
+        freqs = np.linspace(0, 1 / (2 * dt), nFreq)
+        foi = foi[foi <= freqs.max()]
+        foi = foi[foi >= freqs.min()]
+        fidx = np.searchsorted(freqs, foi, side="right") - 1
+        nFreq = fidx.size
+    outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
+
+    # For initialization of computational routine, just return output shape and dtype
+    if noCompute:
+        return outShape, spectralDTypes[output_fmt]
+
+    # In case tapers aren't kept allocate `spec` "too big" and average afterwards
+    if not keeptapers:
+        shp = list(chunkShape)
+        shp[1] = nTaper
+        chunkShape = tuple(shp)
+    spec = np.full(chunkShape, np.nan, dtype=spectralDTypes[output_fmt])
+    fill_idx = tuple([slice(None, dim) for dim in outShape[2:]])
+
+    # Actual computation
+    for taperIdx, taper in enumerate(win):
+        if dat.ndim > 1:
+            taper = np.tile(taper, (nChannels, 1)).T
+        spec[(0, taperIdx,) + fill_idx] = spectralConversions[output_fmt](np.fft.rfft(dat * taper, axis=0)[fidx, :])
+
+    # Average across tapers if wanted
+    if not keeptapers:
+        return spec.mean(axis=1, keepdims=True)
+    else:
+        return spec
+
+
+class MultiTaperFFT(ComputationalRoutine):
+
+    computeFunction = staticmethod(mtmfft)
+
+    def process_metadata(self, data, out):
+
+        # Some index gymnastics to get trial begin/end "samples"
+        if self.keeptrials:
+            time = np.arange(len(data.trials))
+            time = time.reshape((time.size, 1))
+            out.sampleinfo = np.hstack([time, time + 1])
+            out.trialinfo = np.array(data.trialinfo)
+            out._t0 = np.zeros((len(data.trials),))
+        else:
+            out.sampleinfo = np.array([[0, 1]])
+            out.trialinfo = out.sampleinfo[:, 3:]
+            out._t0 = np.array([0])
+
+        # Attach remaining meta-data
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel)
+        out.taper = np.array([self.cfg["taper"].__name__] * self.outputShape[out.dimord.index("taper")])
+        if self.cfg["foi"] is not None:
+            out.freq = self.cfg["foi"]
+        else:
+            nFreqs = self.outputShape[out.dimord.index("freq")]
+            out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
+
+def wavelet(trl_dat, dt, timeAxis, foi,
+            toi=0.1, polyorder=None, wav=spywave.Morlet,
+            width=6, output_fmt="pow",
+            noCompute=False, chunkShape=None):
+    """ dat = samples x channel
+    """
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
@@ -245,62 +387,44 @@ def mtmfft(trl_dat, dt, timeAxis,
     nSamples = dat.shape[0]
     nChannels = dat.shape[1]
 
-    # Padding (updates no. of samples)
-    if pad:
-        padWidth = np.zeros((dat.ndim, 2), dtype=int)
-        if pad == "nextpow2":
-            padWidth[0, 0] = _nextpow2(nSamples) - nSamples
-        if padtype == "zero":
-            dat = np.pad(dat, pad_width=padWidth,
-                         mode="constant", constant_values=0)
-        nSamples = dat.shape[0]
+    # Initialize wavelet
+    
 
-    # Construct taper(s)
-    if taper == spwin.dpss and (not taperopt):
-        nTaper = np.int(np.floor(tapsmofrq * nSamples * dt))
-        taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
-    win = np.atleast_2d(taper(nSamples, **taperopt))
-    nTaper = win.shape[0]
+    # Get time-stepping or explicit time-points of interest
+    if isinstance(toi, Number):
+        toi /= dt
+        tsize = int(np.floor(nSamples / toi))
+    else:
+        tsize = toi.size
 
-    # Determine frequency band and shape of output (time=1 x taper x freq x channel)
-    nFreq = int(np.floor(nSamples / 2) + 1)
-    fidx = slice(None)
-    if foi is not None:
-        freqs = np.linspace(0, 1, nFreq) * 1/(2*dt)
-        foi = foi[foi <= freqs.max()]
-        foi = foi[foi >= freqs.min()]
-        fidx = np.unique(np.searchsorted(freqs, foi))
-        nFreq = fidx.size
-    outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
+    # Output shape: time x taper=1 x freq x channel
+    import ipdb; ipdb.set_trace()
+    scales = wav.scale_from_period(1/foi)
+    outShape = (tsize,
+                1,
+                len(scales),
+                nChannels)
 
     # For initialization of computational routine, just return output shape and dtype
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
 
-    # Actual computation
-    spec = np.full(chunkShape, np.nan, dtype=spectralDTypes[output_fmt])
-    fill_idx = tuple([slice(None, dim) for dim in outShape[2:]])
-    for taperIdx, taper in enumerate(win):
-        if dat.ndim > 1:
-            taper = np.tile(taper, (nChannels, 1)).T
-        spec[(0, taperIdx,) + fill_idx] = spectralConversions[output_fmt](np.fft.rfft(dat * taper, axis=0)[fidx, :])
+    # Actual computation: ``cwt`` returns `(len(scales),) + dat.shape`
+    transformed = spywave.cwt(dat, axis=0, wavelet=wav, widths=scales, dt=dt)
+    transformed = transformed[:, 0:-1:tsize, :, np.newaxis].transpose([1, 3, 0, 2])
 
-    # Average across tapers if wanted
-    if not keeptapers:
-        return spec.mean(axis=0)
-    else:
-        return spec
+    return spectralConversions[output_fmt](transformed)
 
 
-class MultiTaperFFT(ComputationalRoutine):
+class WaveletTransform(ComputationalRoutine):
 
-    computeFunction = staticmethod(mtmfft)
+    computeFunction = staticmethod(wavelet)
 
     def __init__(self, *argv, **kwargs):
         super().__init__(*argv, **kwargs)
 
     def compute_parallel(self, data, out):
-        
+
         # Point to trials on disk by using delayed **static** method calls
         lazy_trial = dask.delayed(data._copy_trial, traverse=False)
         lazy_trls = [lazy_trial(trialno,
@@ -315,7 +439,6 @@ class MultiTaperFFT(ComputationalRoutine):
                                               dtype=data.data.dtype)
                               for sk, trl in enumerate(lazy_trls)])
 
-
         # Use `map_blocks` to compute spectra for each trial in the
         # constructed dask array
         specs = trl_block.map_blocks(self.computeFunction,
@@ -324,101 +447,29 @@ class MultiTaperFFT(ComputationalRoutine):
                                      chunks=self.cfg["chunkShape"],
                                      new_axis=[0])
         specs = specs.reshape(self.outputShape)
-        
+
         # Average across trials if wanted
-        if not self.cfg["keeptrials"]:
+        if not self.keeptrials:
             specs = specs.mean(axis=0)
 
         return specs
 
-    def compute_sequential(self, data, out):
-        with h5py.File(out._filename, "r+") as h5f:
-            for tk, trl in enumerate(tqdm(data.trials, desc="Computing MTMFFT...")):                
-                h5f["SpectralData"][tk, :,:,:] = self.computeFunction(trl, 1 / data.samplerate,
-                                                                      **self.cfg)                          
-                h5f.flush()
-
-    def handle_metadata(self, data, out):
-
-        time = np.arange(len(data.trials))
-        time = time.reshape((time.size, 1))
-        out.sampleinfo = np.hstack([time, time + 1])
-        out.trialinfo = np.array(data.trialinfo)
-        out._t0 = np.zeros((len(data.trials),))
-
-        # Attach meta-data
-        out.samplerate = data.samplerate
-        out.channel = np.array(data.channel)
-        out.taper = np.array([self.cfg["taper"].__name__] * self.outputShape[out.dimord.index("taper")])
-        if self.cfg["foi"] is not None:
-            out.freq = self.cfg["foi"]
-        else:
-            nFreqs = self.outputShape[out.dimord.index("freq")]
-            out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
-        out.cfg = self.cfg
-        
-    # @staticmethod
-    # def write_block(blk, filename, block_info=None):
-    #     idx = block_info[0]["chunk-location"][-1]
-    #     with h5py.File(filename, "r+") as h5f:
-    #          h5f["SpectralData"][idx, :, :, :] = blk
-    #     return idx
-
-
-def _nextpow2(number):
-    n = 1
-    while n < number:
-        n *= 2
-    return n
-
-
-def wavelet(dat, dt,
-            toi=None, foi=None, polyorder=None, wav=spywave.Morlet,
-            width=6, output_fmt="pow", noCompute=False):
-    """ dat = samples x channel
-    """
-
-    dat = np.atleast_2d(dat)
-    scales = wav.scale_from_period(1/foi)
-
-    # time x taper=1 x freq x channel
-    stepsize = 100 # FIXME: stepsize = toi
-    chunkShape = (int(np.floor(dat.shape[0] / stepsize)),
-                   1,
-                   len(scales),
-                   dat.shape[1])
-    if noCompute:
-        return chunkShape, spectralDTypes[output_fmt]
-
-    # cwt returns (len(scales),) + dat.shape
-    transformed = cwt(dat, axis=0, wavelet=wav, widths=scales, dt=dt)
-    transformed = transformed[:, 0:-1:int(stepsize), :, np.newaxis].transpose([1, 3, 0, 2])
-
-    return spectralConversions[output_fmt](transformed)
-
-
-class WaveletTransform(ComputationalRoutine):
-    computeFunction = staticmethod(wavelet)
-
-    def __init__(self, *argv, **kwargs):
-        super().__init__(*argv, **kwargs)
-
-    def initialize(self, data):
-        timeAxis = data.dimord.index("time")
-        minTrialLength = np.array(data._shapes)[:, timeAxis].min()
-        if self.cfg["foi"] is None:
-            self.cfg["foi"] = 1 / _get_optimal_wavelet_scales(minTrialLength,
-                                                              1 / data.samplerate,
-                                                              dj=0.25)
-
-        if self.cfg["toi"] is None:
-            asdf
-            1/foi[-1] * w0
-
-        dryRunKwargs = copy(self.cfg)
-        dryRunKwargs["noCompute"] = True
-        self.chunkShape, self.dtype = self.computeFunction(data.trials[0],
-                                                            *self.argv, **dryRunKwargs)
+    # def initialize(self, data):
+    #     timeAxis = data.dimord.index("time")
+    #     minTrialLength = np.array(data._shapes)[:, timeAxis].min()
+    #     if self.cfg["foi"] is None:
+    #         self.cfg["foi"] = 1 / _get_optimal_wavelet_scales(minTrialLength,
+    #                                                           1 / data.samplerate,
+    #                                                           dj=0.25)
+    # 
+    #     if self.cfg["toi"] is None:
+    #         asdf
+    #         1/foi[-1] * w0
+    # 
+    #     dryRunKwargs = copy(self.cfg)
+    #     dryRunKwargs["noCompute"] = True
+    #     self.chunkShape, self.dtype = self.computeFunction(data.trials[0],
+    #                                                         *self.argv, **dryRunKwargs)
 
     def preallocate_output(self, data, out):
         totalTriallength = np.int(np.sum(np.floor(np.array(data._shapes)[:, 0] /
@@ -444,7 +495,7 @@ class WaveletTransform(ComputationalRoutine):
     def compute_with_dask(self, data, out):
         raise NotImplementedError("Dask computation of wavelet transform is not yet implemented")
 
-    def handle_metadata(self, data, out):
+    def process_metadata(self, data, out):
         out.data = open_memmap(out._filename, mode="r+")
         # We can't simply use ``redefinetrial`` here, prep things by hand
         out.sampleinfo = np.floor(data.sampleinfo / self.cfg["stepsize"]).astype(np.int)
@@ -489,3 +540,10 @@ def _get_optimal_wavelet_scales(nSamples, dt, dj=0.25, s0=1):
     # Largest scale
     J = int((1 / dj) * np.log2(nSamples * dt / s0))
     return s0 * 2 ** (dj * np.arange(0, J + 1))
+
+
+def _nextpow2(number):
+    n = 1
+    while n < number:
+        n *= 2
+    return n

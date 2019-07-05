@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-21 14:46:19>
+# Last modification time: <2019-06-27 14:46:13>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -101,8 +101,8 @@ class ContinuousData(BaseData, ABC):
             try:
                 with h5py.File(filename, mode="r") as h5f:
                     h5keys = list(h5f.keys())
-                    cnt = [h5keys.count(dclass) for dclass in spy.datatype.__all__ \
-                           if not (inspect.isfunction(getattr(spy.datatype, dclass)))]
+                    cnt = [h5keys.count(dclass) for dclass in spy.datatype.__all__
+                           if not inspect.isfunction(getattr(spy.datatype, dclass))]
                     if len(h5keys) == 1:
                         arr = h5f[h5keys[0]][idx]
                     else:
@@ -150,12 +150,6 @@ class ContinuousData(BaseData, ABC):
                 
                 # First, fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
-
-                # If necessary, construct list of channel labels (parsing is done by setter)
-                channel = kwargs.get("channel")
-                if isinstance(channel, str):
-                    channel = [channel + str(i + 1) for i in range(self.data.shape[self.dimord.index("channel")])]
-                self.channel = np.array(channel)
 
         # Dummy assignment: if we have no data but channel labels, assign bogus to tigger setter warning
         else:
@@ -246,17 +240,6 @@ class AnalogData(ContinuousData):
                          mode=mode,
                          dimord=dimord)
 
-    # Overload ``clear`` method to account for `VirtualData` memmaps
-    def clear(self):
-        if isinstance(self.data, np.memmap):
-            filename, mode = self.data.filename, self.data.mode
-            self.data.flush()
-            self._data = None
-            self._data = open_memmap(filename, mode=mode)
-        elif hasattr(self.data, "clear"):       # `VirtualData`
-            self.data.clear()
-        return
-
     # Overload ``copy`` method to account for `VirtualData` memmaps
     def copy(self, deep=False):
         """Create a copy of the data object in memory.
@@ -291,7 +274,7 @@ class AnalogData(ContinuousData):
                 cpy.data = filename
         return cpy
 
-    
+
 class SpectralData(ContinuousData):
     """Multi-channel, real or complex spectral data
 

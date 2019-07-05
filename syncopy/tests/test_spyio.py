@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 #
 # Test functionality of SyNCoPy-container I/O routines
-# 
+#
 # Created: 2019-03-19 14:21:12
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-09 13:52:41>
+# Last modification time: <2019-07-05 11:26:03>
 
 import os
 import tempfile
+import shutil
 import h5py
 import pytest
-import shutil
 import numpy as np
 from numpy.lib.format import open_memmap
 from glob import glob
@@ -21,7 +21,8 @@ from syncopy.io import save_spy, load_spy, FILE_EXT
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 import syncopy.datatype as swd
 
-class TestSpyIO(object):
+
+class TestSpyIO():
 
     # Allocate test-datasets for AnalogData, SpectralData, SpikeData and EventData objects
     nc = 10
@@ -33,27 +34,27 @@ class TestSpyIO(object):
     trl = {}
 
     # Generate 2D array simulating an AnalogData array
-    data["AnalogData"] = np.arange(1, nc*ns + 1).reshape(ns, nc)
+    data["AnalogData"] = np.arange(1, nc * ns + 1).reshape(ns, nc)
     trl["AnalogData"] = np.vstack([np.arange(0, ns, 5),
                                    np.arange(5, ns + 5, 5),
-                                   np.ones((int(ns/5), )),
-                                   np.ones((int(ns/5), )) * np.pi]).T
+                                   np.ones((int(ns / 5), )),
+                                   np.ones((int(ns / 5), )) * np.pi]).T
 
     # Generate a 4D array simulating a SpectralData array
-    data["SpectralData"] = np.arange(1, nc*ns*nt*nf + 1).reshape(ns, nt, nc, nf)
+    data["SpectralData"] = np.arange(1, nc * ns * nt * nf + 1).reshape(ns, nt, nc, nf)
     trl["SpectralData"] = trl["AnalogData"]
 
     # Use a fixed random number generator seed to simulate a 2D SpikeData array
     seed = np.random.RandomState(13)
     data["SpikeData"] = np.vstack([seed.choice(ns, size=nd),
                                    seed.choice(nc, size=nd),
-                                   seed.choice(int(nc/2), size=nd)]).T
+                                   seed.choice(int(nc / 2), size=nd)]).T
     trl["SpikeData"] = trl["AnalogData"]
 
     # Generate bogus trigger timings
     data["EventData"] = np.vstack([np.arange(0, ns, 5),
-                                   np.zeros((int(ns/5), ))]).T
-    data["EventData"][1::2, 1] = 1 
+                                   np.zeros((int(ns / 5), ))]).T
+    data["EventData"][1::2, 1] = 1
     trl["EventData"] = trl["AnalogData"]
 
     # Define data classes to be used in tests below
@@ -73,7 +74,7 @@ class TestSpyIO(object):
                 # ensure saving is logged correctly
                 assert len(dummy._log) > ldum
                 assert dummy.cfg["method"] == "save_spy"
-                
+
             # Delete all open references to file objects b4 closing tmp dir
             del dummy
 
@@ -86,10 +87,10 @@ class TestSpyIO(object):
                                              trialdefinition=self.trl[dclass],
                                              samplerate=1000)
                 save_spy(dname, dummy)
-    
+
                 # perform checksum-matching - this must work
                 dummy = load_spy(dname, checksum=True)
-    
+
                 # manipulate data file
                 hname = dummy._filename
                 del dummy
@@ -100,7 +101,7 @@ class TestSpyIO(object):
                 with pytest.raises(SPYValueError):
                     load_spy(dname, checksum=True)
                 shutil.rmtree(dname + ".spy")
-    
+
     # Test correct handling of user-provided file-names
     def test_fname(self):
         with tempfile.TemporaryDirectory() as tdir:
@@ -111,10 +112,10 @@ class TestSpyIO(object):
                                              trialdefinition=self.trl[dclass],
                                              samplerate=1000)
                 save_spy(dname, dummy, fname=newname)
-    
+
                 # ensure provided file-name was actually used
                 assert len(glob(os.path.join(dname + ".spy", newname + "*"))) == 2
-                
+
                 # load container using various versions of specific file-name
                 fext = FILE_EXT.copy()
                 dext = fext.pop("dir")
@@ -128,7 +129,7 @@ class TestSpyIO(object):
                 # Delete all open references to file objects b4 closing tmp dir
                 del dummy, dummy2
                 shutil.rmtree(dname + dext)
-                
+
     # Test if directory-name "extensions" work as intended
     def test_appendext(self):
         with tempfile.TemporaryDirectory() as tdir:
@@ -139,29 +140,29 @@ class TestSpyIO(object):
                                              samplerate=1000)
                 save_spy(dname, dummy, append_extension=False)
                 save_spy(dname, dummy, fname="preferred")
-    
+
                 # in case dir and dir.spw exist, prefence must be given to dir.spw
                 dummy = load_spy(dname)
                 assert "preferred" in dummy._filename
-    
+
                 # remove "regular" .spy-dir and re-load object from ".spy"-less dir
                 del dummy
                 shutil.rmtree(dname + ".spy")
                 dummy = load_spy(dname)
                 del dummy
                 shutil.rmtree(dname)
-                
+
     # Test memory usage when saving big VirtualData files
     def test_memuse(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "vdat.npy")
             dname = os.path.join(tdir, "dummy")
-            vdata = np.ones((1000, 5000)) # ca. 38.2 MB
+            vdata = np.ones((1000, 5000))  # ca. 38.2 MB
             np.save(fname, vdata)
             del vdata
             dmap = open_memmap(fname)
             adata = AnalogData(VirtualData([dmap, dmap, dmap]), samplerate=10)
-    
+
             # Ensure memory consumption stays within provided bounds
             mem = memory_usage()[0]
             save_spy(dname, adata, memuse=60)

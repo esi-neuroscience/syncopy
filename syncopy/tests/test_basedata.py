@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 #
 # Test proper functionality of SyNCoPy BaseData class + helper
-# 
+#
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-09 13:52:54>
+# Last modification time: <2019-07-05 15:54:16>
 
 import os
-import h5py
 import tempfile
+import h5py
 import pytest
 import numpy as np
 from numpy.lib.format import open_memmap
@@ -22,25 +22,26 @@ from syncopy.tests.misc import is_win_vm
 # Construct decorator for skipping certain tests if we're running inside a Win VM
 skip_in_vm = pytest.mark.skipif(is_win_vm(), reason="running in Win VM")
 
-class TestVirtualData(object):
+
+class TestVirtualData():
 
     # Allocate test-dataset
     nc = 5
     ns = 30
-    data = np.arange(1, nc*ns + 1).reshape(ns, nc)
+    data = np.arange(1, nc * ns + 1).reshape(ns, nc)
 
     def test_alloc(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "vdat")
             np.save(fname, self.data)
             dmap = open_memmap(fname + ".npy")
-        
+
             # illegal type
             with pytest.raises(SPYTypeError):
                 VirtualData({})
 
             # 2darray expected
-            d3 = np.ones((2,3,4))
+            d3 = np.ones((2, 3, 4))
             np.save(fname + "3", d3)
             d3map = open_memmap(fname + "3.npy")
             with pytest.raises(SPYValueError):
@@ -51,11 +52,11 @@ class TestVirtualData(object):
                 VirtualData([dmap, dmap.T])
 
             # check consistency of VirtualData object
-            for vk in range(2,6):
+            for vk in range(2, 6):
                 vdata = VirtualData([dmap] * vk)
                 assert vdata.dtype == dmap.dtype
                 assert vdata.M == dmap.shape[0]
-                assert vdata.N == vk*dmap.shape[1]
+                assert vdata.N == vk * dmap.shape[1]
 
             # Delete all open references to file objects b4 closing tmp dir
             del dmap, vdata, d3map
@@ -65,34 +66,37 @@ class TestVirtualData(object):
             fname = os.path.join(tdir, "vdat.npy")
             fname2 = os.path.join(tdir, "vdat2.npy")
             np.save(fname, self.data)
-            np.save(fname2, self.data*2)
+            np.save(fname2, self.data * 2)
             dmap = open_memmap(fname)
             dmap2 = open_memmap(fname2)
-    
+
             # ensure stacking is performed correctly
             vdata = VirtualData([dmap, dmap2])
             assert np.array_equal(vdata[:, :self.nc], self.data)
-            assert np.array_equal(vdata[:, self.nc:], 2*self.data)
+            assert np.array_equal(vdata[:, self.nc:], 2 * self.data)
             assert np.array_equal(vdata[:, 0].flatten(), self.data[:, 0].flatten())
-            assert np.array_equal(vdata[:, self.nc].flatten(), 2*self.data[:, 0].flatten())
-            assert np.array_equal(vdata[0, :].flatten(), np.hstack([self.data[0, :], 2*self.data[0, :]]))
+            assert np.array_equal(vdata[:, self.nc].flatten(), 2 * self.data[:, 0].flatten())
+            assert np.array_equal(vdata[0, :].flatten(),
+                                  np.hstack([self.data[0, :], 2 * self.data[0, :]]))
             vdata = VirtualData([dmap, dmap2, dmap])
             assert np.array_equal(vdata[:, :self.nc], self.data)
-            assert np.array_equal(vdata[:, self.nc:2*self.nc], 2*self.data)
-            assert np.array_equal(vdata[:, 2*self.nc:], self.data)
+            assert np.array_equal(vdata[:, self.nc:2 * self.nc], 2 * self.data)
+            assert np.array_equal(vdata[:, 2 * self.nc:], self.data)
             assert np.array_equal(vdata[:, 0].flatten(), self.data[:, 0].flatten())
-            assert np.array_equal(vdata[:, self.nc].flatten(), 2*self.data[:, 0].flatten())
-            assert np.array_equal(vdata[0, :].flatten(), np.hstack([self.data[0, :], 2*self.data[0, :], self.data[0, :]]))
-    
+            assert np.array_equal(vdata[:, self.nc].flatten(),
+                                  2 * self.data[:, 0].flatten())
+            assert np.array_equal(vdata[0, :].flatten(),
+                                  np.hstack([self.data[0, :], 2 * self.data[0, :], self.data[0, :]]))
+
             # illegal indexing type
             with pytest.raises(SPYTypeError):
                 vdata[{}, :]
-    
+
             # queried indices out of bounds
             with pytest.raises(SPYValueError):
-                vdata[:, self.nc*3]
+                vdata[:, self.nc * 3]
             with pytest.raises(SPYValueError):
-                vdata[self.ns*2, 0]
+                vdata[self.ns * 2, 0]
 
             # Delete all open references to file objects b4 closing tmp dir
             del dmap, dmap2, vdata
@@ -101,7 +105,7 @@ class TestVirtualData(object):
     def test_memory(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "vdat.npy")
-            data = np.ones((1000, 5000)) # ca. 38.2 MB
+            data = np.ones((1000, 5000))  # ca. 38.2 MB
             np.save(fname, data)
             del data
             dmap = open_memmap(fname)
@@ -114,16 +118,17 @@ class TestVirtualData(object):
             # test consistency and efficacy of clear method
             vd = vdata[:, :]
             vdata.clear()
-            assert np.array_equal(vd, vdata[:,:])
+            assert np.array_equal(vd, vdata[:, :])
             mem = memory_usage()[0]
             vdata.clear()
             assert (mem - memory_usage()[0]) > 100
-            
+
             # Delete all open references to file objects b4 closing tmp dir
             del dmap, vdata
 
-# Test BaseData methods that work identically for all regular classes            
-class TestBaseData(object):
+
+# Test BaseData methods that work identically for all regular classes
+class TestBaseData():
 
     # Allocate test-datasets for AnalogData, SpectralData, SpikeData and EventData objects
     nc = 10
@@ -135,14 +140,14 @@ class TestBaseData(object):
     trl = {}
 
     # Generate 2D array simulating an AnalogData array
-    data["AnalogData"] = np.arange(1, nc*ns + 1).reshape(ns, nc)
+    data["AnalogData"] = np.arange(1, nc * ns + 1).reshape(ns, nc)
     trl["AnalogData"] = np.vstack([np.arange(0, ns, 5),
                                    np.arange(5, ns + 5, 5),
-                                   np.ones((int(ns/5), )),
-                                   np.ones((int(ns/5), )) * np.pi]).T
+                                   np.ones((int(ns / 5), )),
+                                   np.ones((int(ns / 5), )) * np.pi]).T
 
     # Generate a 4D array simulating a SpectralData array
-    data["SpectralData"] = np.arange(1, nc*ns*nt*nf + 1).reshape(ns, nt, nf, nc)
+    data["SpectralData"] = np.arange(1, nc * ns * nt * nf + 1).reshape(ns, nt, nf, nc)
     trl["SpectralData"] = trl["AnalogData"]
 
     # Use a fixed random number generator seed to simulate a 2D SpikeData array
@@ -154,8 +159,8 @@ class TestBaseData(object):
 
     # Use a simple binary trigger pattern to simulate EventData
     data["EventData"] = np.vstack([np.arange(0, ns, 5),
-                                   np.zeros((int(ns/5), ))]).T
-    data["EventData"][1::2, 1] = 1 
+                                   np.zeros((int(ns / 5), ))]).T
+    data["EventData"][1::2, 1] = 1
     trl["EventData"] = trl["AnalogData"]
 
     # Define data classes to be used in tests below
@@ -166,7 +171,7 @@ class TestBaseData(object):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "dummy.npy")
             hname = os.path.join(tdir, "dummy.h5")
-            
+
             for dclass in self.classes:
                 # attempt allocation with random file
                 with open(fname, "w") as f:
@@ -182,14 +187,14 @@ class TestBaseData(object):
                 assert np.array_equal(dummy.data, self.data[dclass])
                 assert dummy._filename == hname
                 del dummy
-                    
+
                 # allocation using HDF5 dataset directly
-                dset = h5py.File(hname, mode="r")["dummy"]
+                dset = h5py.File(hname, mode="r+")["dummy"]
                 dummy = getattr(spd, dclass)(dset)
                 assert np.array_equal(dummy.data, self.data[dclass])
-                assert dummy.mode == "r", dummy.data.file.mode
+                assert dummy.mode == "r+", dummy.data.file.mode
                 del dummy
-                
+
                 # allocation with memmaped npy file
                 np.save(fname, self.data[dclass])
                 dummy = getattr(spd, dclass)(fname)
@@ -237,16 +242,20 @@ class TestBaseData(object):
                 dset.file.close()
                 with pytest.raises(SPYValueError):
                     dummy.data[0, ...]
-                
+
                 # attempt allocation with HDF5 dataset of closed container
                 with pytest.raises(SPYValueError):
                     getattr(spd, dclass)(dset)
-                
+
                 # attempt allocation using memmap of wrong shape
                 np.save(fname, np.ones((self.nc,)))
                 with pytest.raises(SPYValueError):
                     getattr(spd, dclass)(open_memmap(fname))
-                    
+
+                # os.unlink(fname)
+                # os.unlink(hname)
+                # import time; time.sleep(1)
+
     # Assignment of trialdefinition array is tested with all members of `classes`
     def test_trialdef(self):
         for dclass in self.classes:
@@ -261,11 +270,11 @@ class TestBaseData(object):
     def test_clear(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "dummy.npy")
-            data = np.ones((5000, 1000)) # ca. 38.2 MB
+            data = np.ones((5000, 1000))  # ca. 38.2 MB
             np.save(fname, data)
             del data
             dmap = open_memmap(fname)
-    
+
             # test consistency and efficacy of clear method
             dummy = AnalogData(dmap)
             data = np.array(dummy.data)
@@ -277,7 +286,7 @@ class TestBaseData(object):
 
             # Delete all open references to file objects b4 closing tmp dir
             del dmap, dummy
-            
+
     # Test ``_gen_filename`` with `AnalogData` only - method is independent from concrete data object
     def test_filename(self):
         # ensure we're salting sufficiently to create at least `numf`
@@ -288,7 +297,7 @@ class TestBaseData(object):
         for k in range(numf):
             fnames.append(dummy._gen_filename())
         assert np.unique(fnames).size == numf
-    
+
     # Object copying is tested with all members of `classes`
     def test_copy(self):
 
@@ -303,7 +312,7 @@ class TestBaseData(object):
             assert hash(str(dummy.sampleinfo)) == hash(str(dummy2.sampleinfo))
             assert hash(str(dummy.t0)) == hash(str(dummy2.t0))
             assert hash(str(dummy.trialinfo)) == hash(str(dummy2.trialinfo))
-    
+
         # test shallow + deep copies of memmaps + HDF5 containers
         with tempfile.TemporaryDirectory() as tdir:
             for dclass in self.classes:
@@ -348,9 +357,9 @@ class TestBaseData(object):
                 assert np.array_equal(dummy.t0, dummy3.t0)
                 assert np.array_equal(dummy.trialinfo, dummy3.trialinfo)
                 assert np.array_equal(dummy.data, dummy3.data)
-                
+
                 # Delete all open references to file objects b4 closing tmp dir
                 del mm, dummy, dummy2, dummy3
-                
+
                 # remove container for next round
                 os.unlink(hname)

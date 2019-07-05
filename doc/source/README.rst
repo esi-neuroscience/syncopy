@@ -18,7 +18,14 @@ Contents
    developer/developers.rst
    examples
 
+.. automodule:: syncopy.shared.computational_routine.ComputationalRoutine
 
+.. autosummary::
+   :toctree: _stubs
+
+   syncopy.shared.computational_routine.ComputationalRoutine.computeFunction
+
+   
 
 Indices and tables
 ==================

@@ -11,10 +11,12 @@ from .queries import *
 from .errors import *
 from .parsers import *
 from .computational_routine import *
+from .dask_helpers import *
 
 # Populate local __all__ namespace
 __all__ = []
 __all__.extend(computational_routine.__all__)
+__all__.extend(dask_helpers.__all__)
 __all__.extend(errors.__all__)
 __all__.extend(parsers.__all__)
 __all__.extend(queries.__all__)
