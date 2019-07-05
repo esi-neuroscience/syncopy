@@ -4,7 +4,7 @@
 #
 # Created: 2019-07-02 14:25:52
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-04 17:33:22>
+# Last modification time: <2019-07-05 16:11:02>
 
 # Builtin/3rd party package imports
 import os
@@ -142,6 +142,8 @@ if __name__ == "__main__":
     # re-instantiation is not necessary as long as `b` and `a` remain unchanged)
     if spy.__dask__:
         client = dd.Client()
+        # from syncopy.shared import esi_cluster_setup
+        # client = esi_cluster_setup(partition="DEV", mem_per_job="4GB")
         out_parallel = spy.AnalogData()
         myfilter.initialize(data)
         myfilter.compute(data, out_parallel, parallel=True)

@@ -4,17 +4,17 @@
 #
 # Created: 2019-06-17 09:45:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-04 14:20:17>
+# Last modification time: <2019-07-05 15:54:43>
 
 import os
 import tempfile
 import inspect
 import pytest
 import numpy as np
+import dask.distributed as dd
 from numpy.lib.format import open_memmap
 from syncopy.datatype import AnalogData, SpectralData, StructDict, padding
 from syncopy.datatype.base_data import VirtualData
-from syncopy.shared import esi_cluster_setup
 from syncopy.shared.errors import SPYValueError
 from syncopy.specest import freqanalysis
 from syncopy.tests.misc import generate_artifical_data, is_slurm_node
@@ -205,16 +205,10 @@ class TestMTMFFT():
             assert (np.diff(avdata.sampleinfo)[0][0] + npad) / 2 + 1 == spec.freq.size
 
     @skip_without_slurm
-    def test_slurm(self):
-        # start dask client running atop of SLURM cluster
-        client = esi_cluster_setup(partition="DEV", mem_per_job="4GB",
-                                   timeout=600, interactive=False,
-                                   start_client=True)
-        # import dask.distributed as dd
-        # dd.Client()
-
+    def test_slurm(self, esicluster):
         # collect all tests of current class and repeat them using dask
         # (skip VirtualData tests since ``_copy_trial`` expects valid headers)
+        client = dd.Client(esicluster)
         all_tests = [attr for attr in self.__dir__()
                      if (inspect.ismethod(getattr(self, attr)) and attr != "test_slurm")]
         all_tests.remove("test_vdata")
@@ -276,5 +270,6 @@ class TestMTMFFT():
         assert spec.taper.size == 1
         assert len(spec.time) == 1
         assert len(spec.time[0]) == 1
+        client.close()
 
     # FIXME: check polyorder/polyremoval once supported

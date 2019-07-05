@@ -4,7 +4,7 @@
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-04 17:32:17>
+# Last modification time: <2019-07-05 13:50:11>
 
 # Builtin/3rd party package imports
 import os
@@ -453,7 +453,9 @@ class ComputationalRoutine(ABC):
         # dementia and forget the `sys.path` of their parent process. Fun!
         if parallel:
             def init_syncopy(dask_worker):
-                sys.path.insert(0, os.path.split(__path__[0])[0])
+                spy_path = os.path.abspath(os.path.split(__path__[0])[0])
+                if spy_path not in sys.path:
+                    sys.path.insert(0, spy_path)
             client = dd.get_client()
             client.register_worker_callbacks(init_syncopy)
 
@@ -591,7 +593,7 @@ class ComputationalRoutine(ABC):
             # FIXME: Placeholder
             if not self.keeptrials:
                 pass
-
+        
         return result
 
     def compute_sequential(self, data, out):

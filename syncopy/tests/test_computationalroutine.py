@@ -4,15 +4,16 @@
 #
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-04 17:33:03>
+# Last modification time: <2019-07-05 15:51:37>
 
 import pytest
 import numpy as np
+import dask.distributed as dd
 from scipy import signal
 from syncopy.datatype import AnalogData
-from syncopy.shared import esi_cluster_setup
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.tests.misc import generate_artifical_data, is_slurm_node
+
 
 # Decorator to run SLURM tests only on cluster nodes
 skip_without_slurm = pytest.mark.skipif(not is_slurm_node(),
@@ -79,6 +80,7 @@ class TestComputationalRoutine():
     equidata = AnalogData(data=sig, samplerate=fs, trialdefinition=trl,
                           dimord=["time", "channel"])
 
+
     def test_sequential_equidistant(self):
         myfilter = LowPassFilter(self.b, self.a)
         myfilter.initialize(self.equidata)
@@ -106,14 +108,8 @@ class TestComputationalRoutine():
             assert out.data.shape[0] == np.diff(nonequidata.sampleinfo).sum()
 
     @skip_without_slurm
-    def test_parallel_equidistant(self):
-        # start dask client running atop of SLURM cluster
-        client = esi_cluster_setup(partition="DEV", mem_per_job="4GB",
-                                   timeout=600, interactive=False,
-                                   start_client=True)
-        # import dask.distributed as dd
-        # dd.Client()
-            
+    def test_parallel_equidistant(self, esicluster):
+        client = dd.Client(esicluster)
         for parallel_store in [True, False]:
             myfilter = LowPassFilter(self.b, self.a)
             myfilter.initialize(self.equidata)
@@ -121,23 +117,18 @@ class TestComputationalRoutine():
             myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store)
             assert np.abs(out.data - self.orig).max() < self.tol
             assert out.data.is_virtual == parallel_store
-
+    
             myfilter = LowPassFilter(self.b, self.a, keeptrials=False)
             myfilter.initialize(self.equidata)
             out = AnalogData()
             myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store)
             assert np.abs(out.data - self.orig[:self.t.size, :]).max() < self.tol
             assert out.data.is_virtual == parallel_store
-
+        client.close()
+    
     @skip_without_slurm
-    def test_parallel_nonequidistant(self):
-        # start dask client running atop of SLURM cluster
-        client = esi_cluster_setup(partition="DEV", mem_per_job="4GB",
-                                   timeout=600, interactive=False,
-                                   start_client=True)
-        # import dask.distributed as dd
-        # dd.Client()
-
+    def test_parallel_nonequidistant(self, esicluster):
+        client = dd.Client(esicluster)
         for overlapping in [False, True]:
             for parallel_store in [True, False]:
                 nonequidata = generate_artifical_data(nTrials=self.nTrials,
@@ -145,7 +136,7 @@ class TestComputationalRoutine():
                                                       equidistant=False,
                                                       overlapping=overlapping,
                                                       inmemory=False)
-
+    
                 out = AnalogData()
                 myfilter = LowPassFilter(self.b, self.a)
                 myfilter.initialize(nonequidata)
@@ -154,3 +145,4 @@ class TestComputationalRoutine():
                 for tk, trl in enumerate(out.trials):
                     assert trl.shape[0] == np.diff(nonequidata.sampleinfo[tk, :])
                 assert out.data.is_virtual == parallel_store
+        client.close()

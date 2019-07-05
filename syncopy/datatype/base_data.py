@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-01 16:01:13>
+# Last modification time: <2019-07-05 14:39:57>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -438,7 +438,10 @@ class BaseData(ABC):
     def __del__(self):
         if self._filename is not None:
             if isinstance(self._data, h5py.Dataset):
-                self._data.file.close()
+                try:
+                    self._data.file.close()
+                except:
+                    pass
             else:
                 del self._data
             if __storage__ in self._filename and os.path.exists(self._filename):

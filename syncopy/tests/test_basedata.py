@@ -4,7 +4,7 @@
 #
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-27 13:42:17>
+# Last modification time: <2019-07-05 15:54:16>
 
 import os
 import tempfile
@@ -189,10 +189,10 @@ class TestBaseData():
                 del dummy
 
                 # allocation using HDF5 dataset directly
-                dset = h5py.File(hname, mode="r")["dummy"]
+                dset = h5py.File(hname, mode="r+")["dummy"]
                 dummy = getattr(spd, dclass)(dset)
                 assert np.array_equal(dummy.data, self.data[dclass])
-                assert dummy.mode == "r", dummy.data.file.mode
+                assert dummy.mode == "r+", dummy.data.file.mode
                 del dummy
 
                 # allocation with memmaped npy file
@@ -251,6 +251,10 @@ class TestBaseData():
                 np.save(fname, np.ones((self.nc,)))
                 with pytest.raises(SPYValueError):
                     getattr(spd, dclass)(open_memmap(fname))
+
+                # os.unlink(fname)
+                # os.unlink(hname)
+                # import time; time.sleep(1)
 
     # Assignment of trialdefinition array is tested with all members of `classes`
     def test_trialdef(self):

@@ -4,7 +4,7 @@
 #
 # Created: 2019-03-19 14:21:12
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-27 15:11:19>
+# Last modification time: <2019-07-05 11:26:03>
 
 import os
 import tempfile
@@ -89,7 +89,6 @@ class TestSpyIO():
                 save_spy(dname, dummy)
 
                 # perform checksum-matching - this must work
-                print(dclass)
                 dummy = load_spy(dname, checksum=True)
 
                 # manipulate data file
