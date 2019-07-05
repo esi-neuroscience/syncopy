@@ -28,7 +28,7 @@ Any analysis routine that operates on Syncopy data is always structured in three
    parallelization and post-computation cleanup. This should be based on the
    abstract class :class:`syncopy.shared.computational_routine.ComputationalRoutine`
 3. Another wrapping metafunction handling method selection, parameterization and
-   error checking is then provided for the end users.
+   error checking is then provided for the users.
 
 An example for this type of structure is the multi-taper fourier analysis. The
 corresponding stages here are
@@ -37,3 +37,12 @@ corresponding stages here are
 2. Wrapper class: :class:`syncopy.specest.MultiTaperFFT`
 3. Metafunction: :func:`syncopy.freqanalysis` 
 
+For a detailed walk-through explaining the intricacies of writing a an analysis
+routine, please refer to the documentation of
+:class:`syncopy.shared.computational_routine.ComputationalRoutine`
+
+.. autosummary::
+   :toctree: _stubs    
+   :template: syncopy_class.rst
+   
+   syncopy.shared.computational_routine.ComputationalRoutine
