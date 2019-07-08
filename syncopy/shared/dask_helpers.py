@@ -174,7 +174,8 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
         raise TimeoutError(err.format(timeout))
     
     # Highlight how to connect to dask performance monitor
-    print("Cluster dashboard accessible at {}".format(cluster.dashboard_link))
+    # FIXME: Re-add printing of dashboard link when issue #128 is fully fixed
+    # print("Cluster dashboard accessible at {}".format(cluster.dashboard_link))
 
     # If client was requested, return that instead of the created cluster
     if start_client:
