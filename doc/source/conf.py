@@ -51,8 +51,11 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
-    'sphinx.ext.inheritance_diagram'
+    'sphinx.ext.inheritance_diagram',
+    'sphinx.ext.autosectionlabel',
 ]
+
+autosectionlabel_maxdepth = 2
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

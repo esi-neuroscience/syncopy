@@ -1,6 +1,6 @@
 
-Syncopy data classes (:mod:`syncopy.datatype`)
-==============================================
+Syncopy data classes 
+====================
  
 The data structure in Syncopy is based around the idea that all
 electrophysiology data can be represented as multidimensional arrays. For

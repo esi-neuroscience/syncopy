@@ -5,17 +5,37 @@ The Syncopy data format (``*.spy``)
 -----------------------------------
 
 As each Syncopy data object is not more than an anotated multi-dimensional
-array, each object is usually stored in (1) a binary file for the data and (2) a
-human-readable file for metadata.
+array each object is usually stored in 
 
-For handling large-scale data that is often too big for local memory, Syncopy
-makes heavy use of streaming data from and to disk on demand. The default
-storage backend is therefore
+1. a binary file for the data arrays and
+2. a human-readable file for metadata.
 
-1. a very simple `HDF5 <https://www.hdfgroup.org/>`_ file: ``<basename>.<hash>.dat``
-2. a human-readable `JSON <https://en.wikipedia.org/wiki/JSON>`_ file for metadata. : ``<basename>.<hash>.info``
+Syncopy aims at being scalable for very large files that don't fit in memory. To
+cope with those kind of files, it is usually necessary to stream data from and
+to disk only on demand. A file format that is well-established for this kind of
+purpose is `HDF5 <https://www.hdfgroup.org/>`_, which is therefore the default
+storage backend of Syncopy. In addition, the metadata are store in `JSON
+<https://en.wikipedia.org/wiki/JSON>`_, which is both easily human-readable 
+and machine-readable.
 
-These files are usually stored in a folder called ``<basename>.spy``.
+These files are usually stored in a folder called ``<basename>.spy``, which can
+contain multiple data of different classes that have been recorded
+simulatenously, e.g. spikes and local field potentials. The standard naming
+pattern of the data files is the following
+
+:: 
+
+    <basename>.spy
+      └── <basename>_<tag1>.<dataclass>
+      └── <basename>_<tag1>.<dataclass>.info
+      └── <basename>_<tag2>.<dataclass>
+      └── <basename>_<tag2>.<dataclass>.info
+           ...
+
+The ``<dataclass>`` specifies the type of data that is stored in the file, i.e.
+one of :ref:`Syncopy data classes`. The ``<tag>`` part of the filename is
+user-defined to distinguish data of the same data class, that should be kept
+separate, e.g. data from separate electrode arrays.
 
 The HDF5 file contains some metadata (HDF attributes) in its header (redundant
 with JSON file), the data array in binary form (HDF dataset), and a [nTrials x
