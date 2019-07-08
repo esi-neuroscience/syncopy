@@ -16,7 +16,7 @@ Input parsing and error checking
    syncopy.shared.parsers.get_defaults   
 
 
-Writing a new analysis routine
+Writing A New Analysis Routine
 ------------------------------
 
 Any analysis routine that operates on Syncopy data is always structured in three
@@ -37,12 +37,6 @@ corresponding stages here are
 2. Wrapper class: :class:`syncopy.specest.MultiTaperFFT`
 3. Metafunction: :func:`syncopy.freqanalysis` 
 
-For a detailed walk-through explaining the intricacies of writing a an analysis
-routine, please refer to the documentation of
-:class:`syncopy.shared.computational_routine.ComputationalRoutine`
+For a detailed walk-through explaining the intricacies of writing an analysis
+routine, please refer to the :doc:`compute_kernels`.
 
-.. autosummary::
-   :toctree: _stubs    
-   :template: syncopy_class.rst
-   
-   syncopy.shared.computational_routine.ComputationalRoutine
