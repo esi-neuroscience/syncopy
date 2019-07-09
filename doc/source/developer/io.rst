@@ -9,17 +9,17 @@ Reading from and writing data to disk
 The Syncopy data format (``*.spy``)
 -----------------------------------
 
-As each Syncopy data object is not more than an anotated multi-dimensional
+As each Syncopy data object is nothing more than an anotated multi-dimensional
 array each object is usually stored in 
 
 1. a binary file for the data arrays and
 2. a human-readable file for metadata.
 
-Syncopy aims at being scalable for very large files that don't fit in memory. To
-cope with those kind of files, it is usually necessary to stream data from and
+Syncopy aims to be scalable for very large files that don't fit into memory. To
+cope with those kinds of files, it is usually necessary to stream data from and
 to disk only on demand. A file format that is well-established for this 
 purpose is `HDF5 <https://www.hdfgroup.org/>`_, which is therefore the default
-storage backend of Syncopy. In addition, the metadata are stored in `JSON
+storage backend of Syncopy. In addition, metadata are stored in `JSON
 <https://en.wikipedia.org/wiki/JSON>`_, which is both easily human-readable 
 and machine-readable.
 
@@ -92,17 +92,17 @@ such data files using the HDF5 library (`C/C++
 <https://portal.hdfgroup.org/display/HDF5/Examples+from+Learning+the+Basics>`_ ,
 `MATLAB
 <https://de.mathworks.com/help/matlab/high-level-functions.html?s_tid=CRUX_lftnav>`_)
-or more low-level functions (`fread
+or low-level functions (`fread
 <https://de.mathworks.com/help/matlab/ref/fread.html>`_). GUIs for inspecting
 the data directly include `HDFView
-<https://www.hdfgroup.org/downloads/hdfview/>`_ and the `HDFCompass
+<https://www.hdfgroup.org/downloads/hdfview/>`_ and `HDFCompass
 <https://github.com/HDFGroup/hdf-compass>`_.
 
 
 Structure of the metadata file (JSON)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The JSON file contains all metadata about the data object. The required fields
+The JSON file contains all metadata relevant to the data object. The required fields
 in the JSON file are:
 
 =============  =====  ===========
@@ -114,10 +114,10 @@ name           type   description
 "cfg"          dict   "rigorous" history of data
 "data"         str    filename of HDF5 file
 "data_dtype"   str    NumPy datatype of data array
-"data_shape"   list   shape of data array in indices
+"data_shape"   list   shape of data array
 "data_offset"  int    offset from begin of file of data array (bytes)
 "trl_dtype"    str    NumPy datatype of trialdata array
-"trl_shape"    list   shape of trialdata array in indices
+"trl_shape"    list   shape of trialdata array
 "trl_offset"   int    offset from begin of file of trialdata array (bytes)
 =============  =====  ===========
 
@@ -180,13 +180,13 @@ Example JSON file:
 Reading other data formats
 --------------------------
 
-Reading and writing other data formats are currently not supported. Getting your
-data into Syncopy is however relatively straightforward, if you're able to read
-your data into Python, e.g. by using `NEO <http://neuralensemble.org/neo/>`_.
+Reading and writing other data formats is currently not supported. Getting your
+data into Syncopy is, however, relatively straightforward, if you can access
+your data in Python, e.g. by using `NEO <http://neuralensemble.org/neo/>`_.
 
 Similar to :func:`syncopy.load` you'll have to write a function that creates an
 empty data object (e.g. :class:`syncopy.AnalogData`) and fills the ``data``
-property with an index-able array as well as the metadata properties.
+property with an index-able array as well as all relevant metadata properties.
 
 In future releases of Syncopy, example reading routines and/or exporting
-functions may be provided.
+functions will be provided.
