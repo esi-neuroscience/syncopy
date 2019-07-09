@@ -4,7 +4,7 @@
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-09 14:13:10>
+# Last modification time: <2019-07-09 16:31:18>
 
 # Builtin/3rd party package imports
 import os
@@ -281,6 +281,13 @@ class ComputationalRoutine(ABC):
                     sys.path.insert(0, spy_path)
             client = dd.get_client()
             client.register_worker_callbacks(init_syncopy)
+
+        # Check if trials actually fit into memory before we start computing
+        if parallel:
+            # SLURM: client.cluster.worker_memory
+            # LOCAL: client.cluster.workers[0].memory_limit
+            # cc.cluster._count_active_and_pending_workers()
+            # int: bytes of memory for worker to use
 
         # Create HDF5 dataset of appropriate dimension
         self.preallocate_output(out, parallel_store=parallel_store)
