@@ -129,7 +129,7 @@ class ComputationalRoutine(ABC):
 
     def initialize(self, data):
         """
-        Perform dry-run of calculation
+        Perform dry-run of calculation to determine output shape
 
         Parameters
         ----------
