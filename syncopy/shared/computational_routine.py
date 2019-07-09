@@ -4,7 +4,7 @@
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-05 13:50:11>
+# Last modification time: <2019-07-09 14:13:10>
 
 # Builtin/3rd party package imports
 import os
@@ -36,24 +36,12 @@ __all__ = []
 class ComputationalRoutine(ABC):
     """Abstract class for encapsulating sequential/parallel algorithms
 
-    This class provides a blueprint for implementing algorithmic strategies
-    in Syncopy. Every computational method in Syncopy consists of a core
-    routine, the :func:`computeFunction`, which can be executed either
-    sequentially or fully parallel. To unify common instruction sequences
-    and minimize code redundancy, Syncopy's :class:`ComputationalRoutine`
-    manages all pre- and post-processing steps necessary during preparation
-    and after termination of a calculation. This permits developers to
-    focus exclusively on the implementation of the actual algorithmic
-    details when including a new computational method in Syncopy.
-
-    Summary
-    -------
     A Syncopy compute kernel consists of a
     :class:`ComputationalRoutine`-subclass that binds a static
     :func:`computeFunction` and provides the class method
-    `process_metadata`.
+    :meth:`process_metadata`.
 
-    Requirements for :func:`computeFunction`:
+    Requirements for :meth:`computeFunction`:
 
     * First positional argument is a :class:`numpy.ndarray`, the keywords
       `chunkShape` and `noCompute` are supported
@@ -66,286 +54,8 @@ class ComputationalRoutine(ABC):
       as static method
     * Provides class method :func:`process_data`
 
-    Designing a :func:`computeFunction`
-    -----------------------------------
-    For enabling :class:`ComputationalRoutine` to perform all required
-    computational management tasks, a :func:`computeFunction` has to
-    satisfy a few basic requirements. Syncopy leverages a hierarchical
-    parallelization paradigm whose low-level foundation is represented by
-    trial-based parallelism (its open-ended higher levels may constitute
-    by-object, by-experiment or by-session parallelization). Thus, with
-    :func:`computeFunction` representing the computational core of an
-    (arbitrarily complex) superseding algorithm, it has to be structured to
-    support trial-based parallel computing.  Specifically, this means the
-    scope of work of a :func:`computeFunction` is **a single trial**. Note
-    that this also implies that any parallelism integrated in
-    :func:`computeFunction` has to be designed with higher-level parallel
-    execution in mind (e.g., concurrent processing of sessions on top of
-    trials).
-
-    Technically, a :func:`computeFunction` is a regular stand-alone Python
-    function (**not** a class method) that accepts a :class:`numpy.ndarray`
-    as its first positional argument and supports (at least) the two
-    keyword arguments `chunkShape` and `noCompute`. The
-    :class:`numpy.ndarray` represents aggregate data from one trial (only
-    data, no meta-information). Any required meta-info (such as channel
-    labels, trial definition records etc.) has to be passed to
-    :func:`computeFunction` either as additional (2nd an onward) positional
-    or named keyword arguments (`chunkShape` and `noCompute` are the only
-    reserved keywords).
-
-    The return values of :func:`computeFunction` are controlled by the
-    `noCompute` keyword.  In general, :func:`computeFunction` returns
-    exactly one :class:`numpy.ndarray` representing the result of
-    processing data from a single trial. The `noCompute` keyword is used to
-    perform a 'dry-run' of the processing operations to propagate the
-    expected numerical type and memory footprint of the result to
-    :class:`ComputationalRoutine` without actually performing any
-    calculations. To optimize performance, :class:`ComputationalRoutine`
-    uses the information gathered in the dry-runs for each trial to
-    allocate identically-sized array-blocks accommodating the largest (by
-    shape) result-array across all trials.  In this manner a global
-    block-size is identified, which can subsequently be accessed inside
-    :func:`computeFunction` via the `chunkShape` keyword during the actual
-    computation.
-
-    Summarized, a valid :func:`computeFunction`, `cfunc`, meets the
-    following basic requirements:
-
-    * **Call signature**
-
-      >>> def cfunc(arr, arg1, arg2, ..., argN, chunkShape=None, noCompute=None, **kwargs)
-
-      where `arr` is a :class:`numpy.ndarray` representing trial data,
-      `arg1`, ..., `argN` are arbitrary positional arguments and
-      `chunkShape` (a tuple if not `None`) as well as `noCompute` (bool if
-      not `None`) are reserved keywords.
-
-    * **Return values**
-
-      During the dry-run phase, i.e., if `noCompute` is `True`, the expected
-      output shape and its :class:`numpy.dtype` are returned, otherwise the
-      result of the computation (a :class:`numpy.ndarray`) is returned:
-
-      >>> def cfunc(arr, arg1, arg2, ..., argN, chunkShape=None, noCompute=None, **kwargs)
-      >>> # determine expected output shape and numerical type...
-      >>> if noCompute:
-      >>>     return outShape, outdtype
-      >>> # the actual computation is happening here...
-      >>> return res
-
-      Note that dtype and shape of `res` have to agree with `outShape` and
-      `outdtype` specified in the dry-run. 
-
-    A simple example of a :func:`computeFunction` illustrating these concepts 
-    is given in `Examples`.
-
-    The Algorithmic Layout of :class:`ComputationalRoutine`
-    -------------------------------------------------------
-    Technically, Syncopy's :class:`ComputationalRoutine` wraps an external
-    :func:`computeFunction` by executing all necessary auxiliary routines
-    leading up to and post termination of the actual computation (memory
-    pre-allocation, generation of parallel/sequential instruction trees,
-    processing and storage of results, etc.). Specifically,
-    :class:`ComputationalRoutine` is an abstract base class that can
-    represent any trial-concurrent computational tree. Thus, any
-    arbitrarily complex algorithmic pattern satisfying this single
-    criterion can be incorporated as a regular class into Syncopy with
-    minimal implementation effort by simply inheriting from
-    :class:`ComputationalRoutine`.
-
-    Internally, the operational principle of a :class:`ComputationalRoutine`
-    is encapsulated in two class methods:
-
-    1. :func:`initialize`
-
-       The class is instantiated with (at least) the positional and keyword
-       arguments of the associated :func:`computeFunction` minus the
-       trial-data array (the the first positional argument of
-       :func:`computeFunction`) and the reserved keywords `chunkShape` and
-       `noCompute`. Further, an additional keyword is reserved at class
-       instantiation time: `keeptrials` controls whether data is averaged
-       across trials after calculation (``keeptrials = False``).  Thus, let
-       `Algo` be a concrete subclass of :class:`ComputationalRoutine`, and
-       let `cfunc`, defined akin to above
-
-       >>> def cfunc(arr, arg1, arg2, argN, chunkShape=None, noCompute=None, kwarg1="this", kwarg2=False)
-
-       be its corresponding :func:`computeFunction`. Then a valid
-       instantiation of `Algo` may look as follows:
-
-       >>> algorithm = Algo(arg1, arg1, arg2, argN, kwarg1="this", kwarg2=False)
-
-       Now `algorithm` is a regular Python class instance that inherits all
-       required attributes from the parent base class :class:`ComputationalRoutine`.
-       **Note**: :class:`ComputationalRoutine` uses regular Python class attributes
-       (``__dict__`` keys, not slots) to ensure maximal design flexibility
-       for implementing novel computational strategies while keeping memory
-       overhead limited due to the encapsulation of the actual
-       computational workload in the static method :func:`computeFunction`.
-
-       Before the `algorithm` instance of `Algo` can be used, a dry-run of
-       the actual computation has to be performed to determine the expected
-       dimensionality and numerical type of the result,
-
-       >>> algorithm.initialize(data)
-
-       where `data` is a Syncopy data object representing the input quantity
-       to be processed by `algorithm`.
-
-    2. :func:`compute`
-
-       This management class method constitutes the functional core of
-       :class:`ComputationalRoutine`.  It handles memory pre-allocation,
-       storage provisioning, the actual computation and processing of
-       meta-information. Theses tasks are encapsulated in distinct class
-       methods which are designed to perform the respective operations
-       independently from the concrete computational procedure.  Thus, most
-       of these methods do not require any problem-specific adaptions and
-       act as stand-alone administration routines. The only exception to
-       this design-concept is :func:`process_metadata`, which is intended
-       to attach meta-information to the final output object. Since
-       modifications of meta-data are highly dependent on the nature of the
-       performed calculation, :func:`process_metadata` is the only abstract
-       method of :class:`ComputationalRoutine` that needs to be supplied in
-       addition to :func:`computeFunction`.
-
-       Several keywords control the workflow in :class:`ComputationalRoutine`:
-
-       * Depending on the `parallel` keyword, processing is done either
-         sequentially trial by trial (``parallel = False``) or concurrently
-         across all trials (if `parallel` is `True`). The two scenarios are
-         handled by separate class methods, :func:`compute_sequential` and
-         :func:`compute_parallel`, respectively, that use independent
-         operational frameworks for processing. However, both
-         :func:`compute_sequential` and :func:`compute_parallel` call an
-         external :func:`computeFunction` to perform the actual
-         calculation.
-
-       * The `parallel_store` keyword controls the employed storage
-         mechanism: if `True`, the result of the computation is stored in a
-         fully concurrent manner where each worker saves its locally held
-         data segment on disk leveraging the distributed access
-         capabilities of virtual HDF5 datasets. If ``parallel_store =
-         False``, a mutex is used to lock a single HDF5 file for sequential
-         writing.
-
-       * The `method` keyword can be used to override the default selection
-         of the processing function (:func:`compute_parallel` if `parallel`
-         is `True` or :func:`compute_sequential` otherwise). Refer to the
-         docstrings of :func:`compute_parallel` or
-         :func:`compute_sequential` for details on the required structure
-         of a concurrent or serial processing function.
-
-       * The keyword `log_dict` can be used to provide a dictionary of
-         keyword-value pairs that are passed on to :func:`process_metadata`
-         to be attached to the final output object.
-
-       Going back to the exemplary `algorithm` instance of `Algo` discussed
-       above, after initialization, the actual computation is kicked off
-       with a single call of :func:`compute` with keywords pursuant to the
-       intended computational workflow. For instance,
-
-       >>> algorithm.compute(data, out, parallel=True)
-
-       launches the parallel processing of `data` using the computational
-       scheme implemented in `cfunc` and stores the result in the Syncopy
-       object `out`.
-
-    To further clarify these concepts, `Examples` illustrates how to
-    encapsulate a simple algorithmic scheme in a subclass of
-    :class:`ComputationalRoutine` that calls a custom :func:`computeFunction`.
-
-    Examples
-    --------
-    Consider the following example illustrating the implementation of a
-    (deliberately simple) filtering routine by subclassing
-    :class:`ComputationalRoutine` and designing a :func:`computeFunction`.
-    Please refer to :func:`syncopy.ex_comproutine` to review the source
-    code of a fully executed standalone version of this example.
-
-    As a first step, a :func:`computeFunction` is defined:
-
-    >>> import numpy as np
-    >>> from scipy import signal
-    >>> def lowpass(arr, b, a, noCompute=None, chunkShape=None):
-    >>>     if noCompute:
-    >>>         return arr.shape, arr.dtype
-    >>>     res = signal.filtfilt(b, a, arr.T, padlen=200).T
-    >>>     return res
-
-    As detailed above, the first positional argument of `lowpass` is a
-    :class:`numpy.ndarray` representing numerical data from a single trial,
-    the second and third positional arguments, `b` and `a` respectively,
-    represent filter coefficients.  The only keyword arguments of `lowpass`
-    are the mandatory reserved keywords `noCompute` and `chunkShape`.  With
-    the :func:`computeFunction` in place, a subclass of
-    :class:`ComputationalRoutine` can be implemented:
-
-    >>> from syncopy.shared.computational_routine import ComputationalRoutine
-    >>> class LowPassFilter(ComputationalRoutine):
-    >>>     computeFunction = staticmethod(lowpass)
-    >>>
-    >>>     def process_metadata(self, data, out):
-    >>>         if self.keeptrials:
-    >>>             out.sampleinfo = np.array(data.sampleinfo)
-    >>>             out.trialinfo = np.array(data.trialinfo)
-    >>>             out._t0 = np.zeros((len(data.trials),))
-    >>>         else:
-    >>>             trl = np.array([[0, data.sampleinfo[0, 1], 0]])
-    >>>             out.sampleinfo = trl[:, :2]
-    >>>             out._t0 = trl[:, 2]
-    >>>             out.trialinfo = trl[:, 3:]
-    >>>         out.samplerate = data.samplerate
-    >>>         out.channel = np.array(data.channel)
-
-    Note that `LowPassFilter` simply binds the :func:`computeFunction`
-    `lowpass` as static method - no additional modifications are
-    required. It further provides `process_metadata` as regular class
-    method for setting all required attributes of the output object `out`.
-
-    Suppose `data` is a Syncopy :class:`AnalogData` object holding data to
-    be filtered.  To use the introduced filtering routine, the concrete
-    class `LowPassFilter` has to be instantiated first:
-
-    >>> myfilter = LowPassFilter(b, a)
-
-    This step performs the actual class initialization and allocates the
-    attributes of :class:`ComputationalRoutine`. Next, all necessary
-    pre-calculation management tasks need to be performed:
-
-    >>> myfilter.initialize(data)
-
-    Now, the `myfilter` instance holds references to the expected shape of the
-    resulting output and its numerical type. The actual filtering is then
-    performed by first allocating an empty Syncopy object for the result
-
-    >>> out = spy.AnalogData()
-
-    and subsequently invoking
-
-    >>> myfilter.compute(data, out)
-
-    This call performs several tasks: first, an HDF5 data-set of
-    appropriate dimensions is allocated, then the actual filtering is
-    performed sequentially, in a trial-by-trial succession (results are
-    stored in the created HDF5 data-set, which is subsequently attached to
-    `out`), and finally meta-data is written to the output object `out`
-    using the supplied `process_metadata` class method.
-
-    To perform the calculation in a trial-concurrent manner, first launch a
-    dask client (using e.g., :func:`syncopy.esi_cluster_setup`),
-    re-initialize the `myfilter` instance (to reset its attributes) and
-    simply call `compute` with the `parallel` keyword set to `True`:
-
-    >>> client = spy.esi_cluster_setup()
-    >>> myfilter.initialize(data)
-    >>> myfilter.compute(data, out, parallel=True)
-
-    The full source code of this particular example can be found in
-    :func:`syncopy.ex_comproutine`.  For realizing more complex mechanisms,
-    consult the implementations of :func:`syncopy.freqanalysis` or other
-    computing kernels in Syncopy.
+    For details on developing compute kernels for Syncopy, please refer
+    to :doc:`../compute_kernels`.
     """
 
     # Placeholder: the actual workhorse
@@ -359,26 +69,23 @@ class ComputationalRoutine(ABC):
            Numerical data from a single trial
         *argv : list
            Arbitrary list of positional arguments
-        chunkShape : `None` or `tuple`
+        chunkShape : None or tuple
            Mandatory keyword. If not `None`, represents global block-size of
            processed trial.
-        noCompute : `None` or `bool`
+        noCompute : None or bool
            Preprocessing flag. If `True`, do not perform actual calculation but
            instead return expected shape and :class:`numpy.dtype` of output
            array.
-        **kwargs: `dict`
+        **kwargs: dict
            Other keyword arguments.
 
         Returns
         -------
-        if ``noCompute == True``
-        outShape : `tuple`
+        out Shape : tuple, if ``noCompute == True``
            expected shape of output array
-        outDtype : :class:`numpy.dtype`
+        outDtype : :class:`numpy.dtype`, if ``noCompute == True``
            expected numerical type of output array
-
-        otherwise
-        res : :class:`numpy.ndarray`
+        res : :class:`numpy.ndarray`, if ``noCompute == False``
            Result of processing input `arr`
 
         Notes
@@ -388,11 +95,26 @@ class ComputationalRoutine(ABC):
 
         See also
         --------
-        ComputationalRoutine : Developer documentation
+        ComputationalRoutine : Developer documentation: :doc:`../compute_kernels`.
         """
         return None
 
     def __init__(self, *argv, **kwargs):
+        """
+        Instantiate a :class:`ComputationalRoutine` subclass
+
+        Parameters
+        ----------
+        *argv : list
+           List of positional arguments passed on to :meth:`computeFunction`
+        **kwargs : dict
+           Keyword arguments passed on to :meth:`computeFunction`
+
+        Returns
+        -------
+        obj : instance of :class:`ComputationalRoutine`-subclass
+           Usable class instance for processing Syncopy data objects. 
+        """
         self.defaultCfg = get_defaults(self.computeFunction)
         self.cfg = copy(self.defaultCfg)
         for key in set(self.cfg.keys()).intersection(kwargs.keys()):
@@ -407,7 +129,26 @@ class ComputationalRoutine(ABC):
 
     def initialize(self, data):
         """
-        Coming soon...
+        Perform dry-run of calculation to determine output shape
+
+        Parameters
+        ----------
+        data : syncopy data object
+           Syncopy data object to be processed (has to be the same object 
+           that is passed to :meth:`compute` for the actual calculation). 
+        
+        Returns
+        -------
+        Nothing : None
+        
+        Notes
+        -----
+        This class method **has** to be called prior to performing the actual
+        computation realized in :meth:`computeFunction`. 
+
+        See also
+        --------
+        compute : core routine performing the actual computation
         """
 
         # Get output chunk-shape and dtype of first trial
@@ -444,6 +185,88 @@ class ComputationalRoutine(ABC):
 
     def compute(self, data, out, parallel=False, parallel_store=None,
                 method=None, log_dict=None):
+        """
+        Central management and processing method
+
+        Parameters
+        ----------
+        data : syncopy data object
+           Syncopy data object to be processed (has to be the same object
+           that was used by :meth:`initialize` in the pre-calculation 
+           dry-run). 
+        out : syncopy data object
+           Empty object for holding results
+        parallel : bool
+           If `True`, processing is performed in parallel (i.e., 
+           :meth:`computeFunction` is executed concurrently across trials). 
+           If `parallel` is `False`, :meth:`computeFunction` is executed 
+           consecutively trial after trial (i.e., the calculation realized
+           in :meth:`computeFunction` is performed sequentially). 
+        parallel_store : None or bool
+           Flag controlling saving mechanism. If `None`,
+           ``parallel_store = parallel``, i.e., the compute-paradigm 
+           dictates the employed writing method. Thus, in case of parallel
+           processing, results are written in a fully concurrent
+           manner (each worker saves its own local result segment on disk as 
+           soon as it is done with its part of the computation). If `parallel_store`
+           is `False` and `parallel` is `True` the processing result is saved 
+           sequentially using a mutex. If both `parallel` and `parallel_store`
+           are `False` standard single-process HDF5 writing is employed for
+           saving the result of the (sequential) computation. 
+        method : None or str
+           If `None` the predefined methods :meth:`compute_parallel` or
+           :meth:`compute_sequential` are used to control the actual computation
+           (specifically, calling :meth:`computeFunction`) depending on whether
+           `parallel` is `True` or `False`, respectively. If `method` is a 
+           string, it has to specify the name of an alternative (provided) 
+           class method that is invoked using `getattr`. 
+        log_dict : None or dict
+           If `None`, the `cfg` and `log` properties of `out` are populated
+           with the employed keyword arguments used in :meth:`computeFunction`. 
+           Otherwise, `out`'s `cfg` and `log` properties are filled  with 
+           items taken from `log_dict`. 
+        
+        Returns
+        -------
+        Nothing : None
+           The result of the computation is available in `out` once 
+           :meth:`compute` terminated successfully. 
+
+        Notes
+        -----
+        This routine calls several other class methods to perform all necessary
+        pre- and post-processing steps in a fully automatic manner without
+        requiring any user-input. Specifically, the following class methods
+        are invoked consecutively (in the given order):
+        
+        1. :meth:`preallocate_output` allocates a (virtual) HDF5 dataset 
+           of appropriate dimension for storing the result
+        2. :meth:`compute_parallel` (or :meth:`compute_sequential`) performs
+           the actual computation via concurrently (or sequentially) calling
+           :meth:`computeFunction`
+        3. :meth:`save_distributed` writes the result of a parallel calculation
+           to disk. If `parallel_store` is `False` a queue  for all workers
+           is constructed to consecutively save their piece of the result. 
+           Conversely, (if `parallel_store` is `True`) a write command is 
+           issued to participating workers to concurrently save all result 
+           segments to disk which are subsequently consolidated in a single 
+           virtual HDF5 dataset. 
+        4. :meth:`process_metadata` attaches all relevant meta-information to
+           the result `out` after successful termination of the calculation
+        5. :meth:`write_log` stores employed input arguments in `out.cfg`
+           and `out.log` to reproduce all relevant computational steps that 
+           generated `out`. 
+        
+        See also
+        --------
+        initialize : pre-calculation preparations
+        preallocate_output : storage provisioning
+        compute_parallel : concurrent computation using :meth:`computeFunction`
+        compute_sequential : sequential computation using :meth:`computeFunction`
+        save_distributed : sequential/concurrent storage of parallel computation results
+        process_metadata : management of meta-information
+        write_log : log-entry organization
+        """
 
         # By default, use VDS storage for parallel computing
         if parallel_store is None:
@@ -488,6 +311,28 @@ class ComputationalRoutine(ABC):
         self.write_log(data, out, log_dict)
 
     def preallocate_output(self, out, parallel_store=False):
+        """
+        Storage allocation and provisioning
+
+        Parameters
+        ----------
+        out : syncopy data object
+           Empty object for holding results
+        parallel_store : bool
+           If `True`, a directory for virtual source containers is created 
+           in Syncopy's temporary on-disk storage (defined by `syncopy.__storage__`). 
+           Otherwise, a dataset of appropriate type and shape is allocated 
+           in a new regular HDF5 file created inside Syncopy's temporary 
+           storage folder. 
+
+        Returns
+        -------
+        Nothing : None
+
+        See also
+        --------
+        compute : management routine controlling memory pre-allocation
+        """
 
         # The output object's type determines dataset name for result
         self.dsetname = out.__class__.__name__
@@ -510,6 +355,39 @@ class ComputationalRoutine(ABC):
                                    dtype=self.dtype, shape=shp)
 
     def compute_parallel(self, data, out):
+        """
+        Concurrent computing kernel
+
+        Parameters
+        ----------
+        data : syncopy data object
+           Syncopy data object to be processed
+        out : syncopy data object
+           Empty object for holding results
+
+        Returns
+        -------
+        da_arr : :class:`dask.array`
+           Distributed array comprised of by-worker results spread across
+           the provided cluster. The shape of `da_arr` corresponds to the 
+           shape expected by `out`. 
+
+        Notes
+        -----
+        This method is essentially divided into two segments depending on 
+        whether trials in `data` have equal length or not. Equidistant trials
+        can be efficiently processed leveraging array-stacking, whereas 
+        trials of unequal lengths have to be collected in an unstructured 
+        iterable object. Note that this routine first builds an entire 
+        parallel instruction tree and only kicks off execution on the cluster
+        at the very end of the calculation command assembly. 
+        
+
+        See also
+        --------
+        compute : management routine invoking parallel/sequential compute kernels
+        compute_sequential : serial processing counterpart of this method
+        """
 
         # Either stack trials along a new axis (inserted on "the left")
         # or stack along first dimension
@@ -593,10 +471,43 @@ class ComputationalRoutine(ABC):
             # FIXME: Placeholder
             if not self.keeptrials:
                 pass
+
+        # Submit the array to be processed by the worker swarm
+        result = result.persist()
         
         return result
 
     def compute_sequential(self, data, out):
+        """
+        Sequential computing kernel
+        
+        Parameters
+        ----------
+        data : syncopy data object
+           Syncopy data object to be processed
+        out : syncopy data object
+           Empty object for holding results
+
+        Returns
+        -------
+        Nothing : None
+        
+        Notes
+        -----
+        This method most closely reflects classic iterative process execution:
+        trials in `data` are passed sequentially to :meth:`computeFunction`,
+        results are stored consecutively in a regular HDF5 dataset (that was 
+        pre-allocated by :meth:`preallocate_output`). Thus, in contrast to 
+        the parallel computing case, this routine performs both tasks,
+        processing and saving of results. Since the calculation result is 
+        immediately stored on disk, propagation of arrays across routines
+        is avoided and memory usage is kept to a minimum. 
+
+        See also
+        --------
+        compute : management routine invoking parallel/sequential compute kernels
+        compute_parallel : concurrent processing counterpart of this method
+        """
 
         # Iterate across trials and write directly to HDF5 container (flush
         # after each trial to avoid memory leakage) - if trials are not to
@@ -628,6 +539,50 @@ class ComputationalRoutine(ABC):
         return
 
     def save_distributed(self, da_arr, out, parallel_store=True):
+        """
+        Store result of parallel computation
+
+        Parameters
+        ----------
+        da_arr : dask array
+           Distributed array returned by :meth:`compute_parallel`
+        out : syncopy data object
+           Empty object for holding results
+        parallel_store : bool
+           If `True`, results are written in a fully concurrent manner (each 
+           worker saves its own local result segment on disk as soon as it 
+           is done with its part of the computation). Otherwise, the processing 
+           result is saved sequentially using a mutex. 
+
+        Returns
+        -------
+        Nothing : None
+
+        Notes
+        -----
+        In case of parallel writing (i.e., ``parallel_store = True``), the
+        chunks of `da_arr` are mapped onto the helper routine 
+        :meth:`_write_parallel` which is executed simultaneously by all workers. 
+        This helper function creates an individual HDF5 container (in the
+        directory that was previously created by :meth:`preallocate_output`)
+        for each chunk of `da_arr`. After all blocks of `da_arr` have 
+        been written concurrently by all participating workers, the generated
+        by-chunk containers are consolidated into a single :class:`h5py.VirtualLayout` which 
+        is subsequently used to allocate a virtual dataset inside a newly
+        created HDF5 file (located in Syncopy's temporary storage folder). 
+
+        Conversely, if `parallel_store` is `False`, `da_arr` is written 
+        sequentially chunk by chunk (using the local helper method 
+        :meth:`_write_sequential` and a distributed mutex for access control 
+        to prevent write collisions) to an existing HDF5 container that was
+        created by :meth:`preallocate_output`. 
+
+        See also
+        --------
+        preallocate_output : provide storage prior to calculation
+        _write_parallel : local helper for concurrent writing of `da_arr`'s chunks
+        _write_sequential : local helper for serial writing of `da_arr`'s chunks
+        """
 
         # Either write chunks fully parallel...
         nchk = len(da_arr.chunksize)
@@ -674,6 +629,29 @@ class ComputationalRoutine(ABC):
                 time.sleep(0.1)
 
     def write_log(self, data, out, log_dict=None):
+        """
+        Processing of output log
+
+        Parameters
+        ----------
+        data : syncopy data object
+           Syncopy data object that has been processed
+        out : syncopy data object
+           Syncopy data object holding calculation results
+        log_dict : None or dict
+           If `None`, the `cfg` and `log` properties of `out` are populated
+           with the employed keyword arguments used in :meth:`computeFunction`. 
+           Otherwise, `out`'s `cfg` and `log` properties are filled  with 
+           items taken from `log_dict`. 
+        
+        Returns
+        -------
+        Nothing : None
+ 
+        See also
+        --------
+        process_metadata : Management of meta-information
+        """
 
         # Copy log from source object and write header
         out._log = str(data._log) + out._log
@@ -699,6 +677,47 @@ class ComputationalRoutine(ABC):
 
     @staticmethod
     def _write_parallel(chk, nchk, vdsdir, block_info=None):
+        """
+        Creates a HDF5 container and saves a dask-array chunk in it
+        
+        Parameters
+        ----------
+        chk : :class:`numpy.ndarray`
+           Chunk of parent distributed dask array
+        nchk : int
+           Running counter reflecting current chunk-number within the parent
+           dask array. 
+        vdsdir : str
+           Full path to an existing (writable) folder for creating an HDF5
+           container
+        block_info : None or dict
+           Special keyword used by :func:`dask.array.map_blocks` to propagate
+           layout information of the current chunk with respect to the parent
+           dask array. 
+
+        Returns
+        -------
+        chunklocation : tuple
+           Subscript index encoding the location of the processed chunk within
+           its parent dask array
+
+        Notes
+        -----
+        Using information gathered from `block_info`, this routine writes 
+        `chk` to an identically named dataset in a HDF5 container that is 
+        created in `vdsdir`. 
+        In addition, the location of the current chunk within the parent 
+        dask array is stored in a second dataset "idx". In this manner, 
+        concurrently executing this routine spawns a family of HDF5 containers 
+        that each contain not only a chunk of the original dask array but also
+        the necessary topographic information to reconstruct the original 
+        array solely from the generated HDF5 files. 
+
+        See also
+        --------
+        save_distributed : management routine for storing result of concurrent calculation
+        _write_sequential : sequential counterpart of this method
+        """
 
         # Convert chunk-location tuple to 1D index for numbering current
         # HDF5 container and get index-location of current chunk in array
@@ -717,6 +736,47 @@ class ComputationalRoutine(ABC):
 
     @staticmethod
     def _write_sequential(chk, nchk, h5name, dsname, lck, block_info=None):
+        """
+        Saves chunk of dask-array in existing HDF5 container
+        
+        Parameters
+        ----------
+        chk : :class:`numpy.ndarray`
+           Chunk of parent distributed dask array
+        nchk : int
+           Running counter reflecting current chunk-number within the parent
+           dask array
+        h5name : str
+           Full path to existing HDF5 container
+        dsname : str
+           Name of existing dataset in container specified by `h5name`
+        lck : :mod:`dask.distributed.lock`
+           Distributed mutex controlling write-access to HDF5 container 
+           specified by `h5name`
+        block_info : None or dict
+           Special keyword used by :func:`dask.array.map_blocks` to propagate
+           layout information of the current chunk with respect to the parent
+           dask array. 
+
+        Returns
+        -------
+        chunklocation : tuple
+           Subscript index encoding the location of the processed chunk within
+           its parent dask array
+
+        Notes
+        -----
+        This routine writes `chk` to the (already existing) dataset `dsname` 
+        of the HDF5 container specified by `h5name` relying on location 
+        information provided by `block_info`. Saving of `chk` is serialized 
+        by acquiring the distributed mutex `lck` which locks the HDF5 container 
+        until the write process is completed. 
+
+        See also
+        --------
+        save_distributed : management routine for storing result of concurrent calculation
+        _write_parallel : concurrent counterpart of this method
+        """
 
         # Convert chunk-location tuple to 1D index for numbering current
         # HDF5 container and get index-location of current chunk in array
@@ -741,5 +801,29 @@ class ComputationalRoutine(ABC):
         return (cnt,) * nchk
 
     @abstractmethod
-    def process_metadata(self, *args):
+    def process_metadata(self, data, out):
+        """
+        Meta-information manager
+
+        Parameters
+        ----------
+        data : syncopy data object
+           Syncopy data object that has been processed
+        out : syncopy data object
+           Syncopy data object holding calculation results
+
+        Returns
+        -------
+        Nothing : None
+
+        Notes
+        -----
+        This routine is an abstract method and is thus intended to be overloaded. 
+        Consult the developer documentation (:doc:`../compute_kernels`) for 
+        further details. 
+
+        See also
+        --------
+        write_log : Logging of calculation parameters
+        """
         pass
