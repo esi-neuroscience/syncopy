@@ -148,10 +148,10 @@ is encapsulated in two class methods:
    independently from the concrete computational procedure.  Thus, most of
    these methods do not require any problem-specific adaptions and act as
    stand-alone administration routines. The only exception to this
-   design-concept is :func:`process_metadata`, which is intended to attach
+   design-concept is :meth:`process_metadata`, which is intended to attach
    meta-information to the final output object. Since modifications of
    meta-data are highly dependent on the nature of the performed
-   calculation, :func:`process_metadata` is the only abstract method of
+   calculation, :meth:`process_metadata` is the only abstract method of
    :class:`ComputationalRoutine` that needs to be supplied in addition to
    |cf|_.
 
@@ -183,7 +183,7 @@ is encapsulated in two class methods:
      processing function.
 
    * The keyword `log_dict` can be used to provide a dictionary of
-     keyword-value pairs that are passed on to :func:`process_metadata` to
+     keyword-value pairs that are passed on to :meth:`process_metadata` to
      be attached to the final output object.
 
    Going back to the exemplary `algorithm` instance of `Algo` discussed

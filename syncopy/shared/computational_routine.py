@@ -4,7 +4,7 @@
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-08 17:55:41>
+# Last modification time: <2019-07-09 14:13:10>
 
 # Builtin/3rd party package imports
 import os
@@ -39,7 +39,7 @@ class ComputationalRoutine(ABC):
     A Syncopy compute kernel consists of a
     :class:`ComputationalRoutine`-subclass that binds a static
     :func:`computeFunction` and provides the class method
-    `process_metadata`.
+    :meth:`process_metadata`.
 
     Requirements for :meth:`computeFunction`:
 
@@ -186,7 +186,7 @@ class ComputationalRoutine(ABC):
     def compute(self, data, out, parallel=False, parallel_store=None,
                 method=None, log_dict=None):
         """
-        Core management and processing method
+        Central management and processing method
 
         Parameters
         ----------
@@ -236,25 +236,36 @@ class ComputationalRoutine(ABC):
         -----
         This routine calls several other class methods to perform all necessary
         pre- and post-processing steps in a fully automatic manner without
-        any required user-input. Specifically, 
+        requiring any user-input. Specifically, the following class methods
+        are invoked consecutively (in the given order):
         
         1. :meth:`preallocate_output` allocates a (virtual) HDF5 dataset 
-           of appropriate dimension to store the result of processing `data`
-        2. :meth:`compute_parallel` (or :meth:`compute_sequential`) perform
+           of appropriate dimension for storing the result
+        2. :meth:`compute_parallel` (or :meth:`compute_sequential`) performs
            the actual computation via concurrently (or sequentially) calling
            :meth:`computeFunction`
         3. :meth:`save_distributed` writes the result of a parallel calculation
-           to disk either by constructing a queue for all workers to consecutively 
-           save their piece of the result (if `parallel_store` is `True`) or
-           by issuing a write command to participating workers to concurrently save 
-           all result segments to disk which it subsequently consolidates 
-           in a single virtual HDF5 dataset. 
-        4. :meth:`process_metadata` coming soon...
-        5. :meth:`write_log` coming soon...
+           to disk. If `parallel_store` is `False` a queue  for all workers
+           is constructed to consecutively save their piece of the result. 
+           Conversely, (if `parallel_store` is `True`) a write command is 
+           issued to participating workers to concurrently save all result 
+           segments to disk which are subsequently consolidated in a single 
+           virtual HDF5 dataset. 
+        4. :meth:`process_metadata` attaches all relevant meta-information to
+           the result `out` after successful termination of the calculation
+        5. :meth:`write_log` stores employed input arguments in `out.cfg`
+           and `out.log` to reproduce all relevant computational steps that 
+           generated `out`. 
         
         See also
         --------
         initialize : pre-calculation preparations
+        preallocate_output : storage provisioning
+        compute_parallel : concurrent computation using :meth:`computeFunction`
+        compute_sequential : sequential computation using :meth:`computeFunction`
+        save_distributed : sequential/concurrent storage of parallel computation results
+        process_metadata : management of meta-information
+        write_log : log-entry organization
         """
 
         # By default, use VDS storage for parallel computing
@@ -300,6 +311,28 @@ class ComputationalRoutine(ABC):
         self.write_log(data, out, log_dict)
 
     def preallocate_output(self, out, parallel_store=False):
+        """
+        Storage allocation and provisioning
+
+        Parameters
+        ----------
+        out : syncopy data object
+           Empty object for holding results
+        parallel_store : bool
+           If `True`, a directory for virtual source containers is created 
+           in Syncopy's temporary on-disk storage (defined by `syncopy.__storage__`). 
+           Otherwise, a dataset of appropriate type and shape is allocated 
+           in a new regular HDF5 file created inside Syncopy's temporary 
+           storage folder. 
+
+        Returns
+        -------
+        Nothing : None
+
+        See also
+        --------
+        compute : management routine controlling memory pre-allocation
+        """
 
         # The output object's type determines dataset name for result
         self.dsetname = out.__class__.__name__
@@ -322,6 +355,39 @@ class ComputationalRoutine(ABC):
                                    dtype=self.dtype, shape=shp)
 
     def compute_parallel(self, data, out):
+        """
+        Concurrent computing kernel
+
+        Parameters
+        ----------
+        data : syncopy data object
+           Syncopy data object to be processed
+        out : syncopy data object
+           Empty object for holding results
+
+        Returns
+        -------
+        da_arr : :class:`dask.array`
+           Distributed array comprised of by-worker results spread across
+           the provided cluster. The shape of `da_arr` corresponds to the 
+           shape expected by `out`. 
+
+        Notes
+        -----
+        This method is essentially divided into two segments depending on 
+        whether trials in `data` have equal length or not. Equidistant trials
+        can be efficiently processed leveraging array-stacking, whereas 
+        trials of unequal lengths have to be collected in an unstructured 
+        iterable object. Note that this routine first builds an entire 
+        parallel instruction tree and only kicks off execution on the cluster
+        at the very end of the calculation command assembly. 
+        
+
+        See also
+        --------
+        compute : management routine invoking parallel/sequential compute kernels
+        compute_sequential : serial processing counterpart of this method
+        """
 
         # Either stack trials along a new axis (inserted on "the left")
         # or stack along first dimension
@@ -405,10 +471,43 @@ class ComputationalRoutine(ABC):
             # FIXME: Placeholder
             if not self.keeptrials:
                 pass
+
+        # Submit the array to be processed by the worker swarm
+        result = result.persist()
         
         return result
 
     def compute_sequential(self, data, out):
+        """
+        Sequential computing kernel
+        
+        Parameters
+        ----------
+        data : syncopy data object
+           Syncopy data object to be processed
+        out : syncopy data object
+           Empty object for holding results
+
+        Returns
+        -------
+        Nothing : None
+        
+        Notes
+        -----
+        This method most closely reflects classic iterative process execution:
+        trials in `data` are passed sequentially to :meth:`computeFunction`,
+        results are stored consecutively in a regular HDF5 dataset (that was 
+        pre-allocated by :meth:`preallocate_output`). Thus, in contrast to 
+        the parallel computing case, this routine performs both tasks,
+        processing and saving of results. Since the calculation result is 
+        immediately stored on disk, propagation of arrays across routines
+        is avoided and memory usage is kept to a minimum. 
+
+        See also
+        --------
+        compute : management routine invoking parallel/sequential compute kernels
+        compute_parallel : concurrent processing counterpart of this method
+        """
 
         # Iterate across trials and write directly to HDF5 container (flush
         # after each trial to avoid memory leakage) - if trials are not to
@@ -440,6 +539,50 @@ class ComputationalRoutine(ABC):
         return
 
     def save_distributed(self, da_arr, out, parallel_store=True):
+        """
+        Store result of parallel computation
+
+        Parameters
+        ----------
+        da_arr : dask array
+           Distributed array returned by :meth:`compute_parallel`
+        out : syncopy data object
+           Empty object for holding results
+        parallel_store : bool
+           If `True`, results are written in a fully concurrent manner (each 
+           worker saves its own local result segment on disk as soon as it 
+           is done with its part of the computation). Otherwise, the processing 
+           result is saved sequentially using a mutex. 
+
+        Returns
+        -------
+        Nothing : None
+
+        Notes
+        -----
+        In case of parallel writing (i.e., ``parallel_store = True``), the
+        chunks of `da_arr` are mapped onto the helper routine 
+        :meth:`_write_parallel` which is executed simultaneously by all workers. 
+        This helper function creates an individual HDF5 container (in the
+        directory that was previously created by :meth:`preallocate_output`)
+        for each chunk of `da_arr`. After all blocks of `da_arr` have 
+        been written concurrently by all participating workers, the generated
+        by-chunk containers are consolidated into a single :class:`h5py.VirtualLayout` which 
+        is subsequently used to allocate a virtual dataset inside a newly
+        created HDF5 file (located in Syncopy's temporary storage folder). 
+
+        Conversely, if `parallel_store` is `False`, `da_arr` is written 
+        sequentially chunk by chunk (using the local helper method 
+        :meth:`_write_sequential` and a distributed mutex for access control 
+        to prevent write collisions) to an existing HDF5 container that was
+        created by :meth:`preallocate_output`. 
+
+        See also
+        --------
+        preallocate_output : provide storage prior to calculation
+        _write_parallel : local helper for concurrent writing of `da_arr`'s chunks
+        _write_sequential : local helper for serial writing of `da_arr`'s chunks
+        """
 
         # Either write chunks fully parallel...
         nchk = len(da_arr.chunksize)
@@ -486,6 +629,29 @@ class ComputationalRoutine(ABC):
                 time.sleep(0.1)
 
     def write_log(self, data, out, log_dict=None):
+        """
+        Processing of output log
+
+        Parameters
+        ----------
+        data : syncopy data object
+           Syncopy data object that has been processed
+        out : syncopy data object
+           Syncopy data object holding calculation results
+        log_dict : None or dict
+           If `None`, the `cfg` and `log` properties of `out` are populated
+           with the employed keyword arguments used in :meth:`computeFunction`. 
+           Otherwise, `out`'s `cfg` and `log` properties are filled  with 
+           items taken from `log_dict`. 
+        
+        Returns
+        -------
+        Nothing : None
+ 
+        See also
+        --------
+        process_metadata : Management of meta-information
+        """
 
         # Copy log from source object and write header
         out._log = str(data._log) + out._log
@@ -511,6 +677,47 @@ class ComputationalRoutine(ABC):
 
     @staticmethod
     def _write_parallel(chk, nchk, vdsdir, block_info=None):
+        """
+        Creates a HDF5 container and saves a dask-array chunk in it
+        
+        Parameters
+        ----------
+        chk : :class:`numpy.ndarray`
+           Chunk of parent distributed dask array
+        nchk : int
+           Running counter reflecting current chunk-number within the parent
+           dask array. 
+        vdsdir : str
+           Full path to an existing (writable) folder for creating an HDF5
+           container
+        block_info : None or dict
+           Special keyword used by :func:`dask.array.map_blocks` to propagate
+           layout information of the current chunk with respect to the parent
+           dask array. 
+
+        Returns
+        -------
+        chunklocation : tuple
+           Subscript index encoding the location of the processed chunk within
+           its parent dask array
+
+        Notes
+        -----
+        Using information gathered from `block_info`, this routine writes 
+        `chk` to an identically named dataset in a HDF5 container that is 
+        created in `vdsdir`. 
+        In addition, the location of the current chunk within the parent 
+        dask array is stored in a second dataset "idx". In this manner, 
+        concurrently executing this routine spawns a family of HDF5 containers 
+        that each contain not only a chunk of the original dask array but also
+        the necessary topographic information to reconstruct the original 
+        array solely from the generated HDF5 files. 
+
+        See also
+        --------
+        save_distributed : management routine for storing result of concurrent calculation
+        _write_sequential : sequential counterpart of this method
+        """
 
         # Convert chunk-location tuple to 1D index for numbering current
         # HDF5 container and get index-location of current chunk in array
@@ -529,6 +736,47 @@ class ComputationalRoutine(ABC):
 
     @staticmethod
     def _write_sequential(chk, nchk, h5name, dsname, lck, block_info=None):
+        """
+        Saves chunk of dask-array in existing HDF5 container
+        
+        Parameters
+        ----------
+        chk : :class:`numpy.ndarray`
+           Chunk of parent distributed dask array
+        nchk : int
+           Running counter reflecting current chunk-number within the parent
+           dask array
+        h5name : str
+           Full path to existing HDF5 container
+        dsname : str
+           Name of existing dataset in container specified by `h5name`
+        lck : :mod:`dask.distributed.lock`
+           Distributed mutex controlling write-access to HDF5 container 
+           specified by `h5name`
+        block_info : None or dict
+           Special keyword used by :func:`dask.array.map_blocks` to propagate
+           layout information of the current chunk with respect to the parent
+           dask array. 
+
+        Returns
+        -------
+        chunklocation : tuple
+           Subscript index encoding the location of the processed chunk within
+           its parent dask array
+
+        Notes
+        -----
+        This routine writes `chk` to the (already existing) dataset `dsname` 
+        of the HDF5 container specified by `h5name` relying on location 
+        information provided by `block_info`. Saving of `chk` is serialized 
+        by acquiring the distributed mutex `lck` which locks the HDF5 container 
+        until the write process is completed. 
+
+        See also
+        --------
+        save_distributed : management routine for storing result of concurrent calculation
+        _write_parallel : concurrent counterpart of this method
+        """
 
         # Convert chunk-location tuple to 1D index for numbering current
         # HDF5 container and get index-location of current chunk in array
@@ -553,5 +801,29 @@ class ComputationalRoutine(ABC):
         return (cnt,) * nchk
 
     @abstractmethod
-    def process_metadata(self, *args):
+    def process_metadata(self, data, out):
+        """
+        Meta-information manager
+
+        Parameters
+        ----------
+        data : syncopy data object
+           Syncopy data object that has been processed
+        out : syncopy data object
+           Syncopy data object holding calculation results
+
+        Returns
+        -------
+        Nothing : None
+
+        Notes
+        -----
+        This routine is an abstract method and is thus intended to be overloaded. 
+        Consult the developer documentation (:doc:`../compute_kernels`) for 
+        further details. 
+
+        See also
+        --------
+        write_log : Logging of calculation parameters
+        """
         pass

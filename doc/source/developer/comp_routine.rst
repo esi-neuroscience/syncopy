@@ -7,3 +7,6 @@
    :template: syncopy_class.rst
    
    ComputationalRoutine
+
+.. automethod:: ComputationalRoutine._write_parallel
+.. automethod:: ComputationalRoutine._write_sequential
