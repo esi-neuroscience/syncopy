@@ -4,7 +4,7 @@
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-10 11:21:39>
+# Last modification time: <2019-07-10 13:37:03>
 
 # Builtin/3rd party package imports
 import os
@@ -292,10 +292,10 @@ class ComputationalRoutine(ABC):
                 raise SPYIOError(msg.format(exc.args[0]))
 
             # Check if trials actually fit into memory before we start computing
-            if hasattr(client.cluster, "workers"):  # LocalCluster
+            if "SLURM" in client.cluster.__class__.__name__:
+                wrk_size = max(wrkr.memory_limit for wrkr in client.cluster.workers.values())
+            else:
                 wrk_size = max(wrkr.memory_limit for wrkr in client.cluster.workers)
-            else:  # SLURMCluster
-                wrk_size = client.cluster.worker_memory
             if trl_size >= mem_thresh * wrk_size:
                 trl_size /= 1024**3
                 wrk_size /= 1024**3
@@ -475,9 +475,11 @@ class ComputationalRoutine(ABC):
                                           dtype=self.dtype,
                                           chunks=self.cfg["chunkShape"],
                                           **mbkwargs)
-
+            
             # Re-arrange dimensional order
             result = result.reshape(self.outputShape)
+
+            
 
             # If wanted, average across trials (AnalogData are the only objects
             # that do not stack trials along a distinct time dimension...)
@@ -511,6 +513,7 @@ class ComputationalRoutine(ABC):
             # FIXME: Placeholder
             if not self.keeptrials:
                 pass
+
 
         # Submit the array to be processed by the worker swarm
         result = result.persist()
