@@ -4,7 +4,7 @@
 #
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-08 12:38:28>
+# Last modification time: <2019-07-10 14:28:53>
 
 import pytest
 import numpy as np
