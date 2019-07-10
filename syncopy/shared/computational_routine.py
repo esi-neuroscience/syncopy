@@ -4,12 +4,13 @@
 #
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-09 14:13:10>
+# Last modification time: <2019-07-10 11:21:39>
 
 # Builtin/3rd party package imports
 import os
 import sys
 import time
+import psutil
 import h5py
 import numpy as np
 from abc import ABC, abstractmethod
@@ -24,6 +25,7 @@ if sys.platform == "win32":
 # Local imports
 from .parsers import get_defaults
 from syncopy import __storage__, __dask__, __path__
+from syncopy.shared.errors import SPYIOError
 if __dask__:
     import dask
     import dask.distributed as dd
@@ -154,9 +156,10 @@ class ComputationalRoutine(ABC):
         # Get output chunk-shape and dtype of first trial
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
-        chunkShape, self.dtype = self.computeFunction(data.trials[0],
-                                                      *self.argv,
-                                                      **dryRunKwargs)
+        chunkShape, dtype = self.computeFunction(data.trials[0],
+                                                 *self.argv,
+                                                 **dryRunKwargs)
+        self.dtype = np.dtype(dtype)
 
         # For trials of unequal length, compute output chunk-shape individually
         # to identify varying dimension(s). The aggregate shape is computed
@@ -184,7 +187,7 @@ class ComputationalRoutine(ABC):
         self.datamode = data.mode
 
     def compute(self, data, out, parallel=False, parallel_store=None,
-                method=None, log_dict=None):
+                method=None, mem_thresh=0.5, log_dict=None):
         """
         Central management and processing method
 
@@ -219,7 +222,12 @@ class ComputationalRoutine(ABC):
            (specifically, calling :meth:`computeFunction`) depending on whether
            `parallel` is `True` or `False`, respectively. If `method` is a 
            string, it has to specify the name of an alternative (provided) 
-           class method that is invoked using `getattr`. 
+           class method that is invoked using `getattr`.
+        mem_thresh : float
+           Fraction of available memory required to perform computation. By
+           default, the largest single trial result must not occupy more than
+           50% (``mem_thresh = 0.5``) of available single-machine or worker
+           memory (if `parallel` is `False` or `True`, respectively).
         log_dict : None or dict
            If `None`, the `cfg` and `log` properties of `out` are populated
            with the employed keyword arguments used in :meth:`computeFunction`. 
@@ -272,15 +280,47 @@ class ComputationalRoutine(ABC):
         if parallel_store is None:
             parallel_store = parallel
 
-        # In some cases distributed dask workers suffer from spontaneous
-        # dementia and forget the `sys.path` of their parent process. Fun!
+        # Concurrent processing requires some additional prep-work...
+        trl_size = np.prod(self.cfg["chunkShape"]) * self.dtype.itemsize
         if parallel:
+
+            # First and foremost, make sure a dask client is accessible
+            try:
+                client = dd.get_client()
+            except ValueError as exc:
+                msg = "parallel computing client: {}"
+                raise SPYIOError(msg.format(exc.args[0]))
+
+            # Check if trials actually fit into memory before we start computing
+            if hasattr(client.cluster, "workers"):  # LocalCluster
+                wrk_size = max(wrkr.memory_limit for wrkr in client.cluster.workers)
+            else:  # SLURMCluster
+                wrk_size = client.cluster.worker_memory
+            if trl_size >= mem_thresh * wrk_size:
+                trl_size /= 1024**3
+                wrk_size /= 1024**3
+                msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
+                      "worker memory ({1:2.2f} GB) currently not supported"
+                raise NotImplementedError(msg.format(trl_size, wrk_size))
+
+            # In some cases distributed dask workers suffer from spontaneous
+            # dementia and forget the `sys.path` of their parent process. Fun!
             def init_syncopy(dask_worker):
                 spy_path = os.path.abspath(os.path.split(__path__[0])[0])
                 if spy_path not in sys.path:
                     sys.path.insert(0, spy_path)
             client = dd.get_client()
             client.register_worker_callbacks(init_syncopy)
+
+        # For sequential processing, just ensure enough memory is available
+        else:
+            mem_size = psutil.virtual_memory().available
+            if trl_size >= mem_thresh * mem_size:
+                trl_size /= 1024**3
+                mem_size /= 1024**3
+                msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
+                      "memory ({1:2.2f} GB) currently not supported"
+                raise NotImplementedError(msg.format(trl_size, mem_size))
 
         # Create HDF5 dataset of appropriate dimension
         self.preallocate_output(out, parallel_store=parallel_store)
