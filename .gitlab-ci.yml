@@ -4,11 +4,14 @@ clusterTests:
     - slurm
     only:
     - master
+    - dev
+    variables:
+        PYTEST_ADDOPTS: "--color=yes -q --tb=line"
     script:
     - source $HOME/miniconda3/bin/activate
     - pip install --upgrade pip
     - pip install --upgrade tox
-    - srun -p 8GBS --mem=8000m -c 4 tox -r --parallel 4
+    - srun -p 8GBS --mem=8000m -c 4 tox -r 
 
 windowsTests:
     stage: test
@@ -16,17 +19,21 @@ windowsTests:
     - windows10
     only:
     - master
+    - dev
+    variables:
+        PYTEST_ADDOPTS: "--color=yes -q --tb=line"
     script:
     - pip install --upgrade --user pip
     - pip install --upgrade --user tox
-    - tox -r --parallel 3
+    - tox -r
 
 docs:
-    stage: deploy
+    stage: test
+    when: manual
     tags:
     - docs
     only:
-    - master
+    - dev
     script:
     - if hash $HOME/miniconda/bin/conda 2>/dev/null; 
       then
@@ -36,9 +43,10 @@ docs:
         bash miniconda.sh -b -p $HOME/miniconda;
         export PATH="$HOME/miniconda/bin:$PATH";
       fi
+    - source $HOME/miniconda/etc/profile.d/conda.sh
+    - conda activate
     - conda update --yes conda
     - conda env update --file environment.yml
-    - conda activate SyNCoPy
     - conda  install -y sphinx
     - pip install --upgrade sphinx-bootstrap-theme
     - conda install -y python-graphviz

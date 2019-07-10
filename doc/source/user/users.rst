@@ -1,0 +1,15 @@
+***********************
+User's guide to Syncopy
+***********************
+
+This section of the Syncopy documentation contains information aimed at users
+who primarily want to apply existing analysis functions on their data. This
+usually entails writing analysis scripts operating on a given list of data
+files.
+
+.. toctree :: 
+
+    data_handling
+    fieldtrip
+
+

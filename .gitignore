@@ -30,9 +30,14 @@
 # HTML documentation
 doc/build
 doc/source/_stubs
+*_stubs
 
 # Canonical /build directory
 /build
+
+# setuptools /dist directory
+/dist
+*.egg-info
 
 # Python
 # Byte-compiled / optimized / DLL files

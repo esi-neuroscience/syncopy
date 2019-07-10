@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-17 09:17:02
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-03-04 14:34:57>
+# Last modification time: <2019-07-04 11:56:37>
 """
 Data Analysis with SynCoPy: Examples (:mod:`syncopy.examples`)
 ==================================================================
@@ -23,3 +23,4 @@ This should be really informative and easy to understand...
 
 # Import formal pseudo-functions from scripts to fetch docstrings
 from .ex_datatype import *
+from .ex_comproutine import *

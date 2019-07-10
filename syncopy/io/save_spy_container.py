@@ -4,7 +4,7 @@
 #
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-09 13:54:34>
+# Last modification time: <2019-06-27 15:42:40>
 
 # Builtin/3rd party package imports
 import os
@@ -190,22 +190,17 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
                     filename.format(ext=FILE_EXT["json"])))
                 print(msg.format(key, info_fle))
                 h5f.attrs[key] = [out_dct[key][0], "...", out_dct[key][-1]]
-
-    # Close container and compute its checksum
     h5f.close()
-    out_dct["data_checksum"] = hash_file(filename.format(ext=FILE_EXT["data"]))
 
-    # Finally, write JSON
+    # Re-assign filename after saving (and remove source in case it came from `__storage__`)
+    if __storage__ in out._filename:
+        os.unlink(out._filename)
+    out.data = filename.format(ext=FILE_EXT["data"])
+
+    # Compute checksum and finally write JSON
+    out_dct["data_checksum"] = hash_file(filename.format(ext=FILE_EXT["data"]))
     with open(filename.format(ext=FILE_EXT["json"]), "w") as out_json:
         json.dump(out_dct, out_json, indent=4)
-
-    # Last but definitely not least: if source data came from HDF dataset,
-    # re-assign filename after saving (and remove source in case it came
-    # from `__storage__`)
-    if out._filename is not None:
-        if __storage__ in out._filename:
-            os.unlink(out._filename)
-        out.data = filename.format(ext=FILE_EXT["data"])
 
     return
 

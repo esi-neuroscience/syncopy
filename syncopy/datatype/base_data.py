@@ -4,7 +4,7 @@
 #
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-11 15:47:31>
+# Last modification time: <2019-07-05 14:39:57>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -43,6 +43,7 @@ class BaseData(ABC):
 
     @property
     def cfg(self):
+        """Dictionary of previous operations on data"""
         return self._cfg
 
     @cfg.setter
@@ -53,6 +54,8 @@ class BaseData(ABC):
 
     @property
     def data(self):
+        """array-like object representing data without trials"""
+
         if getattr(self._data, "id", None) is not None:
             if self._data.id.valid == 0:
                 lgl = "open HDF5 container"
@@ -70,12 +73,12 @@ class BaseData(ABC):
                 fpath, fname = io_parser(in_data, varname="filename", isfile=True, exists=True)
             except Exception as exc:
                 raise exc
-            in_data = os.path.join(fpath, fname)
+            in_data = os.path.join(fpath, fname)  # ensure `in_data` is absolute path
 
             md = self.mode
             if md == "w":
                 md = "r+"
-                
+
             is_npy = False
             is_hdf = False
             try:
@@ -129,8 +132,8 @@ class BaseData(ABC):
             self._filename = os.path.abspath(fn)
             self._data = in_data
             
-        # If input is an array, either fill existing data property or directly attach it
-        # and create backing container on disk
+        # If input is an array, either fill existing data property
+        # or create backing container on disk
         elif isinstance(in_data, np.ndarray):
             try:
                 array_parser(in_data, varname="data", dims=self._ndim)
@@ -149,10 +152,14 @@ class BaseData(ABC):
                     print("SyNCoPy core - data: WARNING >> Input data-type mismatch << ")
                 self._data[...] = in_data
             else:
-                self._data = in_data
                 self._filename = self._gen_filename()
+                dsetname = self.__class__.__name__
                 with h5py.File(self._filename, "w") as h5f:
-                    h5f.create_dataset(self.__class__.__name__, data=in_data)
+                    h5f.create_dataset(dsetname, data=in_data)
+                md = self.mode
+                if md == "w":
+                    md = "r+"
+                self._data = h5py.File(self._filename, md)[dsetname]
 
         # If input is a `VirtualData` object, make sure the object class makes sense
         elif isinstance(in_data, VirtualData):
@@ -173,16 +180,23 @@ class BaseData(ABC):
         if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
             self._dimlabels["sample"] = np.unique(self.data[:,self.dimord.index("sample")])
 
+        # In case we're working with an `AnalogData` object, tentatively fill up channel labels
+        if any(["ContinuousData" in str(base) for base in self.__class__.__mro__]):
+            channel = ["channel" + str(i + 1) for i in range(self.data.shape[self.dimord.index("channel")])]
+            self.channel = np.array(channel)
+
         # In case we're working with an `EventData` object, fill up eventid's
         if self.__class__.__name__ == "EventData":
             self._dimlabels["eventid"] = np.unique(self.data[:,self.dimord.index("eventid")])
 
     @property
     def dimord(self):
+        """list(str): ordered list of data dimension labels"""
         return list(self._dimlabels.keys())
 
     @property
     def log(self):
+        """str: log of previous operations on data"""
         print(self._log_header + self._log)
 
     @log.setter
@@ -199,20 +213,51 @@ class BaseData(ABC):
 
     @property
     def mode(self):
+        """str: write mode for data, 'r' for read-only, 'w' for writable
+
+        FIXME: append/replace with HDF5?
+        """
+
         return self._mode
 
     @mode.setter
     def mode(self, md):
+
+        # Ensure input makes sense and we actually have permission to change
+        # the data access mode
         if not isinstance(md, str):
             raise SPYTypeError(md, varname="mode", expected="str")
         options = ["r", "r+", "w", "c"]
         if md not in options:
             lgl = "'" + "or '".join(opt + "' " for opt in options)
             raise SPYValueError(lgl, varname="mode", actual=md)
+        if isinstance(self.data, VirtualData):
+            print("syncopy core - mode: WARNING >> Cannot change read-only " +
+                  "access mode of VirtualData datasets << ")
+            return
+
+        # If data is already attached to the object, change its access mode
+        # as requested (if `md` is actually any different from `self.mode`)
+        # NOTE: prevent accidental data loss by not allowing mode ="w" in h5py
+        if self.data is not None:
+            if md == self._mode:
+                return
+            if md == "w":
+                md = "r+"
+            self.data.flush()
+            if isinstance(self.data, np.memmap):
+                self._data = None
+                self._data = open_memmap(self._filename, mode=md)
+            else:
+                dsetname = self.data.name
+                self._data.file.close()
+                self._data = h5py.File(self._filename, mode=md)[dsetname]
+
         self._mode = md
-            
+
     @property
     def sampleinfo(self):
+        """nTrials x 3 :class:`numpy.ndarray` of [start, end, offset] sample indices"""
         return self._sampleinfo
 
     @sampleinfo.setter
@@ -234,14 +279,20 @@ class BaseData(ABC):
 
     @property
     def t0(self):
+        """FIXME: should be hidden"""
         return self._t0
 
     @property
     def trials(self):
+        """list-like array of trials"""
         return Indexer(map(self._get_trial, range(self.sampleinfo.shape[0])),
                        self.sampleinfo.shape[0]) if self.sampleinfo is not None else None
     @property
     def trialinfo(self):
+        """nTrials x M :class:`numpy.ndarray` with numeric information about each trial
+
+        Each trial can have M properties (condition, original trial no., ...) coded by 
+        """
         return self._trialinfo
 
     @trialinfo.setter
@@ -258,6 +309,7 @@ class BaseData(ABC):
 
     @property
     def version(self):
+        """FIXME: should be hidden"""
         return self._version
 
     # Selector method
@@ -272,18 +324,42 @@ class BaseData(ABC):
     @abstractmethod
     def _get_trial(self, trialno):
         pass
-    
-    # Convenience function, wiping attached memmap
+
+    # Convenience function, wiping contents of backing device from memory
     def clear(self):
-        self.data.flush()
-        if isinstance(self.data, np.memmap):
-            filename, mode = self.data.filename, self.data.mode
-            self._data = None
-            self._data = open_memmap(filename, mode=mode)
+        """Clear loaded data from memory
+
+        Calls `flush` method of HDF5 dataset or memory map. Memory maps are
+        deleted and re-instantiated.        
+
+        """
+        if self.data is not None:
+            self.data.flush()
+            if isinstance(self.data, np.memmap):
+                filename, mode = self.data.filename, self.data.mode
+                self._data = None
+                self._data = open_memmap(filename, mode=mode)
         return
 
     # Return a (deep) copy of the current class instance
     def copy(self, deep=False):
+        """Create a copy of the data object in memory.
+
+        Parameters
+        ----------
+            deep : bool
+                If `True`, a copy of the underlying data file is created in the temporary Syncopy folder
+
+        Returns
+        -------
+            BaseData
+                in-memory copy of BaseData object
+
+        See also
+        --------
+        save_spy
+
+        """
         cpy = copy(self)
         if deep and isinstance(self.data, (np.memmap, h5py.Dataset)):
             self.data.flush()
@@ -295,14 +371,34 @@ class BaseData(ABC):
     # Change trialdef of object
     def definetrial(self, trl=None, pre=None, post=None, start=None,
                     trigger=None, stop=None, clip_edges=False):
+        """(Re-)define trials for data
+
+        See also
+        --------
+        syncopy.definetrial
+
+        """
         definetrial(self, trialdefinition=trl, pre=pre, post=post,
                     start=start, trigger=trigger, stop=stop,
                     clip_edges=clip_edges)
 
+
     # Wrapper that makes saving routine usable as class method
     def save(self, out_name, filetype=None, **kwargs):
-        """
-        Docstring that mostly points to ``save_data``
+        """Save data object as new ``spy`` HDF container to disk (:func:`syncopy.save_data`)
+        
+        Parameters
+        ----------
+            out_name : str
+                filename of output file
+            filetype : str
+                filetype to use for storing data. See func:`syncopy.save_data`
+                for supported filetypes        
+
+        See also
+        --------
+            :func:syncopy.`save_data` 
+
         """
         spy.save_data(out_name, self, filetype=filetype, **kwargs)
 
@@ -335,7 +431,8 @@ class BaseData(ABC):
     def __str__(self):
 
         # Get list of print-worthy attributes
-        ppattrs = [attr for attr in self.__dir__() if not (attr.startswith("_") or attr in ["log", "t0"])]
+        ppattrs = [attr for attr in self.__dir__()
+                   if not (attr.startswith("_") or attr in ["log", "t0"])]
         ppattrs = [attr for attr in ppattrs
                    if not (inspect.ismethod(getattr(self, attr))
                            or isinstance(getattr(self, attr), Iterator))]
@@ -402,7 +499,10 @@ class BaseData(ABC):
     def __del__(self):
         if self._filename is not None:
             if isinstance(self._data, h5py.Dataset):
-                self._data.file.close()
+                try:
+                    self._data.file.close()
+                except:
+                    pass
             else:
                 del self._data
             if __storage__ in self._filename and os.path.exists(self._filename):
@@ -509,6 +609,12 @@ class BaseData(ABC):
 
         
 class VirtualData():
+    """Class for handling 2D-data spread across multiple files
+
+    Arrays from individual files (chunks) are concatenated along 
+    the 2nd dimension (dim=1).
+
+    """
 
     # Pre-allocate slots here - this class is *not* meant to be expanded
     # and/or monkey-patched at runtime
@@ -667,6 +773,11 @@ class VirtualData():
 
     # Free memory by force-closing resident memory maps
     def clear(self):
+        """Clear read data from memory
+
+        Reinstantiates memory maps of all open files.
+
+        """
         shapes = []
         dtypes = []
         fnames = []
@@ -682,6 +793,10 @@ class VirtualData():
                                         mode="r", dtype=dtypes[k],
                                         shape=shapes[k]))
         return
+
+    # Ensure compatibility b/w `VirtualData`, HDF5 datasets and memmaps
+    def flush(self):
+        self.clear()
 
 
 class Indexer():
@@ -764,6 +879,14 @@ class SessionLogger():
 
 
 class StructDict(dict):
+    """Child-class of dict for emulating MATLAB structs
+
+    Examples
+    --------
+    cfg = StructDict()
+    cfg.a = [0, 25]
+
+    """
     
     def __init__(self, *args, **kwargs):
         """

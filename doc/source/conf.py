@@ -20,7 +20,7 @@ print(sys.path)
 
 # -- Project information -----------------------------------------------------
 
-project = 'SyNCoPy'
+project = 'Syncopy'
 copyright = '2019, Joscha Schmiedt and Stefan Fuertinger'
 author = 'Joscha Schmiedt and Stefan Fuertinger'
 
@@ -51,8 +51,11 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
-    'sphinx.ext.inheritance_diagram'
+    'sphinx.ext.inheritance_diagram',
+    'sphinx.ext.autosectionlabel',
 ]
+
+autosectionlabel_maxdepth = 2
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -131,7 +134,7 @@ html_show_copyright = False
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'SyNCoPyDoc'
+htmlhelp_basename = 'SyncopyDoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -158,7 +161,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'SynCoPy.tex', 'SynCoPy Documentation',
+    (master_doc, 'Syncopy.tex', 'Syncopy Documentation',
      'Joscha Schmiedt and Stefan Fuertinger', 'manual'),
 ]
 
@@ -168,7 +171,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'SyNCoPy', 'SyNCoPy Documentation',
+    (master_doc, 'Syncopy', 'Syncopy Documentation',
      [author], 1)
 ]
 
@@ -179,8 +182,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'SyNCoPy', 'SyNCoPy Documentation',
-     author, 'SynCoPy', 'One line description of project.',
+    (master_doc, 'Syncopy', 'Syncopy Documentation',
+     author, 'Syncopy', 'One line description of project.',
      'Miscellaneous'),
 ]
 
@@ -213,7 +216,8 @@ intersphinx_mapping = {
     'numpy': ('http://docs.scipy.org/doc/numpy/', None),
     'scipy': ('http://docs.scipy.org/doc/scipy/reference', None),
     'matplotlib': ('http://matplotlib.org', None),
-    'h5py': ('http://docs.h5py.org/en/latest/', None)
+    'h5py': ('http://docs.h5py.org/en/latest/', None),
+    'dask': ('https://docs.dask.org/en/latest/', None)
 }
 
 # -- Options for todo extension ----------------------------------------------
