@@ -18,7 +18,8 @@ from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
 import syncopy as spy
 
 __all__ = ["io_parser", "scalar_parser", "array_parser",
-           "data_parser", "json_parser", "get_defaults"]
+           "data_parser", "json_parser", "filename_parser",
+           "get_defaults"]
 
 
 def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
@@ -523,6 +524,125 @@ def get_defaults(obj):
            if v.default != v.empty and v.name != "cfg"}
     return spy.StructDict(dct)
 
+
+def filename_parser(filename, is_in_valid_container=None):
+    """Extract information from Syncopy file and folder names
+
+    Parameters
+    ----------
+        filename: str
+            Syncopy data file (*.<dataclass>.info), Syncopy info 
+            file (*.<dataclass>) or Syncopy container folder (*.spy)
+        is_in_valid_container: bool            
+            If `True`, the `filename` must be inside a folder with an .spy 
+            extension. 
+            If `False`, `filename` must not be inside a .spy folder.
+            If `None`, the extension of the parent folder is not checked.
+
+    Returns
+    -------
+        fileinfo : dict 
+            Information extracted from filename and foldername with keys
+           ['filename', 'container', 'folder', 'tag', 'basename', 'extension']
+
+    Examples
+    --------
+    >>> filename_parser('/home/user/monkeyB_20190709_rfmapping_1_amua-stimon.analog')  
+    {'filename': 'monkeyB_20190709_rfmapping_1_amua-stimon.analog', 
+     'container': None, 
+     'folder': '/home/schmiedtj_it/Projects/SyNCoPy', 
+     'tag': None,
+     'basename': 'monkeyB_20190709_rfmapping_1_amua-stimon', 
+     'extension': '.analog'}
+
+    >>> filename_parser('/home/user/monkeyB_20190709_rfmapping_1_amua-stimon.analog.info')
+    {'filename': 'monkeyB_20190709_rfmapping_1_amua-stimon.analog',
+    'container': None,
+    'folder': '/home/user',
+    'tag': None,
+    'basename': 'monkeyB_20190709_rfmapping_1_amua-stimon',
+    'extension': '.analog'}  
+
+    >>> filename_parser('session_1.spy/session_1_amua-stimon.analog')  
+    {'filename': 'session_1_amua-stimon.analog',
+     'container': 'session_1.spy',
+     'folder': '/home/user/session_1.spy',
+     'tag': 'amua-stimon',
+     'basename': 'session_1',
+     'extension': '.analog'}
+
+    >>> filename_parser('session_1.spy')
+    {'filename': None,
+     'container': 'session_1.spy',
+     'folder': '/home/user',
+     'tag': None,
+     'basename': 'session_1',
+     'extension': '.spy'}
+
+
+     See also
+     --------
+      io_parser : check file and folder names for existance
+
+    """
+    
+    filename = os.path.abspath(os.path.expanduser(filename))
+
+    folder, filename = os.path.split(filename)
+    container = folder.split(os.path.sep)[-1]
+    basename, ext = os.path.splitext(filename)    
+    
+    if ext == spy.FILE_EXT["info"]:
+        filename = basename
+        basename, ext = os.path.splitext(filename)
+    elif ext == spy.FILE_EXT["dir"]:
+        return {
+        "filename": None,
+        "container": filename,
+        "folder": folder,
+        "tag": None,
+        "basename": basename,
+        "extension": ext
+        }
+    
+    if ext not in spy.FILE_EXT["data"] + (spy.FILE_EXT["dir"],):
+        raise SPYValueError(legal=spy.FILE_EXT["data"], 
+                            actual=ext, varname="filename extension")
+
+    folderExtIsSpy = os.path.splitext(container)[1] == spy.FILE_EXT["dir"]
+    if is_in_valid_container is not None:
+        if not folderExtIsSpy and is_in_valid_container:
+            raise SPYValueError(legal=spy.FILE_EXT["dir"], 
+                                actual=os.path.splitext(container)[1], 
+                                varname="folder extension")
+        elif folderExtIsSpy and not is_in_valid_container:
+            raise SPYValueError(legal='not ' + spy.FILE_EXT["dir"], 
+                                actual=os.path.splitext(container)[1], 
+                                varname="folder extension")
+
+    
+    if folderExtIsSpy:
+        containerBasename = os.path.splitext(container)[0]
+        if not basename.startswith(containerBasename):
+            raise SPYValueError(legal=containerBasename, 
+                                actual=filename, 
+                                varname='start of filename')
+        tag = basename.partition(containerBasename)[-1]
+        if tag[0] == '_': tag = tag[1:]
+        basename = containerBasename       
+    else:
+        container = None
+        tag = None
+
+    return {
+        "filename": filename,
+        "container": container,
+        "folder": folder,
+        "tag": tag,
+        "basename": basename,
+        "extension": ext
+        }
+    
 
 def unwrap_cfg(func):
     """
