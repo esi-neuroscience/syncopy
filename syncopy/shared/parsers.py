@@ -543,7 +543,7 @@ def filename_parser(filename, is_in_valid_container=None):
     -------
         fileinfo : dict 
             Information extracted from filename and foldername with keys
-           ['filename', 'container', 'folder', 'tag', 'basename', 'extension']
+           ['filename', 'container', 'folder', 'tag', 'basename', 'extension'].           
 
     Examples
     --------
@@ -584,8 +584,17 @@ def filename_parser(filename, is_in_valid_container=None):
      --------
       io_parser : check file and folder names for existance
 
-    """
-    
+    """      
+    if filename is None:
+        return {
+        "filename": None,
+        "container": None,
+        "folder": None,
+        "tag": None,
+        "basename": None,
+        "extension": None
+        }
+
     filename = os.path.abspath(os.path.expanduser(filename))
 
     folder, filename = os.path.split(filename)
