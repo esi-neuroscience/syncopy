@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-05 16:22:56
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-07-12 08:26:43>
+# Last modification time: <2019-07-12 08:31:12>
 
 import os.path
 import tempfile
@@ -181,7 +181,6 @@ class TestArrayParser():
             array_parser(channels, varname="channels", dims=(4,))
 
 
-@pytest.mark.filename
 class TestFilenameParser():
     referenceResult = {
         "filename": "sessionName_testTag.analog",
@@ -193,7 +192,7 @@ class TestFilenameParser():
         }
 
     def test_none(self):
-        assert filename_parser(None)["filename"] is None
+        assert all([value is None for value in filename_parser(None).values()])
 
     def test_fname_only(self):
         fname = "sessionName_testTag.analog"         
