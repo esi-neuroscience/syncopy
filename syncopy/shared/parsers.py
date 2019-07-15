@@ -534,7 +534,7 @@ def filename_parser(filename, is_in_valid_container=None):
             Syncopy data file (*.<dataclass>.info), Syncopy info 
             file (*.<dataclass>) or Syncopy container folder (*.spy)
         is_in_valid_container: bool            
-            If `True`, the `filename` must be inside a folder with an .spy 
+            If `True`, the `filename` must be inside a folder with a .spy 
             extension. 
             If `False`, `filename` must not be inside a .spy folder.
             If `None`, the extension of the parent folder is not checked.
@@ -543,7 +543,7 @@ def filename_parser(filename, is_in_valid_container=None):
     -------
         fileinfo : dict 
             Information extracted from filename and foldername with keys
-           ['filename', 'container', 'folder', 'tag', 'basename', 'extension'].           
+            ['filename', 'container', 'folder', 'tag', 'basename', 'extension'].           
 
     Examples
     --------
@@ -582,7 +582,7 @@ def filename_parser(filename, is_in_valid_container=None):
 
      See also
      --------
-      io_parser : check file and folder names for existance
+     io_parser : check file and folder names for existence
 
     """      
     if filename is None:
