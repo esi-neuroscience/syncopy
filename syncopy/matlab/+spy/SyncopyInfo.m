@@ -10,7 +10,7 @@ classdef SyncopyInfo
         data_dtype
         data_shape
         data_offset
-        data_checksum
+        file_checksum
         checksum_algorithm
         trl_dtype
         trl_shape

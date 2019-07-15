@@ -9,7 +9,7 @@ function [hdfFile, jsonFile, spyInfo] = save_spy(filename, ...
 % INPUT
 % -----
 %  filename   : filename to be used for saving. The resulting filenames will 
-%               be <filename>.ang (HDF5) and <filename>.ang.info (JSON).
+%               be <filename>.analog (HDF5) and <filename>.analog.info (JSON).
 %  data       : data array to be stored in HDF5 file
 %  trialdefinition : [nTrials x 3+N] array describing beginning, end and
 %                    time zero of each trial as well as N additional
@@ -54,7 +54,7 @@ cfg = p.Results.cfg;
 
 switch dclass
     case 'AnalogData'
-        ext = '.ang';
+        ext = '.analog';
     otherwise
         error('Currently not supported Syncopy data class %s', dclass)
 end
@@ -90,7 +90,7 @@ cellstr_h5writeatt(hdfFile, 'dimord', dimord)
 %% json info file
 hdfHash = spy.hash.DataHash(hdfFile, 'SHA-1', 'file');
 
-jsonFile = fullfile(path, [base, '.ang.info']);
+jsonFile = fullfile(path, [base, ext, '.info']);
 spyInfo = spy.SyncopyInfo();
 
 spyInfo.filename = hdfFile;
@@ -100,8 +100,8 @@ spyInfo.dimord = dimord;
 spyInfo.samplerate = samplerate;
 spyInfo.type = dclass;
 spyInfo.channel = channel;
-spyInfo.data_checksum = hdfHash;
-spyInfo.checksum_algorithm = 'SHA-1';
+spyInfo.file_checksum = hdfHash;
+spyInfo.checksum_algorithm = 'openssl_sha1';
 spyInfo.data_dtype = spy.dtype_mat2py(data);
 spyInfo.data_shape = size(data);
 spyInfo.data_offset = h5getoffset(hdfFile, ['/' dclass]);
