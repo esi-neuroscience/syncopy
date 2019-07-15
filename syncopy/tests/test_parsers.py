@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
-#
+# 
+# 
+# 
 # Created: 2019-03-05 16:22:56
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-27 15:50:25>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-07-12 08:31:12>
 
 import os.path
 import tempfile
 import pytest
 import numpy as np
 from collections import OrderedDict
-from syncopy import (io_parser, scalar_parser, array_parser,
+from syncopy import (io_parser, scalar_parser, array_parser, filename_parser,
                      data_parser, json_parser, get_defaults)
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError
 from syncopy import AnalogData, SpectralData
@@ -177,6 +179,100 @@ class TestArrayParser():
         array_parser(channels, varname="channels", dims=(None,))
         with pytest.raises(SPYValueError):
             array_parser(channels, varname="channels", dims=(4,))
+
+
+class TestFilenameParser():
+    referenceResult = {
+        "filename": "sessionName_testTag.analog",
+        "container": "container.spy",
+        "folder": "/tmp/container.spy",
+        "tag": "testTag",
+        "basename": "sessionName",
+        "extension": ".analog"
+        }
+
+    def test_none(self):
+        assert all([value is None for value in filename_parser(None).values()])
+
+    def test_fname_only(self):
+        fname = "sessionName_testTag.analog"         
+        assert filename_parser(fname) == {
+            "filename" : fname,
+            "container": None,
+            "folder": os.getcwd(),
+            "tag": None,
+            "basename": "sessionName_testTag",
+            "extension": ".analog"
+        }
+    
+    def test_invalid_ext(self):
+        # wrong extension
+        with pytest.raises(SPYValueError):
+            filename_parser("test.wrongExtension")
+        
+        # no extension
+        with pytest.raises(SPYValueError):
+            filename_parser("test")
+
+    def test_with_info_ext(self):
+        fname = "sessionName_testTag.analog.info"         
+        assert filename_parser(fname) == {
+            "filename" : fname.replace(".info", ""),
+            "container": None,
+            "folder": os.getcwd(),
+            "tag": None,
+            "basename": "sessionName_testTag",
+            "extension": ".analog"
+        }
+
+    def test_valid_spy_container(self):
+        fname = "sessionName.spy/sessionName_testTag.analog"         
+        assert filename_parser(fname, is_in_valid_container=True) == {
+            "filename" : "sessionName_testTag.analog",
+            "container": "sessionName.spy",
+            "folder": os.path.join(os.getcwd(), "sessionName.spy"),
+            "tag": "testTag",
+            "basename": "sessionName",
+            "extension": ".analog"
+        }
+    def test_invalid_spy_container(self):
+        fname = "sessionName/sessionName_testTag.analog"   
+        with  pytest.raises(SPYValueError):   
+            filename_parser(fname, is_in_valid_container=True)
+        
+        fname = "wrongContainer.spy/sessionName_testTag.analog"   
+        with  pytest.raises(SPYValueError):   
+            filename_parser(fname, is_in_valid_container=True)
+
+    def test_with_full_path(self):
+        fname = "/tmp/sessionName.spy/sessionName_testTag.analog"  
+        assert filename_parser(fname, is_in_valid_container=True) == {
+            "filename" : "sessionName_testTag.analog",
+            "container": "sessionName.spy",
+            "folder": os.path.join("/tmp", "sessionName.spy"),
+            "tag": "testTag",
+            "basename": "sessionName",
+            "extension": ".analog"
+            }
+    
+    def test_folder_only(self):
+        assert filename_parser("container.spy") == {
+            'filename': None,
+            'container': 'container.spy',
+            'folder': os.getcwd(),
+            'tag': None,
+            'basename': 'container',
+            'extension': '.spy'
+            }
+        assert filename_parser("/tmp/container.spy") == {
+            'filename': None,
+            'container': 'container.spy',
+            'folder': "/tmp",
+            'tag': None,
+            'basename': 'container',
+            'extension': '.spy'
+            }
+
 
 
 class TestDataParser():

@@ -24,15 +24,29 @@ if sys.platform == "win32":
 
 # Local imports
 from syncopy import __storage__, __sessionid__
+from syncopy.datatype.base_data import BaseData
 from syncopy.shared import scalar_parser
 from syncopy.shared.queries import user_yesno, user_input
 
+__all__ = ["FILE_EXT", "hash_file", "write_access", "cleanup"]
+
+def _all_subclasses(cls):
+    return set(cls.__subclasses__()).union(
+        [s for c in cls.__subclasses__() for s in _all_subclasses(c)])
+
+def _data_classname_to_extension(name):
+    return name.split('Data')[0].lower()
+
+# data file extensions are first word of data class name in lower-case
+supportedDataExtensions = tuple(['.' + _data_classname_to_extension(cls.__name__)
+    for cls in _all_subclasses(BaseData) 
+    if not cls.__name__ in ['ContinuousData', 'DiscreteData']])
+
 # Define SynCoPy's general file-/directory-naming conventions
 FILE_EXT = {"dir" : ".spy",
-            "json" : ".info",
-            "data" : ".dat"}
+            "info" : ".info",
+            "data" : supportedDataExtensions}
 
-__all__ = ["FILE_EXT", "hash_file", "write_access", "cleanup"]
 
 
 def hash_file(fname, bsize=65536):
