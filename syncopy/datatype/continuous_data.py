@@ -39,6 +39,7 @@ class ContinuousData(BaseData, ABC):
     """
     
     _infoFileProperties = BaseData._infoFileProperties + ("samplerate", "channel",)
+    _hdfFileProperties = BaseData._hdfFileProperties + ("samplerate", "channel",)
         
     @property
     def _shapes(self):
