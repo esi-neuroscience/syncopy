@@ -28,6 +28,8 @@ class DiscreteData(BaseData, ABC):
     """
 
     _infoFileProperties = BaseData._infoFileProperties + ("hdr", "samplerate",)
+    _hdfFileProperties = BaseData._hdfFileProperties + ("samplerate", "channel",)
+
 
     @property
     def hdr(self):

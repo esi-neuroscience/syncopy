@@ -41,7 +41,8 @@ __all__ = ["StructDict"]
 
 class BaseData(ABC):
 
-    _infoFileProperties = ("dimord", "version", "_log", "cfg", "checksum_algorithm")
+    _infoFileProperties = ("dimord", "version", "_log", "cfg", "checksum_algorithm",)
+    _hdfFileProperties =  ("dimord", "version", "_log",)
 
     checksum_algorithm = spy.__checksum_algorithm__.__name__
     
