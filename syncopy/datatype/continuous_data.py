@@ -276,7 +276,7 @@ class AnalogData(ContinuousData):
             elif isinstance(self.data, (np.memmap, h5py.Dataset)):
                 self.data.flush()
                 filename = self._gen_filename()
-                shutil.copyfile(self._filename, filename)
+                shutil.copyfile(self.filename, filename)
                 cpy.data = filename
         return cpy
 

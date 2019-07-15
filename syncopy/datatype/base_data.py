@@ -62,7 +62,7 @@ class BaseData(ABC):
             if self._data.id.valid == 0:
                 lgl = "open HDF5 container"
                 act = "backing HDF5 container {} has been closed"
-                raise SPYValueError(legal=lgl, actual=act.format(self._filename),
+                raise SPYValueError(legal=lgl, actual=act.format(self.filename),
                                     varname="data")
         return self._data
     
@@ -112,7 +112,7 @@ class BaseData(ABC):
                     self._data = h5f[spy.datatype.__all__[idx.index(1)]]
             if is_npy:
                 self._data = open_memmap(in_data, mode=md)
-            self._filename = in_data
+            self.filename = in_data
 
         # If input is already a memmap/HDF5 dataset, check its dimensions
         elif isinstance(in_data, (np.memmap, h5py.Dataset)):
@@ -131,7 +131,7 @@ class BaseData(ABC):
                 act = "{}-dimensional HDF5 dataset or memmap".format(in_data.ndim)
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             self.mode = md
-            self._filename = os.path.abspath(fn)
+            self.filename = os.path.abspath(fn)
             self._data = in_data
             
         # If input is an array, either fill existing data property
@@ -154,14 +154,14 @@ class BaseData(ABC):
                     print("SyNCoPy core - data: WARNING >> Input data-type mismatch << ")
                 self._data[...] = in_data
             else:
-                self._filename = self._gen_filename()
+                self.filename = self._gen_filename()
                 dsetname = self.__class__.__name__
-                with h5py.File(self._filename, "w") as h5f:
+                with h5py.File(self.filename, "w") as h5f:
                     h5f.create_dataset(dsetname, data=in_data)
                 md = self.mode
                 if md == "w":
                     md = "r+"
-                self._data = h5py.File(self._filename, md)[dsetname]
+                self._data = h5py.File(self.filename, md)[dsetname]
 
         # If input is a `VirtualData` object, make sure the object class makes sense
         elif isinstance(in_data, VirtualData):
@@ -170,7 +170,7 @@ class BaseData(ABC):
                 act = "VirtualData (only valid for `AnalogData` objects)"
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             self._data = in_data
-            self._filename = [dat.filename for dat in in_data._data]
+            self.filename = [dat.filename for dat in in_data._data]
             self.mode = "r"
 
         # Whatever type the input is, it's not supported
@@ -249,11 +249,11 @@ class BaseData(ABC):
             self.data.flush()
             if isinstance(self.data, np.memmap):
                 self._data = None
-                self._data = open_memmap(self._filename, mode=md)
+                self._data = open_memmap(self.filename, mode=md)
             else:
                 dsetname = self.data.name
                 self._data.file.close()
-                self._data = h5py.File(self._filename, mode=md)[dsetname]
+                self._data = h5py.File(self.filename, mode=md)[dsetname]
 
         self._mode = md
 
@@ -366,7 +366,7 @@ class BaseData(ABC):
         if deep and isinstance(self.data, (np.memmap, h5py.Dataset)):
             self.data.flush()
             filename = self._gen_filename()
-            shutil.copyfile(self._filename, filename)
+            shutil.copyfile(self.filename, filename)
             cpy.data = filename
         return cpy
 
@@ -503,7 +503,7 @@ class BaseData(ABC):
 
     # Destructor
     def __del__(self):
-        if self._filename is not None:
+        if self.filename is not None:
             if isinstance(self._data, h5py.Dataset):
                 try:
                     self._data.file.close()
@@ -511,9 +511,9 @@ class BaseData(ABC):
                     pass
             else:
                 del self._data
-            if __storage__ in self._filename and os.path.exists(self._filename):
-                os.unlink(self._filename)
-                shutil.rmtree(os.path.splitext(self._filename)[0],
+            if __storage__ in self.filename and os.path.exists(self.filename):
+                os.unlink(self.filename)
+                shutil.rmtree(os.path.splitext(self.filename)[0],
                               ignore_errors=True)
 
     # Class "constructor"
@@ -533,7 +533,7 @@ class BaseData(ABC):
         self._sampleinfo = None
         self._t0 = None
         self._trialinfo = None
-        self._filename = None
+        self.filename = None
 
         # Set up dimensional architecture
         self._dimlabels = OrderedDict()
@@ -583,7 +583,7 @@ class BaseData(ABC):
             # Case 4: nothing here: create empty object
             else:
                 read_fl = False
-                self._filename = self._gen_filename()
+                self.filename = self._gen_filename()
             
         # Prepare log + header and write first entry
         lhd = "\n\t\t>>> SyNCopy v. {ver:s} <<< \n\n" +\

@@ -57,7 +57,7 @@ class TestAnalogData():
             vdata = VirtualData([dmap, dmap])
             dummy = AnalogData(vdata)
             assert dummy.channel.size == 2 * self.nc
-            assert len(dummy._filename) == 2
+            assert len(dummy.filename) == 2
             del dmap, dummy, vdata
 
     def test_trialretrieval(self):
@@ -83,7 +83,7 @@ class TestAnalogData():
             for trlno, start in enumerate(range(0, self.ns, 5)):
                 trl_ref = self.data[start:start + 5, :]
                 trl_tmp = dummy._copy_trial(trlno,
-                                            dummy._filename,
+                                            dummy.filename,
                                             dummy.dimord,
                                             dummy.sampleinfo,
                                             dummy.hdr)
@@ -424,7 +424,7 @@ class TestSpectralData():
             for trlno, start in enumerate(range(0, self.ns, 5)):
                 trl_ref = self.data[start:start + 5, ...]
                 trl_tmp = dummy._copy_trial(trlno,
-                                            dummy._filename,
+                                            dummy.filename,
                                             dummy.dimord,
                                             dummy.sampleinfo,
                                             None)
