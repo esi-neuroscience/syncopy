@@ -41,8 +41,10 @@ __all__ = ["StructDict"]
 
 class BaseData(ABC):
 
-    _infoFileProperties = ("dimord", "version", "log", "cfg")
+    _infoFileProperties = ("dimord", "version", "_log", "cfg", "checksum_algorithm")
 
+    checksum_algorithm = spy.__checksum_algorithm__.__name__
+    
     @property
     def cfg(self):
         """Dictionary of previous operations on data"""

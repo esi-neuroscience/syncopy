@@ -23,7 +23,7 @@ if sys.platform == "win32":
     colorama.init(strip=False)
 
 # Local imports
-from syncopy import __storage__, __sessionid__
+from syncopy import __storage__, __sessionid__, __checksum_algorithm__
 from syncopy.datatype.base_data import BaseData
 from syncopy.shared import scalar_parser
 from syncopy.shared.queries import user_yesno, user_input
@@ -56,7 +56,7 @@ def hash_file(fname, bsize=65536):
     Internal helper routine, do not parse inputs
     """
 
-    hash = blake2b()
+    hash = __checksum_algorithm__()
     with open(fname, "rb") as f:
         for block in iter(lambda: f.read(bsize), b""):
             hash.update(block)
@@ -76,8 +76,8 @@ def write_access(directory):
             tmp.seek(0)
             tmp.read()
         return True
-    except:
-        return False
+    except Exception as Exc:
+        raise Exc
 
 
 def cleanup(older_than=24):
