@@ -60,7 +60,7 @@ def load_spy(in_name, fname=None, checksum=False, out=None, **kwargs):
     if fname is None:
 
         # Get most recent json file in `in_name`, default to "*.json" if not found
-        in_file = max(iglob(os.path.join(in_name, "*" + FILE_EXT["json"])),
+        in_file = max(iglob(os.path.join(in_name, "*" + FILE_EXT["info"])),
                       key=os.path.getctime, default="*.json")
 
     else:

@@ -185,9 +185,9 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
                 msg = "SyNCoPy save_spy: WARNING >>> Too many entries in `{}` " +\
                       "- truncating HDF5 attribute. Please refer to {} for " +\
                       "complete listing. <<<"
-                info_fle = os.path.split(os.path.split(filename.format(ext=FILE_EXT["json"]))[0])[1]
+                info_fle = os.path.split(os.path.split(filename.format(ext=FILE_EXT["info"]))[0])[1]
                 info_fle = os.path.join(info_fle, os.path.basename(
-                    filename.format(ext=FILE_EXT["json"])))
+                    filename.format(ext=FILE_EXT["info"])))
                 print(msg.format(key, info_fle))
                 h5f.attrs[key] = [out_dct[key][0], "...", out_dct[key][-1]]
     h5f.close()
@@ -199,7 +199,7 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
 
     # Compute checksum and finally write JSON
     out_dct["data_checksum"] = hash_file(filename.format(ext=FILE_EXT["data"]))
-    with open(filename.format(ext=FILE_EXT["json"]), "w") as out_json:
+    with open(filename.format(ext=FILE_EXT["info"]), "w") as out_json:
         json.dump(out_dct, out_json, indent=4)
 
     return
