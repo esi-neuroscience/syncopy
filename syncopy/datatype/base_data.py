@@ -402,13 +402,17 @@ class BaseData(ABC):
         """
         spy.save_data(out_name, self, filetype=filetype, **kwargs)
 
-    # Helper function generating pseudo-random temp file-names
-    @staticmethod
-    def _gen_filename():
-        fname_hsh = blake2b(digest_size=4, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
+    # Helper function generating pseudo-random temp file-names    
+    def _gen_filename(self):
+        fname_hsh = blake2b(digest_size=4, 
+                            salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
         return os.path.join(__storage__,
-                            "spy_{sess:s}_{fname:s}.dat".format(sess=__sessionid__,
-                                                                fname=fname_hsh))
+                            "spy_{sess:s}_{hash:s}.{ext:s}".format(
+                                sess=__sessionid__, hash=fname_hsh,
+                                ext=self._classname_to_extension()))
+
+    def _classname_to_extension(self):
+        return self.__class__.__name__.split('Data')[0].lower()
 
     # Helper function that digs into cfg dictionaries
     def _set_cfg(self, cfg, dct):
