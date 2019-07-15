@@ -41,6 +41,8 @@ __all__ = ["StructDict"]
 
 class BaseData(ABC):
 
+    _infoFileProperties = ("dimord", "version", "log", "cfg")
+
     @property
     def cfg(self):
         """Dictionary of previous operations on data"""

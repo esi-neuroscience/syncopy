@@ -37,6 +37,9 @@ class ContinuousData(BaseData, ABC):
     This class cannot be instantiated. Use one of the children instead.
 
     """
+    
+    _infoFileProperties = BaseData._infoFileProperties + ("samplerate", "channel",)
+        
     @property
     def _shapes(self):
         if self.sampleinfo is not None:
@@ -169,6 +172,9 @@ class AnalogData(ContinuousData):
     Data is only read from disk on demand, similar to memory maps and HDF5
     files.
     """
+    
+    _infoFileProperties = ContinuousData._infoFileProperties + ("hdr",)
+    
     @property
     def hdr(self):
         """dict with information about raw data
@@ -282,6 +288,9 @@ class SpectralData(ContinuousData):
     and optionally a time axis. The datatype can be complex or float.
 
     """
+    
+    _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
+    
     @property
     def taper(self):
         return self._dimlabels.get("taper")

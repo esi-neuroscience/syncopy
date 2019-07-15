@@ -27,6 +27,8 @@ class DiscreteData(BaseData, ABC):
     This class cannot be instantiated. Use one of the children instead.
     """
 
+    _infoFileProperties = BaseData._infoFileProperties + ("hdr", "samplerate",)
+
     @property
     def hdr(self):
         """dict with information about raw data
@@ -139,6 +141,8 @@ class SpikeData(DiscreteData):
     files.
 
     """
+
+    _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
 
     @property
     def channel(self):
@@ -279,7 +283,8 @@ class EventData(DiscreteData):
     Data is only read from disk on demand, similar to memory maps and HDF5
     files.
 
-    """
+    """        
+    
     @property
     def eventid(self):
         """numpy.ndarray(int): integer event code assocated with each event"""
