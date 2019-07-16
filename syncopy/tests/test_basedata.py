@@ -183,7 +183,7 @@ class TestBaseData():
                 h5f = h5py.File(hname, mode="w")
                 h5f.create_dataset("dummy", data=self.data[dclass])
                 h5f.close()
-                dummy = getattr(spd, dclass)(hname)
+                dummy = getattr(spd, dclass)(filename=hname)
                 assert np.array_equal(dummy.data, self.data[dclass])
                 assert dummy._filename == hname
                 del dummy
