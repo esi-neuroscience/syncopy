@@ -6,7 +6,7 @@ Welcome to Syncopy's Documentation!
 ===================================
 
 Syncopy (Systems Neuroscience COmputing in Python) is a
-python toolkit for user-friendly, large-scale electrophysiology data analysis.
+Python toolkit for user-friendly, large-scale electrophysiology data analysis.
 
 Contents
 ========
@@ -18,14 +18,6 @@ Contents
    developer/developers.rst
    examples
 
-.. automodule:: syncopy.shared.computational_routine.ComputationalRoutine
-
-.. autosummary::
-   :toctree: _stubs
-
-   syncopy.shared.computational_routine.ComputationalRoutine.computeFunction
-
-   
 
 Indices and tables
 ==================

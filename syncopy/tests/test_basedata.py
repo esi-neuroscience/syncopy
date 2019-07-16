@@ -4,7 +4,7 @@
 #
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-05 15:54:16>
+# Last modification time: <2019-07-10 11:33:18>
 
 import os
 import tempfile
@@ -17,10 +17,11 @@ from syncopy.datatype import AnalogData
 import syncopy.datatype as spd
 from syncopy.datatype.base_data import VirtualData
 from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.tests.misc import is_win_vm
+from syncopy.tests.misc import is_win_vm, is_slurm_node
 
-# Construct decorator for skipping certain tests if we're running inside a Win VM
+# Construct decorator for skipping certain tests
 skip_in_vm = pytest.mark.skipif(is_win_vm(), reason="running in Win VM")
+skip_in_slurm = pytest.mark.skipif(is_slurm_node(), reason="running on cluster node")
 
 
 class TestVirtualData():
@@ -102,6 +103,7 @@ class TestVirtualData():
             del dmap, dmap2, vdata
 
     @skip_in_vm
+    @skip_in_slurm
     def test_memory(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "vdat.npy")
