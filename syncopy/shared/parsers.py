@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-07-15 16:48:13>
+# Last modification time: <2019-07-16 16:34:29>
 
 # Builtin/3rd party package imports
 import os
@@ -14,7 +14,7 @@ import functools
 from inspect import signature
 
 # Local imports
-from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
+from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError, SPYError
 import syncopy as spy
 
 __all__ = ["io_parser", "scalar_parser", "array_parser",
@@ -642,7 +642,8 @@ def filename_parser(filename, is_in_valid_container=None):
                                 actual=filename, 
                                 varname='start of filename')
         tag = basename.partition(containerBasename)[-1]
-        if tag[0] == '_': tag = tag[1:]
+        if not tag == "":    
+            if tag[0] == '_': tag = tag[1:]
         basename = containerBasename       
     else:
         container = None

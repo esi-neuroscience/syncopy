@@ -4,7 +4,7 @@
 #
 # Created: 2019-07-02 14:25:52
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-05 16:11:02>
+# Last modification time: <2019-07-10 12:57:54>
 
 # Builtin/3rd party package imports
 import os
@@ -24,7 +24,7 @@ if spy.__dask__:
 
 
 # Dummy function for generating a docstring and function links
-def ex_datatype():
+def ex_comproutine():
     """
     Exemplary implementation of a filtering routine in Syncopy to illustrate
     the concept of :class:`ComputationalRoutine` and its use in practice.

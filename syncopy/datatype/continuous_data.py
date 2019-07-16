@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
 # SynCoPy ContinuousData abstract class + regular children
-# 
+#
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-27 14:46:13>
+# Last modification time: <2019-07-10 12:10:01>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -58,7 +58,7 @@ class ContinuousData(BaseData, ABC):
     @channel.setter
     def channel(self, chan):
         if self.data is None:
-            print("SyNCoPy core - channel: Cannot assign `channels` without data. "+\
+            print("SyNCoPy core - channel: Cannot assign `channels` without data. " +
                   "Please assing data first")
             return
         nchan = self.data.shape[self.dimord.index("channel")]
@@ -174,7 +174,7 @@ class AnalogData(ContinuousData):
     files.
     """
     
-    _infoFileProperties = ContinuousData._infoFileProperties + ("hdr",)
+    _infoFileProperties = ContinuousData._infoFileProperties + ("_hdr",)
     
     @property
     def hdr(self):

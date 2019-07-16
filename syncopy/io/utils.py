@@ -16,6 +16,7 @@ from datetime import datetime
 from glob import glob
 from hashlib import blake2b
 from tqdm import tqdm
+from collections import OrderedDict
 if sys.platform == "win32":
     # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
     import colorama
@@ -28,17 +29,17 @@ from syncopy.datatype.base_data import BaseData
 from syncopy.shared import scalar_parser
 from syncopy.shared.queries import user_yesno, user_input
 
-__all__ = ["FILE_EXT", "hash_file", "write_access", "cleanup"]
+__all__ = ["FILE_EXT", "hash_file", "write_access", "cleanup", "startInfoDict"]
 
 def _all_subclasses(cls):
     return set(cls.__subclasses__()).union(
         [s for c in cls.__subclasses__() for s in _all_subclasses(c)])
 
 def _data_classname_to_extension(name):
-    return name.split('Data')[0].lower()
+    return "." + name.split('Data')[0].lower()
 
 # data file extensions are first word of data class name in lower-case
-supportedDataExtensions = tuple(['.' + _data_classname_to_extension(cls.__name__)
+supportedDataExtensions = tuple([_data_classname_to_extension(cls.__name__)
     for cls in _all_subclasses(BaseData) 
     if not cls.__name__ in ['ContinuousData', 'DiscreteData']])
 
@@ -47,7 +48,19 @@ FILE_EXT = {"dir" : ".spy",
             "info" : ".info",
             "data" : supportedDataExtensions}
 
-
+# Dictionary keys for beginning of info/json file that are not class properties
+startInfoDict = OrderedDict()
+startInfoDict["filename"] = None
+startInfoDict["dataclass"] = None
+startInfoDict["data_dtype"] = None
+startInfoDict["data_shape"] = None
+startInfoDict["data_offset"] = None
+startInfoDict["trl_dtype"] = None
+startInfoDict["trl_shape"] = None
+startInfoDict["trl_offset"] = None
+startInfoDict["file_checksum"] = None 
+startInfoDict["order"] = "C" 
+startInfoDict["checksum_algorithm"] = __checksum_algorithm__.__name__
 
 def hash_file(fname, bsize=65536):
     """

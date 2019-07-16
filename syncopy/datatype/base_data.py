@@ -41,10 +41,10 @@ __all__ = ["StructDict"]
 
 class BaseData(ABC):
 
-    _infoFileProperties = ("dimord", "version", "_log", "cfg", "checksum_algorithm",)
-    _hdfFileProperties =  ("dimord", "version", "_log",)
+    _infoFileProperties = ("dimord", "_version", "_log", "cfg",)
+    _hdfFileProperties =  ("dimord", "_version", "_log",)
 
-    checksum_algorithm = spy.__checksum_algorithm__.__name__
+    _checksum_algorithm = spy.__checksum_algorithm__.__name__
     
     @property
     def cfg(self):
@@ -322,10 +322,6 @@ class BaseData(ABC):
             raise exc
         self._trialinfo = np.array(trl)
 
-    @property
-    def version(self):
-        """FIXME: should be hidden"""
-        return self._version
 
     # Selector method
     @abstractmethod
@@ -399,35 +395,61 @@ class BaseData(ABC):
 
 
     # Wrapper that makes saving routine usable as class method
-    def save(self, out_name, filetype=None, **kwargs):
+    def save(self, container=None, tag=None, filename=None, memuse=100):
         """Save data object as new ``spy`` HDF container to disk (:func:`syncopy.save_data`)
         
         Parameters
-        ----------
-            out_name : str
-                filename of output file
-            filetype : str
-                filetype to use for storing data. See func:`syncopy.save_data`
-                for supported filetypes        
+        ----------                    
+            container : str
+                Path to Syncopy container folder (*.spy) to be used for saving. If 
+                omitted, a .spy extension will be added to the folder name.
+            tag : str
+                Tag to be appended to container basename
+            filename :  str
+                Explicit path to data file. This is only necessary if the data should
+                not be part of a container folder. An extension (*.<dataclass>) will
+                be added if omitted. The `tag` argument is ignored.      
+            memuse : scalar 
+                 Approximate in-memory cache size (in MB) for writing data to disk
+                 (only relevant for :class:`VirtualData` or memory map data sources)
 
-        See also
-        --------
-            :func:syncopy.`save_data` 
+        Examples
+        --------    
+        >>> save_spy(obj, filename="session1")
+        >>> # --> os.getcwd()/session1.<dataclass>
+        >>> # --> os.getcwd()/session1.<dataclass>.info
+
+        >>> save_spy(obj, filename="/tmp/session1")
+        >>> # --> /tmp/session1.<dataclass>
+        >>> # --> /tmp/session1.<dataclass>.info
+
+        >>> save_spy(obj, container="container.spy")
+        >>> # --> os.getcwd()/container.spy/container.<dataclass>
+        >>> # --> os.getcwd()/container.spy/container.<dataclass>.info
+
+        >>> save_spy(obj, container="/tmp/container.spy")
+        >>> # --> /tmp/container.spy/container.<dataclass>
+        >>> # --> /tmp/container.spy/container.<dataclass>.info
+
+        >>> save_spy(obj, container="session1.spy", tag="someTag")
+        >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>
+        >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>.info
 
         """
-        spy.save_data(out_name, self, filetype=filetype, **kwargs)
+        spy.save_spy(self, filename=filename, 
+                     container=container, tag=tag, memuse=memuse)
 
     # Helper function generating pseudo-random temp file-names    
     def _gen_filename(self):
         fname_hsh = blake2b(digest_size=4, 
                             salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
         return os.path.join(__storage__,
-                            "spy_{sess:s}_{hash:s}.{ext:s}".format(
+                            "spy_{sess:s}_{hash:s}{ext:s}".format(
                                 sess=__sessionid__, hash=fname_hsh,
                                 ext=self._classname_to_extension()))
 
     def _classname_to_extension(self):
-        return self.__class__.__name__.split('Data')[0].lower()
+        return "." + self.__class__.__name__.split('Data')[0].lower()
 
     # Helper function that digs into cfg dictionaries
     def _set_cfg(self, cfg, dct):
@@ -544,7 +566,7 @@ class BaseData(ABC):
         self._data = None
         self.mode = kwargs.get("mode", "r+")
         self._sampleinfo = None
-        self._t0 = None
+        self._t0 = [None]
         self._trialinfo = None
         self._filename = None
         
@@ -626,7 +648,7 @@ class BaseData(ABC):
         # Finally call appropriate reading routine if filename was provided
         if read_fl:
             kwargs.pop("mode")
-            spy.load_data(filename, out=self, **kwargs)
+            spy.load_data(filename=filename, out=self, **kwargs)
 
         # Make instantiation persistent in all subclasses
         super().__init__()

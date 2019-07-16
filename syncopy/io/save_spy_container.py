@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-07-15 18:44:01>
+# Last modification time: <2019-07-16 10:54:20>
 
 # Builtin/3rd party package imports
 import os
@@ -20,46 +20,58 @@ from syncopy.shared import (io_parser, filename_parser,
                             data_parser, scalar_parser)
 from syncopy.shared.errors import (SPYIOError, SPYTypeError, 
                                    SPYValueError, SPYError)
-from syncopy.io import hash_file, write_access, FILE_EXT
+from syncopy.io import hash_file, write_access, FILE_EXT, startInfoDict
 from syncopy import __storage__
+
 
 __all__ = ["save_spy"]
 
-def save_spy(out, filename=None, container=None, tag=None, memuse=100):
-    """
+def save_spy(out, container=None, tag=None, filename=None, memuse=100):
+    """Save Syncopy data object to disk
+
+    The underlying array data object will stored in a HDF5 file, the metadata in
+    a JSON file. Both can be placed inside a Syncopy container, which is a
+    folder with a .spy extension.
 
     Parameters
     ----------
-        out : Syncopy data object        
-        filename :  str
-            path to data file. Extension will be added if omitted.       
-        container : str
-            path to Syncopy container folder (*.spy) to be used for saving
-        tag : str
-            
-        memuse : scalar
-            
-        
+    out : Syncopy data object         
+    container : str
+        Path to Syncopy container folder (*.spy) to be used for saving. If 
+        omitted, a .spy extension will be added to the folder name.
+    tag : str
+        Tag to be appended to container basename
+    filename :  str
+        Explicit path to data file. This is only necessary if the data should
+        not be part of a container folder. An extension (*.<dataclass>) will
+        be added if omitted. The `tag` argument is ignored.      
+    memuse : scalar 
+        Approximate in-memory cache size (in MB) for writing data to disk
+        (only relevant for :class:`VirtualData` or memory map data sources)
+
+
 
     Examples
-    --------
-    
-    save(obj, filename="session1")
-    # --> os.getcwd()/session1.<dataclass>
-    # --> os.getcwd()/session1.<dataclass>.info
-    
-    save(obj, filename="/tmp/session1")
-    # --> /tmp/session1.<dataclass>
-    # --> /tmp/session1.<dataclass>.info
-    
+    --------    
+    >>> save_spy(obj, filename="session1")
+    >>> # --> os.getcwd()/session1.<dataclass>
+    >>> # --> os.getcwd()/session1.<dataclass>.info
 
-    # saves to current container folder under different tag
-    # --> "sessionName.spy/sessionName_someOtherTag.analog"
-    dataObject.save(tag='someOtherTag', container=None)
+    >>> save_spy(obj, filename="/tmp/session1")
+    >>> # --> /tmp/session1.<dataclass>
+    >>> # --> /tmp/session1.<dataclass>.info
 
-    # saves to a different container
-    # --> "aDifferentSession.spy/sessionName_someOtherTag.analog"
-    dataObject.save(tag='someOtherTag', container='aDifferentSession')
+    >>> save_spy(obj, container="container.spy")
+    >>> # --> os.getcwd()/container.spy/container.<dataclass>
+    >>> # --> os.getcwd()/container.spy/container.<dataclass>.info
+
+    >>> save_spy(obj, container="/tmp/container.spy")
+    >>> # --> /tmp/container.spy/container.<dataclass>
+    >>> # --> /tmp/container.spy/container.<dataclass>.info
+
+    >>> save_spy(obj, container="session1.spy", tag="someTag")
+    >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>
+    >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>.info
 
     """
     
@@ -67,44 +79,53 @@ def save_spy(out, filename=None, container=None, tag=None, memuse=100):
     data_parser(out, varname="out", writable=None, empty=False)
     
     if filename is None and container is None:
-        raise SPYError('filename and container cannot both be None')
+        raise SPYError('filename and container cannot both be `None`')
     
     if container is not None and filename is None:
         # construct filename from container name
         if not isinstance(container, str):
-            raise SPYError(container, varname="container", expected="str")
+            raise SPYTypeError(container, varname="container", expected="str")
+        if not os.path.splitext(container)[1] == ".spy":
+            container += ".spy"
         fileInfo = filename_parser(container)
         filename = os.path.join(fileInfo["folder"], 
                                 fileInfo["container"], 
                                 fileInfo["basename"])
         # handle tag                
         if tag is not None:
-            filename += tag
+            if not isinstance(tag, str):
+                raise SPYTypeError(tag, varname="tag", expected="str")
+            filename += '_' + tag            
+
+    elif container is not None and filename is not None:
+        raise SPYError("container and filename cannot be used at the same time")
                               
     if not isinstance(filename, str):
-        raise SPYError(filename, varname="filename", expected="str")
+        raise SPYTypeError(filename, varname="filename", expected="str")
                                     
     # add extension if not part of the filename
     if "." not in os.path.splitext(filename)[1]:
         filename += out._classname_to_extension()
-
-    scalar_parser(memuse, varname="memuse", lims=[0, np.inf])
+    
+    try:
+        scalar_parser(memuse, varname="memuse", lims=[0, np.inf])
+    except Exception as exc:
+        raise exc
 
     # parse filename for validity
     fileInfo = filename_parser(filename)
     
-    if not fileInfo["extension"] == '.' + out._classname_to_extension():
+    if not fileInfo["extension"] == out._classname_to_extension():
         raise SPYError("""Extension in filename ({ext}) does not match data 
                        class ({dclass})""".format(ext=fileInfo["extension"],
                                                 dclass=out.__class__.__name__))
     
     dataFile = os.path.join(fileInfo["folder"], fileInfo["filename"])
-    
     if not os.path.exists(fileInfo["folder"]):
         try:
-            os.makedirs(dataFile)
+            os.makedirs(fileInfo["folder"])
         except IOError:
-            raise SPYIOError(dataFile)
+            raise SPYIOError(fileInfo["folder"])
         except Exception as exc:
             raise exc
     
@@ -144,17 +165,23 @@ def save_spy(out, filename=None, container=None, tag=None, memuse=100):
                "files": filename.format(ext=fileInfo["extension"] + "/info")}
 
     # Assemble dict for JSON output: order things by their "readability"
-    outDict = OrderedDict()
-
+    outDict = OrderedDict(startInfoDict)
     outDict["filename"] = fileInfo["filename"]
+    outDict["dataclass"] = out.__class__.__name__
     outDict["data_dtype"] = dat.dtype.name
     outDict["data_shape"] = dat.shape
     outDict["data_offset"] = dat.id.get_offset()
     outDict["trl_dtype"] = trl.dtype.name
     outDict["trl_shape"] = trl.shape
-    outDict["trl_offset"] = trl.id.get_offset()    
-    # placeholder as HDF5 checksum differs for open vs. closed files
-    outDict["file_checksum"] = None 
+    outDict["trl_offset"] = trl.id.get_offset()        
+    if isinstance(out.data, np.ndarray):
+        if np.isfortran(out.data): 
+            outDict["order"] = "F"
+    else:
+            outDict["order"] = "C"
+
+        
+        
 
     for key in out._infoFileProperties:
         value = getattr(out, key)
@@ -189,6 +216,7 @@ def save_spy(out, filename=None, container=None, tag=None, memuse=100):
 
     # Re-assign filename after saving (and remove source in case it came from `__storage__`)
     if __storage__ in out.filename:
+        out.data.file.close()
         os.unlink(out.filename)
     out.data = dataFile
 
