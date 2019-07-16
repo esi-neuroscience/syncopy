@@ -29,7 +29,7 @@ import shutil
 
 # Local imports
 from .data_methods import definetrial
-from syncopy.shared import scalar_parser, array_parser, io_parser
+from syncopy.shared import scalar_parser, array_parser, io_parser, filename_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError
 from syncopy import __version__, __storage__, __dask__, __sessionid__
 if __dask__:
@@ -394,12 +394,11 @@ class BaseData(ABC):
 
 
     # Wrapper that makes saving routine usable as class method
-    def save(self, filename=None, container=None, tag=None, memuse=100):
+    def save(self, container=None, tag=None, filename=None, memuse=100):
         """Save data object as new ``spy`` HDF container to disk (:func:`syncopy.save_data`)
         
         Parameters
-        ----------
-                    
+        ----------                    
             container : str
                 Path to Syncopy container folder (*.spy) to be used for saving. If 
                 omitted, a .spy extension will be added to the folder name.
@@ -447,7 +446,7 @@ class BaseData(ABC):
         fname_hsh = blake2b(digest_size=4, 
                             salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
         return os.path.join(__storage__,
-                            "spy_{sess:s}_{hash:s}.{ext:s}".format(
+                            "spy_{sess:s}_{hash:s}{ext:s}".format(
                                 sess=__sessionid__, hash=fname_hsh,
                                 ext=self._classname_to_extension()))
 
@@ -555,7 +554,7 @@ class BaseData(ABC):
                               ignore_errors=True)
 
     # Class "constructor"
-    def __init__(self, **kwargs):
+    def __init__(self, data=None, filename=None, dimord=None, **kwargs):
         """
         Docstring
 
@@ -604,7 +603,10 @@ class BaseData(ABC):
             # Case 3: just data = either attach array/memmap or load container
             if kwargs.get("data") is not None:
                 data = kwargs.pop("data")
+                
+                # if data is a string, check whether we can load it
                 if isinstance(data, str):
+                    fileInfo = filename_parser(data)
                     if os.path.isdir(data) or \
                        os.path.isdir(os.path.splitext(data)[0] + spy.FILE_EXT["dir"]):
                         read_fl = True
@@ -646,7 +648,7 @@ class BaseData(ABC):
 
         # Finally call appropriate reading routine if filename was provided
         if read_fl:
-            spy.load_data(filename, out=self, **kwargs)
+            spy.load_spy(filename=filename, out=self)
 
         # Make instantiation persistent in all subclasses
         super().__init__()
