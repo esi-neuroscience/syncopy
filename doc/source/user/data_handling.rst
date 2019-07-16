@@ -23,6 +23,7 @@ These functions are useful for editing and slicing data:
     
     syncopy.selectdata
     syncopy.definetrial
+    syncopy.padding
 
 Saving results to disk
 ----------------------
