@@ -405,35 +405,39 @@ class BaseData(ABC):
                 not be part of a container folder. An extension (*.<dataclass>) will
                 be added if omitted. The `tag` argument is ignored.      
             memuse : scalar 
-
+                 Approximate in-memory cache size (in MB) for writing data to disk
+                 (only relevant for :class:`VirtualData` or memory map data sources)
 
         Examples
         --------    
-        save_spy(obj, filename="session1")
-        # --> os.getcwd()/session1.<dataclass>
-        # --> os.getcwd()/session1.<dataclass>.info
+        >>> save_spy(obj, filename="session1")
+        >>> # --> os.getcwd()/session1.<dataclass>
+        >>> # --> os.getcwd()/session1.<dataclass>.info
 
-        save_spy(obj, filename="/tmp/session1")
-        # --> /tmp/session1.<dataclass>
-        # --> /tmp/session1.<dataclass>.info
+        >>> save_spy(obj, filename="/tmp/session1")
+        >>> # --> /tmp/session1.<dataclass>
+        >>> # --> /tmp/session1.<dataclass>.info
 
-        save_spy(obj, container="container.spy")
-        # --> os.getcwd()/container.spy/container.<dataclass>
-        # --> os.getcwd()/container.spy/container.<dataclass>.info
+        >>> save_spy(obj, container="container.spy")
+        >>> # --> os.getcwd()/container.spy/container.<dataclass>
+        >>> # --> os.getcwd()/container.spy/container.<dataclass>.info
 
-        save_spy(obj, container="/tmp/container.spy")
-        # --> /tmp/container.spy/container.<dataclass>
-        # --> /tmp/container.spy/container.<dataclass>.info
+        >>> save_spy(obj, container="/tmp/container.spy")
+        >>> # --> /tmp/container.spy/container.<dataclass>
+        >>> # --> /tmp/container.spy/container.<dataclass>.info
 
-        save_spy(obj, container="session1.spy", tag="someTag")
-        # --> os.getcwd()/container.spy/session1_someTag.<dataclass>
-        # --> os.getcwd()/container.spy/session1_someTag.<dataclass>.info
+        >>> save_spy(obj, container="session1.spy", tag="someTag")
+        >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>
+        >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>.info
 
         """
         spy.save_spy(self, filename=filename, 
                      container=container, tag=tag, memuse=memuse)
 
     # Helper function generating pseudo-random temp file-names    
+    # FIXME 
+    # this should probably be something like 
+    # `fname_hsh = self.checksum_algorithm(...)
     def _gen_filename(self):
         fname_hsh = blake2b(digest_size=4, 
                             salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()

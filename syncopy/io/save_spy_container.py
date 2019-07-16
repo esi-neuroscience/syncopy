@@ -35,40 +35,43 @@ def save_spy(out, container=None, tag=None, filename=None, memuse=100):
 
     Parameters
     ----------
-        out : Syncopy data object         
-        container : str
-            Path to Syncopy container folder (*.spy) to be used for saving. If 
-            omitted, a .spy extension will be added to the folder name.
-        tag : str
-            Tag to be appended to container basename
-         filename :  str
-            Explicit path to data file. This is only necessary if the data should
-            not be part of a container folder. An extension (*.<dataclass>) will
-            be added if omitted. The `tag` argument is ignored.      
-        memuse : scalar 
+    out : Syncopy data object         
+    container : str
+        Path to Syncopy container folder (*.spy) to be used for saving. If 
+        omitted, a .spy extension will be added to the folder name.
+    tag : str
+        Tag to be appended to container basename
+    filename :  str
+        Explicit path to data file. This is only necessary if the data should
+        not be part of a container folder. An extension (*.<dataclass>) will
+        be added if omitted. The `tag` argument is ignored.      
+    memuse : scalar 
+        Approximate in-memory cache size (in MB) for writing data to disk
+        (only relevant for :class:`VirtualData` or memory map data sources)
+
 
 
     Examples
     --------    
-    save_spy(obj, filename="session1")
-    # --> os.getcwd()/session1.<dataclass>
-    # --> os.getcwd()/session1.<dataclass>.info
+    >>> save_spy(obj, filename="session1")
+    >>> # --> os.getcwd()/session1.<dataclass>
+    >>> # --> os.getcwd()/session1.<dataclass>.info
 
-    save_spy(obj, filename="/tmp/session1")
-    # --> /tmp/session1.<dataclass>
-    # --> /tmp/session1.<dataclass>.info
+    >>> save_spy(obj, filename="/tmp/session1")
+    >>> # --> /tmp/session1.<dataclass>
+    >>> # --> /tmp/session1.<dataclass>.info
 
-    save_spy(obj, container="container.spy")
-    # --> os.getcwd()/container.spy/container.<dataclass>
-    # --> os.getcwd()/container.spy/container.<dataclass>.info
+    >>> save_spy(obj, container="container.spy")
+    >>> # --> os.getcwd()/container.spy/container.<dataclass>
+    >>> # --> os.getcwd()/container.spy/container.<dataclass>.info
 
-    save_spy(obj, container="/tmp/container.spy")
-    # --> /tmp/container.spy/container.<dataclass>
-    # --> /tmp/container.spy/container.<dataclass>.info
+    >>> save_spy(obj, container="/tmp/container.spy")
+    >>> # --> /tmp/container.spy/container.<dataclass>
+    >>> # --> /tmp/container.spy/container.<dataclass>.info
 
-    save_spy(obj, container="session1.spy", tag="someTag")
-    # --> os.getcwd()/container.spy/session1_someTag.<dataclass>
-    # --> os.getcwd()/container.spy/session1_someTag.<dataclass>.info
+    >>> save_spy(obj, container="session1.spy", tag="someTag")
+    >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>
+    >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>.info
 
     """
     
@@ -76,12 +79,12 @@ def save_spy(out, container=None, tag=None, filename=None, memuse=100):
     data_parser(out, varname="out", writable=None, empty=False)
     
     if filename is None and container is None:
-        raise SPYError('filename and container cannot both be None')
+        raise SPYError('filename and container cannot both be `None`')
     
     if container is not None and filename is None:
         # construct filename from container name
         if not isinstance(container, str):
-            raise SPYError(container, varname="container", expected="str")
+            raise SPYTypeError(container, varname="container", expected="str")
         if not os.path.splitext(container)[1] == ".spy":
             container += ".spy"
         fileInfo = filename_parser(container)
@@ -90,19 +93,24 @@ def save_spy(out, container=None, tag=None, filename=None, memuse=100):
                                 fileInfo["basename"])
         # handle tag                
         if tag is not None:
+            if not isinstance(tag, str):
+                raise SPYTypeError(tag, varname="tag", expected="str")
             filename += '_' + tag            
 
     elif container is not None and filename is not None:
         raise SPYError("container and filename cannot be used at the same time")
                               
     if not isinstance(filename, str):
-        raise SPYError(filename, varname="filename", expected="str")
+        raise SPYTypeError(filename, varname="filename", expected="str")
                                     
     # add extension if not part of the filename
     if "." not in os.path.splitext(filename)[1]:
         filename += out._classname_to_extension()
     
-    scalar_parser(memuse, varname="memuse", lims=[0, np.inf])
+    try:
+        scalar_parser(memuse, varname="memuse", lims=[0, np.inf])
+    except Exception as exc:
+        raise exc
 
     # parse filename for validity
     fileInfo = filename_parser(filename)
