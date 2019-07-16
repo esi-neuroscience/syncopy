@@ -85,7 +85,7 @@ def generate_artifical_data(nTrials=2, nChannels=2, equidistant=True,
         sig += np.random.standard_normal(sig.shape).astype(sig.dtype) * 0.5
         out.data = sig
     else:
-        with h5py.File(out.filename, "w") as h5f:
+        with h5py.File(out._filename, "w") as h5f:
             shp = list(sig.shape)
             shp[timeAxis] *= nTrials
             dset = h5f.create_dataset("AnalogData", shape=tuple(shp), dtype=sig.dtype)
@@ -94,7 +94,7 @@ def generate_artifical_data(nTrials=2, nChannels=2, equidistant=True,
                 shp[timeAxis] = slice(iTrial*t.size, (iTrial + 1)*t.size)
                 dset[tuple(shp)] = sig + np.random.standard_normal(sig.shape).astype(sig.dtype) * 0.5
                 dset.flush()
-        out.data = h5py.File(out.filename, "r+")["AnalogData"]
+        out.data = h5py.File(out._filename, "r+")["AnalogData"]
 
     # Define by-trial offsets to generate (non-)equidistant/(non-)overlapping trials
     trialdefinition = np.zeros((nTrials, 3), dtype='int')
