@@ -389,23 +389,49 @@ class BaseData(ABC):
 
 
     # Wrapper that makes saving routine usable as class method
-    def save(self, out_name, filetype=None, **kwargs):
+    def save(self, filename=None, container=None, tag=None, memuse=100):
         """Save data object as new ``spy`` HDF container to disk (:func:`syncopy.save_data`)
         
         Parameters
         ----------
-            out_name : str
-                filename of output file
-            filetype : str
-                filetype to use for storing data. See func:`syncopy.save_data`
-                for supported filetypes        
+                    
+            container : str
+                Path to Syncopy container folder (*.spy) to be used for saving. If 
+                omitted, a .spy extension will be added to the folder name.
+            tag : str
+                Tag to be appended to container basename
+            filename :  str
+                Explicit path to data file. This is only necessary if the data should
+                not be part of a container folder. An extension (*.<dataclass>) will
+                be added if omitted. The `tag` argument is ignored.      
+            memuse : scalar 
 
-        See also
-        --------
-            :func:syncopy.`save_data` 
+
+        Examples
+        --------    
+        save_spy(obj, filename="session1")
+        # --> os.getcwd()/session1.<dataclass>
+        # --> os.getcwd()/session1.<dataclass>.info
+
+        save_spy(obj, filename="/tmp/session1")
+        # --> /tmp/session1.<dataclass>
+        # --> /tmp/session1.<dataclass>.info
+
+        save_spy(obj, container="container.spy")
+        # --> os.getcwd()/container.spy/container.<dataclass>
+        # --> os.getcwd()/container.spy/container.<dataclass>.info
+
+        save_spy(obj, container="/tmp/container.spy")
+        # --> /tmp/container.spy/container.<dataclass>
+        # --> /tmp/container.spy/container.<dataclass>.info
+
+        save_spy(obj, container="session1.spy", tag="someTag")
+        # --> os.getcwd()/container.spy/session1_someTag.<dataclass>
+        # --> os.getcwd()/container.spy/session1_someTag.<dataclass>.info
 
         """
-        spy.save_data(out_name, self, filetype=filetype, **kwargs)
+        spy.save_spy(self, filename=filename, 
+                     container=container, tag=tag, memuse=memuse)
 
     # Helper function generating pseudo-random temp file-names    
     def _gen_filename(self):
@@ -417,7 +443,7 @@ class BaseData(ABC):
                                 ext=self._classname_to_extension()))
 
     def _classname_to_extension(self):
-        return self.__class__.__name__.split('Data')[0].lower()
+        return "." + self.__class__.__name__.split('Data')[0].lower()
 
     # Helper function that digs into cfg dictionaries
     def _set_cfg(self, cfg, dct):
