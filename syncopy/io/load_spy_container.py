@@ -26,7 +26,7 @@ import syncopy.datatype as spd
 __all__ = ["load_spy"]
 
 
-def load_spy(filename, fname=None, checksum=False, out=None, **kwargs):
+def load_spy(filename, checksum=False, out=None):
     """
     Docstring coming soon...
 
