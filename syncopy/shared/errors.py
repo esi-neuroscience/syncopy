@@ -17,14 +17,14 @@ from syncopy import __tbcount__
 __all__ = ["get_caller"]
 
 
-class Error(Exception):
+class SPYError(Exception):
     """
     Base class for SynCoPy errors
     """
     pass
 
 
-class SPYTypeError(Error):
+class SPYTypeError(SPYError):
     """
     SynCoPy-specific version of a TypeError
 
@@ -50,7 +50,7 @@ class SPYTypeError(Error):
                           fd=" found " + self.found)
 
     
-class SPYValueError(Error):
+class SPYValueError(SPYError):
     """
     SynCoPy-specific version of a ValueError
 
@@ -76,7 +76,7 @@ class SPYValueError(Error):
                           ex=self.legal)
 
     
-class SPYIOError(Error):
+class SPYIOError(SPYError):
     """
     SynCoPy-specific version of an IO/OSError
 

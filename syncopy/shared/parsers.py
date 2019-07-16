@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # Module for all kinds of parsing gymnastics
-#
+# 
 # Created: 2019-01-08 09:58:11
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-25 15:51:04>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-07-16 09:56:24>
 
 # Builtin/3rd party package imports
 import os
@@ -599,6 +599,11 @@ def filename_parser(filename, is_in_valid_container=None):
 
     folder, filename = os.path.split(filename)
     container = folder.split(os.path.sep)[-1]
+    
+    if filename.count(".") > 2:
+        print(filename)
+        raise SPYError("Too many extensions in filename {fname}".format(filename.count(".")))
+
     basename, ext = os.path.splitext(filename)    
     
     if ext == spy.FILE_EXT["info"]:
@@ -637,7 +642,8 @@ def filename_parser(filename, is_in_valid_container=None):
                                 actual=filename, 
                                 varname='start of filename')
         tag = basename.partition(containerBasename)[-1]
-        if tag[0] == '_': tag = tag[1:]
+        if not tag == "":    
+            if tag[0] == '_': tag = tag[1:]
         basename = containerBasename       
     else:
         container = None

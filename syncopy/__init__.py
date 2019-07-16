@@ -10,7 +10,7 @@
 import os
 import sys
 import numpy as np
-from hashlib import blake2b
+from hashlib import blake2b, sha1
 
 # Global version number
 __version__ = "0.1a"
@@ -53,6 +53,8 @@ __sessionfile__ = os.path.join(__storage__, "session_{}.id".format(__sessionid__
         
 # Set max. depth of traceback info shown in prompt
 __tbcount__ = 5
+
+__checksum_algorithm__ = sha1
 
 # Fill up namespace
 from .shared import *
