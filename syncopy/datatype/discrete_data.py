@@ -27,7 +27,7 @@ class DiscreteData(BaseData, ABC):
     This class cannot be instantiated. Use one of the children instead.
     """
 
-    _infoFileProperties = BaseData._infoFileProperties + ("hdr", "samplerate",)
+    _infoFileProperties = BaseData._infoFileProperties + ("_hdr", "samplerate",)
     _hdfFileProperties = BaseData._hdfFileProperties + ("samplerate", "channel",)
 
 

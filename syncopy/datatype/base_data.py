@@ -41,10 +41,10 @@ __all__ = ["StructDict"]
 
 class BaseData(ABC):
 
-    _infoFileProperties = ("dimord", "version", "_log", "cfg", "checksum_algorithm",)
-    _hdfFileProperties =  ("dimord", "version", "_log",)
+    _infoFileProperties = ("dimord", "_version", "_log", "cfg",)
+    _hdfFileProperties =  ("dimord", "_version", "_log",)
 
-    checksum_algorithm = spy.__checksum_algorithm__.__name__
+    _checksum_algorithm = spy.__checksum_algorithm__.__name__
     
     @property
     def cfg(self):
@@ -312,10 +312,6 @@ class BaseData(ABC):
             raise exc
         self._trialinfo = np.array(trl)
 
-    @property
-    def version(self):
-        """FIXME: should be hidden"""
-        return self._version
 
     # Selector method
     @abstractmethod

@@ -174,7 +174,7 @@ class AnalogData(ContinuousData):
     files.
     """
     
-    _infoFileProperties = ContinuousData._infoFileProperties + ("hdr",)
+    _infoFileProperties = ContinuousData._infoFileProperties + ("_hdr",)
     
     @property
     def hdr(self):

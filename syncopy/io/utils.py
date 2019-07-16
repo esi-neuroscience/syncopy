@@ -60,6 +60,7 @@ startInfoDict["trl_shape"] = None
 startInfoDict["trl_offset"] = None
 startInfoDict["file_checksum"] = None 
 startInfoDict["order"] = "C" 
+startInfoDict["checksum_algorithm"] = __checksum_algorithm__.__name__
 
 def hash_file(fname, bsize=65536):
     """
