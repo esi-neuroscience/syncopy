@@ -187,7 +187,7 @@ class TestBaseData():
                 h5f.close()
                 dummy = getattr(spd, dclass)(filename=hname)
                 assert np.array_equal(dummy.data, self.data[dclass])
-                assert dummy._filename == hname
+                assert dummy.filename == hname
                 del dummy
 
                 # allocation using HDF5 dataset directly
@@ -199,9 +199,9 @@ class TestBaseData():
 
                 # allocation with memmaped npy file
                 np.save(fname, self.data[dclass])
-                dummy = getattr(spd, dclass)(fname)
+                dummy = getattr(spd, dclass)(filename=fname)
                 assert np.array_equal(dummy.data, self.data[dclass])
-                assert dummy._filename == fname
+                assert dummy.filename == fname
                 del dummy
 
                 # allocation using memmap directly
@@ -217,7 +217,7 @@ class TestBaseData():
                 # allocation using array + filename
                 del dummy, mm
                 dummy = getattr(spd, dclass)(self.data[dclass], fname)
-                assert dummy._filename == fname
+                assert dummy.filename == fname
                 assert np.array_equal(dummy.data, self.data[dclass])
                 del dummy
 
@@ -253,10 +253,6 @@ class TestBaseData():
                 np.save(fname, np.ones((self.nc,)))
                 with pytest.raises(SPYValueError):
                     getattr(spd, dclass)(open_memmap(fname))
-
-                # os.unlink(fname)
-                # os.unlink(hname)
-                # import time; time.sleep(1)
 
     # Assignment of trialdefinition array is tested with all members of `classes`
     def test_trialdef(self):
@@ -309,7 +305,7 @@ class TestBaseData():
             dummy = getattr(spd, dclass)(self.data[dclass],
                                          trialdefinition=self.trl[dclass])
             dummy2 = dummy.copy()
-            assert dummy._filename == dummy2._filename
+            assert dummy.filename == dummy2.filename
             assert hash(str(dummy.data)) == hash(str(dummy2.data))
             assert hash(str(dummy.sampleinfo)) == hash(str(dummy2.sampleinfo))
             assert hash(str(dummy.t0)) == hash(str(dummy2.t0))
@@ -329,7 +325,7 @@ class TestBaseData():
                 # hash-matching of shallow-copied memmap
                 dummy = getattr(spd, dclass)(mm, trialdefinition=self.trl[dclass])
                 dummy2 = dummy.copy()
-                assert dummy._filename == dummy2._filename
+                assert dummy.filename == dummy2.filename
                 assert hash(str(dummy.data)) == hash(str(dummy2.data))
                 assert hash(str(dummy.sampleinfo)) == hash(str(dummy2.sampleinfo))
                 assert hash(str(dummy.t0)) == hash(str(dummy2.t0))
@@ -337,16 +333,17 @@ class TestBaseData():
 
                 # test integrity of deep-copy
                 dummy3 = dummy.copy(deep=True)
-                assert dummy3._filename != dummy._filename
+                assert dummy3.filename != dummy.filename
                 assert np.array_equal(dummy.sampleinfo, dummy3.sampleinfo)
                 assert np.array_equal(dummy.t0, dummy3.t0)
                 assert np.array_equal(dummy.trialinfo, dummy3.trialinfo)
                 assert np.array_equal(dummy.data, dummy3.data)
 
                 # hash-matching of shallow-copied HDF5 dataset
-                dummy = getattr(spd, dclass)(hname, trialdefinition=self.trl[dclass])
+                dummy = getattr(spd, dclass)(filename=hname, 
+                                             trialdefinition=self.trl[dclass])
                 dummy2 = dummy.copy()
-                assert dummy._filename == dummy2._filename
+                assert dummy.filename == dummy2.filename
                 assert hash(str(dummy.data)) == hash(str(dummy2.data))
                 assert hash(str(dummy.sampleinfo)) == hash(str(dummy2.sampleinfo))
                 assert hash(str(dummy.t0)) == hash(str(dummy2.t0))
@@ -354,7 +351,7 @@ class TestBaseData():
 
                 # test integrity of deep-copy
                 dummy3 = dummy.copy(deep=True)
-                assert dummy3._filename != dummy._filename
+                assert dummy3.filename != dummy.filename
                 assert np.array_equal(dummy.sampleinfo, dummy3.sampleinfo)
                 assert np.array_equal(dummy.t0, dummy3.t0)
                 assert np.array_equal(dummy.trialinfo, dummy3.trialinfo)

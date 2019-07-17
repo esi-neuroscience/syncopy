@@ -188,7 +188,6 @@ class AnalogData(ContinuousData):
     def __init__(self,
                  data=None,
                  filename=None,
-                 filetype=None,
                  trialdefinition=None,
                  samplerate=None,
                  channel="channel",
@@ -202,7 +201,6 @@ class AnalogData(ContinuousData):
                 multi-channel time series data with uniform sampling            
             filename : str
                 path to filename or folder (spy container)
-            filetype : str
             trialdefinition : :class:`EventData` object or Mx3 array 
                 [start, stop, trigger_offset] sample indices for `M` trials
             samplerate : float
@@ -240,7 +238,6 @@ class AnalogData(ContinuousData):
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
-                         filetype=filetype,
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          channel=channel,
@@ -331,7 +328,6 @@ class SpectralData(ContinuousData):
     def __init__(self,
                  data=None,
                  filename=None,
-                 filetype=None,
                  trialdefinition=None,
                  samplerate=None,
                  channel="channel",
@@ -354,7 +350,6 @@ class SpectralData(ContinuousData):
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
-                         filetype=filetype,
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          channel=channel,

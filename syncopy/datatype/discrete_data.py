@@ -27,8 +27,8 @@ class DiscreteData(BaseData, ABC):
     This class cannot be instantiated. Use one of the children instead.
     """
 
-    _infoFileProperties = BaseData._infoFileProperties + ("_hdr", "samplerate",)
-    _hdfFileProperties = BaseData._hdfFileProperties + ("samplerate", "channel",)
+    _infoFileProperties = BaseData._infoFileProperties + ("_hdr", "samplerate", )
+    _hdfFileProperties = BaseData._hdfFileProperties + ("samplerate",)
 
 
     @property
@@ -145,7 +145,8 @@ class SpikeData(DiscreteData):
     """
 
     _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
-
+    _hdfFileProperties = DiscreteData._hdfFileProperties + ("channel",)
+    
     @property
     def channel(self):
         """ :class:`numpy.ndarray` : list of original channel names for each unit"""
@@ -186,7 +187,6 @@ class SpikeData(DiscreteData):
     def __init__(self,
                  data=None,
                  filename=None,
-                 filetype=None,
                  trialdefinition=None,
                  samplerate=None,
                  channel="channel",
@@ -201,7 +201,6 @@ class SpikeData(DiscreteData):
 
             filename : str
                 path to filename or folder (spy container)
-            filetype : str
             trialdefinition : :class:`EventData` object or nTrials x 3 array 
                 [start, stop, trigger_offset] sample indices for `M` trials
             samplerate : float
@@ -240,7 +239,6 @@ class SpikeData(DiscreteData):
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
-                         filetype=filetype,
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          channel=channel,
@@ -296,7 +294,6 @@ class EventData(DiscreteData):
     def __init__(self,
                  data=None,
                  filename=None,
-                 filetype=None,
                  trialdefinition=None,
                  samplerate=None,
                  mode="w",
@@ -309,7 +306,6 @@ class EventData(DiscreteData):
 
             filename : str
                 path to filename or folder (spy container)
-            filetype : str
             trialdefinition : :class:`EventData` object or nTrials x 3 array 
                 [start, stop, trigger_offset] sample indices for `M` trials
             samplerate : float
@@ -344,7 +340,6 @@ class EventData(DiscreteData):
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
-                         filetype=filetype,
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          mode=mode,

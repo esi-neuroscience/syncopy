@@ -3,8 +3,8 @@
 # Save SynCoPy data objects on disk
 # 
 # Created: 2019-02-05 13:12:58
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-07-16 10:54:20>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-07-17 15:02:18>
 
 # Builtin/3rd party package imports
 import os
@@ -24,9 +24,9 @@ from syncopy.io import hash_file, write_access, FILE_EXT, startInfoDict
 from syncopy import __storage__
 
 
-__all__ = ["save_spy"]
+__all__ = ["save"]
 
-def save_spy(out, container=None, tag=None, filename=None, memuse=100):
+def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=100):
     """Save Syncopy data object to disk
 
     The underlying array data object will stored in a HDF5 file, the metadata in
@@ -45,11 +45,12 @@ def save_spy(out, container=None, tag=None, filename=None, memuse=100):
         Explicit path to data file. This is only necessary if the data should
         not be part of a container folder. An extension (*.<dataclass>) will
         be added if omitted. The `tag` argument is ignored.      
+    overwrite : bool
+        If `True` an existing HDF5 file and its accompanying JSON file is 
+        overwritten (without prompt). 
     memuse : scalar 
         Approximate in-memory cache size (in MB) for writing data to disk
         (only relevant for :class:`VirtualData` or memory map data sources)
-
-
 
     Examples
     --------    
@@ -128,11 +129,23 @@ def save_spy(out, container=None, tag=None, filename=None, memuse=100):
             raise SPYIOError(fileInfo["folder"])
         except Exception as exc:
             raise exc
+    else:
+        if os.path.exists(dataFile):
+            if not os.path.isfile(dataFile):
+                raise SPYIOError(dataFile)
+            if overwrite:
+                try:
+                    os.unlink(dataFile)
+                except Exception as exc:
+                    msg = "Cannot overwrite {} - original error message below\n{}"
+                    raise SPYError(msg.format(dataFile, str(exc)))
+            else:
+                raise SPYIOError(dataFile, exists=True)
     
-    # Start by creating a HDF5 container and write actual data
+    # Start by creating fresh HDF5 container
     h5f = h5py.File(dataFile, mode="w")
     
-    # handle memory maps
+    # Handle memory maps
     if isinstance(out.data, np.memmap) or out.data.__class__.__name__ == "VirtualData":
         # Given memory cap, compute how many data blocks can be grabbed
         # per swipe (divide by 2 since we're working with an add'l tmp array)
@@ -179,8 +192,6 @@ def save_spy(out, container=None, tag=None, filename=None, memuse=100):
             outDict["order"] = "F"
     else:
             outDict["order"] = "C"
-
-        
         
 
     for key in out._infoFileProperties:
@@ -222,7 +233,6 @@ def save_spy(out, container=None, tag=None, filename=None, memuse=100):
 
     # Compute checksum and finally write JSON
     outDict["file_checksum"] = hash_file(dataFile)
-    
     infoFile = dataFile + FILE_EXT["info"]
     with open(infoFile, 'w') as out_json:
         json.dump(outDict, out_json, indent=4)

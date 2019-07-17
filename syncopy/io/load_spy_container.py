@@ -26,7 +26,7 @@ import syncopy.datatype as spd
 __all__ = ["load_spy"]
 
 
-def load_spy(filename, checksum=False, out=None):
+def load_spy(filename, checksum=False, out=None, mode="r+"):
     """
     Docstring coming soon...
 
@@ -88,8 +88,13 @@ def load_spy(filename, checksum=False, out=None):
     else:
         out = dataclass()
         new_out = True
-
-    # Access data on disk
+        
+    # First and foremost, assign dimensional information
+    dimord = jsonDict.pop("dimord")
+    out._dimlabels = OrderedDict(zip(dimord, [None] * len(dimord)))
+        
+    # Access data on disk (error checking is done by setters)
+    out.mode = mode
     out.data = hdfFile
     
     # Abuse ``definetrial`` to set trial-related props
@@ -97,11 +102,7 @@ def load_spy(filename, checksum=False, out=None):
     out.definetrial(trialdef)
 
     # Assign metadata 
-    for key in dataclass._infoFileProperties:
-        if key == "dimord":
-             out._dimlabels = OrderedDict(zip(jsonDict["dimord"], [None] 
-                                              * len(jsonDict["dimord"])))
-             continue
+    for key in [prop for prop in dataclass._infoFileProperties if prop != "dimord"]:
         setattr(out, key, jsonDict[key])
             
     # Write `cfg` entries
