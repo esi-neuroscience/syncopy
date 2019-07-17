@@ -878,7 +878,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         [0, 0]]), 'mode': 'mean'}
         
     Similarly, the following call generates a list of dictionaries preparing 
-    absoulte padding by prepending zeros with :func:`numpy.pad`
+    absolute padding by prepending zeros with :func:`numpy.pad`
     
     >>> pad_dicts = spy.padding(adata, 'zero', pad='absolute', padlength=10, prepadlength=True, create_new=False)
     >>> pad_dicts[0]
