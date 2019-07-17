@@ -753,11 +753,11 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         number and `prepadlength` is `True`) or append trials (if `padlength` is
         a positive number and `postpadlength` is `True`). If neither
         `prepadlength` nor `postpadlength` are specified (i.e, both are `None`),
-        symmetric pre- and post-trial padding is performed. If ``unit =
-        'time'``, `padlength` is assumed to be given in seconds, otherwise
-        (``unit = 'samples'``), `padlength` is interpreted as sample-count. Note
-        that only ``pad = 'relative'`` and ``pad = 'absolute'`` support numeric
-        values of `padlength`. 
+        symmetric pre- and post-trial padding is performed (i.e., ``0.5 * padlength``
+        before and after each trial). If ``unit = 'time'``, `padlength` is assumed 
+        to be given in seconds, otherwise (``unit = 'samples'``), `padlength` is 
+        interpreted as sample-count. Note that only ``pad = 'relative'`` and 
+        ``pad = 'absolute'`` support numeric values of `padlength`. 
     prepadlength : None, bool or positive scalar
         Length to be pre-pended before each trial (if `prepadlength` is
         scalar-valued) or pre-padding flag (if `prepadlength` is `True`). If
