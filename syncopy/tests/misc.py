@@ -8,6 +8,7 @@
 
 import subprocess
 import sys
+import os
 import h5py
 import numpy as np
 
@@ -121,3 +122,9 @@ def generate_artifical_data(nTrials=2, nChannels=2, equidistant=True,
     out.definetrial(trialdefinition)
 
     return out
+
+def construct_spy_filename(basepath, obj):
+    basename = os.path.split(basepath)[1]
+    objext = spy.io.utils._data_classname_to_extension(obj.__class__.__name__)
+    return os.path.join(basepath + spy.io.FILE_EXT["dir"], basename + objext)
+    

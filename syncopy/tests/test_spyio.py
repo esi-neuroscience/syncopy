@@ -17,7 +17,7 @@ from glob import glob
 from memory_profiler import memory_usage
 from syncopy.datatype import AnalogData
 from syncopy.datatype.base_data import VirtualData
-from syncopy.io import save_spy, load_spy, FILE_EXT
+from syncopy.io import save, load_spy, FILE_EXT
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYError
 import syncopy.datatype as swd
 from syncopy.tests.misc import generate_artifical_data
@@ -29,11 +29,11 @@ class TestSpyIO():
         with tempfile.TemporaryDirectory() as tdir:            
             dummy = generate_artifical_data(inmemory=True)
             ldum = len(dummy._log)
-            save_spy(dummy, filename=os.path.join(tdir, "dummy"))
+            save(dummy, filename=os.path.join(tdir, "dummy"))
 
             # ensure saving is logged correctly
             assert len(dummy._log) > ldum
-            assert dummy.cfg["method"] == "save_spy"
+            assert dummy.cfg["method"] == "save"
             
             # Delete all open references to file objects b4 closing tmp dir
             del dummy
@@ -46,37 +46,37 @@ class TestSpyIO():
             
             # filename without extension
             filename = "some_filename"
-            save_spy(dummy, filename=os.path.join(tdir, filename))
+            save(dummy, filename=os.path.join(tdir, filename))
             assert len(glob(os.path.join(tdir, filename + "*"))) == 2            
             
             # filename with extension
             filename = "some_filename_w_ext.analog"
-            save_spy(dummy, filename=os.path.join(tdir, filename))
+            save(dummy, filename=os.path.join(tdir, filename))
             assert len(glob(os.path.join(tdir, filename + "*"))) == 2
             
             # container with extension
             container = "test_container.spy"
-            save_spy(dummy, container=os.path.join(tdir, container))
+            save(dummy, container=os.path.join(tdir, container))
             assert len(glob(os.path.join(tdir, container, "*"))) == 2
             
             # container w/o extension
             container = "test_container2"
-            save_spy(dummy, container=os.path.join(tdir, container))
+            save(dummy, container=os.path.join(tdir, container))
             assert len(glob(os.path.join(tdir, container + ".spy", "*"))) == 2
             
             # container with extension and tag
             container = "test_container.spy"
             tag = "sometag"
-            save_spy(dummy, container=os.path.join(tdir, container), tag=tag)
+            save(dummy, container=os.path.join(tdir, container), tag=tag)
             assert len(glob(os.path.join(tdir, container, "test_container_sometag*"))) == 2
             
             # both container and filename
             with pytest.raises(SPYError):
-                save_spy(dummy, container="container", filename="someFile")
+                save(dummy, container="container", filename="someFile")
             
             # neither container nor filename
             with pytest.raises(SPYError):
-                save_spy(dummy)
+                save(dummy)
             
             del dummy                
 
@@ -93,7 +93,7 @@ class TestSpyIO():
 
             # Ensure memory consumption stays within provided bounds
             mem = memory_usage()[0]
-            save_spy(adata, filename=dname, memuse=60)
+            save(adata, filename=dname, memuse=60)
             assert (mem - memory_usage()[0]) < 70
 
             # Delete all open references to file objects b4 closing tmp dir

@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # SynCoPy BaseData abstract class + helper classes
-#
+# 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-05 14:39:57>
+# Last modification time: <2019-07-17 12:46:37>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -29,7 +29,7 @@ import shutil
 
 # Local imports
 from .data_methods import definetrial
-from syncopy.shared import scalar_parser, array_parser, io_parser
+from syncopy.shared import scalar_parser, array_parser, io_parser, filename_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError
 from syncopy import __version__, __storage__, __dask__, __sessionid__
 if __dask__:
@@ -41,10 +41,10 @@ __all__ = ["StructDict"]
 
 class BaseData(ABC):
 
-    _infoFileProperties = ("dimord", "version", "_log", "cfg", "checksum_algorithm",)
-    _hdfFileProperties =  ("dimord", "version", "_log",)
+    _infoFileProperties = ("dimord", "_version", "_log", "cfg",)
+    _hdfFileProperties =  ("dimord", "_version", "_log",)
 
-    checksum_algorithm = spy.__checksum_algorithm__.__name__
+    _checksum_algorithm = spy.__checksum_algorithm__.__name__
     
     @property
     def cfg(self):
@@ -173,7 +173,7 @@ class BaseData(ABC):
                 act = "VirtualData (only valid for `AnalogData` objects)"
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             self._data = in_data
-            self.filename = [dat.filename for dat in in_data._data]
+            self._filename = [dat.filename for dat in in_data._data]
             self.mode = "r"
 
         # Whatever type the input is, it's not supported
@@ -198,6 +198,21 @@ class BaseData(ABC):
     def dimord(self):
         """list(str): ordered list of data dimension labels"""
         return list(self._dimlabels.keys())
+    
+    @property
+    def filename(self):
+        # implicit support for multiple backing filenames: convert list to str
+        if isinstance(self._filename, list):
+            outname = "".join(fname + ", " for fname in self._filename)[:-2]
+        else:
+            outname = self._filename
+        return outname
+    
+    @filename.setter
+    def filename(self, fname):
+        if not isinstance(fname, str):
+            raise SPYTypeError(fname, varname="fname", expected="str")
+        self._filename = str(fname)
 
     @property
     def log(self):
@@ -243,7 +258,7 @@ class BaseData(ABC):
 
         # If data is already attached to the object, change its access mode
         # as requested (if `md` is actually any different from `self.mode`)
-        # NOTE: prevent accidental data loss by not allowing mode ="w" in h5py
+        # NOTE: prevent accidental data loss by not allowing mode = "w" in h5py
         if self.data is not None:
             if md == self._mode:
                 return
@@ -312,10 +327,6 @@ class BaseData(ABC):
             raise exc
         self._trialinfo = np.array(trl)
 
-    @property
-    def version(self):
-        """FIXME: should be hidden"""
-        return self._version
 
     # Selector method
     @abstractmethod
@@ -389,12 +400,11 @@ class BaseData(ABC):
 
 
     # Wrapper that makes saving routine usable as class method
-    def save(self, filename=None, container=None, tag=None, memuse=100):
+    def save(self, container=None, tag=None, filename=None, overwrite=False, memuse=100):
         """Save data object as new ``spy`` HDF container to disk (:func:`syncopy.save_data`)
         
         Parameters
-        ----------
-                    
+        ----------                    
             container : str
                 Path to Syncopy container folder (*.spy) to be used for saving. If 
                 omitted, a .spy extension will be added to the folder name.
@@ -404,6 +414,9 @@ class BaseData(ABC):
                 Explicit path to data file. This is only necessary if the data should
                 not be part of a container folder. An extension (*.<dataclass>) will
                 be added if omitted. The `tag` argument is ignored.      
+            overwrite : bool
+                If `True` an existing HDF5 file and its accompanying JSON file is 
+                overwritten (without prompt). 
             memuse : scalar 
                  Approximate in-memory cache size (in MB) for writing data to disk
                  (only relevant for :class:`VirtualData` or memory map data sources)
@@ -431,18 +444,15 @@ class BaseData(ABC):
         >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>.info
 
         """
-        spy.save_spy(self, filename=filename, 
-                     container=container, tag=tag, memuse=memuse)
+        spy.save(self, filename=filename, container=container, tag=tag, 
+                 overwrite=overwrite, memuse=memuse)
 
     # Helper function generating pseudo-random temp file-names    
-    # FIXME 
-    # this should probably be something like 
-    # `fname_hsh = self.checksum_algorithm(...)
     def _gen_filename(self):
         fname_hsh = blake2b(digest_size=4, 
                             salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
         return os.path.join(__storage__,
-                            "spy_{sess:s}_{hash:s}.{ext:s}".format(
+                            "spy_{sess:s}_{hash:s}{ext:s}".format(
                                 sess=__sessionid__, hash=fname_hsh,
                                 ext=self._classname_to_extension()))
 
@@ -550,7 +560,7 @@ class BaseData(ABC):
                               ignore_errors=True)
 
     # Class "constructor"
-    def __init__(self, **kwargs):
+    def __init__(self, data=None, filename=None, dimord=None, mode="r+", **kwargs):
         """
         Docstring
 
@@ -562,53 +572,52 @@ class BaseData(ABC):
         # First things first: initialize (dummy) default values
         self._cfg = {}
         self._data = None
-        self.mode = kwargs.get("mode", "r+")
+        self.mode = mode
         self._sampleinfo = None
-        self._t0 = None
+        self._t0 = [None]
         self._trialinfo = None
-        self.filename = None
-
+        self._filename = None
+        
         # Set up dimensional architecture
         self._dimlabels = OrderedDict()
-        dimord = kwargs.pop("dimord")
         for dim in dimord:
             self._dimlabels[dim] = None
 
         # Depending on contents of `filename` and `data` class instantiation invokes I/O routines
-        if kwargs.get("filename") is not None:
+        if filename is not None:
 
-            # Remove `filename` from `kwargs` and start checking `data`
-            filename = kwargs.pop("filename")
-            
             # Case 1: filename + data = memmap @filename
-            if kwargs.get("data") is not None:
+            if data is not None:
                 read_fl = False
                 self.data = filename
-                self.data = kwargs.pop("data")
+                self.data = data
 
             # Case 2: filename w/o data = read from file/container
             else:
-                read_fl = True
-                for key in ["data", "mode"]:
-                    kwargs.pop(key)
-                if "samplerate" in kwargs.keys():
-                    kwargs.pop("samplerate")
+                read_fl = False
+                try:
+                    fileinfo = filename_parser(filename)
+                    if fileinfo["filename"] is not None:
+                        read_fl = True
+                except:
+                    pass
+                if not read_fl:
+                    self.data = filename
                     
         else:
 
-            # Case 3: just data = either attach array/memmap or load container
-            if kwargs.get("data") is not None:
-                data = kwargs.pop("data")
+            # Case 3: just data = if str, it HAS to be the name of a spy-file
+            if data is not None:
                 if isinstance(data, str):
-                    if os.path.isdir(data) or \
-                       os.path.isdir(os.path.splitext(data)[0] + spy.FILE_EXT["dir"]):
-                        read_fl = True
-                        filename = data
-                        for key in ["samplerate", "mode"]:
-                            kwargs.pop(key)
-                    else:
-                        read_fl = False
-                        self.data = data
+                    try:
+                        fileinfo = filename_parser(data)
+                    except Exception as exc:
+                        raise exc
+                    if fileinfo["filename"] is None:
+                        lgl = "explicit file-name to initialize object"
+                        raise SPYValueError(legal=lgl, actual=data)
+                    read_fl = True
+                    filename = data
                 else:
                     read_fl = False
                     self.data = data
@@ -616,7 +625,15 @@ class BaseData(ABC):
             # Case 4: nothing here: create empty object
             else:
                 read_fl = False
-                self.filename = self._gen_filename()
+                self._filename = self._gen_filename()
+        
+        # Warn on effectless assignments
+        if read_fl:
+            msg = "Syncopy core - __init__: WARNING >> Cannot assign `{}` to object " +\
+                  "loaded from spy container << "                
+            for key, value in kwargs.items():
+                if value is not None:
+                    print(msg.format(key))
             
         # Prepare log + header and write first entry
         lhd = "\n\t\t>>> SyNCopy v. {ver:s} <<< \n\n" +\
@@ -639,9 +656,9 @@ class BaseData(ABC):
         # Write version
         self._version = __version__
 
-        # Finally call appropriate reading routine if filename was provided
+        # Finally call spy loader if filename was provided
         if read_fl:
-            spy.load_data(filename, out=self, **kwargs)
+            spy.load_spy(filename=filename, out=self)
 
         # Make instantiation persistent in all subclasses
         super().__init__()
