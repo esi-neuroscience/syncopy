@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # Load data from SynCoPy containers
-#
+# 
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-27 15:42:02>
+# Last modification time: <2019-07-18 15:42:10>
 
 # Builtin/3rd party package imports
 import os
@@ -23,10 +23,10 @@ from syncopy.io import hash_file, FILE_EXT, startInfoDict
 import syncopy.datatype as spd
 
 
-__all__ = ["load_spy"]
+__all__ = ["load"]
 
 
-def load_spy(filename, checksum=False, out=None, mode="r+"):
+def load(filename, checksum=False, out=None, mode="r+"):
     """
     Docstring coming soon...
 

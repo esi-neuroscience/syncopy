@@ -9,8 +9,7 @@ Reading Syncopy (``*.spy``) data from disk
 .. autosummary::
     :toctree: _stubs
 
-    syncopy.load_spy
-    syncopy.load_data
+    syncopy.load
 
 
 
@@ -31,6 +30,5 @@ Saving results to disk
 .. autosummary::      
     :toctree: _stubs
     
-    syncopy.save_data
-    syncopy.save_spy
+    syncopy.save
 
