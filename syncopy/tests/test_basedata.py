@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # Test proper functionality of SyNCoPy BaseData class + helper
-#
+# 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-10 11:33:18>
+# Last modification time: <2019-07-18 15:32:36>
 
 import os
 import tempfile
 import h5py
+import time
 import pytest
 import numpy as np
 from numpy.lib.format import open_memmap
@@ -280,6 +281,7 @@ class TestBaseData():
             assert np.array_equal(data, dummy.data)
             mem = memory_usage()[0]
             dummy.clear()
+            time.sleep(1)
             assert np.abs(mem - memory_usage()[0]) > 30
 
             # Delete all open references to file objects b4 closing tmp dir

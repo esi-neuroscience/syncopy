@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # Base functions for interacting with SyNCoPy data objects
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-25 12:41:27>
+# Last modification time: <2019-07-18 16:27:12>
 
 # Builtin/3rd party package imports
 import numbers
@@ -596,7 +596,6 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
 
         # Abort if the above loop ran into troubles
         if len(trl) < ntrials:
-            import ipdb; ipdb.set_trace()
             if len(act) > 0:
                 raise SPYValueError(legal="existing event-id",
                                     varname=vname, actual=act)
