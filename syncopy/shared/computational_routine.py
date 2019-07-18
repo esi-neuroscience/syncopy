@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-15 16:55:39>
+# Last modification time: <2019-07-17 10:36:49>
 
 # Builtin/3rd party package imports
 import os
@@ -345,7 +345,7 @@ class ComputationalRoutine(ABC):
             data.mode = self.datamode
 
         # Attach computed results to output object
-        out.data = h5py.File(out._filename, mode="r+")[self.dsetname]
+        out.data = h5py.File(out.filename, mode="r+")[self.dsetname]
 
         # Store meta-data, write log and get outta here
         self.process_metadata(data, out)
@@ -381,7 +381,7 @@ class ComputationalRoutine(ABC):
         # In case parallel writing via VDS storage is requested, prepare
         # directory for by-chunk HDF5 containers
         if parallel_store:
-            vdsdir = os.path.splitext(os.path.basename(out._filename))[0]
+            vdsdir = os.path.splitext(os.path.basename(out.filename))[0]
             self.vdsdir = os.path.join(__storage__, vdsdir)
             os.mkdir(self.vdsdir)
 
@@ -391,7 +391,7 @@ class ComputationalRoutine(ABC):
                 shp = self.cfg["chunkShape"]
             else:
                 shp = self.outputShape
-            with h5py.File(out._filename, mode="w") as h5f:
+            with h5py.File(out.filename, mode="w") as h5f:
                 h5f.create_dataset(name=self.dsetname,
                                    dtype=self.dtype, shape=shp)
 
@@ -446,7 +446,7 @@ class ComputationalRoutine(ABC):
             # Point to trials on disk by using delayed **static** method calls
             lazy_trial = dask.delayed(data._copy_trial, traverse=False)
             lazy_trls = [lazy_trial(trialno,
-                                    data._filename,
+                                    data.filename,
                                     data.dimord,
                                     data.sampleinfo,
                                     data.hdr)
@@ -496,7 +496,7 @@ class ComputationalRoutine(ABC):
             # Construct bag of trials
             trl_bag = db.from_sequence([trialno for trialno in
                                         range(len(data.trials))]).map(data._copy_trial,
-                                                                      data._filename,
+                                                                      data.filename,
                                                                       data.dimord,
                                                                       data.sampleinfo,
                                                                       data.hdr)
@@ -557,7 +557,7 @@ class ComputationalRoutine(ABC):
         # after each trial to avoid memory leakage) - if trials are not to
         # be preserved, compute average across trials manually to avoid
         # allocation of unnecessarily large dataset
-        with h5py.File(out._filename, "r+") as h5f:
+        with h5py.File(out.filename, "r+") as h5f:
             dset = h5f[self.dsetname]
             cnt = 0
             idx = [slice(None)] * len(dset.shape)
@@ -654,7 +654,7 @@ class ComputationalRoutine(ABC):
                 layout[idx] = h5py.VirtualSource(fname, "chk", shape=shp)
 
             # Use generated layout to create virtual dataset
-            with h5py.File(out._filename, mode="w") as h5f:
+            with h5py.File(out.filename, mode="w") as h5f:
                 h5f.create_virtual_dataset(self.dsetname, layout)
 
         # ...or use a mutex to write to a single container sequentially
@@ -667,7 +667,7 @@ class ComputationalRoutine(ABC):
             waitcount = int(np.round(timeout/self.sleeptime))
 
             # Map `da_arr` chunk by chunk onto ``_write_sequential``
-            writers = da_arr.map_blocks(self._write_sequential, nchk, out._filename,
+            writers = da_arr.map_blocks(self._write_sequential, nchk, out.filename,
                                         self.dsetname, lck, waitcount,
                                         dtype="int", chunks=(1, 1))
 

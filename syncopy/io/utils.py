@@ -16,6 +16,7 @@ from datetime import datetime
 from glob import glob
 from hashlib import blake2b
 from tqdm import tqdm
+from collections import OrderedDict
 if sys.platform == "win32":
     # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
     import colorama
@@ -23,17 +24,43 @@ if sys.platform == "win32":
     colorama.init(strip=False)
 
 # Local imports
-from syncopy import __storage__, __sessionid__
+from syncopy import __storage__, __sessionid__, __checksum_algorithm__
+from syncopy.datatype.base_data import BaseData
 from syncopy.shared import scalar_parser
 from syncopy.shared.queries import user_yesno, user_input
 
+__all__ = ["FILE_EXT", "hash_file", "write_access", "cleanup", "startInfoDict"]
+
+def _all_subclasses(cls):
+    return set(cls.__subclasses__()).union(
+        [s for c in cls.__subclasses__() for s in _all_subclasses(c)])
+
+def _data_classname_to_extension(name):
+    return "." + name.split('Data')[0].lower()
+
+# data file extensions are first word of data class name in lower-case
+supportedDataExtensions = tuple([_data_classname_to_extension(cls.__name__)
+    for cls in _all_subclasses(BaseData) 
+    if not cls.__name__ in ['ContinuousData', 'DiscreteData']])
+
 # Define SynCoPy's general file-/directory-naming conventions
 FILE_EXT = {"dir" : ".spy",
-            "json" : ".info",
-            "data" : ".dat"}
+            "info" : ".info",
+            "data" : supportedDataExtensions}
 
-__all__ = ["FILE_EXT", "hash_file", "write_access", "cleanup"]
-
+# Dictionary keys for beginning of info/json file that are not class properties
+startInfoDict = OrderedDict()
+startInfoDict["filename"] = None
+startInfoDict["dataclass"] = None
+startInfoDict["data_dtype"] = None
+startInfoDict["data_shape"] = None
+startInfoDict["data_offset"] = None
+startInfoDict["trl_dtype"] = None
+startInfoDict["trl_shape"] = None
+startInfoDict["trl_offset"] = None
+startInfoDict["file_checksum"] = None 
+startInfoDict["order"] = "C" 
+startInfoDict["checksum_algorithm"] = __checksum_algorithm__.__name__
 
 def hash_file(fname, bsize=65536):
     """
@@ -42,7 +69,7 @@ def hash_file(fname, bsize=65536):
     Internal helper routine, do not parse inputs
     """
 
-    hash = blake2b()
+    hash = __checksum_algorithm__()
     with open(fname, "rb") as f:
         for block in iter(lambda: f.read(bsize), b""):
             hash.update(block)
@@ -62,8 +89,8 @@ def write_access(directory):
             tmp.seek(0)
             tmp.read()
         return True
-    except:
-        return False
+    except Exception as Exc:
+        raise Exc
 
 
 def cleanup(older_than=24):

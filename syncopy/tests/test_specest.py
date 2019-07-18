@@ -34,7 +34,7 @@ class TestMTMFFT():
     nTrials = 8
     fs = 1024
     fband = np.linspace(0, fs / 2, int(np.floor(fs / 2) + 1))
-    freqs = np.random.choice(fband[:-1], size=nChannels, replace=False)
+    freqs = np.random.choice(fband[:-2], size=nChannels, replace=False)
     amp = np.pi
     phases = np.random.permutation(np.linspace(0, 2 * np.pi, nChannels))
     t = np.linspace(0, nTrials, nTrials * fs)

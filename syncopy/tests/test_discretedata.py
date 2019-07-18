@@ -8,11 +8,11 @@
 
 import os
 import tempfile
-import time
 import pytest
 import numpy as np
 from syncopy.datatype import AnalogData, SpikeData, EventData
 from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.tests.misc import construct_spy_filename
 
 
 class TestSpikeData():
@@ -86,23 +86,22 @@ class TestSpikeData():
             # basic but most important: ensure object integrity is preserved
             dummy = SpikeData(self.data, samplerate=10)
             dummy.save(fname)
-            dummy2 = SpikeData(fname)
+            filename = construct_spy_filename(fname, dummy)
+            dummy2 = SpikeData(filename)
             for attr in ["channel", "data", "dimord", "sampleinfo",
                          "samplerate", "trialinfo", "unit"]:
                 assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
 
-            # newer files must be loaded from existing "dummy.spy" folder
-            # (enforce one second pause to prevent race-condition)
-            time.sleep(1)
+            # overwrite existing container w/new data
             dummy.samplerate = 20
-            dummy.save(fname)
-            dummy2 = SpikeData(filename=fname)
+            dummy.save(fname, overwrite=True)
+            dummy2 = SpikeData(filename=filename)
             assert dummy2.samplerate == 20
-
+            
             # ensure trialdefinition is saved and loaded correctly
             dummy = SpikeData(self.data, trialdefinition=self.trl, samplerate=10)
-            dummy.save(fname)
-            dummy2 = SpikeData(fname)
+            dummy.save(fname, overwrite=True)
+            dummy2 = SpikeData(filename)
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
             assert np.array_equal(dummy.t0, dummy2.t0)
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
@@ -110,7 +109,8 @@ class TestSpikeData():
             # swap dimensions and ensure `dimord` is preserved
             dummy = SpikeData(self.data, dimord=["unit", "channel", "sample"], samplerate=10)
             dummy.save(fname + "_dimswap")
-            dummy2 = SpikeData(fname + "_dimswap")
+            filename = construct_spy_filename(fname + "_dimswap", dummy)
+            dummy2 = SpikeData(filename)
             assert dummy2.dimord == dummy.dimord
             assert dummy2.unit.size == self.num_smp  # swapped
             assert dummy2.data.shape == dummy.data.shape
@@ -187,22 +187,21 @@ class TestEventData():
             # basic but most important: ensure object integrity is preserved
             dummy = EventData(self.data, samplerate=10)
             dummy.save(fname)
-            dummy2 = EventData(fname)
+            filename = construct_spy_filename(fname, dummy)
+            dummy2 = EventData(filename)
             for attr in ["data", "dimord", "sampleinfo", "samplerate", "trialinfo"]:
                 assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
 
-            # newer files must be loaded from existing "dummy.spy" folder
-            # (enforce one second pause to prevent race-condition)
-            time.sleep(1)
+            # overwrite existing file w/new data
             dummy.samplerate = 20
-            dummy.save(fname)
-            dummy2 = EventData(filename=fname)
+            dummy.save(fname, overwrite=True)
+            dummy2 = EventData(filename=filename)
             assert dummy2.samplerate == 20
 
             # ensure trialdefinition is saved and loaded correctly
             dummy = EventData(self.data, trialdefinition=self.trl, samplerate=10)
-            dummy.save(fname)
-            dummy2 = EventData(fname)
+            dummy.save(fname, overwrite=True)
+            dummy2 = EventData(filename)
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
             assert np.array_equal(dummy.t0, dummy2.t0)
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
@@ -210,7 +209,8 @@ class TestEventData():
             # swap dimensions and ensure `dimord` is preserved
             dummy = EventData(self.data, dimord=["eventid", "sample"], samplerate=10)
             dummy.save(fname + "_dimswap")
-            dummy2 = EventData(fname + "_dimswap")
+            filename = construct_spy_filename(fname + "_dimswap", dummy)
+            dummy2 = EventData(filename)
             assert dummy2.dimord == dummy.dimord
             assert dummy2.eventid.size == self.num_smp # swapped
             assert dummy2.data.shape == dummy.data.shape

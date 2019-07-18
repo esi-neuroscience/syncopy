@@ -37,6 +37,10 @@ class ContinuousData(BaseData, ABC):
     This class cannot be instantiated. Use one of the children instead.
 
     """
+    
+    _infoFileProperties = BaseData._infoFileProperties + ("samplerate", "channel",)
+    _hdfFileProperties = BaseData._hdfFileProperties + ("samplerate", "channel",)
+        
     @property
     def _shapes(self):
         if self.sampleinfo is not None:
@@ -169,6 +173,9 @@ class AnalogData(ContinuousData):
     Data is only read from disk on demand, similar to memory maps and HDF5
     files.
     """
+    
+    _infoFileProperties = ContinuousData._infoFileProperties + ("_hdr",)
+    
     @property
     def hdr(self):
         """dict with information about raw data
@@ -181,7 +188,6 @@ class AnalogData(ContinuousData):
     def __init__(self,
                  data=None,
                  filename=None,
-                 filetype=None,
                  trialdefinition=None,
                  samplerate=None,
                  channel="channel",
@@ -195,7 +201,6 @@ class AnalogData(ContinuousData):
                 multi-channel time series data with uniform sampling            
             filename : str
                 path to filename or folder (spy container)
-            filetype : str
             trialdefinition : :class:`EventData` object or Mx3 array 
                 [start, stop, trigger_offset] sample indices for `M` trials
             samplerate : float
@@ -233,7 +238,6 @@ class AnalogData(ContinuousData):
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
-                         filetype=filetype,
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          channel=channel,
@@ -282,6 +286,9 @@ class SpectralData(ContinuousData):
     and optionally a time axis. The datatype can be complex or float.
 
     """
+    
+    _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
+    
     @property
     def taper(self):
         return self._dimlabels.get("taper")
@@ -321,7 +328,6 @@ class SpectralData(ContinuousData):
     def __init__(self,
                  data=None,
                  filename=None,
-                 filetype=None,
                  trialdefinition=None,
                  samplerate=None,
                  channel="channel",
@@ -344,7 +350,6 @@ class SpectralData(ContinuousData):
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
-                         filetype=filetype,
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          channel=channel,
