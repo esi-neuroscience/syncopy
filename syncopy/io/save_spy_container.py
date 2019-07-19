@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-19 09:50:39>
+# Last modification time: <2019-07-19 15:17:23>
 
 # Builtin/3rd party package imports
 import os
@@ -112,64 +112,79 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
         scalar_parser(memuse, varname="memuse", lims=[0, np.inf])
     except Exception as exc:
         raise exc
-
-    # parse filename for validity
-    fileInfo = filename_parser(filename)
     
+    if not isinstance(overwrite, bool):
+        raise SPYTypeError(overwrite, varname="overwrite", expected="bool")
+    
+    # Parse filename for validity and construct full path to HDF5 file
+    fileInfo = filename_parser(filename)
     if not fileInfo["extension"] == out._classname_to_extension():
         raise SPYError("""Extension in filename ({ext}) does not match data 
-                       class ({dclass})""".format(ext=fileInfo["extension"],
+                    class ({dclass})""".format(ext=fileInfo["extension"],
                                                 dclass=out.__class__.__name__))
-    
     dataFile = os.path.join(fileInfo["folder"], fileInfo["filename"])
-    if not os.path.exists(fileInfo["folder"]):
-        try:
-            os.makedirs(fileInfo["folder"])
-        except IOError:
-            raise SPYIOError(fileInfo["folder"])
-        except Exception as exc:
-            raise exc
+    
+    # Prevent `out` from trying to re-create its own data file - simply flush, 
+    # otherwise run the whole gamut
+    if overwrite and dataFile == out.filename:
+        out.data.flush()
+        h5f = out.data.file
+        dat = out.data
+        trl = h5f["trialdefinition"]
     else:
-        if os.path.exists(dataFile):
-            if not os.path.isfile(dataFile):
-                raise SPYIOError(dataFile)
-            if overwrite:
-                try:
-                    os.unlink(dataFile)
-                except Exception as exc:
-                    msg = "Cannot overwrite {} - original error message below\n{}"
-                    raise SPYError(msg.format(dataFile, str(exc)))
-            else:
-                raise SPYIOError(dataFile, exists=True)
+        if not os.path.exists(fileInfo["folder"]):
+            try:
+                os.makedirs(fileInfo["folder"])
+            except IOError:
+                raise SPYIOError(fileInfo["folder"])
+            except Exception as exc:
+                raise exc
+        else:
+            if os.path.exists(dataFile):
+                if not os.path.isfile(dataFile):
+                    raise SPYIOError(dataFile)
+                if overwrite:
+                    try:
+                        h5f = h5py.File(dataFile, mode="w")
+                        h5f.close()
+                    except Exception as exc:
+                        msg = "Cannot overwrite {} - file may still be open. "
+                        msg += "Original error message below\n{}"
+                        raise SPYError(msg.format(dataFile, str(exc)))
+                else:
+                    raise SPYIOError(dataFile, exists=True)
+        h5f = h5py.File(dataFile, mode="w")
     
-    # Start by creating fresh HDF5 container
-    h5f = h5py.File(dataFile, mode="w")
-    
-    # Handle memory maps
-    if isinstance(out.data, np.memmap) or out.data.__class__.__name__ == "VirtualData":
-        # Given memory cap, compute how many data blocks can be grabbed
-        # per swipe (divide by 2 since we're working with an add'l tmp array)
-        memuse *= 1024**2 / 2
-        nrow = int(memuse / (np.prod(out.data.shape[1:]) * out.data.dtype.itemsize))
-        rem = int(out.data.shape[0] % nrow)
-        n_blocks = [nrow] * int(out.data.shape[0] // nrow) + [rem] * int(rem > 0)
+        # Handle memory maps
+        if isinstance(out.data, np.memmap) or out.data.__class__.__name__ == "VirtualData":
+            # Given memory cap, compute how many data blocks can be grabbed
+            # per swipe (divide by 2 since we're working with an add'l tmp array)
+            memuse *= 1024**2 / 2
+            nrow = int(memuse / (np.prod(out.data.shape[1:]) * out.data.dtype.itemsize))
+            rem = int(out.data.shape[0] % nrow)
+            n_blocks = [nrow] * int(out.data.shape[0] // nrow) + [rem] * int(rem > 0)
 
-        # Write data block-wise to dataset (use `clear` to wipe blocks of
-        # mem-maps from memory)
-        dat = h5f.create_dataset(out.__class__.__name__,
-                                 dtype=out.data.dtype, shape=out.data.shape)
-        for m, M in enumerate(n_blocks):
-            dat[m * nrow: m * nrow + M, :] = out.data[m * nrow: m * nrow + M, :]
-            out.clear()
-    else:
-        dat = h5f.create_dataset(out.__class__.__name__, data=out.data)
+            # Write data block-wise to dataset (use `clear` to wipe blocks of
+            # mem-maps from memory)
+            dat = h5f.create_dataset(out.__class__.__name__,
+                                    dtype=out.data.dtype, shape=out.data.shape)
+            for m, M in enumerate(n_blocks):
+                dat[m * nrow: m * nrow + M, :] = out.data[m * nrow: m * nrow + M, :]
+                out.clear()
+        else:
+            dat = h5f.create_dataset(out.__class__.__name__, data=out.data)
 
     # Now write trial-related information
-    trl = np.array(out.trialinfo)
+    trl_arr = np.array(out.trialinfo)
     t0 = np.array(out.t0).reshape((out.t0.size, 1))
-    trl = np.hstack([out.sampleinfo, t0, trl])
-    trl = h5f.create_dataset("trialdefinition", data=trl)
-
+    trl_arr = np.hstack([out.sampleinfo, t0, trl_arr])
+    if overwrite:
+        trl[()] = trl_arr
+        trl.flush()
+    else:    
+        trl = h5f.create_dataset("trialdefinition", data=trl_arr, 
+                                 maxshape=(None, trl_arr.shape[1]))
+    
     # Write to log already here so that the entry can be exported to json
     out.log = "Wrote files " + filename.format(ext=fileInfo["extension"] + "/info")
 
@@ -192,7 +207,6 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
             outDict["order"] = "F"
     else:
             outDict["order"] = "C"
-        
 
     for key in out._infoFileProperties:
         value = getattr(out, key)
@@ -221,17 +235,15 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
                 print(msg.format(key, info_fle))
                 h5f.attrs[key] = [outDict[key][0], "...", outDict[key][-1]]
     
-
-    # Close the data file
-    h5f.close()
-
     # Re-assign filename after saving (and remove source in case it came from `__storage__`)
-    if __storage__ in out.filename:
-        out.data.file.close()
-        os.unlink(out.filename)
-    out.data = dataFile
+    if not overwrite:
+        h5f.close()
+        if __storage__ in out.filename:
+            out.data.file.close()
+            os.unlink(out.filename)
+        out.data = dataFile
 
-    # Compute checksum and finally write JSON
+    # Compute checksum and finally write JSON (automatically overwrites existing)
     outDict["file_checksum"] = hash_file(dataFile)
     infoFile = dataFile + FILE_EXT["info"]
     with open(infoFile, 'w') as out_json:

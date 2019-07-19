@@ -93,12 +93,14 @@ class TestSpikeData():
                 assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
 
             # overwrite existing container w/new data
+            del dummy2
             dummy.samplerate = 20
             dummy.save(fname, overwrite=True)
             dummy2 = SpikeData(filename=filename)
             assert dummy2.samplerate == 20
             
             # ensure trialdefinition is saved and loaded correctly
+            del dummy, dummy2
             dummy = SpikeData(self.data, trialdefinition=self.trl, samplerate=10)
             dummy.save(fname, overwrite=True)
             dummy2 = SpikeData(filename)
@@ -107,6 +109,7 @@ class TestSpikeData():
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
 
             # swap dimensions and ensure `dimord` is preserved
+            del dummy, dummy2
             dummy = SpikeData(self.data, dimord=["unit", "channel", "sample"], samplerate=10)
             dummy.save(fname + "_dimswap")
             filename = construct_spy_filename(fname + "_dimswap", dummy)

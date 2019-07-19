@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:46:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-18 16:24:13>
+# Last modification time: <2019-07-19 14:13:57>
 
 import os
 import tempfile
@@ -437,6 +437,7 @@ class TestSpectralData():
                 assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
 
             # ensure trialdefinition is saved and loaded correctly
+            del dummy, dummy2
             dummy = SpectralData(self.data, trialdefinition=self.trl, samplerate=1000)
             dummy.save(fname, overwrite=True)
             dummy2 = SpectralData(filename)
