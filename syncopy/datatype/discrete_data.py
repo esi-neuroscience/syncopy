@@ -13,7 +13,7 @@ from abc import ABC
 # Local imports
 from .base_data import BaseData, Indexer
 from .data_methods import _selectdata_discrete, definetrial
-from syncopy.shared import scalar_parser, array_parser
+from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError
 
 __all__ = ["SpikeData", "EventData"]

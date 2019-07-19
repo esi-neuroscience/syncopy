@@ -3,8 +3,8 @@
 # Module for all kinds of parsing gymnastics
 # 
 # Created: 2019-01-08 09:58:11
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-07-16 16:34:29>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-07-19 09:48:46>
 
 # Builtin/3rd party package imports
 import os
@@ -17,9 +17,7 @@ from inspect import signature
 from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError, SPYError
 import syncopy as spy
 
-__all__ = ["io_parser", "scalar_parser", "array_parser",
-           "data_parser", "json_parser", "filename_parser",
-           "get_defaults"]
+__all__ = ["get_defaults"]
 
 
 def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
