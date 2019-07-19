@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # Test functionality of SyNCoPy-container I/O routines
-#
+# 
 # Created: 2019-03-19 14:21:12
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-10 11:33:32>
+# Last modification time: <2019-07-18 16:27:31>
 
 import os
 import tempfile
@@ -17,20 +17,21 @@ from glob import glob
 from memory_profiler import memory_usage
 from syncopy.datatype import AnalogData
 from syncopy.datatype.base_data import VirtualData
-from syncopy.io import save, load_spy, FILE_EXT
+from syncopy.io import save, load, FILE_EXT
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYError
 import syncopy.datatype as swd
-from syncopy.tests.misc import generate_artifical_data
+from syncopy.tests.misc import generate_artifical_data, construct_spy_filename
 
 class TestSpyIO():
 
     # Test correct handling of object log and cfg
     def test_logging(self):
-        with tempfile.TemporaryDirectory() as tdir:            
+        with tempfile.TemporaryDirectory() as tdir:
+            fname = os.path.join(tdir, "dummy")
             dummy = generate_artifical_data(inmemory=True)
             ldum = len(dummy._log)
-            save(dummy, filename=os.path.join(tdir, "dummy"))
-
+            save(dummy, filename=fname)
+            
             # ensure saving is logged correctly
             assert len(dummy._log) > ldum
             assert dummy.cfg["method"] == "save"

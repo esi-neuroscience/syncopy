@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-17 12:46:37>
+# Last modification time: <2019-07-18 15:39:55>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -658,7 +658,7 @@ class BaseData(ABC):
 
         # Finally call spy loader if filename was provided
         if read_fl:
-            spy.load_spy(filename=filename, out=self)
+            spy.load(filename=filename, out=self)
 
         # Make instantiation persistent in all subclasses
         super().__init__()

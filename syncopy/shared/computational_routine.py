@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-17 10:36:49>
+# Last modification time: <2019-07-18 14:21:15>
 
 # Builtin/3rd party package imports
 import os
@@ -668,9 +668,9 @@ class ComputationalRoutine(ABC):
 
             # Map `da_arr` chunk by chunk onto ``_write_sequential``
             writers = da_arr.map_blocks(self._write_sequential, nchk, out.filename,
-                                        self.dsetname, lck, waitcount,
+                                        self.dsetname, lck, self.sleeptime, waitcount,
                                         dtype="int", chunks=(1, 1))
-
+            
             # Make sure that all futures are actually executed (i.e., data is written
             # to the container)
             futures = dd.client.futures_of(writers.persist())
@@ -833,7 +833,7 @@ class ComputationalRoutine(ABC):
         save_distributed : management routine for storing result of concurrent calculation
         _write_parallel : concurrent counterpart of this method
         """
-
+        
         # Convert chunk-location tuple to 1D index for numbering current
         # HDF5 container and get index-location of current chunk in array
         cnt = np.ravel_multi_index(block_info[0]["chunk-location"],
@@ -846,7 +846,7 @@ class ComputationalRoutine(ABC):
         while not lck.locked() and counter < waitcount:
             time.sleep(sleeptime)
             counter += 1
-
+            
         # Open container and write current chunk
         with h5py.File(h5name, "r+") as h5f:
             h5f[dsname][idx] = chk
