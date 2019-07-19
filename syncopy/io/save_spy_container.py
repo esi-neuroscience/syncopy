@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-18 16:25:03>
+# Last modification time: <2019-07-19 09:50:39>
 
 # Builtin/3rd party package imports
 import os
@@ -16,8 +16,8 @@ from collections import OrderedDict
 from hashlib import blake2b
 
 # Local imports
-from syncopy.shared import (io_parser, filename_parser, 
-                            data_parser, scalar_parser)
+from syncopy.shared.parsers import (io_parser, filename_parser, 
+                                    data_parser, scalar_parser)
 from syncopy.shared.errors import (SPYIOError, SPYTypeError, 
                                    SPYValueError, SPYError)
 from syncopy.io import hash_file, write_access, FILE_EXT, startInfoDict

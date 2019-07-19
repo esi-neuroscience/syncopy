@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-18 15:39:55>
+# Last modification time: <2019-07-19 09:52:54>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -29,7 +29,7 @@ import shutil
 
 # Local imports
 from .data_methods import definetrial
-from syncopy.shared import scalar_parser, array_parser, io_parser, filename_parser
+from syncopy.shared.parsers import scalar_parser, array_parser, io_parser, filename_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError
 from syncopy import __version__, __storage__, __dask__, __sessionid__
 if __dask__:
@@ -41,10 +41,16 @@ __all__ = ["StructDict"]
 
 class BaseData(ABC):
 
+    # Class properties that are written to JSON/HDF upon save
     _infoFileProperties = ("dimord", "_version", "_log", "cfg",)
     _hdfFileProperties =  ("dimord", "_version", "_log",)
 
+    # Checksum algorithm used
     _checksum_algorithm = spy.__checksum_algorithm__.__name__
+    
+    # Dummy allocations of class attributes that are actually initialized in subclasses
+    _ndim = None
+    _mode = None
     
     @property
     def cfg(self):

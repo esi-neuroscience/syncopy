@@ -12,7 +12,7 @@ import sys
 import numpy as np
 
 # Local imports
-from syncopy.shared import io_parser, data_parser
+from syncopy.shared.parsers import io_parser, data_parser
 from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
 from syncopy.datatype import AnalogData
 from syncopy.datatype.base_data import VirtualData
