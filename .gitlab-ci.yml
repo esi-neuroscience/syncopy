@@ -1,3 +1,7 @@
+stages:
+    - test
+    - deploy
+
 clusterTests:
     stage: test
     tags: 
@@ -15,6 +19,7 @@ clusterTests:
 
 windowsTests:
     stage: test
+    allow_failure: true
     tags: 
     - windows10
     only:
@@ -45,8 +50,7 @@ deploy-to-testpypi:
     
 
 docs:
-    stage: test
-    when: manual
+    stage: deploy
     tags:
     - docs
     only:
