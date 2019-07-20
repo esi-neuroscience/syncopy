@@ -55,6 +55,9 @@ docs:
     - docs
     only:
     - dev
+    - master
+    - tags
+    
     script:
     - if hash $HOME/miniconda/bin/conda 2>/dev/null; 
       then
