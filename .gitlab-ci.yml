@@ -21,7 +21,7 @@ windowsTests:
     - master
     - dev
     variables:
-        PYTEST_ADDOPTS: "--color=yes -q --tb=line"
+        PYTEST_ADDOPTS: "--color=yes -q --tb=short"
     script:
     - pip install --upgrade --user pip
     - pip install --upgrade --user tox
