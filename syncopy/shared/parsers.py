@@ -3,8 +3,8 @@
 # Module for all kinds of parsing gymnastics
 # 
 # Created: 2019-01-08 09:58:11
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-19 09:48:46>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-07-20 14:27:37>
 
 # Builtin/3rd party package imports
 import os
@@ -529,8 +529,8 @@ def filename_parser(filename, is_in_valid_container=None):
     Parameters
     ----------
         filename: str
-            Syncopy data file (*.<dataclass>.info), Syncopy info 
-            file (*.<dataclass>) or Syncopy container folder (*.spy)
+            Syncopy data file (\*.<dataclass>.info), Syncopy info 
+            file (\*.<dataclass>) or Syncopy container folder (\*.spy)
         is_in_valid_container: bool            
             If `True`, the `filename` must be inside a folder with a .spy 
             extension. 

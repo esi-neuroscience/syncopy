@@ -3,8 +3,8 @@
 # Save SynCoPy data objects on disk
 # 
 # Created: 2019-02-05 13:12:58
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-19 09:50:39>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-07-20 14:48:57>
 
 # Builtin/3rd party package imports
 import os
@@ -37,13 +37,13 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
     ----------
     out : Syncopy data object         
     container : str
-        Path to Syncopy container folder (*.spy) to be used for saving. If 
+        Path to Syncopy container folder (\*.spy) to be used for saving. If 
         omitted, a .spy extension will be added to the folder name.
     tag : str
         Tag to be appended to container basename
     filename :  str
         Explicit path to data file. This is only necessary if the data should
-        not be part of a container folder. An extension (*.<dataclass>) will
+        not be part of a container folder. An extension (\*.<dataclass>) will
         be added if omitted. The `tag` argument is ignored.      
     overwrite : bool
         If `True` an existing HDF5 file and its accompanying JSON file is 
