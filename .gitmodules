@@ -1,0 +1,3 @@
+[submodule "syncopy/matlab"]
+	path = syncopy/matlab
+	url = git@git.esi.local:it/matlab-syncopy.git

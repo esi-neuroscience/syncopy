@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # Test basic functionality of ComputationalRoutine class
-#
+# 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-10 14:28:53>
+# Last modification time: <2019-07-18 14:21:52>
 
 import pytest
 import numpy as np

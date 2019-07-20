@@ -2,6 +2,11 @@
 
 .. title:: Syncopy Documentation
    
+.. image:: syncopy_logo.png
+    :alt: Syncopy logo
+    :height: 200px
+    :align: center
+
 Welcome to Syncopy's Documentation!
 ===================================
 

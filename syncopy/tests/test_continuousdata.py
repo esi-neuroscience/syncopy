@@ -1,21 +1,20 @@
 # -*- coding: utf-8 -*-
-#
-# Test proper functionality of SyNCoPy ContinousData-type classes
-#
+# 
+# 
+# 
 # Created: 2019-03-20 11:46:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-27 14:54:05>
+# Last modification time: <2019-07-18 16:24:13>
 
 import os
 import tempfile
 import pytest
-import time
 import numpy as np
 from numpy.lib.format import open_memmap
 from syncopy.datatype import AnalogData, SpectralData, padding
 from syncopy.datatype.base_data import VirtualData
 from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.tests.misc import generate_artifical_data
+from syncopy.tests.misc import generate_artifical_data, construct_spy_filename
 
 
 class TestAnalogData():
@@ -58,6 +57,7 @@ class TestAnalogData():
             dummy = AnalogData(vdata)
             assert dummy.channel.size == 2 * self.nc
             assert len(dummy._filename) == 2
+            assert isinstance(dummy.filename, str)
             del dmap, dummy, vdata
 
     def test_trialretrieval(self):
@@ -83,7 +83,7 @@ class TestAnalogData():
             for trlno, start in enumerate(range(0, self.ns, 5)):
                 trl_ref = self.data[start:start + 5, :]
                 trl_tmp = dummy._copy_trial(trlno,
-                                            dummy._filename,
+                                            dummy.filename,
                                             dummy.dimord,
                                             dummy.sampleinfo,
                                             dummy.hdr)
@@ -99,37 +99,28 @@ class TestAnalogData():
             # basic but most important: ensure object integrity is preserved
             dummy = AnalogData(self.data, samplerate=1000)
             dummy.save(fname)
-            dummy2 = AnalogData(fname)
+            filename = construct_spy_filename(fname, dummy)
+            dummy2 = AnalogData(filename)
             for attr in ["channel", "data", "dimord", "sampleinfo", "samplerate", "trialinfo"]:
                 assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
             del dummy2
 
-            # save object hosting VirtualData; preference must be given to
-            # spy container over identically named npy file
+            # save object hosting VirtualData
             np.save(fname + ".npy", self.data)
             dmap = open_memmap(fname + ".npy", mode="r")
             vdata = VirtualData([dmap, dmap])
             dummy = AnalogData(vdata, samplerate=1000)
-            dummy.save(fname)
+            dummy.save(fname, overwrite=True)
             del dummy
-            dummy2 = AnalogData(fname)
-            assert dummy2.mode == "w"
+            dummy2 = AnalogData(filename)
+            assert dummy2.mode == "r+"
             assert np.array_equal(dummy2.data, vdata[:, :])
-
-            # newer files must be loaded from existing "dummy.spy" folder
-            # (enforce one second pause to prevent race-condition)
-            time.sleep(1)
-            dummy2.samplerate = 20
-            dummy2.save(fname)
-            del dummy2
-            dummy = AnalogData(filename=fname)
-            assert dummy.samplerate == 20
-            del dummy
 
             # ensure trialdefinition is saved and loaded correctly
             dummy = AnalogData(self.data, trialdefinition=self.trl, samplerate=1000)
             dummy.save(fname + "_trl")
-            dummy2 = AnalogData(fname + "_trl")
+            filename = construct_spy_filename(fname + "_trl", dummy)
+            dummy2 = AnalogData(filename)
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
             assert np.array_equal(dummy.t0, dummy2.t0)
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
@@ -138,7 +129,8 @@ class TestAnalogData():
             # swap dimensions and ensure `dimord` is preserved
             dummy = AnalogData(self.data, dimord=["channel", "time"], samplerate=1000)
             dummy.save(fname + "_dimswap")
-            dummy2 = AnalogData(fname + "_dimswap")
+            filename = construct_spy_filename(fname + "_dimswap", dummy)
+            dummy2 = AnalogData(filename)
             assert dummy2.dimord == dummy.dimord
             assert dummy2.channel.size == self.ns  # swapped
             assert dummy2.data.shape == dummy.data.shape
@@ -424,7 +416,7 @@ class TestSpectralData():
             for trlno, start in enumerate(range(0, self.ns, 5)):
                 trl_ref = self.data[start:start + 5, ...]
                 trl_tmp = dummy._copy_trial(trlno,
-                                            dummy._filename,
+                                            dummy.filename,
                                             dummy.dimord,
                                             dummy.sampleinfo,
                                             None)
@@ -438,15 +430,16 @@ class TestSpectralData():
             # basic but most important: ensure object integrity is preserved
             dummy = SpectralData(self.data, samplerate=1000)
             dummy.save(fname)
-            dummy2 = SpectralData(fname)
+            filename = construct_spy_filename(fname, dummy)
+            dummy2 = SpectralData(filename)
             for attr in ["channel", "data", "dimord", "freq", "sampleinfo",
                          "samplerate", "taper", "trialinfo"]:
                 assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
 
             # ensure trialdefinition is saved and loaded correctly
             dummy = SpectralData(self.data, trialdefinition=self.trl, samplerate=1000)
-            dummy.save(fname)
-            dummy2 = SpectralData(fname)
+            dummy.save(fname, overwrite=True)
+            dummy2 = SpectralData(filename)
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
             assert np.array_equal(dummy.t0, dummy2.t0)
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
@@ -455,7 +448,8 @@ class TestSpectralData():
             dummy = SpectralData(self.data, dimord=["time", "channel", "taper", "freq"],
                                  samplerate=1000)
             dummy.save(fname + "_dimswap")
-            dummy2 = SpectralData(fname + "_dimswap")
+            filename = construct_spy_filename(fname + "_dimswap", dummy)
+            dummy2 = SpectralData(filename)
             assert dummy2.dimord == dummy.dimord
             assert dummy2.channel.size == self.nt  # swapped
             assert dummy2.taper.size == self.nf  # swapped

@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # Helper routines for working w/dask 
 # 
 # Created: 2019-05-22 12:38:16
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-26 14:53:57>
+# Last modification time: <2019-07-19 09:51:18>
 
 # Builtin/3rd party package imports
 import os
@@ -15,7 +15,7 @@ import getpass
 import time
 import numpy as np
 from dask_jobqueue import SLURMCluster
-from dask.distributed import Client
+from dask.distributed import Client, get_client
 from datetime import datetime, timedelta
 from tqdm import tqdm
 if sys.platform == "win32":
@@ -25,11 +25,11 @@ if sys.platform == "win32":
     colorama.init(strip=False)
 
 # Local imports
-from syncopy.shared import scalar_parser, io_parser
+from syncopy.shared.parsers import scalar_parser, io_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError
 from syncopy.shared.queries import user_input
 
-__all__ = ["esi_cluster_setup"]
+__all__ = ["esi_cluster_setup", "cluster_cleanup"]
 
 
 # Setup SLURM cluster
@@ -42,6 +42,10 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     if start_client = True, client is returned (underlying SLURMCluster 
     instance is accessible via client.cluster), otherwise cluster object is
     returned
+    
+    See also
+    --------
+    cluster_cleanup : remove dangling job swarms
     """
 
     # Retrieve all partitions currently available in SLURM
@@ -49,8 +53,9 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 text=True, shell=True).communicate()
     if len(err) > 0:
-        msg = "SLURM queuing system from node {}".format(socket.gethostname())
-        raise SPYIOError(msg)
+        msg = "SLURM queuing system from node {node:s}. " +\
+              "Original error message below:\n{error:s}"
+        raise SPYIOError(msg.format(node=socket.gethostname(), error=err))
     options = out.split()
 
     # Make sure we're in a valid partition (exclude IT partitions from output message)
@@ -232,3 +237,32 @@ def _cluster_waiter(cluster, total_workers, timeout, interactive):
                     sys.exit()
 
     return
+
+def cluster_cleanup():
+    """
+    Stop and close dangling parallel processing jobs
+    
+    Parameters
+    ----------
+    Nothing : None
+    
+    Returns
+    -------
+    Nothing : None
+    
+    See also
+    --------
+    esi_cluster_setup : Launch a SLURM job swarm on the ESI compute cluster
+    """
+    
+    # Attempt to establish connection to dask client
+    try:
+        client = get_client()
+    except ValueError:
+        print("cluster_cleanup: No dangling clients or clusters found. ")
+    except Exception as exc:
+        raise exc
+    
+    # If connection was successful, first close the client, then the cluster
+    client.close()
+    client.cluster.close()

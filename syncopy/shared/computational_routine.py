@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # Base class for all computational kernels in Syncopy
-#
+# 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-10 13:37:03>
+# Last modification time: <2019-07-18 14:21:15>
 
 # Builtin/3rd party package imports
 import os
@@ -128,6 +128,7 @@ class ComputationalRoutine(ABC):
         self.vdsdir = None
         self.dsetname = None
         self.datamode = None
+        self.sleeptime = 0.1
 
     def initialize(self, data):
         """
@@ -344,7 +345,7 @@ class ComputationalRoutine(ABC):
             data.mode = self.datamode
 
         # Attach computed results to output object
-        out.data = h5py.File(out._filename, mode="r+")[self.dsetname]
+        out.data = h5py.File(out.filename, mode="r+")[self.dsetname]
 
         # Store meta-data, write log and get outta here
         self.process_metadata(data, out)
@@ -380,7 +381,7 @@ class ComputationalRoutine(ABC):
         # In case parallel writing via VDS storage is requested, prepare
         # directory for by-chunk HDF5 containers
         if parallel_store:
-            vdsdir = os.path.splitext(os.path.basename(out._filename))[0]
+            vdsdir = os.path.splitext(os.path.basename(out.filename))[0]
             self.vdsdir = os.path.join(__storage__, vdsdir)
             os.mkdir(self.vdsdir)
 
@@ -390,7 +391,7 @@ class ComputationalRoutine(ABC):
                 shp = self.cfg["chunkShape"]
             else:
                 shp = self.outputShape
-            with h5py.File(out._filename, mode="w") as h5f:
+            with h5py.File(out.filename, mode="w") as h5f:
                 h5f.create_dataset(name=self.dsetname,
                                    dtype=self.dtype, shape=shp)
 
@@ -445,7 +446,7 @@ class ComputationalRoutine(ABC):
             # Point to trials on disk by using delayed **static** method calls
             lazy_trial = dask.delayed(data._copy_trial, traverse=False)
             lazy_trls = [lazy_trial(trialno,
-                                    data._filename,
+                                    data.filename,
                                     data.dimord,
                                     data.sampleinfo,
                                     data.hdr)
@@ -495,7 +496,7 @@ class ComputationalRoutine(ABC):
             # Construct bag of trials
             trl_bag = db.from_sequence([trialno for trialno in
                                         range(len(data.trials))]).map(data._copy_trial,
-                                                                      data._filename,
+                                                                      data.filename,
                                                                       data.dimord,
                                                                       data.sampleinfo,
                                                                       data.hdr)
@@ -556,13 +557,12 @@ class ComputationalRoutine(ABC):
         # after each trial to avoid memory leakage) - if trials are not to
         # be preserved, compute average across trials manually to avoid
         # allocation of unnecessarily large dataset
-        with h5py.File(out._filename, "r+") as h5f:
+        with h5py.File(out.filename, "r+") as h5f:
             dset = h5f[self.dsetname]
             cnt = 0
             idx = [slice(None)] * len(dset.shape)
             if self.keeptrials:
-                for tk, trl in enumerate(tqdm(data.trials,
-                                              desc="Computing...")):
+                for trl in tqdm(data.trials,desc="Computing..."):
                     res = self.computeFunction(trl,
                                                *self.argv,
                                                **self.cfg)
@@ -581,7 +581,7 @@ class ComputationalRoutine(ABC):
 
         return
 
-    def save_distributed(self, da_arr, out, parallel_store=True):
+    def save_distributed(self, da_arr, out, parallel_store=True, timeout=300):
         """
         Store result of parallel computation
 
@@ -596,6 +596,9 @@ class ComputationalRoutine(ABC):
            worker saves its own local result segment on disk as soon as it 
            is done with its part of the computation). Otherwise, the processing 
            result is saved sequentially using a mutex. 
+        timeout : int
+           Number of seconds to wait for saving-mutex to be acquired (only relevant in case
+           of sequential writing of results, i.e., ``parallel_store = False``)
 
         Returns
         -------
@@ -639,7 +642,7 @@ class ComputationalRoutine(ABC):
             # to the container)
             futures = dd.client.futures_of(writers.persist())
             while any(f.status == 'pending' for f in futures):
-                time.sleep(0.1)
+                time.sleep(self.sleeptime)
 
             # Construct virtual layout from created HDF5 files
             layout = h5py.VirtualLayout(shape=da_arr.shape, dtype=da_arr.dtype)
@@ -651,7 +654,7 @@ class ComputationalRoutine(ABC):
                 layout[idx] = h5py.VirtualSource(fname, "chk", shape=shp)
 
             # Use generated layout to create virtual dataset
-            with h5py.File(out._filename, mode="w") as h5f:
+            with h5py.File(out.filename, mode="w") as h5f:
                 h5f.create_virtual_dataset(self.dsetname, layout)
 
         # ...or use a mutex to write to a single container sequentially
@@ -660,16 +663,19 @@ class ComputationalRoutine(ABC):
             # Initialize distributed lock
             lck = dd.lock.Lock(name='writer_lock')
 
-            # Map `da_arr` chunk by chunk onto ``_write_sequential``
-            writers = da_arr.map_blocks(self._write_sequential, nchk, out._filename,
-                                        self.dsetname, lck, dtype="int",
-                                        chunks=(1, 1))
+            # Compute timeout counter given sleep timer and wait time
+            waitcount = int(np.round(timeout/self.sleeptime))
 
+            # Map `da_arr` chunk by chunk onto ``_write_sequential``
+            writers = da_arr.map_blocks(self._write_sequential, nchk, out.filename,
+                                        self.dsetname, lck, self.sleeptime, waitcount,
+                                        dtype="int", chunks=(1, 1))
+            
             # Make sure that all futures are actually executed (i.e., data is written
             # to the container)
             futures = dd.client.futures_of(writers.persist())
             while any(f.status == 'pending' for f in futures):
-                time.sleep(0.1)
+                time.sleep(self.sleeptime)
 
     def write_log(self, data, out, log_dict=None):
         """
@@ -778,10 +784,11 @@ class ComputationalRoutine(ABC):
         return (cnt,) * nchk
 
     @staticmethod
-    def _write_sequential(chk, nchk, h5name, dsname, lck, block_info=None):
+    def _write_sequential(chk, nchk, h5name, dsname, lck, sleeptime, waitcount, 
+                          block_info=None):
         """
         Saves chunk of dask-array in existing HDF5 container
-        
+
         Parameters
         ----------
         chk : :class:`numpy.ndarray`
@@ -794,8 +801,14 @@ class ComputationalRoutine(ABC):
         dsname : str
            Name of existing dataset in container specified by `h5name`
         lck : :mod:`dask.distributed.lock`
-           Distributed mutex controlling write-access to HDF5 container 
+           Distributed mutex controlling write-access to HDF5 container
            specified by `h5name`
+        sleeptime : float
+           Split-second waiting time before a mutex is reattempted to be acquired
+           (derived from class attribute `self.sleeptime`)
+        waitcount : int
+           Maximal attempts to acquire/release mutex before a TimeoutError is 
+           raised. 
         block_info : None or dict
            Special keyword used by :func:`dask.array.map_blocks` to propagate
            layout information of the current chunk with respect to the parent
@@ -820,7 +833,7 @@ class ComputationalRoutine(ABC):
         save_distributed : management routine for storing result of concurrent calculation
         _write_parallel : concurrent counterpart of this method
         """
-
+        
         # Convert chunk-location tuple to 1D index for numbering current
         # HDF5 container and get index-location of current chunk in array
         cnt = np.ravel_multi_index(block_info[0]["chunk-location"],
@@ -828,18 +841,22 @@ class ComputationalRoutine(ABC):
         idx = tuple([slice(*dim) for dim in block_info[0]["array-location"]])
 
         # (Try to) acquire lock
+        counter = 0
         lck.acquire()
-        while not lck.locked():
-            time.sleep(0.05)
-
+        while not lck.locked() and counter < waitcount:
+            time.sleep(sleeptime)
+            counter += 1
+            
         # Open container and write current chunk
         with h5py.File(h5name, "r+") as h5f:
             h5f[dsname][idx] = chk
 
         # Release distributed lock
+        counter = 0
         lck.release()
-        while lck.locked():
-            time.sleep(0.05)
+        while lck.locked() and counter < waitcount:
+            time.sleep(sleeptime)
+            counter += 1
 
         return (cnt,) * nchk
 

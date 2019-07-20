@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # SynCoPy ContinuousData abstract class + regular children
-#
+# 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-10 12:10:01>
+# Last modification time: <2019-07-19 09:49:21>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -22,7 +22,7 @@ from numpy.lib.format import open_memmap
 # Local imports
 from .base_data import BaseData, VirtualData
 from .data_methods import _selectdata_continuous, definetrial
-from syncopy.shared import scalar_parser, array_parser, io_parser
+from syncopy.shared.parsers import scalar_parser, array_parser, io_parser
 from syncopy.shared.errors import SPYValueError, SPYIOError
 import syncopy as spy
 
@@ -37,6 +37,10 @@ class ContinuousData(BaseData, ABC):
     This class cannot be instantiated. Use one of the children instead.
 
     """
+    
+    _infoFileProperties = BaseData._infoFileProperties + ("samplerate", "channel",)
+    _hdfFileProperties = BaseData._hdfFileProperties + ("samplerate", "channel",)
+        
     @property
     def _shapes(self):
         if self.sampleinfo is not None:
@@ -80,8 +84,9 @@ class ContinuousData(BaseData, ABC):
     @property
     def time(self):
         """list(float): trigger-relative time axes of each trial """
-        return [np.arange(-self.t0[tk], end - start - self.t0[tk]) * 1/self.samplerate \
-                for tk, (start, end) in enumerate(self.sampleinfo)] if self.samplerate is not None else None
+        if self.samplerate is not None and self._sampleinfo is not None:
+            return [np.arange(-self.t0[tk], end - start - self.t0[tk]) * 1/self.samplerate \
+                    for tk, (start, end) in enumerate(self.sampleinfo)]
 
     # Selector method
     def selectdata(self, trials=None, deepcopy=False, **kwargs):
@@ -169,6 +174,9 @@ class AnalogData(ContinuousData):
     Data is only read from disk on demand, similar to memory maps and HDF5
     files.
     """
+    
+    _infoFileProperties = ContinuousData._infoFileProperties + ("_hdr",)
+    
     @property
     def hdr(self):
         """dict with information about raw data
@@ -181,7 +189,6 @@ class AnalogData(ContinuousData):
     def __init__(self,
                  data=None,
                  filename=None,
-                 filetype=None,
                  trialdefinition=None,
                  samplerate=None,
                  channel="channel",
@@ -195,7 +202,6 @@ class AnalogData(ContinuousData):
                 multi-channel time series data with uniform sampling            
             filename : str
                 path to filename or folder (spy container)
-            filetype : str
             trialdefinition : :class:`EventData` object or Mx3 array 
                 [start, stop, trigger_offset] sample indices for `M` trials
             samplerate : float
@@ -233,7 +239,6 @@ class AnalogData(ContinuousData):
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
-                         filetype=filetype,
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          channel=channel,
@@ -282,6 +287,9 @@ class SpectralData(ContinuousData):
     and optionally a time axis. The datatype can be complex or float.
 
     """
+    
+    _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
+    
     @property
     def taper(self):
         return self._dimlabels.get("taper")
@@ -321,7 +329,6 @@ class SpectralData(ContinuousData):
     def __init__(self,
                  data=None,
                  filename=None,
-                 filetype=None,
                  trialdefinition=None,
                  samplerate=None,
                  channel="channel",
@@ -344,7 +351,6 @@ class SpectralData(ContinuousData):
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
-                         filetype=filetype,
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          channel=channel,

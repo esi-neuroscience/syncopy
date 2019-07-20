@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # Save SynCoPy data objects on disk
-#
+# 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-27 15:42:40>
+# Last modification time: <2019-07-19 09:50:39>
 
 # Builtin/3rd party package imports
 import os
@@ -16,75 +16,137 @@ from collections import OrderedDict
 from hashlib import blake2b
 
 # Local imports
-from syncopy.shared import io_parser, data_parser
-from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
-from syncopy.io import hash_file, write_access, FILE_EXT
+from syncopy.shared.parsers import (io_parser, filename_parser, 
+                                    data_parser, scalar_parser)
+from syncopy.shared.errors import (SPYIOError, SPYTypeError, 
+                                   SPYValueError, SPYError)
+from syncopy.io import hash_file, write_access, FILE_EXT, startInfoDict
 from syncopy import __storage__
 
-__all__ = ["save_spy"]
 
+__all__ = ["save"]
 
-def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
+def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=100):
+    """Save Syncopy data object to disk
+
+    The underlying array data object will stored in a HDF5 file, the metadata in
+    a JSON file. Both can be placed inside a Syncopy container, which is a
+    folder with a .spy extension.
+
+    Parameters
+    ----------
+    out : Syncopy data object         
+    container : str
+        Path to Syncopy container folder (*.spy) to be used for saving. If 
+        omitted, a .spy extension will be added to the folder name.
+    tag : str
+        Tag to be appended to container basename
+    filename :  str
+        Explicit path to data file. This is only necessary if the data should
+        not be part of a container folder. An extension (*.<dataclass>) will
+        be added if omitted. The `tag` argument is ignored.      
+    overwrite : bool
+        If `True` an existing HDF5 file and its accompanying JSON file is 
+        overwritten (without prompt). 
+    memuse : scalar 
+        Approximate in-memory cache size (in MB) for writing data to disk
+        (only relevant for :class:`VirtualData` or memory map data sources)
+
+    Examples
+    --------    
+    >>> save_spy(obj, filename="session1")
+    >>> # --> os.getcwd()/session1.<dataclass>
+    >>> # --> os.getcwd()/session1.<dataclass>.info
+
+    >>> save_spy(obj, filename="/tmp/session1")
+    >>> # --> /tmp/session1.<dataclass>
+    >>> # --> /tmp/session1.<dataclass>.info
+
+    >>> save_spy(obj, container="container.spy")
+    >>> # --> os.getcwd()/container.spy/container.<dataclass>
+    >>> # --> os.getcwd()/container.spy/container.<dataclass>.info
+
+    >>> save_spy(obj, container="/tmp/container.spy")
+    >>> # --> /tmp/container.spy/container.<dataclass>
+    >>> # --> /tmp/container.spy/container.<dataclass>.info
+
+    >>> save_spy(obj, container="session1.spy", tag="someTag")
+    >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>
+    >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>.info
+
     """
-    Docstring coming soon...
-    """
+    
+    # Make sure `out` is a valid Syncopy data object
+    data_parser(out, varname="out", writable=None, empty=False)
+    
+    if filename is None and container is None:
+        raise SPYError('filename and container cannot both be `None`')
+    
+    if container is not None and filename is None:
+        # construct filename from container name
+        if not isinstance(container, str):
+            raise SPYTypeError(container, varname="container", expected="str")
+        if not os.path.splitext(container)[1] == ".spy":
+            container += ".spy"
+        fileInfo = filename_parser(container)
+        filename = os.path.join(fileInfo["folder"], 
+                                fileInfo["container"], 
+                                fileInfo["basename"])
+        # handle tag                
+        if tag is not None:
+            if not isinstance(tag, str):
+                raise SPYTypeError(tag, varname="tag", expected="str")
+            filename += '_' + tag            
 
-    # Make sure `out_name` is a writable filesystem-location and make
-    # some layout changes
-    if not isinstance(out_name, str):
-        raise SPYTypeError(out_name, varname="out_name", expected="str")
-    if append_extension:
-        out_base, out_ext = os.path.splitext(out_name)
-        if out_ext != FILE_EXT["dir"]:
-            out_name += FILE_EXT["dir"]
-    out_name = os.path.abspath(os.path.expanduser(out_name))
-    if not os.path.exists(out_name):
-        try:
-            os.makedirs(out_name)
-        except:
-            raise SPYIOError(out_name)
-    else:
-        if not os.path.isdir(out_name):
-            raise SPYIOError(out_name)
-    if not write_access(out_name):
-        raise SPYIOError(out_name)
-
-    # Make sure `out` is a valid SyNCoPy data object
+    elif container is not None and filename is not None:
+        raise SPYError("container and filename cannot be used at the same time")
+                              
+    if not isinstance(filename, str):
+        raise SPYTypeError(filename, varname="filename", expected="str")
+                                    
+    # add extension if not part of the filename
+    if "." not in os.path.splitext(filename)[1]:
+        filename += out._classname_to_extension()
+    
     try:
-        data_parser(out, varname="out", writable=None, empty=False)
+        scalar_parser(memuse, varname="memuse", lims=[0, np.inf])
     except Exception as exc:
         raise exc
-    if getattr(out, "samplerate", 1) is None:
-        lgl = "SyNCoPy object with well-defined samplerate"
-        act = "None"
-        raise SPYValueError(legal=lgl, actual=act, varname="samplerate")
 
-    # Assign default value to `fname` or ensure validity of provided file-name
-    if fname is None:
-        fname = os.path.splitext(os.path.basename(out_name))[0]
-    else:
+    # parse filename for validity
+    fileInfo = filename_parser(filename)
+    
+    if not fileInfo["extension"] == out._classname_to_extension():
+        raise SPYError("""Extension in filename ({ext}) does not match data 
+                       class ({dclass})""".format(ext=fileInfo["extension"],
+                                                dclass=out.__class__.__name__))
+    
+    dataFile = os.path.join(fileInfo["folder"], fileInfo["filename"])
+    if not os.path.exists(fileInfo["folder"]):
         try:
-            io_parser(fname, varname="filename", isfile=True, exists=False)
+            os.makedirs(fileInfo["folder"])
+        except IOError:
+            raise SPYIOError(fileInfo["folder"])
         except Exception as exc:
             raise exc
-        fbase, fext = os.path.splitext(fname)
-        if fext in FILE_EXT:
-            fname = fbase
-
-    # Use a random salt to construct a hash for differentiating file-names
-    fname_hsh = blake2b(digest_size=2, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
-    filename = os.path.join(out_name, fname + "." + fname_hsh + "{ext:s}")
-
-    # Start by creating a HDF5 container and write actual data
-    h5f = h5py.File(filename.format(ext=FILE_EXT["data"]), mode="w")
-
-    # The most generic case: `out` hosts a `h5py.Dataset` object
-    if isinstance(out.data, h5py.Dataset):
-        dat = h5f.create_dataset(out.__class__.__name__, data=out.data)
-
-    # In case `out` hosts a memory-map-like object, things are more elaborate
-    elif isinstance(out.data, np.memmap) or out.data.__class__.__name__ == "VirtualData":
-
+    else:
+        if os.path.exists(dataFile):
+            if not os.path.isfile(dataFile):
+                raise SPYIOError(dataFile)
+            if overwrite:
+                try:
+                    os.unlink(dataFile)
+                except Exception as exc:
+                    msg = "Cannot overwrite {} - original error message below\n{}"
+                    raise SPYError(msg.format(dataFile, str(exc)))
+            else:
+                raise SPYIOError(dataFile, exists=True)
+    
+    # Start by creating fresh HDF5 container
+    h5f = h5py.File(dataFile, mode="w")
+    
+    # Handle memory maps
+    if isinstance(out.data, np.memmap) or out.data.__class__.__name__ == "VirtualData":
         # Given memory cap, compute how many data blocks can be grabbed
         # per swipe (divide by 2 since we're working with an add'l tmp array)
         memuse *= 1024**2 / 2
@@ -99,8 +161,6 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
         for m, M in enumerate(n_blocks):
             dat[m * nrow: m * nrow + M, :] = out.data[m * nrow: m * nrow + M, :]
             out.clear()
-
-    # The simplest case: `out` hosts a NumPy array in its `data` property
     else:
         dat = h5f.create_dataset(out.__class__.__name__, data=out.data)
 
@@ -111,99 +171,73 @@ def save_spy(out_name, out, fname=None, append_extension=True, memuse=100):
     trl = h5f.create_dataset("trialdefinition", data=trl)
 
     # Write to log already here so that the entry can be exported to json
-    out.log = "Wrote files " + filename.format(ext="[dat/info/trl]")
+    out.log = "Wrote files " + filename.format(ext=fileInfo["extension"] + "/info")
 
     # While we're at it, write cfg entries
     out.cfg = {"method": sys._getframe().f_code.co_name,
-               "files": filename.format(ext="[dat/info]")}
+               "files": filename.format(ext=fileInfo["extension"] + "/info")}
 
     # Assemble dict for JSON output: order things by their "readability"
-    out_dct = OrderedDict()
-    out_dct["type"] = out.__class__.__name__
-    out_dct["dimord"] = out.dimord
-    out_dct["version"] = out.version
-
-    # Point to actual data file (readable reference for user) - use relative
-    # path here to avoid confusion in case the parent directory is moved/copied
-    out_dct["data"] = os.path.basename(filename.format(ext=FILE_EXT["data"]))
-    out_dct["data_dtype"] = dat.dtype.name
-    out_dct["data_shape"] = dat.shape
-    out_dct["data_offset"] = dat.id.get_offset()
-    out_dct["trl_dtype"] = trl.dtype.name
-    out_dct["trl_shape"] = trl.shape
-    out_dct["trl_offset"] = trl.id.get_offset()
-
-    # Continue w/ scalar-valued props
-    if hasattr(out, "samplerate"):
-        out_dct["samplerate"] = out.samplerate
-
-    # Computed file-hashes (placeholder)
-    out_dct["data_checksum"] = None
-
-    # Object history
-    out_dct["log"] = out._log
-
-    # Stuff that is potentially vector-valued
-    if getattr(out, "hdr", None) is not None:
-        hdr = []
-        for hd in out.hdr:
-            _dict_converter(hd)
-            hdr.append(hd)
-        out_dct["hdr"] = hdr
-    if hasattr(out, "taper"):
-        out_dct["taper"] = out.taper.tolist()   # where is a taper,
-        out_dct["freq"] = out.freq.tolist()     # there is a frequency
-
-    # Stuff that is definitely vector-valued
-    if hasattr(out, "channel"):
-        out_dct["channel"] = out.channel.tolist()
-    if hasattr(out, "unit"):
-        out_dct["unit"] = out.unit.tolist()
-
-    # Here for some nested dicts and potentially long-winded notes
-    if out.cfg is not None:
-        cfg = dict(out.cfg)
-        _dict_converter(cfg)
-        out_dct["cfg"] = cfg
+    outDict = OrderedDict(startInfoDict)
+    outDict["filename"] = fileInfo["filename"]
+    outDict["dataclass"] = out.__class__.__name__
+    outDict["data_dtype"] = dat.dtype.name
+    outDict["data_shape"] = dat.shape
+    outDict["data_offset"] = dat.id.get_offset()
+    outDict["trl_dtype"] = trl.dtype.name
+    outDict["trl_shape"] = trl.shape
+    outDict["trl_offset"] = trl.id.get_offset()        
+    if isinstance(out.data, np.ndarray):
+        if np.isfortran(out.data): 
+            outDict["order"] = "F"
     else:
-        out_dct["cfg"] = None
-    if hasattr(out, "notes"):
-        notes = out.notes
-        _dict_converter(notes)
-        out_dct["notes"] = notes
+            outDict["order"] = "C"
+        
 
+    for key in out._infoFileProperties:
+        value = getattr(out, key)
+        if isinstance(value, np.ndarray):
+            value = value.tolist()
+        # potentially nested dicts
+        elif isinstance(value, dict):
+            value = dict(value)
+            _dict_converter(value)
+        outDict[key] = value
+   
     # Save relevant stuff as HDF5 attributes
-    noh5 = ["data", "data_dtype", "data_shape", "data_offset", "data_checksum",
-            "trl_dtype", "trl_shape", "trl_offset", "hdr", "cfg", "notes"]
-    for key in set(out_dct.keys()).difference(noh5):
-        if out_dct[key] is None:
+    for key in out._hdfFileProperties:
+        if outDict[key] is None:
             h5f.attrs[key] = "None"
         else:
             try:
-                h5f.attrs[key] = out_dct[key]
+                h5f.attrs[key] = outDict[key]
             except RuntimeError:
-                msg = "SyNCoPy save_spy: WARNING >>> Too many entries in `{}` " +\
+                msg = "syncopy.save: WARNING >>> Too many entries in `{}` " +\
                       "- truncating HDF5 attribute. Please refer to {} for " +\
                       "complete listing. <<<"
-                info_fle = os.path.split(os.path.split(filename.format(ext=FILE_EXT["json"]))[0])[1]
+                info_fle = os.path.split(os.path.split(filename.format(ext=FILE_EXT["info"]))[0])[1]
                 info_fle = os.path.join(info_fle, os.path.basename(
-                    filename.format(ext=FILE_EXT["json"])))
+                    filename.format(ext=FILE_EXT["info"])))
                 print(msg.format(key, info_fle))
-                h5f.attrs[key] = [out_dct[key][0], "...", out_dct[key][-1]]
+                h5f.attrs[key] = [outDict[key][0], "...", outDict[key][-1]]
+    
+
+    # Close the data file
     h5f.close()
 
     # Re-assign filename after saving (and remove source in case it came from `__storage__`)
-    if __storage__ in out._filename:
-        os.unlink(out._filename)
-    out.data = filename.format(ext=FILE_EXT["data"])
+    if __storage__ in out.filename:
+        out.data.file.close()
+        os.unlink(out.filename)
+    out.data = dataFile
 
     # Compute checksum and finally write JSON
-    out_dct["data_checksum"] = hash_file(filename.format(ext=FILE_EXT["data"]))
-    with open(filename.format(ext=FILE_EXT["json"]), "w") as out_json:
-        json.dump(out_dct, out_json, indent=4)
+    outDict["file_checksum"] = hash_file(dataFile)
+    infoFile = dataFile + FILE_EXT["info"]
+    with open(infoFile, 'w') as out_json:
+        json.dump(outDict, out_json, indent=4)
 
     return
-
 
 def _dict_converter(dct, firstrun=True):
     """

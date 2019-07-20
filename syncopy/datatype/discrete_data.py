@@ -13,7 +13,7 @@ from abc import ABC
 # Local imports
 from .base_data import BaseData, Indexer
 from .data_methods import _selectdata_discrete, definetrial
-from syncopy.shared import scalar_parser, array_parser
+from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError
 
 __all__ = ["SpikeData", "EventData"]
@@ -26,6 +26,10 @@ class DiscreteData(BaseData, ABC):
     -----
     This class cannot be instantiated. Use one of the children instead.
     """
+
+    _infoFileProperties = BaseData._infoFileProperties + ("_hdr", "samplerate", )
+    _hdfFileProperties = BaseData._hdfFileProperties + ("samplerate",)
+
 
     @property
     def hdr(self):
@@ -140,6 +144,9 @@ class SpikeData(DiscreteData):
 
     """
 
+    _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
+    _hdfFileProperties = DiscreteData._hdfFileProperties + ("channel",)
+    
     @property
     def channel(self):
         """ :class:`numpy.ndarray` : list of original channel names for each unit"""
@@ -180,7 +187,6 @@ class SpikeData(DiscreteData):
     def __init__(self,
                  data=None,
                  filename=None,
-                 filetype=None,
                  trialdefinition=None,
                  samplerate=None,
                  channel="channel",
@@ -195,7 +201,6 @@ class SpikeData(DiscreteData):
 
             filename : str
                 path to filename or folder (spy container)
-            filetype : str
             trialdefinition : :class:`EventData` object or nTrials x 3 array 
                 [start, stop, trigger_offset] sample indices for `M` trials
             samplerate : float
@@ -234,7 +239,6 @@ class SpikeData(DiscreteData):
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
-                         filetype=filetype,
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          channel=channel,
@@ -279,7 +283,8 @@ class EventData(DiscreteData):
     Data is only read from disk on demand, similar to memory maps and HDF5
     files.
 
-    """
+    """        
+    
     @property
     def eventid(self):
         """numpy.ndarray(int): integer event code assocated with each event"""
@@ -289,7 +294,6 @@ class EventData(DiscreteData):
     def __init__(self,
                  data=None,
                  filename=None,
-                 filetype=None,
                  trialdefinition=None,
                  samplerate=None,
                  mode="w",
@@ -302,7 +306,6 @@ class EventData(DiscreteData):
 
             filename : str
                 path to filename or folder (spy container)
-            filetype : str
             trialdefinition : :class:`EventData` object or nTrials x 3 array 
                 [start, stop, trigger_offset] sample indices for `M` trials
             samplerate : float
@@ -337,7 +340,6 @@ class EventData(DiscreteData):
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
-                         filetype=filetype,
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          mode=mode,
