@@ -36,8 +36,7 @@ deploy-to-testpypi:
     stage: deploy
     only:
     - master
-    - tags
-    when: manual
+    - tags    
     tags:
     - deploy
     script: 
