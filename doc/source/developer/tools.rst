@@ -10,6 +10,7 @@ Input parsing and error checking
 .. autosummary::
    :toctree: _stubs    
    
+   syncopy.shared.parsers.filename_parser
    syncopy.shared.parsers.io_parser
    syncopy.shared.parsers.scalar_parser
    syncopy.shared.parsers.array_parser
