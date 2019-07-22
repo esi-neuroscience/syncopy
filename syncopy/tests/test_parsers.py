@@ -3,16 +3,17 @@
 # 
 # 
 # Created: 2019-03-05 16:22:56
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-07-12 08:31:12>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-07-19 09:52:27>
 
 import os.path
 import tempfile
 import pytest
 import numpy as np
 from collections import OrderedDict
-from syncopy import (io_parser, scalar_parser, array_parser, filename_parser,
-                     data_parser, json_parser, get_defaults)
+from syncopy.shared.parsers import (io_parser, scalar_parser, array_parser, 
+                                    filename_parser, data_parser, json_parser)
+from syncopy.shared import get_defaults
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError
 from syncopy import AnalogData, SpectralData
 

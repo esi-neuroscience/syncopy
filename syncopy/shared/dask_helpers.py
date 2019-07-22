@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-22 12:38:16
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-15 17:37:03>
+# Last modification time: <2019-07-19 09:51:18>
 
 # Builtin/3rd party package imports
 import os
@@ -25,7 +25,7 @@ if sys.platform == "win32":
     colorama.init(strip=False)
 
 # Local imports
-from syncopy.shared import scalar_parser, io_parser
+from syncopy.shared.parsers import scalar_parser, io_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError
 from syncopy.shared.queries import user_input
 

@@ -1,3 +1,7 @@
+stages:
+    - test
+    - deploy
+
 clusterTests:
     stage: test
     tags: 
@@ -6,7 +10,7 @@ clusterTests:
     - master
     - dev
     variables:
-        PYTEST_ADDOPTS: "--color=yes -q --tb=line"
+        PYTEST_ADDOPTS: "--color=yes -q --tb=short"
     script:
     - source $HOME/miniconda3/bin/activate
     - pip install --upgrade pip
@@ -15,25 +19,44 @@ clusterTests:
 
 windowsTests:
     stage: test
+    allow_failure: true
     tags: 
     - windows10
     only:
     - master
     - dev
     variables:
-        PYTEST_ADDOPTS: "--color=yes -q --tb=line"
+        PYTEST_ADDOPTS: "--color=yes -q --tb=short"
     script:
     - pip install --upgrade --user pip
     - pip install --upgrade --user tox
     - tox -r
 
+deploy-to-testpypi:
+    stage: deploy
+    only:
+    - master
+    - tags    
+    tags:
+    - deploy
+    script: 
+    - source $HOME/miniconda/etc/profile.d/conda.sh
+    - conda activate
+    - conda update --yes conda
+    - python setup.py bdist_wheel
+    - python setup.py sdist
+    - twine upload --repository testpypi dist/*
+    
+
 docs:
-    stage: test
-    when: manual
+    stage: deploy
     tags:
     - docs
     only:
     - dev
+    - master
+    - tags
+    
     script:
     - if hash $HOME/miniconda/bin/conda 2>/dev/null; 
       then

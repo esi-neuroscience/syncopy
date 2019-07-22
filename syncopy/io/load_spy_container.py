@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-18 15:42:10>
+# Last modification time: <2019-07-19 09:50:24>
 
 # Builtin/3rd party package imports
 import os
@@ -17,7 +17,7 @@ from collections import OrderedDict
 from glob import iglob
 
 # Local imports
-from syncopy.shared import io_parser, json_parser, data_parser, filename_parser
+from syncopy.shared.parsers import io_parser, json_parser, data_parser, filename_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
 from syncopy.io import hash_file, FILE_EXT, startInfoDict
 import syncopy.datatype as spd

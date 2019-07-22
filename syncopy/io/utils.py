@@ -26,7 +26,7 @@ if sys.platform == "win32":
 # Local imports
 from syncopy import __storage__, __sessionid__, __checksum_algorithm__
 from syncopy.datatype.base_data import BaseData
-from syncopy.shared import scalar_parser
+from syncopy.shared.parsers import scalar_parser
 from syncopy.shared.queries import user_yesno, user_input
 
 __all__ = ["FILE_EXT", "hash_file", "write_access", "cleanup", "startInfoDict"]
@@ -61,6 +61,7 @@ startInfoDict["trl_offset"] = None
 startInfoDict["file_checksum"] = None 
 startInfoDict["order"] = "C" 
 startInfoDict["checksum_algorithm"] = __checksum_algorithm__.__name__
+
 
 def hash_file(fname, bsize=65536):
     """
@@ -128,7 +129,6 @@ def cleanup(older_than=24):
     age_list = []       # session age in days
     usr_list = []       # session users
     siz_list = []       # raw session sizes in bytes
-    sid_list = []       # session IDs (only the hashes)
     own_list = []       # session owners (user@machine)
     fls_list = []       # files/directories associated to session
     for sk, sess in enumerate(sessions):
@@ -164,7 +164,6 @@ def cleanup(older_than=24):
         gb_list = [sz/1024**3 for sz in siz_list]
 
         # Ask the user how to proceed from here
-        ageinfo = ""
         qst = "\n| Syncopy cleanup | Found data of {numsess:d} syncopy sessions {ageinfo:s} " +\
               "created by user{users:s}' taking up {gbinfo:s} of disk space. \n\n" +\
               "Do you want to\n" +\

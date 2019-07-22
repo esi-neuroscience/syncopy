@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # SynCoPy ContinuousData abstract class + regular children
-#
+# 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-10 12:10:01>
+# Last modification time: <2019-07-19 09:49:21>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -22,7 +22,7 @@ from numpy.lib.format import open_memmap
 # Local imports
 from .base_data import BaseData, VirtualData
 from .data_methods import _selectdata_continuous, definetrial
-from syncopy.shared import scalar_parser, array_parser, io_parser
+from syncopy.shared.parsers import scalar_parser, array_parser, io_parser
 from syncopy.shared.errors import SPYValueError, SPYIOError
 import syncopy as spy
 
@@ -84,8 +84,9 @@ class ContinuousData(BaseData, ABC):
     @property
     def time(self):
         """list(float): trigger-relative time axes of each trial """
-        return [np.arange(-self.t0[tk], end - start - self.t0[tk]) * 1/self.samplerate \
-                for tk, (start, end) in enumerate(self.sampleinfo)] if self.samplerate is not None else None
+        if self.samplerate is not None and self._sampleinfo is not None:
+            return [np.arange(-self.t0[tk], end - start - self.t0[tk]) * 1/self.samplerate \
+                    for tk, (start, end) in enumerate(self.sampleinfo)]
 
     # Selector method
     def selectdata(self, trials=None, deepcopy=False, **kwargs):
