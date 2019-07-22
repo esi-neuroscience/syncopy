@@ -4,9 +4,10 @@
 # 
 # Created: 2019-03-05 16:22:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-19 09:52:27>
+# Last modification time: <2019-07-22 13:52:17>
 
-import os.path
+import os
+import platform
 import tempfile
 import pytest
 import numpy as np
@@ -246,11 +247,12 @@ class TestFilenameParser():
             filename_parser(fname, is_in_valid_container=True)
 
     def test_with_full_path(self):
-        fname = "/tmp/sessionName.spy/sessionName_testTag.analog"  
+        fname = os.path.normpath("/tmp/sessionName.spy/sessionName_testTag.analog")
+        folder = "{}/tmp".format("C:" if platform.system() == "Windows" else "")
         assert filename_parser(fname, is_in_valid_container=True) == {
             "filename" : "sessionName_testTag.analog",
             "container": "sessionName.spy",
-            "folder": os.path.join("/tmp", "sessionName.spy"),
+            "folder": os.path.join(os.path.normpath(folder), "sessionName.spy"),
             "tag": "testTag",
             "basename": "sessionName",
             "extension": ".analog"
@@ -265,10 +267,11 @@ class TestFilenameParser():
             'basename': 'container',
             'extension': '.spy'
             }
+        folder = "{}/tmp".format("C:" if platform.system() == "Windows" else "")
         assert filename_parser("/tmp/container.spy") == {
             'filename': None,
             'container': 'container.spy',
-            'folder': "/tmp",
+            'folder': os.path.normpath(folder),
             'tag': None,
             'basename': 'container',
             'extension': '.spy'

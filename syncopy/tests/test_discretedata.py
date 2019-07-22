@@ -8,6 +8,7 @@
 
 import os
 import tempfile
+import time
 import pytest
 import numpy as np
 from syncopy.datatype import AnalogData, SpikeData, EventData
@@ -91,25 +92,28 @@ class TestSpikeData():
             for attr in ["channel", "data", "dimord", "sampleinfo",
                          "samplerate", "trialinfo", "unit"]:
                 assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
+            del dummy2
 
             # overwrite existing container w/new data
-            del dummy2
             dummy.samplerate = 20
-            dummy.save(fname, overwrite=True)
+            dummy.save()
             dummy2 = SpikeData(filename=filename)
             assert dummy2.samplerate == 20
             
-            # ensure trialdefinition is saved and loaded correctly
+            import pdb; pdb.set_trace()
+            
             del dummy, dummy2
+            
+            # ensure trialdefinition is saved and loaded correctly
             dummy = SpikeData(self.data, trialdefinition=self.trl, samplerate=10)
             dummy.save(fname, overwrite=True)
             dummy2 = SpikeData(filename)
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
             assert np.array_equal(dummy.t0, dummy2.t0)
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
+            del dummy, dummy2
 
             # swap dimensions and ensure `dimord` is preserved
-            del dummy, dummy2
             dummy = SpikeData(self.data, dimord=["unit", "channel", "sample"], samplerate=10)
             dummy.save(fname + "_dimswap")
             filename = construct_spy_filename(fname + "_dimswap", dummy)
@@ -120,6 +124,7 @@ class TestSpikeData():
 
             # Delete all open references to file objects b4 closing tmp dir
             del dummy, dummy2
+            time.sleep(0.1)
 
 
 class TestEventData():
@@ -197,9 +202,10 @@ class TestEventData():
 
             # overwrite existing file w/new data
             dummy.samplerate = 20
-            dummy.save(fname, overwrite=True)
+            dummy.save()
             dummy2 = EventData(filename=filename)
             assert dummy2.samplerate == 20
+            del dummy, dummy2
 
             # ensure trialdefinition is saved and loaded correctly
             dummy = EventData(self.data, trialdefinition=self.trl, samplerate=10)
@@ -208,6 +214,7 @@ class TestEventData():
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
             assert np.array_equal(dummy.t0, dummy2.t0)
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
+            del dummy, dummy2
 
             # swap dimensions and ensure `dimord` is preserved
             dummy = EventData(self.data, dimord=["eventid", "sample"], samplerate=10)
@@ -220,6 +227,7 @@ class TestEventData():
 
             # Delete all open references to file objects b4 closing tmp dir
             del dummy, dummy2
+            time.sleep(0.1)
 
     def test_trialsetting(self):
 

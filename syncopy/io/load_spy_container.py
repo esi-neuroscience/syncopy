@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 11:40:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-19 09:50:24>
+# Last modification time: <2019-07-22 16:50:43>
 
 # Builtin/3rd party package imports
 import os
@@ -14,29 +14,92 @@ import h5py
 import sys
 import numpy as np
 from collections import OrderedDict
-from glob import iglob
+from glob import glob
 
 # Local imports
-from syncopy.shared.parsers import io_parser, json_parser, data_parser, filename_parser
+from syncopy.shared.parsers import io_parser, data_parser, filename_parser, array_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
 from syncopy.io import hash_file, FILE_EXT, startInfoDict
 import syncopy.datatype as spd
 
-
 __all__ = ["load"]
 
 
-def load(filename, checksum=False, out=None, mode="r+"):
+def load(filename, checksum=False, dataclass=None, mode="r+", out=None):
     """
     Docstring coming soon...
 
     """
 
+    # Ensure `filename` is either a valid .spy container or data file
     if not isinstance(filename, str):
-        raise SPYTypeError(filename, varname="in_name", expected="str")
+        raise SPYTypeError(filename, varname="filename", expected="str")
+    try:
+        fileInfo = filename_parser(filename)
+    except Exception as exc:
+        raise exc
     
+    # Avoid any misunderstandings here...
+    if not isinstance(checksum, bool):
+        raise SPYTypeError(checksum, varname="checksum", expected="bool")
+
+    # If `dataclass` was provided, format it for our needs (e.g. 'spike' -> ['.spike'])
+    if dataclass is not None:
+        if isinstance(dataclass, str):
+            dataclass = [dataclass]
+        try:
+            array_parser(dataclass, varname="dataclass", ntype=str)
+        except Exception as exc:
+            raise exc
+        dataclass = ["." + dclass if not dclass.startswith(".") else dclass \
+                    for dclass in dataclass]
+
+    # Abuse `AnalogData.mode`-setter to vet `mode`        
+    try:
+        spd.AnalogData().mode = mode
+    except Exception as exc:
+        raise exc
+        
+    # If `filename` points to a spy container, `glob` what's inside, otherwise just load
+    if fileInfo["filename"] is None:
+        
+        if dataclass is not None:
+            extensions = set(dataclass).intersection(FILE_EXT["data"])
+        else:
+            extensions = FILE_EXT["data"]
+        container = os.path.join(fileInfo["folder"], fileInfo["container"])
+        fileList = []
+        for ext in extensions:
+            fileList.extend(glob(os.path.join(container, "*" + ext)))
+        if len(fileList) == 0:
+            raise SPYIOError(container)
+        if len(fileList) == 1:
+            return _load(filename, checksum, mode, out)
+        if out is not None:
+            print("syncopy.load: WARNING >>> When loading multiple objects, " +\
+                  "the `out` keyword is ignored. <<< ")
+        objectDict = {}
+        for filename in fileList:
+            obj = _load(filename, checksum, mode)
+            objectDict[os.path.basename(obj.filename)] = obj
+        return objectDict
+    
+    else:
+    
+        if dataclass is not None:
+            if os.path.splitext(fileInfo["filename"])[1] not in dataclass:
+                lgl = "extension '" + "or '".join(dclass + "' " for dclass in dataclass)
+                raise SPYValueError(legal=lgl, varname="filename", 
+                                    actual=fileInfo["filename"])
+        return _load(filename, checksum, mode, out)
+    
+    
+def _load(filename, checksum, mode, out):
+    """
+    Local helper
+    """
+   
     fileInfo = filename_parser(filename)
-    
     hdfFile = os.path.join(fileInfo["folder"], fileInfo["filename"])
     jsonFile = hdfFile + FILE_EXT["info"]
     
@@ -77,7 +140,7 @@ def load(filename, checksum=False, out=None, mode="r+"):
                                 varname=os.path.basename(hdfFile),
                                 actual=hsh_msg.format(hsh=hsh))
 
-    # Parsing is done, create new or check provided container
+    # Parsing is done, create new or check provided object
     if out is not None:
         try:
             data_parser(out, varname="out", writable=True,

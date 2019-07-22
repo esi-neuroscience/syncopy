@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-22 10:39:20>
+# Last modification time: <2019-07-22 12:33:53>
 
 # Builtin/3rd party package imports
 import os
@@ -29,22 +29,23 @@ __all__ = ["save"]
 def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=100):
     """Save Syncopy data object to disk
 
-    The underlying array data object will stored in a HDF5 file, the metadata in
+    The underlying array data object is stored in a HDF5 file, the metadata in
     a JSON file. Both can be placed inside a Syncopy container, which is a
-    folder with a .spy extension.
+    regular directory with the extension '.spy'. 
 
     Parameters
     ----------
-    out : Syncopy data object         
+    out : Syncopy data object
+        Object to be stored on disk.    
     container : str
         Path to Syncopy container folder (\*.spy) to be used for saving. If 
-        omitted, a .spy extension will be added to the folder name.
+        omitted, a '.spy' extension will be added to the folder name.
     tag : str
         Tag to be appended to container basename
     filename :  str
         Explicit path to data file. This is only necessary if the data should
-        not be part of a container folder. An extension (\*.<dataclass>) will
-        be added if omitted. The `tag` argument is ignored.      
+        not be part of a container folder. An extension (\*.<dataclass>) is
+        added if omitted. The `tag` argument is ignored.      
     overwrite : bool
         If `True` an existing HDF5 file and its accompanying JSON file is 
         overwritten (without prompt). 
@@ -124,9 +125,14 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
                                                 dclass=out.__class__.__name__))
     dataFile = os.path.join(fileInfo["folder"], fileInfo["filename"])
     
-    # Prevent `out` from trying to re-create its own data file - simply flush, 
-    # otherwise run the whole gamut
+    # If `out` is to replace its own on-disk representation, be more careful
     if overwrite and dataFile == out.filename:
+        replace = True
+    else:
+        replace = False
+    
+    # Prevent `out` from trying to re-create its own data file
+    if replace:
         out.data.flush()
         h5f = out.data.file
         dat = out.data
@@ -154,7 +160,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
                 else:
                     raise SPYIOError(dataFile, exists=True)
         h5f = h5py.File(dataFile, mode="w")
-    
+        
         # Handle memory maps
         if isinstance(out.data, np.memmap) or out.data.__class__.__name__ == "VirtualData":
             # Given memory cap, compute how many data blocks can be grabbed
@@ -178,7 +184,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
     trl_arr = np.array(out.trialinfo)
     t0 = np.array(out.t0).reshape((out.t0.size, 1))
     trl_arr = np.hstack([out.sampleinfo, t0, trl_arr])
-    if overwrite:
+    if replace:
         trl[()] = trl_arr
         trl.flush()
     else:    
@@ -207,7 +213,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
             outDict["order"] = "F"
     else:
             outDict["order"] = "C"
-
+            
     for key in out._infoFileProperties:
         value = getattr(out, key)
         if isinstance(value, np.ndarray):
@@ -236,7 +242,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
                 h5f.attrs[key] = [outDict[key][0], "...", outDict[key][-1]]
     
     # Re-assign filename after saving (and remove source in case it came from `__storage__`)
-    if not overwrite:
+    if not replace:
         h5f.close()
         if __storage__ in out.filename:
             out.data.file.close()
