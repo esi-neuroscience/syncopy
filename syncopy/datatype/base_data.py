@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-22 14:30:58>
+# Last modification time: <2019-07-23 16:57:14>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -236,6 +236,8 @@ class BaseData(ABC):
             raise SPYTypeError(msg, varname="log", expected="str")
         prefix = "\n\n|=== {user:s}@{host:s}: {time:s} ===|\n\n\t{caller:s}"
         clr = sys._getframe().f_back.f_code.co_name
+        if clr.startswith("_") and not clr.startswith("__"):
+            clr = clr[1:]
         self._log += prefix.format(user=getpass.getuser(),
                                    host=socket.gethostname(),
                                    time=time.asctime(),

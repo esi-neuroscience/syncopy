@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-22 11:40:33>
+# Last modification time: <2019-07-23 15:21:54>
 
 # Builtin/3rd party package imports
 import os
@@ -597,13 +597,15 @@ def filename_parser(filename, is_in_valid_container=None):
 
     folder, filename = os.path.split(filename)
     container = folder.split(os.path.sep)[-1]
-    
-    if filename.count(".") > 2:
-        print(filename)
-        raise SPYError("Too many extensions in filename {fname}".format(filename.count(".")))
-
     basename, ext = os.path.splitext(filename)    
     
+    if filename.count(".") > 2:
+        raise SPYValueError(legal="single extension, found {}".format(filename.count(".")), 
+                            actual=filename, varname="filename")
+    if ext == spy.FILE_EXT["dir"] and basename.count(".") > 0:
+        raise SPYValueError(legal="no extension, found {}".format(basename.count(".")), 
+                            actual=basename, varname="container")
+        
     if ext == spy.FILE_EXT["info"]:
         filename = basename
         basename, ext = os.path.splitext(filename)

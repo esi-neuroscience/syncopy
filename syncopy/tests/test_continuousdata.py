@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:46:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-22 14:16:01>
+# Last modification time: <2019-07-23 15:51:38>
 
 import os
 import tempfile
@@ -13,6 +13,7 @@ import pytest
 import numpy as np
 from numpy.lib.format import open_memmap
 from syncopy.datatype import AnalogData, SpectralData, padding
+from syncopy.io import save, load
 from syncopy.datatype.base_data import VirtualData
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests.misc import generate_artifical_data, construct_spy_filename
@@ -98,18 +99,21 @@ class TestAnalogData():
             fname = os.path.join(tdir, "dummy")
 
             # basic but most important: ensure object integrity is preserved
+            checkAttr = ["channel", "data", "dimord", "sampleinfo", "samplerate", "trialinfo"]
             dummy = AnalogData(self.data, samplerate=1000)
             dummy.save(fname)
             filename = construct_spy_filename(fname, dummy)
             dummy2 = AnalogData(filename)
-            for attr in ["channel", "data", "dimord", "sampleinfo", "samplerate", "trialinfo"]:
+            for attr in checkAttr:
                 assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
-            # dummy3 = load(...)
-            # for attr... assert 
-            # save(dummy3, container=os.path.join(tdir, "ymmud"))
-            # dummy4 = load(container=os.path.join(tdir, "ymmud"))
-            # for attr... assert 
-            del dummy, dummy2  # avoid PermissionError in Windows
+            dummy3 = load(fname)
+            for attr in checkAttr:
+                assert np.array_equal(getattr(dummy3, attr), getattr(dummy, attr))
+            save(dummy3, container=os.path.join(tdir, "ymmud"))
+            dummy4 = load(os.path.join(tdir, "ymmud"))
+            for attr in checkAttr:
+                assert np.array_equal(getattr(dummy4, attr), getattr(dummy, attr))
+            del dummy, dummy2, dummy3, dummy4  # avoid PermissionError in Windows
             
             # save object hosting VirtualData
             np.save(fname + ".npy", self.data)
@@ -436,16 +440,24 @@ class TestSpectralData():
             fname = os.path.join(tdir, "dummy")
 
             # basic but most important: ensure object integrity is preserved
+            checkAttr = ["channel", "data", "dimord", "freq", "sampleinfo",
+                         "samplerate", "taper", "trialinfo"]
             dummy = SpectralData(self.data, samplerate=1000)
             dummy.save(fname)
             filename = construct_spy_filename(fname, dummy)
             dummy2 = SpectralData(filename)
-            for attr in ["channel", "data", "dimord", "freq", "sampleinfo",
-                         "samplerate", "taper", "trialinfo"]:
+            for attr in checkAttr:
                 assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
+            dummy3 = load(fname)
+            for attr in checkAttr:
+                assert np.array_equal(getattr(dummy3, attr), getattr(dummy, attr))
+            save(dummy3, container=os.path.join(tdir, "ymmud"))
+            dummy4 = load(os.path.join(tdir, "ymmud"))
+            for attr in checkAttr:
+                assert np.array_equal(getattr(dummy4, attr), getattr(dummy, attr))
+            del dummy, dummy2, dummy3, dummy4  # avoid PermissionError in Windows
 
             # ensure trialdefinition is saved and loaded correctly
-            del dummy, dummy2  # avoid PermissionError in Windows
             dummy = SpectralData(self.data, trialdefinition=self.trl, samplerate=1000)
             dummy.save(fname, overwrite=True)
             dummy2 = SpectralData(filename)

@@ -41,9 +41,7 @@ if __name__ == "__main__":
     from syncopy.specest import freqanalysis
     from syncopy.shared import esi_cluster_setup
 
-    # client = esi_cluster_setup(partition="DEV", mem_per_job="8GB",
-    #                            timeout=30)
-    client = dd.Client()
+    # client = dd.Client()
 
     # create uniform `cfg` for testing on SLURM
     cfg = StructDict()
@@ -52,6 +50,12 @@ if __name__ == "__main__":
     cfg.tapsmofrq = 9.3
     cfg.keeptrials = False
     artdata = generate_artifical_data(nTrials=5, nChannels=16, equidistant=True, inmemory=True)
+    
+    artdata.save('test', overwrite=True)
+    bdata = spy.load('test')
+    
+    sys.exit()
+    
     spec = freqanalysis(artdata, cfg)
     
 

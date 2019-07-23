@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-22 12:33:53>
+# Last modification time: <2019-07-23 17:29:19>
 
 # Builtin/3rd party package imports
 import os
@@ -192,11 +192,12 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
                                  maxshape=(None, trl_arr.shape[1]))
     
     # Write to log already here so that the entry can be exported to json
-    out.log = "Wrote files " + filename.format(ext=fileInfo["extension"] + "/info")
-
+    infoFile = dataFile + FILE_EXT["info"]
+    out.log = "Wrote files " + dataFile + "\n\t\t\t" + 2*" " + infoFile
+    
     # While we're at it, write cfg entries
     out.cfg = {"method": sys._getframe().f_code.co_name,
-               "files": filename.format(ext=fileInfo["extension"] + "/info")}
+               "files": [dataFile, infoFile]}
 
     # Assemble dict for JSON output: order things by their "readability"
     outDict = OrderedDict(startInfoDict)
@@ -251,7 +252,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
 
     # Compute checksum and finally write JSON (automatically overwrites existing)
     outDict["file_checksum"] = hash_file(dataFile)
-    infoFile = dataFile + FILE_EXT["info"]
+    
     with open(infoFile, 'w') as out_json:
         json.dump(outDict, out_json, indent=4)
 
@@ -291,6 +292,8 @@ def _dict_converter(dct, firstrun=True):
                 for el in value:
                     if isinstance(el, dict):
                         _dict_converter(el, firstrun=False)
+        elif isinstance(value, np.ndarray):
+            dct[key] = value.tolist()
         else:
             if hasattr(value, "item"):
                 value = value.item()

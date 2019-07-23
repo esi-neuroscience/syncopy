@@ -4,13 +4,16 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-18 14:21:52>
+# Last modification time: <2019-07-23 17:53:59>
 
+import os
+import tempfile
 import pytest
 import numpy as np
 import dask.distributed as dd
 from scipy import signal
 from syncopy.datatype import AnalogData
+from syncopy.io import load
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.tests.misc import generate_artifical_data, is_slurm_node
 
@@ -87,7 +90,7 @@ class TestComputationalRoutine():
         out = AnalogData()
         myfilter.compute(self.equidata, out)
         assert np.abs(out.data - self.orig).max() < self.tol
-
+        
         myfilter = LowPassFilter(self.b, self.a, keeptrials=False)
         myfilter.initialize(self.equidata)
         out = AnalogData()
@@ -106,6 +109,27 @@ class TestComputationalRoutine():
             out = AnalogData()
             myfilter.compute(nonequidata, out)
             assert out.data.shape[0] == np.diff(nonequidata.sampleinfo).sum()
+            
+    def test_sequential_saveload(self):
+        myfilter = LowPassFilter(self.b, self.a)
+        myfilter.initialize(self.equidata)
+        out = AnalogData()
+        myfilter.compute(self.equidata, out, log_dict={"a": self.a, "b": self.b})
+        assert set(["a", "b"]) == set(out.cfg.keys())
+        assert np.array_equal(out.cfg["a"], self.a)
+        assert np.array_equal(out.cfg["b"], self.b)
+        assert "lowpass" in out._log
+        
+        with tempfile.TemporaryDirectory() as tdir:
+            fname = os.path.join(tdir, "dummy")
+            out.save(fname)
+            dummy = load(fname)
+            assert "a" in dummy.cfg.keys()
+            assert "b" in dummy.cfg.keys()
+            assert np.array_equal(dummy.cfg["a"], self.a)
+            assert np.array_equal(dummy.cfg["b"], self.b)
+            assert np.abs(dummy.data - self.orig).max() < self.tol
+            del dummy
 
     @skip_without_slurm
     def test_parallel_equidistant(self, esicluster):
@@ -145,4 +169,33 @@ class TestComputationalRoutine():
                 for tk, trl in enumerate(out.trials):
                     assert trl.shape[0] == np.diff(nonequidata.sampleinfo[tk, :])
                 assert out.data.is_virtual == parallel_store
+        client.close()
+
+    @skip_without_slurm
+    def test_parallel_saveload(self, esicluster):
+        client = dd.Client(esicluster)
+        for parallel_store in [True, False]:
+            myfilter = LowPassFilter(self.b, self.a)
+            myfilter.initialize(self.equidata)
+            out = AnalogData()
+            myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store, 
+                             log_dict={"a": self.a, "b": self.b})
+            
+            assert set(["a", "b"]) == set(out.cfg.keys())
+            assert np.array_equal(out.cfg["a"], self.a)
+            assert np.array_equal(out.cfg["b"], self.b)
+            assert "lowpass" in out._log
+            
+            with tempfile.TemporaryDirectory() as tdir:
+                fname = os.path.join(tdir, "dummy")
+                out.save(fname)
+                dummy = load(fname)
+                assert "a" in dummy.cfg.keys()
+                assert "b" in dummy.cfg.keys()
+                assert np.array_equal(dummy.cfg["a"], self.a)
+                assert np.array_equal(dummy.cfg["b"], self.b)
+                assert np.abs(dummy.data - self.orig).max() < self.tol
+                assert not out.data.is_virtual
+                assert out.filename == dummy.filename
+                del out, dummy
         client.close()

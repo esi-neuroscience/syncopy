@@ -12,6 +12,7 @@ import time
 import pytest
 import numpy as np
 from syncopy.datatype import AnalogData, SpikeData, EventData
+from syncopy.io import save, load
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests.misc import construct_spy_filename
 
@@ -85,23 +86,29 @@ class TestSpikeData():
             fname = os.path.join(tdir, "dummy")
 
             # basic but most important: ensure object integrity is preserved
+            checkAttr = ["channel", "data", "dimord", "sampleinfo",
+                         "samplerate", "trialinfo", "unit"]
             dummy = SpikeData(self.data, samplerate=10)
             dummy.save(fname)
             filename = construct_spy_filename(fname, dummy)
             dummy2 = SpikeData(filename)
-            for attr in ["channel", "data", "dimord", "sampleinfo",
-                         "samplerate", "trialinfo", "unit"]:
+            for attr in checkAttr:
                 assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
-            del dummy2
+            dummy3 = load(fname)
+            for attr in checkAttr:
+                assert np.array_equal(getattr(dummy3, attr), getattr(dummy, attr))
+            save(dummy3, container=os.path.join(tdir, "ymmud"))
+            dummy4 = load(os.path.join(tdir, "ymmud"))
+            for attr in checkAttr:
+                assert np.array_equal(getattr(dummy4, attr), getattr(dummy, attr))
+            del dummy2, dummy3, dummy4  # avoid PermissionError in Windows
+            time.sleep(0.1)  # wait to kick-off garbage collection
 
             # overwrite existing container w/new data
             dummy.samplerate = 20
             dummy.save()
             dummy2 = SpikeData(filename=filename)
             assert dummy2.samplerate == 20
-            
-            import pdb; pdb.set_trace()
-            
             del dummy, dummy2
             
             # ensure trialdefinition is saved and loaded correctly
@@ -193,12 +200,21 @@ class TestEventData():
             fname = os.path.join(tdir, "dummy")
 
             # basic but most important: ensure object integrity is preserved
+            checkAttr = ["data", "dimord", "sampleinfo", "samplerate", "trialinfo"]
             dummy = EventData(self.data, samplerate=10)
             dummy.save(fname)
             filename = construct_spy_filename(fname, dummy)
             dummy2 = EventData(filename)
-            for attr in ["data", "dimord", "sampleinfo", "samplerate", "trialinfo"]:
+            for attr in checkAttr:
                 assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
+            dummy3 = load(fname)
+            for attr in checkAttr:
+                assert np.array_equal(getattr(dummy3, attr), getattr(dummy, attr))
+            save(dummy3, container=os.path.join(tdir, "ymmud"))
+            dummy4 = load(os.path.join(tdir, "ymmud"))
+            for attr in checkAttr:
+                assert np.array_equal(getattr(dummy4, attr), getattr(dummy, attr))
+            del dummy2, dummy3, dummy4  # avoid PermissionError in Windows
 
             # overwrite existing file w/new data
             dummy.samplerate = 20
@@ -206,6 +222,7 @@ class TestEventData():
             dummy2 = EventData(filename=filename)
             assert dummy2.samplerate == 20
             del dummy, dummy2
+            time.sleep(0.1)  # wait to kick-off garbage collection
 
             # ensure trialdefinition is saved and loaded correctly
             dummy = EventData(self.data, trialdefinition=self.trl, samplerate=10)

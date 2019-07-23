@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-05 16:22:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-22 13:52:17>
+# Last modification time: <2019-07-23 15:22:22>
 
 import os
 import platform
@@ -217,7 +217,7 @@ class TestFilenameParser():
             filename_parser("test")
 
     def test_with_info_ext(self):
-        fname = "sessionName_testTag.analog.info"         
+        fname = "sessionName_testTag.analog.info" 
         assert filename_parser(fname) == {
             "filename" : fname.replace(".info", ""),
             "container": None,
