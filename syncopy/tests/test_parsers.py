@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-05 16:22:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-23 15:22:22>
+# Last modification time: <2019-07-24 13:11:58>
 
 import os
 import platform
@@ -298,6 +298,7 @@ class TestDataParser():
         with pytest.raises(SPYValueError):
             data_parser(self.data, empty=False)
         self.data.data = np.ones((3, 10))
+        self.data.samplerate = 2
         data_parser(self.data, empty=False)
 
     def test_writable(self):

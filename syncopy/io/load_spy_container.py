@@ -86,7 +86,7 @@ def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None
     -----
     All of Syncopy's classes offer (limited) support for data loading upon object
     creation. Just as the class method ``.save`` can be used as a shortcut for
-    :func:`spy.save`, Syncopy objects can be created from Syncopy data-files 
+    :func:`syncopy.save`, Syncopy objects can be created from Syncopy data-files 
     upon creation, e.g., 
     
     >>> adata = spy.AnalogData('/path/to/session1.analog')
@@ -274,8 +274,7 @@ def _load(filename, checksum, mode, out):
     # Parsing is done, create new or check provided object
     if out is not None:
         try:
-            data_parser(out, varname="out", writable=True,
-                        dimord=jsonDict["dimord"], dataclass=jsonDict["dataclass"])
+            data_parser(out, varname="out", writable=True, dataclass=jsonDict["dataclass"])
         except Exception as exc:
             raise exc
         new_out = False

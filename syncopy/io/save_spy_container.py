@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-24 11:06:35>
+# Last modification time: <2019-07-24 12:11:33>
 
 # Builtin/3rd party package imports
 import os
@@ -39,7 +39,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
         Object to be stored on disk.    
     container : str
         Path to Syncopy container folder (\*.spy) to be used for saving. If 
-        omitted, a '.spy' extension will be added to the folder name.
+        omitted, the extension '.spy' will be added to the folder name.
     tag : str
         Tag to be appended to container basename
     filename :  str
@@ -51,7 +51,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
         overwritten (without prompt). 
     memuse : scalar 
         Approximate in-memory cache size (in MB) for writing data to disk
-        (only relevant for :class:`VirtualData` or memory map data sources)
+        (only relevant for :class:`syncopy.VirtualData` or memory map data sources)
         
     Returns
     -------
@@ -60,7 +60,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
     Notes
     ------
     Syncopy objects may also be saved using the class method ``.save`` that 
-    acts as a wrapper for ``spy.save``, e.g., 
+    acts as a wrapper for :func:`syncopy.save`, e.g., 
     
     >>> save(obj, container="new_spy_container")
     
@@ -83,14 +83,14 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
 
     Examples
     -------- 
-    Save the Syncopy data object `obj` on-disk in the current working directory
+    Save the Syncopy data object `obj` on disk in the current working directory
     without creating a spy-container
     
     >>> spy.save(obj, filename="session1")
     >>> # --> os.getcwd()/session1.<dataclass>
     >>> # --> os.getcwd()/session1.<dataclass>.info
     
-    Save `obj` on-disk without creating a spy-container using an absolute path
+    Save `obj` without creating a spy-container using an absolute path
 
     >>> spy.save(obj, filename="/tmp/session1")
     >>> # --> /tmp/session1.<dataclass>
@@ -111,8 +111,8 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
     Save `obj` in a new (or existing) spy-container under a different tag
     
     >>> spy.save(obj, container="session1.spy", tag="someTag")
-    >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>
-    >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>.info
+    >>> # --> os.getcwd()/session1.spy/session1_someTag.<dataclass>
+    >>> # --> os.getcwd()/session1.spy/session1_someTag.<dataclass>.info
 
     See also
     --------

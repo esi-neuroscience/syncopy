@@ -110,6 +110,7 @@ class TestSpikeData():
             dummy2 = SpikeData(filename=filename)
             assert dummy2.samplerate == 20
             del dummy, dummy2
+            time.sleep(0.1)  # wait to kick-off garbage collection
             
             # ensure trialdefinition is saved and loaded correctly
             dummy = SpikeData(self.data, trialdefinition=self.trl, samplerate=10)
@@ -119,6 +120,7 @@ class TestSpikeData():
             assert np.array_equal(dummy.t0, dummy2.t0)
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
             del dummy, dummy2
+            time.sleep(0.1)  # wait to kick-off garbage collection
 
             # swap dimensions and ensure `dimord` is preserved
             dummy = SpikeData(self.data, dimord=["unit", "channel", "sample"], samplerate=10)

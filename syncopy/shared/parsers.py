@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-23 15:21:54>
+# Last modification time: <2019-07-24 12:52:30>
 
 # Builtin/3rd party package imports
 import os
@@ -432,29 +432,29 @@ def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dim
 
     # Make sure `data` is (derived from) `BaseData`
     if not any(["BaseData" in str(base) for base in data.__class__.__mro__]):
-        raise SPYTypeError(data, varname=varname, expected="SynCoPy data object")
+        raise SPYTypeError(data, varname=varname, expected="Syncopy data object")
 
     # If requested, check specific data-class of object
     if dataclass is not None:
         if data.__class__.__name__ not in str(dataclass):
-            msg = "SynCoPy {} object".format(dataclass)
+            msg = "Syncopy {} object".format(dataclass)
             raise SPYTypeError(data, varname=varname, expected=msg)
 
     # If requested, ensure object contains data (or not)
     if empty is not None:
-        legal = "{status:s} SpkeWave data object"
-        if empty and data.data is not None:
+        legal = "{status:s} Syncopy data object"
+        if empty and (data.data is not None or data.samplerate is not None):
             raise SPYValueError(legal=legal.format(status="empty"),
                                 varname=varname,
                                 actual="non-empty")
-        elif not empty and data.data is None:
+        elif not empty and (data.data is None or data.samplerate is None):
             raise SPYValueError(legal=legal.format(status="non-empty"),
                                 varname=varname,
                                 actual="empty")
 
     # If requested, ensure proper access to object
     if writable is not None:
-        legal = "{access:s} to SynCoPy data object"
+        legal = "{access:s} to Syncopy data object"
         actual = "mode = {mode:s}"
         if writable and data.mode == "r":
             raise SPYValueError(legal=legal.format(access="write-access"),
@@ -466,9 +466,9 @@ def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dim
                                 actual=actual.format(mode=data.mode))
 
     # If requested, check integrity of dimensional information (if non-empty)
-    if dimord is not None and len(data.dimord):
-        base = "SynCoPy {diminfo:s} data object"
-        if not set(dimord).issubset(data.dimord):
+    if dimord is not None:
+        base = "Syncopy {diminfo:s} data object"
+        if data.dimord != dimord:
             legal = base.format(diminfo="'" + "' x '".join(str(dim) for dim in dimord) + "'")
             actual = base.format(diminfo="'" + "' x '".join(str(dim) for dim in data.dimord)
                                  + "' " if data.dimord else "empty")
