@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 14:21:12
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-23 17:10:07>
+# Last modification time: <2019-07-24 09:44:28>
 
 import os
 import tempfile
@@ -233,7 +233,7 @@ class TestSpyIO():
                 dummy3 = load(os.path.join(tdir, container2), tag="sometag")
                 for attr in ["data", "sampleinfo", "trialinfo"]:
                     assert np.array_equal(getattr(dummy2, attr), getattr(dummy3, attr))
-                del dummy2, dummy3
+                del dummy, dummy2, dummy3
                 
                 # tag mismatch in single-file container
                 with pytest.raises(SPYIOError):
@@ -314,7 +314,7 @@ class TestSpyIO():
             # load single file from joint container using multiple dataclasses and single tag
             dummy2 = load(os.path.join(tdir, container), dataclass=["analog", "spectral"], 
                           tag="3rdanalog")
-            assert dummy.filename == dummy.filename
+            assert dummy2.filename == dummy.filename
 
             # load single file from joint container using single dataclass and multiple tags
             dummy3 = load(os.path.join(tdir, container), dataclass="analog", 
@@ -400,6 +400,7 @@ class TestSpyIO():
                 inWanted = [tag in name for tag in wanted]
                 assert any(inWanted)
                 inWanted.pop(inWanted.index(True))
+            del obj, objDict
                 
             # invalid combinations of tag/dataclass
             with pytest.raises(SPYIOError):

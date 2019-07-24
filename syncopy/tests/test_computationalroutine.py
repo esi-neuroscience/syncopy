@@ -4,7 +4,7 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-23 17:53:59>
+# Last modification time: <2019-07-24 09:36:46>
 
 import os
 import tempfile
@@ -129,7 +129,7 @@ class TestComputationalRoutine():
             assert np.array_equal(dummy.cfg["a"], self.a)
             assert np.array_equal(dummy.cfg["b"], self.b)
             assert np.abs(dummy.data - self.orig).max() < self.tol
-            del dummy
+            del dummy, out
 
     @skip_without_slurm
     def test_parallel_equidistant(self, esicluster):

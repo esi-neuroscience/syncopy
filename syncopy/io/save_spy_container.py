@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-23 17:29:19>
+# Last modification time: <2019-07-24 11:06:35>
 
 # Builtin/3rd party package imports
 import os
@@ -52,29 +52,71 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
     memuse : scalar 
         Approximate in-memory cache size (in MB) for writing data to disk
         (only relevant for :class:`VirtualData` or memory map data sources)
+        
+    Returns
+    -------
+    Nothing : None
+    
+    Notes
+    ------
+    Syncopy objects may also be saved using the class method ``.save`` that 
+    acts as a wrapper for ``spy.save``, e.g., 
+    
+    >>> save(obj, container="new_spy_container")
+    
+    is equivalent to
+    
+    >>> obj.save(container="new_spy_container")
+    
+    However, once a Syncopy object has been saved, the class method ``.save``
+    can be used as a shortcut to quick-save recent changes, e.g., 
+    
+    >>> obj.save()
+    
+    writes the current state of `obj` to the data/meta-data files on-disk 
+    associated with `obj` (overwriting both in the process). Similarly, 
+    
+    >>> obj.save(tag='newtag')
+    
+    saves `obj` in the current container 'new_spy_container' under a different 
+    tag. 
 
     Examples
-    --------    
-    >>> save_spy(obj, filename="session1")
+    -------- 
+    Save the Syncopy data object `obj` on-disk in the current working directory
+    without creating a spy-container
+    
+    >>> spy.save(obj, filename="session1")
     >>> # --> os.getcwd()/session1.<dataclass>
     >>> # --> os.getcwd()/session1.<dataclass>.info
+    
+    Save `obj` on-disk without creating a spy-container using an absolute path
 
-    >>> save_spy(obj, filename="/tmp/session1")
+    >>> spy.save(obj, filename="/tmp/session1")
     >>> # --> /tmp/session1.<dataclass>
     >>> # --> /tmp/session1.<dataclass>.info
+    
+    Save `obj` in a new spy-container created in the current working directory
 
-    >>> save_spy(obj, container="container.spy")
+    >>> spy.save(obj, container="container.spy")
     >>> # --> os.getcwd()/container.spy/container.<dataclass>
     >>> # --> os.getcwd()/container.spy/container.<dataclass>.info
 
-    >>> save_spy(obj, container="/tmp/container.spy")
+    Save `obj` in a new spy-container created by providing an absolute path
+
+    >>> spy.save(obj, container="/tmp/container.spy")
     >>> # --> /tmp/container.spy/container.<dataclass>
     >>> # --> /tmp/container.spy/container.<dataclass>.info
 
-    >>> save_spy(obj, container="session1.spy", tag="someTag")
+    Save `obj` in a new (or existing) spy-container under a different tag
+    
+    >>> spy.save(obj, container="session1.spy", tag="someTag")
     >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>
     >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>.info
 
+    See also
+    --------
+    syncopy.load : load data created with :func:`syncopy.save`
     """
     
     # Make sure `out` is a valid Syncopy data object

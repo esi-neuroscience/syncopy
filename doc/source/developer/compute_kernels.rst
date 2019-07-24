@@ -1,5 +1,9 @@
 :orphan:
 
+.. contents::
+    Contents
+    :local:
+
 .. _cf: _stubs/syncopy.shared.computational_routine.ComputationalRoutine.html#syncopy.shared.computational_routine.ComputationalRoutine.computeFunction
 .. |cf|	replace:: :meth:`computeFunction`
 
