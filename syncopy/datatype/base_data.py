@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-19 09:52:54>
+# Last modification time: <2019-07-23 16:57:14>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -30,7 +30,7 @@ import shutil
 # Local imports
 from .data_methods import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser, io_parser, filename_parser
-from syncopy.shared.errors import SPYTypeError, SPYValueError
+from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
 from syncopy import __version__, __storage__, __dask__, __sessionid__
 if __dask__:
     import dask
@@ -62,7 +62,12 @@ class BaseData(ABC):
         if not isinstance(dct, dict):
             raise SPYTypeError(dct, varname="cfg", expected="dictionary-like object")
         self._cfg = self._set_cfg(self._cfg, dct)
-
+        
+    @property
+    def container(self):
+        if self.data is not None:
+            return filename_parser(self.filename)["container"]
+    
     @property
     def data(self):
         """array-like object representing data without trials"""
@@ -231,6 +236,8 @@ class BaseData(ABC):
             raise SPYTypeError(msg, varname="log", expected="str")
         prefix = "\n\n|=== {user:s}@{host:s}: {time:s} ===|\n\n\t{caller:s}"
         clr = sys._getframe().f_back.f_code.co_name
+        if clr.startswith("_") and not clr.startswith("__"):
+            clr = clr[1:]
         self._log += prefix.format(user=getpass.getuser(),
                                    host=socket.gethostname(),
                                    time=time.asctime(),
@@ -243,8 +250,12 @@ class BaseData(ABC):
 
         FIXME: append/replace with HDF5?
         """
-
         return self._mode
+    
+    @property
+    def tag(self):
+        if self.data is not None:
+            return filename_parser(self.filename)["tag"]
 
     @mode.setter
     def mode(self, md):
@@ -409,6 +420,8 @@ class BaseData(ABC):
     def save(self, container=None, tag=None, filename=None, overwrite=False, memuse=100):
         """Save data object as new ``spy`` HDF container to disk (:func:`syncopy.save_data`)
         
+        FIXME: update docu
+        
         Parameters
         ----------                    
             container : str
@@ -450,6 +463,22 @@ class BaseData(ABC):
         >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>.info
 
         """
+        
+        # Ensure `obj.save()` simply overwrites on-disk representation of object
+        if container is None and tag is None and filename is None:
+            if self.container is None:
+                raise SPYError("Cannot create spy container in temporary " +\
+                               "storage {} - please provide explicit path. ".format(__storage__))
+            overwrite = True
+            filename = self.filename
+            
+        # Support `obj.save(tag="newtag")`            
+        if container is None and filename is None:
+            if self.container is None:
+                raise SPYError("Object is not associated to an existing spy container - " +\
+                               "please save object first using an explicit path. ")
+            container = filename_parser(self.filename)["folder"]
+            
         spy.save(self, filename=filename, container=container, tag=tag, 
                  overwrite=overwrite, memuse=memuse)
 

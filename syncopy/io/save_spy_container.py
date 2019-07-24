@@ -3,8 +3,8 @@
 # Save SynCoPy data objects on disk
 # 
 # Created: 2019-02-05 13:12:58
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-07-20 14:48:57>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-07-24 12:11:33>
 
 # Builtin/3rd party package imports
 import os
@@ -29,51 +29,94 @@ __all__ = ["save"]
 def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=100):
     """Save Syncopy data object to disk
 
-    The underlying array data object will stored in a HDF5 file, the metadata in
+    The underlying array data object is stored in a HDF5 file, the metadata in
     a JSON file. Both can be placed inside a Syncopy container, which is a
-    folder with a .spy extension.
+    regular directory with the extension '.spy'. 
 
     Parameters
     ----------
-    out : Syncopy data object         
+    out : Syncopy data object
+        Object to be stored on disk.    
     container : str
         Path to Syncopy container folder (\*.spy) to be used for saving. If 
-        omitted, a .spy extension will be added to the folder name.
+        omitted, the extension '.spy' will be added to the folder name.
     tag : str
         Tag to be appended to container basename
     filename :  str
         Explicit path to data file. This is only necessary if the data should
-        not be part of a container folder. An extension (\*.<dataclass>) will
-        be added if omitted. The `tag` argument is ignored.      
+        not be part of a container folder. An extension (\*.<dataclass>) is
+        added if omitted. The `tag` argument is ignored.      
     overwrite : bool
         If `True` an existing HDF5 file and its accompanying JSON file is 
         overwritten (without prompt). 
     memuse : scalar 
         Approximate in-memory cache size (in MB) for writing data to disk
-        (only relevant for :class:`VirtualData` or memory map data sources)
+        (only relevant for :class:`syncopy.VirtualData` or memory map data sources)
+        
+    Returns
+    -------
+    Nothing : None
+    
+    Notes
+    ------
+    Syncopy objects may also be saved using the class method ``.save`` that 
+    acts as a wrapper for :func:`syncopy.save`, e.g., 
+    
+    >>> save(obj, container="new_spy_container")
+    
+    is equivalent to
+    
+    >>> obj.save(container="new_spy_container")
+    
+    However, once a Syncopy object has been saved, the class method ``.save``
+    can be used as a shortcut to quick-save recent changes, e.g., 
+    
+    >>> obj.save()
+    
+    writes the current state of `obj` to the data/meta-data files on-disk 
+    associated with `obj` (overwriting both in the process). Similarly, 
+    
+    >>> obj.save(tag='newtag')
+    
+    saves `obj` in the current container 'new_spy_container' under a different 
+    tag. 
 
     Examples
-    --------    
-    >>> save_spy(obj, filename="session1")
+    -------- 
+    Save the Syncopy data object `obj` on disk in the current working directory
+    without creating a spy-container
+    
+    >>> spy.save(obj, filename="session1")
     >>> # --> os.getcwd()/session1.<dataclass>
     >>> # --> os.getcwd()/session1.<dataclass>.info
+    
+    Save `obj` without creating a spy-container using an absolute path
 
-    >>> save_spy(obj, filename="/tmp/session1")
+    >>> spy.save(obj, filename="/tmp/session1")
     >>> # --> /tmp/session1.<dataclass>
     >>> # --> /tmp/session1.<dataclass>.info
+    
+    Save `obj` in a new spy-container created in the current working directory
 
-    >>> save_spy(obj, container="container.spy")
+    >>> spy.save(obj, container="container.spy")
     >>> # --> os.getcwd()/container.spy/container.<dataclass>
     >>> # --> os.getcwd()/container.spy/container.<dataclass>.info
 
-    >>> save_spy(obj, container="/tmp/container.spy")
+    Save `obj` in a new spy-container created by providing an absolute path
+
+    >>> spy.save(obj, container="/tmp/container.spy")
     >>> # --> /tmp/container.spy/container.<dataclass>
     >>> # --> /tmp/container.spy/container.<dataclass>.info
 
-    >>> save_spy(obj, container="session1.spy", tag="someTag")
-    >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>
-    >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>.info
+    Save `obj` in a new (or existing) spy-container under a different tag
+    
+    >>> spy.save(obj, container="session1.spy", tag="someTag")
+    >>> # --> os.getcwd()/session1.spy/session1_someTag.<dataclass>
+    >>> # --> os.getcwd()/session1.spy/session1_someTag.<dataclass>.info
 
+    See also
+    --------
+    syncopy.load : load data created with :func:`syncopy.save`
     """
     
     # Make sure `out` is a valid Syncopy data object
@@ -112,70 +155,91 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
         scalar_parser(memuse, varname="memuse", lims=[0, np.inf])
     except Exception as exc:
         raise exc
-
-    # parse filename for validity
-    fileInfo = filename_parser(filename)
     
+    if not isinstance(overwrite, bool):
+        raise SPYTypeError(overwrite, varname="overwrite", expected="bool")
+    
+    # Parse filename for validity and construct full path to HDF5 file
+    fileInfo = filename_parser(filename)
     if not fileInfo["extension"] == out._classname_to_extension():
         raise SPYError("""Extension in filename ({ext}) does not match data 
-                       class ({dclass})""".format(ext=fileInfo["extension"],
+                    class ({dclass})""".format(ext=fileInfo["extension"],
                                                 dclass=out.__class__.__name__))
-    
     dataFile = os.path.join(fileInfo["folder"], fileInfo["filename"])
-    if not os.path.exists(fileInfo["folder"]):
-        try:
-            os.makedirs(fileInfo["folder"])
-        except IOError:
-            raise SPYIOError(fileInfo["folder"])
-        except Exception as exc:
-            raise exc
+    
+    # If `out` is to replace its own on-disk representation, be more careful
+    if overwrite and dataFile == out.filename:
+        replace = True
     else:
-        if os.path.exists(dataFile):
-            if not os.path.isfile(dataFile):
-                raise SPYIOError(dataFile)
-            if overwrite:
-                try:
-                    os.unlink(dataFile)
-                except Exception as exc:
-                    msg = "Cannot overwrite {} - original error message below\n{}"
-                    raise SPYError(msg.format(dataFile, str(exc)))
-            else:
-                raise SPYIOError(dataFile, exists=True)
+        replace = False
     
-    # Start by creating fresh HDF5 container
-    h5f = h5py.File(dataFile, mode="w")
-    
-    # Handle memory maps
-    if isinstance(out.data, np.memmap) or out.data.__class__.__name__ == "VirtualData":
-        # Given memory cap, compute how many data blocks can be grabbed
-        # per swipe (divide by 2 since we're working with an add'l tmp array)
-        memuse *= 1024**2 / 2
-        nrow = int(memuse / (np.prod(out.data.shape[1:]) * out.data.dtype.itemsize))
-        rem = int(out.data.shape[0] % nrow)
-        n_blocks = [nrow] * int(out.data.shape[0] // nrow) + [rem] * int(rem > 0)
+    # Prevent `out` from trying to re-create its own data file
+    if replace:
+        out.data.flush()
+        h5f = out.data.file
+        dat = out.data
+        trl = h5f["trialdefinition"]
+    else:
+        if not os.path.exists(fileInfo["folder"]):
+            try:
+                os.makedirs(fileInfo["folder"])
+            except IOError:
+                raise SPYIOError(fileInfo["folder"])
+            except Exception as exc:
+                raise exc
+        else:
+            if os.path.exists(dataFile):
+                if not os.path.isfile(dataFile):
+                    raise SPYIOError(dataFile)
+                if overwrite:
+                    try:
+                        h5f = h5py.File(dataFile, mode="w")
+                        h5f.close()
+                    except Exception as exc:
+                        msg = "Cannot overwrite {} - file may still be open. "
+                        msg += "Original error message below\n{}"
+                        raise SPYError(msg.format(dataFile, str(exc)))
+                else:
+                    raise SPYIOError(dataFile, exists=True)
+        h5f = h5py.File(dataFile, mode="w")
+        
+        # Handle memory maps
+        if isinstance(out.data, np.memmap) or out.data.__class__.__name__ == "VirtualData":
+            # Given memory cap, compute how many data blocks can be grabbed
+            # per swipe (divide by 2 since we're working with an add'l tmp array)
+            memuse *= 1024**2 / 2
+            nrow = int(memuse / (np.prod(out.data.shape[1:]) * out.data.dtype.itemsize))
+            rem = int(out.data.shape[0] % nrow)
+            n_blocks = [nrow] * int(out.data.shape[0] // nrow) + [rem] * int(rem > 0)
 
-        # Write data block-wise to dataset (use `clear` to wipe blocks of
-        # mem-maps from memory)
-        dat = h5f.create_dataset(out.__class__.__name__,
-                                 dtype=out.data.dtype, shape=out.data.shape)
-        for m, M in enumerate(n_blocks):
-            dat[m * nrow: m * nrow + M, :] = out.data[m * nrow: m * nrow + M, :]
-            out.clear()
-    else:
-        dat = h5f.create_dataset(out.__class__.__name__, data=out.data)
+            # Write data block-wise to dataset (use `clear` to wipe blocks of
+            # mem-maps from memory)
+            dat = h5f.create_dataset(out.__class__.__name__,
+                                    dtype=out.data.dtype, shape=out.data.shape)
+            for m, M in enumerate(n_blocks):
+                dat[m * nrow: m * nrow + M, :] = out.data[m * nrow: m * nrow + M, :]
+                out.clear()
+        else:
+            dat = h5f.create_dataset(out.__class__.__name__, data=out.data)
 
     # Now write trial-related information
-    trl = np.array(out.trialinfo)
+    trl_arr = np.array(out.trialinfo)
     t0 = np.array(out.t0).reshape((out.t0.size, 1))
-    trl = np.hstack([out.sampleinfo, t0, trl])
-    trl = h5f.create_dataset("trialdefinition", data=trl)
-
+    trl_arr = np.hstack([out.sampleinfo, t0, trl_arr])
+    if replace:
+        trl[()] = trl_arr
+        trl.flush()
+    else:    
+        trl = h5f.create_dataset("trialdefinition", data=trl_arr, 
+                                 maxshape=(None, trl_arr.shape[1]))
+    
     # Write to log already here so that the entry can be exported to json
-    out.log = "Wrote files " + filename.format(ext=fileInfo["extension"] + "/info")
-
+    infoFile = dataFile + FILE_EXT["info"]
+    out.log = "Wrote files " + dataFile + "\n\t\t\t" + 2*" " + infoFile
+    
     # While we're at it, write cfg entries
     out.cfg = {"method": sys._getframe().f_code.co_name,
-               "files": filename.format(ext=fileInfo["extension"] + "/info")}
+               "files": [dataFile, infoFile]}
 
     # Assemble dict for JSON output: order things by their "readability"
     outDict = OrderedDict(startInfoDict)
@@ -192,8 +256,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
             outDict["order"] = "F"
     else:
             outDict["order"] = "C"
-        
-
+            
     for key in out._infoFileProperties:
         value = getattr(out, key)
         if isinstance(value, np.ndarray):
@@ -221,19 +284,17 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
                 print(msg.format(key, info_fle))
                 h5f.attrs[key] = [outDict[key][0], "...", outDict[key][-1]]
     
-
-    # Close the data file
-    h5f.close()
-
     # Re-assign filename after saving (and remove source in case it came from `__storage__`)
-    if __storage__ in out.filename:
-        out.data.file.close()
-        os.unlink(out.filename)
-    out.data = dataFile
+    if not replace:
+        h5f.close()
+        if __storage__ in out.filename:
+            out.data.file.close()
+            os.unlink(out.filename)
+        out.data = dataFile
 
-    # Compute checksum and finally write JSON
+    # Compute checksum and finally write JSON (automatically overwrites existing)
     outDict["file_checksum"] = hash_file(dataFile)
-    infoFile = dataFile + FILE_EXT["info"]
+    
     with open(infoFile, 'w') as out_json:
         json.dump(outDict, out_json, indent=4)
 
@@ -273,6 +334,8 @@ def _dict_converter(dct, firstrun=True):
                 for el in value:
                     if isinstance(el, dict):
                         _dict_converter(el, firstrun=False)
+        elif isinstance(value, np.ndarray):
+            dct[key] = value.tolist()
         else:
             if hasattr(value, "item"):
                 value = value.item()

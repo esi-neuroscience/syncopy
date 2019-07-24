@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-19 09:49:40>
+# Last modification time: <2019-07-24 13:00:57>
 
 # Builtin/3rd party package imports
 import numbers
@@ -385,9 +385,13 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
 
     # Start by vetting input object
     try:
-        data_parser(obj, varname="obj", writable=None, empty=False)
+        data_parser(obj, varname="obj")
     except Exception as exc:
         raise exc
+    if obj.data is None:
+        lgl = "non-empty Syncopy data object"
+        act = "empty Syncopy data object"
+        raise SPYValueError(legal=lgl, varname="obj", actual=act)
 
     # Check array/object holding trial specifications
     if trialdefinition is not None:
