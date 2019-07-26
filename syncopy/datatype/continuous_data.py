@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-19 09:49:21>
+# Last modification time: <2019-07-26 17:44:46>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -53,7 +53,7 @@ class ContinuousData(BaseData, ABC):
     @property
     def channel(self):
         """ :class:`numpy.ndarray` : list of recording channel names """
-        return self._dimlabels.get("channel")
+        return self._channel
 
     @channel.setter
     def channel(self, chan):
@@ -66,7 +66,7 @@ class ContinuousData(BaseData, ABC):
             array_parser(chan, varname="channel", ntype="str", dims=(nchan,))
         except Exception as exc:
             raise exc
-        self._dimlabels["channel"] = np.array(chan)
+        self._channel = np.array(chan)
 
     @property
     def samplerate(self):
@@ -292,7 +292,7 @@ class SpectralData(ContinuousData):
     
     @property
     def taper(self):
-        return self._dimlabels.get("taper")
+        return self._taper
 
     @taper.setter
     def taper(self, tpr):
@@ -305,12 +305,12 @@ class SpectralData(ContinuousData):
             array_parser(tpr, varname="taper", ntype="str", dims=(ntap,))
         except Exception as exc:
             raise exc
-        self._dimlabels["taper"] = np.array(tpr)
+        self._taper = np.array(tpr)
 
     @property
     def freq(self):
         """:class:`numpy.ndarray`: frequency axis in Hz """
-        return self._dimlabels.get("freq")
+        return self._freq
 
     @freq.setter
     def freq(self, freq):
@@ -323,7 +323,7 @@ class SpectralData(ContinuousData):
             array_parser(freq, varname="freq", dims=(nfreq,), hasnan=False, hasinf=False)
         except Exception as exc:
             raise exc
-        self._dimlabels["freq"] = np.array(freq)
+        self._freq = np.array(freq)
     
     # "Constructor"
     def __init__(self,

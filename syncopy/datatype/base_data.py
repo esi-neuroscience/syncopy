@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-23 16:57:14>
+# Last modification time: <2019-07-26 18:16:48>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -194,7 +194,7 @@ class BaseData(ABC):
 
         # In case we're working with a `DiscreteData` object, fill up samples
         if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
-            self._dimlabels["sample"] = np.unique(self.data[:,self.dimord.index("sample")])
+            self._sample = np.unique(self.data[:,self.dimord.index("sample")])
 
         # In case we're working with an `AnalogData` object, tentatively fill up channel labels
         if any(["ContinuousData" in str(base) for base in self.__class__.__mro__]):
@@ -203,13 +203,24 @@ class BaseData(ABC):
 
         # In case we're working with an `EventData` object, fill up eventid's
         if self.__class__.__name__ == "EventData":
-            self._dimlabels["eventid"] = np.unique(self.data[:,self.dimord.index("eventid")])
+            self._eventid = np.unique(self.data[:,self.dimord.index("eventid")])
 
     @property
     def dimord(self):
         """list(str): ordered list of data dimension labels"""
-        return list(self._dimlabels.keys())
+        return self._dimord
     
+    @dimord.setter
+    def dimord(self, dims):
+        if hasattr(self, "_dimord"):
+            print("Syncopy core - dimord: Cannot change `dimord` of object. " +\
+                  "Functionality currently not supported")
+        # Canonical way to perform initial allocation of dimensional properties 
+        # (`self._channel = None`, `self._freq = None` etc.)            
+        self._dimord = list(dims)
+        for dim in [dlabel for dlabel in dims if dlabel != "time"]:
+            setattr(self, "_" + dim, None)
+            
     @property
     def filename(self):
         # implicit support for multiple backing filenames: convert list to str
@@ -613,10 +624,9 @@ class BaseData(ABC):
         self._trialinfo = None
         self._filename = None
         
-        # Set up dimensional architecture
-        self._dimlabels = OrderedDict()
-        for dim in dimord:
-            self._dimlabels[dim] = None
+        # Set up dimensional architecture (`self._channel = None`, `self._freq = None` etc.)
+        # import pdb; pdb.set_trace()
+        self.dimord = dimord
 
         # Depending on contents of `filename` and `data` class instantiation invokes I/O routines
         if filename is not None:
