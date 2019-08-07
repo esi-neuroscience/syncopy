@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-19 09:49:21>
+# Last modification time: <2019-08-07 10:24:45>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -224,14 +224,11 @@ class AnalogData(ContinuousData):
 
         # The one thing we check right here and now
         expected = ["time", "channel"]
-        if not set(dimord).issubset(expected):
+        if not set(dimord) == set(expected):
             base = "dimensional labels {}"
             lgl = base.format("'" + "' x '".join(str(dim) for dim in expected) + "'")
             act = base.format("'" + "' x '".join(str(dim) for dim in dimord) + "'")
             raise SPYValueError(legal=lgl, varname="dimord", actual=act)
-
-        # Hard constraint: required no. of data-dimensions
-        self._ndim = 2
 
         # Assign default (blank) values
         self._hdr = None
@@ -339,14 +336,11 @@ class SpectralData(ContinuousData):
 
         # The one thing we check right here and now
         expected = ["time", "taper", "freq", "channel"]
-        if not set(dimord).issubset(expected):
+        if not set(dimord) == set(expected):
             base = "dimensional labels {}"
             lgl = base.format("'" + "' x '".join(str(dim) for dim in expected) + "'")
             act = base.format("'" + "' x '".join(str(dim) for dim in dimord) + "'")
             raise SPYValueError(legal=lgl, varname="dimord", actual=act)
-
-        # Hard constraint: required no. of data-dimensions
-        self._ndim = 4
 
         # Call parent initializer
         super().__init__(data=data,

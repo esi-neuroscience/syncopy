@@ -106,9 +106,6 @@ class DiscreteData(BaseData, ABC):
     # Make instantiation persistent in all subclasses
     def __init__(self, **kwargs):
 
-        # Hard constraint: required no. of data-dimensions
-        self._ndim = 2
-
         # Assign (default) values
         self._trialid = None
         if kwargs.get("samplerate") is not None:
