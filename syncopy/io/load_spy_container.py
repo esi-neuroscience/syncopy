@@ -284,7 +284,7 @@ def _load(filename, checksum, mode, out):
 
     # First and foremost, assign dimensional information
     dimord = jsonDict.pop("dimord")
-    out._dimlabels = OrderedDict(zip(dimord, [None] * len(dimord)))
+    out.dimord = dimord
 
     # Access data on disk (error checking is done by setters)
     out.mode = mode
