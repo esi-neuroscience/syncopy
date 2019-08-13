@@ -224,14 +224,11 @@ class AnalogData(ContinuousData):
 
         # The one thing we check right here and now
         expected = ["time", "channel"]
-        if not set(dimord).issubset(expected):
+        if not set(dimord) == set(expected):
             base = "dimensional labels {}"
             lgl = base.format("'" + "' x '".join(str(dim) for dim in expected) + "'")
             act = base.format("'" + "' x '".join(str(dim) for dim in dimord) + "'")
             raise SPYValueError(legal=lgl, varname="dimord", actual=act)
-
-        # Hard constraint: required no. of data-dimensions
-        self._ndim = 2
 
         # Assign default (blank) values
         self._hdr = None
@@ -339,14 +336,11 @@ class SpectralData(ContinuousData):
 
         # The one thing we check right here and now
         expected = ["time", "taper", "freq", "channel"]
-        if not set(dimord).issubset(expected):
+        if not set(dimord) == set(expected):
             base = "dimensional labels {}"
             lgl = base.format("'" + "' x '".join(str(dim) for dim in expected) + "'")
             act = base.format("'" + "' x '".join(str(dim) for dim in dimord) + "'")
             raise SPYValueError(legal=lgl, varname="dimord", actual=act)
-
-        # Hard constraint: required no. of data-dimensions
-        self._ndim = 4
 
         # Call parent initializer
         super().__init__(data=data,

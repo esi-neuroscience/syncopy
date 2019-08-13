@@ -49,7 +49,6 @@ class BaseData(ABC):
     _checksum_algorithm = spy.__checksum_algorithm__.__name__
     
     # Dummy allocations of class attributes that are actually initialized in subclasses
-    _ndim = None
     _mode = None
     
     @property
@@ -83,6 +82,13 @@ class BaseData(ABC):
     @data.setter
     def data(self, in_data):
 
+        # Dimension count is either determined by length of dimord or 2 in case
+        # of `EventData` or `SpikeData`
+        if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
+            ndim = 2
+        else:
+            ndim = len(self.dimord)
+                
         # If input is a string, try to load memmap/HDF5 dataset
         if isinstance(in_data, str):
             try:
@@ -140,8 +146,8 @@ class BaseData(ABC):
             else:
                 md = in_data.mode
                 fn = in_data.filename
-            if in_data.ndim != self._ndim:
-                lgl = "{}-dimensional data".format(self._ndim)
+            if in_data.ndim != ndim:
+                lgl = "{}-dimensional data".format(ndim)
                 act = "{}-dimensional HDF5 dataset or memmap".format(in_data.ndim)
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             self.mode = md
@@ -152,7 +158,7 @@ class BaseData(ABC):
         # or create backing container on disk
         elif isinstance(in_data, np.ndarray):
             try:
-                array_parser(in_data, varname="data", dims=self._ndim)
+                array_parser(in_data, varname="data", dims=ndim)
             except Exception as exc:
                 raise exc
             if isinstance(self._data, (np.memmap, h5py.Dataset)):
