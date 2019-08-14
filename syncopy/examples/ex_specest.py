@@ -41,23 +41,21 @@ if __name__ == "__main__":
     from syncopy.specest import freqanalysis
     from syncopy.shared import esi_cluster_setup
 
-    # client = dd.Client()
-
     # create uniform `cfg` for testing on SLURM
     cfg = StructDict()
     cfg.method = "mtmfft"
     cfg.taper = "dpss"
     cfg.tapsmofrq = 9.3
     cfg.keeptrials = False
-    artdata = generate_artifical_data(nTrials=5, nChannels=16, equidistant=True, inmemory=True)
+    artdata = generate_artifical_data(nTrials=5, nChannels=16, equidistant=False, inmemory=True)
     
-    artdata.save('test', overwrite=True)
-    bdata = spy.load('test')
+    # artdata.save('test', overwrite=True)
+    # bdata = spy.load('test')
     
-    sys.exit()
-    
+    client = dd.Client()
     spec = freqanalysis(artdata, cfg)
     
+    sys.exit()
 
     # # Constructe simple trigonometric signal to check FFT consistency: each
     # # channel is a sine wave of frequency `freqs[nchan]` with single unique

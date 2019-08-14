@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-24 12:52:30>
+# Last modification time: <2019-08-14 16:19:35>
 
 # Builtin/3rd party package imports
 import os
@@ -741,3 +741,40 @@ def unwrap_cfg(func):
         return func(*args, **kwargs)
 
     return wrapper_cfg
+
+
+def unwrap_io(func):
+    """
+    Decorator that unwraps cfg object in function call
+    """
+
+    @functools.wraps(func)
+    def wrapper_io(trl_dat, *args, **kwargs):
+        
+        if isinstance(trl_dat, np.ndarray):
+            return func(trl_dat, *args, **kwargs)
+        
+        else:
+            trialno = trl_dat["trialno"]
+            filename = trl_dat["infile"]
+            channels = trl_dat["channels"]
+            # re-factor the body of `_copy_trial` here...
+            dat = h5py.File(filename, "r")[dataset][idx]
+            outfname = os.path.join(vdsdir, "{0:d}.h5".format(trialno))
+            
+            with h5py.File(infname, "r") as h5in:
+                dat = h5in[dataset][idx]
+                res = func(trl_dat, *args, **kwargs)
+                
+            with h5py.File(outfname, "w") as h5out:
+                h5out.create_dataset('chk', data=res)
+                h5out.flush()
+            
+            
+            
+            
+            vdsir = trl_dat["vdsdir"]
+            # save `res` in `vdsdir` or use serialized writing
+            return None # result has already been written to disk
+    return wrapper_io
+

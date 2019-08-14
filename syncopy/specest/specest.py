@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-19 10:02:29>
+# Last modification time: <2019-08-14 15:35:15>
 
 # Builtin/3rd party package imports
 import sys
@@ -275,7 +275,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     # Perform actual computation
     specestMethod = methods[method]
-    specestMethod.initialize(data)
+    specestMethod.initialize(data, chanperworker=7) # FIXME: just for testing!
     specestMethod.compute(data, out, parallel=use_dask, log_dict=log_dct)
 
     # Either return newly created output container or simply quit
