@@ -4,13 +4,15 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-14 16:19:35>
+# Last modification time: <2019-08-15 17:52:50>
 
 # Builtin/3rd party package imports
 import os
 import numpy as np
 import numbers
 import functools
+import time
+import h5py
 from inspect import signature
 
 # Local imports
@@ -750,31 +752,91 @@ def unwrap_io(func):
 
     @functools.wraps(func)
     def wrapper_io(trl_dat, *args, **kwargs):
-        
+
+        # Input is a NumPy array, simply execute the wrapped function and return its result
         if isinstance(trl_dat, np.ndarray):
             return func(trl_dat, *args, **kwargs)
-        
-        else:
-            trialno = trl_dat["trialno"]
-            filename = trl_dat["infile"]
-            channels = trl_dat["channels"]
-            # re-factor the body of `_copy_trial` here...
-            dat = h5py.File(filename, "r")[dataset][idx]
-            outfname = os.path.join(vdsdir, "{0:d}.h5".format(trialno))
-            
-            with h5py.File(infname, "r") as h5in:
-                dat = h5in[dataset][idx]
-                res = func(trl_dat, *args, **kwargs)
-                
-            with h5py.File(outfname, "w") as h5out:
-                h5out.create_dataset('chk', data=res)
-                h5out.flush()
-            
-            
-            
-            
-            vdsir = trl_dat["vdsdir"]
-            # save `res` in `vdsdir` or use serialized writing
-            return None # result has already been written to disk
-    return wrapper_io
 
+        # The fun part: input is a dictionary holding components for parallelization        
+        else:
+            
+            # Extract all necessary quantities to load/compute/write
+            hdr = trl_dat["hdr"]
+            keeptrials = trl_dat["keeptrials"]
+            infilename = trl_dat["infile"]
+            indset = trl_dat["indset"]
+            ingrid = trl_dat["ingrid"]
+            vdsdir = trl_dat["vdsdir"]
+            outfilename = trl_dat["outfile"]
+            outdset = trl_dat["outdset"]
+            outgrid = trl_dat["outgrid"]
+            lock = trl_dat["lock"]
+            sleeptime = trl_dat["sleeptime"]
+            waitcount = trl_dat["waitcount"]
+
+            # STEP 1: Read data into memory
+            # Generic case: data is either a HDF5 dataset or memmap
+            if hdr is None:
+                try:
+                    with h5py.File(infilename, mode="r") as h5fin:
+                        arr = h5fin[indset][ingrid]
+                except:
+                    try:
+                        arr = np.array(open_memmap(infilename, mode="c")[ingrid])
+                    except:
+                        raise SPYIOError(infilename)
+                    
+            # For VirtualData objects
+            else:
+                dsets = []
+                for fk, fname in enumerate(infilename):
+                    dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
+                                        mode="r", dtype=hdr[fk]["dtype"],
+                                        shape=(hdr[fk]["M"], hdr[fk]["N"]))[ingrid])
+                arr = np.vstack(dsets)
+
+            # STEP 2: Perform computation
+            # Now, actually call wrapped function
+            res = func(arr, *args, **kwargs)
+            
+            dummy = os.path.splitext(os.path.split(outfilename)[1])[0]
+            np.save('res_parser{}'.format(dummy), res)
+            print(outdset)
+            print(outfilename)
+            print(keeptrials)
+            
+            with h5py.File('res_hdf{}.h5'.format(dummy), "w") as asdf:
+                asdf.create_dataset('asdf', data=res)
+            
+            # STEP 3: Write result to disk            
+            # Write result to stand-alone HDF file or use a mutex to write to a 
+            # single container (sequentially)
+            if vdsdir is not None:
+                with h5py.File(outfilename, "w") as h5fout:
+                    h5fout.create_dataset(outdset, data=res)
+                    h5fout.flush()
+            else:
+                counter = 0
+                lock.acquire()
+                while not lock.locked() and counter < waitcount:
+                    time.sleep(sleeptime)
+                    counter += 1
+                    
+                # Either (continue to) compute average or write current chunk
+                with h5py.File(outfilename, "r+") as h5fout:
+                    target = h5fout[outdset]
+                    if keeptrials:
+                        target[outgrid] = res    
+                    else:
+                        target[()] = np.nansum([target, res], axis=0)
+                    h5fout.flush()
+
+                counter = 0
+                lock.release()
+                while lock.locked() and counter < waitcount:
+                    time.sleep(sleeptime)
+                    counter += 1
+                    
+            return None # result has already been written to disk
+        
+    return wrapper_io

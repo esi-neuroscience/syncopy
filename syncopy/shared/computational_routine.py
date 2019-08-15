@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-14 16:13:15>
+# Last modification time: <2019-08-15 17:26:28>
 
 # Builtin/3rd party package imports
 import os
@@ -125,8 +125,9 @@ class ComputationalRoutine(ABC):
         self.argv = argv
         self.outputShape = None
         self.dtype = None
-        self.gridLayout = None
-        self.gridShapes = None
+        self.sourceLayout = None
+        self.targetLayout = None
+        self.targetShapes = None
         self.chunkMem = None
         self.vdsdir = None
         self.dsetname = None
@@ -156,28 +157,61 @@ class ComputationalRoutine(ABC):
         --------
         compute : core routine performing the actual computation
         """
-
-        # Get (full) output shape and dtype of processing first trial
+        
+        # Prepare dryrun arguments and determine geometry of trials in output
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
-        trial = data.trials[0]
-        chunkShape, dtype = self.computeFunction(trial,
-                                                 *self.argv,
-                                                 **dryRunKwargs)
-        self.dtype = np.dtype(dtype)
-        
+        chk_list = []
+        dtp_list = []
+        # trials = []  # FIXME: FauxTrial preps
+        for tk in range(len(data.trials)):
+            trial = data.trials[tk]  # FIXME: this HAS to be replaced w/_preview_trial calls...                
+            # trial = data._preview_trial(tk)
+            chunkShape, dtype = self.computeFunction(trial, 
+                                                     *self.argv, 
+                                                     **dryRunKwargs)
+            chk_list.append(list(chunkShape))
+            dtp_list.append(dtype)
+            # trials.append(trial)
+            
+        # The aggregate shape is computed as max across all chunks                    
+        chk_arr = np.array(chk_list)
+        if np.unique(chk_arr[:, 0]).size > 1 and not self.keeptrials:
+            err = "Averaging trials of unequal lengths in output currently not supported!"
+            raise NotImplementedError(err)
+        if np.any([dtp_list[0] != dtp for dtp in dtp_list]):
+            lgl = "unique output dtype"
+            act = "{} different output dtypes".format(np.unique(dtp_list).size)
+            raise SPYValueError(legal=lgl, varname="dtype", actual=act)
+        chunkShape = tuple(chk_arr.max(axis=0))
+        self.outputShape = (chk_arr[:, 0].sum(),) + chunkShape[1:]
+        self.cfg["chunkShape"] = chunkShape
+        self.dtype = np.dtype(dtp_list[0])
+
         # Ensure channel parallelization can be done at all
         if chanperworker is not None and "channel" not in data.dimord:
             print("Syncopy core - compute: WARNING >> input object does not " +\
                   "contain `channel` dimension for parallelization! <<")
             chanperworker = None
+        if chanperworker is not None and self.keeptrials is False:
+            print("Syncopy core - compute: WARNING >> trial-averaging does not " +\
+                  "support channel-block parallelization! <<")
+            chanperworker = None
             
         # Allocate control variables
         chk_list = [list(chunkShape)]
-        grd = [slice(None)] * len(chunkShape)
-        grd[0] = slice(0, chunkShape[0])
-        gridLayout = []
-        gridShapes = []
+        lyt = [slice(0, stop) for stop in chunkShape] 
+        geo = list(chunkShape) 
+        sourceLayout = []
+        targetLayout = []
+        targetShapes = []
+
+        # FIXME: will be obsolte w/FauxTrial
+        # >>> START
+        idx = [slice(None)] * len(data.dimord)  
+        sid = data.dimord.index("time")
+        trlslice = slice(int(data.sampleinfo[0, 0]), int(data.sampleinfo[0, 1]))
+        # >>> STOP
         
         # If parallelization across channels is requested the first trial is 
         # split up into several chunks that need to be processed/allocated
@@ -188,14 +222,17 @@ class ComputationalRoutine(ABC):
             rem = int(nChannels % chanperworker)        
             n_blocks = [chanperworker] * int(nChannels//chanperworker) + [rem] * int(rem > 0)        
             inchanidx = data.dimord.index("channel")
-            idx = [slice(None)] * len(data.dimord)  # FIXME: will be obsolte w/FauxTrial
             
             # Perform dry-run w/first channel-block of first trial to identify 
             # changes in output shape w.r.t. full-trial output (`chunkShape`)
-            idx[inchanidx] = slice(0, n_blocks[0])
-            # shp = list(trl.shape) # FIXME: FauxTrial preps
-            # shp[chanidx] = block
-            # trl.shape = tuple(shp)
+            idx[inchanidx] = slice(0, n_blocks[0])  # FIXME: will be obsolte w/FauxTrial
+            # shp = list(trial.shape) # FIXME: FauxTrial preps
+            # idx = list(trial.idx)
+            # shp[chanidx] = n_blocks[0]
+            # idx[chanidx] = slice(0, n_blocks[0])
+            # trial.shape = tuple(shp)
+            # trial.idx = tuple(idx)
+            # res, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs)
             res, _ = self.computeFunction(trial[tuple(idx)], *self.argv, **dryRunKwargs)
             outchan = [dim for dim in res if dim not in chunkShape]
             if len(outchan) != 1:
@@ -206,67 +243,94 @@ class ComputationalRoutine(ABC):
             
             # Get output chunks and grid indices for first trial
             chanstack = 0
+            blockstack = 0
             for block in n_blocks:
-                idx[inchanidx] = slice(0, block)
-                # shp = list(trl.shape) # FIXME: FauxTrial preps
-                # shp[inchanidx] = block
-                # trl.shape = tuple(shp)
+                idx[inchanidx] = slice(blockstack, blockstack + block)
                 res, _ = self.computeFunction(trial[tuple(idx)], 
                                                 *self.argv, **dryRunKwargs)
-                grd[outchanidx] = slice(chanstack, chanstack + res[outchanidx])
-                gridLayout.append(tuple(grd))
-                gridShapes.append(res)
+                # shp = list(trial.shape) # FIXME: FauxTrial preps
+                # idx = list(trial.idx)
+                # shp[inchanidx] = block
+                # idx[inchanidx] = slice(blockstack, blockstack + block)
+                # trial.shape = tuple(shp)
+                # trial.idx = tuple(idx)
+                # res, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs) # FauxTrial
+                refidx = list(idx)
+                refidx[sid] = trlslice
+                lyt[outchanidx] = slice(chanstack, chanstack + res[outchanidx])
+                geo[outchanidx] = block
+                targetLayout.append(tuple(lyt))
+                targetShapes.append(tuple(geo))
+                sourceLayout.append(tuple(refidx))
+                # sourceLayout.append(trial.idx) # FIXME: FauxTrial preps
                 chanstack += res[outchanidx]
+                blockstack += block
 
-        # Simple: all channels together, just take the entire trial
+        # Simple: consume all channels simultaneously, i.e., just take the entire trial
         else:
-            gridLayout.append(tuple(grd))
-            gridShapes.append(chunkShape)
+            targetLayout.append(tuple(lyt))
+            targetShapes.append(chunkShape)
+            # sourceLayout.append(trial.idx)  # FIXME: FauxTrial preps
+            # FIXME: will be obsolte w/FauxTrial
+            # >>> START
+            refidx = list(idx)
+            refidx[sid] = trlslice
+            sourceLayout.append(tuple(refidx))
+            # >>> STOP
             
         # Construct dimensional layout of output
         for tk in range(1, len(data.trials)):
             trial = data.trials[tk]
+            trlslice = slice(int(data.sampleinfo[tk, 0]), int(data.sampleinfo[tk, 1])) # FIXME: will be obsolte w/FauxTrial
             # trial = data._preview_trial(tk)   # FIXME: FauxTrial preps
             chkshp, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs)
-            chk_list.append(list(chkshp))
-            stacking = gridLayout[tk - 1][0].stop
-            grd[0] = slice(stacking, stacking + chkshp[0])
+            stacking = targetLayout[tk - 1][0].stop
+            lyt[0] = slice(stacking, stacking + chkshp[0])
             if chanperworker is None:
-                gridLayout.append(tuple(grd))
-                gridShapes.append(chkshp)
+                targetLayout.append(tuple(lyt))
+                targetShapes.append(chunkShape)
+                # sourceLayout.append(trial.idx)  # FIXME: FauxTrial preps
+                # FIXME: will be obsolte w/FauxTrial
+                # >>> START
+                refidx = list(idx)
+                refidx[sid] = trlslice
+                sourceLayout.append(tuple(refidx))
+                # >>> STOP
             else:
                 chanstack = 0
+                blockstack = 0
                 for block in n_blocks:
-                    idx[inchanidx] = slice(0, block)
-                    # shp = list(trl.shape) # FIXME: FauxTrial preps
-                    # shp[chanidx] = block
-                    # trl.shape = tuple(shp)
+                    idx[inchanidx] = slice(blockstack, blockstack + block)
                     res, _ = self.computeFunction(trial[tuple(idx)], 
                                                   *self.argv, **dryRunKwargs)
-                    grd[outchanidx] = slice(chanstack, chanstack + res[outchanidx])
-                    gridLayout.append(tuple(grd))
-                    gridShapes.append(res)
+                    # shp = list(trial.shape) # FIXME: FauxTrial preps
+                    # idx = list(trial.idx)
+                    # shp[inchanidx] = block
+                    # idx[inchanidx] = slice(blockstack, blockstack + block)
+                    # trial.shape = tuple(shp)
+                    # trial.idx = tuple(idx)
+                    # res, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs) # FauxTrial
+                    refidx = list(idx)
+                    refidx[sid] = trlslice
+                    lyt[outchanidx] = slice(chanstack, chanstack + res[outchanidx])
+                    geo[outchanidx] = block
+                    targetLayout.append(tuple(lyt))
+                    targetShapes.append(tuple(geo))
+                    sourceLayout.append(tuple(refidx))
+                    # sourceLayout.append(trial.idx) # FIXME: FauxTrial preps
                     chanstack += res[outchanidx]
-                    
-        # Compute output chunk-shape individually to identify varying dimension(s). 
-        # The aggregate shape is computed as max across all chunks                    
-        chk_arr = np.array(chk_list)
-        if np.unique(chk_arr[:, 0]).size > 1 and not self.keeptrials:
-            err = "Averaging trials of unequal lengths in output currently not supported!"
-            raise NotImplementedError(err)
-        chunkShape = tuple(chk_arr.max(axis=0))
+                    blockstack += block
         
         # Store determined shapes and grid layout
-        self.outputShape = (chk_arr[:, 0].sum(),) + chunkShape[1:]
-        self.cfg["chunkShape"] = chunkShape
-        self.gridLayout = gridLayout
-        self.gridShapes = gridShapes
+        self.sourceLayout = sourceLayout
+        self.targetLayout = targetLayout
+        self.targetShapes = targetShapes
         
         # Compute max. memory footprint of chunks
         if chanperworker is None:
             self.chunkMem = np.prod(self.cfg["chunkShape"]) * self.dtype.itemsize
         else:
-            self.chunkMem = max([np.prod(shp) for shp in self.gridShapes]) * self.dtype.itemsize
+            self.chunkMem = max([np.prod(shp) for shp in self.targetShapes]) * self.dtype.itemsize
         
         # # FIXME
         # list(zip(np.cumsum(arr) - arr, np.cumsum(arr)))
@@ -292,8 +356,7 @@ class ComputationalRoutine(ABC):
 
         # # Assign computed chunkshape to cfg dict
         # self.cfg["chunkShape"] = chunkShape
-        
-        import ipdb; ipdb.set_trace()
+        # import ipdb; ipdb.set_trace()
 
         # Get data access mode (only relevant for parallel reading access)
         self.datamode = data.mode
@@ -391,6 +454,12 @@ class ComputationalRoutine(ABC):
         # By default, use VDS storage for parallel computing
         if parallel_store is None:
             parallel_store = parallel
+            
+        # Do not spill trials on disk if they're supposed to be removed anyway
+        if parallel_store and not self.keeptrials:
+            print("Syncopy core - compute: WARNING >> trial-averaging only " +\
+                  "supports sequential writing! <<")
+            parallel_store = False
 
         # Concurrent processing requires some additional prep-work...
         if parallel:
@@ -432,7 +501,7 @@ class ComputationalRoutine(ABC):
 
         # Create HDF5 dataset of appropriate dimension
         self.preallocate_output(out, parallel_store=parallel_store)
-
+        
         # The `method` keyword can be used to override the `parallel` flag
         if method is None:
             if parallel:
@@ -443,13 +512,13 @@ class ComputationalRoutine(ABC):
             computeMethod = getattr(self, "compute_" + method, None)
 
         # Perform actual computation
-        result = computeMethod(data, out)
+        computeMethod(data, out)
 
-        # If computing is done in parallel, save distributed array and
-        # reset data access mode
-        if parallel:
-            self.save_distributed(result, out, parallel_store)
-            data.mode = self.datamode
+        # # If computing is done in parallel, save distributed array and
+        # # reset data access mode
+        # if parallel:
+        #     self.save_distributed(result, out, parallel_store)
+        #     data.mode = self.datamode
 
         # Attach computed results to output object
         out.data = h5py.File(out.filename, mode="r+")[self.dsetname]
@@ -485,12 +554,6 @@ class ComputationalRoutine(ABC):
         # The output object's type determines dataset name for result
         self.dsetname = out.__class__.__name__
 
-        # The shape of the target depends on trial-averaging
-        if not self.keeptrials:
-            shp = self.cfg["chunkShape"]
-        else:
-            shp = self.outputShape
-
         # In case parallel writing via VDS storage is requested, prepare
         # directory for by-chunk HDF5 containers and construct virutal HDF layout
         if parallel_store:
@@ -498,19 +561,25 @@ class ComputationalRoutine(ABC):
             self.vdsdir = os.path.join(__storage__, vdsdir)
             os.mkdir(self.vdsdir)
             
-            layout = h5py.VirtualLayout(shape=shp, dtype=self.dtype)
-            for k, idx in enumerate(self.gridLayout):
+            layout = h5py.VirtualLayout(shape=self.outputShape, dtype=self.dtype)
+            for k, idx in enumerate(self.targetLayout):
                 fname = os.path.join(self.vdsdir, "{0:d}.h5".format(k))
-                layout[idx] = h5py.VirtualSource(fname, "chk", shape=self.gridShapes[k])
+                layout[idx] = h5py.VirtualSource(fname, "chk", shape=self.targetShapes[k])
             self.vdslayout = layout
 
         # Create regular HDF5 dataset for sequential writing
         else:
+            
+            # The shape of the target depends on trial-averaging
+            if not self.keeptrials:
+                shp = self.cfg["chunkShape"]
+            else:
+                shp = self.outputShape
             with h5py.File(out.filename, mode="w") as h5f:
                 h5f.create_dataset(name=self.dsetname,
                                    dtype=self.dtype, shape=shp)
 
-    def compute_parallel(self, data, out):
+    def compute_parallel(self, data, out, timeout=300):
         """
         Concurrent computing kernel
 
@@ -520,6 +589,9 @@ class ComputationalRoutine(ABC):
            Syncopy data object to be processed
         out : syncopy data object
            Empty object for holding results
+        timeout : int
+           Number of seconds to wait for saving-mutex to be acquired (only relevant in case
+           of sequential writing of results, i.e., ``parallel_store = False``)
 
         Returns
         -------
@@ -545,96 +617,163 @@ class ComputationalRoutine(ABC):
         compute_sequential : serial processing counterpart of this method
         """
 
-        # Either stack trials along a new axis (inserted on "the left")
-        # or stack along first dimension
-        if len(out.dimord) > len(data.dimord):
-            stacking = da.stack
-        else:
-            stacking = da.vstack
-
         # Ensure `data` is openend read-only to permit concurrent reading access
         data.mode = "r"
-
-        # Depending on equidistance of trials use dask arrays directly...
-        if np.all([data._shapes[0] == sh for sh in data._shapes]):
-
-            # Point to trials on disk by using delayed **static** method calls
-            lazy_trial = dask.delayed(data._copy_trial, traverse=False)
-            lazy_trls = [lazy_trial(trialno,
-                                    data.filename,
-                                    data.dimord,
-                                    data.sampleinfo,
-                                    data.hdr)
-                         for trialno in range(len(data.trials))]
-
-            # Stack trials along new (3rd) axis inserted on the left
-            trl_block = stacking([da.from_delayed(trl, shape=data._shapes[sk],
-                                                  dtype=data.data.dtype)
-                                  for sk, trl in enumerate(lazy_trls)])
-
-            # If result of computation has diverging chunk dimension, account for that:
-            # chunkdiff > 0 : result is higher-dimensional
-            # chunkdiff < 0 : result is lower-dimensional (!!!COMPLETELY UNTESTED!!!)
-            # chunkdiff = 0 : result has identical dimension
-            chunkdiff = len(self.cfg["chunkShape"]) - len(trl_block.chunksize)
-            if chunkdiff > 0:
-                mbkwargs = {"new_axis": list(range(chunkdiff))}
-            elif chunkdiff < 0:
-                mbkwargs = {"drop_axis": list(range(chunkdiff))}
-            else:
-                mbkwargs = {}
-
-            # Use `map_blocks` to perform computation for each trial in the
-            # constructed dask array
-            result = trl_block.map_blocks(self.computeFunction,
-                                          *self.argv, **self.cfg,
-                                          dtype=self.dtype,
-                                          chunks=self.cfg["chunkShape"],
-                                          **mbkwargs)
-            
-            # Re-arrange dimensional order
-            result = result.reshape(self.outputShape)
-
-            
-
-            # If wanted, average across trials (AnalogData are the only objects
-            # that do not stack trials along a distinct time dimension...)
-            if not self.keeptrials:
-                if self.dsetname == "AnalogData":
-                    result = result.reshape(len(data.trials), *self.cfg["chunkShape"]).mean(axis=0)
-                else:
-                    result = result.mean(axis=0, keepdims=True)
-
-        # ...or work w/bags to account for diverging trial dimensions
-        else:
-
-            # Construct bag of trials
-            trl_bag = db.from_sequence([trialno for trialno in
-                                        range(len(data.trials))]).map(data._copy_trial,
-                                                                      data.filename,
-                                                                      data.dimord,
-                                                                      data.sampleinfo,
-                                                                      data.hdr)
-
-            # Map each element of the bag onto ``computeFunction`` to get a new bag
-            res_bag = trl_bag.map(self.computeFunction, *self.argv, **self.cfg)
-
-            # The "result bag" contains elements of appropriate dimension that
-            # can be stacked into a dask array again
-            result = stacking([rbag for rbag in res_bag])
-
-            # Re-arrange dimensional order
-            result = result.reshape(self.outputShape)
-
-            # FIXME: Placeholder
-            if not self.keeptrials:
-                pass
-
-
-        # Submit the array to be processed by the worker swarm
-        result = result.persist()
         
-        return result
+        # Depending on chosen processing paradigm, get settings or assign defaults
+        hdr = None
+        if hasattr(data, "hdr"):
+            hdr = data.hdr
+
+        # Write chunks concurrently
+        if self.vdsdir is not None:
+            outfilename = os.path.join(self.vdsdir, "{0:d}.h5")
+            outdsetname = "chk"
+            lock = None
+            waitcount = None
+
+        # Write chunks sequentially            
+        else:
+            outfilename = out.filename
+            outdsetname = self.dsetname
+            lock = dd.lock.Lock(name='writer_lock')
+            waitcount = int(np.round(timeout/self.sleeptime))
+            
+        # Construct a dask bag with all necessary components for parallelization
+        bag = db.from_sequence([{"hdr": hdr,
+                                 "keeptrials": self.keeptrials, 
+                                 "infile": data.filename,
+                                 "indset": data.data.name,
+                                 "ingrid": self.sourceLayout[chk],
+                                 "vdsdir": self.vdsdir,
+                                 "outfile": outfilename.format(chk),
+                                 "outdset": outdsetname,
+                                 "outgrid": self.targetLayout[chk],
+                                 "lock": lock,
+                                 "sleeptime": self.sleeptime,
+                                 "waitcount": waitcount} for chk in range(len(self.sourceLayout))]) 
+        
+        # Map all components (channel-trial-blocks) onto `computeFunction`
+        results = bag.map(self.computeFunction, *self.argv, **self.cfg)
+        
+        # Make sure that all futures are executed (i.e., data is actually written)
+        futures = dd.client.futures_of(results.persist())
+        while any(f.status == 'pending' for f in futures):
+            time.sleep(self.sleeptime)
+            
+        # import ipdb; ipdb.set_trace()
+        # layout = h5py.VirtualLayout(shape=self.outputShape, dtype=self.dtype)
+        # layout2 = h5py.VirtualLayout(shape=self.outputShape, dtype=self.dtype)
+        # for k, idx in enumerate(self.targetLayout):
+        #     fname = os.path.join(self.vdsdir, "{0:d}.h5".format(k))
+        #     with h5py.File(fname, "r") as h5f:
+        #         shp = h5f["chk"].shape
+        #         print(shp)
+        #     print(self.targetShapes[k])
+        #     layout[idx] = h5py.VirtualSource(fname, "chk", shape=self.targetShapes[k])
+        #     layout2[idx] = h5py.VirtualSource(fname, "chk", shape=shp)
+        # h5f = h5py.File(out.filename, mode="w")
+        # # h5f.create_virtual_dataset(self.dsetname, layout)
+            
+        # When writing concurrently, now's the time to finally create the virtual dataset
+        if self.vdsdir is not None:
+            with h5py.File(out.filename, mode="w") as h5f:
+                h5f.create_virtual_dataset(self.dsetname, self.vdslayout)
+        # import ipdb; ipdb.set_trace()
+                
+        # If trials-averagin was requested, normalize computed sum to get mean
+        if self.keeptrials:
+            with h5py.File(out.filename, mode="r+") as h5f:
+                h5f[self.dsetname][()] /= len(data.trials)
+                h5f.flush()
+        
+        # Reset data access mode
+        data.mode = self.datamode
+        
+        return 
+                
+        # # bag = db.from_sequence([{"trialno": trialno, "infile": data.filename, ... } for trialno in range(len(data.trials))]) 
+
+        # # Depending on equidistance of trials use dask arrays directly...
+        # if np.all([data._shapes[0] == sh for sh in data._shapes]):
+
+        #     # Point to trials on disk by using delayed **static** method calls
+        #     lazy_trial = dask.delayed(data._copy_trial, traverse=False)
+        #     lazy_trls = [lazy_trial(trialno,
+        #                             data.filename,
+        #                             data.dimord,
+        #                             data.sampleinfo,
+        #                             data.hdr)
+        #                  for trialno in range(len(data.trials))]
+
+        #     # Stack trials along new (3rd) axis inserted on the left
+        #     trl_block = stacking([da.from_delayed(trl, shape=data._shapes[sk],
+        #                                           dtype=data.data.dtype)
+        #                           for sk, trl in enumerate(lazy_trls)])
+
+        #     # If result of computation has diverging chunk dimension, account for that:
+        #     # chunkdiff > 0 : result is higher-dimensional
+        #     # chunkdiff < 0 : result is lower-dimensional (!!!COMPLETELY UNTESTED!!!)
+        #     # chunkdiff = 0 : result has identical dimension
+        #     chunkdiff = len(self.cfg["chunkShape"]) - len(trl_block.chunksize)
+        #     if chunkdiff > 0:
+        #         mbkwargs = {"new_axis": list(range(chunkdiff))}
+        #     elif chunkdiff < 0:
+        #         mbkwargs = {"drop_axis": list(range(chunkdiff))}
+        #     else:
+        #         mbkwargs = {}
+
+        #     # Use `map_blocks` to perform computation for each trial in the
+        #     # constructed dask array
+        #     result = trl_block.map_blocks(self.computeFunction,
+        #                                   *self.argv, **self.cfg,
+        #                                   dtype=self.dtype,
+        #                                   chunks=self.cfg["chunkShape"],
+        #                                   **mbkwargs)
+            
+        #     # Re-arrange dimensional order
+        #     result = result.reshape(self.outputShape)
+
+            
+
+        #     # If wanted, average across trials (AnalogData are the only objects
+        #     # that do not stack trials along a distinct time dimension...)
+        #     if not self.keeptrials:
+        #         if self.dsetname == "AnalogData":
+        #             result = result.reshape(len(data.trials), *self.cfg["chunkShape"]).mean(axis=0)
+        #         else:
+        #             result = result.mean(axis=0, keepdims=True)
+
+        # # ...or work w/bags to account for diverging trial dimensions
+        # else:
+
+        #     # Construct bag of trials
+        #     trl_bag = db.from_sequence([trialno for trialno in
+        #                                 range(len(data.trials))]).map(data._copy_trial,
+        #                                                               data.filename,
+        #                                                               data.dimord,
+        #                                                               data.sampleinfo,
+        #                                                               data.hdr)
+
+        #     # Map each element of the bag onto ``computeFunction`` to get a new bag
+        #     res_bag = trl_bag.map(self.computeFunction, *self.argv, **self.cfg)
+
+        #     # The "result bag" contains elements of appropriate dimension that
+        #     # can be stacked into a dask array again
+        #     result = stacking([rbag for rbag in res_bag])
+
+        #     # Re-arrange dimensional order
+        #     result = result.reshape(self.outputShape)
+
+        #     # FIXME: Placeholder
+        #     if not self.keeptrials:
+        #         pass
+
+
+        # # Submit the array to be processed by the worker swarm
+        # result = result.persist()
+        
+        # return result
 
     def compute_sequential(self, data, out):
         """
@@ -677,10 +816,11 @@ class ComputationalRoutine(ABC):
             cnt = 0
             idx = [slice(None)] * len(dset.shape)
             if self.keeptrials:
-                for trl in tqdm(data.trials,desc="Computing..."):
+                for trl in tqdm(data.trials, desc="Computing..."):
                     res = self.computeFunction(trl,
                                                *self.argv,
                                                **self.cfg)
+                    np.save('res{}'.format(cnt), res)
                     idx[0] = slice(cnt, cnt + res.shape[0])
                     dset[tuple(idx)] = res
                     cnt += res.shape[0]
