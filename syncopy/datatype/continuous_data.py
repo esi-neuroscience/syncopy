@@ -3,8 +3,8 @@
 # SynCoPy ContinuousData abstract class + regular children
 # 
 # Created: 2019-03-20 11:11:44
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-26 17:44:46>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-08-27 11:41:00>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -85,7 +85,7 @@ class ContinuousData(BaseData, ABC):
     def time(self):
         """list(float): trigger-relative time axes of each trial """
         if self.samplerate is not None and self._sampleinfo is not None:
-            return [np.arange(-self.t0[tk], end - start - self.t0[tk]) * 1/self.samplerate \
+            return [np.arange(self.t0[tk], end - start - self.t0[tk]) * 1/self.samplerate \
                     for tk, (start, end) in enumerate(self.sampleinfo)]
 
     # Selector method
