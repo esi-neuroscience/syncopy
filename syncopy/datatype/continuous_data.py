@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-08-27 11:41:00>
+# Last modification time: <2019-08-27 11:45:03>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -76,7 +76,7 @@ class ContinuousData(BaseData, ABC):
     @samplerate.setter
     def samplerate(self, sr):
         try:
-            scalar_parser(sr, varname="samplerate", lims=[1, np.inf])
+            scalar_parser(sr, varname="samplerate", lims=[np.finfo('float').eps, np.inf])
         except Exception as exc:
             raise exc
         self._samplerate = float(sr)
