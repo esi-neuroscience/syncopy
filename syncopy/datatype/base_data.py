@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-26 18:16:48>
+# Last modification time: <2019-08-28 15:52:59>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -631,7 +631,6 @@ class BaseData(ABC):
         self._filename = None
         
         # Set up dimensional architecture (`self._channel = None`, `self._freq = None` etc.)
-        # import pdb; pdb.set_trace()
         self.dimord = dimord
 
         # Depending on contents of `filename` and `data` class instantiation invokes I/O routines

@@ -46,7 +46,7 @@ if __name__ == "__main__":
     cfg.taper = "dpss"
     cfg.output = 'abs'
     cfg.tapsmofrq = 9.3
-    cfg.keeptrials = True
+    cfg.keeptrials = False
     artdata = generate_artifical_data(nTrials=2, nChannels=16, equidistant=True, inmemory=True)
     
     # artdata.save('test', overwrite=True)

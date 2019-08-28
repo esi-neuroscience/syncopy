@@ -208,10 +208,11 @@ class TestMTMFFT():
             gc.collect()  # force-garbage-collect object so that tempdir can be closed
 
     @skip_without_slurm
-    def test_slurm(self, esicluster):
+    def test_slurm(self):
         # collect all tests of current class and repeat them using dask
-        # (skip VirtualData tests since ``_copy_trial`` expects valid headers)
-        client = dd.Client(esicluster)
+        # (skip VirtualData tests since ``wrapper_io`` expects valid headers)
+        client = dd.Client()
+        # client = dd.Client(esicluster)
         all_tests = [attr for attr in self.__dir__()
                      if (inspect.ismethod(getattr(self, attr)) and attr != "test_slurm")]
         all_tests.remove("test_vdata")
@@ -223,13 +224,22 @@ class TestMTMFFT():
         cfg.method = "mtmfft"
         cfg.taper = "dpss"
         cfg.tapsmofrq = 9.3
+        
+        # no. of HDF5 files that will make up virtual data-set in case of channel-chunking
+        chanPerWrkr = 7
+        nFiles = self.nTrials * (int(self.nChannels/chanPerWrkr) \
+            + int(self.nChannels % chanPerWrkr > 0))
 
         # simplest case: equidistant trial spacing, all in memory
-        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                          inmemory=True)
-        spec = freqanalysis(artdata, cfg)
-        assert spec.data.is_virtual
-        assert len(spec.data.virtual_sources()) == self.nTrials
+        fileCount = [self.nTrials, nFiles]
+        for k, chan_per_worker in enumerate([None, chanPerWrkr]):
+            artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                            inmemory=True)
+            cfg.chan_per_worker = chan_per_worker
+            spec = freqanalysis(artdata, cfg)
+            assert spec.data.is_virtual
+            assert len(spec.data.virtual_sources()) == fileCount[k]
+        cfg.chan_per_worker = None
 
         # non-equidistant trial spacing
         artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,

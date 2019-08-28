@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-15 17:52:50>
+# Last modification time: <2019-08-28 15:52:28>
 
 # Builtin/3rd party package imports
 import os
@@ -747,17 +747,18 @@ def unwrap_cfg(func):
 
 def unwrap_io(func):
     """
-    Decorator that unwraps cfg object in function call
+    Decorator that handles parallel execution of 
+    :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     """
 
     @functools.wraps(func)
     def wrapper_io(trl_dat, *args, **kwargs):
 
-        # Input is a NumPy array, simply execute the wrapped function and return its result
+        # `trl_dat` is a NumPy array: execute the wrapped function and return its result
         if isinstance(trl_dat, np.ndarray):
             return func(trl_dat, *args, **kwargs)
 
-        # The fun part: input is a dictionary holding components for parallelization        
+        # The fun part: `trl_dat` is a dictionary holding components for parallelization        
         else:
             
             # Extract all necessary quantities to load/compute/write
@@ -774,7 +775,7 @@ def unwrap_io(func):
             sleeptime = trl_dat["sleeptime"]
             waitcount = trl_dat["waitcount"]
 
-            # STEP 1: Read data into memory
+            # === STEP 1 === read data into memory
             # Generic case: data is either a HDF5 dataset or memmap
             if hdr is None:
                 try:
@@ -795,20 +796,11 @@ def unwrap_io(func):
                                         shape=(hdr[fk]["M"], hdr[fk]["N"]))[ingrid])
                 arr = np.vstack(dsets)
 
-            # STEP 2: Perform computation
+            # === STEP 2 === perform computation
             # Now, actually call wrapped function
             res = func(arr, *args, **kwargs)
             
-            dummy = os.path.splitext(os.path.split(outfilename)[1])[0]
-            np.save('res_parser{}'.format(dummy), res)
-            print(outdset)
-            print(outfilename)
-            print(keeptrials)
-            
-            with h5py.File('res_hdf{}.h5'.format(dummy), "w") as asdf:
-                asdf.create_dataset('asdf', data=res)
-            
-            # STEP 3: Write result to disk            
+            # === STEP 3 === write result to disk
             # Write result to stand-alone HDF file or use a mutex to write to a 
             # single container (sequentially)
             if vdsdir is not None:

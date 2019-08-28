@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-15 16:18:52>
+# Last modification time: <2019-08-28 17:18:18>
 
 # Builtin/3rd party package imports
 import sys
@@ -52,7 +52,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                  padlength=None, polyremoval=False, polyorder=None,
                  taper="hann", tapsmofrq=None, keeptapers=True,
                  wav="Morlet", toi=0.1, width=6,
-                 out=None, **kwargs):
+                 out=None, chan_per_worker=None, **kwargs):
     """
     Explain taperopt...
     Explain default of toi (value b/w 0 and 1 indicating percentage of samplerate
@@ -275,8 +275,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     # Perform actual computation
     specestMethod = methods[method]
-    specestMethod.initialize(data, chanperworker=None) # FIXME: just for testing!
-    # specestMethod.initialize(data, chanperworker=7) # FIXME: just for testing!
+    specestMethod.initialize(data, chan_per_worker=chan_per_worker)
     specestMethod.compute(data, out, parallel=use_dask, log_dict=log_dct)
 
     # Either return newly created output container or simply quit
