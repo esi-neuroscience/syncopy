@@ -82,5 +82,5 @@ __all__.extend(datatype.__all__)
 __all__.extend(io.__all__)
 __all__.extend(shared.__all__)
 __all__.extend(specest.__all__)
-__all__.extend([__version__, __dask__, __storage__, __storagelimit__,
-                __session__, __sessionid__, __tbcount__])
+# __all__.extend([__version__, __dask__, __storage__, __storagelimit__,
+#                 __session__, __sessionid__, __tbcount__])

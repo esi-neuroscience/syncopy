@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-28 17:18:18>
+# Last modification time: <2019-08-29 16:23:06>
 
 # Builtin/3rd party package imports
 import sys
@@ -267,10 +267,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     }
 
     # Detect if dask client is running and set `parallel` keyword accordingly
-    try:
-        dd.get_client()
-        use_dask = True
-    except ValueError:
+    if __dask__:
+        try:
+            dd.get_client()
+            use_dask = True
+        except ValueError:
+            use_dask = False
+    else:
         use_dask = False
 
     # Perform actual computation

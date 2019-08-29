@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-22 12:38:16
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-19 09:51:18>
+# Last modification time: <2019-08-29 15:46:00>
 
 # Builtin/3rd party package imports
 import os
@@ -14,9 +14,6 @@ import subprocess
 import getpass
 import time
 import numpy as np
-from dask_jobqueue import SLURMCluster
-from dask.distributed import Client, get_client
-from datetime import datetime, timedelta
 from tqdm import tqdm
 if sys.platform == "win32":
     # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
@@ -25,9 +22,14 @@ if sys.platform == "win32":
     colorama.init(strip=False)
 
 # Local imports
+from syncopy import __dask__
 from syncopy.shared.parsers import scalar_parser, io_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError
 from syncopy.shared.queries import user_input
+if __dask__:
+    from dask_jobqueue import SLURMCluster
+    from dask.distributed import Client, get_client
+    from datetime import datetime, timedelta
 
 __all__ = ["esi_cluster_setup", "cluster_cleanup"]
 

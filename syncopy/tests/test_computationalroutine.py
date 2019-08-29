@@ -4,24 +4,25 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-29 11:37:02>
+# Last modification time: <2019-08-29 16:12:20>
 
 import os
 import tempfile
 import pytest
 import numpy as np
-import dask.distributed as dd
 from glob import glob
 from scipy import signal
+from syncopy import __dask__
+if __dask__:
+    import dask.distributed as dd
 from syncopy.datatype import AnalogData
 from syncopy.io import load
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.parsers import unwrap_io
-from syncopy.tests.misc import generate_artifical_data, is_slurm_node
+from syncopy.tests.misc import generate_artifical_data
 
-# Decorator to run SLURM tests only on cluster nodes
-skip_without_slurm = pytest.mark.skipif(not is_slurm_node(),
-                                        reason="not running on cluster node")
+# Decorator to decide whether or not to run dask-related tests
+skip_without_dask = pytest.mark.skipif(not __dask__, reason="dask not available")
 
 
 @unwrap_io
@@ -138,9 +139,9 @@ class TestComputationalRoutine():
             assert np.abs(dummy.data - self.orig).max() < self.tol
             del dummy, out
 
-    @skip_without_slurm
-    def test_parallel_equidistant(self, esicluster):
-        client = dd.Client(esicluster)
+    @skip_without_dask
+    def test_parallel_equidistant(self, testcluster):
+        client = dd.Client(testcluster)
         for parallel_store in [True, False]:
             for chan_per_worker in [None, self.chanPerWrkr]:
                 myfilter = LowPassFilter(self.b, self.a)
@@ -164,9 +165,9 @@ class TestComputationalRoutine():
                 assert out.data.is_virtual == False
         client.close()
     
-    @skip_without_slurm
-    def test_parallel_nonequidistant(self, esicluster):
-        client = dd.Client(esicluster)
+    @skip_without_dask
+    def test_parallel_nonequidistant(self, testcluster):
+        client = dd.Client(testcluster)
         for overlapping in [False, True]:
             nonequidata = generate_artifical_data(nTrials=self.nTrials,
                                                     nChannels=self.nChannels,
@@ -191,9 +192,9 @@ class TestComputationalRoutine():
                             assert nfiles == self.nFiles
         client.close()
 
-    @skip_without_slurm
-    def test_parallel_saveload(self, esicluster):
-        client = dd.Client(esicluster)
+    @skip_without_dask
+    def test_parallel_saveload(self, testcluster):
+        client = dd.Client(testcluster)
         for parallel_store in [True, False]:
             myfilter = LowPassFilter(self.b, self.a)
             myfilter.initialize(self.equidata)

@@ -12,17 +12,18 @@ import inspect
 import gc
 import pytest
 import numpy as np
-import dask.distributed as dd
 from numpy.lib.format import open_memmap
+from syncopy import __dask__
+if __dask__:
+    import dask.distributed as dd
 from syncopy.datatype import AnalogData, SpectralData, StructDict, padding
 from syncopy.datatype.base_data import VirtualData
 from syncopy.shared.errors import SPYValueError
 from syncopy.specest import freqanalysis
-from syncopy.tests.misc import generate_artifical_data, is_slurm_node
+from syncopy.tests.misc import generate_artifical_data
 
-# Decorator to run SLURM tests only on cluster nodes
-skip_without_slurm = pytest.mark.skipif(not is_slurm_node(),
-                                        reason="not running on cluster node")
+# Decorator to decide whether or not to run dask-related tests
+skip_without_dask = pytest.mark.skipif(not __dask__, reason="dask not available")
 
 
 class TestMTMFFT():
@@ -207,13 +208,13 @@ class TestMTMFFT():
             del avdata, vdata, dmap, spec
             gc.collect()  # force-garbage-collect object so that tempdir can be closed
 
-    @skip_without_slurm
-    def test_slurm(self, esicluster):
+    @skip_without_dask
+    def test_parallel(self, testcluster):
         # collect all tests of current class and repeat them using dask
         # (skip VirtualData tests since ``wrapper_io`` expects valid headers)
-        client = dd.Client(esicluster)
+        client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and attr != "test_slurm")]
+                     if (inspect.ismethod(getattr(self, attr)) and attr != "test_parallel")]
         all_tests.remove("test_vdata")
         for test in all_tests:
             getattr(self, test)()

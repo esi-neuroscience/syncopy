@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-29 11:03:16>
+# Last modification time: <2019-08-29 14:12:49>
 
 # Builtin/3rd party package imports
 import os
@@ -792,8 +792,9 @@ def unwrap_io(func):
     @functools.wraps(func)
     def wrapper_io(trl_dat, *args, **kwargs):
 
-        # `trl_dat` is a NumPy array: execute the wrapped function and return its result
-        if isinstance(trl_dat, np.ndarray):
+        # `trl_dat` is a NumPy array or `FauxTrial` object: execute the wrapped 
+        # function and return its result
+        if not isinstance(trl_dat, dict):
             return func(trl_dat, *args, **kwargs)
 
         # The fun part: `trl_dat` is a dictionary holding components for parallelization        
