@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-26 17:44:46>
+# Last modification time: <2019-08-29 11:10:16>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -98,6 +98,9 @@ class ContinuousData(BaseData, ABC):
     # Helper function that reads a single trial into memory
     @staticmethod
     def _copy_trial(trialno, filename, dimord, sampleinfo, hdr):
+        """
+        # FIXME: currently unused - check back to see if we need this functionality
+        """
         idx = [slice(None)] * len(dimord)
         idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
         idx = tuple(idx)

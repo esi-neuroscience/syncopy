@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-28 15:52:28>
+# Last modification time: <2019-08-29 11:03:16>
 
 # Builtin/3rd party package imports
 import os
@@ -749,6 +749,44 @@ def unwrap_io(func):
     """
     Decorator that handles parallel execution of 
     :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    
+    Parameters
+    ----------
+    func : callable
+        A Syncopy :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+        
+    Returns
+    -------
+    out : tuple or :class:`numpy.ndarray` if executed sequentially
+        Return value of :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+        (depending on value of `noCompute`, see 
+        :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+        for details)
+    Nothing : None if executed concurrently
+        If parallel workers are running concurrently, the first positional input 
+        argument is a dictionary (assembled by 
+        :meth:`syncopy.shared.computational_routine.ComputationalRoutine.compute_parallel`)
+        that holds the paths and dataset indices of HDF5 files for reading source 
+        data and writing results. 
+    
+    Notes
+    -----
+    Parallel execution supports two writing modes: concurrent storage of results
+    in multiple HDF5 files or sequential writing of array blocks in a single 
+    output HDF5 file. In both situations, the output array returned by 
+    :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    is immediately written to disk and **not** propagated back to the caller to 
+    avoid inter-worker network communication. 
+    
+    In case of parallel writing, trial-channel blocks are stored in individual 
+    HDF5 containers (virtual sources) that are consolidated into a single 
+    :class:`h5py.VirtualLayout` which is subsequently used to allocate a virtual 
+    dataset inside a newly created HDF5 file (located in Syncopy's temporary 
+    storage folder). 
+
+    Conversely, in case of sequential writing, each resulting array is written 
+    sequentially to an existing single output HDF5 file using  a distributed mutex 
+    for access control to prevent write collisions. 
     """
 
     @functools.wraps(func)

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-28 17:13:35>
+# Last modification time: <2019-08-29 11:37:02>
 
 import os
 import tempfile
@@ -140,8 +140,7 @@ class TestComputationalRoutine():
 
     @skip_without_slurm
     def test_parallel_equidistant(self, esicluster):
-        # client = dd.Client(esicluster)
-        client = dd.Client()
+        client = dd.Client(esicluster)
         for parallel_store in [True, False]:
             for chan_per_worker in [None, self.chanPerWrkr]:
                 myfilter = LowPassFilter(self.b, self.a)
@@ -167,8 +166,7 @@ class TestComputationalRoutine():
     
     @skip_without_slurm
     def test_parallel_nonequidistant(self, esicluster):
-        # client = dd.Client(esicluster)
-        client = dd.Client()
+        client = dd.Client(esicluster)
         for overlapping in [False, True]:
             nonequidata = generate_artifical_data(nTrials=self.nTrials,
                                                     nChannels=self.nChannels,
@@ -195,8 +193,7 @@ class TestComputationalRoutine():
 
     @skip_without_slurm
     def test_parallel_saveload(self, esicluster):
-        # client = dd.Client(esicluster)
-        client = dd.Client()
+        client = dd.Client(esicluster)
         for parallel_store in [True, False]:
             myfilter = LowPassFilter(self.b, self.a)
             myfilter.initialize(self.equidata)

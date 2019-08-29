@@ -208,11 +208,10 @@ class TestMTMFFT():
             gc.collect()  # force-garbage-collect object so that tempdir can be closed
 
     @skip_without_slurm
-    def test_slurm(self):
+    def test_slurm(self, esicluster):
         # collect all tests of current class and repeat them using dask
         # (skip VirtualData tests since ``wrapper_io`` expects valid headers)
-        client = dd.Client()
-        # client = dd.Client(esicluster)
+        client = dd.Client(esicluster)
         all_tests = [attr for attr in self.__dir__()
                      if (inspect.ismethod(getattr(self, attr)) and attr != "test_slurm")]
         all_tests.remove("test_vdata")
@@ -239,50 +238,42 @@ class TestMTMFFT():
             spec = freqanalysis(artdata, cfg)
             assert spec.data.is_virtual
             assert len(spec.data.virtual_sources()) == fileCount[k]
-        cfg.chan_per_worker = None
 
-        # non-equidistant trial spacing
-        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                          inmemory=True, equidistant=False)
-        spec = freqanalysis(artdata, cfg)
-        timeAxis = artdata.dimord.index("time")
-        mintrlno = np.diff(artdata.sampleinfo).argmin()
-        tmp = padding(artdata.trials[mintrlno], "zero", spec.cfg.pad,
-                      spec.cfg.padlength, prepadlength=True)
-        assert spec.freq.size == int(np.floor(tmp.shape[timeAxis] / 2) + 1)
-
-        # equidistant trial spacing average tapers
-        cfg.output = "abs"
-        cfg.keeptapers = False
-        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                          inmemory=False)
-        spec = freqanalysis(artdata, cfg)
-        assert spec.taper.size == 1
-
-        # equidistant trial spacing average trials
-        cfg.output = "abs"
-        cfg.keeptapers = True
-        cfg.keeptrials = False
-        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                          inmemory=False)
-        spec = freqanalysis(artdata, cfg)
-        assert len(spec.trials) == 1
+            # non-equidistant trial spacing
+            artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                            inmemory=True, equidistant=False)
+            spec = freqanalysis(artdata, cfg)
+            timeAxis = artdata.dimord.index("time")
+            mintrlno = np.diff(artdata.sampleinfo).argmin()
+            tmp = padding(artdata.trials[mintrlno], "zero", spec.cfg.pad,
+                        spec.cfg.padlength, prepadlength=True)
+            assert spec.freq.size == int(np.floor(tmp.shape[timeAxis] / 2) + 1)
+                
+            # equidistant trial spacing average tapers
+            cfg.output = "abs"
+            cfg.keeptapers = False
+            artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                            inmemory=False)
+            spec = freqanalysis(artdata, cfg)
+            assert spec.taper.size == 1
 
         # non-equidistant, overlapping trial spacing, throw away trials and tapers
         cfg.keeptapers = False
         cfg.keeptrials = "no"
-        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                          inmemory=False, equidistant=False,
-                                          overlapping=True)
-        spec = freqanalysis(artdata, cfg)
-        timeAxis = artdata.dimord.index("time")
-        mintrlno = np.diff(artdata.sampleinfo).argmin()
-        tmp = padding(artdata.trials[mintrlno], "zero", spec.cfg.pad,
-                      spec.cfg.padlength, prepadlength=True)
-        assert spec.freq.size == int(np.floor(tmp.shape[timeAxis] / 2) + 1)
-        assert spec.taper.size == 1
-        assert len(spec.time) == 1
-        assert len(spec.time[0]) == 1
+        for k, chan_per_worker in enumerate([None, chanPerWrkr]):
+            artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                            inmemory=False, equidistant=False,
+                                            overlapping=True)
+            spec = freqanalysis(artdata, cfg)
+            timeAxis = artdata.dimord.index("time")
+            mintrlno = np.diff(artdata.sampleinfo).argmin()
+            tmp = padding(artdata.trials[mintrlno], "zero", spec.cfg.pad,
+                        spec.cfg.padlength, prepadlength=True)
+            assert spec.freq.size == int(np.floor(tmp.shape[timeAxis] / 2) + 1)
+            assert spec.taper.size == 1
+            assert len(spec.time) == 1
+            assert len(spec.time[0]) == 1
+
         client.close()
 
     # FIXME: check polyorder/polyremoval once supported
