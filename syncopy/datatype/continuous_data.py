@@ -76,7 +76,7 @@ class ContinuousData(BaseData, ABC):
     @samplerate.setter
     def samplerate(self, sr):
         try:
-            scalar_parser(sr, varname="samplerate", lims=[1, np.inf])
+            scalar_parser(sr, varname="samplerate", lims=[np.finfo('float').eps, np.inf])
         except Exception as exc:
             raise exc
         self._samplerate = float(sr)
@@ -85,7 +85,7 @@ class ContinuousData(BaseData, ABC):
     def time(self):
         """list(float): trigger-relative time axes of each trial """
         if self.samplerate is not None and self._sampleinfo is not None:
-            return [np.arange(-self.t0[tk], end - start - self.t0[tk]) * 1/self.samplerate \
+            return [np.arange(self.t0[tk], end - start - self.t0[tk]) * 1/self.samplerate \
                     for tk, (start, end) in enumerate(self.sampleinfo)]
 
     # Selector method
