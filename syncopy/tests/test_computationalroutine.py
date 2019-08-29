@@ -4,25 +4,27 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-24 09:36:46>
+# Last modification time: <2019-08-29 11:37:02>
 
 import os
 import tempfile
 import pytest
 import numpy as np
 import dask.distributed as dd
+from glob import glob
 from scipy import signal
 from syncopy.datatype import AnalogData
 from syncopy.io import load
 from syncopy.shared.computational_routine import ComputationalRoutine
+from syncopy.shared.parsers import unwrap_io
 from syncopy.tests.misc import generate_artifical_data, is_slurm_node
-
 
 # Decorator to run SLURM tests only on cluster nodes
 skip_without_slurm = pytest.mark.skipif(not is_slurm_node(),
                                         reason="not running on cluster node")
 
 
+@unwrap_io
 def lowpass(arr, b, a, noCompute=None, chunkShape=None):
     if noCompute:
         return arr.shape, arr.dtype
@@ -82,6 +84,11 @@ class TestComputationalRoutine():
     # Create reference AnalogData object with equidistant trial spacing
     equidata = AnalogData(data=sig, samplerate=fs, trialdefinition=trl,
                           dimord=["time", "channel"])
+    
+    # For parallel computation w/concurrent writing: predict no. of generated 
+    # HDF5 files that will make up virtual data-set in case of channel-chunking
+    chanPerWrkr = 7
+    nFiles = nTrials * (int(nChannels/chanPerWrkr) + int(nChannels % chanPerWrkr > 0))
 
 
     def test_sequential_equidistant(self):
@@ -135,40 +142,53 @@ class TestComputationalRoutine():
     def test_parallel_equidistant(self, esicluster):
         client = dd.Client(esicluster)
         for parallel_store in [True, False]:
-            myfilter = LowPassFilter(self.b, self.a)
-            myfilter.initialize(self.equidata)
-            out = AnalogData()
-            myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store)
-            assert np.abs(out.data - self.orig).max() < self.tol
-            assert out.data.is_virtual == parallel_store
-    
-            myfilter = LowPassFilter(self.b, self.a, keeptrials=False)
-            myfilter.initialize(self.equidata)
-            out = AnalogData()
-            myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store)
-            assert np.abs(out.data - self.orig[:self.t.size, :]).max() < self.tol
-            assert out.data.is_virtual == parallel_store
+            for chan_per_worker in [None, self.chanPerWrkr]:
+                myfilter = LowPassFilter(self.b, self.a)
+                myfilter.initialize(self.equidata, chan_per_worker=chan_per_worker)
+                out = AnalogData()
+                myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store)
+                assert np.abs(out.data - self.orig).max() < self.tol
+                assert out.data.is_virtual == parallel_store
+                if parallel_store:
+                    nfiles = len(glob(os.path.join(myfilter.vdsdir, "*.h5")))
+                    if chan_per_worker is None:
+                        assert nfiles == self.nTrials
+                    else:
+                        assert nfiles == self.nFiles
+        
+                myfilter = LowPassFilter(self.b, self.a, keeptrials=False)
+                myfilter.initialize(self.equidata, chan_per_worker=chan_per_worker)
+                out = AnalogData()
+                myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store)
+                assert np.abs(out.data - self.orig[:self.t.size, :]).max() < self.tol
+                assert out.data.is_virtual == False
         client.close()
     
     @skip_without_slurm
     def test_parallel_nonequidistant(self, esicluster):
         client = dd.Client(esicluster)
         for overlapping in [False, True]:
+            nonequidata = generate_artifical_data(nTrials=self.nTrials,
+                                                    nChannels=self.nChannels,
+                                                    equidistant=False,
+                                                    overlapping=overlapping,
+                                                    inmemory=False)
             for parallel_store in [True, False]:
-                nonequidata = generate_artifical_data(nTrials=self.nTrials,
-                                                      nChannels=self.nChannels,
-                                                      equidistant=False,
-                                                      overlapping=overlapping,
-                                                      inmemory=False)
-    
-                out = AnalogData()
-                myfilter = LowPassFilter(self.b, self.a)
-                myfilter.initialize(nonequidata)
-                myfilter.compute(nonequidata, out, parallel=True, parallel_store=parallel_store)
-                assert out.data.shape[0] == np.diff(nonequidata.sampleinfo).sum()
-                for tk, trl in enumerate(out.trials):
-                    assert trl.shape[0] == np.diff(nonequidata.sampleinfo[tk, :])
-                assert out.data.is_virtual == parallel_store
+                for chan_per_worker in [None, self.chanPerWrkr]:
+                    out = AnalogData()
+                    myfilter = LowPassFilter(self.b, self.a)
+                    myfilter.initialize(nonequidata, chan_per_worker=chan_per_worker)
+                    myfilter.compute(nonequidata, out, parallel=True, parallel_store=parallel_store)
+                    assert out.data.shape[0] == np.diff(nonequidata.sampleinfo).sum()
+                    for tk, trl in enumerate(out.trials):
+                        assert trl.shape[0] == np.diff(nonequidata.sampleinfo[tk, :])
+                    assert out.data.is_virtual == parallel_store
+                    if parallel_store:
+                        nfiles = len(glob(os.path.join(myfilter.vdsdir, "*.h5")))
+                        if chan_per_worker is None:
+                            assert nfiles == self.nTrials
+                        else:
+                            assert nfiles == self.nFiles
         client.close()
 
     @skip_without_slurm
