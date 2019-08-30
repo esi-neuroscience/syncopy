@@ -3,8 +3,8 @@
 # SyNCoPy spectral estimation methods
 # 
 # Created: 2019-01-22 09:07:47
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-19 10:02:29>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-08-30 14:09:00>
 
 # Builtin/3rd party package imports
 import sys
@@ -39,12 +39,19 @@ if __dask__:
 spectralDTypes = {"pow": np.float32,
                   "fourier": np.complex128,
                   "abs": np.float32}
+
+#: output conversion of complex fourier coefficients
 spectralConversions = {"pow": lambda x: np.float32(x * np.conj(x)),
                        "fourier": lambda x: np.complex128(x),
                        "abs": lambda x: np.float32(np.absolute(x))}
 
-__all__ = ["freqanalysis"]
+#: available outputs of :func:`freqanalysis`
+availableOutputs = tuple(spectralConversions.keys())
 
+#: available tapers of :func:`freqanalysis`
+availableTapers = ("hann", "dpss")
+
+__all__ = ["freqanalysis"]
 
 @unwrap_cfg
 def freqanalysis(data, method='mtmfft', output='fourier',
@@ -53,10 +60,66 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                  taper="hann", tapsmofrq=None, keeptapers=True,
                  wav="Morlet", toi=0.1, width=6,
                  out=None, **kwargs):
-    """
-    Explain taperopt...
-    Explain default of toi (value b/w 0 and 1 indicating percentage of samplerate
-    to use as stepsize)
+    """Perform a (time-)frequency analysis of time series data    
+
+    Parameters
+    ----------
+        data : Syncopy data object
+            A child of :class:`BaseData`
+        method : str
+            One of :data:`~.availableMethods` (see below)
+        output : str
+            One of :data:`~.availableOutputs` (see below)
+        keeptrials : bool
+            Flag whether to return individual trials or average
+        foi : array-like
+            List of frequencies (Hz) of interest for output. If desired frequencies
+            cannot be exactly matched using the given data length and/or padding,
+            the closest frequencies will be used.
+        pad : str
+            'absolute', 'relative', 'maxlen', or 'nextpow2'
+            See :func:`syncopy.padding` for more information.
+        padtype : str
+            Values to be used for padding. Can be 'zero', 'nan', 'mean', 
+            'localmean', 'edge' or 'mirror'. See :func:`syncopy.padding` for 
+            more information.
+        padlength : None, bool or positive scalar
+            length to be padded to data in samples if `pad` is 'absolute' or 
+            'relative'. See :func:`syncopy.padding` for more information.
+        polyremoval : bool
+            Flag whether a polynomial of order `polyorder` should be fitted and 
+            subtracted from each trial before spectral analysis.
+        polyorder : int
+            Order of the removed polynomial. For example, a value of 1 
+            corresponds to a linear trend. The default is a mean subtraction, 
+            thus a value of 0. 
+        taper : str
+            One of :data:`~.availableTapers` (see below)
+        tapsmofrq : float
+        
+        keeptapers : bool
+        
+        toi : scalar or array like
+        
+        width : scalar
+        
+        out : None or Syncopy data object
+    
+            
+    .. autodata:: syncopy.specest.specest.availableMethods
+
+    .. autodata:: syncopy.specest.specest.availableOutputs
+    
+    .. autodata:: syncopy.specest.specest.availableTapers
+
+        
+    Returns
+    -------
+        :class:`~syncopy.SpectralData`
+    
+    
+    Explain taperopt... Explain default of toi (value b/w 0 and 1 indicating
+    percentage of samplerate to use as stepsize)
     """
 
     # Make sure our one mandatory input object can be processed
@@ -72,16 +135,14 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     lcls = locals()
     glbls = globals()
 
-    # Ensure a valid computational method was selected
-    avail_methods = ["mtmfft", "wavelet"]
-    if method not in avail_methods:
-        lgl = "'" + "or '".join(opt + "' " for opt in avail_methods)
+    # Ensure a valid computational method was selected    
+    if method not in availableMethods:
+        lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
         raise SPYValueError(legal=lgl, varname="method", actual=method)
 
-    # Ensure a valid output format was selected
-    options = ["pow", "fourier", "abs"]
-    if output not in options:
-        lgl = "'" + "or '".join(opt + "' " for opt in options)
+    # Ensure a valid output format was selected    
+    if output not in spectralConversions.keys():
+        lgl = "'" + "or '".join(opt + "' " for opt in spectralConversions.keys())
         raise SPYValueError(legal=lgl, varname="output", actual=output)
 
     # Patch `output` keyword to not collide w/dask's ``blockwise`` output
@@ -148,6 +209,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # Ensure consistency of method-specific options
     if method == "mtmfft":
 
+        #: available tapers
         options = ["hann", "dpss"]
         if taper not in options:
             lgl = "'" + "or '".join(opt + "' " for opt in options)
@@ -548,3 +610,6 @@ def _nextpow2(number):
     while n < number:
         n *= 2
     return n
+
+#: available spectral estimation methods of :func:`freqanalysis`
+availableMethods = tuple([func.__name__ for func in [mtmfft, wavelet]])
