@@ -16,6 +16,7 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(".." + os.sep + ".." + os.sep))
 import sphinx_bootstrap_theme
+import syncopy
 
 # -- Project information -----------------------------------------------------
 
@@ -24,9 +25,9 @@ copyright = '2019, Joscha Schmiedt and Stefan Fuertinger'
 author = 'Joscha Schmiedt and Stefan Fuertinger'
 
 # The short X.Y version
-version = ''
+version = syncopy.__version__
 # The full version, including alpha/beta/rc tags
-release = '0.1a'
+release = syncopy.__version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -49,21 +50,34 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
-    'sphinx.ext.githubpages',
     'sphinx.ext.inheritance_diagram',
-    'sphinx.ext.autosectionlabel',
+    'sphinx_automodapi.automodapi',
 ]
+
+autodoc_default_options = {
+    'member-order': 'bysource',
+    'special-members': '__init__',
+    'undoc-members': False,
+    'exclude-members': '__weakref__',
+    'inherited-members': True,
+    'ignore-module-all': False,
+}
 
 def setup(app):
     app.add_css_file("esi-style.css")
 
 autosectionlabel_maxdepth = 2
+autosectionlabel_prefix_document = True
+automodsumm_inherited_members = True
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
 # Create stub pages for autosummary entries
 autosummary_generate = True
+# autosummary_imported_members = True
+
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
@@ -161,7 +175,7 @@ htmlhelp_basename = 'SyncopyDoc'
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
     #
-    # 'papersize': 'letterpaper',
+    'papersize': 'a4paper',
 
     # The font size ('10pt', '11pt' or '12pt').
     #
@@ -232,9 +246,9 @@ epub_exclude_files = ['search.html']
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
-    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
-    'scipy': ('http://docs.scipy.org/doc/scipy/reference', None),
-    'matplotlib': ('http://matplotlib.org', None),
+    'numpy': ('https://docs.scipy.org/doc/numpy/', None),
+    'scipy': ('https://docs.scipy.org/doc/scipy/reference', None),
+    'matplotlib': ('https://matplotlib.org', None),
     'h5py': ('http://docs.h5py.org/en/latest/', None),
     'dask': ('https://docs.dask.org/en/latest/', None)
 }

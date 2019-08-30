@@ -5,3 +5,7 @@ a.reference.internal {
 a.reference.external{
     color:#3572b0;
 }
+
+p.rubric {
+    font-size: 16px;
+}

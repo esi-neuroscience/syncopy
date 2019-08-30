@@ -11,5 +11,7 @@ files.
 
     data_handling
     fieldtrip
+    specest
+    user_api
 
 

@@ -72,6 +72,7 @@ docs:
     - conda env update --file environment.yml
     - conda  install -y sphinx
     - pip install --upgrade sphinx-bootstrap-theme
+    - pip install --upgrade sphinx-automodapi
     - conda install -y python-graphviz
     - cd doc
     - make html

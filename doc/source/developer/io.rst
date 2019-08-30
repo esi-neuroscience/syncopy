@@ -38,7 +38,7 @@ pattern of the data files is the following
            ...
 
 The ``<dataclass>`` specifies the type of data that is stored in the file, i.e.
-one of the :ref:`Syncopy data classes`. The ``<tag>`` part of the filename is
+one of the :ref:`syncopy-data-classes`. The ``<tag>`` part of the filename is
 user-defined to distinguish data of the same data class, that should be kept
 separate, e.g. data from separate electrode arrays. The data can be loaded into
 Python using the :func:`syncopy.load` function.
