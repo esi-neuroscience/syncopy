@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-29 16:44:36>
+# Last modification time: <2019-08-30 10:05:56>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -1005,15 +1005,15 @@ class StructDict(dict):
 
 class FauxTrial():
     """
-    Stand-in replacement for NumPy arrays representing trial data
+    Stand-in mockup for NumPy arrays representing trial data
     
     Parameters
     ----------
     shape : tuple
         Shape of source trial array 
     idx : tuple
-        Tuple of slices to extract trial-data from source object's main `data`
-        source-dataset. The provided tuple **has** to be a properindexing sequence, 
+        Tuple of slices for extracting trial-data from source object's `data`
+        dataset. The provided tuple **has** to be a proper indexing sequence, 
         i.e., if `idx` refers to the `k`-th trial in `obj`, then ``obj.data[idx]``
         must slice `data` correctly so that ``obj.data[idx] == obj.trials[k]``
     dtype : :class:`numpy.dtype`

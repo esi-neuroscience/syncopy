@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# pytest configuration that starts a SLURM cluster (if available)
+# pytest configuration that starts a parallel processing cluster (if available)
 #
 # Created: 2019-07-05 15:22:24
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]

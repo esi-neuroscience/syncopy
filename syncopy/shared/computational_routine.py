@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-29 15:56:00>
+# Last modification time: <2019-08-30 11:56:24>
 
 # Builtin/3rd party package imports
 import os
@@ -27,10 +27,8 @@ from .parsers import get_defaults
 from syncopy import __storage__, __dask__, __path__
 from syncopy.shared.errors import SPYIOError, SPYValueError
 if __dask__:
-    print('i should not be here...')
     import dask
     import dask.distributed as dd
-    import dask.array as da
     import dask.bag as db
 
 __all__ = []
@@ -595,20 +593,19 @@ class ComputationalRoutine(ABC):
         if hasattr(data, "hdr"):
             hdr = data.hdr
             
-        # Compute timeout counter given sleep timer and wait time
-        waitcount = int(np.round(self.timeout/self.sleeptime))
-
         # Prepare to write chunks concurrently
         if self.vdsdir is not None:
             outfilename = os.path.join(self.vdsdir, "{0:d}.h5")
             outdsetname = "chk"
             lock = None
+            waitcount = None
 
         # Write chunks sequentially            
         else:
             outfilename = out.filename
             outdsetname = self.dsetname
             lock = dd.lock.Lock(name='writer_lock')
+            waitcount = int(np.round(self.timeout/self.sleeptime))    
             
         # Construct a dask bag with all necessary components for parallelization
         bag = db.from_sequence([{"hdr": hdr,
@@ -628,16 +625,8 @@ class ComputationalRoutine(ABC):
         results = bag.map(self.computeFunction, *self.argv, **self.cfg)
         
         # Make sure that all futures are executed (i.e., data is actually written)
-        counter = 0
         futures = dd.client.futures_of(results.persist())
-        while any(f.status == 'pending' for f in futures) and counter < waitcount:
-            time.sleep(self.sleeptime)
-            counter += 1
-            
-        # See if the computation was actually executed in its entirety 
-        if counter >= waitcount:
-            print("Syncopy core - compute: WARNING >> not all workers finished " +
-                  "processing within given timeout interval of {} seconds. <<".format(self.timeout))
+        dd.progress(futures)
             
         # When writing concurrently, now's the time to finally create the virtual dataset
         if self.vdsdir is not None:
