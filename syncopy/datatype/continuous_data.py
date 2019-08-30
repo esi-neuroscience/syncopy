@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-29 11:10:16>
+# Last modification time: <2019-08-29 16:58:35>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -20,7 +20,7 @@ from copy import copy
 from numpy.lib.format import open_memmap
 
 # Local imports
-from .base_data import BaseData, VirtualData
+from .base_data import BaseData, VirtualData, FauxTrial
 from .data_methods import _selectdata_continuous, definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser, io_parser
 from syncopy.shared.errors import SPYValueError, SPYIOError
@@ -136,7 +136,39 @@ class ContinuousData(BaseData, ABC):
         sid = self.dimord.index("time")
         idx[sid] = slice(int(self.sampleinfo[trialno, 0]), int(self.sampleinfo[trialno, 1]))
         return self._data[tuple(idx)]
+    
+    # Helper function that spawns a `FauxTrial` object given actual trial information    
+    def _preview_trial(self, trialno):
+        """
+        Generate a `FauxTrial` instance of a trial
         
+        Parameters
+        ----------
+        trialno : int
+            Number of trial the `FauxTrial` object is intended to mimic
+            
+        Returns
+        -------
+        faux_trl : :class:`syncopy.datatype.base_data.FauxTrial`
+            An instance of :class:`syncopy.datatype.base_data.FauxTrial` mainly
+            intended to be used in `noCompute` runs of 
+            :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+            to avoid loading actual trial-data into memory. 
+            
+        See also
+        --------
+        syncopy.datatype.base_data.FauxTrial : class definition and further details
+        syncopy.shared.computational_routine.ComputationalRoutine : Syncopy compute engine
+        """
+        shp = list(self.data.shape)
+        idx = [slice(None)] * len(self.dimord)
+        tidx = self.dimord.index("time")
+        stop = int(self.sampleinfo[trialno, 1])
+        start = int(self.sampleinfo[trialno, 0])
+        shp[tidx] = stop - start
+        idx[tidx] = slice(start, stop)
+        return FauxTrial(shp, tuple(idx), self.data.dtype)
+    
     # Make instantiation persistent in all subclasses
     def __init__(self, **kwargs):
 

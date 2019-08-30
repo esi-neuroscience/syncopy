@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-29 11:34:40>
+# Last modification time: <2019-08-30 11:56:24>
 
 # Builtin/3rd party package imports
 import os
@@ -29,7 +29,6 @@ from syncopy.shared.errors import SPYIOError, SPYValueError
 if __dask__:
     import dask
     import dask.distributed as dd
-    import dask.array as da
     import dask.bag as db
 
 __all__ = []
@@ -176,16 +175,15 @@ class ComputationalRoutine(ABC):
         dryRunKwargs["noCompute"] = True
         chk_list = []
         dtp_list = []
-        # trials = []  # FIXME: FauxTrial preps
+        trials = []
         for tk in range(len(data.trials)):
-            trial = data.trials[tk]  # FIXME: this HAS to be replaced w/_preview_trial calls...                
-            # trial = data._preview_trial(tk)
+            trial = data._preview_trial(tk)
             chunkShape, dtype = self.computeFunction(trial, 
                                                      *self.argv, 
                                                      **dryRunKwargs)
             chk_list.append(list(chunkShape))
             dtp_list.append(dtype)
-            # trials.append(trial)
+            trials.append(trial)
             
         # The aggregate shape is computed as max across all chunks                    
         chk_arr = np.array(chk_list)
@@ -212,20 +210,19 @@ class ComputationalRoutine(ABC):
             chan_per_worker = None
             
         # Allocate control variables
-        # trial = trials[0]  # FIXME: FauxTrial preps
-        trial = data.trials[0]
+        trial = trials[0]
         chunkShape0 = chk_arr[0, :]
         lyt = [slice(0, stop) for stop in chunkShape0]
         sourceLayout = []
         targetLayout = []
         targetShapes = []
 
-        # FIXME: will be obsolte w/FauxTrial
-        # >>> START
-        idx = [slice(None)] * len(data.dimord)  
-        sid = data.dimord.index("time")
-        trlslice = slice(int(data.sampleinfo[0, 0]), int(data.sampleinfo[0, 1]))
-        # >>> STOP
+        # # FIXME: will be obsolte w/FauxTrial
+        # # >>> START
+        # idx = [slice(None)] * len(data.dimord)  
+        # sid = data.dimord.index("time")
+        # trlslice = slice(int(data.sampleinfo[0, 0]), int(data.sampleinfo[0, 1]))
+        # # >>> STOP
         
         # If parallelization across channels is requested the first trial is 
         # split up into several chunks that need to be processed/allocated
@@ -239,15 +236,15 @@ class ComputationalRoutine(ABC):
             
             # Perform dry-run w/first channel-block of first trial to identify 
             # changes in output shape w.r.t. full-trial output (`chunkShape`)
-            idx[inchanidx] = slice(0, n_blocks[0])  # FIXME: will be obsolte w/FauxTrial
-            # shp = list(trial.shape) # FIXME: FauxTrial preps
-            # idx = list(trial.idx)
-            # shp[chanidx] = n_blocks[0]
-            # idx[chanidx] = slice(0, n_blocks[0])
-            # trial.shape = tuple(shp)
-            # trial.idx = tuple(idx)
-            # res, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs)
-            res, _ = self.computeFunction(trial[tuple(idx)], *self.argv, **dryRunKwargs)
+            # idx[inchanidx] = slice(0, n_blocks[0])  # FIXME: will be obsolte w/FauxTrial
+            shp = list(trial.shape) # FIXME: FauxTrial preps
+            idx = list(trial.idx)
+            shp[inchanidx] = n_blocks[0]
+            idx[inchanidx] = slice(0, n_blocks[0])
+            trial.shape = tuple(shp)
+            trial.idx = tuple(idx)
+            res, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs)
+            # res, _ = self.computeFunction(trial[tuple(idx)], *self.argv, **dryRunKwargs)
             outchan = [dim for dim in res if dim not in chunkShape0]
             if len(outchan) != 1:
                 lgl = "exactly one output dimension to scale w/channel count"
@@ -259,23 +256,23 @@ class ComputationalRoutine(ABC):
             chanstack = 0
             blockstack = 0
             for block in n_blocks:
-                idx[inchanidx] = slice(blockstack, blockstack + block)
-                res, _ = self.computeFunction(trial[tuple(idx)], 
-                                                *self.argv, **dryRunKwargs)
-                # shp = list(trial.shape) # FIXME: FauxTrial preps
-                # idx = list(trial.idx)
-                # shp[inchanidx] = block
                 # idx[inchanidx] = slice(blockstack, blockstack + block)
-                # trial.shape = tuple(shp)
-                # trial.idx = tuple(idx)
-                # res, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs) # FauxTrial
-                refidx = list(idx)
-                refidx[sid] = trlslice
+                # res, _ = self.computeFunction(trial[tuple(idx)], 
+                #                                 *self.argv, **dryRunKwargs)
+                shp = list(trial.shape) # FIXME: FauxTrial preps
+                idx = list(trial.idx)
+                shp[inchanidx] = block
+                idx[inchanidx] = slice(blockstack, blockstack + block)
+                trial.shape = tuple(shp)
+                trial.idx = tuple(idx)
+                res, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs) # FauxTrial
+                # refidx = list(idx)
+                # refidx[sid] = trlslice
                 lyt[outchanidx] = slice(chanstack, chanstack + res[outchanidx])
                 targetLayout.append(tuple(lyt))
                 targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
-                sourceLayout.append(tuple(refidx))
-                # sourceLayout.append(trial.idx) # FIXME: FauxTrial preps
+                # sourceLayout.append(tuple(refidx))
+                sourceLayout.append(trial.idx) # FIXME: FauxTrial preps
                 chanstack += res[outchanidx]
                 blockstack += block
 
@@ -283,20 +280,21 @@ class ComputationalRoutine(ABC):
         else:
             targetLayout.append(tuple(lyt))
             targetShapes.append(chunkShape0)
-            # sourceLayout.append(trial.idx)  # FIXME: FauxTrial preps
-            # FIXME: will be obsolte w/FauxTrial
-            # >>> START
-            refidx = list(idx)
-            refidx[sid] = trlslice
-            sourceLayout.append(tuple(refidx))
-            # >>> STOP
+            sourceLayout.append(trial.idx)  # FIXME: FauxTrial preps
+            # # FIXME: will be obsolte w/FauxTrial
+            # # >>> START
+            # refidx = list(idx)
+            # refidx[sid] = trlslice
+            # sourceLayout.append(tuple(refidx))
+            # # >>> STOP
             
         # Construct dimensional layout of output
         stacking = targetLayout[0][0].stop
         for tk in range(1, len(data.trials)):
-            trial = data.trials[tk]
-            trlslice = slice(int(data.sampleinfo[tk, 0]), int(data.sampleinfo[tk, 1])) # FIXME: will be obsolte w/FauxTrial
+            # trial = data.trials[tk]
+            # trlslice = slice(int(data.sampleinfo[tk, 0]), int(data.sampleinfo[tk, 1])) # FIXME: will be obsolte w/FauxTrial
             # trial = data._preview_trial(tk)   # FIXME: FauxTrial preps
+            trial = trials[tk]
             chkshp, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs)
             lyt = [slice(0, stop) for stop in chkshp]
             lyt[0] = slice(stacking, stacking + chkshp[0])
@@ -304,34 +302,34 @@ class ComputationalRoutine(ABC):
             if chan_per_worker is None:
                 targetLayout.append(tuple(lyt))
                 targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
-                # sourceLayout.append(trial.idx)  # FIXME: FauxTrial preps
-                # FIXME: will be obsolte w/FauxTrial
-                # >>> START
-                refidx = list(idx)
-                refidx[sid] = trlslice
-                sourceLayout.append(tuple(refidx))
-                # >>> STOP
+                sourceLayout.append(trial.idx)  # FIXME: FauxTrial preps
+                # # FIXME: will be obsolte w/FauxTrial
+                # # >>> START
+                # refidx = list(idx)
+                # refidx[sid] = trlslice
+                # sourceLayout.append(tuple(refidx))
+                # # >>> STOP
             else:
                 chanstack = 0
                 blockstack = 0
                 for block in n_blocks:
-                    idx[inchanidx] = slice(blockstack, blockstack + block)
-                    res, _ = self.computeFunction(trial[tuple(idx)], 
-                                                  *self.argv, **dryRunKwargs)
-                    # shp = list(trial.shape) # FIXME: FauxTrial preps
-                    # idx = list(trial.idx)
-                    # shp[inchanidx] = block
                     # idx[inchanidx] = slice(blockstack, blockstack + block)
-                    # trial.shape = tuple(shp)
-                    # trial.idx = tuple(idx)
-                    # res, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs) # FauxTrial
-                    refidx = list(idx)
-                    refidx[sid] = trlslice
+                    # res, _ = self.computeFunction(trial[tuple(idx)], 
+                    #                               *self.argv, **dryRunKwargs)
+                    shp = list(trial.shape) # FIXME: FauxTrial preps
+                    idx = list(trial.idx)
+                    shp[inchanidx] = block
+                    idx[inchanidx] = slice(blockstack, blockstack + block)
+                    trial.shape = tuple(shp)
+                    trial.idx = tuple(idx)
+                    res, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs) # FauxTrial
+                    # refidx = list(idx)
+                    # refidx[sid] = trlslice
                     lyt[outchanidx] = slice(chanstack, chanstack + res[outchanidx])
                     targetLayout.append(tuple(lyt))
                     targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
-                    sourceLayout.append(tuple(refidx))
-                    # sourceLayout.append(trial.idx) # FIXME: FauxTrial preps
+                    # sourceLayout.append(tuple(refidx))
+                    sourceLayout.append(trial.idx) # FIXME: FauxTrial preps
                     chanstack += res[outchanidx]
                     blockstack += block
         
@@ -595,20 +593,19 @@ class ComputationalRoutine(ABC):
         if hasattr(data, "hdr"):
             hdr = data.hdr
             
-        # Compute timeout counter given sleep timer and wait time
-        waitcount = int(np.round(self.timeout/self.sleeptime))
-
         # Prepare to write chunks concurrently
         if self.vdsdir is not None:
             outfilename = os.path.join(self.vdsdir, "{0:d}.h5")
             outdsetname = "chk"
             lock = None
+            waitcount = None
 
         # Write chunks sequentially            
         else:
             outfilename = out.filename
             outdsetname = self.dsetname
             lock = dd.lock.Lock(name='writer_lock')
+            waitcount = int(np.round(self.timeout/self.sleeptime))    
             
         # Construct a dask bag with all necessary components for parallelization
         bag = db.from_sequence([{"hdr": hdr,
@@ -628,16 +625,8 @@ class ComputationalRoutine(ABC):
         results = bag.map(self.computeFunction, *self.argv, **self.cfg)
         
         # Make sure that all futures are executed (i.e., data is actually written)
-        counter = 0
         futures = dd.client.futures_of(results.persist())
-        while any(f.status == 'pending' for f in futures) and counter < waitcount:
-            time.sleep(self.sleeptime)
-            counter += 1
-            
-        # See if the computation was actually executed in its entirety 
-        if counter >= waitcount:
-            print("Syncopy core - compute: WARNING >> not all workers finished " +
-                  "processing within given timeout interval of {} seconds. <<".format(self.timeout))
+        dd.progress(futures)
             
         # When writing concurrently, now's the time to finally create the virtual dataset
         if self.vdsdir is not None:
