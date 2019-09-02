@@ -19,7 +19,7 @@ if __dask__:
 from syncopy.datatype import AnalogData, SpectralData, StructDict, padding
 from syncopy.datatype.base_data import VirtualData
 from syncopy.shared.errors import SPYValueError
-from syncopy.specest import freqanalysis
+from syncopy.specest.freqanalysis import freqanalysis
 from syncopy.tests.misc import generate_artifical_data
 
 # Decorator to decide whether or not to run dask-related tests
