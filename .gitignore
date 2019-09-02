@@ -31,6 +31,7 @@
 doc/build
 doc/source/_stubs
 *_stubs
+doc/source/api
 
 # Canonical /build directory
 /build

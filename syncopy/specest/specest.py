@@ -3,8 +3,8 @@
 # SyNCoPy spectral estimation methods
 # 
 # Created: 2019-01-22 09:07:47
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-29 16:23:06>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-02 13:34:17>
 
 # Builtin/3rd party package imports
 import sys
@@ -39,12 +39,19 @@ if __dask__:
 spectralDTypes = {"pow": np.float32,
                   "fourier": np.complex128,
                   "abs": np.float32}
+
+#: output conversion of complex fourier coefficients
 spectralConversions = {"pow": lambda x: np.float32(x * np.conj(x)),
                        "fourier": lambda x: np.complex128(x),
                        "abs": lambda x: np.float32(np.absolute(x))}
 
-__all__ = ["freqanalysis"]
+#: available outputs of :func:`freqanalysis`
+availableOutputs = tuple(spectralConversions.keys())
 
+#: available tapers of :func:`freqanalysis`
+availableTapers = ("hann", "dpss")
+
+__all__ = ["freqanalysis"]
 
 @unwrap_cfg
 def freqanalysis(data, method='mtmfft', output='fourier',
@@ -52,11 +59,81 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                  padlength=None, polyremoval=False, polyorder=None,
                  taper="hann", tapsmofrq=None, keeptapers=True,
                  wav="Morlet", toi=0.1, width=6,
-                 out=None, chan_per_worker=None, **kwargs):
-    """
-    Explain taperopt...
-    Explain default of toi (value b/w 0 and 1 indicating percentage of samplerate
-    to use as stepsize)
+                 out=None, **kwargs):
+    """Perform a (time-)frequency analysis of time series data
+
+    Parameters
+    ----------
+    data : `~syncopy.AnalogData`
+        A child of :class:`syncopy.datatype.AnalogData`
+    method : str
+        Spectral estimation method, one of :data:`~.availableMethods` 
+        (see below).
+    output : str
+        Output of spectral estimation, `'pow'` for power spectrum 
+        (:obj:`numpy.float32`),  `'fourier'` (:obj:`numpy.complex128`)
+        for complex fourier coefficients or `'abs'` for absolute values
+        (:obj:`numpy.float32`).
+    keeptrials : bool
+        Flag whether to return individual trials or average
+    foi : array-like
+        List of frequencies of interest (Hz) for output. If desired frequencies
+        cannot be exactly matched using the given data length and padding,
+        the closest frequencies will be used.
+    pad : str
+        One of `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
+        See :func:`syncopy.padding` for more information.
+    padtype : str
+        Values to be used for padding. Can be 'zero', 'nan', 'mean', 
+        'localmean', 'edge' or 'mirror'. See :func:`syncopy.padding` for 
+        more information.
+    padlength : None, bool or positive scalar
+        Length to be padded to data in samples if `pad` is 'absolute' or 
+        'relative'. See :func:`syncopy.padding` for more information.
+    polyremoval : bool
+        Flag whether a polynomial of order `polyorder` should be fitted and 
+        subtracted from each trial before spectral analysis. 
+        FIXME: not implemented yet.
+    polyorder : int
+        Order of the removed polynomial. For example, a value of 1 
+        corresponds to a linear trend. The default is a mean subtraction, 
+        thus a value of 0. 
+        FIXME: not implemented yet.
+    taper : str
+        Windowing function, one of :data:`~.availableTapers` (see below).
+    tapsmofrq : float
+        The amount of spectral smoothing through  multi-tapering (Hz).
+        Note that 4 Hz smoothing means plus-minus 4 Hz, i.e. a 8 Hz 
+        smoothing box.        
+    keeptapers : bool
+        Flag for whether individual trials or average should be returned.            
+    toi : scalar or array-like
+        If `toi` is scalar, it must be a value between 0 and 1 indicating
+        percentage of samplerate to use as stepsize. If `toi` is an array it
+        explicitly selects time points (seconds). This option does not affect
+        all frequency analysis methods.
+    width : scalar
+        Nondimensional frequency constant of wavelet. For a Morlet wavelet 
+        this number should be >= 6, which correspondonds to 6 cycles within
+        FIXME standard deviations of the enveloping Gaussian.            
+    out : None or :class:`SpectralData` object
+        None if a new :class:`SpectralData` object should be created,
+        or the (empty) object into which the result should be written.
+
+
+    .. autodata:: syncopy.specest.specest.availableMethods
+
+    .. autodata:: syncopy.specest.specest.availableOutputs
+
+    .. autodata:: syncopy.specest.specest.availableTapers
+
+
+    Returns
+    -------
+    :class:`~syncopy.SpectralData`
+        (Time-)frequency spectrum of input data
+
+
     """
     
     # Make sure our one mandatory input object can be processed
@@ -72,16 +149,14 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     lcls = locals()
     glbls = globals()
 
-    # Ensure a valid computational method was selected
-    avail_methods = ["mtmfft", "wavelet"]
-    if method not in avail_methods:
-        lgl = "'" + "or '".join(opt + "' " for opt in avail_methods)
+    # Ensure a valid computational method was selected    
+    if method not in availableMethods:
+        lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
         raise SPYValueError(legal=lgl, varname="method", actual=method)
 
-    # Ensure a valid output format was selected
-    options = ["pow", "fourier", "abs"]
-    if output not in options:
-        lgl = "'" + "or '".join(opt + "' " for opt in options)
+    # Ensure a valid output format was selected    
+    if output not in spectralConversions.keys():
+        lgl = "'" + "or '".join(opt + "' " for opt in spectralConversions.keys())
         raise SPYValueError(legal=lgl, varname="output", actual=output)
 
     # Patch `output` keyword to not collide w/dask's ``blockwise`` output
@@ -148,6 +223,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # Ensure consistency of method-specific options
     if method == "mtmfft":
 
+        #: available tapers
         options = ["hann", "dpss"]
         if taper not in options:
             lgl = "'" + "or '".join(opt + "' " for opt in options)
@@ -212,7 +288,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 raise exc
 
     # Warn the user in case other method-specifc options are set
-    other = list(avail_methods)
+    other = list(availableMethods)
     other.pop(other.index(method))
     mth_defaults = {}
     for mth_str in other:
@@ -292,6 +368,53 @@ def mtmfft(trl_dat, dt, timeAxis,
            pad="nextpow2", padtype="zero", padlength=None, foi=None,
            keeptapers=True, polyorder=None, output_fmt="pow",
            noCompute=False, chunkShape=None):
+    """Compute (multi-)tapered fourier transform
+    
+    Parameters
+    ----------
+    trl_dat : 2D :class:`numpy.ndarray`
+        Multi-channel uniformly sampled time-series 
+    dt : float
+        sampling interval of time-series
+    timeAxis : int
+        Index of time axis (0 or 1)
+    taper : function
+        Windowing function handle, one of :mod:`scipy.signal.windows`. This 
+        function is called as ``taper(nSamples, **taperopt)``
+    taperopt : dict
+        Additional keyword arguments passed to the `taper` function
+    tapsmofrq : float
+        The amount of spectral smoothing through  multi-tapering (Hz).
+        Note that 4 Hz smoothing means plus-minus 4 Hz, i.e. a 8 Hz 
+        smoothing box.  
+    pad : str
+        `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
+        See :func:`syncopy.padding` for more information.
+    padtype : str
+        Values to be used for padding. Can be 'zero', 'nan', 'mean', 
+        'localmean', 'edge' or 'mirror'. See :func:`syncopy.padding` for 
+        more information.
+    padlength : None, bool or positive scalar
+        length to be padded to data in samples if `pad` is 'absolute' or 
+        'relative'. See :func:`syncopy.padding` for more information.
+    foi : array-like
+        List of frequencies of interest  (Hz) for output. If desired frequencies
+        cannot be exactly matched using the given data length and padding,
+        the closest frequencies will be used.
+    keeptapers : bool
+        Flag for keeping individual tapers or average
+    output_fmt : str               
+        Output of spectral estimation, `'pow'` for power spectrum 
+        (:obj:`numpy.float32`),  `'fourier'` (:obj:`numpy.complex128`)
+        for complex fourier coefficients or `'abs'` for absolute values
+        (:obj:`numpy.float32`).
+        
+    Returns
+    -------
+    :class:`numpy.ndarray`
+        Complex or real spectrum of input (padded) data
+
+    """
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
@@ -554,3 +677,6 @@ def _nextpow2(number):
     while n < number:
         n *= 2
     return n
+
+#: available spectral estimation methods of :func:`freqanalysis`
+availableMethods = tuple([func.__name__ for func in [mtmfft, wavelet]])

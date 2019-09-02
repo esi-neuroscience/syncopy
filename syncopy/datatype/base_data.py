@@ -442,13 +442,13 @@ class BaseData(ABC):
         Parameters
         ----------                    
             container : str
-                Path to Syncopy container folder (*.spy) to be used for saving. If 
+                Path to Syncopy container folder (\*.spy) to be used for saving. If 
                 omitted, a .spy extension will be added to the folder name.
             tag : str
                 Tag to be appended to container basename
             filename :  str
                 Explicit path to data file. This is only necessary if the data should
-                not be part of a container folder. An extension (*.<dataclass>) will
+                not be part of a container folder. An extension (\*.<dataclass>) will
                 be added if omitted. The `tag` argument is ignored.      
             overwrite : bool
                 If `True` an existing HDF5 file and its accompanying JSON file is 

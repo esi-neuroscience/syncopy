@@ -3,8 +3,8 @@
 # Module for all kinds of parsing gymnastics
 # 
 # Created: 2019-01-08 09:58:11
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-29 14:12:49>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-08-30 11:24:48>
 
 # Builtin/3rd party package imports
 import os
@@ -580,9 +580,9 @@ def filename_parser(filename, is_in_valid_container=None):
      'extension': '.spy'}
 
 
-     See also
-     --------
-     io_parser : check file and folder names for existence
+    See also
+    --------
+    io_parser : check file and folder names for existence
 
     """      
     if filename is None:
