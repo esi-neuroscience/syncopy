@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-08-30 14:09:00>
+# Last modification time: <2019-09-02 13:36:11>
 
 # Builtin/3rd party package imports
 import sys
@@ -60,66 +60,80 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                  taper="hann", tapsmofrq=None, keeptapers=True,
                  wav="Morlet", toi=0.1, width=6,
                  out=None, **kwargs):
-    """Perform a (time-)frequency analysis of time series data    
+    """Perform a (time-)frequency analysis of time series data
 
     Parameters
     ----------
-        data : Syncopy data object
-            A child of :class:`BaseData`
-        method : str
-            One of :data:`~.availableMethods` (see below)
-        output : str
-            One of :data:`~.availableOutputs` (see below)
-        keeptrials : bool
-            Flag whether to return individual trials or average
-        foi : array-like
-            List of frequencies (Hz) of interest for output. If desired frequencies
-            cannot be exactly matched using the given data length and/or padding,
-            the closest frequencies will be used.
-        pad : str
-            'absolute', 'relative', 'maxlen', or 'nextpow2'
-            See :func:`syncopy.padding` for more information.
-        padtype : str
-            Values to be used for padding. Can be 'zero', 'nan', 'mean', 
-            'localmean', 'edge' or 'mirror'. See :func:`syncopy.padding` for 
-            more information.
-        padlength : None, bool or positive scalar
-            length to be padded to data in samples if `pad` is 'absolute' or 
-            'relative'. See :func:`syncopy.padding` for more information.
-        polyremoval : bool
-            Flag whether a polynomial of order `polyorder` should be fitted and 
-            subtracted from each trial before spectral analysis.
-        polyorder : int
-            Order of the removed polynomial. For example, a value of 1 
-            corresponds to a linear trend. The default is a mean subtraction, 
-            thus a value of 0. 
-        taper : str
-            One of :data:`~.availableTapers` (see below)
-        tapsmofrq : float
-        
-        keeptapers : bool
-        
-        toi : scalar or array like
-        
-        width : scalar
-        
-        out : None or Syncopy data object
-    
-            
+    data : Syncopy data object
+        A child of :class:`syncopy.datatype.BaseData`
+    method : str
+        Spectral estimation method, one of :data:`~.availableMethods` 
+        (see below).
+    output : str
+        Output of spectral estimation, `'pow'` for power spectrum 
+        (:obj:`numpy.float32`),  `'fourier'` (:obj:`numpy.complex128`)
+        for complex fourier coefficients or `'abs'` for absolute values
+        (:obj:`numpy.float32`).
+    keeptrials : bool
+        Flag whether to return individual trials or average
+    foi : array-like
+        List of frequencies of interest  (Hz) for output. If desired frequencies
+        cannot be exactly matched using the given data length and padding,
+        the closest frequencies will be used.
+    pad : str
+        `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
+        See :func:`syncopy.padding` for more information.
+    padtype : str
+        Values to be used for padding. Can be 'zero', 'nan', 'mean', 
+        'localmean', 'edge' or 'mirror'. See :func:`syncopy.padding` for 
+        more information.
+    padlength : None, bool or positive scalar
+        length to be padded to data in samples if `pad` is 'absolute' or 
+        'relative'. See :func:`syncopy.padding` for more information.
+    polyremoval : bool
+        Flag whether a polynomial of order `polyorder` should be fitted and 
+        subtracted from each trial before spectral analysis. 
+        FIXME: not implemented yet.
+    polyorder : int
+        Order of the removed polynomial. For example, a value of 1 
+        corresponds to a linear trend. The default is a mean subtraction, 
+        thus a value of 0. 
+        FIXME: not implemented yet.
+    taper : str
+        Windowing function, one of :data:`~.availableTapers` (see below).
+    tapsmofrq : float
+        The amount of spectral smoothing through  multi-tapering (Hz).
+        Note that 4 Hz smoothing means plus-minus 4 Hz, i.e. a 8 Hz 
+        smoothing box.        
+    keeptapers : bool
+        Flag for whether individual trials or average should be returned.            
+    toi : scalar or array-like
+        If `toi` is scalar, it must be a value between 0 and 1 indicating
+        percentage of samplerate to use as stepsize. If `toi` is an array it
+        explicitly selects time points (seconds). This option does not affect
+        all frequency analysis methods.
+    width : scalar
+        Nondimensional frequency constant of wavelet. For a Morlet wavelet 
+        this number should be >= 6, which correspondonds to 6 cycles within
+        FIXME standard deviations of the enveloping Gaussian.            
+    out : None or :class:`SpectralData` object
+        None if a new :class:`SpectralData` object should be created,
+        or the (empty) object into which the result should be written.
+
+
     .. autodata:: syncopy.specest.specest.availableMethods
 
     .. autodata:: syncopy.specest.specest.availableOutputs
-    
+
     .. autodata:: syncopy.specest.specest.availableTapers
 
-        
+
     Returns
     -------
-        :class:`~syncopy.SpectralData`
-    
-    
-    Explain taperopt... Explain default of toi (value b/w 0 and 1 indicating
-    percentage of samplerate to use as stepsize)
+    :class:`~syncopy.SpectralData`
+        (Time-)frequency spectrum of input data
+
+
     """
 
     # Make sure our one mandatory input object can be processed
@@ -274,7 +288,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 raise exc
 
     # Warn the user in case other method-specifc options are set
-    other = list(avail_methods)
+    other = list(availableMethods)
     other.pop(other.index(method))
     mth_defaults = {}
     for mth_str in other:
@@ -350,6 +364,53 @@ def mtmfft(trl_dat, dt, timeAxis,
            pad="nextpow2", padtype="zero", padlength=None, foi=None,
            keeptapers=True, polyorder=None, output_fmt="pow",
            noCompute=False, chunkShape=None):
+    """Compute (multi-)tapered fourier transform
+    
+    Parameters
+    ----------
+    trl_dat : 2D :class:`numpy.ndarray`
+        Multi-channel uniformly sampled time-series 
+    dt : float
+        sampling interval of time-series
+    timeAxis : int
+        Index of time axis (0 or 1)
+    taper : function
+        Windowing function handle, one of :mod:`scipy.signal.windows`. This 
+        function is called as ``taper(nSamples, **taperopt)``
+    taperopt : dict
+        Additional keyword arguments passed to the `taper` function
+    tapsmofrq : float
+        The amount of spectral smoothing through  multi-tapering (Hz).
+        Note that 4 Hz smoothing means plus-minus 4 Hz, i.e. a 8 Hz 
+        smoothing box.  
+    pad : str
+        `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
+        See :func:`syncopy.padding` for more information.
+    padtype : str
+        Values to be used for padding. Can be 'zero', 'nan', 'mean', 
+        'localmean', 'edge' or 'mirror'. See :func:`syncopy.padding` for 
+        more information.
+    padlength : None, bool or positive scalar
+        length to be padded to data in samples if `pad` is 'absolute' or 
+        'relative'. See :func:`syncopy.padding` for more information.
+    foi : array-like
+        List of frequencies of interest  (Hz) for output. If desired frequencies
+        cannot be exactly matched using the given data length and padding,
+        the closest frequencies will be used.
+    keeptapers : bool
+        Flag for keeping individual tapers or average
+    output_fmt : str               
+        Output of spectral estimation, `'pow'` for power spectrum 
+        (:obj:`numpy.float32`),  `'fourier'` (:obj:`numpy.complex128`)
+        for complex fourier coefficients or `'abs'` for absolute values
+        (:obj:`numpy.float32`).
+        
+    Returns
+    -------
+    :class:`numpy.ndarray`
+        Complex or real spectrum of input (padded) data
+
+    """
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
