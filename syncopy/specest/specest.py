@@ -64,8 +64,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     Parameters
     ----------
-    data : Syncopy data object
-        A child of :class:`syncopy.datatype.BaseData`
+    data : `~syncopy.AnalogData`
+        A child of :class:`syncopy.datatype.AnalogData`
     method : str
         Spectral estimation method, one of :data:`~.availableMethods` 
         (see below).
@@ -77,18 +77,18 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     keeptrials : bool
         Flag whether to return individual trials or average
     foi : array-like
-        List of frequencies of interest  (Hz) for output. If desired frequencies
+        List of frequencies of interest (Hz) for output. If desired frequencies
         cannot be exactly matched using the given data length and padding,
         the closest frequencies will be used.
     pad : str
-        `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
+        One of `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
         See :func:`syncopy.padding` for more information.
     padtype : str
         Values to be used for padding. Can be 'zero', 'nan', 'mean', 
         'localmean', 'edge' or 'mirror'. See :func:`syncopy.padding` for 
         more information.
     padlength : None, bool or positive scalar
-        length to be padded to data in samples if `pad` is 'absolute' or 
+        Length to be padded to data in samples if `pad` is 'absolute' or 
         'relative'. See :func:`syncopy.padding` for more information.
     polyremoval : bool
         Flag whether a polynomial of order `polyorder` should be fitted and 
