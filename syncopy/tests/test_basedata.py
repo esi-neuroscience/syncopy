@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-26 18:09:49>
+# Last modification time: <2019-08-29 14:51:41>
 
 import os
 import tempfile
@@ -20,7 +20,7 @@ from syncopy.datatype.base_data import VirtualData
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests.misc import is_win_vm, is_slurm_node
 
-# Construct decorator for skipping certain tests
+# Construct decorators for skipping certain tests
 skip_in_vm = pytest.mark.skipif(is_win_vm(), reason="running in Win VM")
 skip_in_slurm = pytest.mark.skipif(is_slurm_node(), reason="running on cluster node")
 

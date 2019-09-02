@@ -6,8 +6,8 @@
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Last modification time: <2019-07-04 09:06:06>
 
-# Builtin/3rd party package imports
-import dask.distributed as dd
+# # Builtin/3rd party package imports
+# import dask.distributed as dd
 
 # Add SynCoPy package to Python search path
 import os
@@ -18,17 +18,18 @@ if spy_path not in sys.path:
 import numpy as np
 import matplotlib.pyplot as plt
 
+from syncopy import *
+
 # Import SynCoPy
 import syncopy as spy
 
 # Import artificial data generator
 from syncopy.tests.misc import generate_artifical_data
 
-# sys.exit()
+sys.exit()
 
 if __name__ == "__main__":
 
-    
     # nc = 10
     # ns = 30
     # data = np.arange(1, nc*ns + 1, dtype="float").reshape(ns, nc)
@@ -41,23 +42,24 @@ if __name__ == "__main__":
     from syncopy.specest import freqanalysis
     from syncopy.shared import esi_cluster_setup
 
-    # client = dd.Client()
-
     # create uniform `cfg` for testing on SLURM
     cfg = StructDict()
     cfg.method = "mtmfft"
     cfg.taper = "dpss"
+    cfg.output = 'abs'
     cfg.tapsmofrq = 9.3
-    cfg.keeptrials = False
-    artdata = generate_artifical_data(nTrials=5, nChannels=16, equidistant=True, inmemory=True)
+    cfg.keeptrials = True
+    artdata = generate_artifical_data(nTrials=2, nChannels=16, equidistant=True, inmemory=True)
     
-    artdata.save('test', overwrite=True)
-    bdata = spy.load('test')
+    # artdata.save('test', overwrite=True)
+    # bdata = spy.load('test')
+    spec1 = freqanalysis(artdata, cfg)
+    client = dd.Client()
+    spec2 = freqanalysis(artdata, cfg)
     
+    cfg.chan_per_worker = 7
+    spec3 = freqanalysis(artdata, cfg)
     sys.exit()
-    
-    spec = freqanalysis(artdata, cfg)
-    
 
     # # Constructe simple trigonometric signal to check FFT consistency: each
     # # channel is a sine wave of frequency `freqs[nchan]` with single unique

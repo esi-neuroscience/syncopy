@@ -11,6 +11,8 @@ import os
 import numpy as np
 import numbers
 import functools
+import time
+import h5py
 from inspect import signature
 
 # Local imports
@@ -741,3 +743,131 @@ def unwrap_cfg(func):
         return func(*args, **kwargs)
 
     return wrapper_cfg
+
+
+def unwrap_io(func):
+    """
+    Decorator that handles parallel execution of 
+    :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    
+    Parameters
+    ----------
+    func : callable
+        A Syncopy :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+        
+    Returns
+    -------
+    out : tuple or :class:`numpy.ndarray` if executed sequentially
+        Return value of :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+        (depending on value of `noCompute`, see 
+        :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+        for details)
+    Nothing : None if executed concurrently
+        If parallel workers are running concurrently, the first positional input 
+        argument is a dictionary (assembled by 
+        :meth:`syncopy.shared.computational_routine.ComputationalRoutine.compute_parallel`)
+        that holds the paths and dataset indices of HDF5 files for reading source 
+        data and writing results. 
+    
+    Notes
+    -----
+    Parallel execution supports two writing modes: concurrent storage of results
+    in multiple HDF5 files or sequential writing of array blocks in a single 
+    output HDF5 file. In both situations, the output array returned by 
+    :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    is immediately written to disk and **not** propagated back to the caller to 
+    avoid inter-worker network communication. 
+    
+    In case of parallel writing, trial-channel blocks are stored in individual 
+    HDF5 containers (virtual sources) that are consolidated into a single 
+    :class:`h5py.VirtualLayout` which is subsequently used to allocate a virtual 
+    dataset inside a newly created HDF5 file (located in Syncopy's temporary 
+    storage folder). 
+
+    Conversely, in case of sequential writing, each resulting array is written 
+    sequentially to an existing single output HDF5 file using  a distributed mutex 
+    for access control to prevent write collisions. 
+    """
+
+    @functools.wraps(func)
+    def wrapper_io(trl_dat, *args, **kwargs):
+
+        # `trl_dat` is a NumPy array or `FauxTrial` object: execute the wrapped 
+        # function and return its result
+        if not isinstance(trl_dat, dict):
+            return func(trl_dat, *args, **kwargs)
+
+        # The fun part: `trl_dat` is a dictionary holding components for parallelization        
+        else:
+            
+            # Extract all necessary quantities to load/compute/write
+            hdr = trl_dat["hdr"]
+            keeptrials = trl_dat["keeptrials"]
+            infilename = trl_dat["infile"]
+            indset = trl_dat["indset"]
+            ingrid = trl_dat["ingrid"]
+            vdsdir = trl_dat["vdsdir"]
+            outfilename = trl_dat["outfile"]
+            outdset = trl_dat["outdset"]
+            outgrid = trl_dat["outgrid"]
+            lock = trl_dat["lock"]
+            sleeptime = trl_dat["sleeptime"]
+            waitcount = trl_dat["waitcount"]
+
+            # === STEP 1 === read data into memory
+            # Generic case: data is either a HDF5 dataset or memmap
+            if hdr is None:
+                try:
+                    with h5py.File(infilename, mode="r") as h5fin:
+                        arr = h5fin[indset][ingrid]
+                except:
+                    try:
+                        arr = np.array(open_memmap(infilename, mode="c")[ingrid])
+                    except:
+                        raise SPYIOError(infilename)
+                    
+            # For VirtualData objects
+            else:
+                dsets = []
+                for fk, fname in enumerate(infilename):
+                    dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
+                                        mode="r", dtype=hdr[fk]["dtype"],
+                                        shape=(hdr[fk]["M"], hdr[fk]["N"]))[ingrid])
+                arr = np.vstack(dsets)
+
+            # === STEP 2 === perform computation
+            # Now, actually call wrapped function
+            res = func(arr, *args, **kwargs)
+            
+            # === STEP 3 === write result to disk
+            # Write result to stand-alone HDF file or use a mutex to write to a 
+            # single container (sequentially)
+            if vdsdir is not None:
+                with h5py.File(outfilename, "w") as h5fout:
+                    h5fout.create_dataset(outdset, data=res)
+                    h5fout.flush()
+            else:
+                counter = 0
+                lock.acquire()
+                while not lock.locked() and counter < waitcount:
+                    time.sleep(sleeptime)
+                    counter += 1
+                    
+                # Either (continue to) compute average or write current chunk
+                with h5py.File(outfilename, "r+") as h5fout:
+                    target = h5fout[outdset]
+                    if keeptrials:
+                        target[outgrid] = res    
+                    else:
+                        target[()] = np.nansum([target, res], axis=0)
+                    h5fout.flush()
+
+                counter = 0
+                lock.release()
+                while lock.locked() and counter < waitcount:
+                    time.sleep(sleeptime)
+                    counter += 1
+                    
+            return None # result has already been written to disk
+        
+    return wrapper_io

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-24 13:00:57>
+# Last modification time: <2019-08-29 14:27:27>
 
 # Builtin/3rd party package imports
 import numbers
@@ -903,6 +903,13 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
             raise exc
         timeAxis = data.dimord.index("time")
         spydata = True
+    elif data.__class__.__name__ == "FauxTrial":
+        if len(data.shape) != 2:
+            lgl = "two-dimensional AnalogData trial segment"
+            act = "{}-dimensional trial segment"
+            raise SPYValueError(legal=lgl, varname="data", 
+                                actual=act.format(len(data.shape)))
+        spydata = False
     else:
         try:
             array_parser(data, varname="data", dims=2)
@@ -1109,10 +1116,14 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
             pad_opts["stat_length"] = pw[0, :]
 
         if create_new:
-            return np.pad(data, **pad_opts)
+            if isinstance(data, np.ndarray):
+                return np.pad(data, **pad_opts)
+            else:
+                shp = (data.shape[0] + pw[0, :].sum(), data.shape[1])
+                tidx = slice(data.idx[0].start, data.idx[0].start + shp[0])
+                return data.__class__(shp, (tidx, data.idx[1]), data.dtype)
         else:
             return pad_opts
-
 
 def _nextpow2(number):
     n = 1
