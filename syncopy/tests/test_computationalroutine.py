@@ -4,7 +4,7 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-29 16:12:20>
+# Last modification time: <2019-09-03 11:29:55>
 
 import os
 import tempfile
@@ -99,8 +99,8 @@ class TestComputationalRoutine():
         myfilter.compute(self.equidata, out)
         assert np.abs(out.data - self.orig).max() < self.tol
         
-        myfilter = LowPassFilter(self.b, self.a, keeptrials=False)
-        myfilter.initialize(self.equidata)
+        myfilter = LowPassFilter(self.b, self.a)
+        myfilter.initialize(self.equidata, keeptrials=False)
         out = AnalogData()
         myfilter.compute(self.equidata, out)
         assert np.abs(out.data - self.orig[:self.t.size, :]).max() < self.tol
@@ -151,14 +151,16 @@ class TestComputationalRoutine():
                 assert np.abs(out.data - self.orig).max() < self.tol
                 assert out.data.is_virtual == parallel_store
                 if parallel_store:
-                    nfiles = len(glob(os.path.join(myfilter.vdsdir, "*.h5")))
+                    nfiles = len(glob(os.path.join(myfilter.virtualDatasetDir, "*.h5")))
                     if chan_per_worker is None:
                         assert nfiles == self.nTrials
                     else:
                         assert nfiles == self.nFiles
         
-                myfilter = LowPassFilter(self.b, self.a, keeptrials=False)
-                myfilter.initialize(self.equidata, chan_per_worker=chan_per_worker)
+                myfilter = LowPassFilter(self.b, self.a)
+                myfilter.initialize(self.equidata, 
+                                    chan_per_worker=chan_per_worker,
+                                    keeptrials=False)
                 out = AnalogData()
                 myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store)
                 assert np.abs(out.data - self.orig[:self.t.size, :]).max() < self.tol
@@ -185,7 +187,7 @@ class TestComputationalRoutine():
                         assert trl.shape[0] == np.diff(nonequidata.sampleinfo[tk, :])
                     assert out.data.is_virtual == parallel_store
                     if parallel_store:
-                        nfiles = len(glob(os.path.join(myfilter.vdsdir, "*.h5")))
+                        nfiles = len(glob(os.path.join(myfilter.virtualDatasetDir, "*.h5")))
                         if chan_per_worker is None:
                             assert nfiles == self.nTrials
                         else:
