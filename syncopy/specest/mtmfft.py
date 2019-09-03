@@ -3,38 +3,19 @@
 # Spectral estimation with (multi-)tapered FFT
 # 
 # Created: 2019-09-02 14:25:34
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-02 15:26:17>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-09-03 09:42:52>
 
 # Builtin/3rd party package imports
-import sys
 import numpy as np
 import scipy.signal.windows as spwin
-from tqdm import tqdm
-import h5py
-if sys.platform == "win32":
-    # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
-    import colorama
-    colorama.deinit()
-    colorama.init(strip=False)
-from copy import copy
-from numbers import Number
 
 # Local imports
-from syncopy.shared.parsers import data_parser, scalar_parser, array_parser 
-from syncopy.shared import get_defaults
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.datatype import SpectralData, padding
-import syncopy.specest.wavelets as spywave 
+from syncopy.datatype import padding
 import syncopy.specest.freqanalysis
-from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.shared.parsers import unwrap_cfg, unwrap_io
-from syncopy import __dask__
-if __dask__:
-    import dask
-    import dask.array as da
-    import dask.bag as db
-    import dask.distributed as dd
+from syncopy.shared.parsers import unwrap_io
+
 
 # Local workhorse that performs the computational heavy lifting
 @unwrap_io

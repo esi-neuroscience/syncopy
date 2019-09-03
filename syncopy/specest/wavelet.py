@@ -3,40 +3,17 @@
 # Time-frequency analysis with wavelets
 # 
 # Created: 2019-09-02 14:44:41
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-02 14:47:17>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-09-03 09:47:14>
 
 # Builtin/3rd party package imports
 import sys
 import numpy as np
-import scipy.signal.windows as spwin
-from tqdm import tqdm
-import h5py
-if sys.platform == "win32":
-    # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
-    import colorama
-    colorama.deinit()
-    colorama.init(strip=False)
-from copy import copy
 from numbers import Number
-from types import ModuleType
 
 # Local imports
-from syncopy.shared.parsers import data_parser, scalar_parser, array_parser 
-from syncopy.shared import get_defaults
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.datatype import SpectralData, padding
 import syncopy.specest.wavelets as spywave 
-from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.shared.parsers import unwrap_cfg, unwrap_io
-from syncopy import __dask__
-from syncopy.specest.mtmfft import mtmfft, MultiTaperFFT
-import syncopy.specest
-if __dask__:
-    import dask
-    import dask.array as da
-    import dask.bag as db
-    import dask.distributed as dd
 
 def wavelet(trl_dat, dt, timeAxis, foi,
             toi=0.1, polyorder=None, wav=spywave.Morlet,

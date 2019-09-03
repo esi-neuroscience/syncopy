@@ -3,40 +3,27 @@
 # SyNCoPy spectral estimation methods
 # 
 # Created: 2019-01-22 09:07:47
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-02 15:44:24>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-09-03 10:54:08>
 
 # Builtin/3rd party package imports
 import sys
 import numpy as np
 import scipy.signal.windows as spwin
-from tqdm import tqdm
-import h5py
-if sys.platform == "win32":
-    # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
-    import colorama
-    colorama.deinit()
-    colorama.init(strip=False)
-from copy import copy
 from numbers import Number
-from types import ModuleType
 
 # Local imports
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser 
 from syncopy.shared import get_defaults
-from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.datatype import SpectralData, padding
 import syncopy.specest.wavelets as spywave 
 from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.shared.parsers import unwrap_cfg, unwrap_io
+from syncopy.shared.parsers import unwrap_cfg
 from syncopy import __dask__
-from syncopy.specest.mtmfft import mtmfft, MultiTaperFFT
-from syncopy.specest.wavelet import _get_optimal_wavelet_scales, wavelet, WaveletTransform
-import syncopy.specest
+from syncopy.specest.mtmfft import MultiTaperFFT
+from syncopy.specest.wavelet import _get_optimal_wavelet_scales, WaveletTransform
+# import syncopy.specest
 if __dask__:
-    import dask
-    import dask.array as da
-    import dask.bag as db
     import dask.distributed as dd
 
 # Module-wide output specs
@@ -166,9 +153,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         lgl = "'" + "or '".join(opt + "' " for opt in spectralConversions.keys())
         raise SPYValueError(legal=lgl, varname="output", actual=output)
 
-    # Patch `output` keyword to not collide w/dask's ``blockwise`` output
-    defaults["output_fmt"] = defaults.pop("output")
-    output_fmt = output
+    # # Patch `output` keyword to not collide w/dask's ``blockwise`` output
+    # defaults["output_fmt"] = defaults.pop("output")
+    # output_fmt = output
 
     # Parse all Boolean keyword arguments
     for vname in ["keeptrials", "keeptapers", "polyremoval"]:
@@ -176,12 +163,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise SPYTypeError(lcls[vname], varname=vname, expected="Bool")
 
     # Ensure padding selection makes sense (just leverage `padding`'s error checking)
-    if pad is not None:
-        try:
-            padding(data.trials[0], padtype, pad=pad, padlength=padlength,
-                    prepadlength=True)
-        except Exception as exc:
-            raise exc
+    try:
+        padding(data.trials[0], padtype, pad=pad, padlength=padlength,
+                prepadlength=True)
+    except Exception as exc:
+        raise exc
 
     # For vetting `toi` and `foi`: get timing information of input object
     timing = np.array([np.array([-data.t0[k], end - start - data.t0[k]])/data.samplerate
@@ -227,9 +213,22 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             print("<freqanalysis> WARNING: `polyorder` keyword will be ignored " +
                   "since `polyremoval` is `False`!")
 
+    # Prepare keyword dict for logging (use `lcls` to get actually provided 
+    # keyword values, not defaults set in here)
+    log_dct = {"method": method,
+               "output": output,
+               "keeptapers": keeptapers,
+               "keeptrials": keeptrials,
+               "polyremoval": polyremoval,
+               "polyorder": polyorder,
+               "pad": lcls["pad"],
+               "padtype": lcls["padtype"],
+               "padlength": lcls["padlength"],
+               "foi": lcls["foi"]}
+    
     # Ensure consistency of method-specific options
     if method == "mtmfft":
-
+        
         #: available tapers
         options = ["hann", "dpss"]
         if taper not in options:
@@ -260,8 +259,28 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # Warn the user in case `tapsmofrq` has no effect
         if tapsmofrq is not None and taper.__name__ != "dpss":
             print("<freqanalysis> WARNING: `tapsmofrq` is only used if `taper` is `dpss`!")
+            
+        # Update `log_dct` w/method-specific options (use `lcls` to get actually
+        # provided keyword values, not defaults set in here)
+        log_dct["taper"] = lcls["taper"]
+        log_dct["tapsmofrq"] = lcls["tapsmofrq"]
+        
+        # Set up compute-kernel
+        specestMethod = MultiTaperFFT(1/data.samplerate, 
+                                      timeAxis, 
+                                      taper=taper, 
+                                      taperopt=taperopt,
+                                      tapsmofrq=tapsmofrq,
+                                      pad=pad,
+                                      padtype=padtype,
+                                      padlength=padlength,
+                                      foi=foi,
+                                      keeptapers=keeptapers,
+                                      polyorder=polyorder,
+                                      output_fmt=output)
 
     elif method == "wavelet":
+        
         options = ["Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat"]
         if wav not in options:
             lgl = "'" + "or '".join(opt + "' " for opt in options)
@@ -294,31 +313,23 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             except Exception as exc:
                 raise exc
 
-    # Warn the user in case other method-specifc options are set
-    other = list(availableMethods)
-    other.pop(other.index(method))
-    mth_defaults = {}
-    for mth_str in other:
-        mth_defaults.update(get_defaults(glbls[mth_str]))
-    kws = list(get_defaults(glbls[method]).keys())
-    distinct_kws = set(defaults.keys()).difference(kws)
-    other_opts = distinct_kws.intersection(mth_defaults.keys()) 
-    for key in other_opts:
-        m_default = mth_defaults[key]
-        if callable(m_default):
-            m_default = m_default.__name__
-        if lcls[key] != m_default:
-            wrng = "<freqanalysis> WARNING: `{kw:s}` keyword has no effect in " +\
-                   "chosen method {m:s}"
-            print(wrng.format(kw=key, m=method))
+        # Update `log_dct` w/method-specific options (use `lcls` to get actually
+        # provided keyword values, not defaults set in here)
+        log_dct["wav"] = lcls["wav"]
+        log_dct["toi"] = lcls["toi"]
+        log_dct["width"] = lcls["width"]
 
-    # Construct dict of "global" keywords sans alien method keywords for logging
-    log_dct = {}
-    log_kws = set(defaults.keys()).difference(other_opts)
-    log_kws = [kw for kw in log_kws if kw != "out"]
-    log_kws[log_kws.index("output_fmt")] = "output"
-    for key in log_kws:
-        log_dct[key] = lcls[key]
+        # Set up compute-kernel
+        specestMethod = WaveletTransform(1/data.samplerate, 
+                                         timeAxis,
+                                         foi,
+                                         toi=toi,
+                                         polyorder=polyorder,
+                                         wav=wav,
+                                         width=width,
+                                         output_fmt=output)
+        
+    # import pdb; pdb.set_trace()
 
     # If provided, make sure output object is appropriate
     if out is not None:
@@ -333,21 +344,21 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         out = SpectralData()
         new_out = True
 
-    # Prepare dict of optional keywords for computational class constructor
-    # (update `lcls` to reflect changes in method-specifc options)
-    lcls = locals()
-    mth_input = {}
-    kws.remove("noCompute")
-    kws.remove("chunkShape")
-    kws.append("keeptrials")
-    for kw in kws:
-        mth_input[kw] = lcls[kw]
+    # # Prepare dict of optional keywords for computational class constructor
+    # # (update `lcls` to reflect changes in method-specifc options)
+    # lcls = locals()
+    # mth_input = {}
+    # kws.remove("noCompute")
+    # kws.remove("chunkShape")
+    # kws.append("keeptrials")
+    # for kw in kws:
+    #     mth_input[kw] = lcls[kw]
 
-    # Construct dict of classes of available methods
-    methods = {
-        "mtmfft": MultiTaperFFT(1/data.samplerate, timeAxis, **mth_input),
-        "wavelet": WaveletTransform(1/data.samplerate, timeAxis, foi, **mth_input)
-    }
+    # # Construct dict of classes of available methods
+    # methods = {
+    #     "mtmfft": MultiTaperFFT(1/data.samplerate, timeAxis, **mth_input),
+    #     "wavelet": WaveletTransform(1/data.samplerate, timeAxis, foi, **mth_input)
+    # }
 
     # Detect if dask client is running and set `parallel` keyword accordingly
     if __dask__:
@@ -360,17 +371,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         use_dask = False
 
     # Perform actual computation
-    specestMethod = methods[method]
-    specestMethod.initialize(data, chan_per_worker=kwargs.get("chan_per_worker"))
+    specestMethod.initialize(data, 
+                             chan_per_worker=kwargs.get("chan_per_worker"),
+                             keeptrials=keeptrials)
     specestMethod.compute(data, out, parallel=use_dask, log_dict=log_dct)
 
     # Either return newly created output container or simply quit
     return out if new_out else None
-
-def _nextpow2(number):
-    n = 1
-    while n < number:
-        n *= 2
-    return n
-
-

@@ -246,34 +246,33 @@ class TestMTMFFT():
             spec = freqanalysis(artdata, cfg)
             timeAxis = artdata.dimord.index("time")
             mintrlno = np.diff(artdata.sampleinfo).argmin()
-            tmp = padding(artdata.trials[mintrlno], "zero", spec.cfg.pad,
-                        spec.cfg.padlength, prepadlength=True)
+            tmp = padding(artdata.trials[mintrlno], "zero", spec.cfg.pad, 
+                          spec.cfg.padlength, prepadlength=True)
             assert spec.freq.size == int(np.floor(tmp.shape[timeAxis] / 2) + 1)
                 
             # equidistant trial spacing average tapers
             cfg.output = "abs"
             cfg.keeptapers = False
             artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                            inmemory=False)
+                                              inmemory=False)
             spec = freqanalysis(artdata, cfg)
             assert spec.taper.size == 1
-
+            
         # non-equidistant, overlapping trial spacing, throw away trials and tapers
         cfg.keeptapers = False
         cfg.keeptrials = "no"
-        for k, chan_per_worker in enumerate([None, chanPerWrkr]):
-            artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                            inmemory=False, equidistant=False,
-                                            overlapping=True)
-            spec = freqanalysis(artdata, cfg)
-            timeAxis = artdata.dimord.index("time")
-            mintrlno = np.diff(artdata.sampleinfo).argmin()
-            tmp = padding(artdata.trials[mintrlno], "zero", spec.cfg.pad,
-                        spec.cfg.padlength, prepadlength=True)
-            assert spec.freq.size == int(np.floor(tmp.shape[timeAxis] / 2) + 1)
-            assert spec.taper.size == 1
-            assert len(spec.time) == 1
-            assert len(spec.time[0]) == 1
+        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                          inmemory=False, equidistant=False,
+                                          overlapping=True)
+        spec = freqanalysis(artdata, cfg)
+        timeAxis = artdata.dimord.index("time")
+        mintrlno = np.diff(artdata.sampleinfo).argmin()
+        tmp = padding(artdata.trials[mintrlno], "zero", spec.cfg.pad,
+                      spec.cfg.padlength, prepadlength=True)
+        assert spec.freq.size == int(np.floor(tmp.shape[timeAxis] / 2) + 1)
+        assert spec.taper.size == 1
+        assert len(spec.time) == 1
+        assert len(spec.time[0]) == 1
 
         client.close()
 

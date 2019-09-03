@@ -4,12 +4,11 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-30 11:56:24>
+# Last modification time: <2019-09-03 11:29:20>
 
 # Builtin/3rd party package imports
 import os
 import sys
-import time
 import psutil
 import h5py
 import numpy as np
@@ -27,7 +26,6 @@ from .parsers import get_defaults
 from syncopy import __storage__, __dask__, __path__
 from syncopy.shared.errors import SPYIOError, SPYValueError
 if __dask__:
-    import dask
     import dask.distributed as dd
     import dask.bag as db
 
@@ -120,20 +118,21 @@ class ComputationalRoutine(ABC):
         self.cfg = copy(self.defaultCfg)
         for key in set(self.cfg.keys()).intersection(kwargs.keys()):
             self.cfg[key] = kwargs[key]
-        self.keeptrials = kwargs.get("keeptrials", True)
         self.argv = argv
+        self.keeptrials = None
+        self.timeout = None
         self.outputShape = None
         self.dtype = None
         self.sourceLayout = None
         self.targetLayout = None
         self.targetShapes = None
         self.chunkMem = None
-        self.vdsdir = None
-        self.dsetname = None
-        self.datamode = None
-        self.sleeptime = 0.1
+        self.virtualDatasetDir = None
+        self.datasetName = None
+        self.dataMode = None
+        self.sleepTime = 0.1
 
-    def initialize(self, data, chan_per_worker=None, timeout=300):
+    def initialize(self, data, chan_per_worker=None, timeout=300, keeptrials=True):
         """
         Perform dry-run of calculation to determine output shape
 
@@ -155,6 +154,8 @@ class ComputationalRoutine(ABC):
            Number of seconds to wait for saving-mutex to be acquired (only 
            relevant in case of concurrent processing in combination with 
            sequential writing of results)
+        keeptrials : bool
+            Flag indicating whether to return individual trials or average
         
         Returns
         -------
@@ -169,6 +170,9 @@ class ComputationalRoutine(ABC):
         --------
         compute : core routine performing the actual computation
         """
+        
+        # First store `keeptrial` keyword value (important for output shapes below)
+        self.keeptrials = keeptrials
         
         # Prepare dryrun arguments and determine geometry of trials in output
         dryRunKwargs = copy(self.cfg)
@@ -217,13 +221,6 @@ class ComputationalRoutine(ABC):
         targetLayout = []
         targetShapes = []
 
-        # # FIXME: will be obsolte w/FauxTrial
-        # # >>> START
-        # idx = [slice(None)] * len(data.dimord)  
-        # sid = data.dimord.index("time")
-        # trlslice = slice(int(data.sampleinfo[0, 0]), int(data.sampleinfo[0, 1]))
-        # # >>> STOP
-        
         # If parallelization across channels is requested the first trial is 
         # split up into several chunks that need to be processed/allocated
         if chan_per_worker is not None:
@@ -236,15 +233,13 @@ class ComputationalRoutine(ABC):
             
             # Perform dry-run w/first channel-block of first trial to identify 
             # changes in output shape w.r.t. full-trial output (`chunkShape`)
-            # idx[inchanidx] = slice(0, n_blocks[0])  # FIXME: will be obsolte w/FauxTrial
-            shp = list(trial.shape) # FIXME: FauxTrial preps
+            shp = list(trial.shape)
             idx = list(trial.idx)
             shp[inchanidx] = n_blocks[0]
             idx[inchanidx] = slice(0, n_blocks[0])
             trial.shape = tuple(shp)
             trial.idx = tuple(idx)
             res, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs)
-            # res, _ = self.computeFunction(trial[tuple(idx)], *self.argv, **dryRunKwargs)
             outchan = [dim for dim in res if dim not in chunkShape0]
             if len(outchan) != 1:
                 lgl = "exactly one output dimension to scale w/channel count"
@@ -256,23 +251,17 @@ class ComputationalRoutine(ABC):
             chanstack = 0
             blockstack = 0
             for block in n_blocks:
-                # idx[inchanidx] = slice(blockstack, blockstack + block)
-                # res, _ = self.computeFunction(trial[tuple(idx)], 
-                #                                 *self.argv, **dryRunKwargs)
-                shp = list(trial.shape) # FIXME: FauxTrial preps
+                shp = list(trial.shape)
                 idx = list(trial.idx)
                 shp[inchanidx] = block
                 idx[inchanidx] = slice(blockstack, blockstack + block)
                 trial.shape = tuple(shp)
                 trial.idx = tuple(idx)
-                res, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs) # FauxTrial
-                # refidx = list(idx)
-                # refidx[sid] = trlslice
+                res, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs)
                 lyt[outchanidx] = slice(chanstack, chanstack + res[outchanidx])
                 targetLayout.append(tuple(lyt))
                 targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
-                # sourceLayout.append(tuple(refidx))
-                sourceLayout.append(trial.idx) # FIXME: FauxTrial preps
+                sourceLayout.append(trial.idx)
                 chanstack += res[outchanidx]
                 blockstack += block
 
@@ -280,20 +269,11 @@ class ComputationalRoutine(ABC):
         else:
             targetLayout.append(tuple(lyt))
             targetShapes.append(chunkShape0)
-            sourceLayout.append(trial.idx)  # FIXME: FauxTrial preps
-            # # FIXME: will be obsolte w/FauxTrial
-            # # >>> START
-            # refidx = list(idx)
-            # refidx[sid] = trlslice
-            # sourceLayout.append(tuple(refidx))
-            # # >>> STOP
+            sourceLayout.append(trial.idx)
             
         # Construct dimensional layout of output
         stacking = targetLayout[0][0].stop
         for tk in range(1, len(data.trials)):
-            # trial = data.trials[tk]
-            # trlslice = slice(int(data.sampleinfo[tk, 0]), int(data.sampleinfo[tk, 1])) # FIXME: will be obsolte w/FauxTrial
-            # trial = data._preview_trial(tk)   # FIXME: FauxTrial preps
             trial = trials[tk]
             chkshp, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs)
             lyt = [slice(0, stop) for stop in chkshp]
@@ -302,34 +282,22 @@ class ComputationalRoutine(ABC):
             if chan_per_worker is None:
                 targetLayout.append(tuple(lyt))
                 targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
-                sourceLayout.append(trial.idx)  # FIXME: FauxTrial preps
-                # # FIXME: will be obsolte w/FauxTrial
-                # # >>> START
-                # refidx = list(idx)
-                # refidx[sid] = trlslice
-                # sourceLayout.append(tuple(refidx))
-                # # >>> STOP
+                sourceLayout.append(trial.idx)
             else:
                 chanstack = 0
                 blockstack = 0
                 for block in n_blocks:
-                    # idx[inchanidx] = slice(blockstack, blockstack + block)
-                    # res, _ = self.computeFunction(trial[tuple(idx)], 
-                    #                               *self.argv, **dryRunKwargs)
-                    shp = list(trial.shape) # FIXME: FauxTrial preps
+                    shp = list(trial.shape)
                     idx = list(trial.idx)
                     shp[inchanidx] = block
                     idx[inchanidx] = slice(blockstack, blockstack + block)
                     trial.shape = tuple(shp)
                     trial.idx = tuple(idx)
                     res, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs) # FauxTrial
-                    # refidx = list(idx)
-                    # refidx[sid] = trlslice
                     lyt[outchanidx] = slice(chanstack, chanstack + res[outchanidx])
                     targetLayout.append(tuple(lyt))
                     targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
-                    # sourceLayout.append(tuple(refidx))
-                    sourceLayout.append(trial.idx) # FIXME: FauxTrial preps
+                    sourceLayout.append(trial.idx)
                     chanstack += res[outchanidx]
                     blockstack += block
         
@@ -345,7 +313,7 @@ class ComputationalRoutine(ABC):
             self.chunkMem = max([np.prod(shp) for shp in self.targetShapes]) * self.dtype.itemsize
         
         # Get data access mode (only relevant for parallel reading access)
-        self.datamode = data.mode
+        self.dataMode = data.mode
         
         # Save timeout interval setting
         self.timeout = timeout
@@ -496,7 +464,7 @@ class ComputationalRoutine(ABC):
         computeMethod(data, out)
 
         # Attach computed results to output object
-        out.data = h5py.File(out.filename, mode="r+")[self.dsetname]
+        out.data = h5py.File(out.filename, mode="r+")[self.datasetName]
 
         # Store meta-data, write log and get outta here
         self.process_metadata(data, out)
@@ -527,18 +495,18 @@ class ComputationalRoutine(ABC):
         """
 
         # The output object's type determines dataset name for result
-        self.dsetname = out.__class__.__name__
+        self.datasetName = out.__class__.__name__
 
         # In case parallel writing via VDS storage is requested, prepare
         # directory for by-chunk HDF5 containers and construct virutal HDF layout
         if parallel_store:
             vdsdir = os.path.splitext(os.path.basename(out.filename))[0]
-            self.vdsdir = os.path.join(__storage__, vdsdir)
-            os.mkdir(self.vdsdir)
+            self.virtualDatasetDir = os.path.join(__storage__, vdsdir)
+            os.mkdir(self.virtualDatasetDir)
             
             layout = h5py.VirtualLayout(shape=self.outputShape, dtype=self.dtype)
             for k, idx in enumerate(self.targetLayout):
-                fname = os.path.join(self.vdsdir, "{0:d}.h5".format(k))
+                fname = os.path.join(self.virtualDatasetDir, "{0:d}.h5".format(k))
                 layout[idx] = h5py.VirtualSource(fname, "chk", shape=self.targetShapes[k])
             self.vdslayout = layout
 
@@ -551,7 +519,7 @@ class ComputationalRoutine(ABC):
             else:
                 shp = self.outputShape
             with h5py.File(out.filename, mode="w") as h5f:
-                h5f.create_dataset(name=self.dsetname,
+                h5f.create_dataset(name=self.datasetName,
                                    dtype=self.dtype, shape=shp)
 
     def compute_parallel(self, data, out):
@@ -594,8 +562,8 @@ class ComputationalRoutine(ABC):
             hdr = data.hdr
             
         # Prepare to write chunks concurrently
-        if self.vdsdir is not None:
-            outfilename = os.path.join(self.vdsdir, "{0:d}.h5")
+        if self.virtualDatasetDir is not None:
+            outfilename = os.path.join(self.virtualDatasetDir, "{0:d}.h5")
             outdsetname = "chk"
             lock = None
             waitcount = None
@@ -603,9 +571,9 @@ class ComputationalRoutine(ABC):
         # Write chunks sequentially            
         else:
             outfilename = out.filename
-            outdsetname = self.dsetname
+            outdsetname = self.datasetName
             lock = dd.lock.Lock(name='writer_lock')
-            waitcount = int(np.round(self.timeout/self.sleeptime))    
+            waitcount = int(np.round(self.timeout/self.sleepTime))    
             
         # Construct a dask bag with all necessary components for parallelization
         bag = db.from_sequence([{"hdr": hdr,
@@ -613,12 +581,12 @@ class ComputationalRoutine(ABC):
                                  "infile": data.filename,
                                  "indset": data.data.name,
                                  "ingrid": self.sourceLayout[chk],
-                                 "vdsdir": self.vdsdir,
+                                 "vdsdir": self.virtualDatasetDir,
                                  "outfile": outfilename.format(chk),
                                  "outdset": outdsetname,
                                  "outgrid": self.targetLayout[chk],
                                  "lock": lock,
-                                 "sleeptime": self.sleeptime,
+                                 "sleeptime": self.sleepTime,
                                  "waitcount": waitcount} for chk in range(len(self.sourceLayout))]) 
         
         # Map all components (channel-trial-blocks) onto `computeFunction`
@@ -629,18 +597,18 @@ class ComputationalRoutine(ABC):
         dd.progress(futures)
             
         # When writing concurrently, now's the time to finally create the virtual dataset
-        if self.vdsdir is not None:
+        if self.virtualDatasetDir is not None:
             with h5py.File(out.filename, mode="w") as h5f:
-                h5f.create_virtual_dataset(self.dsetname, self.vdslayout)
+                h5f.create_virtual_dataset(self.datasetName, self.vdslayout)
                 
         # If trials-averagin was requested, normalize computed sum to get mean
         if not self.keeptrials:
             with h5py.File(out.filename, mode="r+") as h5f:
-                h5f[self.dsetname][()] /= len(data.trials)
+                h5f[self.datasetName][()] /= len(data.trials)
                 h5f.flush()
         
         # Reset data access mode
-        data.mode = self.datamode
+        data.mode = self.dataMode
         
         return 
         
@@ -679,7 +647,7 @@ class ComputationalRoutine(ABC):
         # be preserved, compute average across trials manually to avoid
         # allocation of unnecessarily large dataset
         with h5py.File(out.filename, "r+") as h5f:
-            dset = h5f[self.dsetname]
+            dset = h5f[self.datasetName]
             cnt = 0
             idx = [slice(None)] * len(dset.shape)
             if self.keeptrials:
