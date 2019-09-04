@@ -3,8 +3,8 @@
 # Module for all kinds of parsing gymnastics
 # 
 # Created: 2019-01-08 09:58:11
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-08-30 11:24:48>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-09-04 10:24:26>
 
 # Builtin/3rd party package imports
 import os
@@ -16,7 +16,7 @@ import h5py
 from inspect import signature
 
 # Local imports
-from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError, SPYError
+from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
 import syncopy as spy
 
 __all__ = ["get_defaults"]
@@ -671,7 +671,8 @@ def unwrap_cfg(func):
     @functools.wraps(func)
     def wrapper_cfg(*args, **kwargs):
 
-        # First, parse positional arguments for dict-type inputs
+        # First, parse positional arguments for dict-type inputs (`k` counts the 
+        # no. of dicts provided)
         cfg = None
         k = 0
         for argidx, arg in enumerate(args):

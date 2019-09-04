@@ -4,10 +4,9 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-03 10:54:08>
+# Last modification time: <2019-09-04 11:13:09>
 
 # Builtin/3rd party package imports
-import sys
 import numpy as np
 import scipy.signal.windows as spwin
 from numbers import Number
@@ -46,6 +45,7 @@ availableTapers = ("hann", "dpss")
 availableMethods = ("mtmfft", "wavelet")
 
 __all__ = ["freqanalysis"]
+
 
 @unwrap_cfg
 def freqanalysis(data, method='mtmfft', output='fourier',

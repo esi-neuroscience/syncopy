@@ -26,7 +26,7 @@ import syncopy as spy
 # Import artificial data generator
 from syncopy.tests.misc import generate_artifical_data
 
-sys.exit()
+# sys.exit()
 
 if __name__ == "__main__":
 
@@ -39,7 +39,6 @@ if __name__ == "__main__":
     #                  np.ones((int(ns/5), )) * np.pi]).T
 
     from syncopy.datatype import AnalogData, SpectralData, StructDict, padding
-    from syncopy.specest import freqanalysis
     from syncopy.shared import esi_cluster_setup
 
     # create uniform `cfg` for testing on SLURM
@@ -53,13 +52,13 @@ if __name__ == "__main__":
     
     # artdata.save('test', overwrite=True)
     # bdata = spy.load('test')
-    spec1 = freqanalysis(artdata, cfg)
+    spec1 = spy.freqanalysis(artdata, cfg)
+    sys.exit()
     client = dd.Client()
-    spec2 = freqanalysis(artdata, cfg)
+    spec2 = spy.freqanalysis(artdata, cfg)
     
     cfg.chan_per_worker = 7
-    spec3 = freqanalysis(artdata, cfg)
-    sys.exit()
+    spec3 = spy.freqanalysis(artdata, cfg)
 
     # # Constructe simple trigonometric signal to check FFT consistency: each
     # # channel is a sine wave of frequency `freqs[nchan]` with single unique
