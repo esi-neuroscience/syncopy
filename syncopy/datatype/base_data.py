@@ -3,8 +3,8 @@
 # SynCoPy BaseData abstract class + helper classes
 # 
 # Created: 2019-01-07 09:22:33
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-30 10:05:56>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-04 15:40:15>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -311,30 +311,22 @@ class BaseData(ABC):
 
     @property
     def sampleinfo(self):
-        """nTrials x 3 :class:`numpy.ndarray` of [start, end, offset] sample indices"""
-        return self._sampleinfo
+        """nTrials x 2 :class:`numpy.ndarray` of [start, end] sample indices"""
+        if self._trialdefinition is not None: 
+            return self._trialdefinition[:, :2]
+        else:
+            return None
 
     @sampleinfo.setter
     def sampleinfo(self, sinfo):
-        if self.data is None:
-            print("SyNCoPy core - sampleinfo: Cannot assign `sampleinfo` without data. "+\
-                  "Please assing data first")
-            return
-        if any(["ContinuousData" in str(base) for base in self.__class__.__mro__]):
-            scount = self.data.shape[self.dimord.index("time")]
-        else:
-            scount = np.inf
-        try:
-            array_parser(sinfo, varname="sampleinfo", dims=(None, 2), hasnan=False, 
-                         hasinf=False, ntype="int_like", lims=[0, scount])
-        except Exception as exc:
-            raise exc
-        self._sampleinfo = np.array(sinfo, dtype=int)
+        raise SPYError("Cannot set sampleinfo. Use `BaseData._trialdefinition` instead.")
 
     @property
-    def t0(self):
-        """FIXME: should be hidden"""
-        return self._t0
+    def _t0(self):
+        if not self._trialdefinition is None: 
+            return self._trialdefinition[:, 2]
+        else:
+            return None
 
     @property
     def trials(self):
@@ -346,21 +338,22 @@ class BaseData(ABC):
         """nTrials x M :class:`numpy.ndarray` with numeric information about each trial
 
         Each trial can have M properties (condition, original trial no., ...) coded by 
+        numbers. This property are the fourth and onward columsn of `BaseData._trialdefinition`.
         """
-        return self._trialinfo
+        if not self._trialdefinition is None:
+            if self._trialdefinition.shape[1] > 3:
+                return self._trialdefinition[:, 3:]
+            else:
+                # If trials are defined but no trialinfo return empty array with
+                # nTrial rows, but 0 columns. This works well with np.hstack.
+                return np.empty(shape=(len(self.trials), 0))
+        else: 
+            return None
 
     @trialinfo.setter
     def trialinfo(self, trl):
-        if self.data is None:
-            print("SyNCoPy core - trialinfo: Cannot assign `trialinfo` without data. "+\
-                  "Please assing data first")
-            return
-        try:
-            array_parser(trl, varname="trialinfo", dims=(self.sampleinfo.shape[0], None))
-        except Exception as exc:
-            raise exc
-        self._trialinfo = np.array(trl)
-
+        raise SPYError("Cannot set trialinfo. Use `BaseData._trialdefinition` instead.")
+        
 
     # Selector method
     @abstractmethod
@@ -624,11 +617,9 @@ class BaseData(ABC):
         # First things first: initialize (dummy) default values
         self._cfg = {}
         self._data = None
-        self.mode = mode
-        self._sampleinfo = None
-        self._t0 = [None]
-        self._trialinfo = None
+        self.mode = mode                        
         self._filename = None
+        self._trialdefinition = None
         
         # Set up dimensional architecture (`self._channel = None`, `self._freq = None` etc.)
         self.dimord = dimord

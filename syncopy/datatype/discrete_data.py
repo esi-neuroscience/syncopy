@@ -89,8 +89,8 @@ class DiscreteData(BaseData, ABC):
     @property
     def trialtime(self):
         """list(:class:`numpy.ndarray`): trigger-relative sample times in s"""
-        return [range(-self.t0[tk],
-                      self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0] - self.t0[tk])
+        return [range(-self._t0[tk],
+                      self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0] - self._t0[tk])
                 for tk in self.trialid] if self.trialid is not None else None
 
     # Selector method

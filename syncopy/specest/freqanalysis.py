@@ -3,8 +3,8 @@
 # SyNCoPy spectral estimation methods
 # 
 # Created: 2019-01-22 09:07:47
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-03 10:54:08>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-04 13:06:38>
 
 # Builtin/3rd party package imports
 import sys
@@ -170,7 +170,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         raise exc
 
     # For vetting `toi` and `foi`: get timing information of input object
-    timing = np.array([np.array([-data.t0[k], end - start - data.t0[k]])/data.samplerate
+    timing = np.array([np.array([-data._t0[k], end - start - data._t0[k]])/data.samplerate
                        for k, (start, end) in enumerate(data.sampleinfo)])
 
     # Construct array of maximally attainable frequency band and set/align `foi`

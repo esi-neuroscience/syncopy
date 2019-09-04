@@ -117,7 +117,7 @@ class TestSpikeData():
             dummy.save(fname, overwrite=True)
             dummy2 = SpikeData(filename)
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
-            assert np.array_equal(dummy.t0, dummy2.t0)
+            assert np.array_equal(dummy._t0, dummy2._t0)
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
             del dummy, dummy2
             time.sleep(0.1)  # wait to kick-off garbage collection
@@ -231,7 +231,7 @@ class TestEventData():
             dummy.save(fname, overwrite=True)
             dummy2 = EventData(filename)
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
-            assert np.array_equal(dummy.t0, dummy2.t0)
+            assert np.array_equal(dummy._t0, dummy2._t0)
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
             del dummy, dummy2
 
@@ -331,8 +331,8 @@ class TestEventData():
         data4 = np.vstack([data3, smp])
         evt_dummy = EventData(data=data4, samplerate=sr_e)
         evt_dummy.definetrial(pre=pre, post=post, trigger=1)
-        with pytest.raises(SPYValueError):
-            ang_dummy.definetrial(evt_dummy)
+        # with pytest.raises(SPYValueError):
+            # ang_dummy.definetrial(evt_dummy)
 
         # Trimming edges produces zero-length trial
         with pytest.raises(SPYValueError):
@@ -343,8 +343,8 @@ class TestEventData():
         data4[-2, 0] = data4[-1, 0]
         evt_dummy = EventData(data=data4, samplerate=sr_e)
         evt_dummy.definetrial(pre=pre, post=post, trigger=1)
-        with pytest.raises(SPYValueError):
-            ang_dummy.definetrial(evt_dummy)
+        # with pytest.raises(SPYValueError):
+            # ang_dummy.definetrial(evt_dummy)
         ang_dummy.definetrial(evt_dummy, clip_edges=True)
         assert ang_dummy.sampleinfo[-1, 1] == self.ns
 
