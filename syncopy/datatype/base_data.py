@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-30 10:05:56>
+# Last modification time: <2019-09-04 13:59:26>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -29,7 +29,8 @@ import shutil
 
 # Local imports
 from .data_methods import definetrial
-from syncopy.shared.parsers import scalar_parser, array_parser, io_parser, filename_parser
+from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser, 
+                                    filename_parser, data_parser)
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
 from syncopy import __version__, __storage__, __dask__, __sessionid__
 if __dask__:
@@ -1062,3 +1063,89 @@ class FauxTrial():
         (parroting the NumPy original :func:`numpy.transpose`)
         """
         return FauxTrial(self.shape[::-1], self.idx[::-1], self.dtype)
+
+
+class Selector():
+    """
+    Coming soon...
+    """
+    
+    def __init__(self, data, select):
+        
+        # Ensure input makes sense
+        try:
+            data_parser(data, varname="data", empty=False)
+        except Exception as exc:
+            raise exc
+        if not isinstance(select, dict):
+            raise SPYTypeError(select, "select", expected="dict")
+        
+        # Assign default (dummy) values to hidden attributes
+        self._trials = None
+        self._time = None
+        
+        # We first need to know which trials are of interest here
+        self.trials = (data, select)
+        
+        self.time = (data, select)
+        
+    @property
+    def trials(self):
+        return self._trials
+    
+    @trials.setter
+    def trials(self, dataselect):
+        data, select = dataselect
+        trlList = list(range(len(data.trials)))
+        trials = select.get("trials", trlList)
+        vname = "select: trials"
+        try:
+            array_parser(trials, varname=vname, ntype="int_like", hasinf=False,
+                         hasnan=False, lims=[0, len(data.trials)], dims=1)
+        except Exception as exc:
+            raise exc
+        if not set(trials).issubset(trlList):
+            lgl = "List/array of values b/w 0 and {}".format(trlList[-1])
+            act = "Values b/w {} and {}".format(min(trials), max(trials))
+            raise SPYValueError(legal=lgl, varname=vname, actual=act)
+        self._trials = trials
+        
+    @property
+    def time(self):
+        return self._time
+    
+    @time.setter
+    def time(self, dataselect):
+        data, select = dataselect
+        timeSpec = select.get("toi")
+        vname = "select: toi/toilim"
+        if timeSpec is None:
+            timeSpec = select.get("toilim")
+        else:
+            if select.get("toilim") is not None:
+                lgl = "either `toi` or `toilim` specification"
+                act = "both"
+                raise SPYValueError(legal=lgl, varname=vname, actual=act)
+        hasTime = hasattr(data, "time") or hasattr(data, "trialtime")
+        if timeSpec is not None not hasTime:
+            lgl = "Syncopy data object with time-dimension"
+            raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
+        
+        if hasTime:
+            self._time = []
+            if "toilim" in select.keys():
+                for trlno in self.trials:
+                    trlTime = data.time[trlno]
+                    selTime = np.unique(np.hstack([np.where(trlTime >= timeSpec[0])[0], 
+                                                np.where(trlTime <= timeSpec[1])[0]]))
+                    self._time.append(selTime)
+            elif "toi" in select.keys():
+                timeSpec = np.array(timeSpec)
+                timeSpec.sort()
+                for trlno in self.trials:
+                    selTime = np.unique(np.searchsorted(data.time[trlno], timeSpec, side="right") - 1)
+                    self._time.append(selTime)
+            else:
+                self._time = [slice(None)] * len(self.trials)
+        else:
+            return

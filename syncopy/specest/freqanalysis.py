@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-04 11:13:09>
+# Last modification time: <2019-09-04 12:33:45>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -329,8 +329,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                                          width=width,
                                          output_fmt=output)
         
-    # import pdb; pdb.set_trace()
-
     # If provided, make sure output object is appropriate
     if out is not None:
         try:
@@ -343,22 +341,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     else:
         out = SpectralData()
         new_out = True
-
-    # # Prepare dict of optional keywords for computational class constructor
-    # # (update `lcls` to reflect changes in method-specifc options)
-    # lcls = locals()
-    # mth_input = {}
-    # kws.remove("noCompute")
-    # kws.remove("chunkShape")
-    # kws.append("keeptrials")
-    # for kw in kws:
-    #     mth_input[kw] = lcls[kw]
-
-    # # Construct dict of classes of available methods
-    # methods = {
-    #     "mtmfft": MultiTaperFFT(1/data.samplerate, timeAxis, **mth_input),
-    #     "wavelet": WaveletTransform(1/data.samplerate, timeAxis, foi, **mth_input)
-    # }
 
     # Detect if dask client is running and set `parallel` keyword accordingly
     if __dask__:
