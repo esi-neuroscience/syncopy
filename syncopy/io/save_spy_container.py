@@ -3,14 +3,15 @@
 # Save SynCoPy data objects on disk
 # 
 # Created: 2019-02-05 13:12:58
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-24 12:11:33>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-04 10:40:54>
 
 # Builtin/3rd party package imports
 import os
 import json
-import h5py
 import sys
+import h5py
+
 import numpy as np
 from collections import OrderedDict
 from hashlib import blake2b
@@ -27,7 +28,7 @@ from syncopy import __storage__
 __all__ = ["save"]
 
 def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=100):
-    """Save Syncopy data object to disk
+    r"""Save Syncopy data object to disk
 
     The underlying array data object is stored in a HDF5 file, the metadata in
     a JSON file. Both can be placed inside a Syncopy container, which is a
@@ -255,7 +256,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
         if np.isfortran(out.data): 
             outDict["order"] = "F"
     else:
-            outDict["order"] = "C"
+        outDict["order"] = "C"
             
     for key in out._infoFileProperties:
         value = getattr(out, key)
