@@ -3,8 +3,8 @@
 # Base functions for interacting with SyNCoPy data objects
 # 
 # Created: 2019-02-25 11:30:46
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-29 14:27:27>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-04 15:47:26>
 
 # Builtin/3rd party package imports
 import numbers
@@ -432,7 +432,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
         ref = trialdefinition
         tgt = obj
         trl = np.array(ref.trialinfo)
-        t0 = np.array(ref.t0).reshape((ref.t0.size,1))
+        t0 = np.array(ref._t0).reshape((ref._t0.size,1))
         trl = np.hstack([ref.sampleinfo, t0, trl])
         trl = np.round((trl/ref.samplerate) * tgt.samplerate).astype(int)
 
@@ -627,9 +627,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                             actual="shape = {shp:s}".format(shp=str(trl.shape)))
 
     # Finally: assign `sampleinfo`, `t0` and `trialinfo` (and potentially `trialid`)
-    tgt.sampleinfo = trl[:,:2]
-    tgt._t0 = np.array(trl[:,2], dtype=int)
-    tgt.trialinfo = trl[:,3:]
+    tgt._trialdefinition = trl
 
     # In the discrete case, we have some additinal work to do
     if any(["DiscreteData" in str(base) for base in tgt.__class__.__mro__]):
