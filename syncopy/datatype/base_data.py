@@ -3,11 +3,10 @@
 # SynCoPy BaseData abstract class + helper classes
 # 
 # Created: 2019-01-07 09:22:33
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-30 10:05:56>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-04 10:19:39>
 
 # Builtin/3rd party package imports
-import numpy as np
 import getpass
 import socket
 import time
@@ -15,26 +14,27 @@ import sys
 import os
 import numbers
 import inspect
-import h5py
-import scipy as sp
 from abc import ABC, abstractmethod
-from collections import OrderedDict
 from collections.abc import Iterator
 from copy import copy
 from datetime import datetime
 from hashlib import blake2b
 from itertools import islice
-from numpy.lib.format import open_memmap, read_magic
 import shutil
+import numpy as np
+from numpy.lib.format import open_memmap, read_magic
+import h5py
+import scipy as sp
 
 # Local imports
-from .data_methods import definetrial
+import syncopy as spy
+from syncopy.datatype.data_methods import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser, io_parser, filename_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
 from syncopy import __version__, __storage__, __dask__, __sessionid__
 if __dask__:
     import dask
-import syncopy as spy
+
 
 __all__ = ["StructDict"]
 
@@ -122,7 +122,7 @@ class BaseData(ABC):
                 h5keys = list(h5f.keys())
                 idx = [h5keys.count(dclass) for dclass in spy.datatype.__all__ \
                        if not (inspect.isfunction(getattr(spy.datatype, dclass)))]
-                if len(h5keys) !=1 and sum(idx) != 1:
+                if len(h5keys) != 1 and sum(idx) != 1:
                     lgl = "HDF5 container holding one data-object"
                     act = "HDF5 container holding {} data-objects"
                     raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname="data")
@@ -200,16 +200,17 @@ class BaseData(ABC):
 
         # In case we're working with a `DiscreteData` object, fill up samples
         if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
-            self._sample = np.unique(self.data[:,self.dimord.index("sample")])
+            self._sample = np.unique(self.data[:, self.dimord.index("sample")])
 
         # In case we're working with an `AnalogData` object, tentatively fill up channel labels
         if any(["ContinuousData" in str(base) for base in self.__class__.__mro__]):
-            channel = ["channel" + str(i + 1) for i in range(self.data.shape[self.dimord.index("channel")])]
+            channel = ["channel" + str(i + 1) 
+                       for i in range(self.data.shape[self.dimord.index("channel")])]
             self.channel = np.array(channel)
 
         # In case we're working with an `EventData` object, fill up eventid's
         if self.__class__.__name__ == "EventData":
-            self._eventid = np.unique(self.data[:,self.dimord.index("eventid")])
+            self._eventid = np.unique(self.data[:, self.dimord.index("eventid")])
 
     @property
     def dimord(self):
@@ -435,7 +436,7 @@ class BaseData(ABC):
 
     # Wrapper that makes saving routine usable as class method
     def save(self, container=None, tag=None, filename=None, overwrite=False, memuse=100):
-        """Save data object as new ``spy`` HDF container to disk (:func:`syncopy.save_data`)
+        r"""Save data object as new ``spy`` HDF container to disk (:func:`syncopy.save_data`)
         
         FIXME: update docu
         
@@ -602,8 +603,12 @@ class BaseData(ABC):
             if isinstance(self._data, h5py.Dataset):
                 try:
                     self._data.file.close()
-                except:
+                except IOError:
                     pass
+                except ValueError:
+                    pass
+                except Exception as exc:
+                    raise exc
             else:
                 del self._data
             if __storage__ in self.filename and os.path.exists(self.filename):
@@ -649,8 +654,10 @@ class BaseData(ABC):
                     fileinfo = filename_parser(filename)
                     if fileinfo["filename"] is not None:
                         read_fl = True
-                except:
+                except SPYValueError:
                     pass
+                except Exception as exc:
+                    raise exc
                 if not read_fl:
                     self.data = filename
                     
@@ -923,7 +930,7 @@ class Indexer():
         if isinstance(idx, numbers.Number):
             try:
                 scalar_parser(idx, varname="idx", ntype="int_like",
-                                  lims=[0, self._iterlen - 1])
+                              lims=[0, self._iterlen - 1])
             except Exception as exc:
                 raise exc
             return next(islice(self._iterobj, idx, idx + 1))
