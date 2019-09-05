@@ -89,9 +89,10 @@ class DiscreteData(BaseData, ABC):
     @property
     def trialtime(self):
         """list(:class:`numpy.ndarray`): trigger-relative sample times in s"""
-        return [range(-self.t0[tk],
-                      self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0] - self.t0[tk])
-                for tk in self.trialid] if self.trialid is not None else None
+        if self.samplerate is not None and self._sampleinfo is not None:
+            return [((t + self.t0[tk]) / self.samplerate \
+                    for t in range(self.sampleinfo[tk, 0], self.sampleinfo[tk, 1])) \
+                    for tk in self.trialid]
 
     # Selector method
     def selectdata(self, trials=None, deepcopy=False, **kwargs):
@@ -102,6 +103,34 @@ class DiscreteData(BaseData, ABC):
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
         return self._data[self.trialid == trialno, :]
+    
+    # Helper function that extracts timing-related indices
+    def _get_time(self, trials, toi=None, toilim=None):
+        """
+        Coming soon... 
+        Error checking is performed by `Selector` class
+        """
+        timing = []
+        if toilim is not None:
+            allTrials = self.trialtime
+            for trlno in trials:
+                trlSample = np.arange(*self.sampleinfo[trlno, :])
+                trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
+                minSample = trlSample[np.where(trlTime >= toilim[0])[0][0]]
+                maxSample = trlSample[np.where(trlTime <= toilim[1])[0][-1]]
+                selSample = np.hstack([np.where(trlSample >= minSample)[0], 
+                                       np.where(trlSample <= maxSample)[0]])
+                timing.append(selSample)
+        elif toi is not None:
+            allTrials = self.trialtime
+            for trlno in trials:
+                trlSample = np.arange(*self.sampleinfo[trlno, :])
+                trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
+                selSample = trlSample[[max(0, idx - 1) for idx in np.searchsorted(trlTime, toi, side="right")]]
+                timing.append(selSample)
+        else:
+            timing = [slice(None)] * len(trials)
+        return timing
 
     # Make instantiation persistent in all subclasses
     def __init__(self, **kwargs):

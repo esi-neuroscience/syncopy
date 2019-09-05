@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-29 16:58:35>
+# Last modification time: <2019-09-05 16:19:29>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -85,8 +85,8 @@ class ContinuousData(BaseData, ABC):
     def time(self):
         """list(float): trigger-relative time axes of each trial """
         if self.samplerate is not None and self._sampleinfo is not None:
-            return [np.arange(self.t0[tk], end - start - self.t0[tk]) * 1/self.samplerate \
-                    for tk, (start, end) in enumerate(self.sampleinfo)]
+            return [(np.arange(start, stop) + self.t0[tk]) / self.samplerate \
+                    for tk, (start, stop) in enumerate(self.sampleinfo)]
 
     # Selector method
     def selectdata(self, trials=None, deepcopy=False, **kwargs):
@@ -168,6 +168,29 @@ class ContinuousData(BaseData, ABC):
         shp[tidx] = stop - start
         idx[tidx] = slice(start, stop)
         return FauxTrial(shp, tuple(idx), self.data.dtype)
+    
+    # Helper function that extracts timing-related indices
+    def _get_time(self, trials, toi=None, toilim=None):
+        """
+        Coming soon... 
+        Error checking is performed by `Selector` class
+        """
+        timing = []
+        if toilim is not None:
+            allTrials = self.time
+            for trlno in trials:
+                trlTime = allTrials[trlno]
+                selTime = np.unique(np.hstack([np.where(trlTime >= toilim[0])[0], 
+                                               np.where(trlTime <= toilim[1])[0]]))
+                timing.append(selTime)
+        elif toi is not None:
+            allTrials = self.time
+            for trlno in trials:
+                selTime = [max(0, idx - 1) for idx in np.searchsorted(allTrials[trlno], toi, side="right")]
+                timing.append(selTime)
+        else:
+            timing = [slice(None)] * len(trials)
+        return timing
     
     # Make instantiation persistent in all subclasses
     def __init__(self, **kwargs):

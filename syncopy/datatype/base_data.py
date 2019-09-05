@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-04 13:59:26>
+# Last modification time: <2019-09-05 11:30:01>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -1068,6 +1068,7 @@ class FauxTrial():
 class Selector():
     """
     Coming soon...
+    Selections may be unsorted... (e.g., `trials = [1, 5, 3]`)
     """
     
     def __init__(self, data, select):
@@ -1082,11 +1083,15 @@ class Selector():
         
         # Assign default (dummy) values to hidden attributes
         self._trials = None
+        self._channels = None
         self._time = None
         
-        # We first need to know which trials are of interest here
+        # We first need to know which trials are of interest here (assuming 
+        # that any valid input object *must* have a `trials` attribute)
         self.trials = (data, select)
-        
+
+        # Now set any possible selection attribute (depending on type of `data`)
+        self.channel = (data, select)
         self.time = (data, select)
         
     @property
@@ -1111,6 +1116,41 @@ class Selector():
         self._trials = trials
         
     @property
+    def channels(self):
+        return self._channels
+    
+    @channels.setter
+    def channels(self, dataselect):
+        data, select = dataselect
+        channels = select.get("channels")
+        hasChannel = hasattr(data, "channel")
+        vname = "select: channel"
+        if channels is not None and hasChannel is False:
+            lgl = "Syncopy data object with channels"
+            raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
+        
+        if hasChannel:
+            if channels is None:
+                self._channels = list(range(len(data.channels)))
+            else:
+                try:
+                    array_parser(channels, varname=vname, dims=1)
+                except Exception as exc:
+                    raise exc
+                channels = np.array(channels)
+                if np.issubdtype(channels.dtype, np.dtype("str").type):
+                    channelList = list(data.channel)
+                else:
+                    channelList = list(range(len(data.channels)))
+                if not set(channels).issubset(channelList):
+                    lgl = "List/array of channel names or indices"
+                    raise SPYValueError(legal=lgl, varname=vname)
+                # preserve oder of input list - don't use `np.isin` here!
+                self._channels = [channelList.index(chan) for chan in channels]
+        else:
+            return
+        
+    @property
     def time(self):
         return self._time
     
@@ -1127,25 +1167,11 @@ class Selector():
                 act = "both"
                 raise SPYValueError(legal=lgl, varname=vname, actual=act)
         hasTime = hasattr(data, "time") or hasattr(data, "trialtime")
-        if timeSpec is not None not hasTime:
+        if timeSpec is not None and hasTime is False:
             lgl = "Syncopy data object with time-dimension"
             raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
         
         if hasTime:
-            self._time = []
-            if "toilim" in select.keys():
-                for trlno in self.trials:
-                    trlTime = data.time[trlno]
-                    selTime = np.unique(np.hstack([np.where(trlTime >= timeSpec[0])[0], 
-                                                np.where(trlTime <= timeSpec[1])[0]]))
-                    self._time.append(selTime)
-            elif "toi" in select.keys():
-                timeSpec = np.array(timeSpec)
-                timeSpec.sort()
-                for trlno in self.trials:
-                    selTime = np.unique(np.searchsorted(data.time[trlno], timeSpec, side="right") - 1)
-                    self._time.append(selTime)
-            else:
-                self._time = [slice(None)] * len(self.trials)
+            self._time = data._get_time(self.trials, toi=select["toi"], toilim=select["toilim"])
         else:
             return
