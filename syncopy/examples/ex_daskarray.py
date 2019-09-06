@@ -1,8 +1,8 @@
 # ex_daskarray.py - Script for testing Dask arrays vs. bags
 # 
 # Created: Januar 25 2019
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-01-29 12:52:56>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-04 15:38:17>
 
 # Builtin/3rd party package imports
 import dask
@@ -111,7 +111,7 @@ if demo:
     #       bag = db.from_sequence([lazy_value for lazy_value in lazy_values])
     # does not work since the delayed lazy values are not resolved correctly when
     # mapping to mtmfft ("Truth of Delayed objects is not supported")
-    bag = db.from_sequence(range(len(data._sampleinfo)))
+    bag = db.from_sequence(range(len(data.sampleinfo)))
 
     # Same as above but only use the first two segments
     small_bag = db.from_sequence(range(2))

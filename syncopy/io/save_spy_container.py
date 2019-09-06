@@ -3,8 +3,8 @@
 # Save SynCoPy data objects on disk
 # 
 # Created: 2019-02-05 13:12:58
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-24 12:11:33>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-04 14:15:10>
 
 # Builtin/3rd party package imports
 import os
@@ -223,9 +223,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
             dat = h5f.create_dataset(out.__class__.__name__, data=out.data)
 
     # Now write trial-related information
-    trl_arr = np.array(out.trialinfo)
-    t0 = np.array(out.t0).reshape((out.t0.size, 1))
-    trl_arr = np.hstack([out.sampleinfo, t0, trl_arr])
+    trl_arr = np.array(out._trialdefinition)
     if replace:
         trl[()] = trl_arr
         trl.flush()

@@ -3,8 +3,8 @@
 # 
 # 
 # Created: 2019-03-20 11:46:31
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-23 15:51:38>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-04 15:44:00>
 
 import os
 import tempfile
@@ -132,7 +132,7 @@ class TestAnalogData():
             filename = construct_spy_filename(fname + "_trl", dummy)
             dummy2 = AnalogData(filename)
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
-            assert np.array_equal(dummy.t0, dummy2.t0)
+            assert np.array_equal(dummy._t0, dummy2._t0)
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
             del dummy, dummy2  # avoid PermissionError in Windows
 
@@ -462,7 +462,7 @@ class TestSpectralData():
             dummy.save(fname, overwrite=True)
             dummy2 = SpectralData(filename)
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
-            assert np.array_equal(dummy.t0, dummy2.t0)
+            assert np.array_equal(dummy._t0, dummy2._t0)
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
 
             # swap dimensions and ensure `dimord` is preserved
