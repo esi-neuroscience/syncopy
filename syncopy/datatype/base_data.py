@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-06 15:30:45>
+# Last modification time: <2019-09-06 16:07:57>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -437,7 +437,7 @@ class BaseData(ABC):
 
     # Wrapper that makes saving routine usable as class method
     def save(self, container=None, tag=None, filename=None, overwrite=False, memuse=100):
-        """Save data object as new ``spy`` HDF container to disk (:func:`syncopy.save_data`)
+        r"""Save data object as new ``spy`` HDF container to disk (:func:`syncopy.save_data`)
         
         FIXME: update docu
         

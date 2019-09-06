@@ -4,7 +4,7 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-04 15:37:13>
+# Last modification time: <2019-09-06 16:00:13>
 
 import os
 import tempfile
@@ -38,7 +38,7 @@ class LowPassFilter(ComputationalRoutine):
 
     def process_metadata(self, data, out):
         if not self.keeptrials:
-            out._trialdefinition = np.array([[0, out.data.shape[0], 0]], dtype=int)             
+            out.trialdefinition = np.array([[0, out.data.shape[0], 0]], dtype=int)             
         else:
             trl = np.zeros((len(data.trials), 3), dtype=int)
             trial_lengths = np.diff(data.sampleinfo)
@@ -47,7 +47,7 @@ class LowPassFilter(ComputationalRoutine):
                 trl[row, 0] = cnt
                 trl[row, 1] = cnt + tlen
                 cnt += tlen
-            out._trialdefinition = np.hstack((trl, data.trialinfo))
+            out.trialdefinition = np.hstack((trl, data.trialinfo))
         
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel)

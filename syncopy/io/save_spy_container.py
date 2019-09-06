@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-04 14:15:10>
+# Last modification time: <2019-09-06 16:08:04>
 
 # Builtin/3rd party package imports
 import os
@@ -27,7 +27,7 @@ from syncopy import __storage__
 __all__ = ["save"]
 
 def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=100):
-    """Save Syncopy data object to disk
+    r"""Save Syncopy data object to disk
 
     The underlying array data object is stored in a HDF5 file, the metadata in
     a JSON file. Both can be placed inside a Syncopy container, which is a
@@ -223,7 +223,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
             dat = h5f.create_dataset(out.__class__.__name__, data=out.data)
 
     # Now write trial-related information
-    trl_arr = np.array(out._trialdefinition)
+    trl_arr = np.array(out.trialdefinition)
     if replace:
         trl[()] = trl_arr
         trl.flush()
