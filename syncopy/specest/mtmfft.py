@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:25:34
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-04 16:15:46>
+# Last modification time: <2019-09-06 16:00:38>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -140,7 +140,7 @@ class MultiTaperFFT(ComputationalRoutine):
         if self.keeptrials:
             time = np.arange(len(data.trials))
             time = time.reshape((time.size, 1))
-            out._trialdefinition = np.hstack((time, time + 1, 
+            out.trialdefinition = np.hstack((time, time + 1, 
                                               np.zeros((len(data.trials), 1)), 
                                               np.array(data.trialinfo)))
             # out.sampleinfo = np.hstack([time, time + 1])
@@ -148,7 +148,7 @@ class MultiTaperFFT(ComputationalRoutine):
             # out.trialinfo = np.array(data.trialinfo)
             
         else:
-            out._trialdefinition = np.array([[0, 1, 0]])
+            out.trialdefinition = np.array([[0, 1, 0]])
             # out.sampleinfo = np.array([[0, 1]])
             # out.trialinfo = out.sampleinfo[:, 3:]
             # out._t0 = np.array([0])

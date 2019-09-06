@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-04 15:40:15>
+# Last modification time: <2019-09-06 16:07:57>
 
 # Builtin/3rd party package imports
 import getpass
@@ -311,6 +311,15 @@ class BaseData(ABC):
         self._mode = md
 
     @property
+    def trialdefinition(self):
+        """nTrials x >=3 :class:`numpy.ndarray` of [start, end, offset, trialinfo[:]]"""
+        return self._trialdefinition
+    
+    @trialdefinition.setter
+    def trialdefinition(self, trl):
+        definetrial(self, trialdefinition=trl)        
+
+    @property
     def sampleinfo(self):
         """nTrials x 2 :class:`numpy.ndarray` of [start, end] sample indices"""
         if self._trialdefinition is not None: 
@@ -328,7 +337,7 @@ class BaseData(ABC):
             return self._trialdefinition[:, 2]
         else:
             return None
-
+    
     @property
     def trials(self):
         """list-like array of trials"""
@@ -353,7 +362,7 @@ class BaseData(ABC):
 
     @trialinfo.setter
     def trialinfo(self, trl):
-        raise SPYError("Cannot set trialinfo. Use `BaseData._trialdefinition` instead.")
+        raise SPYError("Cannot set trialinfo. Use `BaseData._trialdefinition` or `syncopy.definetrial` instead.")
         
 
     # Selector method
@@ -527,7 +536,7 @@ class BaseData(ABC):
 
         # Get list of print-worthy attributes
         ppattrs = [attr for attr in self.__dir__()
-                   if not (attr.startswith("_") or attr in ["log", "t0"])]
+                   if not (attr.startswith("_") or attr in ["log", "trialdefinition"])]
         ppattrs = [attr for attr in ppattrs
                    if not (inspect.ismethod(getattr(self, attr))
                            or isinstance(getattr(self, attr), Iterator))]
