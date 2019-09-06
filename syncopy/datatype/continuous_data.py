@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-05 16:19:29>
+# Last modification time: <2019-09-06 17:42:39>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -85,7 +85,7 @@ class ContinuousData(BaseData, ABC):
     def time(self):
         """list(float): trigger-relative time axes of each trial """
         if self.samplerate is not None and self._sampleinfo is not None:
-            return [(np.arange(start, stop) + self.t0[tk]) / self.samplerate \
+            return [(np.arange(0, stop - start) + self.t0[tk]) / self.samplerate \
                     for tk, (start, stop) in enumerate(self.sampleinfo)]
 
     # Selector method
@@ -167,6 +167,17 @@ class ContinuousData(BaseData, ABC):
         start = int(self.sampleinfo[trialno, 0])
         shp[tidx] = stop - start
         idx[tidx] = slice(start, stop)
+        if self._selection is not None:
+            for dim in ["time", "channel", "freq", "taper"]:
+                sel = getattr(self._selection, dim)
+                if sel:
+                    dimIdx = self.dimord.index(dim)
+                    idx[dimIdx] = sel
+                    if isinstance(sel, slice):
+                        if not (sel.start is sel.stop is None):
+                            shp[dimIdx] = sel.stop - sel.start
+                    else:
+                        shp[dimIdx] = len(sel)                    
         return FauxTrial(shp, tuple(idx), self.data.dtype)
     
     # Helper function that extracts timing-related indices
@@ -180,9 +191,9 @@ class ContinuousData(BaseData, ABC):
             allTrials = self.time
             for trlno in trials:
                 trlTime = allTrials[trlno]
-                selTime = np.unique(np.hstack([np.where(trlTime >= toilim[0])[0], 
-                                               np.where(trlTime <= toilim[1])[0]]))
-                timing.append(selTime)
+                selTime = np.intersect1d(np.where(trlTime >= toilim[0])[0], 
+                                         np.where(trlTime <= toilim[1])[0])
+                timing.append(slice(selTime[0], selTime[-1] + 1))
         elif toi is not None:
             allTrials = self.time
             for trlno in trials:
@@ -191,7 +202,7 @@ class ContinuousData(BaseData, ABC):
         else:
             timing = [slice(None)] * len(trials)
         return timing
-    
+
     # Make instantiation persistent in all subclasses
     def __init__(self, **kwargs):
 
@@ -379,6 +390,24 @@ class SpectralData(ContinuousData):
         except Exception as exc:
             raise exc
         self._freq = np.array(freq)
+    
+    # Helper function that extracts frequency-related indices
+    def _get_freq(self, foi=None, foilim=None):
+        """
+        Coming soon... 
+        Error checking is performed by `Selector` class
+        """
+        if foilim is not None:
+            allFreqs = self.freq
+            selFreq = np.intersect1d(np.where(allFreqs >= foilim[0])[0], 
+                                     np.where(allFreqs <= foilim[1])[0])
+            selFreq = slice(selFreq[0], selFreq[-1] + 1)
+        elif foi is not None:
+            allFreqs = self.freq
+            selFreq = [max(0, idx - 1) for idx in np.searchsorted(allFreqs, foi, side="right")]
+        else:
+            selFreq = slice(None)
+        return selFreq
     
     # "Constructor"
     def __init__(self,

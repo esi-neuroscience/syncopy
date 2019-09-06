@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-05 11:30:01>
+# Last modification time: <2019-09-06 17:53:04>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -309,6 +309,18 @@ class BaseData(ABC):
                 self._data = h5py.File(self.filename, mode=md)[dsetname]
 
         self._mode = md
+        
+    @property
+    def _selection(self):
+        """Data selection specified by :class:`Selector`"""
+        return self._selection_
+    
+    @_selection.setter
+    def _selection(self, select):
+        if select is None:
+            self._selection_ = None
+        else:
+            self._selection_ = Selector(self, select)
 
     @property
     def sampleinfo(self):
@@ -509,6 +521,7 @@ class BaseData(ABC):
                                 sess=__sessionid__, hash=fname_hsh,
                                 ext=self._classname_to_extension()))
 
+    # Helper function converting object class-name to usable file extension
     def _classname_to_extension(self):
         return "." + self.__class__.__name__.split('Data')[0].lower()
 
@@ -540,7 +553,7 @@ class BaseData(ABC):
                            or isinstance(getattr(self, attr), Iterator))]
         if hasattr(self, "hdr"):
             if getattr(self, "hdr") is None:
-                ppattrs.pop(ppattrs.index("hdr"))
+                ppattrs.remove("hdr")
         ppattrs.sort()
 
         # Construct string for pretty-printing class attributes
@@ -626,6 +639,7 @@ class BaseData(ABC):
         self._cfg = {}
         self._data = None
         self.mode = mode
+        self._selection_ = None
         self._sampleinfo = None
         self._t0 = [None]
         self._trialinfo = None
@@ -1080,11 +1094,23 @@ class Selector():
             raise exc
         if not isinstance(select, dict):
             raise SPYTypeError(select, "select", expected="dict")
+        supported = ["trials", "channels", "toi", "toilim", "foi", "foilim",
+                     "tapers", "units", "eventids"]
+        if not set(select.keys()).issubset(supported):
+            lgl = "dict with one or all of the following keys: '" +\
+                  "'".join(opt + "', " for opt in supported)[:-2]
+            act = "dict with keys '" +\
+                  "'".join(key + "', " for key in select.keys())[:-2]
+            raise SPYValueError(legal=lgl, varname="select", actual=act)
         
         # Assign default (dummy) values to hidden attributes
         self._trials = None
-        self._channels = None
+        self._channel = None
         self._time = None
+        self._freq = None
+        self._taper = None
+        self._unit = None
+        self._eventid = None
         
         # We first need to know which trials are of interest here (assuming 
         # that any valid input object *must* have a `trials` attribute)
@@ -1093,6 +1119,9 @@ class Selector():
         # Now set any possible selection attribute (depending on type of `data`)
         self.channel = (data, select)
         self.time = (data, select)
+        self.freq = (data, select)
+        self.taper = (data, select)
+        self.eventid = (data, select)
         
     @property
     def trials(self):
@@ -1116,11 +1145,11 @@ class Selector():
         self._trials = trials
         
     @property
-    def channels(self):
-        return self._channels
+    def channel(self):
+        return self._channel
     
-    @channels.setter
-    def channels(self, dataselect):
+    @channel.setter
+    def channel(self, dataselect):
         data, select = dataselect
         channels = select.get("channels")
         hasChannel = hasattr(data, "channel")
@@ -1131,8 +1160,9 @@ class Selector():
         
         if hasChannel:
             if channels is None:
-                self._channels = list(range(len(data.channels)))
+                self._channel = slice(None)
             else:
+                # FIXME: support slices + check if arrays are contiguous
                 try:
                     array_parser(channels, varname=vname, dims=1)
                 except Exception as exc:
@@ -1141,12 +1171,12 @@ class Selector():
                 if np.issubdtype(channels.dtype, np.dtype("str").type):
                     channelList = list(data.channel)
                 else:
-                    channelList = list(range(len(data.channels)))
+                    channelList = list(range(data.channel.size))
                 if not set(channels).issubset(channelList):
                     lgl = "List/array of channel names or indices"
                     raise SPYValueError(legal=lgl, varname=vname)
-                # preserve oder of input list - don't use `np.isin` here!
-                self._channels = [channelList.index(chan) for chan in channels]
+                # preserver order of input list - don't use `np.isin` here!
+                self._channel = [channelList.index(chan) for chan in channels]
         else:
             return
         
@@ -1172,6 +1202,169 @@ class Selector():
             raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
         
         if hasTime:
-            self._time = data._get_time(self.trials, toi=select["toi"], toilim=select["toilim"])
+            self._time = data._get_time(self.trials, toi=select.get("toi"), 
+                                        toilim=select.get("toilim"))
         else:
             return
+
+    @property
+    def freq(self):
+        return self._freq
+    
+    @freq.setter
+    def freq(self, dataselect):
+        data, select = dataselect
+        freqSpec = select.get("foi")
+        vname = "select: foi/foilim"
+        if freqSpec is None:
+            freqSpec = select.get("foilim")
+        else:
+            if select.get("foilim") is not None:
+                lgl = "either `foi` or `foilim` specification"
+                act = "both"
+                raise SPYValueError(legal=lgl, varname=vname, actual=act)
+        hasFreq = hasattr(data, "freq")
+        if freqSpec is not None and hasFreq is False:
+            lgl = "Syncopy data object with freq-dimension"
+            raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
+        
+        if hasFreq:
+            self._freq = data._get_freq(foi=select.get("foi"), foilim=select.get("foilim"))
+        else:
+            return
+
+    @property
+    def taper(self):
+        return self._taper
+
+    @taper.setter
+    def taper(self, dataselect):
+        data, select = dataselect
+        tapers = select.get("tapers")
+        hasTaper = hasattr(data, "taper")
+        vname = "select: tapers"
+        if tapers is not None and hasTaper is False:
+            lgl = "Syncopy data object with tapers"
+            raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
+        
+        if hasTaper:
+            if tapers is None:
+                self._taper = list(range(data.taper.size))
+            else:
+                try:
+                    array_parser(tapers, varname=vname, dims=1)
+                except Exception as exc:
+                    raise exc
+                tapers = np.array(tapers)
+                if np.issubdtype(tapers.dtype, np.dtype("str").type):
+                    taperList = list(data.taper)
+                else:
+                    taperList = list(range(data.taper.size))
+                if not set(tapers).issubset(taperList):
+                    lgl = "List/array of tapers"
+                    raise SPYValueError(legal=lgl, varname=vname)
+                # preserver order of input list - don't use `np.isin` here!
+                self._taper = [taperList.index(tap) for tap in tapers]
+        else:
+            return
+
+    @property
+    def unit(self):
+        return self._unit
+
+    @unit.setter
+    def unit(self, dataselect):
+        data, select = dataselect
+        units = select.get("units")
+        hasUnit = hasattr(data, "unit")
+        vname = "select: units"
+        if units is not None and hasUnit is False:
+            lgl = "Syncopy data object with units"
+            raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
+        
+        if hasUnit:
+            if units is None:
+                self._unit = list(range(data.channel.size))
+            else:
+                try:
+                    array_parser(units, varname=vname, dims=1)
+                except Exception as exc:
+                    raise exc
+                units = np.array(units)
+                if np.issubdtype(units.dtype, np.dtype("str").type):
+                    unitList = list(data.unit)
+                else:
+                    unitList = list(range(data.unit.size))
+                if not set(units).issubset(unitList):
+                    lgl = "List/array of unit names or indices"
+                    raise SPYValueError(legal=lgl, varname=vname)
+                # preserver order of input list - don't use `np.isin` here!
+                self._unit = [unitList.index(unt) for unt in units]
+        else:
+            return
+
+    @property
+    def eventid(self):
+        return self._eventid
+
+    @eventid.setter
+    def eventid(self, dataselect):
+        data, select = dataselect
+        eventids = select.get("eventids")
+        hasEventid = hasattr(data, "eventid")
+        vname = "select: eventids"
+        if eventids is not None and hasEventid is False:
+            lgl = "Syncopy data object with event-ids"
+            raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
+        
+        if hasEventid:
+            allEvents = list(data.eventid)
+            if eventids is None:
+                self._eventid = allEvents
+            else:
+                try:
+                    array_parser(eventids, varname=vname, hasinf=False, hasnan=False,
+                                 lims=[0, len(allEvents) - 1], dims=1)
+                except Exception as exc:
+                    raise exc
+                if not set(eventids).issubset(allEvents):
+                    lgl = "List/array of event-ids"
+                    raise SPYValueError(legal=lgl, varname=vname)
+                # preserver order of input list - don't use `np.isin` here!
+                self._eventid = [allEvents.index(evt) for evt in eventids]
+        else:
+            return
+        
+    # Legacy support
+    def __repr__(self):
+        return self.__str__()
+
+    # Make selection readable from the command line
+    def __str__(self):
+        
+        # Get list of print-worthy attributes
+        ppattrs = [attr for attr in self.__dir__() if not attr.startswith("_")]
+        ppattrs.sort()
+    
+        # Construct string for printing; FIXME: account for slices
+        if all([getattr(self, attr) is None for attr in ppattrs]):
+            msg = "empty Syncopy selector"
+        else:
+            if isinstance(self.time[0], slice):
+                if self.time[0].start is None:
+                    timefmt = "all"
+                else:
+                    timefmt = str(self.time[0].stop - self.time[0].start - 1)
+            else:
+                timefmt = str(len(self.time[0]))
+            msg = "Syncopy selector with {trl:s} {chan:s} {tim:s} {freq:s} {tap:s} {evt:s}"
+            msg = msg.format(trl="{0:d} trials".format(len(self.trials)) \
+                                 if self.trials else "",
+                             chan="{0:d} channels".format(len(self.channel)) \
+                                 if self.channel else "",
+                             tim="{0:s} time-points".format(timefmt) \
+                                 if self.time else "",
+                             freq="{0:d} frequencies".format(len(self.freq)) if self.freq else "",
+                             tap="{0:d} tapers".format(len(self.taper)) if self.taper else "",
+                             evt="{0:d} event-ids".format(len(self.eventid)) if self.eventid else "")
+        return msg

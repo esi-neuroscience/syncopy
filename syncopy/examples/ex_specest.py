@@ -53,6 +53,12 @@ if __name__ == "__main__":
     # artdata.save('test', overwrite=True)
     # bdata = spy.load('test')
     spec1 = spy.freqanalysis(artdata, cfg)
+    
+    
+    select = {"trials": [0, 1], "channels": ["channel3", "channel5"]}
+    selector = spy.datatype.base_data.Selector(spec1, select)
+    
+    
     sys.exit()
     client = dd.Client()
     spec2 = spy.freqanalysis(artdata, cfg)

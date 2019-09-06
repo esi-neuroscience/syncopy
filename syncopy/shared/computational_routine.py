@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-03 11:29:20>
+# Last modification time: <2019-09-06 14:16:20>
 
 # Builtin/3rd party package imports
 import os
@@ -274,6 +274,7 @@ class ComputationalRoutine(ABC):
         # Construct dimensional layout of output
         stacking = targetLayout[0][0].stop
         for tk in range(1, len(data.trials)):
+        # for tk in range(1, len(trialList)):
             trial = trials[tk]
             chkshp, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs)
             lyt = [slice(0, stop) for stop in chkshp]

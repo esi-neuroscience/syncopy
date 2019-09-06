@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-04 10:24:26>
+# Last modification time: <2019-09-06 16:05:18>
 
 # Builtin/3rd party package imports
 import os
@@ -736,12 +736,28 @@ def unwrap_cfg(func):
                 data = cfg.pop("dataset")
             if data:
                 args = [data] + args
+                
+            # Input keywords are all provided by `cfg`
+            kwords = cfg
+            
+        else:
+        
+            # No meaningful `cfg` keyword found: take standard input keywords
+            kwords = kwargs
+            
+        # Remove data (always first positional argument) from anonymous `args` list
+        data = args.pop(0)
+            
+        # Process data selection: if provided, extract `select` from input kws
+        data._selection = kwords.get("select")
 
-            # Call function with modified positional/keyword arguments
-            return func(*args, **cfg)
-
-        # No meaningful `cfg` keyword found, proceed with regular function call
-        return func(*args, **kwargs)
+        # Call function with modified positional/keyword arguments
+        res = func(data, *args, **kwords)
+        
+        # Erase data-selection slot to not alter user objects
+        data._selection = None
+                    
+        return res
 
     return wrapper_cfg
 
