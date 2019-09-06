@@ -3,8 +3,8 @@
 # Base class for all computational kernels in Syncopy
 # 
 # Created: 2019-05-13 09:18:55
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-03 11:29:20>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-06 16:34:52>
 
 # Builtin/3rd party package imports
 import os
@@ -495,7 +495,7 @@ class ComputationalRoutine(ABC):
         """
 
         # The output object's type determines dataset name for result
-        self.datasetName = out.__class__.__name__
+        self.datasetName = "data"
 
         # In case parallel writing via VDS storage is requested, prepare
         # directory for by-chunk HDF5 containers and construct virutal HDF layout

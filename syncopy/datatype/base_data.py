@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-06 16:07:57>
+# Last modification time: <2019-09-06 16:40:13>
 
 # Builtin/3rd party package imports
 import getpass
@@ -44,6 +44,7 @@ class BaseData(ABC):
     # Class properties that are written to JSON/HDF upon save
     _infoFileProperties = ("dimord", "_version", "_log", "cfg",)
     _hdfFileProperties =  ("dimord", "_version", "_log",)
+    _hdfFileDatasetProperties = ("data",)
 
     # Checksum algorithm used
     _checksum_algorithm = spy.__checksum_algorithm__.__name__
@@ -120,16 +121,14 @@ class BaseData(ABC):
             
             if is_hdf:
                 h5keys = list(h5f.keys())
-                idx = [h5keys.count(dclass) for dclass in spy.datatype.__all__ \
-                       if not (inspect.isfunction(getattr(spy.datatype, dclass)))]
-                if len(h5keys) != 1 and sum(idx) != 1:
-                    lgl = "HDF5 container holding one data-object"
+                if not "data" in h5keys and len(h5keys) != 1:                    
+                    lgl = "HDF5 container holding one ""data""-object"
                     act = "HDF5 container holding {} data-objects"
                     raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname="data")
                 if len(h5keys) == 1:
                     self._data = h5f[h5keys[0]]
                 else:
-                    self._data = h5f[spy.datatype.__all__[idx.index(1)]]
+                    self._data = h5f["data"]
             if is_npy:
                 self._data = open_memmap(in_data, mode=md)
             self.filename = in_data
@@ -175,7 +174,7 @@ class BaseData(ABC):
                 self._data[...] = in_data
             else:
                 self.filename = self._gen_filename()
-                dsetname = self.__class__.__name__
+                dsetname = "data"
                 with h5py.File(self.filename, "w") as h5f:
                     h5f.create_dataset(dsetname, data=in_data)
                 md = self.mode

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-06 16:08:04>
+# Last modification time: <2019-09-06 16:33:51>
 
 # Builtin/3rd party package imports
 import os
@@ -204,24 +204,28 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
                     raise SPYIOError(dataFile, exists=True)
         h5f = h5py.File(dataFile, mode="w")
         
-        # Handle memory maps
-        if isinstance(out.data, np.memmap) or out.data.__class__.__name__ == "VirtualData":
-            # Given memory cap, compute how many data blocks can be grabbed
-            # per swipe (divide by 2 since we're working with an add'l tmp array)
-            memuse *= 1024**2 / 2
-            nrow = int(memuse / (np.prod(out.data.shape[1:]) * out.data.dtype.itemsize))
-            rem = int(out.data.shape[0] % nrow)
-            n_blocks = [nrow] * int(out.data.shape[0] // nrow) + [rem] * int(rem > 0)
+        for datasetName in out._hdfFileDatasetProperties:
+            dataset = getattr(out, datasetName)
+            print(datasetName)
+            # Handle memory maps
+            if isinstance(dataset, np.memmap):
+                # Given memory cap, compute how many data blocks can be grabbed
+                # per swipe (divide by 2 since we're working with an add'l tmp array)
+                memuse *= 1024**2 / 2
+                nrow = int(memuse / (np.prod(dataset.shape[1:]) * dataset.dtype.itemsize))
+                rem = int(dataset.shape[0] % nrow)
+                n_blocks = [nrow] * int(dataset.shape[0] // nrow) + [rem] * int(rem > 0)
 
-            # Write data block-wise to dataset (use `clear` to wipe blocks of
-            # mem-maps from memory)
-            dat = h5f.create_dataset(out.__class__.__name__,
-                                    dtype=out.data.dtype, shape=out.data.shape)
-            for m, M in enumerate(n_blocks):
-                dat[m * nrow: m * nrow + M, :] = out.data[m * nrow: m * nrow + M, :]
-                out.clear()
-        else:
-            dat = h5f.create_dataset(out.__class__.__name__, data=out.data)
+                # Write data block-wise to dataset (use `clear` to wipe blocks of
+                # mem-maps from memory)
+                dat = h5f.create_dataset(datasetName,
+                                        dtype=dataset.dtype, shape=dataset.shape)
+                for m, M in enumerate(n_blocks):
+                    dat[m * nrow: m * nrow + M, :] = out.data[m * nrow: m * nrow + M, :]
+                    out.clear()
+            else:
+                dat = h5f.create_dataset(datasetName, data=dataset)
+                # import pdb; pdb.set_trace()
 
     # Now write trial-related information
     trl_arr = np.array(out.trialdefinition)

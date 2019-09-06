@@ -3,8 +3,8 @@
 # Test functionality of SyNCoPy-container I/O routines
 # 
 # Created: 2019-03-19 14:21:12
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-24 09:44:28>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-06 16:45:54>
 
 import os
 import tempfile
@@ -107,7 +107,8 @@ class TestSpyIO():
                 del dummy, dummy2
                 time.sleep(0.1)  # wait to kick-off garbage collection
                 h5f = h5py.File(hname, "r+")
-                dset = h5f[dclass]
+                dset = h5f["data"]
+                # provoke checksum error by adding 1 to all datasets
                 dset[()] += 1
                 h5f.close()
                 
