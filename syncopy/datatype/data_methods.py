@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-04 15:47:26>
+# Last modification time: <2019-09-06 15:27:01>
 
 # Builtin/3rd party package imports
 import numbers
@@ -407,6 +407,17 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                 array_parser(trialdefinition, varname="trialdefinition", dims=2)
             except Exception as exc:
                 raise exc
+            
+            if any(["ContinuousData" in str(base) for base in obj.__class__.__mro__]):
+                scount = obj.data.shape[obj.dimord.index("time")]
+            else:
+                scount = np.inf
+            try:
+                array_parser(trialdefinition[:, :2], varname="sampleinfo", dims=(None, 2), hasnan=False, 
+                         hasinf=False, ntype="int_like", lims=[0, scount])
+            except Exception as exc:
+                raise exc            
+            
             trl = trialdefinition
             ref = obj
             tgt = obj
