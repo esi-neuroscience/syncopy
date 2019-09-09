@@ -14,7 +14,7 @@ from collections import OrderedDict
 # Local imports
 from syncopy import __tbcount__
 
-__all__ = ["get_caller"]
+__all__ = []
 
 
 class SPYError(Exception):

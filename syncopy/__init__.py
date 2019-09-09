@@ -9,8 +9,8 @@
 # Builtin/3rd party package imports
 import os
 import sys
-import numpy as np
 from hashlib import blake2b, sha1
+import numpy as np
 
 # Global version number
 __version__ = "0.1a"
@@ -60,6 +60,7 @@ __tbcount__ = 5
 __checksum_algorithm__ = sha1
 
 # Fill up namespace
+from . import datatype, io, shared, specest
 from .shared import *
 from .io import *
 from .datatype import *

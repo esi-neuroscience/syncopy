@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-06 16:33:51>
+# Last modification time: <2019-09-09 10:57:22>
 
 # Builtin/3rd party package imports
 import os
@@ -21,7 +21,7 @@ from syncopy.shared.parsers import (io_parser, filename_parser,
                                     data_parser, scalar_parser)
 from syncopy.shared.errors import (SPYIOError, SPYTypeError, 
                                    SPYValueError, SPYError)
-from syncopy.io import hash_file, write_access, FILE_EXT, startInfoDict
+from syncopy.io.utils import hash_file, write_access, FILE_EXT, startInfoDict
 from syncopy import __storage__
 
 

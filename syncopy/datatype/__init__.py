@@ -7,6 +7,7 @@
 # Last modification time: <2019-05-21 15:00:07>
 
 # Import __all__ routines from local modules
+from . import base_data, continuous_data, discrete_data, data_methods
 from .base_data import *
 from .continuous_data import *
 from .discrete_data import *

@@ -10,6 +10,7 @@ Coming soon...
 """
 
 # Import __all__ routines from local modules
+from . import utils, load_raw_binary, load_spy_container, save_spy_container
 from .utils import *
 from .load_raw_binary import *
 from .load_spy_container import *

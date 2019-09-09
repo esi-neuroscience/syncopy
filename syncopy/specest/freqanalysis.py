@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-04 13:06:38>
+# Last modification time: <2019-09-09 10:58:25>
 
 # Builtin/3rd party package imports
 import sys
@@ -115,11 +115,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         or the (empty) object into which the result should be written.
 
 
-    .. autodata:: syncopy.specest.specest.availableMethods
+    .. autodata:: syncopy.specest.freqanalysis.availableMethods
 
-    .. autodata:: syncopy.specest.specest.availableOutputs
+    .. autodata:: syncopy.specest.freqanalysis.availableOutputs
 
-    .. autodata:: syncopy.specest.specest.availableTapers
+    .. autodata:: syncopy.specest.freqanalysis.availableTapers
 
 
     Returns

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 14:21:12
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-06 16:45:54>
+# Last modification time: <2019-09-09 11:37:28>
 
 import os
 import tempfile
@@ -18,7 +18,8 @@ from glob import glob
 from memory_profiler import memory_usage
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.datatype.base_data import VirtualData
-from syncopy.io import save, load, FILE_EXT
+from syncopy.io import save, load
+from syncopy.io.utils import FILE_EXT
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError, SPYError
 import syncopy.datatype as swd
 from syncopy.tests.misc import generate_artifical_data, construct_spy_filename
