@@ -120,14 +120,18 @@ class DiscreteData(BaseData, ABC):
                 maxSample = trlSample[np.where(trlTime <= toilim[1])[0][-1]]
                 selSample = np.intersect1d(np.where(trlSample >= minSample)[0], 
                                            np.where(trlSample <= maxSample)[0])
-                timing.append(selSample)
+                timing.append(slice(selSample[0], selSample[-1] + 1, 1))
         elif toi is not None:
             allTrials = self.trialtime
             for trlno in trials:
                 trlSample = np.arange(*self.sampleinfo[trlno, :])
                 trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
                 selSample = trlSample[[max(0, idx - 1) for idx in np.searchsorted(trlTime, toi, side="right")]]
-                timing.append(selSample)
+                sampSteps = np.diff(selSample)
+                if sampSteps.min() == sampSteps.max() == 1:
+                    timing.append(slice(sampSteps[0], sampSteps[-1] + 1, 1))
+                else:
+                    timing.append(selSample)
         else:
             timing = [slice(None)] * len(trials)
         return timing

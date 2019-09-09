@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-06 17:42:39>
+# Last modification time: <2019-09-09 17:55:58>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -175,7 +175,7 @@ class ContinuousData(BaseData, ABC):
                     idx[dimIdx] = sel
                     if isinstance(sel, slice):
                         if not (sel.start is sel.stop is None):
-                            shp[dimIdx] = sel.stop - sel.start
+                            shp[dimIdx] = int(np.ceil((sel.stop - sel.start) / sel.step))
                     else:
                         shp[dimIdx] = len(sel)                    
         return FauxTrial(shp, tuple(idx), self.data.dtype)
@@ -193,12 +193,16 @@ class ContinuousData(BaseData, ABC):
                 trlTime = allTrials[trlno]
                 selTime = np.intersect1d(np.where(trlTime >= toilim[0])[0], 
                                          np.where(trlTime <= toilim[1])[0])
-                timing.append(slice(selTime[0], selTime[-1] + 1))
+                timing.append(slice(selTime[0], selTime[-1] + 1, 1))
         elif toi is not None:
             allTrials = self.time
             for trlno in trials:
                 selTime = [max(0, idx - 1) for idx in np.searchsorted(allTrials[trlno], toi, side="right")]
-                timing.append(selTime)
+                timeSteps = np.diff(selTime)
+                if timeSteps.min() == timeSteps.max() == 1:
+                    timing.append(slice(timeSteps[0], timeSteps[-1] + 1, 1))
+                else:
+                    timing.append(selTime)
         else:
             timing = [slice(None)] * len(trials)
         return timing
@@ -405,6 +409,9 @@ class SpectralData(ContinuousData):
         elif foi is not None:
             allFreqs = self.freq
             selFreq = [max(0, idx - 1) for idx in np.searchsorted(allFreqs, foi, side="right")]
+            freqSteps = np.diff(selFreq)
+            if freqSteps.min() == freqSteps.max() == 1:
+                selFreq = slice(selFreq[0], selFreq[-1] + 1)
         else:
             selFreq = slice(None)
         return selFreq

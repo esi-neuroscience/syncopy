@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-06 17:53:04>
+# Last modification time: <2019-09-09 17:55:39>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -313,14 +313,14 @@ class BaseData(ABC):
     @property
     def _selection(self):
         """Data selection specified by :class:`Selector`"""
-        return self._selection_
+        return self._selector
     
     @_selection.setter
     def _selection(self, select):
         if select is None:
-            self._selection_ = None
+            self._selector = None
         else:
-            self._selection_ = Selector(self, select)
+            self._selector = Selector(self, select)
 
     @property
     def sampleinfo(self):
@@ -639,7 +639,7 @@ class BaseData(ABC):
         self._cfg = {}
         self._data = None
         self.mode = mode
-        self._selection_ = None
+        self._selector = None
         self._sampleinfo = None
         self._t0 = [None]
         self._trialinfo = None
@@ -1121,6 +1121,7 @@ class Selector():
         self.time = (data, select)
         self.freq = (data, select)
         self.taper = (data, select)
+        self.unit = (data, select)
         self.eventid = (data, select)
         
     @property
@@ -1151,34 +1152,7 @@ class Selector():
     @channel.setter
     def channel(self, dataselect):
         data, select = dataselect
-        channels = select.get("channels")
-        hasChannel = hasattr(data, "channel")
-        vname = "select: channel"
-        if channels is not None and hasChannel is False:
-            lgl = "Syncopy data object with channels"
-            raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
-        
-        if hasChannel:
-            if channels is None:
-                self._channel = slice(None)
-            else:
-                # FIXME: support slices + check if arrays are contiguous
-                try:
-                    array_parser(channels, varname=vname, dims=1)
-                except Exception as exc:
-                    raise exc
-                channels = np.array(channels)
-                if np.issubdtype(channels.dtype, np.dtype("str").type):
-                    channelList = list(data.channel)
-                else:
-                    channelList = list(range(data.channel.size))
-                if not set(channels).issubset(channelList):
-                    lgl = "List/array of channel names or indices"
-                    raise SPYValueError(legal=lgl, varname=vname)
-                # preserver order of input list - don't use `np.isin` here!
-                self._channel = [channelList.index(chan) for chan in channels]
-        else:
-            return
+        self._selection_setter(data, select, "channel", "channels")
         
     @property
     def time(self):
@@ -1240,33 +1214,7 @@ class Selector():
     @taper.setter
     def taper(self, dataselect):
         data, select = dataselect
-        tapers = select.get("tapers")
-        hasTaper = hasattr(data, "taper")
-        vname = "select: tapers"
-        if tapers is not None and hasTaper is False:
-            lgl = "Syncopy data object with tapers"
-            raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
-        
-        if hasTaper:
-            if tapers is None:
-                self._taper = list(range(data.taper.size))
-            else:
-                try:
-                    array_parser(tapers, varname=vname, dims=1)
-                except Exception as exc:
-                    raise exc
-                tapers = np.array(tapers)
-                if np.issubdtype(tapers.dtype, np.dtype("str").type):
-                    taperList = list(data.taper)
-                else:
-                    taperList = list(range(data.taper.size))
-                if not set(tapers).issubset(taperList):
-                    lgl = "List/array of tapers"
-                    raise SPYValueError(legal=lgl, varname=vname)
-                # preserver order of input list - don't use `np.isin` here!
-                self._taper = [taperList.index(tap) for tap in tapers]
-        else:
-            return
+        self._selection_setter(data, select, "taper", "tapers")
 
     @property
     def unit(self):
@@ -1275,33 +1223,7 @@ class Selector():
     @unit.setter
     def unit(self, dataselect):
         data, select = dataselect
-        units = select.get("units")
-        hasUnit = hasattr(data, "unit")
-        vname = "select: units"
-        if units is not None and hasUnit is False:
-            lgl = "Syncopy data object with units"
-            raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
-        
-        if hasUnit:
-            if units is None:
-                self._unit = list(range(data.channel.size))
-            else:
-                try:
-                    array_parser(units, varname=vname, dims=1)
-                except Exception as exc:
-                    raise exc
-                units = np.array(units)
-                if np.issubdtype(units.dtype, np.dtype("str").type):
-                    unitList = list(data.unit)
-                else:
-                    unitList = list(range(data.unit.size))
-                if not set(units).issubset(unitList):
-                    lgl = "List/array of unit names or indices"
-                    raise SPYValueError(legal=lgl, varname=vname)
-                # preserver order of input list - don't use `np.isin` here!
-                self._unit = [unitList.index(unt) for unt in units]
-        else:
-            return
+        self._selection_setter(data, select, "unit", "units")
 
     @property
     def eventid(self):
@@ -1310,28 +1232,84 @@ class Selector():
     @eventid.setter
     def eventid(self, dataselect):
         data, select = dataselect
-        eventids = select.get("eventids")
-        hasEventid = hasattr(data, "eventid")
-        vname = "select: eventids"
-        if eventids is not None and hasEventid is False:
-            lgl = "Syncopy data object with event-ids"
+        self._selection_setter(data, select, "eventid", "eventids")
+
+    # Helper function to process all other selections        
+    def _selection_setter(self, data, select, dataprop, selectkey):
+        
+        selection = select.get(selectkey)
+        target = getattr(data, dataprop, None)
+        selector = "_{}".format(dataprop)
+        vname = "select: {}".format(selectkey)
+        
+        if selection is not None and target is None:
+            lgl = "Syncopy data object with {}".format(selectkey)
             raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
         
-        if hasEventid:
-            allEvents = list(data.eventid)
-            if eventids is None:
-                self._eventid = allEvents
+        if target is not None:
+            
+            if np.issubdtype(target.dtype, np.dtype("str").type):
+                slcLims = [0, target.size]
+                arrLims = None
+                hasnan = None
+                hasinf = None
+            else:
+                slcLims = [target[0], target[-1] + 1]
+                arrLims = [target[0], target[-1]]
+                hasnan = False
+                hasinf = False
+                
+            if selection is None:
+                setattr(self, selector, slice(None))
+                
+            elif isinstance(selection, (slice, range)):
+                selLims = [-np.inf, np.inf]
+                if selection.start is not None:
+                    selLims[0] = selection.start
+                if selection.stop is not None:
+                    selLims[1] = selection.stop
+                if selLims[0] >= selLims[1]:
+                    lgl = "selection range with min < max"
+                    act = "selection range from {} to {}".format(selLims[0], selLims[1])
+                    raise SPYValueError(legal=lgl, varname=vname, actual=act)
+                # check slice/range boundaries: take care of things like `slice(-10, -3)`
+                if np.isfinite(selLims[0]) and (selLims[0] < -slcLims[1] or selLims[0] >= slcLims[1]):
+                    lgl = "selection range with min >= {}".format(slcLims[0])
+                    act = "selection range starting at {}".format(selLims[0])
+                    raise SPYValueError(legal=lgl, varname=vname, actual=act)
+                if np.isfinite(selLims[1]) and (selLims[1] > slcLims[1] or selLims[1] < -slcLims[1]):
+                    lgl = "selection range with max <= {}".format(slcLims[1])
+                    act = "selection range ending at {}".format(selLims[1])
+                    raise SPYValueError(legal=lgl, varname=vname, actual=act)
+                if selection.step is None:
+                    step = 1
+                else:
+                    step = selection.step
+                setattr(self, selector, slice(selection.start, selection.stop, step))
+                
             else:
                 try:
-                    array_parser(eventids, varname=vname, hasinf=False, hasnan=False,
-                                 lims=[0, len(allEvents) - 1], dims=1)
+                    array_parser(selection, varname=vname, hasinf=hasinf, 
+                                 hasnan=hasnan, lims=arrLims, dims=1)
                 except Exception as exc:
                     raise exc
-                if not set(eventids).issubset(allEvents):
-                    lgl = "List/array of event-ids"
+                selection = np.array(selection)
+                if np.issubdtype(selection.dtype, np.dtype("str").type):
+                    targetList = list(target)
+                else:
+                    targetList = list(range(target.size))
+                if not set(selection).issubset(targetList):
+                    lgl = "List/array of {} names or indices".format(dataprop)
                     raise SPYValueError(legal=lgl, varname=vname)
                 # preserver order of input list - don't use `np.isin` here!
-                self._eventid = [allEvents.index(evt) for evt in eventids]
+                idxList = [targetList.index(sel) for sel in selection]
+                # convert range-arrays (`[0, 1, 2, 3]`) to slices for better performance
+                steps = np.diff(idxList)
+                if steps.min() == steps.max() == 1:
+                    setattr(self, selector, slice(idxList[0], idxList[-1] + 1, 1))
+                else:
+                    setattr(self, selector, idxList)
+                    
         else:
             return
         
@@ -1345,26 +1323,37 @@ class Selector():
         # Get list of print-worthy attributes
         ppattrs = [attr for attr in self.__dir__() if not attr.startswith("_")]
         ppattrs.sort()
-    
-        # Construct string for printing; FIXME: account for slices
-        if all([getattr(self, attr) is None for attr in ppattrs]):
-            msg = "empty Syncopy selector"
-        else:
-            if isinstance(self.time[0], slice):
-                if self.time[0].start is None:
-                    timefmt = "all"
-                else:
-                    timefmt = str(self.time[0].stop - self.time[0].start - 1)
+        
+        # Construct dict of pretty-printable property info
+        ppdict = {}
+        for attr in ppattrs:
+            if attr != "time":
+                val = getattr(self, attr)
             else:
-                timefmt = str(len(self.time[0]))
-            msg = "Syncopy selector with {trl:s} {chan:s} {tim:s} {freq:s} {tap:s} {evt:s}"
-            msg = msg.format(trl="{0:d} trials".format(len(self.trials)) \
-                                 if self.trials else "",
-                             chan="{0:d} channels".format(len(self.channel)) \
-                                 if self.channel else "",
-                             tim="{0:s} time-points".format(timefmt) \
-                                 if self.time else "",
-                             freq="{0:d} frequencies".format(len(self.freq)) if self.freq else "",
-                             tap="{0:d} tapers".format(len(self.taper)) if self.taper else "",
-                             evt="{0:d} event-ids".format(len(self.eventid)) if self.eventid else "")
-        return msg
+                val = getattr(self, attr)[0]
+            if isinstance(val, slice):
+                if val.start is val.stop is None:
+                    ppdict[attr] = "all {}{}, ".format(attr, 
+                                                       "s" if not attr.endswith("s") else "")
+                elif val.start is None or val.stop is None:
+                    ppdict[attr] = "{}-range, ".format(attr)
+                else:
+                    ppdict[attr] = "{0:d} {1:s}{2:s}, ".format(int(np.ceil((val.stop - val.start) / val.step)),
+                                                               attr,
+                                                               "s" if not attr.endswith("s") else "")
+            elif isinstance(val, list):
+                ppdict[attr] = "{0:d} {1:s}{2:s}, ".format(len(val), 
+                                                           attr, 
+                                                           "s" if not attr.endswith("s") else "")
+            else:
+                ppdict[attr] = ""
+    
+        # Construct string for printing
+        if all([getattr(self, attr) is None for attr in ppattrs]):
+            msg = "empty Syncopy selector  "
+        else:
+            msg = "Syncopy selector with "
+            for pout in ppdict.values():
+                msg += pout
+                
+        return msg[:-2]

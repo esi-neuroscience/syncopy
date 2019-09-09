@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-29 14:51:41>
+# Last modification time: <2019-09-09 17:47:41>
 
 import os
 import tempfile
@@ -16,7 +16,7 @@ from numpy.lib.format import open_memmap
 from memory_profiler import memory_usage
 from syncopy.datatype import AnalogData
 import syncopy.datatype as spd
-from syncopy.datatype.base_data import VirtualData
+from syncopy.datatype.base_data import VirtualData, Selector
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests.misc import is_win_vm, is_slurm_node
 
@@ -364,3 +364,141 @@ class TestBaseData():
 
                 # remove container for next round
                 os.unlink(hname)
+
+
+# Test Selector class
+class TestSelector():
+
+    # Set up "global" parameters for data objects to be tested
+    # FIXME: change var names to be more descriptive!
+    nc = 10
+    ns = 30
+    nt = 5
+    nf = 15
+    nd = 50
+    data = {}
+    trl = {}
+
+    # Prepare selector results for valid/invalid selections
+    selectDict = {}
+    selectDict["channel"] = {"valid": (["channel3", "channel1"], 
+                                       [4, 2, 5], 
+                                       range(0, 3), 
+                                       range(5, 8), 
+                                       slice(None), 
+                                       slice(0, 5), 
+                                       slice(7, None), 
+                                       slice(2, 8),
+                                       slice(0, 10, 2),
+                                       slice(-2, None),
+                                       [0, 1, 2, 3],  # contiguous list...
+                                       [2, 3, 5]),  # non-contiguous list...
+                             "result": ([2, 0],
+                                        [4, 2, 5], 
+                                        slice(0, 3, 1),
+                                        slice(5, 8, 1), 
+                                        slice(None, None, 1), 
+                                        slice(0, 5, 1),
+                                        slice(7, None, 1), 
+                                        slice(2, 8, 1),
+                                        slice(0, 10, 2),
+                                        slice(-2, None, 1),
+                                        slice(0, 4, 1),  # ...gets converted to slice
+                                        [2, 3, 5]),  # stays as is
+                             "invalid": (["channel200", "channel400"],
+                                         ["invalid"],
+                                         "wrongtype",
+                                         range(0, 100), 
+                                         slice(80, None),
+                                         slice(-20, None),
+                                         slice(-15, -2),
+                                         slice(5, 1), 
+                                         [40, 60, 80]),
+                             "errors": (SPYValueError,
+                                        SPYValueError,
+                                        SPYTypeError,
+                                        SPYValueError,
+                                        SPYValueError,
+                                        SPYValueError,
+                                        SPYValueError,
+                                        SPYValueError,
+                                        SPYValueError)}
+    
+    # Generate 2D array simulating an AnalogData array
+    data["AnalogData"] = np.arange(1, nc * ns + 1).reshape(ns, nc)
+    trl["AnalogData"] = np.vstack([np.arange(0, ns, 5),
+                                   np.arange(5, ns + 5, 5),
+                                   np.ones((int(ns / 5), )),
+                                   np.ones((int(ns / 5), )) * np.pi]).T
+
+    # Generate a 4D array simulating a SpectralData array
+    data["SpectralData"] = np.arange(1, nc * ns * nt * nf + 1).reshape(ns, nt, nf, nc)
+    trl["SpectralData"] = trl["AnalogData"]
+
+    # Use a fixed random number generator seed to simulate a 2D SpikeData array
+    seed = np.random.RandomState(13)
+    data["SpikeData"] = np.vstack([seed.choice(ns, size=nd),
+                                   seed.choice(np.arange(1, nc + 1), size=nd), 
+                                   seed.choice(int(nc/2), size=nd)]).T
+    trl["SpikeData"] = trl["AnalogData"]
+
+    # Use a simple binary trigger pattern to simulate EventData
+    data["EventData"] = np.vstack([np.arange(0, ns, 5),
+                                   np.zeros((int(ns / 5), ))]).T
+    data["EventData"][1::2, 1] = 1
+    trl["EventData"] = trl["AnalogData"]
+    
+    # Define data classes to be used in tests below
+    classes = ["AnalogData", "SpectralData", "SpikeData", "EventData"]
+    
+    def test_general(self):
+        
+        with pytest.raises(SPYTypeError):
+            Selector(np.empty((3,)), {})
+        with pytest.raises(SPYValueError):
+            Selector(spd.AnalogData(), {})
+        ang = AnalogData(data=self.data["AnalogData"], 
+                         trialdefinition=self.trl["AnalogData"], 
+                         samplerate=2.0)
+        with pytest.raises(SPYTypeError):
+            Selector(ang, ())
+        with pytest.raises(SPYValueError):
+            Selector(ang, {"wrongkey": [1]})
+            
+        for dclass in self.classes:
+            dummy = getattr(spd, dclass)(data=self.data[dclass],
+                                         trialdefinition=self.trl[dclass],
+                                         samplerate=2.0)
+            
+            selection = Selector(dummy, {"trials": [3, 1]})
+            assert selection.trials == [3, 1]
+            with pytest.raises(SPYValueError):
+                Selector(dummy, {"trials": [-1, 9]})
+            
+            for prop in ["channel"]:
+            # for prop in ["channel", "taper", "unit", "eventid"]:
+                if hasattr(dummy, prop):
+                    expected = self.selectDict[prop]["result"]
+                    for sk, sel in enumerate(self.selectDict[prop]["valid"]):
+                        assert getattr(Selector(dummy, {prop + "s": sel}), prop) == expected[sk]
+                    for ik, isel in enumerate(self.selectDict[prop]["invalid"]):
+                        with pytest.raises(self.selectDict[prop]["errors"][ik]):
+                            Selector(dummy, {prop + "s": isel})
+                else:
+                    with pytest.raises(SPYValueError):
+                        Selector(dummy, {prop + "s": [0]})
+                        
+            # FIXME: test toi/toilim, foi/foilim
+                        
+    def test_analogselection(self):
+        # FIXME: test shapes of slices + RANGE!
+        # FIXME: test slice(None, 5)
+        # FIXME: test [0, 1, 2, 3, 4] == slice(None, 5) + str selection
+        # FIXME: test slice(-5, None) == slice(5, None)
+        # FIXME: test slice(0, 10, 2)
+        # FIXME: test slice(-8, -2)
+        # FIXME: test slice(-8, -2, 2)
+        pass
+
+
+    
