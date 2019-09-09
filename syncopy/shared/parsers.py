@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-08-30 11:24:48>
+# Last modification time: <2019-09-09 12:18:26>
 
 # Builtin/3rd party package imports
 import os
@@ -604,14 +604,14 @@ def filename_parser(filename, is_in_valid_container=None):
     if filename.count(".") > 2:
         raise SPYValueError(legal="single extension, found {}".format(filename.count(".")), 
                             actual=filename, varname="filename")
-    if ext == spy.FILE_EXT["dir"] and basename.count(".") > 0:
+    if ext == spy.io.utils.FILE_EXT["dir"] and basename.count(".") > 0:
         raise SPYValueError(legal="no extension, found {}".format(basename.count(".")), 
                             actual=basename, varname="container")
         
-    if ext == spy.FILE_EXT["info"]:
+    if ext == spy.io.utils.FILE_EXT["info"]:
         filename = basename
         basename, ext = os.path.splitext(filename)
-    elif ext == spy.FILE_EXT["dir"]:
+    elif ext == spy.io.utils.FILE_EXT["dir"]:
         return {
         "filename": None,
         "container": filename,
@@ -621,18 +621,18 @@ def filename_parser(filename, is_in_valid_container=None):
         "extension": ext
         }
     
-    if ext not in spy.FILE_EXT["data"] + (spy.FILE_EXT["dir"],):
-        raise SPYValueError(legal=spy.FILE_EXT["data"], 
+    if ext not in spy.io.utils.FILE_EXT["data"] + (spy.io.utils.FILE_EXT["dir"],):
+        raise SPYValueError(legal=spy.io.utils.FILE_EXT["data"], 
                             actual=ext, varname="filename extension")
 
-    folderExtIsSpy = os.path.splitext(container)[1] == spy.FILE_EXT["dir"]
+    folderExtIsSpy = os.path.splitext(container)[1] == spy.io.utils.FILE_EXT["dir"]
     if is_in_valid_container is not None:
         if not folderExtIsSpy and is_in_valid_container:
-            raise SPYValueError(legal=spy.FILE_EXT["dir"], 
+            raise SPYValueError(legal=spy.io.utils.FILE_EXT["dir"], 
                                 actual=os.path.splitext(container)[1], 
                                 varname="folder extension")
         elif folderExtIsSpy and not is_in_valid_container:
-            raise SPYValueError(legal='not ' + spy.FILE_EXT["dir"], 
+            raise SPYValueError(legal='not ' + spy.io.utils.FILE_EXT["dir"], 
                                 actual=os.path.splitext(container)[1], 
                                 varname="folder extension")
 

@@ -18,7 +18,7 @@ from syncopy.datatype import AnalogData
 from syncopy.datatype.base_data import VirtualData
 import syncopy.datatype as spd
 
-__all__ = ["load_binary_esi", "read_binary_esi_header"]
+__all__ = []
 
 ##########################################################################################
 def load_binary_esi(filename,
