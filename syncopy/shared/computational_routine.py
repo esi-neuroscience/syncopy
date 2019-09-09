@@ -494,7 +494,7 @@ class ComputationalRoutine(ABC):
         compute : management routine controlling memory pre-allocation
         """
 
-        # The output object's type determines dataset name for result
+        # Set name of target HDF5 dataset in output object
         self.datasetName = "data"
 
         # In case parallel writing via VDS storage is requested, prepare

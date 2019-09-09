@@ -115,6 +115,7 @@ class TestAnalogData():
                 assert np.array_equal(getattr(dummy4, attr), getattr(dummy, attr))
             del dummy, dummy2, dummy3, dummy4  # avoid PermissionError in Windows
             
+            # # FIXME: either remove or repair this
             # # save object hosting VirtualData
             # np.save(fname + ".npy", self.data)
             # dmap = open_memmap(fname + ".npy", mode="r")

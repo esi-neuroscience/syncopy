@@ -204,10 +204,11 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
                     raise SPYIOError(dataFile, exists=True)
         h5f = h5py.File(dataFile, mode="w")
         
+        # Save each member of `_hdfFileDatasetProperties` in target HDF file
         for datasetName in out._hdfFileDatasetProperties:
             dataset = getattr(out, datasetName)
-            print(datasetName)
-            # Handle memory maps
+            
+            # Member is a memory map
             if isinstance(dataset, np.memmap):
                 # Given memory cap, compute how many data blocks can be grabbed
                 # per swipe (divide by 2 since we're working with an add'l tmp array)
@@ -223,9 +224,10 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
                 for m, M in enumerate(n_blocks):
                     dat[m * nrow: m * nrow + M, :] = out.data[m * nrow: m * nrow + M, :]
                     out.clear()
+            
+            # Member is a HDF5 dataset
             else:
                 dat = h5f.create_dataset(datasetName, data=dataset)
-                # import pdb; pdb.set_trace()
 
     # Now write trial-related information
     trl_arr = np.array(out.trialdefinition)

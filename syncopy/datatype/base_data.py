@@ -122,7 +122,7 @@ class BaseData(ABC):
             if is_hdf:
                 h5keys = list(h5f.keys())
                 if not "data" in h5keys and len(h5keys) != 1:                    
-                    lgl = "HDF5 container holding one ""data""-object"
+                    lgl = "HDF5 container with only one 'data' dataset or single dataset of arbitrary name"
                     act = "HDF5 container holding {} data-objects"
                     raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname="data")
                 if len(h5keys) == 1:
