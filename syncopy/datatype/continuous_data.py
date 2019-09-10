@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-09 17:55:58>
+# Last modification time: <2019-09-10 11:20:29>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -200,7 +200,7 @@ class ContinuousData(BaseData, ABC):
                 selTime = [max(0, idx - 1) for idx in np.searchsorted(allTrials[trlno], toi, side="right")]
                 timeSteps = np.diff(selTime)
                 if timeSteps.min() == timeSteps.max() == 1:
-                    timing.append(slice(timeSteps[0], timeSteps[-1] + 1, 1))
+                    timing.append(slice(selTime[0], selTime[-1] + 1, 1))
                 else:
                     timing.append(selTime)
         else:

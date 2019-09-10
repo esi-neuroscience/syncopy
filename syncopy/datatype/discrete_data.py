@@ -91,7 +91,7 @@ class DiscreteData(BaseData, ABC):
         """list(:class:`numpy.ndarray`): trigger-relative sample times in s"""
         if self.samplerate is not None and self._sampleinfo is not None:
             return [((t + self.t0[tk]) / self.samplerate \
-                    for t in range(self.sampleinfo[tk, 0], self.sampleinfo[tk, 1])) \
+                    for t in range(0, self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0])) \
                     for tk in self.trialid]
 
     # Selector method
@@ -113,25 +113,39 @@ class DiscreteData(BaseData, ABC):
         timing = []
         if toilim is not None:
             allTrials = self.trialtime
+            allSamples = list(self.data[:, 0])
             for trlno in trials:
+                thisTrial = allSamples[self.trialid == trlno]
                 trlSample = np.arange(*self.sampleinfo[trlno, :])
                 trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
                 minSample = trlSample[np.where(trlTime >= toilim[0])[0][0]]
                 maxSample = trlSample[np.where(trlTime <= toilim[1])[0][-1]]
                 selSample = np.intersect1d(np.where(trlSample >= minSample)[0], 
                                            np.where(trlSample <= maxSample)[0])
-                timing.append(slice(selSample[0], selSample[-1] + 1, 1))
+                idxList = []
+                for smp in selSample:
+                    idxList += list(np.where(thisTrial == smp)[0])
+                sampSteps = np.diff(idxList)
+                if sampSteps.min() == sampSteps.max() == 1:
+                    timing.append(slice(idxList[0], idxList[-1] + 1, 1))
+                else:
+                    timing.append(idxList)
         elif toi is not None:
             allTrials = self.trialtime
+            allSamples = list(self.data[:, 0])
             for trlno in trials:
+                thisTrial = allSamples[self.trialid == trlno]
                 trlSample = np.arange(*self.sampleinfo[trlno, :])
                 trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
                 selSample = trlSample[[max(0, idx - 1) for idx in np.searchsorted(trlTime, toi, side="right")]]
-                sampSteps = np.diff(selSample)
+                idxList = []
+                for smp in selSample:
+                    idxList += list(np.where(thisTrial == smp)[0])
+                sampSteps = np.diff(idxList)
                 if sampSteps.min() == sampSteps.max() == 1:
-                    timing.append(slice(sampSteps[0], sampSteps[-1] + 1, 1))
+                    timing.append(slice(idxList[0], idxList[-1] + 1, 1))
                 else:
-                    timing.append(selSample)
+                    timing.append(idxList)
         else:
             timing = [slice(None)] * len(trials)
         return timing

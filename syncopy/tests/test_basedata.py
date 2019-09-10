@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-09 17:47:41>
+# Last modification time: <2019-09-10 13:57:08>
 
 import os
 import tempfile
@@ -28,9 +28,9 @@ skip_in_slurm = pytest.mark.skipif(is_slurm_node(), reason="running on cluster n
 class TestVirtualData():
 
     # Allocate test-dataset
-    nc = 5
-    ns = 30
-    data = np.arange(1, nc * ns + 1).reshape(ns, nc)
+    nChannels = 5
+    nSamples = 30
+    data = np.arange(1, nChannels * nSamples + 1).reshape(nSamples, nChannels)
 
     def test_alloc(self):
         with tempfile.TemporaryDirectory() as tdir:
@@ -74,18 +74,18 @@ class TestVirtualData():
 
             # ensure stacking is performed correctly
             vdata = VirtualData([dmap, dmap2])
-            assert np.array_equal(vdata[:, :self.nc], self.data)
-            assert np.array_equal(vdata[:, self.nc:], 2 * self.data)
+            assert np.array_equal(vdata[:, :self.nChannels], self.data)
+            assert np.array_equal(vdata[:, self.nChannels:], 2 * self.data)
             assert np.array_equal(vdata[:, 0].flatten(), self.data[:, 0].flatten())
-            assert np.array_equal(vdata[:, self.nc].flatten(), 2 * self.data[:, 0].flatten())
+            assert np.array_equal(vdata[:, self.nChannels].flatten(), 2 * self.data[:, 0].flatten())
             assert np.array_equal(vdata[0, :].flatten(),
                                   np.hstack([self.data[0, :], 2 * self.data[0, :]]))
             vdata = VirtualData([dmap, dmap2, dmap])
-            assert np.array_equal(vdata[:, :self.nc], self.data)
-            assert np.array_equal(vdata[:, self.nc:2 * self.nc], 2 * self.data)
-            assert np.array_equal(vdata[:, 2 * self.nc:], self.data)
+            assert np.array_equal(vdata[:, :self.nChannels], self.data)
+            assert np.array_equal(vdata[:, self.nChannels:2 * self.nChannels], 2 * self.data)
+            assert np.array_equal(vdata[:, 2 * self.nChannels:], self.data)
             assert np.array_equal(vdata[:, 0].flatten(), self.data[:, 0].flatten())
-            assert np.array_equal(vdata[:, self.nc].flatten(),
+            assert np.array_equal(vdata[:, self.nChannels].flatten(),
                                   2 * self.data[:, 0].flatten())
             assert np.array_equal(vdata[0, :].flatten(),
                                   np.hstack([self.data[0, :], 2 * self.data[0, :], self.data[0, :]]))
@@ -96,9 +96,9 @@ class TestVirtualData():
 
             # queried indices out of bounds
             with pytest.raises(SPYValueError):
-                vdata[:, self.nc * 3]
+                vdata[:, self.nChannels * 3]
             with pytest.raises(SPYValueError):
-                vdata[self.ns * 2, 0]
+                vdata[self.nSamples * 2, 0]
 
             # Delete all open references to file objects b4 closing tmp dir
             del dmap, dmap2, vdata
@@ -134,35 +134,35 @@ class TestVirtualData():
 class TestBaseData():
 
     # Allocate test-datasets for AnalogData, SpectralData, SpikeData and EventData objects
-    nc = 10
-    ns = 30
-    nt = 5
-    nf = 15
-    nd = 50
+    nChannels = 10
+    nSamples = 30
+    nTrials = 5
+    nFreqs = 15
+    nSpikes = 50
     data = {}
     trl = {}
 
     # Generate 2D array simulating an AnalogData array
-    data["AnalogData"] = np.arange(1, nc * ns + 1).reshape(ns, nc)
-    trl["AnalogData"] = np.vstack([np.arange(0, ns, 5),
-                                   np.arange(5, ns + 5, 5),
-                                   np.ones((int(ns / 5), )),
-                                   np.ones((int(ns / 5), )) * np.pi]).T
+    data["AnalogData"] = np.arange(1, nChannels * nSamples + 1).reshape(nSamples, nChannels)
+    trl["AnalogData"] = np.vstack([np.arange(0, nSamples, 5),
+                                   np.arange(5, nSamples + 5, 5),
+                                   np.ones((int(nSamples / 5), )),
+                                   np.ones((int(nSamples / 5), )) * np.pi]).T
 
     # Generate a 4D array simulating a SpectralData array
-    data["SpectralData"] = np.arange(1, nc * ns * nt * nf + 1).reshape(ns, nt, nf, nc)
+    data["SpectralData"] = np.arange(1, nChannels * nSamples * nTrials * nFreqs + 1).reshape(nSamples, nTrials, nFreqs, nChannels)
     trl["SpectralData"] = trl["AnalogData"]
 
     # Use a fixed random number generator seed to simulate a 2D SpikeData array
     seed = np.random.RandomState(13)
-    data["SpikeData"] = np.vstack([seed.choice(ns, size=nd),
-                                   seed.choice(nc, size=nd),
-                                   seed.choice(int(nc/2), size=nd)]).T
+    data["SpikeData"] = np.vstack([seed.choice(nSamples, size=nSpikes),
+                                   seed.choice(nChannels, size=nSpikes),
+                                   seed.choice(int(nChannels/2), size=nSpikes)]).T
     trl["SpikeData"] = trl["AnalogData"]
 
     # Use a simple binary trigger pattern to simulate EventData
-    data["EventData"] = np.vstack([np.arange(0, ns, 5),
-                                   np.zeros((int(ns / 5), ))]).T
+    data["EventData"] = np.vstack([np.arange(0, nSamples, 5),
+                                   np.zeros((int(nSamples / 5), ))]).T
     data["EventData"][1::2, 1] = 1
     trl["EventData"] = trl["AnalogData"]
 
@@ -225,7 +225,7 @@ class TestBaseData():
                 # attempt allocation using HDF5 dataset of wrong shape
                 h5f = h5py.File(hname, mode="r+")
                 del h5f["dummy"]
-                dset = h5f.create_dataset("dummy", data=np.ones((self.nc,)))
+                dset = h5f.create_dataset("dummy", data=np.ones((self.nChannels,)))
                 with pytest.raises(SPYValueError):
                     getattr(spd, dclass)(dset)
 
@@ -251,7 +251,7 @@ class TestBaseData():
                     getattr(spd, dclass)(dset)
 
                 # attempt allocation using memmap of wrong shape
-                np.save(fname, np.ones((self.nc,)))
+                np.save(fname, np.ones((self.nChannels,)))
                 with pytest.raises(SPYValueError):
                     getattr(spd, dclass)(open_memmap(fname))
 
@@ -370,12 +370,11 @@ class TestBaseData():
 class TestSelector():
 
     # Set up "global" parameters for data objects to be tested
-    # FIXME: change var names to be more descriptive!
-    nc = 10
-    ns = 30
-    nt = 5
-    nf = 15
-    nd = 50
+    nChannels = 10
+    nSamples = 30
+    nTrials = 5
+    nFreqs = 15
+    nSpikes = 50
     data = {}
     trl = {}
 
@@ -424,32 +423,168 @@ class TestSelector():
                                         SPYValueError,
                                         SPYValueError)}
     
+    selectDict["taper"] = {"valid": ([4, 2, 3], 
+                                     range(0, 3), 
+                                     range(2, 5), 
+                                     slice(None), 
+                                     slice(0, 5), 
+                                     slice(3, None), 
+                                     slice(2, 4),
+                                     slice(0, 5, 2),
+                                     slice(-2, None),
+                                     [0, 1, 2, 3],  # contiguous list...
+                                     [1, 3, 4]),  # non-contiguous list...
+                           "result": ([4, 2, 3], 
+                                      slice(0, 3, 1),
+                                      slice(2, 5, 1), 
+                                      slice(None, None, 1), 
+                                      slice(0, 5, 1),
+                                      slice(3, None, 1), 
+                                      slice(2, 4, 1),
+                                      slice(0, 5, 2),
+                                      slice(-2, None, 1),
+                                      slice(0, 4, 1),  # ...gets converted to slice
+                                      [1, 3, 4]),  # stays as is
+                           "invalid": (["taper_typo", "channel400"],
+                                       "wrongtype",
+                                       range(0, 100), 
+                                       slice(80, None),
+                                       slice(-20, None),
+                                       slice(-15, -2),
+                                       slice(5, 1), 
+                                       [40, 60, 80]),
+                           "errors": (SPYValueError,
+                                      SPYTypeError,
+                                      SPYValueError,
+                                      SPYValueError,
+                                      SPYValueError,
+                                      SPYValueError,
+                                      SPYValueError,
+                                      SPYValueError)}
+    
+    selectDict["unit"] = {"valid": (["unit3", "unit1"],
+                                    [4, 2, 3], 
+                                    range(0, 3), 
+                                    range(2, 5), 
+                                    slice(None), 
+                                    slice(0, 5), 
+                                    slice(3, None), 
+                                    slice(2, 4),
+                                    slice(0, 5, 2),
+                                    slice(-2, None),
+                                    [0, 1, 2, 3],  # contiguous list...
+                                    [1, 3, 4]),  # non-contiguous list...
+                          "result": ([3, 1],
+                                     [4, 2, 3], 
+                                     slice(0, 3, 1),
+                                     slice(2, 5, 1), 
+                                     slice(None, None, 1), 
+                                     slice(0, 5, 1),
+                                     slice(3, None, 1), 
+                                     slice(2, 4, 1),
+                                     slice(0, 5, 2),
+                                     slice(-2, None, 1),
+                                     slice(0, 4, 1),  # ...gets converted to slice
+                                     [1, 3, 4]),  # stays as is
+                          "invalid": (["unit7", "unit77"],
+                                      "wrongtype",
+                                      range(0, 100), 
+                                      slice(80, None),
+                                      slice(-20, None),
+                                      slice(-15, -2),
+                                      slice(5, 1), 
+                                      [40, 60, 80]),
+                          "errors": (SPYValueError,
+                                     SPYTypeError,
+                                     SPYValueError,
+                                     SPYValueError,
+                                     SPYValueError,
+                                     SPYValueError,
+                                     SPYValueError,
+                                     SPYValueError)}
+
+    selectDict["eventid"] = {"valid": ([1, 0], 
+                                       range(0, 2),
+                                       range(1, 2), 
+                                       slice(None), 
+                                       slice(0, 2), 
+                                       slice(1, None), 
+                                       slice(0, 1),
+                                       slice(-1, None),
+                                       [0, 1]),  # contiguous list...
+                             "result": ([1, 0], 
+                                        slice(0, 2, 1),
+                                        slice(1, 2, 1), 
+                                        slice(None, None, 1), 
+                                        slice(0, 2, 1),
+                                        slice(1, None, 1), 
+                                        slice(0, 1, 1),
+                                        slice(-1, None, 1),
+                                        slice(0, 2, 1)),  # ...gets converted to slice
+                             "invalid": (["eventid", "eventid"],
+                                         "wrongtype",
+                                         range(0, 100), 
+                                         slice(80, None),
+                                         slice(-20, None),
+                                         slice(-15, -2),
+                                         slice(5, 1), 
+                                         [40, 60, 80]),
+                             "errors": (SPYValueError,
+                                        SPYTypeError,
+                                        SPYValueError,
+                                        SPYValueError,
+                                        SPYValueError,
+                                        SPYValueError,
+                                        SPYValueError,
+                                        SPYValueError)}
+
+    # in the general test routine, only check correct handling of invalid toi/toilim
+    # and foi/foilim selections - valid selectors are strongly object dependent
+    # and thus tested in separate methods below
+    selectDict["toi"] = {"invalid": (["notnumeric", "stillnotnumeric"],
+                                         "wrongtype",
+                                         range(0, 100), 
+                                         slice(80, None),
+                                         slice(-40, None),
+                                         slice(-40, -2),
+                                         slice(5, 1), 
+                                         [40, 60, 80]),
+                             "errors": (SPYValueError,
+                                        SPYTypeError,
+                                        SPYValueError,
+                                        SPYValueError,
+                                        SPYValueError,
+                                        SPYValueError,
+                                        SPYValueError,
+                                        SPYValueError)}
+    
     # Generate 2D array simulating an AnalogData array
-    data["AnalogData"] = np.arange(1, nc * ns + 1).reshape(ns, nc)
-    trl["AnalogData"] = np.vstack([np.arange(0, ns, 5),
-                                   np.arange(5, ns + 5, 5),
-                                   np.ones((int(ns / 5), )),
-                                   np.ones((int(ns / 5), )) * np.pi]).T
+    data["AnalogData"] = np.arange(1, nChannels * nSamples + 1).reshape(nSamples, nChannels)
+    trl["AnalogData"] = np.vstack([np.arange(0, nSamples, 5),
+                                   np.arange(5, nSamples + 5, 5),
+                                   np.ones((int(nSamples / 5), )),
+                                   np.ones((int(nSamples / 5), )) * np.pi]).T
 
     # Generate a 4D array simulating a SpectralData array
-    data["SpectralData"] = np.arange(1, nc * ns * nt * nf + 1).reshape(ns, nt, nf, nc)
+    data["SpectralData"] = np.arange(1, nChannels * nSamples * nTrials * nFreqs + 1).reshape(nSamples, nTrials, nFreqs, nChannels)
     trl["SpectralData"] = trl["AnalogData"]
 
     # Use a fixed random number generator seed to simulate a 2D SpikeData array
     seed = np.random.RandomState(13)
-    data["SpikeData"] = np.vstack([seed.choice(ns, size=nd),
-                                   seed.choice(np.arange(1, nc + 1), size=nd), 
-                                   seed.choice(int(nc/2), size=nd)]).T
+    data["SpikeData"] = np.vstack([seed.choice(nSamples, size=nSpikes),
+                                   seed.choice(np.arange(1, nChannels + 1), size=nSpikes), 
+                                   seed.choice(int(nChannels/2), size=nSpikes)]).T
     trl["SpikeData"] = trl["AnalogData"]
 
     # Use a simple binary trigger pattern to simulate EventData
-    data["EventData"] = np.vstack([np.arange(0, ns, 5),
-                                   np.zeros((int(ns / 5), ))]).T
+    data["EventData"] = np.vstack([np.arange(0, nSamples, 5),
+                                   np.zeros((int(nSamples / 5), ))]).T
     data["EventData"][1::2, 1] = 1
     trl["EventData"] = trl["AnalogData"]
     
     # Define data classes to be used in tests below
     classes = ["AnalogData", "SpectralData", "SpikeData", "EventData"]
+    
     
     def test_general(self):
         
@@ -475,8 +610,7 @@ class TestSelector():
             with pytest.raises(SPYValueError):
                 Selector(dummy, {"trials": [-1, 9]})
             
-            for prop in ["channel"]:
-            # for prop in ["channel", "taper", "unit", "eventid"]:
+            for prop in ["channel", "taper", "unit", "eventid"]:
                 if hasattr(dummy, prop):
                     expected = self.selectDict[prop]["result"]
                     for sk, sel in enumerate(self.selectDict[prop]["valid"]):
@@ -488,17 +622,66 @@ class TestSelector():
                     with pytest.raises(SPYValueError):
                         Selector(dummy, {prop + "s": [0]})
                         
-            # FIXME: test toi/toilim, foi/foilim
+            if hasattr(dummy, "time") or hasattr(dummy, "trialtime"):
+                for selection in ["toi"]:
+                # for selection in ["toi", "toilim"]:
+                    for ik, isel in enumerate(self.selectDict[selection]["invalid"]):
+                        try:
+                            with pytest.raises(self.selectDict[prop]["errors"][ik]):
+                                Selector(dummy, {selection: isel})
+                        except:
+                            import pdb; pdb.set_trace()
+            else:
+                with pytest.raises(SPYValueError):
+                    Selector(dummy, {"toi": [0]})
+                with pytest.raises(SPYValueError):
+                    Selector(dummy, {"toilim": [0]})
+                
                         
-    def test_analogselection(self):
-        # FIXME: test shapes of slices + RANGE!
-        # FIXME: test slice(None, 5)
-        # FIXME: test [0, 1, 2, 3, 4] == slice(None, 5) + str selection
-        # FIXME: test slice(-5, None) == slice(5, None)
-        # FIXME: test slice(0, 10, 2)
-        # FIXME: test slice(-8, -2)
-        # FIXME: test slice(-8, -2, 2)
+    def test_continuous_toitoilim(self):
+        # toi/toilim
+        # 
+        
+    # selectDict["toi"] = {"valid": ([1.5, 1.], 
+    #                                    np.arange(1, 2.5, 0.5),
+    #                                    [1.5, 2., 2.5]], 
+    #                                    slice(None), 
+    #                                    np.array([2.5, 0.5, 1])),
+    #                          "resultContinuous": ([2, 1], 
+    #                                     slice(2, 4, 1),
+    #                                     slice(2, 5, 1), 
+    #                                     slice(None, None, 1),
+    #                                     [4, 0, 2]),
+    #                          "invalid": (["eventid", "eventid"],
+    #                                      "wrongtype",
+    #                                      range(0, 100), 
+    #                                      slice(80, None),
+    #                                      slice(-20, None),
+    #                                      slice(-15, -2),
+    #                                      slice(5, 1), 
+    #                                      [40, 60, 80]),
+    #                          "errors": (SPYValueError,
+    #                                     SPYTypeError,
+    #                                     SPYValueError,
+    #                                     SPYValueError,
+    #                                     SPYValueError,
+    #                                     SPYValueError,
+    #                                     SPYValueError,
+    #                                     SPYValueError)}
+        
+        pass
+    
+    def test_spectral_foifoilim(self):
+        # foi/foilim + toi (single points)
         pass
 
+    def test_spike_toitoilim(self):
+        # trlTime = list((np.arange(0, trl["SpikeData"][0, 1] - trl["SpikeData"][0, 0]) + trl["SpikeData"][0, 2])/2 )
+        # toi/toilim
+        
+        pass
 
+    def test_event_toitoilim(self):
+        # toi/toilim
+        pass
     
