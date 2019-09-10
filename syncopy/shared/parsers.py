@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-06 16:05:18>
+# Last modification time: <2019-09-10 17:51:02>
 
 # Builtin/3rd party package imports
 import os
@@ -340,7 +340,7 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
 
     # If bounds-checking is requested but `ntype` is not set, use the
     # generic "numeric" option to ensure array is actually numeric
-    if lims is not None and ntype is None:
+    if (lims is not None or hasnan is not None or hasinf is not None) and ntype is None:
         ntype = "numeric"
 
     # If required, parse type (handle "int_like" and "numeric" separately)

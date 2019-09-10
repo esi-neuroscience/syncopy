@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-10 13:57:08>
+# Last modification time: <2019-09-10 18:29:23>
 
 import os
 import tempfile
@@ -539,23 +539,25 @@ class TestSelector():
                                         SPYValueError)}
 
     # in the general test routine, only check correct handling of invalid toi/toilim
-    # and foi/foilim selections - valid selectors are strongly object dependent
+    # and foi/foilim selections - valid selectors are strongly object-dependent
     # and thus tested in separate methods below
     selectDict["toi"] = {"invalid": (["notnumeric", "stillnotnumeric"],
                                          "wrongtype",
-                                         range(0, 100), 
-                                         slice(80, None),
-                                         slice(-40, None),
-                                         slice(-40, -2),
-                                         slice(5, 1), 
-                                         [40, 60, 80]),
+                                         range(0, 10), 
+                                         slice(0, 5)),
                              "errors": (SPYValueError,
                                         SPYTypeError,
-                                        SPYValueError,
-                                        SPYValueError,
-                                        SPYValueError,
-                                        SPYValueError,
-                                        SPYValueError,
+                                        SPYTypeError,
+                                        SPYTypeError)}
+    selectDict["toilim"] = {"invalid": (["notnumeric", "stillnotnumeric"],
+                                         "wrongtype",
+                                         range(0, 10), 
+                                         slice(0, 5),
+                                         [2.0, 1.5]),  # lower bound > upper bound
+                             "errors": (SPYValueError,
+                                        SPYTypeError,
+                                        SPYTypeError,
+                                        SPYTypeError,
                                         SPYValueError)}
     
     # Generate 2D array simulating an AnalogData array
@@ -623,14 +625,10 @@ class TestSelector():
                         Selector(dummy, {prop + "s": [0]})
                         
             if hasattr(dummy, "time") or hasattr(dummy, "trialtime"):
-                for selection in ["toi"]:
-                # for selection in ["toi", "toilim"]:
+                for selection in ["toi", "toilim"]:
                     for ik, isel in enumerate(self.selectDict[selection]["invalid"]):
-                        try:
-                            with pytest.raises(self.selectDict[prop]["errors"][ik]):
-                                Selector(dummy, {selection: isel})
-                        except:
-                            import pdb; pdb.set_trace()
+                        with pytest.raises(self.selectDict[selection]["errors"][ik]):
+                            Selector(dummy, {selection: isel})
             else:
                 with pytest.raises(SPYValueError):
                     Selector(dummy, {"toi": [0]})

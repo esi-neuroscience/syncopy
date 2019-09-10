@@ -113,7 +113,7 @@ class DiscreteData(BaseData, ABC):
         timing = []
         if toilim is not None:
             allTrials = self.trialtime
-            allSamples = list(self.data[:, 0])
+            allSamples = self.data[:, 0]
             for trlno in trials:
                 thisTrial = allSamples[self.trialid == trlno]
                 trlSample = np.arange(*self.sampleinfo[trlno, :])
@@ -132,7 +132,7 @@ class DiscreteData(BaseData, ABC):
                     timing.append(idxList)
         elif toi is not None:
             allTrials = self.trialtime
-            allSamples = list(self.data[:, 0])
+            allSamples = self.data[:, 0]
             for trlno in trials:
                 thisTrial = allSamples[self.trialid == trlno]
                 trlSample = np.arange(*self.sampleinfo[trlno, :])
