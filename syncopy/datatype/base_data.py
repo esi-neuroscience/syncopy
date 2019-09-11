@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-06 16:40:13>
+# Last modification time: <2019-09-11 15:54:40>
 
 # Builtin/3rd party package imports
 import getpass
@@ -80,123 +80,132 @@ class BaseData(ABC):
                                     varname="data")
         return self._data
     
-    @data.setter
-    def data(self, in_data):
+    
+    def _set_dataset_property(self, data_in, propertyName, ndim=None):
+        
+        supportedSetters = {
+            str : self._set_dataset_property_with_str,
+            np.ndarray : self._set_dataset_property_with_ndarray,
+            np.core.memmap : self._set_dataset_property_with_memmap,
+            h5py.Dataset : self._set_dataset_property_with_dataset            
+        }
+        try:
+            supportedSetters[type(data_in)](data_in, propertyName, ndim=ndim)
+        except KeyError:
+            msg = "filename of HDF5 or NPY file, HDF5 dataset, or NumPy array"
+            raise SPYTypeError(data_in, varname="data", expected=msg)
+        except Exception as exc:
+            raise exc
+    
+    def _set_dataset_property_with_str(self, filename, propertyName, ndim=None):
+        """Handle setting a dataset property with a filename str
+        
+        Parameters
+        ----------
+            filename : str
+                A filename pointing to a HDF5 containing the dataset 
+                `propertyName` or NPY file. An NPY file will be loaded as a memmap.
+            propertyName : str
+                Name of the property to be filled with the dataset/memmap
+        """
+        try:
+            fpath, fname = io_parser(filename, varname="filename", isfile=True, exists=True)
+        except Exception as exc:
+            raise exc
+        filename = os.path.join(fpath, fname)  # ensure `filename` is absolute path
 
-        # Dimension count is either determined by length of dimord or 2 in case
-        # of `EventData` or `SpikeData`
-        if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
-            ndim = 2
-        else:
+        md = self.mode
+        if md == "w":
+            md = "r+"
+
+        isNpy = False
+        isHdf = False
+        try:
+            with open(filename, "rb") as fd:
+                read_magic(fd)
+            isNpy = True
+        except ValueError as exc:
+            err = "NumPy memorymap: " + str(exc)
+        try:
+            h5f = h5py.File(filename, mode=md)
+            isHdf = True
+        except OSError as exc:
+            err = "HDF5: " + str(exc)
+        if not isNpy and not isHdf:
+            raise SPYValueError("accessible HDF5 container or memory-mapped npy-file",
+                                actual=err, varname="data")
+        
+        if isHdf:
+            h5keys = list(h5f.keys())
+            if not propertyName in h5keys and len(h5keys) != 1:                    
+                lgl = "HDF5 container with only one 'data' dataset or single dataset of arbitrary name"
+                act = "HDF5 container holding {} data-objects"
+                raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname=propertyName)
+            if len(h5keys) == 1:                
+                setattr(self, "_" + propertyName, h5f[h5keys[0]])
+            else:
+                setattr(self, "_" + propertyName, h5f["data"])
+        if isNpy:
+            setattr(self, "_" + propertyName, open_memmap(filename, mode=md))
+        self.filename = filename
+    
+    def _set_dataset_property_with_ndarray(self, in_data, propertyName, ndim=None):
+        # If input is an array, either fill existing data property
+        # or create backing container on disk    
+        if ndim is None:
             ndim = len(self.dimord)
-                
-        # If input is a string, try to load memmap/HDF5 dataset
-        if isinstance(in_data, str):
-            try:
-                fpath, fname = io_parser(in_data, varname="filename", isfile=True, exists=True)
-            except Exception as exc:
-                raise exc
-            in_data = os.path.join(fpath, fname)  # ensure `in_data` is absolute path
-
+        try:
+            array_parser(in_data, varname="data", dims=ndim)
+        except Exception as exc:
+            raise exc
+        if isinstance(getattr(self, "_" + propertyName), (np.memmap, h5py.Dataset)):
+            if self.mode == "r":
+                lgl = "HDF5 dataset/memmap with write or copy-on-write access"
+                act = "read-only memmap"
+                raise SPYValueError(legal=lgl, varname="mode", actual=act)
+            if self.data.shape != in_data.shape:
+                lgl = "HDF5 dataset/memmap with shape {}".format(str(self.data.shape))
+                act = "data with shape {}".format(str(in_data.shape))
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
+            if self.data.dtype != in_data.dtype:
+                print("SyNCoPy core - data: WARNING >> Input data-type mismatch << ")
+            self._data[...] = in_data
+        else:
+            self.filename = self._gen_filename()            
+            with h5py.File(self.filename, "w") as h5f:
+                h5f.create_dataset(propertyName, data=in_data)
             md = self.mode
             if md == "w":
                 md = "r+"
+            setattr(self, propertyName, h5py.File(self.filename, md)[propertyName])
+    
+    def _set_dataset_property_with_memmap(self, in_data, propertyName, ndim=None):
+        self.mode = in_data.mode
+        self.filename = os.path.abspath(in_data.filename)
+        setattr(self, propertyName, in_data)
+    
+    def _set_dataset_property_with_dataset(self, in_data, propertyName, ndim=None):
+        if ndim is None:
+            ndim = len(self.dimord)
+        if in_data.id.valid == 0:
+            lgl = "open HDF5 container"
+            act = "backing HDF5 container is closed"
+            raise SPYValueError(legal=lgl, actual=act, varname="data")
+        self.mode = in_data.file.mode
+        self.filename = in_data.file.filename
+        
+        if in_data.ndim != ndim:
+            lgl = "{}-dimensional data".format(ndim)
+            act = "{}-dimensional HDF5 dataset or memmap".format(in_data.ndim)
+            raise SPYValueError(legal=lgl, varname="data", actual=act)                
+        setattr(self, propertyName, in_data)
+        
+    
+    @data.setter
+    def data(self, in_data):
 
-            is_npy = False
-            is_hdf = False
-            try:
-                with open(in_data, "rb") as fd:
-                    read_magic(fd)
-                is_npy = True
-            except ValueError as exc:
-                err = "NumPy memorymap: " + str(exc)
-            try:
-                h5f = h5py.File(in_data, mode=md)
-                is_hdf = True
-            except OSError as exc:
-                err = "HDF5: " + str(exc)
-            if not is_npy and not is_hdf:
-                raise SPYValueError("accessible HDF5 container or memory-mapped npy-file",
-                                    actual=err, varname="data")
-            
-            if is_hdf:
-                h5keys = list(h5f.keys())
-                if not "data" in h5keys and len(h5keys) != 1:                    
-                    lgl = "HDF5 container with only one 'data' dataset or single dataset of arbitrary name"
-                    act = "HDF5 container holding {} data-objects"
-                    raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname="data")
-                if len(h5keys) == 1:
-                    self._data = h5f[h5keys[0]]
-                else:
-                    self._data = h5f["data"]
-            if is_npy:
-                self._data = open_memmap(in_data, mode=md)
-            self.filename = in_data
-
-        # If input is already a memmap/HDF5 dataset, check its dimensions
-        elif isinstance(in_data, (np.memmap, h5py.Dataset)):
-            if isinstance(in_data, h5py.Dataset):
-                if in_data.id.valid == 0:
-                    lgl = "open HDF5 container"
-                    act = "backing HDF5 container is closed"
-                    raise SPYValueError(legal=lgl, actual=act, varname="data")
-                md = in_data.file.mode
-                fn = in_data.file.filename
-            else:
-                md = in_data.mode
-                fn = in_data.filename
-            if in_data.ndim != ndim:
-                lgl = "{}-dimensional data".format(ndim)
-                act = "{}-dimensional HDF5 dataset or memmap".format(in_data.ndim)
-                raise SPYValueError(legal=lgl, varname="data", actual=act)
-            self.mode = md
-            self.filename = os.path.abspath(fn)
-            self._data = in_data
-            
-        # If input is an array, either fill existing data property
-        # or create backing container on disk
-        elif isinstance(in_data, np.ndarray):
-            try:
-                array_parser(in_data, varname="data", dims=ndim)
-            except Exception as exc:
-                raise exc
-            if isinstance(self._data, (np.memmap, h5py.Dataset)):
-                if self.mode == "r":
-                    lgl = "HDF5 dataset/memmap with write or copy-on-write access"
-                    act = "read-only memmap"
-                    raise SPYValueError(legal=lgl, varname="mode", actual=act)
-                if self.data.shape != in_data.shape:
-                    lgl = "HDF5 dataset/memmap with shape {}".format(str(self.data.shape))
-                    act = "data with shape {}".format(str(in_data.shape))
-                    raise SPYValueError(legal=lgl, varname="data", actual=act)
-                if self.data.dtype != in_data.dtype:
-                    print("SyNCoPy core - data: WARNING >> Input data-type mismatch << ")
-                self._data[...] = in_data
-            else:
-                self.filename = self._gen_filename()
-                dsetname = "data"
-                with h5py.File(self.filename, "w") as h5f:
-                    h5f.create_dataset(dsetname, data=in_data)
-                md = self.mode
-                if md == "w":
-                    md = "r+"
-                self._data = h5py.File(self.filename, md)[dsetname]
-
-        # If input is a `VirtualData` object, make sure the object class makes sense
-        elif isinstance(in_data, VirtualData):
-            if self.__class__.__name__ != "AnalogData":
-                lgl = "(filename of) memmap or NumPy array"
-                act = "VirtualData (only valid for `AnalogData` objects)"
-                raise SPYValueError(legal=lgl, varname="data", actual=act)
-            self._data = in_data
-            self._filename = [dat.filename for dat in in_data._data]
-            self.mode = "r"
-
-        # Whatever type the input is, it's not supported
-        else:
-            msg = "(filename of) memmap, NumPy array or VirtualData object"
-            raise SPYTypeError(in_data, varname="data", expected=msg)
-
+        self._set_dataset_property(in_data, "data")
+                                                
         # In case we're working with a `DiscreteData` object, fill up samples
         if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
             self._sample = np.unique(self.data[:, self.dimord.index("sample")])
