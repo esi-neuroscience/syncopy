@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-10 17:53:39>
+# Last modification time: <2019-09-11 17:20:09>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -1083,6 +1083,8 @@ class Selector():
     """
     Coming soon...
     Selections may be unsorted... (e.g., `trials = [1, 5, 3]`)
+    toi = [inf, 0, 3] is invalid
+    toilim = [3, inf] is valid!
     """
     
     def __init__(self, data, select):
@@ -1163,10 +1165,12 @@ class Selector():
         data, select = dataselect
         timeSpec = select.get("toi")
         checkLim = False
+        checkInf = False
         vname = "select: toi/toilim"
         if timeSpec is None:
             timeSpec = select.get("toilim")
             checkLim = True
+            checkInf = None
         else:
             if select.get("toilim") is not None:
                 lgl = "either `toi` or `toilim` specification"
@@ -1180,10 +1184,14 @@ class Selector():
         if hasTime:
             if timeSpec is not None:
                 try:
-                    array_parser(timeSpec, varname=vname, hasinf=False, hasnan=False, dims=1)
+                    array_parser(timeSpec, varname=vname, hasinf=checkInf, hasnan=False, dims=1)
                 except Exception as exc:
                     raise exc
                 if checkLim:
+                    if len(timeSpec) != 2:
+                        lgl = "`select: toilim` selection with two components"
+                        act = "`select: toilim` with {} components".format(len(timeSpec))
+                        raise SPYValueError(legal=lgl, varname=vname, actual=act)
                     if timeSpec[0] >= timeSpec[1]:
                         lgl = "`select: toilim` selection with `toilim[0]` < `toilim[1]`"
                         act = "selection range from {} to {}".format(timeSpec[0], timeSpec[1])
@@ -1202,10 +1210,12 @@ class Selector():
         data, select = dataselect
         freqSpec = select.get("foi")
         checkLim = False
+        checkInf = False
         vname = "select: foi/foilim"
         if freqSpec is None:
             freqSpec = select.get("foilim")
             checkLim = True
+            checkInf = None
         else:
             if select.get("foilim") is not None:
                 lgl = "either `foi` or `foilim` specification"
@@ -1219,11 +1229,15 @@ class Selector():
         if hasFreq:
             if freqSpec is not None:
                 try:
-                    array_parser(freqSpec, varname=vname, hasinf=False, hasnan=False, 
+                    array_parser(freqSpec, varname=vname, hasinf=checkInf, hasnan=False, 
                                 lims=[data.freq.min(), data.freq.max()], dims=1)
                 except Exception as exc:
                     raise exc
                 if checkLim:
+                    if len(freqSpec) != 2:
+                        lgl = "`select: foilim` selection with two components"
+                        act = "`select: foilim` with {} components".format(len(freqSpec))
+                        raise SPYValueError(legal=lgl, varname=vname, actual=act)
                     if freqSpec[0] >= freqSpec[1]:
                         lgl = "`select: foilim` selection with `foilim[0]` < `foilim[1]`"
                         act = "selection range from {} to {}".format(freqSpec[0], freqSpec[1])
@@ -1261,6 +1275,8 @@ class Selector():
 
     # Helper function to process all other selections        
     def _selection_setter(self, data, select, dataprop, selectkey):
+        
+        # FIXME: include special treatment of eventid and units (per-trial indices if necessary)
         
         selection = select.get(selectkey)
         target = getattr(data, dataprop, None)

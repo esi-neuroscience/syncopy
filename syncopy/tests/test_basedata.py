@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-10 18:29:23>
+# Last modification time: <2019-09-11 17:04:47>
 
 import os
 import tempfile
@@ -14,7 +14,7 @@ import pytest
 import numpy as np
 from numpy.lib.format import open_memmap
 from memory_profiler import memory_usage
-from syncopy.datatype import AnalogData
+from syncopy.datatype import AnalogData, SpectralData, SpikeData, EventData
 import syncopy.datatype as spd
 from syncopy.datatype.base_data import VirtualData, Selector
 from syncopy.shared.errors import SPYValueError, SPYTypeError
@@ -369,12 +369,15 @@ class TestBaseData():
 # Test Selector class
 class TestSelector():
 
-    # Set up "global" parameters for data objects to be tested
+    # Set up "global" parameters for data objects to be tested (we only test
+    # equidistant trials here)
     nChannels = 10
     nSamples = 30
     nTrials = 5
+    lenTrial = int(nSamples / nTrials) - 1
     nFreqs = 15
     nSpikes = 50
+    samplerate = 2.0
     data = {}
     trl = {}
 
@@ -538,34 +541,76 @@ class TestSelector():
                                         SPYValueError,
                                         SPYValueError)}
 
-    # in the general test routine, only check correct handling of invalid toi/toilim
-    # and foi/foilim selections - valid selectors are strongly object-dependent
+    # in the general test routine, only check correct handling of invalid `toi`/`toilim`
+    # and `foi`/`foilim` selections - valid selectors are strongly object-dependent
     # and thus tested in separate methods below
     selectDict["toi"] = {"invalid": (["notnumeric", "stillnotnumeric"],
-                                         "wrongtype",
-                                         range(0, 10), 
-                                         slice(0, 5)),
-                             "errors": (SPYValueError,
-                                        SPYTypeError,
-                                        SPYTypeError,
-                                        SPYTypeError)}
+                                     "wrongtype",
+                                     range(0, 10), 
+                                     slice(0, 5),
+                                     [0, np.inf],
+                                     [np.nan, 1]),
+                         "errors": (SPYValueError,
+                                    SPYTypeError,
+                                    SPYTypeError,
+                                    SPYTypeError,
+                                    SPYValueError,
+                                    SPYValueError)}
     selectDict["toilim"] = {"invalid": (["notnumeric", "stillnotnumeric"],
-                                         "wrongtype",
-                                         range(0, 10), 
-                                         slice(0, 5),
-                                         [2.0, 1.5]),  # lower bound > upper bound
-                             "errors": (SPYValueError,
-                                        SPYTypeError,
-                                        SPYTypeError,
-                                        SPYTypeError,
-                                        SPYValueError)}
+                                        "wrongtype",
+                                        range(0, 10), 
+                                        slice(0, 5),
+                                        [np.nan, 1],
+                                        [0.5, 1.5 , 2.0],  # more than 2 components
+                                        [2.0, 1.5]),  # lower bound > upper bound
+                            "errors": (SPYValueError,
+                                       SPYTypeError,
+                                       SPYTypeError,
+                                       SPYTypeError,
+                                       SPYValueError,
+                                       SPYValueError,
+                                       SPYValueError)}
+    selectDict["foi"] = {"invalid": (["notnumeric", "stillnotnumeric"],
+                                     "wrongtype",
+                                     range(0, 10), 
+                                     slice(0, 5),
+                                     [0, np.inf],
+                                     [np.nan, 1],
+                                     [-1, 2],  # out of bounds
+                                     [2, 900]),  # out of bounds                                     
+                         "errors": (SPYValueError,
+                                    SPYTypeError,
+                                    SPYTypeError,
+                                    SPYTypeError,
+                                    SPYValueError,
+                                    SPYValueError,
+                                    SPYValueError,
+                                    SPYValueError)}
+    selectDict["foilim"] = {"invalid": (["notnumeric", "stillnotnumeric"],
+                                     "wrongtype",
+                                     range(0, 10), 
+                                     slice(0, 5),
+                                     [np.nan, 1],
+                                     [-1, 2],  # lower limit out of bounds
+                                     [2, 900],  # upper limit out of bounds
+                                     [2, 7, 6],  # more than 2 components
+                                     [9, 2]),  # lower bound > upper bound
+                         "errors": (SPYValueError,
+                                    SPYTypeError,
+                                    SPYTypeError,
+                                    SPYTypeError,
+                                    SPYValueError,
+                                    SPYValueError,
+                                    SPYValueError,
+                                    SPYValueError,
+                                    SPYValueError)}
     
     # Generate 2D array simulating an AnalogData array
     data["AnalogData"] = np.arange(1, nChannels * nSamples + 1).reshape(nSamples, nChannels)
-    trl["AnalogData"] = np.vstack([np.arange(0, nSamples, 5),
-                                   np.arange(5, nSamples + 5, 5),
-                                   np.ones((int(nSamples / 5), )),
-                                   np.ones((int(nSamples / 5), )) * np.pi]).T
+    trl["AnalogData"] = np.vstack([np.arange(0, nSamples, nTrials),
+                                   np.arange(lenTrial, nSamples + nTrials, nTrials),
+                                   np.ones((lenTrial + 1, )),
+                                   np.ones((lenTrial + 1, )) * np.pi]).T
 
     # Generate a 4D array simulating a SpectralData array
     data["SpectralData"] = np.arange(1, nChannels * nSamples * nTrials * nFreqs + 1).reshape(nSamples, nTrials, nFreqs, nChannels)
@@ -579,24 +624,25 @@ class TestSelector():
     trl["SpikeData"] = trl["AnalogData"]
 
     # Use a simple binary trigger pattern to simulate EventData
-    data["EventData"] = np.vstack([np.arange(0, nSamples, 5),
-                                   np.zeros((int(nSamples / 5), ))]).T
+    data["EventData"] = np.vstack([np.arange(0, nSamples, lenTrial),
+                                   np.zeros((int(nSamples / lenTrial), ))]).T
     data["EventData"][1::2, 1] = 1
     trl["EventData"] = trl["AnalogData"]
     
     # Define data classes to be used in tests below
     classes = ["AnalogData", "SpectralData", "SpikeData", "EventData"]
     
-    
+    # test `Selector` constructor w/all data classes    
     def test_general(self):
         
+        # wrong type of data and/or selector
         with pytest.raises(SPYTypeError):
             Selector(np.empty((3,)), {})
         with pytest.raises(SPYValueError):
             Selector(spd.AnalogData(), {})
         ang = AnalogData(data=self.data["AnalogData"], 
                          trialdefinition=self.trl["AnalogData"], 
-                         samplerate=2.0)
+                         samplerate=self.samplerate)
         with pytest.raises(SPYTypeError):
             Selector(ang, ())
         with pytest.raises(SPYValueError):
@@ -605,13 +651,15 @@ class TestSelector():
         for dclass in self.classes:
             dummy = getattr(spd, dclass)(data=self.data[dclass],
                                          trialdefinition=self.trl[dclass],
-                                         samplerate=2.0)
+                                         samplerate=self.samplerate)
             
+            # test trial selection
             selection = Selector(dummy, {"trials": [3, 1]})
             assert selection.trials == [3, 1]
             with pytest.raises(SPYValueError):
                 Selector(dummy, {"trials": [-1, 9]})
-            
+
+            # test "simple" property setters handled by `_selection_setter`
             for prop in ["channel", "taper", "unit", "eventid"]:
                 if hasattr(dummy, prop):
                     expected = self.selectDict[prop]["result"]
@@ -623,63 +671,194 @@ class TestSelector():
                 else:
                     with pytest.raises(SPYValueError):
                         Selector(dummy, {prop + "s": [0]})
-                        
+
+            # test `toi` + `toilim`
             if hasattr(dummy, "time") or hasattr(dummy, "trialtime"):
                 for selection in ["toi", "toilim"]:
                     for ik, isel in enumerate(self.selectDict[selection]["invalid"]):
                         with pytest.raises(self.selectDict[selection]["errors"][ik]):
                             Selector(dummy, {selection: isel})
+                # provide both `toi` and `toilim`
+                with pytest.raises(SPYValueError):
+                    Selector(dummy, {"toi": [0], "toilim": [0, 1]})
             else:
                 with pytest.raises(SPYValueError):
                     Selector(dummy, {"toi": [0]})
                 with pytest.raises(SPYValueError):
                     Selector(dummy, {"toilim": [0]})
                 
-                        
-    def test_continuous_toitoilim(self):
-        # toi/toilim
-        # 
-        
-    # selectDict["toi"] = {"valid": ([1.5, 1.], 
-    #                                    np.arange(1, 2.5, 0.5),
-    #                                    [1.5, 2., 2.5]], 
-    #                                    slice(None), 
-    #                                    np.array([2.5, 0.5, 1])),
-    #                          "resultContinuous": ([2, 1], 
-    #                                     slice(2, 4, 1),
-    #                                     slice(2, 5, 1), 
-    #                                     slice(None, None, 1),
-    #                                     [4, 0, 2]),
-    #                          "invalid": (["eventid", "eventid"],
-    #                                      "wrongtype",
-    #                                      range(0, 100), 
-    #                                      slice(80, None),
-    #                                      slice(-20, None),
-    #                                      slice(-15, -2),
-    #                                      slice(5, 1), 
-    #                                      [40, 60, 80]),
-    #                          "errors": (SPYValueError,
-    #                                     SPYTypeError,
-    #                                     SPYValueError,
-    #                                     SPYValueError,
-    #                                     SPYValueError,
-    #                                     SPYValueError,
-    #                                     SPYValueError,
-    #                                     SPYValueError)}
-        
-        pass
-    
-    def test_spectral_foifoilim(self):
-        # foi/foilim + toi (single points)
-        pass
+            # test `foi` + `foilim`
+            if hasattr(dummy, "freq"):
+                for selection in ["foi", "foilim"]:
+                    for ik, isel in enumerate(self.selectDict[selection]["invalid"]):
+                        with pytest.raises(self.selectDict[selection]["errors"][ik]):
+                            Selector(dummy, {selection: isel})
+                # provide both `foi` and `foilim`
+                with pytest.raises(SPYValueError):
+                    Selector(dummy, {"foi": [0], "foilim": [0, 1]})
+            else:
+                with pytest.raises(SPYValueError):
+                    Selector(dummy, {"foi": [0]})
+                with pytest.raises(SPYValueError):
+                    Selector(dummy, {"foilim": [0]})
 
-    def test_spike_toitoilim(self):
-        # trlTime = list((np.arange(0, trl["SpikeData"][0, 1] - trl["SpikeData"][0, 0]) + trl["SpikeData"][0, 2])/2 )
-        # toi/toilim
+    def test_continuous_toitoilim(self):
         
-        pass
+        # this only works w/the equidistant trials constructed above!!!
+        selDict = {"toi": ([0.5],  # single entry lists
+                           [0.6],  # inexact match
+                           [1.0, 2.5],  # two disjoint time-points
+                           [1.2, 2.7],  # inexact from above
+                           [1.9, 2.4],  # inexact from below
+                           [0.4, 2.1],  # inexact from below, inexact from above
+                           [1.6, 1.9],  # inexact from above, inexact from below
+                           [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.],  # alternating madness
+                           [2.0, 0.5, 2.5],  # unsorted list
+                           [0.5, 1.0, 1.5]),  # sorted list (should be converted to slice-selection)
+                   "toilim": ([0.5, 1.5],  # regular range
+                              [1.5, 2.0],  # minimal range (just two-time points)
+                              [1.0, np.inf],  # unbounded from above
+                              [-np.inf, 1.0])}  # unbounded from below
+        
+        # all trials have same time-scale: take 1st one as reference
+        trlTime = (np.arange(0, self.trl["AnalogData"][0, 1] - self.trl["AnalogData"][0, 0])
+                        + self.trl["AnalogData"][0, 2]) / self.samplerate
+        
+        ang = AnalogData(data=self.data["AnalogData"], 
+                         trialdefinition=self.trl["AnalogData"], 
+                         samplerate=self.samplerate)
+        
+        # the below check only works for equidistant trials!
+        for tselect in ["toi", "toilim"]:
+            for timeSel in selDict[tselect]:
+                sel = Selector(ang, {tselect: timeSel}).time
+                if tselect == "toi":
+                    idx = []
+                    for tp in timeSel:
+                        idx.append(np.abs(trlTime - tp).argmin())
+                else:
+                    idx = np.intersect1d(np.where(trlTime >= timeSel[0])[0],
+                                         np.where(trlTime <= timeSel[1])[0])
+                # check that correct data was selected (all trials identical, just take 1st one)
+                assert np.array_equal(ang.trials[0][idx, :],
+                                      ang.trials[0][sel[0], :])
+                if len(idx) > 1:
+                    timeSteps = np.diff(idx)
+                    if timeSteps.min() == timeSteps.max() == 1:
+                        idx = slice(idx[0], idx[-1] + 1, 1)
+                result = [idx] * len(ang.trials)
+                # check correct format of selector (list -> slice etc.)
+                assert result == sel
+                
+        # FIXME: test time-frequency data selection as soon as we support this object type                
+    
+    # test `toi`/`toilim` selection w/`SpikeData`
+    def test_spike_toitoilim(self):
+        
+        # this only works w/the equidistant trials constructed above!!!
+        selDict = {"toi": ([0.5],  # single entry lists
+                           [0.6],  # inexact match
+                           [1.0, 2.5],  # two disjoint time-points
+                           [1.2, 2.7],  # inexact from above
+                           [1.9, 2.4],  # inexact from below
+                           [0.4, 2.1],  # inexact from below, inexact from above
+                           [1.6, 1.9],  # inexact from above, inexact from below
+                           [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.],  # alternating madness
+                           [2.0, 0.5, 2.5],  # unsorted list
+                           [0.5, 1.0, 1.5]),  # sorted list (should be converted to slice-selection)
+                   "toilim": ([0.5, 1.5],  # regular range
+                              [1.5, 2.0],  # minimal range (just two-time points)
+                              [1.0, np.inf],  # unbounded from above
+                              [-np.inf, 1.0])}  # unbounded from below
+        
+        # all trials have same time-scale: take 1st one as reference
+        trlTime = list((np.arange(0, self.trl["SpikeData"][0, 1] - self.trl["SpikeData"][0, 0])
+                        + self.trl["SpikeData"][0, 2])/2 )
+    
+        spk = SpikeData(data=self.data["SpikeData"], 
+                        trialdefinition=self.trl["SpikeData"], 
+                        samplerate=self.samplerate)
+
+        # the below method of extracting spikes satisfying `toi`/`toilim` only works w/equidistant trials!
+        for tselect in ["toi", "toilim"]:
+            for timeSel in selDict[tselect]:
+                smpIdx = []
+                for tp in timeSel:
+                    if np.isfinite(tp):
+                        smpIdx.append(np.abs(np.array(trlTime) - tp).argmin())
+                    else:
+                        smpIdx.append(tp)
+                result = []
+                sel = Selector(spk, {tselect: timeSel}).time
+                for trlno in range(len(spk.trials)):
+                    thisTrial = spk.trials[trlno][:, 0]
+                    if tselect == "toi":
+                        trlRes = []
+                        for idx in smpIdx:
+                            trlRes += list(np.where(thisTrial == idx + trlno * self.lenTrial)[0])
+                    else:
+                        start = smpIdx[0] + trlno * self.lenTrial
+                        stop = smpIdx[1] + trlno * self.lenTrial
+                        candidates = np.intersect1d(thisTrial[thisTrial >= start], 
+                                                    thisTrial[thisTrial <= stop])
+                        trlRes = []
+                        for cand in candidates:
+                            trlRes += list(np.where(thisTrial == cand)[0])
+                    # check that actually selected data is correct
+                    assert np.array_equal(spk.trials[trlno][trlRes, :], 
+                                          spk.trials[trlno][sel[trlno], :])
+                    if len(trlRes) > 1:
+                        sampSteps = np.diff(trlRes)
+                        if sampSteps.min() == sampSteps.max() == 1:
+                            trlRes = slice(trlRes[0], trlRes[-1] + 1, 1)
+                    result.append(trlRes)
+                # check correct format of selector (list -> slice etc.)
+                assert result == sel
 
     def test_event_toitoilim(self):
         # toi/toilim
         pass
+    
+    def test_spectral_foifoilim(self):
+        
+        # this selection only works w/the dummy frequency data constructed above!!!
+        selDict = {"foi": ([1],  # single entry lists
+                           [2.6],  # inexact match
+                           [2, 9],  # two disjoint frequencies
+                           [7.2, 8.3],  # inexact from above
+                           [6.8, 11.9],  # inexact from below
+                           [0.4, 13.1],  # inexact from below, inexact from above
+                           [1.2, 2.9],  # inexact from above, inexact from below
+                           [1.1, 1.9, 2.1, 3.9, 9.2, 11.8, 12.9, 5.1, 13.8],  # alternating madness
+                           [2, 1, 11],  # unsorted list
+                           [2, 3, 4]),  # sorted list (should be converted to slice-selection)
+                   "foilim": ([2, 11],  # regular range
+                              [1, 2],  # minimal range (just two-time points)
+                              [1.0, np.inf],  # unbounded from above
+                              [-np.inf, 12])}  # unbounded from below
+        
+        spc = SpectralData(data=self.data['SpectralData'], 
+                           trialdefinition=self.trl['SpectralData'], 
+                           samplerate=self.samplerate)
+        allFreqs = spc.freq
+        
+        for fselect in ["foi", "foilim"]:
+            for freqSel in selDict[fselect]:
+                sel = Selector(spc, {fselect: freqSel}).freq
+                if fselect == "foi":
+                    idx = []
+                    for fq in freqSel:
+                        idx.append(np.abs(allFreqs - fq).argmin())
+                else:
+                    idx = np.intersect1d(np.where(allFreqs >= freqSel[0])[0],
+                                         np.where(allFreqs <= freqSel[1])[0])
+                # check that correct data was selected (all trials identical, just take 1st one)
+                assert np.array_equal(spc.freq[idx], spc.freq[sel])
+                if len(idx) > 1:
+                    freqSteps = np.diff(idx)
+                    if freqSteps.min() == freqSteps.max() == 1:
+                        idx = slice(idx[0], idx[-1] + 1, 1)
+                # check correct format of selector (list -> slice etc.)
+                assert idx == sel
+
     

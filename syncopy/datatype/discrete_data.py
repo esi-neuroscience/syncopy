@@ -120,16 +120,17 @@ class DiscreteData(BaseData, ABC):
                 trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
                 minSample = trlSample[np.where(trlTime >= toilim[0])[0][0]]
                 maxSample = trlSample[np.where(trlTime <= toilim[1])[0][-1]]
-                selSample = np.intersect1d(np.where(trlSample >= minSample)[0], 
-                                           np.where(trlSample <= maxSample)[0])
+                selSample = trlSample[np.intersect1d(np.where(trlSample >= minSample)[0], 
+                                                     np.where(trlSample <= maxSample)[0])]
                 idxList = []
                 for smp in selSample:
                     idxList += list(np.where(thisTrial == smp)[0])
-                sampSteps = np.diff(idxList)
-                if sampSteps.min() == sampSteps.max() == 1:
-                    timing.append(slice(idxList[0], idxList[-1] + 1, 1))
-                else:
-                    timing.append(idxList)
+                if len(idxList) > 1:
+                    sampSteps = np.diff(idxList)
+                    if sampSteps.min() == sampSteps.max() == 1:
+                        idxList = slice(idxList[0], idxList[-1] + 1, 1)
+                timing.append(idxList)
+                
         elif toi is not None:
             allTrials = self.trialtime
             allSamples = self.data[:, 0]
@@ -137,17 +138,25 @@ class DiscreteData(BaseData, ABC):
                 thisTrial = allSamples[self.trialid == trlno]
                 trlSample = np.arange(*self.sampleinfo[trlno, :])
                 trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
-                selSample = trlSample[[max(0, idx - 1) for idx in np.searchsorted(trlTime, toi, side="right")]]
+                selSample = [min(trlTime.size - 1, idx) 
+                                       for idx in np.searchsorted(trlTime, toi, side="left")]
+                for k, idx in enumerate(selSample):
+                    if np.abs(trlTime[idx - 1] - toi[k]) < np.abs(trlTime[idx] - toi[k]):
+                        selSample[k] = trlSample[idx -1]
+                    else:
+                        selSample[k] = trlSample[idx]
                 idxList = []
                 for smp in selSample:
                     idxList += list(np.where(thisTrial == smp)[0])
-                sampSteps = np.diff(idxList)
-                if sampSteps.min() == sampSteps.max() == 1:
-                    timing.append(slice(idxList[0], idxList[-1] + 1, 1))
-                else:
-                    timing.append(idxList)
+                if len(idxList) > 1:
+                    sampSteps = np.diff(idxList)
+                    if sampSteps.min() == sampSteps.max() == 1:
+                        idxList = slice(idxList[0], idxList[-1] + 1, 1)
+                timing.append(idxList)
+                
         else:
             timing = [slice(None)] * len(trials)
+            
         return timing
 
     # Make instantiation persistent in all subclasses
