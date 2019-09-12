@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-04 15:38:09>
+# Last modification time: <2019-09-12 14:53:15>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -39,7 +39,7 @@ class ContinuousData(BaseData, ABC):
     """
     
     _infoFileProperties = BaseData._infoFileProperties + ("samplerate", "channel",)
-    _hdfFileProperties = BaseData._hdfFileProperties + ("samplerate", "channel",)
+    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate", "channel",)
         
     @property
     def _shapes(self):

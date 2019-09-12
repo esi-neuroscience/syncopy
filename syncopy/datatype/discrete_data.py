@@ -28,7 +28,7 @@ class DiscreteData(BaseData, ABC):
     """
 
     _infoFileProperties = BaseData._infoFileProperties + ("_hdr", "samplerate", )
-    _hdfFileProperties = BaseData._hdfFileProperties + ("samplerate",)
+    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate",)
 
 
     @property
@@ -142,7 +142,7 @@ class SpikeData(DiscreteData):
     """
 
     _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
-    _hdfFileProperties = DiscreteData._hdfFileProperties + ("channel",)
+    _hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel",)
     
     @property
     def channel(self):

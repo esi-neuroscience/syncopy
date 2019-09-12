@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-12 14:00:03>
+# Last modification time: <2019-09-12 14:53:15>
 
 # Builtin/3rd party package imports
 import getpass
@@ -57,7 +57,7 @@ class BaseData(ABC):
     
     #: properties that are written into the JSON file and HDF5 attributes upon save
     _infoFileProperties = ("dimord", "_version", "_log", "cfg",)
-    _hdfFileProperties = ("dimord", "_version", "_log",)
+    _hdfFileAttributeProperties = ("dimord", "_version", "_log",)
     
     #: properties that are mapped onto HDF5 datasets
     _hdfFileDatasetProperties = ("data",)
