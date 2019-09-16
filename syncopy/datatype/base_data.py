@@ -45,12 +45,12 @@ class BaseData(ABC):
     Data classes in Syncopy manage storing array data and metadata in HDF5 and
     JSON files, respectively. This base class contains the fundamental
     functionality shared across all data classes, that is,
-    * properties for arrays that have a corresponding HDF5 dataset ('dataset
-      properties') and the associated i/o
+    * properties for arrays that have a corresponding HDF5 datasets ('dataset
+      properties') and the associated I/O
     * properties for data history (`BaseData.log` and `BaseData.cfg`)
     * methods and properties for defining trials on the data
 
-    Further properties and methods are defined in the subclasses, e.g.
+    Further properties and methods are defined in subclasses, e.g.
     `syncopy.AnalogData`.
 
     """
@@ -101,20 +101,20 @@ class BaseData(ABC):
     
     
     def _set_dataset_property(self, dataIn, propertyName, ndim=None):
-        """Set a property that has a corresponding HDF dataset ('dataset property')
+        """Set property that is streamed from HDF dataset ('dataset property')
 
-        This set method automatically selects the appropriate set method
+        This method automatically selects the appropriate set method
         according to the type of the input data (`dataIn`).
 
         Parameters
         ----------
             dataIn : str, np.ndarray, np.core.memmap or h5py.Dataset
-                Filename or array to be stored in property
+                Filename, array or HDF5 dataset to be stored in property
             propertyName : str
                 Name of the property. The actual data must reside in the attribute
-                "_" + propertyName
+                `"_" + propertyName`
             ndim : int
-                Number of array dimensions for error checking
+                Number of expected array dimensions. 
 
         """
         if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
@@ -142,11 +142,12 @@ class BaseData(ABC):
         Parameters
         ----------
             filename : str
-                A filename pointing to a HDF5 containing the dataset 
-                `propertyName` or NPY file. An NPY file will be loaded as a memmap.
+                A filename pointing to a HDF5 file containing the dataset 
+                `propertyName` or a NPY file. NPY files are loaded as memmaps.
             propertyName : str
                 Name of the property to be filled with the dataset/memmap
-        
+            ndim : int
+                Number of expected array dimensions. 
         """
         try:
             fpath, fname = io_parser(filename, varname="filename", isfile=True, exists=True)
@@ -184,7 +185,7 @@ class BaseData(ABC):
             if len(h5keys) == 1:                
                 setattr(self, "_" + propertyName, h5f[h5keys[0]])
             else:
-                setattr(self, "_" + propertyName, h5f["data"])
+                setattr(self, "_" + propertyName, h5f[propertyName])
         if isNpy:
             setattr(self, propertyName, open_memmap(filename, mode=md))
         self.filename = filename
@@ -197,12 +198,11 @@ class BaseData(ABC):
         Parameters
         ----------
             inData : numpy.ndarray
-                NumPy array to be into property of name `propertyName`
+                NumPy array to be stored in property of name `propertyName`
             propertyName : str
-                Name of the property to be filled with the array                              
+                Name of the property to be filled with `inData`                              
             ndim : int
-                Number of array dimensions that must be matched by the `inData`
-                array. By default `ndim` is `self.dimord`.
+                Number of expected array dimensions. 
         """
 
         try:
@@ -210,19 +210,20 @@ class BaseData(ABC):
         except Exception as exc:
             raise exc
         
-        # If there is existing data, replace values if shape and type matches
+        # If there is existing data, replace values if shape and type match
         if isinstance(getattr(self, "_" + propertyName), (np.memmap, h5py.Dataset)):
+            prop = getattr(self, "_" + propertyName)
             if self.mode == "r":
                 lgl = "HDF5 dataset/memmap with write or copy-on-write access"
-                act = "read-only memmap"
+                act = "read-only file"
                 raise SPYValueError(legal=lgl, varname="mode", actual=act)
-            if self.data.shape != inData.shape:
+            if prop.shape != inData.shape:
                 lgl = "HDF5 dataset/memmap with shape {}".format(str(self.data.shape))
                 act = "data with shape {}".format(str(inData.shape))
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
-            if self.data.dtype != inData.dtype:
-                print("SyNCoPy core - data: WARNING >> Input data-type mismatch << ")
-            self._data[...] = inData
+            if prop.dtype != inData.dtype:
+                print("Syncopy core - data: WARNING >> Input data-type mismatch << ")
+            prop[...] = inData
             
         # or create backing container on disk 
         else:
@@ -243,10 +244,11 @@ class BaseData(ABC):
         Parameters
         ----------
             inData : numpy.memmap
-            
+                NumPy memory-map to be stored in property of name `propertyName`
             propertyName : str
                 Name of the property to be filled with the memory map.    
-        
+            ndim : int
+                Number of expected array dimensions. 
         """
         
         if inData.ndim != ndim:
@@ -255,7 +257,7 @@ class BaseData(ABC):
             raise SPYValueError(legal=lgl, varname=propertyName, actual=act)
 
         self.mode = inData.mode
-        self.filename = os.path.abspath(inData.filename)
+        self.filename = inData.filename
         setattr(self, "_" + propertyName, inData)
     
     def _set_dataset_property_with_dataset(self, inData, propertyName, ndim):
@@ -263,18 +265,14 @@ class BaseData(ABC):
         
         Parameters
         ----------
-            inData : numpy.ndarray
-                NumPy array to be into property of name `propertyName`
+            inData : h5py.Dataset
+                HDF5 dataset to be stored in property of name `propertyName`
             propertyName : str
-                Name of the property to be filled with the array                              
+                Name of the property to be filled with the dataset
             ndim : int
-                Number of array dimensions that must be matched by the `inData`
-                array. By default `ndim` is `self.dimord`.
+                Number of expected array dimensions. 
         """
                  
-        if ndim is None:
-            ndim = len(self.dimord)
-            
         if inData.id.valid == 0:
             lgl = "open HDF5 container"
             act = "backing HDF5 container is closed"
@@ -338,7 +336,7 @@ class BaseData(ABC):
     def filename(self, fname):
         if not isinstance(fname, str):
             raise SPYTypeError(fname, varname="fname", expected="str")
-        self._filename = str(fname)
+        self._filename = os.path.abspath(os.path.expanduser(str(fname)))
 
     @property
     def log(self):
