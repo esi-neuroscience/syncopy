@@ -104,7 +104,7 @@ class DiscreteData(BaseData, ABC):
     def _get_trial(self, trialno):
         return self._data[self.trialid == trialno, :]
     
-    # Helper function that extracts timing-related indices
+    # Helper function that extracts by-trial timing-related indices
     def _get_time(self, trials, toi=None, toilim=None):
         """
         Coming soon... 
@@ -113,7 +113,7 @@ class DiscreteData(BaseData, ABC):
         timing = []
         if toilim is not None:
             allTrials = self.trialtime
-            allSamples = self.data[:, 0]
+            allSamples = self.data[:, self.dimord.index("sample")]
             for trlno in trials:
                 thisTrial = allSamples[self.trialid == trlno]
                 trlSample = np.arange(*self.sampleinfo[trlno, :])
@@ -133,7 +133,7 @@ class DiscreteData(BaseData, ABC):
                 
         elif toi is not None:
             allTrials = self.trialtime
-            allSamples = self.data[:, 0]
+            allSamples = self.data[:, self.dimord.index("sample")]
             for trlno in trials:
                 thisTrial = allSamples[self.trialid == trlno]
                 trlSample = np.arange(*self.sampleinfo[trlno, :])
@@ -235,6 +235,30 @@ class SpikeData(DiscreteData):
         except Exception as exc:
             raise exc
         self._unit = np.array(unit)
+        
+    # Helper function that extracts by-trial unit-indices
+    def _get_unit(self, trials, units=None):
+        """
+        Coming soon... 
+        No fuzzy matching allowed!
+        """
+        if units is not None:
+            indices = []
+            allUnits = self.data[:, self.dimord.index("unit")]
+            for trlno in trials:
+                thisTrial = allUnits[self.trialid == trlno]
+                trialUnits = []
+                for unit in units:
+                    trialUnits += list(np.where(thisTrial == unit)[0])
+                if len(trialUnits) > 1:
+                    steps = np.diff(trialUnits)
+                    if steps.min() == steps.max() == 1:
+                        trialUnits = slice(trialUnits[0], trialUnits[-1] + 1, 1)
+                indices.append(trialUnits)
+        else:
+            indices = [slice(None)] * len(trials)
+            
+        return indices
 
     # "Constructor"
     def __init__(self,
@@ -343,6 +367,30 @@ class EventData(DiscreteData):
         """numpy.ndarray(int): integer event code assocated with each event"""
         return self._eventid
 
+    # Helper function that extracts by-trial eventid-indices
+    def _get_eventid(self, trials, eventids=None):
+        """
+        Coming soon... 
+        No fuzzy matching allowed!
+        """
+        if eventids is not None:
+            indices = []
+            allEvents = self.data[:, self.dimord.index("eventid")]
+            for trlno in trials:
+                thisTrial = allEvents[self.trialid == trlno]
+                trialEvents = []
+                for event in eventids:
+                    trialEvents += list(np.where(thisTrial == event)[0])
+                if len(trialEvents) > 1:
+                    steps = np.diff(trialEvents)
+                    if steps.min() == steps.max() == 1:
+                        trialEvents = slice(trialEvents[0], trialEvents[-1] + 1, 1)
+                indices.append(trialEvents)
+        else:
+            indices = [slice(None)] * len(trials)
+            
+        return indices
+    
     # "Constructor"
     def __init__(self,
                  data=None,

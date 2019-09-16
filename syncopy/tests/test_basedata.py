@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-11 17:04:47>
+# Last modification time: <2019-09-16 17:21:48>
 
 import os
 import tempfile
@@ -380,11 +380,15 @@ class TestSelector():
     samplerate = 2.0
     data = {}
     trl = {}
-
+    
     # Prepare selector results for valid/invalid selections
     selectDict = {}
     selectDict["channel"] = {"valid": (["channel3", "channel1"], 
+                                       ["channel3", "channel1", "channel1", "channel2"],  # repetition
+                                       ["channel1", "channel1", "channel2", "channel3"],  # preserve repetition
                                        [4, 2, 5], 
+                                       [4, 2, 2, 5, 5],   # repetition
+                                       [0, 0, 1, 2, 3],  # preserve repetition, don't convert to slice
                                        range(0, 3), 
                                        range(5, 8), 
                                        slice(None), 
@@ -396,7 +400,11 @@ class TestSelector():
                                        [0, 1, 2, 3],  # contiguous list...
                                        [2, 3, 5]),  # non-contiguous list...
                              "result": ([2, 0],
-                                        [4, 2, 5], 
+                                        [2, 0, 0, 1],
+                                        [0, 0, 1, 2],
+                                        [4, 2, 5],
+                                        [4, 2, 2, 5, 5], 
+                                        [0, 0, 1, 2, 3],
                                         slice(0, 3, 1),
                                         slice(5, 8, 1), 
                                         slice(None, None, 1), 
@@ -427,6 +435,8 @@ class TestSelector():
                                         SPYValueError)}
     
     selectDict["taper"] = {"valid": ([4, 2, 3], 
+                                     [4, 2, 2, 3],  # repetition
+                                     [0, 1, 1, 2, 3],  # preserve repetition, don't convert to slice
                                      range(0, 3), 
                                      range(2, 5), 
                                      slice(None), 
@@ -438,6 +448,8 @@ class TestSelector():
                                      [0, 1, 2, 3],  # contiguous list...
                                      [1, 3, 4]),  # non-contiguous list...
                            "result": ([4, 2, 3], 
+                                      [4, 2, 2, 3],
+                                      [0, 1, 1, 2, 3],
                                       slice(0, 3, 1),
                                       slice(2, 5, 1), 
                                       slice(None, None, 1), 
@@ -465,8 +477,13 @@ class TestSelector():
                                       SPYValueError,
                                       SPYValueError)}
     
+    # only define valid inputs, the expected (trial-dependent) results are computed below
     selectDict["unit"] = {"valid": (["unit3", "unit1"],
+                                    ["unit3", "unit1", "unit1", "unit2"],  # repetition
+                                    ["unit1", "unit1", "unit2", "unit3"],  # preserve repetition
                                     [4, 2, 3], 
+                                    [4, 2, 2, 3],  # repetition
+                                    [0, 0, 2, 3],  # preserve repetition, don't convert to slice
                                     range(0, 3), 
                                     range(2, 5), 
                                     slice(None), 
@@ -477,18 +494,6 @@ class TestSelector():
                                     slice(-2, None),
                                     [0, 1, 2, 3],  # contiguous list...
                                     [1, 3, 4]),  # non-contiguous list...
-                          "result": ([3, 1],
-                                     [4, 2, 3], 
-                                     slice(0, 3, 1),
-                                     slice(2, 5, 1), 
-                                     slice(None, None, 1), 
-                                     slice(0, 5, 1),
-                                     slice(3, None, 1), 
-                                     slice(2, 4, 1),
-                                     slice(0, 5, 2),
-                                     slice(-2, None, 1),
-                                     slice(0, 4, 1),  # ...gets converted to slice
-                                     [1, 3, 4]),  # stays as is
                           "invalid": (["unit7", "unit77"],
                                       "wrongtype",
                                       range(0, 100), 
@@ -506,7 +511,10 @@ class TestSelector():
                                      SPYValueError,
                                      SPYValueError)}
 
+    # only define valid inputs, the expected (trial-dependent) results are computed below
     selectDict["eventid"] = {"valid": ([1, 0], 
+                                       [1, 1, 0],  # repetition
+                                       [0, 0, 1, 2],  # preserve repetition, don't convert to slice
                                        range(0, 2),
                                        range(1, 2), 
                                        slice(None), 
@@ -515,15 +523,6 @@ class TestSelector():
                                        slice(0, 1),
                                        slice(-1, None),
                                        [0, 1]),  # contiguous list...
-                             "result": ([1, 0], 
-                                        slice(0, 2, 1),
-                                        slice(1, 2, 1), 
-                                        slice(None, None, 1), 
-                                        slice(0, 2, 1),
-                                        slice(1, None, 1), 
-                                        slice(0, 1, 1),
-                                        slice(-1, None, 1),
-                                        slice(0, 2, 1)),  # ...gets converted to slice
                              "invalid": (["eventid", "eventid"],
                                          "wrongtype",
                                          range(0, 100), 
@@ -623,10 +622,11 @@ class TestSelector():
                                    seed.choice(int(nChannels/2), size=nSpikes)]).T
     trl["SpikeData"] = trl["AnalogData"]
 
-    # Use a simple binary trigger pattern to simulate EventData
-    data["EventData"] = np.vstack([np.arange(0, nSamples, lenTrial),
-                                   np.zeros((int(nSamples / lenTrial), ))]).T
-    data["EventData"][1::2, 1] = 1
+    # Use a triple-trigger pattern to simulate EventData w/non-uniform trials
+    data["EventData"] = np.vstack([np.arange(0, nSamples, 2), 
+                                   np.zeros((int(nSamples / 2), ))]).T  
+    data["EventData"][1::3, 1] = 1
+    data["EventData"][2::3, 1] = 2
     trl["EventData"] = trl["AnalogData"]
     
     # Define data classes to be used in tests below
@@ -634,6 +634,45 @@ class TestSelector():
     
     # test `Selector` constructor w/all data classes    
     def test_general(self):
+        
+        # construct expected results for `DiscreteData` objects constructed above
+        mapDict = {"unit": "SpikeData", "eventid": "EventData"}
+        for prop, dclass in mapDict.items():
+            discrete = getattr(spd, dclass)(data=self.data[dclass],
+                                            trialdefinition=self.trl[dclass],
+                                            samplerate=self.samplerate)
+            propIdx = discrete.dimord.index(prop)
+
+            # convert selection from `selectDict` to a usable integer-list
+            allResults = []
+            for selection in self.selectDict[prop]["valid"]:
+                if isinstance(selection, slice):
+                    selects = list(range(getattr(discrete, prop).size))[selection]
+                elif isinstance(selection, range):
+                    selects = list(selection)
+                else: # selection is list/ndarray
+                    if isinstance(selection[0], str):
+                        avail = getattr(discrete, prop)
+                    else:
+                        avail = list(range(getattr(discrete, prop).size))
+                    selects = []
+                    for sel in selection:
+                        selects += list(np.where(avail == sel)[0])
+                
+                # alternate (expensive) way to get by-trial selection indices
+                result = []    
+                for trial in discrete.trials:
+                    res = []
+                    for sel in selects:
+                        res += list(np.where(trial[:, propIdx] == sel)[0])
+                    if len(res) > 1:
+                        steps = np.diff(res)
+                        if steps.min() == steps.max() == 1:
+                            res = slice(res[0], res[-1] + 1, 1)
+                    result.append(res)
+                allResults.append(result)
+                
+            self.selectDict[prop]["result"] = tuple(allResults)
         
         # wrong type of data and/or selector
         with pytest.raises(SPYTypeError):
@@ -647,7 +686,8 @@ class TestSelector():
             Selector(ang, ())
         with pytest.raises(SPYValueError):
             Selector(ang, {"wrongkey": [1]})
-            
+
+        # go through all data-classes defined above            
         for dclass in self.classes:
             dummy = getattr(spd, dclass)(data=self.data[dclass],
                                          trialdefinition=self.trl[dclass],
@@ -714,6 +754,8 @@ class TestSelector():
                            [1.6, 1.9],  # inexact from above, inexact from below
                            [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.],  # alternating madness
                            [2.0, 0.5, 2.5],  # unsorted list
+                           [1.0, 0.5, 0.5, 1.5],  # repetition
+                           [0.5, 0.5, 1.0, 1.5], # preserve repetition, don't convert to slice
                            [0.5, 1.0, 1.5]),  # sorted list (should be converted to slice-selection)
                    "toilim": ([0.5, 1.5],  # regular range
                               [1.5, 2.0],  # minimal range (just two-time points)
@@ -765,6 +807,8 @@ class TestSelector():
                            [1.6, 1.9],  # inexact from above, inexact from below
                            [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.],  # alternating madness
                            [2.0, 0.5, 2.5],  # unsorted list
+                           [1.0, 0.5, 0.5, 1.5],  # repetition
+                           [0.5, 0.5, 1.0, 1.5], # preserve repetition, don't convert to slice
                            [0.5, 1.0, 1.5]),  # sorted list (should be converted to slice-selection)
                    "toilim": ([0.5, 1.5],  # regular range
                               [1.5, 2.0],  # minimal range (just two-time points)
@@ -817,6 +861,7 @@ class TestSelector():
 
     def test_event_toitoilim(self):
         # toi/toilim
+        # Selector(evt, select={"toilim":[0.5, 1.5]}).time  
         pass
     
     def test_spectral_foifoilim(self):
@@ -831,6 +876,8 @@ class TestSelector():
                            [1.2, 2.9],  # inexact from above, inexact from below
                            [1.1, 1.9, 2.1, 3.9, 9.2, 11.8, 12.9, 5.1, 13.8],  # alternating madness
                            [2, 1, 11],  # unsorted list
+                           [5, 2, 2, 3],  # repetition
+                           [1, 1, 2, 3], # preserve repetition, don't convert to slice
                            [2, 3, 4]),  # sorted list (should be converted to slice-selection)
                    "foilim": ([2, 11],  # regular range
                               [1, 2],  # minimal range (just two-time points)
@@ -860,5 +907,3 @@ class TestSelector():
                         idx = slice(idx[0], idx[-1] + 1, 1)
                 # check correct format of selector (list -> slice etc.)
                 assert idx == sel
-
-    

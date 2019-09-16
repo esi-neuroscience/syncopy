@@ -85,7 +85,11 @@ if __name__ == "__main__":
     # Use a simple binary trigger pattern to simulate EventData
     data["EventData"] = np.vstack([np.arange(0, nSamples, 5),
                                    np.zeros((int(nSamples / 5), ))]).T
-    data["EventData"][1::2, 1] = 1
+    
+    data["EventData"] = np.vstack([np.arange(0, nSamples, 2), 
+                                   np.zeros((int(nSamples / 2), ))]).T  
+    data["EventData"][1::3, 1] = 1
+    data["EventData"][2::3, 1] = 2
     trl["EventData"] = trl["AnalogData"]
     
     from syncopy.datatype.base_data import VirtualData, Selector
@@ -94,6 +98,8 @@ if __name__ == "__main__":
 
     sel=Selector(spk, select={"toi":[1.0, 1.5]})  
     
+    evt = spy.EventData(data=data["EventData"], trialdefinition=trl["EventData"], samplerate=2)
+       
     sys.exit()
     client = dd.Client()
     spec2 = spy.freqanalysis(artdata, cfg)

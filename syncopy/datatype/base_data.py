@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-11 17:20:09>
+# Last modification time: <2019-09-16 16:54:59>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -1275,8 +1275,15 @@ class Selector():
 
     # Helper function to process all other selections        
     def _selection_setter(self, data, select, dataprop, selectkey):
+        """
+        Coming soon... 
         
-        # FIXME: include special treatment of eventid and units (per-trial indices if necessary)
+        method for (NO FUZZY MATCHING ALLOWED!): 
+        channel
+        taper
+        unit 
+        eventid 
+        """
         
         selection = select.get(selectkey)
         target = getattr(data, dataprop, None)
@@ -1288,6 +1295,11 @@ class Selector():
             raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
         
         if target is not None:
+
+            if any(["DiscreteData" in str(base) for base in data.__class__.__mro__]):
+                isDiscrete = True
+            else:
+                isDiscrete = False
             
             if np.issubdtype(target.dtype, np.dtype("str").type):
                 slcLims = [0, target.size]
@@ -1301,7 +1313,10 @@ class Selector():
                 hasinf = False
                 
             if selection is None:
-                setattr(self, selector, slice(None))
+                if dataprop in ["unit", "eventid"]:
+                    setattr(self, selector, [slice(None)] * len(self.trials))
+                else:
+                    setattr(self, selector, slice(None))
                 
             elif isinstance(selection, (slice, range)):
                 selLims = [-np.inf, np.inf]
@@ -1322,11 +1337,19 @@ class Selector():
                     lgl = "selection range with max <= {}".format(slcLims[1])
                     act = "selection range ending at {}".format(selLims[1])
                     raise SPYValueError(legal=lgl, varname=vname, actual=act)
-                if selection.step is None:
-                    step = 1
+                
+                if dataprop in ["unit", "eventid"]:
+                    if isinstance(selection, slice):
+                        selection = target[selection]
+                    else:
+                        selection = list(selection)
+                    setattr(self, selector, getattr(data, "_get_" + dataprop)(self.trials, selection))
                 else:
-                    step = selection.step
-                setattr(self, selector, slice(selection.start, selection.stop, step))
+                    if selection.step is None:
+                        step = 1
+                    else:
+                        step = selection.step
+                    setattr(self, selector, slice(selection.start, selection.stop, step))
                 
             else:
                 try:
@@ -1342,13 +1365,20 @@ class Selector():
                 if not set(selection).issubset(targetList):
                     lgl = "List/array of {} names or indices".format(dataprop)
                     raise SPYValueError(legal=lgl, varname=vname)
-                # preserver order of input list - don't use `np.isin` here!
-                idxList = [targetList.index(sel) for sel in selection]
-                # convert range-arrays (`[0, 1, 2, 3]`) to slices for better performance
-                steps = np.diff(idxList)
-                if steps.min() == steps.max() == 1:
-                    setattr(self, selector, slice(idxList[0], idxList[-1] + 1, 1))
-                else:
+                
+                # Preserve order and duplicates of selection - don't use `np.isin` here!
+                idxList = []
+                for sel in selection:
+                    idxList += list(np.where(targetList == sel)[0])
+                
+                if dataprop in ["unit", "eventid"]:
+                    setattr(self, selector, getattr(data, "_get_" + dataprop)(self.trials, idxList))
+                else:                
+                    # if possible, convert range-arrays (`[0, 1, 2, 3]`) to slices for better performance
+                    if len(idxList) > 1:
+                        steps = np.diff(idxList)
+                        if steps.min() == steps.max() == 1:
+                            idxList = slice(idxList[0], idxList[-1] + 1, 1)
                     setattr(self, selector, idxList)
                     
         else:
