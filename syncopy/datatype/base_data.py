@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-06 16:40:13>
+# Last modification time: <2019-09-12 14:53:15>
 
 # Builtin/3rd party package imports
 import getpass
@@ -40,13 +40,29 @@ __all__ = ["StructDict"]
 
 
 class BaseData(ABC):
+    """Abstract base class for all data classes
 
-    # Class properties that are written to JSON/HDF upon save
+    Data classes in Syncopy manage storing array data and metadata in HDF5 and
+    JSON files, respectively. This base class contains the fundamental
+    functionality shared across all data classes, that is,
+    * properties for arrays that have a corresponding HDF5 datasets ('dataset
+      properties') and the associated I/O
+    * properties for data history (`BaseData.log` and `BaseData.cfg`)
+    * methods and properties for defining trials on the data
+
+    Further properties and methods are defined in subclasses, e.g.
+    `syncopy.AnalogData`.
+
+    """
+    
+    #: properties that are written into the JSON file and HDF5 attributes upon save
     _infoFileProperties = ("dimord", "_version", "_log", "cfg",)
-    _hdfFileProperties =  ("dimord", "_version", "_log",)
+    _hdfFileAttributeProperties = ("dimord", "_version", "_log",)
+    
+    #: properties that are mapped onto HDF5 datasets
     _hdfFileDatasetProperties = ("data",)
 
-    # Checksum algorithm used
+    # Checksum algorithm
     _checksum_algorithm = spy.__checksum_algorithm__.__name__
     
     # Dummy allocations of class attributes that are actually initialized in subclasses
@@ -70,7 +86,10 @@ class BaseData(ABC):
     
     @property
     def data(self):
-        """array-like object representing data without trials"""
+        """array-like object representing data without trials
+        
+        Trials are concatenated along the time axis.
+        """
 
         if getattr(self._data, "id", None) is not None:
             if self._data.id.valid == 0:
@@ -80,123 +99,200 @@ class BaseData(ABC):
                                     varname="data")
         return self._data
     
-    @data.setter
-    def data(self, in_data):
+    
+    def _set_dataset_property(self, dataIn, propertyName, ndim=None):
+        """Set property that is streamed from HDF dataset ('dataset property')
 
-        # Dimension count is either determined by length of dimord or 2 in case
-        # of `EventData` or `SpikeData`
+        This method automatically selects the appropriate set method
+        according to the type of the input data (`dataIn`).
+
+        Parameters
+        ----------
+            dataIn : str, np.ndarray, np.core.memmap or h5py.Dataset
+                Filename, array or HDF5 dataset to be stored in property
+            propertyName : str
+                Name of the property. The actual data must reside in the attribute
+                `"_" + propertyName`
+            ndim : int
+                Number of expected array dimensions. 
+
+        """
         if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
             ndim = 2
-        else:
+        if ndim is None:
             ndim = len(self.dimord)
-                
-        # If input is a string, try to load memmap/HDF5 dataset
-        if isinstance(in_data, str):
-            try:
-                fpath, fname = io_parser(in_data, varname="filename", isfile=True, exists=True)
-            except Exception as exc:
-                raise exc
-            in_data = os.path.join(fpath, fname)  # ensure `in_data` is absolute path
 
+        supportedSetters = {
+            str : self._set_dataset_property_with_str,
+            np.ndarray : self._set_dataset_property_with_ndarray,
+            np.core.memmap : self._set_dataset_property_with_memmap,
+            h5py.Dataset : self._set_dataset_property_with_dataset            
+        }
+        try:
+            supportedSetters[type(dataIn)](dataIn, propertyName, ndim=ndim)
+        except KeyError:
+            msg = "filename of HDF5 or NPY file, HDF5 dataset, or NumPy array"
+            raise SPYTypeError(dataIn, varname="data", expected=msg)
+        except Exception as exc:
+            raise exc
+    
+    def _set_dataset_property_with_str(self, filename, propertyName, ndim):
+        """Set a dataset property with a filename str
+        
+        Parameters
+        ----------
+            filename : str
+                A filename pointing to a HDF5 file containing the dataset 
+                `propertyName` or a NPY file. NPY files are loaded as memmaps.
+            propertyName : str
+                Name of the property to be filled with the dataset/memmap
+            ndim : int
+                Number of expected array dimensions. 
+        """
+        try:
+            fpath, fname = io_parser(filename, varname="filename", isfile=True, exists=True)
+        except Exception as exc:
+            raise exc
+        filename = os.path.join(fpath, fname)  # ensure `filename` is absolute path
+
+        md = self.mode
+        if md == "w":
+            md = "r+"
+
+        isNpy = False
+        isHdf = False
+        try:
+            with open(filename, "rb") as fd:
+                read_magic(fd)
+            isNpy = True
+        except ValueError as exc:
+            err = "NumPy memorymap: " + str(exc)
+        try:
+            h5f = h5py.File(filename, mode=md)
+            isHdf = True
+        except OSError as exc:
+            err = "HDF5: " + str(exc)
+        if not isNpy and not isHdf:
+            raise SPYValueError("accessible HDF5 container or memory-mapped npy-file",
+                                actual=err, varname="data")
+        
+        if isHdf:
+            h5keys = list(h5f.keys())
+            if not propertyName in h5keys and len(h5keys) != 1:                    
+                lgl = "HDF5 container with only one 'data' dataset or single dataset of arbitrary name"
+                act = "HDF5 container holding {} data-objects"
+                raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname=propertyName)
+            if len(h5keys) == 1:                
+                setattr(self, "_" + propertyName, h5f[h5keys[0]])
+            else:
+                setattr(self, "_" + propertyName, h5f[propertyName])
+        if isNpy:
+            setattr(self, propertyName, open_memmap(filename, mode=md))
+        self.filename = filename
+    
+    def _set_dataset_property_with_ndarray(self, inData, propertyName, ndim):
+        """Set a dataset property with a NumPy array
+        
+        If no data exists, a backing HDF5 dataset will be created.
+        
+        Parameters
+        ----------
+            inData : numpy.ndarray
+                NumPy array to be stored in property of name `propertyName`
+            propertyName : str
+                Name of the property to be filled with `inData`                              
+            ndim : int
+                Number of expected array dimensions. 
+        """
+
+        try:
+            array_parser(inData, varname="data", dims=ndim)
+        except Exception as exc:
+            raise exc
+        
+        # If there is existing data, replace values if shape and type match
+        if isinstance(getattr(self, "_" + propertyName), (np.memmap, h5py.Dataset)):
+            prop = getattr(self, "_" + propertyName)
+            if self.mode == "r":
+                lgl = "HDF5 dataset/memmap with write or copy-on-write access"
+                act = "read-only file"
+                raise SPYValueError(legal=lgl, varname="mode", actual=act)
+            if prop.shape != inData.shape:
+                lgl = "HDF5 dataset/memmap with shape {}".format(str(self.data.shape))
+                act = "data with shape {}".format(str(inData.shape))
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
+            if prop.dtype != inData.dtype:
+                print("Syncopy core - data: WARNING >> Input data-type mismatch << ")
+            prop[...] = inData
+            
+        # or create backing container on disk 
+        else:
+            self.filename = self._gen_filename()            
+            with h5py.File(self.filename, "w") as h5f:
+                h5f.create_dataset(propertyName, data=inData)
             md = self.mode
             if md == "w":
                 md = "r+"
+            setattr(self, "_" + propertyName, h5py.File(self.filename, md)[propertyName])
+    
+    def _set_dataset_property_with_memmap(self, inData, propertyName, ndim):
+        """Set a dataset property with a memory map
+         
+        The memory map is directly stored in the attribute. No backing HDF5
+        dataset is created. This feature may be removed in future versions.
+         
+        Parameters
+        ----------
+            inData : numpy.memmap
+                NumPy memory-map to be stored in property of name `propertyName`
+            propertyName : str
+                Name of the property to be filled with the memory map.    
+            ndim : int
+                Number of expected array dimensions. 
+        """
+        
+        if inData.ndim != ndim:
+            lgl = "{}-dimensional data".format(ndim)
+            act = "{}-dimensional memmap".format(inData.ndim)
+            raise SPYValueError(legal=lgl, varname=propertyName, actual=act)
 
-            is_npy = False
-            is_hdf = False
-            try:
-                with open(in_data, "rb") as fd:
-                    read_magic(fd)
-                is_npy = True
-            except ValueError as exc:
-                err = "NumPy memorymap: " + str(exc)
-            try:
-                h5f = h5py.File(in_data, mode=md)
-                is_hdf = True
-            except OSError as exc:
-                err = "HDF5: " + str(exc)
-            if not is_npy and not is_hdf:
-                raise SPYValueError("accessible HDF5 container or memory-mapped npy-file",
-                                    actual=err, varname="data")
-            
-            if is_hdf:
-                h5keys = list(h5f.keys())
-                if not "data" in h5keys and len(h5keys) != 1:                    
-                    lgl = "HDF5 container with only one 'data' dataset or single dataset of arbitrary name"
-                    act = "HDF5 container holding {} data-objects"
-                    raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname="data")
-                if len(h5keys) == 1:
-                    self._data = h5f[h5keys[0]]
-                else:
-                    self._data = h5f["data"]
-            if is_npy:
-                self._data = open_memmap(in_data, mode=md)
-            self.filename = in_data
+        self.mode = inData.mode
+        self.filename = inData.filename
+        setattr(self, "_" + propertyName, inData)
+    
+    def _set_dataset_property_with_dataset(self, inData, propertyName, ndim):
+        """Set a dataset property with an already loaded HDF5 dataset
+        
+        Parameters
+        ----------
+            inData : h5py.Dataset
+                HDF5 dataset to be stored in property of name `propertyName`
+            propertyName : str
+                Name of the property to be filled with the dataset
+            ndim : int
+                Number of expected array dimensions. 
+        """
+                 
+        if inData.id.valid == 0:
+            lgl = "open HDF5 container"
+            act = "backing HDF5 container is closed"
+            raise SPYValueError(legal=lgl, actual=act, varname="data")
+        
+        self.mode = inData.file.mode
+        self.filename = inData.file.filename
+        
+        if inData.ndim != ndim:
+            lgl = "{}-dimensional data".format(ndim)
+            act = "{}-dimensional HDF5 dataset or memmap".format(inData.ndim)
+            raise SPYValueError(legal=lgl, varname="data", actual=act)
+                      
+        setattr(self, "_" + propertyName, inData)        
+    
+    @data.setter
+    def data(self, inData):
 
-        # If input is already a memmap/HDF5 dataset, check its dimensions
-        elif isinstance(in_data, (np.memmap, h5py.Dataset)):
-            if isinstance(in_data, h5py.Dataset):
-                if in_data.id.valid == 0:
-                    lgl = "open HDF5 container"
-                    act = "backing HDF5 container is closed"
-                    raise SPYValueError(legal=lgl, actual=act, varname="data")
-                md = in_data.file.mode
-                fn = in_data.file.filename
-            else:
-                md = in_data.mode
-                fn = in_data.filename
-            if in_data.ndim != ndim:
-                lgl = "{}-dimensional data".format(ndim)
-                act = "{}-dimensional HDF5 dataset or memmap".format(in_data.ndim)
-                raise SPYValueError(legal=lgl, varname="data", actual=act)
-            self.mode = md
-            self.filename = os.path.abspath(fn)
-            self._data = in_data
-            
-        # If input is an array, either fill existing data property
-        # or create backing container on disk
-        elif isinstance(in_data, np.ndarray):
-            try:
-                array_parser(in_data, varname="data", dims=ndim)
-            except Exception as exc:
-                raise exc
-            if isinstance(self._data, (np.memmap, h5py.Dataset)):
-                if self.mode == "r":
-                    lgl = "HDF5 dataset/memmap with write or copy-on-write access"
-                    act = "read-only memmap"
-                    raise SPYValueError(legal=lgl, varname="mode", actual=act)
-                if self.data.shape != in_data.shape:
-                    lgl = "HDF5 dataset/memmap with shape {}".format(str(self.data.shape))
-                    act = "data with shape {}".format(str(in_data.shape))
-                    raise SPYValueError(legal=lgl, varname="data", actual=act)
-                if self.data.dtype != in_data.dtype:
-                    print("SyNCoPy core - data: WARNING >> Input data-type mismatch << ")
-                self._data[...] = in_data
-            else:
-                self.filename = self._gen_filename()
-                dsetname = "data"
-                with h5py.File(self.filename, "w") as h5f:
-                    h5f.create_dataset(dsetname, data=in_data)
-                md = self.mode
-                if md == "w":
-                    md = "r+"
-                self._data = h5py.File(self.filename, md)[dsetname]
-
-        # If input is a `VirtualData` object, make sure the object class makes sense
-        elif isinstance(in_data, VirtualData):
-            if self.__class__.__name__ != "AnalogData":
-                lgl = "(filename of) memmap or NumPy array"
-                act = "VirtualData (only valid for `AnalogData` objects)"
-                raise SPYValueError(legal=lgl, varname="data", actual=act)
-            self._data = in_data
-            self._filename = [dat.filename for dat in in_data._data]
-            self.mode = "r"
-
-        # Whatever type the input is, it's not supported
-        else:
-            msg = "(filename of) memmap, NumPy array or VirtualData object"
-            raise SPYTypeError(in_data, varname="data", expected=msg)
-
+        self._set_dataset_property(inData, "data")
+                                                
         # In case we're working with a `DiscreteData` object, fill up samples
         if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
             self._sample = np.unique(self.data[:, self.dimord.index("sample")])
@@ -240,7 +336,7 @@ class BaseData(ABC):
     def filename(self, fname):
         if not isinstance(fname, str):
             raise SPYTypeError(fname, varname="fname", expected="str")
-        self._filename = str(fname)
+        self._filename = os.path.abspath(os.path.expanduser(str(fname)))
 
     @property
     def log(self):
@@ -369,8 +465,7 @@ class BaseData(ABC):
     def selectdata(self, trials=None, deepcopy=False, **kwargs):
         """
         Docstring mostly pointing to ``selectdata``
-        """
-        pass
+        """        
 
     # Helper function that grabs a single trial
     @abstractmethod

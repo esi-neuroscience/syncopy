@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:46:31
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-06 16:42:54>
+# Last modification time: <2019-09-12 14:15:13>
 
 import os
 import tempfile
@@ -50,6 +50,7 @@ class TestAnalogData():
         with pytest.raises(SPYValueError):
             AnalogData(np.ones((3,)))
 
+    @pytest.mark.skip(reason="VirtualData is currently not supported")
     def test_virtualdata(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "dummy.npy")

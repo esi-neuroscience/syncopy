@@ -191,6 +191,7 @@ class TestMTMFFT():
         freqanalysis(cfg)
         assert cfg.out.taper.size == 1
 
+    @pytest.mark.skip(reason="VirtualData is currently not supported")
     def test_vdata(self):
         # test constant padding w/`VirtualData` objects (trials have identical lengths)
         with tempfile.TemporaryDirectory() as tdir:

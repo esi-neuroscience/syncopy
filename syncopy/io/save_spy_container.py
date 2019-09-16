@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-09 10:57:22>
+# Last modification time: <2019-09-12 14:53:15>
 
 # Builtin/3rd party package imports
 import os
@@ -273,7 +273,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
         outDict[key] = value
    
     # Save relevant stuff as HDF5 attributes
-    for key in out._hdfFileProperties:
+    for key in out._hdfFileAttributeProperties:
         if outDict[key] is None:
             h5f.attrs[key] = "None"
         else:
