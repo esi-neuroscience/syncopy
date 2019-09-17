@@ -3,8 +3,8 @@
 # SynCoPy ContinuousData abstract class + regular children
 # 
 # Created: 2019-03-20 11:11:44
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-19 09:49:21>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-12 14:53:15>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -20,7 +20,7 @@ from copy import copy
 from numpy.lib.format import open_memmap
 
 # Local imports
-from .base_data import BaseData, VirtualData
+from .base_data import BaseData, VirtualData, FauxTrial
 from .data_methods import _selectdata_continuous, definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser, io_parser
 from syncopy.shared.errors import SPYValueError, SPYIOError
@@ -39,7 +39,7 @@ class ContinuousData(BaseData, ABC):
     """
     
     _infoFileProperties = BaseData._infoFileProperties + ("samplerate", "channel",)
-    _hdfFileProperties = BaseData._hdfFileProperties + ("samplerate", "channel",)
+    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate", "channel",)
         
     @property
     def _shapes(self):
@@ -53,7 +53,7 @@ class ContinuousData(BaseData, ABC):
     @property
     def channel(self):
         """ :class:`numpy.ndarray` : list of recording channel names """
-        return self._dimlabels.get("channel")
+        return self._channel
 
     @channel.setter
     def channel(self, chan):
@@ -66,7 +66,7 @@ class ContinuousData(BaseData, ABC):
             array_parser(chan, varname="channel", ntype="str", dims=(nchan,))
         except Exception as exc:
             raise exc
-        self._dimlabels["channel"] = np.array(chan)
+        self._channel = np.array(chan)
 
     @property
     def samplerate(self):
@@ -76,7 +76,7 @@ class ContinuousData(BaseData, ABC):
     @samplerate.setter
     def samplerate(self, sr):
         try:
-            scalar_parser(sr, varname="samplerate", lims=[1, np.inf])
+            scalar_parser(sr, varname="samplerate", lims=[np.finfo('float').eps, np.inf])
         except Exception as exc:
             raise exc
         self._samplerate = float(sr)
@@ -84,8 +84,8 @@ class ContinuousData(BaseData, ABC):
     @property
     def time(self):
         """list(float): trigger-relative time axes of each trial """
-        if self.samplerate is not None and self._sampleinfo is not None:
-            return [np.arange(-self.t0[tk], end - start - self.t0[tk]) * 1/self.samplerate \
+        if self.samplerate is not None and self.sampleinfo is not None:
+            return [np.arange(self._t0[tk], end - start - self._t0[tk]) * 1/self.samplerate \
                     for tk, (start, end) in enumerate(self.sampleinfo)]
 
     # Selector method
@@ -98,6 +98,9 @@ class ContinuousData(BaseData, ABC):
     # Helper function that reads a single trial into memory
     @staticmethod
     def _copy_trial(trialno, filename, dimord, sampleinfo, hdr):
+        """
+        # FIXME: currently unused - check back to see if we need this functionality
+        """
         idx = [slice(None)] * len(dimord)
         idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
         idx = tuple(idx)
@@ -133,7 +136,39 @@ class ContinuousData(BaseData, ABC):
         sid = self.dimord.index("time")
         idx[sid] = slice(int(self.sampleinfo[trialno, 0]), int(self.sampleinfo[trialno, 1]))
         return self._data[tuple(idx)]
+    
+    # Helper function that spawns a `FauxTrial` object given actual trial information    
+    def _preview_trial(self, trialno):
+        """
+        Generate a `FauxTrial` instance of a trial
         
+        Parameters
+        ----------
+        trialno : int
+            Number of trial the `FauxTrial` object is intended to mimic
+            
+        Returns
+        -------
+        faux_trl : :class:`syncopy.datatype.base_data.FauxTrial`
+            An instance of :class:`syncopy.datatype.base_data.FauxTrial` mainly
+            intended to be used in `noCompute` runs of 
+            :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+            to avoid loading actual trial-data into memory. 
+            
+        See also
+        --------
+        syncopy.datatype.base_data.FauxTrial : class definition and further details
+        syncopy.shared.computational_routine.ComputationalRoutine : Syncopy compute engine
+        """
+        shp = list(self.data.shape)
+        idx = [slice(None)] * len(self.dimord)
+        tidx = self.dimord.index("time")
+        stop = int(self.sampleinfo[trialno, 1])
+        start = int(self.sampleinfo[trialno, 0])
+        shp[tidx] = stop - start
+        idx[tidx] = slice(start, stop)
+        return FauxTrial(shp, tuple(idx), self.data.dtype)
+    
     # Make instantiation persistent in all subclasses
     def __init__(self, **kwargs):
 
@@ -224,14 +259,11 @@ class AnalogData(ContinuousData):
 
         # The one thing we check right here and now
         expected = ["time", "channel"]
-        if not set(dimord).issubset(expected):
+        if not set(dimord) == set(expected):
             base = "dimensional labels {}"
             lgl = base.format("'" + "' x '".join(str(dim) for dim in expected) + "'")
             act = base.format("'" + "' x '".join(str(dim) for dim in dimord) + "'")
             raise SPYValueError(legal=lgl, varname="dimord", actual=act)
-
-        # Hard constraint: required no. of data-dimensions
-        self._ndim = 2
 
         # Assign default (blank) values
         self._hdr = None
@@ -292,7 +324,7 @@ class SpectralData(ContinuousData):
     
     @property
     def taper(self):
-        return self._dimlabels.get("taper")
+        return self._taper
 
     @taper.setter
     def taper(self, tpr):
@@ -305,12 +337,12 @@ class SpectralData(ContinuousData):
             array_parser(tpr, varname="taper", ntype="str", dims=(ntap,))
         except Exception as exc:
             raise exc
-        self._dimlabels["taper"] = np.array(tpr)
+        self._taper = np.array(tpr)
 
     @property
     def freq(self):
         """:class:`numpy.ndarray`: frequency axis in Hz """
-        return self._dimlabels.get("freq")
+        return self._freq
 
     @freq.setter
     def freq(self, freq):
@@ -323,7 +355,7 @@ class SpectralData(ContinuousData):
             array_parser(freq, varname="freq", dims=(nfreq,), hasnan=False, hasinf=False)
         except Exception as exc:
             raise exc
-        self._dimlabels["freq"] = np.array(freq)
+        self._freq = np.array(freq)
     
     # "Constructor"
     def __init__(self,
@@ -339,14 +371,11 @@ class SpectralData(ContinuousData):
 
         # The one thing we check right here and now
         expected = ["time", "taper", "freq", "channel"]
-        if not set(dimord).issubset(expected):
+        if not set(dimord) == set(expected):
             base = "dimensional labels {}"
             lgl = base.format("'" + "' x '".join(str(dim) for dim in expected) + "'")
             act = base.format("'" + "' x '".join(str(dim) for dim in dimord) + "'")
             raise SPYValueError(legal=lgl, varname="dimord", actual=act)
-
-        # Hard constraint: required no. of data-dimensions
-        self._ndim = 4
 
         # Call parent initializer
         super().__init__(data=data,

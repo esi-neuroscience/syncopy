@@ -19,10 +19,11 @@ Some text
    
 
 """
-# Import __all__ routines from local modules
-from .specest import *
+# # Import __all__ routines from local modules
+from .freqanalysis import *
+from .freqanalysis import __all__ as _all_
 
 # Populate local __all__ namespace
 __all__ = []
-__all__.extend(specest.__all__)
+__all__.extend(_all_)
 

@@ -12,17 +12,18 @@ import inspect
 import gc
 import pytest
 import numpy as np
-import dask.distributed as dd
 from numpy.lib.format import open_memmap
+from syncopy import __dask__
+if __dask__:
+    import dask.distributed as dd
 from syncopy.datatype import AnalogData, SpectralData, StructDict, padding
 from syncopy.datatype.base_data import VirtualData
 from syncopy.shared.errors import SPYValueError
-from syncopy.specest import freqanalysis
-from syncopy.tests.misc import generate_artifical_data, is_slurm_node
+from syncopy.specest.freqanalysis import freqanalysis
+from syncopy.tests.misc import generate_artifical_data
 
-# Decorator to run SLURM tests only on cluster nodes
-skip_without_slurm = pytest.mark.skipif(not is_slurm_node(),
-                                        reason="not running on cluster node")
+# Decorator to decide whether or not to run dask-related tests
+skip_without_dask = pytest.mark.skipif(not __dask__, reason="dask not available")
 
 
 class TestMTMFFT():
@@ -190,6 +191,7 @@ class TestMTMFFT():
         freqanalysis(cfg)
         assert cfg.out.taper.size == 1
 
+    @pytest.mark.skip(reason="VirtualData is currently not supported")
     def test_vdata(self):
         # test constant padding w/`VirtualData` objects (trials have identical lengths)
         with tempfile.TemporaryDirectory() as tdir:
@@ -207,13 +209,13 @@ class TestMTMFFT():
             del avdata, vdata, dmap, spec
             gc.collect()  # force-garbage-collect object so that tempdir can be closed
 
-    @skip_without_slurm
-    def test_slurm(self, esicluster):
+    @skip_without_dask
+    def test_parallel(self, testcluster):
         # collect all tests of current class and repeat them using dask
-        # (skip VirtualData tests since ``_copy_trial`` expects valid headers)
-        client = dd.Client(esicluster)
+        # (skip VirtualData tests since ``wrapper_io`` expects valid headers)
+        client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and attr != "test_slurm")]
+                     if (inspect.ismethod(getattr(self, attr)) and attr != "test_parallel")]
         all_tests.remove("test_vdata")
         for test in all_tests:
             getattr(self, test)()
@@ -223,41 +225,40 @@ class TestMTMFFT():
         cfg.method = "mtmfft"
         cfg.taper = "dpss"
         cfg.tapsmofrq = 9.3
+        
+        # no. of HDF5 files that will make up virtual data-set in case of channel-chunking
+        chanPerWrkr = 7
+        nFiles = self.nTrials * (int(self.nChannels/chanPerWrkr) \
+            + int(self.nChannels % chanPerWrkr > 0))
 
         # simplest case: equidistant trial spacing, all in memory
-        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                          inmemory=True)
-        spec = freqanalysis(artdata, cfg)
-        assert spec.data.is_virtual
-        assert len(spec.data.virtual_sources()) == self.nTrials
+        fileCount = [self.nTrials, nFiles]
+        for k, chan_per_worker in enumerate([None, chanPerWrkr]):
+            artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                            inmemory=True)
+            cfg.chan_per_worker = chan_per_worker
+            spec = freqanalysis(artdata, cfg)
+            assert spec.data.is_virtual
+            assert len(spec.data.virtual_sources()) == fileCount[k]
 
-        # non-equidistant trial spacing
-        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                          inmemory=True, equidistant=False)
-        spec = freqanalysis(artdata, cfg)
-        timeAxis = artdata.dimord.index("time")
-        mintrlno = np.diff(artdata.sampleinfo).argmin()
-        tmp = padding(artdata.trials[mintrlno], "zero", spec.cfg.pad,
-                      spec.cfg.padlength, prepadlength=True)
-        assert spec.freq.size == int(np.floor(tmp.shape[timeAxis] / 2) + 1)
-
-        # equidistant trial spacing average tapers
-        cfg.output = "abs"
-        cfg.keeptapers = False
-        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                          inmemory=False)
-        spec = freqanalysis(artdata, cfg)
-        assert spec.taper.size == 1
-
-        # equidistant trial spacing average trials
-        cfg.output = "abs"
-        cfg.keeptapers = True
-        cfg.keeptrials = False
-        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                          inmemory=False)
-        spec = freqanalysis(artdata, cfg)
-        assert len(spec.trials) == 1
-
+            # non-equidistant trial spacing
+            artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                            inmemory=True, equidistant=False)
+            spec = freqanalysis(artdata, cfg)
+            timeAxis = artdata.dimord.index("time")
+            mintrlno = np.diff(artdata.sampleinfo).argmin()
+            tmp = padding(artdata.trials[mintrlno], "zero", spec.cfg.pad, 
+                          spec.cfg.padlength, prepadlength=True)
+            assert spec.freq.size == int(np.floor(tmp.shape[timeAxis] / 2) + 1)
+                
+            # equidistant trial spacing average tapers
+            cfg.output = "abs"
+            cfg.keeptapers = False
+            artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                              inmemory=False)
+            spec = freqanalysis(artdata, cfg)
+            assert spec.taper.size == 1
+            
         # non-equidistant, overlapping trial spacing, throw away trials and tapers
         cfg.keeptapers = False
         cfg.keeptrials = "no"
@@ -273,6 +274,7 @@ class TestMTMFFT():
         assert spec.taper.size == 1
         assert len(spec.time) == 1
         assert len(spec.time[0]) == 1
+
         client.close()
 
     # FIXME: check polyorder/polyremoval once supported

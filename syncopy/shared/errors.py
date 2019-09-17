@@ -14,7 +14,7 @@ from collections import OrderedDict
 # Local imports
 from syncopy import __tbcount__
 
-__all__ = ["get_caller"]
+__all__ = []
 
 
 class SPYError(Exception):
@@ -120,7 +120,7 @@ def SPYExceptionHandler(*excargs, **exckwargs):
             cols.filename = cols.filenameEm
             cols.bold = "\033[1m"
             sys.last_traceback = etb    # smartify ``sys``
-        except:
+        except NameError:
             isipy = False
 
     # Pass ``KeyboardInterrupt`` on to regular excepthook so that CTRL + C
@@ -208,16 +208,9 @@ def SPYExceptionHandler(*excargs, **exckwargs):
         exc_msg = "".join(exc_fmt)
         exc_name = ""
 
-    # Glue actual Exception name + message to output string
-    emsg += "{}{}{}{}{}".format("\n" if isipy else "",
-                                exc_name,
-                                cols.bold if isipy else "",
-                                exc_msg,
-                                cols.Normal if isipy else "",)
-
     # Now go through traceback and put together a list of strings for printing
     if __tbcount__ and etb is not None:
-        emsg += "\n" + "-"*30 + "\nAbbreviated traceback:\n\n"
+        emsg += "\n" + "-"*80 + "\nAbbreviated traceback:\n\n"
         tb_count = 0
         tb_list = []
         for frame in traceback.extract_tb(etb):
@@ -238,8 +231,16 @@ def SPYExceptionHandler(*excargs, **exckwargs):
 
     # Finally, another info message
     if etb is not None:
-        emsg += "\nUse `import traceback; traceback.print_tb(sys.last_traceback)` " + \
-                "to inspect the full error traceback"
+        emsg += "\nUse `import traceback; import sys; traceback.print_tb(sys.last_traceback)` " + \
+                "for full error traceback.\n"
+
+    # Glue actual Exception name + message to output string
+    emsg += "{}{}{}{}{}".format("\n" if isipy else "",
+                                exc_name,
+                                cols.bold if isipy else "",
+                                exc_msg,
+                                cols.Normal if isipy else "",)
+
 
     # Show generated message and get outta here
     print(emsg)

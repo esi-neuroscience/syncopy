@@ -21,4 +21,5 @@ help:
 # Custom directive to clean up build dir and stub files
 clean:
 	rm -rf $(BUILDDIR)/	
-	find $(SOURCEDIR) -type d -name "_stubs" -exec rm -rf {} \;
+	rm -f $(SOURCEDIR)/api/*
+	find $(SOURCEDIR) -name _stubs -prune -exec rm -rf {} +

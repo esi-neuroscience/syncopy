@@ -1,10 +1,14 @@
 :orphan:
 
+.. contents::
+    Contents
+    :local:
+
 .. _cf: _stubs/syncopy.shared.computational_routine.ComputationalRoutine.html#syncopy.shared.computational_routine.ComputationalRoutine.computeFunction
 .. |cf|	replace:: :meth:`computeFunction`
 
 .. currentmodule:: syncopy.shared.computational_routine
-   
+
 Design Guide: Syncopy Compute Kernels
 =====================================
 A compute kernel represents the centerpiece of a Syncopy analysis routine.
@@ -18,9 +22,9 @@ common instruction sequences and minimize code redundancy, Syncopy's
 necessary during preparation and after termination of a calculation. This
 permits developers to focus exclusively on the implementation of the actual
 algorithmic details when including a new computational method in Syncopy.
-       
+
 Designing a |cf|_
------------------------------------
+-----------------
 For enabling :class:`ComputationalRoutine` to perform all required
 computational management tasks, a |cf|_ has to satisfy a few basic
 requirements. Syncopy leverages a hierarchical parallelization paradigm

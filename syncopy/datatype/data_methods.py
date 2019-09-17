@@ -3,8 +3,8 @@
 # Base functions for interacting with SyNCoPy data objects
 # 
 # Created: 2019-02-25 11:30:46
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-19 09:49:40>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-06 15:27:01>
 
 # Builtin/3rd party package imports
 import numbers
@@ -385,9 +385,13 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
 
     # Start by vetting input object
     try:
-        data_parser(obj, varname="obj", writable=None, empty=False)
+        data_parser(obj, varname="obj")
     except Exception as exc:
         raise exc
+    if obj.data is None:
+        lgl = "non-empty Syncopy data object"
+        act = "empty Syncopy data object"
+        raise SPYValueError(legal=lgl, varname="obj", actual=act)
 
     # Check array/object holding trial specifications
     if trialdefinition is not None:
@@ -403,6 +407,17 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                 array_parser(trialdefinition, varname="trialdefinition", dims=2)
             except Exception as exc:
                 raise exc
+            
+            if any(["ContinuousData" in str(base) for base in obj.__class__.__mro__]):
+                scount = obj.data.shape[obj.dimord.index("time")]
+            else:
+                scount = np.inf
+            try:
+                array_parser(trialdefinition[:, :2], varname="sampleinfo", dims=(None, 2), hasnan=False, 
+                         hasinf=False, ntype="int_like", lims=[0, scount])
+            except Exception as exc:
+                raise exc            
+            
             trl = trialdefinition
             ref = obj
             tgt = obj
@@ -428,7 +443,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
         ref = trialdefinition
         tgt = obj
         trl = np.array(ref.trialinfo)
-        t0 = np.array(ref.t0).reshape((ref.t0.size,1))
+        t0 = np.array(ref._t0).reshape((ref._t0.size,1))
         trl = np.hstack([ref.sampleinfo, t0, trl])
         trl = np.round((trl/ref.samplerate) * tgt.samplerate).astype(int)
 
@@ -623,9 +638,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                             actual="shape = {shp:s}".format(shp=str(trl.shape)))
 
     # Finally: assign `sampleinfo`, `t0` and `trialinfo` (and potentially `trialid`)
-    tgt.sampleinfo = trl[:,:2]
-    tgt._t0 = np.array(trl[:,2], dtype=int)
-    tgt.trialinfo = trl[:,3:]
+    tgt._trialdefinition = trl
 
     # In the discrete case, we have some additinal work to do
     if any(["DiscreteData" in str(base) for base in tgt.__class__.__mro__]):
@@ -899,6 +912,13 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
             raise exc
         timeAxis = data.dimord.index("time")
         spydata = True
+    elif data.__class__.__name__ == "FauxTrial":
+        if len(data.shape) != 2:
+            lgl = "two-dimensional AnalogData trial segment"
+            act = "{}-dimensional trial segment"
+            raise SPYValueError(legal=lgl, varname="data", 
+                                actual=act.format(len(data.shape)))
+        spydata = False
     else:
         try:
             array_parser(data, varname="data", dims=2)
@@ -1105,10 +1125,14 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
             pad_opts["stat_length"] = pw[0, :]
 
         if create_new:
-            return np.pad(data, **pad_opts)
+            if isinstance(data, np.ndarray):
+                return np.pad(data, **pad_opts)
+            else:
+                shp = (data.shape[0] + pw[0, :].sum(), data.shape[1])
+                tidx = slice(data.idx[0].start, data.idx[0].start + shp[0])
+                return data.__class__(shp, (tidx, data.idx[1]), data.dtype)
         else:
             return pad_opts
-
 
 def _nextpow2(number):
     n = 1

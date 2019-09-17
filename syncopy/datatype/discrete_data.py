@@ -28,7 +28,7 @@ class DiscreteData(BaseData, ABC):
     """
 
     _infoFileProperties = BaseData._infoFileProperties + ("_hdr", "samplerate", )
-    _hdfFileProperties = BaseData._hdfFileProperties + ("samplerate",)
+    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate",)
 
 
     @property
@@ -42,7 +42,7 @@ class DiscreteData(BaseData, ABC):
     @property
     def sample(self):
         """Indices of all recorded samples"""
-        return self._dimlabels.get("sample")
+        return self._sample
 
     @property
     def samplerate(self):
@@ -89,8 +89,8 @@ class DiscreteData(BaseData, ABC):
     @property
     def trialtime(self):
         """list(:class:`numpy.ndarray`): trigger-relative sample times in s"""
-        return [range(-self.t0[tk],
-                      self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0] - self.t0[tk])
+        return [range(-self._t0[tk],
+                      self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0] - self._t0[tk])
                 for tk in self.trialid] if self.trialid is not None else None
 
     # Selector method
@@ -105,9 +105,6 @@ class DiscreteData(BaseData, ABC):
 
     # Make instantiation persistent in all subclasses
     def __init__(self, **kwargs):
-
-        # Hard constraint: required no. of data-dimensions
-        self._ndim = 2
 
         # Assign (default) values
         self._trialid = None
@@ -145,12 +142,12 @@ class SpikeData(DiscreteData):
     """
 
     _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
-    _hdfFileProperties = DiscreteData._hdfFileProperties + ("channel",)
+    _hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel",)
     
     @property
     def channel(self):
         """ :class:`numpy.ndarray` : list of original channel names for each unit"""
-        return self._dimlabels.get("channel")
+        return self._channel
 
     @channel.setter
     def channel(self, chan):
@@ -163,12 +160,12 @@ class SpikeData(DiscreteData):
             array_parser(chan, varname="channel", ntype="str", dims=(nchan,))
         except Exception as exc:
             raise exc
-        self._dimlabels["channel"] = np.array(chan)
+        self._channel = np.array(chan)
 
     @property
     def unit(self):
         """ :class:`numpy.ndarray(str)` : unit names"""
-        return self._dimlabels.get("unit")
+        return self._unit
 
     @unit.setter
     def unit(self, unit):
@@ -181,7 +178,7 @@ class SpikeData(DiscreteData):
             array_parser(unit, varname="unit", ntype="str", dims=(nunit,))
         except Exception as exc:
             raise exc
-        self._dimlabels["unit"] = np.array(unit)
+        self._unit = np.array(unit)
 
     # "Constructor"
     def __init__(self,
@@ -288,7 +285,7 @@ class EventData(DiscreteData):
     @property
     def eventid(self):
         """numpy.ndarray(int): integer event code assocated with each event"""
-        return self._dimlabels.get("eventid")
+        return self._eventid
 
     # "Constructor"
     def __init__(self,

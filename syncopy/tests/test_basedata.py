@@ -3,8 +3,8 @@
 # Test proper functionality of SyNCoPy BaseData class + helper
 # 
 # Created: 2019-03-19 10:43:22
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-18 15:32:36>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-04 12:55:24>
 
 import os
 import tempfile
@@ -20,7 +20,7 @@ from syncopy.datatype.base_data import VirtualData
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests.misc import is_win_vm, is_slurm_node
 
-# Construct decorator for skipping certain tests
+# Construct decorators for skipping certain tests
 skip_in_vm = pytest.mark.skipif(is_win_vm(), reason="running in Win VM")
 skip_in_slurm = pytest.mark.skipif(is_slurm_node(), reason="running on cluster node")
 
@@ -261,7 +261,7 @@ class TestBaseData():
             dummy = getattr(spd, dclass)(self.data[dclass],
                                          trialdefinition=self.trl[dclass])
             assert np.array_equal(dummy.sampleinfo, self.trl[dclass][:, :2])
-            assert np.array_equal(dummy.t0, self.trl[dclass][:, 2])
+            assert np.array_equal(dummy._t0, self.trl[dclass][:, 2])
             assert np.array_equal(dummy.trialinfo.flatten(), self.trl[dclass][:, 3])
 
     # Test ``clear`` with `AnalogData` only - method is independent from concrete data object
@@ -310,7 +310,7 @@ class TestBaseData():
             assert dummy.filename == dummy2.filename
             assert hash(str(dummy.data)) == hash(str(dummy2.data))
             assert hash(str(dummy.sampleinfo)) == hash(str(dummy2.sampleinfo))
-            assert hash(str(dummy.t0)) == hash(str(dummy2.t0))
+            assert hash(str(dummy._t0)) == hash(str(dummy2._t0))
             assert hash(str(dummy.trialinfo)) == hash(str(dummy2.trialinfo))
 
         # test shallow + deep copies of memmaps + HDF5 containers
@@ -330,14 +330,14 @@ class TestBaseData():
                 assert dummy.filename == dummy2.filename
                 assert hash(str(dummy.data)) == hash(str(dummy2.data))
                 assert hash(str(dummy.sampleinfo)) == hash(str(dummy2.sampleinfo))
-                assert hash(str(dummy.t0)) == hash(str(dummy2.t0))
+                assert hash(str(dummy._t0)) == hash(str(dummy2._t0))
                 assert hash(str(dummy.trialinfo)) == hash(str(dummy2.trialinfo))
 
                 # test integrity of deep-copy
                 dummy3 = dummy.copy(deep=True)
                 assert dummy3.filename != dummy.filename
                 assert np.array_equal(dummy.sampleinfo, dummy3.sampleinfo)
-                assert np.array_equal(dummy.t0, dummy3.t0)
+                assert np.array_equal(dummy._t0, dummy3._t0)
                 assert np.array_equal(dummy.trialinfo, dummy3.trialinfo)
                 assert np.array_equal(dummy.data, dummy3.data)
 
@@ -348,14 +348,14 @@ class TestBaseData():
                 assert dummy.filename == dummy2.filename
                 assert hash(str(dummy.data)) == hash(str(dummy2.data))
                 assert hash(str(dummy.sampleinfo)) == hash(str(dummy2.sampleinfo))
-                assert hash(str(dummy.t0)) == hash(str(dummy2.t0))
+                assert hash(str(dummy._t0)) == hash(str(dummy2._t0))
                 assert hash(str(dummy.trialinfo)) == hash(str(dummy2.trialinfo))
 
                 # test integrity of deep-copy
                 dummy3 = dummy.copy(deep=True)
                 assert dummy3.filename != dummy.filename
                 assert np.array_equal(dummy.sampleinfo, dummy3.sampleinfo)
-                assert np.array_equal(dummy.t0, dummy3.t0)
+                assert np.array_equal(dummy._t0, dummy3._t0)
                 assert np.array_equal(dummy.trialinfo, dummy3.trialinfo)
                 assert np.array_equal(dummy.data, dummy3.data)
 

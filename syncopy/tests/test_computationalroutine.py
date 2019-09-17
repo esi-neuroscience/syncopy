@@ -3,23 +3,29 @@
 # Test basic functionality of ComputationalRoutine class
 # 
 # Created: 2019-07-03 11:31:33
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-18 14:21:52>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-06 16:00:13>
 
+import os
+import tempfile
 import pytest
 import numpy as np
-import dask.distributed as dd
+from glob import glob
 from scipy import signal
+from syncopy import __dask__
+if __dask__:
+    import dask.distributed as dd
 from syncopy.datatype import AnalogData
+from syncopy.io import load
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.tests.misc import generate_artifical_data, is_slurm_node
+from syncopy.shared.parsers import unwrap_io
+from syncopy.tests.misc import generate_artifical_data
+
+# Decorator to decide whether or not to run dask-related tests
+skip_without_dask = pytest.mark.skipif(not __dask__, reason="dask not available")
 
 
-# Decorator to run SLURM tests only on cluster nodes
-skip_without_slurm = pytest.mark.skipif(not is_slurm_node(),
-                                        reason="not running on cluster node")
-
-
+@unwrap_io
 def lowpass(arr, b, a, noCompute=None, chunkShape=None):
     if noCompute:
         return arr.shape, arr.dtype
@@ -32,7 +38,7 @@ class LowPassFilter(ComputationalRoutine):
 
     def process_metadata(self, data, out):
         if not self.keeptrials:
-            trl = np.array([[0, out.data.shape[0], 0]], dtype=int)
+            out.trialdefinition = np.array([[0, out.data.shape[0], 0]], dtype=int)             
         else:
             trl = np.zeros((len(data.trials), 3), dtype=int)
             trial_lengths = np.diff(data.sampleinfo)
@@ -41,9 +47,8 @@ class LowPassFilter(ComputationalRoutine):
                 trl[row, 0] = cnt
                 trl[row, 1] = cnt + tlen
                 cnt += tlen
-        out.sampleinfo = trl[:, :2]
-        out._t0 = trl[:, 2]
-        out.trialinfo = trl[:, 3:]
+            out.trialdefinition = np.hstack((trl, data.trialinfo))
+        
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel)
 
@@ -79,6 +84,11 @@ class TestComputationalRoutine():
     # Create reference AnalogData object with equidistant trial spacing
     equidata = AnalogData(data=sig, samplerate=fs, trialdefinition=trl,
                           dimord=["time", "channel"])
+    
+    # For parallel computation w/concurrent writing: predict no. of generated 
+    # HDF5 files that will make up virtual data-set in case of channel-chunking
+    chanPerWrkr = 7
+    nFiles = nTrials * (int(nChannels/chanPerWrkr) + int(nChannels % chanPerWrkr > 0))
 
 
     def test_sequential_equidistant(self):
@@ -87,9 +97,9 @@ class TestComputationalRoutine():
         out = AnalogData()
         myfilter.compute(self.equidata, out)
         assert np.abs(out.data - self.orig).max() < self.tol
-
-        myfilter = LowPassFilter(self.b, self.a, keeptrials=False)
-        myfilter.initialize(self.equidata)
+        
+        myfilter = LowPassFilter(self.b, self.a)
+        myfilter.initialize(self.equidata, keeptrials=False)
         out = AnalogData()
         myfilter.compute(self.equidata, out)
         assert np.abs(out.data - self.orig[:self.t.size, :]).max() < self.tol
@@ -106,43 +116,108 @@ class TestComputationalRoutine():
             out = AnalogData()
             myfilter.compute(nonequidata, out)
             assert out.data.shape[0] == np.diff(nonequidata.sampleinfo).sum()
+            
+    def test_sequential_saveload(self):
+        myfilter = LowPassFilter(self.b, self.a)
+        myfilter.initialize(self.equidata)
+        out = AnalogData()
+        myfilter.compute(self.equidata, out, log_dict={"a": self.a, "b": self.b})
+        assert set(["a", "b"]) == set(out.cfg.keys())
+        assert np.array_equal(out.cfg["a"], self.a)
+        assert np.array_equal(out.cfg["b"], self.b)
+        assert "lowpass" in out._log
+        
+        with tempfile.TemporaryDirectory() as tdir:
+            fname = os.path.join(tdir, "dummy")
+            out.save(fname)
+            dummy = load(fname)
+            assert "a" in dummy.cfg.keys()
+            assert "b" in dummy.cfg.keys()
+            assert np.array_equal(dummy.cfg["a"], self.a)
+            assert np.array_equal(dummy.cfg["b"], self.b)
+            assert np.abs(dummy.data - self.orig).max() < self.tol
+            del dummy, out
 
-    @skip_without_slurm
-    def test_parallel_equidistant(self, esicluster):
-        client = dd.Client(esicluster)
+    @skip_without_dask
+    def test_parallel_equidistant(self, testcluster):
+        client = dd.Client(testcluster)
+        for parallel_store in [True, False]:
+            for chan_per_worker in [None, self.chanPerWrkr]:
+                myfilter = LowPassFilter(self.b, self.a)
+                myfilter.initialize(self.equidata, chan_per_worker=chan_per_worker)
+                out = AnalogData()
+                myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store)
+                assert np.abs(out.data - self.orig).max() < self.tol
+                assert out.data.is_virtual == parallel_store
+                if parallel_store:
+                    nfiles = len(glob(os.path.join(myfilter.virtualDatasetDir, "*.h5")))
+                    if chan_per_worker is None:
+                        assert nfiles == self.nTrials
+                    else:
+                        assert nfiles == self.nFiles
+        
+                myfilter = LowPassFilter(self.b, self.a)
+                myfilter.initialize(self.equidata, 
+                                    chan_per_worker=chan_per_worker,
+                                    keeptrials=False)
+                out = AnalogData()
+                myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store)
+                assert np.abs(out.data - self.orig[:self.t.size, :]).max() < self.tol
+                assert out.data.is_virtual == False
+        client.close()
+    
+    @skip_without_dask
+    def test_parallel_nonequidistant(self, testcluster):
+        client = dd.Client(testcluster)
+        for overlapping in [False, True]:
+            nonequidata = generate_artifical_data(nTrials=self.nTrials,
+                                                    nChannels=self.nChannels,
+                                                    equidistant=False,
+                                                    overlapping=overlapping,
+                                                    inmemory=False)
+            for parallel_store in [True, False]:
+                for chan_per_worker in [None, self.chanPerWrkr]:
+                    out = AnalogData()
+                    myfilter = LowPassFilter(self.b, self.a)
+                    myfilter.initialize(nonequidata, chan_per_worker=chan_per_worker)
+                    myfilter.compute(nonequidata, out, parallel=True, parallel_store=parallel_store)
+                    assert out.data.shape[0] == np.diff(nonequidata.sampleinfo).sum()
+                    for tk, trl in enumerate(out.trials):
+                        assert trl.shape[0] == np.diff(nonequidata.sampleinfo[tk, :])
+                    assert out.data.is_virtual == parallel_store
+                    if parallel_store:
+                        nfiles = len(glob(os.path.join(myfilter.virtualDatasetDir, "*.h5")))
+                        if chan_per_worker is None:
+                            assert nfiles == self.nTrials
+                        else:
+                            assert nfiles == self.nFiles
+        client.close()
+
+    @skip_without_dask
+    def test_parallel_saveload(self, testcluster):
+        client = dd.Client(testcluster)
         for parallel_store in [True, False]:
             myfilter = LowPassFilter(self.b, self.a)
             myfilter.initialize(self.equidata)
             out = AnalogData()
-            myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store)
-            assert np.abs(out.data - self.orig).max() < self.tol
-            assert out.data.is_virtual == parallel_store
-    
-            myfilter = LowPassFilter(self.b, self.a, keeptrials=False)
-            myfilter.initialize(self.equidata)
-            out = AnalogData()
-            myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store)
-            assert np.abs(out.data - self.orig[:self.t.size, :]).max() < self.tol
-            assert out.data.is_virtual == parallel_store
-        client.close()
-    
-    @skip_without_slurm
-    def test_parallel_nonequidistant(self, esicluster):
-        client = dd.Client(esicluster)
-        for overlapping in [False, True]:
-            for parallel_store in [True, False]:
-                nonequidata = generate_artifical_data(nTrials=self.nTrials,
-                                                      nChannels=self.nChannels,
-                                                      equidistant=False,
-                                                      overlapping=overlapping,
-                                                      inmemory=False)
-    
-                out = AnalogData()
-                myfilter = LowPassFilter(self.b, self.a)
-                myfilter.initialize(nonequidata)
-                myfilter.compute(nonequidata, out, parallel=True, parallel_store=parallel_store)
-                assert out.data.shape[0] == np.diff(nonequidata.sampleinfo).sum()
-                for tk, trl in enumerate(out.trials):
-                    assert trl.shape[0] == np.diff(nonequidata.sampleinfo[tk, :])
-                assert out.data.is_virtual == parallel_store
+            myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store, 
+                             log_dict={"a": self.a, "b": self.b})
+            
+            assert set(["a", "b"]) == set(out.cfg.keys())
+            assert np.array_equal(out.cfg["a"], self.a)
+            assert np.array_equal(out.cfg["b"], self.b)
+            assert "lowpass" in out._log
+            
+            with tempfile.TemporaryDirectory() as tdir:
+                fname = os.path.join(tdir, "dummy")
+                out.save(fname)
+                dummy = load(fname)
+                assert "a" in dummy.cfg.keys()
+                assert "b" in dummy.cfg.keys()
+                assert np.array_equal(dummy.cfg["a"], self.a)
+                assert np.array_equal(dummy.cfg["b"], self.b)
+                assert np.abs(dummy.data - self.orig).max() < self.tol
+                assert not out.data.is_virtual
+                assert out.filename == dummy.filename
+                del out, dummy
         client.close()

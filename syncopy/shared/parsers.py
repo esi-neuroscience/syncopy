@@ -4,13 +4,15 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-07-20 14:27:37>
+# Last modification time: <2019-09-09 12:18:26>
 
 # Builtin/3rd party package imports
 import os
 import numpy as np
 import numbers
 import functools
+import time
+import h5py
 from inspect import signature
 
 # Local imports
@@ -432,29 +434,29 @@ def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dim
 
     # Make sure `data` is (derived from) `BaseData`
     if not any(["BaseData" in str(base) for base in data.__class__.__mro__]):
-        raise SPYTypeError(data, varname=varname, expected="SynCoPy data object")
+        raise SPYTypeError(data, varname=varname, expected="Syncopy data object")
 
     # If requested, check specific data-class of object
     if dataclass is not None:
         if data.__class__.__name__ not in str(dataclass):
-            msg = "SynCoPy {} object".format(dataclass)
+            msg = "Syncopy {} object".format(dataclass)
             raise SPYTypeError(data, varname=varname, expected=msg)
 
     # If requested, ensure object contains data (or not)
     if empty is not None:
-        legal = "{status:s} SpkeWave data object"
-        if empty and data.data is not None:
+        legal = "{status:s} Syncopy data object"
+        if empty and (data.data is not None or data.samplerate is not None):
             raise SPYValueError(legal=legal.format(status="empty"),
                                 varname=varname,
                                 actual="non-empty")
-        elif not empty and data.data is None:
+        elif not empty and (data.data is None or data.samplerate is None):
             raise SPYValueError(legal=legal.format(status="non-empty"),
                                 varname=varname,
                                 actual="empty")
 
     # If requested, ensure proper access to object
     if writable is not None:
-        legal = "{access:s} to SynCoPy data object"
+        legal = "{access:s} to Syncopy data object"
         actual = "mode = {mode:s}"
         if writable and data.mode == "r":
             raise SPYValueError(legal=legal.format(access="write-access"),
@@ -466,9 +468,9 @@ def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dim
                                 actual=actual.format(mode=data.mode))
 
     # If requested, check integrity of dimensional information (if non-empty)
-    if dimord is not None and len(data.dimord):
-        base = "SynCoPy {diminfo:s} data object"
-        if not set(dimord).issubset(data.dimord):
+    if dimord is not None:
+        base = "Syncopy {diminfo:s} data object"
+        if data.dimord != dimord:
             legal = base.format(diminfo="'" + "' x '".join(str(dim) for dim in dimord) + "'")
             actual = base.format(diminfo="'" + "' x '".join(str(dim) for dim in data.dimord)
                                  + "' " if data.dimord else "empty")
@@ -578,9 +580,9 @@ def filename_parser(filename, is_in_valid_container=None):
      'extension': '.spy'}
 
 
-     See also
-     --------
-     io_parser : check file and folder names for existence
+    See also
+    --------
+    io_parser : check file and folder names for existence
 
     """      
     if filename is None:
@@ -597,17 +599,19 @@ def filename_parser(filename, is_in_valid_container=None):
 
     folder, filename = os.path.split(filename)
     container = folder.split(os.path.sep)[-1]
-    
-    if filename.count(".") > 2:
-        print(filename)
-        raise SPYError("Too many extensions in filename {fname}".format(filename.count(".")))
-
     basename, ext = os.path.splitext(filename)    
     
-    if ext == spy.FILE_EXT["info"]:
+    if filename.count(".") > 2:
+        raise SPYValueError(legal="single extension, found {}".format(filename.count(".")), 
+                            actual=filename, varname="filename")
+    if ext == spy.io.utils.FILE_EXT["dir"] and basename.count(".") > 0:
+        raise SPYValueError(legal="no extension, found {}".format(basename.count(".")), 
+                            actual=basename, varname="container")
+        
+    if ext == spy.io.utils.FILE_EXT["info"]:
         filename = basename
         basename, ext = os.path.splitext(filename)
-    elif ext == spy.FILE_EXT["dir"]:
+    elif ext == spy.io.utils.FILE_EXT["dir"]:
         return {
         "filename": None,
         "container": filename,
@@ -617,18 +621,18 @@ def filename_parser(filename, is_in_valid_container=None):
         "extension": ext
         }
     
-    if ext not in spy.FILE_EXT["data"] + (spy.FILE_EXT["dir"],):
-        raise SPYValueError(legal=spy.FILE_EXT["data"], 
+    if ext not in spy.io.utils.FILE_EXT["data"] + (spy.io.utils.FILE_EXT["dir"],):
+        raise SPYValueError(legal=spy.io.utils.FILE_EXT["data"], 
                             actual=ext, varname="filename extension")
 
-    folderExtIsSpy = os.path.splitext(container)[1] == spy.FILE_EXT["dir"]
+    folderExtIsSpy = os.path.splitext(container)[1] == spy.io.utils.FILE_EXT["dir"]
     if is_in_valid_container is not None:
         if not folderExtIsSpy and is_in_valid_container:
-            raise SPYValueError(legal=spy.FILE_EXT["dir"], 
+            raise SPYValueError(legal=spy.io.utils.FILE_EXT["dir"], 
                                 actual=os.path.splitext(container)[1], 
                                 varname="folder extension")
         elif folderExtIsSpy and not is_in_valid_container:
-            raise SPYValueError(legal='not ' + spy.FILE_EXT["dir"], 
+            raise SPYValueError(legal='not ' + spy.io.utils.FILE_EXT["dir"], 
                                 actual=os.path.splitext(container)[1], 
                                 varname="folder extension")
 
@@ -640,7 +644,9 @@ def filename_parser(filename, is_in_valid_container=None):
                                 actual=filename, 
                                 varname='start of filename')
         tag = basename.partition(containerBasename)[-1]
-        if not tag == "":    
+        if tag == "":
+            tag = None
+        else:    
             if tag[0] == '_': tag = tag[1:]
         basename = containerBasename       
     else:
@@ -737,3 +743,131 @@ def unwrap_cfg(func):
         return func(*args, **kwargs)
 
     return wrapper_cfg
+
+
+def unwrap_io(func):
+    """
+    Decorator that handles parallel execution of 
+    :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    
+    Parameters
+    ----------
+    func : callable
+        A Syncopy :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+        
+    Returns
+    -------
+    out : tuple or :class:`numpy.ndarray` if executed sequentially
+        Return value of :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+        (depending on value of `noCompute`, see 
+        :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+        for details)
+    Nothing : None if executed concurrently
+        If parallel workers are running concurrently, the first positional input 
+        argument is a dictionary (assembled by 
+        :meth:`syncopy.shared.computational_routine.ComputationalRoutine.compute_parallel`)
+        that holds the paths and dataset indices of HDF5 files for reading source 
+        data and writing results. 
+    
+    Notes
+    -----
+    Parallel execution supports two writing modes: concurrent storage of results
+    in multiple HDF5 files or sequential writing of array blocks in a single 
+    output HDF5 file. In both situations, the output array returned by 
+    :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    is immediately written to disk and **not** propagated back to the caller to 
+    avoid inter-worker network communication. 
+    
+    In case of parallel writing, trial-channel blocks are stored in individual 
+    HDF5 containers (virtual sources) that are consolidated into a single 
+    :class:`h5py.VirtualLayout` which is subsequently used to allocate a virtual 
+    dataset inside a newly created HDF5 file (located in Syncopy's temporary 
+    storage folder). 
+
+    Conversely, in case of sequential writing, each resulting array is written 
+    sequentially to an existing single output HDF5 file using  a distributed mutex 
+    for access control to prevent write collisions. 
+    """
+
+    @functools.wraps(func)
+    def wrapper_io(trl_dat, *args, **kwargs):
+
+        # `trl_dat` is a NumPy array or `FauxTrial` object: execute the wrapped 
+        # function and return its result
+        if not isinstance(trl_dat, dict):
+            return func(trl_dat, *args, **kwargs)
+
+        # The fun part: `trl_dat` is a dictionary holding components for parallelization        
+        else:
+            
+            # Extract all necessary quantities to load/compute/write
+            hdr = trl_dat["hdr"]
+            keeptrials = trl_dat["keeptrials"]
+            infilename = trl_dat["infile"]
+            indset = trl_dat["indset"]
+            ingrid = trl_dat["ingrid"]
+            vdsdir = trl_dat["vdsdir"]
+            outfilename = trl_dat["outfile"]
+            outdset = trl_dat["outdset"]
+            outgrid = trl_dat["outgrid"]
+            lock = trl_dat["lock"]
+            sleeptime = trl_dat["sleeptime"]
+            waitcount = trl_dat["waitcount"]
+
+            # === STEP 1 === read data into memory
+            # Generic case: data is either a HDF5 dataset or memmap
+            if hdr is None:
+                try:
+                    with h5py.File(infilename, mode="r") as h5fin:
+                        arr = h5fin[indset][ingrid]
+                except:
+                    try:
+                        arr = np.array(open_memmap(infilename, mode="c")[ingrid])
+                    except:
+                        raise SPYIOError(infilename)
+                    
+            # For VirtualData objects
+            else:
+                dsets = []
+                for fk, fname in enumerate(infilename):
+                    dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
+                                        mode="r", dtype=hdr[fk]["dtype"],
+                                        shape=(hdr[fk]["M"], hdr[fk]["N"]))[ingrid])
+                arr = np.vstack(dsets)
+
+            # === STEP 2 === perform computation
+            # Now, actually call wrapped function
+            res = func(arr, *args, **kwargs)
+            
+            # === STEP 3 === write result to disk
+            # Write result to stand-alone HDF file or use a mutex to write to a 
+            # single container (sequentially)
+            if vdsdir is not None:
+                with h5py.File(outfilename, "w") as h5fout:
+                    h5fout.create_dataset(outdset, data=res)
+                    h5fout.flush()
+            else:
+                counter = 0
+                lock.acquire()
+                while not lock.locked() and counter < waitcount:
+                    time.sleep(sleeptime)
+                    counter += 1
+                    
+                # Either (continue to) compute average or write current chunk
+                with h5py.File(outfilename, "r+") as h5fout:
+                    target = h5fout[outdset]
+                    if keeptrials:
+                        target[outgrid] = res    
+                    else:
+                        target[()] = np.nansum([target, res], axis=0)
+                    h5fout.flush()
+
+                counter = 0
+                lock.release()
+                while lock.locked() and counter < waitcount:
+                    time.sleep(sleeptime)
+                    counter += 1
+                    
+            return None # result has already been written to disk
+        
+    return wrapper_io
