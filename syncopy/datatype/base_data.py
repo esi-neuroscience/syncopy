@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-12 14:53:15>
+# Last modification time: <2019-09-17 11:37:06>
 
 # Builtin/3rd party package imports
 import getpass
@@ -126,7 +126,8 @@ class BaseData(ABC):
             str : self._set_dataset_property_with_str,
             np.ndarray : self._set_dataset_property_with_ndarray,
             np.core.memmap : self._set_dataset_property_with_memmap,
-            h5py.Dataset : self._set_dataset_property_with_dataset            
+            h5py.Dataset : self._set_dataset_property_with_dataset,
+            type(None): self._set_dataset_property_with_none          
         }
         try:
             supportedSetters[type(dataIn)](dataIn, propertyName, ndim=ndim)
@@ -135,6 +136,10 @@ class BaseData(ABC):
             raise SPYTypeError(dataIn, varname="data", expected=msg)
         except Exception as exc:
             raise exc
+    
+    def _set_dataset_property_with_none(self, dataIn, propertyName, ndim):
+        """Set a dataset property to None"""
+        setattr(self, "_" + propertyName, None)
     
     def _set_dataset_property_with_str(self, filename, propertyName, ndim):
         """Set a dataset property with a filename str
@@ -278,7 +283,7 @@ class BaseData(ABC):
             act = "backing HDF5 container is closed"
             raise SPYValueError(legal=lgl, actual=act, varname="data")
         
-        self.mode = inData.file.mode
+        self._mode = inData.file.mode
         self.filename = inData.file.filename
         
         if inData.ndim != ndim:
@@ -292,7 +297,10 @@ class BaseData(ABC):
     def data(self, inData):
 
         self._set_dataset_property(inData, "data")
-                                                
+
+        if inData is None:
+            return
+                                                        
         # In case we're working with a `DiscreteData` object, fill up samples
         if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
             self._sample = np.unique(self.data[:, self.dimord.index("sample")])
@@ -373,6 +381,10 @@ class BaseData(ABC):
     @mode.setter
     def mode(self, md):
 
+        # If the mode is not changing, don't do anything
+        if md == self._mode:
+            return
+
         # Ensure input makes sense and we actually have permission to change
         # the data access mode
         if not isinstance(md, str):
@@ -386,23 +398,35 @@ class BaseData(ABC):
                   "access mode of VirtualData datasets << ")
             return
 
-        # If data is already attached to the object, change its access mode
-        # as requested (if `md` is actually any different from `self.mode`)
-        # NOTE: prevent accidental data loss by not allowing mode = "w" in h5py
-        if self.data is not None:
-            if md == self._mode:
-                return
-            if md == "w":
-                md = "r+"
-            self.data.flush()
-            if isinstance(self.data, np.memmap):
-                self._data = None
-                self._data = open_memmap(self.filename, mode=md)
-            else:
-                dsetname = self.data.name
-                self._data.file.close()
-                self._data = h5py.File(self.filename, mode=md)[dsetname]
+        # prevent accidental data loss by not allowing mode = "w" in h5py
+        if md == "w":
+            md = "r+"
 
+        # If data is already attached to the object, flush and close. All
+        # datasets need to be close before the file can be re-opened with a
+        # different mode.
+        for propertyName in self._hdfFileDatasetProperties:
+            prop = getattr(self, propertyName)
+            
+            # flush data to disk and from memory
+            if prop is not None:
+                prop.flush()                        
+                if isinstance(prop, np.memmap):
+                    setattr(self, propertyName, None)
+                else:
+                    prop.file.close()
+
+        
+        # Re-attach memory maps/datasets
+        for propertyName in self._hdfFileDatasetProperties:            
+            if prop is not None:                
+                if isinstance(prop, np.memmap): 
+                    setattr(self, propertyName, 
+                            open_memmap(self.filename, mode=md))
+                else:                    
+                    setattr(self, propertyName,
+                            h5py.File(self.filename, mode=md)[propertyName])
+        
         self._mode = md
 
     @property
@@ -480,12 +504,14 @@ class BaseData(ABC):
         deleted and re-instantiated.        
 
         """
-        if self.data is not None:
-            self.data.flush()
-            if isinstance(self.data, np.memmap):
-                filename, mode = self.data.filename, self.data.mode
-                self._data = None
-                self._data = open_memmap(filename, mode=mode)
+        for propName in self._hdfFileDatasetProperties:
+            dsetProp = getattr(self, propName)
+            if dsetProp is not None:
+                dsetProp.flush()
+                if isinstance(dsetProp, np.memmap):
+                    filename, mode = dsetProp.filename, dsetProp.mode                    
+                    setattr(self, propName, None)                    
+                    setattr(self, propName, open_memmap(filename, mode=mode))
         return
 
     # Return a (deep) copy of the current class instance
@@ -723,11 +749,13 @@ class BaseData(ABC):
         """
 
         # First things first: initialize (dummy) default values
-        self._cfg = {}
-        self._data = None
-        self.mode = mode                        
+        self._cfg = {}        
+        
         self._filename = None
         self._trialdefinition = None
+        for propertyName in self._hdfFileDatasetProperties:
+            setattr(self, "_" + propertyName, None)
+        self.mode = mode                        
         
         # Set up dimensional architecture (`self._channel = None`, `self._freq = None` etc.)
         self.dimord = dimord
