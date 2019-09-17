@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-12 14:53:15>
+# Last modification time: <2019-09-17 11:41:41>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -85,8 +85,8 @@ class ContinuousData(BaseData, ABC):
     def time(self):
         """list(float): trigger-relative time axes of each trial """
         if self.samplerate is not None and self.sampleinfo is not None:
-            return [np.arange(self._t0[tk], end - start - self._t0[tk]) * 1/self.samplerate \
-                    for tk, (start, end) in enumerate(self.sampleinfo)]
+            return [(np.arange(0, stop - start) + self._t0[tk]) / self.samplerate \
+                    for tk, (start, stop) in enumerate(self.sampleinfo)]
 
     # Selector method
     def selectdata(self, trials=None, deepcopy=False, **kwargs):
