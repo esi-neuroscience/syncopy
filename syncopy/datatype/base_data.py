@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-17 11:37:06>
+# Last modification time: <2019-09-17 13:03:10>
 
 # Builtin/3rd party package imports
 import getpass
@@ -322,7 +322,7 @@ class BaseData(ABC):
     
     @dimord.setter
     def dimord(self, dims):
-        if hasattr(self, "_dimord"):
+        if self._dimord is not None and not dims == self._dimord:
             print("Syncopy core - dimord: Cannot change `dimord` of object. " +\
                   "Functionality currently not supported")
         # Canonical way to perform initial allocation of dimensional properties 
@@ -722,17 +722,20 @@ class BaseData(ABC):
     # Destructor
     def __del__(self):
         if self.filename is not None:
-            if isinstance(self._data, h5py.Dataset):
-                try:
-                    self._data.file.close()
-                except IOError:
-                    pass
-                except ValueError:
-                    pass
-                except Exception as exc:
-                    raise exc
-            else:
-                del self._data
+            for propertyName in self._hdfFileDatasetProperties:
+                prop = getattr(self, propertyName)
+                if isinstance(prop, h5py.Dataset):
+                    try:
+                        prop.file.close()
+                    except IOError:
+                        pass
+                    except ValueError:
+                        pass
+                    except Exception as exc:
+                        raise exc
+                else:
+                    del prop
+                                    
             if __storage__ in self.filename and os.path.exists(self.filename):
                 os.unlink(self.filename)
                 shutil.rmtree(os.path.splitext(self.filename)[0],
@@ -749,12 +752,14 @@ class BaseData(ABC):
         """
 
         # First things first: initialize (dummy) default values
-        self._cfg = {}        
-        
+        self._cfg = {}                
         self._filename = None
         self._trialdefinition = None
+        self._dimord = None        
         for propertyName in self._hdfFileDatasetProperties:
             setattr(self, "_" + propertyName, None)
+
+        # Set mode            
         self.mode = mode                        
         
         # Set up dimensional architecture (`self._channel = None`, `self._freq = None` etc.)
