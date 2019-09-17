@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-16 14:16:16>
+# Last modification time: <2019-09-17 16:21:58>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -167,8 +167,25 @@ class ContinuousData(BaseData, ABC):
         start = int(self.sampleinfo[trialno, 0])
         shp[tidx] = stop - start
         idx[tidx] = slice(start, stop)
+        
+        # process existing data selections
         if self._selection is not None:
-            for dim in ["time", "channel", "freq", "taper"]:
+            
+            # time-selection is most sensitive due to trial-offset!
+            tsel = self._selection.time[self._selection.trials.index(trialno)]
+            if isinstance(tsel, slice):
+                if tsel.start is not None:
+                    start += tsel.start
+                if tsel.stop is not None:
+                    stop = start + tsel.stop
+                idx[tidx] = slice(start, stop)
+                shp[tidx] = stop - start
+            else:
+                idx[tidx] = [tp + start for tp in tsel]
+                shp[tidx] = len(tsel)
+
+            # process the rest                
+            for dim in ["channel", "freq", "taper"]:
                 sel = getattr(self._selection, dim)
                 if sel:
                     dimIdx = self.dimord.index(dim)
@@ -177,7 +194,8 @@ class ContinuousData(BaseData, ABC):
                         if not (sel.start is sel.stop is None):
                             shp[dimIdx] = int(np.ceil((sel.stop - sel.start) / sel.step))
                     else:
-                        shp[dimIdx] = len(sel)                    
+                        shp[dimIdx] = len(sel)
+                        
         return FauxTrial(shp, tuple(idx), self.data.dtype)
     
     # Helper function that extracts timing-related indices

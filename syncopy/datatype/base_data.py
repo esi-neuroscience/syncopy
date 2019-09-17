@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-16 16:54:59>
+# Last modification time: <2019-09-17 14:28:09>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -1085,6 +1085,8 @@ class Selector():
     Selections may be unsorted... (e.g., `trials = [1, 5, 3]`)
     toi = [inf, 0, 3] is invalid
     toilim = [3, inf] is valid!
+    
+    select = None selects everything
     """
     
     def __init__(self, data, select):
@@ -1094,6 +1096,8 @@ class Selector():
             data_parser(data, varname="data", empty=False)
         except Exception as exc:
             raise exc
+        if select is None:
+            select = {}
         if not isinstance(select, dict):
             raise SPYTypeError(select, "select", expected="dict")
         supported = ["trials", "channels", "toi", "toilim", "foi", "foilim",
@@ -1296,11 +1300,6 @@ class Selector():
         
         if target is not None:
 
-            if any(["DiscreteData" in str(base) for base in data.__class__.__mro__]):
-                isDiscrete = True
-            else:
-                isDiscrete = False
-            
             if np.issubdtype(target.dtype, np.dtype("str").type):
                 slcLims = [0, target.size]
                 arrLims = None
@@ -1314,9 +1313,9 @@ class Selector():
                 
             if selection is None:
                 if dataprop in ["unit", "eventid"]:
-                    setattr(self, selector, [slice(None)] * len(self.trials))
+                    setattr(self, selector, [slice(None, None, 1)] * len(self.trials))
                 else:
-                    setattr(self, selector, slice(None))
+                    setattr(self, selector, slice(None, None, 1))
                 
             elif isinstance(selection, (slice, range)):
                 selLims = [-np.inf, np.inf]
@@ -1339,17 +1338,25 @@ class Selector():
                     raise SPYValueError(legal=lgl, varname=vname, actual=act)
                 
                 if dataprop in ["unit", "eventid"]:
-                    if isinstance(selection, slice):
-                        selection = target[selection]
+                    if selection.start is selection.stop is None:
+                        setattr(self, selector, [slice(None, None, 1)] * len(self.trials))
                     else:
-                        selection = list(selection)
-                    setattr(self, selector, getattr(data, "_get_" + dataprop)(self.trials, selection))
+                        if isinstance(selection, slice):
+                            if np.issubdtype(target.dtype, np.dtype("str").type):
+                                target = np.arange(target.size)
+                            selection = list(target[selection])
+                        else:
+                            selection = list(selection)
+                        setattr(self, selector, getattr(data, "_get_" + dataprop)(self.trials, selection))
                 else:
-                    if selection.step is None:
-                        step = 1
+                    if selection.start is selection.stop is None:
+                        setattr(self, selector, slice(None, None, 1))
                     else:
-                        step = selection.step
-                    setattr(self, selector, slice(selection.start, selection.stop, step))
+                        if selection.step is None:
+                            step = 1
+                        else:
+                            step = selection.step
+                        setattr(self, selector, slice(selection.start, selection.stop, step))
                 
             else:
                 try:
@@ -1359,18 +1366,18 @@ class Selector():
                     raise exc
                 selection = np.array(selection)
                 if np.issubdtype(selection.dtype, np.dtype("str").type):
-                    targetList = list(target)
+                    targetArr = target
                 else:
-                    targetList = list(range(target.size))
-                if not set(selection).issubset(targetList):
+                    targetArr = np.arange(target.size)
+                if not set(selection).issubset(targetArr):
                     lgl = "List/array of {} names or indices".format(dataprop)
                     raise SPYValueError(legal=lgl, varname=vname)
                 
                 # Preserve order and duplicates of selection - don't use `np.isin` here!
                 idxList = []
                 for sel in selection:
-                    idxList += list(np.where(targetList == sel)[0])
-                
+                    idxList += list(np.where(targetArr == sel)[0])
+                    
                 if dataprop in ["unit", "eventid"]:
                     setattr(self, selector, getattr(data, "_get_" + dataprop)(self.trials, idxList))
                 else:                
@@ -1420,11 +1427,8 @@ class Selector():
                 ppdict[attr] = ""
     
         # Construct string for printing
-        if all([getattr(self, attr) is None for attr in ppattrs]):
-            msg = "empty Syncopy selector  "
-        else:
-            msg = "Syncopy selector with "
-            for pout in ppdict.values():
-                msg += pout
+        msg = "Syncopy selector with "
+        for pout in ppdict.values():
+            msg += pout
                 
         return msg[:-2]

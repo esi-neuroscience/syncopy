@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-16 17:21:48>
+# Last modification time: <2019-09-17 14:23:07>
 
 import os
 import tempfile
@@ -14,7 +14,7 @@ import pytest
 import numpy as np
 from numpy.lib.format import open_memmap
 from memory_profiler import memory_usage
-from syncopy.datatype import AnalogData, SpectralData, SpikeData, EventData
+from syncopy.datatype import AnalogData, SpectralData
 import syncopy.datatype as spd
 from syncopy.datatype.base_data import VirtualData, Selector
 from syncopy.shared.errors import SPYValueError, SPYTypeError
@@ -647,14 +647,17 @@ class TestSelector():
             allResults = []
             for selection in self.selectDict[prop]["valid"]:
                 if isinstance(selection, slice):
-                    selects = list(range(getattr(discrete, prop).size))[selection]
+                    if selection.start is selection.stop is None:
+                        selects = [None]
+                    else:
+                        selects = list(range(getattr(discrete, prop).size))[selection]
                 elif isinstance(selection, range):
                     selects = list(selection)
                 else: # selection is list/ndarray
                     if isinstance(selection[0], str):
                         avail = getattr(discrete, prop)
                     else:
-                        avail = list(range(getattr(discrete, prop).size))
+                        avail = np.arange(getattr(discrete, prop).size)
                     selects = []
                     for sel in selection:
                         selects += list(np.where(avail == sel)[0])
@@ -662,13 +665,16 @@ class TestSelector():
                 # alternate (expensive) way to get by-trial selection indices
                 result = []    
                 for trial in discrete.trials:
-                    res = []
-                    for sel in selects:
-                        res += list(np.where(trial[:, propIdx] == sel)[0])
-                    if len(res) > 1:
-                        steps = np.diff(res)
-                        if steps.min() == steps.max() == 1:
-                            res = slice(res[0], res[-1] + 1, 1)
+                    if selects[0] is None:
+                        res = slice(None, None, 1)
+                    else:
+                        res = []
+                        for sel in selects:
+                            res += list(np.where(trial[:, propIdx] == sel)[0])
+                        if len(res) > 1:
+                            steps = np.diff(res)
+                            if steps.min() == steps.max() == 1:
+                                res = slice(res[0], res[-1] + 1, 1)
                     result.append(res)
                 allResults.append(result)
                 
@@ -794,8 +800,8 @@ class TestSelector():
                 
         # FIXME: test time-frequency data selection as soon as we support this object type                
     
-    # test `toi`/`toilim` selection w/`SpikeData`
-    def test_spike_toitoilim(self):
+    # test `toi`/`toilim` selection w/`SpikeData` and `EventData`
+    def test_discrete_toitoilim(self):
         
         # this only works w/the equidistant trials constructed above!!!
         selDict = {"toi": ([0.5],  # single entry lists
@@ -815,54 +821,49 @@ class TestSelector():
                               [1.0, np.inf],  # unbounded from above
                               [-np.inf, 1.0])}  # unbounded from below
         
-        # all trials have same time-scale: take 1st one as reference
+        # all trials have same time-scale for both `EventData` and `SpikeData`: take 1st one as reference
         trlTime = list((np.arange(0, self.trl["SpikeData"][0, 1] - self.trl["SpikeData"][0, 0])
                         + self.trl["SpikeData"][0, 2])/2 )
-    
-        spk = SpikeData(data=self.data["SpikeData"], 
-                        trialdefinition=self.trl["SpikeData"], 
-                        samplerate=self.samplerate)
 
         # the below method of extracting spikes satisfying `toi`/`toilim` only works w/equidistant trials!
-        for tselect in ["toi", "toilim"]:
-            for timeSel in selDict[tselect]:
-                smpIdx = []
-                for tp in timeSel:
-                    if np.isfinite(tp):
-                        smpIdx.append(np.abs(np.array(trlTime) - tp).argmin())
-                    else:
-                        smpIdx.append(tp)
-                result = []
-                sel = Selector(spk, {tselect: timeSel}).time
-                for trlno in range(len(spk.trials)):
-                    thisTrial = spk.trials[trlno][:, 0]
-                    if tselect == "toi":
-                        trlRes = []
-                        for idx in smpIdx:
-                            trlRes += list(np.where(thisTrial == idx + trlno * self.lenTrial)[0])
-                    else:
-                        start = smpIdx[0] + trlno * self.lenTrial
-                        stop = smpIdx[1] + trlno * self.lenTrial
-                        candidates = np.intersect1d(thisTrial[thisTrial >= start], 
-                                                    thisTrial[thisTrial <= stop])
-                        trlRes = []
-                        for cand in candidates:
-                            trlRes += list(np.where(thisTrial == cand)[0])
-                    # check that actually selected data is correct
-                    assert np.array_equal(spk.trials[trlno][trlRes, :], 
-                                          spk.trials[trlno][sel[trlno], :])
-                    if len(trlRes) > 1:
-                        sampSteps = np.diff(trlRes)
-                        if sampSteps.min() == sampSteps.max() == 1:
-                            trlRes = slice(trlRes[0], trlRes[-1] + 1, 1)
-                    result.append(trlRes)
-                # check correct format of selector (list -> slice etc.)
-                assert result == sel
-
-    def test_event_toitoilim(self):
-        # toi/toilim
-        # Selector(evt, select={"toilim":[0.5, 1.5]}).time  
-        pass
+        for dclass in ["SpikeData", "EventData"]:
+            discrete = getattr(spd, dclass)(data=self.data[dclass],
+                                            trialdefinition=self.trl[dclass],
+                                            samplerate=self.samplerate)
+            for tselect in ["toi", "toilim"]:
+                for timeSel in selDict[tselect]:
+                    smpIdx = []
+                    for tp in timeSel:
+                        if np.isfinite(tp):
+                            smpIdx.append(np.abs(np.array(trlTime) - tp).argmin())
+                        else:
+                            smpIdx.append(tp)
+                    result = []
+                    sel = Selector(discrete, {tselect: timeSel}).time
+                    for trlno in range(len(discrete.trials)):
+                        thisTrial = discrete.trials[trlno][:, 0]
+                        if tselect == "toi":
+                            trlRes = []
+                            for idx in smpIdx:
+                                trlRes += list(np.where(thisTrial == idx + trlno * self.lenTrial)[0])
+                        else:
+                            start = smpIdx[0] + trlno * self.lenTrial
+                            stop = smpIdx[1] + trlno * self.lenTrial
+                            candidates = np.intersect1d(thisTrial[thisTrial >= start], 
+                                                        thisTrial[thisTrial <= stop])
+                            trlRes = []
+                            for cand in candidates:
+                                trlRes += list(np.where(thisTrial == cand)[0])
+                        # check that actually selected data is correct
+                        assert np.array_equal(discrete.trials[trlno][trlRes, :], 
+                                            discrete.trials[trlno][sel[trlno], :])
+                        if len(trlRes) > 1:
+                            sampSteps = np.diff(trlRes)
+                            if sampSteps.min() == sampSteps.max() == 1:
+                                trlRes = slice(trlRes[0], trlRes[-1] + 1, 1)
+                        result.append(trlRes)
+                    # check correct format of selector (list -> slice etc.)
+                    assert result == sel
     
     def test_spectral_foifoilim(self):
         

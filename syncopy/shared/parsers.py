@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-10 17:51:02>
+# Last modification time: <2019-09-17 15:05:30>
 
 # Builtin/3rd party package imports
 import os
@@ -666,15 +666,20 @@ def filename_parser(filename, is_in_valid_container=None):
 def unwrap_cfg(func):
     """
     Decorator that unwraps cfg object in function call
+    
+    intended for Syncopy compute kernels
     """
 
     @functools.wraps(func)
     def wrapper_cfg(*args, **kwargs):
+        
+        # import pdb; pdb.set_trace()
 
         # First, parse positional arguments for dict-type inputs (`k` counts the 
-        # no. of dicts provided)
+        # no. of dicts provided) and convert tuple of positional args to list
         cfg = None
         k = 0
+        args = list(args)
         for argidx, arg in enumerate(args):
             if isinstance(arg, dict):
                 cfgidx = argidx
@@ -685,7 +690,6 @@ def unwrap_cfg(func):
         # IMPORTANT: create a copy of `cfg` using `StructDict` constructor to
         # not manipulate `cfg` in user's namespace!
         if k == 1:
-            args = list(args)
             cfg = spy.StructDict(args.pop(cfgidx))
         elif k > 1:
             raise SPYValueError(legal="single `cfg` input",
@@ -750,7 +754,7 @@ def unwrap_cfg(func):
             
         # Process data selection: if provided, extract `select` from input kws
         data._selection = kwords.get("select")
-
+        
         # Call function with modified positional/keyword arguments
         res = func(data, *args, **kwords)
         

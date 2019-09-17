@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-06 14:16:20>
+# Last modification time: <2019-09-17 16:26:12>
 
 # Builtin/3rd party package imports
 import os
@@ -174,13 +174,19 @@ class ComputationalRoutine(ABC):
         # First store `keeptrial` keyword value (important for output shapes below)
         self.keeptrials = keeptrials
         
+        # Determine if data-selection was provided
+        if data._selection is not None:
+            trialList = data._selection.trials
+        else:
+            trialList = list(range(len(data.trials)))
+        
         # Prepare dryrun arguments and determine geometry of trials in output
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
         chk_list = []
         dtp_list = []
         trials = []
-        for tk in range(len(data.trials)):
+        for tk in trialList:
             trial = data._preview_trial(tk)
             chunkShape, dtype = self.computeFunction(trial, 
                                                      *self.argv, 
@@ -273,8 +279,7 @@ class ComputationalRoutine(ABC):
             
         # Construct dimensional layout of output
         stacking = targetLayout[0][0].stop
-        for tk in range(1, len(data.trials)):
-        # for tk in range(1, len(trialList)):
+        for tk in range(1, len(trialList)):
             trial = trials[tk]
             chkshp, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs)
             lyt = [slice(0, stop) for stop in chkshp]

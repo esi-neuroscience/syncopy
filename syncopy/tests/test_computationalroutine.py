@@ -4,7 +4,7 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-03 11:29:55>
+# Last modification time: <2019-09-17 16:08:48>
 
 import os
 import tempfile
@@ -16,9 +16,10 @@ from syncopy import __dask__
 if __dask__:
     import dask.distributed as dd
 from syncopy.datatype import AnalogData
+from syncopy.datatype.base_data import Selector
 from syncopy.io import load
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.parsers import unwrap_io
+from syncopy.shared.parsers import unwrap_io, unwrap_cfg
 from syncopy.tests.misc import generate_artifical_data
 
 # Decorator to decide whether or not to run dask-related tests
@@ -54,6 +55,19 @@ class LowPassFilter(ComputationalRoutine):
         out.channel = np.array(data.channel)
 
 
+@unwrap_cfg        
+def filter_manager(data, b=None, a=None, 
+                   out=None, select=None, chan_per_worker=None, keeptrials=True):
+    myfilter = LowPassFilter(b, a)
+    myfilter.initialize(data, chan_per_worker=chan_per_worker, keeptrials=keeptrials)
+    newOut = False
+    if out is None:
+        newOut = True
+        out = AnalogData()
+    myfilter.compute(data, out)
+    return out if newOut else None
+
+
 class TestComputationalRoutine():
 
     # Construct linear combination of low- and high-frequency sine waves
@@ -80,7 +94,8 @@ class TestComputationalRoutine():
     # Construct artificial equidistant trial-definition array
     trl = np.zeros((nTrials, 3), dtype="int")
     for ntrial in range(nTrials):
-        trl[ntrial, :] = np.array([ntrial * fs, (ntrial + 1) * fs, 0])
+        trl[ntrial, :] = np.array([ntrial * fs, (ntrial + 1) * fs, -500])
+        # trl[ntrial, :] = np.array([ntrial * fs, (ntrial + 1) * fs, 0])
 
     # Create reference AnalogData object with equidistant trial spacing
     equidata = AnalogData(data=sig, samplerate=fs, trialdefinition=trl,
@@ -90,20 +105,46 @@ class TestComputationalRoutine():
     # HDF5 files that will make up virtual data-set in case of channel-chunking
     chanPerWrkr = 7
     nFiles = nTrials * (int(nChannels/chanPerWrkr) + int(nChannels % chanPerWrkr > 0))
+    
+    # FIXME: first selection must be NONE
+    selections = [{"trials": [3, 1, 0],
+                   "channels": ["channel" + str(i) for i in range(12, 28)],
+                   "toi": np.arange(-0.25, 0.25, 1/fs)},
+                  {"trials": [0, 1, 2],
+                   "channels": range(0, int(nChannels / 2)),
+                   "toilim": [-0.25, 0.25]}]
 
 
     def test_sequential_equidistant(self):
-        myfilter = LowPassFilter(self.b, self.a)
-        myfilter.initialize(self.equidata)
-        out = AnalogData()
-        myfilter.compute(self.equidata, out)
-        assert np.abs(out.data - self.orig).max() < self.tol
-        
-        myfilter = LowPassFilter(self.b, self.a)
-        myfilter.initialize(self.equidata, keeptrials=False)
-        out = AnalogData()
-        myfilter.compute(self.equidata, out)
-        assert np.abs(out.data - self.orig[:self.t.size, :]).max() < self.tol
+        for select in self.selections:
+            sel = Selector(self.equidata, select)
+            out = filter_manager(self.equidata, self.b, self.a, select=select)
+            # myfilter = LowPassFilter(self.b, self.a)
+            # myfilter.initialize(self.equidata)
+            # out = AnalogData()
+            # myfilter.compute(self.equidata, out)
+            assert np.abs(out.data - self.orig[sel.time[0], sel.channel]).max() < self.tol
+            
+            # # FIXME: ensure pre-selection is equivalent to in-place selection
+            # out_sel = filter_manager(self.equidata.selectdata(select), self.b, self.a)
+            # assert np.array_equal(out.data, out_sel.data)
+            
+            out = filter_manager(self.equidata, self.b, self.a, select=select, keeptrials=False)
+            # myfilter = LowPassFilter(self.b, self.a)
+            # myfilter.initialize(self.equidata, keeptrials=False)
+            # out = AnalogData()
+            # myfilter.compute(self.equidata, out)
+            if select is None:
+                idx = slice(self.t.size)
+            else:
+                idx = sel.time[0]
+            assert np.abs(out.data - self.orig[idx, :]).max() < self.tol
+
+            # # FIXME: ensure pre-selection is equivalent to in-place selection
+            # out_sel = filter_manager(self.equidata.selectdata(select), self.b, self.a, keeptrials=False)
+            # assert np.array_equal(out.data, out_sel.data)
+
+            # import pdb; pdb.set_trace()
 
     def test_sequential_nonequidistant(self):
         myfilter = LowPassFilter(self.b, self.a)
