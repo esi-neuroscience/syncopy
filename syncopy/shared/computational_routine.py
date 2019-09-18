@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-17 16:26:12>
+# Last modification time: <2019-09-18 16:39:51>
 
 # Builtin/3rd party package imports
 import os
@@ -14,6 +14,7 @@ import h5py
 import numpy as np
 from abc import ABC, abstractmethod
 from copy import copy
+from numpy.lib.format import open_memmap
 from tqdm import tqdm
 if sys.platform == "win32":
     # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
@@ -123,11 +124,14 @@ class ComputationalRoutine(ABC):
         self.timeout = None
         self.outputShape = None
         self.dtype = None
+        self.hdr = None
+        self.trialList = None
         self.sourceLayout = None
         self.targetLayout = None
         self.targetShapes = None
         self.chunkMem = None
         self.virtualDatasetDir = None
+        self.VirtualDatasetLayout = None
         self.datasetName = None
         self.dataMode = None
         self.sleepTime = 0.1
@@ -176,9 +180,9 @@ class ComputationalRoutine(ABC):
         
         # Determine if data-selection was provided
         if data._selection is not None:
-            trialList = data._selection.trials
+            self.trialList = data._selection.trials
         else:
-            trialList = list(range(len(data.trials)))
+            self.trialList = list(range(len(data.trials)))
         
         # Prepare dryrun arguments and determine geometry of trials in output
         dryRunKwargs = copy(self.cfg)
@@ -186,7 +190,7 @@ class ComputationalRoutine(ABC):
         chk_list = []
         dtp_list = []
         trials = []
-        for tk in trialList:
+        for tk in self.trialList:
             trial = data._preview_trial(tk)
             chunkShape, dtype = self.computeFunction(trial, 
                                                      *self.argv, 
@@ -279,7 +283,7 @@ class ComputationalRoutine(ABC):
             
         # Construct dimensional layout of output
         stacking = targetLayout[0][0].stop
-        for tk in range(1, len(trialList)):
+        for tk in range(1, len(self.trialList)):
             trial = trials[tk]
             chkshp, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs)
             lyt = [slice(0, stop) for stop in chkshp]
@@ -311,6 +315,8 @@ class ComputationalRoutine(ABC):
         self.sourceLayout = sourceLayout
         self.targetLayout = targetLayout
         self.targetShapes = targetShapes
+        
+        import pdb; pdb.set_trace()
         
         # Compute max. memory footprint of chunks
         if chan_per_worker is None:
@@ -466,9 +472,19 @@ class ComputationalRoutine(ABC):
         else:
             computeMethod = getattr(self, "compute_" + method, None)
 
+        # Ensure `data` is openend read-only to permit (potentially concurrent) 
+        # reading access to backing device on disk
+        data.mode = "r"
+        
+        # Take care of `VirtualData` objects 
+        self.hdr = getattr(data, "hdr", None)
+            
         # Perform actual computation
         computeMethod(data, out)
 
+        # Reset data access mode
+        data.mode = self.dataMode
+        
         # Attach computed results to output object
         out.data = h5py.File(out.filename, mode="r+")[self.datasetName]
 
@@ -514,7 +530,7 @@ class ComputationalRoutine(ABC):
             for k, idx in enumerate(self.targetLayout):
                 fname = os.path.join(self.virtualDatasetDir, "{0:d}.h5".format(k))
                 layout[idx] = h5py.VirtualSource(fname, "chk", shape=self.targetShapes[k])
-            self.vdslayout = layout
+            self.VirtualDatasetLayout = layout
 
         # Create regular HDF5 dataset for sequential writing
         else:
@@ -558,15 +574,7 @@ class ComputationalRoutine(ABC):
         compute : management routine invoking parallel/sequential compute kernels
         compute_sequential : serial processing counterpart of this method
         """
-
-        # Ensure `data` is openend read-only to permit concurrent reading access
-        data.mode = "r"
         
-        # Depending on chosen processing paradigm, get settings or assign defaults
-        hdr = None
-        if hasattr(data, "hdr"):
-            hdr = data.hdr
-            
         # Prepare to write chunks concurrently
         if self.virtualDatasetDir is not None:
             outfilename = os.path.join(self.virtualDatasetDir, "{0:d}.h5")
@@ -582,7 +590,7 @@ class ComputationalRoutine(ABC):
             waitcount = int(np.round(self.timeout/self.sleepTime))    
             
         # Construct a dask bag with all necessary components for parallelization
-        bag = db.from_sequence([{"hdr": hdr,
+        bag = db.from_sequence([{"hdr": self.hdr,
                                  "keeptrials": self.keeptrials, 
                                  "infile": data.filename,
                                  "indset": data.data.name,
@@ -605,16 +613,13 @@ class ComputationalRoutine(ABC):
         # When writing concurrently, now's the time to finally create the virtual dataset
         if self.virtualDatasetDir is not None:
             with h5py.File(out.filename, mode="w") as h5f:
-                h5f.create_virtual_dataset(self.datasetName, self.vdslayout)
+                h5f.create_virtual_dataset(self.datasetName, self.VirtualDatasetLayout)
                 
-        # If trials-averagin was requested, normalize computed sum to get mean
+        # If trial-averaging was requested, normalize computed sum to get mean
         if not self.keeptrials:
             with h5py.File(out.filename, mode="r+") as h5f:
-                h5f[self.datasetName][()] /= len(data.trials)
+                h5f[self.datasetName][()] /= len(self.trialList)
                 h5f.flush()
-        
-        # Reset data access mode
-        data.mode = self.dataMode
         
         return 
         
@@ -647,34 +652,80 @@ class ComputationalRoutine(ABC):
         compute : management routine invoking parallel/sequential compute kernels
         compute_parallel : concurrent processing counterpart of this method
         """
+        
+        # Initialize on-disk backing device (either HDF5 file or memmap)
+        if self.hdr is None:
+            try:
+                source = h5py.File(data.filename, mode="r")[data.data.name]
+            except OSError:
+                source = open_memmap(data.filename, mode="c")
+            
+        # Iterate over (selected) trials and write directly to target HDF5 dataset
+        with h5py.File(out.filename, "r+") as h5fout:
+            target = h5fout[self.datasetName]
+            
+            for nblock in tqdm(range(len(self.trialList))):
+                
+                ingrid = self.sourceLayout[nblock]
+                outgrid = self.targetLayout[nblock]
+                
+                # take care of ingrid and sigrid...
+                
+                # Get source data as NumPy array
+                if self.hdr is None:
+                    arr = np.array(source[ingrid])
+                    source.flush()
+                else:
+                    stacks = []
+                    for fk, fname in enumerate(data.filename):
+                        stacks.append(np.memmap(fname, offset=int(self.hdr[fk]["length"]),
+                                                mode="r", dtype=self.hdr[fk]["dtype"],
+                                                shape=(self.hdr[fk]["M"], self.hdr[fk]["N"]))[ingrid])
+                    arr = np.vstack(stacks)[ingrid]
 
-        # Iterate across trials and write directly to HDF5 container (flush
-        # after each trial to avoid memory leakage) - if trials are not to
-        # be preserved, compute average across trials manually to avoid
-        # allocation of unnecessarily large dataset
-        with h5py.File(out.filename, "r+") as h5f:
-            dset = h5f[self.datasetName]
-            cnt = 0
-            idx = [slice(None)] * len(dset.shape)
-            if self.keeptrials:
-                for trl in tqdm(data.trials, desc="Computing..."):
-                    res = self.computeFunction(trl,
-                                               *self.argv,
-                                               **self.cfg)
-                    idx[0] = slice(cnt, cnt + res.shape[0])
-                    dset[tuple(idx)] = res
-                    cnt += res.shape[0]
-                    h5f.flush()
-            else:
-                for trl in tqdm(data.trials, desc="Computing..."):
-                    dset[()] = np.nansum([dset, self.computeFunction(trl,
-                                                                     *self.argv,
-                                                                     **self.cfg)],
-                                         axis=0)
-                    h5f.flush()
-                dset[()] /= len(data.trials)
+                # Perform computation
+                res = self.computeFunction(arr, *self.argv, **self.cfg)
+                    
+                # Either write result to `outgrid` location in `target` or add it up
+                if self.keeptrials:
+                    target[outgrid] = res
+                else:
+                    target[()] = np.nansum([target, res], axis=0)
+                
+                # Flush every iteration to avoid memory leakage
+                h5fout.flush()
 
+            # If trial-averaging was requested, normalize computed sum to get mean
+            if not self.keeptrials:
+                target[()] /= len(self.trialList)
+                
         return
+                
+        # # Iterate across trials and write directly to HDF5 container (flush
+        # # after each trial to avoid memory leakage) - 
+        # with h5py.File(out.filename, "r+") as h5f:
+        #     dset = h5f[self.datasetName]
+        #     cnt = 0
+        #     idx = [slice(None)] * len(dset.shape)
+        #     if self.keeptrials:
+        #         for trl in tqdm(data.trials, desc="Computing..."):
+        #             res = self.computeFunction(trl,
+        #                                        *self.argv,
+        #                                        **self.cfg)
+        #             idx[0] = slice(cnt, cnt + res.shape[0])
+        #             dset[tuple(idx)] = res
+        #             cnt += res.shape[0]
+        #             h5f.flush()
+        #     else:
+        #         for trl in tqdm(data.trials, desc="Computing..."):
+        #             dset[()] = np.nansum([dset, self.computeFunction(trl,
+        #                                                              *self.argv,
+        #                                                              **self.cfg)],
+        #                                  axis=0)
+        #             h5f.flush()
+        #         dset[()] /= len(data.trials)
+
+        # return
 
     def write_log(self, data, out, log_dict=None):
         """

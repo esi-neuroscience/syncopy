@@ -4,7 +4,7 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-17 16:08:48>
+# Last modification time: <2019-09-18 16:26:34>
 
 import os
 import tempfile
@@ -41,8 +41,10 @@ class LowPassFilter(ComputationalRoutine):
         if not self.keeptrials:
             trl = np.array([[0, out.data.shape[0], 0]], dtype=int)
         else:
-            trl = np.zeros((len(data.trials), 3), dtype=int)
+            trl = np.zeros((len(self.trialList), 3), dtype=int)
             trial_lengths = np.diff(data.sampleinfo)
+            tidx = data.dimord.index("time")
+            trial_lengths = [shp[tidx] for shp in self.targetShapes]
             cnt = 0
             for row, tlen in enumerate(trial_lengths):
                 trl[row, 0] = cnt
@@ -52,7 +54,11 @@ class LowPassFilter(ComputationalRoutine):
         out._t0 = trl[:, 2]
         out.trialinfo = trl[:, 3:]
         out.samplerate = data.samplerate
-        out.channel = np.array(data.channel)
+        if data._selection is not None:
+            chanSec = data._selection.channel
+        else:
+            chanSec = slice(None)
+        out.channel = np.array(data.channel[chanSec])
 
 
 @unwrap_cfg        
@@ -82,7 +88,6 @@ class TestComputationalRoutine():
     sig = orig + np.sin(2 * np.pi * fNoise * t)
     cutoff = 50
     b, a = signal.butter(8, 2 * cutoff / fs)
-    tol = 1e-6
 
     # Blow up the signal to have "channels" and "trials" and inflate the low-
     # frequency component accordingly for ad-hoc comparisons later
@@ -97,8 +102,10 @@ class TestComputationalRoutine():
         trl[ntrial, :] = np.array([ntrial * fs, (ntrial + 1) * fs, -500])
         # trl[ntrial, :] = np.array([ntrial * fs, (ntrial + 1) * fs, 0])
 
-    # Create reference AnalogData object with equidistant trial spacing
-    equidata = AnalogData(data=sig, samplerate=fs, trialdefinition=trl,
+    # Create reference AnalogData objects with equidistant trial spacing
+    sigdata = AnalogData(data=sig, samplerate=fs, trialdefinition=trl,
+                         dimord=["time", "channel"])
+    origdata = AnalogData(data=orig, samplerate=fs, trialdefinition=trl,
                           dimord=["time", "channel"])
     
     # For parallel computation w/concurrent writing: predict no. of generated 
@@ -106,67 +113,97 @@ class TestComputationalRoutine():
     chanPerWrkr = 7
     nFiles = nTrials * (int(nChannels/chanPerWrkr) + int(nChannels % chanPerWrkr > 0))
     
-    # FIXME: first selection must be NONE
-    selections = [{"trials": [3, 1, 0],
-                   "channels": ["channel" + str(i) for i in range(12, 28)],
-                   "toi": np.arange(-0.25, 0.25, 1/fs)},
-                  {"trials": [0, 1, 2],
-                   "channels": range(0, int(nChannels / 2)),
-                   "toilim": [-0.25, 0.25]}]
-
+    # Data selections to be tested (w/`sigdata` and artificial data generated below)
+    sigdataSelections = [None, 
+                         {"trials": [3, 1, 0],
+                          "channels": ["channel" + str(i) for i in range(12, 28)]},
+                         {"trials": [0, 1, 2],
+                          "channels": range(0, int(nChannels / 2)),
+                          "toilim": [-0.25, 0.25]}]
+    
+    seed = np.random.RandomState(13)
+    artdataSelections = [None, 
+                         {"trials": [3, 1, 0],
+                          "channels": ["channel" + str(i) for i in range(12, 28)],
+                          "toi": None},
+                         {"trials": [0, 1, 2],
+                          "channels": range(0, int(nChannels / 2)),
+                          "toilim": [-1.0, 1.25]}]
+    
+    # Error tolerances and respective quality metrics (depend on data selection!)
+    tols = [1e-6, 1e-6, 1e-2]
+    metrix = [np.max, np.max, np.mean]
 
     def test_sequential_equidistant(self):
-        for select in self.selections:
-            sel = Selector(self.equidata, select)
-            out = filter_manager(self.equidata, self.b, self.a, select=select)
-            # myfilter = LowPassFilter(self.b, self.a)
-            # myfilter.initialize(self.equidata)
-            # out = AnalogData()
-            # myfilter.compute(self.equidata, out)
-            assert np.abs(out.data - self.orig[sel.time[0], sel.channel]).max() < self.tol
+        for sk, select in enumerate(self.sigdataSelections):
+            sel = Selector(self.sigdata, select)
+            
+            out = filter_manager(self.sigdata, self.b, self.a, select=select)
+            if select is None:
+                reference = self.orig
+            else:
+                ref = []
+                for tk, trlno in enumerate(sel.trials):
+                    ref.append(self.origdata.trials[trlno][sel.time[tk], sel.channel])
+                reference = np.vstack(ref)
+            assert self.metrix[sk](np.abs(out.data - reference)) < self.tols[sk]
             
             # # FIXME: ensure pre-selection is equivalent to in-place selection
             # out_sel = filter_manager(self.equidata.selectdata(select), self.b, self.a)
             # assert np.array_equal(out.data, out_sel.data)
             
-            out = filter_manager(self.equidata, self.b, self.a, select=select, keeptrials=False)
-            # myfilter = LowPassFilter(self.b, self.a)
-            # myfilter.initialize(self.equidata, keeptrials=False)
-            # out = AnalogData()
-            # myfilter.compute(self.equidata, out)
+            out = filter_manager(self.sigdata, self.b, self.a, select=select, keeptrials=False)
             if select is None:
-                idx = slice(self.t.size)
+                reference = self.orig[:self.t.size, :]
             else:
-                idx = sel.time[0]
-            assert np.abs(out.data - self.orig[idx, :]).max() < self.tol
+                ref = np.zeros(out.trials[0].shape)
+                for tk, trl in enumerate(sel.trials):
+                    ref += self.origdata.trials[trl][sel.time[tk], sel.channel]
+                reference = ref / len(sel.trials)
+            assert self.metrix[sk](np.abs(out.data - reference)) < self.tols[sk]
 
             # # FIXME: ensure pre-selection is equivalent to in-place selection
             # out_sel = filter_manager(self.equidata.selectdata(select), self.b, self.a, keeptrials=False)
             # assert np.array_equal(out.data, out_sel.data)
 
-            # import pdb; pdb.set_trace()
-
     def test_sequential_nonequidistant(self):
-        myfilter = LowPassFilter(self.b, self.a)
+        
+        
+        
         for overlapping in [False, True]:
             nonequidata = generate_artifical_data(nTrials=self.nTrials,
                                                   nChannels=self.nChannels,
                                                   equidistant=False,
                                                   overlapping=overlapping,
                                                   inmemory=False)
-            myfilter.initialize(nonequidata)
-            out = AnalogData()
-            myfilter.compute(nonequidata, out)
-            assert out.data.shape[0] == np.diff(nonequidata.sampleinfo).sum()
+            
+            # unsorted, w/repetitions
+            toi = self.seed.choice(nonequidata.time[0], int(nonequidata.time[0].size))
+            self.artdataSelections[1]["toi"] = toi
+            
+            for select in self.artdataSelections:
+                sel = Selector(nonequidata, select)
+                out = filter_manager(nonequidata, self.b, self.a, select=select)
+                
+                reference = 0
+                for tk, trlno in enumerate(sel.trials):
+                    reference += nonequidata.trials[trlno][sel.time[tk]].shape[0]
+                # import pdb; pdb.set_trace()
+                assert out.data.shape[0] == reference
+                
+                # # FIXME: ensure pre-selection is equivalent to in-place selection
+                # out_sel = filter_manager(nonequidata.selectdata(select), self.b, self.a)
+                # assert np.array_equal(out.data, out_sel.data)
             
     def test_sequential_saveload(self):
         myfilter = LowPassFilter(self.b, self.a)
-        myfilter.initialize(self.equidata)
+        myfilter.initialize(self.sigdata)
         out = AnalogData()
-        myfilter.compute(self.equidata, out, log_dict={"a": self.a, "b": self.b})
+        myfilter.compute(self.sigdata, out, log_dict={"a": self.a, "b": self.b})
         assert set(["a", "b"]) == set(out.cfg.keys())
         assert np.array_equal(out.cfg["a"], self.a)
         assert np.array_equal(out.cfg["b"], self.b)
+        # FIXME: check out.channel and out.time!
         assert "lowpass" in out._log
         
         with tempfile.TemporaryDirectory() as tdir:
@@ -186,9 +223,9 @@ class TestComputationalRoutine():
         for parallel_store in [True, False]:
             for chan_per_worker in [None, self.chanPerWrkr]:
                 myfilter = LowPassFilter(self.b, self.a)
-                myfilter.initialize(self.equidata, chan_per_worker=chan_per_worker)
+                myfilter.initialize(self.sigdata, chan_per_worker=chan_per_worker)
                 out = AnalogData()
-                myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store)
+                myfilter.compute(self.sigdata, out, parallel=True, parallel_store=parallel_store)
                 assert np.abs(out.data - self.orig).max() < self.tol
                 assert out.data.is_virtual == parallel_store
                 if parallel_store:
@@ -199,11 +236,11 @@ class TestComputationalRoutine():
                         assert nfiles == self.nFiles
         
                 myfilter = LowPassFilter(self.b, self.a)
-                myfilter.initialize(self.equidata, 
+                myfilter.initialize(self.sigdata, 
                                     chan_per_worker=chan_per_worker,
                                     keeptrials=False)
                 out = AnalogData()
-                myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store)
+                myfilter.compute(self.sigdata, out, parallel=True, parallel_store=parallel_store)
                 assert np.abs(out.data - self.orig[:self.t.size, :]).max() < self.tol
                 assert out.data.is_virtual == False
         client.close()
@@ -240,9 +277,9 @@ class TestComputationalRoutine():
         client = dd.Client(testcluster)
         for parallel_store in [True, False]:
             myfilter = LowPassFilter(self.b, self.a)
-            myfilter.initialize(self.equidata)
+            myfilter.initialize(self.sigdata)
             out = AnalogData()
-            myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store, 
+            myfilter.compute(self.sigdata, out, parallel=True, parallel_store=parallel_store, 
                              log_dict={"a": self.a, "b": self.b})
             
             assert set(["a", "b"]) == set(out.cfg.keys())

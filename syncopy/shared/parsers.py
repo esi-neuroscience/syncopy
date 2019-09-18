@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-17 15:05:30>
+# Last modification time: <2019-09-18 15:40:26>
 
 # Builtin/3rd party package imports
 import os
@@ -673,8 +673,6 @@ def unwrap_cfg(func):
     @functools.wraps(func)
     def wrapper_cfg(*args, **kwargs):
         
-        # import pdb; pdb.set_trace()
-
         # First, parse positional arguments for dict-type inputs (`k` counts the 
         # no. of dicts provided) and convert tuple of positional args to list
         cfg = None
@@ -841,7 +839,7 @@ def unwrap_io(func):
                 try:
                     with h5py.File(infilename, mode="r") as h5fin:
                         arr = h5fin[indset][ingrid]
-                except:
+                except OSError:
                     try:
                         arr = np.array(open_memmap(infilename, mode="c")[ingrid])
                     except:
@@ -852,8 +850,8 @@ def unwrap_io(func):
                 dsets = []
                 for fk, fname in enumerate(infilename):
                     dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
-                                        mode="r", dtype=hdr[fk]["dtype"],
-                                        shape=(hdr[fk]["M"], hdr[fk]["N"]))[ingrid])
+                                           mode="r", dtype=hdr[fk]["dtype"],
+                                           shape=(hdr[fk]["M"], hdr[fk]["N"]))[ingrid])
                 arr = np.vstack(dsets)
 
             # === STEP 2 === perform computation

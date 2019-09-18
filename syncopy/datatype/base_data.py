@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-17 14:28:09>
+# Last modification time: <2019-09-18 15:23:03>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -1082,9 +1082,12 @@ class FauxTrial():
 class Selector():
     """
     Coming soon...
+    
     Selections may be unsorted... (e.g., `trials = [1, 5, 3]`)
     toi = [inf, 0, 3] is invalid
     toilim = [3, inf] is valid!
+    toilim is not(!) checked for consistency wrt to data.time! (to avoid having
+    to plough through a bazillion arrays)
     
     select = None selects everything
     """

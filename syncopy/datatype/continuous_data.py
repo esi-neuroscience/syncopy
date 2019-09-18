@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-17 16:21:58>
+# Last modification time: <2019-09-18 15:39:16>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -171,15 +171,24 @@ class ContinuousData(BaseData, ABC):
         # process existing data selections
         if self._selection is not None:
             
-            # time-selection is most sensitive due to trial-offset!
+            # time-selection is most delicate due to trial-offset
             tsel = self._selection.time[self._selection.trials.index(trialno)]
             if isinstance(tsel, slice):
                 if tsel.start is not None:
-                    start += tsel.start
+                    tstart = tsel.start 
+                else:
+                    tstart = 0
                 if tsel.stop is not None:
-                    stop = start + tsel.stop
+                    tstop = tsel.stop
+                else:
+                    tstop = stop - start
+
+                # account for trial offsets an compute slicing index + shape
+                start = start + tstart
+                stop = start + (tstop - tstart)
                 idx[tidx] = slice(start, stop)
                 shp[tidx] = stop - start
+                
             else:
                 idx[tidx] = [tp + start for tp in tsel]
                 shp[tidx] = len(tsel)
