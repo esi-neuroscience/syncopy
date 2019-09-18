@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-09 10:58:25>
+# Last modification time: <2019-09-18 13:55:03>
 
 # Builtin/3rd party package imports
 import sys
@@ -341,7 +341,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise exc
         new_out = False
     else:
-        out = SpectralData()
+        out = SpectralData(dimord=SpectralData._defaultDimord)        
         new_out = True
 
     # # Prepare dict of optional keywords for computational class constructor
