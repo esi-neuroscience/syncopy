@@ -4,7 +4,7 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-18 16:26:34>
+# Last modification time: <2019-09-19 10:44:49>
 
 import os
 import tempfile
@@ -42,7 +42,6 @@ class LowPassFilter(ComputationalRoutine):
             trl = np.array([[0, out.data.shape[0], 0]], dtype=int)
         else:
             trl = np.zeros((len(self.trialList), 3), dtype=int)
-            trial_lengths = np.diff(data.sampleinfo)
             tidx = data.dimord.index("time")
             trial_lengths = [shp[tidx] for shp in self.targetShapes]
             cnt = 0
@@ -116,7 +115,7 @@ class TestComputationalRoutine():
     # Data selections to be tested (w/`sigdata` and artificial data generated below)
     sigdataSelections = [None, 
                          {"trials": [3, 1, 0],
-                          "channels": ["channel" + str(i) for i in range(12, 28)]},
+                          "channels": ["channel" + str(i) for i in range(12, 28)][::-1]},
                          {"trials": [0, 1, 2],
                           "channels": range(0, int(nChannels / 2)),
                           "toilim": [-0.25, 0.25]}]
@@ -124,11 +123,11 @@ class TestComputationalRoutine():
     seed = np.random.RandomState(13)
     artdataSelections = [None, 
                          {"trials": [3, 1, 0],
-                          "channels": ["channel" + str(i) for i in range(12, 28)],
+                          "channels": ["channel" + str(i) for i in range(12, 28)][::-1],
                           "toi": None},
                          {"trials": [0, 1, 2],
                           "channels": range(0, int(nChannels / 2)),
-                          "toilim": [-1.0, 1.25]}]
+                          "toilim": [1.0, 1.25]}]
     
     # Error tolerances and respective quality metrics (depend on data selection!)
     tols = [1e-6, 1e-6, 1e-2]
@@ -181,7 +180,7 @@ class TestComputationalRoutine():
             toi = self.seed.choice(nonequidata.time[0], int(nonequidata.time[0].size))
             self.artdataSelections[1]["toi"] = toi
             
-            for select in self.artdataSelections:
+            for select in [self.artdataSelections[1]]:
                 sel = Selector(nonequidata, select)
                 out = filter_manager(nonequidata, self.b, self.a, select=select)
                 

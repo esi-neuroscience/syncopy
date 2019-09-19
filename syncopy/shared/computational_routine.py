@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-18 16:39:51>
+# Last modification time: <2019-09-19 17:32:19>
 
 # Builtin/3rd party package imports
 import os
@@ -310,13 +310,13 @@ class ComputationalRoutine(ABC):
                     sourceLayout.append(trial.idx)
                     chanstack += res[outchanidx]
                     blockstack += block
+                    
+        # FIXME: process unordered lists w/repetitions...
         
         # Store determined shapes and grid layout
         self.sourceLayout = sourceLayout
         self.targetLayout = targetLayout
         self.targetShapes = targetShapes
-        
-        import pdb; pdb.set_trace()
         
         # Compute max. memory footprint of chunks
         if chan_per_worker is None:
@@ -666,14 +666,34 @@ class ComputationalRoutine(ABC):
             
             for nblock in tqdm(range(len(self.trialList))):
                 
-                ingrid = self.sourceLayout[nblock]
+                # Work around HDF5 limitations: indices must be sorted -> sort
+                # any unsorted list entries of `ingrid` but keep reference of 
+                # original order in corresponding entry of `sigrid`
                 outgrid = self.targetLayout[nblock]
-                
-                # take care of ingrid and sigrid...
+                ingrid = list(self.sourceLayout[nblock])
+                sigrid = [slice(None)] * len(ingrid)
+                # hagrid = [slice(None)] * len(ingrid)
+                useFancyIdx = False
+                for sk, sel in enumerate(ingrid):
+                    if isinstance(sel, list):
+                        if np.diff(sel).min() <= 0:
+                            # sigrid[sk] = np.argsort(np.argsort(sel))
+                            # sel.sort()
+                            # ingrid[sk] = slice(sel[0], sel[-1] +1, 1)
+                            # hagrid[sk] = sel
+                            selarr = np.array(sel, dtype=np.intp)
+                            sigrid[sk] = np.array(selarr) - selarr.min()
+                            ingrid[sk] = slice(selarr.min(), selarr.max() + 1, 1)
                 
                 # Get source data as NumPy array
                 if self.hdr is None:
-                    arr = np.array(source[ingrid])
+                    import pdb; pdb.set_trace()
+                    arr = np.array(source[tuple(ingrid)])[np.ix_(*sigrid)]
+                    # try:
+                    #     # arr = np.array(source[tuple(ingrid)])[tuple(sigrid)]
+                    # except:
+                    #     pass
+                    #     # import pdb; pdb.set_trace()
                     source.flush()
                 else:
                     stacks = []
