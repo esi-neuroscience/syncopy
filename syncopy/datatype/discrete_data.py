@@ -42,7 +42,9 @@ class DiscreteData(BaseData, ABC):
     @property
     def sample(self):
         """Indices of all recorded samples"""
-        return self._sample
+        if self.data is None:
+            return None
+        return np.unique(self.data[:, self.dimord.index("eventid")])
 
     @property
     def samplerate(self):
@@ -122,7 +124,7 @@ class DiscreteData(BaseData, ABC):
         super().__init__(**kwargs)
 
         self.samplerate = samplerate
-        self.triald = trialid
+        self.trialid = trialid
 
         # If a super-class``__init__`` attached data, be careful
         if self.data is not None:
