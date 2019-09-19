@@ -182,7 +182,7 @@ class TestBaseData():
                 # with pytest.raises(SPYValueError):
                 #     getattr(spd, dclass)(fname)
 
-                # # allocation with HDF5 file
+                # allocation with HDF5 file
                 h5f = h5py.File(hname, mode="w")
                 h5f.create_dataset("dummy", data=self.data[dclass])
                 h5f.close()
@@ -234,7 +234,7 @@ class TestBaseData():
                 # # attempt allocation using illegal HDF5 container
                 del h5f["dummy"]
                 h5f.create_dataset("dummy1", data=self.data[dclass])
-                h5f.create_dataset("dummy2", data=self.data[dclass])
+                # FIXME: unused: h5f.create_dataset("dummy2", data=self.data[dclass])
                 h5f.close()
                 # with pytest.raises(SPYValueError):
                 #     getattr(spd, dclass)(hname)
@@ -340,6 +340,9 @@ class TestBaseData():
                 assert dummy3.filename != dummy.filename
                 assert np.array_equal(dummy.trialdefinition, dummy3.trialdefinition)
                 assert np.array_equal(dummy.data, dummy3.data)
+                assert np.array_equal(dummy._t0, dummy3._t0)
+                assert np.array_equal(dummy.trialinfo, dummy3.trialinfo)
+                assert np.array_equal(dummy.sampleinfo, dummy3.sampleinfo)
 
                 # hash-matching of shallow-copied HDF5 dataset
                 dummy = getattr(spd, dclass)(data=h5py.File(hname)["dummy"],

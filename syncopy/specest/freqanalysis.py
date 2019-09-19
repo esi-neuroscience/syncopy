@@ -341,7 +341,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise exc
         new_out = False
     else:
-        out = SpectralData(dimord=SpectralData._defaultDimord)        
+        out = SpectralData()        
         new_out = True
 
     # # Prepare dict of optional keywords for computational class constructor

@@ -191,6 +191,7 @@ class ContinuousData(BaseData, ABC):
         self._samplerate = None
         
         # Call initializer
+        # FIXME: I don't think we need to escalate `channel` and `samplerate` to `BaseData` here...
         super().__init__(channel=channel, samplerate=samplerate, **kwargs)
         
         self.channel = channel
@@ -269,6 +270,8 @@ class AnalogData(ContinuousData):
         
         """
 
+        # FIXME: I think escalating `dimord` to `BaseData` should be sufficient so that 
+        # the `if any(key...) loop in `BaseData.__init__()` takes care of assigning a default dimord
         if data is not None and dimord is None:
             dimord = self._defaultDimord            
 
@@ -379,6 +382,7 @@ class SpectralData(ContinuousData):
         self._taper = None
         self._freq = None
         
+        # FIXME: See similar comment above in `AnalogData.__init__()`
         if data is not None and dimord is None:
             dimord = self._defaultDimord
                  

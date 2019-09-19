@@ -44,7 +44,7 @@ class DiscreteData(BaseData, ABC):
         """Indices of all recorded samples"""
         if self.data is None:
             return None
-        return np.unique(self.data[:, self.dimord.index("eventid")])
+        return np.unique(self.data[:, self.dimord.index("sample")])
 
     @property
     def samplerate(self):

@@ -321,7 +321,14 @@ class BaseData(ABC):
     
     @dimord.setter
     def dimord(self, dims):
-               
+
+       # ensure `dims` can be safely compared to potentially existing `self._dimord`
+        if dims is not None:
+            try:
+                array_parser(dims, varname="dims", ntype="str", dims=1)
+            except Exception as exc:
+                raise exc
+
         if self._dimord is not None and not dims == self._dimord:
             print("Syncopy core - dimord: Cannot change `dimord` of object. " +\
                   "Functionality currently not supported")

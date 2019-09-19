@@ -136,6 +136,12 @@ class TestAnalogData():
             filename = construct_spy_filename(fname + "_trl", dummy)
             dummy2 = load(filename)
             assert np.array_equal(dummy.trialdefinition, dummy2.trialdefinition)
+
+            # test getters
+            assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
+            assert np.array_equal(dummy._t0, dummy2._t0)
+            assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
+
             del dummy, dummy2  # avoid PermissionError in Windows
 
             # swap dimensions and ensure `dimord` is preserved
@@ -466,6 +472,11 @@ class TestSpectralData():
             dummy.save(fname, overwrite=True)
             dummy2 = load(filename)
             assert np.array_equal(dummy.trialdefinition, dummy2.trialdefinition)
+
+            # test getters
+            assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
+            assert np.array_equal(dummy._t0, dummy2._t0)
+            assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
 
             # swap dimensions and ensure `dimord` is preserved
             dummy = SpectralData(self.data, dimord=["time", "channel", "taper", "freq"],
