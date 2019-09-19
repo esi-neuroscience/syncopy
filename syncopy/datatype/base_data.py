@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-12 14:53:15>
+# Last modification time: <2019-09-18 14:12:43>
 
 # Builtin/3rd party package imports
 import getpass
@@ -69,6 +69,12 @@ class BaseData(ABC):
     _mode = None
     
     @property
+    @classmethod
+    @abstractmethod
+    def _defaultDimord(cls):
+        return NotImplementedError
+    
+    @property
     def cfg(self):
         """Dictionary of previous operations on data"""
         return self._cfg
@@ -81,8 +87,12 @@ class BaseData(ABC):
         
     @property
     def container(self):
-        if self.data is not None:
+        try:
             return filename_parser(self.filename)["container"]
+        except SPYValueError:
+            return None
+        except Exception as exc:
+            raise exc
     
     @property
     def data(self):
@@ -99,6 +109,14 @@ class BaseData(ABC):
                                     varname="data")
         return self._data
     
+    @data.setter
+    def data(self, inData):
+
+        self._set_dataset_property(inData, "data")
+
+        if inData is None:
+            return
+        
     
     def _set_dataset_property(self, dataIn, propertyName, ndim=None):
         """Set property that is streamed from HDF dataset ('dataset property')
@@ -120,13 +138,14 @@ class BaseData(ABC):
         if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
             ndim = 2
         if ndim is None:
-            ndim = len(self.dimord)
+            ndim = len(self._defaultDimord)
 
         supportedSetters = {
             str : self._set_dataset_property_with_str,
             np.ndarray : self._set_dataset_property_with_ndarray,
             np.core.memmap : self._set_dataset_property_with_memmap,
-            h5py.Dataset : self._set_dataset_property_with_dataset            
+            h5py.Dataset : self._set_dataset_property_with_dataset,
+            type(None): self._set_dataset_property_with_none          
         }
         try:
             supportedSetters[type(dataIn)](dataIn, propertyName, ndim=ndim)
@@ -135,6 +154,10 @@ class BaseData(ABC):
             raise SPYTypeError(dataIn, varname="data", expected=msg)
         except Exception as exc:
             raise exc
+    
+    def _set_dataset_property_with_none(self, dataIn, propertyName, ndim):
+        """Set a dataset property to None"""
+        setattr(self, "_" + propertyName, None)
     
     def _set_dataset_property_with_str(self, filename, propertyName, ndim):
         """Set a dataset property with a filename str
@@ -183,9 +206,9 @@ class BaseData(ABC):
                 act = "HDF5 container holding {} data-objects"
                 raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname=propertyName)
             if len(h5keys) == 1:                
-                setattr(self, "_" + propertyName, h5f[h5keys[0]])
+                setattr(self, propertyName, h5f[h5keys[0]])
             else:
-                setattr(self, "_" + propertyName, h5f[propertyName])
+                setattr(self, propertyName, h5f[propertyName])
         if isNpy:
             setattr(self, propertyName, open_memmap(filename, mode=md))
         self.filename = filename
@@ -227,7 +250,8 @@ class BaseData(ABC):
             
         # or create backing container on disk 
         else:
-            self.filename = self._gen_filename()            
+            if self.filename is None:
+                self.filename = self._gen_filename()            
             with h5py.File(self.filename, "w") as h5f:
                 h5f.create_dataset(propertyName, data=inData)
             md = self.mode
@@ -278,7 +302,7 @@ class BaseData(ABC):
             act = "backing HDF5 container is closed"
             raise SPYValueError(legal=lgl, actual=act, varname="data")
         
-        self.mode = inData.file.mode
+        self._mode = inData.file.mode
         self.filename = inData.file.filename
         
         if inData.ndim != ndim:
@@ -288,24 +312,7 @@ class BaseData(ABC):
                       
         setattr(self, "_" + propertyName, inData)        
     
-    @data.setter
-    def data(self, inData):
-
-        self._set_dataset_property(inData, "data")
-                                                
-        # In case we're working with a `DiscreteData` object, fill up samples
-        if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
-            self._sample = np.unique(self.data[:, self.dimord.index("sample")])
-
-        # In case we're working with an `AnalogData` object, tentatively fill up channel labels
-        if any(["ContinuousData" in str(base) for base in self.__class__.__mro__]):
-            channel = ["channel" + str(i + 1) 
-                       for i in range(self.data.shape[self.dimord.index("channel")])]
-            self.channel = np.array(channel)
-
-        # In case we're working with an `EventData` object, fill up eventid's
-        if self.__class__.__name__ == "EventData":
-            self._eventid = np.unique(self.data[:, self.dimord.index("eventid")])
+ 
 
     @property
     def dimord(self):
@@ -314,9 +321,28 @@ class BaseData(ABC):
     
     @dimord.setter
     def dimord(self, dims):
-        if hasattr(self, "_dimord"):
+
+       # ensure `dims` can be safely compared to potentially existing `self._dimord`
+        if dims is not None:
+            try:
+                array_parser(dims, varname="dims", ntype="str", dims=1)
+            except Exception as exc:
+                raise exc
+
+        if self._dimord is not None and not dims == self._dimord:
             print("Syncopy core - dimord: Cannot change `dimord` of object. " +\
                   "Functionality currently not supported")
+            
+        if dims is None:
+            self._dimord = None        
+            return
+                
+        if not set(dims) == set(self._defaultDimord):
+            base = "dimensional labels {}"
+            lgl = base.format("'" + "' x '".join(str(dim) for dim in self._defaultDimord) + "'")
+            act = base.format("'" + "' x '".join(str(dim) for dim in dims) + "'")
+            raise SPYValueError(legal=lgl, varname="dimord", actual=act)
+        
         # Canonical way to perform initial allocation of dimensional properties 
         # (`self._channel = None`, `self._freq = None` etc.)            
         self._dimord = list(dims)
@@ -367,11 +393,19 @@ class BaseData(ABC):
     
     @property
     def tag(self):
-        if self.data is not None:
+        try:
             return filename_parser(self.filename)["tag"]
+        except SPYValueError:
+            return None
+        except Exception as exc:
+            raise exc
 
     @mode.setter
     def mode(self, md):
+
+        # If the mode is not changing, don't do anything
+        if md == self._mode:
+            return
 
         # Ensure input makes sense and we actually have permission to change
         # the data access mode
@@ -386,23 +420,35 @@ class BaseData(ABC):
                   "access mode of VirtualData datasets << ")
             return
 
-        # If data is already attached to the object, change its access mode
-        # as requested (if `md` is actually any different from `self.mode`)
-        # NOTE: prevent accidental data loss by not allowing mode = "w" in h5py
-        if self.data is not None:
-            if md == self._mode:
-                return
-            if md == "w":
-                md = "r+"
-            self.data.flush()
-            if isinstance(self.data, np.memmap):
-                self._data = None
-                self._data = open_memmap(self.filename, mode=md)
-            else:
-                dsetname = self.data.name
-                self._data.file.close()
-                self._data = h5py.File(self.filename, mode=md)[dsetname]
+        # prevent accidental data loss by not allowing mode = "w" in h5py
+        if md == "w":
+            md = "r+"
 
+        # If data is already attached to the object, flush and close. All
+        # datasets need to be close before the file can be re-opened with a
+        # different mode.
+        for propertyName in self._hdfFileDatasetProperties:
+            prop = getattr(self, propertyName)
+            
+            # flush data to disk and from memory
+            if prop is not None:
+                prop.flush()                        
+                if isinstance(prop, np.memmap):
+                    setattr(self, propertyName, None)
+                else:
+                    prop.file.close()
+
+        
+        # Re-attach memory maps/datasets
+        for propertyName in self._hdfFileDatasetProperties:            
+            if prop is not None:                
+                if isinstance(prop, np.memmap): 
+                    setattr(self, propertyName, 
+                            open_memmap(self.filename, mode=md))
+                else:                    
+                    setattr(self, propertyName,
+                            h5py.File(self.filename, mode=md)[propertyName])
+        
         self._mode = md
 
     @property
@@ -480,12 +526,14 @@ class BaseData(ABC):
         deleted and re-instantiated.        
 
         """
-        if self.data is not None:
-            self.data.flush()
-            if isinstance(self.data, np.memmap):
-                filename, mode = self.data.filename, self.data.mode
-                self._data = None
-                self._data = open_memmap(filename, mode=mode)
+        for propName in self._hdfFileDatasetProperties:
+            dsetProp = getattr(self, propName)
+            if dsetProp is not None:
+                dsetProp.flush()
+                if isinstance(dsetProp, np.memmap):
+                    filename, mode = dsetProp.filename, dsetProp.mode                    
+                    setattr(self, propName, None)                    
+                    setattr(self, propName, open_memmap(filename, mode=mode))
         return
 
     # Return a (deep) copy of the current class instance
@@ -494,25 +542,39 @@ class BaseData(ABC):
 
         Parameters
         ----------
-            deep : bool
-                If `True`, a copy of the underlying data file is created in the temporary Syncopy folder
+        deep : bool
+            If `True`, a copy of the underlying data file is created in the
+            temporary Syncopy folder.
 
         Returns
         -------
-            BaseData
-                in-memory copy of BaseData object
+        Syncopy data object
+            in-memory copy of data object
 
         See also
         --------
-        save_spy
+        syncopy.save
 
         """
         cpy = copy(self)
-        if deep and isinstance(self.data, (np.memmap, h5py.Dataset)):
+        if deep:
             self.data.flush()
             filename = self._gen_filename()
             shutil.copyfile(self.filename, filename)
-            cpy.data = filename
+                        
+            for propertyName in self._hdfFileDatasetProperties:
+                prop = getattr(self, propertyName)
+                if isinstance(prop, h5py.Dataset):
+                    sourceName = getattr(self, propertyName).name
+                    setattr(cpy, propertyName, 
+                            h5py.File(filename, mode=cpy.mode)[sourceName])
+                elif isinstance(prop, np.memmap):
+                    setattr(cpy, propertyName, 
+                            open_memmap(filename, mode=cpy.mode))
+                else:
+                    setattr(cpy, propertyName, prop)
+                    cpy.filename = filename
+                            
         return cpy
 
     # Change trialdef of object
@@ -649,9 +711,9 @@ class BaseData(ABC):
         else:
             dinfo = ""
             dsep = "' x '"
-        hdstr = "SyNCoPy{diminfo:s}{clname:s} object with fields\n\n"
+        hdstr = "{diminfo:s}Syncopy {clname:s} object with fields\n\n"
         ppstr = hdstr.format(diminfo=dinfo + " '"  + \
-                             dsep.join(dim for dim in self.dimord) + "' ",
+                             dsep.join(dim for dim in self.dimord) + "' " if self.dimord is not None else "Empty ",
                              clname=self.__class__.__name__)
         maxKeyLength = max([len(k) for k in ppattrs])
         for attr in ppattrs:
@@ -696,96 +758,68 @@ class BaseData(ABC):
     # Destructor
     def __del__(self):
         if self.filename is not None:
-            if isinstance(self._data, h5py.Dataset):
-                try:
-                    self._data.file.close()
-                except IOError:
-                    pass
-                except ValueError:
-                    pass
-                except Exception as exc:
-                    raise exc
-            else:
-                del self._data
+            for propertyName in self._hdfFileDatasetProperties:
+                prop = getattr(self, propertyName)
+                if isinstance(prop, h5py.Dataset):
+                    try:
+                        prop.file.close()
+                    except (IOError, ValueError):
+                        pass
+                    except Exception as exc:
+                        raise exc
+                else:
+                    del prop
+                                    
             if __storage__ in self.filename and os.path.exists(self.filename):
                 os.unlink(self.filename)
                 shutil.rmtree(os.path.splitext(self.filename)[0],
                               ignore_errors=True)
 
     # Class "constructor"
-    def __init__(self, data=None, filename=None, dimord=None, mode="r+", **kwargs):
+    def __init__(self, filename=None, dimord=None, mode="r+", **kwargs):
         """
         Docstring
 
-        filename + data = create memmap @filename
-        filename no data = read from file or memmap
-        just data = try to attach data (error checking done by data.setter)
+        1. filename + data = create HDF5 file at filename with data in it
+        2. data only 
+        
         """
 
-        # First things first: initialize (dummy) default values
-        self._cfg = {}
-        self._data = None
-        self.mode = mode                        
+        # Initialize hidden attributes
+        self._cfg = {}                
         self._filename = None
         self._trialdefinition = None
+        self._dimord = None
+        self._mode = None               
+        for propertyName in self._hdfFileDatasetProperties:
+            setattr(self, "_" + propertyName, None)
+        self._data = None
+
+        # Make instantiation persistent in all subclasses
+        super().__init__()
+
+        # Set mode            
+        self.mode = mode                        
         
-        # Set up dimensional architecture (`self._channel = None`, `self._freq = None` etc.)
-        self.dimord = dimord
-
-        # Depending on contents of `filename` and `data` class instantiation invokes I/O routines
-        if filename is not None:
-
-            # Case 1: filename + data = memmap @filename
-            if data is not None:
-                read_fl = False
-                self.data = filename
-                self.data = data
-
-            # Case 2: filename w/o data = read from file/container
-            else:
-                read_fl = False
-                try:
-                    fileinfo = filename_parser(filename)
-                    if fileinfo["filename"] is not None:
-                        read_fl = True
-                except SPYValueError:
-                    pass
-                except Exception as exc:
-                    raise exc
-                if not read_fl:
-                    self.data = filename
-                    
+        # If any dataset property contains data and no dimord is set, use the 
+        # default dimord
+        if any([key in self._hdfFileDatasetProperties and value is not None 
+                for key, value in kwargs.items()]) and dimord is None:
+            self.dimord = self._defaultDimord
         else:
+            self.dimord = dimord
 
-            # Case 3: just data = if str, it HAS to be the name of a spy-file
-            if data is not None:
-                if isinstance(data, str):
-                    try:
-                        fileinfo = filename_parser(data)
-                    except Exception as exc:
-                        raise exc
-                    if fileinfo["filename"] is None:
-                        lgl = "explicit file-name to initialize object"
-                        raise SPYValueError(legal=lgl, actual=data)
-                    read_fl = True
-                    filename = data
-                else:
-                    read_fl = False
-                    self.data = data
-
-            # Case 4: nothing here: create empty object
-            else:
-                read_fl = False
-                self._filename = self._gen_filename()
-        
-        # Warn on effectless assignments
-        if read_fl:
-            msg = "Syncopy core - __init__: WARNING >> Cannot assign `{}` to object " +\
-                  "loaded from spy container << "                
-            for key, value in kwargs.items():
-                if value is not None:
-                    print(msg.format(key))
+        # If a target filename is provided use it, otherwise generate random
+        # filename in `syncopy.__storage__`
+        if filename is not None:
+            self.filename = filename                        
+        else:
+            self.filename = self._gen_filename()
             
+        # Attach dataset properties and let set methods do error checking
+        for propertyName in self._hdfFileDatasetProperties:
+            setattr(self, propertyName, kwargs[propertyName])
+                    
         # Prepare log + header and write first entry
         lhd = "\n\t\t>>> SyNCopy v. {ver:s} <<< \n\n" +\
               "Created: {timestamp:s} \n\n" +\
@@ -806,13 +840,8 @@ class BaseData(ABC):
 
         # Write version
         self._version = __version__
+        
 
-        # Finally call spy loader if filename was provided
-        if read_fl:
-            spy.load(filename=filename, out=self)
-
-        # Make instantiation persistent in all subclasses
-        super().__init__()
 
         
 class VirtualData():

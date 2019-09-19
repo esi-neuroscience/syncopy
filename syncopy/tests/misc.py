@@ -71,7 +71,7 @@ def generate_artifical_data(nTrials=2, nChannels=2, equidistant=True,
     # Depending on chosen `dimord` either get default position of time-axis
     # in `AnalogData` objects or use provided `dimord` and reshape signal accordingly
     if dimord == "default":
-        dimord = spy.AnalogData().dimord
+        dimord = spy.AnalogData._defaultDimord
     timeAxis = dimord.index("time")
     idx = [1, 1]
     idx[timeAxis] = -1

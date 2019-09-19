@@ -4,7 +4,7 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-06 16:00:13>
+# Last modification time: <2019-09-18 13:56:13>
 
 import os
 import tempfile
@@ -94,13 +94,13 @@ class TestComputationalRoutine():
     def test_sequential_equidistant(self):
         myfilter = LowPassFilter(self.b, self.a)
         myfilter.initialize(self.equidata)
-        out = AnalogData()
+        out = AnalogData(dimord=AnalogData._defaultDimord)
         myfilter.compute(self.equidata, out)
         assert np.abs(out.data - self.orig).max() < self.tol
         
         myfilter = LowPassFilter(self.b, self.a)
         myfilter.initialize(self.equidata, keeptrials=False)
-        out = AnalogData()
+        out = AnalogData(dimord=AnalogData._defaultDimord)
         myfilter.compute(self.equidata, out)
         assert np.abs(out.data - self.orig[:self.t.size, :]).max() < self.tol
 
@@ -113,14 +113,14 @@ class TestComputationalRoutine():
                                                   overlapping=overlapping,
                                                   inmemory=False)
             myfilter.initialize(nonequidata)
-            out = AnalogData()
+            out = AnalogData(dimord=AnalogData._defaultDimord)
             myfilter.compute(nonequidata, out)
             assert out.data.shape[0] == np.diff(nonequidata.sampleinfo).sum()
             
     def test_sequential_saveload(self):
         myfilter = LowPassFilter(self.b, self.a)
         myfilter.initialize(self.equidata)
-        out = AnalogData()
+        out = AnalogData(dimord=AnalogData._defaultDimord)
         myfilter.compute(self.equidata, out, log_dict={"a": self.a, "b": self.b})
         assert set(["a", "b"]) == set(out.cfg.keys())
         assert np.array_equal(out.cfg["a"], self.a)
@@ -145,7 +145,7 @@ class TestComputationalRoutine():
             for chan_per_worker in [None, self.chanPerWrkr]:
                 myfilter = LowPassFilter(self.b, self.a)
                 myfilter.initialize(self.equidata, chan_per_worker=chan_per_worker)
-                out = AnalogData()
+                out = AnalogData(dimord=AnalogData._defaultDimord)
                 myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store)
                 assert np.abs(out.data - self.orig).max() < self.tol
                 assert out.data.is_virtual == parallel_store
@@ -160,7 +160,7 @@ class TestComputationalRoutine():
                 myfilter.initialize(self.equidata, 
                                     chan_per_worker=chan_per_worker,
                                     keeptrials=False)
-                out = AnalogData()
+                out = AnalogData(dimord=AnalogData._defaultDimord)
                 myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store)
                 assert np.abs(out.data - self.orig[:self.t.size, :]).max() < self.tol
                 assert out.data.is_virtual == False
@@ -177,7 +177,7 @@ class TestComputationalRoutine():
                                                     inmemory=False)
             for parallel_store in [True, False]:
                 for chan_per_worker in [None, self.chanPerWrkr]:
-                    out = AnalogData()
+                    out = AnalogData(dimord=AnalogData._defaultDimord)
                     myfilter = LowPassFilter(self.b, self.a)
                     myfilter.initialize(nonequidata, chan_per_worker=chan_per_worker)
                     myfilter.compute(nonequidata, out, parallel=True, parallel_store=parallel_store)
@@ -199,7 +199,7 @@ class TestComputationalRoutine():
         for parallel_store in [True, False]:
             myfilter = LowPassFilter(self.b, self.a)
             myfilter.initialize(self.equidata)
-            out = AnalogData()
+            out = AnalogData(dimord=AnalogData._defaultDimord)
             myfilter.compute(self.equidata, out, parallel=True, parallel_store=parallel_store, 
                              log_dict={"a": self.a, "b": self.b})
             

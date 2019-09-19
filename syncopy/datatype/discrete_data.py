@@ -42,7 +42,9 @@ class DiscreteData(BaseData, ABC):
     @property
     def sample(self):
         """Indices of all recorded samples"""
-        return self._sample
+        if self.data is None:
+            return None
+        return np.unique(self.data[:, self.dimord.index("sample")])
 
     @property
     def samplerate(self):
@@ -51,6 +53,10 @@ class DiscreteData(BaseData, ABC):
 
     @samplerate.setter
     def samplerate(self, sr):
+        if sr is None:
+            self._samplerate = None
+            return
+        
         try:
             scalar_parser(sr, varname="samplerate", lims=[1, np.inf])
         except Exception as exc:
@@ -64,6 +70,10 @@ class DiscreteData(BaseData, ABC):
 
     @trialid.setter
     def trialid(self, trlid):
+        if trlid is None:
+            self._trialid = None
+            return
+        
         if self.data is None:
             print("SyNCoPy core - trialid: Cannot assign `trialid` without data. " +
                   "Please assing data first")
@@ -102,21 +112,19 @@ class DiscreteData(BaseData, ABC):
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
         return self._data[self.trialid == trialno, :]
-
-    # Make instantiation persistent in all subclasses
-    def __init__(self, **kwargs):
+    
+    def __init__(self, samplerate=None, trialid=None, **kwargs):
 
         # Assign (default) values
         self._trialid = None
-        if kwargs.get("samplerate") is not None:
-            # use setter for error-checking
-            self.samplerate = kwargs["samplerate"]
-        else:
-            self._samplerate = None
+        self._samplerate = None                           
         self._hdr = None
 
         # Call initializer
         super().__init__(**kwargs)
+
+        self.samplerate = samplerate
+        self.trialid = trialid
 
         # If a super-class``__init__`` attached data, be careful
         if self.data is not None:
@@ -143,18 +151,29 @@ class SpikeData(DiscreteData):
 
     _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
     _hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel",)
+    _defaultDimord = ["sample", "channel", "unit"]
     
     @property
     def channel(self):
-        """ :class:`numpy.ndarray` : list of original channel names for each unit"""
+        """ :class:`numpy.ndarray` : list of original channel names for each unit"""        
+        # if data exists but no user-defined channel labels, create them on the fly
+        if self._channel is None and self._data is not None:
+            channelIndices = np.unique(self.data[:, self.dimord.index("channel")])
+            return np.array(["channel" + str(int(i)).zfill(len(str(channelIndices.max())))
+                             for i in channelIndices])
+            
         return self._channel
 
     @channel.setter
     def channel(self, chan):
-        if self.data is None:
-            print("SyNCoPy core - channel: Cannot assign `channels` without data. " +
-                  "Please assing data first")
+        if chan is None:
+            self._channel = None
             return
+        
+        if self.data is None:
+            raise SPYValueError("Syncopy: Cannot assign `channels` without data. " +
+                  "Please assign data first")    
+
         nchan = np.unique(self.data[:, self.dimord.index("channel")]).size
         try:
             array_parser(chan, varname="channel", ntype="str", dims=(nchan,))
@@ -165,14 +184,22 @@ class SpikeData(DiscreteData):
     @property
     def unit(self):
         """ :class:`numpy.ndarray(str)` : unit names"""
+        if self.data is not None and self._unit is None:
+            unitIndices = np.unique(self.data[:, self.dimord.index("unit")])
+            return np.array(["unit" + str(int(i)).zfill(len(str(unitIndices.max())))
+                             for i in unitIndices])
         return self._unit
 
     @unit.setter
     def unit(self, unit):
-        if self.data is None:
-            print("SyNCoPy core - unit: Cannot assign `unit` without data. " +
-                  "Please assing data first")
+        if unit is None:
+            self._unit = None
             return
+        
+        if self.data is None:
+            raise SPYValueError("Syncopy - SpikeData - unit: Cannot assign `unit` without data. " +
+                  "Please assign data first")
+                        
         nunit = np.unique(self.data[:, self.dimord.index("unit")]).size
         try:
             array_parser(unit, varname="unit", ntype="str", dims=(nunit,))
@@ -186,10 +213,9 @@ class SpikeData(DiscreteData):
                  filename=None,
                  trialdefinition=None,
                  samplerate=None,
-                 channel="channel",
-                 unit="unit",
-                 mode="w",
-                 dimord=["sample", "channel", "unit"]):
+                 channel=None,
+                 unit=None,
+                 dimord=None):
         """Initialize a :class:`SpikeData` object.
 
         Parameters
@@ -206,8 +232,6 @@ class SpikeData(DiscreteData):
                 original channel names
             unit : str or list/array(str)                
                 names of all units
-            mode : str
-                write mode for data. 'r' for read-only, 'w' for writable
             dimord : list(str)
                 ordered list of dimension labels
 
@@ -223,51 +247,18 @@ class SpikeData(DiscreteData):
 
         """
 
-        # The one thing we check right here and now
-        expected = ["sample", "channel", "unit"]
-        if not set(dimord).issubset(expected):
-            base = "dimensional labels {}"
-            lgl = base.format("'" + "' x '".join(str(dim)
-                                                 for dim in expected) + "'")
-            act = base.format("'" + "' x '".join(str(dim)
-                                                 for dim in dimord) + "'")
-            raise SPYValueError(legal=lgl, varname="dimord", actual=act)
-
+        self._unit = None
+        self._channel = None
+        
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
-                         channel=channel,
-                         unit=unit,
-                         mode=mode,
                          dimord=dimord)
 
-        # If a super-class``__init__`` attached data, be careful
-        if self.data is not None:
-
-            # In case of manual data allocation (reading routine would leave a
-            # mark in `cfg`), fill in missing info
-            if len(self.cfg) == 0:
-
-                # If necessary, construct list of channel labels (parsing is done by setter)
-                if isinstance(channel, str):
-                    channel = [
-                        channel + str(int(i)) for i in np.unique(self.data[:, self.dimord.index("channel")])]
-                self.channel = np.array(channel)
-
-                # If necessary, construct list of unit labels (parsing is done by setter)
-                if isinstance(unit, str):
-                    unit = [
-                        unit + str(int(i)) for i in np.unique(self.data[:, self.dimord.index("unit")])]
-                self.unit = np.array(unit)
-
-        # Dummy assignment: if we have no data but channel labels, assign bogus to tigger setter warning
-        else:
-            if isinstance(channel, (list, np.ndarray)):
-                self.channel = ['channel']
-            if isinstance(unit, (list, np.ndarray)):
-                self.unit = ['unit']
+        self.channel = channel
+        self.unit = unit
 
 
 class EventData(DiscreteData):
@@ -282,10 +273,15 @@ class EventData(DiscreteData):
 
     """        
     
+    _defaultDimord = ["sample", "eventid"]
+    
     @property
     def eventid(self):
         """numpy.ndarray(int): integer event code assocated with each event"""
-        return self._eventid
+        if self.data is None:
+            return None
+        return np.unique(self.data[:, self.dimord.index("eventid")])
+        
 
     # "Constructor"
     def __init__(self,
@@ -293,8 +289,7 @@ class EventData(DiscreteData):
                  filename=None,
                  trialdefinition=None,
                  samplerate=None,
-                 mode="w",
-                 dimord=["sample", "eventid"]):
+                 dimord=None):
         """Initialize a :class:`EventData` object.
 
         Parameters
@@ -307,8 +302,6 @@ class EventData(DiscreteData):
                 [start, stop, trigger_offset] sample indices for `M` trials
             samplerate : float
                 sampling rate in Hz        
-            mode : str
-                write mode for data. 'r' for read-only, 'w' for writable
             dimord : list(str)
                 ordered list of dimension labels
 
@@ -324,20 +317,9 @@ class EventData(DiscreteData):
 
         """
 
-        # The one thing we check right here and now
-        expected = ["sample", "eventid"]
-        if not set(dimord).issubset(expected):
-            base = "dimensional labels {}"
-            lgl = base.format("'" + "' x '".join(str(dim)
-                                                 for dim in expected) + "'")
-            act = base.format("'" + "' x '".join(str(dim)
-                                                 for dim in dimord) + "'")
-            raise SPYValueError(legal=lgl, varname="dimord", actual=act)
-
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
-                         mode=mode,
                          dimord=dimord)
