@@ -232,8 +232,6 @@ class SpikeData(DiscreteData):
                 original channel names
             unit : str or list/array(str)                
                 names of all units
-            mode : str
-                write mode for data. 'r' for read-only, 'w' for writable
             dimord : list(str)
                 ordered list of dimension labels
 
@@ -291,7 +289,6 @@ class EventData(DiscreteData):
                  filename=None,
                  trialdefinition=None,
                  samplerate=None,
-                 mode="w",
                  dimord=None):
         """Initialize a :class:`EventData` object.
 
@@ -305,8 +302,6 @@ class EventData(DiscreteData):
                 [start, stop, trigger_offset] sample indices for `M` trials
             samplerate : float
                 sampling rate in Hz        
-            mode : str
-                write mode for data. 'r' for read-only, 'w' for writable
             dimord : list(str)
                 ordered list of dimension labels
 
@@ -327,5 +322,4 @@ class EventData(DiscreteData):
                          filename=filename,
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
-                         mode=mode,
                          dimord=dimord)
