@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-18 15:23:03>
+# Last modification time: <2019-09-20 11:20:19>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -1112,26 +1112,38 @@ class Selector():
                   "'".join(key + "', " for key in select.keys())[:-2]
             raise SPYValueError(legal=lgl, varname="select", actual=act)
         
-        # Assign default (dummy) values to hidden attributes
+        # Set up a list of all selectable properties throughout our classes
+        self._allProps = ["channel", "time", "freq", "taper", "unit", "eventid"]
+        
+        # Assign defaults (trials are not a "real" property, handle it separately)
         self._trials = None
-        self._channel = None
-        self._time = None
-        self._freq = None
-        self._taper = None
-        self._unit = None
-        self._eventid = None
+        for prop in self._allProps:
+            setattr(self, "_{}".format(prop), None)
+        self._useFancy = False  # flag indicating whether fancy indexing is necessary
+        # self._channel = None
+        # self._time = None
+        # self._freq = None
+        # self._taper = None
+        # self._unit = None
+        # self._eventid = None
         
         # We first need to know which trials are of interest here (assuming 
         # that any valid input object *must* have a `trials` attribute)
         self.trials = (data, select)
 
         # Now set any possible selection attribute (depending on type of `data`)
-        self.channel = (data, select)
-        self.time = (data, select)
-        self.freq = (data, select)
-        self.taper = (data, select)
-        self.unit = (data, select)
-        self.eventid = (data, select)
+        for prop in self._allProps:
+            setattr(self, prop, (data, select))
+        # self.channel = (data, select)
+        # self.time = (data, select)
+        # self.freq = (data, select)
+        # self.taper = (data, select)
+        # self.unit = (data, select)
+        # self.eventid = (data, select)
+        
+        # Ensure correct indexing: convert everything to lists for use w/`np.ix_`
+        # if we ended up w/more than 2 list selectors
+        self._make_consistent(data)
         
     @property
     def trials(self):
@@ -1393,6 +1405,54 @@ class Selector():
                     
         else:
             return
+
+    # Local helper that converts slice selectors to lists (if necessary)        
+    def _make_consistent(self, data):
+
+        # Get list of all selectors that don't depend on trials
+        dimProps = list(self._allProps)
+        dimProps.remove("time")
+        
+        # Count how many lists we got
+        listCount = 0
+        for prop in dimProps:
+            if isinstance(getattr(self, prop), list):
+                listCount += 1
+
+        # If we have exactly one list, go through `time` selectors to see if any
+        # by-trial selection is a list                
+        if listCount == 1:
+            for tsel in self.time:
+                if isinstance(tsel, list):
+                    listCount += 1
+                
+        # If (on a by-trial basis) we have two or more lists, we need fancy indexing, 
+        # thus convert all slice- to list-selectors
+        if listCount >= 2:
+            for tk, tsel in enumerate(self.time):
+                if isinstance(tsel, slice):
+                    start, stop, step = tsel.start, tsel.stop, tsel.step
+                    if start is None:
+                        start = 0
+                    if stop is None:
+                        stop = data._get_time([self.trials[tk]], toilim=[0, np.inf])[0].stop
+                    if step is None:
+                        step = 1
+                    self.time[tk] = list(range(start, stop, step))
+            for prop in dimProps:
+                sel = getattr(self, prop)
+                if isinstance(sel, slice):
+                    start, stop, step = sel.start, sel.stop, sel.step
+                    if start is None:
+                        start = 0
+                    if stop is None:
+                        stop = getattr(data, prop).size
+                    if step is None:
+                        step = 1
+                    setattr(self, "_{}".format(prop), list(range(start, stop, step)))
+            self._useFancy = True
+        
+        return
         
     # Legacy support
     def __repr__(self):

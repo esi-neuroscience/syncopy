@@ -4,7 +4,7 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-19 10:44:49>
+# Last modification time: <2019-09-20 13:38:57>
 
 import os
 import tempfile
@@ -180,7 +180,7 @@ class TestComputationalRoutine():
             toi = self.seed.choice(nonequidata.time[0], int(nonequidata.time[0].size))
             self.artdataSelections[1]["toi"] = toi
             
-            for select in [self.artdataSelections[1]]:
+            for select in self.artdataSelections:
                 sel = Selector(nonequidata, select)
                 out = filter_manager(nonequidata, self.b, self.a, select=select)
                 

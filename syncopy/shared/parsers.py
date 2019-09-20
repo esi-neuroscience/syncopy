@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-18 15:40:26>
+# Last modification time: <2019-09-20 13:03:01>
 
 # Builtin/3rd party package imports
 import os
@@ -825,6 +825,8 @@ def unwrap_io(func):
             infilename = trl_dat["infile"]
             indset = trl_dat["indset"]
             ingrid = trl_dat["ingrid"]
+            sigrid = trl_dat["sigrid"]
+            fancy = trl_dat["fancy"]
             vdsdir = trl_dat["vdsdir"]
             outfilename = trl_dat["outfile"]
             outdset = trl_dat["outdset"]
@@ -838,20 +840,31 @@ def unwrap_io(func):
             if hdr is None:
                 try:
                     with h5py.File(infilename, mode="r") as h5fin:
-                        arr = h5fin[indset][ingrid]
+                        if fancy:
+                            arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
+                        else:
+                            arr = np.array(h5fin[indset][ingrid])
                 except OSError:
                     try:
-                        arr = np.array(open_memmap(infilename, mode="c")[ingrid])
+                        if fancy:
+                            arr = open_memmap(infilename, mode="c")[np.ix_(*ingrid)]
+                        else:
+                            arr = np.array(open_memmap(infilename, mode="c")[ingrid])
                     except:
                         raise SPYIOError(infilename)
+                except Exception as exc:
+                    raise exc
                     
             # For VirtualData objects
             else:
+                idx = ingrid
+                if fancy:
+                    idx = np.ix_(*ingrid)
                 dsets = []
                 for fk, fname in enumerate(infilename):
                     dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
-                                           mode="r", dtype=hdr[fk]["dtype"],
-                                           shape=(hdr[fk]["M"], hdr[fk]["N"]))[ingrid])
+                                            mode="r", dtype=hdr[fk]["dtype"],
+                                            shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
                 arr = np.vstack(dsets)
 
             # === STEP 2 === perform computation

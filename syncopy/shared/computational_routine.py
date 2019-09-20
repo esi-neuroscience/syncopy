@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-19 17:32:19>
+# Last modification time: <2019-09-20 14:10:34>
 
 # Builtin/3rd party package imports
 import os
@@ -127,8 +127,10 @@ class ComputationalRoutine(ABC):
         self.hdr = None
         self.trialList = None
         self.sourceLayout = None
+        self.sourceSelectors = None
         self.targetLayout = None
         self.targetShapes = None
+        self.useFancyIdx = None
         self.chunkMem = None
         self.virtualDatasetDir = None
         self.VirtualDatasetLayout = None
@@ -178,11 +180,14 @@ class ComputationalRoutine(ABC):
         # First store `keeptrial` keyword value (important for output shapes below)
         self.keeptrials = keeptrials
         
-        # Determine if data-selection was provided
+        # Determine if data-selection was provided; if so, extract trials and check
+        # whether selection requries fancy array indexing
         if data._selection is not None:
             self.trialList = data._selection.trials
+            self.useFancyIdx = data._selection._useFancy
         else:
             self.trialList = list(range(len(data.trials)))
+            self.useFancyIdx = False
         
         # Prepare dryrun arguments and determine geometry of trials in output
         dryRunKwargs = copy(self.cfg)
@@ -222,6 +227,11 @@ class ComputationalRoutine(ABC):
             print("Syncopy core - compute: WARNING >> trial-averaging does not " +\
                   "support channel-block parallelization! <<")
             chan_per_worker = None
+        if data._selection is not None:
+            if chan_per_worker is not None and data._selection.channel != slice(None, None, 1):
+                print("Syncopy core - compute: WARNING >>> channel selection and " +\
+                      "simultaneous channel-block parallelization not yet supported! <<<")
+                chan_per_worker = None
             
         # Allocate control variables
         trial = trials[0]
@@ -237,7 +247,7 @@ class ComputationalRoutine(ABC):
 
             # Set up channel-chunking
             nChannels = data.channel.size
-            rem = int(nChannels % chan_per_worker)        
+            rem = int(nChannels % chan_per_worker)
             n_blocks = [chan_per_worker] * int(nChannels//chan_per_worker) + [rem] * int(rem > 0)        
             inchanidx = data.dimord.index("channel")
             
@@ -311,10 +321,51 @@ class ComputationalRoutine(ABC):
                     chanstack += res[outchanidx]
                     blockstack += block
                     
-        # FIXME: process unordered lists w/repetitions...
+        # If the determined source layout contains unordered list and/or repetitions
+        # or a provided data selector requires fancy array indexing, prepare a separate
+        # `sourceSelectors` list that is used to extract data from HDF5, then
+        # `sourceLayout` selects the requested pieces from the extracted NumPy array
+        
+        for grd in sourceLayout:
+            if any([np.diff(sel).min() <= 0 if isinstance(sel, list) else False for sel in grd]):
+                self.useFancyIdx = True 
+                break
+
+        if self.useFancyIdx:
+            sourceSelectors = []
+            for gk, grd in enumerate(sourceLayout):
+                ingrid = list(grd)
+                sigrid = []]
+                for sk, sel in enumerate(grd):
+                    if isinstance(sel, list):
+                        selarr = np.array(sel, dtype=np.intp)
+                    else: # sel is a slice
+                        selarr = np.array(list(range(sel.start, sel.stop)), dtype=np.intp)
+                    sigrid.append(np.array(selarr) - selarr.min())
+                    ingrid[sk] = slice(selarr.min(), selarr.max() + 1, 1)
+                sourceSelectors.append(tuple(sigrid))
+                sourceLayout[gk] = tuple(ingrid)
+        else:
+            sourceSelectors = [Ellipsis] * len(sourceLayout)
+            
+        # sourceSelectors = []
+        # for gk, grd in enumerate(sourceLayout):
+        #     ingrid = list(grd)
+        #     sigrid = [slice(None)] * len(ingrid)
+        #     for sk, sel in enumerate(grd):
+        #         if isinstance(sel, list):
+        #             if np.diff(sel).min() <= 0 or self.useFancyIdx:
+        #                 selarr = np.array(sel, dtype=np.intp)
+        #                 sigrid[sk] = np.array(selarr) - selarr.min()
+        #                 ingrid[sk] = slice(selarr.min(), selarr.max() + 1, 1)
+        #                 self.useFancyIdx = True
+        #     sourceSelectors.append(tuple(sigrid))
+        #     sourceLayout[gk] = tuple(ingrid)
+
         
         # Store determined shapes and grid layout
         self.sourceLayout = sourceLayout
+        self.sourceSelectors = sourceSelectors
         self.targetLayout = targetLayout
         self.targetShapes = targetShapes
         
@@ -595,6 +646,8 @@ class ComputationalRoutine(ABC):
                                  "infile": data.filename,
                                  "indset": data.data.name,
                                  "ingrid": self.sourceLayout[chk],
+                                 "sigrid": self.sourceSelectors[chk],
+                                 "fancy": self.useFancyIdx,
                                  "vdsdir": self.virtualDatasetDir,
                                  "outfile": outfilename.format(chk),
                                  "outdset": outdsetname,
@@ -653,12 +706,17 @@ class ComputationalRoutine(ABC):
         compute_parallel : concurrent processing counterpart of this method
         """
         
+        
         # Initialize on-disk backing device (either HDF5 file or memmap)
         if self.hdr is None:
             try:
                 source = h5py.File(data.filename, mode="r")[data.data.name]
+                isHDF = True
             except OSError:
                 source = open_memmap(data.filename, mode="c")
+                isHDF = False
+            except Exception as exc:
+                raise exc
             
         # Iterate over (selected) trials and write directly to target HDF5 dataset
         with h5py.File(out.filename, "r+") as h5fout:
@@ -666,41 +724,67 @@ class ComputationalRoutine(ABC):
             
             for nblock in tqdm(range(len(self.trialList))):
                 
-                # Work around HDF5 limitations: indices must be sorted -> sort
-                # any unsorted list entries of `ingrid` but keep reference of 
-                # original order in corresponding entry of `sigrid`
+                ingrid = self.sourceLayout[nblock]
+                sigrid = self.sourceSelectors[nblock]
                 outgrid = self.targetLayout[nblock]
-                ingrid = list(self.sourceLayout[nblock])
-                sigrid = [slice(None)] * len(ingrid)
-                # hagrid = [slice(None)] * len(ingrid)
-                useFancyIdx = False
-                for sk, sel in enumerate(ingrid):
-                    if isinstance(sel, list):
-                        if np.diff(sel).min() <= 0:
-                            # sigrid[sk] = np.argsort(np.argsort(sel))
-                            # sel.sort()
-                            # ingrid[sk] = slice(sel[0], sel[-1] +1, 1)
-                            # hagrid[sk] = sel
-                            selarr = np.array(sel, dtype=np.intp)
-                            sigrid[sk] = np.array(selarr) - selarr.min()
-                            ingrid[sk] = slice(selarr.min(), selarr.max() + 1, 1)
                 
+                # # Work around HDF5 limitations: indices must be sorted -> sort
+                # # any unsorted list entries of `ingrid` but keep reference of 
+                # # original order in corresponding entry of `sigrid`
+                # outgrid = self.targetLayout[nblock]
+                # ingrid = list(self.sourceLayout[nblock])
+                # sigrid = [slice(None)] * len(ingrid)
+                # # hagrid = [slice(None)] * len(ingrid)
+                # useFancyIdx = False
+                # for sk, sel in enumerate(ingrid):
+                #     if isinstance(sel, list):
+                #         if np.diff(sel).min() <= 0:
+                #             # sigrid[sk] = np.argsort(np.argsort(sel))
+                #             # sel.sort()
+                #             # ingrid[sk] = slice(sel[0], sel[-1] +1, 1)
+                #             # hagrid[sk] = sel
+                #             selarr = np.array(sel, dtype=np.intp)
+                #             sigrid[sk] = np.array(selarr) - selarr.min()
+                #             ingrid[sk] = slice(selarr.min(), selarr.max() + 1, 1)
+
                 # Get source data as NumPy array
                 if self.hdr is None:
-                    import pdb; pdb.set_trace()
-                    arr = np.array(source[tuple(ingrid)])[np.ix_(*sigrid)]
-                    # try:
-                    #     # arr = np.array(source[tuple(ingrid)])[tuple(sigrid)]
-                    # except:
-                    #     pass
-                    #     # import pdb; pdb.set_trace()
+                    # import pdb; pdb.set_trace()
+                    if isHDF:
+                        if self.useFancyIdx:
+                            try:
+                                arr = np.array(source[tuple(ingrid)])[np.ix_(*sigrid)]
+                            except:
+                                import pdb; pdb.set_trace()
+                                
+                        else:
+                            arr = np.array(source[tuple(ingrid)])
+                    else:
+                        if self.useFancyIdx:
+                            arr = source[np.ix_(*ingrid)]
+                        else:
+                            arr = np.array(source[ingrid])
                     source.flush()
+                # if self.hdr is None:
+                #     if self.useFancyIdx:
+                #         arr = np.array(source[tuple(ingrid)])[np.ix_(*sigrid)]
+                #     else:
+                #         arr = np.array(source[tuple(ingrid)])
+                #     # try:
+                #     #     # arr = np.array(source[tuple(ingrid)])[tuple(sigrid)]
+                #     # except:
+                #     #     pass
+                #     #     # import pdb; pdb.set_trace()
+                #     source.flush()
                 else:
+                    idx = ingrid
+                    if self.useFancyIdx:
+                        idx = np.ix_(*ingrid)
                     stacks = []
                     for fk, fname in enumerate(data.filename):
                         stacks.append(np.memmap(fname, offset=int(self.hdr[fk]["length"]),
                                                 mode="r", dtype=self.hdr[fk]["dtype"],
-                                                shape=(self.hdr[fk]["M"], self.hdr[fk]["N"]))[ingrid])
+                                                shape=(self.hdr[fk]["M"], self.hdr[fk]["N"]))[idx])
                     arr = np.vstack(stacks)[ingrid]
 
                 # Perform computation
@@ -718,34 +802,11 @@ class ComputationalRoutine(ABC):
             # If trial-averaging was requested, normalize computed sum to get mean
             if not self.keeptrials:
                 target[()] /= len(self.trialList)
-                
+        
+        if isHDF:
+            source.file.close()    
+            
         return
-                
-        # # Iterate across trials and write directly to HDF5 container (flush
-        # # after each trial to avoid memory leakage) - 
-        # with h5py.File(out.filename, "r+") as h5f:
-        #     dset = h5f[self.datasetName]
-        #     cnt = 0
-        #     idx = [slice(None)] * len(dset.shape)
-        #     if self.keeptrials:
-        #         for trl in tqdm(data.trials, desc="Computing..."):
-        #             res = self.computeFunction(trl,
-        #                                        *self.argv,
-        #                                        **self.cfg)
-        #             idx[0] = slice(cnt, cnt + res.shape[0])
-        #             dset[tuple(idx)] = res
-        #             cnt += res.shape[0]
-        #             h5f.flush()
-        #     else:
-        #         for trl in tqdm(data.trials, desc="Computing..."):
-        #             dset[()] = np.nansum([dset, self.computeFunction(trl,
-        #                                                              *self.argv,
-        #                                                              **self.cfg)],
-        #                                  axis=0)
-        #             h5f.flush()
-        #         dset[()] /= len(data.trials)
-
-        # return
 
     def write_log(self, data, out, log_dict=None):
         """
