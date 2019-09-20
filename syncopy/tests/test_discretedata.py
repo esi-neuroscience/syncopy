@@ -266,7 +266,7 @@ class TestEventData():
         sinfo_a = np.round(sinfo * sr_a).astype(int)
 
         # Compute sampleinfo w/pre, post and trigger
-        evt_dummy = EventData(self.data, samplerate=sr_e, mode="r")
+        evt_dummy = EventData(self.data, samplerate=sr_e)
         evt_dummy.definetrial(pre=pre, post=post, trigger=1)
         assert np.array_equal(evt_dummy.sampleinfo, sinfo_e)
 
