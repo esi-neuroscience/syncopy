@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-20 11:20:19>
+# Last modification time: <2019-09-23 17:41:49>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -1112,34 +1112,31 @@ class Selector():
                   "'".join(key + "', " for key in select.keys())[:-2]
             raise SPYValueError(legal=lgl, varname="select", actual=act)
         
+        # Save class of input object for posterity
+        self._dataClass = data.__class__.__name__
+        
         # Set up a list of all selectable properties throughout our classes
         self._allProps = ["channel", "time", "freq", "taper", "unit", "eventid"]
         
-        # Assign defaults (trials are not a "real" property, handle it separately)
+        # Assign defaults (trials are not a "real" property, handle it separately, 
+        # same goes for `trialdefinition`)
         self._trials = None
+        self._trialdefinition = None
         for prop in self._allProps:
             setattr(self, "_{}".format(prop), None)
         self._useFancy = False  # flag indicating whether fancy indexing is necessary
-        # self._channel = None
-        # self._time = None
-        # self._freq = None
-        # self._taper = None
-        # self._unit = None
-        # self._eventid = None
+        self._samplerate = None  # for objects supporting time-selections
+        self._timeShuffle = False  # flag indicating whether time-points are repeated/unordered
         
         # We first need to know which trials are of interest here (assuming 
         # that any valid input object *must* have a `trials` attribute)
         self.trials = (data, select)
 
         # Now set any possible selection attribute (depending on type of `data`)
+        # Note: `trialdefinition` is set by `time.setter` - it only makes sense
+        # for objects that have a `time` property to update `trialdefnition`
         for prop in self._allProps:
             setattr(self, prop, (data, select))
-        # self.channel = (data, select)
-        # self.time = (data, select)
-        # self.freq = (data, select)
-        # self.taper = (data, select)
-        # self.unit = (data, select)
-        # self.eventid = (data, select)
         
         # Ensure correct indexing: convert everything to lists for use w/`np.ix_`
         # if we ended up w/more than 2 list selectors
@@ -1215,10 +1212,69 @@ class Selector():
                         lgl = "`select: toilim` selection with `toilim[0]` < `toilim[1]`"
                         act = "selection range from {} to {}".format(timeSpec[0], timeSpec[1])
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
-            self._time = data._get_time(self.trials, toi=select.get("toi"), 
-                                        toilim=select.get("toilim"))
+            timing = data._get_time(self.trials, toi=select.get("toi"), toilim=select.get("toilim"))
+            
+            # Determine, whether time-selection is unordered/contains repetitions
+            # and set `self._timeShuffle` accordingly
+            if timeSpec is not None:
+                for tsel in timing:
+                    if isinstance(tsel, list):
+                        if np.diff(tsel).min() <= 0:
+                            self._timeShuffle = True
+                            break 
+
+            # Assign timing selection and copy over samplerate from source object
+            self._time = timing
+            self._samplerate = data.samplerate
+            
+            # Prepare new `trialdefinition` array corresponding to selection
+            self.trialdefinition = data
         else:
             return
+
+    @property
+    def trialdefinition(self):
+        return self._trialdefinition
+
+    @trialdefinition.setter
+    def trialdefinition(self, data):
+        
+        # Get original `trialdefinition` array for reference
+        # FIXME: obsolte w/new trialdefinition arrays
+        # trl = data.trialdefinition
+        trl = np.array(data.trialinfo)
+        t0 = np.array(data.t0).reshape((data.t0.size, 1))
+        trl = np.hstack([data.sampleinfo, t0, trl])
+
+        # Build new trialdefinition array using `t0`-offsets        
+        trlDef = np.zeros((len(self.trials), trl.shape[1]))
+        counter = 0
+        for tk, trlno in enumerate(self.trials):
+            tsel = self.time[tk]
+            if isinstance(tsel, slice):
+                start, stop, step = tsel.start, tsel.stop, tsel.step
+                if start is None:
+                    start = 0
+                if stop is None:
+                    stop = data._get_time([trlno], toilim=[-np.inf, np.inf])[0].stop
+                if step is None:
+                    step = 1
+                nSamples = (stop - start)/step
+                endSample = stop + data._t0[tk]
+                t0 = int(endSample - nSamples)
+            else:
+                nSamples = len(tsel)
+                endSample = np.max(tsel) + data._t0[tk]
+                t0 = data._t0[tk]
+            trlDef[tk, :3] = [counter, counter + nSamples, t0]
+            counter += nSamples
+        self._trialdefinition = trlDef
+        
+    @property
+    def timepoints(self):
+        if self._timeShuffle:
+            return np.array([[tvec[tp] + self.trialdefinition[tk, 2] for tp in range(len(tvec))]
+                            for tk, tvec in enumerate(self.time)])/self._samplerate
 
     @property
     def freq(self):
@@ -1435,7 +1491,7 @@ class Selector():
                     if start is None:
                         start = 0
                     if stop is None:
-                        stop = data._get_time([self.trials[tk]], toilim=[0, np.inf])[0].stop
+                        stop = data._get_time([self.trials[tk]], toilim=[-np.inf, np.inf])[0].stop
                     if step is None:
                         step = 1
                     self.time[tk] = list(range(start, stop, step))
@@ -1490,7 +1546,7 @@ class Selector():
                 ppdict[attr] = ""
     
         # Construct string for printing
-        msg = "Syncopy selector with "
+        msg = "Syncopy {} selector with ".format(self._dataClass)
         for pout in ppdict.values():
             msg += pout
                 

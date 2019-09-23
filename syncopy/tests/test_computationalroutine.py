@@ -4,7 +4,7 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-20 13:38:57>
+# Last modification time: <2019-09-23 17:42:14>
 
 import os
 import tempfile
@@ -38,38 +38,43 @@ class LowPassFilter(ComputationalRoutine):
     computeFunction = staticmethod(lowpass)
 
     def process_metadata(self, data, out):
-        if not self.keeptrials:
-            trl = np.array([[0, out.data.shape[0], 0]], dtype=int)
+        # FIXME: much of the following will be obsolte w/new `trialdefinition` setter
+        if data._selection is not None:
+            chanSec = data._selection.channel
+            trl = data._selection.trialdefinition
         else:
+            chanSec = slice(None)
             trl = np.zeros((len(self.trialList), 3), dtype=int)
-            tidx = data.dimord.index("time")
-            trial_lengths = [shp[tidx] for shp in self.targetShapes]
+            trial_lengths = np.diff(data.sampleinfo)
             cnt = 0
             for row, tlen in enumerate(trial_lengths):
                 trl[row, 0] = cnt
                 trl[row, 1] = cnt + tlen
+                trl[row, 2] = data._t0[row]
                 cnt += tlen
+        if not self.keeptrials:
+            trl = np.array([[0, out.data.shape[0], trl[0, 2]]], dtype=int)
         out.sampleinfo = trl[:, :2]
         out._t0 = trl[:, 2]
         out.trialinfo = trl[:, 3:]
         out.samplerate = data.samplerate
-        if data._selection is not None:
-            chanSec = data._selection.channel
-        else:
-            chanSec = slice(None)
         out.channel = np.array(data.channel[chanSec])
 
 
 @unwrap_cfg        
 def filter_manager(data, b=None, a=None, 
-                   out=None, select=None, chan_per_worker=None, keeptrials=True):
+                   out=None, select=None, chan_per_worker=None, keeptrials=True,
+                   parallel=False, parallel_store=None, log_dict=None):
     myfilter = LowPassFilter(b, a)
     myfilter.initialize(data, chan_per_worker=chan_per_worker, keeptrials=keeptrials)
     newOut = False
     if out is None:
         newOut = True
         out = AnalogData()
-    myfilter.compute(data, out)
+    myfilter.compute(data, out, 
+                     parallel=parallel, 
+                     parallel_store=parallel_store, 
+                     log_dict=log_dict)
     return out if newOut else None
 
 
@@ -99,7 +104,6 @@ class TestComputationalRoutine():
     trl = np.zeros((nTrials, 3), dtype="int")
     for ntrial in range(nTrials):
         trl[ntrial, :] = np.array([ntrial * fs, (ntrial + 1) * fs, -500])
-        # trl[ntrial, :] = np.array([ntrial * fs, (ntrial + 1) * fs, 0])
 
     # Create reference AnalogData objects with equidistant trial spacing
     sigdata = AnalogData(data=sig, samplerate=fs, trialdefinition=trl,
@@ -107,12 +111,10 @@ class TestComputationalRoutine():
     origdata = AnalogData(data=orig, samplerate=fs, trialdefinition=trl,
                           dimord=["time", "channel"])
     
-    # For parallel computation w/concurrent writing: predict no. of generated 
-    # HDF5 files that will make up virtual data-set in case of channel-chunking
+    # Set by-worker channel-count for channel-parallelization 
     chanPerWrkr = 7
-    nFiles = nTrials * (int(nChannels/chanPerWrkr) + int(nChannels % chanPerWrkr > 0))
     
-    # Data selections to be tested (w/`sigdata` and artificial data generated below)
+    # Data selections to be tested w/`sigdata` 
     sigdataSelections = [None, 
                          {"trials": [3, 1, 0],
                           "channels": ["channel" + str(i) for i in range(12, 28)][::-1]},
@@ -120,6 +122,8 @@ class TestComputationalRoutine():
                           "channels": range(0, int(nChannels / 2)),
                           "toilim": [-0.25, 0.25]}]
     
+    # Data selections to be tested w/`artdata` generated below (use fixed but arbitrary
+    # random number seed to randomly select time-points for `toi` (with repetitions)
     seed = np.random.RandomState(13)
     artdataSelections = [None, 
                          {"trials": [3, 1, 0],
@@ -132,43 +136,54 @@ class TestComputationalRoutine():
     # Error tolerances and respective quality metrics (depend on data selection!)
     tols = [1e-6, 1e-6, 1e-2]
     metrix = [np.max, np.max, np.mean]
+    
 
     def test_sequential_equidistant(self):
         for sk, select in enumerate(self.sigdataSelections):
             sel = Selector(self.sigdata, select)
-            
             out = filter_manager(self.sigdata, self.b, self.a, select=select)
+            
+            # check correct signal filtering (especially wrt data-selection)
             if select is None:
                 reference = self.orig
             else:
                 ref = []
                 for tk, trlno in enumerate(sel.trials):
                     ref.append(self.origdata.trials[trlno][sel.time[tk], sel.channel])
+                    # check for correct time selection
+                    assert np.array_equal(out.time[tk], self.sigdata.time[trlno][sel.time[tk]])
                 reference = np.vstack(ref)
             assert self.metrix[sk](np.abs(out.data - reference)) < self.tols[sk]
+            assert np.array_equal(out.channel, self.sigdata.channel[sel.channel])
             
             # # FIXME: ensure pre-selection is equivalent to in-place selection
             # out_sel = filter_manager(self.equidata.selectdata(select), self.b, self.a)
             # assert np.array_equal(out.data, out_sel.data)
+            # assert np.array_equal(out.channel, out_sel.channel)
+            # assert np.array_equal(out.time, out_sel.time)
             
             out = filter_manager(self.sigdata, self.b, self.a, select=select, keeptrials=False)
+
+            # check correct signal filtering (especially wrt data-selection)
             if select is None:
                 reference = self.orig[:self.t.size, :]
             else:
                 ref = np.zeros(out.trials[0].shape)
-                for tk, trl in enumerate(sel.trials):
-                    ref += self.origdata.trials[trl][sel.time[tk], sel.channel]
+                for tk, trlno in enumerate(sel.trials):
+                    ref += self.origdata.trials[trlno][sel.time[tk], sel.channel]
+                    # check for correct time selection (accounting for trial-averaging)
+                    assert np.array_equal(out.time[0], self.sigdata.time[0][sel.time[0]])
                 reference = ref / len(sel.trials)
             assert self.metrix[sk](np.abs(out.data - reference)) < self.tols[sk]
-
+            assert np.array_equal(out.channel, self.sigdata.channel[sel.channel])
+            
             # # FIXME: ensure pre-selection is equivalent to in-place selection
             # out_sel = filter_manager(self.equidata.selectdata(select), self.b, self.a, keeptrials=False)
             # assert np.array_equal(out.data, out_sel.data)
+            # assert np.array_equal(out.channel, out_sel.channel)
+            # assert np.array_equal(out.time, out_sel.time)
 
     def test_sequential_nonequidistant(self):
-        
-        
-        
         for overlapping in [False, True]:
             nonequidata = generate_artifical_data(nTrials=self.nTrials,
                                                   nChannels=self.nChannels,
@@ -183,65 +198,154 @@ class TestComputationalRoutine():
             for select in self.artdataSelections:
                 sel = Selector(nonequidata, select)
                 out = filter_manager(nonequidata, self.b, self.a, select=select)
-                
+
+                # compare expected w/actual shape of computed data                
                 reference = 0
                 for tk, trlno in enumerate(sel.trials):
                     reference += nonequidata.trials[trlno][sel.time[tk]].shape[0]
-                # import pdb; pdb.set_trace()
+                    # check for correct time selection
+                    # FIXME: remove `if` below as soon as `time` prop for lists is fixed
+                    if not isinstance(sel.time[0], list):
+                        assert np.array_equal(out.time[tk], nonequidata.time[trlno][sel.time[tk]])
+                        
                 assert out.data.shape[0] == reference
+                assert np.array_equal(out.channel, nonequidata.channel[sel.channel])
                 
                 # # FIXME: ensure pre-selection is equivalent to in-place selection
                 # out_sel = filter_manager(nonequidata.selectdata(select), self.b, self.a)
                 # assert np.array_equal(out.data, out_sel.data)
+                # assert np.array_equal(out.channel, out_sel.channel)
+                # assert np.array_equal(out.time, out_sel.time)
             
     def test_sequential_saveload(self):
-        myfilter = LowPassFilter(self.b, self.a)
-        myfilter.initialize(self.sigdata)
-        out = AnalogData()
-        myfilter.compute(self.sigdata, out, log_dict={"a": self.a, "b": self.b})
-        assert set(["a", "b"]) == set(out.cfg.keys())
-        assert np.array_equal(out.cfg["a"], self.a)
-        assert np.array_equal(out.cfg["b"], self.b)
-        # FIXME: check out.channel and out.time!
-        assert "lowpass" in out._log
-        
-        with tempfile.TemporaryDirectory() as tdir:
-            fname = os.path.join(tdir, "dummy")
-            out.save(fname)
-            dummy = load(fname)
-            assert "a" in dummy.cfg.keys()
-            assert "b" in dummy.cfg.keys()
-            assert np.array_equal(dummy.cfg["a"], self.a)
-            assert np.array_equal(dummy.cfg["b"], self.b)
-            assert np.abs(dummy.data - self.orig).max() < self.tol
-            del dummy, out
+        for sk, select in enumerate(self.sigdataSelections):
+            sel = Selector(self.sigdata, select)
+            out = filter_manager(self.sigdata, self.b, self.a, select=select,
+                                 log_dict={"a": self.a, "b": self.b})
+            
+            assert set(["a", "b"]) == set(out.cfg.keys())
+            assert np.array_equal(out.cfg["a"], self.a)
+            assert np.array_equal(out.cfg["b"], self.b)
+            assert len(out.trials) == len(sel.trials)
+            assert "lowpass" in out._log
+
+            # # FIXME: ensure pre-selection is equivalent to in-place selection
+            # out_sel = filter_manager(self.sigdata.selectdata(select), self.b, self.a, 
+            #                          log_dict={"a": self.a, "b": self.b})
+            # assert set(["a", "b"]) == set(out_sel.cfg.keys())
+            # assert np.array_equal(out.cfg["a"], out_sel.cfg["a"])
+            # assert np.array_equal(out.cfg["b"], out.cfg["b"])
+            # assert len(out.trials) == len(out_sel.trials)
+            # assert "lowpass" in out_sel._log
+            
+            # save and re-load result, ensure nothing funky happens
+            with tempfile.TemporaryDirectory() as tdir:
+                fname = os.path.join(tdir, "dummy")
+                out.save(fname)
+                dummy = load(fname)
+                assert "a" in dummy.cfg.keys()
+                assert "b" in dummy.cfg.keys()
+                assert np.array_equal(dummy.cfg["a"], self.a)
+                assert np.array_equal(dummy.cfg["b"], self.b)
+                assert out.filename == dummy.filename
+                if select is None:
+                    reference = self.orig
+                else:
+                    ref = []
+                    for tk, trlno in enumerate(sel.trials):
+                        ref.append(self.origdata.trials[trlno][sel.time[tk], sel.channel])
+                        assert np.array_equal(dummy.time[tk], self.sigdata.time[trlno][sel.time[tk]])
+                    reference = np.vstack(ref)
+                assert self.metrix[sk](np.abs(dummy.data - reference)) < self.tols[sk]
+                assert np.array_equal(dummy.channel, self.sigdata.channel[sel.channel])
+                del dummy, out
+                
+                # # FIXME: ensure out_sel is written/read correctly
+                # fname2 = os.path.join(tdir, "dummy2")
+                # out_sel.save(fname2)
+                # dummy2 = load(fname2)
+                # assert "a" in dummy2.cfg.keys()
+                # assert "b" in dummy2.cfg.keys()
+                # assert np.array_equal(dummy2.cfg["a"], dummy.cfg["a"])
+                # assert np.array_equal(dummy2.cfg["b"], dummy.cfg["b"])
+                # assert np.array_equal(dummy.data, dummy2.data)
+                # assert np.array_equal(dummy.channel, dummy2.channel)
+                # assert np.array_equal(dummy.time, dummy2.time)
+                # del dummy, dummy2, out, out_sel
 
     @skip_without_dask
     def test_parallel_equidistant(self, testcluster):
         client = dd.Client(testcluster)
         for parallel_store in [True, False]:
             for chan_per_worker in [None, self.chanPerWrkr]:
-                myfilter = LowPassFilter(self.b, self.a)
-                myfilter.initialize(self.sigdata, chan_per_worker=chan_per_worker)
-                out = AnalogData()
-                myfilter.compute(self.sigdata, out, parallel=True, parallel_store=parallel_store)
-                assert np.abs(out.data - self.orig).max() < self.tol
-                assert out.data.is_virtual == parallel_store
-                if parallel_store:
-                    nfiles = len(glob(os.path.join(myfilter.virtualDatasetDir, "*.h5")))
-                    if chan_per_worker is None:
-                        assert nfiles == self.nTrials
+                for sk, select in enumerate(self.sigdataSelections):
+                    # FIXME: remove as soon as channel-parallelization works w/channel selectors
+                    if chan_per_worker is not None:
+                        select = None
+                    sel = Selector(self.sigdata, select)
+                    out = filter_manager(self.sigdata, self.b, self.a, select=select,
+                                         chan_per_worker=chan_per_worker, parallel=True,
+                                         parallel_store=parallel_store)
+                    
+                    assert out.data.is_virtual == parallel_store
+
+                    # check correct signal filtering (especially wrt data-selection)
+                    if select is None:
+                        reference = self.orig
                     else:
-                        assert nfiles == self.nFiles
-        
-                myfilter = LowPassFilter(self.b, self.a)
-                myfilter.initialize(self.sigdata, 
-                                    chan_per_worker=chan_per_worker,
-                                    keeptrials=False)
-                out = AnalogData()
-                myfilter.compute(self.sigdata, out, parallel=True, parallel_store=parallel_store)
-                assert np.abs(out.data - self.orig[:self.t.size, :]).max() < self.tol
-                assert out.data.is_virtual == False
+                        ref = []
+                        for tk, trlno in enumerate(sel.trials):
+                            ref.append(self.origdata.trials[trlno][sel.time[tk], sel.channel])
+                            # check for correct time selection
+                            assert np.array_equal(out.time[tk], self.sigdata.time[trlno][sel.time[tk]])
+                        reference = np.vstack(ref)
+                    assert self.metrix[sk](np.abs(out.data - reference)) < self.tols[sk]
+                    assert np.array_equal(out.channel, self.sigdata.channel[sel.channel])
+
+                    # ensure correct no. HDF5 files were generated for virtual data-set
+                    if parallel_store:
+                        nfiles = len(glob(os.path.join(os.path.splitext(out.filename)[0], "*.h5")))
+                        if chan_per_worker is None:
+                            assert nfiles == len(sel.trials)
+                        else:
+                            assert nfiles == len(sel.trials) * (int(out.channel.size / 
+                                                                    chan_per_worker) + 
+                                                                int(out.channel.size % chan_per_worker > 0))
+
+                    # # FIXME: ensure pre-selection is equivalent to in-place selection
+                    # out_sel = filter_manager(self.sigdata.selectdata(select), self.b, self.a,
+                    #                          chan_per_worker=chan_per_worker, parallel=True,
+                    #                          parallel_store=parallel_store)
+                    # assert np.array_equal(out.data, out_sel.data)
+                    # assert np.array_equal(out.channel, out_sel.channel)
+                    # assert np.array_equal(out.time, out_sel.time)
+
+                    out = filter_manager(self.sigdata, self.b, self.a, select=select,
+                                         parallel=True, parallel_store=parallel_store,
+                                         keeptrials=False)
+                    
+                    # check correct signal filtering (especially wrt data-selection)
+                    if select is None:
+                        reference = self.orig[:self.t.size, :]
+                    else:
+                        ref = np.zeros(out.trials[0].shape)
+                        for tk, trlno in enumerate(sel.trials):
+                            ref += self.origdata.trials[trlno][sel.time[tk], sel.channel]
+                            # check for correct time selection (accounting for trial-averaging)
+                            assert np.array_equal(out.time[0], self.sigdata.time[0][sel.time[0]])
+                        reference = ref / len(sel.trials)
+                    assert self.metrix[sk](np.abs(out.data - reference)) < self.tols[sk]
+                    assert np.array_equal(out.channel, self.sigdata.channel[sel.channel])
+                    assert out.data.is_virtual == False
+
+                    # # FIXME: ensure pre-selection is equivalent to in-place selection
+                    # out_sel = filter_manager(self.sigdata.selectdata(select), self.b, self.a,
+                    #                          parallel=True, parallel_store=parallel_store, 
+                    #                          keeptrials=False)
+                    # assert np.array_equal(out.data, out_sel.data)
+                    # assert np.array_equal(out.channel, out_sel.channel)
+                    # assert np.array_equal(out.time, out_sel.time)
+
         client.close()
     
     @skip_without_dask
@@ -253,49 +357,119 @@ class TestComputationalRoutine():
                                                     equidistant=False,
                                                     overlapping=overlapping,
                                                     inmemory=False)
+            
+            # unsorted, w/repetitions
+            toi = self.seed.choice(nonequidata.time[0], int(nonequidata.time[0].size))
+            self.artdataSelections[1]["toi"] = toi
+            
             for parallel_store in [True, False]:
                 for chan_per_worker in [None, self.chanPerWrkr]:
-                    out = AnalogData()
-                    myfilter = LowPassFilter(self.b, self.a)
-                    myfilter.initialize(nonequidata, chan_per_worker=chan_per_worker)
-                    myfilter.compute(nonequidata, out, parallel=True, parallel_store=parallel_store)
-                    assert out.data.shape[0] == np.diff(nonequidata.sampleinfo).sum()
-                    for tk, trl in enumerate(out.trials):
-                        assert trl.shape[0] == np.diff(nonequidata.sampleinfo[tk, :])
-                    assert out.data.is_virtual == parallel_store
-                    if parallel_store:
-                        nfiles = len(glob(os.path.join(myfilter.virtualDatasetDir, "*.h5")))
-                        if chan_per_worker is None:
-                            assert nfiles == self.nTrials
-                        else:
-                            assert nfiles == self.nFiles
+                    for select in self.artdataSelections:
+                        # FIXME: remove as soon as channel-parallelization works w/channel selectors
+                        if chan_per_worker is not None:
+                            select = None
+                        sel = Selector(nonequidata, select)
+                        out = filter_manager(nonequidata, self.b, self.a, select=select,
+                                             chan_per_worker=chan_per_worker, parallel=True,
+                                             parallel_store=parallel_store)
+
+                        # compare expected w/actual shape of computed data                
+                        reference = 0
+                        for tk, trlno in enumerate(sel.trials):
+                            reference += nonequidata.trials[trlno][sel.time[tk]].shape[0]
+                            # check for correct time selection
+                            # FIXME: remove `if` below as soon as `time` prop for lists is fixed
+                            if not isinstance(sel.time[0], list):
+                                assert np.array_equal(out.time[tk], nonequidata.time[trlno][sel.time[tk]])
+                        assert out.data.shape[0] == reference
+                        assert np.array_equal(out.channel, nonequidata.channel[sel.channel])
+                        assert out.data.is_virtual == parallel_store
+                        
+                        if parallel_store:
+                            nfiles = len(glob(os.path.join(os.path.splitext(out.filename)[0], "*.h5")))
+                            if chan_per_worker is None:
+                                assert nfiles == len(sel.trials)
+                            else:
+                                assert nfiles == len(sel.trials) * (int(out.channel.size / 
+                                                                        chan_per_worker) + 
+                                                                    int(out.channel.size % chan_per_worker > 0))
+
+                        # # FIXME: ensure pre-selection is equivalent to in-place selection
+                        # out_sel = filter_manager(nonequidata.selectdata(select), self.b, self.a,
+                        #                          chan_per_worker=chan_per_worker, parallel=True,
+                        #                          parallel_store=parallel_store)
+                        # assert np.array_equal(out.data, out_sel.data)
+                        # assert np.array_equal(out.channel, out_sel.channel)
+                        # assert np.array_equal(out.time, out_sel.time)
+
         client.close()
 
     @skip_without_dask
     def test_parallel_saveload(self, testcluster):
         client = dd.Client(testcluster)
         for parallel_store in [True, False]:
-            myfilter = LowPassFilter(self.b, self.a)
-            myfilter.initialize(self.sigdata)
-            out = AnalogData()
-            myfilter.compute(self.sigdata, out, parallel=True, parallel_store=parallel_store, 
-                             log_dict={"a": self.a, "b": self.b})
-            
-            assert set(["a", "b"]) == set(out.cfg.keys())
-            assert np.array_equal(out.cfg["a"], self.a)
-            assert np.array_equal(out.cfg["b"], self.b)
-            assert "lowpass" in out._log
-            
-            with tempfile.TemporaryDirectory() as tdir:
-                fname = os.path.join(tdir, "dummy")
-                out.save(fname)
-                dummy = load(fname)
-                assert "a" in dummy.cfg.keys()
-                assert "b" in dummy.cfg.keys()
-                assert np.array_equal(dummy.cfg["a"], self.a)
-                assert np.array_equal(dummy.cfg["b"], self.b)
-                assert np.abs(dummy.data - self.orig).max() < self.tol
-                assert not out.data.is_virtual
-                assert out.filename == dummy.filename
-                del out, dummy
+            for sk, select in enumerate(self.sigdataSelections):
+                sel = Selector(self.sigdata, select)
+                # myfilter = LowPassFilter(self.b, self.a)
+                # myfilter.initialize(self.sigdata)
+                # out = AnalogData()
+                # myfilter.compute(self.sigdata, out, parallel=True, parallel_store=parallel_store, 
+                #                 log_dict={"a": self.a, "b": self.b})
+                out = filter_manager(self.sigdata, self.b, self.a, select=select,
+                                     log_dict={"a": self.a, "b": self.b},
+                                     parallel=True, parallel_store=parallel_store)
+                
+                assert set(["a", "b"]) == set(out.cfg.keys())
+                assert np.array_equal(out.cfg["a"], self.a)
+                assert np.array_equal(out.cfg["b"], self.b)
+                assert len(out.trials) == len(sel.trials)
+                assert "lowpass" in out._log
+
+                # # FIXME: ensure pre-selection is equivalent to in-place selection
+                # out_sel = filter_manager(self.sigdata.selectdata(select), self.b, self.a,
+                #                          log_dict={"a": self.a, "b": self.b},
+                #                          parallel=True, parallel_store=parallel_store)
+                # assert set(["a", "b"]) == set(out_sel.cfg.keys())
+                # assert np.array_equal(out.cfg["a"], out_sel.cfg["a"])
+                # assert np.array_equal(out.cfg["b"], out.cfg["b"])
+                # assert len(out.trials) == len(out_sel.trials)
+                # assert "lowpass" in out_sel._log
+                
+                # save and re-load result, ensure nothing funky happens
+                with tempfile.TemporaryDirectory() as tdir:
+                    fname = os.path.join(tdir, "dummy")
+                    out.save(fname)
+                    dummy = load(fname)
+                    assert "a" in dummy.cfg.keys()
+                    assert "b" in dummy.cfg.keys()
+                    assert np.array_equal(dummy.cfg["a"], self.a)
+                    assert np.array_equal(dummy.cfg["b"], self.b)
+                    assert out.filename == dummy.filename
+                    assert not out.data.is_virtual
+                    if select is None:
+                        reference = self.orig
+                    else:
+                        ref = []
+                        for tk, trlno in enumerate(sel.trials):
+                            ref.append(self.origdata.trials[trlno][sel.time[tk], sel.channel])
+                            assert np.array_equal(dummy.time[tk], self.sigdata.time[trlno][sel.time[tk]])
+                        reference = np.vstack(ref)
+                    assert self.metrix[sk](np.abs(dummy.data - reference)) < self.tols[sk]
+                    assert np.array_equal(dummy.channel, self.sigdata.channel[sel.channel])
+                    del dummy, out
+                    
+                    # # FIXME: ensure out_sel is written/read correctly
+                    # fname2 = os.path.join(tdir, "dummy2")
+                    # out_sel.save(fname2)
+                    # dummy2 = load(fname2)
+                    # assert "a" in dummy2.cfg.keys()
+                    # assert "b" in dummy2.cfg.keys()
+                    # assert np.array_equal(dummy2.cfg["a"], dummy.cfg["a"])
+                    # assert np.array_equal(dummy2.cfg["b"], dummy.cfg["b"])
+                    # assert np.array_equal(dummy.data, dummy2.data)
+                    # assert np.array_equal(dummy.channel, dummy2.channel)
+                    # assert np.array_equal(dummy.time, dummy2.time)
+                    # assert not dummy2.data.is_virtual
+                    # del dummy, dummy2, out, out_sel
+                    
         client.close()

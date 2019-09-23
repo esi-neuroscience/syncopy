@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-20 14:10:34>
+# Last modification time: <2019-09-23 17:13:55>
 
 # Builtin/3rd party package imports
 import os
@@ -321,11 +321,11 @@ class ComputationalRoutine(ABC):
                     chanstack += res[outchanidx]
                     blockstack += block
                     
-        # If the determined source layout contains unordered list and/or repetitions
-        # or a provided data selector requires fancy array indexing, prepare a separate
-        # `sourceSelectors` list that is used to extract data from HDF5, then
-        # `sourceLayout` selects the requested pieces from the extracted NumPy array
-        
+        # If the determined source layout contains unordered list and/or index 
+        # repetitions, set `self.useFancyIdx` to `True` and prepare a separate
+        # `sourceSelectors` list that is used to extract data from HDF5. In this case
+        # `sourceSelectors` is used to extract data from HDF5, while `sourceLayout` 
+        # selects the requested pieces from the extracted NumPy array
         for grd in sourceLayout:
             if any([np.diff(sel).min() <= 0 if isinstance(sel, list) else False for sel in grd]):
                 self.useFancyIdx = True 
@@ -335,7 +335,7 @@ class ComputationalRoutine(ABC):
             sourceSelectors = []
             for gk, grd in enumerate(sourceLayout):
                 ingrid = list(grd)
-                sigrid = []]
+                sigrid = []
                 for sk, sel in enumerate(grd):
                     if isinstance(sel, list):
                         selarr = np.array(sel, dtype=np.intp)
@@ -723,40 +723,17 @@ class ComputationalRoutine(ABC):
             target = h5fout[self.datasetName]
             
             for nblock in tqdm(range(len(self.trialList))):
-                
+
+                # Extract respective indexing tuples from constructed lists                
                 ingrid = self.sourceLayout[nblock]
                 sigrid = self.sourceSelectors[nblock]
                 outgrid = self.targetLayout[nblock]
-                
-                # # Work around HDF5 limitations: indices must be sorted -> sort
-                # # any unsorted list entries of `ingrid` but keep reference of 
-                # # original order in corresponding entry of `sigrid`
-                # outgrid = self.targetLayout[nblock]
-                # ingrid = list(self.sourceLayout[nblock])
-                # sigrid = [slice(None)] * len(ingrid)
-                # # hagrid = [slice(None)] * len(ingrid)
-                # useFancyIdx = False
-                # for sk, sel in enumerate(ingrid):
-                #     if isinstance(sel, list):
-                #         if np.diff(sel).min() <= 0:
-                #             # sigrid[sk] = np.argsort(np.argsort(sel))
-                #             # sel.sort()
-                #             # ingrid[sk] = slice(sel[0], sel[-1] +1, 1)
-                #             # hagrid[sk] = sel
-                #             selarr = np.array(sel, dtype=np.intp)
-                #             sigrid[sk] = np.array(selarr) - selarr.min()
-                #             ingrid[sk] = slice(selarr.min(), selarr.max() + 1, 1)
 
                 # Get source data as NumPy array
                 if self.hdr is None:
-                    # import pdb; pdb.set_trace()
                     if isHDF:
                         if self.useFancyIdx:
-                            try:
-                                arr = np.array(source[tuple(ingrid)])[np.ix_(*sigrid)]
-                            except:
-                                import pdb; pdb.set_trace()
-                                
+                            arr = np.array(source[tuple(ingrid)])[np.ix_(*sigrid)]
                         else:
                             arr = np.array(source[tuple(ingrid)])
                     else:
@@ -765,17 +742,6 @@ class ComputationalRoutine(ABC):
                         else:
                             arr = np.array(source[ingrid])
                     source.flush()
-                # if self.hdr is None:
-                #     if self.useFancyIdx:
-                #         arr = np.array(source[tuple(ingrid)])[np.ix_(*sigrid)]
-                #     else:
-                #         arr = np.array(source[tuple(ingrid)])
-                #     # try:
-                #     #     # arr = np.array(source[tuple(ingrid)])[tuple(sigrid)]
-                #     # except:
-                #     #     pass
-                #     #     # import pdb; pdb.set_trace()
-                #     source.flush()
                 else:
                     idx = ingrid
                     if self.useFancyIdx:
@@ -802,7 +768,8 @@ class ComputationalRoutine(ABC):
             # If trial-averaging was requested, normalize computed sum to get mean
             if not self.keeptrials:
                 target[()] /= len(self.trialList)
-        
+
+        # If source was HDF5 file, close it to prevent access errors
         if isHDF:
             source.file.close()    
             
