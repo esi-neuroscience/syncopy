@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-23 17:13:55>
+# Last modification time: <2019-09-24 16:01:24>
 
 # Builtin/3rd party package imports
 import os
@@ -115,27 +115,76 @@ class ComputationalRoutine(ABC):
         obj : instance of :class:`ComputationalRoutine`-subclass
            Usable class instance for processing Syncopy data objects. 
         """
+
+        # dict of default keyword values accepted by `computeFunction`
         self.defaultCfg = get_defaults(self.computeFunction)
+        
+        # dict of actual keyword argument values to `computeFunction` provided by user
         self.cfg = copy(self.defaultCfg)
         for key in set(self.cfg.keys()).intersection(kwargs.keys()):
             self.cfg[key] = kwargs[key]
+            
+        # tuple of positional arguments to `computeFunction` provided by user
         self.argv = argv
+        
+        # binary flag: if `True`, average across trials, do nothing otherwise
         self.keeptrials = None
+        
+        # acceptable total waiting time (in sec) for release/acquisition of sequential writing mutex
         self.timeout = None
+        
+        # full shape of final output dataset (all trials, all chunks, etc.)
         self.outputShape = None
+        
+        # numerical type of output dataset
         self.dtype = None
+        
+        # list of dicts encoding header info of raw binary input files (experimental!)
         self.hdr = None
+        
+        # list of trial numbers to process (either `data.trials` or `data._selection.trials`)
         self.trialList = None
+        
+        # list of index-tuples for extracting trial-chunks from input HDF5 dataset 
+        # >>> MUST be ordered, no repetitions! <<<
+        # indices are ABSOLUTE, i.e., wrt entire dataset, not just current trial!
         self.sourceLayout = None
+        
+        # list of index-tuples for re-ordering NumPy arrays extracted w/`self.sourceLayout` 
+        # >>> can be unordered w/repetitions <<<
+        # indices are RELATIVE, i.e., wrt current trial!
         self.sourceSelectors = None
+        
+        # list of index-tuples for storing trial-chunk result in output dataset 
+        # >>> MUST be ordered, no repetitions! <<<
+        # indices are ABSOLUTE, i.e., wrt entire dataset, not just current trial
         self.targetLayout = None
+        
+        # list of shape-tuples of trial-chunk results
         self.targetShapes = None
+        
+        # binary flag: if `True`, use fancy array indexing via `np.ix_` to extract 
+        # data from input via `self.sourceLayout` + `self.sourceSelectors`; if `False`,
+        # only use `self.sourceLayout` (selections ordered, no reps)
         self.useFancyIdx = None
+        
+        # integer, max. memory footprint of largest input array piece (in bytes)
         self.chunkMem = None
+        
+        # directory for storing source-HDF5 files making up virtual output dataset
         self.virtualDatasetDir = None
+        
+        # h5py layout encoding shape/geometry of file sources within virtual output dataset
         self.VirtualDatasetLayout = None
+        
+        # name of output dataset
         self.datasetName = None
+        
+        # tmp holding var for preserving original access mode of `data`
         self.dataMode = None
+        
+        # time (in seconds) b/w querying state of sequential writing mutex 
+        # (until `self.timeout` is reached)
         self.sleepTime = 0.1
 
     def initialize(self, data, chan_per_worker=None, timeout=300, keeptrials=True):
@@ -181,7 +230,7 @@ class ComputationalRoutine(ABC):
         self.keeptrials = keeptrials
         
         # Determine if data-selection was provided; if so, extract trials and check
-        # whether selection requries fancy array indexing
+        # whether selection requires fancy array indexing
         if data._selection is not None:
             self.trialList = data._selection.trials
             self.useFancyIdx = data._selection._useFancy
@@ -321,16 +370,20 @@ class ComputationalRoutine(ABC):
                     chanstack += res[outchanidx]
                     blockstack += block
                     
-        # If the determined source layout contains unordered list and/or index 
+        # If the determined source layout contains unordered lists and/or index 
         # repetitions, set `self.useFancyIdx` to `True` and prepare a separate
-        # `sourceSelectors` list that is used to extract data from HDF5. In this case
-        # `sourceSelectors` is used to extract data from HDF5, while `sourceLayout` 
-        # selects the requested pieces from the extracted NumPy array
+        # `sourceSelectors` list that is used in addition to `sourceLayout` for 
+        # data extraction. 
+        # In this case `sourceLayout` uses ABSOLUTE indices (indices wrt to size 
+        # of ENTIRE DATASET) that are SORTED W/O REPS to extract a NumPy array 
+        # of appropriate size from HDF5. 
+        # Then `sourceLayout` uses RELATIVE indices (indices wrt to size of CURRENT 
+        # TRIAL) that can be UNSORTED W/REPS to actually perform the requested 
+        # selection on the NumPy array extracted w/`sourceLayout`. 
         for grd in sourceLayout:
             if any([np.diff(sel).min() <= 0 if isinstance(sel, list) else False for sel in grd]):
                 self.useFancyIdx = True 
                 break
-
         if self.useFancyIdx:
             sourceSelectors = []
             for gk, grd in enumerate(sourceLayout):
@@ -348,21 +401,6 @@ class ComputationalRoutine(ABC):
         else:
             sourceSelectors = [Ellipsis] * len(sourceLayout)
             
-        # sourceSelectors = []
-        # for gk, grd in enumerate(sourceLayout):
-        #     ingrid = list(grd)
-        #     sigrid = [slice(None)] * len(ingrid)
-        #     for sk, sel in enumerate(grd):
-        #         if isinstance(sel, list):
-        #             if np.diff(sel).min() <= 0 or self.useFancyIdx:
-        #                 selarr = np.array(sel, dtype=np.intp)
-        #                 sigrid[sk] = np.array(selarr) - selarr.min()
-        #                 ingrid[sk] = slice(selarr.min(), selarr.max() + 1, 1)
-        #                 self.useFancyIdx = True
-        #     sourceSelectors.append(tuple(sigrid))
-        #     sourceLayout[gk] = tuple(ingrid)
-
-        
         # Store determined shapes and grid layout
         self.sourceLayout = sourceLayout
         self.sourceSelectors = sourceSelectors
@@ -705,7 +743,6 @@ class ComputationalRoutine(ABC):
         compute : management routine invoking parallel/sequential compute kernels
         compute_parallel : concurrent processing counterpart of this method
         """
-        
         
         # Initialize on-disk backing device (either HDF5 file or memmap)
         if self.hdr is None:

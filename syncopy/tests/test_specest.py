@@ -100,14 +100,14 @@ class TestMTMFFT():
 
     def test_dpss(self):
         # ensure default setting results in multiple tapers
-        spec = freqanalysis(self.adata, method="mtmfft", taper="dpss")
-        assert spec.taper.size > 1
-        assert np.unique(spec.taper).size == 1
+        # spec = freqanalysis(self.adata, method="mtmfft", taper="dpss")
+        # assert spec.taper.size > 1
+        # assert np.unique(spec.taper).size == 1
 
         # specify tapers
-        spec = freqanalysis(self.adata, method="mtmfft", taper="dpss",
-                            tapsmofrq=7)
-        assert spec.taper.size == 7
+        # spec = freqanalysis(self.adata, method="mtmfft", taper="dpss",
+        #                     tapsmofrq=7)
+        # assert spec.taper.size == 7
 
         # non-equidistant data w/multiple tapers
         cfg = StructDict()
@@ -191,6 +191,7 @@ class TestMTMFFT():
         freqanalysis(cfg)
         assert cfg.out.taper.size == 1
 
+    @pytest.mark.skip(reason="VirtualData is currently not supported")
     def test_vdata(self):
         # test constant padding w/`VirtualData` objects (trials have identical lengths)
         with tempfile.TemporaryDirectory() as tdir:

@@ -107,8 +107,35 @@ class DiscreteData(BaseData, ABC):
     # Helper function that extracts by-trial timing-related indices
     def _get_time(self, trials, toi=None, toilim=None):
         """
-        Coming soon... 
-        Error checking is performed by `Selector` class
+        Get relative by-trial indices of time-selections
+        
+        Parameters
+        ----------
+        trials : list
+            List of trial-indices to perform selection on
+        toi : None or list
+            Time-points to be selected (in seconds) on a by-trial scale. 
+        toilim : None or list
+            Time-window to be selected (in seconds) on a by-trial scale
+            
+        Returns
+        -------
+        timing : list of lists
+            List of by-trial sample-indices corresponding to provided 
+            time-selection. If both `toi` and `toilim` are `None`, `timing`
+            is a list of universal (i.e., ``slice(None)``) selectors. 
+            
+        Notes
+        -----
+        This class method is intended to be solely used by 
+        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely 
+        auxiliary character. Therefore, all input sanitization and error checking
+        is left to :class:`syncopy.datatype.base_data.Selector` and not 
+        performed here. 
+        
+        See also
+        --------
+        syncopy.datatype.base_data.Selector : Syncopy data selectors
         """
         timing = []
         if toilim is not None:
@@ -239,8 +266,33 @@ class SpikeData(DiscreteData):
     # Helper function that extracts by-trial unit-indices
     def _get_unit(self, trials, units=None):
         """
-        Coming soon... 
-        No fuzzy matching allowed!
+        Get relative by-trial indices of unit selections
+        
+        Parameters
+        ----------
+        trials : list
+            List of trial-indices to perform selection on
+        units : None or list
+            List of unit-indices to be selected
+            
+        Returns
+        -------
+        indices : list of lists
+            List of by-trial sample-indices corresponding to provided 
+            unit-selection. If `units` is `None`, `indices` is a list of universal 
+            (i.e., ``slice(None)``) selectors. 
+            
+        Notes
+        -----
+        This class method is intended to be solely used by 
+        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely 
+        auxiliary character. Therefore, all input sanitization and error checking
+        is left to :class:`syncopy.datatype.base_data.Selector` and not 
+        performed here. 
+        
+        See also
+        --------
+        syncopy.datatype.base_data.Selector : Syncopy data selectors
         """
         if units is not None:
             indices = []
@@ -370,8 +422,33 @@ class EventData(DiscreteData):
     # Helper function that extracts by-trial eventid-indices
     def _get_eventid(self, trials, eventids=None):
         """
-        Coming soon... 
-        No fuzzy matching allowed!
+        Get relative by-trial indices of event-id selections
+        
+        Parameters
+        ----------
+        trials : list
+            List of trial-indices to perform selection on
+        eventids : None or list
+            List of event-id-indices to be selected
+            
+        Returns
+        -------
+        indices : list of lists
+            List of by-trial sample-indices corresponding to provided 
+            event-id-selection. If `eventids` is `None`, `indices` is a list of 
+            universal (i.e., ``slice(None)``) selectors. 
+            
+        Notes
+        -----
+        This class method is intended to be solely used by 
+        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely 
+        auxiliary character. Therefore, all input sanitization and error checking
+        is left to :class:`syncopy.datatype.base_data.Selector` and not 
+        performed here. 
+        
+        See also
+        --------
+        syncopy.datatype.base_data.Selector : Syncopy data selectors
         """
         if eventids is not None:
             indices = []

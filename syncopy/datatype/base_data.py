@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-23 17:41:49>
+# Last modification time: <2019-09-24 15:40:02>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -1020,7 +1020,7 @@ class StructDict(dict):
 
 class FauxTrial():
     """
-    Stand-in mockup for NumPy arrays representing trial data
+    Stand-in mockup of NumPy arrays representing trial data
     
     Parameters
     ----------
@@ -1081,15 +1081,134 @@ class FauxTrial():
 
 class Selector():
     """
-    Coming soon...
+    Auxiliary class for data selection
+
+    Parameters
+    ----------
+    data : Syncopy data object
+        A non-empty Syncopy data object
+    select : dict or :class:`StructDict` or None
+        Python dictionary or Syncopy :class:`StructDict` formatted for
+    data selection. Supported keys are
+
+    * 'trials' : list of integers
+      trial numbers to be selected; can include repetitions and need not
+      be sorted (e.g., ``trials = [0, 1, 0, 0, 2]`` is valid) but must
+      be finite and not NaN. 
+    * 'channels' : list (integers or strings), slice or range
+      channel-specification; can be a list of channel names
+      (``['channel3', 'channel1']``), a list of channel indices (``[3, 5]``),
+      slice (``slice(3, 10)``) or range (``range(3, 10)``). Note that
+      channels are counted starting at zero, i.e., ``channels = [0, 1, 2]``
+      or ``channels = slice(0, 3)`` selects the first up to (and including)
+      the third channel. Selections can be unsorted and may include
+      repetitions but must match exactly, be finite and not NaN. 
+    * 'toi' : list
+      time-points to be selected (in seconds) in each trial. Timing is
+      expected to be on a by-trial basis (e.g., relative to trigger onsets). 
+      Selections can be approximate, unsorted and may include repetitions
+      but must be finite and not NaN. Fuzzy matching is performed for
+      approximate selections (i.e., selected time-points are close but not
+      identical to timing information found in `data`) using a nearest-
+      neighbor search for elements of `toi` in `data.time`. 
+    * 'toilim' : list
+      time-window ``[tmin, tmax]`` (in seconds) to be extracted from
+      each trial. Window specifications must be sorted (e.g., ``[2.2, 1.1]``
+      is invalid) and not NaN but may be unbounded (e.g., ``[1.1, np.inf]``
+      is valid).
+    * 'foi' : list
+      frequencies to be selected (in Hz). Selections can be approximate,
+      unsorted and may include repetitions but must be finite and not NaN.
+      Fuzzy matching is performed for approximate selections (i.e., selected
+      frequencies are close but not identical to frequencies found in
+      `data`) using a nearest-neighbor search for elements of `foi` in
+      `data.freq`. 
+    * 'foilim' : list
+      frequency-window ``[fmin, fmax]`` (in Hz) to be extracted. Window
+      specifications must be sorted (e.g., ``[90, 70]`` is invalid) and
+      not NaN but may be unbounded (e.g., ``[-np.inf, 60.5]`` is valid).
+    * 'tapers' : list (integers or strings), slice or range
+      taper-specification; can be a list of taper names
+      (``['dpss-win-1', 'dpss-win-3']``), a list of taper indices
+      (``[3, 5]``), slice (``slice(3, 10)``) or range (``range(3, 10)``).
+      Note that tapers are counted starting at zero, i.e., ``tapers = [0, 1, 2]``
+      or ``tapers = slice(0, 3)`` selects the first up to (and including)
+      the third taper. Selections can be unsorted and may include
+      repetitions but must match exactly, be finite and not NaN. 
+    * 'units' : list (integers or strings), slice or range
+      unit-specification; can be a list of unit names
+      (``['unit10', 'unit3']``), a list of unit indices (``[3, 5]``),
+      slice (``slice(3, 10)``) or range (``range(3, 10)``). Note that
+      units are counted starting at zero, i.e., ``units = [0, 1, 2]``
+      or ``units = slice(0, 3)`` selects the first up to (and including)
+      the third unit. Selections can be unsorted and may include
+      repetitions but must match exactly, be finite and not NaN.
+    * 'eventids' : list of integers, slice or range
+      event-id-specification; can be a list of event-id codes (``[2, 0, 1]``),
+      slice (``slice(0, 2)``) or range (``range(0, 2)``). Selections can
+      be unsorted and may include repetitions but must match exactly, be
+      finite and not NaN.
+
+    Any property of `data` that is not specifically accessed via one of
+    the above keys is taken as is, e.g., ``select = {'trials': [1, 2]}``
+    selects the entire contents of trials no. 2 and 3, while
+    ``select = {'channels': range(0, 50)}`` selects the first 50 channels
+    of `data` across all defined trials. Consequently, if `select` is
+    `None`, the entire contents of `data` is selected. 
     
-    Selections may be unsorted... (e.g., `trials = [1, 5, 3]`)
-    toi = [inf, 0, 3] is invalid
-    toilim = [3, inf] is valid!
-    toilim is not(!) checked for consistency wrt to data.time! (to avoid having
-    to plough through a bazillion arrays)
-    
-    select = None selects everything
+    Returns
+    -------
+    selection : Syncopy :class:`Selector` object
+        An instance of this class whose properties are either lists or slices
+        to be used as (fancy) indexing tuples. Note that the properties `time`, 
+        `unit` and `eventid` are **by-trial** selections, i.e., list of lists 
+        and/or slices encoding per-trial sample-indices, e.g., ``selection.time[0]`` 
+        is intended to be used with ``data.trials[selection.trials[0]]``. 
+
+    Notes
+    -----
+    Whenever possible, this class performs extensive input parsing to ensure
+    consistency of provided selectors. Some exceptions to this rule include
+    `toi` and `toilim`: depending on the size of `data` and the number of
+    defined trials, `data.time` might be a list of arrays of substantial
+    size. To not overflow memory and slow down computations, neither `toi`
+    nor `toilim` is checked for consistency with respect to `data.time`, i.e.,
+    the code does not verify that min/max of `toi`/`toilim` are within the
+    bounds of `data.time` for each selected trial.
+
+    For objects that have a `time` property, a suitable new `trialdefinition`
+    array (accessible via the identically named `Selector` class property)
+    is automatically constructed based on the provided selection. For unsorted
+    time-selections with or without repetitions, the `timepoints` property
+    encodes the timing of the selected (discrete) points. To permit this
+    functionality, the input object's samplerate is stored in the identically
+    named hidden attribute `_samplerate`. In addition, the hidden `_timeShuffle`
+    attribute is a binary flag encoding whether selected time-points are
+    unordered and/or contain repetitions (`Selector._timeShuffle = True`).
+
+    By default, each selection property tries to convert a user-provided
+    selection to a contiguous slice-indexer so that simple NumPy array
+    indexing can be used for best performance. However, after setting all
+    selection indices appropriate for the input object, a consistency
+    check is performed by :meth:`_make_consistent` to ensure that the
+    calculated indices can actually be jointly used on a multi-dimensional
+    NumPy array without violating indexing arithmetic. Thus, if a given
+    Selector instance ends up containing more than two conjoint index-lists,
+    all other selection properties are converted (if necessary) to lists as well
+    for use with :func:`numpy.ix_`. These selections require special array
+    manipulation techniques (colloquially referred to as "fancy" or "advanced"
+    indexing) and the :class:`Selector` marks such indexers by setting the
+    hidden `self._useFancy` attribute to `True`. Note that :func:`numpy.ix_`
+    always creates copies of the indexed reference array, hence, the attempt
+    to use slice-based indexing whenever possible. 
+
+    Examples
+    --------
+    See :func:`syncopy.selectdata` for usage examples.
+
+    See also
+    --------
+    syncopy.selectdata : extract data selections from Syncopy objects
     """
     
     def __init__(self, data, select):
@@ -1115,8 +1234,9 @@ class Selector():
         # Save class of input object for posterity
         self._dataClass = data.__class__.__name__
         
-        # Set up a list of all selectable properties throughout our classes
+        # Set up lists of (a) all selectable properties and (b) trial-dependent ones
         self._allProps = ["channel", "time", "freq", "taper", "unit", "eventid"]
+        self._byTrialProps = ["time", "unit", "eventid"]
         
         # Assign defaults (trials are not a "real" property, handle it separately, 
         # same goes for `trialdefinition`)
@@ -1134,7 +1254,7 @@ class Selector():
 
         # Now set any possible selection attribute (depending on type of `data`)
         # Note: `trialdefinition` is set by `time.setter` - it only makes sense
-        # for objects that have a `time` property to update `trialdefnition`
+        # for objects that have a `time` property to update `trialdefinition`
         for prop in self._allProps:
             setattr(self, prop, (data, select))
         
@@ -1144,6 +1264,7 @@ class Selector():
         
     @property
     def trials(self):
+        """Index list of selected trials"""
         return self._trials
     
     @trials.setter
@@ -1165,6 +1286,7 @@ class Selector():
         
     @property
     def channel(self):
+        """List or slice encoding channel-selection"""
         return self._channel
     
     @channel.setter
@@ -1174,10 +1296,13 @@ class Selector():
         
     @property
     def time(self):
+        """List of lists/slices of by-trial time-selections"""
         return self._time
     
     @time.setter
     def time(self, dataselect):
+        
+        # Unpack input and perform error-checking
         data, select = dataselect
         timeSpec = select.get("toi")
         checkLim = False
@@ -1196,7 +1321,8 @@ class Selector():
         if timeSpec is not None and hasTime is False:
             lgl = "Syncopy data object with time-dimension"
             raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
-        
+
+        # If `data` has a `time` property, fill up `self.time`
         if hasTime:
             if timeSpec is not None:
                 try:
@@ -1219,9 +1345,10 @@ class Selector():
             if timeSpec is not None:
                 for tsel in timing:
                     if isinstance(tsel, list):
-                        if np.diff(tsel).min() <= 0:
-                            self._timeShuffle = True
-                            break 
+                        if len(tsel) > 1:
+                            if np.diff(tsel).min() <= 0:
+                                self._timeShuffle = True
+                                break 
 
             # Assign timing selection and copy over samplerate from source object
             self._time = timing
@@ -1234,6 +1361,7 @@ class Selector():
 
     @property
     def trialdefinition(self):
+        """N x 3+ :class:`numpy.ndarray` encoding trial-information of selection"""
         return self._trialdefinition
 
     @trialdefinition.setter
@@ -1256,7 +1384,11 @@ class Selector():
                 if start is None:
                     start = 0
                 if stop is None:
-                    stop = data._get_time([trlno], toilim=[-np.inf, np.inf])[0].stop
+                    trlTime = data._get_time([trlno], toilim=[-np.inf, np.inf])[0]
+                    if isinstance(trlTime, list):
+                        stop = np.max(trlTime)
+                    else:
+                        stop = trlTime.stop
                 if step is None:
                     step = 1
                 nSamples = (stop - start)/step
@@ -1264,24 +1396,30 @@ class Selector():
                 t0 = int(endSample - nSamples)
             else:
                 nSamples = len(tsel)
-                endSample = np.max(tsel) + data._t0[tk]
-                t0 = data._t0[tk]
+                if nSamples == 0:
+                    t0 = 0
+                else:
+                    t0 = data._t0[tk]
             trlDef[tk, :3] = [counter, counter + nSamples, t0]
             counter += nSamples
         self._trialdefinition = trlDef
         
     @property
     def timepoints(self):
+        """len(self.trials) list of lists encoding timing information of unordered `toi` selections"""
         if self._timeShuffle:
-            return np.array([[tvec[tp] + self.trialdefinition[tk, 2] for tp in range(len(tvec))]
-                            for tk, tvec in enumerate(self.time)])/self._samplerate
+            return [[(tvec[tp] + self.trialdefinition[tk, 2]) / self._samplerate 
+                     for tp in range(len(tvec))] for tk, tvec in enumerate(self.time)]
 
     @property
     def freq(self):
+        """List or slice encoding frequency-selection"""
         return self._freq
     
     @freq.setter
     def freq(self, dataselect):
+        
+        # Unpack input and perform error-checking
         data, select = dataselect
         freqSpec = select.get("foi")
         checkLim = False
@@ -1301,6 +1439,7 @@ class Selector():
             lgl = "Syncopy data object with freq-dimension"
             raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
         
+        # If `data` has a `freq` property, fill up `self.freq`
         if hasFreq:
             if freqSpec is not None:
                 try:
@@ -1323,6 +1462,7 @@ class Selector():
 
     @property
     def taper(self):
+        """List or slice encoding taper-selection"""
         return self._taper
 
     @taper.setter
@@ -1332,6 +1472,7 @@ class Selector():
 
     @property
     def unit(self):
+        """List or slice encoding unit-selection"""
         return self._unit
 
     @unit.setter
@@ -1341,6 +1482,7 @@ class Selector():
 
     @property
     def eventid(self):
+        """List or slice encoding event-id-selection"""
         return self._eventid
 
     @eventid.setter
@@ -1348,23 +1490,48 @@ class Selector():
         data, select = dataselect
         self._selection_setter(data, select, "eventid", "eventids")
 
-    # Helper function to process all other selections        
+    # Helper function to process provided selections        
     def _selection_setter(self, data, select, dataprop, selectkey):
         """
-        Coming soon... 
-        
-        method for (NO FUZZY MATCHING ALLOWED!): 
-        channel
-        taper
-        unit 
-        eventid 
+        Converts user-provided selection key-words to indexing lists/slices
+
+        Parameters
+        ----------
+        data : Syncopy data object
+            Non-empty Syncopy data object
+        select : dict or :class:`StructDict`
+            Python dictionary or Syncopy :class:`StructDict` formatted for
+            data selection. See :class:`Selector` for a list of valid
+            key-value pairs.
+        dataprop : str
+            Name of property in `data` to select from
+        selectkey : str
+            Name of key in `select` holding selection pertinent to `dataprop`
+
+        Returns
+        -------
+        Nothing : None
+
+        Notes
+        -----
+        This class method processes and (if necessary converts) user-provided
+        selections. Valid selectors are slices, ranges, lists or arrays. If
+        possible, all selections are converted to contiguous slices, otherwise
+        regular Python lists are used. Selections can be unsorted and may
+        include repetitions but must match exactly, be finite and not NaN. 
+        Converted selections are stored in the respective (hidden) class
+        attributes (e.g., ``self._channel``, ``self._unit`` etc.).
+
+        See also
+        --------
+        syncopy.selectdata : extract data selections from Syncopy objects
         """
         
+        # Unpack input and perform error-checking
         selection = select.get(selectkey)
         target = getattr(data, dataprop, None)
         selector = "_{}".format(dataprop)
         vname = "select: {}".format(selectkey)
-        
         if selection is not None and target is None:
             lgl = "Syncopy data object with {}".format(selectkey)
             raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
@@ -1382,12 +1549,14 @@ class Selector():
                 hasnan = False
                 hasinf = False
                 
+            # Take entire inventory sitting in `dataprop`
             if selection is None:
                 if dataprop in ["unit", "eventid"]:
                     setattr(self, selector, [slice(None, None, 1)] * len(self.trials))
                 else:
                     setattr(self, selector, slice(None, None, 1))
                 
+            # Check consistency of slice-selections and convert ranges to slices
             elif isinstance(selection, (slice, range)):
                 selLims = [-np.inf, np.inf]
                 if selection.start is not None:
@@ -1407,7 +1576,9 @@ class Selector():
                     lgl = "selection range with max <= {}".format(slcLims[1])
                     act = "selection range ending at {}".format(selLims[1])
                     raise SPYValueError(legal=lgl, varname=vname, actual=act)
-                
+
+                # The 2d-arrays in `DiscreteData` objects require some additional hand-holding
+                # performed by the respective `_get_unit` and `_get_eventid` class methods
                 if dataprop in ["unit", "eventid"]:
                     if selection.start is selection.stop is None:
                         setattr(self, selector, [slice(None, None, 1)] * len(self.trials))
@@ -1429,6 +1600,7 @@ class Selector():
                             step = selection.step
                         setattr(self, selector, slice(selection.start, selection.stop, step))
                 
+            # Selection is either a valid list/array or bust
             else:
                 try:
                     array_parser(selection, varname=vname, hasinf=hasinf, 
@@ -1464,10 +1636,39 @@ class Selector():
 
     # Local helper that converts slice selectors to lists (if necessary)        
     def _make_consistent(self, data):
+        """
+        Consolidates array selection tuples
+        
+        Parameters
+        ----------
+        data : Syncopy data object
+            Non-empty Syncopy data object
+
+        Returns
+        -------
+        Nothing : None
+
+        Notes
+        -----
+        This class method is called after all user-provided selections have
+        been (successfully) processed and (if necessary) converted to
+        lists/slices. The integrity of conjoint multi-dimensional selections
+        is ensured by guaranteeing that cross-dimensional selections are
+        finite (i.e., lists) and no more than two lists are used simultaneously
+        for a selection. If the current Selector instance contains multiple
+        index lists, the contents of all selection properties is converted
+        (if required) to lists so that multi-dimensional array-indexing can
+        be readily performed via :func:`numpy.ix_`. 
+
+        See also
+        --------
+        numpy.ix_ : Mesh-construction for array indexing
+        """
 
         # Get list of all selectors that don't depend on trials
         dimProps = list(self._allProps)
-        dimProps.remove("time")
+        for prop in self._byTrialProps:
+            dimProps.remove(prop)
         
         # Count how many lists we got
         listCount = 0
@@ -1475,12 +1676,14 @@ class Selector():
             if isinstance(getattr(self, prop), list):
                 listCount += 1
 
-        # If we have exactly one list, go through `time` selectors to see if any
-        # by-trial selection is a list                
-        if listCount == 1:
-            for tsel in self.time:
-                if isinstance(tsel, list):
-                    listCount += 1
+        # Now go through trial-dependent selectors to see if any by-trial selection is a list
+        for prop in self._byTrialProps:
+            selList = getattr(self, prop)
+            if selList is not None:
+                for tsel in selList:
+                    if isinstance(tsel, list):
+                        listCount += 1
+                        break
                 
         # If (on a by-trial basis) we have two or more lists, we need fancy indexing, 
         # thus convert all slice- to list-selectors
@@ -1491,7 +1694,11 @@ class Selector():
                     if start is None:
                         start = 0
                     if stop is None:
-                        stop = data._get_time([self.trials[tk]], toilim=[-np.inf, np.inf])[0].stop
+                        trlTime = data._get_time([self.trials[tk]], toilim=[-np.inf, np.inf])[0]
+                        if isinstance(trlTime, list):
+                            stop = np.max(trlTime)
+                        else:
+                            stop = trlTime.stop
                     if step is None:
                         step = 1
                     self.time[tk] = list(range(start, stop, step))
@@ -1524,10 +1731,9 @@ class Selector():
         # Construct dict of pretty-printable property info
         ppdict = {}
         for attr in ppattrs:
-            if attr != "time":
-                val = getattr(self, attr)
-            else:
-                val = getattr(self, attr)[0]
+            val = getattr(self, attr)
+            if val is not None and attr in self._byTrialProps:
+                val = val[0]
             if isinstance(val, slice):
                 if val.start is val.stop is None:
                     ppdict[attr] = "all {}{}, ".format(attr, 

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-18 15:39:16>
+# Last modification time: <2019-09-24 14:31:45>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -210,8 +210,35 @@ class ContinuousData(BaseData, ABC):
     # Helper function that extracts timing-related indices
     def _get_time(self, trials, toi=None, toilim=None):
         """
-        Coming soon... 
-        Error checking is performed by `Selector` class
+        Get relative by-trial indices of time-selections
+        
+        Parameters
+        ----------
+        trials : list
+            List of trial-indices to perform selection on
+        toi : None or list
+            Time-points to be selected (in seconds) on a by-trial scale. 
+        toilim : None or list
+            Time-window to be selected (in seconds) on a by-trial scale
+            
+        Returns
+        -------
+        timing : list of lists
+            List of by-trial sample-indices corresponding to provided 
+            time-selection. If both `toi` and `toilim` are `None`, `timing`
+            is a list of universal (i.e., ``slice(None)``) selectors. 
+            
+        Notes
+        -----
+        This class method is intended to be solely used by 
+        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely 
+        auxiliary character. Therefore, all input sanitization and error checking
+        is left to :class:`syncopy.datatype.base_data.Selector` and not 
+        performed here. 
+        
+        See also
+        --------
+        syncopy.datatype.base_data.Selector : Syncopy data selectors
         """
         timing = []
         if toilim is not None:
