@@ -3,8 +3,8 @@
 # 
 # 
 # Created: 2019-03-20 11:46:31
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-18 14:53:54>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-09-25 13:17:32>
 
 import os
 import tempfile
@@ -376,6 +376,18 @@ class TestAnalogData():
         # FIXME: implement as soon as object padding is supported:
         # test absolute + time + non-equidistant!
         # test relative + time + non-equidistant + overlapping!
+
+    def test_dataselection(self):
+        # FIXME: test shapes of slices + RANGE!
+        # FIXME: test slice(None, 5)
+        # FIXME: test [0, 1, 2, 3, 4] == slice(None, 5) + str selection
+        # FIXME: test slice(-5, None) == slice(5, None)
+        # FIXME: test slice(0, 10, 2)
+        # FIXME: test slice(-8, -2)
+        # FIXME: test slice(-8, -2, 2)
+        # FIXME: test toi/toilim + channel combo (right shape etc.)
+        # FIXME: test trials = 2, 1, 3 + channel + toi/toilim
+        pass
 
 
 class TestSpectralData():

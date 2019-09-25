@@ -6,8 +6,12 @@ syncopy.datatype
 
 .. autosummary::
     :toctree: _stubs
+    :template: syncopy_class.rst
 
     syncopy.datatype.base_data.BaseData
+    syncopy.datatype.base_data.Selector
+    syncopy.datatype.base_data.FauxTrial
+    syncopy.datatype.base_data.StructDict
     syncopy.datatype.continuous_data.ContinuousData
     syncopy.datatype.discrete_data.DiscreteData
 
@@ -25,7 +29,7 @@ syncopy.specest
 
 
 syncopy.shared
-^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^
 
 .. autosummary::
     :toctree: _stubs

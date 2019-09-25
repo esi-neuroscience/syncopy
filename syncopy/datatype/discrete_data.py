@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # SynCoPy DiscreteData abstract class + regular children
-#
+# 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-09 13:57:11>
+# Last modification time: <2019-09-25 16:57:00>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -99,9 +99,10 @@ class DiscreteData(BaseData, ABC):
     @property
     def trialtime(self):
         """list(:class:`numpy.ndarray`): trigger-relative sample times in s"""
-        return [range(-self._t0[tk],
-                      self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0] - self._t0[tk])
-                for tk in self.trialid] if self.trialid is not None else None
+        if self.samplerate is not None and self.sampleinfo is not None:
+            return [((t + self._t0[tk]) / self.samplerate \
+                    for t in range(0, int(self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0]))) \
+                    for tk in self.trialid]
 
     # Selector method
     def selectdata(self, trials=None, deepcopy=False, **kwargs):
@@ -113,6 +114,88 @@ class DiscreteData(BaseData, ABC):
     def _get_trial(self, trialno):
         return self._data[self.trialid == trialno, :]
     
+    # Helper function that extracts by-trial timing-related indices
+    def _get_time(self, trials, toi=None, toilim=None):
+        """
+        Get relative by-trial indices of time-selections
+        
+        Parameters
+        ----------
+        trials : list
+            List of trial-indices to perform selection on
+        toi : None or list
+            Time-points to be selected (in seconds) on a by-trial scale. 
+        toilim : None or list
+            Time-window to be selected (in seconds) on a by-trial scale
+            
+        Returns
+        -------
+        timing : list of lists
+            List of by-trial sample-indices corresponding to provided 
+            time-selection. If both `toi` and `toilim` are `None`, `timing`
+            is a list of universal (i.e., ``slice(None)``) selectors. 
+            
+        Notes
+        -----
+        This class method is intended to be solely used by 
+        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely 
+        auxiliary character. Therefore, all input sanitization and error checking
+        is left to :class:`syncopy.datatype.base_data.Selector` and not 
+        performed here. 
+        
+        See also
+        --------
+        syncopy.datatype.base_data.Selector : Syncopy data selectors
+        """
+        timing = []
+        if toilim is not None:
+            allTrials = self.trialtime
+            allSamples = self.data[:, self.dimord.index("sample")]
+            for trlno in trials:
+                thisTrial = allSamples[self.trialid == trlno]
+                trlSample = np.arange(*self.sampleinfo[trlno, :])
+                trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
+                minSample = trlSample[np.where(trlTime >= toilim[0])[0][0]]
+                maxSample = trlSample[np.where(trlTime <= toilim[1])[0][-1]]
+                selSample = trlSample[np.intersect1d(np.where(trlSample >= minSample)[0], 
+                                                     np.where(trlSample <= maxSample)[0])]
+                idxList = []
+                for smp in selSample:
+                    idxList += list(np.where(thisTrial == smp)[0])
+                if len(idxList) > 1:
+                    sampSteps = np.diff(idxList)
+                    if sampSteps.min() == sampSteps.max() == 1:
+                        idxList = slice(idxList[0], idxList[-1] + 1, 1)
+                timing.append(idxList)
+                
+        elif toi is not None:
+            allTrials = self.trialtime
+            allSamples = self.data[:, self.dimord.index("sample")]
+            for trlno in trials:
+                thisTrial = allSamples[self.trialid == trlno]
+                trlSample = np.arange(*self.sampleinfo[trlno, :])
+                trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
+                selSample = [min(trlTime.size - 1, idx) 
+                                       for idx in np.searchsorted(trlTime, toi, side="left")]
+                for k, idx in enumerate(selSample):
+                    if np.abs(trlTime[idx - 1] - toi[k]) < np.abs(trlTime[idx] - toi[k]):
+                        selSample[k] = trlSample[idx -1]
+                    else:
+                        selSample[k] = trlSample[idx]
+                idxList = []
+                for smp in selSample:
+                    idxList += list(np.where(thisTrial == smp)[0])
+                if len(idxList) > 1:
+                    sampSteps = np.diff(idxList)
+                    if sampSteps.min() == sampSteps.max() == 1:
+                        idxList = slice(idxList[0], idxList[-1] + 1, 1)
+                timing.append(idxList)
+                
+        else:
+            timing = [slice(None)] * len(trials)
+            
+        return timing
+
     def __init__(self, samplerate=None, trialid=None, **kwargs):
 
         # Assign (default) values
@@ -206,6 +289,55 @@ class SpikeData(DiscreteData):
         except Exception as exc:
             raise exc
         self._unit = np.array(unit)
+        
+    # Helper function that extracts by-trial unit-indices
+    def _get_unit(self, trials, units=None):
+        """
+        Get relative by-trial indices of unit selections
+        
+        Parameters
+        ----------
+        trials : list
+            List of trial-indices to perform selection on
+        units : None or list
+            List of unit-indices to be selected
+            
+        Returns
+        -------
+        indices : list of lists
+            List of by-trial sample-indices corresponding to provided 
+            unit-selection. If `units` is `None`, `indices` is a list of universal 
+            (i.e., ``slice(None)``) selectors. 
+            
+        Notes
+        -----
+        This class method is intended to be solely used by 
+        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely 
+        auxiliary character. Therefore, all input sanitization and error checking
+        is left to :class:`syncopy.datatype.base_data.Selector` and not 
+        performed here. 
+        
+        See also
+        --------
+        syncopy.datatype.base_data.Selector : Syncopy data selectors
+        """
+        if units is not None:
+            indices = []
+            allUnits = self.data[:, self.dimord.index("unit")]
+            for trlno in trials:
+                thisTrial = allUnits[self.trialid == trlno]
+                trialUnits = []
+                for unit in units:
+                    trialUnits += list(np.where(thisTrial == unit)[0])
+                if len(trialUnits) > 1:
+                    steps = np.diff(trialUnits)
+                    if steps.min() == steps.max() == 1:
+                        trialUnits = slice(trialUnits[0], trialUnits[-1] + 1, 1)
+                indices.append(trialUnits)
+        else:
+            indices = [slice(None)] * len(trials)
+            
+        return indices
 
     # "Constructor"
     def __init__(self,
@@ -283,6 +415,55 @@ class EventData(DiscreteData):
         return np.unique(self.data[:, self.dimord.index("eventid")])
         
 
+    # Helper function that extracts by-trial eventid-indices
+    def _get_eventid(self, trials, eventids=None):
+        """
+        Get relative by-trial indices of event-id selections
+        
+        Parameters
+        ----------
+        trials : list
+            List of trial-indices to perform selection on
+        eventids : None or list
+            List of event-id-indices to be selected
+            
+        Returns
+        -------
+        indices : list of lists
+            List of by-trial sample-indices corresponding to provided 
+            event-id-selection. If `eventids` is `None`, `indices` is a list of 
+            universal (i.e., ``slice(None)``) selectors. 
+            
+        Notes
+        -----
+        This class method is intended to be solely used by 
+        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely 
+        auxiliary character. Therefore, all input sanitization and error checking
+        is left to :class:`syncopy.datatype.base_data.Selector` and not 
+        performed here. 
+        
+        See also
+        --------
+        syncopy.datatype.base_data.Selector : Syncopy data selectors
+        """
+        if eventids is not None:
+            indices = []
+            allEvents = self.data[:, self.dimord.index("eventid")]
+            for trlno in trials:
+                thisTrial = allEvents[self.trialid == trlno]
+                trialEvents = []
+                for event in eventids:
+                    trialEvents += list(np.where(thisTrial == event)[0])
+                if len(trialEvents) > 1:
+                    steps = np.diff(trialEvents)
+                    if steps.min() == steps.max() == 1:
+                        trialEvents = slice(trialEvents[0], trialEvents[-1] + 1, 1)
+                indices.append(trialEvents)
+        else:
+            indices = [slice(None)] * len(trials)
+            
+        return indices
+    
     # "Constructor"
     def __init__(self,
                  data=None,

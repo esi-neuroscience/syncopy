@@ -3,8 +3,8 @@
 # Spectral estimation with (multi-)tapered FFT
 # 
 # Created: 2019-09-02 14:25:34
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-09 12:22:13>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-09-25 13:13:06>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -111,8 +111,7 @@ def mtmfft(trl_dat, dt, timeAxis,
     # In case tapers aren't kept allocate `spec` "too big" and average afterwards
     shp = list(chunkShape)
     shp[-1] = nChannels
-    if not keeptapers:
-        shp[1] = nTaper
+    shp[1] = nTaper
     chunkShape = tuple(shp)
     spec = np.full(chunkShape, np.nan, dtype=freq.spectralDTypes[output_fmt])
     fill_idx = tuple([slice(None, dim) for dim in outShape[2:]])

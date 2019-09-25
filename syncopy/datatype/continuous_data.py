@@ -3,8 +3,8 @@
 # SynCoPy ContinuousData abstract class + regular children
 # 
 # Created: 2019-03-20 11:11:44
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-18 14:45:48>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-09-25 13:06:21>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -182,8 +182,111 @@ class ContinuousData(BaseData, ABC):
         start = int(self.sampleinfo[trialno, 0])
         shp[tidx] = stop - start
         idx[tidx] = slice(start, stop)
+        
+        # process existing data selections
+        if self._selection is not None:
+            
+            # time-selection is most delicate due to trial-offset
+            tsel = self._selection.time[self._selection.trials.index(trialno)]
+            if isinstance(tsel, slice):
+                if tsel.start is not None:
+                    tstart = tsel.start 
+                else:
+                    tstart = 0
+                if tsel.stop is not None:
+                    tstop = tsel.stop
+                else:
+                    tstop = stop - start
+
+                # account for trial offsets an compute slicing index + shape
+                start = start + tstart
+                stop = start + (tstop - tstart)
+                idx[tidx] = slice(start, stop)
+                shp[tidx] = stop - start
+                
+            else:
+                idx[tidx] = [tp + start for tp in tsel]
+                shp[tidx] = len(tsel)
+
+            # process the rest                
+            for dim in ["channel", "freq", "taper"]:
+                sel = getattr(self._selection, dim)
+                if sel:
+                    dimIdx = self.dimord.index(dim)
+                    idx[dimIdx] = sel
+                    if isinstance(sel, slice):
+                        if not (sel.start is sel.stop is None):
+                            shp[dimIdx] = int(np.ceil((sel.stop - sel.start) / sel.step))
+                    else:
+                        shp[dimIdx] = len(sel)
+                        
         return FauxTrial(shp, tuple(idx), self.data.dtype)
     
+    # Helper function that extracts timing-related indices
+    def _get_time(self, trials, toi=None, toilim=None):
+        """
+        Get relative by-trial indices of time-selections
+        
+        Parameters
+        ----------
+        trials : list
+            List of trial-indices to perform selection on
+        toi : None or list
+            Time-points to be selected (in seconds) on a by-trial scale. 
+        toilim : None or list
+            Time-window to be selected (in seconds) on a by-trial scale
+            
+        Returns
+        -------
+        timing : list of lists
+            List of by-trial sample-indices corresponding to provided 
+            time-selection. If both `toi` and `toilim` are `None`, `timing`
+            is a list of universal (i.e., ``slice(None)``) selectors. 
+            
+        Notes
+        -----
+        This class method is intended to be solely used by 
+        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely 
+        auxiliary character. Therefore, all input sanitization and error checking
+        is left to :class:`syncopy.datatype.base_data.Selector` and not 
+        performed here. 
+        
+        See also
+        --------
+        syncopy.datatype.base_data.Selector : Syncopy data selectors
+        """
+        timing = []
+        if toilim is not None:
+            allTrials = self.time
+            for trlno in trials:
+                trlTime = allTrials[trlno]
+                selTime = np.intersect1d(np.where(trlTime >= toilim[0])[0], 
+                                         np.where(trlTime <= toilim[1])[0])
+                if len(selTime) > 1:
+                    timing.append(slice(selTime[0], selTime[-1] + 1, 1))
+                else:
+                    timing.append(selTime)
+                    
+        elif toi is not None:
+            allTrials = self.time
+            for trlno in trials:
+                trlTime = allTrials[trlno]
+                selTime = [min(trlTime.size - 1, idx) 
+                           for idx in np.searchsorted(allTrials[trlno], toi, side="left")]
+                for k, idx in enumerate(selTime):
+                    if np.abs(trlTime[idx - 1] - toi[k]) < np.abs(trlTime[idx] - toi[k]):
+                        selTime[k] = idx -1
+                if len(selTime) > 1:
+                    timeSteps = np.diff(selTime)
+                    if timeSteps.min() == timeSteps.max() == 1:
+                        selTime = slice(selTime[0], selTime[-1] + 1, 1)
+                timing.append(selTime)
+                
+        else:
+            timing = [slice(None)] * len(trials)
+            
+        return timing
+
     # Make instantiation persistent in all subclasses
     def __init__(self, channel=None, samplerate=None, **kwargs):     
         
@@ -367,6 +470,37 @@ class SpectralData(ContinuousData):
         except Exception as exc:
             raise exc
         self._freq = np.array(freq)
+    
+    # Helper function that extracts frequency-related indices
+    def _get_freq(self, foi=None, foilim=None):
+        """
+        Coming soon... 
+        Error checking is performed by `Selector` class
+        """
+        if foilim is not None:
+            allFreqs = self.freq
+            selFreq = np.intersect1d(np.where(allFreqs >= foilim[0])[0], 
+                                     np.where(allFreqs <= foilim[1])[0])
+            if len(selFreq) > 1:
+                selFreq = slice(selFreq[0], selFreq[-1] + 1, 1)
+                
+        elif foi is not None:
+            allFreqs = self.freq
+            selFreq = [min(allFreqs.size - 1, idx) 
+                       for idx in np.searchsorted(allFreqs, foi, side="left")]
+            for k, idx in enumerate(selFreq):
+                if np.abs(allFreqs[idx - 1] - foi[k]) < np.abs(allFreqs[idx] - foi[k]):
+                    selFreq[k] = idx -1
+            # selFreq = [max(0, idx - 1) for idx in np.searchsorted(allFreqs, foi, side="right")]
+            if len(selFreq) > 1:
+                freqSteps = np.diff(selFreq)
+                if freqSteps.min() == freqSteps.max() == 1:
+                    selFreq = slice(selFreq[0], selFreq[-1] + 1, 1)
+                    
+        else:
+            selFreq = slice(None)
+            
+        return selFreq
     
     # "Constructor"
     def __init__(self,

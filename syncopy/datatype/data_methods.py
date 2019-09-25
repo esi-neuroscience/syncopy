@@ -3,8 +3,8 @@
 # Base functions for interacting with SyNCoPy data objects
 # 
 # Created: 2019-02-25 11:30:46
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-06 15:27:01>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-09-25 17:04:47>
 
 # Builtin/3rd party package imports
 import numbers
