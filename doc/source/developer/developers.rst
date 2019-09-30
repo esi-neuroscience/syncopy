@@ -11,5 +11,6 @@ class hierarchies.
     datatype
     io
     tools
+    developer_api
 
 

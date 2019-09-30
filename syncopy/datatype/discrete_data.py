@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # SynCoPy DiscreteData abstract class + regular children
-#
+# 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-09 13:57:11>
+# Last modification time: <2019-09-25 16:57:00>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -28,7 +28,7 @@ class DiscreteData(BaseData, ABC):
     """
 
     _infoFileProperties = BaseData._infoFileProperties + ("_hdr", "samplerate", )
-    _hdfFileProperties = BaseData._hdfFileProperties + ("samplerate",)
+    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate",)
 
 
     @property
@@ -42,7 +42,9 @@ class DiscreteData(BaseData, ABC):
     @property
     def sample(self):
         """Indices of all recorded samples"""
-        return self._sample
+        if self.data is None:
+            return None
+        return np.unique(self.data[:, self.dimord.index("sample")])
 
     @property
     def samplerate(self):
@@ -51,6 +53,10 @@ class DiscreteData(BaseData, ABC):
 
     @samplerate.setter
     def samplerate(self, sr):
+        if sr is None:
+            self._samplerate = None
+            return
+        
         try:
             scalar_parser(sr, varname="samplerate", lims=[1, np.inf])
         except Exception as exc:
@@ -64,6 +70,10 @@ class DiscreteData(BaseData, ABC):
 
     @trialid.setter
     def trialid(self, trlid):
+        if trlid is None:
+            self._trialid = None
+            return
+        
         if self.data is None:
             print("SyNCoPy core - trialid: Cannot assign `trialid` without data. " +
                   "Please assing data first")
@@ -89,9 +99,10 @@ class DiscreteData(BaseData, ABC):
     @property
     def trialtime(self):
         """list(:class:`numpy.ndarray`): trigger-relative sample times in s"""
-        return [range(-self.t0[tk],
-                      self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0] - self.t0[tk])
-                for tk in self.trialid] if self.trialid is not None else None
+        if self.samplerate is not None and self.sampleinfo is not None:
+            return [((t + self._t0[tk]) / self.samplerate \
+                    for t in range(0, int(self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0]))) \
+                    for tk in self.trialid]
 
     # Selector method
     def selectdata(self, trials=None, deepcopy=False, **kwargs):
@@ -102,21 +113,101 @@ class DiscreteData(BaseData, ABC):
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
         return self._data[self.trialid == trialno, :]
+    
+    # Helper function that extracts by-trial timing-related indices
+    def _get_time(self, trials, toi=None, toilim=None):
+        """
+        Get relative by-trial indices of time-selections
+        
+        Parameters
+        ----------
+        trials : list
+            List of trial-indices to perform selection on
+        toi : None or list
+            Time-points to be selected (in seconds) on a by-trial scale. 
+        toilim : None or list
+            Time-window to be selected (in seconds) on a by-trial scale
+            
+        Returns
+        -------
+        timing : list of lists
+            List of by-trial sample-indices corresponding to provided 
+            time-selection. If both `toi` and `toilim` are `None`, `timing`
+            is a list of universal (i.e., ``slice(None)``) selectors. 
+            
+        Notes
+        -----
+        This class method is intended to be solely used by 
+        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely 
+        auxiliary character. Therefore, all input sanitization and error checking
+        is left to :class:`syncopy.datatype.base_data.Selector` and not 
+        performed here. 
+        
+        See also
+        --------
+        syncopy.datatype.base_data.Selector : Syncopy data selectors
+        """
+        timing = []
+        if toilim is not None:
+            allTrials = self.trialtime
+            allSamples = self.data[:, self.dimord.index("sample")]
+            for trlno in trials:
+                thisTrial = allSamples[self.trialid == trlno]
+                trlSample = np.arange(*self.sampleinfo[trlno, :])
+                trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
+                minSample = trlSample[np.where(trlTime >= toilim[0])[0][0]]
+                maxSample = trlSample[np.where(trlTime <= toilim[1])[0][-1]]
+                selSample = trlSample[np.intersect1d(np.where(trlSample >= minSample)[0], 
+                                                     np.where(trlSample <= maxSample)[0])]
+                idxList = []
+                for smp in selSample:
+                    idxList += list(np.where(thisTrial == smp)[0])
+                if len(idxList) > 1:
+                    sampSteps = np.diff(idxList)
+                    if sampSteps.min() == sampSteps.max() == 1:
+                        idxList = slice(idxList[0], idxList[-1] + 1, 1)
+                timing.append(idxList)
+                
+        elif toi is not None:
+            allTrials = self.trialtime
+            allSamples = self.data[:, self.dimord.index("sample")]
+            for trlno in trials:
+                thisTrial = allSamples[self.trialid == trlno]
+                trlSample = np.arange(*self.sampleinfo[trlno, :])
+                trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
+                selSample = [min(trlTime.size - 1, idx) 
+                                       for idx in np.searchsorted(trlTime, toi, side="left")]
+                for k, idx in enumerate(selSample):
+                    if np.abs(trlTime[idx - 1] - toi[k]) < np.abs(trlTime[idx] - toi[k]):
+                        selSample[k] = trlSample[idx -1]
+                    else:
+                        selSample[k] = trlSample[idx]
+                idxList = []
+                for smp in selSample:
+                    idxList += list(np.where(thisTrial == smp)[0])
+                if len(idxList) > 1:
+                    sampSteps = np.diff(idxList)
+                    if sampSteps.min() == sampSteps.max() == 1:
+                        idxList = slice(idxList[0], idxList[-1] + 1, 1)
+                timing.append(idxList)
+                
+        else:
+            timing = [slice(None)] * len(trials)
+            
+        return timing
 
-    # Make instantiation persistent in all subclasses
-    def __init__(self, **kwargs):
+    def __init__(self, samplerate=None, trialid=None, **kwargs):
 
         # Assign (default) values
         self._trialid = None
-        if kwargs.get("samplerate") is not None:
-            # use setter for error-checking
-            self.samplerate = kwargs["samplerate"]
-        else:
-            self._samplerate = None
+        self._samplerate = None                           
         self._hdr = None
 
         # Call initializer
         super().__init__(**kwargs)
+
+        self.samplerate = samplerate
+        self.trialid = trialid
 
         # If a super-class``__init__`` attached data, be careful
         if self.data is not None:
@@ -142,19 +233,30 @@ class SpikeData(DiscreteData):
     """
 
     _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
-    _hdfFileProperties = DiscreteData._hdfFileProperties + ("channel",)
+    _hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel",)
+    _defaultDimord = ["sample", "channel", "unit"]
     
     @property
     def channel(self):
-        """ :class:`numpy.ndarray` : list of original channel names for each unit"""
+        """ :class:`numpy.ndarray` : list of original channel names for each unit"""        
+        # if data exists but no user-defined channel labels, create them on the fly
+        if self._channel is None and self._data is not None:
+            channelIndices = np.unique(self.data[:, self.dimord.index("channel")])
+            return np.array(["channel" + str(int(i)).zfill(len(str(channelIndices.max())))
+                             for i in channelIndices])
+            
         return self._channel
 
     @channel.setter
     def channel(self, chan):
-        if self.data is None:
-            print("SyNCoPy core - channel: Cannot assign `channels` without data. " +
-                  "Please assing data first")
+        if chan is None:
+            self._channel = None
             return
+        
+        if self.data is None:
+            raise SPYValueError("Syncopy: Cannot assign `channels` without data. " +
+                  "Please assign data first")    
+
         nchan = np.unique(self.data[:, self.dimord.index("channel")]).size
         try:
             array_parser(chan, varname="channel", ntype="str", dims=(nchan,))
@@ -165,20 +267,77 @@ class SpikeData(DiscreteData):
     @property
     def unit(self):
         """ :class:`numpy.ndarray(str)` : unit names"""
+        if self.data is not None and self._unit is None:
+            unitIndices = np.unique(self.data[:, self.dimord.index("unit")])
+            return np.array(["unit" + str(int(i)).zfill(len(str(unitIndices.max())))
+                             for i in unitIndices])
         return self._unit
 
     @unit.setter
     def unit(self, unit):
-        if self.data is None:
-            print("SyNCoPy core - unit: Cannot assign `unit` without data. " +
-                  "Please assing data first")
+        if unit is None:
+            self._unit = None
             return
+        
+        if self.data is None:
+            raise SPYValueError("Syncopy - SpikeData - unit: Cannot assign `unit` without data. " +
+                  "Please assign data first")
+                        
         nunit = np.unique(self.data[:, self.dimord.index("unit")]).size
         try:
             array_parser(unit, varname="unit", ntype="str", dims=(nunit,))
         except Exception as exc:
             raise exc
         self._unit = np.array(unit)
+        
+    # Helper function that extracts by-trial unit-indices
+    def _get_unit(self, trials, units=None):
+        """
+        Get relative by-trial indices of unit selections
+        
+        Parameters
+        ----------
+        trials : list
+            List of trial-indices to perform selection on
+        units : None or list
+            List of unit-indices to be selected
+            
+        Returns
+        -------
+        indices : list of lists
+            List of by-trial sample-indices corresponding to provided 
+            unit-selection. If `units` is `None`, `indices` is a list of universal 
+            (i.e., ``slice(None)``) selectors. 
+            
+        Notes
+        -----
+        This class method is intended to be solely used by 
+        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely 
+        auxiliary character. Therefore, all input sanitization and error checking
+        is left to :class:`syncopy.datatype.base_data.Selector` and not 
+        performed here. 
+        
+        See also
+        --------
+        syncopy.datatype.base_data.Selector : Syncopy data selectors
+        """
+        if units is not None:
+            indices = []
+            allUnits = self.data[:, self.dimord.index("unit")]
+            for trlno in trials:
+                thisTrial = allUnits[self.trialid == trlno]
+                trialUnits = []
+                for unit in units:
+                    trialUnits += list(np.where(thisTrial == unit)[0])
+                if len(trialUnits) > 1:
+                    steps = np.diff(trialUnits)
+                    if steps.min() == steps.max() == 1:
+                        trialUnits = slice(trialUnits[0], trialUnits[-1] + 1, 1)
+                indices.append(trialUnits)
+        else:
+            indices = [slice(None)] * len(trials)
+            
+        return indices
 
     # "Constructor"
     def __init__(self,
@@ -186,10 +345,9 @@ class SpikeData(DiscreteData):
                  filename=None,
                  trialdefinition=None,
                  samplerate=None,
-                 channel="channel",
-                 unit="unit",
-                 mode="w",
-                 dimord=["sample", "channel", "unit"]):
+                 channel=None,
+                 unit=None,
+                 dimord=None):
         """Initialize a :class:`SpikeData` object.
 
         Parameters
@@ -206,8 +364,6 @@ class SpikeData(DiscreteData):
                 original channel names
             unit : str or list/array(str)                
                 names of all units
-            mode : str
-                write mode for data. 'r' for read-only, 'w' for writable
             dimord : list(str)
                 ordered list of dimension labels
 
@@ -223,51 +379,18 @@ class SpikeData(DiscreteData):
 
         """
 
-        # The one thing we check right here and now
-        expected = ["sample", "channel", "unit"]
-        if not set(dimord).issubset(expected):
-            base = "dimensional labels {}"
-            lgl = base.format("'" + "' x '".join(str(dim)
-                                                 for dim in expected) + "'")
-            act = base.format("'" + "' x '".join(str(dim)
-                                                 for dim in dimord) + "'")
-            raise SPYValueError(legal=lgl, varname="dimord", actual=act)
-
+        self._unit = None
+        self._channel = None
+        
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
-                         channel=channel,
-                         unit=unit,
-                         mode=mode,
                          dimord=dimord)
 
-        # If a super-class``__init__`` attached data, be careful
-        if self.data is not None:
-
-            # In case of manual data allocation (reading routine would leave a
-            # mark in `cfg`), fill in missing info
-            if len(self.cfg) == 0:
-
-                # If necessary, construct list of channel labels (parsing is done by setter)
-                if isinstance(channel, str):
-                    channel = [
-                        channel + str(int(i)) for i in np.unique(self.data[:, self.dimord.index("channel")])]
-                self.channel = np.array(channel)
-
-                # If necessary, construct list of unit labels (parsing is done by setter)
-                if isinstance(unit, str):
-                    unit = [
-                        unit + str(int(i)) for i in np.unique(self.data[:, self.dimord.index("unit")])]
-                self.unit = np.array(unit)
-
-        # Dummy assignment: if we have no data but channel labels, assign bogus to tigger setter warning
-        else:
-            if isinstance(channel, (list, np.ndarray)):
-                self.channel = ['channel']
-            if isinstance(unit, (list, np.ndarray)):
-                self.unit = ['unit']
+        self.channel = channel
+        self.unit = unit
 
 
 class EventData(DiscreteData):
@@ -282,19 +405,72 @@ class EventData(DiscreteData):
 
     """        
     
+    _defaultDimord = ["sample", "eventid"]
+    
     @property
     def eventid(self):
         """numpy.ndarray(int): integer event code assocated with each event"""
-        return self._eventid
+        if self.data is None:
+            return None
+        return np.unique(self.data[:, self.dimord.index("eventid")])
+        
 
+    # Helper function that extracts by-trial eventid-indices
+    def _get_eventid(self, trials, eventids=None):
+        """
+        Get relative by-trial indices of event-id selections
+        
+        Parameters
+        ----------
+        trials : list
+            List of trial-indices to perform selection on
+        eventids : None or list
+            List of event-id-indices to be selected
+            
+        Returns
+        -------
+        indices : list of lists
+            List of by-trial sample-indices corresponding to provided 
+            event-id-selection. If `eventids` is `None`, `indices` is a list of 
+            universal (i.e., ``slice(None)``) selectors. 
+            
+        Notes
+        -----
+        This class method is intended to be solely used by 
+        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely 
+        auxiliary character. Therefore, all input sanitization and error checking
+        is left to :class:`syncopy.datatype.base_data.Selector` and not 
+        performed here. 
+        
+        See also
+        --------
+        syncopy.datatype.base_data.Selector : Syncopy data selectors
+        """
+        if eventids is not None:
+            indices = []
+            allEvents = self.data[:, self.dimord.index("eventid")]
+            for trlno in trials:
+                thisTrial = allEvents[self.trialid == trlno]
+                trialEvents = []
+                for event in eventids:
+                    trialEvents += list(np.where(thisTrial == event)[0])
+                if len(trialEvents) > 1:
+                    steps = np.diff(trialEvents)
+                    if steps.min() == steps.max() == 1:
+                        trialEvents = slice(trialEvents[0], trialEvents[-1] + 1, 1)
+                indices.append(trialEvents)
+        else:
+            indices = [slice(None)] * len(trials)
+            
+        return indices
+    
     # "Constructor"
     def __init__(self,
                  data=None,
                  filename=None,
                  trialdefinition=None,
                  samplerate=None,
-                 mode="w",
-                 dimord=["sample", "eventid"]):
+                 dimord=None):
         """Initialize a :class:`EventData` object.
 
         Parameters
@@ -307,8 +483,6 @@ class EventData(DiscreteData):
                 [start, stop, trigger_offset] sample indices for `M` trials
             samplerate : float
                 sampling rate in Hz        
-            mode : str
-                write mode for data. 'r' for read-only, 'w' for writable
             dimord : list(str)
                 ordered list of dimension labels
 
@@ -324,20 +498,9 @@ class EventData(DiscreteData):
 
         """
 
-        # The one thing we check right here and now
-        expected = ["sample", "eventid"]
-        if not set(dimord).issubset(expected):
-            base = "dimensional labels {}"
-            lgl = base.format("'" + "' x '".join(str(dim)
-                                                 for dim in expected) + "'")
-            act = base.format("'" + "' x '".join(str(dim)
-                                                 for dim in dimord) + "'")
-            raise SPYValueError(legal=lgl, varname="dimord", actual=act)
-
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
-                         mode=mode,
                          dimord=dimord)

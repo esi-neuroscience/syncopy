@@ -3,8 +3,8 @@
 # Test functionality of SyNCoPy-container I/O routines
 # 
 # Created: 2019-03-19 14:21:12
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-24 09:44:28>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-09-09 11:37:28>
 
 import os
 import tempfile
@@ -18,7 +18,8 @@ from glob import glob
 from memory_profiler import memory_usage
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.datatype.base_data import VirtualData
-from syncopy.io import save, load, FILE_EXT
+from syncopy.io import save, load
+from syncopy.io.utils import FILE_EXT
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError, SPYError
 import syncopy.datatype as swd
 from syncopy.tests.misc import generate_artifical_data, construct_spy_filename
@@ -107,7 +108,8 @@ class TestSpyIO():
                 del dummy, dummy2
                 time.sleep(0.1)  # wait to kick-off garbage collection
                 h5f = h5py.File(hname, "r+")
-                dset = h5f[dclass]
+                dset = h5f["data"]
+                # provoke checksum error by adding 1 to all datasets
                 dset[()] += 1
                 h5f.close()
                 

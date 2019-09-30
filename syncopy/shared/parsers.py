@@ -3,8 +3,8 @@
 # Module for all kinds of parsing gymnastics
 # 
 # Created: 2019-01-08 09:58:11
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-08-30 11:24:48>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-09-25 13:12:33>
 
 # Builtin/3rd party package imports
 import os
@@ -16,7 +16,7 @@ import h5py
 from inspect import signature
 
 # Local imports
-from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError, SPYError
+from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
 import syncopy as spy
 
 __all__ = ["get_defaults"]
@@ -340,7 +340,7 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
 
     # If bounds-checking is requested but `ntype` is not set, use the
     # generic "numeric" option to ensure array is actually numeric
-    if lims is not None and ntype is None:
+    if (lims is not None or hasnan is not None or hasinf is not None) and ntype is None:
         ntype = "numeric"
 
     # If required, parse type (handle "int_like" and "numeric" separately)
@@ -604,14 +604,14 @@ def filename_parser(filename, is_in_valid_container=None):
     if filename.count(".") > 2:
         raise SPYValueError(legal="single extension, found {}".format(filename.count(".")), 
                             actual=filename, varname="filename")
-    if ext == spy.FILE_EXT["dir"] and basename.count(".") > 0:
+    if ext == spy.io.utils.FILE_EXT["dir"] and basename.count(".") > 0:
         raise SPYValueError(legal="no extension, found {}".format(basename.count(".")), 
                             actual=basename, varname="container")
         
-    if ext == spy.FILE_EXT["info"]:
+    if ext == spy.io.utils.FILE_EXT["info"]:
         filename = basename
         basename, ext = os.path.splitext(filename)
-    elif ext == spy.FILE_EXT["dir"]:
+    elif ext == spy.io.utils.FILE_EXT["dir"]:
         return {
         "filename": None,
         "container": filename,
@@ -621,18 +621,18 @@ def filename_parser(filename, is_in_valid_container=None):
         "extension": ext
         }
     
-    if ext not in spy.FILE_EXT["data"] + (spy.FILE_EXT["dir"],):
-        raise SPYValueError(legal=spy.FILE_EXT["data"], 
+    if ext not in spy.io.utils.FILE_EXT["data"] + (spy.io.utils.FILE_EXT["dir"],):
+        raise SPYValueError(legal=spy.io.utils.FILE_EXT["data"], 
                             actual=ext, varname="filename extension")
 
-    folderExtIsSpy = os.path.splitext(container)[1] == spy.FILE_EXT["dir"]
+    folderExtIsSpy = os.path.splitext(container)[1] == spy.io.utils.FILE_EXT["dir"]
     if is_in_valid_container is not None:
         if not folderExtIsSpy and is_in_valid_container:
-            raise SPYValueError(legal=spy.FILE_EXT["dir"], 
+            raise SPYValueError(legal=spy.io.utils.FILE_EXT["dir"], 
                                 actual=os.path.splitext(container)[1], 
                                 varname="folder extension")
         elif folderExtIsSpy and not is_in_valid_container:
-            raise SPYValueError(legal='not ' + spy.FILE_EXT["dir"], 
+            raise SPYValueError(legal='not ' + spy.io.utils.FILE_EXT["dir"], 
                                 actual=os.path.splitext(container)[1], 
                                 varname="folder extension")
 
@@ -666,14 +666,18 @@ def filename_parser(filename, is_in_valid_container=None):
 def unwrap_cfg(func):
     """
     Decorator that unwraps cfg object in function call
+    
+    intended for Syncopy compute kernels
     """
 
     @functools.wraps(func)
     def wrapper_cfg(*args, **kwargs):
-
-        # First, parse positional arguments for dict-type inputs
+        
+        # First, parse positional arguments for dict-type inputs (`k` counts the 
+        # no. of dicts provided) and convert tuple of positional args to list
         cfg = None
         k = 0
+        args = list(args)
         for argidx, arg in enumerate(args):
             if isinstance(arg, dict):
                 cfgidx = argidx
@@ -684,7 +688,6 @@ def unwrap_cfg(func):
         # IMPORTANT: create a copy of `cfg` using `StructDict` constructor to
         # not manipulate `cfg` in user's namespace!
         if k == 1:
-            args = list(args)
             cfg = spy.StructDict(args.pop(cfgidx))
         elif k > 1:
             raise SPYValueError(legal="single `cfg` input",
@@ -735,12 +738,28 @@ def unwrap_cfg(func):
                 data = cfg.pop("dataset")
             if data:
                 args = [data] + args
-
-            # Call function with modified positional/keyword arguments
-            return func(*args, **cfg)
-
-        # No meaningful `cfg` keyword found, proceed with regular function call
-        return func(*args, **kwargs)
+                
+            # Input keywords are all provided by `cfg`
+            kwords = cfg
+            
+        else:
+        
+            # No meaningful `cfg` keyword found: take standard input keywords
+            kwords = kwargs
+            
+        # Remove data (always first positional argument) from anonymous `args` list
+        data = args.pop(0)
+            
+        # Process data selection: if provided, extract `select` from input kws
+        data._selection = kwords.get("select")
+        
+        # Call function with modified positional/keyword arguments
+        res = func(data, *args, **kwords)
+        
+        # Erase data-selection slot to not alter user objects
+        data._selection = None
+                    
+        return res
 
     return wrapper_cfg
 
@@ -806,6 +825,8 @@ def unwrap_io(func):
             infilename = trl_dat["infile"]
             indset = trl_dat["indset"]
             ingrid = trl_dat["ingrid"]
+            sigrid = trl_dat["sigrid"]
+            fancy = trl_dat["fancy"]
             vdsdir = trl_dat["vdsdir"]
             outfilename = trl_dat["outfile"]
             outdset = trl_dat["outdset"]
@@ -819,20 +840,31 @@ def unwrap_io(func):
             if hdr is None:
                 try:
                     with h5py.File(infilename, mode="r") as h5fin:
-                        arr = h5fin[indset][ingrid]
-                except:
+                        if fancy:
+                            arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
+                        else:
+                            arr = np.array(h5fin[indset][ingrid])
+                except OSError:
                     try:
-                        arr = np.array(open_memmap(infilename, mode="c")[ingrid])
+                        if fancy:
+                            arr = open_memmap(infilename, mode="c")[np.ix_(*ingrid)]
+                        else:
+                            arr = np.array(open_memmap(infilename, mode="c")[ingrid])
                     except:
                         raise SPYIOError(infilename)
+                except Exception as exc:
+                    raise exc
                     
             # For VirtualData objects
             else:
+                idx = ingrid
+                if fancy:
+                    idx = np.ix_(*ingrid)
                 dsets = []
                 for fk, fname in enumerate(infilename):
                     dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
-                                        mode="r", dtype=hdr[fk]["dtype"],
-                                        shape=(hdr[fk]["M"], hdr[fk]["N"]))[ingrid])
+                                            mode="r", dtype=hdr[fk]["dtype"],
+                                            shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
                 arr = np.vstack(dsets)
 
             # === STEP 2 === perform computation

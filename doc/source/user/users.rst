@@ -10,7 +10,7 @@ files.
 .. toctree :: 
 
     data_handling
-    fieldtrip    
+    fieldtrip
     user_api
 
 

@@ -29,7 +29,7 @@ from syncopy.datatype.base_data import BaseData
 from syncopy.shared.parsers import scalar_parser
 from syncopy.shared.queries import user_yesno, user_input
 
-__all__ = ["FILE_EXT", "hash_file", "write_access", "cleanup", "startInfoDict"]
+__all__ = []
 
 def _all_subclasses(cls):
     return set(cls.__subclasses__()).union(

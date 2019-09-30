@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-29 14:27:27>
+# Last modification time: <2019-09-25 17:04:47>
 
 # Builtin/3rd party package imports
 import numbers
@@ -407,6 +407,17 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                 array_parser(trialdefinition, varname="trialdefinition", dims=2)
             except Exception as exc:
                 raise exc
+            
+            if any(["ContinuousData" in str(base) for base in obj.__class__.__mro__]):
+                scount = obj.data.shape[obj.dimord.index("time")]
+            else:
+                scount = np.inf
+            try:
+                array_parser(trialdefinition[:, :2], varname="sampleinfo", dims=(None, 2), hasnan=False, 
+                         hasinf=False, ntype="int_like", lims=[0, scount])
+            except Exception as exc:
+                raise exc            
+            
             trl = trialdefinition
             ref = obj
             tgt = obj
@@ -432,7 +443,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
         ref = trialdefinition
         tgt = obj
         trl = np.array(ref.trialinfo)
-        t0 = np.array(ref.t0).reshape((ref.t0.size,1))
+        t0 = np.array(ref._t0).reshape((ref._t0.size,1))
         trl = np.hstack([ref.sampleinfo, t0, trl])
         trl = np.round((trl/ref.samplerate) * tgt.samplerate).astype(int)
 
@@ -627,9 +638,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                             actual="shape = {shp:s}".format(shp=str(trl.shape)))
 
     # Finally: assign `sampleinfo`, `t0` and `trialinfo` (and potentially `trialid`)
-    tgt.sampleinfo = trl[:,:2]
-    tgt._t0 = np.array(trl[:,2], dtype=int)
-    tgt.trialinfo = trl[:,3:]
+    tgt._trialdefinition = trl
 
     # In the discrete case, we have some additinal work to do
     if any(["DiscreteData" in str(base) for base in tgt.__class__.__mro__]):

@@ -20,13 +20,11 @@ Contents
 
    quickstart
    user/users.rst    
-   developer/developers.rst
-   examples
+   developer/developers.rst   
 
 
 Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`

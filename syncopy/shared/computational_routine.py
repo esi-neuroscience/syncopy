@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-03 11:29:20>
+# Last modification time: <2019-09-25 13:12:19>
 
 # Builtin/3rd party package imports
 import os
@@ -14,6 +14,7 @@ import h5py
 import numpy as np
 from abc import ABC, abstractmethod
 from copy import copy
+from numpy.lib.format import open_memmap
 from tqdm import tqdm
 if sys.platform == "win32":
     # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
@@ -114,22 +115,76 @@ class ComputationalRoutine(ABC):
         obj : instance of :class:`ComputationalRoutine`-subclass
            Usable class instance for processing Syncopy data objects. 
         """
+
+        # dict of default keyword values accepted by `computeFunction`
         self.defaultCfg = get_defaults(self.computeFunction)
+        
+        # dict of actual keyword argument values to `computeFunction` provided by user
         self.cfg = copy(self.defaultCfg)
         for key in set(self.cfg.keys()).intersection(kwargs.keys()):
             self.cfg[key] = kwargs[key]
+            
+        # tuple of positional arguments to `computeFunction` provided by user
         self.argv = argv
+        
+        # binary flag: if `True`, average across trials, do nothing otherwise
         self.keeptrials = None
+        
+        # acceptable total waiting time (in sec) for release/acquisition of sequential writing mutex
         self.timeout = None
+        
+        # full shape of final output dataset (all trials, all chunks, etc.)
         self.outputShape = None
+        
+        # numerical type of output dataset
         self.dtype = None
+        
+        # list of dicts encoding header info of raw binary input files (experimental!)
+        self.hdr = None
+        
+        # list of trial numbers to process (either `data.trials` or `data._selection.trials`)
+        self.trialList = None
+        
+        # list of index-tuples for extracting trial-chunks from input HDF5 dataset 
+        # >>> MUST be ordered, no repetitions! <<<
+        # indices are ABSOLUTE, i.e., wrt entire dataset, not just current trial!
         self.sourceLayout = None
+        
+        # list of index-tuples for re-ordering NumPy arrays extracted w/`self.sourceLayout` 
+        # >>> can be unordered w/repetitions <<<
+        # indices are RELATIVE, i.e., wrt current trial!
+        self.sourceSelectors = None
+        
+        # list of index-tuples for storing trial-chunk result in output dataset 
+        # >>> MUST be ordered, no repetitions! <<<
+        # indices are ABSOLUTE, i.e., wrt entire dataset, not just current trial
         self.targetLayout = None
+        
+        # list of shape-tuples of trial-chunk results
         self.targetShapes = None
+        
+        # binary flag: if `True`, use fancy array indexing via `np.ix_` to extract 
+        # data from input via `self.sourceLayout` + `self.sourceSelectors`; if `False`,
+        # only use `self.sourceLayout` (selections ordered, no reps)
+        self.useFancyIdx = None
+        
+        # integer, max. memory footprint of largest input array piece (in bytes)
         self.chunkMem = None
+        
+        # directory for storing source-HDF5 files making up virtual output dataset
         self.virtualDatasetDir = None
+        
+        # h5py layout encoding shape/geometry of file sources within virtual output dataset
+        self.VirtualDatasetLayout = None
+        
+        # name of output dataset
         self.datasetName = None
+        
+        # tmp holding var for preserving original access mode of `data`
         self.dataMode = None
+        
+        # time (in seconds) b/w querying state of sequential writing mutex 
+        # (until `self.timeout` is reached)
         self.sleepTime = 0.1
 
     def initialize(self, data, chan_per_worker=None, timeout=300, keeptrials=True):
@@ -174,13 +229,22 @@ class ComputationalRoutine(ABC):
         # First store `keeptrial` keyword value (important for output shapes below)
         self.keeptrials = keeptrials
         
+        # Determine if data-selection was provided; if so, extract trials and check
+        # whether selection requires fancy array indexing
+        if data._selection is not None:
+            self.trialList = data._selection.trials
+            self.useFancyIdx = data._selection._useFancy
+        else:
+            self.trialList = list(range(len(data.trials)))
+            self.useFancyIdx = False
+        
         # Prepare dryrun arguments and determine geometry of trials in output
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
         chk_list = []
         dtp_list = []
         trials = []
-        for tk in range(len(data.trials)):
+        for tk in self.trialList:
             trial = data._preview_trial(tk)
             chunkShape, dtype = self.computeFunction(trial, 
                                                      *self.argv, 
@@ -212,6 +276,11 @@ class ComputationalRoutine(ABC):
             print("Syncopy core - compute: WARNING >> trial-averaging does not " +\
                   "support channel-block parallelization! <<")
             chan_per_worker = None
+        if data._selection is not None:
+            if chan_per_worker is not None and data._selection.channel != slice(None, None, 1):
+                print("Syncopy core - compute: WARNING >>> channel selection and " +\
+                      "simultaneous channel-block parallelization not yet supported! <<<")
+                chan_per_worker = None
             
         # Allocate control variables
         trial = trials[0]
@@ -227,7 +296,7 @@ class ComputationalRoutine(ABC):
 
             # Set up channel-chunking
             nChannels = data.channel.size
-            rem = int(nChannels % chan_per_worker)        
+            rem = int(nChannels % chan_per_worker)
             n_blocks = [chan_per_worker] * int(nChannels//chan_per_worker) + [rem] * int(rem > 0)        
             inchanidx = data.dimord.index("channel")
             
@@ -273,7 +342,7 @@ class ComputationalRoutine(ABC):
             
         # Construct dimensional layout of output
         stacking = targetLayout[0][0].stop
-        for tk in range(1, len(data.trials)):
+        for tk in range(1, len(self.trialList)):
             trial = trials[tk]
             chkshp, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs)
             lyt = [slice(0, stop) for stop in chkshp]
@@ -300,9 +369,41 @@ class ComputationalRoutine(ABC):
                     sourceLayout.append(trial.idx)
                     chanstack += res[outchanidx]
                     blockstack += block
-        
+                    
+        # If the determined source layout contains unordered lists and/or index 
+        # repetitions, set `self.useFancyIdx` to `True` and prepare a separate
+        # `sourceSelectors` list that is used in addition to `sourceLayout` for 
+        # data extraction. 
+        # In this case `sourceLayout` uses ABSOLUTE indices (indices wrt to size 
+        # of ENTIRE DATASET) that are SORTED W/O REPS to extract a NumPy array 
+        # of appropriate size from HDF5. 
+        # Then `sourceLayout` uses RELATIVE indices (indices wrt to size of CURRENT 
+        # TRIAL) that can be UNSORTED W/REPS to actually perform the requested 
+        # selection on the NumPy array extracted w/`sourceLayout`. 
+        for grd in sourceLayout:
+            if any([np.diff(sel).min() <= 0 if isinstance(sel, list) else False for sel in grd]):
+                self.useFancyIdx = True 
+                break
+        if self.useFancyIdx:
+            sourceSelectors = []
+            for gk, grd in enumerate(sourceLayout):
+                ingrid = list(grd)
+                sigrid = []
+                for sk, sel in enumerate(grd):
+                    if isinstance(sel, list):
+                        selarr = np.array(sel, dtype=np.intp)
+                    else: # sel is a slice
+                        selarr = np.array(list(range(sel.start, sel.stop)), dtype=np.intp)
+                    sigrid.append(np.array(selarr) - selarr.min())
+                    ingrid[sk] = slice(selarr.min(), selarr.max() + 1, 1)
+                sourceSelectors.append(tuple(sigrid))
+                sourceLayout[gk] = tuple(ingrid)
+        else:
+            sourceSelectors = [Ellipsis] * len(sourceLayout)
+            
         # Store determined shapes and grid layout
         self.sourceLayout = sourceLayout
+        self.sourceSelectors = sourceSelectors
         self.targetLayout = targetLayout
         self.targetShapes = targetShapes
         
@@ -460,9 +561,19 @@ class ComputationalRoutine(ABC):
         else:
             computeMethod = getattr(self, "compute_" + method, None)
 
+        # Ensure `data` is openend read-only to permit (potentially concurrent) 
+        # reading access to backing device on disk
+        data.mode = "r"
+        
+        # Take care of `VirtualData` objects 
+        self.hdr = getattr(data, "hdr", None)
+            
         # Perform actual computation
         computeMethod(data, out)
 
+        # Reset data access mode
+        data.mode = self.dataMode
+        
         # Attach computed results to output object
         out.data = h5py.File(out.filename, mode="r+")[self.datasetName]
 
@@ -494,8 +605,8 @@ class ComputationalRoutine(ABC):
         compute : management routine controlling memory pre-allocation
         """
 
-        # The output object's type determines dataset name for result
-        self.datasetName = out.__class__.__name__
+        # Set name of target HDF5 dataset in output object
+        self.datasetName = "data"
 
         # In case parallel writing via VDS storage is requested, prepare
         # directory for by-chunk HDF5 containers and construct virutal HDF layout
@@ -508,7 +619,7 @@ class ComputationalRoutine(ABC):
             for k, idx in enumerate(self.targetLayout):
                 fname = os.path.join(self.virtualDatasetDir, "{0:d}.h5".format(k))
                 layout[idx] = h5py.VirtualSource(fname, "chk", shape=self.targetShapes[k])
-            self.vdslayout = layout
+            self.VirtualDatasetLayout = layout
 
         # Create regular HDF5 dataset for sequential writing
         else:
@@ -552,15 +663,7 @@ class ComputationalRoutine(ABC):
         compute : management routine invoking parallel/sequential compute kernels
         compute_sequential : serial processing counterpart of this method
         """
-
-        # Ensure `data` is openend read-only to permit concurrent reading access
-        data.mode = "r"
         
-        # Depending on chosen processing paradigm, get settings or assign defaults
-        hdr = None
-        if hasattr(data, "hdr"):
-            hdr = data.hdr
-            
         # Prepare to write chunks concurrently
         if self.virtualDatasetDir is not None:
             outfilename = os.path.join(self.virtualDatasetDir, "{0:d}.h5")
@@ -576,11 +679,13 @@ class ComputationalRoutine(ABC):
             waitcount = int(np.round(self.timeout/self.sleepTime))    
             
         # Construct a dask bag with all necessary components for parallelization
-        bag = db.from_sequence([{"hdr": hdr,
+        bag = db.from_sequence([{"hdr": self.hdr,
                                  "keeptrials": self.keeptrials, 
                                  "infile": data.filename,
                                  "indset": data.data.name,
                                  "ingrid": self.sourceLayout[chk],
+                                 "sigrid": self.sourceSelectors[chk],
+                                 "fancy": self.useFancyIdx,
                                  "vdsdir": self.virtualDatasetDir,
                                  "outfile": outfilename.format(chk),
                                  "outdset": outdsetname,
@@ -599,16 +704,13 @@ class ComputationalRoutine(ABC):
         # When writing concurrently, now's the time to finally create the virtual dataset
         if self.virtualDatasetDir is not None:
             with h5py.File(out.filename, mode="w") as h5f:
-                h5f.create_virtual_dataset(self.datasetName, self.vdslayout)
+                h5f.create_virtual_dataset(self.datasetName, self.VirtualDatasetLayout)
                 
-        # If trials-averagin was requested, normalize computed sum to get mean
+        # If trial-averaging was requested, normalize computed sum to get mean
         if not self.keeptrials:
             with h5py.File(out.filename, mode="r+") as h5f:
-                h5f[self.datasetName][()] /= len(data.trials)
+                h5f[self.datasetName][()] /= len(self.trialList)
                 h5f.flush()
-        
-        # Reset data access mode
-        data.mode = self.dataMode
         
         return 
         
@@ -641,33 +743,73 @@ class ComputationalRoutine(ABC):
         compute : management routine invoking parallel/sequential compute kernels
         compute_parallel : concurrent processing counterpart of this method
         """
+        
+        # Initialize on-disk backing device (either HDF5 file or memmap)
+        if self.hdr is None:
+            try:
+                source = h5py.File(data.filename, mode="r")[data.data.name]
+                isHDF = True
+            except OSError:
+                source = open_memmap(data.filename, mode="c")
+                isHDF = False
+            except Exception as exc:
+                raise exc
+            
+        # Iterate over (selected) trials and write directly to target HDF5 dataset
+        with h5py.File(out.filename, "r+") as h5fout:
+            target = h5fout[self.datasetName]
+            
+            for nblock in tqdm(range(len(self.trialList))):
 
-        # Iterate across trials and write directly to HDF5 container (flush
-        # after each trial to avoid memory leakage) - if trials are not to
-        # be preserved, compute average across trials manually to avoid
-        # allocation of unnecessarily large dataset
-        with h5py.File(out.filename, "r+") as h5f:
-            dset = h5f[self.datasetName]
-            cnt = 0
-            idx = [slice(None)] * len(dset.shape)
-            if self.keeptrials:
-                for trl in tqdm(data.trials, desc="Computing..."):
-                    res = self.computeFunction(trl,
-                                               *self.argv,
-                                               **self.cfg)
-                    idx[0] = slice(cnt, cnt + res.shape[0])
-                    dset[tuple(idx)] = res
-                    cnt += res.shape[0]
-                    h5f.flush()
-            else:
-                for trl in tqdm(data.trials, desc="Computing..."):
-                    dset[()] = np.nansum([dset, self.computeFunction(trl,
-                                                                     *self.argv,
-                                                                     **self.cfg)],
-                                         axis=0)
-                    h5f.flush()
-                dset[()] /= len(data.trials)
+                # Extract respective indexing tuples from constructed lists                
+                ingrid = self.sourceLayout[nblock]
+                sigrid = self.sourceSelectors[nblock]
+                outgrid = self.targetLayout[nblock]
 
+                # Get source data as NumPy array
+                if self.hdr is None:
+                    if isHDF:
+                        if self.useFancyIdx:
+                            arr = np.array(source[tuple(ingrid)])[np.ix_(*sigrid)]
+                        else:
+                            arr = np.array(source[tuple(ingrid)])
+                    else:
+                        if self.useFancyIdx:
+                            arr = source[np.ix_(*ingrid)]
+                        else:
+                            arr = np.array(source[ingrid])
+                    source.flush()
+                else:
+                    idx = ingrid
+                    if self.useFancyIdx:
+                        idx = np.ix_(*ingrid)
+                    stacks = []
+                    for fk, fname in enumerate(data.filename):
+                        stacks.append(np.memmap(fname, offset=int(self.hdr[fk]["length"]),
+                                                mode="r", dtype=self.hdr[fk]["dtype"],
+                                                shape=(self.hdr[fk]["M"], self.hdr[fk]["N"]))[idx])
+                    arr = np.vstack(stacks)[ingrid]
+
+                # Perform computation
+                res = self.computeFunction(arr, *self.argv, **self.cfg)
+                    
+                # Either write result to `outgrid` location in `target` or add it up
+                if self.keeptrials:
+                    target[outgrid] = res
+                else:
+                    target[()] = np.nansum([target, res], axis=0)
+                
+                # Flush every iteration to avoid memory leakage
+                h5fout.flush()
+
+            # If trial-averaging was requested, normalize computed sum to get mean
+            if not self.keeptrials:
+                target[()] /= len(self.trialList)
+
+        # If source was HDF5 file, close it to prevent access errors
+        if isHDF:
+            source.file.close()    
+            
         return
 
     def write_log(self, data, out, log_dict=None):

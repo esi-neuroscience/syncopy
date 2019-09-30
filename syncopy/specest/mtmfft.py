@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:25:34
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-03 09:42:52>
+# Last modification time: <2019-09-25 13:13:06>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -13,7 +13,7 @@ import scipy.signal.windows as spwin
 # Local imports
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.datatype import padding
-import syncopy.specest.freqanalysis
+import syncopy.specest.freqanalysis as freq
 from syncopy.shared.parsers import unwrap_io
 
 
@@ -105,23 +105,22 @@ def mtmfft(trl_dat, dt, timeAxis,
 
     # For initialization of computational routine, just return output shape and dtype
     if noCompute:
-        return outShape, syncopy.specest.freqanalysis.spectralDTypes[output_fmt]
+        return outShape, freq.spectralDTypes[output_fmt]
 
     # Get final output shape from `chunkShape` keyword modulo per-worker channel-count
     # In case tapers aren't kept allocate `spec` "too big" and average afterwards
     shp = list(chunkShape)
     shp[-1] = nChannels
-    if not keeptapers:
-        shp[1] = nTaper
+    shp[1] = nTaper
     chunkShape = tuple(shp)
-    spec = np.full(chunkShape, np.nan, dtype=syncopy.specest.freqanalysis.spectralDTypes[output_fmt])
+    spec = np.full(chunkShape, np.nan, dtype=freq.spectralDTypes[output_fmt])
     fill_idx = tuple([slice(None, dim) for dim in outShape[2:]])
 
     # Actual computation
     for taperIdx, taper in enumerate(win):
         if dat.ndim > 1:
             taper = np.tile(taper, (nChannels, 1)).T
-        spec[(0, taperIdx,) + fill_idx] = syncopy.specest.freqanalysis.spectralConversions[output_fmt](np.fft.rfft(dat * taper, axis=0)[fidx, :])
+        spec[(0, taperIdx,) + fill_idx] = freq.spectralConversions[output_fmt](np.fft.rfft(dat * taper, axis=0)[fidx, :])
 
     # Average across tapers if wanted
     if not keeptapers:
@@ -140,13 +139,18 @@ class MultiTaperFFT(ComputationalRoutine):
         if self.keeptrials:
             time = np.arange(len(data.trials))
             time = time.reshape((time.size, 1))
-            out.sampleinfo = np.hstack([time, time + 1])
-            out.trialinfo = np.array(data.trialinfo)
-            out._t0 = np.zeros((len(data.trials),))
+            out.trialdefinition = np.hstack((time, time + 1, 
+                                              np.zeros((len(data.trials), 1)), 
+                                              np.array(data.trialinfo)))
+            # out.sampleinfo = np.hstack([time, time + 1])
+            # out._t0 = np.zeros((len(data.trials),))
+            # out.trialinfo = np.array(data.trialinfo)
+            
         else:
-            out.sampleinfo = np.array([[0, 1]])
-            out.trialinfo = out.sampleinfo[:, 3:]
-            out._t0 = np.array([0])
+            out.trialdefinition = np.array([[0, 1, 0]])
+            # out.sampleinfo = np.array([[0, 1]])
+            # out.trialinfo = out.sampleinfo[:, 3:]
+            # out._t0 = np.array([0])
 
         # Attach remaining meta-data
         out.samplerate = data.samplerate

@@ -128,7 +128,7 @@ class TestMTMFFT():
         # same + reversed dimensional order in input object
         cfg.data = generate_artifical_data(nTrials=5, nChannels=16,
                                            equidistant=False, inmemory=False,
-                                           dimord=AnalogData().dimord[::-1])
+                                           dimord=AnalogData._defaultDimord[::-1])
         cfg.output = "abs"
         cfg.keeptapers = False
         spec = freqanalysis(cfg)
@@ -142,7 +142,7 @@ class TestMTMFFT():
         # same + overlapping trials
         cfg.data = generate_artifical_data(nTrials=5, nChannels=16,
                                            equidistant=False, inmemory=False,
-                                           dimord=AnalogData().dimord[::-1],
+                                           dimord=AnalogData._defaultDimord[::-1],
                                            overlapping=True)
         cfg.keeptapers = False
         spec = freqanalysis(cfg)
@@ -155,7 +155,7 @@ class TestMTMFFT():
 
     def test_allocout(self):
         # call ``freqanalysis`` w/pre-allocated output object
-        out = SpectralData()
+        out = SpectralData(dimord=SpectralData._defaultDimord)
         freqanalysis(self.adata, method="mtmfft", taper="hann", out=out)
         assert len(out.trials) == self.nTrials
         assert out.taper.size == 1
@@ -168,7 +168,7 @@ class TestMTMFFT():
         cfg.taper = "hann"
         cfg.keeptrials = "no"
         cfg.output = "abs"
-        cfg.out = SpectralData()
+        cfg.out = SpectralData(dimord=SpectralData._defaultDimord)
 
         # throw away trials
         freqanalysis(self.adata, cfg)
@@ -177,7 +177,7 @@ class TestMTMFFT():
         assert np.all(cfg.out.sampleinfo == [0, 1])
 
         # keep trials but throw away tapers
-        out = SpectralData()
+        out = SpectralData(dimord=SpectralData._defaultDimord)
         freqanalysis(self.adata, method="mtmfft", taper="dpss",
                      keeptapers=False, output="abs", out=out)
         assert out.sampleinfo.shape == (self.nTrials, 2)
@@ -185,12 +185,13 @@ class TestMTMFFT():
 
         # re-use `cfg` from above and additionally throw away `tapers`
         cfg.dataset = self.adata
-        cfg.out = SpectralData()
+        cfg.out = SpectralData(dimord=SpectralData._defaultDimord)
         cfg.taper = "dpss"
         cfg.keeptapers = False
         freqanalysis(cfg)
         assert cfg.out.taper.size == 1
 
+    @pytest.mark.skip(reason="VirtualData is currently not supported")
     def test_vdata(self):
         # test constant padding w/`VirtualData` objects (trials have identical lengths)
         with tempfile.TemporaryDirectory() as tdir:
@@ -234,7 +235,7 @@ class TestMTMFFT():
         fileCount = [self.nTrials, nFiles]
         for k, chan_per_worker in enumerate([None, chanPerWrkr]):
             artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                            inmemory=True)
+                                              inmemory=True)
             cfg.chan_per_worker = chan_per_worker
             spec = freqanalysis(artdata, cfg)
             assert spec.data.is_virtual
@@ -242,7 +243,7 @@ class TestMTMFFT():
 
             # non-equidistant trial spacing
             artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                            inmemory=True, equidistant=False)
+                                              inmemory=True, equidistant=False)
             spec = freqanalysis(artdata, cfg)
             timeAxis = artdata.dimord.index("time")
             mintrlno = np.diff(artdata.sampleinfo).argmin()
@@ -253,7 +254,8 @@ class TestMTMFFT():
             # equidistant trial spacing average tapers
             cfg.output = "abs"
             cfg.keeptapers = False
-            artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+            artdata = generate_artifical_data(nTrials=self.nTrials, 
+                                              nChannels=self.nChannels,
                                               inmemory=False)
             spec = freqanalysis(artdata, cfg)
             assert spec.taper.size == 1

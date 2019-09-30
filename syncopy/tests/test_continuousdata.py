@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:46:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-23 15:51:38>
+# Last modification time: <2019-09-25 13:17:32>
 
 import os
 import tempfile
@@ -33,14 +33,15 @@ class TestAnalogData():
     def test_empty(self):
         dummy = AnalogData()
         assert len(dummy.cfg) == 0
-        assert dummy.dimord == ["time", "channel"]
+        assert dummy.dimord == None
         for attr in ["channel", "data", "hdr", "sampleinfo", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
             AnalogData({})
 
     def test_nparray(self):
-        dummy = AnalogData(self.data)
+        dummy = AnalogData(data=self.data)
+        assert dummy.dimord == AnalogData._defaultDimord
         assert dummy.channel.size == self.nc
         assert (dummy.sampleinfo == [0, self.ns]).min()
         assert dummy.trialinfo.shape == (1, 0)
@@ -50,6 +51,7 @@ class TestAnalogData():
         with pytest.raises(SPYValueError):
             AnalogData(np.ones((3,)))
 
+    @pytest.mark.skip(reason="VirtualData is currently not supported")
     def test_virtualdata(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "dummy.npy")
@@ -64,7 +66,7 @@ class TestAnalogData():
 
     def test_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order
-        dummy = AnalogData(self.data, trialdefinition=self.trl)
+        dummy = AnalogData(data=self.data, trialdefinition=self.trl)
         for trlno, start in enumerate(range(0, self.ns, 5)):
             trl_ref = self.data[start:start + 5, :]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
@@ -100,12 +102,13 @@ class TestAnalogData():
 
             # basic but most important: ensure object integrity is preserved
             checkAttr = ["channel", "data", "dimord", "sampleinfo", "samplerate", "trialinfo"]
-            dummy = AnalogData(self.data, samplerate=1000)
+            dummy = AnalogData(data=self.data, samplerate=1000)
             dummy.save(fname)
             filename = construct_spy_filename(fname, dummy)
-            dummy2 = AnalogData(filename)
-            for attr in checkAttr:
-                assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
+            # NOTE: We removed support for loading data via the constructor
+            # dummy2 = AnalogData(filename)
+            # for attr in checkAttr:
+            #     assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
             dummy3 = load(fname)
             for attr in checkAttr:
                 assert np.array_equal(getattr(dummy3, attr), getattr(dummy, attr))
@@ -113,41 +116,47 @@ class TestAnalogData():
             dummy4 = load(os.path.join(tdir, "ymmud"))
             for attr in checkAttr:
                 assert np.array_equal(getattr(dummy4, attr), getattr(dummy, attr))
-            del dummy, dummy2, dummy3, dummy4  # avoid PermissionError in Windows
+            del dummy, dummy3, dummy4  # avoid PermissionError in Windows
             
-            # save object hosting VirtualData
-            np.save(fname + ".npy", self.data)
-            dmap = open_memmap(fname + ".npy", mode="r")
-            vdata = VirtualData([dmap, dmap])
-            dummy = AnalogData(vdata, samplerate=1000)
-            dummy.save(fname, overwrite=True)
-            dummy2 = AnalogData(filename)
-            assert dummy2.mode == "r+"
-            assert np.array_equal(dummy2.data, vdata[:, :])
-            del dummy, dummy2  # avoid PermissionError in Windows
+            # # FIXME: either remove or repair this
+            # # save object hosting VirtualData
+            # np.save(fname + ".npy", self.data)
+            # dmap = open_memmap(fname + ".npy", mode="r")
+            # vdata = VirtualData([dmap, dmap])
+            # dummy = AnalogData(vdata, samplerate=1000)
+            # dummy.save(fname, overwrite=True)
+            # dummy2 = AnalogData(filename)
+            # assert dummy2.mode == "r+"
+            # assert np.array_equal(dummy2.data, vdata[:, :])
+            # del dummy, dummy2  # avoid PermissionError in Windows
             
             # ensure trialdefinition is saved and loaded correctly
-            dummy = AnalogData(self.data, trialdefinition=self.trl, samplerate=1000)
+            dummy = AnalogData(data=self.data, trialdefinition=self.trl, samplerate=1000)
             dummy.save(fname + "_trl")
             filename = construct_spy_filename(fname + "_trl", dummy)
-            dummy2 = AnalogData(filename)
+            dummy2 = load(filename)
+            assert np.array_equal(dummy.trialdefinition, dummy2.trialdefinition)
+
+            # test getters
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
-            assert np.array_equal(dummy.t0, dummy2.t0)
+            assert np.array_equal(dummy._t0, dummy2._t0)
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
+
             del dummy, dummy2  # avoid PermissionError in Windows
 
             # swap dimensions and ensure `dimord` is preserved
-            dummy = AnalogData(self.data, dimord=["channel", "time"], samplerate=1000)
+            dummy = AnalogData(data=self.data, 
+                               dimord=["channel", "time"], samplerate=1000)
             dummy.save(fname + "_dimswap")
             filename = construct_spy_filename(fname + "_dimswap", dummy)
-            dummy2 = AnalogData(filename)
+            dummy2 = load(filename)
             assert dummy2.dimord == dummy.dimord
             assert dummy2.channel.size == self.ns  # swapped
             assert dummy2.data.shape == dummy.data.shape
 
             # Delete all open references to file objects and wait 0.1s for changes
             # to take effect (thanks, Windows!)
-            del dmap, vdata, dummy, dummy2
+            del dummy, dummy2
             time.sleep(0.1)
 
     def test_relative_array_padding(self):
@@ -368,6 +377,18 @@ class TestAnalogData():
         # test absolute + time + non-equidistant!
         # test relative + time + non-equidistant + overlapping!
 
+    def test_dataselection(self):
+        # FIXME: test shapes of slices + RANGE!
+        # FIXME: test slice(None, 5)
+        # FIXME: test [0, 1, 2, 3, 4] == slice(None, 5) + str selection
+        # FIXME: test slice(-5, None) == slice(5, None)
+        # FIXME: test slice(0, 10, 2)
+        # FIXME: test slice(-8, -2)
+        # FIXME: test slice(-8, -2, 2)
+        # FIXME: test toi/toilim + channel combo (right shape etc.)
+        # FIXME: test trials = 2, 1, 3 + channel + toi/toilim
+        pass
+
 
 class TestSpectralData():
 
@@ -386,7 +407,7 @@ class TestSpectralData():
     def test_empty(self):
         dummy = SpectralData()
         assert len(dummy.cfg) == 0
-        assert dummy.dimord == ["time", "taper", "freq", "channel"]
+        assert dummy.dimord == None
         for attr in ["channel", "data", "freq", "sampleinfo", "taper", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
@@ -394,6 +415,7 @@ class TestSpectralData():
 
     def test_nparray(self):
         dummy = SpectralData(self.data)
+        assert dummy.dimord == SpectralData._defaultDimord
         assert dummy.channel.size == self.nc
         assert dummy.taper.size == self.nt
         assert dummy.freq.size == self.nf
@@ -403,7 +425,7 @@ class TestSpectralData():
 
         # wrong shape for data-type
         with pytest.raises(SPYValueError):
-            SpectralData(np.ones((3,)))
+            SpectralData(data=np.ones((3,)))
 
     def test_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order
@@ -445,9 +467,9 @@ class TestSpectralData():
             dummy = SpectralData(self.data, samplerate=1000)
             dummy.save(fname)
             filename = construct_spy_filename(fname, dummy)
-            dummy2 = SpectralData(filename)
-            for attr in checkAttr:
-                assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
+            # dummy2 = SpectralData(filename)
+            # for attr in checkAttr:
+            #     assert np.array_equal(getattr(dummy, attr), getattr(dummy2, attr))
             dummy3 = load(fname)
             for attr in checkAttr:
                 assert np.array_equal(getattr(dummy3, attr), getattr(dummy, attr))
@@ -455,14 +477,17 @@ class TestSpectralData():
             dummy4 = load(os.path.join(tdir, "ymmud"))
             for attr in checkAttr:
                 assert np.array_equal(getattr(dummy4, attr), getattr(dummy, attr))
-            del dummy, dummy2, dummy3, dummy4  # avoid PermissionError in Windows
+            del dummy, dummy3, dummy4  # avoid PermissionError in Windows
 
             # ensure trialdefinition is saved and loaded correctly
             dummy = SpectralData(self.data, trialdefinition=self.trl, samplerate=1000)
             dummy.save(fname, overwrite=True)
-            dummy2 = SpectralData(filename)
+            dummy2 = load(filename)
+            assert np.array_equal(dummy.trialdefinition, dummy2.trialdefinition)
+
+            # test getters
             assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
-            assert np.array_equal(dummy.t0, dummy2.t0)
+            assert np.array_equal(dummy._t0, dummy2._t0)
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
 
             # swap dimensions and ensure `dimord` is preserved
@@ -470,7 +495,7 @@ class TestSpectralData():
                                  samplerate=1000)
             dummy.save(fname + "_dimswap")
             filename = construct_spy_filename(fname + "_dimswap", dummy)
-            dummy2 = SpectralData(filename)
+            dummy2 = load(filename)
             assert dummy2.dimord == dummy.dimord
             assert dummy2.channel.size == self.nt  # swapped
             assert dummy2.taper.size == self.nf  # swapped

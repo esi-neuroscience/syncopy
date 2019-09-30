@@ -19,7 +19,7 @@ from glob import glob
 # Local imports
 from syncopy.shared.parsers import io_parser, data_parser, filename_parser, array_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYIOError, SPYError
-from syncopy.io import hash_file, FILE_EXT, startInfoDict
+from syncopy.io.utils import hash_file, FILE_EXT, startInfoDict
 import syncopy.datatype as spd
 
 __all__ = ["load"]
@@ -288,7 +288,9 @@ def _load(filename, checksum, mode, out):
 
     # Access data on disk (error checking is done by setters)
     out.mode = mode
-    out.data = hdfFile
+    for datasetProperty in out._hdfFileDatasetProperties:
+        setattr(out, datasetProperty, h5py.File(hdfFile, mode="r")[datasetProperty])
+    
 
     # Abuse ``definetrial`` to set trial-related props
     trialdef = h5py.File(hdfFile, mode="r")["trialdefinition"][()]

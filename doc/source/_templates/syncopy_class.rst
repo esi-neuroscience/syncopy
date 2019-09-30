@@ -4,6 +4,7 @@
 
 .. autoclass:: {{ objname }}
    :members:
+   :private-members:
    
    {% block methods %}
    .. automethod:: __init__
@@ -15,6 +16,16 @@
    {% for item in methods %}
       ~{{ name }}.{{ item }}
    {%- endfor %}
+
+   .. autosummary::
+   {% for item in members %}
+      {% if item[0] == "_" %}
+         {% if item[1] != "_" %}
+            ~{{ name }}.{{ item }}
+         {% endif %}
+      {% endif %}
+   {%- endfor %}
+
    {% endif %}
    {% endblock %}
 
