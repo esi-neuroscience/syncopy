@@ -26,7 +26,7 @@ import syncopy as spy
 # Import artificial data generator
 from syncopy.tests.misc import generate_artifical_data
 
-sys.exit()
+# sys.exit()
 
 if __name__ == "__main__":
 
@@ -39,7 +39,6 @@ if __name__ == "__main__":
     #                  np.ones((int(ns/5), )) * np.pi]).T
 
     from syncopy.datatype import AnalogData, SpectralData, StructDict, padding
-    from syncopy.specest import freqanalysis
     from syncopy.shared import esi_cluster_setup
 
     # create uniform `cfg` for testing on SLURM
@@ -53,13 +52,60 @@ if __name__ == "__main__":
     
     # artdata.save('test', overwrite=True)
     # bdata = spy.load('test')
-    spec1 = freqanalysis(artdata, cfg)
+    spec1 = spy.freqanalysis(artdata, cfg)
+    
+
+    # Set up "global" parameters for data objects to be tested
+    nChannels = 10
+    nSamples = 30
+    nTrials = 5
+    nFreqs = 15
+    nSpikes = 50
+    data = {}
+    trl = {}
+    
+    # Generate 2D array simulating an AnalogData array
+    data["AnalogData"] = np.arange(1, nChannels * nSamples + 1).reshape(nSamples, nChannels)
+    trl["AnalogData"] = np.vstack([np.arange(0, nSamples, 5),
+                                   np.arange(5, nSamples + 5, 5),
+                                   np.ones((int(nSamples / 5), )),
+                                   np.ones((int(nSamples / 5), )) * np.pi]).T
+
+    # Generate a 4D array simulating a SpectralData array
+    data["SpectralData"] = np.arange(1, nChannels * nSamples * nTrials * nFreqs + 1).reshape(nSamples, nTrials, nFreqs, nChannels)
+    trl["SpectralData"] = trl["AnalogData"]
+
+    # Use a fixed random number generator seed to simulate a 2D SpikeData array
+    seed = np.random.RandomState(13)
+    data["SpikeData"] = np.vstack([seed.choice(nSamples, size=nSpikes),
+                                   seed.choice(np.arange(1, nChannels + 1), size=nSpikes), 
+                                   seed.choice(int(nChannels/2), size=nSpikes)]).T
+    trl["SpikeData"] = trl["AnalogData"]
+
+    # Use a simple binary trigger pattern to simulate EventData
+    data["EventData"] = np.vstack([np.arange(0, nSamples, 5),
+                                   np.zeros((int(nSamples / 5), ))]).T
+    
+    data["EventData"] = np.vstack([np.arange(0, nSamples, 2), 
+                                   np.zeros((int(nSamples / 2), ))]).T  
+    data["EventData"][1::3, 1] = 1
+    data["EventData"][2::3, 1] = 2
+    trl["EventData"] = trl["AnalogData"]
+    
+    from syncopy.datatype.base_data import VirtualData, Selector
+    
+    spk = spy.SpikeData(data=data["SpikeData"], trialdefinition=trl["SpikeData"], samplerate=2) 
+
+    sel=Selector(spk, select={"toi":[1.0, 1.5]})  
+    
+    evt = spy.EventData(data=data["EventData"], trialdefinition=trl["EventData"], samplerate=2)
+       
+    sys.exit()
     client = dd.Client()
-    spec2 = freqanalysis(artdata, cfg)
+    spec2 = spy.freqanalysis(artdata, cfg)
     
     cfg.chan_per_worker = 7
-    spec3 = freqanalysis(artdata, cfg)
-    sys.exit()
+    spec3 = spy.freqanalysis(artdata, cfg)
 
     # # Constructe simple trigonometric signal to check FFT consistency: each
     # # channel is a sine wave of frequency `freqs[nchan]` with single unique

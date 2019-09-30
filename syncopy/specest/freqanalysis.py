@@ -3,11 +3,10 @@
 # SyNCoPy spectral estimation methods
 # 
 # Created: 2019-01-22 09:07:47
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-09 10:58:25>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-09-25 17:18:41>
 
 # Builtin/3rd party package imports
-import sys
 import numpy as np
 import scipy.signal.windows as spwin
 from numbers import Number
@@ -47,12 +46,13 @@ availableMethods = ("mtmfft", "wavelet")
 
 __all__ = ["freqanalysis"]
 
+
 @unwrap_cfg
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, pad='nextpow2', padtype='zero',
                  padlength=None, polyremoval=False, polyorder=None,
                  taper="hann", tapsmofrq=None, keeptapers=True,
-                 wav="Morlet", toi=0.1, width=6,
+                 wav="Morlet", toi=0.1, width=6, select=None,
                  out=None, **kwargs):
     """Perform a (time-)frequency analysis of time series data
 
@@ -109,7 +109,12 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     width : scalar
         Nondimensional frequency constant of wavelet. For a Morlet wavelet 
         this number should be >= 6, which correspondonds to 6 cycles within
-        FIXME standard deviations of the enveloping Gaussian.            
+        FIXME standard deviations of the enveloping Gaussian.       
+    select : dict or :class:`~syncopy.datatype.base_data.StructDict`
+        Select subset of input data for processing, e.g., using 
+        ``select = {"channel": range(50)}`` performs spectral analysis using
+        only the first 50 channels in `data`. Please refer to 
+        :func:`syncopy.selectdata` for further usage details. 
     out : None or :class:`SpectralData` object
         None if a new :class:`SpectralData` object should be created,
         or the (empty) object into which the result should be written.
@@ -329,8 +334,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                                          width=width,
                                          output_fmt=output)
         
-    # import pdb; pdb.set_trace()
-
     # If provided, make sure output object is appropriate
     if out is not None:
         try:
@@ -341,24 +344,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise exc
         new_out = False
     else:
-        out = SpectralData()
+        out = SpectralData(dimord=SpectralData._defaultDimord)        
         new_out = True
-
-    # # Prepare dict of optional keywords for computational class constructor
-    # # (update `lcls` to reflect changes in method-specifc options)
-    # lcls = locals()
-    # mth_input = {}
-    # kws.remove("noCompute")
-    # kws.remove("chunkShape")
-    # kws.append("keeptrials")
-    # for kw in kws:
-    #     mth_input[kw] = lcls[kw]
-
-    # # Construct dict of classes of available methods
-    # methods = {
-    #     "mtmfft": MultiTaperFFT(1/data.samplerate, timeAxis, **mth_input),
-    #     "wavelet": WaveletTransform(1/data.samplerate, timeAxis, foi, **mth_input)
-    # }
 
     # Detect if dask client is running and set `parallel` keyword accordingly
     if __dask__:
