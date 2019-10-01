@@ -60,11 +60,12 @@ __tbcount__ = 5
 __checksum_algorithm__ = sha1
 
 # Fill up namespace
-from . import datatype, io, shared, specest
+from . import datatype, io, shared, specest, statistics
 from .shared import *
 from .io import *
 from .datatype import *
 from .specest import *
+from .statistics import *
 
 # Register session
 __session__ = datatype.base_data.SessionLogger()
@@ -86,3 +87,4 @@ __all__.extend(datatype.__all__)
 __all__.extend(io.__all__)
 __all__.extend(shared.__all__)
 __all__.extend(specest.__all__)
+__all__.extend(statistics.__all__)
