@@ -30,14 +30,17 @@ def timelockanalysis(data, selected_trials=None):
     -------
     dict
         Dictionary with keys "avg", "var", "dof" "time", "channel" for average
-        variance, degrees of freedom, the time axis, and channel labels
+        variance, degrees of freedom, time axis, and channel labels
 
     Note
     ----
     This function is merely a proof of concept for averaging across trials with
     an online algorithm. The final version for release will change severely. 
     FIXME: There are currently no tests for this function.
-    
+    FIXME: Check for non-standard dimord
+    FIXME: Maybe we don't need to iterate over `data.trialdefinition` 
+           but can use `selected_trials` directly to allocate a smaller `intTimeAxes` array
+    FIXME: the output should be a "proper" Syncopy object
     """
     
     try:

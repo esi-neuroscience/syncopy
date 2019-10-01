@@ -12,6 +12,5 @@ from .timelockanalysis import __all__ as _all_
 
 
 # Populate local __all__ namespace
-# Populate local __all__ namespace
 __all__ = []
 __all__.extend(_all_)
