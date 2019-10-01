@@ -4,12 +4,11 @@
 # 
 # Created: 2019-10-01 11:39:36
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-10-01 11:40:59>
+# Last modification time: <2019-10-01 13:37:17>
 
 import os
 import numpy as np
 import syncopy as spy
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 from syncopy.shared.parsers import data_parser
 import syncopy as spy
@@ -108,6 +107,7 @@ if __name__ == "__main__":
     chan = list(analogData.channel).index("vprobeMUA_020")
 
     from scipy.signal import savgol_filter
+    import matplotlib.pyplot as plt
     for t in tl:
         plt.plot(t.time,  savgol_filter(t.avg[:, chan], 71, 3))    
         plt.fill_between(t.time, 
