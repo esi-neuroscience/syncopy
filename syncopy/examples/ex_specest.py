@@ -28,7 +28,7 @@ from syncopy.tests.misc import generate_artifical_data
 
 import dask.distributed as dd
 
-# sys.exit()
+sys.exit()
 
 if __name__ == "__main__":
     

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-22 12:38:16
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-08-29 15:46:00>
+# Last modification time: <2019-10-01 17:05:38>
 
 # Builtin/3rd party package imports
 import os
@@ -13,6 +13,7 @@ import socket
 import subprocess
 import getpass
 import time
+import inspect
 import numpy as np
 from tqdm import tqdm
 if sys.platform == "win32":
@@ -25,7 +26,7 @@ if sys.platform == "win32":
 from syncopy import __dask__
 from syncopy.shared.parsers import scalar_parser, io_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError
-from syncopy.shared.queries import user_input
+from syncopy.shared.queries import user_input, user_yesno
 if __dask__:
     from dask_jobqueue import SLURMCluster
     from dask.distributed import Client, get_client
@@ -49,12 +50,29 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     --------
     cluster_cleanup : remove dangling job swarms
     """
+    
+    # For later reference: dynamically fetch name of current function
+    funcName = "Syncopy <{}>".format(inspect.currentframe().f_code.co_name)
 
     # Retrieve all partitions currently available in SLURM
     out, err = subprocess.Popen("sinfo -h -o %P",
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 text=True, shell=True).communicate()
     if len(err) > 0:
+        
+        # SLURM is not installed, either allocate `LocalCluster` or just leave
+        if "sinfo: not found" in err:
+            msg = "{name:s} SLURM does not seem to be installed on this machine " +\
+                  "({host:s}). Do you want to start a local multi-processing " +\
+                  "computing client instead? "
+            if user_yesno(msg.format(name=funcName, host=socket.gethostname()), default="no"):
+                client = Client()
+                if start_client:
+                    return client
+                return client.cluster
+            return 
+
+        # SLURM is installed, but something's wrong        
         msg = "SLURM queuing system from node {node:s}. " +\
               "Original error message below:\n{error:s}"
         raise SPYIOError(msg.format(node=socket.gethostname(), error=err))
@@ -106,9 +124,9 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
         else:
             mem_req = int(mem_per_job[:mem_per_job.find("GB")])
         if mem_req > mem_lim:
-            msg = "<esi_cluster_setup> WARNING: `mem_per_job` exceeds limit of " +\
+            msg = "{name:s} WARNING: `mem_per_job` exceeds limit of " +\
                   "{lim:d}GB for partition {par:s}. Capping memory at partition limit. "
-            print(msg.format(lim=mem_lim, par=partition))
+            print(msg.format(name=funcName, lim=mem_lim, par=partition))
             mem_per_job = str(int(mem_lim)) + "GB"
 
     # Parse requested timeout period
@@ -171,8 +189,10 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     cluster.scale(total_workers)
 
     # Fire up waiting routine to avoid premature cluster setups
-    _cluster_waiter(cluster, total_workers, timeout, interactive)
-
+    if _cluster_waiter(cluster, funcName, total_workers, timeout, interactive):
+        return
+    # ret = _cluster_waiter(cluster, funcName, total_workers, timeout, interactive)
+    
     # Kill a zombie cluster in non-interactive mode
     if not interactive and cluster._count_active_workers() == 0:
         cluster.close()
@@ -181,17 +201,16 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
         raise TimeoutError(err.format(timeout))
     
     # Highlight how to connect to dask performance monitor
-    # FIXME: Re-add printing of dashboard link when issue #128 is fully fixed
-    # print("Cluster dashboard accessible at {}".format(cluster.dashboard_link))
+    print("{name:s} Cluster dashboard accessible at {dash:s}".format(name=funcName,
+                                                                     dash=cluster.dashboard_link))
 
     # If client was requested, return that instead of the created cluster
     if start_client:
         return Client(cluster)
-    else:
-        return cluster
+    return cluster
 
 
-def _cluster_waiter(cluster, total_workers, timeout, interactive):
+def _cluster_waiter(cluster, funcName, total_workers, timeout, interactive):
     """
     Local helper that can be called recursively
     """
@@ -200,7 +219,7 @@ def _cluster_waiter(cluster, total_workers, timeout, interactive):
     wrkrs = cluster._count_active_workers()
     to = str(timedelta(seconds=timeout))[2:]
     fmt = "{desc}: {n}/{total} \t[elapsed time {elapsed} | timeout at " + to + "]"
-    ani = tqdm(desc="SLURM workers ready", total=total_workers,
+    ani = tqdm(desc="{} SLURM workers ready".format(funcName), total=total_workers,
                leave=True, bar_format=fmt, initial=wrkrs)
     counter = 0
     while cluster._count_active_workers() < total_workers and counter < timeout:
@@ -213,32 +232,32 @@ def _cluster_waiter(cluster, total_workers, timeout, interactive):
 
     # If we ran out of time before all workers could be started, ask what to do
     if counter == timeout and interactive:
-        msg = "SLURM swarm could not be started within given time-out " +\
-              "interval of {0:d} seconds"
-        print(msg.format(timeout))
-        query = "Do you want to [k]eep waiting for 60s, [a]bort or " +\
-                "[c]ontinue with {0:d} workers?"
-        choice = user_input(query.format(wrkrs), valid=["k", "a", "c"])
+        msg = "{name:s} SLURM swarm could not be started within given time-out " +\
+              "interval of {time:d} seconds"
+        print(msg.format(name=funcName, time=timeout))
+        query = "{name:s} Do you want to [k]eep waiting for 60s, [a]bort or " +\
+                "[c]ontinue with {wrk:d} workers?"
+        choice = user_input(query.format(name=funcName, wrk=wrkrs), valid=["k", "a", "c"])
 
         if choice == "k":
-            _cluster_waiter(cluster, total_workers, 60, True)
+            return _cluster_waiter(cluster, funcName, total_workers, 60, True)
         elif choice == "a":
-            print("Closing cluster...")
+            print("{} Closing cluster...".format(funcName))
             cluster.close()
-            sys.exit()
+            return True
         else:
             if wrkrs == 0:
-                query = "Cannot continue with 0 workers. Do you want to " +\
+                query = "{} Cannot continue with 0 workers. Do you want to " +\
                         "[k]eep waiting for 60s or [a]bort?"
-                choice = user_input(query, valid=["k", "a"])
+                choice = user_input(query.format(funcName), valid=["k", "a"])
                 if choice == "k":
-                    _cluster_waiter(cluster, total_workers, 60, True)
+                    _cluster_waiter(cluster, funcName, total_workers, 60, True)
                 else:
-                    print("Closing cluster...")
+                    print("{} Closing cluster...".format(funcName))
                     cluster.close()
-                    sys.exit()
+                    return True
 
-    return
+    return False
 
 def cluster_cleanup():
     """
@@ -265,6 +284,22 @@ def cluster_cleanup():
     except Exception as exc:
         raise exc
     
+    # Prepare message for prompt
+    userName = getpass.getuser()
+    outDir = client.cluster.job_header.partition("--output=")[-1]
+    jobID = outDir.partition("{}_".format(userName))[-1].split(os.sep)[0]
+    userClust = "{0}_{1}".format(userName, jobID)
+    nWorkers = client.cluster._count_active_and_pending_workers()
+    
     # If connection was successful, first close the client, then the cluster
     client.close()
     client.cluster.close()
+    
+    # Communicate what just happened and get outta here
+    msg = "Syncopy <{fname:s}> Successfully terminated cluster {cname:s} " +\
+          "containing {nj:d} workers"
+    print(msg.format(fname=inspect.currentframe().f_code.co_name,
+                     nj=nWorkers,
+                     cname=userClust))
+
+    return
