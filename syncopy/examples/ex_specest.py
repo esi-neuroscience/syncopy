@@ -26,9 +26,25 @@ import syncopy as spy
 # Import artificial data generator
 from syncopy.tests.misc import generate_artifical_data
 
+import dask.distributed as dd
+
 # sys.exit()
 
 if __name__ == "__main__":
+    
+    data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
+    try:
+        client = dd.get_client()
+    except:
+        # client = dd.Client()
+        client = spy.esi_cluster_setup(n_jobs=8)
+
+    cfg = spy.StructDict()
+    cfg.output = 'pow'        
+    # cfg.keeptapers = False
+    spec = spy.freqanalysis(cfg, data)
+    
+    sys.exit()
 
     # nc = 10
     # ns = 30
