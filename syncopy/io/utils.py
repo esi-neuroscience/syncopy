@@ -29,7 +29,7 @@ from syncopy.datatype.base_data import BaseData
 from syncopy.shared.parsers import scalar_parser
 from syncopy.shared.queries import user_yesno, user_input
 
-__all__ = []
+__all__ = ["cleanup"]
 
 def _all_subclasses(cls):
     return set(cls.__subclasses__()).union(
@@ -95,10 +95,16 @@ def write_access(directory):
 
 
 def cleanup(older_than=24):
-    """
-    Docstring
-
-    Remove dangling files older than `older_than` hrs
+    """Delete old files in temporary Syncopy folder
+    
+    The location of the temporary folder is stored in `syncopy.__storage__`.
+    
+    Parameters
+    ----------
+    older_than : int
+        Files older than `older_than` hours will be removed
+    
+    
     """
 
     # Make sure age-cutoff is valid
