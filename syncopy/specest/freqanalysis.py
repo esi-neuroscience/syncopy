@@ -3,8 +3,8 @@
 # SyNCoPy spectral estimation methods
 # 
 # Created: 2019-01-22 09:07:47
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-25 17:18:41>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-10-02 09:49:54>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -31,9 +31,9 @@ spectralDTypes = {"pow": np.float32,
                   "abs": np.float32}
 
 #: output conversion of complex fourier coefficients
-spectralConversions = {"pow": lambda x: np.float32(x * np.conj(x)),
-                       "fourier": lambda x: np.complex128(x),
-                       "abs": lambda x: np.float32(np.absolute(x))}
+spectralConversions = {"pow": lambda x: (x * np.conj(x)).real.astype(np.float32),
+                       "fourier": lambda x: x.astype(np.complex128),
+                       "abs": lambda x: (np.absolute(x)).real.astype(np.float32)}
 
 #: available outputs of :func:`freqanalysis`
 availableOutputs = tuple(spectralConversions.keys())
