@@ -3,8 +3,8 @@
 # Module for all kinds of parsing gymnastics
 # 
 # Created: 2019-01-08 09:58:11
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-25 13:12:33>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2019-10-02 10:12:15>
 
 # Builtin/3rd party package imports
 import os
@@ -722,9 +722,9 @@ def unwrap_cfg(func):
             # Translate any existing "yes" and "no" fields to `True` and `False`,
             # respectively, and subsequently call the function with `cfg` unwrapped
             for key in cfg.keys():
-                if cfg[key] == "yes":
+                if str(cfg[key]) == "yes":
                     cfg[key] = True
-                elif cfg[key] == "no":
+                elif str(cfg[key]) == "no":
                     cfg[key] = False
 
             # If `cfg` contains keys 'data' or 'dataset' extract corresponding
