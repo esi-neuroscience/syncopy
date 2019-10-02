@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-22 12:38:16
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-01 17:05:38>
+# Last modification time: <2019-10-02 18:31:51>
 
 # Builtin/3rd party package imports
 import os
@@ -40,15 +40,72 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
                       timeout=180, interactive=True, start_client=True,
                       **kwargs):
     """
-    Coming soon(ish)
+    Start a distributed computing scheduler using SLURM (or local multi-processing)
+    
+    Parameters
+    ----------
+    partition : str
+        Name of SLURM partition/queue to use
+    n_jobs : int
+        Number of jobs to spawn
+    mem_per_job : None or str
+        Memory booking for each job. Can be specified either in megabytes 
+        (e.g., ``mem_per_job = 1500MB``) or gigabytes (e.g., ``mem_per_job = "2GB"``). 
+        If `mem_per_job` is `None`, it is attempted to infer a sane default value
+        from the chosen queue, e.g., for ``partition = "8GBS"`` `mem_per_job` is 
+        automatically set to the allowed maximum of `'8GB'`. However, even in
+        queues with guaranted memory bookings, it is possible to allocate less
+        memory than the allowed maximum per job to spawn a large swarm of 
+        low-memory jobs. See Examples for details. 
+    timeout : int
+        Number of seconds to wait for requested job swarm to start up. 
+    interactive : bool
+        If `True`, user input is required in case the job swarm could not 
+        be started in the provided waiting period (determined by `timeout`). 
+        If `interactive` is `False` and the job swarm could not be started
+        within `timeout` seconds, a `TimeoutError` is raised. 
+    start_client : bool
+        If `True`, a distributed computing client is launched and attached to
+        the job swarm. If `start_client` is `False`, only a distributed 
+        computing cluster is started to which compute-clients can connect. 
+    **kwargs : dict
+        Additional keyword arguments can be used to control job-submission details. 
+        
+    Returns
+    -------
+    proc : object
+        A distributed computing client (if ``start_client = True``) or a distributed
+        computing cluster (otherwise). 
 
-    if start_client = True, client is returned (underlying SLURMCluster 
-    instance is accessible via client.cluster), otherwise cluster object is
-    returned
+    Examples
+    --------
+    The following command launches a SLURM swarm of 10 jobs with 2 gigabytes
+    memory each in the `8GBS` partition
+    
+    >>> spy.esi_cluster_setup(n_jobs=10, partition="8GBS", mem_per_job="2GB") 
+    
+    If you want to access properties of the created distributed computing client, 
+    assign an explicit return quantity, i.e., 
+    
+    >>> client = spy.esi_cluster_setup(n_jobs=10, partition="8GBS", mem_per_job="2GB") 
+    
+    The underlying distributed computing cluster can be accessed using
+    
+    >>> client.cluster
+    
+    Notes
+    -----
+    Syncopy's parallel computing engine relies on the concurrent processing library
+    `Dask <https://docs.dask.org/en/latest/>`_. Thus, the distributed computing
+    clients used by Syncopy are in fact instances of :class:`dask.distributed.Client`. 
+    This function specifically acts  as a wrapper for :class:`dask_jobqueue.SLURMCluster`. 
+    Users familiar with Dask in general and its distributed scheduler and cluster 
+    objects in particular, may leverage Dask's entire API to fine-tune parallel 
+    processing jobs to their liking (if wanted). 
     
     See also
     --------
-    cluster_cleanup : remove dangling job swarms
+    cluster_cleanup : remove dangling cluster-job swarms
     """
     
     # For later reference: dynamically fetch name of current function
@@ -191,7 +248,6 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     # Fire up waiting routine to avoid premature cluster setups
     if _cluster_waiter(cluster, funcName, total_workers, timeout, interactive):
         return
-    # ret = _cluster_waiter(cluster, funcName, total_workers, timeout, interactive)
     
     # Kill a zombie cluster in non-interactive mode
     if not interactive and cluster._count_active_workers() == 0:
@@ -276,11 +332,15 @@ def cluster_cleanup():
     esi_cluster_setup : Launch a SLURM job swarm on the ESI compute cluster
     """
     
+    # For later reference: dynamically fetch name of current function
+    funcName = "Syncopy <{}>".format(inspect.currentframe().f_code.co_name)
+    
     # Attempt to establish connection to dask client
     try:
         client = get_client()
     except ValueError:
-        print("cluster_cleanup: No dangling clients or clusters found. ")
+        print("{} WARNING: No dangling clients or clusters found.".format(funcName))
+        return
     except Exception as exc:
         raise exc
     
@@ -296,9 +356,9 @@ def cluster_cleanup():
     client.cluster.close()
     
     # Communicate what just happened and get outta here
-    msg = "Syncopy <{fname:s}> Successfully terminated cluster {cname:s} " +\
+    msg = "{fname:s} Successfully shut down cluster {cname:s} " +\
           "containing {nj:d} workers"
-    print(msg.format(fname=inspect.currentframe().f_code.co_name,
+    print(msg.format(fname=funcName,
                      nj=nWorkers,
                      cname=userClust))
 
