@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-01 11:39:36
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-10-01 13:37:17>
+# Last modification time: <2019-10-02 09:44:48>
 
 import os
 import numpy as np
@@ -15,14 +15,14 @@ import syncopy as spy
 
 __all__ = ["timelockanalysis"]
 
-def timelockanalysis(data, selected_trials=None):
+def timelockanalysis(data, trials=None):
     """Prototype function for averaging AnalogData across trials
     
     Parameters
     ----------
     data : :class:`syncopy.AnalogData` object
         Syncopy data object to be averaged across trials
-    selected_trials : :class:`numpy.ndarray`
+    trials : :class:`numpy.ndarray`
         Array of trial indices to be used for averaging
     
     Returns
@@ -34,25 +34,25 @@ def timelockanalysis(data, selected_trials=None):
     Note
     ----
     This function is merely a proof of concept for averaging across trials with
-    an online algorithm. The final version for release will change severely. 
+    an online algorithm. The final version for release will change severely.
+     
     FIXME: There are currently no tests for this function.
-    FIXME: Check for non-standard dimord
-    FIXME: Maybe we don't need to iterate over `data.trialdefinition` 
-           but can use `selected_trials` directly to allocate a smaller `intTimeAxes` array
+    FIXME: Handle non-standard dimords
     FIXME: the output should be a "proper" Syncopy object
     """
     
     try:
-        data_parser(data, varname="data", empty=False, dataclass=spy.AnalogData)
+        data_parser(data, varname="data", empty=False, 
+                    dataclass=spy.AnalogData, dimord=spy.AnalogData._defaultDimord)
     except Exception as exc:
         raise exc
 
     
-    if selected_trials is None:
-        selected_trials = np.arange(len(data.trials))
+    if trials is None:
+        trials = np.arange(len(data.trials))
 
     intTimeAxes = [(np.arange(0, stop - start) + offset)
-                for (start, stop, offset) in data.trialdefinition[:, :3]]
+                for (start, stop, offset) in data.trialdefinition[trials, :3]]
     intervals = np.array([(x.min(), x.max()) for x in intTimeAxes])
 
     avgTimeAxis = np.arange(start=intervals.min(),
@@ -72,9 +72,9 @@ def timelockanalysis(data, selected_trials=None):
     # Welford's online method for computing-variance
     # http://jonisalonen.com/2013/deriving-welfords-method-for-computing-variance/
 
-    for iTrial in tqdm(selected_trials):
+    for n, iTrial in enumerate(tqdm(trials)):
         x = data.trials[iTrial]
-        trialTimeAxis = intTimeAxes[iTrial]
+        trialTimeAxis = intTimeAxes[n]
             
         targetIndex = np.in1d(avgTimeAxis, trialTimeAxis, assume_unique=True)
         dof[targetIndex, :] += 1
@@ -92,7 +92,7 @@ def timelockanalysis(data, selected_trials=None):
     result.var = var
     result.dof = dof
     result.channel = data.channel    
-    result.time = avgTimeAxis
+    result.time = avgTimeAxis / data.samplerate
     
     return result
 
