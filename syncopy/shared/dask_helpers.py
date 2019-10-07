@@ -39,8 +39,9 @@ __all__ = ["esi_cluster_setup", "cluster_cleanup"]
 def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
                       timeout=180, interactive=True, start_client=True,
                       **kwargs):
-    """
-    Start a distributed computing scheduler using SLURM (or local multi-processing)
+    """Setup a group of parallel workers on the ESI cluster
+
+    Start a distributed Dask cluster of workers using SLURM (or local multi-processing)
     
     Parameters
     ----------
@@ -60,13 +61,13 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     timeout : int
         Number of seconds to wait for requested job swarm to start up. 
     interactive : bool
-        If `True`, user input is required in case the job swarm could not 
+        If `True`, user input is required in case not all jobs could 
         be started in the provided waiting period (determined by `timeout`). 
-        If `interactive` is `False` and the job swarm could not be started
+        If `interactive` is `False` and the jobs could not be started
         within `timeout` seconds, a `TimeoutError` is raised. 
     start_client : bool
         If `True`, a distributed computing client is launched and attached to
-        the job swarm. If `start_client` is `False`, only a distributed 
+        the workers. If `start_client` is `False`, only a distributed 
         computing cluster is started to which compute-clients can connect. 
     **kwargs : dict
         Additional keyword arguments can be used to control job-submission details. 
@@ -74,8 +75,8 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     Returns
     -------
     proc : object
-        A distributed computing client (if ``start_client = True``) or a distributed
-        computing cluster (otherwise). 
+        A distributed computing client (if ``start_client = True``) or 
+        a distributed computing cluster (otherwise). 
 
     Examples
     --------
