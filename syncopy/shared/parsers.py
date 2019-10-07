@@ -3,8 +3,8 @@
 # Module for all kinds of parsing gymnastics
 # 
 # Created: 2019-01-08 09:58:11
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-10-02 10:12:15>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-10-07 14:21:09>
 
 # Builtin/3rd party package imports
 import os
@@ -18,6 +18,8 @@ from inspect import signature
 # Local imports
 from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
 import syncopy as spy
+if spy.__dask__:
+    import dask.distributed as dd
 
 __all__ = ["get_defaults"]
 
@@ -831,9 +833,9 @@ def unwrap_io(func):
             outfilename = trl_dat["outfile"]
             outdset = trl_dat["outdset"]
             outgrid = trl_dat["outgrid"]
-            lock = trl_dat["lock"]
-            sleeptime = trl_dat["sleeptime"]
-            waitcount = trl_dat["waitcount"]
+            # lock = trl_dat["lock"]
+            # sleeptime = trl_dat["sleeptime"]
+            # waitcount = trl_dat["waitcount"]
 
             # === STEP 1 === read data into memory
             # Generic case: data is either a HDF5 dataset or memmap
@@ -879,13 +881,12 @@ def unwrap_io(func):
                     h5fout.create_dataset(outdset, data=res)
                     h5fout.flush()
             else:
-                counter = 0
-                lock.acquire()
-                while not lock.locked() and counter < waitcount:
-                    time.sleep(sleeptime)
-                    counter += 1
-                    
+                
+                # Create distributed lock (use unique name so it's synced across workers)
+                lock = dd.lock.Lock(name='sequential_write')
+
                 # Either (continue to) compute average or write current chunk
+                lock.acquire()
                 with h5py.File(outfilename, "r+") as h5fout:
                     target = h5fout[outdset]
                     if keeptrials:
@@ -893,12 +894,7 @@ def unwrap_io(func):
                     else:
                         target[()] = np.nansum([target, res], axis=0)
                     h5fout.flush()
-
-                counter = 0
                 lock.release()
-                while lock.locked() and counter < waitcount:
-                    time.sleep(sleeptime)
-                    counter += 1
                     
             return None # result has already been written to disk
         

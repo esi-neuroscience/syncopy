@@ -34,7 +34,8 @@ class TestMTMFFT():
     nChannels = 32
     nTrials = 8
     fs = 1024
-    fband = np.linspace(0, fs / 2, int(np.floor(fs / 2) + 1))
+    # fband = np.linspace(1, fs / 2, int(np.floor(fs / 2) + 1))
+    fband = np.linspace(1, fs/2, int(np.floor(fs/2)))
     freqs = np.random.choice(fband[:-2], size=nChannels, replace=False)
     amp = np.pi
     phases = np.random.permutation(np.linspace(0, 2 * np.pi, nChannels))
@@ -76,7 +77,7 @@ class TestMTMFFT():
 
         # ensure amplitude is consistent across all channels/trials
         assert np.all(np.diff(amps) < 1)
-
+            
     def test_foi(self):
         # `foi` lims outside valid bounds
         with pytest.raises(SPYValueError):
@@ -159,7 +160,7 @@ class TestMTMFFT():
         freqanalysis(self.adata, method="mtmfft", taper="hann", out=out)
         assert len(out.trials) == self.nTrials
         assert out.taper.size == 1
-        assert out.freq.size == self.fband.size
+        assert out.freq.size == self.fband.size + 1
         assert out.channel.size == self.nChannels
 
         # build `cfg` object for calling
@@ -175,6 +176,7 @@ class TestMTMFFT():
         assert len(cfg.out.time) == 1
         assert len(cfg.out.time[0]) == 1
         assert np.all(cfg.out.sampleinfo == [0, 1])
+        assert cfg.out.data.shape[0] == 1  # ensure trial-count == 1
 
         # keep trials but throw away tapers
         out = SpectralData(dimord=SpectralData._defaultDimord)
@@ -271,10 +273,12 @@ class TestMTMFFT():
         mintrlno = np.diff(artdata.sampleinfo).argmin()
         tmp = padding(artdata.trials[mintrlno], "zero", spec.cfg.pad,
                       spec.cfg.padlength, prepadlength=True)
-        assert spec.freq.size == int(np.floor(tmp.shape[timeAxis] / 2) + 1)
+        nfreq = int(np.floor(tmp.shape[timeAxis] / 2) + 1)
+        assert spec.freq.size == nfreq
         assert spec.taper.size == 1
         assert len(spec.time) == 1
         assert len(spec.time[0]) == 1
+        assert spec.data.shape == (1, 1, nfreq, self.nChannels)
 
         client.close()
 

@@ -27,22 +27,41 @@ import syncopy as spy
 from syncopy.tests.misc import generate_artifical_data
 
 import dask.distributed as dd
+from time import time
 
 # sys.exit()
 
 if __name__ == "__main__":
     
     data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
+    
+    # cfg = spy.get_defaults(spy.freqanalysis)
+    # cfg.method = 'mtmfft'
+    # cfg.output = 'pow'
+    # cfg.keeptrials = False
+    # cfg.foi = spy.np.arange(1,100)
+    # cfg.select = {"toilim": [-0.25, 0]}
+    # baselineSpectrum = spy.freqanalysis(cfg, data)
+    # plt.ion()
+    # plt.figure()
+    # plt.plot(baselineSpectrum.freq, baselineSpectrum.data[0, 0, :, 0])
+    
+    # sys.exit()
+    
     try:
         client = dd.get_client()
     except:
-        # client = dd.Client()
-        client = spy.esi_cluster_setup(n_jobs=8)
+        client = spy.esi_cluster_setup(n_jobs=10, partition="DEV", mem_per_job="2GB")
+        # client = spy.esi_cluster_setup(n_jobs=8, partition="DEV", mem_per_job="4GB")
 
     cfg = spy.StructDict()
     cfg.output = 'pow'        
+    cfg.taper = "dpss"
+    cfg.keeptrials = False
     # cfg.keeptapers = False
+    # t0 = time()
     spec = spy.freqanalysis(cfg, data)
+    # print("Elapsed time: ", time() - t0)
     
     sys.exit()
 

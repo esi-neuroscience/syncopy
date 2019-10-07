@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-01 13:13:30>
+# Last modification time: <2019-10-07 15:01:40>
 
 # Builtin/3rd party package imports
 import os
@@ -131,9 +131,6 @@ class ComputationalRoutine(ABC):
         # binary flag: if `True`, average across trials, do nothing otherwise
         self.keeptrials = None
         
-        # acceptable total waiting time (in sec) for release/acquisition of sequential writing mutex
-        self.timeout = None
-        
         # full shape of final output dataset (all trials, all chunks, etc.)
         self.outputShape = None
         
@@ -184,11 +181,10 @@ class ComputationalRoutine(ABC):
         # tmp holding var for preserving original access mode of `data`
         self.dataMode = None
         
-        # time (in seconds) b/w querying state of sequential writing mutex 
-        # (until `self.timeout` is reached)
+        # time (in seconds) b/w querying state of futures ('pending' -> 'finished')
         self.sleepTime = 0.1
 
-    def initialize(self, data, chan_per_worker=None, timeout=300, keeptrials=True):
+    def initialize(self, data, chan_per_worker=None, keeptrials=True):
         """
         Perform dry-run of calculation to determine output shape
 
@@ -206,10 +202,6 @@ class ComputationalRoutine(ABC):
            number of channels is not divisible by `chan_per_worker` without 
            remainder) and workers are assigned by-trial channel-groups for 
            processing. 
-        timeout : int
-           Number of seconds to wait for saving-mutex to be acquired (only 
-           relevant in case of concurrent processing in combination with 
-           sequential writing of results)
         keeptrials : bool
             Flag indicating whether to return individual trials or average
         
@@ -345,7 +337,7 @@ class ComputationalRoutine(ABC):
         stacking = targetLayout[0][0].stop
         for tk in range(1, len(self.trialList)):
             trial = trials[tk]
-            chkshp, _ = self.computeFunction(trial, *self.argv, **dryRunKwargs)
+            chkshp = chk_list[tk]
             lyt = [slice(0, stop) for stop in chkshp]
             lyt[0] = slice(stacking, stacking + chkshp[0])
             stacking += chkshp[0]
@@ -416,9 +408,6 @@ class ComputationalRoutine(ABC):
         
         # Get data access mode (only relevant for parallel reading access)
         self.dataMode = data.mode
-        
-        # Save timeout interval setting
-        self.timeout = timeout
 
     def compute(self, data, out, parallel=False, parallel_store=None,
                 method=None, mem_thresh=0.5, log_dict=None):
@@ -669,15 +658,11 @@ class ComputationalRoutine(ABC):
         if self.virtualDatasetDir is not None:
             outfilename = os.path.join(self.virtualDatasetDir, "{0:d}.h5")
             outdsetname = "chk"
-            lock = None
-            waitcount = None
 
         # Write chunks sequentially            
         else:
             outfilename = out.filename
             outdsetname = self.datasetName
-            lock = dd.lock.Lock(name='writer_lock')
-            waitcount = int(np.round(self.timeout/self.sleepTime))    
             
         # Construct a dask bag with all necessary components for parallelization
         bag = db.from_sequence([{"hdr": self.hdr,
@@ -690,10 +675,8 @@ class ComputationalRoutine(ABC):
                                  "vdsdir": self.virtualDatasetDir,
                                  "outfile": outfilename.format(chk),
                                  "outdset": outdsetname,
-                                 "outgrid": self.targetLayout[chk],
-                                 "lock": lock,
-                                 "sleeptime": self.sleepTime,
-                                 "waitcount": waitcount} for chk in range(len(self.sourceLayout))]) 
+                                 "outgrid": self.targetLayout[chk]}
+                                 for chk in range(len(self.sourceLayout))]) 
         
         # Map all components (channel-trial-blocks) onto `computeFunction`
         results = bag.map(self.computeFunction, *self.argv, **self.cfg)
