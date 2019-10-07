@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-07 11:20:46>
+# Last modification time: <2019-10-07 17:42:01>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -51,7 +51,7 @@ __all__ = ["freqanalysis"]
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, pad='nextpow2', padtype='zero',
                  padlength=None, polyremoval=False, polyorder=None,
-                 taper="hann", tapsmofrq=None, keeptapers=True,
+                 taper="hann", tapsmofrq=None, keeptapers=False,
                  wav="Morlet", toi=0.1, width=6, select=None,
                  out=None, **kwargs):
     """Perform a (time-)frequency analysis of time series data
@@ -146,7 +146,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # Get everything of interest in local namespace
     defaults = get_defaults(freqanalysis)
     lcls = locals()
-    glbls = globals()
 
     # Ensure a valid computational method was selected    
     if method not in availableMethods:
@@ -158,35 +157,48 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         lgl = "'" + "or '".join(opt + "' " for opt in spectralConversions.keys())
         raise SPYValueError(legal=lgl, varname="output", actual=output)
 
-    # # Patch `output` keyword to not collide w/dask's ``blockwise`` output
-    # defaults["output_fmt"] = defaults.pop("output")
-    # output_fmt = output
-
     # Parse all Boolean keyword arguments
     for vname in ["keeptrials", "keeptapers", "polyremoval"]:
         if not isinstance(lcls[vname], bool):
             raise SPYTypeError(lcls[vname], varname=vname, expected="Bool")
-
-    # Ensure padding selection makes sense (just leverage `padding`'s error checking)
+        
+    # If only a subset of `data` is to be processed, make some necessary adjustments
+    if data._selection is not None:
+        trialList = data._selection.trials
+        sinfo = np.zeros((len(trialList), 2))
+        for tk, trlno in enumerate(trialList):
+            trl = data._preview_trial(trlno)
+            sinfo[tk, :] = [trl.idx[timeAxis].start, trl.idx[timeAxis].stop]
+    else:
+        trialList = list(range(len(data.trials)))
+        sinfo = data.sampleinfo
+        
+    # Ensure padding selection makes sense: perform some gymnastics in case `pad`
+    # is 'maxlen' -> use absolute padding w/correct sample number instead
+    if not isinstance(pad, str):
+        raise SPYTypeError(pad, varname="pad", expected="str")
+    if pad == "maxlen":
+        padlength = np.diff(sinfo).max()
+        pad = "absolute"
     try:
-        padding(data.trials[0], padtype, pad=pad, padlength=padlength,
+        padding(data._preview_trial(trialList[0]), padtype, pad=pad, padlength=padlength,
                 prepadlength=True)
     except Exception as exc:
-        raise exc
-
-    # For vetting `toi` and `foi`: get timing information of input object
-    timing = np.array([np.array([-data._t0[k], end - start - data._t0[k]])/data.samplerate
-                       for k, (start, end) in enumerate(data.sampleinfo)])
+        import pdb; pdb.set_trace()
+        # raise exc
 
     # Construct array of maximally attainable frequency band and set/align `foi`
-    minSampleNum = np.diff(data.sampleinfo).min()
+    minSampleNum = np.diff(sinfo).min()
     if pad:
-        minSamplePos = np.diff(data.sampleinfo).argmin()
-        minSampleNum = padding(data.trials[minSamplePos], padtype, pad=pad,
+        minSamplePos = np.diff(sinfo).argmin()
+        minSampleNum = padding(data._preview_trial(trialList[minSamplePos]), padtype, pad=pad,
                                padlength=padlength, prepadlength=True).shape[timeAxis]
     minTrialLength = minSampleNum/data.samplerate
     nFreq = int(np.floor(minSampleNum / 2) + 1)
-    freqs = np.linspace(0, data.samplerate/2, nFreq)
+    # freqs = np.linspace(0, data.samplerate/2, nFreq)
+    freqs = np.arange(nFreq)
+    
+    # import ipdb; ipdb.set_trace()
 
     # Match desired frequencies as close as possible to actually attainable freqs
     if foi is not None:

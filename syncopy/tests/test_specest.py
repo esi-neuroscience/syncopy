@@ -100,14 +100,14 @@ class TestMTMFFT():
         assert np.all(spec.freq == foi)
 
     def test_dpss(self):
-        # ensure default setting results in multiple tapers
+        # ensure default setting results in single taper
         spec = freqanalysis(self.adata, method="mtmfft", taper="dpss")
-        assert spec.taper.size > 1
+        assert spec.taper.size == 1
         assert np.unique(spec.taper).size == 1
 
         # specify tapers
         spec = freqanalysis(self.adata, method="mtmfft", taper="dpss",
-                            tapsmofrq=7)
+                            tapsmofrq=7, keeptapers=True)
         assert spec.taper.size == 7
 
         # non-equidistant data w/multiple tapers
@@ -131,14 +131,14 @@ class TestMTMFFT():
                                            equidistant=False, inmemory=False,
                                            dimord=AnalogData._defaultDimord[::-1])
         cfg.output = "abs"
-        cfg.keeptapers = False
+        cfg.keeptapers = True
         spec = freqanalysis(cfg)
         timeAxis = cfg.data.dimord.index("time")
         mintrlno = np.diff(cfg.data.sampleinfo).argmin()
         tmp = padding(cfg.data.trials[mintrlno], "zero", spec.cfg.pad,
                       spec.cfg.padlength, prepadlength=True)
         assert spec.freq.size == int(np.floor(tmp.shape[timeAxis] / 2) + 1)
-        assert spec.taper.size == 1
+        assert spec.taper.size > 1
 
         # same + overlapping trials
         cfg.data = generate_artifical_data(nTrials=5, nChannels=16,
@@ -252,15 +252,16 @@ class TestMTMFFT():
             tmp = padding(artdata.trials[mintrlno], "zero", spec.cfg.pad, 
                           spec.cfg.padlength, prepadlength=True)
             assert spec.freq.size == int(np.floor(tmp.shape[timeAxis] / 2) + 1)
+            assert spec.taper.size == 1
                 
-            # equidistant trial spacing average tapers
+            # equidistant trial spacing, keep tapers
             cfg.output = "abs"
-            cfg.keeptapers = False
+            cfg.keeptapers = True
             artdata = generate_artifical_data(nTrials=self.nTrials, 
                                               nChannels=self.nChannels,
                                               inmemory=False)
             spec = freqanalysis(artdata, cfg)
-            assert spec.taper.size == 1
+            assert spec.taper.size > 1
             
         # non-equidistant, overlapping trial spacing, throw away trials and tapers
         cfg.keeptapers = False

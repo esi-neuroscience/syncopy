@@ -35,6 +35,18 @@ if __name__ == "__main__":
     
     data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
     
+    cfg = spy.get_defaults(spy.freqanalysis)
+    cfg.method = 'mtmfft'
+    cfg.taper = 'dpss'
+    cfg.output = 'pow'
+    cfg.tapsmofrq = 20
+    cfg.keeptrials = False
+    cfg.keeptapers = False
+    # cfg.pad = 'maxlen'
+    cfg.select = {"toilim": [-0.25, 0]}
+    baselineSpectrum = spy.freqanalysis(cfg, data)
+    sys.exit()
+    
     # cfg = spy.get_defaults(spy.freqanalysis)
     # cfg.method = 'mtmfft'
     # cfg.output = 'pow'

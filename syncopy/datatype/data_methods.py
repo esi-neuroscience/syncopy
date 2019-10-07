@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-25 17:04:47>
+# Last modification time: <2019-10-07 17:48:36>
 
 # Builtin/3rd party package imports
 import numbers
@@ -1128,9 +1128,11 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
             if isinstance(data, np.ndarray):
                 return np.pad(data, **pad_opts)
             else:
-                shp = (data.shape[0] + pw[0, :].sum(), data.shape[1])
-                tidx = slice(data.idx[0].start, data.idx[0].start + shp[0])
-                return data.__class__(shp, (tidx, data.idx[1]), data.dtype)
+                shp = (data.shape[timeAxis] + pw[timeAxis, :].sum(), 
+                       data.shape[not timeAxis])
+                tidx = slice(data.idx[timeAxis].start, 
+                             data.idx[timeAxis].start + shp[timeAxis])
+                return data.__class__(shp, (tidx, data.idx[not timeAxis]), data.dtype)
         else:
             return pad_opts
 
