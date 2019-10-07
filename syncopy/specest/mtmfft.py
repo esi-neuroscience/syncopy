@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:25:34
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-25 13:13:06>
+# Last modification time: <2019-10-07 12:27:30>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -15,6 +15,8 @@ from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.datatype import padding
 import syncopy.specest.freqanalysis as freq
 from syncopy.shared.parsers import unwrap_io
+
+from time import time 
 
 
 # Local workhorse that performs the computational heavy lifting
@@ -85,21 +87,23 @@ def mtmfft(trl_dat, dt, timeAxis,
     nSamples = dat.shape[0]
     nChannels = dat.shape[1]
 
-    # Construct at least 1 and max. 50 taper(s)
+    # Use at least 1 and max. 50 taper(s)
+    nTaper = taperopt.get("Kmax", 1)
     if taper == spwin.dpss and (not taperopt):
         nTaper = int(max(2, min(50, np.floor(tapsmofrq * nSamples * dt))))
         taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
-    win = np.atleast_2d(taper(nSamples, **taperopt))
-    nTaper = win.shape[0]
 
     # Determine frequency band and shape of output (time=1 x taper x freq x channel)
     nFreq = int(np.floor(nSamples / 2) + 1)
     fidx = slice(None)
     if foi is not None:
-        freqs = np.linspace(0, 1 / (2 * dt), nFreq)
+        freqs = np.arange(nFreq)
         foi = foi[foi <= freqs.max()]
         foi = foi[foi >= freqs.min()]
         fidx = np.searchsorted(freqs, foi, side="right") - 1
+        for k, id in enumerate(fidx):
+            if np.abs(freqs[id - 1] - foi[k]) < np.abs(freqs[id] - foi[k]):
+                fidx[k] = id -1
         nFreq = fidx.size
     outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
 
@@ -117,6 +121,7 @@ def mtmfft(trl_dat, dt, timeAxis,
     fill_idx = tuple([slice(None, dim) for dim in outShape[2:]])
 
     # Actual computation
+    win = np.atleast_2d(taper(nSamples, **taperopt))
     for taperIdx, taper in enumerate(win):
         if dat.ndim > 1:
             taper = np.tile(taper, (nChannels, 1)).T
@@ -142,15 +147,9 @@ class MultiTaperFFT(ComputationalRoutine):
             out.trialdefinition = np.hstack((time, time + 1, 
                                               np.zeros((len(data.trials), 1)), 
                                               np.array(data.trialinfo)))
-            # out.sampleinfo = np.hstack([time, time + 1])
-            # out._t0 = np.zeros((len(data.trials),))
-            # out.trialinfo = np.array(data.trialinfo)
             
         else:
             out.trialdefinition = np.array([[0, 1, 0]])
-            # out.sampleinfo = np.array([[0, 1]])
-            # out.trialinfo = out.sampleinfo[:, 3:]
-            # out._t0 = np.array([0])
 
         # Attach remaining meta-data
         out.samplerate = data.samplerate
