@@ -1,15 +1,13 @@
 .. _syncopy-data-classes:
 
-Syncopy data classes 
+Syncopy data classes
 ====================
- 
-
 
 The data structure in Syncopy is based around the idea that all
 electrophysiology data can be represented as multidimensional arrays. For
 example, a multi-channel local field potential can be stored as a
 two-dimensional `float` array with the dimensions being time (sample) and
-channel. Hence, 
+channel. Hence,
 
 .. note:: Each Syncopy data object is simply an anotated multi-dimensional array.
 

@@ -10,7 +10,7 @@ electrophysiology data. The goals of the project are:
    data analysis. 
 2. Syncopy is *scalable* for large datasets. It will automatically make use of the
    available computing resources by being developed with built-in parallelism. 
-3. Syncopy is *compatible with Fieldtrip*. 
+3. Syncopy is *compatible with FieldTrip*. 
     - data and results can loaded into MATLAB and Python
     - parameter names and function call syntax are as similar as possible
 

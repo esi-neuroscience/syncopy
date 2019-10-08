@@ -7,7 +7,8 @@ who primarily want to apply existing analysis functions on their data. This
 usually entails writing analysis scripts operating on a given list of data
 files.
 
-.. toctree :: 
+.. toctree ::
+    :maxdepth: 2
 
     data_handling
     fieldtrip

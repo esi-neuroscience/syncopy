@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-01 11:39:36
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-10-02 09:44:48>
+# Last modification time: <2019-10-08 13:37:29>
 
 import os
 import numpy as np
@@ -35,11 +35,12 @@ def timelockanalysis(data, trials=None):
     ----
     This function is merely a proof of concept for averaging across trials with
     an online algorithm. The final version for release will change severely.
-     
-    FIXME: There are currently no tests for this function.
-    FIXME: Handle non-standard dimords
-    FIXME: the output should be a "proper" Syncopy object
+
     """
+            
+    # FIXME: There are currently no tests for this function.    
+    # FIXME: Handle non-standard dimords    
+    # FIXME: the output should be a "proper" Syncopy object
     
     try:
         data_parser(data, varname="data", empty=False, 
