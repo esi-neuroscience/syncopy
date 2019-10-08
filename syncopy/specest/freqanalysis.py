@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-07 17:42:01>
+# Last modification time: <2019-10-08 16:49:32>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -15,6 +15,7 @@ from numbers import Number
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser 
 from syncopy.shared import get_defaults
 from syncopy.datatype import SpectralData, padding
+from syncopy.datatype.data_methods import _nextpow2
 import syncopy.specest.wavelets as spywave 
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.parsers import unwrap_cfg
@@ -74,9 +75,14 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         List of frequencies of interest (Hz) for output. If desired frequencies
         cannot be exactly matched using the given data length and padding,
         the closest frequencies will be used.
-    pad : str
-        One of `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
-        See :func:`syncopy.padding` for more information.
+    pad : str or None
+        One of `'absolute'`, `'relative'`, `'maxlen'`, `'nextpow2'` or `None`. 
+        Padding method to be used in case trial do not have equal length. To
+        ensure consistency of the output object, padding is always performed 
+        with respect to the longest trial found in `data`. For instance, 
+        `pad = 'nextpow2'` pads all trials in `data` to the next power of 2 higher 
+        than the sample-count of the longest trial in `data`. See :func:`syncopy.padding` 
+        for more information. If `pad` is `None`, no padding is performed. 
     padtype : str
         Values to be used for padding. Can be 'zero', 'nan', 'mean', 
         'localmean', 'edge' or 'mirror'. See :func:`syncopy.padding` for 
@@ -163,43 +169,48 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise SPYTypeError(lcls[vname], varname=vname, expected="Bool")
         
     # If only a subset of `data` is to be processed, make some necessary adjustments
+    # and compute minimal sample-count across (selected) trials
     if data._selection is not None:
         trialList = data._selection.trials
         sinfo = np.zeros((len(trialList), 2))
         for tk, trlno in enumerate(trialList):
             trl = data._preview_trial(trlno)
-            sinfo[tk, :] = [trl.idx[timeAxis].start, trl.idx[timeAxis].stop]
+            tsel = trl.idx[timeAxis]
+            if isinstance(tsel, list):
+                sinfo[tk, :] = [0, len(tsel)]
+            else:
+                sinfo[tk, :] = [trl.idx[timeAxis].start, trl.idx[timeAxis].stop]
     else:
         trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
+    lenTrials = np.diff(sinfo)
+    minSampleNum = lenTrials.min()
         
-    # Ensure padding selection makes sense: perform some gymnastics in case `pad`
-    # is 'maxlen' -> use absolute padding w/correct sample number instead
-    if not isinstance(pad, str):
-        raise SPYTypeError(pad, varname="pad", expected="str")
-    if pad == "maxlen":
-        padlength = np.diff(sinfo).max()
-        pad = "absolute"
-    try:
+    # Ensure padding selection makes sense: do not pad on a by-trial basis but 
+    # use the longest trial as reference acn compute `padlength` from there
+    if not isinstance(pad, (str, type(None))):
+        raise SPYTypeError(pad, varname="pad", expected="str or None")
+    if pad:
+        if pad == "maxlen":
+            padlength = lenTrials.max()
+        elif pad == "nextpow2":
+            padlength = 0
+            for ltrl in lenTrials:
+                padlength = max(padlength, _nextpow2(ltrl))
+            pad = "absolute"
         padding(data._preview_trial(trialList[0]), padtype, pad=pad, padlength=padlength,
                 prepadlength=True)
-    except Exception as exc:
-        import pdb; pdb.set_trace()
-        # raise exc
-
-    # Construct array of maximally attainable frequency band and set/align `foi`
-    minSampleNum = np.diff(sinfo).min()
-    if pad:
-        minSamplePos = np.diff(sinfo).argmin()
+    
+        # Update `minSampleNum` to account for padding
+        minSamplePos = lenTrials.argmin()
         minSampleNum = padding(data._preview_trial(trialList[minSamplePos]), padtype, pad=pad,
                                padlength=padlength, prepadlength=True).shape[timeAxis]
+        
+    # Construct array of maximally attainable frequencies
     minTrialLength = minSampleNum/data.samplerate
     nFreq = int(np.floor(minSampleNum / 2) + 1)
-    # freqs = np.linspace(0, data.samplerate/2, nFreq)
     freqs = np.arange(nFreq)
     
-    # import ipdb; ipdb.set_trace()
-
     # Match desired frequencies as close as possible to actually attainable freqs
     if foi is not None:
         try:
@@ -272,6 +283,15 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                     scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[1, np.inf])
                 except Exception as exc:
                     raise exc
+            
+            # Get/compute number of tapers to use (at least 1 and max. 50)
+            nTaper = taperopt.get("Kmax", 1)
+            if not taperopt:
+                nTaper = int(max(2, min(50, np.floor(tapsmofrq * minSampleNum * 1 / data.samplerate))))
+                taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
+                
+        else:
+            nTaper = 1
 
         # Warn the user in case `tapsmofrq` has no effect
         if tapsmofrq is not None and taper.__name__ != "dpss":
@@ -281,9 +301,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # provided keyword values, not defaults set in here)
         log_dct["taper"] = lcls["taper"]
         log_dct["tapsmofrq"] = lcls["tapsmofrq"]
+        log_dct["nTaper"] = nTaper
         
         # Set up compute-kernel
-        specestMethod = MultiTaperFFT(1/data.samplerate, 
+        specestMethod = MultiTaperFFT(nTaper, 
                                       timeAxis, 
                                       taper=taper, 
                                       taperopt=taperopt,

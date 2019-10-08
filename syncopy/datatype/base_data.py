@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-25 16:57:28>
+# Last modification time: <2019-10-08 14:08:32>
 
 # Builtin/3rd party package imports
 import getpass
@@ -1163,6 +1163,8 @@ class FauxTrial():
         must slice `data` correctly so that ``obj.data[idx] == obj.trials[k]``
     dtype : :class:`numpy.dtype`
         Datatype of source trial array
+    dimord : list
+        Dimensional order of source trial array
         
     Returns
     -------
@@ -1178,10 +1180,11 @@ class FauxTrial():
     syncopy.continuous_data.ContinuousData._preview_trial : makes use of this class
     """
     
-    def __init__(self, shape, idx, dtype):
+    def __init__(self, shape, idx, dtype, dimord):
         self.shape = tuple(shape)
         self.idx = tuple(idx)
         self.dtype = dtype
+        self.dimord = dimord
         
     def __str__(self):
         msg = "Trial placeholder of shape {} and datatype {}"
@@ -1198,7 +1201,7 @@ class FauxTrial():
         shp = list(self.shape)
         while 1 in shp:
             shp.remove(1)
-        return FauxTrial(shp, self.idx, self.dtype)
+        return FauxTrial(shp, self.idx, self.dtype, self.dimord)
 
     @property
     def T(self):
@@ -1206,7 +1209,7 @@ class FauxTrial():
         Return a new `FauxTrial` instance with reversed dimensions
         (parroting the NumPy original :func:`numpy.transpose`)
         """
-        return FauxTrial(self.shape[::-1], self.idx[::-1], self.dtype)
+        return FauxTrial(self.shape[::-1], self.idx[::-1], self.dtype, self.dimord[::-1])
 
 
 class Selector():
@@ -1418,7 +1421,7 @@ class Selector():
         except Exception as exc:
             raise exc
         if not set(trials).issubset(trlList):
-            lgl = "List/array of values b/w 0 and {}".format(trlList[-1])
+            lgl = "list/array of values b/w 0 and {}".format(trlList[-1])
             act = "Values b/w {} and {}".format(min(trials), max(trials))
             raise SPYValueError(legal=lgl, varname=vname, actual=act)
         self._trials = trials
@@ -1748,7 +1751,7 @@ class Selector():
                 else:
                     targetArr = np.arange(target.size)
                 if not set(selection).issubset(targetArr):
-                    lgl = "List/array of {} names or indices".format(dataprop)
+                    lgl = "list/array of {} existing names or indices".format(dataprop)
                     raise SPYValueError(legal=lgl, varname=vname)
                 
                 # Preserve order and duplicates of selection - don't use `np.isin` here!

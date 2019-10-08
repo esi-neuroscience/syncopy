@@ -32,19 +32,19 @@ from time import time
 # sys.exit()
 
 if __name__ == "__main__":
+
+    client = spy.esi_cluster_setup(n_jobs=10, partition="DEV", mem_per_job="2GB")
     
     data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
     
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmfft'
-    cfg.taper = 'dpss'
-    cfg.output = 'pow'
+    cfg.taper = "dpss"
     cfg.tapsmofrq = 20
+    cfg.output = 'pow'
     cfg.keeptrials = False
     cfg.keeptapers = False
-    # cfg.pad = 'maxlen'
-    cfg.select = {"toilim": [-0.25, 0]}
-    baselineSpectrum = spy.freqanalysis(cfg, data)
+    overallSpectrum = spy.freqanalysis(cfg, data)
     sys.exit()
     
     # cfg = spy.get_defaults(spy.freqanalysis)

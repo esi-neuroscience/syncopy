@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-25 13:06:21>
+# Last modification time: <2019-10-08 13:56:53>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -220,7 +220,7 @@ class ContinuousData(BaseData, ABC):
                     else:
                         shp[dimIdx] = len(sel)
                         
-        return FauxTrial(shp, tuple(idx), self.data.dtype)
+        return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
     
     # Helper function that extracts timing-related indices
     def _get_time(self, trials, toi=None, toilim=None):
