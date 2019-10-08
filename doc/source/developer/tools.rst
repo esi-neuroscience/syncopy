@@ -38,6 +38,8 @@ corresponding stages here are
 2. Wrapper class: :class:`syncopy.specest.MultiTaperFFT`
 3. Metafunction: :func:`syncopy.freqanalysis` 
 
+.. image:: ../_static/ComputationalRoutine.png
+
 For a detailed walk-through explaining the intricacies of writing an analysis
 routine, please refer to the :doc:`compute_kernels`.
 
