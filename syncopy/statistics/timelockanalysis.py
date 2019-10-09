@@ -9,7 +9,7 @@
 import os
 import numpy as np
 import syncopy as spy
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from syncopy.shared.parsers import data_parser
 import syncopy as spy
 
