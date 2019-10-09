@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:25:34
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-07 12:27:30>
+# Last modification time: <2019-10-08 16:50:35>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -16,12 +16,10 @@ from syncopy.datatype import padding
 import syncopy.specest.freqanalysis as freq
 from syncopy.shared.parsers import unwrap_io
 
-from time import time 
-
 
 # Local workhorse that performs the computational heavy lifting
 @unwrap_io
-def mtmfft(trl_dat, dt, timeAxis,
+def mtmfft(trl_dat, nTaper, timeAxis,
            taper=spwin.hann, taperopt={}, tapsmofrq=None,
            pad="nextpow2", padtype="zero", padlength=None, foi=None,
            keeptapers=True, polyorder=None, output_fmt="pow",
@@ -32,8 +30,8 @@ def mtmfft(trl_dat, dt, timeAxis,
     ----------
     trl_dat : 2D :class:`numpy.ndarray`
         Multi-channel uniformly sampled time-series 
-    dt : float
-        sampling interval of time-series
+    nTaper : int
+        number of filter windows to use
     timeAxis : int
         Index of time axis (0 or 1)
     taper : function
@@ -79,19 +77,12 @@ def mtmfft(trl_dat, dt, timeAxis,
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
-    dat = dat.squeeze()
 
     # Padding (updates no. of samples)
     if pad is not None:
         dat = padding(dat, padtype, pad=pad, padlength=padlength, prepadlength=True)
     nSamples = dat.shape[0]
     nChannels = dat.shape[1]
-
-    # Use at least 1 and max. 50 taper(s)
-    nTaper = taperopt.get("Kmax", 1)
-    if taper == spwin.dpss and (not taperopt):
-        nTaper = int(max(2, min(50, np.floor(tapsmofrq * nSamples * dt))))
-        taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
 
     # Determine frequency band and shape of output (time=1 x taper x freq x channel)
     nFreq = int(np.floor(nSamples / 2) + 1)
@@ -101,9 +92,9 @@ def mtmfft(trl_dat, dt, timeAxis,
         foi = foi[foi <= freqs.max()]
         foi = foi[foi >= freqs.min()]
         fidx = np.searchsorted(freqs, foi, side="right") - 1
-        for k, id in enumerate(fidx):
-            if np.abs(freqs[id - 1] - foi[k]) < np.abs(freqs[id] - foi[k]):
-                fidx[k] = id -1
+        for k, fid in enumerate(fidx):
+            if np.abs(freqs[fid - 1] - foi[k]) < np.abs(freqs[fid] - foi[k]):
+                fidx[k] = fid -1
         nFreq = fidx.size
     outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
 
@@ -139,24 +130,29 @@ class MultiTaperFFT(ComputationalRoutine):
     computeFunction = staticmethod(mtmfft)
 
     def process_metadata(self, data, out):
-
+        
         # Some index gymnastics to get trial begin/end "samples"
-        if self.keeptrials:
+        if data._selection is not None:
+            chanSec = data._selection.channel
+            trl = data._selection.trialdefinition
+            for row in range(trl.shape[0]):
+                trl[row, :2] = [row, row + 1]
+        else:
+            chanSec = slice(None)
             time = np.arange(len(data.trials))
             time = time.reshape((time.size, 1))
-            out.trialdefinition = np.hstack((time, time + 1, 
-                                              np.zeros((len(data.trials), 1)), 
-                                              np.array(data.trialinfo)))
-            
+            trl = np.hstack((time, time + 1, 
+                             np.zeros((len(data.trials), 1)), 
+                             np.array(data.trialinfo)))
+
+        # Attach constructed trialdef-array (if even necessary)
+        if self.keeptrials:
+            out.trialdefinition = trl
         else:
             out.trialdefinition = np.array([[0, 1, 0]])
 
         # Attach remaining meta-data
         out.samplerate = data.samplerate
-        out.channel = np.array(data.channel)
+        out.channel = np.array(data.channel[chanSec])
         out.taper = np.array([self.cfg["taper"].__name__] * self.outputShape[out.dimord.index("taper")])
-        if self.cfg["foi"] is not None:
-            out.freq = self.cfg["foi"]
-        else:
-            nFreqs = self.outputShape[out.dimord.index("freq")]
-            out.freq = np.linspace(0, 1, nFreqs) * (data.samplerate / 2)
+        out.freq = self.cfg["foi"]
