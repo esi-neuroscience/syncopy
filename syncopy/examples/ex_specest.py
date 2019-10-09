@@ -43,7 +43,7 @@ if __name__ == "__main__":
     cfg.tapsmofrq = 20
     cfg.output = 'pow'
     cfg.keeptrials = False
-    cfg.keeptapers = False
+    cfg.keeptapers = True
     overallSpectrum = spy.freqanalysis(cfg, data)
     sys.exit()
     

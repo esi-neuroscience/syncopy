@@ -36,7 +36,11 @@ class TestMTMFFT():
     nTrials = 8
     fs = 1024
     fband = np.linspace(1, fs/2, int(np.floor(fs/2)))
-    freqs = np.random.choice(fband[:-2], size=nChannels, replace=False)
+    freqs = [88.,  35., 278., 104., 405., 314., 271., 441., 343., 374., 428., 
+             367., 75., 118., 289., 310., 510., 102., 123., 417., 273., 449., 
+             416.,  32., 438., 111., 140., 304., 327., 494.,  23., 493.]
+    freqs = freqs[:nChannels]
+    # freqs = np.random.choice(fband[:-2], size=nChannels, replace=False)
     amp = np.pi
     phases = np.random.permutation(np.linspace(0, 2 * np.pi, nChannels))
     t = np.linspace(0, nTrials, nTrials * fs)
@@ -157,6 +161,11 @@ class TestMTMFFT():
         cfg.method = "mtmfft"
         cfg.taper = "dpss"
         cfg.tapsmofrq = 9.3
+
+        # trigger error for non-equidistant trials w/o padding       
+        cfg.pad = None 
+        with pytest.raises(SPYValueError):
+            spec = freqanalysis(cfg, artdata)
         
         for sk, select in enumerate(self.artdataSelections):
 

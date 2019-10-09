@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:25:34
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-08 16:50:35>
+# Last modification time: <2019-10-09 12:12:19>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -19,7 +19,7 @@ from syncopy.shared.parsers import unwrap_io
 
 # Local workhorse that performs the computational heavy lifting
 @unwrap_io
-def mtmfft(trl_dat, nTaper, timeAxis,
+def mtmfft(trl_dat, nTaper=1, timeAxis=0,
            taper=spwin.hann, taperopt={}, tapsmofrq=None,
            pad="nextpow2", padtype="zero", padlength=None, foi=None,
            keeptapers=True, polyorder=None, output_fmt="pow",
@@ -83,7 +83,7 @@ def mtmfft(trl_dat, nTaper, timeAxis,
         dat = padding(dat, padtype, pad=pad, padlength=padlength, prepadlength=True)
     nSamples = dat.shape[0]
     nChannels = dat.shape[1]
-
+    
     # Determine frequency band and shape of output (time=1 x taper x freq x channel)
     nFreq = int(np.floor(nSamples / 2) + 1)
     fidx = slice(None)
@@ -102,13 +102,8 @@ def mtmfft(trl_dat, nTaper, timeAxis,
     if noCompute:
         return outShape, freq.spectralDTypes[output_fmt]
 
-    # Get final output shape from `chunkShape` keyword modulo per-worker channel-count
     # In case tapers aren't kept allocate `spec` "too big" and average afterwards
-    shp = list(chunkShape)
-    shp[-1] = nChannels
-    shp[1] = nTaper
-    chunkShape = tuple(shp)
-    spec = np.full(chunkShape, np.nan, dtype=freq.spectralDTypes[output_fmt])
+    spec = np.full((1, nTaper, nFreq, nChannels), np.nan, dtype=freq.spectralDTypes[output_fmt])
     fill_idx = tuple([slice(None, dim) for dim in outShape[2:]])
 
     # Actual computation

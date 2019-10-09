@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-08 16:49:32>
+# Last modification time: <2019-10-09 12:09:31>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -82,7 +82,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         with respect to the longest trial found in `data`. For instance, 
         `pad = 'nextpow2'` pads all trials in `data` to the next power of 2 higher 
         than the sample-count of the longest trial in `data`. See :func:`syncopy.padding` 
-        for more information. If `pad` is `None`, no padding is performed. 
+        for more information. If `pad` is `None`, no padding is performed and
+        all trials have to have approximately the same length (up to next even 
+        sample-count). 
     padtype : str
         Values to be used for padding. Can be 'zero', 'nan', 'mean', 
         'localmean', 'edge' or 'mirror'. See :func:`syncopy.padding` for 
@@ -184,7 +186,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo)
-    minSampleNum = lenTrials.min()
         
     # Ensure padding selection makes sense: do not pad on a by-trial basis but 
     # use the longest trial as reference acn compute `padlength` from there
@@ -205,6 +206,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         minSamplePos = lenTrials.argmin()
         minSampleNum = padding(data._preview_trial(trialList[minSamplePos]), padtype, pad=pad,
                                padlength=padlength, prepadlength=True).shape[timeAxis]
+    
+    else:
+        if np.unique((np.floor(lenTrials / 2))).size > 1:
+            lgl = "trials of approximately equal length"
+            act = "trials of unequal length"
+            raise SPYValueError(legal=lgl, varname="data", actual=act)
+        minSampleNum = lenTrials.min()
         
     # Construct array of maximally attainable frequencies
     minTrialLength = minSampleNum/data.samplerate
@@ -304,8 +312,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         log_dct["nTaper"] = nTaper
         
         # Set up compute-kernel
-        specestMethod = MultiTaperFFT(nTaper, 
-                                      timeAxis, 
+        specestMethod = MultiTaperFFT(nTaper=nTaper, 
+                                      timeAxis=timeAxis, 
                                       taper=taper, 
                                       taperopt=taperopt,
                                       tapsmofrq=tapsmofrq,
