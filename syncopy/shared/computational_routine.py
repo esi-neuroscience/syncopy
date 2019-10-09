@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-07 15:01:40>
+# Last modification time: <2019-10-08 16:58:57>
 
 # Builtin/3rd party package imports
 import os
@@ -16,7 +16,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 from copy import copy
 from numpy.lib.format import open_memmap
-from tqdm import tqdm
+from tqdm.auto import tqdm
 if sys.platform == "win32":
     # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
     import colorama
@@ -685,9 +685,9 @@ class ComputationalRoutine(ABC):
         # Note: `dd.progress` works in (i)Python but is not blocking in Jupyter, 
         # but `while status == 'pending"` is respected, hence the double-whammy
         futures = dd.client.futures_of(results.persist())
-        dd.progress(futures)
-        while any(f.status == "pending" for f in futures):
-            time.sleep(self.sleepTime)
+        dd.progress(futures, notebook=False)
+        # while any(f.status == "pending" for f in futures): # FIXME: maybe use this for pretty progress-bars
+        #     time.sleep(self.sleepTime)
             
         # When writing concurrently, now's the time to finally create the virtual dataset
         if self.virtualDatasetDir is not None:
@@ -744,10 +744,11 @@ class ComputationalRoutine(ABC):
                 raise exc
             
         # Iterate over (selected) trials and write directly to target HDF5 dataset
+        fmt = "{desc}: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
         with h5py.File(out.filename, "r+") as h5fout:
             target = h5fout[self.datasetName]
-            
-            for nblock in tqdm(range(len(self.trialList))):
+
+            for nblock in tqdm(range(len(self.trialList)), bar_format=fmt):
 
                 # Extract respective indexing tuples from constructed lists                
                 ingrid = self.sourceLayout[nblock]

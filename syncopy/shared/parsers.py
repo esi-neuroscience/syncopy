@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-07 14:21:09>
+# Last modification time: <2019-10-08 13:53:38>
 
 # Builtin/3rd party package imports
 import os
@@ -833,9 +833,6 @@ def unwrap_io(func):
             outfilename = trl_dat["outfile"]
             outdset = trl_dat["outdset"]
             outgrid = trl_dat["outgrid"]
-            # lock = trl_dat["lock"]
-            # sleeptime = trl_dat["sleeptime"]
-            # waitcount = trl_dat["waitcount"]
 
             # === STEP 1 === read data into memory
             # Generic case: data is either a HDF5 dataset or memmap

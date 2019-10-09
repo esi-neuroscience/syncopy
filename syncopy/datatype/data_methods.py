@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-25 17:04:47>
+# Last modification time: <2019-10-08 16:52:11>
 
 # Builtin/3rd party package imports
 import numbers
@@ -918,12 +918,14 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
             act = "{}-dimensional trial segment"
             raise SPYValueError(legal=lgl, varname="data", 
                                 actual=act.format(len(data.shape)))
+        timeAxis = data.dimord.index("time")
         spydata = False
     else:
         try:
             array_parser(data, varname="data", dims=2)
         except Exception as exc:
             raise exc
+        timeAxis = 0
         spydata = False
 
     # FIXME: Creation of new spy-object currently not supported
@@ -972,7 +974,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         if spydata:
             maxTrialLen = np.diff(data.sampleinfo).max()
         else:
-            maxTrialLen = data.shape[0] # if `pad="absolute" and data is array
+            maxTrialLen = data.shape[timeAxis] # if `pad="absolute" and data is array
     else:
         maxTrialLen = np.inf
     if unit == "time":
@@ -1108,10 +1110,10 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         else:
             return pad_opts
 
-    # Input was a array (i.e., single trial) - we have to do the padding just once
+    # Input was a array/FauxTrial (i.e., single trial) - we have to do the padding just once
     else:
 
-        nSamples = data.shape[0]
+        nSamples = data.shape[timeAxis]
         if pad == "absolute":
             padding = (padlength - nSamples)/(prepadlength + postpadlength)
         elif pad == "relative":
@@ -1119,18 +1121,25 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         elif pad == "nextpow2":
             padding = (_nextpow2(nSamples) - nSamples)/(prepadlength + postpadlength)
         pw = np.zeros((2, 2), dtype=int)
-        pw[0, :] = [prepadlength * padding, postpadlength * padding]
+        pw[timeAxis, :] = [prepadlength * padding, postpadlength * padding]
         pad_opts = dict({"pad_width": pw}, **kws[padtype])
         if padtype == "localmean":
-            pad_opts["stat_length"] = pw[0, :]
+            pad_opts["stat_length"] = pw[timeAxis, :]
 
         if create_new:
             if isinstance(data, np.ndarray):
                 return np.pad(data, **pad_opts)
-            else:
-                shp = (data.shape[0] + pw[0, :].sum(), data.shape[1])
-                tidx = slice(data.idx[0].start, data.idx[0].start + shp[0])
-                return data.__class__(shp, (tidx, data.idx[1]), data.dtype)
+            else: # FIXME: currently only supports FauxTrial
+                shp = list(data.shape)
+                shp[timeAxis] += pw[timeAxis, :].sum()
+                idx = list(data.idx)
+                if isinstance(idx[timeAxis], slice):
+                    idx[timeAxis] = slice(idx[timeAxis].start, 
+                                          idx[timeAxis].start + shp[timeAxis])
+                else:
+                    idx[timeAxis] = pw[timeAxis, 0] * [idx[timeAxis][0]] + idx[timeAxis] \
+                                    + pw[timeAxis, 1] * [idx[timeAxis][-1]]
+                return data.__class__(shp, idx, data.dtype, data.dimord)
         else:
             return pad_opts
 
