@@ -1,28 +1,47 @@
-.. Syncopy documentation master file, created by
+.. Syncopy documentation master file
 
 .. title:: Syncopy Documentation
    
-.. image:: syncopy_logo.png
+.. image:: _static/syncopy_logo.png
     :alt: Syncopy logo
     :height: 200px
     :align: center
 
-Welcome to Syncopy's Documentation!
-===================================
+Welcome to the Documentation of SyNCoPy!
+========================================
 
-Syncopy (Systems Neuroscience COmputing in Python) is a Python toolkit for
-user-friendly, large-scale electrophysiology data analysis. The goals of the
-project are:
+SyNCoPy (**Sy**\stems **N**\euroscience **Co**\mputing in **Py**\thon, spelled Syncopy in the following) 
+is a Python toolkit for user-friendly, large-scale electrophysiology data analysis. 
+We strive to achieve the following goals:
 
-1. Syncopy provides a fully *open source* Python environment for reproducable
+1. Syncopy provides a full *open source* Python environment for reproducible
    electrophysiology data analysis.
-2. Syncopy is *scalable* for large datasets. It automatically makes use of the
-   available computing resources by being developed with built-in parallelism.
-3. Syncopy is *compatible* with the MATLAB toolbox FieldTrip.
+2. Syncopy is *scalable* to accommodate *very large* datasets. It automatically 
+   makes use of available computing resources and is developed with built-in 
+   parallelism in mind.
+3. Syncopy is *compatible* with the MATLAB toolbox `FieldTrip <http://www.fieldtriptoolbox.org/>`_.
 
+Contact
+-------
+To report bugs or ask questions please use our GitHub issue tracker. For
+general inquiries please contact syncopy (at) esi-frankfurt.de. 
 
-Contents
-========
+Getting Started
+===============
+Our :doc:`Quickstart Guide <quickstart>` covers installation and basic usage. 
+
+Resources by Topic 
+------------------
+Looking for information regarding a specific analysis method? Please consult the table below. 
+
+Topic Resources Description
+
+TABLE
+
+Not luck finding what you're looking for? Use the search function. 
+
+Sitemap
+=======
 .. toctree::
    :maxdepth: 2
 

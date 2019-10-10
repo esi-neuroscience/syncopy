@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-08 16:52:11>
+# Last modification time: <2019-10-10 14:53:23>
 
 # Builtin/3rd party package imports
 import numbers
@@ -20,6 +20,7 @@ __all__ = ["selectdata", "definetrial", "padding"]
 
 def selectdata(obj, trials=None, deepcopy=False, exact_match=False, **kwargs):
     """
+    
     Docstring coming soon(ish)
 
     (tuple) -> value-range selection (e.g., freq=(5,10) frequency range b/w 5-10Hz)
