@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-09 12:09:31>
+# Last modification time: <2019-10-10 11:10:29>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -217,7 +217,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # Construct array of maximally attainable frequencies
     minTrialLength = minSampleNum/data.samplerate
     nFreq = int(np.floor(minSampleNum / 2) + 1)
-    freqs = np.arange(nFreq)
+    freqs = np.linspace(0, data.samplerate / 2, nFreq)
     
     # Match desired frequencies as close as possible to actually attainable freqs
     if foi is not None:
@@ -230,7 +230,12 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         foi.sort()
         foi = foi[foi <= freqs.max()]
         foi = foi[foi >= freqs.min()]
-        foi = freqs[np.unique(np.searchsorted(freqs, foi, side="right") - 1)]
+        fidx = np.searchsorted(freqs, foi, side="left")
+        for k, fid in enumerate(fidx):
+            if np.abs(freqs[fid - 1] - foi[k]) < np.abs(freqs[fid] - foi[k]):
+                fidx[k] = fid -1
+        fidx = np.unique(fidx)
+        foi = freqs[fidx]
     else:
         foi = freqs
 
@@ -312,7 +317,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         log_dct["nTaper"] = nTaper
         
         # Set up compute-kernel
-        specestMethod = MultiTaperFFT(nTaper=nTaper, 
+        specestMethod = MultiTaperFFT(1 / data.samplerate,
+                                      nTaper=nTaper, 
                                       timeAxis=timeAxis, 
                                       taper=taper, 
                                       taperopt=taperopt,
