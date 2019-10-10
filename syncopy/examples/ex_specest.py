@@ -33,9 +33,24 @@ from time import time
 
 if __name__ == "__main__":
 
+    data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
+
+    cfg = spy.get_defaults(spy.freqanalysis)
+    cfg.method = 'mtmfft'
+    cfg.taper = 'dpss'
+    cfg.output = 'pow'
+    cfg.tapsmofrq = 20
+    cfg.keeptrials = False
+    cfg.keeptapers = False
+    cfg.pad = 'nextpow2'
+    cfg.select = {"toilim": [-0.25, 0]}
+    
+    baselineSpectrum = spy.freqanalysis(cfg, data)
+
+    sys.exit()
+
     client = spy.esi_cluster_setup(n_jobs=10, partition="DEV", mem_per_job="2GB")
     
-    data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
     
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmfft'

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:25:34
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-09 12:12:19>
+# Last modification time: <2019-10-10 11:11:12>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -19,7 +19,7 @@ from syncopy.shared.parsers import unwrap_io
 
 # Local workhorse that performs the computational heavy lifting
 @unwrap_io
-def mtmfft(trl_dat, nTaper=1, timeAxis=0,
+def mtmfft(trl_dat, dt, nTaper=1, timeAxis=0,
            taper=spwin.hann, taperopt={}, tapsmofrq=None,
            pad="nextpow2", padtype="zero", padlength=None, foi=None,
            keeptapers=True, polyorder=None, output_fmt="pow",
@@ -30,6 +30,8 @@ def mtmfft(trl_dat, nTaper=1, timeAxis=0,
     ----------
     trl_dat : 2D :class:`numpy.ndarray`
         Multi-channel uniformly sampled time-series 
+    dt : float
+        sampling interval (between 0 and 1)
     nTaper : int
         number of filter windows to use
     timeAxis : int
@@ -88,16 +90,17 @@ def mtmfft(trl_dat, nTaper=1, timeAxis=0,
     nFreq = int(np.floor(nSamples / 2) + 1)
     fidx = slice(None)
     if foi is not None:
-        freqs = np.arange(nFreq)
+        freqs = np.linspace(0, 1 /(2 * dt), nFreq)
         foi = foi[foi <= freqs.max()]
         foi = foi[foi >= freqs.min()]
-        fidx = np.searchsorted(freqs, foi, side="right") - 1
+        fidx = np.searchsorted(freqs, foi, side="left")
         for k, fid in enumerate(fidx):
             if np.abs(freqs[fid - 1] - foi[k]) < np.abs(freqs[fid] - foi[k]):
                 fidx[k] = fid -1
+        fidx = np.unique(fidx)
         nFreq = fidx.size
     outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
-
+    
     # For initialization of computational routine, just return output shape and dtype
     if noCompute:
         return outShape, freq.spectralDTypes[output_fmt]
