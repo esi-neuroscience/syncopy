@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-08 13:56:53>
+# Last modification time: <2019-10-11 13:38:17>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -21,7 +21,7 @@ from numpy.lib.format import open_memmap
 
 # Local imports
 from .base_data import BaseData, VirtualData, FauxTrial
-from .data_methods import _selectdata_continuous, definetrial
+from .data_methods import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser, io_parser
 from syncopy.shared.errors import SPYValueError, SPYIOError
 import syncopy as spy
@@ -108,7 +108,6 @@ class ContinuousData(BaseData, ABC):
         """
         Docstring mostly pointing to ``selectdata``
         """
-        return _selectdata_continuous(self, trials, deepcopy, **kwargs)
 
     # Helper function that reads a single trial into memory
     @staticmethod

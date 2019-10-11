@@ -4,7 +4,7 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-25 17:07:11>
+# Last modification time: <2019-10-11 13:47:16>
 
 import os
 import tempfile
@@ -20,7 +20,7 @@ from syncopy.datatype.base_data import Selector
 from syncopy.io import load
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.parsers import unwrap_io, unwrap_cfg
-from syncopy.tests.misc import generate_artifical_data
+from syncopy.tests.misc import generate_artificial_data
 
 # Decorator to decide whether or not to run dask-related tests
 skip_without_dask = pytest.mark.skipif(not __dask__, reason="dask not available")
@@ -182,7 +182,7 @@ class TestComputationalRoutine():
 
     def test_sequential_nonequidistant(self):
         for overlapping in [False, True]:
-            nonequidata = generate_artifical_data(nTrials=self.nTrials,
+            nonequidata = generate_artificial_data(nTrials=self.nTrials,
                                                   nChannels=self.nChannels,
                                                   equidistant=False,
                                                   overlapping=overlapping,
@@ -349,7 +349,7 @@ class TestComputationalRoutine():
     def test_parallel_nonequidistant(self, testcluster):
         client = dd.Client(testcluster)
         for overlapping in [False, True]:
-            nonequidata = generate_artifical_data(nTrials=self.nTrials,
+            nonequidata = generate_artificial_data(nTrials=self.nTrials,
                                                     nChannels=self.nChannels,
                                                     equidistant=False,
                                                     overlapping=overlapping,

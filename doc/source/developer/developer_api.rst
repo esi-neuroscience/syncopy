@@ -16,16 +16,13 @@ syncopy.datatype
     syncopy.datatype.discrete_data.DiscreteData
 
 
-syncopy.specest
-^^^^^^^^^^^^^^^
+syncopy.misc
+^^^^^^^^^^^^
 
 .. autosummary::
     :toctree: _stubs
 
-    syncopy.specest.mtmfft.mtmfft
-    syncopy.specest.mtmfft.MultiTaperFFT
-    syncopy.specest.wavelet.wavelet
-    syncopy.specest.wavelet.WaveletTransform
+    syncopy.tests.misc.generate_artificial_data
 
 
 syncopy.shared
@@ -39,3 +36,15 @@ syncopy.shared
     syncopy.shared.errors.SPYTypeError
     syncopy.shared.errors.SPYValueError
     syncopy.shared.errors.SPYIOError
+
+
+syncopy.specest
+^^^^^^^^^^^^^^^
+
+.. autosummary::
+    :toctree: _stubs
+
+    syncopy.specest.mtmfft.mtmfft
+    syncopy.specest.mtmfft.MultiTaperFFT
+    syncopy.specest.wavelet.wavelet
+    syncopy.specest.wavelet.WaveletTransform
