@@ -53,6 +53,14 @@ extent, we highlight here what we think are the most important differences:
   >>> y
   [-1, 2, 3, 4]
 
+  To prevent this an explicit copy of a `list`, `numpy.array`, etc. can be requested:
+
+  >>> x = [1, 2,3 ,4]
+  >>> y = list(x)
+  >>> x[0] = -1
+  >>> y 
+  [1, 2, 3, 4]
+
 * Python's powerful `import system <https://docs.python.org/3/reference/import.html>`_
   allows simple function names (e.g., :func:`~syncopy.load`) without worrying
   about overwriting built-in functions
