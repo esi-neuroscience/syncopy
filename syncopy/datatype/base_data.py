@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-08 14:08:32>
+# Last modification time: <2019-10-11 12:22:02>
 
 # Builtin/3rd party package imports
 import getpass
@@ -1221,75 +1221,21 @@ class Selector():
     data : Syncopy data object
         A non-empty Syncopy data object
     select : dict or :class:`~syncopy.datatype.base_data.StructDict` or None
-        Python dictionary or Syncopy :class:`~syncopy.datatype.base_data.StructDict` 
-        formatted for data selection. Supported keys are
+        Dictionary or :class:`~syncopy.datatype.base_data.StructDict` with keys
+        specifying data selectors. **Note**: some keys are only valid for certain types
+        of Syncopy objects, e.g., "freqs" is not a valid selector for an 
+        :class:`~syncopy.AnalogData` object. Supported keys are (please see 
+        :func:`~syncopy.selectdata` for a detailed description of each selector)
     
-        * 'trials' : list of integers
-          trial numbers to be selected; can include repetitions and need not
-          be sorted (e.g., ``trials = [0, 1, 0, 0, 2]`` is valid) but must
-          be finite and not NaN. 
+        * 'trials' : list (integers)
         * 'channels' : list (integers or strings), slice or range
-          channel-specification; can be a list of channel names
-          (``['channel3', 'channel1']``), a list of channel indices (``[3, 5]``),
-          slice (``slice(3, 10)``) or range (``range(3, 10)``). Note that
-          following Python conventions, channels are counted starting at zero, and
-          range and slice selections are half-open intervals of the form `[low, high)`, 
-          i.e., low is included , high is excluded. Thus, ``channels = [0, 1, 2]``
-          or ``channels = slice(0, 3)`` selects the first up to (and including)
-          the third channel. Selections can be unsorted and may include
-          repetitions but must match exactly, be finite and not NaN. 
-        * 'toi' : list
-          time-points to be selected (in seconds) in each trial. Timing is
-          expected to be on a by-trial basis (e.g., relative to trigger onsets). 
-          Selections can be approximate, unsorted and may include repetitions
-          but must be finite and not NaN. Fuzzy matching is performed for
-          approximate selections (i.e., selected time-points are close but not
-          identical to timing information found in `data`) using a nearest-
-          neighbor search for elements of `toi` in `data.time`. 
-        * 'toilim' : list
-          time-window ``[tmin, tmax]`` (in seconds) to be extracted from
-          each trial. Window specifications must be sorted (e.g., ``[2.2, 1.1]``
-          is invalid) and not NaN but may be unbounded (e.g., ``[1.1, np.inf]``
-          is valid). Edges `tmin` and `tmax` are included in the selection. 
-        * 'foi' : list
-          frequencies to be selected (in Hz). Selections can be approximate,
-          unsorted and may include repetitions but must be finite and not NaN.
-          Fuzzy matching is performed for approximate selections (i.e., selected
-          frequencies are close but not identical to frequencies found in
-          `data`) using a nearest-neighbor search for elements of `foi` in
-          `data.freq`. 
-        * 'foilim' : list
-          frequency-window ``[fmin, fmax]`` (in Hz) to be extracted. Window
-          specifications must be sorted (e.g., ``[90, 70]`` is invalid) and
-          not NaN but may be unbounded (e.g., ``[-np.inf, 60.5]`` is valid).
-          Edges `fmin` and `fmax` are included in the selection. 
+        * 'toi' : list (floats)
+        * 'toilim' : list (floats [tmin, tmax])
+        * 'foi' : list (floats)
+        * 'foilim' : list (floats [fmin, fmax])
         * 'tapers' : list (integers or strings), slice or range
-          taper-specification; can be a list of taper names
-          (``['dpss-win-1', 'dpss-win-3']``), a list of taper indices
-          (``[3, 5]``), slice (``slice(3, 10)``) or range (``range(3, 10)``). Note that
-          following Python conventions, tapers are counted starting at zero, and
-          range and slice selections are half-open intervals of the form `[low, high)`, 
-          i.e., low is included , high is excluded. Thus, ``tapers = [0, 1, 2]``
-          or ``tapers = slice(0, 3)`` selects the first up to (and including)
-          the third taper. Selections can be unsorted and may include
-          repetitions but must match exactly, be finite and not NaN. 
         * 'units' : list (integers or strings), slice or range
-          unit-specification; can be a list of unit names
-          (``['unit10', 'unit3']``), a list of unit indices (``[3, 5]``),
-          slice (``slice(3, 10)``) or range (``range(3, 10)``). Note that
-          following Python conventions, units are counted starting at zero, and
-          range and slice selections are half-open intervals of the form `[low, high)`, 
-          i.e., low is included , high is excluded. Thus, ``units = [0, 1, 2]``
-          or ``units = slice(0, 3)`` selects the first up to (and including)
-          the third unit. Selections can be unsorted and may include
-          repetitions but must match exactly, be finite and not NaN.
-        * 'eventids' : list of integers, slice or range
-          event-id-specification; can be a list of event-id codes (``[2, 0, 1]``),
-          slice (``slice(0, 2)``) or range (``range(0, 2)``). Note that
-          following Python conventions, range and slice selections are half-open 
-          intervals of the form `[low, high)`, i.e., low is included , high is excluded. 
-          Selections can be unsorted and may include repetitions but must match exactly, be
-          finite and not NaN.
+        * 'eventids' : list (integers), slice or range
 
         Any property of `data` that is not specifically accessed via one of
         the above keys is taken as is, e.g., ``select = {'trials': [1, 2]}``

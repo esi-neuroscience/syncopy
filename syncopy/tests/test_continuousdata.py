@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:46:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-25 13:17:32>
+# Last modification time: <2019-10-11 13:47:16>
 
 import os
 import tempfile
@@ -16,7 +16,7 @@ from syncopy.datatype import AnalogData, SpectralData, padding
 from syncopy.io import save, load
 from syncopy.datatype.base_data import VirtualData
 from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.tests.misc import generate_artifical_data, construct_spy_filename
+from syncopy.tests.misc import generate_artificial_data, construct_spy_filename
 
 
 class TestAnalogData():
@@ -317,7 +317,7 @@ class TestAnalogData():
     def test_object_padding(self):
 
         # construct AnalogData object w/trials of unequal lengths
-        adata = generate_artifical_data(nTrials=7, nChannels=16,
+        adata = generate_artificial_data(nTrials=7, nChannels=16,
                                         equidistant=False, inmemory=False)
         timeAxis = adata.dimord.index("time")
 
@@ -333,7 +333,7 @@ class TestAnalogData():
             assert trl_time - total_time < 1/adata.samplerate
 
         # jumble axes of `AnalogData` object and compute max. trial length
-        adata2 = generate_artifical_data(nTrials=7, nChannels=16,
+        adata2 = generate_artificial_data(nTrials=7, nChannels=16,
                                          equidistant=False, inmemory=False,
                                          dimord=adata.dimord[::-1])
         timeAxis2 = adata2.dimord.index("time")

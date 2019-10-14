@@ -22,7 +22,7 @@ import syncopy as spy
 
 
 if __name__ == "__main__":
-    data = spy.tests.misc.generate_artifical_data(nChannels=5, nTrials=37)
+    data = spy.tests.misc.generate_artificial_data(nChannels=5, nTrials=37)
     spec, lastres = spy.wavelet(data)
     import matplotlib.pyplot as plt
     plt.ion()

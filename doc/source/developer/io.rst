@@ -1,32 +1,32 @@
-Reading from and writing data to disk
-=====================================
+Reading and Writing Data
+=========================
 
 .. contents::
     Contents
     :local:
 
 
-The Syncopy data format (``*.spy``)
+The Syncopy Data Format (``*.spy``)
 -----------------------------------
 
-As each Syncopy data object is nothing more than an anotated multi-dimensional
-array each object is usually stored in 
+As each Syncopy data object is simply an annotated multi-dimensional
+array every object is stored as
 
 1. a binary file for the data arrays and
 2. a human-readable file for metadata.
 
 Syncopy aims to be scalable for very large files that don't fit into memory. To
-cope with those kinds of files, it is usually necessary to stream data from and
-to disk only on demand. A file format that is well-established for this 
-purpose is `HDF5 <https://www.hdfgroup.org/>`_, which is therefore the default
+cope with such files, it is usually necessary to perform on-demand streaming 
+of data from and to disk. A file format that is well-established for this 
+purpose is `HDF5 <https://www.hdfgroup.org/>`_, which is, therefore, the default
 storage backend of Syncopy. In addition, metadata are stored in `JSON
-<https://en.wikipedia.org/wiki/JSON>`_, which is both easily human-readable 
+<https://en.wikipedia.org/wiki/JSON>`_, which is both easily human- 
 and machine-readable.
 
-The data files are usually stored in a folder called ``<basename>.spy``, which
-can contain multiple data of different data classes that have been recorded
-simulatenously, e.g. spikes and local field potentials. The standard naming
-pattern of the data files is the following
+By default, Syncopy's data files are stored in a folder called ``<basename>.spy``, which
+can contain the on-disk representations of multiple objects of different classes
+(e.g., spikes and local field potentials that have been recorded simultaneously). 
+The standard naming pattern of Syncopy's data files is as follows:
 
 :: 
 
@@ -40,8 +40,8 @@ pattern of the data files is the following
 The ``<dataclass>`` specifies the type of data that is stored in the file, i.e.
 one of the :ref:`syncopy-data-classes`. The ``<tag>`` part of the filename is
 user-defined to distinguish data of the same data class, that should be kept
-separate, e.g. data from separate electrode arrays. The data can be loaded into
-Python using the :func:`syncopy.load` function.
+separate, e.g. data from separate electrode arrays. Data can be loaded using 
+the :func:`syncopy.load` function.
 
 
 **Example folder**
@@ -66,13 +66,13 @@ Python using the :func:`syncopy.load` function.
 
 
 
-Structure of the data file (HDF5)
+Structure of the Data File (HDF5)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The HDF5 file contains some metadata (`HDF5 attributes
 <http://docs.h5py.org/en/stable/high/attr.html>`_) in its header (partially
-redundant with JSON file), the ``data`` array in binary form (`HDF5 dataset
-<http://docs.h5py.org/en/stable/high/dataset.html>`_), and a ``[nTrials x
+redundant with the corresponding JSON file), the ``data`` array in binary form 
+(`HDF5 dataset <http://docs.h5py.org/en/stable/high/dataset.html>`_), and a ``[nTrials x
 3+k]``-sized ``trialdefinition`` array containing information about the trials
 defined on the data (trial_start, trial_stop, trial_triggeroffset, trialinfo_1,
 trialinfo_2, ..., trialinfo_k).
@@ -99,7 +99,7 @@ the data directly include `HDFView
 <https://github.com/HDFGroup/hdf-compass>`_.
 
 
-Structure of the metadata file (JSON)
+Structure of the Metadata File (JSON)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The JSON file contains all metadata relevant to the data object. The required fields
@@ -177,7 +177,7 @@ Example JSON file:
 
     
 
-Reading other data formats
+Reading Other File Formats
 --------------------------
 
 Reading and writing other data formats is currently not supported. Getting your

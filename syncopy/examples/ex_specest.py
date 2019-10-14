@@ -24,12 +24,12 @@ from syncopy import *
 import syncopy as spy
 
 # Import artificial data generator
-from syncopy.tests.misc import generate_artifical_data
+from syncopy.tests.misc import generate_artificial_data
 
 import dask.distributed as dd
 from time import time
 
-# sys.exit()
+sys.exit()
 
 if __name__ == "__main__":
 
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     cfg.output = 'abs'
     cfg.tapsmofrq = 9.3
     cfg.keeptrials = True
-    artdata = generate_artifical_data(nTrials=2, nChannels=16, equidistant=True, inmemory=True)
+    artdata = generate_artificial_data(nTrials=2, nChannels=16, equidistant=True, inmemory=True)
     
     # artdata.save('test', overwrite=True)
     # bdata = spy.load('test')
@@ -237,9 +237,9 @@ if __name__ == "__main__":
     # sys.exit()
     # 
     # # FIXME: channel assignment is only temporarily necessary
-    # adata = generate_artifical_data(nTrials=20, nChannels=256, equidistant=False, overlapping=True)        # ~50MB
+    # adata = generate_artificial_data(nTrials=20, nChannels=256, equidistant=False, overlapping=True)        # ~50MB
     # adata.channel = ["channel" + str(i + 1) for i in range(256)]
-    # # adata = generate_artifical_data(nTrials=100, nChannels=1024, equidistant=False)        # ~1.14GB
+    # # adata = generate_artificial_data(nTrials=100, nChannels=1024, equidistant=False)        # ~1.14GB
     # # adata.channel = ["channel" + str(i + 1) for i in range(1024)]
     # 
     # 

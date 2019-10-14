@@ -1,10 +1,8 @@
-Tools for developing Syncopy
+Tools for Developing Syncopy
 ============================
-Some profoundly insightful text here...
+Coming soon...
 
-
-
-Input parsing and error checking
+Input Parsing and Error Checking
 --------------------------------
 
 .. autosummary::
@@ -23,15 +21,15 @@ Writing A New Analysis Routine
 Any analysis routine that operates on Syncopy data is always structured in three
 (hierarchical) parts:
 
-1. A numerical function based on NumPy/SciPy only that works on a
+1. A numerical function based only on NumPy/SciPy that works on a
    :class:`numpy.ndarray` and returns a :class:`numpy.ndarray`. 
-2. A wrapper class that handles output initializiation, potential
-   parallelization and post-computation cleanup. This should be based on the
+2. A wrapper class that handles output initialization, potential
+   parallelization and post-computation cleanup. The class should be based on the
    abstract class :class:`syncopy.shared.computational_routine.ComputationalRoutine`
 3. Another wrapping metafunction handling method selection, parameterization and
-   error checking is then provided for the users.
+   error checking is then provided user interaction.
 
-An example for this type of structure is the multi-taper fourier analysis. The
+An example of this type of structure is the multi-taper fourier analysis. The
 corresponding stages here are
 
 1. Numerical function: :func:`syncopy.specest.mtmfft`
@@ -42,4 +40,3 @@ corresponding stages here are
 
 For a detailed walk-through explaining the intricacies of writing an analysis
 routine, please refer to the :doc:`compute_kernels`.
-

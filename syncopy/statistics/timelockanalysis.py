@@ -3,8 +3,8 @@
 # 
 # 
 # Created: 2019-10-01 11:39:36
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-10-08 13:37:29>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-10-11 16:10:44>
 
 import os
 import numpy as np
@@ -16,26 +16,27 @@ import syncopy as spy
 __all__ = ["timelockanalysis"]
 
 def timelockanalysis(data, trials=None):
-    """Prototype function for averaging AnalogData across trials
+    """Prototype function for averaging :class:`~syncopy.AnalogData` across trials
     
     Parameters
     ----------
-    data : :class:`syncopy.AnalogData` object
-        Syncopy data object to be averaged across trials
+    data : Syncopy :class:`~syncopy.AnalogData` object
+        Syncopy :class:`~syncopy.AnalogData` object to be averaged across trials
     trials : :class:`numpy.ndarray`
         Array of trial indices to be used for averaging
     
     Returns
     -------
-    dict
-        Dictionary with keys "avg", "var", "dof" "time", "channel" for average
-        variance, degrees of freedom, time axis, and channel labels
+    resdict : dict
+        Dictionary with keys "avg", "var", "dof" "time", "channel" representing
+        calculated average (across `trials`), variance (across `trials`), degrees 
+        of freedom, time axis, and channel labels
 
-    Note
-    ----
-    This function is merely a proof of concept for averaging across trials with
-    an online algorithm. The final version for release will change severely.
-
+    Notes
+    -----
+    This function is merely a proof of concept implementation for averaging data 
+    across trials with using an efficient online algorithm. The final version 
+    for release will change substantially.
     """
             
     # FIXME: There are currently no tests for this function.    
