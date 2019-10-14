@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-11 13:38:26>
+# Last modification time: <2019-10-14 13:00:01>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -12,7 +12,7 @@ from abc import ABC
 
 # Local imports
 from .base_data import BaseData, Indexer
-from .data_methods import definetrial
+from .methods.definetrial import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError
 

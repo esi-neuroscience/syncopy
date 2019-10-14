@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-10 11:10:29>
+# Last modification time: <2019-10-14 13:13:36>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -15,14 +15,13 @@ from numbers import Number
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser 
 from syncopy.shared import get_defaults
 from syncopy.datatype import SpectralData, padding
-from syncopy.datatype.data_methods import _nextpow2
+from syncopy.datatype.methods.padding import _nextpow2
 import syncopy.specest.wavelets as spywave 
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.parsers import unwrap_cfg
 from syncopy import __dask__
 from syncopy.specest.mtmfft import MultiTaperFFT
 from syncopy.specest.wavelet import _get_optimal_wavelet_scales, WaveletTransform
-# import syncopy.specest
 if __dask__:
     import dask.distributed as dd
 

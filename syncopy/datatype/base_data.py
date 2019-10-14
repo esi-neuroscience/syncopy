@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-11 12:22:02>
+# Last modification time: <2019-10-14 12:58:21>
 
 # Builtin/3rd party package imports
 import getpass
@@ -28,7 +28,7 @@ import scipy as sp
 
 # Local imports
 import syncopy as spy
-from syncopy.datatype.data_methods import definetrial
+from syncopy.datatype.methods.definetrial import definetrial
 from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser, 
                                     filename_parser, data_parser)
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
