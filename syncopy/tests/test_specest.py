@@ -6,7 +6,7 @@
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Last modification time: <2019-07-15 12:05:40>
 
-from syncopy.tests.misc import generate_artifical_data
+from syncopy.tests.misc import generate_artificial_data
 from syncopy.specest.freqanalysis import freqanalysis
 from syncopy.shared.errors import SPYValueError
 from syncopy.datatype.data_methods import _nextpow2
@@ -162,7 +162,7 @@ class TestMTMFFT():
             assert spec.channel.size == len(chanList)
 
         # non-equidistant data w/multiple tapers
-        artdata = generate_artifical_data(nTrials=5, nChannels=16,
+        artdata = generate_artificial_data(nTrials=5, nChannels=16,
                                           equidistant=False, inmemory=False)
         timeAxis = artdata.dimord.index("time")
         cfg = StructDict()
@@ -203,7 +203,7 @@ class TestMTMFFT():
             assert np.max(spec.freq - freqs) < self.ftol
 
         # same + reversed dimensional order in input object
-        cfg.data = generate_artifical_data(nTrials=5, nChannels=16,
+        cfg.data = generate_artificial_data(nTrials=5, nChannels=16,
                                            equidistant=False, inmemory=False,
                                            dimord=AnalogData._defaultDimord[::-1])
         timeAxis = cfg.data.dimord.index("time")
@@ -239,7 +239,7 @@ class TestMTMFFT():
             assert spec.taper.size > 1
 
         # same + overlapping trials
-        cfg.data = generate_artifical_data(nTrials=5, nChannels=16,
+        cfg.data = generate_artificial_data(nTrials=5, nChannels=16,
                                            equidistant=False, inmemory=False,
                                            dimord=AnalogData._defaultDimord[::-1],
                                            overlapping=True)
@@ -356,7 +356,7 @@ class TestMTMFFT():
 
         # simplest case: equidistant trial spacing, all in memory
         fileCount = [self.nTrials, nFiles]
-        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+        artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
                                           inmemory=True)
         for k, chan_per_worker in enumerate([None, chanPerWrkr]):
             cfg.chan_per_worker = chan_per_worker
@@ -366,7 +366,7 @@ class TestMTMFFT():
 
         # non-equidistant trial spacing
         cfg.keeptapers = False
-        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+        artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
                                           inmemory=True, equidistant=False)
         timeAxis = artdata.dimord.index("time")
         maxtrlno = np.diff(artdata.sampleinfo).argmax()
@@ -383,7 +383,7 @@ class TestMTMFFT():
         # equidistant trial spacing, keep tapers
         cfg.output = "abs"
         cfg.keeptapers = True
-        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+        artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
                                           inmemory=False)
         for k, chan_per_worker in enumerate([None, chanPerWrkr]):
             spec = freqanalysis(artdata, cfg)
@@ -392,7 +392,7 @@ class TestMTMFFT():
         # non-equidistant, overlapping trial spacing, throw away trials and tapers
         cfg.keeptapers = False
         cfg.keeptrials = "no"
-        artdata = generate_artifical_data(nTrials=self.nTrials, nChannels=self.nChannels,
+        artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
                                           inmemory=False, equidistant=False,
                                           overlapping=True)
         spec = freqanalysis(artdata, cfg)

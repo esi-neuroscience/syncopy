@@ -3,8 +3,8 @@
 # Test functionality of SyNCoPy-container I/O routines
 # 
 # Created: 2019-03-19 14:21:12
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-09 11:37:28>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-10-11 13:47:16>
 
 import os
 import tempfile
@@ -22,7 +22,7 @@ from syncopy.io import save, load
 from syncopy.io.utils import FILE_EXT
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError, SPYError
 import syncopy.datatype as swd
-from syncopy.tests.misc import generate_artifical_data, construct_spy_filename
+from syncopy.tests.misc import generate_artificial_data, construct_spy_filename
 
 class TestSpyIO():
 
@@ -66,7 +66,7 @@ class TestSpyIO():
     def test_logging(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "dummy")
-            dummy = generate_artifical_data(inmemory=True)
+            dummy = generate_artificial_data(inmemory=True)
             ldum = len(dummy._log)
             save(dummy, filename=fname)
             

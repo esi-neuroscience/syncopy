@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-25 11:30:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-08 16:52:11>
+# Last modification time: <2019-10-11 13:47:16>
 
 # Builtin/3rd party package imports
 import numbers
@@ -18,308 +18,216 @@ from syncopy.shared.errors import SPYTypeError, SPYValueError
 __all__ = ["selectdata", "definetrial", "padding"]
 
 
-def selectdata(obj, trials=None, deepcopy=False, exact_match=False, **kwargs):
+def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None,
+               foilim=None, tapers=None, units=None, eventids=None):
     """
-    Docstring coming soon(ish)
-
-    (tuple) -> value-range selection (e.g., freq=(5,10) frequency range b/w 5-10Hz)
-    slice -> index-range selection (e.g. freq=slice(5,10), frequencies no. 5 - 9)
-    [list-like] -> multi-index-selection (e.g. freq=[5,7,10], frequencies no. 5, 7, 10)
-    float -> single-value selection (e.g. freq=5.0, frequency of 5Hz)
-    int -> single-index selection (e.g., freq=5, 4th frequency in spectrum)
-    """
-
-    # Depending on input object, pass things right on to actual working routines
-    if any(["ContinuousData" in str(base) for base in obj.__class__.__bases__]):
-        return _selectdata_continuous(obj, trials, deepcopy, exact_match, **kwargs)
-    elif any(["DiscreteData" in str(base) for base in obj.__class__.__bases__]):
-        raise NotImplementedError("Coming soon")
-    else:
-        raise SPYTypeError(obj, varname="obj", expected="SyNCoPy data object")
+    Select a subset of data from a Syncopy object
     
-
-def _selectdata_continuous(obj, trials, deepcopy, exact_match, **kwargs):
-
-    # Make sure provided object is inherited from `ContinuousData`
-    if not any(["ContinuousData" in str(base) for base in obj.__class__.__mro__]):
-        raise SPYTypeError(obj, varname="obj", expected="SpkeWave ContinuousData object")
-        
-    # Convert provided selectors to array indices
-    trials, selectors = _makeidx(obj, trials, deepcopy, exact_match, **kwargs)
-
-    # Make sure our Boolean switches are actuall Boolean
-    if not isinstance(deepcopy, bool):
-        raise SPYTypeError(deepcopy, varname="deepcopy", expected="bool")
-    if not isinstance(exact_match, bool):
-        raise SPYTypeError(exact_match, varname="exact_match", expected="bool")
-
-    # If time-based selection is requested, make some necessary preparations
-    if "time" in selectors.keys():
-        time_sel = selectors.pop("time")
-        time_ref = np.array(obj.time[trials[0]])
-        time_slice = [None, None]
-        if isinstance(time_sel, tuple):
-            if len(time_sel) != 2:
-                raise SPYValueError(legal="two-element tuple",
-                                    actual="tuple of length {}".format(str(len(time_sel))),
-                                    varname="time")
-            for tk, ts in enumerate(time_sel):
-                if ts is not None:
-                    if not exact_match:
-                        time_slice[tk] = time_ref[np.abs(time_ref - ts).argmin()]
-                    else:
-                        try:
-                            time_slice[tk] = list(time_ref).index(ts)
-                        except:
-                            raise SPYValueError(legal="exact time-point", actual=ts)
-            time_slice = slice(*time_slice)
-        elif isinstance(time_sel, slice):
-            if not len(range(*time_sel.indices(time_ref.size))):
-                lgl = "non-empty time-selection"
-                act = "empty selector"
-                raise SPYValueError(legal=lgl, varname=lbl, actual=act)
-            time_slice = slice(time_sel.start, time_sel.stop, time_sel.step)
-        elif isinstance(time_sel, (list, np.ndarray)):
-            if not set(time_sel).issubset(range(time_ref.size))\
-               or np.unique(np.diff(time_sel)).size != 1:
-                vname = "contiguous list of time-points"
-                raise SPYValueError(legal=lgl, varname=vname)
-            time_slice = slice(time_sel[0], time_sel[-1] + 1)
-        else:
-            raise SPYTypeError(time_sel, varname="time-selection",
-                               expected="tuple, slice or list-like")
-    else:
-        time_slice = slice(0, None)
-
-        # SHALLOWCOPY
-        sampleinfo = np.empty((trials.size, 2))
-        for sk, trl in enumerate(trials):
-            sinfo = range(*obj.sampleinfo[trl, :])[time_slice]
-            sampleinfo[sk, :] = [sinfo.start, sinfo.stop - 1]
-        
-            
-    # Build array-multi-index and shape of target array based on dimensional selectors
-    idx = [slice(None)] * len(obj.dimord)
-    target_shape = list(obj.data.shape)
-    for lbl, selector in selectors.items():
-        id = obj.dimord.index(lbl)
-        idx[id] = selector
-        if isinstance(selector, slice):
-            target_shape[id] = len(range(*selector.indices(obj.data.shape[id])))
-        elif isinstance(selector, int):
-            target_shape[id] = 1
-        else:
-            if not deepcopy:
-                deepcopy = True
-            target_shape[id] = len(selector)
-    tid = obj.dimord.index("time")
-    idx[tid] = time_slice
+    **##################### Hello Alpha users! #####################** 
     
-    # Allocate shallow copy for target
-    target = obj.copy()
+    This function is not implemented yet - the version of 
+    Syncopy you're using only supports in-place selection via a `select` dictionary. 
+    The keys supported by the `select` dictionary are identical to the keyword
+    arguments discussed below, e.g., the following code snippet works
+    
+    >>> select = {"toilim" : [-0.25, 0]}
+    >>> cfg = spy.get_defaults(spy.freqanalysis)
+    >>> cfg.select = select
+    >>> spy.freqanalysis(cfg, data)
 
-    # First, we handle deep copies of `obj`
-    if deepcopy:
+    **##############################################################** 
 
-        # Re-number trials: offset correction + close gaps b/w trials
-        sampleinfo = obj.sampleinfo[trials, :] - obj.sampleinfo[trials[0], 0]
-        stop = 0
-        for sk in range(sampleinfo.shape[0]):
-            sinfo = range(*sampleinfo[sk, :])[time_slice]
-            nom_len = sinfo.stop - sinfo.start
-            start = min(sinfo.start, stop)
-            real_len = min(nom_len, sinfo.stop - stop)
-            sampleinfo[sk, :] = [start, start + nom_len]
-            stop = start + real_len + 1
-            
-        # Based on requested trials, set shape of target array (accounting
-        # for overlapping trials)
-        target_shape[tid] = sampleinfo[-1][1]
-
-        # Allocate target memorymap
-        target._filename = obj._gen_filename()
-        target_dat = open_memmap(target._filename, mode="w+",
-                                 dtype=obj.data.dtype, shape=target_shape)
-        del target_dat
-
-        # The crucial part here: `idx` is a "local" by-trial index of the
-        # form `[:,:,2:10]` whereas `target_idx` has to keep track of the
-        # global progression in `target_data`
-        for sk, trl in enumerate(trials):
-            source_trl = self._copy_trial(trialno,
-                                            obj._filename,
-                                            obj.trl,
-                                            obj.hdr,
-                                            obj.dimord,
-                                            obj.segmentlabel)
-            target_idx[tid] = slice(*sampleinfo[sk, :])
-            target_dat = open_memmap(target._filename, mode="r+")[target_idx]
-            target_dat[...] = source_trl[idx]
-            del target_dat
-
-        # FIXME: Clarify how we want to do this...
-        target._dimlabels["sample"] = sampleinfo
-
-        # Re-number samples if necessary
+    
+    **Usage summary**
+    
+    List of Syncopy data objects and respective valid data selectors:
+    
+    :class:`~syncopy.AnalogData` : trials, channels, toi/toilim
+        Examples
         
-
-        # By-sample copy
-        if trials is None:
-            mem_size = np.prod(target_shape)*self.data.dtype*1024**(-2)
-            if mem_size >= 100:
-                spw_warning("Memory footprint of by-sample selection larger than 100MB",
-                            caller="SyNCoPy core:select")
-            target_dat[...] = self.data[idx]
-            del target_dat
-            self.clear()
-
-        # By-trial copy
-        else:
-            del target_dat
-            sid = self.dimord.index(self.segmentlabel)
-            target_shape[sid] = sum([shp[sid] for shp in np.array(self.shapes)[trials]])
-            target_idx = [slice(None)] * len(self.dimord)
-            target_sid = 0
-            for trialno in trials:
-                source_trl = self._copy_trial(trialno,
-                                                self._filename,
-                                                self.trl,
-                                                self.hdr,
-                                                self.dimord,
-                                                self.segmentlabel)
-                trl_len = source_trl.shape[sid]
-                target_idx[sid] = slice(target_sid, target_sid + trl_len)
-                target_dat = open_memmap(target._filename, mode="r+")[target_idx]
-                target_dat[...] = source_trl[idx]
-                del target_dat
-                target_sid += trl_len
-
-    # Shallow copy: simply create a view of the source memmap
-    # Cover the case: channel=3, all trials!
-    else:
-        target._data = open_memmap(self._filename, mode="r")[idx]
-
-    return target
-
-
-def _selectdata_discrete():
-    pass
-
-
-def _makeidx(obj, trials, deepcopy, exact_match, **kwargs):
-    """
-    Local input parser
+        >>> spy.selectdata(data, trials=[0, 3, 5], channels=["channel01", "channel02"])
+        >>> cfg = spy.StructDict() 
+        >>> cfg.trials = [5, 3, 0]; cfg.toilim = [0.25, 0.5]
+        >>> spy.selectdata(cfg, data)
+        
+    :class:`~syncopy.SpectralData` : trials, channels, toi/toilim, foi/foilim, tapers
+        Examples
+        
+        >>> spy.selectdata(data, trials=[0, 3, 5], channels=["channel01", "channel02"])
+        >>> cfg = spy.StructDict()
+        >>> cfg.foi = [30, 40, 50]; cfg.tapers = slice(2, 4)
+        >>> spy.selectdata(cfg, data)
+        
+    :class:`~syncopy.EventData` : trials, toi/toilim, eventids
+        Examples
+        
+        >>> spy.selectdata(data, toilim=[-1, 2.5], eventids=[0, 1])
+        >>> cfg = spy.StructDict()
+        >>> cfg.trials = [0, 0, 1, 0]; cfg.eventids = slice(2, None)
+        >>> spy.selectdata(cfg, data)
+        
+    :class:`~syncopy.SpikeData` : trials, toi/toilim, units
+        Examples
+        
+        >>> spy.selectdata(data, toilim=[-1, 2.5], units=range(0, 10))
+        >>> cfg = spy.StructDict()
+        >>> cfg.toi = [1.25, 3.2]; cfg.trials = [0, 1, 2, 3]
+        >>> spy.selectdata(cfg, data)
+    
+    **Note** Any property that is not specifically accessed via one of the provided
+    selectors is taken as is, e.g., ``spy.selectdata(data, trials=[1, 2])``
+    selects the entire contents of trials no. 2 and 3, while 
+    ``spy.selectdata(data, channels=range(0, 50))`` selects the first 50 channels
+    of `data` across all defined trials. Consequently, if no keywords are specified,
+    the entire contents of `data` is selected. 
+    
+    Full documentation below. 
+    
+    Parameters
+    ----------
+    data : Syncopy data object
+        A non-empty Syncopy data object. **Note** the type of `data` determines
+        which keywords can be used.  Some keywords are only valid for certain 
+        types of Syncopy objects, e.g., "freqs" is not a valid selector for an 
+        :class:`~syncopy.AnalogData` object. 
+    trials : list (integers) or None
+        List of integers representing trial numbers to be selected; can include 
+        repetitions and need not be sorted (e.g., ``trials = [0, 1, 0, 0, 2]`` 
+        is valid) but must be finite and not NaN. If `trials` is `None`, all trials 
+        are selected. 
+    channels : list (integers or strings), slice, range or None
+        Channel-selection; can be a list of channel names (``['channel3', 'channel1']``), 
+        a list of channel indices (``[3, 5]``), a slice (``slice(3, 10)``) or 
+        range (``range(3, 10)``). Note that following Python conventions, channels 
+        are counted starting at zero, and range and slice selections are half-open 
+        intervals of the form `[low, high)`, i.e., low is included , high is 
+        excluded. Thus, ``channels = [0, 1, 2]`` or ``channels = slice(0, 3)`` 
+        selects the first up to (and including) the third channel. Selections can 
+        be unsorted and may include repetitions but must match exactly, be finite 
+        and not NaN. If `channels` is `None`, all channels are selected. 
+    toi : list (floats) or None
+        Time-points to be selected (in seconds) in each trial. Timing is expected 
+        to be on a by-trial basis (e.g., relative to trigger onsets). Selections 
+        can be approximate, unsorted and may include repetitions but must be 
+        finite and not NaN. Fuzzy matching is performed for approximate selections 
+        (i.e., selected time-points are close but not identical to timing information 
+        found in `data`) using a nearest-neighbor search for elements of `toi`. 
+        If `toi` is `None`, the entire time-span in each trial is selected. 
+    toilim : list (floats [tmin, tmax]) or None
+        Time-window ``[tmin, tmax]`` (in seconds) to be extracted from each trial. 
+        Window specifications must be sorted (e.g., ``[2.2, 1.1]`` is invalid) 
+        and not NaN but may be unbounded (e.g., ``[1.1, np.inf]`` is valid). Edges 
+        `tmin` and `tmax` are included in the selection. 
+        If `toilim` is `None`, the entire time-span in each trial is selected. 
+    foi : list (floats) or None
+        Frequencies to be selected (in Hz). Selections can be approximate, unsorted 
+        and may include repetitions but must be finite and not NaN. Fuzzy matching 
+        is performed for approximate selections (i.e., selected frequencies are 
+        close but not identical to frequencies found in `data`) using a nearest-
+        neighbor search for elements of `foi` in `data.freq`. If `foi` is `None`, 
+        all frequencies are selected. 
+    foilim : list (floats [fmin, fmax]) or None
+        Frequency-window ``[fmin, fmax]`` (in Hz) to be extracted. Window 
+        specifications must be sorted (e.g., ``[90, 70]`` is invalid) and not NaN 
+        but may be unbounded (e.g., ``[-np.inf, 60.5]`` is valid). Edges `fmin` 
+        and `fmax` are included in the selection. If `foilim` is `None`, all 
+        frequencies are selected. 
+    tapers : list (integers or strings), slice, range or None
+        Taper-selection; can be a list of taper names (``['dpss-win-1', 'dpss-win-3']``), 
+        a list of taper indices (``[3, 5]``), a slice (``slice(3, 10)``) or range 
+        (``range(3, 10)``). Note that following Python conventions, tapers are 
+        counted starting at zero, and range and slice selections are half-open 
+        intervals of the form `[low, high)`, i.e., low is included , high is 
+        excluded. Thus, ``tapers = [0, 1, 2]`` or ``tapers = slice(0, 3)`` selects 
+        the first up to (and including) the third taper. Selections can be unsorted 
+        and may include repetitions but must match exactly, be finite and not NaN. 
+        If `tapers` is `None`, all tapers are selected. 
+    units : list (integers or strings), slice, range or None
+        Unit-selection; can be a list of unit names (``['unit10', 'unit3']``), a 
+        list of unit indices (``[3, 5]``), a slice (``slice(3, 10)``) or range 
+        (``range(3, 10)``). Note that following Python conventions, units are 
+        counted starting at zero, and range and slice selections are half-open 
+        intervals of the form `[low, high)`, i.e., low is included , high is 
+        excluded. Thus, ``units = [0, 1, 2]`` or ``units = slice(0, 3)`` selects 
+        the first up to (and including) the third unit. Selections can be unsorted 
+        and may include repetitions but must match exactly, be finite and not NaN.
+        If `units` is `None`, all units are selected. 
+    eventids : list (integers), slice, range or None
+        Event-ID-selection; can be a list of event-id codes (``[2, 0, 1]``), slice 
+        (``slice(0, 2)``) or range (``range(0, 2)``). Note that following Python 
+        conventions, range and slice selections are half-open intervals of the 
+        form `[low, high)`, i.e., low is included , high is excluded. Selections 
+        can be unsorted and may include repetitions but must match exactly, be
+        finite and not NaN. If `eventids` is `None`, all events are selected. 
+        
+    Returns
+    -------
+    dataselection : Syncopy data object
+        Syncopy data object of the same type as `data` but containing only the 
+        subset specified by provided selectors. 
+        
+    Notes
+    -----
+    This routine represents a convenience function for creating new Syncopy objects
+    based on existing data entities. However, in many situations, the creation 
+    of a new object (and thus the allocation of additional disk-space) might not 
+    be necessary: all Syncopy compute kernels, such as :func:`~syncopy.freqanalysis`,
+    support **in-place data selection**. 
+    
+    Consider the following example: assume `data` is an :class:`~syncopy.AnalogData` 
+    object representing 220 trials of LFP recordings containing baseline (between 
+    second -0.25 and 0) and stimulus-on data (on the interval [0.25, 0.5]). 
+    To compute the baseline spectrum, data-selection does **not**
+    have to be performed before calling :func:`~syncopy.freqanalysis` but instead
+    can be done in-place:
+    
+    >>> import syncopy as spy
+    >>> cfg = spy.get_defaults(spy.freqanalysis)
+    >>> cfg.method = 'mtmfft'
+    >>> cfg.taper = 'dpss'
+    >>> cfg.output = 'pow'
+    >>> cfg.tapsmofrq = 10
+    >>> # define baseline/stimulus-on ranges
+    >>> baseSelect = {"toilim": [-0.25, 0]}
+    >>> stimSelect = {"toilim": [0.25, 0.5]}
+    >>> # in-place selection of baseline interval performed by `freqanalysis`
+    >>> cfg.select = baseSelect
+    >>> baselineSpectrum = spy.freqanalysis(cfg, data)
+    >>> # in-place selection of stimulus-on time-frame performed by `freqanalysis`
+    >>> cfg.select = stimSelect
+    >>> stimonSpectrum = spy.freqanalysis(cfg, data)
+    
+    Especially for large data-sets, in-place data selection performed by Syncopy's
+    compute kernels does not only save disk-space but can significantly increase 
+    performance.  
+    
+    Examples
+    --------
+    Use :func:`~syncopy.tests.misc.generate_artificial_data` to create a synthetic 
+    :class:`syncopy.AnalogData` object. 
+    
+    >>> from syncopy.tests.misc import generate_artificial_data
+    >>> adata = generate_artificial_data(nTrials=10, nChannels=32) 
+    
+    Assume a hypothetical trial onset at second 2.0 with the first second of each
+    trial representing baseline recordings. To extract only the stimulus-on period
+    from `adata`, one could use
+    
+    >>> stimon = spy.selectdata(adata, toilim=[2.0, np.inf])
+    
+    Note that this is equivalent to
+    
+    >>> stimon = adata.selectdata(toilim=[2.0, np.inf])
+    
+    See also
+    --------
+    :meth:`syncopy.AnalogData.selectdata` : corresponding class method
+    :meth:`syncopy.SpectralData.selectdata` : corresponding class method
+    :meth:`syncopy.EventData.selectdata` : corresponding class method
+    :meth:`syncopy.SpikeData.selectdata` : corresponding class method
     """
     
-    # Make sure `obj` is a valid `BaseData`-like object
-    try:
-        spw_basedata_parser(obj, varname="obj", writable=None, empty=False)
-    except Exception as exc:
-        raise exc
-
-    # Make sure the input dimensions make sense
-    if not set(kwargs.keys()).issubset(self.dimord):
-        raise SPYValueError(legal=self.dimord, actual=list(kwargs.keys()))
-
-    # Process `trials`
-    if trials is not None:
-        if isinstance(trials, tuple):
-            start = trials[0]
-            if trials[1] is None:
-                stop = self.trl.shape[0]
-            else:
-                stop = trials[1]
-            trials = np.arange(start, stop)
-        if not set(trials).issubset(range(self.trl.shape[0])):
-            lgl = "trial selection between 0 and {}".format(str(self.trl.shape[0]))
-            raise SPYValueError(legal=lgl, varname="trials")
-        if isinstance(trials, int):
-            trials = np.array([trials])
-    else:
-        trials = np.arange(self.trl.shape[0])
-
-    # Time-based selectors work differently for continuous/discrete data,
-    # handle those separately from other dimensional labels
-    selectors = {}
-    if "time" in kwargs.keys():
-        selectors["time"] = kwargs.pop("time")
-
-    # Calculate indices for each provided dimensional selector
-    for lbl, selection in kwargs.items():
-        ref = np.array(self.dimord[lbl])
-        lgl = "component of `obj.{}`".format(lbl)
-
-        # Value-range selection
-        if isinstance(selection, tuple):
-            if len(selection) != 2:
-                raise SPYValueError(legal="two-element tuple",
-                                    actual="tuple of length {}".format(str(len(selection))),
-                                    varname=lbl)
-            bounds = [None, None]
-            for sk, sel in enumerate(selection):
-                if isinstance(sel, str):
-                    try:
-                        bounds[sk] = list(ref).index(sel)
-                    except:
-                        raise SPYValueError(legal=lgl, actual=sel)
-                elif isinstance(sel, numbers.Number):
-                    if not exact_match:
-                        bounds[sk] = ref[np.abs(ref - sel).argmin()]
-                    else:
-                        try:
-                            bounds[sk] = list(ref).index(sel)
-                        except:
-                            raise SPYValueError(legal=lgl, actual=sel)
-                elif sel is None:
-                    if sk == 0:
-                        bounds[sk] = ref[0]
-                    if sk == 1:
-                        bounds[sk] = ref[-1]
-                else:
-                    raise SPYTypeError(sel, varname=lbl, expected="string, number or None")
-            bounds[1] += 1
-            selectors[lbl] = slice(*bounds)
-
-        # Index-range selection
-        elif isinstance(selection, slice):
-            if not len(range(*selection.indices(ref.size))):
-                lgl = "non-empty selection"
-                act = "empty selector"
-                raise SPYValueError(legal=lgl, varname=lbl, actual=act)
-            selectors[lbl] = slice(selection.start, selection.stop, selection.step)
-            
-        # Multi-index selection: try to convert contiguous lists to slices
-        elif isinstance(selection, (list, np.ndarray)):
-            if not set(selection).issubset(range(ref.size)):
-                vname = "list-selector for `obj.{}`".format(lbl)
-                raise SPYValueError(legal=lgl, varname=vname)
-            if np.unique(np.diff(selection)).size == 1:
-                selectors[lbl] = slice(selection[0], selection[-1] + 1)
-            else:
-                selectors[lbl] = list(selection)
-
-        # Single-value selection
-        elif isinstance(selection, float):
-            if not exact_match:
-                selectors[lbl] = ref[np.abs(ref - selection).argmin()]
-            else:
-                try:
-                    selectors[lbl] = list(ref).index(selection)
-                except:
-                    raise SPYValueError(legal=lgl, actual=selection)
-
-        # Single-index selection
-        elif isinstance(selection, int):
-            if selection not in range(ref.size):
-                raise SPYValueError(legal=lgl, actual=selection)
-            selectors[lbl] = selection
-
-        # You had your chance...
-        else:
-            raise SPYTypeError(selection, varname=lbl,
-                               expected="tuple, list-like, slice, float or int")
-        
-    return selectors, trials
+    raise NotImplementedError("Coming soon!")
 
 
 def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
@@ -377,9 +285,6 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
 
         # define whole recording as single trial    
         definetrial(obj, trialdefinition=None)
-    
-    
-
     
     """
 
@@ -676,7 +581,22 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     """
     Perform data padding on Syncopy object or :class:`numpy.ndarray`
     
-    Usage summary:
+    **Usage summary**
+    
+    Depending on the value of `pad` the following padding length specifications
+    are supported:
+    
+    +------------+----------------------+---------------+----------------------+----------------------+
+    | `pad`      | `data`               | `padlength`   | `prepadlength`       | `postpadlength`      |
+    +============+======================+===============+======================+======================+
+    | 'absolute' | Syncopy object/array | number        | `None`/`bool`        | `None`/`bool`        |
+    +------------+----------------------+---------------+----------------------+----------------------+
+    | 'relative' | Syncopy object/array | number/`None` | number/`None`/`bool` | number/`None`/`bool` |
+    +------------+----------------------+---------------+----------------------+----------------------+
+    | 'maxlen'   | Syncopy object       | `None`/`bool` | `None`/`bool`        | `None`/`bool`        |
+    +------------+----------------------+---------------+----------------------+----------------------+
+    | 'nextpow2' | Syncopy object/array | `None`/`bool` | `None`/`bool`        | `None`/`bool`        |
+    +------------+----------------------+---------------+----------------------+----------------------+
     
     * `data` can be either a Syncopy object containing multiple trials or a
       :class:`numpy.ndarray` representing a single trial

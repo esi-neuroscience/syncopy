@@ -1,6 +1,6 @@
 .. _syncopy-data-classes:
 
-Syncopy data classes
+Syncopy Data Classes
 ====================
 
 The data structure in Syncopy is based around the idea that all
@@ -9,7 +9,7 @@ example, a multi-channel local field potential can be stored as a
 two-dimensional `float` array with the dimensions being time (sample) and
 channel. Hence,
 
-.. note:: Each Syncopy data object is simply an anotated multi-dimensional array.
+.. note:: Each Syncopy data object is simply an annotated multi-dimensional array.
 
 This array is always stored in the :attr:`data` property and can be
 indexed using `NumPy indexing
@@ -29,10 +29,9 @@ classes (see also `Wikipedia
 
 The bottom classes in the class tree are for active use in analyses.
 
-The usable Syncopy data classes
--------------------------------
-
-The classes that
+Usable Syncopy Data Classes
+----------------------------
+The following classes can be instanced at the package-level (``spy.AnalogData(...)`` etc.)
 
 .. autosummary::
 

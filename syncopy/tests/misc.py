@@ -57,7 +57,7 @@ def is_slurm_node():
         return False
 
     
-def generate_artifical_data(nTrials=2, nChannels=2, equidistant=True,
+def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True,
                             overlapping=False, inmemory=True, dimord="default"):
     """
     Populate `AnalogData` object w/ artificial signal

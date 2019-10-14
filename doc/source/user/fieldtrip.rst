@@ -1,24 +1,24 @@
-Syncopy for FieldTrip users
+Syncopy for FieldTrip Users
 ===========================
 
 Syncopy is written in the `Python programming language
 <https://www.python.org/>`_ using the `NumPy <https://www.numpy.org/>`_ and
 `SciPy <https://scipy.org/>`_ libraries for computing as well as `Dask
-<https://dask.org>`_ for parallelization. However, it's call signatures and
-parameter names are designed to mimick the `MATLAB <https://mathworks.com>`_
+<https://dask.org>`_ for parallelization. However, its call signatures and
+parameter names are designed to mimic the `MATLAB <https://mathworks.com>`_
 analysis toolbox `FieldTrip <http://www.fieldtriptoolbox.org>`_.
 
-The scope of Syncopy is limited to only parts of FieldTrip, in particular
+The scope of Syncopy is limited to emulate parts of FieldTrip, in particular
 spectral analysis of electrophysiology data. Therefore, M/EEG-specific routines
-such as loading M/EEG file types, source localization, ..., are currently not
-covered by Syncopy. For a Python toolbox tailored to M/EEG data analysis, see
+such as loading M/EEG file types, source localization, etc. are currently not
+included in Syncopy. For a Python toolbox tailored to M/EEG data analysis, see
 for example the `MNE Project <https://www.martinos.org/mne/>`_.
 
 .. contents::
     Contents
     :local:
 
-Translating MATLAB code to Python
+Translating MATLAB Code to Python
 ---------------------------------
 
 For translating code from MATLAB to Python there are several guides, e.g.
@@ -27,26 +27,68 @@ For translating code from MATLAB to Python there are several guides, e.g.
 * `NumPy for Matlab users <https://docs.scipy.org/doc/numpy/user/numpy-for-matlab-users.html>`_
 * `MATLAB to Python - A Migration Guide by Enthought <https://www.enthought.com/white-paper-matlab-to-python>`_
 
-Key differences between Python and MATLAB
+Key Differences between Python and MATLAB
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 While the above links cover differences between Python and MATLAB to a great
 extent, we highlight here what we think are the most important differences:
 
-* Indexing is different: Python array indexing starts at 0. The end of a range
-  in Python is not included
-* Data in Python is not necessarily copied and may be manipulated in-place.
-* The powerful `import system of Python <https://docs.python.org/3/reference/import.html>`_
-  allows simple function names (e.g., :func:`~syncopy.load`) without worrying
-  about overwriting built-in functions.
-* `Project-specific environments <https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html>`_
-  allow reproducable and customizable working environments.
+* Indexing is different - Python array indexing starts at 0:
 
-Translating FieldTrip calls to Syncopy
+  >>> x = [1, 2, 3, 4]
+  >>> x[0]
+  1
+
+  Python ranges are half-open intervals ``[left, right)``, i.e., the right boundary 
+  is not included:
+
+  >>> list(range(1, 4))
+  [1, 2, 3]
+  
+* Data in Python is not necessarily copied and may be manipulated in-place:
+
+  >>> x = [1, 2, 3, 4]
+  >>> y = x
+  >>> x[0] = -1
+  >>> y
+  [-1, 2, 3, 4]
+
+  To prevent this an explicit copy of a `list`, `numpy.array`, etc. can be requested:
+
+  >>> x = [1, 2,3 ,4]
+  >>> y = list(x)
+  >>> x[0] = -1
+  >>> y 
+  [1, 2, 3, 4]
+
+* Python's powerful `import system <https://docs.python.org/3/reference/import.html>`_
+  allows simple function names (e.g., :func:`~syncopy.load`) without worrying
+  about overwriting built-in functions
+  
+  >>> import syncopy as spy
+  >>> import numpy as np 
+  >>> spy.load 
+  <function syncopy.io.load_spy_container.load(filename, tag=None, dataclass=None, checksum=False, mode='r+', out=None)
+  >>> np.load
+  <function numpy.load(file, mmap_mode=None, allow_pickle=False, fix_imports=True, encoding='ASCII')>
+  
+* `Project-specific environments <https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html>`_
+  allow reproducible and customizable work setups.
+
+  .. code-block:: bash
+  
+      $ conda activate np17
+      $ python -c "import numpy; print(numpy.version.version)"
+      1.17.2
+      $ conda activate np15
+      $ python -c "import numpy; print(numpy.version.version)"
+      1.15.4
+
+Translating FieldTrip Calls to Syncopy
 --------------------------------------
 
 Using a FieldTrip function in MATLAB usually works via constructing a ``cfg``
-``struct`` that contains all configured parameters:
+``struct`` that contains all necessary configuration parameters:
 
 .. code-block:: matlab
 
@@ -56,8 +98,9 @@ Using a FieldTrip function in MATLAB usually works via constructing a ``cfg``
     cfg.option2 = [10, 20];
     result = ft_something(cfg);
 
-In Syncopy this struct is a Python dictionary that can automatically be filled
-with the defaults of any function.
+Syncopy emulates this concept using a :class:`syncopy.StructDict` (really just a
+slightly modified Python dictionary) that can automatically be filled with 
+default settings of any function.
 
 .. code-block:: python
 
@@ -67,9 +110,9 @@ with the defaults of any function.
     # or
     cfg.option1 = True
     cfg.option2 = [10, 20]
-    result = spy.something(cfg=cfg)
+    result = spy.something(cfg)
 
-A FieldTrip power spectrum in Syncopy
+A FieldTrip Power Spectrum in Syncopy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For example, a power spectrum calculated with FieldTrip via
@@ -86,7 +129,7 @@ For example, a power spectrum calculated with FieldTrip via
 
 can be computed in Syncopy with
 
-.. code-block:: matlab
+.. code-block:: python
       
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmfft';
@@ -97,17 +140,16 @@ can be computed in Syncopy with
     spec = spy.freqanalysis(cfg, data)
 
 
-Key differences between FieldTrip and Syncopy
+Key Differences between FieldTrip and Syncopy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * FieldTrip has more features. Syncopy is still in early development and will
-  never cover the rich featureset of FieldTrip.
-* FieldTrip supports many data formats. Syncopy
-* Syncopy data objects are never fully loaded into memory.
+  never cover the rich feature-set of FieldTrip.
+* FieldTrip supports many data formats. Syncopy currently only supports data import 
+  from FieldTrip (see below). 
+* Syncopy data objects use disk-streaming and are thus never fully loaded into memory.
 
-
-
-Exchanging data between FieldTrip and Syncopy
+Exchanging Data between FieldTrip and Syncopy
 ---------------------------------------------
 
 Data created with Syncopy can be loaded into MATLAB using the `matlab-syncopy

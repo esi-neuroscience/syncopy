@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-25 16:57:00>
+# Last modification time: <2019-10-11 13:38:26>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -12,7 +12,7 @@ from abc import ABC
 
 # Local imports
 from .base_data import BaseData, Indexer
-from .data_methods import _selectdata_discrete, definetrial
+from .data_methods import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError
 
@@ -108,7 +108,6 @@ class DiscreteData(BaseData, ABC):
     def selectdata(self, trials=None, deepcopy=False, **kwargs):
         """Select parts of the data (:func:`syncopy.selectdata`)        
         """
-        return _selectdata_discrete(self, trials, deepcopy, **kwargs)
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):

@@ -1,6 +1,5 @@
-Handling data in Syncopy
+Handling Data in Syncopy
 ========================
-
 Syncopy utilizes a simple data format based on `HDF5
 <https://portal.hdfgroup.org/display/HDF5/HDF5>`_ and `JSON
 <https://en.wikipedia.org/wiki/JSON>`_ (see :doc:`../developer/io` for details).
@@ -14,8 +13,10 @@ importing and exporting engines, for example based on `Neo
 <https://neo.readthedocs.io/en/latest/>`_ or `NWB <https://www.nwb.org/>`_.
 
 
-Reading and saving Syncopy (``*.spy``) data
+Loading and Saving Syncopy (``*.spy``) Data
 -------------------------------------------
+Reading and writing data with Syncopy
+
 .. autosummary::
 
     syncopy.load
@@ -23,11 +24,21 @@ Reading and saving Syncopy (``*.spy``) data
 
 
 
-Functions for editing data in memory
-------------------------------------
-These functions are useful for editing and slicing data:
+Functions for Editing Syncopy Data Objects
+-------------------------------------------
+Defining trials, data selection and padding. 
 
 .. autosummary::
 
     syncopy.definetrial
+    syncopy.selectdata
     syncopy.padding
+
+Advanced Topics
+---------------
+More information about Syncopy's data class structure and file format. 
+
+.. toctree::
+
+    ../developer/datatype
+    ../developer/io
