@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-14 13:13:36>
+# Last modification time: <2019-10-15 15:20:18>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -18,7 +18,7 @@ from syncopy.datatype import SpectralData, padding
 from syncopy.datatype.methods.padding import _nextpow2
 import syncopy.specest.wavelets as spywave 
 from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.shared.parsers import unwrap_cfg
+from syncopy.shared.parsers import unwrap_cfg, unwrap_select
 from syncopy import __dask__
 from syncopy.specest.mtmfft import MultiTaperFFT
 from syncopy.specest.wavelet import _get_optimal_wavelet_scales, WaveletTransform
@@ -48,6 +48,7 @@ __all__ = ["freqanalysis"]
 
 
 @unwrap_cfg
+@unwrap_select
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, pad='nextpow2', padtype='zero',
                  padlength=None, polyremoval=False, polyorder=None,

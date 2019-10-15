@@ -4,14 +4,13 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-08 13:53:38>
+# Last modification time: <2019-10-15 15:21:19>
 
 # Builtin/3rd party package imports
 import os
 import numpy as np
 import numbers
 import functools
-import time
 import h5py
 from inspect import signature
 
@@ -752,18 +751,40 @@ def unwrap_cfg(func):
         # Remove data (always first positional argument) from anonymous `args` list
         data = args.pop(0)
             
-        # Process data selection: if provided, extract `select` from input kws
-        data._selection = kwords.get("select")
+        # # Process data selection: if provided, extract `select` from input kws
+        # data._selection = kwords.get("select")
         
         # Call function with modified positional/keyword arguments
-        res = func(data, *args, **kwords)
+        return func(data, *args, **kwords)
+        
+        # # Erase data-selection slot to not alter user objects
+        # data._selection = None
+                    
+        # return res
+
+    return wrapper_cfg
+
+
+def unwrap_select(func):
+    """
+    Coming soon..
+    """
+
+    @functools.wraps(func)
+    def wrapper_select(data, *args, **kwargs):
+        
+        # Process data selection: if provided, extract `select` from input kws
+        data._selection = kwargs.get("select")
+        
+        # Call function with modified positional/keyword arguments
+        res = func(data, *args, **kwargs)
         
         # Erase data-selection slot to not alter user objects
         data._selection = None
-                    
-        return res
 
-    return wrapper_cfg
+        return res
+    
+    return wrapper_select        
 
 
 def unwrap_io(func):

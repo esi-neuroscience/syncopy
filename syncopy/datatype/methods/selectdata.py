@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-14 12:46:54
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-14 16:52:21>
+# Last modification time: <2019-10-15 15:38:09>
 
 # Builtin/3rd party package imports
 import inspect
@@ -228,31 +228,40 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
     # and raise exception in case unavailable selectors were provided 
     inventory = get_defaults(globals()[inspect.currentframe().f_code.co_name])
     provided = locals()
-    available = get_defaults(data.selectdata)
+    # available = get_defaults(data.selectdata)
     
-    actualSelection = {}
-    for key in available:
-        actualSelection[key] = provided.pop(key)
+    # actualSelection = {}
+    # for key in available:
+    #     actualSelection[key] = provided.pop(key)
         
-    for key, value in provided.items():
-        if value != inventory[key]:
-            lgl = "one or all of the following selectors: '" +\
-                  "'".join(opt + "', " for opt in available.keys())[:-2]
-            raise SPYValueError(legal=lgl, varname=key)
+    # for key, value in provided.items():
+    #     if value != inventory[key]:
+    #         lgl = "one or all of the following selectors: '" +\
+    #               "'".join(opt + "', " for opt in available.keys())[:-2]
+    #         raise SPYValueError(legal=lgl, varname=key)
+        
+    actualSelection = {}
+    for key in inventory:
+        actualSelection[key] = provided[key]
+        
+    data._selection = actualSelection
+    selectMethod = DataSelection()
+    selectMethod.initialize(data)
+    selectMethod.compute(data, out)
 
 
     return data.selectdata(**actualSelection)
 
 
 @unwrap_io
-def _selectdata_continuous(trl, noCompute=False, chunkShape=None):
+def _selectdata(trl, noCompute=False, chunkShape=None):
     if noCompute:
         return trl.shape, trl.dtype
     return trl
 
-class ContinuousDataSelection(ComputationalRoutine):
+class DataSelection(ComputationalRoutine):
 
-    computeFunction = staticmethod(_selectdata_continuous)
+    computeFunction = staticmethod(_selectdata)
 
     def process_metadata(self, data, out):
         
