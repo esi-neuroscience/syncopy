@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-15 15:20:18>
+# Last modification time: <2019-10-16 15:07:13>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -53,9 +53,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, pad='nextpow2', padtype='zero',
                  padlength=None, polyremoval=False, polyorder=None,
                  taper="hann", tapsmofrq=None, keeptapers=False,
-                 wav="Morlet", toi=0.1, width=6, select=None,
+                 wav="Morlet", toi=0.1, width=6, 
                  out=None, **kwargs):
-    """Perform a (time-)frequency analysis of time series data
+    """
+    Perform a (time-)frequency analysis of time series data
 
     Parameters
     ----------
@@ -118,28 +119,21 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         Nondimensional frequency constant of wavelet. For a Morlet wavelet 
         this number should be >= 6, which correspondonds to 6 cycles within
         FIXME standard deviations of the enveloping Gaussian.       
-    select : dict or :class:`~syncopy.datatype.base_data.StructDict`
-        Select subset of input data for processing, e.g., using 
-        ``select = {"channel": range(50)}`` performs spectral analysis using
-        only the first 50 channels in `data`. Please refer to 
-        :func:`syncopy.selectdata` for further usage details. 
     out : None or :class:`SpectralData` object
         None if a new :class:`SpectralData` object should be created,
         or the (empty) object into which the result should be written.
 
+    Returns
+    -------
+    :class:`~syncopy.SpectralData`
+        (Time-)frequency spectrum of input data
+        
 
     .. autodata:: syncopy.specest.freqanalysis.availableMethods
 
     .. autodata:: syncopy.specest.freqanalysis.availableOutputs
 
     .. autodata:: syncopy.specest.freqanalysis.availableTapers
-
-
-    Returns
-    -------
-    :class:`~syncopy.SpectralData`
-        (Time-)frequency spectrum of input data
-
 
     """
     

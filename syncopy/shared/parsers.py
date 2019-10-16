@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-15 15:21:19>
+# Last modification time: <2019-10-16 15:56:04>
 
 # Builtin/3rd party package imports
 import os
@@ -12,7 +12,7 @@ import numpy as np
 import numbers
 import functools
 import h5py
-from inspect import signature
+import inspect
 
 # Local imports
 from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
@@ -480,22 +480,6 @@ def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dim
     return
 
 
-def json_parser(json_dct, wanted_dct):
-    """
-    Docstring coming soon(ish)
-    """
-
-    if not set(wanted_dct.keys()).issubset(json_dct.keys()):
-        legal = "mandatory fields " + "".join(key + ", " for key in wanted_dct.keys())[:-2]
-        raise SPYValueError(legal=legal, varname="JSON")
-    
-    for key, tp in wanted_dct.items():
-        if not isinstance(json_dct[key], tp):
-            raise SPYTypeError(json_dct[key], varname="JSON: {}".format(key),
-                               expected=tp)
-    return
-
-
 def get_defaults(obj):
     """
     Parse input arguments of `obj` and return dictionary
@@ -521,7 +505,7 @@ def get_defaults(obj):
 
     if not callable(obj):
         raise SPYTypeError(obj, varname="obj", expected="SyNCoPy function or class")
-    dct = {k: v.default for k, v in signature(obj).parameters.items()\
+    dct = {k: v.default for k, v in inspect.signature(obj).parameters.items()\
            if v.default != v.empty and v.name != "cfg"}
     return spy.StructDict(dct)
 
@@ -754,6 +738,10 @@ def unwrap_cfg(func):
         # # Process data selection: if provided, extract `select` from input kws
         # data._selection = kwords.get("select")
         
+        
+        
+        # import ipdb; ipdb.set_trace()
+        
         # Call function with modified positional/keyword arguments
         return func(data, *args, **kwords)
         
@@ -767,7 +755,45 @@ def unwrap_cfg(func):
 
 def unwrap_select(func):
     """
-    Coming soon..
+    Decorator for handling in-place data selections via `select` keyword
+    
+    Parameters
+    ----------
+    func : callable
+        Typically a Syncopy compute kernel such as :func:`~syncopy.freqanalysis`
+
+    Returns
+    -------
+    wrapper_select : callable
+        Wrapped function; `wrapper_select` extracts `select` from keywords
+        provided to the wrapped function `func` and uses it to set the `._selector` 
+        property of the input object. After successfully calling `func` with 
+        the modified input, `wrapper_select` modifies `func` itself:
+        
+        1. The "Parameters" section in the docstring of `func` is amended by an 
+           entry explaining the usage of `select` (that mostly points to 
+           :func:`~syncopy.selectdata`)
+        2. If not already present, `select` is added as optional keyword (with 
+           default value `None`) to the signature of `func`. 
+            
+    Notes
+    -----
+    This decorator assumes that the wrapped function `func` has already been 
+    processed by :func:`~syncopy.shared.parsers.unwrap_cfg` and hence expects 
+    the call signature of `func` to be of the form ``func(data, *args, **kwargs)``. 
+    In other words, :func:`~syncopy.shared.parsers.unwrap_select` is intended as 
+    "inner" decorator of compute kernels, for instance
+    
+    .. code-block:: python
+    
+        @unwrap_cfg
+        @unwrap_select
+        def somefunction(data, kw1="default", kw2=None, **kwargs):
+        ...
+    
+    See also
+    --------
+    unwrap_cfg : Decorator for processing `cfg` "structs"
     """
 
     @functools.wraps(func)
@@ -776,13 +802,21 @@ def unwrap_select(func):
         # Process data selection: if provided, extract `select` from input kws
         data._selection = kwargs.get("select")
         
-        # Call function with modified positional/keyword arguments
+        # Call function with modified data object
         res = func(data, *args, **kwargs)
         
-        # Erase data-selection slot to not alter user objects
+        # Wipe data-selection slot to not alter user objects
         data._selection = None
 
         return res
+    
+    # Append `select` keyword entry to wrapped function's docstring and signature
+    selectDocEntry = \
+    "    select : dict or :class:`~syncopy.datatype.base_data.StructDict`\n" +\
+    "        In-place selection of subset of input data for processing. Please refer\n" +\
+    "        to :func:`syncopy.selectdata` for further usage details. \n"
+    wrapper_select.__doc__ = _append_docstring(func, selectDocEntry)
+    wrapper_select.__signature__ = _append_signature(func, "select")
     
     return wrapper_select        
 
@@ -790,24 +824,24 @@ def unwrap_select(func):
 def unwrap_io(func):
     """
     Decorator that handles parallel execution of 
-    :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     
     Parameters
     ----------
     func : callable
-        A Syncopy :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+        A Syncopy :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
         
     Returns
     -------
     out : tuple or :class:`numpy.ndarray` if executed sequentially
-        Return value of :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+        Return value of :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
         (depending on value of `noCompute`, see 
-        :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+        :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
         for details)
     Nothing : None if executed concurrently
         If parallel workers are running concurrently, the first positional input 
         argument is a dictionary (assembled by 
-        :meth:`syncopy.shared.computational_routine.ComputationalRoutine.compute_parallel`)
+        :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.compute_parallel`)
         that holds the paths and dataset indices of HDF5 files for reading source 
         data and writing results. 
     
@@ -816,7 +850,7 @@ def unwrap_io(func):
     Parallel execution supports two writing modes: concurrent storage of results
     in multiple HDF5 files or sequential writing of array blocks in a single 
     output HDF5 file. In both situations, the output array returned by 
-    :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     is immediately written to disk and **not** propagated back to the caller to 
     avoid inter-worker network communication. 
     
@@ -917,3 +951,40 @@ def unwrap_io(func):
             return None # result has already been written to disk
         
     return wrapper_io
+
+
+def _append_docstring(func, supplement, insert_before="Returns"):
+    """
+    Coming soon...
+    """
+    
+    paramSection, returnTitle, rest = func.__doc__.partition(insert_before)
+    paramSection = paramSection.splitlines(keepends=True)
+    lastLine = -1
+    while paramSection[lastLine].isspace():
+        lastLine -= 1
+    lastLine += 1
+    newDocString = "".join(paramSection[:lastLine]) +\
+                    supplement +\
+                    "".join(paramSection[lastLine:]) +\
+                    returnTitle + rest
+    return newDocString
+
+def _append_signature(func, kwname, kwdefault=None):
+    """
+    Coming soon...
+    """
+    
+    funcSignature = inspect.signature(func)
+    if kwname in list(funcSignature.parameters):
+        newSignature = funcSignature
+    else:
+        paramList = list(funcSignature.parameters.values())
+        keyword = inspect.Parameter(kwname, inspect.Parameter.POSITIONAL_OR_KEYWORD, 
+                                    default=kwdefault)
+        if paramList[-1].name == "kwargs":
+            paramList.insert(-1, keyword)
+        else:
+            paramList.append(keyword)
+        newSignature = inspect.Signature(parameters=paramList)
+    return newSignature

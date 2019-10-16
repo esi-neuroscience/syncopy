@@ -36,6 +36,11 @@ syncopy.shared
     syncopy.shared.errors.SPYTypeError
     syncopy.shared.errors.SPYValueError
     syncopy.shared.errors.SPYIOError
+    syncopy.shared.parsers.unwrap_cfg
+    syncopy.shared.parsers.unwrap_select
+    syncopy.shared.parsers.unwrap_io
+    syncopy.shared.parsers._append_docstring
+    syncopy.shared.parsers._append_signature
 
 
 syncopy.specest

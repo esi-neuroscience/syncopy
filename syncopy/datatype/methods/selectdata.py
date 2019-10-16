@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-14 12:46:54
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-15 15:38:09>
+# Last modification time: <2019-10-16 16:10:07>
 
 # Builtin/3rd party package imports
 import inspect
@@ -27,6 +27,12 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
     Select a subset of data from a Syncopy object
     
     **Usage summary**
+    
+    Syncopy offers in-place and deep-copy data-selection. All Syncopy compute kernels, 
+    such as :func:`~syncopy.freqanalysis`, support **in-place data selection** via 
+    a ``select`` dictionary, effectively circumventing the 
+    
+    
     
     List of Syncopy data objects and respective valid data selectors:
     

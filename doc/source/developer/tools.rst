@@ -8,11 +8,21 @@ Input Parsing and Error Checking
 .. autosummary::
    :toctree: _stubs    
    
+   syncopy.shared.parsers.array_parser
+   syncopy.shared.parsers.data_parser
    syncopy.shared.parsers.filename_parser
    syncopy.shared.parsers.io_parser
    syncopy.shared.parsers.scalar_parser
-   syncopy.shared.parsers.array_parser
-   syncopy.shared.parsers.get_defaults   
+
+Decorators
+----------
+
+.. autosummary::
+   :toctree: _stubs    
+   
+   syncopy.shared.parsers.unwrap_cfg
+   syncopy.shared.parsers.unwrap_select
+   syncopy.shared.parsers.unwrap_io
 
 
 Writing A New Analysis Routine
