@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-14 12:50:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-14 12:52:40>
+# Last modification time: <2019-10-17 15:42:34>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -21,7 +21,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     """
     Perform data padding on Syncopy object or :class:`numpy.ndarray`
     
-    **Usage summary**
+    **Usage Summary**
     
     Depending on the value of `pad` the following padding length specifications
     are supported:

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-14 12:46:54
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-16 16:10:07>
+# Last modification time: <2019-10-17 15:48:40>
 
 # Builtin/3rd party package imports
 import inspect
@@ -24,15 +24,31 @@ __all__ = ["selectdata"]
 def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None,
                foilim=None, tapers=None, units=None, eventids=None):
     """
-    Select a subset of data from a Syncopy object
+    Create a new Syncopy object from a selection
+
+    **Usage Notice**    
     
-    **Usage summary**
+    Syncopy offers two modes for selecting data: 
     
-    Syncopy offers in-place and deep-copy data-selection. All Syncopy compute kernels, 
-    such as :func:`~syncopy.freqanalysis`, support **in-place data selection** via 
-    a ``select`` dictionary, effectively circumventing the 
+    * **in-place** selections mark subsets of a Syncopy data object for processing 
+      via a ``select`` dictionary *without* creating a new object
+    * **deep-copy** selections copy subsets of a Syncopy data object to keep and 
+      preserve in a new object created by :func:`~syncopy.selectdata`
     
+    All Syncopy compute kernels, such as :func:`~syncopy.freqanalysis`, support 
+    **in-place** data selection via a ``select`` dictionary, effectively avoiding
+    potentially slow copy operations and saving disk space. The keys accepted 
+    by the `select` dictionary are identical to the keyword arguments discussed 
+    below, e.g.,
     
+    >>> select = {"toilim" : [-0.25, 0]}
+    >>> spy.freqanalysis(data, select=select)
+    >>> # or equivalently 
+    >>> cfg = spy.get_defaults(spy.freqanalysis)
+    >>> cfg.select = select
+    >>> spy.freqanalysis(cfg, data)
+    
+    **Usage Summary**
     
     List of Syncopy data objects and respective valid data selectors:
     
@@ -166,7 +182,7 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
     based on existing data entities. However, in many situations, the creation 
     of a new object (and thus the allocation of additional disk-space) might not 
     be necessary: all Syncopy compute kernels, such as :func:`~syncopy.freqanalysis`,
-    support **in-place data selection**. 
+    support **in-place** data selection. 
     
     Consider the following example: assume `data` is an :class:`~syncopy.AnalogData` 
     object representing 220 trials of LFP recordings containing baseline (between 

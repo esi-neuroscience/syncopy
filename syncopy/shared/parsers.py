@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-16 15:56:04>
+# Last modification time: <2019-10-17 17:47:18>
 
 # Builtin/3rd party package imports
 import os
@@ -735,20 +735,8 @@ def unwrap_cfg(func):
         # Remove data (always first positional argument) from anonymous `args` list
         data = args.pop(0)
             
-        # # Process data selection: if provided, extract `select` from input kws
-        # data._selection = kwords.get("select")
-        
-        
-        
-        # import ipdb; ipdb.set_trace()
-        
         # Call function with modified positional/keyword arguments
         return func(data, *args, **kwords)
-        
-        # # Erase data-selection slot to not alter user objects
-        # data._selection = None
-                    
-        # return res
 
     return wrapper_cfg
 
@@ -790,6 +778,27 @@ def unwrap_select(func):
         @unwrap_select
         def somefunction(data, kw1="default", kw2=None, **kwargs):
         ...
+        
+    **Important** The wrapped compute kernel *must* accept "anonymous" keywords
+    via ``**kwargs``. Since this decorator cowardly refuses to change the byte-code 
+    of the wrapped compute kernel, *only* the corresponding signature is manipulated. 
+    Thus, if the compute kernel does not support a `kwargs` parameter dictionary, 
+    using this decorator will have *strange* consequences. Specifically, `select` 
+    will show up in the kernel's signature but it won't be actually usable:
+
+    .. code-block:: python
+    
+        @unwrap_cfg
+        @unwrap_select
+        def somefunction(data, kw1="default", kw2=None):
+        ...
+        
+        >>> help(somefunction)
+        somefunction(data, kw1="default", kw2=None, select=None)
+        ...
+        >>> somefunction(data, select=None)
+        TypeError: somefunction() got an unexpected keyword argument 'select' 
+        
     
     See also
     --------
@@ -823,7 +832,7 @@ def unwrap_select(func):
 
 def unwrap_io(func):
     """
-    Decorator that handles parallel execution of 
+    Decorator for handling parallel execution of a
     :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     
     Parameters
@@ -833,18 +842,28 @@ def unwrap_io(func):
         
     Returns
     -------
-    out : tuple or :class:`numpy.ndarray` if executed sequentially
-        Return value of :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-        (depending on value of `noCompute`, see 
-        :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-        for details)
-    Nothing : None if executed concurrently
-        If parallel workers are running concurrently, the first positional input 
-        argument is a dictionary (assembled by 
-        :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.compute_parallel`)
-        that holds the paths and dataset indices of HDF5 files for reading source 
-        data and writing results. 
-    
+    wrapper_io : callable
+        Wrapped function; `wrapper_io` changes the way it invokes the wrapped 
+        `computeFunction` and processes its output based on the type of the 
+        provided first positional argument `trl_dat`. 
+        
+        * `trl_dat` : dict
+          Wrapped `computeFunction` is executed concurrently; `trl_dat` was 
+          assembled by 
+          :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.compute_parallel`
+          and contains information for parallel workers (particularly, paths and 
+          dataset indices of HDF5 files for reading source data and writing results). 
+          Nothing is returned (the output of the wrapped `computeFunction` is
+          directly written to disk). 
+        * `trl_dat` : :class:`numpy.ndarray` or :class:`~syncopy.datatype.base_data.FauxTrial` object
+          Wrapped `computeFunction` is executed sequentially (either during dry-
+          run phase or in purely sequential computations); `trl_dat` is directly
+          propagated to the wrapped `computeFunction` and its output is returned
+          (either a tuple or :class:`numpy.ndarray`, depending on the value of 
+          `noCompute`, see 
+          :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+          for details)
+          
     Notes
     -----
     Parallel execution supports two writing modes: concurrent storage of results
@@ -863,6 +882,10 @@ def unwrap_io(func):
     Conversely, in case of sequential writing, each resulting array is written 
     sequentially to an existing single output HDF5 file using  a distributed mutex 
     for access control to prevent write collisions. 
+
+    See also
+    --------
+    unwrap_cfg : Decorator for processing `cfg` "structs"
     """
 
     @functools.wraps(func)
@@ -874,81 +897,78 @@ def unwrap_io(func):
             return func(trl_dat, *args, **kwargs)
 
         # The fun part: `trl_dat` is a dictionary holding components for parallelization        
+        hdr = trl_dat["hdr"]
+        keeptrials = trl_dat["keeptrials"]
+        infilename = trl_dat["infile"]
+        indset = trl_dat["indset"]
+        ingrid = trl_dat["ingrid"]
+        sigrid = trl_dat["sigrid"]
+        fancy = trl_dat["fancy"]
+        vdsdir = trl_dat["vdsdir"]
+        outfilename = trl_dat["outfile"]
+        outdset = trl_dat["outdset"]
+        outgrid = trl_dat["outgrid"]
+
+        # === STEP 1 === read data into memory
+        # Generic case: data is either a HDF5 dataset or memmap
+        if hdr is None:
+            try:
+                with h5py.File(infilename, mode="r") as h5fin:
+                    if fancy:
+                        arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
+                    else:
+                        arr = np.array(h5fin[indset][ingrid])
+            except OSError:
+                try:
+                    if fancy:
+                        arr = open_memmap(infilename, mode="c")[np.ix_(*ingrid)]
+                    else:
+                        arr = np.array(open_memmap(infilename, mode="c")[ingrid])
+                except:
+                    raise SPYIOError(infilename)
+            except Exception as exc:
+                raise exc
+                
+        # For VirtualData objects
+        else:
+            idx = ingrid
+            if fancy:
+                idx = np.ix_(*ingrid)
+            dsets = []
+            for fk, fname in enumerate(infilename):
+                dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
+                                        mode="r", dtype=hdr[fk]["dtype"],
+                                        shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
+            arr = np.vstack(dsets)
+
+        # === STEP 2 === perform computation
+        # Now, actually call wrapped function
+        res = func(arr, *args, **kwargs)
+        
+        # === STEP 3 === write result to disk
+        # Write result to stand-alone HDF file or use a mutex to write to a 
+        # single container (sequentially)
+        if vdsdir is not None:
+            with h5py.File(outfilename, "w") as h5fout:
+                h5fout.create_dataset(outdset, data=res)
+                h5fout.flush()
         else:
             
-            # Extract all necessary quantities to load/compute/write
-            hdr = trl_dat["hdr"]
-            keeptrials = trl_dat["keeptrials"]
-            infilename = trl_dat["infile"]
-            indset = trl_dat["indset"]
-            ingrid = trl_dat["ingrid"]
-            sigrid = trl_dat["sigrid"]
-            fancy = trl_dat["fancy"]
-            vdsdir = trl_dat["vdsdir"]
-            outfilename = trl_dat["outfile"]
-            outdset = trl_dat["outdset"]
-            outgrid = trl_dat["outgrid"]
+            # Create distributed lock (use unique name so it's synced across workers)
+            lock = dd.lock.Lock(name='sequential_write')
 
-            # === STEP 1 === read data into memory
-            # Generic case: data is either a HDF5 dataset or memmap
-            if hdr is None:
-                try:
-                    with h5py.File(infilename, mode="r") as h5fin:
-                        if fancy:
-                            arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
-                        else:
-                            arr = np.array(h5fin[indset][ingrid])
-                except OSError:
-                    try:
-                        if fancy:
-                            arr = open_memmap(infilename, mode="c")[np.ix_(*ingrid)]
-                        else:
-                            arr = np.array(open_memmap(infilename, mode="c")[ingrid])
-                    except:
-                        raise SPYIOError(infilename)
-                except Exception as exc:
-                    raise exc
-                    
-            # For VirtualData objects
-            else:
-                idx = ingrid
-                if fancy:
-                    idx = np.ix_(*ingrid)
-                dsets = []
-                for fk, fname in enumerate(infilename):
-                    dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
-                                            mode="r", dtype=hdr[fk]["dtype"],
-                                            shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
-                arr = np.vstack(dsets)
-
-            # === STEP 2 === perform computation
-            # Now, actually call wrapped function
-            res = func(arr, *args, **kwargs)
-            
-            # === STEP 3 === write result to disk
-            # Write result to stand-alone HDF file or use a mutex to write to a 
-            # single container (sequentially)
-            if vdsdir is not None:
-                with h5py.File(outfilename, "w") as h5fout:
-                    h5fout.create_dataset(outdset, data=res)
-                    h5fout.flush()
-            else:
+            # Either (continue to) compute average or write current chunk
+            lock.acquire()
+            with h5py.File(outfilename, "r+") as h5fout:
+                target = h5fout[outdset]
+                if keeptrials:
+                    target[outgrid] = res    
+                else:
+                    target[()] = np.nansum([target, res], axis=0)
+                h5fout.flush()
+            lock.release()
                 
-                # Create distributed lock (use unique name so it's synced across workers)
-                lock = dd.lock.Lock(name='sequential_write')
-
-                # Either (continue to) compute average or write current chunk
-                lock.acquire()
-                with h5py.File(outfilename, "r+") as h5fout:
-                    target = h5fout[outdset]
-                    if keeptrials:
-                        target[outgrid] = res    
-                    else:
-                        target[()] = np.nansum([target, res], axis=0)
-                    h5fout.flush()
-                lock.release()
-                    
-            return None # result has already been written to disk
+        return None # result has already been written to disk
         
     return wrapper_io
 
@@ -969,6 +989,7 @@ def _append_docstring(func, supplement, insert_before="Returns"):
                     "".join(paramSection[lastLine:]) +\
                     returnTitle + rest
     return newDocString
+
 
 def _append_signature(func, kwname, kwdefault=None):
     """
