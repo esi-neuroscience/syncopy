@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-17 16:51:14>
+# Last modification time: <2019-10-22 15:03:00>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -18,12 +18,10 @@ from syncopy.datatype import SpectralData, padding
 from syncopy.datatype.methods.padding import _nextpow2
 import syncopy.specest.wavelets as spywave 
 from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.shared.parsers import unwrap_cfg, unwrap_select
-from syncopy import __dask__
+from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select, 
+                                             detect_parallel_client)
 from syncopy.specest.mtmfft import MultiTaperFFT
 from syncopy.specest.wavelet import _get_optimal_wavelet_scales, WaveletTransform
-if __dask__:
-    import dask.distributed as dd
 
 # Module-wide output specs
 spectralDTypes = {"pow": np.float32,
@@ -49,6 +47,7 @@ __all__ = ["freqanalysis"]
 
 @unwrap_cfg
 @unwrap_select
+@detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, pad='nextpow2', padtype='zero',
                  padlength=None, polyremoval=False, polyorder=None,
@@ -388,21 +387,21 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         out = SpectralData(dimord=SpectralData._defaultDimord)        
         new_out = True
 
-    # Detect if dask client is running and set `parallel` keyword accordingly
-    if __dask__:
-        try:
-            dd.get_client()
-            use_dask = True
-        except ValueError:
-            use_dask = False
-    else:
-        use_dask = False
+    # # Detect if dask client is running and set `parallel` keyword accordingly
+    # if __dask__:
+    #     try:
+    #         dd.get_client()
+    #         use_dask = True
+    #     except ValueError:
+    #         use_dask = False
+    # else:
+    #     use_dask = False
 
     # Perform actual computation
     specestMethod.initialize(data, 
                              chan_per_worker=kwargs.get("chan_per_worker"),
                              keeptrials=keeptrials)
-    specestMethod.compute(data, out, parallel=use_dask, log_dict=log_dct)
+    specestMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)
 
     # Either return newly created output container or simply quit
     return out if new_out else None

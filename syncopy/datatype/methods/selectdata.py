@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-14 12:46:54
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-17 15:48:40>
+# Last modification time: <2019-10-22 16:04:37>
 
 # Builtin/3rd party package imports
 import inspect
@@ -13,7 +13,8 @@ import inspect
 # import numpy as np
 
 # Local imports
-from syncopy.shared.parsers import get_defaults, data_parser, unwrap_cfg, unwrap_io
+from syncopy.shared.parsers import get_defaults, data_parser
+from syncopy.shared.kwarg_decorators import unwrap_cfg, unwrap_io
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.computational_routine import ComputationalRoutine
 
@@ -91,7 +92,10 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
     of `data` across all defined trials. Consequently, if no keywords are specified,
     the entire contents of `data` is selected. 
     
-    Full documentation below. 
+    **Full documentation below** 
+    
+    The parameters listed below can be provided as is or a via a `cfg` configuration
+    "structure", see Notes for details. 
     
     Parameters
     ----------
@@ -178,6 +182,24 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
         
     Notes
     -----
+    This function can be either called via providing its input arguments directly 
+    or via a `cfg` configuration "structure". For instance, 
+    
+    >>> spy.selectdata(data, trials=asdf)
+    
+    Supported call signatures:
+    
+    * ``func(cfg, data)``: `cfg` exclusively contains keyword arguments of `func`, 
+      `data` is a Syncopy data object. 
+    * ``func(data, cfg)``: same as above
+    * ``func(data, cfg=cfg)``: same as above, but `cfg` itself is provided as 
+      keyword argument
+    * ``func(cfg)``: `cfg` contains a field `data` or `dataset` (not both!) 
+      holding a Syncopy data object used as input of `func`
+    * ``func(cfg=cfg)``: same as above with `cfg` being provided as keyword
+    * ``func(data, kw1=val1, kw2=val2)``: standard Python call style with keywords
+      being provided explicitly 
+    
     This routine represents a convenience function for creating new Syncopy objects
     based on existing data entities. However, in many situations, the creation 
     of a new object (and thus the allocation of additional disk-space) might not 

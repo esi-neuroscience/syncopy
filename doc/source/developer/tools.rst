@@ -20,9 +20,9 @@ Decorators
 .. autosummary::
    :toctree: _stubs    
    
-   syncopy.shared.parsers.unwrap_cfg
-   syncopy.shared.parsers.unwrap_select
-   syncopy.shared.parsers.unwrap_io
+   syncopy.shared.kwarg_decorators.unwrap_cfg
+   syncopy.shared.kwarg_decorators.unwrap_select
+   syncopy.shared.kwarg_decorators.unwrap_io
 
 
 Writing A New Analysis Routine

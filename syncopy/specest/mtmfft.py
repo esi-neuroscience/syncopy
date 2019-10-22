@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:25:34
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-10 11:11:12>
+# Last modification time: <2019-10-22 11:26:08>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -14,7 +14,7 @@ import scipy.signal.windows as spwin
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.datatype import padding
 import syncopy.specest.freqanalysis as freq
-from syncopy.shared.parsers import unwrap_io
+from syncopy.shared.kwarg_decorators import unwrap_io
 
 
 # Local workhorse that performs the computational heavy lifting
