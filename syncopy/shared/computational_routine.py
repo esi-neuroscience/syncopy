@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 # 
-# Base class for all computational kernels in Syncopy
+# Base class for all computational classes in Syncopy
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-08 16:58:57>
+# Last modification time: <2019-10-23 17:06:44>
 
 # Builtin/3rd party package imports
 import os
@@ -37,7 +37,7 @@ __all__ = []
 class ComputationalRoutine(ABC):
     """Abstract class for encapsulating sequential/parallel algorithms
 
-    A Syncopy compute kernel consists of a
+    A Syncopy compute class consists of a
     :class:`ComputationalRoutine`-subclass that binds a static
     :func:`computeFunction` and provides the class method
     :meth:`process_metadata`.
@@ -55,8 +55,8 @@ class ComputationalRoutine(ABC):
       as static method
     * Provides class method :func:`process_data`
 
-    For details on developing compute kernels for Syncopy, please refer
-    to :doc:`../compute_kernels`.
+    For details on writing compute classes and metafunctions for Syncopy, please 
+    refer to :doc:`/developer/compute_kernels`.
     """
 
     # Placeholder: the actual workhorse
@@ -96,7 +96,7 @@ class ComputationalRoutine(ABC):
 
         See also
         --------
-        ComputationalRoutine : Developer documentation: :doc:`../compute_kernels`.
+        ComputationalRoutine : Developer documentation: :doc:`/developer/compute_kernels`.
         """
         return None
 
@@ -867,7 +867,7 @@ class ComputationalRoutine(ABC):
         Notes
         -----
         This routine is an abstract method and is thus intended to be overloaded. 
-        Consult the developer documentation (:doc:`../compute_kernels`) for 
+        Consult the developer documentation (:doc:`/developer/compute_kernels`) for 
         further details. 
 
         See also

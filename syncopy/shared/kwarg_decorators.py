@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-22 10:56:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-22 15:55:50>
+# Last modification time: <2019-10-23 17:07:18>
 
 # Builtin/3rd party package imports
 import functools
@@ -59,6 +59,11 @@ def unwrap_cfg(func):
            If not, then by convention, it is the first element of the (remaining) 
            positional argument list. Thus, the meta-function can now be called via
            ``func(data, *args, **kwargs)``. 
+        5. Amend the docstring of `func`: add a one-liner mentioning the possibility
+           of using `cfg` when calling `func` to the header of its docstring. 
+           Append a paragraph to the docstrings' "Notes" section illustrating 
+           how to call `func` with a `cfg` option "structure" that specifically 
+           uses `func` and its input parameters. 
            
     Notes
     -----
@@ -97,6 +102,9 @@ def unwrap_cfg(func):
     unwrap_io : set up 
                 :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`-calls 
                 based on parallel processing setup
+    detect_parallel_client : controls parallel processing engine via `parallel` keyword
+    _append_docstring : local helper for manipulating docstrings
+    _append_signature : local helper for manipulating function signatures
     """
 
     @functools.wraps(func)
@@ -182,6 +190,46 @@ def unwrap_cfg(func):
         # Call function with modified positional/keyword arguments
         return func(data, *args, **kwords)
 
+    # Append one-liner to docstring header mentioning the use of `cfg`
+    introEntry = \
+    "    \n" +\
+    "    The parameters listed below can be provided as is or a via a `cfg`\n" +\
+    "    configuration 'structure', see Notes for details. \n"
+    wrapper_cfg.__doc__ = _append_docstring(wrapper_cfg, 
+                                            introEntry, 
+                                            insert_in="Header", 
+                                            at_end=True)
+    
+    # Perform a little introspection gymnastics to get the name of the first 
+    # positional and keyword argument of `func`
+    funcParams = inspect.signature(func).parameters
+    paramList = list(funcParams)
+    kwargList = [pName for pName, pVal in funcParams.items() if pVal.default != pVal.empty]
+    arg0 = paramList[0]
+    kwarg0 = kwargList[0]
+
+    # Append a paragraph explaining the use of `cfg` by an example that explicitly
+    # mentions `func`'s name and input parameters
+    notesEntry = \
+    "    This function can be either called providing its input arguments directly\n" +\
+    "    or via a `cfg` configuration 'structure'. For instance, the following function\n" +\
+    "    calls are equivalent\n" +\
+    "    \n" +\
+    "    >>> spy.{fname:s}({arg0:s}, {kwarg0:s}=...)\n" +\
+    "    >>> cfg = spy.StructDict()\n" +\
+    "    >>> cfg.{kwarg0:s} = ...\n" +\
+    "    >>> spy.{fname:s}(cfg, {arg0:s})\n" +\
+    "    >>> cfg.{arg0:s} = {arg0:s}\n" +\
+    "    >>> spy.{fname:s}(cfg)\n" +\
+    "    \n" +\
+    "    Please refer to :doc:`/user/fieldtrip` for further details. \n\n"
+    wrapper_cfg.__doc__ = _append_docstring(wrapper_cfg, 
+                                            notesEntry.format(fname=func.__name__,
+                                                              arg0=arg0,
+                                                              kwarg0=kwarg0), 
+                                            insert_in="Notes", 
+                                            at_end=False)
+
     return wrapper_cfg
 
 
@@ -192,15 +240,15 @@ def unwrap_select(func):
     Parameters
     ----------
     func : callable
-        Typically a Syncopy compute kernel such as :func:`~syncopy.freqanalysis`
+        Typically a Syncopy metafunction such as :func:`~syncopy.freqanalysis`
 
     Returns
     -------
     wrapper_select : callable
         Wrapped function; `wrapper_select` extracts `select` from keywords
-        provided to the wrapped function `func` and uses it to set the `._selector` 
-        property of the input object. After successfully calling `func` with 
-        the modified input, `wrapper_select` modifies `func` itself:
+        provided to `func` and uses it to set the `._selector` property of the 
+        input object. After successfully calling `func` with the modified input, 
+        `wrapper_select` modifies `func` itself:
         
         1. The "Parameters" section in the docstring of `func` is amended by an 
            entry explaining the usage of `select` (that mostly points to 
@@ -210,11 +258,11 @@ def unwrap_select(func):
             
     Notes
     -----
-    This decorator assumes that the wrapped function `func` has already been 
-    processed by :func:`~syncopy.shared.parsers.unwrap_cfg` and hence expects 
-    the call signature of `func` to be of the form ``func(data, *args, **kwargs)``. 
-    In other words, :func:`~syncopy.shared.parsers.unwrap_select` is intended as 
-    "inner" decorator of compute kernels, for instance
+    This decorator assumes that the `func` has already been processed by 
+    :func:`~syncopy.shared.kwarg_decorators.unwrap_cfg` and hence expects the call signature 
+    of `func` to be of the form ``func(data, *args, **kwargs)``. In other words, 
+    :func:`~syncopy.shared.kwarg_decorators.unwrap_select` is intended as "inner" decorator 
+    of metafunctions, for instance
     
     .. code-block:: python
     
@@ -223,12 +271,14 @@ def unwrap_select(func):
         def somefunction(data, kw1="default", kw2=None, **kwargs):
         ...
         
-    **Important** The wrapped compute kernel *must* accept "anonymous" keywords
-    via ``**kwargs``. Since this decorator cowardly refuses to change the byte-code 
-    of the wrapped compute kernel, *only* the corresponding signature is manipulated. 
-    Thus, if the compute kernel does not support a `kwargs` parameter dictionary, 
+    **Important** The metafunction `func` **must** accept "anonymous" keywords
+    via a ``**kwargs`` dictionary. This requirement is due to the fact that 
+    :func:`~syncopy.shared.kwarg_decorators.unwrap_cfg` cowardly refuses to change 
+    the byte-code of `func`, that is, `select` is not actually added as a new 
+    keyword to `func`, only the corresponding signature is manipulated. 
+    Thus, if `func` does not support a `kwargs` parameter dictionary, 
     using this decorator will have *strange* consequences. Specifically, `select` 
-    will show up in the kernel's signature but it won't be actually usable:
+    will show up in `func`'s signature but it won't be actually usable:
 
     .. code-block:: python
     
@@ -247,6 +297,7 @@ def unwrap_select(func):
     See also
     --------
     unwrap_cfg : Decorator for processing `cfg` "structs"
+    detect_parallel_client : controls parallel processing engine via `parallel` keyword
     """
 
     @functools.wraps(func)
@@ -277,6 +328,44 @@ def unwrap_select(func):
 def detect_parallel_client(func):
     """
     Decorator for handling parallelization via `parallel` keyword/client detection
+    
+    Parameters
+    ----------
+    func : callable
+        Typically a Syncopy metafunction such as :func:`~syncopy.freqanalysis`
+
+    Returns
+    -------
+    parallel_client_detector : callable
+        Wrapped function; `parallel_client_detector` attempts to extract `parallel` 
+        from keywords provided to `func`. If `parallel` is `True` or `None` 
+        (i.e., was not provided) and dask is available, `parallel_client_detector` 
+        attempts to connect to a running dask parallel processing client. If successful, 
+        `parallel` is set to `True` and updated in `func`'s keyword argument dict. 
+        If no client is found or dask is not available, a corresponding warning 
+        message is printed and `parallel` is set to `False` and updated in `func`'s 
+        keyword argument dict. After successfully calling `func` with the modified 
+        input arguments, `parallel_client_detector` modifies `func` itself:
+        
+        1. The "Parameters" section in the docstring of `func` is amended by an 
+           entry explaining the usage of `parallel`. 
+        2. If not already present, `parallel` is added as optional keyword (with 
+           default value `None`) to the signature of `func`. 
+            
+    Notes
+    -----
+    This decorator assumes that `func` has already been processed by 
+    :func:`~syncopy.shared.kwarg_decorators.unwrap_cfg` and hence expects the call 
+    signature of `func` to be of the form ``func(data, *args, **kwargs)``. 
+    In other words, :func:`~syncopy.shared.kwarg_decorators.detect_parallel_client`
+    is intended as "inner" decorator of metafunctions, for instance. See Notes in 
+    the docstring of :func:`~syncopy.shared.kwarg_decorators.unwrap_select` for 
+    further details. 
+    
+    See also
+    --------
+    unwrap_select : extract `select` keyword and process in-place data-selections
+    unwrap_cfg : Decorator for processing `cfg` "structs"
     """
     
     @functools.wraps(func)
@@ -284,6 +373,9 @@ def detect_parallel_client(func):
 
         # Extract `parallel` keyword: if `parallel` is `False`, nothing happens
         parallel = kwargs.get("parallel")
+        
+        # For later reference: dynamically fetch name of wrapped function
+        funcName = "Syncopy <{}>".format(func.__name__)
 
         # Detect if dask client is running and set `parallel` keyword accordingly
         if parallel is None or parallel is True:
@@ -292,17 +384,35 @@ def detect_parallel_client(func):
                     dd.get_client()
                     parallel = True
                 except ValueError:
+                    if parallel is True:
+                        wrng = \
+                        "{name:s} WARNING: no running parallel processing client " +\
+                        "found. Please use `spy.esi_cluster_setup` to launch a " +\
+                        "distributed computing cluster. Computation will be performed" +\
+                        "sequentially. "
+                        print(wrng.format(name=funcName))
                     parallel = False
             else:
+                wrng = \
+                "{name:s} WARNING: dask seems not to be installed on this system. " +\
+                "Parallel processing capabilities cannot be used. "
+                print(wrng.format(name=funcName))
                 parallel = False
+                
+        # Add/update `parallel` to/in keyword args
+        kwargs["parallel"] = parallel
 
         return func(data, *args, **kwargs)
     
     # Append `parallel` keyword entry to wrapped function's docstring and signature
     parallelDocEntry = \
-    "    parallel : bool\n" +\
-    "        If `True`, processing is performed in parallel (i.e., concurrently\n" +\
-    "        across trials/channel-groups). \n"
+    "    parallel : None or bool\n" +\
+    "        If `None` (recommended), processing is automatically performed in \n" +\
+    "        parallel (i.e., concurrently across trials/channel-groups), provided \n" +\
+    "        a dask parallel processing client is running and available. \n" +\
+    "        Parallel processing can be manually disabled by setting `parallel` \n" +\
+    "        to `False`. If `parallel` is `True` but no parallel processing client\n" +\
+    "        is running, computing will be performed sequentially. \n"
     parallel_client_detector.__doc__ = _append_docstring(func, parallelDocEntry)
     parallel_client_detector.__signature__ = _append_signature(func, "parallel")
     
@@ -452,27 +562,111 @@ def unwrap_io(func):
     return wrapper_io
 
 
-def _append_docstring(func, supplement, insert_before="Returns"):
+def _append_docstring(func, supplement, insert_in="Parameters", at_end=True):
     """
-    Coming soon...
+    Local helper to automate text insertions in docstrings
+    
+    Parameters
+    ----------
+    func : callable
+        Typically a (wrapped) Syncopy metafunction such as :func:`~syncopy.freqanalysis`
+    supplement : str
+        Text entry to be added to `func`'s docstring. Has to be already formatted 
+        correctly for its intended destination section, specifically respecting 
+        indentation and line-breaks (e.g., following double-indentation of variable 
+        descriptions in the "Parameters" section)
+    insert_in : str
+        Name of section `supplement` should be inserted into. Available options 
+        are `"Header"` (part of the docstring before "Parameters"), `"Parameters"`,
+        `"Returns"`, `"Notes"` and `"See also"`. Note that the section specified
+        by `insert_in` has to already exist in `func`'s docstring. 
+    at_end : bool
+        If `True`, `supplement` is appended at the end of the section specified 
+        by `insert_in`. If `False`, `supplement` is included at the beginning of
+        the respective section. 
+    
+    Returns
+    -------
+    newDocString : str
+        A copy of `func`'s docstring with `supplement` inserted at the location
+        specified by `insert_in` and `at_end`. 
+        
+    Notes
+    -----
+    This routine is a local auxiliary method that is purely intended for internal
+    use. Thus, no error checking is performed. 
+        
+    See also
+    --------
+    _append_signature : extend a function's signature
     """
     
-    paramSection, returnTitle, rest = func.__doc__.partition(insert_before)
-    paramSection = paramSection.splitlines(keepends=True)
-    lastLine = -1
-    while paramSection[lastLine].isspace():
-        lastLine -= 1
-    lastLine += 1
-    newDocString = "".join(paramSection[:lastLine]) +\
-                    supplement +\
-                    "".join(paramSection[lastLine:]) +\
-                    returnTitle + rest
+    if insert_in == "Header":
+        sectionText, sectionDivider, rest = func.__doc__.partition("Parameters\n")
+        textBefore = ""
+        sectionHeading = ""
+    else:
+        textBefore, sectionHeading, textAfter = func.__doc__.partition(insert_in + "\n")
+        sectionText, sectionDivider, rest = textAfter.partition("\n\n")
+    sectionText = sectionText.splitlines(keepends=True)
+    
+    if at_end:
+        insertAtLine = -1
+        while sectionText[insertAtLine].isspace():
+            insertAtLine -= 1
+        insertAtLine = min(-1, insertAtLine + 1)
+    else:
+        insertAtLine = 1
+    sectionText = "".join(sectionText[:insertAtLine]) +\
+                  supplement +\
+                  "".join(sectionText[insertAtLine:])
+
+    newDocString = textBefore +\
+                   sectionHeading +\
+                   sectionText +\
+                   sectionDivider +\
+                   rest
+
     return newDocString
 
 
 def _append_signature(func, kwname, kwdefault=None):
     """
-    Coming soon...
+    Local helper to automate keyword argument insertions in function signatures
+    
+    Parameters
+    ----------
+    func : callable
+        Typically a (wrapped) Syncopy metafunction such as :func:`~syncopy.freqanalysis`
+    kwname : str
+        Name of keyword argument to be added to `func`'s signature
+    kwdefault : None or any valid type
+        Default value of keyword argument specified by `kwname`
+        
+    Returns
+    -------
+    newSignature : inspect.Signature
+        A copy of `func`'s signature with ``kwname=kwdefault`` included as last 
+        named keyword argument (before ``**kwargs``). If `kwname` already exists
+        in `func`'s named keyword arguments, `newSignature` is an identical copy
+        of `func`'s signature. 
+        
+    Notes
+    -----
+    This function **does not** change `func`'s byte-code, that is, it does not 
+    actually add a new keyword argument to `func` but just appends a named parameter
+    to `func`'s signature. As a consequence, `func` **must** accept "anonymous"
+    keywords via a ``**kwargs`` dictionary for this manipulation to work as 
+    intended. If `func` does not support a ``kwargs`` parameter dictionary, 
+    `kwname` with default value `kwdefault` will be listed in `func`'s signature 
+    but trying to use it will trigger a "unexpected keyword argument"-`TypeError`. 
+    
+    This routine is a local auxiliary method that is purely intended for internal
+    use. Thus, no error checking is performed. 
+
+    See also
+    --------
+    _append_docstring : extend a function's signature
     """
     
     funcSignature = inspect.signature(func)

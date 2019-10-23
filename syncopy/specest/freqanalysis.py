@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-22 15:03:00>
+# Last modification time: <2019-10-23 17:17:10>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -126,6 +126,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     -------
     :class:`~syncopy.SpectralData`
         (Time-)frequency spectrum of input data
+        
+    Notes
+    -----
+    Coming soon...
         
 
     .. autodata:: syncopy.specest.freqanalysis.availableMethods
@@ -309,7 +313,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         log_dct["tapsmofrq"] = lcls["tapsmofrq"]
         log_dct["nTaper"] = nTaper
         
-        # Set up compute-kernel
+        # Set up compute-class
         specestMethod = MultiTaperFFT(1 / data.samplerate,
                                       nTaper=nTaper, 
                                       timeAxis=timeAxis, 
@@ -364,7 +368,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         log_dct["toi"] = lcls["toi"]
         log_dct["width"] = lcls["width"]
 
-        # Set up compute-kernel
+        # Set up compute-class
         specestMethod = WaveletTransform(1/data.samplerate, 
                                          timeAxis,
                                          foi,
@@ -386,16 +390,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     else:
         out = SpectralData(dimord=SpectralData._defaultDimord)        
         new_out = True
-
-    # # Detect if dask client is running and set `parallel` keyword accordingly
-    # if __dask__:
-    #     try:
-    #         dd.get_client()
-    #         use_dask = True
-    #     except ValueError:
-    #         use_dask = False
-    # else:
-    #     use_dask = False
 
     # Perform actual computation
     specestMethod.initialize(data, 

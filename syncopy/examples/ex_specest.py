@@ -35,6 +35,8 @@ if __name__ == "__main__":
 
     data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
 
+    # client = spy.esi_cluster_setup(n_jobs=10, partition="DEV", mem_per_job="2GB")
+
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmfft'
     cfg.taper = 'dpss'
@@ -46,8 +48,6 @@ if __name__ == "__main__":
     cfg.select = {"toilim": [-0.25, 0]}
     cfg.data = data
     baselineSpectrum = spy.freqanalysis(cfg=cfg)
-    
-    # baselineSpectrum = spy.freqanalysis(cfg, data)
 
     sys.exit()
 

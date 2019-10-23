@@ -23,6 +23,7 @@ Decorators
    syncopy.shared.kwarg_decorators.unwrap_cfg
    syncopy.shared.kwarg_decorators.unwrap_select
    syncopy.shared.kwarg_decorators.unwrap_io
+   syncopy.shared.kwarg_decorators.detect_parallel_client
 
 
 Writing A New Analysis Routine

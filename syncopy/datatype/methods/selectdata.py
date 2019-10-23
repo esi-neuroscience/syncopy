@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-14 12:46:54
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-22 16:04:37>
+# Last modification time: <2019-10-23 17:03:31>
 
 # Builtin/3rd party package imports
 import inspect
@@ -36,7 +36,7 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
     * **deep-copy** selections copy subsets of a Syncopy data object to keep and 
       preserve in a new object created by :func:`~syncopy.selectdata`
     
-    All Syncopy compute kernels, such as :func:`~syncopy.freqanalysis`, support 
+    All Syncopy metafunctions, such as :func:`~syncopy.freqanalysis`, support 
     **in-place** data selection via a ``select`` dictionary, effectively avoiding
     potentially slow copy operations and saving disk space. The keys accepted 
     by the `select` dictionary are identical to the keyword arguments discussed 
@@ -93,9 +93,6 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
     the entire contents of `data` is selected. 
     
     **Full documentation below** 
-    
-    The parameters listed below can be provided as is or a via a `cfg` configuration
-    "structure", see Notes for details. 
     
     Parameters
     ----------
@@ -182,28 +179,10 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
         
     Notes
     -----
-    This function can be either called via providing its input arguments directly 
-    or via a `cfg` configuration "structure". For instance, 
-    
-    >>> spy.selectdata(data, trials=asdf)
-    
-    Supported call signatures:
-    
-    * ``func(cfg, data)``: `cfg` exclusively contains keyword arguments of `func`, 
-      `data` is a Syncopy data object. 
-    * ``func(data, cfg)``: same as above
-    * ``func(data, cfg=cfg)``: same as above, but `cfg` itself is provided as 
-      keyword argument
-    * ``func(cfg)``: `cfg` contains a field `data` or `dataset` (not both!) 
-      holding a Syncopy data object used as input of `func`
-    * ``func(cfg=cfg)``: same as above with `cfg` being provided as keyword
-    * ``func(data, kw1=val1, kw2=val2)``: standard Python call style with keywords
-      being provided explicitly 
-    
     This routine represents a convenience function for creating new Syncopy objects
     based on existing data entities. However, in many situations, the creation 
     of a new object (and thus the allocation of additional disk-space) might not 
-    be necessary: all Syncopy compute kernels, such as :func:`~syncopy.freqanalysis`,
+    be necessary: all Syncopy metafunctions, such as :func:`~syncopy.freqanalysis`,
     support **in-place** data selection. 
     
     Consider the following example: assume `data` is an :class:`~syncopy.AnalogData` 
@@ -230,7 +209,7 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
     >>> stimonSpectrum = spy.freqanalysis(cfg, data)
     
     Especially for large data-sets, in-place data selection performed by Syncopy's
-    compute kernels does not only save disk-space but can significantly increase 
+    metafunctions does not only save disk-space but can significantly increase 
     performance.  
     
     Examples
@@ -264,9 +243,6 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
         data_parser(data, varname="data", empty=False)
     except Exception as exc:
         raise exc
-
-    # For later reference: dynamically fetch name of current function
-    funcName = "Syncopy <{}>".format(inspect.currentframe().f_code.co_name)
 
     # Create inventory of all available selectors and actually provided values 
     # and raise exception in case unavailable selectors were provided 
