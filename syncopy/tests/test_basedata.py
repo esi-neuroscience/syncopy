@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-25 16:53:04>
+# Last modification time: <2019-10-24 15:37:56>
 
 import os
 import tempfile
@@ -395,6 +395,8 @@ class TestSelector():
                                        range(0, 3), 
                                        range(5, 8), 
                                        slice(None), 
+                                       None,
+                                       "all",
                                        slice(0, 5), 
                                        slice(7, None), 
                                        slice(2, 8),
@@ -411,6 +413,8 @@ class TestSelector():
                                         slice(0, 3, 1),
                                         slice(5, 8, 1), 
                                         slice(None, None, 1), 
+                                        slice(None, None, 1), 
+                                        slice(None, None, 1), 
                                         slice(0, 5, 1),
                                         slice(7, None, 1), 
                                         slice(2, 8, 1),
@@ -420,7 +424,8 @@ class TestSelector():
                                         [2, 3, 5]),  # stays as is
                              "invalid": (["channel200", "channel400"],
                                          ["invalid"],
-                                         "wrongtype",
+                                         tuple("wrongtype"),
+                                         "notall",
                                          range(0, 100), 
                                          slice(80, None),
                                          slice(-20, None),
@@ -435,6 +440,7 @@ class TestSelector():
                                         SPYValueError,
                                         SPYValueError,
                                         SPYValueError,
+                                        SPYValueError,
                                         SPYValueError)}
     
     selectDict["taper"] = {"valid": ([4, 2, 3], 
@@ -442,7 +448,9 @@ class TestSelector():
                                      [0, 1, 1, 2, 3],  # preserve repetition, don't convert to slice
                                      range(0, 3), 
                                      range(2, 5), 
-                                     slice(None), 
+                                     slice(None),
+                                     None, 
+                                     "all",
                                      slice(0, 5), 
                                      slice(3, None), 
                                      slice(2, 4),
@@ -456,6 +464,8 @@ class TestSelector():
                                       slice(0, 3, 1),
                                       slice(2, 5, 1), 
                                       slice(None, None, 1), 
+                                      slice(None, None, 1), 
+                                      slice(None, None, 1), 
                                       slice(0, 5, 1),
                                       slice(3, None, 1), 
                                       slice(2, 4, 1),
@@ -464,7 +474,8 @@ class TestSelector():
                                       slice(0, 4, 1),  # ...gets converted to slice
                                       [1, 3, 4]),  # stays as is
                            "invalid": (["taper_typo", "channel400"],
-                                       "wrongtype",
+                                       tuple("wrongtype"),
+                                       "notall",
                                        range(0, 100), 
                                        slice(80, None),
                                        slice(-20, None),
@@ -473,6 +484,7 @@ class TestSelector():
                                        [40, 60, 80]),
                            "errors": (SPYValueError,
                                       SPYTypeError,
+                                      SPYValueError,
                                       SPYValueError,
                                       SPYValueError,
                                       SPYValueError,
@@ -490,6 +502,8 @@ class TestSelector():
                                     range(0, 3), 
                                     range(2, 5), 
                                     slice(None), 
+                                    None,
+                                    "all",
                                     slice(0, 5), 
                                     slice(3, None), 
                                     slice(2, 4),
@@ -498,7 +512,8 @@ class TestSelector():
                                     [0, 1, 2, 3],  # contiguous list...
                                     [1, 3, 4]),  # non-contiguous list...
                           "invalid": (["unit7", "unit77"],
-                                      "wrongtype",
+                                      tuple("wrongtype"),
+                                      "notall",
                                       range(0, 100), 
                                       slice(80, None),
                                       slice(-20, None),
@@ -507,6 +522,7 @@ class TestSelector():
                                       [40, 60, 80]),
                           "errors": (SPYValueError,
                                      SPYTypeError,
+                                     SPYValueError,
                                      SPYValueError,
                                      SPYValueError,
                                      SPYValueError,
@@ -521,13 +537,16 @@ class TestSelector():
                                        range(0, 2),
                                        range(1, 2), 
                                        slice(None), 
+                                       None,
+                                       "all",
                                        slice(0, 2), 
                                        slice(1, None), 
                                        slice(0, 1),
                                        slice(-1, None),
                                        [0, 1]),  # contiguous list...
                              "invalid": (["eventid", "eventid"],
-                                         "wrongtype",
+                                         tuple("wrongtype"),
+                                         "notall",
                                          range(0, 100), 
                                          slice(80, None),
                                          slice(-20, None),
@@ -541,25 +560,29 @@ class TestSelector():
                                         SPYValueError,
                                         SPYValueError,
                                         SPYValueError,
+                                        SPYValueError,
                                         SPYValueError)}
 
     # in the general test routine, only check correct handling of invalid `toi`/`toilim`
     # and `foi`/`foilim` selections - valid selectors are strongly object-dependent
     # and thus tested in separate methods below
     selectDict["toi"] = {"invalid": (["notnumeric", "stillnotnumeric"],
-                                     "wrongtype",
+                                     tuple("wrongtype"),
+                                     "notall",
                                      range(0, 10), 
                                      slice(0, 5),
                                      [0, np.inf],
                                      [np.nan, 1]),
                          "errors": (SPYValueError,
                                     SPYTypeError,
+                                    SPYValueError,
                                     SPYTypeError,
                                     SPYTypeError,
                                     SPYValueError,
                                     SPYValueError)}
     selectDict["toilim"] = {"invalid": (["notnumeric", "stillnotnumeric"],
-                                        "wrongtype",
+                                        tuple("wrongtype"),
+                                        "notall",
                                         range(0, 10), 
                                         slice(0, 5),
                                         [np.nan, 1],
@@ -567,13 +590,15 @@ class TestSelector():
                                         [2.0, 1.5]),  # lower bound > upper bound
                             "errors": (SPYValueError,
                                        SPYTypeError,
+                                       SPYValueError,
                                        SPYTypeError,
                                        SPYTypeError,
                                        SPYValueError,
                                        SPYValueError,
                                        SPYValueError)}
     selectDict["foi"] = {"invalid": (["notnumeric", "stillnotnumeric"],
-                                     "wrongtype",
+                                     tuple("wrongtype"),
+                                     "notall",
                                      range(0, 10), 
                                      slice(0, 5),
                                      [0, np.inf],
@@ -582,6 +607,7 @@ class TestSelector():
                                      [2, 900]),  # out of bounds                                     
                          "errors": (SPYValueError,
                                     SPYTypeError,
+                                    SPYValueError,
                                     SPYTypeError,
                                     SPYTypeError,
                                     SPYValueError,
@@ -589,23 +615,25 @@ class TestSelector():
                                     SPYValueError,
                                     SPYValueError)}
     selectDict["foilim"] = {"invalid": (["notnumeric", "stillnotnumeric"],
-                                     "wrongtype",
-                                     range(0, 10), 
-                                     slice(0, 5),
-                                     [np.nan, 1],
-                                     [-1, 2],  # lower limit out of bounds
-                                     [2, 900],  # upper limit out of bounds
-                                     [2, 7, 6],  # more than 2 components
-                                     [9, 2]),  # lower bound > upper bound
-                         "errors": (SPYValueError,
-                                    SPYTypeError,
-                                    SPYTypeError,
-                                    SPYTypeError,
-                                    SPYValueError,
-                                    SPYValueError,
-                                    SPYValueError,
-                                    SPYValueError,
-                                    SPYValueError)}
+                                        tuple("wrongtype"),
+                                        "notall",
+                                        range(0, 10), 
+                                        slice(0, 5),
+                                        [np.nan, 1],
+                                        [-1, 2],  # lower limit out of bounds
+                                        [2, 900],  # upper limit out of bounds
+                                        [2, 7, 6],  # more than 2 components
+                                        [9, 2]),  # lower bound > upper bound
+                            "errors": (SPYValueError,
+                                       SPYTypeError,
+                                       SPYValueError,
+                                       SPYTypeError,
+                                       SPYTypeError,
+                                       SPYValueError,
+                                       SPYValueError,
+                                       SPYValueError,
+                                       SPYValueError,
+                                       SPYValueError)}
     
     # Generate 2D array simulating an AnalogData array
     data["AnalogData"] = np.arange(1, nChannels * nSamples + 1).reshape(nSamples, nChannels)
@@ -656,6 +684,8 @@ class TestSelector():
                         selects = list(range(getattr(discrete, prop).size))[selection]
                 elif isinstance(selection, range):
                     selects = list(selection)
+                elif isinstance(selection, str) or selection is None:
+                    selects = [None]
                 else: # selection is list/ndarray
                     if isinstance(selection[0], str):
                         avail = getattr(discrete, prop)
@@ -705,6 +735,10 @@ class TestSelector():
             # test trial selection
             selection = Selector(dummy, {"trials": [3, 1]})
             assert selection.trials == [3, 1]
+            selection = Selector(dummy, {"trials": None})
+            assert selection.trials == list(range(len(dummy.trials)))
+            selection = Selector(dummy, {"trials": "all"})
+            assert selection.trials == list(range(len(dummy.trials)))
             with pytest.raises(SPYValueError):
                 Selector(dummy, {"trials": [-1, 9]})
 
@@ -754,7 +788,9 @@ class TestSelector():
     def test_continuous_toitoilim(self):
         
         # this only works w/the equidistant trials constructed above!!!
-        selDict = {"toi": ([0.5],  # single entry lists
+        selDict = {"toi": (None,  # trivial "selection" of entire contents
+                           "all", # trivial "selection" of entire contents
+                           [0.5],  # single entry lists
                            [0.6],  # inexact match
                            [1.0, 2.5],  # two disjoint time-points
                            [1.2, 2.7],  # inexact from above
@@ -766,7 +802,9 @@ class TestSelector():
                            [1.0, 0.5, 0.5, 1.5],  # repetition
                            [0.5, 0.5, 1.0, 1.5], # preserve repetition, don't convert to slice
                            [0.5, 1.0, 1.5]),  # sorted list (should be converted to slice-selection)
-                   "toilim": ([0.5, 1.5],  # regular range
+                   "toilim": (None,  # trivial "selection" of entire contents
+                              "all",  # trivial "selection" of entire contents
+                              [0.5, 1.5],  # regular range
                               [1.5, 2.0],  # minimal range (just two-time points)
                               [1.0, np.inf],  # unbounded from above
                               [-np.inf, 1.0])}  # unbounded from below
@@ -783,17 +821,20 @@ class TestSelector():
         for tselect in ["toi", "toilim"]:
             for timeSel in selDict[tselect]:
                 sel = Selector(ang, {tselect: timeSel}).time
-                if tselect == "toi":
-                    idx = []
-                    for tp in timeSel:
-                        idx.append(np.abs(trlTime - tp).argmin())
+                if timeSel is None or timeSel == "all":
+                    idx = slice(None)
                 else:
-                    idx = np.intersect1d(np.where(trlTime >= timeSel[0])[0],
-                                         np.where(trlTime <= timeSel[1])[0])
+                    if tselect == "toi":
+                        idx = []
+                        for tp in timeSel:
+                            idx.append(np.abs(trlTime - tp).argmin())
+                    else:
+                        idx = np.intersect1d(np.where(trlTime >= timeSel[0])[0],
+                                             np.where(trlTime <= timeSel[1])[0])
                 # check that correct data was selected (all trials identical, just take 1st one)
                 assert np.array_equal(ang.trials[0][idx, :],
                                       ang.trials[0][sel[0], :])
-                if len(idx) > 1:
+                if not isinstance(idx, slice) and len(idx) > 1:
                     timeSteps = np.diff(idx)
                     if timeSteps.min() == timeSteps.max() == 1:
                         idx = slice(idx[0], idx[-1] + 1, 1)
@@ -807,7 +848,9 @@ class TestSelector():
     def test_discrete_toitoilim(self):
         
         # this only works w/the equidistant trials constructed above!!!
-        selDict = {"toi": ([0.5],  # single entry lists
+        selDict = {"toi": (None,  # trivial "selection" of entire contents
+                           "all",  # trivial "selection" of entire contents
+                           [0.5],  # single entry lists
                            [0.6],  # inexact match
                            [1.0, 2.5],  # two disjoint time-points
                            [1.2, 2.7],  # inexact from above
@@ -819,7 +862,9 @@ class TestSelector():
                            [1.0, 0.5, 0.5, 1.5],  # repetition
                            [0.5, 0.5, 1.0, 1.5], # preserve repetition, don't convert to slice
                            [0.5, 1.0, 1.5]),  # sorted list (should be converted to slice-selection)
-                   "toilim": ([0.5, 1.5],  # regular range
+                   "toilim": (None,  # trivial "selection" of entire contents
+                              "all",  # trivial "selection" of entire contents
+                              [0.5, 1.5],  # regular range
                               [1.5, 2.0],  # minimal range (just two-time points)
                               [1.0, np.inf],  # unbounded from above
                               [-np.inf, 1.0])}  # unbounded from below
@@ -835,32 +880,36 @@ class TestSelector():
                                             samplerate=self.samplerate)
             for tselect in ["toi", "toilim"]:
                 for timeSel in selDict[tselect]:
-                    smpIdx = []
-                    for tp in timeSel:
-                        if np.isfinite(tp):
-                            smpIdx.append(np.abs(np.array(trlTime) - tp).argmin())
-                        else:
-                            smpIdx.append(tp)
+                    if isinstance(timeSel, list):
+                        smpIdx = []
+                        for tp in timeSel:
+                            if np.isfinite(tp):
+                                smpIdx.append(np.abs(np.array(trlTime) - tp).argmin())
+                            else:
+                                smpIdx.append(tp)
                     result = []
                     sel = Selector(discrete, {tselect: timeSel}).time
                     for trlno in range(len(discrete.trials)):
                         thisTrial = discrete.trials[trlno][:, 0]
-                        if tselect == "toi":
-                            trlRes = []
-                            for idx in smpIdx:
-                                trlRes += list(np.where(thisTrial == idx + trlno * self.lenTrial)[0])
+                        if isinstance(timeSel, list):
+                            if tselect == "toi":
+                                trlRes = []
+                                for idx in smpIdx:
+                                    trlRes += list(np.where(thisTrial == idx + trlno * self.lenTrial)[0])
+                            else:
+                                start = smpIdx[0] + trlno * self.lenTrial
+                                stop = smpIdx[1] + trlno * self.lenTrial
+                                candidates = np.intersect1d(thisTrial[thisTrial >= start], 
+                                                            thisTrial[thisTrial <= stop])
+                                trlRes = []
+                                for cand in candidates:
+                                    trlRes += list(np.where(thisTrial == cand)[0])
                         else:
-                            start = smpIdx[0] + trlno * self.lenTrial
-                            stop = smpIdx[1] + trlno * self.lenTrial
-                            candidates = np.intersect1d(thisTrial[thisTrial >= start], 
-                                                        thisTrial[thisTrial <= stop])
-                            trlRes = []
-                            for cand in candidates:
-                                trlRes += list(np.where(thisTrial == cand)[0])
+                            trlRes = slice(None)
                         # check that actually selected data is correct
                         assert np.array_equal(discrete.trials[trlno][trlRes, :], 
-                                            discrete.trials[trlno][sel[trlno], :])
-                        if len(trlRes) > 1:
+                                              discrete.trials[trlno][sel[trlno], :])
+                        if not isinstance(trlRes, slice) and len(trlRes) > 1:
                             sampSteps = np.diff(trlRes)
                             if sampSteps.min() == sampSteps.max() == 1:
                                 trlRes = slice(trlRes[0], trlRes[-1] + 1, 1)
@@ -871,7 +920,9 @@ class TestSelector():
     def test_spectral_foifoilim(self):
         
         # this selection only works w/the dummy frequency data constructed above!!!
-        selDict = {"foi": ([1],  # single entry lists
+        selDict = {"foi": (None,  # trivial "selection" of entire contents,
+                           "all",  # trivial "selection" of entire contents
+                           [1],  # single entry lists
                            [2.6],  # inexact match
                            [2, 9],  # two disjoint frequencies
                            [7.2, 8.3],  # inexact from above
@@ -883,7 +934,9 @@ class TestSelector():
                            [5, 2, 2, 3],  # repetition
                            [1, 1, 2, 3], # preserve repetition, don't convert to slice
                            [2, 3, 4]),  # sorted list (should be converted to slice-selection)
-                   "foilim": ([2, 11],  # regular range
+                   "foilim": (None,  # trivial "selection" of entire contents,
+                              "all",  # trivial "selection" of entire contents
+                              [2, 11],  # regular range
                               [1, 2],  # minimal range (just two-time points)
                               [1.0, np.inf],  # unbounded from above
                               [-np.inf, 12])}  # unbounded from below
@@ -896,16 +949,19 @@ class TestSelector():
         for fselect in ["foi", "foilim"]:
             for freqSel in selDict[fselect]:
                 sel = Selector(spc, {fselect: freqSel}).freq
-                if fselect == "foi":
-                    idx = []
-                    for fq in freqSel:
-                        idx.append(np.abs(allFreqs - fq).argmin())
+                if freqSel is None or freqSel == "all":
+                    idx = slice(None)
                 else:
-                    idx = np.intersect1d(np.where(allFreqs >= freqSel[0])[0],
-                                         np.where(allFreqs <= freqSel[1])[0])
+                    if fselect == "foi":
+                        idx = []
+                        for fq in freqSel:
+                            idx.append(np.abs(allFreqs - fq).argmin())
+                    else:
+                        idx = np.intersect1d(np.where(allFreqs >= freqSel[0])[0],
+                                             np.where(allFreqs <= freqSel[1])[0])
                 # check that correct data was selected (all trials identical, just take 1st one)
                 assert np.array_equal(spc.freq[idx], spc.freq[sel])
-                if len(idx) > 1:
+                if not isinstance(idx, slice) and len(idx) > 1:
                     freqSteps = np.diff(idx)
                     if freqSteps.min() == freqSteps.max() == 1:
                         idx = slice(idx[0], idx[-1] + 1, 1)

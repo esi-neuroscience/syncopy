@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-14 12:58:21>
+# Last modification time: <2019-10-24 15:40:44>
 
 # Builtin/3rd party package imports
 import getpass
@@ -1220,7 +1220,7 @@ class Selector():
     ----------
     data : Syncopy data object
         A non-empty Syncopy data object
-    select : dict or :class:`~syncopy.datatype.base_data.StructDict` or None
+    select : dict or :class:`~syncopy.datatype.base_data.StructDict` or None or str
         Dictionary or :class:`~syncopy.datatype.base_data.StructDict` with keys
         specifying data selectors. **Note**: some keys are only valid for certain types
         of Syncopy objects, e.g., "freqs" is not a valid selector for an 
@@ -1242,17 +1242,43 @@ class Selector():
         selects the entire contents of trials no. 2 and 3, while
         ``select = {'channels': range(0, 50)}`` selects the first 50 channels
         of `data` across all defined trials. Consequently, if `select` is
-        `None`, the entire contents of `data` is selected. 
+        `None` or if ``select = "all"`` the entire contents of `data` is selected. 
     
     Returns
     -------
     selection : Syncopy :class:`Selector` object
-        An instance of this class whose properties are either lists or slices
+        An instance of this class whose main properties are either lists or slices
         to be used as (fancy) indexing tuples. Note that the properties `time`, 
         `unit` and `eventid` are **by-trial** selections, i.e., list of lists 
         and/or slices encoding per-trial sample-indices, e.g., ``selection.time[0]`` 
         is intended to be used with ``data.trials[selection.trials[0]]``. 
+        Addditional class attributes of note:
+        
+        * `_useFancy` : bool
+        
+          If `True`, selection requires "fancy" (or "advanced") array indexing
+          
+        * `_samplerate` : float
+        
+          Samplerate of `data` (only relevant for objects supporting time-selections)
+          
+        * `_timeShuffle` : bool
+        
+          If `True`, time-selection contains unordered/repeated time-points. 
 
+        * `_allProps` : list
+        
+          List of all selection properties in class
+
+        * `_byTrialProps` : list
+        
+          List off by-trial selection properties (see above)
+
+        * `_dimProps` : list
+        
+          List off trial-independent selection properties (computed as 
+          `self._allProps` minus `self._byTrialProps`)
+                    
     Notes
     -----
     Whenever possible, this class performs extensive input parsing to ensure
@@ -1308,6 +1334,12 @@ class Selector():
             raise exc
         if select is None:
             select = {}
+        if isinstance(select, str):
+            if select == "all":
+                select = {}
+            else:
+                raise SPYValueError(legal="'all' or `None` or dict", 
+                                    varname="select", actual=select)
         if not isinstance(select, dict):
             raise SPYTypeError(select, "select", expected="dict")
         supported = ["trials", "channels", "toi", "toilim", "foi", "foilim",
@@ -1322,9 +1354,13 @@ class Selector():
         # Save class of input object for posterity
         self._dataClass = data.__class__.__name__
         
-        # Set up lists of (a) all selectable properties and (b) trial-dependent ones
+        # Set up lists of (a) all selectable properties (b) trial-dependent ones 
+        # and (c) selectors independent from trials
         self._allProps = ["channel", "time", "freq", "taper", "unit", "eventid"]
         self._byTrialProps = ["time", "unit", "eventid"]
+        self._dimProps = list(self._allProps)
+        for prop in self._byTrialProps:
+            self._dimProps.remove(prop)
         
         # Assign defaults (trials are not a "real" property, handle it separately, 
         # same goes for `trialdefinition`)
@@ -1359,17 +1395,27 @@ class Selector():
     def trials(self, dataselect):
         data, select = dataselect
         trlList = list(range(len(data.trials)))
-        trials = select.get("trials", trlList)
+        trials = select.get("trials", None)
         vname = "select: trials"
-        try:
-            array_parser(trials, varname=vname, ntype="int_like", hasinf=False,
-                         hasnan=False, lims=[0, len(data.trials)], dims=1)
-        except Exception as exc:
-            raise exc
-        if not set(trials).issubset(trlList):
-            lgl = "list/array of values b/w 0 and {}".format(trlList[-1])
-            act = "Values b/w {} and {}".format(min(trials), max(trials))
-            raise SPYValueError(legal=lgl, varname=vname, actual=act)
+        
+        if isinstance(trials, str):
+            if trials == "all":
+                trials = None
+            else:
+                raise SPYValueError(legal="'all' or `None` or list/array", 
+                                    varname=vname, actual=trials)
+        if trials is not None:        
+            try:
+                array_parser(trials, varname=vname, ntype="int_like", hasinf=False,
+                            hasnan=False, lims=[0, len(data.trials)], dims=1)
+            except Exception as exc:
+                raise exc
+            if not set(trials).issubset(trlList):
+                lgl = "list/array of values b/w 0 and {}".format(trlList[-1])
+                act = "Values b/w {} and {}".format(min(trials), max(trials))
+                raise SPYValueError(legal=lgl, varname=vname, actual=act)
+        else:
+            trials = trlList
         self._trials = trials
         
     @property
@@ -1384,7 +1430,7 @@ class Selector():
         
     @property
     def time(self):
-        """List of lists/slices of by-trial time-selections"""
+        """len(self.trials) list of lists/slices of by-trial time-selections"""
         return self._time
     
     @time.setter
@@ -1392,7 +1438,7 @@ class Selector():
         
         # Unpack input and perform error-checking
         data, select = dataselect
-        timeSpec = select.get("toi")
+        timeSpec = select.get("toi", None)
         checkLim = False
         checkInf = False
         vname = "select: toi/toilim"
@@ -1412,6 +1458,14 @@ class Selector():
 
         # If `data` has a `time` property, fill up `self.time`
         if hasTime:
+            if isinstance(timeSpec, str):
+                if timeSpec == "all":
+                    timeSpec = None
+                    select["toi"] = None
+                    select["toilim"] = None
+                else:
+                    raise SPYValueError(legal="'all' or `None` or list/array", 
+                                        varname=vname, actual=timeSpec)
             if timeSpec is not None:
                 try:
                     array_parser(timeSpec, varname=vname, hasinf=checkInf, hasnan=False, dims=1)
@@ -1430,10 +1484,9 @@ class Selector():
             
             # Determine, whether time-selection is unordered/contains repetitions
             # and set `self._timeShuffle` accordingly
-            if timeSpec is not None:
+            if timeSpec is not None:  # saves time for `timeSpec = None` "selections"
                 for tsel in timing:
-                    if isinstance(tsel, list):
-                        if len(tsel) > 1:
+                    if isinstance(tsel, list) and len(tsel) > 1:
                             if np.diff(tsel).min() <= 0:
                                 self._timeShuffle = True
                                 break 
@@ -1449,7 +1502,7 @@ class Selector():
 
     @property
     def trialdefinition(self):
-        """N x 3+ :class:`numpy.ndarray` encoding trial-information of selection"""
+        """len(self.trials)-by-(3+) :class:`numpy.ndarray` encoding trial-information of selection"""
         return self._trialdefinition
 
     @trialdefinition.setter
@@ -1490,7 +1543,8 @@ class Selector():
         
     @property
     def timepoints(self):
-        """len(self.trials) list of lists encoding timing information of unordered `toi` selections"""
+        """len(self.trials) list of lists encoding actual (not sample indices!) 
+        timing information of unordered `toi` selections"""
         if self._timeShuffle:
             return [[(tvec[tp] + self.trialdefinition[tk, 2]) / self._samplerate 
                      for tp in range(len(tvec))] for tk, tvec in enumerate(self.time)]
@@ -1525,6 +1579,14 @@ class Selector():
         
         # If `data` has a `freq` property, fill up `self.freq`
         if hasFreq:
+            if isinstance(freqSpec, str):
+                if freqSpec == "all":
+                    freqSpec = None
+                    select["foi"] = None
+                    select["foilim"] = None
+                else:
+                    raise SPYValueError(legal="'all' or `None` or list/array", 
+                                        varname=vname, actual=freqSpec)
             if freqSpec is not None:
                 try:
                     array_parser(freqSpec, varname=vname, hasinf=checkInf, hasnan=False, 
@@ -1556,7 +1618,7 @@ class Selector():
 
     @property
     def unit(self):
-        """List or slice encoding unit-selection"""
+        """len(self.trials) list of lists/slices of by-trial unit-selections"""
         return self._unit
 
     @unit.setter
@@ -1566,7 +1628,7 @@ class Selector():
 
     @property
     def eventid(self):
-        """List or slice encoding event-id-selection"""
+        """len(self.trials) list of lists/slices encoding by-trial event-id-selection"""
         return self._eventid
 
     @eventid.setter
@@ -1632,6 +1694,12 @@ class Selector():
                 arrLims = [target[0], target[-1]]
                 hasnan = False
                 hasinf = False
+                
+            if isinstance(selection, str):
+                if selection == "all":
+                    selection = None
+                else:
+                    raise SPYValueError(legal="'all'", varname=vname, actual=selection)
                 
             # Take entire inventory sitting in `dataprop`
             if selection is None:
@@ -1749,14 +1817,9 @@ class Selector():
         numpy.ix_ : Mesh-construction for array indexing
         """
 
-        # Get list of all selectors that don't depend on trials
-        dimProps = list(self._allProps)
-        for prop in self._byTrialProps:
-            dimProps.remove(prop)
-        
         # Count how many lists we got
         listCount = 0
-        for prop in dimProps:
+        for prop in self._dimProps:
             if isinstance(getattr(self, prop), list):
                 listCount += 1
 
@@ -1786,7 +1849,7 @@ class Selector():
                     if step is None:
                         step = 1
                     self.time[tk] = list(range(start, stop, step))
-            for prop in dimProps:
+            for prop in self._dimProps:
                 sel = getattr(self, prop)
                 if isinstance(sel, slice):
                     start, stop, step = sel.start, sel.stop, sel.step

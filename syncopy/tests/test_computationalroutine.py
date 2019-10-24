@@ -4,7 +4,7 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-22 11:09:18>
+# Last modification time: <2019-10-24 15:42:13>
 
 import os
 import tempfile
@@ -19,7 +19,7 @@ from syncopy.datatype import AnalogData
 from syncopy.datatype.base_data import Selector
 from syncopy.io import load
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import unwrap_io, unwrap_cfg
+from syncopy.shared.kwarg_decorators import unwrap_io, unwrap_cfg, unwrap_select
 from syncopy.tests.misc import generate_artificial_data
 
 # Decorator to decide whether or not to run dask-related tests
@@ -58,7 +58,8 @@ class LowPassFilter(ComputationalRoutine):
         out.channel = np.array(data.channel[chanSec])
 
 
-@unwrap_cfg        
+@unwrap_cfg
+@unwrap_select
 def filter_manager(data, b=None, a=None, 
                    out=None, select=None, chan_per_worker=None, keeptrials=True,
                    parallel=False, parallel_store=None, log_dict=None):

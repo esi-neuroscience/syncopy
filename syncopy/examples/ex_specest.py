@@ -34,8 +34,13 @@ from time import time
 if __name__ == "__main__":
 
     data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
-
     # client = spy.esi_cluster_setup(n_jobs=10, partition="DEV", mem_per_job="2GB")
+    
+    dsel = spy.selectdata(data, trials=[0,1], channels=range(50), toilim=[-0.25, 0])
+    dsel = spy.selectdata(data, channels=range(50), toilim=[-0.25, 0])
+    
+    sys.exit()
+
 
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmfft'

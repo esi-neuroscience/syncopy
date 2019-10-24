@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:46:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-11 13:47:16>
+# Last modification time: <2019-10-24 16:14:46>
 
 import os
 import tempfile
@@ -387,7 +387,9 @@ class TestAnalogData():
         # FIXME: test slice(-8, -2, 2)
         # FIXME: test toi/toilim + channel combo (right shape etc.)
         # FIXME: test trials = 2, 1, 3 + channel + toi/toilim
-        pass
+        from syncopy.tests.test_basedata import TestSelector
+        sd = TestSelector.selectDict
+        import pdb; pdb.set_trace()
 
 
 class TestSpectralData():

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-05 16:22:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-16 15:25:02>
+# Last modification time: <2019-10-24 15:55:17>
 
 import os
 import platform
@@ -276,7 +276,6 @@ class TestFilenameParser():
             'basename': 'container',
             'extension': '.spy'
             }
-
 
 
 class TestDataParser():

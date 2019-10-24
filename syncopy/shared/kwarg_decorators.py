@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-22 10:56:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-23 17:07:18>
+# Last modification time: <2019-10-24 14:32:33>
 
 # Builtin/3rd party package imports
 import functools
@@ -13,7 +13,7 @@ import inspect
 import numpy as np
 
 # Local imports
-from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
+from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError, SPYError
 from syncopy.shared.parsers import get_defaults
 import syncopy as spy
 if spy.__dask__:
@@ -63,7 +63,8 @@ def unwrap_cfg(func):
            of using `cfg` when calling `func` to the header of its docstring. 
            Append a paragraph to the docstrings' "Notes" section illustrating 
            how to call `func` with a `cfg` option "structure" that specifically 
-           uses `func` and its input parameters. 
+           uses `func` and its input parameters Note: both amendments are only 
+           inserted in `func`'s docstring if the respective sections already exist. 
            
     Notes
     -----
@@ -106,6 +107,14 @@ def unwrap_cfg(func):
     _append_docstring : local helper for manipulating docstrings
     _append_signature : local helper for manipulating function signatures
     """
+
+    # Perform a little introspection gymnastics to get the name of the first 
+    # positional and keyword argument of `func`
+    funcParams = inspect.signature(func).parameters
+    paramList = list(funcParams)
+    kwargList = [pName for pName, pVal in funcParams.items() if pVal.default != pVal.empty]
+    arg0 = paramList[0]
+    kwarg0 = kwargList[0]
 
     @functools.wraps(func)
     def wrapper_cfg(*args, **kwargs):
@@ -185,6 +194,9 @@ def unwrap_cfg(func):
             kwords = kwargs
             
         # Remove data (always first positional argument) from anonymous `args` list
+        if len(args) == 0:
+            err = "{0} missing mandatory positional argument: `{1}`"
+            raise SPYError(err.format(func.__name__, arg0))
         data = args.pop(0)
             
         # Call function with modified positional/keyword arguments
@@ -200,14 +212,6 @@ def unwrap_cfg(func):
                                             insert_in="Header", 
                                             at_end=True)
     
-    # Perform a little introspection gymnastics to get the name of the first 
-    # positional and keyword argument of `func`
-    funcParams = inspect.signature(func).parameters
-    paramList = list(funcParams)
-    kwargList = [pName for pName, pVal in funcParams.items() if pVal.default != pVal.empty]
-    arg0 = paramList[0]
-    kwarg0 = kwargList[0]
-
     # Append a paragraph explaining the use of `cfg` by an example that explicitly
     # mentions `func`'s name and input parameters
     notesEntry = \
@@ -252,7 +256,8 @@ def unwrap_select(func):
         
         1. The "Parameters" section in the docstring of `func` is amended by an 
            entry explaining the usage of `select` (that mostly points to 
-           :func:`~syncopy.selectdata`)
+           :func:`~syncopy.selectdata`). Note: `func`'s docstring is only extended
+           if it has a "Parameters" section. 
         2. If not already present, `select` is added as optional keyword (with 
            default value `None`) to the signature of `func`. 
             
@@ -316,7 +321,7 @@ def unwrap_select(func):
     
     # Append `select` keyword entry to wrapped function's docstring and signature
     selectDocEntry = \
-    "    select : dict or :class:`~syncopy.datatype.base_data.StructDict`\n" +\
+    "    select : dict or :class:`~syncopy.datatype.base_data.StructDict` or str\n" +\
     "        In-place selection of subset of input data for processing. Please refer\n" +\
     "        to :func:`syncopy.selectdata` for further usage details. \n"
     wrapper_select.__doc__ = _append_docstring(func, selectDocEntry)
@@ -348,7 +353,8 @@ def detect_parallel_client(func):
         input arguments, `parallel_client_detector` modifies `func` itself:
         
         1. The "Parameters" section in the docstring of `func` is amended by an 
-           entry explaining the usage of `parallel`. 
+           entry explaining the usage of `parallel`. Note: `func`'s docstring is 
+           only extended if it has a "Parameters" section.  
         2. If not already present, `parallel` is added as optional keyword (with 
            default value `None`) to the signature of `func`. 
             
@@ -579,7 +585,8 @@ def _append_docstring(func, supplement, insert_in="Parameters", at_end=True):
         Name of section `supplement` should be inserted into. Available options 
         are `"Header"` (part of the docstring before "Parameters"), `"Parameters"`,
         `"Returns"`, `"Notes"` and `"See also"`. Note that the section specified
-        by `insert_in` has to already exist in `func`'s docstring. 
+        by `insert_in` has to already exist in `func`'s docstring, otherwise 
+        `supplement` is *not* inserted. 
     at_end : bool
         If `True`, `supplement` is appended at the end of the section specified 
         by `insert_in`. If `False`, `supplement` is included at the beginning of
@@ -601,12 +608,21 @@ def _append_docstring(func, supplement, insert_in="Parameters", at_end=True):
     _append_signature : extend a function's signature
     """
     
+    if func.__doc__ is None:
+        return
+    
+    # "Header" insertions always work (an empty docstring is enough to do this). 
+    # Otherwise ensure the provided `insert_in` section already exists, i.e., 
+    # partitioned `sectionHeading` == queried `sectionTitle`
     if insert_in == "Header":
         sectionText, sectionDivider, rest = func.__doc__.partition("Parameters\n")
         textBefore = ""
         sectionHeading = ""
     else:
-        textBefore, sectionHeading, textAfter = func.__doc__.partition(insert_in + "\n")
+        sectionTitle = insert_in + "\n"
+        textBefore, sectionHeading, textAfter = func.__doc__.partition(sectionTitle)
+        if sectionHeading != sectionTitle:  # `insert_in` was not found in docstring
+            return func.__doc__
         sectionText, sectionDivider, rest = textAfter.partition("\n\n")
     sectionText = sectionText.splitlines(keepends=True)
     
