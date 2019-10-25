@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-14 17:25:40>
+# Last modification time: <2019-10-25 15:04:04>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -12,17 +12,15 @@ This module holds classes to represent data with a uniformly sampled time axis.
 """
 # Builtin/3rd party package imports
 import h5py
-import shutil
 import inspect
 import numpy as np
 from abc import ABC
-from copy import copy
 from numpy.lib.format import open_memmap
 
 # Local imports
-from .base_data import BaseData, VirtualData, FauxTrial
+from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
-from syncopy.shared.parsers import scalar_parser, array_parser, io_parser
+from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYIOError
 import syncopy as spy
 
@@ -102,21 +100,6 @@ class ContinuousData(BaseData, ABC):
         if self.samplerate is not None and self.sampleinfo is not None:
             return [(np.arange(0, stop - start) + self._t0[tk]) / self.samplerate \
                     for tk, (start, stop) in enumerate(self.sampleinfo)]
-
-    # Selector method
-    def selectdata(self, trials=None, channels=None, toi=None, toilim=None):
-        """
-        Docstring mostly pointing to ``selectdata``
-        """
-        self._selection = {"trials": trials, 
-                           "channels": channels, 
-                           "toi": toi,
-                           "toilim": toilim}
-        selectableProps = ["trial", "channel"]
-        selectMethod = DataSelection(selectableProps)
-        selectMethod.initialize(self)
-        selectMethod.compute()
-        
 
     # Helper function that reads a single trial into memory
     @staticmethod
@@ -265,9 +248,8 @@ class ContinuousData(BaseData, ABC):
         """
         timing = []
         if toilim is not None:
-            allTrials = self.time
             for trlno in trials:
-                trlTime = allTrials[trlno]
+                trlTime = self.time[trlno]
                 selTime = np.intersect1d(np.where(trlTime >= toilim[0])[0], 
                                          np.where(trlTime <= toilim[1])[0])
                 if len(selTime) > 1:
@@ -276,11 +258,10 @@ class ContinuousData(BaseData, ABC):
                     timing.append(selTime)
                     
         elif toi is not None:
-            allTrials = self.time
             for trlno in trials:
-                trlTime = allTrials[trlno]
+                trlTime = self.time[trlno]
                 selTime = [min(trlTime.size - 1, idx) 
-                           for idx in np.searchsorted(allTrials[trlno], toi, side="left")]
+                           for idx in np.searchsorted(trlTime[trlno], toi, side="left")]
                 for k, idx in enumerate(selTime):
                     if np.abs(trlTime[idx - 1] - toi[k]) < np.abs(trlTime[idx] - toi[k]):
                         selTime[k] = idx -1
@@ -347,6 +328,13 @@ class AnalogData(ContinuousData):
         This property is empty for data created by Syncopy.
         """
         return self._hdr
+
+    # Selector method
+    def selectdata(self, trials=None, channels=None, toi=None, toilim=None):
+        """
+        Docstring mostly pointing to ``selectdata``
+        """
+        pass
 
     # "Constructor"
     def __init__(self,
@@ -478,6 +466,14 @@ class SpectralData(ContinuousData):
         except Exception as exc:
             raise exc
         self._freq = np.array(freq)
+
+    # Selector method
+    def selectdata(self, trials=None, channels=None, toi=None, toilim=None,
+                   foi=None, foilim=None, tapers=None):
+        """
+        Docstring mostly pointing to ``selectdata``
+        """
+        pass
     
     # Helper function that extracts frequency-related indices
     def _get_freq(self, foi=None, foilim=None):

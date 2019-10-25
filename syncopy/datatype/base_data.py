@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-24 15:40:44>
+# Last modification time: <2019-10-25 16:30:17>
 
 # Builtin/3rd party package imports
 import getpass
@@ -67,8 +67,8 @@ class BaseData(ABC):
     # Checksum algorithm
     _checksum_algorithm = spy.__checksum_algorithm__.__name__
     
-    # Dummy allocations of class attributes that are actually initialized in subclasses
-    _mode = None
+    # # FIXME: Do we need this? Dummy allocations of class attributes that are actually initialized in subclasses
+    # _mode = None
     
     @property
     @classmethod
@@ -809,6 +809,7 @@ class BaseData(ABC):
         for propertyName in self._hdfFileDatasetProperties:
             setattr(self, "_" + propertyName, None)
         self._data = None
+        self._selector = None
 
         # Make instantiation persistent in all subclasses
         super().__init__()
@@ -1257,6 +1258,12 @@ class Selector():
         * `_useFancy` : bool
         
           If `True`, selection requires "fancy" (or "advanced") array indexing
+
+        * `_dataClass` : str
+        
+          Class name of `data`
+        
+          If `True`, selection requires "fancy" (or "advanced") array indexing
           
         * `_samplerate` : float
         
@@ -1529,15 +1536,16 @@ class Selector():
                 if step is None:
                     step = 1
                 nSamples = (stop - start)/step
-                endSample = stop + data._t0[tk]
+                endSample = stop + data._t0[trlno]
                 t0 = int(endSample - nSamples)
             else:
                 nSamples = len(tsel)
                 if nSamples == 0:
                     t0 = 0
                 else:
-                    t0 = data._t0[tk]
+                    t0 = data._t0[trlno]
             trlDef[tk, :3] = [counter, counter + nSamples, t0]
+            trlDef[tk, 3:] = trl[trlno, 3:]
             counter += nSamples
         self._trialdefinition = trlDef
         
@@ -1816,6 +1824,47 @@ class Selector():
         --------
         numpy.ix_ : Mesh-construction for array indexing
         """
+
+        # Harmonize selections for `DiscreteData`-children: all selectors are row-
+        # indices, go through each trial and combine them
+        if self._dataClass in ["SpikeData", "EventData"]:
+            
+            # Get relevant selectors (e.g., `self.unit` is `None` for `EventData`)
+            actualSelections = []
+            for selection in ["time", "eventid", "unit"]:
+                if getattr(self, selection) is not None:
+                    actualSelections.append(selection)
+                
+            # Compute intersection of "time" x "{eventid|unit}" row-indices per
+            # trial: after this step, `self.time` == `self.{unit|eventid}`
+            for tk, trialno in enumerate(self.trials):
+                trialArr = np.arange(np.sum(data.trialid == trialno))
+                combinedSelect = trialArr[getattr(self, actualSelections[0])[tk]]
+                for selection in actualSelections:
+                    combinedSelect = np.intersect1d(combinedSelect, 
+                                                    trialArr[getattr(self, selection)[tk]])
+                if len(combinedSelect) > 1:
+                    selSteps = np.diff(combinedSelect)
+                    if selSteps.min() == selSteps.max() == 1:
+                        combinedSelect = slice(combinedSelect[0], combinedSelect[-1] + 1, 1)
+                for selection in actualSelections:
+                    getattr(self, "_{}".format(selection))[tk] = combinedSelect
+
+            # Ensure that `self.channel` is compatible w/provided selections: in
+            # `SpikeData` objects, `channels` are **not** the same in all trials!
+            if self._dataClass == "SpikeData":
+                chanidx = data.dimord.index("channel")
+                chanSelection = np.empty((), dtype=np.intp)
+                for tk, trialno in enumerate(self.trials):
+                    chanSelection = np.union1d(chanSelection,
+                                               data.data[data.trialid == trialno, chanidx])
+                # if len(chanSelection) > 1:
+                #     selSteps = np.diff(chanSelection)
+                #     if selSteps.min() == selSteps.max() == 1:
+                #         chanSelection = slice(chanSelection[0], chanSelection[-1] + 1, 1)
+                self._channel = chanSelection
+            
+            return
 
         # Count how many lists we got
         listCount = 0

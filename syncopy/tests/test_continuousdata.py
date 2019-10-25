@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:46:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-24 16:14:46>
+# Last modification time: <2019-10-25 10:11:10>
 
 import os
 import tempfile
@@ -29,6 +29,7 @@ class TestAnalogData():
                      np.arange(5, ns + 5, 5),
                      np.ones((int(ns / 5), )),
                      np.ones((int(ns / 5), )) * np.pi]).T
+    samplerate = 2.0
 
     def test_empty(self):
         dummy = AnalogData()
@@ -377,7 +378,20 @@ class TestAnalogData():
         # test absolute + time + non-equidistant!
         # test relative + time + non-equidistant + overlapping!
 
+    # test data-selection via class method
     def test_dataselection(self):
+        dummy = AnalogData(data=self.data, trialdefinition=self.trl, samplerate=self.samplerate)
+
+        # # toi
+        #                    "all"  # trivial "selection" of entire contents
+        #                    [0.6],  # single inexact match
+        #                    [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.],  # alternating madness
+        # # toilim
+        #                       [0.5, 1.5],  # regular range
+        #                       [1.5, 2.0],  # minimal range (just two-time points)
+        #                       [1.0, np.inf],  # unbounded from above
+        
+        
         # FIXME: test shapes of slices + RANGE!
         # FIXME: test slice(None, 5)
         # FIXME: test [0, 1, 2, 3, 4] == slice(None, 5) + str selection

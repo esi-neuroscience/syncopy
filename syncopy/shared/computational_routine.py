@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-23 17:06:44>
+# Last modification time: <2019-10-25 16:14:51>
 
 # Builtin/3rd party package imports
 import os
@@ -735,10 +735,10 @@ class ComputationalRoutine(ABC):
         # Initialize on-disk backing device (either HDF5 file or memmap)
         if self.hdr is None:
             try:
-                source = h5py.File(data.filename, mode="r")[data.data.name]
+                sourceObj = h5py.File(data.filename, mode="r")[data.data.name]
                 isHDF = True
             except OSError:
-                source = open_memmap(data.filename, mode="c")
+                sourceObj = open_memmap(data.filename, mode="c")
                 isHDF = False
             except Exception as exc:
                 raise exc
@@ -759,15 +759,18 @@ class ComputationalRoutine(ABC):
                 if self.hdr is None:
                     if isHDF:
                         if self.useFancyIdx:
-                            arr = np.array(source[tuple(ingrid)])[np.ix_(*sigrid)]
+                            arr = np.array(sourceObj[tuple(ingrid)])[np.ix_(*sigrid)]
                         else:
-                            arr = np.array(source[tuple(ingrid)])
+                            try:
+                                arr = np.array(sourceObj[tuple(ingrid)])
+                            except:
+                                import pdb; pdb.set_trace()
                     else:
                         if self.useFancyIdx:
-                            arr = source[np.ix_(*ingrid)]
+                            arr = sourceObj[np.ix_(*ingrid)]
                         else:
-                            arr = np.array(source[ingrid])
-                    source.flush()
+                            arr = np.array(sourceObj[ingrid])
+                    sourceObj.flush()
                 else:
                     idx = ingrid
                     if self.useFancyIdx:
@@ -797,7 +800,7 @@ class ComputationalRoutine(ABC):
 
         # If source was HDF5 file, close it to prevent access errors
         if isHDF:
-            source.file.close()    
+            sourceObj.file.close()    
             
         return
 

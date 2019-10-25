@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-14 12:46:54
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-24 14:40:28>
+# Last modification time: <2019-10-25 15:19:10>
 
 # Builtin/3rd party package imports
 import inspect
@@ -321,4 +321,7 @@ class DataSelection(ComputationalRoutine):
         for prop in data._selection._dimProps:
             selection = getattr(data._selection, prop)
             if selection is not None:
-                setattr(out, prop, getattr(data, prop)[selection])
+                try:
+                    setattr(out, prop, getattr(data, prop)[selection])
+                except:
+                    import pdb; pdb.set_trace()
