@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-25 16:17:16>
+# Last modification time: <2019-10-28 17:09:39>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -133,9 +133,9 @@ class DiscreteData(BaseData, ABC):
         """
         
         trialIdx = np.where(self.trialid == trialno)[0]
-        idx = [trialIdx, slice(None)]
+        idx = [trialIdx.tolist(), slice(None)]
         if self._selection is not None: # selections are harmonized, just take `.time`
-            idx[0] = trialIdx[self._selection.time[self._selection.trials.index(trialno)]]
+            idx[0] = trialIdx[self._selection.time[self._selection.trials.index(trialno)]].tolist()
         shp = [len(idx[0]), len(self.dimord)]
                         
         return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
@@ -265,9 +265,9 @@ class SpikeData(DiscreteData):
         """ :class:`numpy.ndarray` : list of original channel names for each unit"""        
         # if data exists but no user-defined channel labels, create them on the fly
         if self._channel is None and self._data is not None:
-            channelIndices = np.unique(self.data[:, self.dimord.index("channel")])
-            return np.array(["channel" + str(int(i)).zfill(len(str(channelIndices.max())))
-                             for i in channelIndices])
+            channelNumbers = np.unique(self.data[:, self.dimord.index("channel")])
+            return np.array(["channel" + str(int(i + 1)).zfill(len(str(channelNumbers.max() + 1)))
+                             for i in channelNumbers])
             
         return self._channel
 

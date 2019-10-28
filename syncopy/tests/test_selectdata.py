@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-25 10:13:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-25 10:42:50>
+# Last modification time: <2019-10-28 14:52:22>
 
 import pytest
 import numpy as np
@@ -294,7 +294,7 @@ class TestSelector():
     # Use a fixed random number generator seed to simulate a 2D SpikeData array
     seed = np.random.RandomState(13)
     data["SpikeData"] = np.vstack([seed.choice(nSamples, size=nSpikes),
-                                   seed.choice(np.arange(1, nChannels + 1), size=nSpikes), 
+                                   seed.choice(np.arange(0, nChannels), size=nSpikes), 
                                    seed.choice(int(nChannels/2), size=nSpikes)]).T
     trl["SpikeData"] = trl["AnalogData"]
 
@@ -311,7 +311,7 @@ class TestSelector():
     # test `Selector` constructor w/all data classes    
     def test_general(self):
         
-        # construct expected results for `DiscreteData` objects constructed above
+        # construct expected results for `DiscreteData` objects defined above
         mapDict = {"unit": "SpikeData", "eventid": "EventData"}
         for prop, dclass in mapDict.items():
             discrete = getattr(spd, dclass)(data=self.data[dclass],
@@ -344,7 +344,7 @@ class TestSelector():
                 result = []    
                 for trial in discrete.trials:
                     if selects[0] is None:
-                        res = slice(None, None, 1)
+                        res = slice(0, trial.shape[0], 1)
                     else:
                         res = []
                         for sel in selects:
@@ -402,7 +402,32 @@ class TestSelector():
                 if hasattr(dummy, prop):
                     expected = self.selectDict[prop]["result"]
                     for sk, sel in enumerate(self.selectDict[prop]["valid"]):
-                        assert getattr(Selector(dummy, {prop + "s": sel}), prop) == expected[sk]
+                        solution = expected[sk]
+                        if dclass == "SpikeData" and prop == "channel":
+                            if isinstance(solution, slice):
+                                start, stop, step = solution.start, solution.stop, solution.step
+                                if start is None:
+                                    start = 0
+                                elif start < 0:
+                                    start = len(dummy.channel) + start
+                                if stop is None:
+                                    stop = len(dummy.channel)
+                                elif stop < 0:
+                                    stop = len(dummy.channel) + stop
+                                if not step in [None, 1]:
+                                    solution = list(range(start, stop))[solution]
+                                else:
+                                    solution = slice(start, stop, step)
+                                    
+                        selection = Selector(dummy, {prop + "s": sel})
+                        assert getattr(selection, prop) == solution
+                        selected = selectdata(dummy, {prop + "s": sel})
+                        if prop in selection._byTrialProps:
+                            import pdb; pdb.set_trace()
+                            # for trialno in range(len(dummy.trials)):
+                            #     assert getattr(selected, prop)[trialno] == dummy.
+                        # assert getattr(selected, prop) == getattr(dummy, prop)[solution]
+                        
                     for ik, isel in enumerate(self.selectDict[prop]["invalid"]):
                         with pytest.raises(self.selectDict[prop]["errors"][ik]):
                             Selector(dummy, {prop + "s": isel})

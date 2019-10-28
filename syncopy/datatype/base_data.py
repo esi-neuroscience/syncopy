@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-25 16:30:17>
+# Last modification time: <2019-10-28 17:06:28>
 
 # Builtin/3rd party package imports
 import getpass
@@ -1518,35 +1518,39 @@ class Selector():
         # Get original `trialdefinition` array for reference
         trl = data.trialdefinition
 
-        # Build new trialdefinition array using `t0`-offsets        
-        trlDef = np.zeros((len(self.trials), trl.shape[1]))
-        counter = 0
-        for tk, trlno in enumerate(self.trials):
-            tsel = self.time[tk]
-            if isinstance(tsel, slice):
-                start, stop, step = tsel.start, tsel.stop, tsel.step
-                if start is None:
-                    start = 0
-                if stop is None:
-                    trlTime = data._get_time([trlno], toilim=[-np.inf, np.inf])[0]
-                    if isinstance(trlTime, list):
-                        stop = np.max(trlTime)
-                    else:
-                        stop = trlTime.stop
-                if step is None:
-                    step = 1
-                nSamples = (stop - start)/step
-                endSample = stop + data._t0[trlno]
-                t0 = int(endSample - nSamples)
-            else:
-                nSamples = len(tsel)
-                if nSamples == 0:
-                    t0 = 0
+        # `DiscreteData`: simply copy relevant sample-count -> trial assignments, 
+        # for other classes build new trialdefinition array using `t0`-offsets
+        if self._dataClass in ["SpikeData", "EventData"]:
+            trlDef = trl[self.trials, :]
+        else:
+            trlDef = np.zeros((len(self.trials), trl.shape[1]))
+            counter = 0
+            for tk, trlno in enumerate(self.trials):
+                tsel = self.time[tk]
+                if isinstance(tsel, slice):
+                    start, stop, step = tsel.start, tsel.stop, tsel.step
+                    if start is None:
+                        start = 0
+                    if stop is None:
+                        trlTime = data._get_time([trlno], toilim=[-np.inf, np.inf])[0]
+                        if isinstance(trlTime, list):
+                            stop = np.max(trlTime)
+                        else:
+                            stop = trlTime.stop
+                    if step is None:
+                        step = 1
+                    nSamples = (stop - start)/step
+                    endSample = stop + data._t0[trlno]
+                    t0 = int(endSample - nSamples)
                 else:
-                    t0 = data._t0[trlno]
-            trlDef[tk, :3] = [counter, counter + nSamples, t0]
-            trlDef[tk, 3:] = trl[trlno, 3:]
-            counter += nSamples
+                    nSamples = len(tsel)
+                    if nSamples == 0:
+                        t0 = 0
+                    else:
+                        t0 = data._t0[trlno]
+                trlDef[tk, :3] = [counter, counter + nSamples, t0]
+                trlDef[tk, 3:] = trl[trlno, 3:]
+                counter += nSamples
         self._trialdefinition = trlDef
         
     @property
@@ -1837,12 +1841,29 @@ class Selector():
                 
             # Compute intersection of "time" x "{eventid|unit}" row-indices per
             # trial: after this step, `self.time` == `self.{unit|eventid}`
+            if self._dataClass == "SpikeData":
+                chanIdx = data.dimord.index("channel")
+                channelNumbers = np.unique(data.data[:, chanIdx])
+                # asdf = []
             for tk, trialno in enumerate(self.trials):
                 trialArr = np.arange(np.sum(data.trialid == trialno))
                 combinedSelect = trialArr[getattr(self, actualSelections[0])[tk]]
                 for selection in actualSelections:
-                    combinedSelect = np.intersect1d(combinedSelect, 
-                                                    trialArr[getattr(self, selection)[tk]])
+                    combinedSelect = [elem for elem in trialArr[getattr(self, selection)[tk]] 
+                                      if elem in combinedSelect]
+                if self._dataClass == "SpikeData":
+                    chanInTrial = [ck for ck, chan in enumerate(data.data[data.trialid == trialno, chanIdx]) 
+                                   if chan in channelNumbers[self.channel]]
+                    # chanTrlIdx = [chanInTrial.index(chan) for chan in channelNumbers[self.channel] if chan in chanInTrial]
+                    # chanInTrial = [chan for chan in np.searchsorted(channelNumbers, data.data[data.trialid == trialno, chanIdx]) if chan in channelNumbers[self.channel]]
+                    # chanInTrial = [chan for chan in channelNumbers[self.channel] 
+                    #                if chan in ]
+                    combinedSelect = [elem for elem in chanInTrial 
+                                      if elem in combinedSelect]
+                    # asdf.append(chanInTrial)
+                    # import pdb; pdb.set_trace()
+                    # chanSelection = np.union1d(chanSelection,
+                    #                            data.data[data.trialid == trialno, chanIdx])
                 if len(combinedSelect) > 1:
                     selSteps = np.diff(combinedSelect)
                     if selSteps.min() == selSteps.max() == 1:
@@ -1852,17 +1873,60 @@ class Selector():
 
             # Ensure that `self.channel` is compatible w/provided selections: in
             # `SpikeData` objects, `channels` are **not** the same in all trials!
+            # Ensure that `self.channel` is actually selectable from availalbe trials
             if self._dataClass == "SpikeData":
-                chanidx = data.dimord.index("channel")
-                chanSelection = np.empty((), dtype=np.intp)
+                # chanIdx = data.dimord.index("channel")
+                # channelNumbers = np.unique(data.data[:, chanIdx])
+                chanSelection = data.data[data.trialid == self.trials[0], chanIdx]
                 for tk, trialno in enumerate(self.trials):
                     chanSelection = np.union1d(chanSelection,
-                                               data.data[data.trialid == trialno, chanidx])
-                # if len(chanSelection) > 1:
-                #     selSteps = np.diff(chanSelection)
-                #     if selSteps.min() == selSteps.max() == 1:
-                #         chanSelection = slice(chanSelection[0], chanSelection[-1] + 1, 1)
+                                               data.data[data.trialid == trialno, chanIdx])
+                chanSelection = [chan for chan in channelNumbers[self.channel] 
+                                 if chan in np.searchsorted(channelNumbers, chanSelection, side="left")]
+                asdf = np.searchsorted(channelNumbers[self.channel], chanSelection, side="left")
+                if not np.array_equal(asdf, chanSelection):
+                    import pdb; pdb.set_trace()
+                if len(chanSelection) > 1:
+                    selSteps = np.diff(chanSelection)
+                    if selSteps.min() == selSteps.max() == 1:
+                        chanSelection = slice(chanSelection[0], chanSelection[-1] + 1, 1)
                 self._channel = chanSelection
+
+
+            # # Compute intersection of "time" x "{eventid|unit}" row-indices per
+            # # trial: after this step, `self.time` == `self.{unit|eventid}`
+            # for tk, trialno in enumerate(self.trials):
+            #     trialArr = np.arange(np.sum(data.trialid == trialno))
+            #     combinedSelect = trialArr[getattr(self, actualSelections[0])[tk]]
+            #     for selection in actualSelections:
+            #         combinedSelect = [elem for elem in trialArr[getattr(self, selection)[tk]] 
+            #                           if elem in combinedSelect]
+            #     if len(combinedSelect) > 1:
+            #         selSteps = np.diff(combinedSelect)
+            #         if selSteps.min() == selSteps.max() == 1:
+            #             combinedSelect = slice(combinedSelect[0], combinedSelect[-1] + 1, 1)
+            #     for selection in actualSelections:
+            #         getattr(self, "_{}".format(selection))[tk] = combinedSelect
+
+            # # Ensure that `self.channel` is compatible w/provided selections: in
+            # # `SpikeData` objects, `channels` are **not** the same in all trials!
+            # # Ensure that `self.channel` is actually selectable from availalbe trials
+            # if self._dataClass == "SpikeData":
+            #     chanIdx = data.dimord.index("channel")
+            #     channelNumbers = np.unique(data.data[:, chanIdx])
+            #     chanSelection = data.data[data.trialid == self.trials[0], chanIdx]
+            #     for tk, trialno in enumerate(self.trials):
+            #         chanSelection = np.union1d(chanSelection,
+            #                                    data.data[data.trialid == trialno, chanIdx])
+            #     chanSelection = [chan for chan in channelNumbers[self.channel] 
+            #                      if chan in np.searchsorted(channelNumbers, chanSelection, side="left")
+            #                      and if chan in ]
+            #     if len(chanSelection) > 1:
+            #         selSteps = np.diff(chanSelection)
+            #         if selSteps.min() == selSteps.max() == 1:
+            #             chanSelection = slice(chanSelection[0], chanSelection[-1] + 1, 1)
+            #     self._channel = chanSelection
+
             
             return
 

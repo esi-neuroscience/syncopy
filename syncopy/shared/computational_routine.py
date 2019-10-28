@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-25 16:14:51>
+# Last modification time: <2019-10-28 17:12:14>
 
 # Builtin/3rd party package imports
 import os
@@ -374,9 +374,12 @@ class ComputationalRoutine(ABC):
         # TRIAL) that can be UNSORTED W/REPS to actually perform the requested 
         # selection on the NumPy array extracted w/`sourceLayout`. 
         for grd in sourceLayout:
-            if any([np.diff(sel).min() <= 0 if isinstance(sel, list) else False for sel in grd]):
-                self.useFancyIdx = True 
-                break
+            try:
+                if any([np.diff(sel).min() <= 0 if isinstance(sel, list) and len(sel) > 1 else False for sel in grd]):
+                    self.useFancyIdx = True 
+                    break
+            except:
+                import pdb; pdb.set_trace()
         if self.useFancyIdx:
             sourceSelectors = []
             for gk, grd in enumerate(sourceLayout):

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-25 15:04:04>
+# Last modification time: <2019-10-28 15:13:09>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -206,8 +206,19 @@ class ContinuousData(BaseData, ABC):
                     dimIdx = self.dimord.index(dim)
                     idx[dimIdx] = sel
                     if isinstance(sel, slice):
-                        if not (sel.start is sel.stop is None):
-                            shp[dimIdx] = int(np.ceil((sel.stop - sel.start) / sel.step))
+                        begin, end, delta = sel.start, sel.stop, sel.step
+                        if sel.start is None:
+                            begin = 0
+                        elif sel.start < 0:
+                            begin = shp[dimIdx] + sel.start
+                        if sel.stop is None:
+                            end = shp[dimIdx]
+                        elif sel.stop < 0:
+                            end = shp[dimIdx] + sel.stop
+                        if sel.step is None:
+                            delta = 1
+                        shp[dimIdx] = int(np.ceil((end - begin) / delta))
+                        idx[dimIdx] = slice(begin, end, delta)
                     else:
                         shp[dimIdx] = len(sel)
                         

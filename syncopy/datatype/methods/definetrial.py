@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-14 12:48:30
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-25 16:48:41>
+# Last modification time: <2019-10-28 15:23:37>
 
 # Builtin/3rd party package imports
 import numbers
@@ -340,24 +340,11 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
         samples = tgt.data[:, tgt.dimord.index("sample")]
         starts = tgt.sampleinfo[:, 0]
         ends = tgt.sampleinfo[:, 1]
-        sorted = starts.argsort()
-        startids = np.searchsorted(starts, samples, side="right", sorter=sorted)
-        endids = np.searchsorted(ends, samples, side="left", sorter=sorted)
-        
-        for k, idx in enumerate(endids):
-            if np.abs(ends[idx - 1] - samples[k]) < np.abs(ends[idx] - samples[k]):
-                endids[k] = idx - 1
-        # for k, idx in enumerate(startids[:-1]):
-        #     if np.abs(starts[idx + 1] - samples[k]) < np.abs(starts[idx] - samples[k]):
-        #         startids[k] = idx + 1
-        
-        
+        startids = np.searchsorted(starts, samples, side="right")
+        endids = np.searchsorted(ends, samples, side="left")
         mask = startids == endids
         startids -= 1
-        startids[mask] = -1
-        if startids.min() < 0:
-            print("FIXME!")
-        import pdb; pdb.set_trace()
+        startids[mask] = 0
         tgt.trialid = startids
 
     # Write log entry
