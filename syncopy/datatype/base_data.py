@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-28 17:06:28>
+# Last modification time: <2019-10-29 13:37:50>
 
 # Builtin/3rd party package imports
 import getpass
@@ -20,6 +20,7 @@ from copy import copy
 from datetime import datetime
 from hashlib import blake2b
 from itertools import islice
+from functools import reduce
 import shutil
 import numpy as np
 from numpy.lib.format import open_memmap, read_magic
@@ -1839,12 +1840,14 @@ class Selector():
                 if getattr(self, selection) is not None:
                     actualSelections.append(selection)
                 
-            # Compute intersection of "time" x "{eventid|unit}" row-indices per
-            # trial: after this step, `self.time` == `self.{unit|eventid}`
+            # Compute intersection of "time" x "{eventid|unit|channel}" row-indices 
+            # per trial. BONUS: in `SpikeData` objects, `channels` are **not** 
+            # the same in all trials - ensure that channel selection propagates 
+            # correctly. After this step, `self.time` == `self.{unit|eventid}`
             if self._dataClass == "SpikeData":
                 chanIdx = data.dimord.index("channel")
-                channelNumbers = np.unique(data.data[:, chanIdx])
-                # asdf = []
+                wantedChannels = np.unique(data.data[:, chanIdx])[self.channel]
+                chanPerTrial = []
             for tk, trialno in enumerate(self.trials):
                 trialArr = np.arange(np.sum(data.trialid == trialno))
                 combinedSelect = trialArr[getattr(self, actualSelections[0])[tk]]
@@ -1852,15 +1855,10 @@ class Selector():
                     combinedSelect = [elem for elem in trialArr[getattr(self, selection)[tk]] 
                                       if elem in combinedSelect]
                 if self._dataClass == "SpikeData":
-                    chanInTrial = [ck for ck, chan in enumerate(data.data[data.trialid == trialno, chanIdx]) 
-                                   if chan in channelNumbers[self.channel]]
-                    # chanTrlIdx = [chanInTrial.index(chan) for chan in channelNumbers[self.channel] if chan in chanInTrial]
-                    # chanInTrial = [chan for chan in np.searchsorted(channelNumbers, data.data[data.trialid == trialno, chanIdx]) if chan in channelNumbers[self.channel]]
-                    # chanInTrial = [chan for chan in channelNumbers[self.channel] 
-                    #                if chan in ]
-                    combinedSelect = [elem for elem in chanInTrial 
-                                      if elem in combinedSelect]
-                    # asdf.append(chanInTrial)
+                    rawChanInTrial = data.data[data.trialid == trialno, chanIdx]
+                    chanTrlIdx = [ck for ck, chan in enumerate(rawChanInTrial) if chan in wantedChannels]
+                    combinedSelect = [elem for elem in combinedSelect if elem in chanTrlIdx]
+                    chanPerTrial.append(rawChanInTrial[combinedSelect])
                     # import pdb; pdb.set_trace()
                     # chanSelection = np.union1d(chanSelection,
                     #                            data.data[data.trialid == trialno, chanIdx])
@@ -1871,21 +1869,11 @@ class Selector():
                 for selection in actualSelections:
                     getattr(self, "_{}".format(selection))[tk] = combinedSelect
 
-            # Ensure that `self.channel` is compatible w/provided selections: in
-            # `SpikeData` objects, `channels` are **not** the same in all trials!
-            # Ensure that `self.channel` is actually selectable from availalbe trials
+            # Ensure that `self.channel` is compatible w/provided selections: harmonize
+            # `self.channel` with what is actually available in selected trials
             if self._dataClass == "SpikeData":
-                # chanIdx = data.dimord.index("channel")
-                # channelNumbers = np.unique(data.data[:, chanIdx])
-                chanSelection = data.data[data.trialid == self.trials[0], chanIdx]
-                for tk, trialno in enumerate(self.trials):
-                    chanSelection = np.union1d(chanSelection,
-                                               data.data[data.trialid == trialno, chanIdx])
-                chanSelection = [chan for chan in channelNumbers[self.channel] 
-                                 if chan in np.searchsorted(channelNumbers, chanSelection, side="left")]
-                asdf = np.searchsorted(channelNumbers[self.channel], chanSelection, side="left")
-                if not np.array_equal(asdf, chanSelection):
-                    import pdb; pdb.set_trace()
+                availChannels = reduce(np.union1d, chanPerTrial)
+                chanSelection = [chan for chan in wantedChannels if chan in availChannels]
                 if len(chanSelection) > 1:
                     selSteps = np.diff(chanSelection)
                     if selSteps.min() == selSteps.max() == 1:

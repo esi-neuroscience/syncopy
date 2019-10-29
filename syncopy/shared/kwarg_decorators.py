@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-22 10:56:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-24 14:32:33>
+# Last modification time: <2019-10-29 10:44:11>
 
 # Builtin/3rd party package imports
 import functools
@@ -503,42 +503,49 @@ def unwrap_io(func):
         outfilename = trl_dat["outfile"]
         outdset = trl_dat["outdset"]
         outgrid = trl_dat["outgrid"]
+        outshape = trl_dat["outshape"]
+        outdtype = trl_dat["dtype"]
 
         # === STEP 1 === read data into memory
-        # Generic case: data is either a HDF5 dataset or memmap
-        if hdr is None:
-            try:
-                with h5py.File(infilename, mode="r") as h5fin:
-                    if fancy:
-                        arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
-                    else:
-                        arr = np.array(h5fin[indset][ingrid])
-            except OSError:
-                try:
-                    if fancy:
-                        arr = open_memmap(infilename, mode="c")[np.ix_(*ingrid)]
-                    else:
-                        arr = np.array(open_memmap(infilename, mode="c")[ingrid])
-                except:
-                    raise SPYIOError(infilename)
-            except Exception as exc:
-                raise exc
-                
-        # For VirtualData objects
+        # Catch empty source-array selections; this workaround is not 
+        # necessary for h5py version 2.10+ (see https://github.com/h5py/h5py/pull/1174)
+        if any([not sel for sel in ingrid]):
+            res = np.empty(outshape, dtype=outdtype)
         else:
-            idx = ingrid
-            if fancy:
-                idx = np.ix_(*ingrid)
-            dsets = []
-            for fk, fname in enumerate(infilename):
-                dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
-                                        mode="r", dtype=hdr[fk]["dtype"],
-                                        shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
-            arr = np.vstack(dsets)
+            # Generic case: data is either a HDF5 dataset or memmap
+            if hdr is None:
+                try:
+                    with h5py.File(infilename, mode="r") as h5fin:
+                        if fancy:
+                            arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
+                        else:
+                            arr = np.array(h5fin[indset][ingrid])
+                except OSError:
+                    try:
+                        if fancy:
+                            arr = open_memmap(infilename, mode="c")[np.ix_(*ingrid)]
+                        else:
+                            arr = np.array(open_memmap(infilename, mode="c")[ingrid])
+                    except:
+                        raise SPYIOError(infilename)
+                except Exception as exc:
+                    raise exc
+                    
+            # For VirtualData objects
+            else:
+                idx = ingrid
+                if fancy:
+                    idx = np.ix_(*ingrid)
+                dsets = []
+                for fk, fname in enumerate(infilename):
+                    dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
+                                            mode="r", dtype=hdr[fk]["dtype"],
+                                            shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
+                arr = np.vstack(dsets)
 
-        # === STEP 2 === perform computation
-        # Now, actually call wrapped function
-        res = func(arr, *args, **kwargs)
+            # === STEP 2 === perform computation
+            # Now, actually call wrapped function
+            res = func(arr, *args, **kwargs)
         
         # === STEP 3 === write result to disk
         # Write result to stand-alone HDF file or use a mutex to write to a 

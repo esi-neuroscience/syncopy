@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-28 17:09:39>
+# Last modification time: <2019-10-29 12:42:30>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -133,10 +133,11 @@ class DiscreteData(BaseData, ABC):
         """
         
         trialIdx = np.where(self.trialid == trialno)[0]
-        idx = [trialIdx.tolist(), slice(None)]
+        nCol = len(self.dimord)
+        idx = [trialIdx.tolist(), slice(0, nCol)]
         if self._selection is not None: # selections are harmonized, just take `.time`
             idx[0] = trialIdx[self._selection.time[self._selection.trials.index(trialno)]].tolist()
-        shp = [len(idx[0]), len(self.dimord)]
+        shp = [len(idx[0]), nCol]
                         
         return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
     
@@ -276,17 +277,25 @@ class SpikeData(DiscreteData):
         if chan is None:
             self._channel = None
             return
-        
         if self.data is None:
             raise SPYValueError("Syncopy: Cannot assign `channels` without data. " +
                   "Please assign data first")    
-
-        nchan = np.unique(self.data[:, self.dimord.index("channel")]).size
         try:
-            array_parser(chan, varname="channel", ntype="str", dims=(nchan,))
+            array_parser(chan, varname="channel", ntype="str")
         except Exception as exc:
             raise exc
-        self._channel = np.array(chan)
+        
+        # Remove duplicate entries from channel array but preserve original order
+        # (e.g., `[2, 0, 0, 1]` -> `[2, 0, 1`); allows for complex subset-selections
+        _, idx = np.unique(chan, return_index=True)
+        chan = np.array(chan)[idx]
+        nchan = np.unique(self.data[:, self.dimord.index("channel")]).size
+        if chan.size != nchan:
+            lgl = "channel label array of length {0:d}".format(nchan)
+            act = "array of length {0:d}".format(chan.size)
+            raise SPYValueError(legal=lgl, varname="channel", actual=act)
+        
+        self._channel = chan
 
     @property
     def unit(self):

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-25 10:13:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-28 14:52:22>
+# Last modification time: <2019-10-29 16:23:22>
 
 import pytest
 import numpy as np
@@ -14,7 +14,11 @@ from syncopy.datatype.base_data import Selector
 from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 
-
+# The procedure here is:
+# (1) test if `Selector` instance was constructed correctly (i.e., indexing tuples
+#     look as expected, ordered list -> slice conversion works etc.) 
+# (2) test if data was correctly selected from source object (i.e., compare shapes,
+#     property contents and actual numeric data arrays)
 class TestSelector():
 
     # Set up "global" parameters for data objects to be tested (we only test
@@ -398,6 +402,7 @@ class TestSelector():
                 Selector(dummy, {"trials": [-1, 9]})
 
             # test "simple" property setters handled by `_selection_setter`
+            # for prop in ["eventid"]:
             for prop in ["channel", "taper", "unit", "eventid"]:
                 if hasattr(dummy, prop):
                     expected = self.selectDict[prop]["result"]
@@ -418,24 +423,61 @@ class TestSelector():
                                     solution = list(range(start, stop))[solution]
                                 else:
                                     solution = slice(start, stop, step)
-                                    
+                        
+                        # once we're sure `Selector` works, actually select data
                         selection = Selector(dummy, {prop + "s": sel})
                         assert getattr(selection, prop) == solution
                         selected = selectdata(dummy, {prop + "s": sel})
-                        if prop in selection._byTrialProps:
-                            import pdb; pdb.set_trace()
-                            # for trialno in range(len(dummy.trials)):
-                            #     assert getattr(selected, prop)[trialno] == dummy.
-                        # assert getattr(selected, prop) == getattr(dummy, prop)[solution]
                         
+                        # process `unit` and `enventid`
+                        if prop in selection._byTrialProps:
+                            propIdx = selected.dimord.index(prop)
+                            propArr = np.unique(selected.data[:, propIdx]).astype(np.intp)
+                            try:
+                                assert set(getattr(selected, prop)) == set(getattr(dummy, prop)[propArr])
+                            except:
+                                import pdb; pdb.set_trace()
+                            tk = 0
+                            for trialno in range(len(dummy.trials)):
+                                if solution[trialno]: # do not try to compare empty selections
+                                    try:
+                                        assert np.array_equal(selected.trials[tk],
+                                                            dummy.trials[trialno][solution[trialno], :])
+                                        tk += 1
+                                    except:
+                                        import pdb; pdb.set_trace()
+                            
+                        # `channel` is a special case for `SpikeData` objects
+                        elif dclass == "SpikeData" and prop == "channel":
+                            chanIdx = selected.dimord.index("channel")
+                            chanArr = np.arange(dummy.channel.size)
+                            assert set(selected.data[:, chanIdx]).issubset(chanArr[solution])
+                            assert set(selected.channel) == set(dummy.channel[solution])
+
+                        # everything else (that is not a `DiscreteData` child)                            
+                        else:
+                            idx = [slice(None)] * len(dummy.dimord)
+                            idx[dummy.dimord.index(prop)] = solution
+                            assert np.array_equal(np.array(dummy.data)[tuple(idx)],
+                                                  selected.data)
+                            try:
+                                assert np.array_equal(getattr(selected, prop), 
+                                                    getattr(dummy, prop)[solution])
+                            except:
+                                import pdb; pdb.set_trace()
+                            # import pdb; pdb.set_trace()
+                        
+                    # ensure invalid selection trigger expected errors
                     for ik, isel in enumerate(self.selectDict[prop]["invalid"]):
                         with pytest.raises(self.selectDict[prop]["errors"][ik]):
                             Selector(dummy, {prop + "s": isel})
                 else:
+                    
+                    # ensure objects that don't have a `prop` attribute complain
                     with pytest.raises(SPYValueError):
                         Selector(dummy, {prop + "s": [0]})
 
-            # test `toi` + `toilim`
+            # ensure invalid `toi` + `toilim` specifications trigger expected errors
             if hasattr(dummy, "time") or hasattr(dummy, "trialtime"):
                 for selection in ["toi", "toilim"]:
                     for ik, isel in enumerate(self.selectDict[selection]["invalid"]):
@@ -445,12 +487,13 @@ class TestSelector():
                 with pytest.raises(SPYValueError):
                     Selector(dummy, {"toi": [0], "toilim": [0, 1]})
             else:
+                # ensure objects that don't have `time` props complain properly
                 with pytest.raises(SPYValueError):
                     Selector(dummy, {"toi": [0]})
                 with pytest.raises(SPYValueError):
                     Selector(dummy, {"toilim": [0]})
                 
-            # test `foi` + `foilim`
+            # ensure invalid `foi` + `foilim` specifications trigger expected errors
             if hasattr(dummy, "freq"):
                 for selection in ["foi", "foilim"]:
                     for ik, isel in enumerate(self.selectDict[selection]["invalid"]):
@@ -460,6 +503,7 @@ class TestSelector():
                 with pytest.raises(SPYValueError):
                     Selector(dummy, {"foi": [0], "foilim": [0, 1]})
             else:
+                # ensure objects without `freq` property complain properly
                 with pytest.raises(SPYValueError):
                     Selector(dummy, {"foi": [0]})
                 with pytest.raises(SPYValueError):
@@ -496,6 +540,8 @@ class TestSelector():
         ang = AnalogData(data=self.data["AnalogData"], 
                          trialdefinition=self.trl["AnalogData"], 
                          samplerate=self.samplerate)
+        angIdx = [slice(None)] * len(ang.dimord)
+        timeIdx = ang.dimord.index("time")
         
         # the below check only works for equidistant trials!
         for tselect in ["toi", "toilim"]:
@@ -519,8 +565,19 @@ class TestSelector():
                     if timeSteps.min() == timeSteps.max() == 1:
                         idx = slice(idx[0], idx[-1] + 1, 1)
                 result = [idx] * len(ang.trials)
+                
                 # check correct format of selector (list -> slice etc.)
                 assert result == sel
+                selected = selectdata(ang, {tselect: timeSel})
+                for trialno in range(len(ang.trials)):
+                    try:
+                        angIdx[timeIdx] = result[trialno]
+                    except:
+                        import pdb; pdb.set_trace()
+                    try:
+                        assert np.array_equal(selected.trials[trialno], ang.trials[trialno][tuple(angIdx)])
+                    except:
+                        import pdb; pdb.set_trace()
                 
         # FIXME: test time-frequency data selection as soon as we support this object type                
     

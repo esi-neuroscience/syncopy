@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-28 17:12:14>
+# Last modification time: <2019-10-29 15:21:24>
 
 # Builtin/3rd party package imports
 import os
@@ -342,6 +342,8 @@ class ComputationalRoutine(ABC):
             lyt[0] = slice(stacking, stacking + chkshp[0])
             stacking += chkshp[0]
             if chan_per_worker is None:
+                # if isinstance(trial.idx[0], list) and len(trial.idx[0]) == 0:
+                #     import pdb; pdb.set_trace()
                 targetLayout.append(tuple(lyt))
                 targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
                 sourceLayout.append(trial.idx)
@@ -374,12 +376,10 @@ class ComputationalRoutine(ABC):
         # TRIAL) that can be UNSORTED W/REPS to actually perform the requested 
         # selection on the NumPy array extracted w/`sourceLayout`. 
         for grd in sourceLayout:
-            try:
-                if any([np.diff(sel).min() <= 0 if isinstance(sel, list) and len(sel) > 1 else False for sel in grd]):
-                    self.useFancyIdx = True 
-                    break
-            except:
-                import pdb; pdb.set_trace()
+            if any([np.diff(sel).min() <= 0 if isinstance(sel, list) 
+                    and len(sel) > 1 else False for sel in grd]):
+                self.useFancyIdx = True 
+                break
         if self.useFancyIdx:
             sourceSelectors = []
             for gk, grd in enumerate(sourceLayout):
@@ -678,7 +678,9 @@ class ComputationalRoutine(ABC):
                                  "vdsdir": self.virtualDatasetDir,
                                  "outfile": outfilename.format(chk),
                                  "outdset": outdsetname,
-                                 "outgrid": self.targetLayout[chk]}
+                                 "outgrid": self.targetLayout[chk],
+                                 "outshape": self.targetShapes[chk],
+                                 "dtype": self.dtype}
                                  for chk in range(len(self.sourceLayout))]) 
         
         # Map all components (channel-trial-blocks) onto `computeFunction`
@@ -757,36 +759,41 @@ class ComputationalRoutine(ABC):
                 ingrid = self.sourceLayout[nblock]
                 sigrid = self.sourceSelectors[nblock]
                 outgrid = self.targetLayout[nblock]
-
-                # Get source data as NumPy array
-                if self.hdr is None:
-                    if isHDF:
-                        if self.useFancyIdx:
-                            arr = np.array(sourceObj[tuple(ingrid)])[np.ix_(*sigrid)]
-                        else:
-                            try:
-                                arr = np.array(sourceObj[tuple(ingrid)])
-                            except:
-                                import pdb; pdb.set_trace()
-                    else:
-                        if self.useFancyIdx:
-                            arr = sourceObj[np.ix_(*ingrid)]
-                        else:
-                            arr = np.array(sourceObj[ingrid])
-                    sourceObj.flush()
+                
+                # Catch empty source-array selections; this workaround is not 
+                # necessary for h5py version 2.10+ (see https://github.com/h5py/h5py/pull/1174)
+                if any([not sel for sel in ingrid]):
+                    res = np.empty(self.targetShapes[nblock], dtype=self.dtype)
                 else:
-                    idx = ingrid
-                    if self.useFancyIdx:
-                        idx = np.ix_(*ingrid)
-                    stacks = []
-                    for fk, fname in enumerate(data.filename):
-                        stacks.append(np.memmap(fname, offset=int(self.hdr[fk]["length"]),
-                                                mode="r", dtype=self.hdr[fk]["dtype"],
-                                                shape=(self.hdr[fk]["M"], self.hdr[fk]["N"]))[idx])
-                    arr = np.vstack(stacks)[ingrid]
+                    # Get source data as NumPy array
+                    if self.hdr is None:
+                        if isHDF:
+                            if self.useFancyIdx:
+                                arr = np.array(sourceObj[tuple(ingrid)])[np.ix_(*sigrid)]
+                            else:
+                                try:
+                                    arr = np.array(sourceObj[tuple(ingrid)])
+                                except:
+                                    import pdb; pdb.set_trace()
+                        else:
+                            if self.useFancyIdx:
+                                arr = sourceObj[np.ix_(*ingrid)]
+                            else:
+                                arr = np.array(sourceObj[ingrid])
+                        sourceObj.flush()
+                    else:
+                        idx = ingrid
+                        if self.useFancyIdx:
+                            idx = np.ix_(*ingrid)
+                        stacks = []
+                        for fk, fname in enumerate(data.filename):
+                            stacks.append(np.memmap(fname, offset=int(self.hdr[fk]["length"]),
+                                                    mode="r", dtype=self.hdr[fk]["dtype"],
+                                                    shape=(self.hdr[fk]["M"], self.hdr[fk]["N"]))[idx])
+                        arr = np.vstack(stacks)[ingrid]
 
-                # Perform computation
-                res = self.computeFunction(arr, *self.argv, **self.cfg)
+                    # Perform computation
+                    res = self.computeFunction(arr, *self.argv, **self.cfg)
                     
                 # Either write result to `outgrid` location in `target` or add it up
                 if self.keeptrials:
