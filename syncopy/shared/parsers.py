@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-22 11:04:48>
+# Last modification time: <2019-10-31 14:01:54>
 
 # Builtin/3rd party package imports
 import os
@@ -403,7 +403,10 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
             if len(dims) > 1:
                 ashape = arr.shape
             else:
-                ashape = max((ischar,), arr.squeeze().shape)
+                if arr.size == 1:
+                    ashape = arr.shape
+                else:
+                    ashape = max((ischar,), arr.squeeze().shape)
             if len(dims) != len(ashape):
                 msg = "{}-dimensional array"
                 raise SPYValueError(legal=msg.format(len(dims)), varname=varname,

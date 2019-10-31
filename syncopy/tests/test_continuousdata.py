@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:46:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-25 10:11:10>
+# Last modification time: <2019-10-31 16:52:12>
 
 import os
 import tempfile
@@ -14,7 +14,8 @@ import numpy as np
 from numpy.lib.format import open_memmap
 from syncopy.datatype import AnalogData, SpectralData, padding
 from syncopy.io import save, load
-from syncopy.datatype.base_data import VirtualData
+from syncopy.datatype.base_data import VirtualData, Selector, StructDict
+from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests.misc import generate_artificial_data, construct_spy_filename
 
@@ -380,30 +381,58 @@ class TestAnalogData():
 
     # test data-selection via class method
     def test_dataselection(self):
-        dummy = AnalogData(data=self.data, trialdefinition=self.trl, samplerate=self.samplerate)
+        dummy = AnalogData(data=self.data, 
+                           trialdefinition=self.trl, 
+                           samplerate=self.samplerate)
+        trialSelections = [
+            "all",  # enforce below selections in all trials of `dummy`
+            [3, 1]  # minimally unordered
+        ]
+        chanSelections = [
+            ["channel03", "channel01", "channel01", "channel02"],  # string selection w/repetition + unordered
+            [4, 2, 2, 5, 5],   # repetition + unorderd
+            range(5, 8),  # narrow range
+            slice(-2, None)  # negative-start slice
+            ]
+        toiSelections = [
+            "all",  # non-type-conform string
+            [0.6],  # single inexact match
+            [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
+            ] 
+        toilimSelections = [
+            [0.5, 1.5],  # regular range
+            [1.5, 2.0],  # minimal range (just two-time points)
+            [1.0, np.inf]  # unbounded from above
+            ]
+        timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
+            + list(zip(["toilim"] * len(toilimSelections), toilimSelections)) 
 
-        # # toi
-        #                    "all"  # trivial "selection" of entire contents
-        #                    [0.6],  # single inexact match
-        #                    [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.],  # alternating madness
-        # # toilim
-        #                       [0.5, 1.5],  # regular range
-        #                       [1.5, 2.0],  # minimal range (just two-time points)
-        #                       [1.0, np.inf],  # unbounded from above
+        idx = [slice(None)] * len(dummy.dimord)
+        timeIdx = dummy.dimord.index("time")
+        chanIdx = dummy.dimord.index("channel")
         
-        
-        # FIXME: test shapes of slices + RANGE!
-        # FIXME: test slice(None, 5)
-        # FIXME: test [0, 1, 2, 3, 4] == slice(None, 5) + str selection
-        # FIXME: test slice(-5, None) == slice(5, None)
-        # FIXME: test slice(0, 10, 2)
-        # FIXME: test slice(-8, -2)
-        # FIXME: test slice(-8, -2, 2)
-        # FIXME: test toi/toilim + channel combo (right shape etc.)
-        # FIXME: test trials = 2, 1, 3 + channel + toi/toilim
-        from syncopy.tests.test_basedata import TestSelector
-        sd = TestSelector.selectDict
-        import pdb; pdb.set_trace()
+        for trialSel in trialSelections:
+            for chanSel in chanSelections:
+                for timeSel in timeSelections:
+                    kwdict = {}
+                    kwdict["trials"] = trialSel
+                    kwdict["channels"] = chanSel
+                    kwdict[timeSel[0]] = timeSel[1]
+                    cfg = StructDict(kwdict)
+                    # data selection via class-method + `Selector` instance for indexing
+                    selected = dummy.selectdata(**kwdict)
+                    selector = Selector(dummy, kwdict)
+                    idx[chanIdx] = selector.channel
+                    for tk, trialno in enumerate(selector.trials):
+                        idx[timeIdx] = selector.time[tk]
+                        assert np.array_equal(selected.trials[tk].squeeze(),
+                                              dummy.trials[trialno][idx[0], :][:, idx[1]].squeeze())
+                    cfg.data = dummy
+                    cfg.out = AnalogData(dimord=AnalogData._defaultDimord)
+                    # data selection via package function and `cfg`: ensure equality
+                    selectdata(cfg)
+                    assert np.array_equal(cfg.out.channel, selected.channel)
+                    assert np.array_equal(cfg.out.data, selected.data)
 
 
 class TestSpectralData():

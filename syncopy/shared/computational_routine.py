@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-29 15:21:24>
+# Last modification time: <2019-10-31 15:04:22>
 
 # Builtin/3rd party package imports
 import os
@@ -342,8 +342,6 @@ class ComputationalRoutine(ABC):
             lyt[0] = slice(stacking, stacking + chkshp[0])
             stacking += chkshp[0]
             if chan_per_worker is None:
-                # if isinstance(trial.idx[0], list) and len(trial.idx[0]) == 0:
-                #     import pdb; pdb.set_trace()
                 targetLayout.append(tuple(lyt))
                 targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
                 sourceLayout.append(trial.idx)
@@ -771,10 +769,7 @@ class ComputationalRoutine(ABC):
                             if self.useFancyIdx:
                                 arr = np.array(sourceObj[tuple(ingrid)])[np.ix_(*sigrid)]
                             else:
-                                try:
-                                    arr = np.array(sourceObj[tuple(ingrid)])
-                                except:
-                                    import pdb; pdb.set_trace()
+                                arr = np.array(sourceObj[tuple(ingrid)])
                         else:
                             if self.useFancyIdx:
                                 arr = sourceObj[np.ix_(*ingrid)]

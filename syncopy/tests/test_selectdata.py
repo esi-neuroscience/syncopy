@@ -4,21 +4,32 @@
 # 
 # Created: 2019-10-25 10:13:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-29 16:23:22>
+# Last modification time: <2019-10-31 16:49:00>
 
 import pytest
 import numpy as np
+import inspect
 import syncopy.datatype as spd
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.datatype.base_data import Selector
 from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy import __dask__
+if __dask__:
+    import dask.distributed as dd
+
+# Decorator to decide whether or not to run dask-related tests
+skip_without_dask = pytest.mark.skipif(
+    not __dask__, reason="dask not available")
+
 
 # The procedure here is:
 # (1) test if `Selector` instance was constructed correctly (i.e., indexing tuples
 #     look as expected, ordered list -> slice conversion works etc.) 
 # (2) test if data was correctly selected from source object (i.e., compare shapes,
 #     property contents and actual numeric data arrays)
+# Multi-selections are not tested here but in the respective class tests (e.g., 
+# "time" + "channel" + "trial" `AnalogData` selections etc.)
 class TestSelector():
 
     # Set up "global" parameters for data objects to be tested (we only test
@@ -433,19 +444,13 @@ class TestSelector():
                         if prop in selection._byTrialProps:
                             propIdx = selected.dimord.index(prop)
                             propArr = np.unique(selected.data[:, propIdx]).astype(np.intp)
-                            try:
-                                assert set(getattr(selected, prop)) == set(getattr(dummy, prop)[propArr])
-                            except:
-                                import pdb; pdb.set_trace()
+                            assert set(getattr(selected, prop)) == set(getattr(dummy, prop)[propArr])
                             tk = 0
                             for trialno in range(len(dummy.trials)):
                                 if solution[trialno]: # do not try to compare empty selections
-                                    try:
-                                        assert np.array_equal(selected.trials[tk],
-                                                            dummy.trials[trialno][solution[trialno], :])
-                                        tk += 1
-                                    except:
-                                        import pdb; pdb.set_trace()
+                                    assert np.array_equal(selected.trials[tk],
+                                                          dummy.trials[trialno][solution[trialno], :])
+                                    tk += 1
                             
                         # `channel` is a special case for `SpikeData` objects
                         elif dclass == "SpikeData" and prop == "channel":
@@ -460,12 +465,8 @@ class TestSelector():
                             idx[dummy.dimord.index(prop)] = solution
                             assert np.array_equal(np.array(dummy.data)[tuple(idx)],
                                                   selected.data)
-                            try:
-                                assert np.array_equal(getattr(selected, prop), 
-                                                    getattr(dummy, prop)[solution])
-                            except:
-                                import pdb; pdb.set_trace()
-                            # import pdb; pdb.set_trace()
+                            assert np.array_equal(getattr(selected, prop), 
+                                                  getattr(dummy, prop)[solution])
                         
                     # ensure invalid selection trigger expected errors
                     for ik, isel in enumerate(self.selectDict[prop]["invalid"]):
@@ -557,6 +558,7 @@ class TestSelector():
                     else:
                         idx = np.intersect1d(np.where(trlTime >= timeSel[0])[0],
                                              np.where(trlTime <= timeSel[1])[0])
+                        
                 # check that correct data was selected (all trials identical, just take 1st one)
                 assert np.array_equal(ang.trials[0][idx, :],
                                       ang.trials[0][sel[0], :])
@@ -568,16 +570,13 @@ class TestSelector():
                 
                 # check correct format of selector (list -> slice etc.)
                 assert result == sel
+                
+                # perform actual data-selection and ensure identity of results
                 selected = selectdata(ang, {tselect: timeSel})
                 for trialno in range(len(ang.trials)):
-                    try:
-                        angIdx[timeIdx] = result[trialno]
-                    except:
-                        import pdb; pdb.set_trace()
-                    try:
-                        assert np.array_equal(selected.trials[trialno], ang.trials[trialno][tuple(angIdx)])
-                    except:
-                        import pdb; pdb.set_trace()
+                    angIdx[timeIdx] = result[trialno]
+                    assert np.array_equal(selected.trials[trialno], 
+                                          ang.trials[trialno][tuple(angIdx)])
                 
         # FIXME: test time-frequency data selection as soon as we support this object type                
     
@@ -626,6 +625,8 @@ class TestSelector():
                                 smpIdx.append(tp)
                     result = []
                     sel = Selector(discrete, {tselect: timeSel}).time
+                    selected = selectdata(discrete, {tselect: timeSel})
+                    tk = 0
                     for trlno in range(len(discrete.trials)):
                         thisTrial = discrete.trials[trlno][:, 0]
                         if isinstance(timeSel, list):
@@ -642,15 +643,22 @@ class TestSelector():
                                 for cand in candidates:
                                     trlRes += list(np.where(thisTrial == cand)[0])
                         else:
-                            trlRes = slice(None)
-                        # check that actually selected data is correct
+                            trlRes = slice(0, thisTrial.size, 1)
+                            
+                        # ensure that actually selected data is correct
                         assert np.array_equal(discrete.trials[trlno][trlRes, :], 
                                               discrete.trials[trlno][sel[trlno], :])
+                        if sel[trlno]:
+                            assert np.array_equal(selected.trials[tk], 
+                                                  discrete.trials[trlno][sel[trlno], :])
+                            tk += 1
+                            
                         if not isinstance(trlRes, slice) and len(trlRes) > 1:
                             sampSteps = np.diff(trlRes)
                             if sampSteps.min() == sampSteps.max() == 1:
                                 trlRes = slice(trlRes[0], trlRes[-1] + 1, 1)
                         result.append(trlRes)
+                        
                     # check correct format of selector (list -> slice etc.)
                     assert result == sel
     
@@ -682,6 +690,8 @@ class TestSelector():
                            trialdefinition=self.trl['SpectralData'], 
                            samplerate=self.samplerate)
         allFreqs = spc.freq
+        spcIdx = [slice(None)] * len(spc.dimord)
+        freqIdx = spc.dimord.index("freq")
         
         for fselect in ["foi", "foilim"]:
             for freqSel in selDict[fselect]:
@@ -696,11 +706,34 @@ class TestSelector():
                     else:
                         idx = np.intersect1d(np.where(allFreqs >= freqSel[0])[0],
                                              np.where(allFreqs <= freqSel[1])[0])
+                        
                 # check that correct data was selected (all trials identical, just take 1st one)
                 assert np.array_equal(spc.freq[idx], spc.freq[sel])
                 if not isinstance(idx, slice) and len(idx) > 1:
                     freqSteps = np.diff(idx)
                     if freqSteps.min() == freqSteps.max() == 1:
                         idx = slice(idx[0], idx[-1] + 1, 1)
+                        
                 # check correct format of selector (list -> slice etc.)
                 assert idx == sel
+
+                # perform actual data-selection and ensure identity of results
+                selected = selectdata(spc, {fselect: freqSel})
+                spcIdx[freqIdx] = idx
+                assert np.array_equal(selected.freq, spc.freq[sel])
+                for trialno in range(len(spc.trials)):
+                    assert np.array_equal(selected.trials[trialno], 
+                                          spc.trials[trialno][tuple(spcIdx)])
+
+    @skip_without_dask
+    def test_parallel(self, testcluster):
+        # collect all tests of current class and repeat them in parallel
+        client = dd.Client(testcluster)
+        all_tests = [attr for attr in self.__dir__()
+                     if (inspect.ismethod(getattr(self, attr)) and attr != "test_parallel")]
+        for test in all_tests:
+            getattr(self, test)()
+        client.close()
+
+        
+        

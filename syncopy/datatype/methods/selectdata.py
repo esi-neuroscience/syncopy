@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-14 12:46:54
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-28 14:43:53>
+# Last modification time: <2019-10-31 16:38:41>
 
 # Builtin/3rd party package imports
 import inspect
@@ -255,7 +255,7 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
     if out is not None:
         try:
             data_parser(out, varname="out", writable=True, empty=True,
-                        dataclass=data.__class.__.__name__,
+                        dataclass=data.__class__.__name__,
                         dimord=data.dimord)
         except Exception as exc:
             raise exc
@@ -276,7 +276,7 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
                        "eventids": eventids}
     
     # Create inventory of all available selectors and actually provided values 
-    # to create a bookkeeping dict for loggin
+    # to create a bookkeeping dict for logging
     provided = locals()
     available = get_defaults(data.selectdata)
     actualSelection = {}
@@ -310,10 +310,9 @@ class DataSelection(ComputationalRoutine):
     def process_metadata(self, data, out):
         
         # Get/set timing-related selection modifiers
-        if not data._selection._timeShuffle:
-            out.trialdefinition = data._selection.trialdefinition
-        # else:
-        #     out.time = data._selection.timepoints  # FIXME: experimental
+        out.trialdefinition = data._selection.trialdefinition
+        # if data._selection._timeShuffle: # FIXME: should be implemented done the road
+        #     out.time = data._selection.timepoints  
         if data._selection._samplerate:
             out.samplerate = data.samplerate
         
@@ -321,7 +320,4 @@ class DataSelection(ComputationalRoutine):
         for prop in data._selection._dimProps:
             selection = getattr(data._selection, prop)
             if selection is not None:
-                try:
-                    setattr(out, prop, getattr(data, prop)[selection])
-                except:
-                    import pdb; pdb.set_trace()
+                setattr(out, prop, getattr(data, prop)[selection])

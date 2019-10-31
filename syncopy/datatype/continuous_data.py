@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-29 16:25:58>
+# Last modification time: <2019-10-31 16:14:46>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -20,6 +20,7 @@ from numpy.lib.format import open_memmap
 # Local imports
 from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
+from .methods.selectdata import selectdata
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYIOError
 import syncopy as spy
@@ -343,9 +344,19 @@ class AnalogData(ContinuousData):
     # Selector method
     def selectdata(self, trials=None, channels=None, toi=None, toilim=None):
         """
-        Docstring mostly pointing to ``selectdata``
+        Create new `AnalogData` object from selection
+        
+        Please refere to :func:`syncopy.selectdata` for detailed usage information. 
+        
+        Examples
+        --------
+        >>> ang2chan = ang.selectdata("channels"=["channel01", "channel02"])
+        
+        See also
+        --------
+        syncopy.selectdata : create new objects via deep-copy selections
         """
-        pass
+        return selectdata(self, trials=trials, channels=channels, toi=toi, toilim=toilim)
 
     # "Constructor"
     def __init__(self,

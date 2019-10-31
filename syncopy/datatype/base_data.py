@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-29 13:37:50>
+# Last modification time: <2019-10-31 15:01:39>
 
 # Builtin/3rd party package imports
 import getpass
@@ -68,8 +68,8 @@ class BaseData(ABC):
     # Checksum algorithm
     _checksum_algorithm = spy.__checksum_algorithm__.__name__
     
-    # # FIXME: Do we need this? Dummy allocations of class attributes that are actually initialized in subclasses
-    # _mode = None
+    # Dummy allocations of class attributes that are actually initialized in subclasses
+    _mode = None
     
     @property
     @classmethod
@@ -1390,8 +1390,9 @@ class Selector():
         for prop in self._allProps:
             setattr(self, prop, (data, select))
         
-        # Ensure correct indexing: convert everything to lists for use w/`np.ix_`
-        # if we ended up w/more than 2 list selectors
+        # Ensure correct indexing: harmonize selections for `DiscreteData`-children
+        # or convert everything to lists for use w/`np.ix_` if we ended up w/more 
+        # than 2 list selectors for `ContinuousData`-offspring
         self._make_consistent(data)
         
     @property
@@ -1505,6 +1506,7 @@ class Selector():
             
             # Prepare new `trialdefinition` array corresponding to selection
             self.trialdefinition = data
+
         else:
             return
 
@@ -1802,7 +1804,7 @@ class Selector():
     # Local helper that converts slice selectors to lists (if necessary)        
     def _make_consistent(self, data):
         """
-        Consolidates array selections via conversion to lists (if required)
+        Consolidate multi-selections 
         
         Parameters
         ----------
@@ -1817,13 +1819,22 @@ class Selector():
         -----
         This class method is called after all user-provided selections have
         been (successfully) processed and (if necessary) converted to
-        lists/slices. The integrity of conjoint multi-dimensional selections
+        lists/slices. 
+        For instances of :class:`~syncopy.datatype.continuous_data.ContinuousData` 
+        child classes (i.e., :class:`~syncopy.AnalogData` and :class:`~syncopy.SpectralData`
+        objects) the integrity of conjoint multi-dimensional selections
         is ensured by guaranteeing that cross-dimensional selections are
         finite (i.e., lists) and no more than two lists are used simultaneously
         for a selection. If the current Selector instance contains multiple
         index lists, the contents of all selection properties is converted
         (if required) to lists so that multi-dimensional array-indexing can
         be readily performed via :func:`numpy.ix_`. 
+        For instances of :class:`~syncopy.datatype.discrete_data.DiscreteData` 
+        child classes (i.e., :class:`~syncopy.SpikeData` and :class:`~syncopy.EventData`
+        objects), any selection (`unit`, `eventid`, `time` and `channel`) operates 
+        on the rows of the object's underlying `data` array. Thus, multi-selections
+        need to be synchronized (e.g., a `unit` selection pointing to rows `[0, 1, 2]`
+        and a `time` selection filtering rows `[1, 2, 3]` are combined to `[1, 2]`). 
 
         See also
         --------
@@ -1848,24 +1859,35 @@ class Selector():
                 chanIdx = data.dimord.index("channel")
                 wantedChannels = np.unique(data.data[:, chanIdx])[self.channel]
                 chanPerTrial = []
+                
             for tk, trialno in enumerate(self.trials):
                 trialArr = np.arange(np.sum(data.trialid == trialno))
-                combinedSelect = trialArr[getattr(self, actualSelections[0])[tk]]
+                byTrialSelections = []
                 for selection in actualSelections:
-                    combinedSelect = [elem for elem in trialArr[getattr(self, selection)[tk]] 
-                                      if elem in combinedSelect]
+                    byTrialSelections.append(trialArr[getattr(self, selection)[tk]])
+                    
+                # (try to) preserve unordered selections by processing them first
+                areShuffled = [(np.diff(sel) <= 0).any() for sel in byTrialSelections]
+                combiOrder = np.argsort(areShuffled)[::-1]
+                combinedSelect = byTrialSelections[combiOrder[0]]
+                for combIdx in combiOrder:
+                    combinedSelect = [elem for elem in combinedSelect 
+                                      if elem in byTrialSelections[combIdx]]
+                    
+                # Keep record of channels present in trials vs. selected channels
                 if self._dataClass == "SpikeData":
                     rawChanInTrial = data.data[data.trialid == trialno, chanIdx]
                     chanTrlIdx = [ck for ck, chan in enumerate(rawChanInTrial) if chan in wantedChannels]
                     combinedSelect = [elem for elem in combinedSelect if elem in chanTrlIdx]
                     chanPerTrial.append(rawChanInTrial[combinedSelect])
-                    # import pdb; pdb.set_trace()
-                    # chanSelection = np.union1d(chanSelection,
-                    #                            data.data[data.trialid == trialno, chanIdx])
+                    
+                # The usual list -> slice conversion (if possible)
                 if len(combinedSelect) > 1:
                     selSteps = np.diff(combinedSelect)
                     if selSteps.min() == selSteps.max() == 1:
                         combinedSelect = slice(combinedSelect[0], combinedSelect[-1] + 1, 1)
+                        
+                # Update selector properties
                 for selection in actualSelections:
                     getattr(self, "_{}".format(selection))[tk] = combinedSelect
 
@@ -1879,42 +1901,6 @@ class Selector():
                     if selSteps.min() == selSteps.max() == 1:
                         chanSelection = slice(chanSelection[0], chanSelection[-1] + 1, 1)
                 self._channel = chanSelection
-
-
-            # # Compute intersection of "time" x "{eventid|unit}" row-indices per
-            # # trial: after this step, `self.time` == `self.{unit|eventid}`
-            # for tk, trialno in enumerate(self.trials):
-            #     trialArr = np.arange(np.sum(data.trialid == trialno))
-            #     combinedSelect = trialArr[getattr(self, actualSelections[0])[tk]]
-            #     for selection in actualSelections:
-            #         combinedSelect = [elem for elem in trialArr[getattr(self, selection)[tk]] 
-            #                           if elem in combinedSelect]
-            #     if len(combinedSelect) > 1:
-            #         selSteps = np.diff(combinedSelect)
-            #         if selSteps.min() == selSteps.max() == 1:
-            #             combinedSelect = slice(combinedSelect[0], combinedSelect[-1] + 1, 1)
-            #     for selection in actualSelections:
-            #         getattr(self, "_{}".format(selection))[tk] = combinedSelect
-
-            # # Ensure that `self.channel` is compatible w/provided selections: in
-            # # `SpikeData` objects, `channels` are **not** the same in all trials!
-            # # Ensure that `self.channel` is actually selectable from availalbe trials
-            # if self._dataClass == "SpikeData":
-            #     chanIdx = data.dimord.index("channel")
-            #     channelNumbers = np.unique(data.data[:, chanIdx])
-            #     chanSelection = data.data[data.trialid == self.trials[0], chanIdx]
-            #     for tk, trialno in enumerate(self.trials):
-            #         chanSelection = np.union1d(chanSelection,
-            #                                    data.data[data.trialid == trialno, chanIdx])
-            #     chanSelection = [chan for chan in channelNumbers[self.channel] 
-            #                      if chan in np.searchsorted(channelNumbers, chanSelection, side="left")
-            #                      and if chan in ]
-            #     if len(chanSelection) > 1:
-            #         selSteps = np.diff(chanSelection)
-            #         if selSteps.min() == selSteps.max() == 1:
-            #             chanSelection = slice(chanSelection[0], chanSelection[-1] + 1, 1)
-            #     self._channel = chanSelection
-
             
             return
 
