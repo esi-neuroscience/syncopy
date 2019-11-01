@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-31 15:01:39>
+# Last modification time: <2019-11-01 14:57:54>
 
 # Builtin/3rd party package imports
 import getpass
@@ -1385,8 +1385,8 @@ class Selector():
         self.trials = (data, select)
 
         # Now set any possible selection attribute (depending on type of `data`)
-        # Note: `trialdefinition` is set by `time.setter` - it only makes sense
-        # for objects that have a `time` property to update `trialdefinition`
+        # Note: `trialdefinition` is set *after* harmonizing indexing selections 
+        # in `_make_consistent`
         for prop in self._allProps:
             setattr(self, prop, (data, select))
         
@@ -1504,9 +1504,6 @@ class Selector():
             self._time = timing
             self._samplerate = data.samplerate
             
-            # Prepare new `trialdefinition` array corresponding to selection
-            self.trialdefinition = data
-
         else:
             return
 
@@ -1901,6 +1898,9 @@ class Selector():
                     if selSteps.min() == selSteps.max() == 1:
                         chanSelection = slice(chanSelection[0], chanSelection[-1] + 1, 1)
                 self._channel = chanSelection
+                
+            # Finally, prepare new `trialdefinition` array
+            self.trialdefinition = data
             
             return
 
@@ -1928,11 +1928,19 @@ class Selector():
                     if start is None:
                         start = 0
                     if stop is None:
+                        stop = -1
+                    if start < 0 or stop < 0:
                         trlTime = data._get_time([self.trials[tk]], toilim=[-np.inf, np.inf])[0]
                         if isinstance(trlTime, list):
-                            stop = np.max(trlTime)
+                            if start < 0:
+                                start += len(trlTime)
+                            if stop < 0:
+                                stop += len(trlTime)
                         else:
-                            stop = trlTime.stop
+                            if start < 0:
+                                start += trlTime.stop
+                            if stop < 0:
+                                stop += trlTime.stop
                     if step is None:
                         step = 1
                     self.time[tk] = list(range(start, stop, step))
@@ -1943,11 +1951,21 @@ class Selector():
                     if start is None:
                         start = 0
                     if stop is None:
-                        stop = getattr(data, prop).size
+                        stop = -1
+                    if start < 0 or stop < 0:
+                        propSize = getattr(data, prop).size
+                        if start < 0:
+                            start += propSize
+                        if stop < 0:
+                            stop += propSize
                     if step is None:
                         step = 1
                     setattr(self, "_{}".format(prop), list(range(start, stop, step)))
             self._useFancy = True
+
+        # Finally, prepare new `trialdefinition` array for objects with `time` dimensions
+        if self.time is not None:
+            self.trialdefinition = data
         
         return
         

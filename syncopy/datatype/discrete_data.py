@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-29 12:42:30>
+# Last modification time: <2019-11-01 15:28:25>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -13,6 +13,7 @@ from abc import ABC
 # Local imports
 from .base_data import BaseData, Indexer, FauxTrial
 from .methods.definetrial import definetrial
+from .methods.selectdata import selectdata
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError
 
@@ -324,10 +325,22 @@ class SpikeData(DiscreteData):
         self._unit = np.array(unit)
 
     # Selector method
-    def selectdata(self, trials=None, toi=None, toilim=None, units=None):
-        """Select parts of the data (:func:`syncopy.selectdata`)        
+    def selectdata(self, trials=None, toi=None, toilim=None, units=None, channels=None):
         """
-        pass
+        Create new `SpikeData` object from selection
+        
+        Please refere to :func:`syncopy.selectdata` for detailed usage information. 
+        
+        Examples
+        --------
+        >>> spkUnit01 = spk.selectdata(units=[0, 1])
+        
+        See also
+        --------
+        syncopy.selectdata : create new objects via deep-copy selections
+        """
+        return selectdata(self, trials=trials, channels=channels, toi=toi, 
+                          toilim=toilim, units=units)
         
     # Helper function that extracts by-trial unit-indices
     def _get_unit(self, trials, units=None):
@@ -455,9 +468,20 @@ class EventData(DiscreteData):
         
     # Selector method
     def selectdata(self, trials=None, toi=None, toilim=None, eventids=None):
-        """Select parts of the data (:func:`syncopy.selectdata`)
         """
-        pass
+        Create new `EventData` object from selection
+        
+        Please refere to :func:`syncopy.selectdata` for detailed usage information. 
+        
+        Examples
+        --------
+        >>> evtStimOn = evt.selectdata(eventids=[1])
+        
+        See also
+        --------
+        syncopy.selectdata : create new objects via deep-copy selections
+        """
+        return selectdata(self, trials=trials, toi=toi, toilim=toilim, eventids=eventids)
 
     # Helper function that extracts by-trial eventid-indices
     def _get_eventid(self, trials, eventids=None):

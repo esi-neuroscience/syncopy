@@ -4,7 +4,7 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-24 15:42:13>
+# Last modification time: <2019-11-01 16:02:23>
 
 import os
 import tempfile
@@ -154,11 +154,15 @@ class TestComputationalRoutine():
             assert self.metrix[sk](np.abs(out.data - reference)) < self.tols[sk]
             assert np.array_equal(out.channel, self.sigdata.channel[sel.channel])
             
-            # # FIXME: ensure pre-selection is equivalent to in-place selection
-            # out_sel = filter_manager(self.equidata.selectdata(select), self.b, self.a)
-            # assert np.array_equal(out.data, out_sel.data)
-            # assert np.array_equal(out.channel, out_sel.channel)
-            # assert np.array_equal(out.time, out_sel.time)
+            # ensure pre-selection is equivalent to in-place selection
+            if select is None:
+                selected = self.sigdata.selectdata()
+            else:
+                selected = self.sigdata.selectdata(**select)
+            out_sel = filter_manager(selected, self.b, self.a)
+            assert np.array_equal(out.data, out_sel.data)
+            assert np.array_equal(out.channel, out_sel.channel)
+            assert np.array_equal(out.time, out_sel.time)
             
             out = filter_manager(self.sigdata, self.b, self.a, select=select, keeptrials=False)
 
@@ -175,11 +179,15 @@ class TestComputationalRoutine():
             assert self.metrix[sk](np.abs(out.data - reference)) < self.tols[sk]
             assert np.array_equal(out.channel, self.sigdata.channel[sel.channel])
             
-            # # FIXME: ensure pre-selection is equivalent to in-place selection
-            # out_sel = filter_manager(self.equidata.selectdata(select), self.b, self.a, keeptrials=False)
-            # assert np.array_equal(out.data, out_sel.data)
-            # assert np.array_equal(out.channel, out_sel.channel)
-            # assert np.array_equal(out.time, out_sel.time)
+            # ensure pre-selection is equivalent to in-place selection
+            if select is None:
+                selected = self.sigdata.selectdata()
+            else:
+                selected = self.sigdata.selectdata(**select)
+            out_sel = filter_manager(selected, self.b, self.a, keeptrials=False)
+            assert np.array_equal(out.data, out_sel.data)
+            assert np.array_equal(out.channel, out_sel.channel)
+            assert np.array_equal(out.time, out_sel.time)
 
     def test_sequential_nonequidistant(self):
         for overlapping in [False, True]:
@@ -209,11 +217,16 @@ class TestComputationalRoutine():
                 assert out.data.shape[0] == reference
                 assert np.array_equal(out.channel, nonequidata.channel[sel.channel])
                 
-                # # FIXME: ensure pre-selection is equivalent to in-place selection
-                # out_sel = filter_manager(nonequidata.selectdata(select), self.b, self.a)
-                # assert np.array_equal(out.data, out_sel.data)
-                # assert np.array_equal(out.channel, out_sel.channel)
-                # assert np.array_equal(out.time, out_sel.time)
+                # ensure pre-selection is equivalent to in-place selection
+                if select is None:
+                    selected = nonequidata.selectdata()
+                else:
+                    selected = nonequidata.selectdata(**select)
+                out_sel = filter_manager(selected, self.b, self.a)
+                assert np.array_equal(out.data, out_sel.data)
+                assert np.array_equal(out.channel, out_sel.channel)
+                for tk in range(len(out.trials)):
+                    assert np.array_equal(out.time[tk], out_sel.time[tk])
             
     def test_sequential_saveload(self):
         for sk, select in enumerate(self.sigdataSelections):
@@ -227,14 +240,18 @@ class TestComputationalRoutine():
             assert len(out.trials) == len(sel.trials)
             assert "lowpass" in out._log
 
-            # # FIXME: ensure pre-selection is equivalent to in-place selection
-            # out_sel = filter_manager(self.sigdata.selectdata(select), self.b, self.a, 
-            #                          log_dict={"a": self.a, "b": self.b})
-            # assert set(["a", "b"]) == set(out_sel.cfg.keys())
-            # assert np.array_equal(out.cfg["a"], out_sel.cfg["a"])
-            # assert np.array_equal(out.cfg["b"], out.cfg["b"])
-            # assert len(out.trials) == len(out_sel.trials)
-            # assert "lowpass" in out_sel._log
+            # ensure pre-selection is equivalent to in-place selection
+            if select is None:
+                selected = self.sigdata.selectdata()
+            else:
+                selected = self.sigdata.selectdata(**select)
+            out_sel = filter_manager(selected, self.b, self.a, 
+                                     log_dict={"a": self.a, "b": self.b})
+            assert set(["a", "b"]) == set(out_sel.cfg.keys())
+            assert np.array_equal(out.cfg["a"], out_sel.cfg["a"])
+            assert np.array_equal(out.cfg["b"], out_sel.cfg["b"])
+            assert len(out.trials) == len(out_sel.trials)
+            assert "lowpass" in out_sel._log
             
             # save and re-load result, ensure nothing funky happens
             with tempfile.TemporaryDirectory() as tdir:
@@ -256,20 +273,19 @@ class TestComputationalRoutine():
                     reference = np.vstack(ref)
                 assert self.metrix[sk](np.abs(dummy.data - reference)) < self.tols[sk]
                 assert np.array_equal(dummy.channel, self.sigdata.channel[sel.channel])
-                del dummy, out
                 
-                # # FIXME: ensure out_sel is written/read correctly
-                # fname2 = os.path.join(tdir, "dummy2")
-                # out_sel.save(fname2)
-                # dummy2 = load(fname2)
-                # assert "a" in dummy2.cfg.keys()
-                # assert "b" in dummy2.cfg.keys()
-                # assert np.array_equal(dummy2.cfg["a"], dummy.cfg["a"])
-                # assert np.array_equal(dummy2.cfg["b"], dummy.cfg["b"])
-                # assert np.array_equal(dummy.data, dummy2.data)
-                # assert np.array_equal(dummy.channel, dummy2.channel)
-                # assert np.array_equal(dummy.time, dummy2.time)
-                # del dummy, dummy2, out, out_sel
+                # nsure out_sel is written/read correctly
+                fname2 = os.path.join(tdir, "dummy2")
+                out_sel.save(fname2)
+                dummy2 = load(fname2)
+                assert "a" in dummy2.cfg.keys()
+                assert "b" in dummy2.cfg.keys()
+                assert np.array_equal(dummy2.cfg["a"], dummy.cfg["a"])
+                assert np.array_equal(dummy2.cfg["b"], dummy.cfg["b"])
+                assert np.array_equal(dummy.data, dummy2.data)
+                assert np.array_equal(dummy.channel, dummy2.channel)
+                assert np.array_equal(dummy.time, dummy2.time)
+                del dummy, dummy2, out, out_sel
 
     @skip_without_dask
     def test_parallel_equidistant(self, testcluster):
@@ -310,13 +326,17 @@ class TestComputationalRoutine():
                                                                     chan_per_worker) + 
                                                                 int(out.channel.size % chan_per_worker > 0))
 
-                    # # FIXME: ensure pre-selection is equivalent to in-place selection
-                    # out_sel = filter_manager(self.sigdata.selectdata(select), self.b, self.a,
-                    #                          chan_per_worker=chan_per_worker, parallel=True,
-                    #                          parallel_store=parallel_store)
-                    # assert np.array_equal(out.data, out_sel.data)
-                    # assert np.array_equal(out.channel, out_sel.channel)
-                    # assert np.array_equal(out.time, out_sel.time)
+                    # ensure pre-selection is equivalent to in-place selection
+                    if select is None:
+                        selected = self.sigdata.selectdata()
+                    else:
+                        selected = self.sigdata.selectdata(**select)
+                    out_sel = filter_manager(selected, self.b, self.a,
+                                             chan_per_worker=chan_per_worker, parallel=True,
+                                             parallel_store=parallel_store)
+                    assert np.array_equal(out.data, out_sel.data)
+                    assert np.array_equal(out.channel, out_sel.channel)
+                    assert np.array_equal(out.time, out_sel.time)
 
                     out = filter_manager(self.sigdata, self.b, self.a, select=select,
                                          parallel=True, parallel_store=parallel_store,
@@ -336,13 +356,13 @@ class TestComputationalRoutine():
                     assert np.array_equal(out.channel, self.sigdata.channel[sel.channel])
                     assert out.data.is_virtual == False
 
-                    # # FIXME: ensure pre-selection is equivalent to in-place selection
-                    # out_sel = filter_manager(self.sigdata.selectdata(select), self.b, self.a,
-                    #                          parallel=True, parallel_store=parallel_store, 
-                    #                          keeptrials=False)
-                    # assert np.array_equal(out.data, out_sel.data)
-                    # assert np.array_equal(out.channel, out_sel.channel)
-                    # assert np.array_equal(out.time, out_sel.time)
+                    # ensure pre-selection is equivalent to in-place selection
+                    out_sel = filter_manager(selected, self.b, self.a,
+                                             parallel=True, parallel_store=parallel_store, 
+                                             keeptrials=False)
+                    assert np.array_equal(out.data, out_sel.data)
+                    assert np.array_equal(out.channel, out_sel.channel)
+                    assert np.array_equal(out.time, out_sel.time)
 
         client.close()
     
@@ -392,13 +412,18 @@ class TestComputationalRoutine():
                                                                         chan_per_worker) + 
                                                                     int(out.channel.size % chan_per_worker > 0))
 
-                        # # FIXME: ensure pre-selection is equivalent to in-place selection
-                        # out_sel = filter_manager(nonequidata.selectdata(select), self.b, self.a,
-                        #                          chan_per_worker=chan_per_worker, parallel=True,
-                        #                          parallel_store=parallel_store)
-                        # assert np.array_equal(out.data, out_sel.data)
-                        # assert np.array_equal(out.channel, out_sel.channel)
-                        # assert np.array_equal(out.time, out_sel.time)
+                        # ensure pre-selection is equivalent to in-place selection
+                        if select is None:
+                            selected = nonequidata.selectdata()
+                        else:
+                            selected = nonequidata.selectdata(**select)
+                        out_sel = filter_manager(selected, self.b, self.a,
+                                                 chan_per_worker=chan_per_worker, parallel=True,
+                                                 parallel_store=parallel_store)
+                        assert np.array_equal(out.data, out_sel.data)
+                        assert np.array_equal(out.channel, out_sel.channel)
+                        for tk in range(len(out.trials)):
+                            assert np.array_equal(out.time[tk], out_sel.time[tk])
 
         client.close()
 
@@ -418,15 +443,19 @@ class TestComputationalRoutine():
                 assert len(out.trials) == len(sel.trials)
                 assert "lowpass" in out._log
 
-                # # FIXME: ensure pre-selection is equivalent to in-place selection
-                # out_sel = filter_manager(self.sigdata.selectdata(select), self.b, self.a,
-                #                          log_dict={"a": self.a, "b": self.b},
-                #                          parallel=True, parallel_store=parallel_store)
-                # assert set(["a", "b"]) == set(out_sel.cfg.keys())
-                # assert np.array_equal(out.cfg["a"], out_sel.cfg["a"])
-                # assert np.array_equal(out.cfg["b"], out.cfg["b"])
-                # assert len(out.trials) == len(out_sel.trials)
-                # assert "lowpass" in out_sel._log
+                # ensure pre-selection is equivalent to in-place selection
+                if select is None:
+                    selected = self.sigdata.selectdata()
+                else:
+                    selected = self.sigdata.selectdata(**select)
+                out_sel = filter_manager(selected, self.b, self.a,
+                                         log_dict={"a": self.a, "b": self.b},
+                                         parallel=True, parallel_store=parallel_store)
+                assert set(["a", "b"]) == set(out_sel.cfg.keys())
+                assert np.array_equal(out.cfg["a"], out_sel.cfg["a"])
+                assert np.array_equal(out.cfg["b"], out_sel.cfg["b"])
+                assert len(out.trials) == len(out_sel.trials)
+                assert "lowpass" in out_sel._log
                 
                 # save and re-load result, ensure nothing funky happens
                 with tempfile.TemporaryDirectory() as tdir:
@@ -449,20 +478,20 @@ class TestComputationalRoutine():
                         reference = np.vstack(ref)
                     assert self.metrix[sk](np.abs(dummy.data - reference)) < self.tols[sk]
                     assert np.array_equal(dummy.channel, self.sigdata.channel[sel.channel])
-                    del dummy, out
+                    # del dummy, out
                     
-                    # # FIXME: ensure out_sel is written/read correctly
-                    # fname2 = os.path.join(tdir, "dummy2")
-                    # out_sel.save(fname2)
-                    # dummy2 = load(fname2)
-                    # assert "a" in dummy2.cfg.keys()
-                    # assert "b" in dummy2.cfg.keys()
-                    # assert np.array_equal(dummy2.cfg["a"], dummy.cfg["a"])
-                    # assert np.array_equal(dummy2.cfg["b"], dummy.cfg["b"])
-                    # assert np.array_equal(dummy.data, dummy2.data)
-                    # assert np.array_equal(dummy.channel, dummy2.channel)
-                    # assert np.array_equal(dummy.time, dummy2.time)
-                    # assert not dummy2.data.is_virtual
-                    # del dummy, dummy2, out, out_sel
+                    # ensure out_sel is written/read correctly
+                    fname2 = os.path.join(tdir, "dummy2")
+                    out_sel.save(fname2)
+                    dummy2 = load(fname2)
+                    assert "a" in dummy2.cfg.keys()
+                    assert "b" in dummy2.cfg.keys()
+                    assert np.array_equal(dummy2.cfg["a"], dummy.cfg["a"])
+                    assert np.array_equal(dummy2.cfg["b"], dummy.cfg["b"])
+                    assert np.array_equal(dummy.data, dummy2.data)
+                    assert np.array_equal(dummy.channel, dummy2.channel)
+                    assert np.array_equal(dummy.time, dummy2.time)
+                    assert not dummy2.data.is_virtual
+                    del dummy, dummy2, out, out_sel
                     
         client.close()

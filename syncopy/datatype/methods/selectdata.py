@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-14 12:46:54
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-31 16:38:41>
+# Last modification time: <2019-11-01 15:13:15>
 
 # Builtin/3rd party package imports
 import inspect
@@ -80,7 +80,7 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
         >>> cfg.trials = [0, 0, 1, 0]; cfg.eventids = slice(2, None)
         >>> spy.selectdata(cfg, data)
         
-    :class:`~syncopy.SpikeData` : trials, toi/toilim, units
+    :class:`~syncopy.SpikeData` : trials, toi/toilim, units, channels
         Examples
         
         >>> spy.selectdata(data, toilim=[-1, 2.5], units=range(0, 10))

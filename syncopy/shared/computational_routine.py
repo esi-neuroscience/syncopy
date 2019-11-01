@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-31 15:04:22>
+# Last modification time: <2019-11-01 15:04:20>
 
 # Builtin/3rd party package imports
 import os
@@ -387,9 +387,16 @@ class ComputationalRoutine(ABC):
                     if isinstance(sel, list):
                         selarr = np.array(sel, dtype=np.intp)
                     else: # sel is a slice
-                        selarr = np.array(list(range(sel.start, sel.stop)), dtype=np.intp)
-                    sigrid.append(np.array(selarr) - selarr.min())
-                    ingrid[sk] = slice(selarr.min(), selarr.max() + 1, 1)
+                        step = sel.step
+                        if sel.step is None:
+                            step = 1
+                        selarr = np.array(list(range(sel.start, sel.stop, step)), dtype=np.intp)
+                    if selarr.size > 0:
+                        sigrid.append(np.array(selarr) - selarr.min())
+                        ingrid[sk] = slice(selarr.min(), selarr.max() + 1, 1)
+                    else:
+                        sigrid.append([])
+                        ingrid[sk] = []
                 sourceSelectors.append(tuple(sigrid))
                 sourceLayout[gk] = tuple(ingrid)
         else:
