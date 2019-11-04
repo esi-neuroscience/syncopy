@@ -139,7 +139,6 @@ def cleanup(older_than=24):
     fls_list = []       # files/directories associated to session
     for sk, sess in enumerate(sessions):
         sessid = all_ids[sk]
-        # sessid = os.path.splitext(os.path.basename(sess))[0].split("_")[1]
         if sessid != __sessionid__:
             with open(sess, "r") as fid:
                 sesslog = fid.read()
@@ -158,12 +157,23 @@ def cleanup(older_than=24):
                                         for dirpth, _, fnames in os.walk(file) \
                                         for fname in fnames) for file in files))
 
-    # Tell the user if we didn't find any session data satisfying the provided criteria
-    if len(ses_list) == 0:
-        ext = "\n| Syncopy cleanup | Did not find any syncopy session data older than {} hours."
-        print(ext.format(older_than))
 
-    else:
+
+
+
+
+    # For later reference: dynamically fetch name of current function
+    funcName = "Syncopy <{}>".format(inspect.currentframe().f_code.co_name)
+
+
+    if not ses_list and not dangling:
+        ext = \
+        "\n{name:s} Did not find any dangling data or Syncopy session remains " +\
+        "older than {age:s} hours."
+        print(ext.format(name=funcName, age=older_than))
+        return
+
+    if ses_list:
 
         # Format lists for output
         usr_list = list(set(usr_list))
@@ -172,8 +182,11 @@ def cleanup(older_than=24):
         # Ask the user how to proceed from here
         qst = "\n| Syncopy cleanup | Found data of {numsess:d} syncopy sessions {ageinfo:s} " +\
               "created by user{users:s}' taking up {gbinfo:s} of disk space. \n\n" +\
-              "Do you want to\n" +\
-              "[1] permanently delete all files at once (you will not be prompted for confirmation)?\n" +\
+                  
+                  
+            #   "created by user{users:s}' taking up {gbinfo:s} of disk space. \n\n" +\
+              "Please choose one of the following options:\n" +\
+              "[D] Permanently [D]elete all files at once (you will not be prompted for confirmation)?\n" +\
               "[2] go through each session and decide interactively?\n" +\
               "[3] abort?\n"
         choice = user_input(qst.format(numsess=len(ses_list),
