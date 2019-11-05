@@ -3,29 +3,25 @@
 # Save SynCoPy data objects on disk
 # 
 # Created: 2019-02-05 13:12:58
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2019-09-12 14:53:15>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2019-11-05 10:31:04>
 
 # Builtin/3rd party package imports
 import os
 import json
 import sys
 import h5py
-
 import numpy as np
 from collections import OrderedDict
-from hashlib import blake2b
 
 # Local imports
-from syncopy.shared.parsers import (io_parser, filename_parser, 
-                                    data_parser, scalar_parser)
-from syncopy.shared.errors import (SPYIOError, SPYTypeError, 
-                                   SPYValueError, SPYError)
-from syncopy.io.utils import hash_file, write_access, FILE_EXT, startInfoDict
+from syncopy.shared.parsers import filename_parser, data_parser, scalar_parser
+from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYError
+from syncopy.io.utils import hash_file, FILE_EXT, startInfoDict
 from syncopy import __storage__
 
-
 __all__ = ["save"]
+
 
 def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=100):
     r"""Save Syncopy data object to disk

@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # 
 # 
 # Created: 2019-01-15 09:03:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-09 16:54:02>
+# Last modification time: <2019-11-05 11:23:56>
 
 # Builtin/3rd party package imports
 import os
@@ -37,7 +37,7 @@ if not os.path.exists(__storage__):
     try:
         os.mkdir(__storage__)
     except:
-        raise IOError("Cannot create SyNCoPy storage directory `{}`".format( __storage__))
+        raise IOError("Syncopy core: cannot create temporary storage directory `{}`".format( __storage__))
 
 # Check for upper bound of temp directory size (in GB)
 __storagelimit__ = 10
@@ -45,10 +45,10 @@ with os.scandir(__storage__) as scan:
     st_fles = [fle.stat().st_size/1024**3 for fle in scan]
     st_size = sum(st_fles)
     if st_size > __storagelimit__:
-        msg = "\nSyncopy core: WARNING >> Temporary storage folder contains " +\
-              "{nfs:d} files taking up a total of {sze:4.2f} GB on disk. " +\
+        msg = "\nSyncopy core: WARNING >> Temporary storage folder {tmpdir:s} " +\
+              "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n" +\
               "Consider running `spy.cleanup()` to free up disk space. <<"
-        print(msg.format(nfs=len(st_fles), sze=st_size))
+        print(msg.format(tmpdir=__storage__, nfs=len(st_fles), sze=st_size))
 
 # Establish ID and log-file for current session
 __sessionid__ = blake2b(digest_size=2, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
