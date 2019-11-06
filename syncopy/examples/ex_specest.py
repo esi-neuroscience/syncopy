@@ -44,6 +44,8 @@ if __name__ == "__main__":
     cfg.keeptapers = False
     cfg.pad = 'nextpow2'
     cfg.select = {"toilim": [-0.25, 0]}
+
+    sys.exit()
     
     baselineSpectrum = spy.freqanalysis(cfg, data)
     
