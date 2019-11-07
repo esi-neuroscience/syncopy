@@ -29,7 +29,7 @@ from syncopy.tests.misc import generate_artificial_data
 import dask.distributed as dd
 from time import time
 
-sys.exit()
+# sys.exit()
 
 if __name__ == "__main__":
 
@@ -45,9 +45,13 @@ if __name__ == "__main__":
     cfg.keeptapers = False
     cfg.pad = 'nextpow2'
     cfg.select = {"toilim": [-0.25, 0]}
+
+    sys.exit()
     
     sys.exit()
     baselineSpectrum = spy.freqanalysis(cfg, data)
+    
+    bsc = baselineSpectrum.copy()
 
 
     

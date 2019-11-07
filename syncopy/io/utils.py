@@ -29,7 +29,7 @@ from syncopy.datatype.base_data import BaseData
 from syncopy.shared.parsers import scalar_parser
 from syncopy.shared.queries import user_yesno, user_input
 
-__all__ = ["cleanup"]
+__all__ = ["cleanup", "clear"]
 
 def _all_subclasses(cls):
     return set(cls.__subclasses__()).union(
@@ -228,7 +228,44 @@ def cleanup(older_than=24):
                 _rm_session([dat])
         else:
             print("Aborting...")        
-        
+
+
+def clear():
+    """
+    Clear Syncopy objects from memory
+    
+    Notes
+    -----
+    Syncopy objects are **not** loaded wholesale into memory. Only the corresponding
+    meta-information is read from disk and held in memory. The underlying numerical
+    data is streamed on-demand from disk leveraging HDF5's modified LRU (least 
+    recently used) page replacement algorithm. Thus, :func:`syncopy.clear` simply
+    force-flushes all of Syncopy's HDF5 backing devices to free up memory currently
+    blocked by cached data chunks.
+    
+    Examples
+    --------
+    >>> spy.clear()
+    """
+
+    # Get current frame
+    thisFrame = sys._getframe()
+    
+    # For later reference: dynamically fetch name of current function
+    funcName = "Syncopy <{}>".format(thisFrame.f_code.co_name)
+
+    # Go through caller's namespace and execute `clear` of `BaseData` children
+    counter = 0
+    for name, value in thisFrame.f_back.f_locals.items():
+        if isinstance(value, BaseData):
+            value.clear()
+            counter += 1
+    
+    # Be talkative
+    msg = "{name:s} flushed {objcount:d} objects from memory"
+    print(msg.format(name=funcName, objcount=counter))
+    
+    return
                 
 def _rm_session(session_files):
     """
