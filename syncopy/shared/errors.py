@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # Collection of utility classes/functions for SynCoPy
 # 
 # Created: 2019-01-14 10:23:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-22 14:04:16>
+# Last modification time: <2019-11-04 15:45:36>
 
 # Builtin/3rd party package imports
 import sys
@@ -99,6 +99,32 @@ class SPYIOError(SPYError):
                           fs_loc=self.fs_loc,
                           ex=": object already exists" if self.exists is True \
                           else ": object does not exist" if self.exists is False else "")
+
+        
+class SPYParallelError(SPYError):
+    """
+    Syncopy-specific error intended for concurrent processing routines
+    
+    Attributes
+    ----------
+    msg : str
+        Error message to be printed
+    client : dask distributed processing client
+        The affected dask client object
+    """
+
+    def __init__(self, msg, client=None):
+        self.client = client
+        self.msg = str(msg)
+        
+    def __str__(self):
+        if self.client is not None:
+            preamble = "Error in distributed computing cluster hosted on {}: "
+            preamble = preamble.format(self.client.scheduler_info()["address"])
+        else:
+            preamble = ""
+        err = "{preamble:s}{msg:s}"
+        return err.format(preamble=preamble, msg=self.msg)
 
     
 def SPYExceptionHandler(*excargs, **exckwargs):
@@ -249,10 +275,3 @@ def SPYExceptionHandler(*excargs, **exckwargs):
     if isipy:
         if ipy.call_pdb:
             ipy.InteractiveTB.debugger()
-    
-def get_caller():
-    """
-    A very elaborate docstring...
-    """
-    return sys._getframe().f_back.f_code.co_name
-

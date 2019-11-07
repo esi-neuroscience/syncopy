@@ -34,6 +34,7 @@ sys.exit()
 if __name__ == "__main__":
 
     data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
+    client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")
 
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmfft'
@@ -45,11 +46,10 @@ if __name__ == "__main__":
     cfg.pad = 'nextpow2'
     cfg.select = {"toilim": [-0.25, 0]}
     
+    sys.exit()
     baselineSpectrum = spy.freqanalysis(cfg, data)
 
-    sys.exit()
 
-    client = spy.esi_cluster_setup(n_jobs=10, partition="DEV", mem_per_job="2GB")
     
     
     cfg = spy.get_defaults(spy.freqanalysis)
