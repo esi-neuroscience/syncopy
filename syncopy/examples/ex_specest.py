@@ -29,10 +29,14 @@ from syncopy.tests.misc import generate_artificial_data
 import dask.distributed as dd
 from time import time
 
-sys.exit()
+# sys.exit()
 
 if __name__ == "__main__":
 
+    dummy = generate_artificial_data(nTrials=2, nChannels=16, 
+                                     equidistant=True, inmemory=False)
+    sys.exit()
+    
     data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
 
     cfg = spy.get_defaults(spy.freqanalysis)

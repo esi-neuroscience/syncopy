@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-06 14:30:17
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-05 11:23:34>
+# Last modification time: <2019-11-11 12:46:10>
 
 # Builtin/3rd party package imports
 import os
@@ -26,6 +26,7 @@ if sys.platform == "win32":
 from syncopy import __storage__, __sessionid__, __checksum_algorithm__
 from syncopy.datatype.base_data import BaseData
 from syncopy.shared.parsers import scalar_parser
+from syncopy.shared.errors import SPYTypeError
 from syncopy.shared.queries import user_yesno, user_input
 
 __all__ = ["cleanup"]
@@ -76,7 +77,7 @@ def hash_file(fname, bsize=65536):
     return hash.hexdigest()
 
 
-def cleanup(older_than=24):
+def cleanup(older_than=24, **kwargs):
     """
     Delete old files in temporary Syncopy folder
     
@@ -105,6 +106,11 @@ def cleanup(older_than=24):
     dirInfo = \
         "\n{name:s} Analyzing temporary storage folder {dir:s}...\n"
     print(dirInfo.format(name=funcName, dir=__storage__))
+
+    # Parse "hidden" interactive keyword: if `False`, don't ask, just delete    
+    interactive = kwargs.get("interactive", True)
+    if not isinstance(interactive, bool):
+        raise SPYTypeError(interactive, varname="interactive", expected="bool")
 
     # Get current date + time and scan package's temp directory for session files
     now = datetime.now()
@@ -210,10 +216,14 @@ def cleanup(older_than=24):
         rmAllValid = ["R"]
         promptInfo = sesInfo + dangInfo
         promptOptions = sesOptions + dangOptions + rmAllOption
-        promptValid =  sesValid + dangValid + rmAllValid
-    
-    choice = user_input(promptInfo + promptChoice + promptOptions + abortOption, 
-                        valid=promptValid + abortValid)
+        promptValid = sesValid + dangValid + rmAllValid
+
+    # By default, ask what to do; if `interactive` is `False`, remove everything    
+    if interactive:
+        choice = user_input(promptInfo + promptChoice + promptOptions + abortOption, 
+                            valid=promptValid + abortValid)
+    else:
+        choice = "R"
     
     # Query removal of data session by session    
     if choice == "I":

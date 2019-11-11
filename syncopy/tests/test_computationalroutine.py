@@ -4,11 +4,12 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-11 13:47:16>
+# Last modification time: <2019-11-11 15:20:37>
 
 import os
 import tempfile
 import pytest
+import time
 import numpy as np
 from glob import glob
 from scipy import signal
@@ -255,6 +256,7 @@ class TestComputationalRoutine():
                     reference = np.vstack(ref)
                 assert self.metrix[sk](np.abs(dummy.data - reference)) < self.tols[sk]
                 assert np.array_equal(dummy.channel, self.sigdata.channel[sel.channel])
+                time.sleep(0.01)
                 del dummy, out
                 
                 # # FIXME: ensure out_sel is written/read correctly
