@@ -29,7 +29,7 @@ from syncopy.shared.parsers import scalar_parser
 from syncopy.shared.errors import SPYTypeError
 from syncopy.shared.queries import user_yesno, user_input
 
-__all__ = ["cleanup"]
+__all__ = ["cleanup", "clear"]
 
 def _all_subclasses(cls):
     return set(cls.__subclasses__()).union(
@@ -255,12 +255,107 @@ def cleanup(older_than=24, **kwargs):
                         desc="Deleting temporary data..."):
             _rm_session(contents)
 
-    # Abort
-    else:
-        print("Aborting...")
-        
+        # Format lists for output
+        usr_list = list(set(usr_list))
+        gb_list = [sz/1024**3 for sz in siz_list]
+
+        # Ask the user how to proceed from here
+        qst = "\n| Syncopy cleanup | Found data of {numsess:d} syncopy sessions {ageinfo:s} " +\
+              "created by user{users:s}' taking up {gbinfo:s} of disk space. \n\n" +\
+              "Do you want to\n" +\
+              "[1] permanently delete all files at once (you will not be prompted for confirmation)?\n" +\
+              "[2] go through each session and decide interactively?\n" +\
+              "[3] abort?\n"
+        choice = user_input(qst.format(numsess=len(ses_list),
+                                       ageinfo="between {agemin:d} and {agemax:d} days old".format(agemin=min(age_list),
+                                                                                                   agemax=max(age_list))
+                                       if min(age_list) < max(age_list) else "from {} days ago".format(age_list[0]),
+                                       users="(s) '" + ",".join(usr + ", " for usr in usr_list)[:-2] \
+                                       if len(usr_list) > 1 else " '" + usr_list[0],
+                                       gbinfo="a total of {gbsz:4.1f} GB".format(gbsz=sum(gb_list))
+                                       if sum(gb_list) > 1 else "less than 1 GB"),
+                            valid=["1", "2", "3"])
+
+        # Force-delete everything
+        if choice == "1":
+            for fls in tqdm(fls_list, desc="Deleting session data..."):
+                _rm_session(fls)
+
+        # Query deletion for each session separately
+        elif choice == "2":
+            msg = "Found{numf:s} files created by session {sess:s} {age:d} " +\
+                  "days ago{sizeinfo:s}" +\
+                  " Do you want to permanently delete these files?"
+            for sk in range(len(ses_list)):
+                if user_yesno(msg.format(numf=" " + str(len(fls_list[sk])),
+                                         sess=own_list[sk],
+                                         age=age_list[sk],
+                                         sizeinfo=" using " + \
+                                         str(round(siz_list[sk]/1024**2)) + \
+                                         " MB of disk space.")):
+                    _rm_session(fls_list[sk])
+
+        # Don't do anything for now, continue w/dangling data
+        else:
+            print("Aborting...")        
+
+    # If we found data not associated to any registered session, ask what to do
+    if len(dangling) > 0:
+        qst = "\n| Syncopy cleanup | Found {numdang:d} dangling files not " +\
+              "associated to any session using {szdang:4.1f} GB of disk space. \n\n" +\
+              "Do you want to\n" +\
+              "[1] permanently delete these files (you will not be prompted for confirmation)?\n" +\
+              "[2] abort?\n"
+        choice = user_input(qst.format(numdang=len(dangling),
+                                       szdang=sum(os.path.getsize(file)/1024**3 if os.path.isfile(file) else \
+                                                  sum(os.path.getsize(os.path.join(dirpth, fname))/1024**3 \
+                                                      for dirpth, _, fnames in os.walk(file) \
+                                                      for fname in fnames) for file in dangling)),
+                            valid=["1", "2"])
+
+        if choice == "1":
+            for dat in tqdm(dangling, desc="Deleting dangling data..."):
+                _rm_session([dat])
+        else:
+            print("Aborting...")        
+
+
+def clear():
+    """
+    Clear Syncopy objects from memory
+    
+    Notes
+    -----
+    Syncopy objects are **not** loaded wholesale into memory. Only the corresponding
+    meta-information is read from disk and held in memory. The underlying numerical
+    data is streamed on-demand from disk leveraging HDF5's modified LRU (least 
+    recently used) page replacement algorithm. Thus, :func:`syncopy.clear` simply
+    force-flushes all of Syncopy's HDF5 backing devices to free up memory currently
+    blocked by cached data chunks.
+    
+    Examples
+    --------
+    >>> spy.clear()
+    """
+
+    # Get current frame
+    thisFrame = sys._getframe()
+    
+    # For later reference: dynamically fetch name of current function
+    funcName = "Syncopy <{}>".format(thisFrame.f_code.co_name)
+
+    # Go through caller's namespace and execute `clear` of `BaseData` children
+    counter = 0
+    for name, value in thisFrame.f_back.f_locals.items():
+        if isinstance(value, BaseData):
+            value.clear()
+            counter += 1
+    
+    # Be talkative
+    msg = "{name:s} flushed {objcount:d} objects from memory"
+    print(msg.format(name=funcName, objcount=counter))
+    
     return
-        
                 
 def _rm_session(session_files):
     """

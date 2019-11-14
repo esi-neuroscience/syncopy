@@ -36,6 +36,7 @@ syncopy.shared
     syncopy.shared.errors.SPYTypeError
     syncopy.shared.errors.SPYValueError
     syncopy.shared.errors.SPYIOError
+    syncopy.shared.errors.SPYParallelError
 
 
 syncopy.specest
