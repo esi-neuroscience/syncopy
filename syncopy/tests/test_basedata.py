@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-19 10:43:22
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-25 16:53:04>
+# Last modification time: <2019-11-11 15:23:21>
 
 import os
 import tempfile
@@ -256,6 +256,9 @@ class TestBaseData():
                 np.save(fname, np.ones((self.nChannels,)))
                 with pytest.raises(SPYValueError):
                     getattr(spd, dclass)(data=open_memmap(fname))
+                
+            time.sleep(0.01)
+            del dummy
 
     # Assignment of trialdefinition array is tested with all members of `classes`
     def test_trialdef(self):
@@ -364,6 +367,7 @@ class TestBaseData():
 
                 # Delete all open references to file objects b4 closing tmp dir
                 del mm, dummy, dummy2, dummy3
+                time.sleep(0.01)
 
                 # remove container for next round
                 os.unlink(hname)

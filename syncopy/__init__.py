@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # 
 # 
 # Created: 2019-01-15 09:03:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-09 16:54:02>
+# Last modification time: <2019-11-08 12:15:23>
 
 # Builtin/3rd party package imports
 import os
@@ -36,8 +36,22 @@ else:
 if not os.path.exists(__storage__):
     try:
         os.mkdir(__storage__)
-    except:
-        raise IOError("Cannot create SyNCoPy storage directory `{}`".format( __storage__))
+    except Exception as exc:
+        err = "Syncopy core: cannot create temporary storage directory {}. " +\
+              "Original error message below\n{}"
+        raise IOError(err.format( __storage__, str(exc)))
+
+# Ensure Syncopy has write permissions and can actually use its temp storage    
+try:
+    filePath = os.path.join(__storage__, "__test__.spy")
+    with open(filePath, "ab+") as fileObj:
+        fileObj.write(b"Alderaan shot first")
+        fileObj.seek(0)
+        fileObj.read()
+    os.unlink(filePath)
+except Exception as exc:
+    err = "Syncopy core: cannot access {}. Original error message below\n{}"
+    raise IOError(err.format(__storage__, str(exc)))
 
 # Check for upper bound of temp directory size (in GB)
 __storagelimit__ = 10
@@ -45,10 +59,10 @@ with os.scandir(__storage__) as scan:
     st_fles = [fle.stat().st_size/1024**3 for fle in scan]
     st_size = sum(st_fles)
     if st_size > __storagelimit__:
-        msg = "\nSyncopy core: WARNING >> Temporary storage folder contains " +\
-              "{nfs:d} files taking up a total of {sze:4.2f} GB on disk. " +\
+        msg = "\nSyncopy core: WARNING >> Temporary storage folder {tmpdir:s} " +\
+              "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n" +\
               "Consider running `spy.cleanup()` to free up disk space. <<"
-        print(msg.format(nfs=len(st_fles), sze=st_size))
+        print(msg.format(tmpdir=__storage__, nfs=len(st_fles), sze=st_size))
 
 # Establish ID and log-file for current session
 __sessionid__ = blake2b(digest_size=2, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
@@ -57,6 +71,7 @@ __sessionfile__ = os.path.join(__storage__, "session_{}.id".format(__sessionid__
 # Set max. depth of traceback info shown in prompt
 __tbcount__ = 5
 
+# Set checksum algorithm to be used
 __checksum_algorithm__ = sha1
 
 # Fill up namespace

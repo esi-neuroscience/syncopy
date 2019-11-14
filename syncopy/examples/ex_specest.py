@@ -33,6 +33,10 @@ from time import time
 
 if __name__ == "__main__":
 
+    dummy = generate_artificial_data(nTrials=2, nChannels=16, 
+                                     equidistant=True, inmemory=False)
+    sys.exit()
+    
     data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
     client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")
 
