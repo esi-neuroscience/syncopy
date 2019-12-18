@@ -20,6 +20,7 @@ from copy import copy
 from datetime import datetime
 from hashlib import blake2b
 from itertools import islice
+from functools import reduce
 import shutil
 import numpy as np
 from numpy.lib.format import open_memmap, read_magic
@@ -28,7 +29,7 @@ import scipy as sp
 
 # Local imports
 import syncopy as spy
-from syncopy.datatype.data_methods import definetrial
+from syncopy.datatype.methods.definetrial import definetrial
 from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser, 
                                     filename_parser, data_parser)
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
@@ -809,6 +810,7 @@ class BaseData(ABC):
         for propertyName in self._hdfFileDatasetProperties:
             setattr(self, "_" + propertyName, None)
         self._data = None
+        self._selector = None
 
         # Make instantiation persistent in all subclasses
         super().__init__()
@@ -1234,7 +1236,7 @@ class Selector():
     ----------
     data : Syncopy data object
         A non-empty Syncopy data object
-    select : dict or :class:`~syncopy.datatype.base_data.StructDict` or None
+    select : dict or :class:`~syncopy.datatype.base_data.StructDict` or None or str
         Dictionary or :class:`~syncopy.datatype.base_data.StructDict` with keys
         specifying data selectors. **Note**: some keys are only valid for certain types
         of Syncopy objects, e.g., "freqs" is not a valid selector for an 
@@ -1256,17 +1258,49 @@ class Selector():
         selects the entire contents of trials no. 2 and 3, while
         ``select = {'channels': range(0, 50)}`` selects the first 50 channels
         of `data` across all defined trials. Consequently, if `select` is
-        `None`, the entire contents of `data` is selected. 
+        `None` or if ``select = "all"`` the entire contents of `data` is selected. 
     
     Returns
     -------
     selection : Syncopy :class:`Selector` object
-        An instance of this class whose properties are either lists or slices
+        An instance of this class whose main properties are either lists or slices
         to be used as (fancy) indexing tuples. Note that the properties `time`, 
         `unit` and `eventid` are **by-trial** selections, i.e., list of lists 
         and/or slices encoding per-trial sample-indices, e.g., ``selection.time[0]`` 
         is intended to be used with ``data.trials[selection.trials[0]]``. 
+        Addditional class attributes of note:
+        
+        * `_useFancy` : bool
+        
+          If `True`, selection requires "fancy" (or "advanced") array indexing
 
+        * `_dataClass` : str
+        
+          Class name of `data`
+        
+          If `True`, selection requires "fancy" (or "advanced") array indexing
+          
+        * `_samplerate` : float
+        
+          Samplerate of `data` (only relevant for objects supporting time-selections)
+          
+        * `_timeShuffle` : bool
+        
+          If `True`, time-selection contains unordered/repeated time-points. 
+
+        * `_allProps` : list
+        
+          List of all selection properties in class
+
+        * `_byTrialProps` : list
+        
+          List off by-trial selection properties (see above)
+
+        * `_dimProps` : list
+        
+          List off trial-independent selection properties (computed as 
+          `self._allProps` minus `self._byTrialProps`)
+                    
     Notes
     -----
     Whenever possible, this class performs extensive input parsing to ensure
@@ -1322,6 +1356,12 @@ class Selector():
             raise exc
         if select is None:
             select = {}
+        if isinstance(select, str):
+            if select == "all":
+                select = {}
+            else:
+                raise SPYValueError(legal="'all' or `None` or dict", 
+                                    varname="select", actual=select)
         if not isinstance(select, dict):
             raise SPYTypeError(select, "select", expected="dict")
         supported = ["trials", "channels", "toi", "toilim", "foi", "foilim",
@@ -1336,9 +1376,13 @@ class Selector():
         # Save class of input object for posterity
         self._dataClass = data.__class__.__name__
         
-        # Set up lists of (a) all selectable properties and (b) trial-dependent ones
+        # Set up lists of (a) all selectable properties (b) trial-dependent ones 
+        # and (c) selectors independent from trials
         self._allProps = ["channel", "time", "freq", "taper", "unit", "eventid"]
         self._byTrialProps = ["time", "unit", "eventid"]
+        self._dimProps = list(self._allProps)
+        for prop in self._byTrialProps:
+            self._dimProps.remove(prop)
         
         # Assign defaults (trials are not a "real" property, handle it separately, 
         # same goes for `trialdefinition`)
@@ -1355,13 +1399,14 @@ class Selector():
         self.trials = (data, select)
 
         # Now set any possible selection attribute (depending on type of `data`)
-        # Note: `trialdefinition` is set by `time.setter` - it only makes sense
-        # for objects that have a `time` property to update `trialdefinition`
+        # Note: `trialdefinition` is set *after* harmonizing indexing selections 
+        # in `_make_consistent`
         for prop in self._allProps:
             setattr(self, prop, (data, select))
         
-        # Ensure correct indexing: convert everything to lists for use w/`np.ix_`
-        # if we ended up w/more than 2 list selectors
+        # Ensure correct indexing: harmonize selections for `DiscreteData`-children
+        # or convert everything to lists for use w/`np.ix_` if we ended up w/more 
+        # than 2 list selectors for `ContinuousData`-offspring
         self._make_consistent(data)
         
     @property
@@ -1373,17 +1418,27 @@ class Selector():
     def trials(self, dataselect):
         data, select = dataselect
         trlList = list(range(len(data.trials)))
-        trials = select.get("trials", trlList)
+        trials = select.get("trials", None)
         vname = "select: trials"
-        try:
-            array_parser(trials, varname=vname, ntype="int_like", hasinf=False,
-                         hasnan=False, lims=[0, len(data.trials)], dims=1)
-        except Exception as exc:
-            raise exc
-        if not set(trials).issubset(trlList):
-            lgl = "list/array of values b/w 0 and {}".format(trlList[-1])
-            act = "Values b/w {} and {}".format(min(trials), max(trials))
-            raise SPYValueError(legal=lgl, varname=vname, actual=act)
+        
+        if isinstance(trials, str):
+            if trials == "all":
+                trials = None
+            else:
+                raise SPYValueError(legal="'all' or `None` or list/array", 
+                                    varname=vname, actual=trials)
+        if trials is not None:        
+            try:
+                array_parser(trials, varname=vname, ntype="int_like", hasinf=False,
+                            hasnan=False, lims=[0, len(data.trials)], dims=1)
+            except Exception as exc:
+                raise exc
+            if not set(trials).issubset(trlList):
+                lgl = "list/array of values b/w 0 and {}".format(trlList[-1])
+                act = "Values b/w {} and {}".format(min(trials), max(trials))
+                raise SPYValueError(legal=lgl, varname=vname, actual=act)
+        else:
+            trials = trlList
         self._trials = trials
         
     @property
@@ -1398,7 +1453,7 @@ class Selector():
         
     @property
     def time(self):
-        """List of lists/slices of by-trial time-selections"""
+        """len(self.trials) list of lists/slices of by-trial time-selections"""
         return self._time
     
     @time.setter
@@ -1406,7 +1461,7 @@ class Selector():
         
         # Unpack input and perform error-checking
         data, select = dataselect
-        timeSpec = select.get("toi")
+        timeSpec = select.get("toi", None)
         checkLim = False
         checkInf = False
         vname = "select: toi/toilim"
@@ -1426,6 +1481,14 @@ class Selector():
 
         # If `data` has a `time` property, fill up `self.time`
         if hasTime:
+            if isinstance(timeSpec, str):
+                if timeSpec == "all":
+                    timeSpec = None
+                    select["toi"] = None
+                    select["toilim"] = None
+                else:
+                    raise SPYValueError(legal="'all' or `None` or list/array", 
+                                        varname=vname, actual=timeSpec)
             if timeSpec is not None:
                 try:
                     array_parser(timeSpec, varname=vname, hasinf=checkInf, hasnan=False, dims=1)
@@ -1444,10 +1507,9 @@ class Selector():
             
             # Determine, whether time-selection is unordered/contains repetitions
             # and set `self._timeShuffle` accordingly
-            if timeSpec is not None:
+            if timeSpec is not None:  # saves time for `timeSpec = None` "selections"
                 for tsel in timing:
-                    if isinstance(tsel, list):
-                        if len(tsel) > 1:
+                    if isinstance(tsel, list) and len(tsel) > 1:
                             if np.diff(tsel).min() <= 0:
                                 self._timeShuffle = True
                                 break 
@@ -1456,14 +1518,12 @@ class Selector():
             self._time = timing
             self._samplerate = data.samplerate
             
-            # Prepare new `trialdefinition` array corresponding to selection
-            self.trialdefinition = data
         else:
             return
 
     @property
     def trialdefinition(self):
-        """N x 3+ :class:`numpy.ndarray` encoding trial-information of selection"""
+        """len(self.trials)-by-(3+) :class:`numpy.ndarray` encoding trial-information of selection"""
         return self._trialdefinition
 
     @trialdefinition.setter
@@ -1472,39 +1532,45 @@ class Selector():
         # Get original `trialdefinition` array for reference
         trl = data.trialdefinition
 
-        # Build new trialdefinition array using `t0`-offsets        
-        trlDef = np.zeros((len(self.trials), trl.shape[1]))
-        counter = 0
-        for tk, trlno in enumerate(self.trials):
-            tsel = self.time[tk]
-            if isinstance(tsel, slice):
-                start, stop, step = tsel.start, tsel.stop, tsel.step
-                if start is None:
-                    start = 0
-                if stop is None:
-                    trlTime = data._get_time([trlno], toilim=[-np.inf, np.inf])[0]
-                    if isinstance(trlTime, list):
-                        stop = np.max(trlTime)
-                    else:
-                        stop = trlTime.stop
-                if step is None:
-                    step = 1
-                nSamples = (stop - start)/step
-                endSample = stop + data._t0[tk]
-                t0 = int(endSample - nSamples)
-            else:
-                nSamples = len(tsel)
-                if nSamples == 0:
-                    t0 = 0
+        # `DiscreteData`: simply copy relevant sample-count -> trial assignments, 
+        # for other classes build new trialdefinition array using `t0`-offsets
+        if self._dataClass in ["SpikeData", "EventData"]:
+            trlDef = trl[self.trials, :]
+        else:
+            trlDef = np.zeros((len(self.trials), trl.shape[1]))
+            counter = 0
+            for tk, trlno in enumerate(self.trials):
+                tsel = self.time[tk]
+                if isinstance(tsel, slice):
+                    start, stop, step = tsel.start, tsel.stop, tsel.step
+                    if start is None:
+                        start = 0
+                    if stop is None:
+                        trlTime = data._get_time([trlno], toilim=[-np.inf, np.inf])[0]
+                        if isinstance(trlTime, list):
+                            stop = np.max(trlTime)
+                        else:
+                            stop = trlTime.stop
+                    if step is None:
+                        step = 1
+                    nSamples = (stop - start)/step
+                    endSample = stop + data._t0[trlno]
+                    t0 = int(endSample - nSamples)
                 else:
-                    t0 = data._t0[tk]
-            trlDef[tk, :3] = [counter, counter + nSamples, t0]
-            counter += nSamples
+                    nSamples = len(tsel)
+                    if nSamples == 0:
+                        t0 = 0
+                    else:
+                        t0 = data._t0[trlno]
+                trlDef[tk, :3] = [counter, counter + nSamples, t0]
+                trlDef[tk, 3:] = trl[trlno, 3:]
+                counter += nSamples
         self._trialdefinition = trlDef
         
     @property
     def timepoints(self):
-        """len(self.trials) list of lists encoding timing information of unordered `toi` selections"""
+        """len(self.trials) list of lists encoding actual (not sample indices!) 
+        timing information of unordered `toi` selections"""
         if self._timeShuffle:
             return [[(tvec[tp] + self.trialdefinition[tk, 2]) / self._samplerate 
                      for tp in range(len(tvec))] for tk, tvec in enumerate(self.time)]
@@ -1539,6 +1605,14 @@ class Selector():
         
         # If `data` has a `freq` property, fill up `self.freq`
         if hasFreq:
+            if isinstance(freqSpec, str):
+                if freqSpec == "all":
+                    freqSpec = None
+                    select["foi"] = None
+                    select["foilim"] = None
+                else:
+                    raise SPYValueError(legal="'all' or `None` or list/array", 
+                                        varname=vname, actual=freqSpec)
             if freqSpec is not None:
                 try:
                     array_parser(freqSpec, varname=vname, hasinf=checkInf, hasnan=False, 
@@ -1570,7 +1644,7 @@ class Selector():
 
     @property
     def unit(self):
-        """List or slice encoding unit-selection"""
+        """len(self.trials) list of lists/slices of by-trial unit-selections"""
         return self._unit
 
     @unit.setter
@@ -1580,7 +1654,7 @@ class Selector():
 
     @property
     def eventid(self):
-        """List or slice encoding event-id-selection"""
+        """len(self.trials) list of lists/slices encoding by-trial event-id-selection"""
         return self._eventid
 
     @eventid.setter
@@ -1646,6 +1720,12 @@ class Selector():
                 arrLims = [target[0], target[-1]]
                 hasnan = False
                 hasinf = False
+                
+            if isinstance(selection, str):
+                if selection == "all":
+                    selection = None
+                else:
+                    raise SPYValueError(legal="'all'", varname=vname, actual=selection)
                 
             # Take entire inventory sitting in `dataprop`
             if selection is None:
@@ -1735,7 +1815,7 @@ class Selector():
     # Local helper that converts slice selectors to lists (if necessary)        
     def _make_consistent(self, data):
         """
-        Consolidates array selections via conversion to lists (if required)
+        Consolidate multi-selections 
         
         Parameters
         ----------
@@ -1750,27 +1830,97 @@ class Selector():
         -----
         This class method is called after all user-provided selections have
         been (successfully) processed and (if necessary) converted to
-        lists/slices. The integrity of conjoint multi-dimensional selections
+        lists/slices. 
+        For instances of :class:`~syncopy.datatype.continuous_data.ContinuousData` 
+        child classes (i.e., :class:`~syncopy.AnalogData` and :class:`~syncopy.SpectralData`
+        objects) the integrity of conjoint multi-dimensional selections
         is ensured by guaranteeing that cross-dimensional selections are
         finite (i.e., lists) and no more than two lists are used simultaneously
         for a selection. If the current Selector instance contains multiple
         index lists, the contents of all selection properties is converted
         (if required) to lists so that multi-dimensional array-indexing can
         be readily performed via :func:`numpy.ix_`. 
+        For instances of :class:`~syncopy.datatype.discrete_data.DiscreteData` 
+        child classes (i.e., :class:`~syncopy.SpikeData` and :class:`~syncopy.EventData`
+        objects), any selection (`unit`, `eventid`, `time` and `channel`) operates 
+        on the rows of the object's underlying `data` array. Thus, multi-selections
+        need to be synchronized (e.g., a `unit` selection pointing to rows `[0, 1, 2]`
+        and a `time` selection filtering rows `[1, 2, 3]` are combined to `[1, 2]`). 
 
         See also
         --------
         numpy.ix_ : Mesh-construction for array indexing
         """
 
-        # Get list of all selectors that don't depend on trials
-        dimProps = list(self._allProps)
-        for prop in self._byTrialProps:
-            dimProps.remove(prop)
-        
+        # Harmonize selections for `DiscreteData`-children: all selectors are row-
+        # indices, go through each trial and combine them
+        if self._dataClass in ["SpikeData", "EventData"]:
+            
+            # Get relevant selectors (e.g., `self.unit` is `None` for `EventData`)
+            actualSelections = []
+            for selection in ["time", "eventid", "unit"]:
+                if getattr(self, selection) is not None:
+                    actualSelections.append(selection)
+                
+            # Compute intersection of "time" x "{eventid|unit|channel}" row-indices 
+            # per trial. BONUS: in `SpikeData` objects, `channels` are **not** 
+            # the same in all trials - ensure that channel selection propagates 
+            # correctly. After this step, `self.time` == `self.{unit|eventid}`
+            if self._dataClass == "SpikeData":
+                chanIdx = data.dimord.index("channel")
+                wantedChannels = np.unique(data.data[:, chanIdx])[self.channel]
+                chanPerTrial = []
+                
+            for tk, trialno in enumerate(self.trials):
+                trialArr = np.arange(np.sum(data.trialid == trialno))
+                byTrialSelections = []
+                for selection in actualSelections:
+                    byTrialSelections.append(trialArr[getattr(self, selection)[tk]])
+                    
+                # (try to) preserve unordered selections by processing them first
+                areShuffled = [(np.diff(sel) <= 0).any() for sel in byTrialSelections]
+                combiOrder = np.argsort(areShuffled)[::-1]
+                combinedSelect = byTrialSelections[combiOrder[0]]
+                for combIdx in combiOrder:
+                    combinedSelect = [elem for elem in combinedSelect 
+                                      if elem in byTrialSelections[combIdx]]
+                    
+                # Keep record of channels present in trials vs. selected channels
+                if self._dataClass == "SpikeData":
+                    rawChanInTrial = data.data[data.trialid == trialno, chanIdx]
+                    chanTrlIdx = [ck for ck, chan in enumerate(rawChanInTrial) if chan in wantedChannels]
+                    combinedSelect = [elem for elem in combinedSelect if elem in chanTrlIdx]
+                    chanPerTrial.append(rawChanInTrial[combinedSelect])
+                    
+                # The usual list -> slice conversion (if possible)
+                if len(combinedSelect) > 1:
+                    selSteps = np.diff(combinedSelect)
+                    if selSteps.min() == selSteps.max() == 1:
+                        combinedSelect = slice(combinedSelect[0], combinedSelect[-1] + 1, 1)
+                        
+                # Update selector properties
+                for selection in actualSelections:
+                    getattr(self, "_{}".format(selection))[tk] = combinedSelect
+
+            # Ensure that `self.channel` is compatible w/provided selections: harmonize
+            # `self.channel` with what is actually available in selected trials
+            if self._dataClass == "SpikeData":
+                availChannels = reduce(np.union1d, chanPerTrial)
+                chanSelection = [chan for chan in wantedChannels if chan in availChannels]
+                if len(chanSelection) > 1:
+                    selSteps = np.diff(chanSelection)
+                    if selSteps.min() == selSteps.max() == 1:
+                        chanSelection = slice(chanSelection[0], chanSelection[-1] + 1, 1)
+                self._channel = chanSelection
+                
+            # Finally, prepare new `trialdefinition` array
+            self.trialdefinition = data
+            
+            return
+
         # Count how many lists we got
         listCount = 0
-        for prop in dimProps:
+        for prop in self._dimProps:
             if isinstance(getattr(self, prop), list):
                 listCount += 1
 
@@ -1792,26 +1942,44 @@ class Selector():
                     if start is None:
                         start = 0
                     if stop is None:
+                        stop = -1
+                    if start < 0 or stop < 0:
                         trlTime = data._get_time([self.trials[tk]], toilim=[-np.inf, np.inf])[0]
                         if isinstance(trlTime, list):
-                            stop = np.max(trlTime)
+                            if start < 0:
+                                start += len(trlTime)
+                            if stop < 0:
+                                stop += len(trlTime)
                         else:
-                            stop = trlTime.stop
+                            if start < 0:
+                                start += trlTime.stop
+                            if stop < 0:
+                                stop += trlTime.stop
                     if step is None:
                         step = 1
                     self.time[tk] = list(range(start, stop, step))
-            for prop in dimProps:
+            for prop in self._dimProps:
                 sel = getattr(self, prop)
                 if isinstance(sel, slice):
                     start, stop, step = sel.start, sel.stop, sel.step
                     if start is None:
                         start = 0
                     if stop is None:
-                        stop = getattr(data, prop).size
+                        stop = -1
+                    if start < 0 or stop < 0:
+                        propSize = getattr(data, prop).size
+                        if start < 0:
+                            start += propSize
+                        if stop < 0:
+                            stop += propSize
                     if step is None:
                         step = 1
                     setattr(self, "_{}".format(prop), list(range(start, stop, step)))
             self._useFancy = True
+
+        # Finally, prepare new `trialdefinition` array for objects with `time` dimensions
+        if self.time is not None:
+            self.trialdefinition = data
         
         return
         

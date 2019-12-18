@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-10 11:10:29>
+# Last modification time: <2019-10-23 17:17:10>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -15,16 +15,13 @@ from numbers import Number
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser 
 from syncopy.shared import get_defaults
 from syncopy.datatype import SpectralData, padding
-from syncopy.datatype.data_methods import _nextpow2
+from syncopy.datatype.methods.padding import _nextpow2
 import syncopy.specest.wavelets as spywave 
 from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.shared.parsers import unwrap_cfg
-from syncopy import __dask__
+from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select, 
+                                             detect_parallel_client)
 from syncopy.specest.mtmfft import MultiTaperFFT
 from syncopy.specest.wavelet import _get_optimal_wavelet_scales, WaveletTransform
-# import syncopy.specest
-if __dask__:
-    import dask.distributed as dd
 
 # Module-wide output specs
 spectralDTypes = {"pow": np.float32,
@@ -49,13 +46,16 @@ __all__ = ["freqanalysis"]
 
 
 @unwrap_cfg
+@unwrap_select
+@detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, pad='nextpow2', padtype='zero',
                  padlength=None, polyremoval=False, polyorder=None,
                  taper="hann", tapsmofrq=None, keeptapers=False,
-                 wav="Morlet", toi=0.1, width=6, select=None,
+                 wav="Morlet", toi=0.1, width=6, 
                  out=None, **kwargs):
-    """Perform a (time-)frequency analysis of time series data
+    """
+    Perform a (time-)frequency analysis of time series data
 
     Parameters
     ----------
@@ -118,28 +118,25 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         Nondimensional frequency constant of wavelet. For a Morlet wavelet 
         this number should be >= 6, which correspondonds to 6 cycles within
         FIXME standard deviations of the enveloping Gaussian.       
-    select : dict or :class:`~syncopy.datatype.base_data.StructDict`
-        Select subset of input data for processing, e.g., using 
-        ``select = {"channel": range(50)}`` performs spectral analysis using
-        only the first 50 channels in `data`. Please refer to 
-        :func:`syncopy.selectdata` for further usage details. 
     out : None or :class:`SpectralData` object
         None if a new :class:`SpectralData` object should be created,
         or the (empty) object into which the result should be written.
 
+    Returns
+    -------
+    :class:`~syncopy.SpectralData`
+        (Time-)frequency spectrum of input data
+        
+    Notes
+    -----
+    Coming soon...
+        
 
     .. autodata:: syncopy.specest.freqanalysis.availableMethods
 
     .. autodata:: syncopy.specest.freqanalysis.availableOutputs
 
     .. autodata:: syncopy.specest.freqanalysis.availableTapers
-
-
-    Returns
-    -------
-    :class:`~syncopy.SpectralData`
-        (Time-)frequency spectrum of input data
-
 
     """
     
@@ -316,7 +313,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         log_dct["tapsmofrq"] = lcls["tapsmofrq"]
         log_dct["nTaper"] = nTaper
         
-        # Set up compute-kernel
+        # Set up compute-class
         specestMethod = MultiTaperFFT(1 / data.samplerate,
                                       nTaper=nTaper, 
                                       timeAxis=timeAxis, 
@@ -371,7 +368,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         log_dct["toi"] = lcls["toi"]
         log_dct["width"] = lcls["width"]
 
-        # Set up compute-kernel
+        # Set up compute-class
         specestMethod = WaveletTransform(1/data.samplerate, 
                                          timeAxis,
                                          foi,
@@ -394,21 +391,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         out = SpectralData(dimord=SpectralData._defaultDimord)        
         new_out = True
 
-    # Detect if dask client is running and set `parallel` keyword accordingly
-    if __dask__:
-        try:
-            dd.get_client()
-            use_dask = True
-        except ValueError:
-            use_dask = False
-    else:
-        use_dask = False
-
     # Perform actual computation
     specestMethod.initialize(data, 
                              chan_per_worker=kwargs.get("chan_per_worker"),
                              keeptrials=keeptrials)
-    specestMethod.compute(data, out, parallel=use_dask, log_dict=log_dct)
+    specestMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)
 
     # Either return newly created output container or simply quit
     return out if new_out else None

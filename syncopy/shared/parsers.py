@@ -4,22 +4,17 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-08 13:53:38>
+# Last modification time: <2019-10-31 14:01:54>
 
 # Builtin/3rd party package imports
 import os
 import numpy as np
 import numbers
-import functools
-import time
-import h5py
-from inspect import signature
+import inspect
 
 # Local imports
 from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
 import syncopy as spy
-if spy.__dask__:
-    import dask.distributed as dd
 
 __all__ = ["get_defaults"]
 
@@ -408,7 +403,10 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
             if len(dims) > 1:
                 ashape = arr.shape
             else:
-                ashape = max((ischar,), arr.squeeze().shape)
+                if arr.size == 1:
+                    ashape = arr.shape
+                else:
+                    ashape = max((ischar,), arr.squeeze().shape)
             if len(dims) != len(ashape):
                 msg = "{}-dimensional array"
                 raise SPYValueError(legal=msg.format(len(dims)), varname=varname,
@@ -481,22 +479,6 @@ def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dim
     return
 
 
-def json_parser(json_dct, wanted_dct):
-    """
-    Docstring coming soon(ish)
-    """
-
-    if not set(wanted_dct.keys()).issubset(json_dct.keys()):
-        legal = "mandatory fields " + "".join(key + ", " for key in wanted_dct.keys())[:-2]
-        raise SPYValueError(legal=legal, varname="JSON")
-    
-    for key, tp in wanted_dct.items():
-        if not isinstance(json_dct[key], tp):
-            raise SPYTypeError(json_dct[key], varname="JSON: {}".format(key),
-                               expected=tp)
-    return
-
-
 def get_defaults(obj):
     """
     Parse input arguments of `obj` and return dictionary
@@ -522,7 +504,7 @@ def get_defaults(obj):
 
     if not callable(obj):
         raise SPYTypeError(obj, varname="obj", expected="SyNCoPy function or class")
-    dct = {k: v.default for k, v in signature(obj).parameters.items()\
+    dct = {k: v.default for k, v in inspect.signature(obj).parameters.items()\
            if v.default != v.empty and v.name != "cfg"}
     return spy.StructDict(dct)
 
@@ -663,236 +645,3 @@ def filename_parser(filename, is_in_valid_container=None):
         "basename": basename,
         "extension": ext
         }
-    
-
-def unwrap_cfg(func):
-    """
-    Decorator that unwraps cfg object in function call
-    
-    intended for Syncopy compute kernels
-    """
-
-    @functools.wraps(func)
-    def wrapper_cfg(*args, **kwargs):
-        
-        # First, parse positional arguments for dict-type inputs (`k` counts the 
-        # no. of dicts provided) and convert tuple of positional args to list
-        cfg = None
-        k = 0
-        args = list(args)
-        for argidx, arg in enumerate(args):
-            if isinstance(arg, dict):
-                cfgidx = argidx
-                k += 1
-
-        # If a dict was found, assume it's a `cfg` dict and extract it from
-        # the positional argument list; if more than one dict was found, abort
-        # IMPORTANT: create a copy of `cfg` using `StructDict` constructor to
-        # not manipulate `cfg` in user's namespace!
-        if k == 1:
-            cfg = spy.StructDict(args.pop(cfgidx))
-        elif k > 1:
-            raise SPYValueError(legal="single `cfg` input",
-                                varname="cfg",
-                                actual="{0:d} `cfg` objects in input arguments".format(k))
-
-        # Now parse provided keywords for `cfg` entry - if `cfg` was already
-        # provided as positional argument, abort
-        # IMPORTANT: create a copy of `cfg` using `StructDict` constructor to
-        # not manipulate `cfg` in user's namespace!
-        if kwargs.get("cfg") is not None:
-            if cfg:
-                lgl = "`cfg` either as positional or keyword argument, not both"
-                raise SPYValueError(legal=lgl, varname="cfg")
-            cfg = spy.StructDict(kwargs.pop("cfg"))
-            if not isinstance(cfg, dict):
-                raise SPYTypeError(kwargs["cfg"], varname="cfg",
-                                   expected="dictionary-like")
-
-        # If `cfg` was detected either in positional or keyword arguments, process it
-        if cfg:
-
-            # If a method is called using `cfg`, non-default values for
-            # keyword arguments *have* to be provided within the `cfg`
-            defaults = get_defaults(func)
-            for key, value in kwargs.items():
-                if defaults[key] != value:
-                    raise SPYValueError(legal="no keyword arguments",
-                                        varname=key,
-                                        actual="non-default value for {}".format(key))
-
-            # Translate any existing "yes" and "no" fields to `True` and `False`,
-            # respectively, and subsequently call the function with `cfg` unwrapped
-            for key in cfg.keys():
-                if str(cfg[key]) == "yes":
-                    cfg[key] = True
-                elif str(cfg[key]) == "no":
-                    cfg[key] = False
-
-            # If `cfg` contains keys 'data' or 'dataset' extract corresponding
-            # entry and make it a positional argument (abort if both 'data'
-            # and 'dataset' are present)
-            data = cfg.pop("data", None)
-            if cfg.get("dataset"):
-                if data:
-                    lgl = "either 'data' or 'dataset' field in `cfg`, not both"
-                    raise SPYValueError(legal=lgl, varname="cfg")
-                data = cfg.pop("dataset")
-            if data:
-                args = [data] + args
-                
-            # Input keywords are all provided by `cfg`
-            kwords = cfg
-            
-        else:
-        
-            # No meaningful `cfg` keyword found: take standard input keywords
-            kwords = kwargs
-            
-        # Remove data (always first positional argument) from anonymous `args` list
-        data = args.pop(0)
-            
-        # Process data selection: if provided, extract `select` from input kws
-        data._selection = kwords.get("select")
-        
-        # Call function with modified positional/keyword arguments
-        res = func(data, *args, **kwords)
-        
-        # Erase data-selection slot to not alter user objects
-        data._selection = None
-                    
-        return res
-
-    return wrapper_cfg
-
-
-def unwrap_io(func):
-    """
-    Decorator that handles parallel execution of 
-    :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-    
-    Parameters
-    ----------
-    func : callable
-        A Syncopy :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-        
-    Returns
-    -------
-    out : tuple or :class:`numpy.ndarray` if executed sequentially
-        Return value of :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-        (depending on value of `noCompute`, see 
-        :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-        for details)
-    Nothing : None if executed concurrently
-        If parallel workers are running concurrently, the first positional input 
-        argument is a dictionary (assembled by 
-        :meth:`syncopy.shared.computational_routine.ComputationalRoutine.compute_parallel`)
-        that holds the paths and dataset indices of HDF5 files for reading source 
-        data and writing results. 
-    
-    Notes
-    -----
-    Parallel execution supports two writing modes: concurrent storage of results
-    in multiple HDF5 files or sequential writing of array blocks in a single 
-    output HDF5 file. In both situations, the output array returned by 
-    :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-    is immediately written to disk and **not** propagated back to the caller to 
-    avoid inter-worker network communication. 
-    
-    In case of parallel writing, trial-channel blocks are stored in individual 
-    HDF5 containers (virtual sources) that are consolidated into a single 
-    :class:`h5py.VirtualLayout` which is subsequently used to allocate a virtual 
-    dataset inside a newly created HDF5 file (located in Syncopy's temporary 
-    storage folder). 
-
-    Conversely, in case of sequential writing, each resulting array is written 
-    sequentially to an existing single output HDF5 file using  a distributed mutex 
-    for access control to prevent write collisions. 
-    """
-
-    @functools.wraps(func)
-    def wrapper_io(trl_dat, *args, **kwargs):
-
-        # `trl_dat` is a NumPy array or `FauxTrial` object: execute the wrapped 
-        # function and return its result
-        if not isinstance(trl_dat, dict):
-            return func(trl_dat, *args, **kwargs)
-
-        # The fun part: `trl_dat` is a dictionary holding components for parallelization        
-        else:
-            
-            # Extract all necessary quantities to load/compute/write
-            hdr = trl_dat["hdr"]
-            keeptrials = trl_dat["keeptrials"]
-            infilename = trl_dat["infile"]
-            indset = trl_dat["indset"]
-            ingrid = trl_dat["ingrid"]
-            sigrid = trl_dat["sigrid"]
-            fancy = trl_dat["fancy"]
-            vdsdir = trl_dat["vdsdir"]
-            outfilename = trl_dat["outfile"]
-            outdset = trl_dat["outdset"]
-            outgrid = trl_dat["outgrid"]
-
-            # === STEP 1 === read data into memory
-            # Generic case: data is either a HDF5 dataset or memmap
-            if hdr is None:
-                try:
-                    with h5py.File(infilename, mode="r") as h5fin:
-                        if fancy:
-                            arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
-                        else:
-                            arr = np.array(h5fin[indset][ingrid])
-                except OSError:
-                    try:
-                        if fancy:
-                            arr = open_memmap(infilename, mode="c")[np.ix_(*ingrid)]
-                        else:
-                            arr = np.array(open_memmap(infilename, mode="c")[ingrid])
-                    except:
-                        raise SPYIOError(infilename)
-                except Exception as exc:
-                    raise exc
-                    
-            # For VirtualData objects
-            else:
-                idx = ingrid
-                if fancy:
-                    idx = np.ix_(*ingrid)
-                dsets = []
-                for fk, fname in enumerate(infilename):
-                    dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
-                                            mode="r", dtype=hdr[fk]["dtype"],
-                                            shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
-                arr = np.vstack(dsets)
-
-            # === STEP 2 === perform computation
-            # Now, actually call wrapped function
-            res = func(arr, *args, **kwargs)
-            
-            # === STEP 3 === write result to disk
-            # Write result to stand-alone HDF file or use a mutex to write to a 
-            # single container (sequentially)
-            if vdsdir is not None:
-                with h5py.File(outfilename, "w") as h5fout:
-                    h5fout.create_dataset(outdset, data=res)
-                    h5fout.flush()
-            else:
-                
-                # Create distributed lock (use unique name so it's synced across workers)
-                lock = dd.lock.Lock(name='sequential_write')
-
-                # Either (continue to) compute average or write current chunk
-                lock.acquire()
-                with h5py.File(outfilename, "r+") as h5fout:
-                    target = h5fout[outdset]
-                    if keeptrials:
-                        target[outgrid] = res    
-                    else:
-                        target[()] = np.nansum([target, res], axis=0)
-                    h5fout.flush()
-                lock.release()
-                    
-            return None # result has already been written to disk
-        
-    return wrapper_io

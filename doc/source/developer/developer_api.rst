@@ -36,7 +36,12 @@ syncopy.shared
     syncopy.shared.errors.SPYTypeError
     syncopy.shared.errors.SPYValueError
     syncopy.shared.errors.SPYIOError
-    syncopy.shared.errors.SPYParallelError
+    syncopy.shared.kwarg_decorators.unwrap_cfg
+    syncopy.shared.kwarg_decorators.unwrap_select
+    syncopy.shared.kwarg_decorators.unwrap_io
+    syncopy.shared.kwarg_decorators.detect_parallel_client
+    syncopy.shared.kwarg_decorators._append_docstring
+    syncopy.shared.kwarg_decorators._append_signature
 
 
 syncopy.specest

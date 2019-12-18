@@ -39,9 +39,9 @@ __all__ = ["esi_cluster_setup", "cluster_cleanup"]
 def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
                       timeout=180, interactive=True, start_client=True,
                       **kwargs):
-    """Setup a group of parallel workers on the ESI cluster
-
-    Start a distributed Dask cluster of workers using SLURM (or local multi-processing)
+    """
+    Start a distributed Dask cluster of parallel processing workers using SLURM 
+    (or local multi-processing)
     
     Parameters
     ----------
@@ -56,10 +56,10 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
         from the chosen queue, e.g., for ``partition = "8GBS"`` `mem_per_job` is 
         automatically set to the allowed maximum of `'8GB'`. However, even in
         queues with guaranted memory bookings, it is possible to allocate less
-        memory than the allowed maximum per job to spawn a large swarm of 
-        low-memory jobs. See Examples for details. 
+        memory than the allowed maximum per job to spawn numerous low-memory 
+        jobs. See Examples for details. 
     timeout : int
-        Number of seconds to wait for requested job swarm to start up. 
+        Number of seconds to wait for requested jobs to start up. 
     interactive : bool
         If `True`, user input is required in case not all jobs could 
         be started in the provided waiting period (determined by `timeout`). 
@@ -80,8 +80,8 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
 
     Examples
     --------
-    The following command launches a SLURM swarm of 10 jobs with 2 gigabytes
-    memory each in the `8GBS` partition
+    The following command launches 10 SLURM jobs with 2 gigabytes memory each 
+    in the `8GBS` partition
     
     >>> spy.esi_cluster_setup(n_jobs=10, partition="8GBS", mem_per_job="2GB") 
     
@@ -106,7 +106,7 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     
     See also
     --------
-    cluster_cleanup : remove dangling cluster-job swarms
+    cluster_cleanup : remove dangling parallel processing job-clusters
     """
     
     # For later reference: dynamically fetch name of current function
@@ -253,7 +253,7 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     # Kill a zombie cluster in non-interactive mode
     if not interactive and cluster._count_active_workers() == 0:
         cluster.close()
-        err = "SLURM swarm could not be started within given time-out " +\
+        err = "SLURM jobs could not be started within given time-out " +\
               "interval of {0:d} seconds"
         raise TimeoutError(err.format(timeout))
     
@@ -289,7 +289,7 @@ def _cluster_waiter(cluster, funcName, total_workers, timeout, interactive):
 
     # If we ran out of time before all workers could be started, ask what to do
     if counter == timeout and interactive:
-        msg = "{name:s} SLURM swarm could not be started within given time-out " +\
+        msg = "{name:s} SLURM jobs could not be started within given time-out " +\
               "interval of {time:d} seconds"
         print(msg.format(name=funcName, time=timeout))
         query = "{name:s} Do you want to [k]eep waiting for 60s, [a]bort or " +\
@@ -330,7 +330,7 @@ def cluster_cleanup():
     
     See also
     --------
-    esi_cluster_setup : Launch a SLURM job swarm on the ESI compute cluster
+    esi_cluster_setup : Launch a SLURM jobs on the ESI compute cluster
     """
     
     # For later reference: dynamically fetch name of current function

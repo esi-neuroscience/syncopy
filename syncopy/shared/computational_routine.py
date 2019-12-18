@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # 
-# Base class for all computational kernels in Syncopy
+# Base class for all computational classes in Syncopy
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
@@ -37,7 +37,7 @@ __all__ = []
 class ComputationalRoutine(ABC):
     """Abstract class for encapsulating sequential/parallel algorithms
 
-    A Syncopy compute kernel consists of a
+    A Syncopy compute class consists of a
     :class:`ComputationalRoutine`-subclass that binds a static
     :func:`computeFunction` and provides the class method
     :meth:`process_metadata`.
@@ -55,8 +55,8 @@ class ComputationalRoutine(ABC):
       as static method
     * Provides class method :func:`process_data`
 
-    For details on developing compute kernels for Syncopy, please refer
-    to :doc:`../compute_kernels`.
+    For details on writing compute classes and metafunctions for Syncopy, please 
+    refer to :doc:`/developer/compute_kernels`.
     """
 
     # Placeholder: the actual workhorse
@@ -96,7 +96,7 @@ class ComputationalRoutine(ABC):
 
         See also
         --------
-        ComputationalRoutine : Developer documentation: :doc:`../compute_kernels`.
+        ComputationalRoutine : Developer documentation: :doc:`/developer/compute_kernels`.
         """
         return None
 
@@ -374,7 +374,8 @@ class ComputationalRoutine(ABC):
         # TRIAL) that can be UNSORTED W/REPS to actually perform the requested 
         # selection on the NumPy array extracted w/`sourceLayout`. 
         for grd in sourceLayout:
-            if any([np.diff(sel).min() <= 0 if isinstance(sel, list) else False for sel in grd]):
+            if any([np.diff(sel).min() <= 0 if isinstance(sel, list) 
+                    and len(sel) > 1 else False for sel in grd]):
                 self.useFancyIdx = True 
                 break
         if self.useFancyIdx:
@@ -386,9 +387,16 @@ class ComputationalRoutine(ABC):
                     if isinstance(sel, list):
                         selarr = np.array(sel, dtype=np.intp)
                     else: # sel is a slice
-                        selarr = np.array(list(range(sel.start, sel.stop)), dtype=np.intp)
-                    sigrid.append(np.array(selarr) - selarr.min())
-                    ingrid[sk] = slice(selarr.min(), selarr.max() + 1, 1)
+                        step = sel.step
+                        if sel.step is None:
+                            step = 1
+                        selarr = np.array(list(range(sel.start, sel.stop, step)), dtype=np.intp)
+                    if selarr.size > 0:
+                        sigrid.append(np.array(selarr) - selarr.min())
+                        ingrid[sk] = slice(selarr.min(), selarr.max() + 1, 1)
+                    else:
+                        sigrid.append([])
+                        ingrid[sk] = []
                 sourceSelectors.append(tuple(sigrid))
                 sourceLayout[gk] = tuple(ingrid)
         else:
@@ -680,7 +688,9 @@ class ComputationalRoutine(ABC):
                                  "vdsdir": self.virtualDatasetDir,
                                  "outfile": outfilename.format(chk),
                                  "outdset": outdsetname,
-                                 "outgrid": self.targetLayout[chk]}
+                                 "outgrid": self.targetLayout[chk],
+                                 "outshape": self.targetShapes[chk],
+                                 "dtype": self.dtype}
                                  for chk in range(len(self.sourceLayout))]) 
         
         # Map all components (channel-trial-blocks) onto `computeFunction`
@@ -740,10 +750,10 @@ class ComputationalRoutine(ABC):
         # Initialize on-disk backing device (either HDF5 file or memmap)
         if self.hdr is None:
             try:
-                source = h5py.File(data.filename, mode="r")[data.data.name]
+                sourceObj = h5py.File(data.filename, mode="r")[data.data.name]
                 isHDF = True
             except OSError:
-                source = open_memmap(data.filename, mode="c")
+                sourceObj = open_memmap(data.filename, mode="c")
                 isHDF = False
             except Exception as exc:
                 raise exc
@@ -759,33 +769,38 @@ class ComputationalRoutine(ABC):
                 ingrid = self.sourceLayout[nblock]
                 sigrid = self.sourceSelectors[nblock]
                 outgrid = self.targetLayout[nblock]
-
-                # Get source data as NumPy array
-                if self.hdr is None:
-                    if isHDF:
-                        if self.useFancyIdx:
-                            arr = np.array(source[tuple(ingrid)])[np.ix_(*sigrid)]
-                        else:
-                            arr = np.array(source[tuple(ingrid)])
-                    else:
-                        if self.useFancyIdx:
-                            arr = source[np.ix_(*ingrid)]
-                        else:
-                            arr = np.array(source[ingrid])
-                    source.flush()
+                
+                # Catch empty source-array selections; this workaround is not 
+                # necessary for h5py version 2.10+ (see https://github.com/h5py/h5py/pull/1174)
+                if any([not sel for sel in ingrid]):
+                    res = np.empty(self.targetShapes[nblock], dtype=self.dtype)
                 else:
-                    idx = ingrid
-                    if self.useFancyIdx:
-                        idx = np.ix_(*ingrid)
-                    stacks = []
-                    for fk, fname in enumerate(data.filename):
-                        stacks.append(np.memmap(fname, offset=int(self.hdr[fk]["length"]),
-                                                mode="r", dtype=self.hdr[fk]["dtype"],
-                                                shape=(self.hdr[fk]["M"], self.hdr[fk]["N"]))[idx])
-                    arr = np.vstack(stacks)[ingrid]
+                    # Get source data as NumPy array
+                    if self.hdr is None:
+                        if isHDF:
+                            if self.useFancyIdx:
+                                arr = np.array(sourceObj[tuple(ingrid)])[np.ix_(*sigrid)]
+                            else:
+                                arr = np.array(sourceObj[tuple(ingrid)])
+                        else:
+                            if self.useFancyIdx:
+                                arr = sourceObj[np.ix_(*ingrid)]
+                            else:
+                                arr = np.array(sourceObj[ingrid])
+                        sourceObj.flush()
+                    else:
+                        idx = ingrid
+                        if self.useFancyIdx:
+                            idx = np.ix_(*ingrid)
+                        stacks = []
+                        for fk, fname in enumerate(data.filename):
+                            stacks.append(np.memmap(fname, offset=int(self.hdr[fk]["length"]),
+                                                    mode="r", dtype=self.hdr[fk]["dtype"],
+                                                    shape=(self.hdr[fk]["M"], self.hdr[fk]["N"]))[idx])
+                        arr = np.vstack(stacks)[ingrid]
 
-                # Perform computation
-                res = self.computeFunction(arr, *self.argv, **self.cfg)
+                    # Perform computation
+                    res = self.computeFunction(arr, *self.argv, **self.cfg)
                     
                 # Either write result to `outgrid` location in `target` or add it up
                 if self.keeptrials:
@@ -802,7 +817,7 @@ class ComputationalRoutine(ABC):
 
         # If source was HDF5 file, close it to prevent access errors
         if isHDF:
-            source.file.close()    
+            sourceObj.file.close()    
             
         return
 
@@ -872,7 +887,7 @@ class ComputationalRoutine(ABC):
         Notes
         -----
         This routine is an abstract method and is thus intended to be overloaded. 
-        Consult the developer documentation (:doc:`../compute_kernels`) for 
+        Consult the developer documentation (:doc:`/developer/compute_kernels`) for 
         further details. 
 
         See also

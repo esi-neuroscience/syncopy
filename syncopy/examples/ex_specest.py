@@ -72,33 +72,60 @@ if __name__ == "__main__":
     
     # cfg = spy.get_defaults(spy.freqanalysis)
     # cfg.method = 'mtmfft'
+    # cfg.taper = 'dpss'
+    # cfg.output = 'pow'
+    # cfg.tapsmofrq = 20
+    # cfg.keeptrials = False
+    # cfg.keeptapers = False
+    # cfg.pad = 'nextpow2'
+    # cfg.select = {"toilim": [-0.25, 0]}
+    # cfg.data = data
+    # baselineSpectrum = spy.freqanalysis(cfg=cfg)
+
+    # sys.exit()
+
+    # client = spy.esi_cluster_setup(n_jobs=10, partition="DEV", mem_per_job="2GB")
+    
+    
+    # cfg = spy.get_defaults(spy.freqanalysis)
+    # cfg.method = 'mtmfft'
+    # cfg.taper = "dpss"
+    # cfg.tapsmofrq = 20
     # cfg.output = 'pow'
     # cfg.keeptrials = False
-    # cfg.foi = spy.np.arange(1,100)
-    # cfg.select = {"toilim": [-0.25, 0]}
-    # baselineSpectrum = spy.freqanalysis(cfg, data)
-    # plt.ion()
-    # plt.figure()
-    # plt.plot(baselineSpectrum.freq, baselineSpectrum.data[0, 0, :, 0])
-    
+    # cfg.keeptapers = True
+    # overallSpectrum = spy.freqanalysis(cfg, data)
     # sys.exit()
     
-    try:
-        client = dd.get_client()
-    except:
-        client = spy.esi_cluster_setup(n_jobs=10, partition="DEV", mem_per_job="2GB")
-        # client = spy.esi_cluster_setup(n_jobs=8, partition="DEV", mem_per_job="4GB")
-
-    cfg = spy.StructDict()
-    cfg.output = 'pow'        
-    cfg.taper = "dpss"
-    cfg.keeptrials = False
-    # cfg.keeptapers = False
-    # t0 = time()
-    spec = spy.freqanalysis(cfg, data)
-    # print("Elapsed time: ", time() - t0)
+    # # cfg = spy.get_defaults(spy.freqanalysis)
+    # # cfg.method = 'mtmfft'
+    # # cfg.output = 'pow'
+    # # cfg.keeptrials = False
+    # # cfg.foi = spy.np.arange(1,100)
+    # # cfg.select = {"toilim": [-0.25, 0]}
+    # # baselineSpectrum = spy.freqanalysis(cfg, data)
+    # # plt.ion()
+    # # plt.figure()
+    # # plt.plot(baselineSpectrum.freq, baselineSpectrum.data[0, 0, :, 0])
     
-    sys.exit()
+    # # sys.exit()
+    
+    # try:
+    #     client = dd.get_client()
+    # except:
+    #     client = spy.esi_cluster_setup(n_jobs=10, partition="DEV", mem_per_job="2GB")
+    #     # client = spy.esi_cluster_setup(n_jobs=8, partition="DEV", mem_per_job="4GB")
+
+    # cfg = spy.StructDict()
+    # cfg.output = 'pow'        
+    # cfg.taper = "dpss"
+    # cfg.keeptrials = False
+    # # cfg.keeptapers = False
+    # # t0 = time()
+    # spec = spy.freqanalysis(cfg, data)
+    # # print("Elapsed time: ", time() - t0)
+    
+    # sys.exit()
 
     # nc = 10
     # ns = 30

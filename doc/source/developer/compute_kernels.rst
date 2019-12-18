@@ -9,11 +9,11 @@
 
 .. currentmodule:: syncopy.shared.computational_routine
 
-Design Guide: Syncopy Compute Kernels
+Design Guide: Syncopy Compute Classes
 =====================================
-A compute kernel represents the centerpiece of a Syncopy analysis routine.
+A compute class represents the centerpiece of a Syncopy analysis routine.
 The abstract base class :class:`ComputationalRoutine` is the concrete
-realization of a general-purpose compute kernel.  This class provides a
+realization of a general-purpose computing object. This class provides a
 blueprint for implementing algorithmic strategies in Syncopy. Every
 computational method in Syncopy consists of a core routine, the |cf|_,
 which can be executed either sequentially or fully parallel. To unify
@@ -295,4 +295,4 @@ with the `parallel` keyword set to `True`:
 The full source code of this particular example can be found in
 :func:`syncopy.ex_comproutine`.  For realizing more complex mechanisms,
 consult the implementations of :func:`syncopy.freqanalysis` or other
-computing kernels in Syncopy.
+metafunctions in Syncopy.

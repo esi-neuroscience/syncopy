@@ -4,15 +4,16 @@
 # 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-11 13:38:26>
+# Last modification time: <2019-11-01 15:28:25>
 
 # Builtin/3rd party package imports
 import numpy as np
 from abc import ABC
 
 # Local imports
-from .base_data import BaseData, Indexer
-from .data_methods import definetrial
+from .base_data import BaseData, Indexer, FauxTrial
+from .methods.definetrial import definetrial
+from .methods.selectdata import selectdata
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError
 
@@ -104,14 +105,42 @@ class DiscreteData(BaseData, ABC):
                     for t in range(0, int(self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0]))) \
                     for tk in self.trialid]
 
-    # Selector method
-    def selectdata(self, trials=None, deepcopy=False, **kwargs):
-        """Select parts of the data (:func:`syncopy.selectdata`)        
-        """
-
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
         return self._data[self.trialid == trialno, :]
+    
+    # Helper function that spawns a `FauxTrial` object given actual trial information    
+    def _preview_trial(self, trialno):
+        """
+        Generate a `FauxTrial` instance of a trial
+        
+        Parameters
+        ----------
+        trialno : int
+            Number of trial the `FauxTrial` object is intended to mimic
+            
+        Returns
+        -------
+        faux_trl : :class:`syncopy.datatype.base_data.FauxTrial`
+            An instance of :class:`syncopy.datatype.base_data.FauxTrial` mainly
+            intended to be used in `noCompute` runs of 
+            :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+            to avoid loading actual trial-data into memory. 
+            
+        See also
+        --------
+        syncopy.datatype.base_data.FauxTrial : class definition and further details
+        syncopy.shared.computational_routine.ComputationalRoutine : Syncopy compute engine
+        """
+        
+        trialIdx = np.where(self.trialid == trialno)[0]
+        nCol = len(self.dimord)
+        idx = [trialIdx.tolist(), slice(0, nCol)]
+        if self._selection is not None: # selections are harmonized, just take `.time`
+            idx[0] = trialIdx[self._selection.time[self._selection.trials.index(trialno)]].tolist()
+        shp = [len(idx[0]), nCol]
+                        
+        return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
     
     # Helper function that extracts by-trial timing-related indices
     def _get_time(self, trials, toi=None, toilim=None):
@@ -149,9 +178,8 @@ class DiscreteData(BaseData, ABC):
         timing = []
         if toilim is not None:
             allTrials = self.trialtime
-            allSamples = self.data[:, self.dimord.index("sample")]
             for trlno in trials:
-                thisTrial = allSamples[self.trialid == trlno]
+                thisTrial = self.data[self.trialid == trlno, self.dimord.index("sample")]
                 trlSample = np.arange(*self.sampleinfo[trlno, :])
                 trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
                 minSample = trlSample[np.where(trlTime >= toilim[0])[0][0]]
@@ -169,9 +197,8 @@ class DiscreteData(BaseData, ABC):
                 
         elif toi is not None:
             allTrials = self.trialtime
-            allSamples = self.data[:, self.dimord.index("sample")]
             for trlno in trials:
-                thisTrial = allSamples[self.trialid == trlno]
+                thisTrial = self.data[self.trialid == trlno, self.dimord.index("sample")]
                 trlSample = np.arange(*self.sampleinfo[trlno, :])
                 trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
                 selSample = [min(trlTime.size - 1, idx) 
@@ -240,9 +267,9 @@ class SpikeData(DiscreteData):
         """ :class:`numpy.ndarray` : list of original channel names for each unit"""        
         # if data exists but no user-defined channel labels, create them on the fly
         if self._channel is None and self._data is not None:
-            channelIndices = np.unique(self.data[:, self.dimord.index("channel")])
-            return np.array(["channel" + str(int(i)).zfill(len(str(channelIndices.max())))
-                             for i in channelIndices])
+            channelNumbers = np.unique(self.data[:, self.dimord.index("channel")])
+            return np.array(["channel" + str(int(i + 1)).zfill(len(str(channelNumbers.max() + 1)))
+                             for i in channelNumbers])
             
         return self._channel
 
@@ -251,17 +278,25 @@ class SpikeData(DiscreteData):
         if chan is None:
             self._channel = None
             return
-        
         if self.data is None:
             raise SPYValueError("Syncopy: Cannot assign `channels` without data. " +
                   "Please assign data first")    
-
-        nchan = np.unique(self.data[:, self.dimord.index("channel")]).size
         try:
-            array_parser(chan, varname="channel", ntype="str", dims=(nchan,))
+            array_parser(chan, varname="channel", ntype="str")
         except Exception as exc:
             raise exc
-        self._channel = np.array(chan)
+        
+        # Remove duplicate entries from channel array but preserve original order
+        # (e.g., `[2, 0, 0, 1]` -> `[2, 0, 1`); allows for complex subset-selections
+        _, idx = np.unique(chan, return_index=True)
+        chan = np.array(chan)[idx]
+        nchan = np.unique(self.data[:, self.dimord.index("channel")]).size
+        if chan.size != nchan:
+            lgl = "channel label array of length {0:d}".format(nchan)
+            act = "array of length {0:d}".format(chan.size)
+            raise SPYValueError(legal=lgl, varname="channel", actual=act)
+        
+        self._channel = chan
 
     @property
     def unit(self):
@@ -288,6 +323,24 @@ class SpikeData(DiscreteData):
         except Exception as exc:
             raise exc
         self._unit = np.array(unit)
+
+    # Selector method
+    def selectdata(self, trials=None, toi=None, toilim=None, units=None, channels=None):
+        """
+        Create new `SpikeData` object from selection
+        
+        Please refere to :func:`syncopy.selectdata` for detailed usage information. 
+        
+        Examples
+        --------
+        >>> spkUnit01 = spk.selectdata(units=[0, 1])
+        
+        See also
+        --------
+        syncopy.selectdata : create new objects via deep-copy selections
+        """
+        return selectdata(self, trials=trials, channels=channels, toi=toi, 
+                          toilim=toilim, units=units)
         
     # Helper function that extracts by-trial unit-indices
     def _get_unit(self, trials, units=None):
@@ -413,6 +466,22 @@ class EventData(DiscreteData):
             return None
         return np.unique(self.data[:, self.dimord.index("eventid")])
         
+    # Selector method
+    def selectdata(self, trials=None, toi=None, toilim=None, eventids=None):
+        """
+        Create new `EventData` object from selection
+        
+        Please refere to :func:`syncopy.selectdata` for detailed usage information. 
+        
+        Examples
+        --------
+        >>> evtStimOn = evt.selectdata(eventids=[1])
+        
+        See also
+        --------
+        syncopy.selectdata : create new objects via deep-copy selections
+        """
+        return selectdata(self, trials=trials, toi=toi, toilim=toilim, eventids=eventids)
 
     # Helper function that extracts by-trial eventid-indices
     def _get_eventid(self, trials, eventids=None):
