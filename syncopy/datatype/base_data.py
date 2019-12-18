@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-01 14:57:54>
+# Last modification time: <2019-11-06 10:48:44>
 
 # Builtin/3rd party package imports
 import getpass
@@ -728,10 +728,11 @@ class BaseData(ABC):
             dinfo = ""
             dsep = "' x '"
         hdstr = "{diminfo:s}Syncopy {clname:s} object with fields\n\n"
-        ppstr = hdstr.format(diminfo=dinfo + " '"  + \
+        ppstr = hdstr.format(diminfo=dinfo + "'"  + \
                              dsep.join(dim for dim in self.dimord) + "' " if self.dimord is not None else "Empty ",
                              clname=self.__class__.__name__)
         maxKeyLength = max([len(k) for k in ppattrs])
+        printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
         for attr in ppattrs:
             value = getattr(self, attr)
             if hasattr(value, 'shape') and attr == "data" and self.sampleinfo is not None:
@@ -766,7 +767,6 @@ class BaseData(ABC):
                                          ks=" '" + "', '".join(key for key in keylist) + "'" if showkeys else "")
             else:
                 valueString = str(value)
-            printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
             ppstr += printString.format(attr, valueString)
         ppstr += "\nUse `.log` to see object history"
         return ppstr
@@ -1147,8 +1147,22 @@ class StructDict(dict):
         (thus ensuring that attributes and items are always in sync)
         """
         super().__init__(*args, **kwargs)
-        self.__dict__ = self        
-
+        self.__dict__ = self
+        
+    def __repr__(self):
+        return self.__str__()
+    
+    def __str__(self):
+        if self.keys():
+            ppStr = "Syncopy StructDict\n\n"
+            maxKeyLength = max([len(val) for val in self.keys()])
+            printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
+            for key, value in self.items():
+                ppStr += printString.format(key, str(value))
+            ppStr += "\nUse `dict(cfg)` for copy-paste-friendly format"
+        else:
+            ppStr = "{}"
+        return ppStr
 
 class FauxTrial():
     """

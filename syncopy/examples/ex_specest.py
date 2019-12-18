@@ -33,15 +33,43 @@ from time import time
 
 if __name__ == "__main__":
 
-    # data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
-    # # client = spy.esi_cluster_setup(n_jobs=10, partition="DEV", mem_per_job="2GB")
+    dummy = generate_artificial_data(nTrials=2, nChannels=16, 
+                                     equidistant=True, inmemory=False)
+    sys.exit()
     
-    # dsel = spy.selectdata(data, trials=[0,1], channels=range(50), toilim=[-0.25, 0])
-    # dsel = spy.selectdata(data, channels=range(50), toilim=[-0.25, 0])
+    data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
+    client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")
+
+    cfg = spy.get_defaults(spy.freqanalysis)
+    cfg.method = 'mtmfft'
+    cfg.taper = 'dpss'
+    cfg.output = 'pow'
+    cfg.tapsmofrq = 20
+    cfg.keeptrials = False
+    cfg.keeptapers = False
+    cfg.pad = 'nextpow2'
+    cfg.select = {"toilim": [-0.25, 0]}
+
+    sys.exit()
     
-    # sys.exit()
+    sys.exit()
+    baselineSpectrum = spy.freqanalysis(cfg, data)
+    
+    bsc = baselineSpectrum.copy()
 
 
+    
+    
+    cfg = spy.get_defaults(spy.freqanalysis)
+    cfg.method = 'mtmfft'
+    cfg.taper = "dpss"
+    cfg.tapsmofrq = 20
+    cfg.output = 'pow'
+    cfg.keeptrials = False
+    cfg.keeptapers = True
+    overallSpectrum = spy.freqanalysis(cfg, data)
+    sys.exit()
+    
     # cfg = spy.get_defaults(spy.freqanalysis)
     # cfg.method = 'mtmfft'
     # cfg.taper = 'dpss'

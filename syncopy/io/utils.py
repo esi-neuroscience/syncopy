@@ -1,22 +1,21 @@
 # -*- coding: utf-8 -*-
-#
+# 
 # Collection of I/O utility functions
 # 
 # Created: 2019-02-06 14:30:17
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-27 15:36:26>
+# Last modification time: <2019-11-11 12:46:10>
 
 # Builtin/3rd party package imports
 import os
 import sys
-import tempfile
 import shutil
+import inspect
 import numpy as np
 from datetime import datetime
 from glob import glob
-from hashlib import blake2b
-from tqdm import tqdm
 from collections import OrderedDict
+from tqdm import tqdm
 if sys.platform == "win32":
     # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
     import colorama
@@ -27,9 +26,10 @@ if sys.platform == "win32":
 from syncopy import __storage__, __sessionid__, __checksum_algorithm__
 from syncopy.datatype.base_data import BaseData
 from syncopy.shared.parsers import scalar_parser
+from syncopy.shared.errors import SPYTypeError
 from syncopy.shared.queries import user_yesno, user_input
 
-__all__ = ["cleanup"]
+__all__ = ["cleanup", "clear"]
 
 def _all_subclasses(cls):
     return set(cls.__subclasses__()).union(
@@ -77,25 +77,9 @@ def hash_file(fname, bsize=65536):
     return hash.hexdigest()
 
 
-def write_access(directory):
+def cleanup(older_than=24, **kwargs):
     """
-    An enlightening docstring...
-
-    Internal helper routine, do not parse inputs
-    """
-
-    try:
-        with tempfile.TemporaryFile() as tmp:
-            tmp.write(b"Alderaan shot first")
-            tmp.seek(0)
-            tmp.read()
-        return True
-    except Exception as Exc:
-        raise Exc
-
-
-def cleanup(older_than=24):
-    """Delete old files in temporary Syncopy folder
+    Delete old files in temporary Syncopy folder
     
     The location of the temporary folder is stored in `syncopy.__storage__`.
     
@@ -103,8 +87,10 @@ def cleanup(older_than=24):
     ----------
     older_than : int
         Files older than `older_than` hours will be removed
-    
-    
+        
+    Examples
+    --------
+    >>> spy.cleanup()
     """
 
     # Make sure age-cutoff is valid
@@ -115,31 +101,41 @@ def cleanup(older_than=24):
         raise exc
     older_than = int(older_than)
 
+    # For clarification: show location of storage folder that is scanned here
+    funcName = "Syncopy <{}>".format(inspect.currentframe().f_code.co_name)
+    dirInfo = \
+        "\n{name:s} Analyzing temporary storage folder {dir:s}...\n"
+    print(dirInfo.format(name=funcName, dir=__storage__))
+
+    # Parse "hidden" interactive keyword: if `False`, don't ask, just delete    
+    interactive = kwargs.get("interactive", True)
+    if not isinstance(interactive, bool):
+        raise SPYTypeError(interactive, varname="interactive", expected="bool")
+
     # Get current date + time and scan package's temp directory for session files
     now = datetime.now()
     sessions = glob(os.path.join(__storage__, "session*"))
-    all_ids = []
+    allIds = []
     for sess in sessions:
-        all_ids.append(os.path.splitext(os.path.basename(sess))[0].split("_")[1])
+        allIds.append(os.path.splitext(os.path.basename(sess))[0].split("_")[1])
 
     # Also check for dangling data (not associated to any session)
     data = glob(os.path.join(__storage__, "spy_*"))
     dangling = []
     for dat in data:
         sessid = os.path.splitext(os.path.basename(dat))[0].split("_")[1]
-        if sessid not in all_ids:
+        if sessid not in allIds:
             dangling.append(dat)
 
     # Cycle through session-logs and identify stuff older than `older_than` hrs
-    ses_list = []       # full path to session files
-    age_list = []       # session age in days
-    usr_list = []       # session users
-    siz_list = []       # raw session sizes in bytes
-    own_list = []       # session owners (user@machine)
-    fls_list = []       # files/directories associated to session
+    sesList = []       # full path to session files
+    ageList = []       # session age in days
+    usrList = []       # session users
+    sizList = []       # raw session sizes in bytes
+    ownList = []       # session owners (user@machine)
+    flsList = []       # files/directories associated to session
     for sk, sess in enumerate(sessions):
-        sessid = all_ids[sk]
-        # sessid = os.path.splitext(os.path.basename(sess))[0].split("_")[1]
+        sessid = allIds[sk]
         if sessid != __sessionid__:
             with open(sess, "r") as fid:
                 sesslog = fid.read()
@@ -147,23 +143,117 @@ def cleanup(older_than=24):
             timeobj = datetime.strptime(timestr, '%Y-%m-%d %H:%M:%S')
             age = round((now - timeobj).total_seconds()/3600)   # age in hrs
             if age >= older_than:
-                ses_list.append(sess)
+                sesList.append(sess)
                 files = glob(os.path.join(__storage__, "*_{}_*".format(sessid)))
-                fls_list.append(files)
-                age_list.append(round(age/24))                  # age in days
-                usr_list.append(sesslog[:sesslog.find("@")])
-                own_list.append(sesslog[:sesslog.find(":")])
-                siz_list.append(sum(os.path.getsize(file) if os.path.isfile(file) else \
-                                    sum(os.path.getsize(os.path.join(dirpth, fname)) \
-                                        for dirpth, _, fnames in os.walk(file) \
-                                        for fname in fnames) for file in files))
+                flsList.append(files)
+                ageList.append(round(age/24))                  # age in days
+                usrList.append(sesslog[:sesslog.find("@")])
+                ownList.append(sesslog[:sesslog.find(":")])
+                sizList.append(sum(os.path.getsize(file) if os.path.isfile(file) else 
+                                   sum(os.path.getsize(os.path.join(dirpth, fname)) \
+                                       for dirpth, _, fnames in os.walk(file) 
+                                       for fname in fnames) for file in files))
 
-    # Tell the user if we didn't find any session data satisfying the provided criteria
-    if len(ses_list) == 0:
-        ext = "\n| Syncopy cleanup | Did not find any syncopy session data older than {} hours."
-        print(ext.format(older_than))
+    # Farewell if nothing's to do here
+    if not sesList and not dangling:
+        ext = \
+        "Did not find any dangling data or Syncopy session remains " +\
+        "older than {age:d} hours."
+        print(ext.format(name=funcName, age=older_than))
+        return
 
+    # Prepare session-related info prompt
+    if sesList:
+        usrList = list(set(usrList))
+        gbList = [sz/1024**3 for sz in sizList]
+        sesInfo = \
+            "Found data of {numsess:d} syncopy sessions {ageinfo:s} " +\
+            "created by user{users:s}'\ntaking up {gbinfo:s} of disk space. \n"
+        sesInfo = sesInfo.format(numsess=len(sesList),
+                                 ageinfo="between {agemin:d} and {agemax:d} days old".format(agemin=min(ageList),
+                                                                                             agemax=max(ageList)) \
+                                     if min(ageList) < max(ageList) else "from {} days ago".format(ageList[0]),
+                                 users="(s) '" + ",".join(usr + ", " for usr in usrList)[:-2] \
+                                     if len(usrList) > 1 else " '" + usrList[0],
+                                 gbinfo="a total of {gbsz:4.1f} GB".format(gbsz=sum(gbList)) \
+                                     if sum(gbList) > 1 else "less than 1 GB")
+        sesOptions = \
+            "[I]NTERACTIVE walkthrough to decide which session to remove \n" +\
+            "[S]ESSION removal to delete all sessions at once " +\
+            "(you will not be prompted for confirmation) \n"
+        sesValid = ["I", "S"]
+        promptInfo = sesInfo
+        promptOptions = sesOptions
+        promptValid = sesValid
+            
+    # Prepare info prompt for dangling files
+    if dangling:
+        dangInfo = \
+            "Found {numdang:d} dangling files not associated to any session " +\
+            "using {szdang:4.1f} GB of disk space. \n"
+        dangInfo = dangInfo.format(numdang=len(dangling),
+                                   szdang=sum(os.path.getsize(file)/1024**3 if os.path.isfile(file) else \
+                                       sum(os.path.getsize(os.path.join(dirpth, fname))/1024**3 \
+                                           for dirpth, _, fnames in os.walk(file) \
+                                               for fname in fnames) for file in dangling))
+        dangOptions = \
+            "[D]ANGLING FILE removal to delete anything not associated to sessions " +\
+            "(you will not be prompted for confirmation) \n"
+        dangValid = ["D"]
+        promptInfo = dangInfo
+        promptOptions = dangOptions
+        promptValid = dangValid
+
+    # Put together actual prompt message message
+    promptChoice = "\nPlease choose one of the following options:\n" 
+    abortOption = "[C]ANCEL\n"
+    abortValid = ["C"]
+
+    if sesList and dangling:
+        rmAllOption = \
+            "[R]EMOVE all (sessions and dangling files) at once " +\
+            "(you will not be prompted for confirmation)\n"
+        rmAllValid = ["R"]
+        promptInfo = sesInfo + dangInfo
+        promptOptions = sesOptions + dangOptions + rmAllOption
+        promptValid = sesValid + dangValid + rmAllValid
+
+    # By default, ask what to do; if `interactive` is `False`, remove everything    
+    if interactive:
+        choice = user_input(promptInfo + promptChoice + promptOptions + abortOption, 
+                            valid=promptValid + abortValid)
     else:
+        choice = "R"
+    
+    # Query removal of data session by session    
+    if choice == "I":
+        promptYesNo = \
+            "Found{numf:s} files created by session {sess:s} {age:d} " +\
+            "days ago{sizeinfo:s} Do you want to permanently delete these files?"
+        for sk in range(len(sesList)):
+            if user_yesno(promptYesNo.format(numf=" " + str(len(flsList[sk])),
+                                             sess=ownList[sk],
+                                             age=ageList[sk],
+                                             sizeinfo=" using " + \
+                                                 str(round(sizList[sk]/1024**2)) + \
+                                                     " MB of disk space.")):
+                _rm_session(flsList[sk])
+                
+    # Delete all session-remains at once
+    elif choice == "S":
+        for fls in tqdm(flsList, desc="Deleting session data..."):
+            _rm_session(fls)
+            
+    # Deleate all dangling files at once
+    elif choice == "D":
+        for dat in tqdm(dangling, desc="Deleting dangling data..."):
+            _rm_session([dat])
+    
+    # Delete everything
+    elif choice == "R":
+        for contents in tqdm(flsList + [[dat] for dat in dangling], 
+                        desc="Deleting temporary data..."):
+            _rm_session(contents)
 
         # Format lists for output
         usr_list = list(set(usr_list))
@@ -228,7 +318,44 @@ def cleanup(older_than=24):
                 _rm_session([dat])
         else:
             print("Aborting...")        
-        
+
+
+def clear():
+    """
+    Clear Syncopy objects from memory
+    
+    Notes
+    -----
+    Syncopy objects are **not** loaded wholesale into memory. Only the corresponding
+    meta-information is read from disk and held in memory. The underlying numerical
+    data is streamed on-demand from disk leveraging HDF5's modified LRU (least 
+    recently used) page replacement algorithm. Thus, :func:`syncopy.clear` simply
+    force-flushes all of Syncopy's HDF5 backing devices to free up memory currently
+    blocked by cached data chunks.
+    
+    Examples
+    --------
+    >>> spy.clear()
+    """
+
+    # Get current frame
+    thisFrame = sys._getframe()
+    
+    # For later reference: dynamically fetch name of current function
+    funcName = "Syncopy <{}>".format(thisFrame.f_code.co_name)
+
+    # Go through caller's namespace and execute `clear` of `BaseData` children
+    counter = 0
+    for name, value in thisFrame.f_back.f_locals.items():
+        if isinstance(value, BaseData):
+            value.clear()
+            counter += 1
+    
+    # Be talkative
+    msg = "{name:s} flushed {objcount:d} objects from memory"
+    print(msg.format(name=funcName, objcount=counter))
+    
+    return
                 
 def _rm_session(session_files):
     """

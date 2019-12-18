@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-22 12:38:16
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-23 15:36:21>
+# Last modification time: <2019-11-04 12:59:19>
 
 # Builtin/3rd party package imports
 import os
@@ -346,19 +346,22 @@ def cluster_cleanup():
         raise exc
     
     # Prepare message for prompt
-    userName = getpass.getuser()
-    outDir = client.cluster.job_header.partition("--output=")[-1]
-    jobID = outDir.partition("{}_".format(userName))[-1].split(os.sep)[0]
-    userClust = "{0}_{1}".format(userName, jobID)
-    nWorkers = client.cluster._count_active_and_pending_workers()
+    if client.cluster.__class__.__name__ == "LocalCluster":
+        userClust = "LocalCluster hosted on {}".format(client.scheduler_info()["address"])
+        nWorkers = len(client.cluster.workers)
+    else:
+        userName = getpass.getuser()
+        outDir = client.cluster.job_header.partition("--output=")[-1]
+        jobID = outDir.partition("{}_".format(userName))[-1].split(os.sep)[0]
+        userClust = "cluster {0}_{1}".format(userName, jobID)
+        nWorkers = client.cluster._count_active_and_pending_workers()
     
     # If connection was successful, first close the client, then the cluster
     client.close()
     client.cluster.close()
     
     # Communicate what just happened and get outta here
-    msg = "{fname:s} Successfully shut down cluster {cname:s} " +\
-          "containing {nj:d} workers"
+    msg = "{fname:s} Successfully shut down {cname:s} containing {nj:d} workers"
     print(msg.format(fname=funcName,
                      nj=nWorkers,
                      cname=userClust))

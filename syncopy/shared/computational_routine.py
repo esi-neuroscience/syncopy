@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-01 15:04:20>
+# Last modification time: <2019-11-04 12:05:46>
 
 # Builtin/3rd party package imports
 import os
@@ -26,7 +26,7 @@ if sys.platform == "win32":
 # Local imports
 from .parsers import get_defaults
 from syncopy import __storage__, __dask__, __path__
-from syncopy.shared.errors import SPYIOError, SPYValueError
+from syncopy.shared.errors import SPYIOError, SPYValueError, SPYParallelError
 if __dask__:
     import dask.distributed as dd
     import dask.bag as db
@@ -518,6 +518,11 @@ class ComputationalRoutine(ABC):
             except ValueError as exc:
                 msg = "parallel computing client: {}"
                 raise SPYIOError(msg.format(exc.args[0]))
+            
+            # Check if the underlying cluster hosts actually usable workers
+            if client.cluster._count_active_workers() == 0:
+                raise SPYParallelError("No active workers found in distributed computing cluster",
+                                       client=client)
 
             # Check if trials actually fit into memory before we start computation
             wrk_size = max(wrkr.memory_limit for wrkr in client.cluster.workers.values())
