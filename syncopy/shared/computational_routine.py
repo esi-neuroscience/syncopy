@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-04 12:05:46>
+# Last modification time: <2020-01-16 15:06:26>
 
 # Builtin/3rd party package imports
 import os
@@ -520,7 +520,7 @@ class ComputationalRoutine(ABC):
                 raise SPYIOError(msg.format(exc.args[0]))
             
             # Check if the underlying cluster hosts actually usable workers
-            if client.cluster._count_active_workers() == 0:
+            if not len(client.cluster.workers):
                 raise SPYParallelError("No active workers found in distributed computing cluster",
                                        client=client)
 

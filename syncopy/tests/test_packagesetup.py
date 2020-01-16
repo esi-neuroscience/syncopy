@@ -4,7 +4,7 @@
 # 
 # Created: 2019-11-08 12:20:26
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-11 15:39:31>
+# Last modification time: <2020-01-16 15:05:20>
 
 import os
 import sys
@@ -36,48 +36,48 @@ def test_spytmpdir():
 
 # check if `cleanup` does what it's supposed to do
 def test_cleanup():
-    # run script that spawns new Python instance, which creates and saves an 
-    # `AnalogData` object in custom $SPYTMPDIR; force-kill the process after 
-    # 10 seconds preventing Syncopy from cleaning up its temp storage folder
+    # spawn new Python instance, which creates and saves an `AnalogData` object 
+    # in custom $SPYTMPDIR; force-kill the process after a few seconds preventing 
+    # Syncopy from cleaning up its temp storage folder
     tmpDir = os.path.join(tempfile.gettempdir(), "spy_zombie")
     os.environ["SPYTMPDIR"] = tmpDir
-    process = subprocess.Popen([sys.executable, "_zombie_spawner.py"])
-    time.sleep(10)
-    process.kill()    
-    timeout = 20
-    counter = 0
-    while process.poll() != 1 and counter < timeout:
-        time.sleep(0.5)
-        counter += 1
-    if counter == timeout:
-        raise TimeoutError("Python Process {} could not be killed. ".format(process.pid))
+    commandStr = \
+        "import os; " +\
+        "import time; " +\
+        "import syncopy as spy; " +\
+        "from syncopy.tests.misc import generate_artificial_data; " +\
+        "dummy = generate_artificial_data(inmemory=False); " +\
+        "dummy.save(os.path.join(spy.__storage__, 'spy_dummy')); " +\
+        "time.sleep(100)"
+    process = subprocess.Popen([sys.executable, "-c", commandStr])
+    time.sleep(5.)
+    process.kill()
     
     # get inventory of external Syncopy instance's temp storage
     spyGarbage = glob(os.path.join(tmpDir, "*"))
     assert len(spyGarbage)
-    
+
     # launch 2nd external instance with same $SPYTMPDIR, create 2nd `AnalogData` 
-    # object and run `cleanup`
+    # object, run `cleanup` and keep instance alive in background (for max. 100s)
     commandStr = \
+        "import time; " +\
         "import syncopy as spy; " +\
         "from syncopy.tests.misc import generate_artificial_data; " +\
-        "dummy = generate_artificial_data(); " +\
+        "dummy = generate_artificial_data(inmemory=False); " +\
         "spy.cleanup(older_than=0, interactive=False); " +\
-        "print(dummy.filename)"
-    out, err = subprocess.Popen([sys.executable, "-c", commandStr], 
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                text=True, shell=True).communicate()
+        "time.sleep(100)"
+    process2 = subprocess.Popen([sys.executable, "-c", commandStr], 
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 text=True)
+    time.sleep(5)
     
-    # if `out` is empty, something went wrong in instance no. 2 above
-    out = out.split()
-    assert out
-    dummy_filename = out[-1]
-    assert tmpDir in dummy_filename
-    
-    # Ensure `cleanup` call removed first instance's garbage but 2nd `AnalogData` 
-    # created above is unharmed
+    # ensure `cleanup` call removed first instance's garbage but 2nd `AnalogData` 
+    # belonging to 2nd instance launched above is unharmed
     for garbage in spyGarbage:
         assert not os.path.exists(garbage)
-    assert os.path.isfile(dummy_filename)
+    assert glob(os.path.join(tmpDir, "*.analog"))
     
+    # now kill 2nd instance and wipe `tmpDir`
+    process2.kill()    
     shutil.rmtree(tmpDir)
+    time.sleep(1)
