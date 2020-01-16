@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-06 10:48:44>
+# Last modification time: <2020-01-16 11:17:49>
 
 # Builtin/3rd party package imports
 import getpass
@@ -779,7 +779,7 @@ class BaseData(ABC):
                 if isinstance(prop, h5py.Dataset):
                     try:
                         prop.file.close()
-                    except (IOError, ValueError):
+                    except (IOError, ValueError, TypeError):
                         pass
                     except Exception as exc:
                         raise exc

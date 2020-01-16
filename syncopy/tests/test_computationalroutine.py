@@ -4,7 +4,7 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-11 15:20:37>
+# Last modification time: <2020-01-16 15:05:47>
 
 import os
 import tempfile
@@ -275,9 +275,9 @@ class TestComputationalRoutine():
                 assert self.metrix[sk](np.abs(dummy.data - reference)) < self.tols[sk]
                 assert np.array_equal(dummy.channel, self.sigdata.channel[sel.channel])
                 time.sleep(0.01)
-                del dummy, out
+                del out
                 
-                # nsure out_sel is written/read correctly
+                # ensure out_sel is written/read correctly
                 fname2 = os.path.join(tdir, "dummy2")
                 out_sel.save(fname2)
                 dummy2 = load(fname2)
@@ -288,7 +288,7 @@ class TestComputationalRoutine():
                 assert np.array_equal(dummy.data, dummy2.data)
                 assert np.array_equal(dummy.channel, dummy2.channel)
                 assert np.array_equal(dummy.time, dummy2.time)
-                del dummy, dummy2, out, out_sel
+                del dummy, dummy2, out_sel
 
     @skip_without_dask
     def test_parallel_equidistant(self, testcluster):
