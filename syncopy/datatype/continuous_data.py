@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-24 11:24:58>
+# Last modification time: <2020-01-24 13:30:39>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -226,6 +226,9 @@ class ContinuousData(BaseData, ABC):
         sid = self.dimord.index("time")
         idx[sid] = slice(int(self.sampleinfo[trialno, 0]), int(self.sampleinfo[trialno, 1]))
         return self._data[tuple(idx)]
+    
+    def _is_empty(self):
+        return super()._is_empty() or self.samplerate is None
     
     # Helper function that spawns a `FauxTrial` object given actual trial information    
     def _preview_trial(self, trialno):

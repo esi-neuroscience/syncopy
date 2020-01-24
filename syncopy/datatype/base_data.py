@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-24 11:31:59>
+# Last modification time: <2020-01-24 13:30:17>
 
 # Builtin/3rd party package imports
 import getpass
@@ -289,8 +289,10 @@ class BaseData(ABC):
             raise SPYValueError(legal=lgl, varname="data", actual=act)
                       
         setattr(self, "_" + propertyName, inData)        
-    
- 
+        
+    def _is_empty(self):
+        return all([getattr(self, attr) is None 
+                    for attr in self._hdfFileDatasetProperties])         
 
     @property
     def dimord(self):
