@@ -3,8 +3,8 @@
 # Module for all kinds of parsing gymnastics
 # 
 # Created: 2019-01-08 09:58:11
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-31 14:01:54>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2020-01-24 13:00:35>
 
 # Builtin/3rd party package imports
 import os
@@ -445,11 +445,13 @@ def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dim
     # If requested, ensure object contains data (or not)
     if empty is not None:
         legal = "{status:s} Syncopy data object"
-        if empty and (data.data is not None or data.samplerate is not None):
+        hasData = any([getattr(data, attr) is not None 
+                       for attr in data._hdfFileDatasetProperties]) 
+        if empty and (hasData or data.samplerate is not None):
             raise SPYValueError(legal=legal.format(status="empty"),
                                 varname=varname,
                                 actual="non-empty")
-        elif not empty and (data.data is None or data.samplerate is None):
+        elif not empty and (not hasData or data.samplerate is None):
             raise SPYValueError(legal=legal.format(status="non-empty"),
                                 varname=varname,
                                 actual="empty")
