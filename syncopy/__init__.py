@@ -3,8 +3,8 @@
 # 
 # 
 # Created: 2019-01-15 09:03:46
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-08 12:15:23>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2020-01-24 10:07:38>
 
 # Builtin/3rd party package imports
 import os
@@ -75,6 +75,7 @@ __tbcount__ = 5
 __checksum_algorithm__ = sha1
 
 # Fill up namespace
+from . import shared, io, datatype, specest, statistics
 from .shared import *
 from .io import *
 from .datatype import *

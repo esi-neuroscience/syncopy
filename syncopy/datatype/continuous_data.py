@@ -3,8 +3,8 @@
 # SynCoPy ContinuousData abstract class + regular children
 # 
 # Created: 2019-03-20 11:11:44
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-01 13:49:08>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2020-01-24 13:30:39>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -15,7 +15,9 @@ import h5py
 import inspect
 import numpy as np
 from abc import ABC
+from collections.abc import Iterator
 from numpy.lib.format import open_memmap
+
 
 # Local imports
 from .base_data import BaseData, FauxTrial
@@ -39,6 +41,87 @@ class ContinuousData(BaseData, ABC):
     
     _infoFileProperties = BaseData._infoFileProperties + ("samplerate", "channel",)
     _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate", "channel",)
+    _hdfFileDatasetProperties = BaseData._hdfFileDatasetProperties + ("data",)
+    
+    @property
+    def data(self):
+        """array-like object representing data without trials
+        
+        Trials are concatenated along the time axis.
+        """
+
+        if getattr(self._data, "id", None) is not None:
+            if self._data.id.valid == 0:
+                lgl = "open HDF5 container"
+                act = "backing HDF5 container {} has been closed"
+                raise SPYValueError(legal=lgl, actual=act.format(self.filename),
+                                    varname="data")
+        return self._data
+    
+    @data.setter
+    def data(self, inData):
+
+        self._set_dataset_property(inData, "data")
+
+        if inData is None:
+            return
+
+    def __str__(self):
+        # Get list of print-worthy attributes
+        ppattrs = [attr for attr in self.__dir__()
+                   if not (attr.startswith("_") or attr in ["log", "trialdefinition", "hdr"])]
+        ppattrs = [attr for attr in ppattrs
+                   if not (inspect.ismethod(getattr(self, attr))
+                           or isinstance(getattr(self, attr), Iterator))]
+        
+        ppattrs.sort()
+
+        # Construct string for pretty-printing class attributes
+        dsep = "' x '"
+        dinfo = ""
+        hdstr = "Syncopy {clname:s} object with fields\n\n"
+        ppstr = hdstr.format(diminfo=dinfo + "'"  + \
+                             dsep.join(dim for dim in self.dimord) + "' " if self.dimord is not None else "Empty ",
+                             clname=self.__class__.__name__)
+        maxKeyLength = max([len(k) for k in ppattrs])
+        printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
+        for attr in ppattrs:
+            value = getattr(self, attr)
+            if hasattr(value, 'shape') and attr == "data" and self.sampleinfo is not None:
+                tlen = np.unique([sinfo[1] - sinfo[0] for sinfo in self.sampleinfo])
+                if tlen.size == 1:
+                    trlstr = "of length {} ".format(str(tlen[0]))
+                else:
+                    trlstr = ""
+                dsize = np.prod(self.data.shape)*self.data.dtype.itemsize/1024**2
+                dunit = "MB"
+                if dsize > 1000:
+                    dsize /= 1024
+                    dunit = "GB"
+                valueString = "{} trials {}defined on ".format(str(len(self.trials)), trlstr)
+                valueString += "[" + " x ".join([str(numel) for numel in value.shape]) \
+                              + "] {dt:s} {tp:s} " +\
+                              "of size {sz:3.2f} {szu:s}"
+                valueString = valueString.format(dt=self.data.dtype.name,
+                                                 tp=self.data.__class__.__name__,
+                                                 sz=dsize,
+                                                 szu=dunit)
+            elif hasattr(value, 'shape'):
+                valueString = "[" + " x ".join([str(numel) for numel in value.shape]) \
+                              + "] element " + str(type(value))
+            elif isinstance(value, list):
+                valueString = "{0} element list".format(len(value))
+            elif isinstance(value, dict):
+                msg = "dictionary with {nk:s}keys{ks:s}"
+                keylist = value.keys()
+                showkeys = len(keylist) < 7
+                valueString = msg.format(nk=str(len(keylist)) + " " if not showkeys else "",
+                                         ks=" '" + "', '".join(key for key in keylist) + "'" if showkeys else "")
+            else:
+                valueString = str(value)
+            ppstr += printString.format(attr, valueString)
+        ppstr += "\nUse `.log` to see object history"
+        return ppstr
         
     @property
     def _shapes(self):
@@ -143,6 +226,9 @@ class ContinuousData(BaseData, ABC):
         sid = self.dimord.index("time")
         idx[sid] = slice(int(self.sampleinfo[trialno, 0]), int(self.sampleinfo[trialno, 1]))
         return self._data[tuple(idx)]
+    
+    def _is_empty(self):
+        return super()._is_empty() or self.samplerate is None
     
     # Helper function that spawns a `FauxTrial` object given actual trial information    
     def _preview_trial(self, trialno):
@@ -289,19 +375,19 @@ class ContinuousData(BaseData, ABC):
         return timing
 
     # Make instantiation persistent in all subclasses
-    def __init__(self, channel=None, samplerate=None, **kwargs):     
+    def __init__(self, data=None, channel=None, samplerate=None, **kwargs):     
         
         self._channel = None
         self._samplerate = None
+        self._data = None
         
         # Call initializer
-        # FIXME: I don't think we need to escalate `channel` and `samplerate` to `BaseData` here...
-        super().__init__(channel=channel, samplerate=samplerate, **kwargs)
+        super().__init__(data=data, **kwargs)
         
         self.channel = channel
         self.samplerate = samplerate     # use setter for error-checking   
-
-        # If a super-class``__init__`` attached data, be careful
+        self.data = data
+        
         if self.data is not None:
 
             # In case of manual data allocation (reading routine would leave a
