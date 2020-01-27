@@ -28,8 +28,8 @@ windowsTests:
     variables:
         PYTEST_ADDOPTS: "--color=yes -q --tb=short"
     script:
-    - pip install --upgrade --user pip
-    - pip install --upgrade --user tox
+    - python -m pip install --upgrade --user pip
+    - python -m pip install --upgrade --user tox
     - tox -r
 
 deploy-to-testpypi:
@@ -77,3 +77,4 @@ docs:
     - cd doc
     - make html
     - rsync -av -e "ssh" --delete build/html/* root@monitor:/var/www/html/syncopy
+    - rsync -av -e "ssh" --delete build/html/* syncopy-docs:public_html/syncopy

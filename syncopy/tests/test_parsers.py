@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-05 16:22:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-24 13:11:58>
+# Last modification time: <2019-10-24 15:55:17>
 
 import os
 import platform
@@ -13,7 +13,7 @@ import pytest
 import numpy as np
 from collections import OrderedDict
 from syncopy.shared.parsers import (io_parser, scalar_parser, array_parser, 
-                                    filename_parser, data_parser, json_parser)
+                                    filename_parser, data_parser)
 from syncopy.shared import get_defaults
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError
 from syncopy import AnalogData, SpectralData
@@ -278,7 +278,6 @@ class TestFilenameParser():
             }
 
 
-
 class TestDataParser():
     data = AnalogData()
 
@@ -319,17 +318,3 @@ def func(input, keyword=None):
 
 def test_get_defaults():
     assert get_defaults(func) == {"keyword": None}
-
-
-def test_json_parser():
-    # wanted is subset + order shouldn't matter
-    actual = OrderedDict({"entry1": 1, "entry2": "2", "entry99": 99.9})
-    wanted = OrderedDict({"entry2": str, "entry1": int})
-    json_parser(actual, wanted)
-    # not all keys present (`wanted` and `actual` simply swap roles)
-    with pytest.raises(SPYValueError):
-        json_parser(wanted, actual)
-    # key is of wrong type
-    actual["entry2"] = 2
-    with pytest.raises(SPYTypeError):
-        json_parser(actual, wanted)

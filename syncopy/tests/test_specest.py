@@ -9,7 +9,7 @@
 from syncopy.tests.misc import generate_artificial_data
 from syncopy.specest.freqanalysis import freqanalysis
 from syncopy.shared.errors import SPYValueError
-from syncopy.datatype.data_methods import _nextpow2
+from syncopy.datatype.methods.padding import _nextpow2
 from syncopy.datatype.base_data import VirtualData, Selector
 from syncopy.datatype import AnalogData, SpectralData, StructDict, padding
 import os

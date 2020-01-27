@@ -3,8 +3,8 @@
 # SynCoPy ContinuousData abstract class + regular children
 # 
 # Created: 2019-03-20 11:11:44
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-11 13:38:17>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2020-01-24 13:30:39>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -12,17 +12,18 @@ This module holds classes to represent data with a uniformly sampled time axis.
 """
 # Builtin/3rd party package imports
 import h5py
-import shutil
 import inspect
 import numpy as np
 from abc import ABC
-from copy import copy
+from collections.abc import Iterator
 from numpy.lib.format import open_memmap
 
+
 # Local imports
-from .base_data import BaseData, VirtualData, FauxTrial
-from .data_methods import definetrial
-from syncopy.shared.parsers import scalar_parser, array_parser, io_parser
+from .base_data import BaseData, FauxTrial
+from .methods.definetrial import definetrial
+from .methods.selectdata import selectdata
+from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYIOError
 import syncopy as spy
 
@@ -40,6 +41,87 @@ class ContinuousData(BaseData, ABC):
     
     _infoFileProperties = BaseData._infoFileProperties + ("samplerate", "channel",)
     _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate", "channel",)
+    _hdfFileDatasetProperties = BaseData._hdfFileDatasetProperties + ("data",)
+    
+    @property
+    def data(self):
+        """array-like object representing data without trials
+        
+        Trials are concatenated along the time axis.
+        """
+
+        if getattr(self._data, "id", None) is not None:
+            if self._data.id.valid == 0:
+                lgl = "open HDF5 container"
+                act = "backing HDF5 container {} has been closed"
+                raise SPYValueError(legal=lgl, actual=act.format(self.filename),
+                                    varname="data")
+        return self._data
+    
+    @data.setter
+    def data(self, inData):
+
+        self._set_dataset_property(inData, "data")
+
+        if inData is None:
+            return
+
+    def __str__(self):
+        # Get list of print-worthy attributes
+        ppattrs = [attr for attr in self.__dir__()
+                   if not (attr.startswith("_") or attr in ["log", "trialdefinition", "hdr"])]
+        ppattrs = [attr for attr in ppattrs
+                   if not (inspect.ismethod(getattr(self, attr))
+                           or isinstance(getattr(self, attr), Iterator))]
+        
+        ppattrs.sort()
+
+        # Construct string for pretty-printing class attributes
+        dsep = "' x '"
+        dinfo = ""
+        hdstr = "Syncopy {clname:s} object with fields\n\n"
+        ppstr = hdstr.format(diminfo=dinfo + "'"  + \
+                             dsep.join(dim for dim in self.dimord) + "' " if self.dimord is not None else "Empty ",
+                             clname=self.__class__.__name__)
+        maxKeyLength = max([len(k) for k in ppattrs])
+        printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
+        for attr in ppattrs:
+            value = getattr(self, attr)
+            if hasattr(value, 'shape') and attr == "data" and self.sampleinfo is not None:
+                tlen = np.unique([sinfo[1] - sinfo[0] for sinfo in self.sampleinfo])
+                if tlen.size == 1:
+                    trlstr = "of length {} ".format(str(tlen[0]))
+                else:
+                    trlstr = ""
+                dsize = np.prod(self.data.shape)*self.data.dtype.itemsize/1024**2
+                dunit = "MB"
+                if dsize > 1000:
+                    dsize /= 1024
+                    dunit = "GB"
+                valueString = "{} trials {}defined on ".format(str(len(self.trials)), trlstr)
+                valueString += "[" + " x ".join([str(numel) for numel in value.shape]) \
+                              + "] {dt:s} {tp:s} " +\
+                              "of size {sz:3.2f} {szu:s}"
+                valueString = valueString.format(dt=self.data.dtype.name,
+                                                 tp=self.data.__class__.__name__,
+                                                 sz=dsize,
+                                                 szu=dunit)
+            elif hasattr(value, 'shape'):
+                valueString = "[" + " x ".join([str(numel) for numel in value.shape]) \
+                              + "] element " + str(type(value))
+            elif isinstance(value, list):
+                valueString = "{0} element list".format(len(value))
+            elif isinstance(value, dict):
+                msg = "dictionary with {nk:s}keys{ks:s}"
+                keylist = value.keys()
+                showkeys = len(keylist) < 7
+                valueString = msg.format(nk=str(len(keylist)) + " " if not showkeys else "",
+                                         ks=" '" + "', '".join(key for key in keylist) + "'" if showkeys else "")
+            else:
+                valueString = str(value)
+            ppstr += printString.format(attr, valueString)
+        ppstr += "\nUse `.log` to see object history"
+        return ppstr
         
     @property
     def _shapes(self):
@@ -103,12 +185,6 @@ class ContinuousData(BaseData, ABC):
             return [(np.arange(0, stop - start) + self._t0[tk]) / self.samplerate \
                     for tk, (start, stop) in enumerate(self.sampleinfo)]
 
-    # Selector method
-    def selectdata(self, trials=None, deepcopy=False, **kwargs):
-        """
-        Docstring mostly pointing to ``selectdata``
-        """
-
     # Helper function that reads a single trial into memory
     @staticmethod
     def _copy_trial(trialno, filename, dimord, sampleinfo, hdr):
@@ -150,6 +226,9 @@ class ContinuousData(BaseData, ABC):
         sid = self.dimord.index("time")
         idx[sid] = slice(int(self.sampleinfo[trialno, 0]), int(self.sampleinfo[trialno, 1]))
         return self._data[tuple(idx)]
+    
+    def _is_empty(self):
+        return super()._is_empty() or self.samplerate is None
     
     # Helper function that spawns a `FauxTrial` object given actual trial information    
     def _preview_trial(self, trialno):
@@ -214,8 +293,19 @@ class ContinuousData(BaseData, ABC):
                     dimIdx = self.dimord.index(dim)
                     idx[dimIdx] = sel
                     if isinstance(sel, slice):
-                        if not (sel.start is sel.stop is None):
-                            shp[dimIdx] = int(np.ceil((sel.stop - sel.start) / sel.step))
+                        begin, end, delta = sel.start, sel.stop, sel.step
+                        if sel.start is None:
+                            begin = 0
+                        elif sel.start < 0:
+                            begin = shp[dimIdx] + sel.start
+                        if sel.stop is None:
+                            end = shp[dimIdx]
+                        elif sel.stop < 0:
+                            end = shp[dimIdx] + sel.stop
+                        if sel.step is None:
+                            delta = 1
+                        shp[dimIdx] = int(np.ceil((end - begin) / delta))
+                        idx[dimIdx] = slice(begin, end, delta)
                     else:
                         shp[dimIdx] = len(sel)
                         
@@ -256,9 +346,8 @@ class ContinuousData(BaseData, ABC):
         """
         timing = []
         if toilim is not None:
-            allTrials = self.time
             for trlno in trials:
-                trlTime = allTrials[trlno]
+                trlTime = self.time[trlno]
                 selTime = np.intersect1d(np.where(trlTime >= toilim[0])[0], 
                                          np.where(trlTime <= toilim[1])[0])
                 if len(selTime) > 1:
@@ -267,11 +356,10 @@ class ContinuousData(BaseData, ABC):
                     timing.append(selTime)
                     
         elif toi is not None:
-            allTrials = self.time
             for trlno in trials:
-                trlTime = allTrials[trlno]
+                trlTime = self.time[trlno]
                 selTime = [min(trlTime.size - 1, idx) 
-                           for idx in np.searchsorted(allTrials[trlno], toi, side="left")]
+                           for idx in np.searchsorted(trlTime, toi, side="left")]
                 for k, idx in enumerate(selTime):
                     if np.abs(trlTime[idx - 1] - toi[k]) < np.abs(trlTime[idx] - toi[k]):
                         selTime[k] = idx -1
@@ -287,19 +375,19 @@ class ContinuousData(BaseData, ABC):
         return timing
 
     # Make instantiation persistent in all subclasses
-    def __init__(self, channel=None, samplerate=None, **kwargs):     
+    def __init__(self, data=None, channel=None, samplerate=None, **kwargs):     
         
         self._channel = None
         self._samplerate = None
+        self._data = None
         
         # Call initializer
-        # FIXME: I don't think we need to escalate `channel` and `samplerate` to `BaseData` here...
-        super().__init__(channel=channel, samplerate=samplerate, **kwargs)
+        super().__init__(data=data, **kwargs)
         
         self.channel = channel
         self.samplerate = samplerate     # use setter for error-checking   
-
-        # If a super-class``__init__`` attached data, be careful
+        self.data = data
+        
         if self.data is not None:
 
             # In case of manual data allocation (reading routine would leave a
@@ -338,6 +426,23 @@ class AnalogData(ContinuousData):
         This property is empty for data created by Syncopy.
         """
         return self._hdr
+
+    # Selector method
+    def selectdata(self, trials=None, channels=None, toi=None, toilim=None):
+        """
+        Create new `AnalogData` object from selection
+        
+        Please refere to :func:`syncopy.selectdata` for detailed usage information. 
+        
+        Examples
+        --------
+        >>> ang2chan = ang.selectdata(channels=["channel01", "channel02"])
+        
+        See also
+        --------
+        syncopy.selectdata : create new objects via deep-copy selections
+        """
+        return selectdata(self, trials=trials, channels=channels, toi=toi, toilim=toilim)
 
     # "Constructor"
     def __init__(self,
@@ -437,38 +542,79 @@ class SpectralData(ContinuousData):
     
     @property
     def taper(self):
+        """ :class:`numpy.ndarray` : list of window functions used """
+        if self._taper is None and self._data is not None:
+            nTaper = self.data.shape[self.dimord.index("taper")]
+            return np.array(["taper" + str(i + 1).zfill(len(str(nTaper)))
+                            for i in range(nTaper)])
         return self._taper
 
     @taper.setter
     def taper(self, tpr):
+        
+        if tpr is None:
+            self._taper = None
+            return
+        
         if self.data is None:
-            print("SyNCoPy core - taper: Cannot assign `taper` without data. "+\
+            print("Syncopy core - taper: Cannot assign `taper` without data. "+\
                   "Please assing data first")
             return
-        ntap = self.data.shape[self.dimord.index("taper")]
+        
         try:
-            array_parser(tpr, varname="taper", ntype="str", dims=(ntap,))
+            array_parser(tpr, dims=(self.data.shape[self.dimord.index("taper")],),
+                         varname="taper", ntype="str", )
         except Exception as exc:
             raise exc
+        
         self._taper = np.array(tpr)
 
     @property
     def freq(self):
         """:class:`numpy.ndarray`: frequency axis in Hz """
+        # if data exists but no user-defined frequency axis, create one on the fly
+        if self._freq is None and self._data is not None:
+            return np.arange(self.data.shape[self.dimord.index("freq")])
         return self._freq
 
     @freq.setter
     def freq(self, freq):
+        
+        if freq is None:
+            self._freq = None
+            return
+        
         if self.data is None:
-            print("SyNCoPy core - freq: Cannot assign `freq` without data. "+\
+            print("Syncopy core - freq: Cannot assign `freq` without data. "+\
                   "Please assing data first")
             return
-        nfreq = self.data.shape[self.dimord.index("freq")]
         try:
-            array_parser(freq, varname="freq", dims=(nfreq,), hasnan=False, hasinf=False)
+            
+            array_parser(freq, varname="freq", hasnan=False, hasinf=False,
+                         dims=(self.data.shape[self.dimord.index("freq")],))
         except Exception as exc:
             raise exc
+        
         self._freq = np.array(freq)
+
+    # Selector method
+    def selectdata(self, trials=None, channels=None, toi=None, toilim=None,
+                   foi=None, foilim=None, tapers=None):
+        """
+        Create new `SpectralData` object from selection
+        
+        Please refere to :func:`syncopy.selectdata` for detailed usage information. 
+        
+        Examples
+        --------
+        >>> spcBand = spc.selectdata(foilim=[10, 40])
+        
+        See also
+        --------
+        syncopy.selectdata : create new objects via deep-copy selections
+        """
+        return selectdata(self, trials=trials, channels=channels, toi=toi, 
+                          toilim=toilim, foi=foi, foilim=foilim, tapers=tapers)
     
     # Helper function that extracts frequency-related indices
     def _get_freq(self, foi=None, foilim=None):
@@ -535,11 +681,11 @@ class SpectralData(ContinuousData):
             # In case of manual data allocation (reading routine would leave a
             # mark in `cfg`), fill in missing info
             if len(self.cfg) == 0:
-                self.freq = np.arange(self.data.shape[self.dimord.index("freq")])
-                self.taper = np.array(["dummy_taper"] * self.data.shape[self.dimord.index("taper")])
+                self.freq = freq
+                self.taper = taper
 
         # Dummy assignment: if we have no data but freq/taper labels,
-        # assign bogus to tigger setter warnings
+        # assign bogus to trigger setter warnings
         else:
             if freq is not None:
                 self.freq = [1]

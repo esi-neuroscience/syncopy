@@ -8,11 +8,22 @@ Input Parsing and Error Checking
 .. autosummary::
    :toctree: _stubs    
    
+   syncopy.shared.parsers.array_parser
+   syncopy.shared.parsers.data_parser
    syncopy.shared.parsers.filename_parser
    syncopy.shared.parsers.io_parser
    syncopy.shared.parsers.scalar_parser
-   syncopy.shared.parsers.array_parser
-   syncopy.shared.parsers.get_defaults   
+
+Decorators
+----------
+
+.. autosummary::
+   :toctree: _stubs    
+   
+   syncopy.shared.kwarg_decorators.unwrap_cfg
+   syncopy.shared.kwarg_decorators.unwrap_select
+   syncopy.shared.kwarg_decorators.unwrap_io
+   syncopy.shared.kwarg_decorators.detect_parallel_client
 
 
 Writing A New Analysis Routine
