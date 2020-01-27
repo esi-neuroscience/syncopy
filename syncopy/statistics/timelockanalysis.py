@@ -3,14 +3,15 @@
 # 
 # 
 # Created: 2019-10-01 11:39:36
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-11 16:10:44>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2020-01-27 14:04:28>
 
 import os
 import numpy as np
 import syncopy as spy
 from tqdm.auto import tqdm
 from syncopy.shared.parsers import data_parser
+from syncopy.shared.tools import StructDict
 import syncopy as spy
 
 __all__ = ["timelockanalysis"]
@@ -89,7 +90,7 @@ def timelockanalysis(data, trials=None):
     dof -= 1
     var /= dof+1
     
-    result = spy.StructDict()
+    result = StructDict()
     result.avg = avg
     result.var = var
     result.dof = dof

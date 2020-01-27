@@ -13,8 +13,8 @@ import h5py
 import numpy as np
 
 # Local imports
-import syncopy as spy
-
+from syncopy.datatype import AnalogData
+from syncopy.shared.filetypes import _data_classname_to_extension, FILE_EXT
 
 def is_win_vm():
     """
@@ -71,7 +71,7 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True,
     # Depending on chosen `dimord` either get default position of time-axis
     # in `AnalogData` objects or use provided `dimord` and reshape signal accordingly
     if dimord == "default":
-        dimord = spy.AnalogData._defaultDimord
+        dimord = AnalogData._defaultDimord
     timeAxis = dimord.index("time")
     idx = [1, 1]
     idx[timeAxis] = -1
@@ -79,7 +79,7 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True,
 
     # Either construct the full data array in memory using tiling or create
     # an HDF5 container in `__storage__` and fill it trial-by-trial
-    out = spy.AnalogData(samplerate=1/dt, dimord=dimord)
+    out = AnalogData(samplerate=1/dt, dimord=dimord)
     if inmemory:
         idx[timeAxis] = nTrials 
         sig = np.tile(sig, idx)
@@ -125,6 +125,6 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True,
 
 def construct_spy_filename(basepath, obj):
     basename = os.path.split(basepath)[1]
-    objext = spy.io.utils._data_classname_to_extension(obj.__class__.__name__)
-    return os.path.join(basepath + spy.io.utils.FILE_EXT["dir"], basename + objext)
+    objext = _data_classname_to_extension(obj.__class__.__name__)
+    return os.path.join(basepath + FILE_EXT["dir"], basename + objext)
     

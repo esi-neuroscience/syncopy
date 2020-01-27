@@ -6,12 +6,6 @@
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Last modification time: <2019-07-15 12:05:40>
 
-from syncopy.tests.misc import generate_artificial_data
-from syncopy.specest.freqanalysis import freqanalysis
-from syncopy.shared.errors import SPYValueError
-from syncopy.datatype.methods.padding import _nextpow2
-from syncopy.datatype.base_data import VirtualData, Selector
-from syncopy.datatype import AnalogData, SpectralData, StructDict, padding
 import os
 import tempfile
 import inspect
@@ -22,6 +16,14 @@ from numpy.lib.format import open_memmap
 from syncopy import __dask__
 if __dask__:
     import dask.distributed as dd
+    
+from syncopy.tests.misc import generate_artificial_data
+from syncopy.specest.freqanalysis import freqanalysis
+from syncopy.shared.errors import SPYValueError
+from syncopy.datatype.methods.padding import _nextpow2
+from syncopy.datatype.base_data import VirtualData, Selector
+from syncopy.datatype import AnalogData, SpectralData, padding
+from syncopy.shared.tools import StructDict
 
 # Decorator to decide whether or not to run dask-related tests
 skip_without_dask = pytest.mark.skipif(

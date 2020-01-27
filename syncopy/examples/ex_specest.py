@@ -135,7 +135,8 @@ if __name__ == "__main__":
     #                  np.ones((int(ns/5), )),
     #                  np.ones((int(ns/5), )) * np.pi]).T
 
-    from syncopy.datatype import AnalogData, SpectralData, StructDict, padding
+    from syncopy.shared.tools.StructDict
+    from syncopy.datatype import AnalogData, SpectralData, padding
     from syncopy.shared import esi_cluster_setup
 
     # create uniform `cfg` for testing on SLURM
