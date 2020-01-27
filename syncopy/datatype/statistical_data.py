@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # 
-# 
+# SynCoPy StatisticalData abstract class + regular children
 # 
 # Created: 2019-09-09 16:59:22
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]

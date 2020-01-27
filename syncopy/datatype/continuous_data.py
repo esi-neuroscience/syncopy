@@ -382,7 +382,6 @@ class ContinuousData(BaseData, ABC):
         self._data = None
         
         # Call initializer
-        # FIXME: I don't think we need to escalate `channel` and `samplerate` to `BaseData` here...
         super().__init__(data=data, **kwargs)
         
         self.channel = channel
