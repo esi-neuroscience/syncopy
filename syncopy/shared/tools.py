@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # 
-# 
+# Auxiliaries used across all of Syncopy
 # 
 # Created: 2020-01-27 13:37:32
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
