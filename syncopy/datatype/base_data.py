@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-24 13:30:17>
+# Last modification time: <2020-01-27 14:11:30>
 
 # Builtin/3rd party package imports
 import getpass
@@ -27,16 +27,17 @@ import scipy as sp
 
 # Local imports
 import syncopy as spy
-from syncopy.datatype.methods.definetrial import definetrial
+from syncopy.shared.tools import StructDict
 from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser, 
                                     filename_parser, data_parser)
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
+from syncopy.datatype.methods.definetrial import definetrial
 from syncopy import __version__, __storage__, __dask__, __sessionid__
 if __dask__:
     import dask
 
 
-__all__ = ["StructDict"]
+__all__ = []
 
 
 class BaseData(ABC):
@@ -1041,39 +1042,6 @@ class SessionLogger():
         self._rm(self.sessionfile)
 
 
-class StructDict(dict):
-    """Child-class of dict for emulating MATLAB structs
-
-    Examples
-    --------
-    cfg = StructDict()
-    cfg.a = [0, 25]
-
-    """
-    
-    def __init__(self, *args, **kwargs):
-        """
-        Create a child-class of dict whose attributes are its keys
-        (thus ensuring that attributes and items are always in sync)
-        """
-        super().__init__(*args, **kwargs)
-        self.__dict__ = self
-        
-    def __repr__(self):
-        return self.__str__()
-    
-    def __str__(self):
-        if self.keys():
-            ppStr = "Syncopy StructDict\n\n"
-            maxKeyLength = max([len(val) for val in self.keys()])
-            printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
-            for key, value in self.items():
-                ppStr += printString.format(key, str(value))
-            ppStr += "\nUse `dict(cfg)` for copy-paste-friendly format"
-        else:
-            ppStr = "{}"
-        return ppStr
-
 class FauxTrial():
     """
     Stand-in mockup of NumPy arrays representing trial data
@@ -1146,8 +1114,8 @@ class Selector():
     ----------
     data : Syncopy data object
         A non-empty Syncopy data object
-    select : dict or :class:`~syncopy.datatype.base_data.StructDict` or None or str
-        Dictionary or :class:`~syncopy.datatype.base_data.StructDict` with keys
+    select : dict or :class:`~syncopy.shared.tools.StructDict` or None or str
+        Dictionary or :class:`~syncopy.shared.tools.StructDict` with keys
         specifying data selectors. **Note**: some keys are only valid for certain types
         of Syncopy objects, e.g., "freqs" is not a valid selector for an 
         :class:`~syncopy.AnalogData` object. Supported keys are (please see 

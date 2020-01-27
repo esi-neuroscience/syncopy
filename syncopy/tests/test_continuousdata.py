@@ -3,8 +3,8 @@
 # 
 # 
 # Created: 2019-03-20 11:46:31
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-01 13:57:36>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2020-01-27 13:46:53>
 
 import os
 import tempfile
@@ -14,9 +14,10 @@ import numpy as np
 from numpy.lib.format import open_memmap
 from syncopy.datatype import AnalogData, SpectralData, padding
 from syncopy.io import save, load
-from syncopy.datatype.base_data import VirtualData, Selector, StructDict
+from syncopy.datatype.base_data import VirtualData, Selector
 from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.shared.tools import StructDict
 from syncopy.tests.misc import generate_artificial_data, construct_spy_filename
 from syncopy import __dask__
 if __dask__:

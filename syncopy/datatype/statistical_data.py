@@ -4,16 +4,16 @@
 # 
 # Created: 2019-09-09 16:59:22
 # Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-24 13:40:24>
+# Last modification time: <2020-01-27 10:25:11>
 """Statistics data
 
 """
 # Builtin/3rd party package imports
 
-import numpy as np
 from abc import ABC
 from collections.abc import Iterator
 import inspect
+import numpy as np
 
 # Local imports
 from .base_data import BaseData
