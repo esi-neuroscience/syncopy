@@ -33,22 +33,25 @@ from time import time
 
 if __name__ == "__main__":
 
-    dummy = generate_artificial_data(nTrials=2, nChannels=16, 
+    data = generate_artificial_data(nTrials=2, nChannels=16, 
                                      equidistant=True, inmemory=False)
-    sys.exit()
     
     data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
-    client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")
+    sys.exit()
+    # client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")
 
     cfg = spy.get_defaults(spy.freqanalysis)
-    cfg.method = 'mtmfft'
-    cfg.taper = 'dpss'
-    cfg.output = 'pow'
-    cfg.tapsmofrq = 20
-    cfg.keeptrials = False
-    cfg.keeptapers = False
-    cfg.pad = 'nextpow2'
-    cfg.select = {"toilim": [-0.25, 0]}
+    cfg.method = 'wavelet'
+    # cfg.taper = 'dpss'
+    # cfg.output = 'pow'
+    # cfg.tapsmofrq = 20
+    # cfg.keeptrials = False
+    # cfg.keeptapers = False
+    # cfg.pad = 'nextpow2'
+    # cfg.select = {"toilim": [-0.25, 0]}
+
+    wavSpectrum = spy.freqanalysis(cfg, data)
+
 
     sys.exit()
     

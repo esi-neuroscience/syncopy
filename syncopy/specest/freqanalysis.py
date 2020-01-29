@@ -4,12 +4,13 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-23 17:17:10>
+# Last modification time: <2020-01-29 16:05:33>
 
 # Builtin/3rd party package imports
+import inspect
+from numbers import Number
 import numpy as np
 import scipy.signal.windows as spwin
-from numbers import Number
 
 # Local imports
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser 
@@ -17,7 +18,7 @@ from syncopy.shared import get_defaults
 from syncopy.datatype import SpectralData, padding
 from syncopy.datatype.methods.padding import _nextpow2
 import syncopy.specest.wavelets as spywave 
-from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select, 
                                              detect_parallel_client)
 from syncopy.specest.mtmfft import MultiTaperFFT
@@ -49,10 +50,10 @@ __all__ = ["freqanalysis"]
 @unwrap_select
 @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
-                 keeptrials=True, foi=None, pad='nextpow2', padtype='zero',
+                 keeptrials=True, foi=None, foilim=None, pad='nextpow2', padtype='zero',
                  padlength=None, polyremoval=False, polyorder=None,
                  taper="hann", tapsmofrq=None, keeptapers=False,
-                 wav="Morlet", toi=0.1, width=6, 
+                 wav="Morlet", t_ftimwin=None, toi=None, width=6, 
                  out=None, **kwargs):
     """
     Perform a (time-)frequency analysis of time series data
@@ -71,10 +72,17 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         (:obj:`numpy.float32`).
     keeptrials : bool
         Flag whether to return individual trials or average
-    foi : array-like
+    foi : array-like or None
         List of frequencies of interest (Hz) for output. If desired frequencies
         cannot be exactly matched using the given data length and padding,
-        the closest frequencies will be used.
+        the closest frequencies will be used. If `foi` is `None`
+        or ``foi = "all"``, all frequencies are selected. 
+    foilim : array-like (floats [fmin, fmax]) or None or "all"
+        Frequency-window ``[fmin, fmax]`` (in Hz) of interest. Window 
+        specifications must be sorted (e.g., ``[90, 70]`` is invalid) and not NaN 
+        but may be unbounded (e.g., ``[-np.inf, 60.5]`` is valid). Edges `fmin` 
+        and `fmax` are included in the selection. If `foilim` is `None` or 
+        ``foilim = "all"``, all frequencies are selected. 
     pad : str or None
         One of `'absolute'`, `'relative'`, `'maxlen'`, `'nextpow2'` or `None`. 
         Padding method to be used in case trial do not have equal length. To
@@ -109,15 +117,19 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         smoothing box.        
     keeptapers : bool
         Flag for whether individual trials or average should be returned.            
-    toi : scalar or array-like
-        If `toi` is scalar, it must be a value between 0 and 1 indicating
-        percentage of samplerate to use as stepsize. If `toi` is an array it
-        explicitly selects time points (seconds). This option does not affect
-        all frequency analysis methods.
+    t_ftimwin : scalar
+        Time-window length (in seconds). **Mandatory** if ``method = "mtmconvol"``.
+    toi : scalar or array-like or "all"
+        If `toi` is scalar, it must be a value between 0 and 1 indicating the 
+        percentage of overlap between time-windows specified by `t_ftimwin`. 
+        If `toi` is an array it explicitly selects the centroids of analysis 
+        windows (in seconds). If `toi` is `"all"`, analysis windows are centered
+        on all samples in the data. **Mandatory** for time-frequency analysis
+        methods (`method` is either `"mtmconvo"l` or `"wavelet"`). 
     width : scalar
         Nondimensional frequency constant of wavelet. For a Morlet wavelet 
-        this number should be >= 6, which correspondonds to 6 cycles within
-        FIXME standard deviations of the enveloping Gaussian.       
+        this number should be >= 6, which corresponds to 6 cycles within the 
+        analysis window. 
     out : None or :class:`SpectralData` object
         None if a new :class:`SpectralData` object should be created,
         or the (empty) object into which the result should be written.
@@ -185,7 +197,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     lenTrials = np.diff(sinfo)
         
     # Ensure padding selection makes sense: do not pad on a by-trial basis but 
-    # use the longest trial as reference acn compute `padlength` from there
+    # use the longest trial as reference and compute `padlength` from there
     if not isinstance(pad, (str, type(None))):
         raise SPYTypeError(pad, varname="pad", expected="str or None")
     if pad:
@@ -216,6 +228,24 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     nFreq = int(np.floor(minSampleNum / 2) + 1)
     freqs = np.linspace(0, data.samplerate / 2, nFreq)
     
+    # Basic sanitization of frequency specifications
+    if isinstance(foi, str):
+        if foi == "all":
+            foi = None
+        else:
+            raise SPYValueError(legal="'all' or `None` or list/array", 
+                                varname="foi", actual=foi)
+    if isinstance(foilim, str):
+        if foilim == "all":
+            foilim = None
+        else:
+            raise SPYValueError(legal="'all' or `None` or `[fmin, fmax]`", 
+                                varname="foilim", actual=foilim)
+    if foi is not None and foilim is not None:
+        lgl = "either `foi` or `foilim` specification"
+        act = "both"
+        raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
+            
     # Match desired frequencies as close as possible to actually attainable freqs
     if foi is not None:
         try:
@@ -235,8 +265,26 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         foi = freqs[fidx]
     else:
         foi = freqs
+        
+    # Crop desired frequency band from array of actually attainable freqs
+    if foilim is not None:
+        try:
+            array_parser(foilim, varname="foilim", hasinf=False, hasnan=False,
+                         lims=[1/minTrialLength, data.samplerate/2], dims=(2,))
+        except Exception as exc:
+            raise exc
+        foi = np.intersect1d(np.where(freqs >= foilim[0])[0], np.where(freqs <= foilim[1])[0])
+    else:
+        foi = freqs
 
+    # Abort if desired frequency selection is empty
+    if foi.size == 0:
+        lgl = "non-empty frequency specification"
+        act = "empty frequency selection"
+        raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
+        
     # FIXME: implement detrending
+    # see also https://docs.obspy.org/_modules/obspy/signal/detrend.html#polynomial
     if polyremoval is True or polyorder is not None:
         raise NotImplementedError("Detrending has not been implemented yet.")
 
@@ -248,11 +296,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise exc
     else:
         if polyorder != defaults["polyorder"]:
-            print("<freqanalysis> WARNING: `polyorder` keyword will be ignored " +
-                  "since `polyremoval` is `False`!")
+            msg = "`polyorder` keyword will be ignored since `polyremoval` is `False`!"
+            SPYWarning(msg)
 
     # Prepare keyword dict for logging (use `lcls` to get actually provided 
-    # keyword values, not defaults set in here)
+    # keyword values, not defaults set above)
     log_dct = {"method": method,
                "output": output,
                "keeptapers": keeptapers,
@@ -263,10 +311,14 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                "padtype": lcls["padtype"],
                "padlength": lcls["padlength"],
                "foi": lcls["foi"]}
+
+    # Check time-frequency options
+    if method in ["mtmconvol", "wavelet"]:
+        # check for consistency of toi
     
-    # Ensure consistency of method-specific options
-    if method == "mtmfft":
-        
+    # Check options of non-wavelet methods
+    if "mtm" in method:
+
         #: available tapers
         options = ["hann", "dpss"]
         if taper not in options:
@@ -305,13 +357,31 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         # Warn the user in case `tapsmofrq` has no effect
         if tapsmofrq is not None and taper.__name__ != "dpss":
-            print("<freqanalysis> WARNING: `tapsmofrq` is only used if `taper` is `dpss`!")
+            msg = "`tapsmofrq` is only used if `taper` is `dpss`!"
+            SPYWarning(msg)
             
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
         log_dct["taper"] = lcls["taper"]
         log_dct["tapsmofrq"] = lcls["tapsmofrq"]
         log_dct["nTaper"] = nTaper
+        
+        # Check for non-default values of options not supported by chosen method
+        kwdict = {"wav": wav, "width": width}
+        for name, kwarg in kwdict.items():
+            if kwarg is not lcls[name]:
+                msg = "option `{}` has no effect in methods `mtmfft` and `mtmconvol`!"
+                SPYWarning(msg.format(name))
+            
+    # Now, prepare explicit compute-classes for chosen method
+    if method == "mtmfft":
+        
+        # Check for non-default values of options not supported by chosen method
+        kwdict = {"t_ftimwin": t_ftimwin, "toi": toi}
+        for name, kwarg in kwdict.items():
+            if kwarg is not lcls[name]:
+                msg = "option `{}` has no effect in method `mtmfft`!"
+                SPYWarning(msg.format(name))
         
         # Set up compute-class
         specestMethod = MultiTaperFFT(1 / data.samplerate,
@@ -327,8 +397,15 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                                       keeptapers=keeptapers,
                                       polyorder=polyorder,
                                       output_fmt=output)
+        
+    elif method == "mtmconvol":
+        # check consistency of t_ftimwin
 
     elif method == "wavelet":
+
+        # check if taper, tapsmofrq, keeptapers is defined
+        
+        # check for consistency of width, wav
         
         options = ["Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat"]
         if wav not in options:

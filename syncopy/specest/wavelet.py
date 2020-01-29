@@ -4,10 +4,9 @@
 # 
 # Created: 2019-09-02 14:44:41
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-03 09:47:14>
+# Last modification time: <2020-01-23 12:38:08>
 
 # Builtin/3rd party package imports
-import sys
 import numpy as np
 from numbers import Number
 
