@@ -4,10 +4,9 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-01-29 16:05:33>
+# Last modification time: <2020-02-04 16:32:01>
 
 # Builtin/3rd party package imports
-import inspect
 from numbers import Number
 import numpy as np
 import scipy.signal.windows as spwin
@@ -120,12 +119,14 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     t_ftimwin : scalar
         Time-window length (in seconds). **Mandatory** if ``method = "mtmconvol"``.
     toi : scalar or array-like or "all"
+        **Mandatory input** for time-frequency analysis methods (`method` is either 
+        `"mtmconvo"l` or `"wavelet"`). 
         If `toi` is scalar, it must be a value between 0 and 1 indicating the 
-        percentage of overlap between time-windows specified by `t_ftimwin`. 
+        percentage of overlap between time-windows specified by `t_ftimwin` (only
+        valid if `method` is `'mtmconvol'`, invalid for `'wavelet'`). 
         If `toi` is an array it explicitly selects the centroids of analysis 
         windows (in seconds). If `toi` is `"all"`, analysis windows are centered
-        on all samples in the data. **Mandatory** for time-frequency analysis
-        methods (`method` is either `"mtmconvo"l` or `"wavelet"`). 
+        on all samples in the data. 
     width : scalar
         Nondimensional frequency constant of wavelet. For a Morlet wavelet 
         this number should be >= 6, which corresponds to 6 cycles within the 
@@ -245,7 +246,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         lgl = "either `foi` or `foilim` specification"
         act = "both"
         raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
-            
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>.. FIXME            
     # Match desired frequencies as close as possible to actually attainable freqs
     if foi is not None:
         try:
@@ -270,7 +272,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     if foilim is not None:
         try:
             array_parser(foilim, varname="foilim", hasinf=False, hasnan=False,
-                         lims=[1/minTrialLength, data.samplerate/2], dims=(2,))
+                         lims=[0, data.samplerate/2], dims=(2,))
         except Exception as exc:
             raise exc
         foi = np.intersect1d(np.where(freqs >= foilim[0])[0], np.where(freqs <= foilim[1])[0])
@@ -312,9 +314,76 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                "padlength": lcls["padlength"],
                "foi": lcls["foi"]}
 
-    # Check time-frequency options
+    # 1st: Check time-frequency to prepare/sanitize `toi` and `minSampleNum`
     if method in ["mtmconvol", "wavelet"]:
-        # check for consistency of toi
+        
+        # Check consistency of `toi` and set `overlap` and `equidistant` for mtmconvol
+        if toi is None:
+            raise SPYTypeError(toi, varname="toi", expected="scalar or array-like or 'all'")
+        tmax = (data._t0[trialList] + np.diff(data.sampleinfo).squeeze()[trialList]).max()/data.samplerate
+        tmin = data._t0[trialList].min()/data.samplerate
+        if isinstance(toi, str):
+            if toi != "all":
+                lgl = "`toi = 'all'` to center analysis windows on all time-points"
+                raise SPYValueError(legal=lgl, varname="toi", actual=toi)
+            overlap = 1.1
+            toi = Ellipsis
+            equidistant = True
+        if isinstance(toi, Number):
+            if method == "wavelet":
+                lgl = "array of time-points wavelets are to be centered on"
+                act = "scalar value"
+                raise SPYValueError(legal=lgl, varname="toi", actual=act)
+            try:
+                scalar_parser(toi, varname="toi", lims=[0, 1])
+            except Exception as exc:
+                raise exc
+            overlap = toi
+            toi = Ellipsis
+            equidistant = True
+        else:
+            overlap = -1
+            try:
+                array_parser(toi, varname="toi", hasinf=False, hasnan=False,
+                             lims=[tmin, tmax], dims=(None,))
+            except Exception as exc:
+                raise exc
+            tSteps = np.diff(toi)
+            if (tSteps < 0).any():
+                lgl = "ordered list/array of time-points"
+                act = "unsorted list/array"
+                raise SPYValueError(legal=lgl, varname="toi", actual=act)
+            if np.unique(tSteps).size > 1:
+                equidistant = False
+            else:
+                equidistant = True
+        
+        if method == "mtmconvol":
+            
+            try:
+                scalar_parser(t_ftimwin, varname="t_ftimwin", lims=[0, minTrialLength])
+            except Exception as exc:
+                raise exc
+            nperseg = int(t_ftimwin * data.samplerate)
+            
+            if overlap < 0:
+                noverlap = nperseg - int(tSteps[0] * data.samplerate)
+            elif 0 <= overlap <= 1:
+                noverlap = int(overlap * nperseg)
+            else:
+                noverlap = nperseg - 1
+            
+            
+            
+        else: # wavelets
+        
+    # mtmconvol: iterated
+    # f, t, Zxx = signal.stft(x[500: 500+500], fs=1000, nperseg=500, noverlap=0, boundary=None)
+        
+    # padding:
+    # spy.padding(np.ones((250,2)), padtype='zero', pad='relative', prepadlength=6)
+        
+    # 2nd: Preprocess frequency selection 
     
     # Check options of non-wavelet methods
     if "mtm" in method:
@@ -347,6 +416,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                     raise exc
             
             # Get/compute number of tapers to use (at least 1 and max. 50)
+            # >>>>>>>>>>>>>>>>>>>>>>>>>> FIXME: minSampleNum depends on window!!!
             nTaper = taperopt.get("Kmax", 1)
             if not taperopt:
                 nTaper = int(max(2, min(50, np.floor(tapsmofrq * minSampleNum * 1 / data.samplerate))))
@@ -400,8 +470,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         
     elif method == "mtmconvol":
         # check consistency of t_ftimwin
+        # check if width, wav is defined
+        pass
 
     elif method == "wavelet":
+        pass
 
         # check if taper, tapsmofrq, keeptapers is defined
         

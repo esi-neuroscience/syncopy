@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:25:34
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-24 11:38:55>
+# Last modification time: <2020-02-04 14:32:31>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -24,7 +24,7 @@ def mtmfft(trl_dat, dt, nTaper=1, timeAxis=0,
            pad="nextpow2", padtype="zero", padlength=None, foi=None,
            keeptapers=True, polyorder=None, output_fmt="pow",
            noCompute=False, chunkShape=None):
-    """Compute (multi-)tapered fourier transform
+    """Compute (multi-)tapered Fourier transform
     
     Parameters
     ----------
