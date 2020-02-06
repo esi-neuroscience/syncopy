@@ -39,7 +39,7 @@ if __name__ == "__main__":
     data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
     # sys.exit()
     # client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")
-    client = dd.Client()
+    # client = dd.Client()
 
     cfg = spy.get_defaults(spy.freqanalysis)
     # cfg.method = 'wavelet'

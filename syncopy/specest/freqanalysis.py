@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-05 15:25:47>
+# Last modification time: <2020-02-06 17:31:10>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -313,6 +313,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                "padtype": lcls["padtype"],
                "padlength": lcls["padlength"],
                "foi": lcls["foi"]}
+    
+    import ipdb; ipdb.set_trace()
 
     # 1st: Check time-frequency to prepare/sanitize `toi` and `minSampleNum`
     if method in ["mtmconvol", "wavelet"]:
@@ -320,8 +322,12 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # Check consistency of `toi` and set `overlap` and `equidistant` for mtmconvol
         if toi is None:
             raise SPYTypeError(toi, varname="toi", expected="scalar or array-like or 'all'")
-        tmax = (data._t0[trialList] + np.diff(data.sampleinfo).squeeze()[trialList]).max()/data.samplerate
-        tmin = data._t0[trialList].min()/data.samplerate
+        if data._selection is not None:
+            tStart = data._selection.trialdefinition[:, 2] / data.samplerate
+        else:
+            tStart = data._t0 / data.samplerate
+        tEnd = tStart + sinfo.squeeze() / data.samplerate
+            
         if isinstance(toi, str):
             if toi != "all":
                 lgl = "`toi = 'all'` to center analysis windows on all time-points"
@@ -345,7 +351,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             overlap = -1
             try:
                 array_parser(toi, varname="toi", hasinf=False, hasnan=False,
-                             lims=[tmin, tmax], dims=(None,))
+                             lims=[tStart.min(), tEnd.max()], dims=(None,))
             except Exception as exc:
                 raise exc
             tSteps = np.diff(toi)
@@ -366,14 +372,21 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 raise exc
             nperseg = int(t_ftimwin * data.samplerate)
             
-            if overlap < 0:
+            if overlap < 0:         # `toi` is array of time-points
                 noverlap = nperseg - int(tSteps[0] * data.samplerate)
-            elif 0 <= overlap <= 1:
+            elif 0 <= overlap <= 1: # `toi` is percentage
                 noverlap = int(overlap * nperseg)
-            else:
+            else:                   # use all time-points 
                 noverlap = nperseg - 1
+
+            offStart = ((toi[0] - tStart) * data.samplerate).astype(int)
+            padBegin = nperseg/2 - offStart
+            padBegin = (padBegin > 0) * padBegin
             
-            
+            offEnd = ((tEnd - toi[-1]) * data.samplerate).astype(int)
+            padEnd = nperseg/2 - offEnd
+            padEnd = (padEnd > 0) * padEnd
+
             
         else: # wavelets
             pass
