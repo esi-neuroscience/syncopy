@@ -37,20 +37,21 @@ if __name__ == "__main__":
                                      equidistant=True, inmemory=False)
     
     data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
-    sys.exit()
+    # sys.exit()
     # client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")
+    client = dd.Client()
 
     cfg = spy.get_defaults(spy.freqanalysis)
-    cfg.method = 'wavelet'
-    # cfg.taper = 'dpss'
-    # cfg.output = 'pow'
-    # cfg.tapsmofrq = 20
-    # cfg.keeptrials = False
-    # cfg.keeptapers = False
-    # cfg.pad = 'nextpow2'
-    # cfg.select = {"toilim": [-0.25, 0]}
-
-    wavSpectrum = spy.freqanalysis(cfg, data)
+    # cfg.method = 'wavelet'
+    cfg.taper = 'dpss'
+    cfg.output = 'pow'
+    cfg.tapsmofrq = 20
+    cfg.keeptrials = False
+    cfg.keeptapers = False
+    cfg.pad = 'nextpow2'
+    cfg.select = {"toilim": [-0.25, 0]}
+    # wavSpectrum = spy.freqanalysis(cfg, data)
+    baselineSpectrum = spy.freqanalysis(cfg, data)
 
 
     sys.exit()

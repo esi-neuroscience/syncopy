@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-01-16 15:06:26>
+# Last modification time: <2020-02-06 13:24:29>
 
 # Builtin/3rd party package imports
 import os
@@ -26,7 +26,8 @@ if sys.platform == "win32":
 # Local imports
 from .parsers import get_defaults
 from syncopy import __storage__, __dask__, __path__
-from syncopy.shared.errors import SPYIOError, SPYValueError, SPYParallelError
+from syncopy.shared.errors import (SPYIOError, SPYValueError, SPYParallelError, 
+                                   SPYTypeError)
 if __dask__:
     import dask.distributed as dd
     import dask.bag as db
@@ -68,8 +69,8 @@ class ComputationalRoutine(ABC):
         ----------
         arr : :class:`numpy.ndarray`
            Numerical data from a single trial
-        *argv : list
-           Arbitrary list of positional arguments
+        *argv : tuple
+           Arbitrary tuple of positional arguments
         chunkShape : None or tuple
            Mandatory keyword. If not `None`, represents global block-size of
            processed trial.
@@ -106,8 +107,8 @@ class ComputationalRoutine(ABC):
 
         Parameters
         ----------
-        *argv : list
-           List of positional arguments passed on to :meth:`computeFunction`
+        *argv : tuple
+           Tuple of positional arguments passed on to :meth:`computeFunction`
         **kwargs : dict
            Keyword arguments passed on to :meth:`computeFunction`
 
@@ -117,6 +118,14 @@ class ComputationalRoutine(ABC):
            Usable class instance for processing Syncopy data objects. 
         """
 
+        # list of positional arguments to `computeFunction` for all workers, format:
+        # ``self.argv = [3, [0, 1, 1], ('a', 'b', 'c')]`` (compare to `self.ArgV` below)
+        self.argv = list(argv)
+
+        # list of positional keyword arguments split up for each worker w/format: 
+        # ``self.ArgV = [(3,0,'a'), (3,1,'b'), (3,1,'c')`` (compare `self.argv` above)
+        self.ArgV = None
+
         # dict of default keyword values accepted by `computeFunction`
         self.defaultCfg = get_defaults(self.computeFunction)
         
@@ -125,9 +134,6 @@ class ComputationalRoutine(ABC):
         for key in set(self.cfg.keys()).intersection(kwargs.keys()):
             self.cfg[key] = kwargs[key]
             
-        # tuple of positional arguments to `computeFunction` provided by user
-        self.argv = argv
-        
         # binary flag: if `True`, average across trials, do nothing otherwise
         self.keeptrials = None
         
@@ -230,17 +236,33 @@ class ComputationalRoutine(ABC):
         else:
             self.trialList = list(range(len(data.trials)))
             self.useFancyIdx = False
-        
+        numTrials = len(self.trialList)
+
+        # If lists/tuples are in positional arguments, ensure `len == numTrials`
+        # Scalars are duplicated to fit trials, e.g., ``self.argv = [3, [0, 1, 1]]``
+        # then ``argv = [[3, 3, 3], [0, 1, 1]]``
+        for ak, arg in enumerate(self.argv):
+            if isinstance(arg, (list, tuple)):
+                if not len(arg) == numTrials:
+                    lgl = "list/tuple of positional arguments for each trial"
+                    act = "length of list/tuple does not correspond to number of trials"
+                    raise SPYValueError(legal=lgl, varname="argv", actual=act)
+            elif isinstance(arg, np.ndarray):
+                raise SPYTypeError(arg, varname="argv", expected="list or tuple")
+            else:
+                self.argv[ak] = [arg] * numTrials
+                
         # Prepare dryrun arguments and determine geometry of trials in output
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
         chk_list = []
         dtp_list = []
         trials = []
+        arg0 = tuple(arg[0] for arg in self.argv)
         for tk in self.trialList:
             trial = data._preview_trial(tk)
             chunkShape, dtype = self.computeFunction(trial, 
-                                                     *self.argv, 
+                                                     *arg0,
                                                      **dryRunKwargs)
             chk_list.append(list(chunkShape))
             dtp_list.append(dtype)
@@ -282,6 +304,7 @@ class ComputationalRoutine(ABC):
         sourceLayout = []
         targetLayout = []
         targetShapes = []
+        ArgV = []
 
         # If parallelization across channels is requested the first trial is 
         # split up into several chunks that need to be processed/allocated
@@ -326,12 +349,14 @@ class ComputationalRoutine(ABC):
                 sourceLayout.append(trial.idx)
                 chanstack += res[outchanidx]
                 blockstack += block
+                ArgV.append(tuple(arg[0] for arg in self.argv))
 
         # Simple: consume all channels simultaneously, i.e., just take the entire trial
         else:
             targetLayout.append(tuple(lyt))
             targetShapes.append(chunkShape0)
             sourceLayout.append(trial.idx)
+            ArgV.append(tuple(arg[0] for arg in self.argv))
             
         # Construct dimensional layout of output
         stacking = targetLayout[0][0].stop
@@ -345,6 +370,7 @@ class ComputationalRoutine(ABC):
                 targetLayout.append(tuple(lyt))
                 targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
                 sourceLayout.append(trial.idx)
+                ArgV.append(tuple(arg[tk] for arg in self.argv))
             else:
                 chanstack = 0
                 blockstack = 0
@@ -362,6 +388,7 @@ class ComputationalRoutine(ABC):
                     sourceLayout.append(trial.idx)
                     chanstack += res[outchanidx]
                     blockstack += block
+                    ArgV.append(tuple(arg[tk] for arg in self.argv))
                     
         # If the determined source layout contains unordered lists and/or index 
         # repetitions, set `self.useFancyIdx` to `True` and prepare a separate
@@ -407,7 +434,8 @@ class ComputationalRoutine(ABC):
         self.sourceSelectors = sourceSelectors
         self.targetLayout = targetLayout
         self.targetShapes = targetShapes
-        
+        self.ArgV = ArgV
+
         # Compute max. memory footprint of chunks
         if chan_per_worker is None:
             self.chunkMem = np.prod(self.cfg["chunkShape"]) * self.dtype.itemsize
@@ -678,23 +706,30 @@ class ComputationalRoutine(ABC):
             outdsetname = self.datasetName
             
         # Construct a dask bag with all necessary components for parallelization
-        bag = db.from_sequence([{"hdr": self.hdr,
-                                 "keeptrials": self.keeptrials, 
-                                 "infile": data.filename,
-                                 "indset": data.data.name,
-                                 "ingrid": self.sourceLayout[chk],
-                                 "sigrid": self.sourceSelectors[chk],
-                                 "fancy": self.useFancyIdx,
-                                 "vdsdir": self.virtualDatasetDir,
-                                 "outfile": outfilename.format(chk),
-                                 "outdset": outdsetname,
-                                 "outgrid": self.targetLayout[chk],
-                                 "outshape": self.targetShapes[chk],
-                                 "dtype": self.dtype}
-                                 for chk in range(len(self.sourceLayout))]) 
-        
+        mainBag = db.from_sequence([{"hdr": self.hdr,
+                                     "keeptrials": self.keeptrials, 
+                                     "infile": data.filename,
+                                     "indset": data.data.name,
+                                     "ingrid": self.sourceLayout[chk],
+                                     "sigrid": self.sourceSelectors[chk],
+                                     "fancy": self.useFancyIdx,
+                                     "vdsdir": self.virtualDatasetDir,
+                                     "outfile": outfilename.format(chk),
+                                     "outdset": outdsetname,
+                                     "outgrid": self.targetLayout[chk],
+                                     "outshape": self.targetShapes[chk],
+                                     "dtype": self.dtype}
+                                     for chk in range(len(self.sourceLayout))]) 
+
+        # Convert by-worker argv-list to dask bags to distribute across cluster
+        # Format: ``ArgV = [(3, 0, 'a'), (3, 0, 'a'), (3, 1, 'b'), (3, 1, 'b')]``
+        # then ``list(zip(*ArgV)) = [(3, 3, 3, 3), (0, 0, 1, 1), ('a', 'a', 'b', 'b')]``
+        bags = []        
+        for arg in zip(*self.ArgV):
+            bags.append(db.from_sequence(arg))
+            
         # Map all components (channel-trial-blocks) onto `computeFunction`
-        results = bag.map(self.computeFunction, *self.argv, **self.cfg)
+        results = mainBag.map(self.computeFunction, *bags, **self.cfg)
         
         # Make sure that all futures are executed (i.e., data is actually written)
         # Note: `dd.progress` works in (i)Python but is not blocking in Jupyter, 
@@ -769,6 +804,7 @@ class ComputationalRoutine(ABC):
                 ingrid = self.sourceLayout[nblock]
                 sigrid = self.sourceSelectors[nblock]
                 outgrid = self.targetLayout[nblock]
+                argv = self.ArgV[nblock]
                 
                 # Catch empty source-array selections; this workaround is not 
                 # necessary for h5py version 2.10+ (see https://github.com/h5py/h5py/pull/1174)
@@ -800,7 +836,7 @@ class ComputationalRoutine(ABC):
                         arr = np.vstack(stacks)[ingrid]
 
                     # Perform computation
-                    res = self.computeFunction(arr, *self.argv, **self.cfg)
+                    res = self.computeFunction(arr, *argv, **self.cfg)
                     
                 # Either write result to `outgrid` location in `target` or add it up
                 if self.keeptrials:

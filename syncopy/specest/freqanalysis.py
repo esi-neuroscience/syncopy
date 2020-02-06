@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-04 16:32:01>
+# Last modification time: <2020-02-05 15:25:47>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -376,6 +376,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             
             
         else: # wavelets
+            pass
         
     # mtmconvol: iterated
     # f, t, Zxx = signal.stft(x[500: 500+500], fs=1000, nperseg=500, noverlap=0, boundary=None)
