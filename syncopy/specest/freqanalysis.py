@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-06 17:31:10>
+# Last modification time: <2020-02-07 16:11:04>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -199,6 +199,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         
     # Ensure padding selection makes sense: do not pad on a by-trial basis but 
     # use the longest trial as reference and compute `padlength` from there
+    # (only relevant for "global" padding options such as `maxlen` or `nextpow2`)
     if not isinstance(pad, (str, type(None))):
         raise SPYTypeError(pad, varname="pad", expected="str or None")
     if pad:
@@ -224,60 +225,41 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise SPYValueError(legal=lgl, varname="data", actual=act)
         minSampleNum = lenTrials.min()
         
-    # Construct array of maximally attainable frequencies
+    # Compute length (in samples) of shortest trial
     minTrialLength = minSampleNum/data.samplerate
-    nFreq = int(np.floor(minSampleNum / 2) + 1)
-    freqs = np.linspace(0, data.samplerate / 2, nFreq)
     
     # Basic sanitization of frequency specifications
-    if isinstance(foi, str):
-        if foi == "all":
-            foi = None
+    if foi is not None:
+        if isinstance(foi, str):
+            if foi == "all":
+                foi = None
+            else:
+                raise SPYValueError(legal="'all' or `None` or list/array", 
+                                    varname="foi", actual=foi)
         else:
-            raise SPYValueError(legal="'all' or `None` or list/array", 
-                                varname="foi", actual=foi)
-    if isinstance(foilim, str):
-        if foilim == "all":
-            foilim = None
+            try:
+                array_parser(foi, varname="foi", hasinf=False, hasnan=False,
+                            lims=[0, data.samplerate/2], dims=(None,))
+            except Exception as exc:
+                raise exc
+    if foilim is not None:
+        if isinstance(foilim, str):
+            if foilim == "all":
+                foilim = None
+            else:
+                raise SPYValueError(legal="'all' or `None` or `[fmin, fmax]`", 
+                                    varname="foilim", actual=foilim)
         else:
-            raise SPYValueError(legal="'all' or `None` or `[fmin, fmax]`", 
-                                varname="foilim", actual=foilim)
+            try:
+                array_parser(foilim, varname="foilim", hasinf=False, hasnan=False,
+                            lims=[0, data.samplerate/2], dims=(2,))
+            except Exception as exc:
+                raise exc
     if foi is not None and foilim is not None:
         lgl = "either `foi` or `foilim` specification"
         act = "both"
         raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
 
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>.. FIXME            
-    # Match desired frequencies as close as possible to actually attainable freqs
-    if foi is not None:
-        try:
-            array_parser(foi, varname="foi", hasinf=False, hasnan=False,
-                         lims=[1/minTrialLength, data.samplerate/2], dims=(None,))
-        except Exception as exc:
-            raise exc
-        foi = np.array(foi)
-        foi.sort()
-        foi = foi[foi <= freqs.max()]
-        foi = foi[foi >= freqs.min()]
-        fidx = np.searchsorted(freqs, foi, side="left")
-        for k, fid in enumerate(fidx):
-            if np.abs(freqs[fid - 1] - foi[k]) < np.abs(freqs[fid] - foi[k]):
-                fidx[k] = fid -1
-        fidx = np.unique(fidx)
-        foi = freqs[fidx]
-    else:
-        foi = freqs
-        
-    # Crop desired frequency band from array of actually attainable freqs
-    if foilim is not None:
-        try:
-            array_parser(foilim, varname="foilim", hasinf=False, hasnan=False,
-                         lims=[0, data.samplerate/2], dims=(2,))
-        except Exception as exc:
-            raise exc
-        foi = np.intersect1d(np.where(freqs >= foilim[0])[0], np.where(freqs <= foilim[1])[0])
-    else:
-        foi = freqs
 
     # Abort if desired frequency selection is empty
     if foi.size == 0:
@@ -316,10 +298,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     
     import ipdb; ipdb.set_trace()
 
-    # 1st: Check time-frequency to prepare/sanitize `toi` and `minSampleNum`
+    # 1st: Check time-frequency inputs to prepare/sanitize `toi`
     if method in ["mtmconvol", "wavelet"]:
         
-        # Check consistency of `toi` and set `overlap` and `equidistant` for mtmconvol
+        # Get start/end timing info respecting potential in-place selection
         if toi is None:
             raise SPYTypeError(toi, varname="toi", expected="scalar or array-like or 'all'")
         if data._selection is not None:
@@ -327,7 +309,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         else:
             tStart = data._t0 / data.samplerate
         tEnd = tStart + sinfo.squeeze() / data.samplerate
-            
+
+        # Process `toi`: `overlap > 1` => all, `0 < overlap < 1` => percentage, 
+        # `overlap < 0` => discrete `toi`
         if isinstance(toi, str):
             if toi != "all":
                 lgl = "`toi = 'all'` to center analysis windows on all time-points"
@@ -363,22 +347,24 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 equidistant = False
             else:
                 equidistant = True
-        
+
+        # The above `overlap`, `equidistant` etc. is really only relevant for `mtmconvol`        
         if method == "mtmconvol":
-            
             try:
                 scalar_parser(t_ftimwin, varname="t_ftimwin", lims=[0, minTrialLength])
             except Exception as exc:
                 raise exc
             nperseg = int(t_ftimwin * data.samplerate)
+            minSampleNum = nperseg
             
-            if overlap < 0:         # `toi` is array of time-points
+            if overlap < 0:         # `toi` is equidistant range or disjoint point
                 noverlap = nperseg - int(tSteps[0] * data.samplerate)
             elif 0 <= overlap <= 1: # `toi` is percentage
                 noverlap = int(overlap * nperseg)
-            else:                   # use all time-points 
+            else:                   # `toi` is "all"
                 noverlap = nperseg - 1
 
+            # Compute necessary padding at begin/end of trials to fit sliding windows
             offStart = ((toi[0] - tStart) * data.samplerate).astype(int)
             padBegin = nperseg/2 - offStart
             padBegin = (padBegin > 0) * padBegin
@@ -387,8 +373,16 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             padEnd = nperseg/2 - offEnd
             padEnd = (padEnd > 0) * padEnd
 
+            # Compute sample-indices (one slice/array per trial) from time-selections
+            soi = []            
+            if not equidistant:
+                for tk in range(len(trialList)):
+                    soi.append((data.samplerate * (toi + tStart[tk]).astype(int)))
+            else:
+                for tk in range(len(trialList)):
+                    soi.append(slice(toi[0], toi[-1]))
             
-        else: # wavelets
+        else: # wavelets: probably some `toi` gymnastics
             pass
         
     # mtmconvol: iterated
@@ -399,7 +393,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         
     # 2nd: Preprocess frequency selection 
     
-    # Check options of non-wavelet methods
+    # Check options specific to mtm*-methods (particularly tapers and foi/freqs alignment)
     if "mtm" in method:
 
         #: available tapers
@@ -430,7 +424,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                     raise exc
             
             # Get/compute number of tapers to use (at least 1 and max. 50)
-            # >>>>>>>>>>>>>>>>>>>>>>>>>> FIXME: minSampleNum depends on window!!!
             nTaper = taperopt.get("Kmax", 1)
             if not taperopt:
                 nTaper = int(max(2, min(50, np.floor(tapsmofrq * minSampleNum * 1 / data.samplerate))))
@@ -443,6 +436,31 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         if tapsmofrq is not None and taper.__name__ != "dpss":
             msg = "`tapsmofrq` is only used if `taper` is `dpss`!"
             SPYWarning(msg)
+            
+        # Construct array of maximally attainable frequencies
+        nFreq = int(np.floor(minSampleNum / 2) + 1)
+        freqs = np.linspace(0, data.samplerate / 2, nFreq)
+        
+        # Match desired frequencies as close as possible to actually attainable freqs
+        if foi is not None:
+            foi = np.array(foi)
+            foi.sort()
+            foi = foi[foi <= freqs.max()]
+            foi = foi[foi >= freqs.min()]
+            fidx = np.searchsorted(freqs, foi, side="left")
+            for k, fid in enumerate(fidx):
+                if np.abs(freqs[fid - 1] - foi[k]) < np.abs(freqs[fid] - foi[k]):
+                    fidx[k] = fid -1
+            fidx = np.unique(fidx)
+            foi = freqs[fidx]
+        else:
+            foi = freqs
+
+        # Crop desired frequency band from array of actually attainable freqs
+        if foilim is not None:
+            foi = np.intersect1d(np.where(freqs >= foilim[0])[0], np.where(freqs <= foilim[1])[0])
+        else:
+            foi = freqs
             
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
@@ -483,8 +501,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                                       output_fmt=output)
         
     elif method == "mtmconvol":
-        # check consistency of t_ftimwin
-        # check if width, wav is defined
+        # set up class
         pass
 
     elif method == "wavelet":
