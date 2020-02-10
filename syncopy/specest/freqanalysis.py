@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-07 16:11:04>
+# Last modification time: <2020-02-10 12:48:07>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -50,7 +50,8 @@ __all__ = ["freqanalysis"]
 @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, foilim=None, pad='nextpow2', padtype='zero',
-                 padlength=None, polyremoval=False, polyorder=None,
+                 padlength=None, prepadlength=None, postpadlength=None, 
+                 polyremoval=False, polyorder=None,
                  taper="hann", tapsmofrq=None, keeptapers=False,
                  wav="Morlet", t_ftimwin=None, toi=None, width=6, 
                  out=None, **kwargs):
@@ -99,6 +100,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     padlength : None, bool or positive scalar
         Length to be padded to data in samples if `pad` is 'absolute' or 
         'relative'. See :func:`syncopy.padding` for more information.
+    prepadlength : None
+        FIXME!!!!!!!!!!!!!!!!!!!
+    postpadlength : None
+        FIXME!!!!!!!!!!!!!!!!!!!
     polyremoval : bool
         Flag whether a polynomial of order `polyorder` should be fitted and 
         subtracted from each trial before spectral analysis. 
@@ -205,13 +210,17 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     if pad:
         if pad == "maxlen":
             padlength = lenTrials.max()
+            prepadlength = True
+            postpadlength = False
         elif pad == "nextpow2":
             padlength = 0
             for ltrl in lenTrials:
                 padlength = max(padlength, _nextpow2(ltrl))
             pad = "absolute"
+            prepadlength = True
+            postpadlength = False
         padding(data._preview_trial(trialList[0]), padtype, pad=pad, padlength=padlength,
-                prepadlength=True)
+                prepadlength=prepadlength, postpadlength=postpadlength)
     
         # Update `minSampleNum` to account for padding
         minSamplePos = lenTrials.argmin()
@@ -442,6 +451,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         freqs = np.linspace(0, data.samplerate / 2, nFreq)
         
         # Match desired frequencies as close as possible to actually attainable freqs
+        # FIXME: use `best_match` for this in the future
         if foi is not None:
             foi = np.array(foi)
             foi.sort()
@@ -486,23 +496,46 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 SPYWarning(msg.format(name))
         
         # Set up compute-class
-        specestMethod = MultiTaperFFT(1 / data.samplerate,
-                                      nTaper=nTaper, 
-                                      timeAxis=timeAxis, 
-                                      taper=taper, 
-                                      taperopt=taperopt,
-                                      tapsmofrq=tapsmofrq,
-                                      pad=pad,
-                                      padtype=padtype,
-                                      padlength=padlength,
-                                      foi=foi,
-                                      keeptapers=keeptapers,
-                                      polyorder=polyorder,
-                                      output_fmt=output)
+        specestMethod = MultiTaperFFT(
+            1 / data.samplerate,
+            nTaper=nTaper, 
+            timeAxis=timeAxis, 
+            taper=taper, 
+            taperopt=taperopt,
+            tapsmofrq=tapsmofrq,
+            pad=pad,
+            padtype=padtype,
+            padlength=padlength,
+            foi=foi,
+            keeptapers=keeptapers,
+            polyorder=polyorder,
+            output_fmt=output)
         
     elif method == "mtmconvol":
-        # set up class
-        pass
+
+        # Set up compute-class
+        specestMethod = MultiTaperFFTConvol(
+            soi,
+            list(padBegin),
+            list(padEnd),
+            noverlap=noverlap,
+            nperseg=nperseg,
+            equidistant=equidistant,
+            toi=toi,
+            foi=foi,
+            nTaper=nTaper, 
+            timeAxis=timeAxis, 
+            taper=taper, 
+            taperopt=taperopt,
+            tapsmofrq=tapsmofrq,
+            pad=pad,
+            padtype=padtype,
+            padlength=padlength,
+            prepadlength=prepadlength,
+            postpadlength=postpadlength,
+            keeptapers=keeptapers,
+            polyorder=polyorder,
+            output_fmt=output)
 
     elif method == "wavelet":
         pass

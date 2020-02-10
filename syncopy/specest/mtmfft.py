@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:25:34
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-04 14:32:31>
+# Last modification time: <2020-02-10 12:42:00>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -87,6 +87,7 @@ def mtmfft(trl_dat, dt, nTaper=1, timeAxis=0,
     nChannels = dat.shape[1]
     
     # Determine frequency band and shape of output (time=1 x taper x freq x channel)
+    # FIXME: use `best_match` for this in the future!
     nFreq = int(np.floor(nSamples / 2) + 1)
     fidx = slice(None)
     if foi is not None:
@@ -119,8 +120,7 @@ def mtmfft(trl_dat, dt, nTaper=1, timeAxis=0,
     # Average across tapers if wanted
     if not keeptapers:
         return spec.mean(axis=1, keepdims=True)
-    else:
-        return spec
+    return spec
 
 
 class MultiTaperFFT(ComputationalRoutine):
