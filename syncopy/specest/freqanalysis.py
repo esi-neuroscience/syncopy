@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-10 12:48:07>
+# Last modification time: <2020-02-11 15:17:17>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -21,6 +21,7 @@ from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select, 
                                              detect_parallel_client)
 from syncopy.specest.mtmfft import MultiTaperFFT
+from syncopy.specest.mtmconvol import MultiTaperFFTConvol
 from syncopy.specest.wavelet import _get_optimal_wavelet_scales, WaveletTransform
 
 # Module-wide output specs
@@ -40,7 +41,7 @@ availableOutputs = tuple(spectralConversions.keys())
 availableTapers = ("hann", "dpss")
 
 #: available spectral estimation methods of :func:`freqanalysis`
-availableMethods = ("mtmfft", "wavelet")
+availableMethods = ("mtmfft", "mtmconvol", "wavelet")
 
 __all__ = ["freqanalysis"]
 
@@ -49,7 +50,7 @@ __all__ = ["freqanalysis"]
 @unwrap_select
 @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
-                 keeptrials=True, foi=None, foilim=None, pad='nextpow2', padtype='zero',
+                 keeptrials=True, foi=None, foilim=None, pad=None, padtype='zero',
                  padlength=None, prepadlength=None, postpadlength=None, 
                  polyremoval=False, polyorder=None,
                  taper="hann", tapsmofrq=None, keeptapers=False,
@@ -83,16 +84,22 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         but may be unbounded (e.g., ``[-np.inf, 60.5]`` is valid). Edges `fmin` 
         and `fmax` are included in the selection. If `foilim` is `None` or 
         ``foilim = "all"``, all frequencies are selected. 
-    pad : str or None
-        One of `'absolute'`, `'relative'`, `'maxlen'`, `'nextpow2'` or `None`. 
-        Padding method to be used in case trial do not have equal length. To
-        ensure consistency of the output object, padding is always performed 
-        with respect to the longest trial found in `data`. For instance, 
-        `pad = 'nextpow2'` pads all trials in `data` to the next power of 2 higher 
-        than the sample-count of the longest trial in `data`. See :func:`syncopy.padding` 
-        for more information. If `pad` is `None`, no padding is performed and
-        all trials have to have approximately the same length (up to next even 
-        sample-count). 
+    pad : str or None or bool
+        One of `None`, `True`, `False`, `'absolute'`, `'relative'`, `'maxlen'` or
+        `'nextpow2'`. 
+        If `pad` is `None` or ``pad = True``, then method-specific defaults are 
+        chosen. Specifically, if `method` is `'mtmfft'` then `pad` is set to 
+        `'nextpow2'` so that all trials in `data` are padded to the next power of 
+        two higher than the sample-count of the longest trial in `data`. Conversely, 
+        time-frequency analysis methods (`'mtmconvol'` and `'wavelet'`), only perform
+        padding if necessary, i.e., if time-window centroids are chosen too close
+        to the boundary for the entire window to cover available data-points. 
+        If `pad` is `False`, then no padding is performed. Then in case of 
+        ``method = 'mtmfft'`` all trials have to have approximately the same 
+        length (up to next even sample-count), if ``method = 'mtmconvol'`` or 
+        ``method = 'wavelet'``, window-centroids have to be chosen with sufficient
+        distance from trial boundaries. For details on available padding methods, 
+        see :func:`syncopy.padding`. 
     padtype : str
         Values to be used for padding. Can be 'zero', 'nan', 'mean', 
         'localmean', 'edge' or 'mirror'. See :func:`syncopy.padding` for 
@@ -201,13 +208,18 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo)
+    
+    # Set default padding options
+    defaultPadding = {"mtmfft": "nextpow2", "mtmconvol": None, "wavelet": None}
+    if pad is None or pad is True:
+        pad = defaultPadding[method]
         
     # Ensure padding selection makes sense: do not pad on a by-trial basis but 
     # use the longest trial as reference and compute `padlength` from there
     # (only relevant for "global" padding options such as `maxlen` or `nextpow2`)
-    if not isinstance(pad, (str, type(None))):
-        raise SPYTypeError(pad, varname="pad", expected="str or None")
     if pad:
+        if not isinstance(pad, (str, type(None))):
+            raise SPYTypeError(pad, varname="pad", expected="str or None")
         if pad == "maxlen":
             padlength = lenTrials.max()
             prepadlength = True
@@ -228,8 +240,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                                padlength=padlength, prepadlength=True).shape[timeAxis]
     
     else:
-        if np.unique((np.floor(lenTrials / 2))).size > 1:
-            lgl = "trials of approximately equal length"
+        pad = None
+        if method == "mtmfft" and np.unique((np.floor(lenTrials / 2))).size > 1:
+            lgl = "trials of approximately equal length for method 'mtmfft'"
             act = "trials of unequal length"
             raise SPYValueError(legal=lgl, varname="data", actual=act)
         minSampleNum = lenTrials.min()
@@ -268,13 +281,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         lgl = "either `foi` or `foilim` specification"
         act = "both"
         raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
-
-
-    # Abort if desired frequency selection is empty
-    if foi.size == 0:
-        lgl = "non-empty frequency specification"
-        act = "empty frequency selection"
-        raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
         
     # FIXME: implement detrending
     # see also https://docs.obspy.org/_modules/obspy/signal/detrend.html#polynomial
@@ -305,8 +311,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                "padlength": lcls["padlength"],
                "foi": lcls["foi"]}
     
-    import ipdb; ipdb.set_trace()
-
     # 1st: Check time-frequency inputs to prepare/sanitize `toi`
     if method in ["mtmconvol", "wavelet"]:
         
@@ -317,7 +321,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             tStart = data._selection.trialdefinition[:, 2] / data.samplerate
         else:
             tStart = data._t0 / data.samplerate
-        tEnd = tStart + sinfo.squeeze() / data.samplerate
+        tEnd = tStart + np.diff(sinfo).squeeze() / data.samplerate
 
         # Process `toi`: `overlap > 1` => all, `0 < overlap < 1` => percentage, 
         # `overlap < 0` => discrete `toi`
@@ -352,11 +356,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 lgl = "ordered list/array of time-points"
                 act = "unsorted list/array"
                 raise SPYValueError(legal=lgl, varname="toi", actual=act)
-            if np.unique(tSteps).size > 1:
-                equidistant = False
-            else:
-                equidistant = True
-
+            # This is imho a bug in NumPy - even `arange` and `linspace` may produce 
+            # arrays that are numerically not exactly equidistant - `unique` will
+            # show several entries here - use `allclose` to identify "even" spacings
+            equidistant = np.allclose(tSteps, [tSteps[0]] * tSteps.size)
+                
         # The above `overlap`, `equidistant` etc. is really only relevant for `mtmconvol`        
         if method == "mtmconvol":
             try:
@@ -381,14 +385,26 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             offEnd = ((tEnd - toi[-1]) * data.samplerate).astype(int)
             padEnd = nperseg/2 - offEnd
             padEnd = (padEnd > 0) * padEnd
+            
+            # Abort if padding was explicitly forbidden
+            if pad is False and (np.any(padBegin) or np.any(padBegin)):
+                lgl = "windows within trial bounds"
+                act = "windows exceeding trials no. " +\
+                    "".join(str(trlno) + ", "\
+                        for trlno in np.array(trialList)[(padBegin + padEnd) > 0])[:-2]
+                raise SPYValueError(legal=lgl, varname="pad", actual=act)
 
             # Compute sample-indices (one slice/array per trial) from time-selections
+            import ipdb; ipdb.set_trace()
             soi = []            
             if not equidistant:
                 for tk in range(len(trialList)):
                     soi.append((data.samplerate * (toi + tStart[tk]).astype(int)))
             else:
                 for tk in range(len(trialList)):
+                    int(data.samplerate * (toi[0] + tStart[tk]))
+                    
+                    soi.append((data.samplerate * (toi + tStart[tk]).astype(int)))
                     soi.append(slice(toi[0], toi[-1]))
             
         else: # wavelets: probably some `toi` gymnastics
@@ -471,6 +487,12 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             foi = np.intersect1d(np.where(freqs >= foilim[0])[0], np.where(freqs <= foilim[1])[0])
         else:
             foi = freqs
+
+        # Abort if desired frequency selection is empty
+        if foi.size == 0:
+            lgl = "non-empty frequency specification"
+            act = "empty frequency selection"
+            raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
             
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
@@ -518,6 +540,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             soi,
             list(padBegin),
             list(padEnd),
+            samplerate=data.samplerate,
             noverlap=noverlap,
             nperseg=nperseg,
             equidistant=equidistant,
@@ -527,7 +550,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             timeAxis=timeAxis, 
             taper=taper, 
             taperopt=taperopt,
-            tapsmofrq=tapsmofrq,
             pad=pad,
             padtype=padtype,
             padlength=padlength,

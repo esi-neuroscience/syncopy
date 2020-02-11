@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-10 17:52:45>
+# Last modification time: <2020-02-11 14:35:01>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -13,18 +13,17 @@ from scipy import signal
 # Local imports
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
-from syncopy.specest.freqanalysis import spectralDTypes, spectralConversions
 from syncopy.datatype import padding
+import syncopy.specest.freqanalysis as freq
 
 
 # Local workhorse that performs the computational heavy lifting
 @unwrap_io
 def mtmconvol(
     trl_dat, soi, padbegin, padend,
-    samplerate=samplerate, noverlap=None, nperseg=None, equidistant=True, toi=None, foi=None,
-    nTaper=1, timeAxis=0, taper=signal.windows.hann, taperopt={}, tapsmofrq=None,
-    pad=None, padtype="zero", padlength=None, prepadlength=True, 
-    postpadlength=True, 
+    samplerate=None, noverlap=None, nperseg=None, equidistant=True, toi=None, foi=None,
+    nTaper=1, timeAxis=0, taper=signal.windows.hann, taperopt={}, 
+    pad=None, padtype="zero", padlength=None, prepadlength=True, postpadlength=True, 
     keeptapers=True, polyorder=None, output_fmt="pow",
     noCompute=False, chunkShape=None):
     """
@@ -36,6 +35,8 @@ def mtmconvol(
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
+        
+    import ipdb; ipdb.set_trace()
 
     # Padding (updates no. of samples)
     padKw = None
@@ -61,10 +62,10 @@ def mtmconvol(
     nTime = toi.size
     outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
     if noCompute:
-        return outShape, spectralDTypes[output_fmt]
+        return outShape, freq.spectralDTypes[output_fmt]
     
     # In case tapers aren't kept allocate `spec` "too big" and average afterwards
-    spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
+    spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=freq.spectralDTypes[output_fmt])
     
     # Collect keyword args for `stft` in dictionary
     stftKw = {"fs": samplerate,
@@ -83,18 +84,18 @@ def mtmconvol(
         fIdx = np.searchsorted(freq, foi)
         tIdx = np.searchsorted(time, toi)
         spec[:, 0, ...] = \
-            spectralConversions[output_fmt](
+            freq.spectralConversions[output_fmt](
                 pxx.reshape(nTime, 1, nFreq, nChannels))[tIdx, :, fIdx, :]
     else:
         halfWin = int(nperseg/2)
         freq, _, pxx = signal.stft(dat[soi[0] - halfWin, soi[0] + halfWin], **stftKw)
         fIdx = np.searchsorted(freq, foi)
         spec[0, 0, ...] = \
-            spectralConversions[output_fmt](
+            freq.spectralConversions[output_fmt](
                 pxx.reshape(1, 1, nFreq, nChannels))[:, :, fIdx, :]
         for tk in range(1, soi.size):
             spec[tk, 0, ...] = \
-                spectralConversions[output_fmt](
+                freq.spectralConversions[output_fmt](
                     signal.stft(
                         dat[soi[tk] - halfWin, soi[tk] + halfWin],
                         **stftKw)[2].reshape(1, 1, nFreq, nChannels))[:, :, fIdx, :]
@@ -103,14 +104,14 @@ def mtmconvol(
     for taperIdx in range(1, win.shape[0]):
         if equidistant:
             spec[:, taperIdx, ...] = \
-                spectralConversions[output_fmt](
+                freq.spectralConversions[output_fmt](
                     signal.stft(
                         dat[soi],
                         **stftKw)[2].reshape(nTime, 1, nFreq, nChannels))[tIdx, :, fIdx, :]
         else:
             for tk, sample in enumerate(soi):
                 spec[tk, taperIdx, ...] = \
-                    spectralConversions[output_fmt](
+                    freq.spectralConversions[output_fmt](
                         signal.stft(
                             dat[sample - halfWin, sample + halfWin], 
                             **stftKw)[2].reshape(1, 1, nFreq, nChannels))[:, :, fIdx, :]
@@ -126,5 +127,32 @@ class MultiTaperFFTConvol(ComputationalRoutine):
     computeFunction = staticmethod(mtmconvol)
 
     def process_metadata(self, data, out):
-        pass
+        
+        import ipdb; ipdb.set_trace()
+
+        # Some index gymnastics to get trial begin/end "samples"
+        if data._selection is not None:
+            chanSec = data._selection.channel
+            trl = data._selection.trialdefinition
+            for row in range(trl.shape[0]):
+                trl[row, :2] = [row, row + 1]
+        else:
+            chanSec = slice(None)
+            time = np.arange(len(data.trials))
+            time = time.reshape((time.size, 1))
+            trl = np.hstack((time, time + 1, 
+                             np.zeros((len(data.trials), 1)), 
+                             np.array(data.trialinfo)))
+
+        # Attach constructed trialdef-array (if even necessary)
+        if self.keeptrials:
+            out.trialdefinition = trl
+        else:
+            out.trialdefinition = np.array([[0, 1, 0]])
+
+        # Attach remaining meta-data
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel[chanSec])
+        out.taper = np.array([self.cfg["taper"].__name__] * self.outputShape[out.dimord.index("taper")])
+        out.freq = self.cfg["foi"]
     

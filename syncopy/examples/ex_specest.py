@@ -29,7 +29,7 @@ from syncopy.tests.misc import generate_artificial_data
 import dask.distributed as dd
 from time import time
 
-sys.exit()
+# sys.exit()
 
 if __name__ == "__main__":
 
@@ -42,16 +42,18 @@ if __name__ == "__main__":
     # client = dd.Client()
 
     cfg = spy.get_defaults(spy.freqanalysis)
-    # cfg.method = 'wavelet'
+    cfg.method = 'mtmconvol'
     cfg.taper = 'dpss'
     cfg.output = 'pow'
     cfg.tapsmofrq = 20
-    cfg.keeptrials = False
-    cfg.keeptapers = False
-    cfg.pad = 'nextpow2'
-    cfg.select = {"toilim": [-0.25, 0]}
-    # wavSpectrum = spy.freqanalysis(cfg, data)
-    baselineSpectrum = spy.freqanalysis(cfg, data)
+    cfg.keeptrials = True
+    cfg.keeptapers = True
+    cfg.toi = np.arange(-0.1, 0.5, 0.05) 
+    cfg.t_ftimwin = 0.75
+    # cfg.pad = 'nextpow2'
+    # cfg.select = {"toilim": [-0.25, 0]}
+    tfSpectrum = spy.freqanalysis(cfg, data)
+    # baselineSpectrum = spy.freqanalysis(cfg, data)
 
 
     sys.exit()
