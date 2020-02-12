@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-11 14:35:01>
+# Last modification time: <2020-02-12 17:13:14>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -14,7 +14,8 @@ from scipy import signal
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.datatype import padding
-import syncopy.specest.freqanalysis as freq
+import syncopy.specest.freqanalysis as spyfreq
+from syncopy.shared.errors import SPYWarning
 
 
 # Local workhorse that performs the computational heavy lifting
@@ -36,10 +37,7 @@ def mtmconvol(
     else:
         dat = trl_dat
         
-    import ipdb; ipdb.set_trace()
-
-    # Padding (updates no. of samples)
-    padKw = None
+    # Padding: either combination of user-choice/necessity or just necessity
     if pad is not None:
         padKw = padding(dat, padtype, pad=pad, padlength=padlength, 
                         prepadlength=prepadlength, postpadlength=postpadlength,
@@ -49,12 +47,15 @@ def mtmconvol(
         padKw["pad_width"][0, :] += [padbegin, padend]
         padbegin = 0
         padend = 0
-    if padbegin > 0 or padend > 0:
-        padKw = {"pad_width": np.array([[padbegin, padend], [0, 0]]),
-                 "mode": "constant",
-                 "constant_values": 0}
-    if padKw is not None:
         dat = np.pad(dat, **padKw)
+    if padbegin > 0 or padend > 0:
+        dat = padding(dat, padtype, pad="relative", padlength=None, 
+                      prepadlength=padbegin, postpadlength=padend)
+    # if padKw is not None:
+    #     try:
+    #         dat = np.pad(dat, **padKw)
+    #     except:
+    #         import ipdb; ipdb.set_trace()
 
     # Get shape of output for dry-run phase
     nChannels = dat.shape[1]
@@ -62,14 +63,14 @@ def mtmconvol(
     nTime = toi.size
     outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
     if noCompute:
-        return outShape, freq.spectralDTypes[output_fmt]
+        return outShape, spyfreq.spectralDTypes[output_fmt]
     
     # In case tapers aren't kept allocate `spec` "too big" and average afterwards
-    spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=freq.spectralDTypes[output_fmt])
+    spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spyfreq.spectralDTypes[output_fmt])
     
     # Collect keyword args for `stft` in dictionary
     stftKw = {"fs": samplerate,
-              "window": taper,
+            #   "window": taper,
               "nperseg": nperseg,
               "noverlap": noverlap,
               "return_onesided": True,
@@ -79,43 +80,44 @@ def mtmconvol(
     
     # Call `stft` w/first taper to get freq/time indices
     win = np.atleast_2d(taper(nperseg, **taperopt))
+    stftKw["window"] = win[0, :]
     if equidistant:
-        freq, time, pxx = signal.stft(dat[soi], **stftKw)
+        freq, _, pxx = signal.stft(dat[soi, :], **stftKw)
         fIdx = np.searchsorted(freq, foi)
-        tIdx = np.searchsorted(time, toi)
         spec[:, 0, ...] = \
-            freq.spectralConversions[output_fmt](
-                pxx.reshape(nTime, 1, nFreq, nChannels))[tIdx, :, fIdx, :]
+            spyfreq.spectralConversions[output_fmt](
+                pxx.reshape(nTime, nFreq, nChannels))[:, fIdx, :]
     else:
         halfWin = int(nperseg/2)
-        freq, _, pxx = signal.stft(dat[soi[0] - halfWin, soi[0] + halfWin], **stftKw)
+        freq, _, pxx = signal.stft(dat[soi[0] - halfWin: soi[0] + halfWin, :], **stftKw)
         fIdx = np.searchsorted(freq, foi)
         spec[0, 0, ...] = \
-            freq.spectralConversions[output_fmt](
-                pxx.reshape(1, 1, nFreq, nChannels))[:, :, fIdx, :]
+            spyfreq.spectralConversions[output_fmt](
+                pxx.reshape(nFreq, nChannels))[fIdx, :]
         for tk in range(1, soi.size):
             spec[tk, 0, ...] = \
-                freq.spectralConversions[output_fmt](
+                spyfreq.spectralConversions[output_fmt](
                     signal.stft(
-                        dat[soi[tk] - halfWin, soi[tk] + halfWin],
-                        **stftKw)[2].reshape(1, 1, nFreq, nChannels))[:, :, fIdx, :]
+                        dat[soi[tk] - halfWin: soi[tk] + halfWin, :],
+                        **stftKw)[2].reshape(nFreq, nChannels))[fIdx, :]
 
     # Compute FT using determined indices above for the remaining tapers (if any)
     for taperIdx in range(1, win.shape[0]):
+        stftKw["window"] = win[taperIdx, :]
         if equidistant:
             spec[:, taperIdx, ...] = \
-                freq.spectralConversions[output_fmt](
+                spyfreq.spectralConversions[output_fmt](
                     signal.stft(
-                        dat[soi],
-                        **stftKw)[2].reshape(nTime, 1, nFreq, nChannels))[tIdx, :, fIdx, :]
+                        dat[soi, :],
+                        **stftKw)[2].reshape(nTime, nFreq, nChannels))[:, fIdx, :]
         else:
             for tk, sample in enumerate(soi):
                 spec[tk, taperIdx, ...] = \
-                    freq.spectralConversions[output_fmt](
+                    spyfreq.spectralConversions[output_fmt](
                         signal.stft(
-                            dat[sample - halfWin, sample + halfWin], 
-                            **stftKw)[2].reshape(1, 1, nFreq, nChannels))[:, :, fIdx, :]
-    
+                            dat[sample - halfWin: sample + halfWin, :],
+                            **stftKw)[2].reshape(nFreq, nChannels))[fIdx, :]
+
     # Average across tapers if wanted
     if not keeptapers:
         return spec.mean(axis=1, keepdims=True)
@@ -128,31 +130,40 @@ class MultiTaperFFTConvol(ComputationalRoutine):
 
     def process_metadata(self, data, out):
         
-        import ipdb; ipdb.set_trace()
+        # Extract user-provided time selection        
+        toi = self.cfg["toi"]
+        nToi = toi.size 
 
-        # Some index gymnastics to get trial begin/end "samples"
+        # Some index gymnastics to get trial begin/end samples
         if data._selection is not None:
             chanSec = data._selection.channel
             trl = data._selection.trialdefinition
-            for row in range(trl.shape[0]):
-                trl[row, :2] = [row, row + 1]
         else:
             chanSec = slice(None)
-            time = np.arange(len(data.trials))
-            time = time.reshape((time.size, 1))
-            trl = np.hstack((time, time + 1, 
-                             np.zeros((len(data.trials), 1)), 
-                             np.array(data.trialinfo)))
+            trl = data.trialdefinition
+        time = np.cumsum([nToi] * trl.shape[0])
+        # time = time.reshape((time.size, 1))
+        trl[:, 0] = time - nToi
+        trl[:, 1] = time
 
-        # Attach constructed trialdef-array (if even necessary)
+        # Important: differentiate b/w equidistant time ranges and disjoint points        
+        if self.cfg["equidistant"]:
+            out.samplerate = 1 / (toi[1] - toi[0])
+            trl[:, 2] = int(toi[0] * out.samplerate)
+        else:
+            msg = "`SpectralData`'s `time` property currently does not support " +\
+                  "unevenly spaced `toi` selections!"
+            SPYWarning(msg, caller="freqanalysis")
+            out.samplerate = 1.0
+            trl[:, 2] = 0
+
+        # Attach constructed trialdef-array (if necessary)
         if self.keeptrials:
             out.trialdefinition = trl
         else:
             out.trialdefinition = np.array([[0, 1, 0]])
 
         # Attach remaining meta-data
-        out.samplerate = data.samplerate
         out.channel = np.array(data.channel[chanSec])
         out.taper = np.array([self.cfg["taper"].__name__] * self.outputShape[out.dimord.index("taper")])
         out.freq = self.cfg["foi"]
-    

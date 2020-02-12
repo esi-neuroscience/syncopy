@@ -47,8 +47,10 @@ if __name__ == "__main__":
     cfg.output = 'pow'
     cfg.tapsmofrq = 20
     cfg.keeptrials = True
-    cfg.keeptapers = True
-    cfg.toi = np.arange(-0.1, 0.5, 0.05) 
+    cfg.keeptapers = False
+    cfg.toi = np.arange(-0.1, 0.5, 0.1) 
+    # cfg.toi = np.arange(-0.1, 0.5, 0.05) 
+    # cfg.t_ftimwin = 0.05
     cfg.t_ftimwin = 0.75
     # cfg.pad = 'nextpow2'
     # cfg.select = {"toilim": [-0.25, 0]}

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-11 15:17:17>
+# Last modification time: <2020-02-12 17:12:47>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -369,22 +369,23 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 raise exc
             nperseg = int(t_ftimwin * data.samplerate)
             minSampleNum = nperseg
+            halfWin = int(nperseg / 2)
             
-            if overlap < 0:         # `toi` is equidistant range or disjoint point
+            if overlap < 0:         # `toi` is equidistant range or disjoint points
                 noverlap = nperseg - int(tSteps[0] * data.samplerate)
             elif 0 <= overlap <= 1: # `toi` is percentage
                 noverlap = int(overlap * nperseg)
             else:                   # `toi` is "all"
                 noverlap = nperseg - 1
-
+                
             # Compute necessary padding at begin/end of trials to fit sliding windows
             offStart = ((toi[0] - tStart) * data.samplerate).astype(int)
-            padBegin = nperseg/2 - offStart
-            padBegin = (padBegin > 0) * padBegin
+            padBegin = halfWin - offStart
+            padBegin = ((padBegin > 0) * padBegin).astype(int)
             
             offEnd = ((tEnd - toi[-1]) * data.samplerate).astype(int)
-            padEnd = nperseg/2 - offEnd
-            padEnd = (padEnd > 0) * padEnd
+            padEnd = halfWin - offEnd
+            padEnd = ((padEnd > 0) * padEnd).astype(int)
             
             # Abort if padding was explicitly forbidden
             if pad is False and (np.any(padBegin) or np.any(padBegin)):
@@ -395,18 +396,18 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 raise SPYValueError(legal=lgl, varname="pad", actual=act)
 
             # Compute sample-indices (one slice/array per trial) from time-selections
-            import ipdb; ipdb.set_trace()
             soi = []            
             if not equidistant:
                 for tk in range(len(trialList)):
-                    soi.append((data.samplerate * (toi + tStart[tk]).astype(int)))
+                    soi.append(((toi - tStart[tk]) * data.samplerate).astype(np.intp))
             else:
                 for tk in range(len(trialList)):
-                    int(data.samplerate * (toi[0] + tStart[tk]))
+                    start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
+                    stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
+                    soi.append(slice(max(0, start), max(stop, stop - start)))
                     
-                    soi.append((data.samplerate * (toi + tStart[tk]).astype(int)))
-                    soi.append(slice(toi[0], toi[-1]))
-            
+                # import ipdb; ipdb.set_trace()
+                    
         else: # wavelets: probably some `toi` gymnastics
             pass
         
