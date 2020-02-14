@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-12 17:12:47>
+# Last modification time: <2020-02-14 16:57:03>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -351,6 +351,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                              lims=[tStart.min(), tEnd.max()], dims=(None,))
             except Exception as exc:
                 raise exc
+            toi = np.array(toi)
             tSteps = np.diff(toi)
             if (tSteps < 0).any():
                 lgl = "ordered list/array of time-points"
@@ -379,13 +380,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 noverlap = nperseg - 1
                 
             # Compute necessary padding at begin/end of trials to fit sliding windows
-            offStart = ((toi[0] - tStart) * data.samplerate).astype(int)
+            offStart = ((toi[0] - tStart) * data.samplerate).astype(np.intp)
             padBegin = halfWin - offStart
-            padBegin = ((padBegin > 0) * padBegin).astype(int)
+            padBegin = ((padBegin > 0) * padBegin).astype(np.intp)
             
-            offEnd = ((tEnd - toi[-1]) * data.samplerate).astype(int)
+            offEnd = ((tEnd - toi[-1]) * data.samplerate).astype(np.intp)
             padEnd = halfWin - offEnd
-            padEnd = ((padEnd > 0) * padEnd).astype(int)
+            padEnd = ((padEnd > 0) * padEnd).astype(np.intp)
             
             # Abort if padding was explicitly forbidden
             if pad is False and (np.any(padBegin) or np.any(padBegin)):
@@ -399,14 +400,16 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             soi = []            
             if not equidistant:
                 for tk in range(len(trialList)):
-                    soi.append(((toi - tStart[tk]) * data.samplerate).astype(np.intp))
+                    samples = (data.samplerate * (toi - tStart[tk]) - halfWin)
+                    soi.append(((samples > 0) * samples).astype(np.intp))
+                    # soi.append(((toi - tStart[tk]) * data.samplerate).astype(np.intp))
             else:
                 for tk in range(len(trialList)):
                     start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
                     stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
                     soi.append(slice(max(0, start), max(stop, stop - start)))
                     
-                # import ipdb; ipdb.set_trace()
+            import ipdb; ipdb.set_trace()
                     
         else: # wavelets: probably some `toi` gymnastics
             pass

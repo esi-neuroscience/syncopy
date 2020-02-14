@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-12 17:13:14>
+# Last modification time: <2020-02-14 16:49:42>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -51,16 +51,14 @@ def mtmconvol(
     if padbegin > 0 or padend > 0:
         dat = padding(dat, padtype, pad="relative", padlength=None, 
                       prepadlength=padbegin, postpadlength=padend)
-    # if padKw is not None:
-    #     try:
-    #         dat = np.pad(dat, **padKw)
-    #     except:
-    #         import ipdb; ipdb.set_trace()
 
     # Get shape of output for dry-run phase
     nChannels = dat.shape[1]
+    if isinstance(toi, np.ndarray):
+        nTime = toi.size
+    else:
+        nTime = dat.shape[0]
     nFreq = foi.size
-    nTime = toi.size
     outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
     if noCompute:
         return outShape, spyfreq.spectralDTypes[output_fmt]
@@ -70,7 +68,6 @@ def mtmconvol(
     
     # Collect keyword args for `stft` in dictionary
     stftKw = {"fs": samplerate,
-            #   "window": taper,
               "nperseg": nperseg,
               "noverlap": noverlap,
               "return_onesided": True,
@@ -89,6 +86,7 @@ def mtmconvol(
                 pxx.reshape(nTime, nFreq, nChannels))[:, fIdx, :]
     else:
         halfWin = int(nperseg/2)
+        import ipdb; ipdb.set_trace()
         freq, _, pxx = signal.stft(dat[soi[0] - halfWin: soi[0] + halfWin, :], **stftKw)
         fIdx = np.searchsorted(freq, foi)
         spec[0, 0, ...] = \
@@ -120,7 +118,7 @@ def mtmconvol(
 
     # Average across tapers if wanted
     if not keeptapers:
-        return spec.mean(axis=1, keepdims=True)
+        return np.nanmean(spec, axis=1, keepdims=True)
     return spec
     
 

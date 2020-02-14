@@ -48,7 +48,8 @@ if __name__ == "__main__":
     cfg.tapsmofrq = 20
     cfg.keeptrials = True
     cfg.keeptapers = False
-    cfg.toi = np.arange(-0.1, 0.5, 0.1) 
+    # cfg.toi = np.arange(-0.1, 0.5, 0.1) 
+    cfg.toi = [-0.1, 0.0, 0.5]
     # cfg.toi = np.arange(-0.1, 0.5, 0.05) 
     # cfg.t_ftimwin = 0.05
     cfg.t_ftimwin = 0.75
