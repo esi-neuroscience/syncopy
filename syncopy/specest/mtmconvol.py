@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-14 16:49:42>
+# Last modification time: <2020-02-14 21:51:23>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -85,18 +85,16 @@ def mtmconvol(
             spyfreq.spectralConversions[output_fmt](
                 pxx.reshape(nTime, nFreq, nChannels))[:, fIdx, :]
     else:
-        halfWin = int(nperseg/2)
-        import ipdb; ipdb.set_trace()
-        freq, _, pxx = signal.stft(dat[soi[0] - halfWin: soi[0] + halfWin, :], **stftKw)
+        freq, _, pxx = signal.stft(dat[soi[0], :], **stftKw)
         fIdx = np.searchsorted(freq, foi)
         spec[0, 0, ...] = \
             spyfreq.spectralConversions[output_fmt](
                 pxx.reshape(nFreq, nChannels))[fIdx, :]
-        for tk in range(1, soi.size):
+        for tk in range(1, len(soi)):
             spec[tk, 0, ...] = \
                 spyfreq.spectralConversions[output_fmt](
                     signal.stft(
-                        dat[soi[tk] - halfWin: soi[tk] + halfWin, :],
+                        dat[soi[tk], :], 
                         **stftKw)[2].reshape(nFreq, nChannels))[fIdx, :]
 
     # Compute FT using determined indices above for the remaining tapers (if any)
@@ -113,7 +111,7 @@ def mtmconvol(
                 spec[tk, taperIdx, ...] = \
                     spyfreq.spectralConversions[output_fmt](
                         signal.stft(
-                            dat[sample - halfWin: sample + halfWin, :],
+                            dat[sample, :],
                             **stftKw)[2].reshape(nFreq, nChannels))[fIdx, :]
 
     # Average across tapers if wanted

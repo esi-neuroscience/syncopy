@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-14 16:57:03>
+# Last modification time: <2020-02-14 21:51:02>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -332,7 +332,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             overlap = 1.1
             toi = Ellipsis
             equidistant = True
-        if isinstance(toi, Number):
+        elif isinstance(toi, Number):
             if method == "wavelet":
                 lgl = "array of time-points wavelets are to be centered on"
                 act = "scalar value"
@@ -396,32 +396,24 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                         for trlno in np.array(trialList)[(padBegin + padEnd) > 0])[:-2]
                 raise SPYValueError(legal=lgl, varname="pad", actual=act)
 
-            # Compute sample-indices (one slice/array per trial) from time-selections
+            # Compute sample-indices (one slice/list per trial) from time-selections
             soi = []            
             if not equidistant:
                 for tk in range(len(trialList)):
-                    samples = (data.samplerate * (toi - tStart[tk]) - halfWin)
-                    soi.append(((samples > 0) * samples).astype(np.intp))
-                    # soi.append(((toi - tStart[tk]) * data.samplerate).astype(np.intp))
+                    starts = (data.samplerate * (toi - tStart[tk]) - halfWin).astype(np.intp)
+                    stops = (data.samplerate * (toi - tStart[tk]) + halfWin + 1).astype(np.intp)
+                    stops = np.maximum(stops, stops - starts + 1, dtype=np.intp)
+                    starts = ((starts > 0) * starts).astype(np.intp)
+                    soi.append([slice(start, stop) for start, stop in zip(starts, stops)])
             else:
                 for tk in range(len(trialList)):
                     start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
                     stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
-                    soi.append(slice(max(0, start), max(stop, stop - start)))
-                    
-            import ipdb; ipdb.set_trace()
+                    soi.append(slice(max(0, start), max(stop, stop - start + 1)))
                     
         else: # wavelets: probably some `toi` gymnastics
             pass
         
-    # mtmconvol: iterated
-    # f, t, Zxx = signal.stft(x[500: 500+500], fs=1000, nperseg=500, noverlap=0, boundary=None)
-        
-    # padding:
-    # spy.padding(np.ones((250,2)), padtype='zero', pad='relative', prepadlength=6)
-        
-    # 2nd: Preprocess frequency selection 
-    
     # Check options specific to mtm*-methods (particularly tapers and foi/freqs alignment)
     if "mtm" in method:
 
