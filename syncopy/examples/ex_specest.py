@@ -33,22 +33,33 @@ from time import time
 
 if __name__ == "__main__":
 
-    dummy = generate_artificial_data(nTrials=2, nChannels=16, 
+    data = generate_artificial_data(nTrials=2, nChannels=16, 
                                      equidistant=True, inmemory=False)
-    sys.exit()
     
-    data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
-    client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")
+    # data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
+    # sys.exit()
+    # client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")
+    # client = dd.Client()
 
     cfg = spy.get_defaults(spy.freqanalysis)
-    cfg.method = 'mtmfft'
+    cfg.method = 'mtmconvol'
     cfg.taper = 'dpss'
     cfg.output = 'pow'
     cfg.tapsmofrq = 20
-    cfg.keeptrials = False
+    cfg.keeptrials = True
     cfg.keeptapers = False
-    cfg.pad = 'nextpow2'
-    cfg.select = {"toilim": [-0.25, 0]}
+    cfg.toi = np.arange(1.5, 3.5, 0.1) 
+    # cfg.toi = [1.1, 1.9, 3.0]
+    # cfg.toi = "all"
+    # cfg.toi = [-0.1, 0.0, 0.5]
+    # cfg.toi = np.arange(-0.1, 0.5, 0.05) 
+    # cfg.t_ftimwin = 0.05
+    cfg.t_ftimwin = 0.75
+    # cfg.pad = 'nextpow2'
+    # cfg.select = {"toilim": [-0.25, 0]}
+    tfSpectrum = spy.freqanalysis(cfg, data)
+    # baselineSpectrum = spy.freqanalysis(cfg, data)
+
 
     sys.exit()
     

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-14 10:23:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-04 15:45:36>
+# Last modification time: <2020-01-29 15:23:57>
 
 # Builtin/3rd party package imports
 import sys
@@ -275,3 +275,39 @@ def SPYExceptionHandler(*excargs, **exckwargs):
     if isipy:
         if ipy.call_pdb:
             ipy.InteractiveTB.debugger()
+
+
+def SPYWarning(msg, caller=None):
+    """
+    Standardized Syncopy warning message
+    
+    Parameters
+    ----------
+    msg : str
+        Warning message to be printed
+    caller : None or str
+        Issuer of warning message. If `None`, name of calling method is 
+        automatically fetched and pre-pended to `msg`. 
+    
+    Returns
+    -------
+    Nothing : None
+    """
+            
+    # If Syncopy's running in Jupyter/iPython colorize warning message
+    try:
+        get_ipython()
+        yellow = "\033[33m"
+        normal = "\033[0m"
+    except NameError:
+        yellow = ""
+        normal = ""
+
+    # Plug together message string and print it
+    if caller is None:
+        caller = sys._getframe().f_back.f_code.co_name
+    PrintMsg = "{coloron:s}Syncopy{caller:s}: WARNING: {msg:s}{coloroff:s}"
+    print(PrintMsg.format(coloron=yellow,
+                          caller=" <" + caller +">" if len(caller) else caller, 
+                          msg=msg,
+                          coloroff=normal))

@@ -4,10 +4,9 @@
 # 
 # Created: 2019-09-02 14:44:41
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-03 09:47:14>
+# Last modification time: <2020-02-11 13:11:36>
 
 # Builtin/3rd party package imports
-import sys
 import numpy as np
 from numbers import Number
 
@@ -42,7 +41,7 @@ def wavelet(trl_dat, dt, timeAxis, foi,
 
     # Output shape: time x taper=1 x freq x channel
     import ipdb; ipdb.set_trace()
-    scales = wav.scale_from_period(1/foi)
+    scales = wav.scale_from_period(1/foi) # use wav.fourier_period instead?
     outShape = (tsize,
                 1,
                 len(scales),

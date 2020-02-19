@@ -3,8 +3,9 @@
 # SynCoPy BaseData abstract class + helper classes
 # 
 # Created: 2019-01-07 09:22:33
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-27 14:11:30>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2020-02-12 15:37:29>
+
 
 # Builtin/3rd party package imports
 import getpass
@@ -478,7 +479,7 @@ class BaseData(ABC):
         """nTrials x M :class:`numpy.ndarray` with numeric information about each trial
 
         Each trial can have M properties (condition, original trial no., ...) coded by 
-        numbers. This property are the fourth and onward columsn of `BaseData._trialdefinition`.
+        numbers. This property are the fourth and onward columns of `BaseData._trialdefinition`.
         """
         if not self._trialdefinition is None:
             if self._trialdefinition.shape[1] > 3:
