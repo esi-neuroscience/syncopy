@@ -129,10 +129,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     keeptapers : bool
         Flag for whether individual trials or average should be returned.            
     t_ftimwin : scalar
-        Time-window length (in seconds). **Mandatory** if ``method = "mtmconvol"``.
+        Time-window length (in seconds). Only used if ``method = "mtmconvol"``.
     toi : scalar or array-like or "all"
         **Mandatory input** for time-frequency analysis methods (`method` is either 
-        `"mtmconvo"l` or `"wavelet"`). 
+        `"mtmconvol"` or `"wavelet"`). 
         If `toi` is scalar, it must be a value between 0 and 1 indicating the 
         percentage of overlap between time-windows specified by `t_ftimwin` (only
         valid if `method` is `'mtmconvol'`, invalid for `'wavelet'`). 
@@ -142,7 +142,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     width : scalar
         Nondimensional frequency constant of wavelet. For a Morlet wavelet 
         this number should be >= 6, which corresponds to 6 cycles within the 
-        analysis window. 
+        analysis window (FIXME: how many SDs of the Gaussian window?)
     out : None or :class:`SpectralData` object
         None if a new :class:`SpectralData` object should be created,
         or the (empty) object into which the result should be written.
