@@ -6,6 +6,7 @@
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Last modification time: <2020-02-12 15:37:29>
 
+
 # Builtin/3rd party package imports
 import getpass
 import socket
@@ -13,9 +14,7 @@ import time
 import sys
 import os
 import numbers
-import inspect
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
 from copy import copy
 from datetime import datetime
 from hashlib import blake2b
@@ -29,16 +28,17 @@ import scipy as sp
 
 # Local imports
 import syncopy as spy
-from syncopy.datatype.methods.definetrial import definetrial
+from syncopy.shared.tools import StructDict
 from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser, 
                                     filename_parser, data_parser)
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
+from syncopy.datatype.methods.definetrial import definetrial
 from syncopy import __version__, __storage__, __dask__, __sessionid__
 if __dask__:
     import dask
 
 
-__all__ = ["StructDict"]
+__all__ = []
 
 
 class BaseData(ABC):
@@ -63,7 +63,7 @@ class BaseData(ABC):
     _hdfFileAttributeProperties = ("dimord", "_version", "_log",)
     
     #: properties that are mapped onto HDF5 datasets
-    _hdfFileDatasetProperties = ("data",)
+    _hdfFileDatasetProperties = ()
 
     # Checksum algorithm
     _checksum_algorithm = spy.__checksum_algorithm__.__name__
@@ -96,30 +96,7 @@ class BaseData(ABC):
             return None
         except Exception as exc:
             raise exc
-    
-    @property
-    def data(self):
-        """array-like object representing data without trials
-        
-        Trials are concatenated along the time axis.
-        """
-
-        if getattr(self._data, "id", None) is not None:
-            if self._data.id.valid == 0:
-                lgl = "open HDF5 container"
-                act = "backing HDF5 container {} has been closed"
-                raise SPYValueError(legal=lgl, actual=act.format(self.filename),
-                                    varname="data")
-        return self._data
-    
-    @data.setter
-    def data(self, inData):
-
-        self._set_dataset_property(inData, "data")
-
-        if inData is None:
-            return
-        
+            
     
     def _set_dataset_property(self, dataIn, propertyName, ndim=None):
         """Set property that is streamed from HDF dataset ('dataset property')
@@ -314,8 +291,10 @@ class BaseData(ABC):
             raise SPYValueError(legal=lgl, varname="data", actual=act)
                       
         setattr(self, "_" + propertyName, inData)        
-    
- 
+        
+    def _is_empty(self):
+        return all([getattr(self, attr) is None 
+                    for attr in self._hdfFileDatasetProperties])         
 
     @property
     def dimord(self):
@@ -418,11 +397,7 @@ class BaseData(ABC):
         if md not in options:
             lgl = "'" + "or '".join(opt + "' " for opt in options)
             raise SPYValueError(lgl, varname="mode", actual=md)
-        if isinstance(self.data, VirtualData):
-            print("syncopy core - mode: WARNING >> Cannot change read-only " +
-                  "access mode of VirtualData datasets << ")
-            return
-
+        
         # prevent accidental data loss by not allowing mode = "w" in h5py
         if md == "w":
             md = "r+"
@@ -573,7 +548,7 @@ class BaseData(ABC):
         """
         cpy = copy(self)
         if deep:
-            self.data.flush()
+            self.clear()
             filename = self._gen_filename()
             shutil.copyfile(self.filename, filename)
                         
@@ -704,72 +679,9 @@ class BaseData(ABC):
         return self.__str__()
 
     # Make class contents readable from the command line
+    @abstractmethod
     def __str__(self):
-
-        # Get list of print-worthy attributes
-        ppattrs = [attr for attr in self.__dir__()
-                   if not (attr.startswith("_") or attr in ["log", "trialdefinition"])]
-        ppattrs = [attr for attr in ppattrs
-                   if not (inspect.ismethod(getattr(self, attr))
-                           or isinstance(getattr(self, attr), Iterator))]
-        if hasattr(self, "hdr"):
-            if getattr(self, "hdr") is None:
-                ppattrs.remove("hdr")
-        ppattrs.sort()
-
-        # Construct string for pretty-printing class attributes
-        if self.__class__.__name__ == "SpikeData":
-            dinfo = " 'spike' x "
-            dsep = "'-'"
-        elif self.__class__.__name__ == "EventData":
-            dinfo = " 'event' x "
-            dsep = "'-'"
-        else:
-            dinfo = ""
-            dsep = "' x '"
-        hdstr = "{diminfo:s}Syncopy {clname:s} object with fields\n\n"
-        ppstr = hdstr.format(diminfo=dinfo + "'"  + \
-                             dsep.join(dim for dim in self.dimord) + "' " if self.dimord is not None else "Empty ",
-                             clname=self.__class__.__name__)
-        maxKeyLength = max([len(k) for k in ppattrs])
-        printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
-        for attr in ppattrs:
-            value = getattr(self, attr)
-            if hasattr(value, 'shape') and attr == "data" and self.sampleinfo is not None:
-                tlen = np.unique([sinfo[1] - sinfo[0] for sinfo in self.sampleinfo])
-                if tlen.size == 1:
-                    trlstr = "of length {} ".format(str(tlen[0]))
-                else:
-                    trlstr = ""
-                dsize = np.prod(self.data.shape)*self.data.dtype.itemsize/1024**2
-                dunit = "MB"
-                if dsize > 1000:
-                    dsize /= 1024
-                    dunit = "GB"
-                valueString = "{} trials {}defined on ".format(str(len(self.trials)), trlstr)
-                valueString += "[" + " x ".join([str(numel) for numel in value.shape]) \
-                              + "] {dt:s} {tp:s} " +\
-                              "of size {sz:3.2f} {szu:s}"
-                valueString = valueString.format(dt=self.data.dtype.name,
-                                                 tp=self.data.__class__.__name__,
-                                                 sz=dsize,
-                                                 szu=dunit)
-            elif hasattr(value, 'shape'):
-                valueString = "[" + " x ".join([str(numel) for numel in value.shape]) \
-                              + "] element " + str(type(value))
-            elif isinstance(value, list):
-                valueString = "{0} element list".format(len(value))
-            elif isinstance(value, dict):
-                msg = "dictionary with {nk:s}keys{ks:s}"
-                keylist = value.keys()
-                showkeys = len(keylist) < 7
-                valueString = msg.format(nk=str(len(keylist)) + " " if not showkeys else "",
-                                         ks=" '" + "', '".join(key for key in keylist) + "'" if showkeys else "")
-            else:
-                valueString = str(value)
-            ppstr += printString.format(attr, valueString)
-        ppstr += "\nUse `.log` to see object history"
-        return ppstr
+        pass
 
     # Destructor
     def __del__(self):
@@ -809,7 +721,7 @@ class BaseData(ABC):
         self._mode = None               
         for propertyName in self._hdfFileDatasetProperties:
             setattr(self, "_" + propertyName, None)
-        self._data = None
+        
         self._selector = None
 
         # Make instantiation persistent in all subclasses
@@ -819,7 +731,7 @@ class BaseData(ABC):
         self.mode = mode                        
         
         # If any dataset property contains data and no dimord is set, use the 
-        # default dimord
+        # default dimord        
         if any([key in self._hdfFileDatasetProperties and value is not None 
                 for key, value in kwargs.items()]) and dimord is None:
             self.dimord = self._defaultDimord
@@ -1131,39 +1043,6 @@ class SessionLogger():
         self._rm(self.sessionfile)
 
 
-class StructDict(dict):
-    """Child-class of dict for emulating MATLAB structs
-
-    Examples
-    --------
-    cfg = StructDict()
-    cfg.a = [0, 25]
-
-    """
-    
-    def __init__(self, *args, **kwargs):
-        """
-        Create a child-class of dict whose attributes are its keys
-        (thus ensuring that attributes and items are always in sync)
-        """
-        super().__init__(*args, **kwargs)
-        self.__dict__ = self
-        
-    def __repr__(self):
-        return self.__str__()
-    
-    def __str__(self):
-        if self.keys():
-            ppStr = "Syncopy StructDict\n\n"
-            maxKeyLength = max([len(val) for val in self.keys()])
-            printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
-            for key, value in self.items():
-                ppStr += printString.format(key, str(value))
-            ppStr += "\nUse `dict(cfg)` for copy-paste-friendly format"
-        else:
-            ppStr = "{}"
-        return ppStr
-
 class FauxTrial():
     """
     Stand-in mockup of NumPy arrays representing trial data
@@ -1236,8 +1115,8 @@ class Selector():
     ----------
     data : Syncopy data object
         A non-empty Syncopy data object
-    select : dict or :class:`~syncopy.datatype.base_data.StructDict` or None or str
-        Dictionary or :class:`~syncopy.datatype.base_data.StructDict` with keys
+    select : dict or :class:`~syncopy.shared.tools.StructDict` or None or str
+        Dictionary or :class:`~syncopy.shared.tools.StructDict` with keys
         specifying data selectors. **Note**: some keys are only valid for certain types
         of Syncopy objects, e.g., "freqs" is not a valid selector for an 
         :class:`~syncopy.AnalogData` object. Supported keys are (please see 

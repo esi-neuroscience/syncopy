@@ -12,7 +12,8 @@ import time
 import pytest
 import numpy as np
 from syncopy.datatype import AnalogData, SpikeData, EventData
-from syncopy.datatype.base_data import Selector, StructDict
+from syncopy.datatype.base_data import Selector
+from syncopy.shared.tools import StructDict
 from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.io import save, load
 from syncopy.shared.errors import SPYValueError, SPYTypeError

@@ -3,8 +3,8 @@
 # Decorators for Syncopy metafunctions and `computeFunction`s
 # 
 # Created: 2019-10-22 10:56:32
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-01 13:52:18>
+# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
+# Last modification time: <2020-01-27 13:59:31>
 
 # Builtin/3rd party package imports
 import functools
@@ -14,6 +14,7 @@ import numpy as np
 
 # Local imports
 from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError, SPYError
+from syncopy.shared.tools import StructDict
 from syncopy.shared.parsers import get_defaults
 import syncopy as spy
 if spy.__dask__:
@@ -134,7 +135,7 @@ def unwrap_cfg(func):
         # IMPORTANT: create a copy of `cfg` using `StructDict` constructor to
         # not manipulate `cfg` in user's namespace!
         if k == 1:
-            cfg = spy.StructDict(args.pop(cfgidx))
+            cfg = StructDict(args.pop(cfgidx))
         elif k > 1:
             raise SPYValueError(legal="single `cfg` input",
                                 varname="cfg",
@@ -148,7 +149,7 @@ def unwrap_cfg(func):
             if cfg:
                 lgl = "`cfg` either as positional or keyword argument, not both"
                 raise SPYValueError(legal=lgl, varname="cfg")
-            cfg = spy.StructDict(kwargs.pop("cfg"))
+            cfg = StructDict(kwargs.pop("cfg"))
             if not isinstance(cfg, dict):
                 raise SPYTypeError(kwargs["cfg"], varname="cfg",
                                    expected="dictionary-like")
@@ -321,7 +322,7 @@ def unwrap_select(func):
     
     # Append `select` keyword entry to wrapped function's docstring and signature
     selectDocEntry = \
-    "    select : dict or :class:`~syncopy.datatype.base_data.StructDict` or str\n" +\
+    "    select : dict or :class:`~syncopy.shared.tools.StructDict` or str\n" +\
     "        In-place selection of subset of input data for processing. Please refer\n" +\
     "        to :func:`syncopy.selectdata` for further usage details. \n"
     wrapper_select.__doc__ = _append_docstring(func, selectDocEntry)
