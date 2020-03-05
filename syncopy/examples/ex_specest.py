@@ -29,7 +29,7 @@ from syncopy.tests.misc import generate_artificial_data
 import dask.distributed as dd
 from time import time
 
-# sys.exit()
+sys.exit()
 
 if __name__ == "__main__":
 
@@ -146,7 +146,7 @@ if __name__ == "__main__":
     #                  np.ones((int(ns/5), )),
     #                  np.ones((int(ns/5), )) * np.pi]).T
 
-    from syncopy.shared.tools.StructDict
+    from syncopy.shared.tools import StructDict
     from syncopy.datatype import AnalogData, SpectralData, padding
     from syncopy.shared import esi_cluster_setup
 

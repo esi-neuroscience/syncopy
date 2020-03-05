@@ -3,8 +3,8 @@
 # SynCoPy ContinuousData abstract class + regular children
 # 
 # Created: 2019-03-20 11:11:44
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-24 13:30:39>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2020-03-05 17:18:51>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -25,6 +25,7 @@ from .methods.definetrial import definetrial
 from .methods.selectdata import selectdata
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYIOError
+from syncopy.shared.tools import best_match
 import syncopy as spy
 
 __all__ = ["AnalogData", "SpectralData"]
@@ -347,9 +348,7 @@ class ContinuousData(BaseData, ABC):
         timing = []
         if toilim is not None:
             for trlno in trials:
-                trlTime = self.time[trlno]
-                selTime = np.intersect1d(np.where(trlTime >= toilim[0])[0], 
-                                         np.where(trlTime <= toilim[1])[0])
+                _, selTime = best_match(self.time[trlno], toilim, span=True)
                 if len(selTime) > 1:
                     timing.append(slice(selTime[0], selTime[-1] + 1, 1))
                 else:
@@ -357,12 +356,7 @@ class ContinuousData(BaseData, ABC):
                     
         elif toi is not None:
             for trlno in trials:
-                trlTime = self.time[trlno]
-                selTime = [min(trlTime.size - 1, idx) 
-                           for idx in np.searchsorted(trlTime, toi, side="left")]
-                for k, idx in enumerate(selTime):
-                    if np.abs(trlTime[idx - 1] - toi[k]) < np.abs(trlTime[idx] - toi[k]):
-                        selTime[k] = idx -1
+                _, selTime = best_match(self.time[trlno], toi)
                 if len(selTime) > 1:
                     timeSteps = np.diff(selTime)
                     if timeSteps.min() == timeSteps.max() == 1:
@@ -623,20 +617,14 @@ class SpectralData(ContinuousData):
         Error checking is performed by `Selector` class
         """
         if foilim is not None:
-            allFreqs = self.freq
-            selFreq = np.intersect1d(np.where(allFreqs >= foilim[0])[0], 
-                                     np.where(allFreqs <= foilim[1])[0])
+            _, selFreq = best_match(self.freq, foilim, span=True)
+            selFreq = selFreq.tolist()
             if len(selFreq) > 1:
                 selFreq = slice(selFreq[0], selFreq[-1] + 1, 1)
                 
         elif foi is not None:
-            allFreqs = self.freq
-            selFreq = [min(allFreqs.size - 1, idx) 
-                       for idx in np.searchsorted(allFreqs, foi, side="left")]
-            for k, idx in enumerate(selFreq):
-                if np.abs(allFreqs[idx - 1] - foi[k]) < np.abs(allFreqs[idx] - foi[k]):
-                    selFreq[k] = idx -1
-            # selFreq = [max(0, idx - 1) for idx in np.searchsorted(allFreqs, foi, side="right")]
+            _, selFreq = best_match(self.freq, foi)
+            selFreq = selFreq.tolist()
             if len(selFreq) > 1:
                 freqSteps = np.diff(selFreq)
                 if freqSteps.min() == freqSteps.max() == 1:

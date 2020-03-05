@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-25 10:13:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-31 16:49:00>
+# Last modification time: <2020-03-05 17:19:33>
 
 import pytest
 import numpy as np
@@ -569,7 +569,7 @@ class TestSelector():
                 result = [idx] * len(ang.trials)
                 
                 # check correct format of selector (list -> slice etc.)
-                assert result == sel
+                assert np.array_equal(result, sel)
                 
                 # perform actual data-selection and ensure identity of results
                 selected = selectdata(ang, {tselect: timeSel})
@@ -715,7 +715,7 @@ class TestSelector():
                         idx = slice(idx[0], idx[-1] + 1, 1)
                         
                 # check correct format of selector (list -> slice etc.)
-                assert idx == sel
+                assert np.array_equal(idx, sel)
 
                 # perform actual data-selection and ensure identity of results
                 selected = selectdata(spc, {fselect: freqSel})
