@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-06 14:13:13>
+# Last modification time: <2020-03-06 15:23:59>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -262,7 +262,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         else:
             try:
                 array_parser(foi, varname="foi", hasinf=False, hasnan=False,
-                            lims=[0, data.samplerate/2], dims=(None,))
+                             lims=[0, data.samplerate/2], dims=(None,))
             except Exception as exc:
                 raise exc
     if foilim is not None:
@@ -430,6 +430,24 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         if not isinstance(taperopt, dict):
             raise SPYTypeError(taperopt, varname="taperopt", expected="dictionary")
 
+        # Construct array of maximally attainable frequencies
+        nFreq = int(np.floor(minSampleNum / 2) + 1)
+        freqs = np.linspace(0, data.samplerate / 2, nFreq)
+        
+        # Match desired frequencies as close as possible to actually attainable freqs
+        if foi is not None:
+            foi, _ = best_match(freqs, foi, squash_duplicates=True)
+        elif foilim is not None:
+            foi, _ = best_match(freqs, foilim, span=True, squash_duplicates=True)
+        else:
+            foi = freqs
+            
+        # Abort if desired frequency selection is empty
+        if foi.size == 0:
+            lgl = "non-empty frequency specification"
+            act = "empty frequency selection"
+            raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
+        
         # Set/get `tapsmofrq` if we're working w/Slepian tapers
         if taper.__name__ == "dpss":
 
@@ -459,29 +477,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             msg = "`tapsmofrq` is only used if `taper` is `dpss`!"
             SPYWarning(msg)
             
-        # Construct array of maximally attainable frequencies
-        nFreq = int(np.floor(minSampleNum / 2) + 1)
-        freqs = np.linspace(0, data.samplerate / 2, nFreq)
-        
-        # Match desired frequencies as close as possible to actually attainable freqs
-        # FIXME: use `best_match` for this in the future
-        if foi is not None:
-            foi = best_match(freqs, foi, squash_duplicates=True)
-        else:
-            foi = freqs
-
-        # Crop desired frequency band from array of actually attainable freqs
-        if foilim is not None:
-            foi = np.intersect1d(np.where(freqs >= foilim[0])[0], np.where(freqs <= foilim[1])[0])
-        else:
-            foi = freqs
-
-        # Abort if desired frequency selection is empty
-        if foi.size == 0:
-            lgl = "non-empty frequency specification"
-            act = "empty frequency selection"
-            raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
-            
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
         log_dct["taper"] = lcls["taper"]
@@ -504,7 +499,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             if kwarg is not lcls[name]:
                 msg = "option `{}` has no effect in method `mtmfft`!"
                 SPYWarning(msg.format(name))
-        
+                
         # Set up compute-class
         specestMethod = MultiTaperFFT(
             1 / data.samplerate,

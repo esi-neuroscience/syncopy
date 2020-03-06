@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-11 14:35:26>
+# Last modification time: <2020-03-06 15:44:12>
 
 # Builtin/3rd party package imports
 import os
@@ -728,6 +728,8 @@ class ComputationalRoutine(ABC):
         for arg in zip(*self.ArgV):
             bags.append(db.from_sequence(arg))
             
+        # import pdb; pdb.set_trace()
+            
         # Map all components (channel-trial-blocks) onto `computeFunction`
         results = mainBag.map(self.computeFunction, *bags, **self.cfg)
         
@@ -886,18 +888,14 @@ class ComputationalRoutine(ABC):
         out._log = str(data._log) + out._log
         logHead = "computed {name:s} with settings\n".format(name=self.computeFunction.__name__)
 
-        # Either use `computeFunction`'s keywords (sans implementation-specific
-        # stuff) or rely on provided `log_dict` dictionary for logging/`cfg`
-        if log_dict is None:
-            cfg = dict(self.cfg)
-            for key in ["noCompute", "chunkShape"]:
-                cfg.pop(key)
-        else:
-            cfg = log_dict
+        # Prepare keywords used by `computeFunction` (sans implementation-specific stuff)
+        cfg = dict(self.cfg)
+        for key in ["noCompute", "chunkShape"]:
+            cfg.pop(key)
 
-        # Write log and set `cfg` prop of `out`
+        # Write log and store `cfg` constructed above in corresponding prop of `out`
         logOpts = ""
-        for k, v in cfg.items():
+        for k, v in log_dict.items():
             logOpts += "\t{key:s} = {value:s}\n".format(key=k,
                                                         value=str(v) if len(str(v)) < 80
                                                         else str(v)[:30] + ", ..., " + str(v)[-30:])
