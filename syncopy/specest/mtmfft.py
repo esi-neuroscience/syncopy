@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:25:34
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-10 12:42:00>
+# Last modification time: <2020-03-06 14:13:40>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -15,6 +15,7 @@ from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.datatype import padding
 import syncopy.specest.freqanalysis as freq
 from syncopy.shared.kwarg_decorators import unwrap_io
+from syncopy.shared.tools import best_match
 
 
 # Local workhorse that performs the computational heavy lifting
@@ -87,18 +88,11 @@ def mtmfft(trl_dat, dt, nTaper=1, timeAxis=0,
     nChannels = dat.shape[1]
     
     # Determine frequency band and shape of output (time=1 x taper x freq x channel)
-    # FIXME: use `best_match` for this in the future!
     nFreq = int(np.floor(nSamples / 2) + 1)
     fidx = slice(None)
     if foi is not None:
         freqs = np.linspace(0, 1 /(2 * dt), nFreq)
-        foi = foi[foi <= freqs.max()]
-        foi = foi[foi >= freqs.min()]
-        fidx = np.searchsorted(freqs, foi, side="left")
-        for k, fid in enumerate(fidx):
-            if np.abs(freqs[fid - 1] - foi[k]) < np.abs(freqs[fid] - foi[k]):
-                fidx[k] = fid -1
-        fidx = np.unique(fidx)
+        _, fidx = best_match(freqs, foi, squash_duplicates=True)
         nFreq = fidx.size
     outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
     

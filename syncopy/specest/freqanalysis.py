@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-14 21:51:02>
+# Last modification time: <2020-03-06 14:13:13>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -20,6 +20,7 @@ import syncopy.specest.wavelets as spywave
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select, 
                                              detect_parallel_client)
+from syncopy.shared.tools import best_match
 from syncopy.specest.mtmfft import MultiTaperFFT
 from syncopy.specest.mtmconvol import MultiTaperFFTConvol
 from syncopy.specest.wavelet import _get_optimal_wavelet_scales, WaveletTransform
@@ -465,16 +466,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # Match desired frequencies as close as possible to actually attainable freqs
         # FIXME: use `best_match` for this in the future
         if foi is not None:
-            foi = np.array(foi)
-            foi.sort()
-            foi = foi[foi <= freqs.max()]
-            foi = foi[foi >= freqs.min()]
-            fidx = np.searchsorted(freqs, foi, side="left")
-            for k, fid in enumerate(fidx):
-                if np.abs(freqs[fid - 1] - foi[k]) < np.abs(freqs[fid] - foi[k]):
-                    fidx[k] = fid -1
-            fidx = np.unique(fidx)
-            foi = freqs[fidx]
+            foi = best_match(freqs, foi, squash_duplicates=True)
         else:
             foi = freqs
 
