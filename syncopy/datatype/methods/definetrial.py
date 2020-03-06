@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-14 12:48:30
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-06 13:44:55>
+# Last modification time: <2020-03-06 14:22:54>
 
 # Builtin/3rd party package imports
 import numbers
@@ -344,7 +344,8 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
         endids = np.searchsorted(ends, samples, side="left")
         mask = startids == endids
         startids -= 1
-        startids[mask] = 0
+        # Samples not belonging into any trial get a trial-ID of -1
+        startids[mask] = int(startids.min() <= 0) * (-1)
         tgt.trialid = startids
 
     # Write log entry
