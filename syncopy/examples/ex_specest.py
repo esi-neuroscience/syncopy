@@ -29,7 +29,7 @@ from syncopy.tests.misc import generate_artificial_data
 import dask.distributed as dd
 from time import time
 
-sys.exit()
+# sys.exit()
 
 if __name__ == "__main__":
 
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     cfg.output = 'pow'
     cfg.tapsmofrq = 20
     cfg.keeptrials = True
-    cfg.keeptapers = False
+    cfg.keeptapers = True
     cfg.toi = np.arange(1.5, 3.5, 0.1) 
     # cfg.toi = [1.1, 1.9, 3.0]
     # cfg.toi = "all"

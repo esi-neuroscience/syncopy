@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:25:34
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-06 14:40:23>
+# Last modification time: <2020-03-09 16:19:37>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -74,7 +74,7 @@ def mtmfft(trl_dat, dt, nTaper=1, timeAxis=0,
         Complex or real spectrum of input (padded) data
 
     """
-
+    
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`

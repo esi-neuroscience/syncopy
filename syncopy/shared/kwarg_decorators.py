@@ -3,8 +3,8 @@
 # Decorators for Syncopy metafunctions and `computeFunction`s
 # 
 # Created: 2019-10-22 10:56:32
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-27 13:59:31>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2020-03-09 14:15:04>
 
 # Builtin/3rd party package imports
 import functools
@@ -485,12 +485,12 @@ def unwrap_io(func):
     """
 
     @functools.wraps(func)
-    def wrapper_io(trl_dat, *args, **kwargs):
+    def wrapper_io(trl_dat, *wrkargs, **kwargs):
 
         # `trl_dat` is a NumPy array or `FauxTrial` object: execute the wrapped 
         # function and return its result
         if not isinstance(trl_dat, dict):
-            return func(trl_dat, *args, **kwargs)
+            return func(trl_dat, *wrkargs, **kwargs)
 
         # The fun part: `trl_dat` is a dictionary holding components for parallelization        
         hdr = trl_dat["hdr"]
@@ -546,7 +546,7 @@ def unwrap_io(func):
 
             # === STEP 2 === perform computation
             # Now, actually call wrapped function
-            res = func(arr, *args, **kwargs)
+            res = func(arr, *wrkargs, **kwargs)
         
         # === STEP 3 === write result to disk
         # Write result to stand-alone HDF file or use a mutex to write to a 

@@ -104,7 +104,7 @@ class TestMTMFFT():
             sel = Selector(self.adata, select)
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
                                 output="pow", select=select)
-
+            
             chanList = np.arange(self.nChannels)[sel.channel]
             amps = np.empty((len(sel.trials) * len(chanList),))
             k = 0
