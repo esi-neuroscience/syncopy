@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-09 16:26:27>
+# Last modification time: <2020-03-10 09:39:16>
 
 # Builtin/3rd party package imports
 import os
@@ -27,7 +27,7 @@ if sys.platform == "win32":
 from .parsers import get_defaults
 from syncopy import __storage__, __dask__, __path__
 from syncopy.shared.errors import (SPYIOError, SPYValueError, SPYParallelError, 
-                                   SPYTypeError)
+                                   SPYTypeError, SPYWarning)
 if __dask__:
     import dask.distributed as dd
     import dask.bag as db
@@ -267,10 +267,15 @@ class ComputationalRoutine(ABC):
                     lgl = "list/tuple of positional arguments for each trial"
                     act = "length of list/tuple does not correspond to number of trials"
                     raise SPYValueError(legal=lgl, varname="argv", actual=act)
+                continue
             elif isinstance(arg, np.ndarray):
-                raise SPYTypeError(arg, varname="argv", expected="list or tuple")
-            else:
-                self.argv[ak] = [arg] * numTrials
+                if arg.size == numTrials:
+                    msg = "found NumPy array with size == #Trials. " +\
+                        "Regardless, every worker will receive an identical copy " +\
+                        "of this array. To propagate elements across workers, use " +\
+                        "a list or tuple instead!"
+                    SPYWarning(msg)
+            self.argv[ak] = [arg] * numTrials
                 
         # Prepare dryrun arguments and determine geometry of trials in output
         dryRunKwargs = copy(self.cfg)
@@ -933,6 +938,8 @@ class ComputationalRoutine(ABC):
             cfg.pop(key)
 
         # Write log and store `cfg` constructed above in corresponding prop of `out`
+        if log_dict is None:
+            log_dict = cfg
         logOpts = ""
         for k, v in log_dict.items():
             logOpts += "\t{key:s} = {value:s}\n".format(key=k,
