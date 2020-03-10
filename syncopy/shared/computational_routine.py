@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-10 09:39:16>
+# Last modification time: <2020-03-10 13:40:28>
 
 # Builtin/3rd party package imports
 import os
@@ -588,10 +588,10 @@ class ComputationalRoutine(ABC):
                                        client=client)
 
             # Check if trials actually fit into memory before we start computation
-            wrk_size = max(wrkr.memory_limit for wrkr in client.cluster.workers.values())
+            wrk_size = max(wrkr.worker_memory for wrkr in client.cluster.workers.values())
             if self.chunkMem >= mem_thresh * wrk_size:
                 self.chunkMem /= 1024**3
-                wrk_size /= 1024**3
+                wrk_size /= 1000**3
                 msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
                       "worker memory ({1:2.2f} GB) currently not supported"
                 raise NotImplementedError(msg.format(self.chunkMem, wrk_size))
