@@ -4,7 +4,7 @@
 # 
 # Created: 2020-01-27 13:37:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-05 15:26:53>
+# Last modification time: <2020-03-10 16:24:28>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -65,7 +65,13 @@ def best_match(source, selection, span=False, tol=None, squash_duplicates=False)
     
     # Ensure selection is within `tol` bounds from `source`
     if tol is not None:
-        assert np.all([np.all((np.abs(source - value)) < tol) for value in selection])  
+        if not np.all([np.all((np.abs(source - value)) < tol) for value in selection]):
+            lgl = "all elements of `selection` to be within a {0:2.4f}-band around `source`"
+            act = "values in `selection` deviating further than given tolerance " +\
+                "of {0:2.4f} from source"
+            raise SPYValueError(legal=lgl.format(tol), 
+                                varname="selection", 
+                                actual=act.format(tol))
 
     # Do not perform O(n) potentially unnecessary sort operations
     issorted = True
@@ -87,7 +93,7 @@ def best_match(source, selection, span=False, tol=None, squash_duplicates=False)
 
     # Account for potentially unsorted selections (and thus unordered `idx`)
     if squash_duplicates: 
-        _, xdi = np.unique(idx, return_index=True)
+        _, xdi = np.unique(idx.astype(np.intp), return_index=True)
         idx = idx[np.sort(xdi)]
 
     # Re-order index arrays in case `source` was unsorted
