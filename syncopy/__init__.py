@@ -3,8 +3,8 @@
 # 
 # 
 # Created: 2019-01-15 09:03:46
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-24 10:07:38>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2020-03-11 16:04:27>
 
 # Builtin/3rd party package imports
 import os
@@ -21,12 +21,13 @@ np.set_printoptions(suppress=True, precision=4, linewidth=80)
 # Set up dask configuration
 try:
     import dask
+    import dask.distributed
     __dask__ = True
 except ImportError:
     __dask__ = False
-    print("\nSyncopy core: WARNING >> Could not import dask - Syncopy's parallel " +\
-          "processing engine requires a working dask installation. " +\
-          "Please consider installing dask and and dask_jobqueue using conda or pip. <<<")
+    print("\nSyncopy core: WARNING >> Could not import 'dask' and 'dask.distributed'. " +\
+          "Syncopy's parallel processing engine requires a working dask installation. " +\
+          "Please consider installing 'dask' as well as 'distributed' (and potentially 'dask_jobqueue') using conda or pip. <<<")
 
 # Define package-wide temp directory (and create it if not already present)
 if os.environ.get("SPYTMPDIR"):

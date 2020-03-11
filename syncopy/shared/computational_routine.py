@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-11 14:34:36>
+# Last modification time: <2020-03-11 16:18:07>
 
 # Builtin/3rd party package imports
 import os
@@ -587,14 +587,27 @@ class ComputationalRoutine(ABC):
                 raise SPYParallelError("No active workers found in distributed computing cluster",
                                        client=client)
 
+            # Note: `dask_jobqueue` may not be available even if `__dask__` is `True`,
+            # hence the `__name__` shenanigans instead of a simple `isinstance`
+            if isinstance(client.cluster, dd.LocalCluster):
+                memAttr = "memory_limit"
+            elif client.cluster.__class__.__name__ == "SLURMCluster":
+                memAttr = "worker_memory"
+            else:
+                msg = "`ComputationalRoutine` only supports `LocalCluster` and " +\
+                    "`SLURMCluster` dask cluster objects. Proceed with caution. "
+                SPYWarning(msg)
+                memAttr = None
+
             # Check if trials actually fit into memory before we start computation
-            wrk_size = max(wrkr.worker_memory for wrkr in client.cluster.workers.values())
-            if self.chunkMem >= mem_thresh * wrk_size:
-                self.chunkMem /= 1024**3
-                wrk_size /= 1000**3
-                msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
-                      "worker memory ({1:2.2f} GB) currently not supported"
-                raise NotImplementedError(msg.format(self.chunkMem, wrk_size))
+            if memAttr:
+                wrk_size = max(getattr(wrkr, memAttr) for wrkr in client.cluster.workers.values())
+                if self.chunkMem >= mem_thresh * wrk_size:
+                    self.chunkMem /= 1024**3
+                    wrk_size /= 1000**3
+                    msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
+                        "worker memory ({1:2.2f} GB) currently not supported"
+                    raise NotImplementedError(msg.format(self.chunkMem, wrk_size))
 
             # In some cases distributed dask workers suffer from spontaneous
             # dementia and forget the `sys.path` of their parent process. Fun!
