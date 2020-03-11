@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-14 12:48:30
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-06 14:22:54>
+# Last modification time: <2020-03-11 15:37:44>
 
 # Builtin/3rd party package imports
 import numbers
@@ -56,23 +56,21 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
     Notes
     -----
     :func:`definetrial` supports the following argument combinations:
+    
+    >>> # define M trials based on [start, end, offset] indices
+    >>> definetrial(obj, trialdefinition=[M x 3] array) 
 
-    .. code-block:: python
+    >>> # define trials based on event codes stored in <:class:`EventData` object>
+    >>> definetrial(obj, trialdefinition=<EventData object>, 
+                    pre=0, post=0, start=startCode, stop=stopCode, 
+                    trigger=triggerCode)
 
-        # define M trials based on [start, end, offset] indices
-        definetrial(obj, trialdefinition=[M x 3] array) 
-        
-        # define trials based on event codes stored in <:class:`EventData` object>
-        definetrial(obj, trialdefinition=<:class:`EventData` object>, 
-                         pre=0, post=0, start=startCode, stop=stopCode, 
-                         trigger=triggerCode)
-
-        # apply same trial definition as defined in <:class:`EventData` object>        
-        definetrial(<AnalogData object>, 
+    >>> # apply same trial definition as defined in <:class:`EventData` object>
+    >>> definetrial(<AnalogData object>, 
                     trialdefinition=<EventData object w/sampleinfo/t0/trialinfo>)
 
-        # define whole recording as single trial    
-        definetrial(obj, trialdefinition=None)
+    >>> # define whole recording as single trial    
+    >>> definetrial(obj, trialdefinition=None)
     
     """
 

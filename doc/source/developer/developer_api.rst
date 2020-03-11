@@ -42,6 +42,7 @@ syncopy.shared
     syncopy.shared.kwarg_decorators.detect_parallel_client
     syncopy.shared.kwarg_decorators._append_docstring
     syncopy.shared.kwarg_decorators._append_signature
+    syncopy.shared.tools.best_match
 
 
 syncopy.specest

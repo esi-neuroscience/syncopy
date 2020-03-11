@@ -4,7 +4,7 @@
 # 
 # Created: 2020-01-27 13:37:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-10 16:24:28>
+# Last modification time: <2020-03-11 15:54:09>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -12,7 +12,7 @@ import numpy as np
 # Local imports
 from syncopy.shared.errors import SPYValueError
 
-__all__ = ["StructDict", "best_match"]
+__all__ = ["StructDict"]
 
 
 class StructDict(dict):
@@ -51,16 +51,72 @@ class StructDict(dict):
 
 def best_match(source, selection, span=False, tol=None, squash_duplicates=False):
     """
-    Coming soon...
+    Find matching elements in a given 1d-array/list
     
-    span -> allow `toilim`/`foilim` like selections
+    Parameters
+    ----------
+    source : NumPy 1d-array/list
+        Reference array whose elements are to be matched by `selection`
+    selection: NumPy 1d-array/list
+        Array of query-values whose closest matches are to be found in `source`. 
+        Note that `source` and `selection` need not be the same length. 
+    span : bool
+        If `True`, `selection` is interpreted as (closed) interval ``[lo, hi]`` and 
+        `source` is queried for all elements contained in the interval, i.e., 
+        ``lo <= src <= hi for src in source`` (typically used for 
+        `toilim`/`foilim`-like selections). 
+    tol : None or float
+        If not `None`, ensures values in `selection` do not deviate further 
+        than `tol` from `source`. If any element `sel` of `selection` is outside 
+        a `tol`-neighborhood around `source`, i.e., 
+        ``np.abs(sel - source).max() >= tol``, 
+        a :class:`~syncopy.shared.errors.SPYValueError` is raised. 
+    squash_duplicates : bool
+        If `True`, identical matches are removed from the result. 
+        
+    Returns
+    -------
+    values : NumPy 1darray
+        Values of `source` that most closely match given elements in `selection`
+    idx : NumPy 1darray
+        Indices of `values` with respect to `source`, such that, 
+        ``source[idx] == values``
+        
+    Notes
+    -----
+    This is an auxiliary method that is intended purely for internal use. Thus, 
+    no error checking is performed. 
     
-    tol ->  if provided, ensures values in selection do not deviate further 
-            than `tol` from source, e.g.,
-            
-    Error checking is *not* performed!!!
+    Examples
+    --------
+    Exact matching, ordered `source` and `selection`:
     
-    return values, idx
+    >>> best_match(np.arange(10), [2,5])
+    (array([2, 5]), array([2, 5]))
+    
+    Inexact matching, ordered `source` and `selection`:
+    
+    >>> source = np.arange(10)
+    >>> selection = np.array([1.5, 1.5, 2.2, 6.2, 8.8])
+    >>> best_match(source, selection)
+    (array([2, 2, 2, 6, 9]), array([2, 2, 2, 6, 9]))
+    
+    Inexact matching, unordered `source` and `selection`:
+    
+    >>> source = np.array([2.2, 1.5, 1.5, 6.2, 8.8])
+    >>> selection = np.array([1.9, 9., 1., -0.4, 1.2, 0.2, 9.3])
+    >>> best_match(source, selection)
+    (array([2.2, 8.8, 1.5, 1.5, 1.5, 1.5, 8.8]), array([0, 4, 1, 1, 1, 1, 4]))
+    
+    Same as above, but ignore duplicate matches
+    
+    >>> best_match(source, selection, squash_duplicates=True)                                                                                                                                                                                 
+    (array([2.2, 8.8, 1.5]), array([0, 4, 1]))
+    
+    Interval-matching:
+    
+    >>> best_match(np.arange(10), [2.9, 6.1], span=True)
+    (array([3, 4, 5, 6]), array([3, 4, 5, 6]))
     """
     
     # Ensure selection is within `tol` bounds from `source`
@@ -73,18 +129,20 @@ def best_match(source, selection, span=False, tol=None, squash_duplicates=False)
                                 varname="selection", 
                                 actual=act.format(tol))
 
-    # Do not perform O(n) potentially unnecessary sort operations
+    # Do not perform O(n) potentially unnecessary sort operations...
     issorted = True
-    if np.diff(source).min() < 0:
-        issorted = False
-        orig = source.copy()
-        idx_orig = np.argsort(orig)
-        source = orig[idx_orig]
 
+    # Interval-selections are a lot easier than discrete time-points...
     if span:
         idx = np.intersect1d(np.where(source >= selection[0])[0], 
                              np.where(source <= selection[1])[0])
     else:
+        issorted = True
+        if np.diff(source).min() < 0:
+            issorted = False
+            orig = np.array(source, copy=True)
+            idx_orig = np.argsort(orig)
+            source = orig[idx_orig]
         idx = np.searchsorted(source, selection, side="left") 
         leftNbrs = np.abs(selection - source[np.maximum(idx - 1, np.zeros(idx.shape, dtype=np.intp))])
         rightNbrs = np.abs(selection - source[np.minimum(idx, np.full(idx.shape, source.size - 1, dtype=np.intp))])
@@ -96,8 +154,8 @@ def best_match(source, selection, span=False, tol=None, squash_duplicates=False)
         _, xdi = np.unique(idx.astype(np.intp), return_index=True)
         idx = idx[np.sort(xdi)]
 
-    # Re-order index arrays in case `source` was unsorted
-    if not issorted:
+    # Re-order discrete-selection index arrays in case `source` was unsorted
+    if not issorted and not span:
         idx_sort = idx_orig[idx]
         return orig[idx_sort], idx_sort
     else:
