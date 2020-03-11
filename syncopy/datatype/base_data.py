@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-12 15:37:29>
+# Last modification time: <2020-03-11 17:22:32>
 
 
 # Builtin/3rd party package imports
@@ -31,7 +31,7 @@ import syncopy as spy
 from syncopy.shared.tools import StructDict
 from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser, 
                                     filename_parser, data_parser)
-from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
+from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError, SPYWarning
 from syncopy.datatype.methods.definetrial import definetrial
 from syncopy import __version__, __storage__, __dask__, __sessionid__
 if __dask__:
@@ -225,7 +225,7 @@ class BaseData(ABC):
                 act = "data with shape {}".format(str(inData.shape))
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             if prop.dtype != inData.dtype:
-                print("Syncopy core - data: WARNING >> Input data-type mismatch << ")
+                SPYWarning("Input data-type mismatch", caller="BaseData.data")
             prop[...] = inData
             
         # or create backing container on disk 

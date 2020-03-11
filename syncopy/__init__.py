@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-15 09:03:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-11 16:04:27>
+# Last modification time: <2020-03-11 16:44:03>
 
 # Builtin/3rd party package imports
 import os
@@ -25,9 +25,18 @@ try:
     __dask__ = True
 except ImportError:
     __dask__ = False
-    print("\nSyncopy core: WARNING >> Could not import 'dask' and 'dask.distributed'. " +\
-          "Syncopy's parallel processing engine requires a working dask installation. " +\
-          "Please consider installing 'dask' as well as 'distributed' (and potentially 'dask_jobqueue') using conda or pip. <<<")
+    msg = "\nSyncopy <core> WARNING: Could not import 'dask' and/or 'dask.distributed'. \n" +\
+        "Syncopy's parallel processing engine requires a working dask installation. \n" +\
+        "Please consider installing 'dask' as well as 'distributed' \n" +\
+        "(and potentially 'dask_jobqueue'), e.g., via conda: \n" +\
+        "\tconda install dask\n" +\
+        "\tconda install distributed\n" +\
+        "\tconda install -c conda-forge dask-jobqueue\n" +\
+        "or using pip:\n" +\
+        "\tpip install dask\n" +\
+        "\tpip install distributed\n" +\
+        "\tpip install dask-jobqueue"
+    print(msg)
 
 # Define package-wide temp directory (and create it if not already present)
 if os.environ.get("SPYTMPDIR"):
@@ -60,9 +69,9 @@ with os.scandir(__storage__) as scan:
     st_fles = [fle.stat().st_size/1024**3 for fle in scan]
     st_size = sum(st_fles)
     if st_size > __storagelimit__:
-        msg = "\nSyncopy core: WARNING >> Temporary storage folder {tmpdir:s} " +\
+        msg = "\nSyncopy <core> WARNING: Temporary storage folder {tmpdir:s} " +\
               "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n" +\
-              "Consider running `spy.cleanup()` to free up disk space. <<"
+              "Consider running `spy.cleanup()` to free up disk space."
         print(msg.format(tmpdir=__storage__, nfs=len(st_fles), sze=st_size))
 
 # Establish ID and log-file for current session

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-14 10:23:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-01-29 15:23:57>
+# Last modification time: <2020-03-11 16:32:27>
 
 # Builtin/3rd party package imports
 import sys
@@ -306,7 +306,7 @@ def SPYWarning(msg, caller=None):
     # Plug together message string and print it
     if caller is None:
         caller = sys._getframe().f_back.f_code.co_name
-    PrintMsg = "{coloron:s}Syncopy{caller:s}: WARNING: {msg:s}{coloroff:s}"
+    PrintMsg = "{coloron:s}Syncopy{caller:s} WARNING: {msg:s}{coloroff:s}"
     print(PrintMsg.format(coloron=yellow,
                           caller=" <" + caller +">" if len(caller) else caller, 
                           msg=msg,
