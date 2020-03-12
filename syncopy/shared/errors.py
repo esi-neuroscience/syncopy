@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-14 10:23:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-11 16:32:27>
+# Last modification time: <2020-03-12 10:50:33>
 
 # Builtin/3rd party package imports
 import sys
@@ -142,7 +142,7 @@ def SPYExceptionHandler(*excargs, **exckwargs):
         try:                            # careful: if iPython is used to launch a script, ``get_ipython`` is not defined
             ipy = get_ipython()
             isipy = True
-            cols = get_ipython().InteractiveTB.Colors
+            cols = ipy.InteractiveTB.Colors
             cols.filename = cols.filenameEm
             cols.bold = "\033[1m"
             sys.last_traceback = etb    # smartify ``sys``
@@ -295,19 +295,24 @@ def SPYWarning(msg, caller=None):
     """
             
     # If Syncopy's running in Jupyter/iPython colorize warning message
+    # Use the following chart (enter FG color twice b/w ';') to change:
+    # https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
     try:
-        get_ipython()
-        yellow = "\033[33m"
-        normal = "\033[0m"
+        cols = get_ipython().InteractiveTB.Colors
+        warnCol = "\x1b[95;95m"
+        normCol = cols.Normal
+        boldEm = cols.bold
     except NameError:
-        yellow = ""
-        normal = ""
+        warnCol = ""
+        normCol = ""
+        boldEm = ""
 
     # Plug together message string and print it
     if caller is None:
         caller = sys._getframe().f_back.f_code.co_name
-    PrintMsg = "{coloron:s}Syncopy{caller:s} WARNING: {msg:s}{coloroff:s}"
-    print(PrintMsg.format(coloron=yellow,
+    PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} WARNING: {msg:s}{coloroff:s}"
+    print(PrintMsg.format(coloron=warnCol,
+                          bold=boldEm,
                           caller=" <" + caller +">" if len(caller) else caller, 
                           msg=msg,
-                          coloroff=normal))
+                          coloroff=normCol))

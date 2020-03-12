@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-22 12:38:16
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-10 13:46:44>
+# Last modification time: <2020-03-12 10:19:28>
 
 # Builtin/3rd party package imports
 import os
@@ -25,7 +25,8 @@ if sys.platform == "win32":
 # Local imports
 from syncopy import __dask__
 from syncopy.shared.parsers import scalar_parser, io_parser
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError
+from syncopy.shared.errors import (SPYValueError, SPYTypeError, SPYIOError,
+                                   SPYWarning)
 from syncopy.shared.queries import user_input, user_yesno
 if __dask__:
     from dask_jobqueue import SLURMCluster
@@ -182,9 +183,9 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
         else:
             mem_req = int(mem_per_job[:mem_per_job.find("GB")])
         if mem_req > mem_lim:
-            msg = "{name:s} WARNING: `mem_per_job` exceeds limit of " +\
-                  "{lim:d}GB for partition {par:s}. Capping memory at partition limit. "
-            print(msg.format(name=funcName, lim=mem_lim, par=partition))
+            msg = "`mem_per_job` exceeds limit of {lim:d}GB for partition {par:s}. " +\
+                "Capping memory at partition limit. "
+            SPYWarning(msg.format(lim=mem_lim, par=partition))
             mem_per_job = str(int(mem_lim)) + "GB"
 
     # Parse requested timeout period
@@ -340,7 +341,8 @@ def cluster_cleanup():
     try:
         client = get_client()
     except ValueError:
-        print("{} WARNING: No dangling clients or clusters found.".format(funcName))
+        msg = "No dangling clients or clusters found."
+        SPYWarning(msg)
         return
     except Exception as exc:
         raise exc

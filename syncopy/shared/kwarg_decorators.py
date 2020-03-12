@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-22 10:56:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-09 14:15:04>
+# Last modification time: <2020-03-12 10:22:52>
 
 # Builtin/3rd party package imports
 import functools
@@ -13,7 +13,8 @@ import inspect
 import numpy as np
 
 # Local imports
-from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError, SPYError
+from syncopy.shared.errors import (SPYIOError, SPYTypeError, SPYValueError, 
+                                   SPYError, SPYWarning)
 from syncopy.shared.tools import StructDict
 from syncopy.shared.parsers import get_defaults
 import syncopy as spy
@@ -381,9 +382,6 @@ def detect_parallel_client(func):
         # Extract `parallel` keyword: if `parallel` is `False`, nothing happens
         parallel = kwargs.get("parallel")
         
-        # For later reference: dynamically fetch name of wrapped function
-        funcName = "Syncopy <{}>".format(func.__name__)
-
         # Detect if dask client is running and set `parallel` keyword accordingly
         if parallel is None or parallel is True:
             if spy.__dask__:
@@ -393,17 +391,17 @@ def detect_parallel_client(func):
                 except ValueError:
                     if parallel is True:
                         wrng = \
-                        "{name:s} WARNING: no running parallel processing client " +\
-                        "found. Please use `spy.esi_cluster_setup` to launch a " +\
+                        "no running parallel processing client found. " +\
+                        "Please use `spy.esi_cluster_setup` to launch a " +\
                         "distributed computing cluster. Computation will be performed" +\
                         "sequentially. "
-                        print(wrng.format(name=funcName))
+                        SPYWarning(wrng)
                     parallel = False
             else:
                 wrng = \
-                "{name:s} WARNING: dask seems not to be installed on this system. " +\
+                "dask seems not to be installed on this system. " +\
                 "Parallel processing capabilities cannot be used. "
-                print(wrng.format(name=funcName))
+                SPYWarning(wrng)
                 parallel = False
                 
         # Add/update `parallel` to/in keyword args

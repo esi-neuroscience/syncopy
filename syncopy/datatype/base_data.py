@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-11 17:22:32>
+# Last modification time: <2020-03-12 10:05:39>
 
 
 # Builtin/3rd party package imports
@@ -70,6 +70,8 @@ class BaseData(ABC):
     
     # Dummy allocations of class attributes that are actually initialized in subclasses
     _mode = None
+    
+    _spwCaller = "BaseData.{}"
     
     @property
     @classmethod
@@ -225,7 +227,8 @@ class BaseData(ABC):
                 act = "data with shape {}".format(str(inData.shape))
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             if prop.dtype != inData.dtype:
-                SPYWarning("Input data-type mismatch", caller="BaseData.data")
+                SPYWarning("Input data-type mismatch", 
+                           caller=self._spwCaller.format("data"))
             prop[...] = inData
             
         # or create backing container on disk 

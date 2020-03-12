@@ -19,7 +19,8 @@ from glob import glob
 # Local imports
 from syncopy.shared.filetypes import FILE_EXT
 from syncopy.shared.parsers import io_parser, data_parser, filename_parser, array_parser
-from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYIOError, SPYError
+from syncopy.shared.errors import (SPYTypeError, SPYValueError, SPYIOError, 
+                                   SPYError, SPYWarning)
 from syncopy.io.utils import hash_file, startInfoDict
 
 import syncopy.datatype as spd
@@ -208,8 +209,8 @@ def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None
         if len(fileList) == 1:
             return _load(fileList[0], checksum, mode, out)
         if out is not None:
-            print("syncopy.load: WARNING >>> When loading multiple objects, " +
-                  "the `out` keyword is ignored. <<< ")
+            msg = "When loading multiple objects, the `out` keyword is ignored"
+            SPYWarning(msg)
         objectDict = {}
         for fname in fileList:
             obj = _load(fname, checksum, mode, None)

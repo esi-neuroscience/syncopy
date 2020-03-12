@@ -3,8 +3,8 @@
 # Module for all kinds of parsing gymnastics
 # 
 # Created: 2019-01-08 09:58:11
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-27 13:42:06>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2020-03-12 10:23:56>
 
 # Builtin/3rd party package imports
 import os
@@ -18,7 +18,8 @@ import inspect
 # Local imports
 from syncopy.shared.filetypes import FILE_EXT
 from syncopy.shared.tools import StructDict
-from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError
+from syncopy.shared.errors import (SPYIOError, SPYTypeError, SPYValueError,
+                                   SPYWarning)
 
 
 __all__ = ["get_defaults"]
@@ -81,8 +82,8 @@ def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
 
     # Start by resovling potential conflicts
     if not isfile and len(ext) > 0:
-        print("<io_parser> WARNING: filename extension(s) specified but " +\
-              "`isfile = False`. Exiting...")
+        msg = "filename extension(s) specified but `isfile = False`. Exiting..."
+        SPYWarning(msg)
         return
 
     # Make sure `fs_loc` is actually a string

@@ -36,6 +36,7 @@ syncopy.shared
     syncopy.shared.errors.SPYTypeError
     syncopy.shared.errors.SPYValueError
     syncopy.shared.errors.SPYIOError
+    syncopy.shared.errors.SPYWarning
     syncopy.shared.kwarg_decorators.unwrap_cfg
     syncopy.shared.kwarg_decorators.unwrap_select
     syncopy.shared.kwarg_decorators.unwrap_io

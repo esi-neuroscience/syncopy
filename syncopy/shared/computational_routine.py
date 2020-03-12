@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-11 16:18:07>
+# Last modification time: <2020-03-12 10:17:25>
 
 # Builtin/3rd party package imports
 import os
@@ -309,17 +309,18 @@ class ComputationalRoutine(ABC):
 
         # Ensure channel parallelization can be done at all
         if chan_per_worker is not None and "channel" not in data.dimord:
-            print("Syncopy core - compute: WARNING >> input object does not " +\
-                  "contain `channel` dimension for parallelization! <<")
+            msg = "input object does not contain `channel` dimension for parallelization!"
+            SPYWarning(msg)
             chan_per_worker = None
         if chan_per_worker is not None and self.keeptrials is False:
-            print("Syncopy core - compute: WARNING >> trial-averaging does not " +\
-                  "support channel-block parallelization! <<")
+            msg = "trial-averaging does not support channel-block parallelization!"
+            SPYWarning(msg)
             chan_per_worker = None
         if data._selection is not None:
             if chan_per_worker is not None and data._selection.channel != slice(None, None, 1):
-                print("Syncopy core - compute: WARNING >>> channel selection and " +\
-                      "simultaneous channel-block parallelization not yet supported! <<<")
+                msg = "channel selection and simultaneous channel-block " +\
+                    "parallelization not yet supported!"
+                SPYWarning(msg)
                 chan_per_worker = None
             
         # Allocate control variables
@@ -568,8 +569,8 @@ class ComputationalRoutine(ABC):
             
         # Do not spill trials on disk if they're supposed to be removed anyway
         if parallel_store and not self.keeptrials:
-            print("Syncopy core - compute: WARNING >> trial-averaging only " +\
-                  "supports sequential writing! <<")
+            msg = "trial-averaging only supports sequential writing!"
+            SPYWarning(msg)
             parallel_store = False
 
         # Concurrent processing requires some additional prep-work...
