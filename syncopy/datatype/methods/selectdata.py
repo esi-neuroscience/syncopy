@@ -4,18 +4,11 @@
 # 
 # Created: 2019-10-14 12:46:54
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-01 15:13:15>
-
-# Builtin/3rd party package imports
-import inspect
-# import numbers
-# import sys
-# import numpy as np
+# Last modification time: <2020-03-17 17:49:43>
 
 # Local imports
 from syncopy.shared.parsers import get_defaults, data_parser
 from syncopy.shared.kwarg_decorators import unwrap_cfg, unwrap_io, detect_parallel_client
-from syncopy.shared.errors import SPYValueError
 from syncopy.shared.computational_routine import ComputationalRoutine
 
 __all__ = ["selectdata"]

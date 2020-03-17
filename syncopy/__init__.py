@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-15 09:03:46
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-11 16:44:03>
+# Last modification time: <2020-03-17 18:17:38>
 
 # Builtin/3rd party package imports
 import os
@@ -36,6 +36,22 @@ except ImportError:
         "\tpip install dask\n" +\
         "\tpip install distributed\n" +\
         "\tpip install dask-jobqueue"
+    print(msg)
+
+# (Try to) set up visualization environment
+try:
+    import matplotlib.pyplot as plt 
+    import matplotlib.style as mplstyle
+    import matplotlib as mpl
+    __plt__ = True
+except ImportError:
+    __plt__ = False
+    msg = "\nSyncopy <core> WARNING: Could not import 'matplotlib'. \n" +\
+        "Syncopy's plotting engine requires a working matplotlib installation. \n" +\
+        "Please consider installing 'matplotlib', e.g., via conda: \n" +\
+        "\tconda install matplotlib\n" +\
+        "or using pip:\n" +\
+        "\tpip install matplotlib" +\
     print(msg)
 
 # Define package-wide temp directory (and create it if not already present)
@@ -85,12 +101,13 @@ __tbcount__ = 5
 __checksum_algorithm__ = sha1
 
 # Fill up namespace
-from . import shared, io, datatype, specest, statistics
+from . import shared, io, datatype, specest, statistics, plotting
 from .shared import *
 from .io import *
 from .datatype import *
 from .specest import *
 from .statistics import *
+from .plotting import *
 
 # Register session
 __session__ = datatype.base_data.SessionLogger()
@@ -113,3 +130,4 @@ __all__.extend(io.__all__)
 __all__.extend(shared.__all__)
 __all__.extend(specest.__all__)
 __all__.extend(statistics.__all__)
+__all__.extend(plotting.__all__)

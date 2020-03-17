@@ -29,15 +29,20 @@ from syncopy.tests.misc import generate_artificial_data
 import dask.distributed as dd
 from time import time
 
-sys.exit()
+# sys.exit()
 
 if __name__ == "__main__":
 
-    data = generate_artificial_data(nTrials=2, nChannels=16, 
-                                     equidistant=True, inmemory=False)
+    # data = generate_artificial_data(nTrials=2, nChannels=16, 
+    #                                  equidistant=True, inmemory=False)
     
-    # data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
-    # sys.exit()
+    data = spy.load("~/Documents/job/SyNCoPy/Data/testdata.spy")
+    
+    plt.figure()
+    x = np.linspace(0, 2 * np.pi, 1000)
+    plt.plot(x, np.sin(x))
+    
+    sys.exit()
     # client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")
     # client = dd.Client()
 
