@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-12 10:09:32>
+# Last modification time: <2020-03-18 22:35:45>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -18,15 +18,17 @@ from abc import ABC
 from collections.abc import Iterator
 from numpy.lib.format import open_memmap
 
-
 # Local imports
 from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
 from .methods.selectdata import selectdata
 from syncopy.shared.parsers import scalar_parser, array_parser
-from syncopy.shared.errors import SPYValueError, SPYIOError
+from syncopy.shared.errors import SPYValueError, SPYIOError, SPYError
 from syncopy.shared.tools import best_match
+from syncopy import __plt__
 import syncopy as spy
+
+pltMsg = "Could not import 'matplotlib': {} requires a working matplotlib installation!"
 
 __all__ = ["AnalogData", "SpectralData"]
 
@@ -435,6 +437,36 @@ class AnalogData(ContinuousData):
         syncopy.selectdata : create new objects via deep-copy selections
         """
         return selectdata(self, trials=trials, channels=channels, toi=toi, toilim=toilim)
+    
+    def singleplot(self, trials=None, channels=None, toilim=None, avg_trials=True,
+                   title=None, grid=False, **kwargs):
+        """
+        Coming soon...
+        
+        if trials is `None`, use "raw" data
+        """
+        if not __plt__:
+            raise SPYError(pltMsg.format("singleplot"))
+        
+        # plotting_parser(...)
+        
+        if trials is channels is None:
+            lgl = "one of `channels` or `trials` to be not `None`"
+            act = "both `channels` and `trials` are `None`"
+            raise SPYValueError(legal=lgl, varname="trials/channels", actual=act)
+
+        # Pass provided selections on to `Selector` class which performs error 
+        # checking and generates required indexing arrays
+        self._selection = {"trials": trials, 
+                           "channels": channels, 
+                           "toilim": toilim}
+        
+        # toilim, avg_trials and channels....
+        if trials is None:
+            if toilim is not None:
+                # raise SPYValueError(...)
+                pass
+        
 
     # "Constructor"
     def __init__(self,
