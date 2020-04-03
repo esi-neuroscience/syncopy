@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-18 22:35:45>
+# Last modification time: <2020-04-03 18:02:50>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -26,7 +26,8 @@ from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYIOError, SPYError
 from syncopy.shared.tools import best_match
 from syncopy import __plt__
-import syncopy as spy
+if __plt__:
+    import matplotlib.pyplot as plt
 
 pltMsg = "Could not import 'matplotlib': {} requires a working matplotlib installation!"
 
@@ -188,40 +189,40 @@ class ContinuousData(BaseData, ABC):
             return [(np.arange(0, stop - start) + self._t0[tk]) / self.samplerate \
                     for tk, (start, stop) in enumerate(self.sampleinfo)]
 
-    # Helper function that reads a single trial into memory
-    @staticmethod
-    def _copy_trial(trialno, filename, dimord, sampleinfo, hdr):
-        """
-        # FIXME: currently unused - check back to see if we need this functionality
-        """
-        idx = [slice(None)] * len(dimord)
-        idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
-        idx = tuple(idx)
-        if hdr is None:
-            # Generic case: data is either a HDF5 dataset or memmap
-            try:
-                with h5py.File(filename, mode="r") as h5f:
-                    h5keys = list(h5f.keys())
-                    cnt = [h5keys.count(dclass) for dclass in spy.datatype.__all__
-                           if not inspect.isfunction(getattr(spy.datatype, dclass))]
-                    if len(h5keys) == 1:
-                        arr = h5f[h5keys[0]][idx]
-                    else:
-                        arr = h5f[spy.datatype.__all__[cnt.index(1)]][idx]
-            except:
-                try:
-                    arr = np.array(open_memmap(filename, mode="c")[idx])
-                except:
-                    raise SPYIOError(filename)
-            return arr
-        else:
-            # For VirtualData objects
-            dsets = []
-            for fk, fname in enumerate(filename):
-                dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
-                                       mode="r", dtype=hdr[fk]["dtype"],
-                                       shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
-            return np.vstack(dsets)
+    # # Helper function that reads a single trial into memory
+    # @staticmethod
+    # def _copy_trial(trialno, filename, dimord, sampleinfo, hdr):
+    #     """
+    #     # FIXME: currently unused - check back to see if we need this functionality
+    #     """
+    #     idx = [slice(None)] * len(dimord)
+    #     idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
+    #     idx = tuple(idx)
+    #     if hdr is None:
+    #         # Generic case: data is either a HDF5 dataset or memmap
+    #         try:
+    #             with h5py.File(filename, mode="r") as h5f:
+    #                 h5keys = list(h5f.keys())
+    #                 cnt = [h5keys.count(dclass) for dclass in spy.datatype.__all__
+    #                        if not inspect.isfunction(getattr(spy.datatype, dclass))]
+    #                 if len(h5keys) == 1:
+    #                     arr = h5f[h5keys[0]][idx]
+    #                 else:
+    #                     arr = h5f[spy.datatype.__all__[cnt.index(1)]][idx]
+    #         except:
+    #             try:
+    #                 arr = np.array(open_memmap(filename, mode="c")[idx])
+    #             except:
+    #                 raise SPYIOError(filename)
+    #         return arr
+    #     else:
+    #         # For VirtualData objects
+    #         dsets = []
+    #         for fk, fname in enumerate(filename):
+    #             dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
+    #                                    mode="r", dtype=hdr[fk]["dtype"],
+    #                                    shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
+    #         return np.vstack(dsets)
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
@@ -444,28 +445,83 @@ class AnalogData(ContinuousData):
         Coming soon...
         
         if trials is `None`, use "raw" data
+        
+        if overlay is True -> new plots use existing figure via plt.gcf().gca()
+        if overlay is plt axis -> use this axis for plotting
+        
+        if avg_trials but len(ax.trialPanels) > 1 -> raise Error (don't overlay
+        multi-trial plot over avg-trial plot!)
         """
         if not __plt__:
             raise SPYError(pltMsg.format("singleplot"))
         
-        # plotting_parser(...)
+        # FIXME: maybe summarize this part in a `plotting_parser(...)`?
         
-        if trials is channels is None:
-            lgl = "one of `channels` or `trials` to be not `None`"
-            act = "both `channels` and `trials` are `None`"
-            raise SPYValueError(legal=lgl, varname="trials/channels", actual=act)
-
+        # Fetch axis object from `kwargs` to see if we're overlaying datasets
+        overlayAxis = kwargs.get("overlayAxis", None)
+        
+        # If `trials` is `None`, values of other selectors need to match
+        if trials is None:
+            if channels is None:
+                lgl = "one of `channels` or `trials` to be not `None`"
+                act = "both `channels` and `trials` are `None`"
+                raise SPYValueError(legal=lgl, varname="trials/channels", actual=act)
+            if toilim is not None:
+                lgl = "`trials` to be not `None` to perform timing selection"
+                act = "`toilim` was provided but `trials` is `None`"
+                raise SPYValueError(legal=lgl, varname="trials/toilim", actual=act)
+            if avg_trials:
+                lgl = "`trials` to be not `None` to perform averaging"
+                act = "trial averaging was requested but `trials` is `None`"
+                raise SPYValueError(legal=lgl, varname="trials/avg_trials", actual=act)
+            if hasattr(overlayAxis, "trialPanels"):
+                lgl = "`trials` to be not `None` to append to multi-trial plot"
+                act = "multi-trial plot overlay was requested but `trials` is `None`"
+                raise SPYValueError(legal=lgl, varname="trials/overlay", actual=act)
+        
+        # Don't overlay multi-trial plot on top of avg-trial plot
+        if hasattr(overlayAxis, "trialPanels") and avg_trials:
+            lgl = "overlay of multi-trial plot"
+            act = "trial averaging was requested for multi-trial plot overlay"
+            raise SPYValueError(legal=lgl, varname="trials/avg_trials", actual=act)
+        
         # Pass provided selections on to `Selector` class which performs error 
         # checking and generates required indexing arrays
         self._selection = {"trials": trials, 
                            "channels": channels, 
                            "toilim": toilim}
         
-        # toilim, avg_trials and channels....
-        if trials is None:
-            if toilim is not None:
-                # raise SPYValueError(...)
-                pass
+        # Our canonical axis object is `ax`: create fresh one or fetch exising
+        if overlayAxis:
+            ax = overlayAxis
+        else:
+            fig, ax = plt.subplots(1, tight_layout=True)
+
+        # Trial-averaging requires some computing            
+        if avg_trials:
+            
+            # FIXME: Use `TimelockData` to do this?
+            
+            # Ensure provided timing selection can actually be averaged (leverage 
+            # the fact that `toilim` selections exclusively generate slices)
+            tLengths = np.zeros((len(self._selection.time),), dtype=np.intp)
+            for k, tsel in enumerate(self._selection.time):
+                start, stop = tsel.start, tsel.stop
+                if start is None:
+                    start = 0
+                if stop is None:
+                    stop = self._get_time([self._selection.trials[k]], 
+                                          toilim=[-np.inf, np.inf])[0].stop
+                tLengths[k] = stop - start
+                
+            # For averaging, all `toilim` selections must be of identical length. 
+            # If they aren't close any freshly opened figures and complain
+            if np.unique(tLengths).size > 1:
+                if not overlayAxis:
+                    plt.close(fig)
+                lgl = "time-selections of equal length for averaging"
+                act = "time-selections of varying length"
+                raise SPYValueError(legal=lgl, varname="toilim/avg_trials", actual=act)
         
 
     # "Constructor"
