@@ -38,19 +38,21 @@ if __name__ == "__main__":
     
     data = spy.load("~/Documents/job/SyNCoPy/Data/testdata.spy")
     
-    plt.figure()
-    x = np.linspace(0, 2 * np.pi, 1000)
-    plt.plot(x, np.sin(x))
+    # plt.figure()
+    # x = np.linspace(0, 2 * np.pi, 1000)
+    # plt.plot(x, np.sin(x))
     
     trials = [10, 3, 44]
     channels = ['ecogMUA_033', 'ecogMUA_034', 'ecogMUA_035', 'ecogMUA_036']
-    # toilim = [-0.1, 0.8]
-    toilim = None
-    toilim = [-np.inf, np.inf]
+    toilim = [-0.1, 0.8]
+    # toilim = None
+    # toilim = [-np.inf, np.inf]
     
     data._selection = {"trials": trials, 
                        "channels": channels, 
                        "toilim": toilim}
+    
+    data.singleplot(trials=trials, channels=channels, toilim=toilim)
     
     sys.exit()
     # client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")
