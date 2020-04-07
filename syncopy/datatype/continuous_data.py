@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-06 16:35:30>
+# Last modification time: <2020-04-07 17:12:35>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -25,7 +25,7 @@ from .methods.definetrial import definetrial
 from .methods.selectdata import selectdata
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYIOError, SPYError
-from syncopy.shared.tools import best_match
+from syncopy.shared.tools import best_match, layout_subplot_panels
 from syncopy.plotting.spy_plotting import pltErrMsg, pltConfig
 from syncopy import __plt__
 if __plt__:
@@ -491,6 +491,12 @@ class AnalogData(ContinuousData):
                            "channels": channels, 
                            "toilim": toilim}
 
+        # Prepare indexing list respecting potential non-default `dimord`s
+        idx = [slice(None), slice(None)]
+        chanIdx = self.dimord.index("channel")
+        timeIdx = self.dimord.index("time")
+        idx[chanIdx] = self._selection.channel
+
         # If we're overlaying a multi-panel plot, ensure panel-count matches up
         trList = self._selection.trials
         nTrials = len(trList)
@@ -500,13 +506,13 @@ class AnalogData(ContinuousData):
                 act = "{} panels but {} trials for plotting".format(len(pltFig.trialPanels), 
                                                                     nTrials)
                 raise SPYValueError(legal=lgl, varname="trials/figure panels", actual=act)
+            
+        # If required, construct subplot panel layout
+        if nTrials > 1 and not avg_trials:
+            nrow = kwargs.get("nrow", None)
+            ncol = kwargs.get("ncol", None)
+            nrow, ncol = layout_subplot_panels(nTrials, nrow=nrow, ncol=ncol)
         
-        # Prepare indexing list respecting potential non-default `dimord`s
-        idx = [slice(None), slice(None)]
-        chanIdx = self.dimord.index("channel")
-        timeIdx = self.dimord.index("time")
-        idx[chanIdx] = self._selection.channel
-
         # Used for non-overlayed figure titles (both for `avg_trials` = `True`/`False`)
         chArr = self.channel[self._selection.channel]
         nChan = chArr.size
@@ -515,7 +521,7 @@ class AnalogData(ContinuousData):
         else:
             chanStr = "{}".format(chArr[0])
         
-        # Trial-averaging requires some computing            
+        # Single panel
         if avg_trials or nTrials == 1:
             
             # FIXME: Use `TimelockData` to do this?
@@ -558,8 +564,9 @@ class AnalogData(ContinuousData):
                 ax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
                 
             # The actual plotting command is literally one line...
-            ax.plot(self.time[trList[0]][self._selection.time[0]], pltArr, 
-                    label=os.path.basename(self.filename))
+            time = self.time[trList[0]][self._selection.time[0]]
+            ax.plot(time , pltArr, label=os.path.basename(self.filename))
+            ax.set_xlim([time[0], time[-1]])
             
             # If no plots were present in the current figure, use a fancy title, 
             # otherwise, the title just references the no. of overlaid objects            
@@ -575,20 +582,19 @@ class AnalogData(ContinuousData):
                 ax.set_title("Overlay of {} datasets".format(len(handles)),
                              size=pltConfig["singleTitleSize"])
                 ax.legend(handles, labels)
-            
+         
+        # Multi-panel   
         elif nTrials > 1:
             
             # Prepare new axes or fetch existing
             if pltFig:
                 ax_arr = pltFig.get_axes()
             else:
-                (pltFig, ax_arr) = plt.subplots(1, nTrials, constrained_layout=False,
+                (pltFig, ax_arr) = plt.subplots(nrow, ncol, constrained_layout=False,
                                                 gridspec_kw={"wspace": 0, "hspace": 0,
                                                              "left": 0.05, "right": 0.97},
-                                                squeeze=True, sharey=True,
-                                                figsize=pltConfig["singleMultiTrialFigSize"])
-                for ax in ax_arr[1:]:
-                    ax.set_xticks(ax.get_xticks()[1:])
+                                                figsize=pltConfig["singleMultiTrialFigSize"],
+                                                sharey=True)
                 for k, trlno in enumerate(trList):
                     ax_arr[k].set_title("Trial #{}".format(trlno), size=pltConfig["singleTitleSize"])
                     ax_arr[k].set_xlabel("time [s]", size=pltConfig["singleLabelSize"])
@@ -599,9 +605,12 @@ class AnalogData(ContinuousData):
             # Cycle through panels to plot by-trial channel(-averaged) data
             for k, trlno in enumerate(trList):
                 idx[timeIdx] = self._selection.time[k]
-                ax_arr[k].plot(self.time[trList[k]][self._selection.time[k]], 
+                time = self.time[trList[k]][self._selection.time[k]]
+                ax_arr[k].plot(time, 
                                self._get_trial(trlno)[tuple(idx)].mean(axis=chanIdx).squeeze(),
                                label=os.path.basename(self.filename))
+                ax_arr[k].set_xlim([time[0], time[-1]])
+                ax_arr[k].set_xticks(ax_arr[k].get_xticks()[int(k > 0):])
                 
             # If we're overlaying datasets, adjust panel- and sup-titles
             if pltFig.objCount == 0:

@@ -53,6 +53,9 @@ if __name__ == "__main__":
                        "toilim": toilim}
     
     data.singleplot(trials=trials, channels=channels, toilim=toilim)
+    data.singleplot(trials=[5,9,100], channels=channels, toilim=toilim, pltFig=plt.gcf())
+    data.singleplot(trials=trials, channels=channels, toilim=toilim, avg_trials=False)
+    data.singleplot(trials=[5,9,100], channels=channels, toilim=toilim, pltFig=plt.gcf(), avg_trials=False)
     
     sys.exit()
     # client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")

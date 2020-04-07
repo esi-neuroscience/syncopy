@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-12 10:23:56>
+# Last modification time: <2020-04-07 14:13:55>
 
 # Builtin/3rd party package imports
 import os
@@ -12,15 +12,11 @@ import numpy as np
 import numbers
 import inspect
 
-
-
-
 # Local imports
 from syncopy.shared.filetypes import FILE_EXT
 from syncopy.shared.tools import StructDict
 from syncopy.shared.errors import (SPYIOError, SPYTypeError, SPYValueError,
                                    SPYWarning)
-
 
 __all__ = ["get_defaults"]
 
