@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-07 17:12:35>
+# Last modification time: <2020-04-08 17:58:32>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -24,7 +24,7 @@ from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
 from .methods.selectdata import selectdata
 from syncopy.shared.parsers import scalar_parser, array_parser
-from syncopy.shared.errors import SPYValueError, SPYIOError, SPYError
+from syncopy.shared.errors import SPYValueError, SPYIOError, SPYError, SPYTypeError, SPYWarning
 from syncopy.shared.tools import best_match, layout_subplot_panels
 from syncopy.plotting.spy_plotting import pltErrMsg, pltConfig
 from syncopy import __plt__
@@ -440,7 +440,7 @@ class AnalogData(ContinuousData):
         return selectdata(self, trials=trials, channels=channels, toi=toi, toilim=toilim)
     
     def singleplot(self, trials="all", channels="all", toilim=None, avg_trials=True,
-                   title=None, grid=False, **kwargs):
+                   title=None, grid=None, **kwargs):
         """
         Coming soon...
         
@@ -451,6 +451,11 @@ class AnalogData(ContinuousData):
         
         if avg_trials but len(ax.trialPanels) > 1 -> raise Error (don't overlay
         multi-trial plot over avg-trial plot!)
+        
+        kwargs can contain:
+            fig
+            nrow
+            ncol
         """
         
         # FIXME: maybe summarize this part in a `plotting_parser(...)`?
@@ -458,7 +463,7 @@ class AnalogData(ContinuousData):
             raise SPYError(pltErrMsg.format("singleplot"))
         
         # See if figure has been already created
-        pltFig = kwargs.get("pltFig", None)
+        fig = kwargs.get("fig", None)
         
         # If `trials` is `None`, values of other selectors need to match
         if trials is None:
@@ -471,25 +476,42 @@ class AnalogData(ContinuousData):
                 act = "`toilim` was provided but `trials` is `None`"
                 raise SPYValueError(legal=lgl, varname="trials/toilim", actual=act)
             if avg_trials:
-                lgl = "`trials` to be not `None` to perform averaging"
-                act = "trial averaging was requested but `trials` is `None`"
-                raise SPYValueError(legal=lgl, varname="trials/avg_trials", actual=act)
-            if hasattr(pltFig, "trialPanels"):
+                msg = "`trials` is `None` but `avg_trials` is `True`. " +\
+                    "Cannot perform trial averaging without trial specification - " +\
+                    "setting ``avg_trials = False``. " 
+                SPYWarning(msg)
+                avg_trials = False
+            if hasattr(fig, "trialPanels"):
                 lgl = "`trials` to be not `None` to append to multi-trial plot"
                 act = "multi-trial plot overlay was requested but `trials` is `None`"
                 raise SPYValueError(legal=lgl, varname="trials/overlay", actual=act)
         
         # Don't overlay multi-trial plot on top of avg-trial plot
-        if hasattr(pltFig, "trialPanels") and avg_trials:
+        if hasattr(fig, "trialPanels") and avg_trials:
             lgl = "overlay of multi-trial plot"
             act = "trial averaging was requested for multi-trial plot overlay"
             raise SPYValueError(legal=lgl, varname="trials/avg_trials", actual=act)
+        
+        # Ensure any optional keywords controlling plotting appearance make sense
+        if title is not None:
+            if not isinstance(title, str):
+                raise SPYTypeError(title, varname="title", expected="str")
+        if grid is not None:
+            if not isinstance(grid, bool):
+                raise SPYTypeError(grid, varname="grid", expected="bool")
         
         # Pass provided selections on to `Selector` class which performs error 
         # checking and generates required indexing arrays
         self._selection = {"trials": trials, 
                            "channels": channels, 
                            "toilim": toilim}
+        
+        # Adjust selector for special case of not using any trials
+        if trials is None:
+            nTrials = 0
+        else:    
+            trList = self._selection.trials
+            nTrials = len(trList)
 
         # Prepare indexing list respecting potential non-default `dimord`s
         idx = [slice(None), slice(None)]
@@ -498,17 +520,15 @@ class AnalogData(ContinuousData):
         idx[chanIdx] = self._selection.channel
 
         # If we're overlaying a multi-panel plot, ensure panel-count matches up
-        trList = self._selection.trials
-        nTrials = len(trList)
-        if hasattr(pltFig, "trialPanels"):
-            if nTrials != len(pltFig.trialPanels):
+        if hasattr(fig, "trialPanels"):
+            if nTrials != len(fig.trialPanels):
                 lgl = "number of trials to plot matching existing panels in figure"
-                act = "{} panels but {} trials for plotting".format(len(pltFig.trialPanels), 
+                act = "{} panels but {} trials for plotting".format(len(fig.trialPanels), 
                                                                     nTrials)
                 raise SPYValueError(legal=lgl, varname="trials/figure panels", actual=act)
             
-        # If required, construct subplot panel layout
-        if nTrials > 1 and not avg_trials:
+        # If required, construct subplot panel layout or vet provided layout
+        if nTrials > 1 and not avg_trials and fig is None:
             nrow = kwargs.get("nrow", None)
             ncol = kwargs.get("ncol", None)
             nrow, ncol = layout_subplot_panels(nTrials, nrow=nrow, ncol=ncol)
@@ -554,12 +574,12 @@ class AnalogData(ContinuousData):
             pltArr /= nTrials
             
             # Prepare new axis or fetch existing
-            if pltFig:
-                ax, = pltFig.get_axes()
+            if fig:
+                ax, = fig.get_axes()
             else:
-                pltFig, ax = plt.subplots(1, tight_layout=True,
+                fig, ax = plt.subplots(1, tight_layout=True,
                                           figsize=pltConfig["singleAvgTrialFigSize"])
-                pltFig.objCount = 0
+                fig.objCount = 0
                 ax.set_xlabel("time [s]", size=pltConfig["singleLabelSize"])
                 ax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
                 
@@ -568,39 +588,66 @@ class AnalogData(ContinuousData):
             ax.plot(time , pltArr, label=os.path.basename(self.filename))
             ax.set_xlim([time[0], time[-1]])
             
+            # If grid-line modifier is set, apply it now
+            if grid is not None:
+                ax.grid(grid)
+            
             # If no plots were present in the current figure, use a fancy title, 
             # otherwise, the title just references the no. of overlaid objects            
-            if pltFig.objCount == 0:
-                if nTrials > 1:
-                    trStr = "{0}across {1} trials".format("averaged " if nChan == 1 else "",
-                                                          nTrials)
-                else:
-                    trStr = "Trial #{}".format(trList[0])
-                ax.set_title("{}, {}".format(chanStr, trStr), size=pltConfig["singleTitleSize"])
+            if fig.objCount == 0:
+                if title is None:
+                    if nTrials > 1:
+                        trStr = "{0}across {1} trials".format("averaged " if nChan == 1 else "",
+                                                            nTrials)
+                    else:
+                        trStr = "Trial #{}".format(trList[0])
+                        title = "{}, {}".format(chanStr, trStr)
+                ax.set_title(title, size=pltConfig["singleTitleSize"])
             else:
                 handles, labels = ax.get_legend_handles_labels()
-                ax.set_title("Overlay of {} datasets".format(len(handles)),
-                             size=pltConfig["singleTitleSize"])
                 ax.legend(handles, labels)
+                if title is None:
+                    title = "Overlay of {} datasets".format(len(handles))
+                ax.set_title(title, size=pltConfig["singleTitleSize"])
          
         # Multi-panel   
         elif nTrials > 1:
             
-            # Prepare new axes or fetch existing
-            if pltFig:
-                ax_arr = pltFig.get_axes()
+            # Prepare new axes or fetch existing (layout is optimized for one to 
+            # two panel rows)
+            if fig:
+                ax_arr = fig.get_axes()
+                nrow, ncol = ax_arr[0].numRows, ax_arr[0].numCols
             else:
-                (pltFig, ax_arr) = plt.subplots(nrow, ncol, constrained_layout=False,
-                                                gridspec_kw={"wspace": 0, "hspace": 0,
+                (fig, ax_arr) = plt.subplots(nrow, ncol, constrained_layout=False,
+                                                gridspec_kw={"wspace": 0, "hspace": 0.35,
                                                              "left": 0.05, "right": 0.97},
                                                 figsize=pltConfig["singleMultiTrialFigSize"],
-                                                sharey=True)
+                                                sharey=True, squeeze=False)
+
+                # Show xlabel only on bottom panel row
+                for col in range(ncol):
+                    ax_arr[-1, col].set_xlabel("time [s]", size=pltConfig["singleLabelSize"])
+                    
+                # Flatten axis array to make counting a little easier in here
+                ax_arr = ax_arr.flatten(order="C")
+                
+                # Format axes that will actually contain something
                 for k, trlno in enumerate(trList):
                     ax_arr[k].set_title("Trial #{}".format(trlno), size=pltConfig["singleTitleSize"])
-                    ax_arr[k].set_xlabel("time [s]", size=pltConfig["singleLabelSize"])
                     ax_arr[k].tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
-                pltFig.objCount = 0
-                pltFig.trialPanels = list(trList)
+                
+                # Make any remainders as unobtrusive as possible
+                for j in range(k + 1, nrow * ncol):
+                    ax_arr[j].set_xticks([])
+                    ax_arr[j].set_yticks([])
+                    ax_arr[j].set_xlabel("")
+                    for spine in ax_arr[j].spines.values():
+                        spine.set_visible(False)
+                ax_arr[min(k + 1, nrow * ncol - 1)].spines["left"].set_visible(True)
+                        
+                fig.objCount = 0
+                fig.trialPanels = list(trList)
                     
             # Cycle through panels to plot by-trial channel(-averaged) data
             for k, trlno in enumerate(trList):
@@ -611,20 +658,57 @@ class AnalogData(ContinuousData):
                                label=os.path.basename(self.filename))
                 ax_arr[k].set_xlim([time[0], time[-1]])
                 ax_arr[k].set_xticks(ax_arr[k].get_xticks()[int(k > 0):])
+                if grid is not None:
+                    ax_arr[k].grid(grid)
                 
-            # If we're overlaying datasets, adjust panel- and sup-titles
-            if pltFig.objCount == 0:
-                pltFig.suptitle(chanStr, size=pltConfig["singleTitleSize"])
+            # If we're overlaying datasets, adjust panel- and sup-titles: include
+            # legend in top-right axis (note: `ax_arr` is row-major flattened)
+            if fig.objCount == 0:
+                if title is None:
+                    title = chanStr
+                fig.suptitle(title, size=pltConfig["singleTitleSize"])
             else:
-                for k, ax in enumerate(ax_arr):
-                    ax.set_title("{0}/#{1}".format(ax.get_title(), trList[k]))
+                for k, trlno in enumerate(trList):
+                    ax_arr[k].set_title("{0}/#{1}".format(ax_arr[k].get_title(), trlno))
+                ax = ax_arr[ncol - 1]
                 handles, labels = ax.get_legend_handles_labels()
-                pltFig.suptitle("Overlay of {} datasets".format(len(handles)),
-                                size=pltConfig["singleTitleSize"])
-                pltFig.legend(handles, labels)
+                ax.legend(handles, labels)
+                if title is None:
+                    title = "Overlay of {} datasets".format(len(handles))
+                fig.suptitle(title, size=pltConfig["singleTitleSize"])
 
+        # Single panel "raw"                
+        else:
+            
+            # Prepare new axis or fetch existing
+            if fig:
+                ax, = fig.get_axes()
+            else:
+                fig, ax = plt.subplots(1, tight_layout=True,
+                                          figsize=pltConfig["singleAvgTrialFigSize"])
+                fig.objCount = 0
+                ax.set_xlabel("samples", size=pltConfig["singleLabelSize"])
+                ax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
+
+            # Plot entire time-course of selected channel(s)                
+            ax.plot(self.data[tuple(idx)].mean(axis=chanIdx).squeeze())
+            if grid is not None:
+                ax.grid(grid)
+            
+            # Set plot title depending on dataset overlay
+            if fig.objCount == 0:
+                if title is None:
+                    title = chanStr
+                ax.set_title(title, size=pltConfig["singleTitleSize"])
+            else:
+                handles, labels = ax.get_legend_handles_labels()
+                ax.legend(handles, labels)
+                if title is None:
+                    title = "Overlay of {} datasets".format(len(handles))
+                ax.set_title(title, size=pltConfig["singleTitleSize"])
+                
         # Increment overlay-counter and draw figure
-        pltFig.objCount += 1
+        fig.objCount += 1
         plt.draw()
 
     # "Constructor"

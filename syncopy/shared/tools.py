@@ -4,14 +4,15 @@
 # 
 # Created: 2020-01-27 13:37:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-07 17:08:42>
+# Last modification time: <2020-04-08 11:39:44>
 
 # Builtin/3rd party package imports
 import numpy as np
 
 # Local imports
 from syncopy.shared.errors import SPYValueError, SPYWarning
-from syncopy.shared.parsers import scalar_parser
+# from syncopy.shared.parsers import scalar_parser
+import syncopy as spy
 
 __all__ = ["StructDict"]
 
@@ -170,46 +171,45 @@ def layout_subplot_panels(npanels, nrow=None, ncol=None, ndefault=5, maxpanels=5
     # Abort if requested panel count exceeds provided maximum    
     if npanels > maxpanels:
         lgl = "a maximum of {} panels in total".format(maxpanels)
-        act = "{} panels".format(npanels)
-        raise SPYValueError(legal=lgl, actual=act, varname="npanels")
+        raise SPYValueError(legal=lgl, actual=str(npanels), varname="npanels")
 
     # Row specifcation was provided, cols may or may not
     if nrow is not None:
         try:
-            scalar_parser(nrow, varname="nrow", ntype="int_like", lims=[1, np.inf])
+            spy.scalar_parser(nrow, varname="nrow", ntype="int_like", lims=[1, np.inf])
         except Exception as exc:
             raise exc
         if ncol is None:
-            ncol = np.ceil(npanels / nrow, dtype=np.intp)
+            ncol = np.ceil(npanels / nrow).astype(np.intp)
 
     # Column specifcation was provided, rows may or may not
     if ncol is not None:
         try:
-            scalar_parser(ncol, varname="ncol", ntype="int_like", lims=[1, np.inf])
+            spy.scalar_parser(ncol, varname="ncol", ntype="int_like", lims=[1, np.inf])
         except Exception as exc:
             raise exc
         if nrow is None:
-            nrow = np.ceil(npanels / ncol, dtype=np.intp)
+            nrow = np.ceil(npanels / ncol).astype(np.intp)
+
+    # After the preparations above, this condition is *only* satisfied if both
+    # `nrow` = `ncol` = `None` -> then use generic grid-layout
+    if nrow is None:
+        ncol = ndefault 
+        nrow = np.ceil(npanels / ncol).astype(np.intp)
+        ncol = min(ncol, npanels)
 
     # Complain appropriately if requested no. of panels does not fit inside grid
     if nrow * ncol < npanels:
-        lgl = "row- and column-specification of grid to fit panels"
-        act = "grid with {0} rows and {1} columns for {2} panels"
+        lgl = "row- and column-specification of grid to fit all panels"
+        act = "grid with {0} rows and {1} columns but {2} panels"
         raise SPYValueError(legal=lgl, actual=act.format(nrow, ncol, npanels), 
                             varname="nrow/ncol")
         
     # In case a grid was provided too big for the requested no. of panels (e.g., 
     # 8 panels in an 4 x 3 grid -> would fit in 3 x 3), just warn, don't crash
     if nrow * ncol - npanels >= ncol:
-        msg = "Grid dimensions ({0} rows x {1} columns) larger than necessary" +\
-            "to hold {2} panels. ".format(nrow, ncol, npanels)
-        SPYWarning(msg)
+        msg = "Grid dimension ({0} rows x {1} columns) larger than necessary " +\
+            "for {2} panels. "
+        SPYWarning(msg.format(nrow, ncol, npanels))
         
-    # After the preparations above, this condition is *only* satisfied if both
-    # `nrow` = `ncol` = `None` -> then use generic grid-layout
-    if nrow is None:
-        ncol = ndefault 
-        nrow = np.ceil(npanels / ncol, dtype=np.intp)
-        ncol = min(ncol, npanels)
-
     return nrow, ncol

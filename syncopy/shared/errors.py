@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-14 10:23:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-12 10:50:33>
+# Last modification time: <2020-04-08 18:01:03>
 
 # Builtin/3rd party package imports
 import sys
@@ -302,6 +302,7 @@ def SPYWarning(msg, caller=None):
         warnCol = "\x1b[95;95m"
         normCol = cols.Normal
         boldEm = cols.bold
+        # boldEm = "\033[1m"
     except NameError:
         warnCol = ""
         normCol = ""
