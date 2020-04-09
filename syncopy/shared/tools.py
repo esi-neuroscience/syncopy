@@ -4,7 +4,7 @@
 # 
 # Created: 2020-01-27 13:37:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-09 09:56:38>
+# Last modification time: <2020-04-09 12:16:37>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -182,9 +182,9 @@ def get_defaults(obj):
 
     Examples
     --------
-    To see the default input arguments of :meth:`syncopy.specest.mtmfft` use
+    To see the default input arguments of :meth:`syncopy.freqanalysis` use
     
-    >>> spy.get_defaults(spy.mtmfft)
+    >>> spy.get_defaults(spy.freqanalysis)
     """
 
     if not callable(obj):
@@ -196,7 +196,58 @@ def get_defaults(obj):
 
 def layout_subplot_panels(npanels, nrow=None, ncol=None, ndefault=5, maxpanels=50):
     """
-    Coming soon...
+    Create space-optimal subplot grid given required number of panels
+    
+    Parameters
+    ----------
+    npanels : int
+        Number of required subplot panels in figure
+    nrow : int or None
+        Required number of panel rows. Note, if both `nrow` and `ncol` are not `None`,
+        then ``nrow * ncol >= npanels`` has to be satisfied, otherwise a 
+        :class:`~syncopy.shared.errors.SPYValueError` is raised. 
+    ncol : int or None
+        Required number of panel columns. Note, if both `nrow` and `ncol` are not `None`,
+        then ``nrow * ncol >= npanels`` has to be satisfied, otherwise a 
+        :class:`~syncopy.shared.errors.SPYValueError` is raised. 
+    ndefault: int
+        Default number of panel columns for grid construction (only relevant if 
+        both `nrow` and `ncol` are `None`). 
+    maxpanels : int
+        Maximally allowed number of subplot panels for which a grid is constructed 
+        
+    Returns
+    -------
+    nrow : int
+        Number of rows of constructed subplot panel grid
+    nrow : int
+        Number of columns of constructed subplot panel grid
+        
+    Notes
+    -----
+    If both `nrow` and `ncol` are `None`, the constructed grid will have the 
+    dimension `N` x `ndefault`, where `N` is chosen "optimally", i.e., the smallest
+    integer that satisfies ``ndefault * N >= npanels``. 
+    Note further, that this is an auxiliary method that is intended purely for 
+    internal use. Thus, error-checking is only performed on potentially user-provided 
+    inputs (`nrow` and `ncol`). 
+    
+    Examples
+    --------
+    Create grid of default dimensions to hold eight panels
+    
+    >>> layout_subplot_panels(8, ndefault=5)
+    (2, 5)
+    
+    Create a grid that must have 4 rows
+    
+    >>> layout_subplot_panels(8, nrow=4)
+    (4, 2)
+    
+    Create a grid that must have 8 columns
+    
+    >>> layout_subplot_panels(8, ncol=8)
+    (1, 8)
     """
 
     # Abort if requested panel count exceeds provided maximum    

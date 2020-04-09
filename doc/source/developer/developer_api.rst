@@ -44,6 +44,7 @@ syncopy.shared
     syncopy.shared.kwarg_decorators._append_docstring
     syncopy.shared.kwarg_decorators._append_signature
     syncopy.shared.tools.best_match
+    syncopy.shared.tools.layout_subplot_panels
 
 
 syncopy.specest
