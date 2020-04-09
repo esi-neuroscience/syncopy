@@ -4,7 +4,7 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-06 15:06:32>
+# Last modification time: <2020-04-09 16:08:25>
 
 # # Builtin/3rd party package imports
 # import tensorlfow
@@ -27,8 +27,12 @@ pltConfig = {"singleTitleSize": 12,
              "singleLabelSize": 10,
              "singleTickSize": 8,
              "singleLegendSize": 10,
-             "singleAvgTrialFigSize": (6.4, 4.8),
-             "singleMultiTrialFigSize": (10, 4)}
+             "singleFigSize": (6.4, 4.8),
+             "multiTitleSize": 10,
+             "multiLabelSize": 8,
+             "multiTickSize": 6,
+             "multiLegendSize": 8,
+             "multiFigSize": (10, 4.8)}
 
 # Global consistent error message if mpl is missing
 pltErrMsg = "Could not import 'matplotlib': {} requires a working matplotlib installation!"
@@ -60,6 +64,7 @@ def singleplot(data, trials=None, channels=None, toi=None, toilim=None, foi=None
     unwrap_cfg: make the decorator compatible w/list-like data inputs so that it 
     can handle things like `singleplot(data1, data2, data3, **kwargs)`
     
+    If you specify multiple datasets they should contain the same channels, etc.
     """
     
     if not __plt__:

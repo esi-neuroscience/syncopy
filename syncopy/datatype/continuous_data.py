@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-08 17:58:32>
+# Last modification time: <2020-04-09 17:51:22>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -438,8 +438,9 @@ class AnalogData(ContinuousData):
         syncopy.selectdata : create new objects via deep-copy selections
         """
         return selectdata(self, trials=trials, channels=channels, toi=toi, toilim=toilim)
-    
-    def singleplot(self, trials="all", channels="all", toilim=None, avg_trials=True,
+
+    # Visualize data using a single-panel plot
+    def singleplot(self, trials="all", channels="all", toilim=None, avg_channels=True,
                    title=None, grid=None, **kwargs):
         """
         Coming soon...
@@ -706,6 +707,327 @@ class AnalogData(ContinuousData):
                 if title is None:
                     title = "Overlay of {} datasets".format(len(handles))
                 ax.set_title(title, size=pltConfig["singleTitleSize"])
+                
+        # Increment overlay-counter and draw figure
+        fig.objCount += 1
+        plt.draw()
+        
+    # Visualize data using a multi-panel plot
+    def multiplot(self, trials="all", channels="all", toilim=None, avg_trials=True,
+                  avg_channels=False, title=None, grid=None, **kwargs):
+        """
+        Coming soon...
+        
+        avg_channel = False -> multi-panel plot
+        avg_trial = False -> multi panel plot
+        
+        avg_channel = avg_trial = False -> multi-panel multi-line plot
+        """
+        
+        # FIXME: maybe summarize this part in a `plotting_parser(...)`?
+        if not __plt__:
+            raise SPYError(pltErrMsg.format("multiplot"))
+        
+        # Ensure binary flags are in fact binary
+        vNames = ["avg_trials", "avg_channels"]
+        for k, flag in enumerate([avg_trials, avg_channels]):
+            if not isinstance(flag, bool):
+                raise SPYTypeError(flag, varname=vNames[k], expected="bool")
+            
+        # See if figure has been already created
+        fig = kwargs.get("fig", None)
+        
+        # Don't overlay multi-trial plot on top of avg-trial plot
+        if hasattr(fig, "nTrialPanels") and avg_trials:
+            lgl = "overlay of multi-trial plot"
+            act = "trial averaging was requested for multi-trial plot overlay"
+            raise SPYValueError(legal=lgl, varname="trials/avg_trials", actual=act)
+
+        # Don't overlay multi-channel plot on top of avg-channel plot
+        if hasattr(fig, "nChanPanels") and avg_channels:
+            lgl = "overlay of multi-channel plot"
+            act = "channel averaging was requested for multi-channel plot overlay"
+            raise SPYValueError(legal=lgl, varname="channels/avg_channels", actual=act)
+        
+        # Ensure any optional keywords controlling plotting appearance make sense
+        if title is not None:
+            if not isinstance(title, str):
+                raise SPYTypeError(title, varname="title", expected="str")
+        if grid is not None:
+            if not isinstance(grid, bool):
+                raise SPYTypeError(grid, varname="grid", expected="bool")
+        
+        # Special case: do not use defined trials - values of other selectors need to match
+        if trials is None:
+            if toilim is not None:
+                lgl = "`trials` to be not `None` to perform timing selection"
+                act = "`toilim` was provided but `trials` is `None`"
+                raise SPYValueError(legal=lgl, varname="trials/toilim", actual=act)
+            if avg_trials:
+                msg = "`trials` is `None` but `avg_trials` is `True`. " +\
+                    "Cannot perform trial averaging without trial specification - " +\
+                    "setting ``avg_trials = False``. " 
+                SPYWarning(msg)
+                avg_trials = False
+            if hasattr(fig, "nTrialPanels"):
+                lgl = "`trials` to be not `None` to append to multi-trial plot"
+                act = "multi-trial plot overlay was requested but `trials` is `None`"
+                raise SPYValueError(legal=lgl, varname="trials/overlay", actual=act)
+        
+        # Pass provided selections on to `Selector` class which performs error 
+        # checking and generates required indexing arrays
+        self._selection = {"trials": trials, 
+                           "channels": channels, 
+                           "toilim": toilim}
+        
+        # Adjust selector for special case of not using any trials
+        if trials is None:
+            nTrials = 0
+        else:    
+            trList = self._selection.trials
+            nTrials = len(trList)
+
+        # Get channel count and prepare potential (partial) figure title
+        chArr = self.channel[self._selection.channel]
+        nChan = chArr.size
+        if nChan > 1:
+            chanStr = "Average of {} channels".format(nChan)
+        else:
+            chanStr = "{}".format(chArr[0])
+        
+        # Prepare indexing list respecting potential non-default `dimord`s
+        idx = [slice(None), slice(None)]
+        chanIdx = self.dimord.index("channel")
+        timeIdx = self.dimord.index("time")
+        idx[chanIdx] = self._selection.channel
+
+        # If we're overlaying a multi-panel plot, ensure panel-count matches up
+        if hasattr(fig, "nTrialPanels"):
+            if nTrials != fig.nTrialPanels:
+                lgl = "number of trials to plot matching existing panels in figure"
+                act = "{} panels but {} trials for plotting".format(fig.nTrialPanels, 
+                                                                    nTrials)
+                raise SPYValueError(legal=lgl, varname="trials/figure panels", actual=act)
+        if hasattr(fig, "nChanPanels"):
+            if nChan != fig.nChanPanels:
+                lgl = "number of channels to plot matching existing panels in figure"
+                act = "{} panels but {} channels for plotting".format(fig.nChanPanels, 
+                                                                      nChan)
+                raise SPYValueError(legal=lgl, varname="channels/figure panels", actual=act)
+            
+        # Either construct subplot panel layout/vet provided layout or fetch existing
+        if fig is None:
+            
+            # Determine no. of required panels
+            if avg_trials and not avg_channels:
+                npanels = nChan 
+            elif not avg_trials and avg_channels:
+                npanels = nTrials
+            elif not avg_trials and not avg_channels:
+                npanels = nTrials 
+            else:
+                msg = "Averaging across both trials and channels results in " +\
+                    "single-panel plot. Please use `singleplot` instead"
+                SPYWarning(msg)
+                return
+            
+            # Construct subplot panel layout or vet provided layout
+            nrow = kwargs.get("nrow", None)
+            ncol = kwargs.get("ncol", None)
+            nrow, ncol = layout_subplot_panels(npanels, nrow=nrow, ncol=ncol)
+            (fig, ax_arr) = plt.subplots(nrow, ncol, constrained_layout=False,
+                                         gridspec_kw={"wspace": 0, "hspace": 0.35,
+                                                      "left": 0.05, "right": 0.97},
+                                         figsize=pltConfig["multiFigSize"],
+                                         sharey=True, squeeze=False)
+
+            # Show xlabel only on bottom panel row
+            for col in range(ncol):
+                ax_arr[-1, col].set_xlabel("time [s]", size=pltConfig["multiLabelSize"])
+                    
+            # Flatten axis array to make counting a little easier in here and make
+            # any surplus panels as unobtrusive as possible
+            ax_arr = ax_arr.flatten(order="C")
+            for k in range(npanels, nrow * ncol):
+                ax_arr[k].set_xticks([])
+                ax_arr[k].set_yticks([])
+                ax_arr[k].set_xlabel("")
+                for spine in ax_arr[k].spines.values():
+                    spine.set_visible(False)
+            ax_arr[min(npanels, nrow * ncol - 1)].spines["left"].set_visible(True)
+            
+            # Monkey-patch object-counter to newly created figure
+            fig.objCount = 0
+
+        else:
+            
+            # Get existing layout
+            ax_arr = fig.get_axes()
+            nrow, ncol = ax_arr[0].numRows, ax_arr[0].numCols
+            
+        # Panels correspond to channels
+        if avg_trials and not avg_channels:
+            
+            # FIXME: Use `TimelockData` to do this?
+            
+            # Ensure provided timing selection can actually be averaged (leverage 
+            # the fact that `toilim` selections exclusively generate slices)
+            tLengths = np.zeros((nTrials,), dtype=np.intp)
+            for k, tsel in enumerate(self._selection.time):
+                start, stop = tsel.start, tsel.stop
+                if start is None:
+                    start = 0
+                if stop is None:
+                    stop = self._get_time([trList[k]], 
+                                          toilim=[-np.inf, np.inf])[0].stop
+                tLengths[k] = stop - start
+                
+            # For averaging, all `toilim` selections must be of identical length. 
+            # If they aren't close any freshly opened figures and complain appropriately
+            if np.unique(tLengths).size > 1:
+                if fig.objCount == 0:
+                    plt.close(fig)
+                lgl = "time-selections of equal length for averaging"
+                act = "time-selections of varying length"
+                raise SPYValueError(legal=lgl, varname="toilim/avg_trials", actual=act)
+
+            # Compute trial-averaged time-courses: 2D array with slice/list
+            # selection does not require fancy indexing - no need to check this here
+            pltArr = np.zeros((tLengths[0], nChan), dtype=self.data.dtype)
+            for k, trlno in enumerate(trList):
+                idx[timeIdx] = self._selection.time[k]
+                pltArr += self._get_trial(trlno)[tuple(idx)]
+            pltArr /= nTrials
+                    
+            # Cycle through channels and plot trial-averaged time-courses (time-
+            # axis must be identical for all channels, set up `idx` just once)
+            idx[timeIdx] = self._selection.time[0]
+            time = self.time[trList[k]][self._selection.time[0]]
+            for k, chan in enumerate(chArr):
+                ax_arr[k].plot(time, pltArr[:, k], label=os.path.basename(self.filename))
+                ax_arr[k].set_xlim([time[0], time[-1]])
+                ax_arr[k].set_xticks(ax_arr[k].get_xticks()[int(k > 0):])
+                if grid is not None:
+                    ax_arr[k].grid(grid)
+                
+            # If we're overlaying datasets, adjust panel- and sup-titles: include
+            # legend in top-right axis (note: `ax_arr` is row-major flattened)
+            if fig.objCount == 0:
+                for k, chan in enumerate(chArr):
+                    ax_arr[k].set_title(chan, size=pltConfig["multiTitleSize"])
+                    ax_arr[k].tick_params(axis="both", labelsize=pltConfig["multiTickSize"])
+                fig.nChanPanels = nChan
+                if title is None:
+                    if nTrials > 1:
+                        title = "Average of {} trials".format(nTrials)
+                    else:
+                        title = "Trial #{}".format(trList[0])
+                fig.suptitle(title, size=pltConfig["singleTitleSize"])
+            else:
+                for k, chan in enumerate(chArr):
+                    ax_arr[k].set_title("{0}/{1}".format(ax_arr[k].get_title(), chan))
+                ax = ax_arr[ncol - 1]
+                handles, labels = ax.get_legend_handles_labels()
+                ax.legend(handles, labels)
+                if title is None:
+                    title = "Overlay of {} datasets".format(len(handles))
+                fig.suptitle(title, size=pltConfig["singleTitleSize"])
+                
+        # Panels correspond to trials
+        elif not avg_trials and avg_channels:
+            
+            # Cycle through panels to plot by-trial channel-averages
+            for k, trlno in enumerate(trList):
+                idx[timeIdx] = self._selection.time[k]
+                time = self.time[trList[k]][self._selection.time[k]]
+                ax_arr[k].plot(time, 
+                               self._get_trial(trlno)[tuple(idx)].mean(axis=chanIdx).squeeze(),
+                               label=os.path.basename(self.filename))
+                ax_arr[k].set_xlim([time[0], time[-1]])
+                ax_arr[k].set_xticks(ax_arr[k].get_xticks()[int(k > 0):])
+                if grid is not None:
+                    ax_arr[k].grid(grid)
+
+            # If we're overlaying datasets, adjust panel- and sup-titles: include
+            # legend in top-right axis (note: `ax_arr` is row-major flattened)
+            if fig.objCount == 0:
+                for k, trlno in enumerate(trList):
+                    ax_arr[k].set_title("Trial #{}".format(trlno), size=pltConfig["multiTitleSize"])
+                    ax_arr[k].tick_params(axis="both", labelsize=pltConfig["multiTickSize"])
+                fig.nTrialPanels = nTrials
+                if title is None:
+                    if nChan > 1:
+                        title = "Average of {} channels".format(nChan)
+                    else:
+                        title = chArr[0]
+                fig.suptitle(title, size=pltConfig["singleTitleSize"])
+            else:
+                for k, trlno in enumerate(trList):
+                    ax_arr[k].set_title("{0}/#{1}".format(ax_arr[k].get_title(), trlno))
+                ax = ax_arr[ncol - 1]
+                handles, labels = ax.get_legend_handles_labels()
+                ax.legend(handles, labels)
+                if title is None:
+                    title = "Overlay of {} datasets".format(len(handles))
+                fig.suptitle(title, size=pltConfig["singleTitleSize"])
+
+        # Panels correspond to trials (if `trials` is not `None`), otherwise channels
+        elif not avg_trials and not avg_channels:
+            
+            # Plot each channel in separate panel
+            if trials is None:
+                pass
+            
+            # Each trial gets its own panel w/multiple channels per panel
+            else:
+                pass
+
+            # Make the (N,)-offset array a row/column vector depending on `dimord`
+            rIdx = [1, 1]
+            rIdx[chanIdx] = nChan
+            rIdx = tuple(rIdx)
+            
+            # Cycle through panels to plot by-trial multi-channel time-courses
+            for k, trlno in enumerate(trList):
+                idx[timeIdx] = self._selection.time[k]
+                time = self.time[trList[k]][self._selection.time[k]]
+                pltArr = self._get_trial(trlno)[tuple(idx)]
+                offsets = np.cumsum([0] + [np.abs(pltArr).max()] * (nChan - 1))
+                # FIXME: set line color to be mpl cycle wrt objCount
+                ax_arr[k].plot(time, 
+                               (pltArr + offsets.reshape(rIdx)).reshape(time.size, nChan), 
+                               label=os.path.basename(self.filename))
+                ax_arr[k].set_xlim([time[0], time[-1]])
+                ax_arr[k].set_xticks(ax_arr[k].get_xticks()[int(k > 0):])
+                if grid is not None:
+                    ax_arr[k].grid(grid)
+
+            # If we're overlaying datasets, adjust panel- and sup-titles: include
+            # legend in top-right axis (note: `ax_arr` is row-major flattened)
+            if fig.objCount == 0:
+                for k, trlno in enumerate(trList):
+                    ax_arr[k].set_title("Trial #{}".format(trlno), size=pltConfig["multiTitleSize"])
+                    ax_arr[k].tick_params(axis="both", labelsize=pltConfig["multiTickSize"])
+                fig.nTrialPanels = nTrials
+                if title is None:
+                    if nChan > 1:
+                        title = "{} channels".format(nChan)
+                    else:
+                        title = chArr[0]
+                fig.suptitle(title, size=pltConfig["singleTitleSize"])
+            else:
+                for k, trlno in enumerate(trList):
+                    ax_arr[k].set_title("{0}/#{1}".format(ax_arr[k].get_title(), trlno))
+                ax = ax_arr[ncol - 1]
+                handles, labels = ax.get_legend_handles_labels()
+                ax.legend(handles, labels)
+                if title is None:
+                    title = "Overlay of {} datasets".format(len(handles))
+                fig.suptitle(title, size=pltConfig["singleTitleSize"])
+            
+        else: # avg + avg: use singleplot instead
+            # FIXME print WARNING and return 
+            pass
                 
         # Increment overlay-counter and draw figure
         fig.objCount += 1
