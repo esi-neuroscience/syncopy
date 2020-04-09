@@ -4,17 +4,17 @@
 # 
 # Created: 2020-01-27 13:37:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-08 11:39:44>
+# Last modification time: <2020-04-09 09:56:38>
 
 # Builtin/3rd party package imports
 import numpy as np
+import inspect
 
 # Local imports
 from syncopy.shared.errors import SPYValueError, SPYWarning
-# from syncopy.shared.parsers import scalar_parser
-import syncopy as spy
+from syncopy.shared.parsers import scalar_parser
 
-__all__ = ["StructDict"]
+__all__ = ["StructDict", "get_defaults"]
 
 
 class StructDict(dict):
@@ -163,6 +163,37 @@ def best_match(source, selection, span=False, tol=None, squash_duplicates=False)
     else:
         return source[idx], idx
 
+
+def get_defaults(obj):
+    """
+    Parse input arguments of `obj` and return dictionary
+
+    Parameters
+    ----------
+    obj : function or class
+        Object whose input arguments to parse. Can be either a class or
+        function.
+
+    Returns
+    -------
+    argdict : dictionary
+        Dictionary of `argument : default value` pairs constructed from
+        `obj`'s call-signature/instantiation.
+
+    Examples
+    --------
+    To see the default input arguments of :meth:`syncopy.specest.mtmfft` use
+    
+    >>> spy.get_defaults(spy.mtmfft)
+    """
+
+    if not callable(obj):
+        raise SPYTypeError(obj, varname="obj", expected="SyNCoPy function or class")
+    dct = {k: v.default for k, v in inspect.signature(obj).parameters.items()\
+           if v.default != v.empty and v.name != "cfg"}
+    return StructDict(dct)
+
+
 def layout_subplot_panels(npanels, nrow=None, ncol=None, ndefault=5, maxpanels=50):
     """
     Coming soon...
@@ -176,7 +207,7 @@ def layout_subplot_panels(npanels, nrow=None, ncol=None, ndefault=5, maxpanels=5
     # Row specifcation was provided, cols may or may not
     if nrow is not None:
         try:
-            spy.scalar_parser(nrow, varname="nrow", ntype="int_like", lims=[1, np.inf])
+            scalar_parser(nrow, varname="nrow", ntype="int_like", lims=[1, np.inf])
         except Exception as exc:
             raise exc
         if ncol is None:
@@ -185,7 +216,7 @@ def layout_subplot_panels(npanels, nrow=None, ncol=None, ndefault=5, maxpanels=5
     # Column specifcation was provided, rows may or may not
     if ncol is not None:
         try:
-            spy.scalar_parser(ncol, varname="ncol", ntype="int_like", lims=[1, np.inf])
+            scalar_parser(ncol, varname="ncol", ntype="int_like", lims=[1, np.inf])
         except Exception as exc:
             raise exc
         if nrow is None:

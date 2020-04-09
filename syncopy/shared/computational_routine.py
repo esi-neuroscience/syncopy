@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-12 10:17:25>
+# Last modification time: <2020-04-09 09:52:14>
 
 # Builtin/3rd party package imports
 import os
@@ -24,7 +24,7 @@ if sys.platform == "win32":
     colorama.init(strip=False)
 
 # Local imports
-from .parsers import get_defaults
+from .tools import get_defaults
 from syncopy import __storage__, __dask__, __path__
 from syncopy.shared.errors import (SPYIOError, SPYValueError, SPYParallelError, 
                                    SPYTypeError, SPYWarning)

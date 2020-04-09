@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-06 15:23:59>
+# Last modification time: <2020-04-09 09:54:03>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -13,7 +13,7 @@ import scipy.signal.windows as spwin
 
 # Local imports
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser 
-from syncopy.shared import get_defaults
+from syncopy.shared.tools import get_defaults
 from syncopy.datatype import SpectralData, padding
 from syncopy.datatype.methods.padding import _nextpow2
 import syncopy.specest.wavelets as spywave 

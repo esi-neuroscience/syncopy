@@ -3,8 +3,8 @@
 # 
 # 
 # Created: 2019-03-20 11:46:31
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-27 13:46:53>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2020-04-09 10:21:58>
 
 import os
 import tempfile
@@ -88,23 +88,24 @@ class TestAnalogData():
             trl_ref = self.data.T[:, start:start + 5]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
-        # test ``_copy_trial`` with memmap'ed data
-        with tempfile.TemporaryDirectory() as tdir:
-            fname = os.path.join(tdir, "dummy.npy")
-            np.save(fname, self.data)
-            mm = open_memmap(fname, mode="r")
-            dummy = AnalogData(mm, trialdefinition=self.trl)
-            for trlno, start in enumerate(range(0, self.ns, 5)):
-                trl_ref = self.data[start:start + 5, :]
-                trl_tmp = dummy._copy_trial(trlno,
-                                            dummy.filename,
-                                            dummy.dimord,
-                                            dummy.sampleinfo,
-                                            dummy.hdr)
-                assert np.array_equal(trl_tmp, trl_ref)
-
-            # Delete all open references to file objects b4 closing tmp dir
-            del mm, dummy
+        # # test ``_copy_trial`` with memmap'ed data
+        # with tempfile.TemporaryDirectory() as tdir:
+        #     fname = os.path.join(tdir, "dummy.npy")
+        #     np.save(fname, self.data)
+        #     mm = open_memmap(fname, mode="r")
+        #     dummy = AnalogData(mm, trialdefinition=self.trl)
+        #     for trlno, start in enumerate(range(0, self.ns, 5)):
+        #         trl_ref = self.data[start:start + 5, :]
+        #         trl_tmp = dummy._copy_trial(trlno,
+        #                                     dummy.filename,
+        #                                     dummy.dimord,
+        #                                     dummy.sampleinfo,
+        #                                     dummy.hdr)
+        #         assert np.array_equal(trl_tmp, trl_ref)
+        #
+        #    # Delete all open references to file objects b4 closing tmp dir
+        #    del mm, dummy
+        del dummy
 
     def test_saveload(self):
         with tempfile.TemporaryDirectory() as tdir:
@@ -507,21 +508,22 @@ class TestSpectralData():
             trl_ref = self.data2[..., start:start + 5]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
-        # test ``_copy_trial`` with memmap'ed data
-        with tempfile.TemporaryDirectory() as tdir:
-            fname = os.path.join(tdir, "dummy.npy")
-            np.save(fname, self.data)
-            mm = open_memmap(fname, mode="r")
-            dummy = SpectralData(mm, trialdefinition=self.trl)
-            for trlno, start in enumerate(range(0, self.ns, 5)):
-                trl_ref = self.data[start:start + 5, ...]
-                trl_tmp = dummy._copy_trial(trlno,
-                                            dummy.filename,
-                                            dummy.dimord,
-                                            dummy.sampleinfo,
-                                            None)
-                assert np.array_equal(trl_tmp, trl_ref)
-            del mm, dummy
+        # # test ``_copy_trial`` with memmap'ed data
+        # with tempfile.TemporaryDirectory() as tdir:
+        #     fname = os.path.join(tdir, "dummy.npy")
+        #     np.save(fname, self.data)
+        #     mm = open_memmap(fname, mode="r")
+        #     dummy = SpectralData(mm, trialdefinition=self.trl)
+        #     for trlno, start in enumerate(range(0, self.ns, 5)):
+        #         trl_ref = self.data[start:start + 5, ...]
+        #         trl_tmp = dummy._copy_trial(trlno,
+        #                                     dummy.filename,
+        #                                     dummy.dimord,
+        #                                     dummy.sampleinfo,
+        #                                     None)
+        #         assert np.array_equal(trl_tmp, trl_ref)
+        #     del mm, dummy
+        del dummy
 
     def test_saveload(self):
         with tempfile.TemporaryDirectory() as tdir:

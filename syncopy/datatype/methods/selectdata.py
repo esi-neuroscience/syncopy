@@ -4,10 +4,11 @@
 # 
 # Created: 2019-10-14 12:46:54
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-17 17:49:43>
+# Last modification time: <2020-04-09 09:51:49>
 
 # Local imports
-from syncopy.shared.parsers import get_defaults, data_parser
+from syncopy.shared.parsers import data_parser
+from syncopy.shared.tools import get_defaults
 from syncopy.shared.kwarg_decorators import unwrap_cfg, unwrap_io, detect_parallel_client
 from syncopy.shared.computational_routine import ComputationalRoutine
 
