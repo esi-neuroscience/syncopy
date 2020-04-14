@@ -4,7 +4,7 @@
 # 
 # Created: 2020-01-27 13:37:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-09 12:16:37>
+# Last modification time: <2020-04-14 14:35:48>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -250,7 +250,11 @@ def layout_subplot_panels(npanels, nrow=None, ncol=None, ndefault=5, maxpanels=5
     (1, 8)
     """
 
-    # Abort if requested panel count exceeds provided maximum    
+    # Abort if requested panel count is less than one or exceeds provided maximum    
+    try:
+        scalar_parser(npanels, varname="npanels", ntype="int_like", lims=[1, np.inf])
+    except Exception as exc:
+        raise exc
     if npanels > maxpanels:
         lgl = "a maximum of {} panels in total".format(maxpanels)
         raise SPYValueError(legal=lgl, actual=str(npanels), varname="npanels")
