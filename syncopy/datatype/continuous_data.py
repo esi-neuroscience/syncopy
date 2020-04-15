@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-15 12:04:21>
+# Last modification time: <2020-04-15 17:17:33>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -464,35 +464,15 @@ class AnalogData(ContinuousData):
         if not __plt__:
             raise SPYError(pltErrMsg.format("singleplot"))
         
-        # See if figure has been already created
-        fig = kwargs.get("fig", None)
+        # Ensure our one binary flag is actually binary
+        if not isinstance(avg_channels, bool):
+            raise SPYTypeError(avg_channels, varname="avg_channels", expected="bool")
         
-        # If `trials` is `None`, values of other selectors need to match
-        if trials is None:
-            if channels is None:
-                lgl = "one of `channels` or `trials` to be not `None`"
-                act = "both `channels` and `trials` are `None`"
-                raise SPYValueError(legal=lgl, varname="trials/channels", actual=act)
-            if toilim is not None:
-                lgl = "`trials` to be not `None` to perform timing selection"
-                act = "`toilim` was provided but `trials` is `None`"
-                raise SPYValueError(legal=lgl, varname="trials/toilim", actual=act)
-            if avg_trials:
-                msg = "`trials` is `None` but `avg_trials` is `True`. " +\
-                    "Cannot perform trial averaging without trial specification - " +\
-                    "setting ``avg_trials = False``. " 
-                SPYWarning(msg)
-                avg_trials = False
-            if hasattr(fig, "trialPanels"):
-                lgl = "`trials` to be not `None` to append to multi-trial plot"
-                act = "multi-trial plot overlay was requested but `trials` is `None`"
-                raise SPYValueError(legal=lgl, varname="trials/overlay", actual=act)
-        
-        # Don't overlay multi-trial plot on top of avg-trial plot
-        if hasattr(fig, "trialPanels") and avg_trials:
-            lgl = "overlay of multi-trial plot"
-            act = "trial averaging was requested for multi-trial plot overlay"
-            raise SPYValueError(legal=lgl, varname="trials/avg_trials", actual=act)
+        # Pass provided selections on to `Selector` class which performs error 
+        # checking and generates required indexing arrays
+        self._selection = {"trials": trials, 
+                           "channels": channels, 
+                           "toilim": toilim}
         
         # Ensure any optional keywords controlling plotting appearance make sense
         if title is not None:
@@ -501,116 +481,199 @@ class AnalogData(ContinuousData):
         if grid is not None:
             if not isinstance(grid, bool):
                 raise SPYTypeError(grid, varname="grid", expected="bool")
-        
-        # Pass provided selections on to `Selector` class which performs error 
-        # checking and generates required indexing arrays
-        self._selection = {"trials": trials, 
-                           "channels": channels, 
-                           "toilim": toilim}
-        
-        # Adjust selector for special case of not using any trials
+
+        # Get trial/channel count ("raw" plotting constitutes a special case)
         if trials is None:
             nTrials = 0
+            if toilim is not None:
+                lgl = "`trials` to be not `None` to perform timing selection"
+                act = "`toilim` was provided but `trials` is `None`"
+                raise SPYValueError(legal=lgl, varname="trials/toilim", actual=act)
         else:    
             trList = self._selection.trials
             nTrials = len(trList)
-
+        chArr = self.channel[self._selection.channel]
+        nChan = chArr.size
+        
+        # If we're overlaying a multi-channel plot, ensure settings match up; also, 
+        # do not try to overlay on top of multi-panel plots
+        fig = kwargs.get("fig", None)
+        if hasattr(fig, "nTrialPanels") or hasattr(fig, "nChanPanels"):
+            lgl = "single-panel figure"
+            act = "multi-panel figure"
+            raise SPYValueError(legal=lgl, varname="fig", actual=act)
+        if hasattr(fig, "chanOffsets"):
+            if avg_channels:
+                lgl = "multi-channel plot"
+                act = "channel averaging was requested for multi-channel plot overlay"
+                raise SPYValueError(legal=lgl, varname="channels/avg_channels", actual=act)
+            if nChan != len(fig.chanOffsets):
+                lgl = "channel-count matching existing multi-channel panels in figure"
+                act = "{} channels per panel but {} channels for plotting".format(len(fig.chanOffsets), 
+                                                                                  nChan)
+                raise SPYValueError(legal=lgl, varname="channels/channels per panel", actual=act)
+        
         # Prepare indexing list respecting potential non-default `dimord`s
         idx = [slice(None), slice(None)]
         chanIdx = self.dimord.index("channel")
         timeIdx = self.dimord.index("time")
         idx[chanIdx] = self._selection.channel
 
-        # If we're overlaying a multi-panel plot, ensure panel-count matches up
-        if hasattr(fig, "trialPanels"):
-            if nTrials != len(fig.trialPanels):
-                lgl = "number of trials to plot matching existing panels in figure"
-                act = "{} panels but {} trials for plotting".format(len(fig.trialPanels), 
-                                                                    nTrials)
-                raise SPYValueError(legal=lgl, varname="trials/figure panels", actual=act)
-            
-        # If required, construct subplot panel layout or vet provided layout
-        if nTrials > 1 and not avg_trials and fig is None:
-            nrow = kwargs.get("nrow", None)
-            ncol = kwargs.get("ncol", None)
-            nrow, ncol = layout_subplot_panels(nTrials, nrow=nrow, ncol=ncol)
-        
-        # Used for non-overlayed figure titles (both for `avg_trials` = `True`/`False`)
-        chArr = self.channel[self._selection.channel]
-        nChan = chArr.size
+        # Generic titles for figures
+        overlayTitle = "Overlay of {} datasets"
         if nChan > 1:
-            chanStr = "Average of {} channels".format(nChan)
+            chanTitle = "Average of {} channels".format(nChan)
         else:
-            chanStr = "{}".format(chArr[0])
+            chanTitle = chArr[0]
         
-        # Single panel
-        if avg_trials or nTrials == 1:
-            
-            # FIXME: Use `TimelockData` to do this?
-            
-            # Ensure provided timing selection can actually be averaged (leverage 
-            # the fact that `toilim` selections exclusively generate slices)
-            tLengths = np.zeros((nTrials,), dtype=np.intp)
-            for k, tsel in enumerate(self._selection.time):
-                start, stop = tsel.start, tsel.stop
-                if start is None:
-                    start = 0
-                if stop is None:
-                    stop = self._get_time([trList[k]], 
-                                          toilim=[-np.inf, np.inf])[0].stop
-                tLengths[k] = stop - start
-                
-            # For averaging, all `toilim` selections must be of identical length. 
-            # If they aren't close any freshly opened figures and complain appropriately
-            if np.unique(tLengths).size > 1:
-                lgl = "time-selections of equal length for averaging"
-                act = "time-selections of varying length"
-                raise SPYValueError(legal=lgl, varname="toilim/avg_trials", actual=act)
 
-            # Compute channel-/trial-average time-course: 2D array with slice/list
-            # selection does not require fancy indexing - no need to check this here
-            pltArr = np.zeros((tLengths[0],), dtype=self.data.dtype)
+        # Either create new figure or fetch existing
+        if fig is None:
+            fig, ax = plt.subplots(1, tight_layout=True, squeeze=True,
+                                   figsize=pltConfig["singleFigSize"])
+            if nTrials > 0:
+                xLabel = "time [s]"
+            else:
+                xLabel = "samples"
+            ax.set_xlabel(xLabel, size=pltConfig["singleLabelSize"])            
+            ax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
+            ax.autoscale(enable=True, axis="x", tight=True)
+            fig.objCount = 0
+        else:
+            ax, = fig.get_axes()        
+
+        # Single-channel panel        
+        if avg_channels:
+            
+            # Plot entire timecourse
+            if nTrials == 0:        
+                ax.plot(self.data[tuple(idx)].mean(axis=chanIdx).squeeze())
+                if grid is not None:
+                    ax.grid(grid)
+                
+                # Set plot title depending on dataset overlay
+                if fig.objCount == 0:
+                    if title is None:
+                        title = chanTitle
+                    ax.set_title(title, size=pltConfig["singleTitleSize"])
+                else:
+                    handles, labels = ax.get_legend_handles_labels()
+                    ax.legend(handles, labels)
+                    if title is None:
+                        title = overlayTitle.format(len(handles))
+                    ax.set_title(title, size=pltConfig["singleTitleSize"])
+                    
+            # Average across trials
+            else:
+            
+                # Ensure provided timing selection can actually be averaged (leverage 
+                # the fact that `toilim` selections exclusively generate slices)
+                tLengths = np.zeros((nTrials,), dtype=np.intp)
+                for k, tsel in enumerate(self._selection.time):
+                    start, stop = tsel.start, tsel.stop
+                    if start is None:
+                        start = 0
+                    if stop is None:
+                        stop = self._get_time([trList[k]], 
+                                            toilim=[-np.inf, np.inf])[0].stop
+                    tLengths[k] = stop - start
+                    
+                # For averaging, all `toilim` selections must be of identical length. 
+                # If they aren't close any freshly opened figures and complain appropriately
+                if np.unique(tLengths).size > 1:
+                    if fig.objCount == 0:
+                        plt.close(fig)
+                    lgl = "time-selections of equal length for averaging"
+                    act = "time-selections of varying length"
+                    raise SPYValueError(legal=lgl, varname="toilim/avg_trials", actual=act)
+
+                # Compute channel-/trial-average time-course: 2D array with slice/list
+                # selection does not require fancy indexing - no need to check this here
+                pltArr = np.zeros((tLengths[0],), dtype=self.data.dtype)
+                for k, trlno in enumerate(trList):
+                    idx[timeIdx] = self._selection.time[k]
+                    pltArr += self._get_trial(trlno)[tuple(idx)].mean(axis=chanIdx).squeeze()
+                pltArr /= nTrials
+                
+                # The actual plotting command is literally one line...
+                time = self.time[trList[0]][self._selection.time[0]]
+                ax.plot(time , pltArr, label=os.path.basename(self.filename))
+                ax.set_xlim([time[0], time[-1]])
+                if grid is not None:
+                    ax.grid(grid)
+            
+                # Set plot title depending on dataset overlay
+                if fig.objCount == 0:
+                    if title is None:
+                        if nTrials > 1:
+                            trTitle = "{0}across {1} trials".format("averaged " if nChan == 1 else "",
+                                                                  nTrials)
+                        else:
+                            trTitle = "Trial #{}".format(trList[0])
+                        title = "{}, {}".format(chanTitle, trTitle)
+                    ax.set_title(title, size=pltConfig["singleTitleSize"])
+                else:
+                    handles, labels = ax.get_legend_handles_labels()
+                    ax.legend(handles, labels)
+                    if title is None:
+                        title = overlayTitle.format(len(handles))
+                    ax.set_title(title, size=pltConfig["singleTitleSize"])
+        
+        # Multi-channel panel
+        else:
+
+            # Prepare reshaping index to convert the (N,)-`chanOffset` array 
+            # to a row/column vector depending on `dimord`
+            rIdx = [1, 1]
+            rIdx[chanIdx] = nChan
+            rIdx = tuple(rIdx)
+            
+            # If required, compute max amplitude across provided trials + channels
+            if not hasattr(fig, "chanOffsets"):
+                maxAmps = np.zeros((nChan,), dtype=self.data.dtype)
+                tickOffsets = maxAmps.copy()
+                chanSec = np.arange(self.channel.size)[self._selection.channel]
+                for k, chan in enumerate(chanSec):
+                    idx[chanIdx] = chan
+                    pltArr = np.abs(self.data[tuple(idx)].squeeze())
+                    maxAmps[k] = pltArr.max()
+                    tickOffsets[k] = pltArr.mean()
+                fig.chanOffsets = np.cumsum([0] + [maxAmps.max()] * (nChan - 1))
+                fig.tickOffsets = fig.chanOffsets + tickOffsets.mean()
+            
+            # Cycle through panels to plot by-trial multi-channel time-courses
             for k, trlno in enumerate(trList):
                 idx[timeIdx] = self._selection.time[k]
-                pltArr += self._get_trial(trlno)[tuple(idx)].mean(axis=chanIdx).squeeze()
-            pltArr /= nTrials
-            
-            # Prepare new axis or fetch existing
-            if fig:
-                ax, = fig.get_axes()
-            else:
-                fig, ax = plt.subplots(1, tight_layout=True,
-                                          figsize=pltConfig["singleAvgTrialFigSize"])
-                fig.objCount = 0
-                ax.set_xlabel("time [s]", size=pltConfig["singleLabelSize"])
-                ax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
-                
-            # The actual plotting command is literally one line...
-            time = self.time[trList[0]][self._selection.time[0]]
-            ax.plot(time , pltArr, label=os.path.basename(self.filename))
-            ax.set_xlim([time[0], time[-1]])
-            
-            # If grid-line modifier is set, apply it now
-            if grid is not None:
-                ax.grid(grid)
-            
-            # If no plots were present in the current figure, use a fancy title, 
-            # otherwise, the title just references the no. of overlaid objects            
-            if fig.objCount == 0:
-                if title is None:
-                    if nTrials > 1:
-                        trStr = "{0}across {1} trials".format("averaged " if nChan == 1 else "",
-                                                            nTrials)
-                    else:
-                        trStr = "Trial #{}".format(trList[0])
-                        title = "{}, {}".format(chanStr, trStr)
-                ax.set_title(title, size=pltConfig["singleTitleSize"])
-            else:
-                handles, labels = ax.get_legend_handles_labels()
-                ax.legend(handles, labels)
-                if title is None:
-                    title = "Overlay of {} datasets".format(len(handles))
-                ax.set_title(title, size=pltConfig["singleTitleSize"])
+                time = self.time[trList[k]][self._selection.time[k]]
+                pltArr = self._get_trial(trlno)[tuple(idx)]
+                ax_arr[k].plot(time, 
+                                (pltArr + fig.chanOffsets.reshape(rIdx)).reshape(time.size, nChan), 
+                                color=plt.rcParams["axes.prop_cycle"].by_key()["color"][fig.objCount],
+                                label=os.path.basename(self.filename))
+                if grid is not None:
+                    ax_arr[k].grid(grid)
+                    
+                    
+            for k, chan in enumerate(chArr):
+                ax_arr[k].plot(time, pltArr[:, k], label=os.path.basename(self.filename))
+                ax_arr[k].set_xlim([time[0], time[-1]])
+                if grid is not None:
+                    ax_arr[k].grid(grid)
+                    
+                chanSec = np.arange(self.channel.size)[self._selection.channel]
+                for k, chan in enumerate(chanSec):
+                    idx[chanIdx] = chan
+                    ax_arr[k].plot(self.data[tuple(idx)].squeeze(),
+                                   label=os.path.basename(self.filename))
+                    if grid is not None:
+                        ax_arr[k].grid(grid)
+                    
+
+
+            # Plot entire timecourses
+            if nTrials == 0:
+                pass
+        
          
         # Multi-panel   
         elif nTrials > 1:
@@ -676,7 +739,7 @@ class AnalogData(ContinuousData):
                 handles, labels = ax.get_legend_handles_labels()
                 ax.legend(handles, labels)
                 if title is None:
-                    title = "Overlay of {} datasets".format(len(handles))
+                    title = overlayTitle.format(len(handles))
                 fig.suptitle(title, size=pltConfig["singleTitleSize"])
 
         # Single panel "raw"                
@@ -706,7 +769,7 @@ class AnalogData(ContinuousData):
                 handles, labels = ax.get_legend_handles_labels()
                 ax.legend(handles, labels)
                 if title is None:
-                    title = "Overlay of {} datasets".format(len(handles))
+                    title = overlayTitle.format(len(handles))
                 ax.set_title(title, size=pltConfig["singleTitleSize"])
                 
         # Increment overlay-counter and draw figure
@@ -729,18 +792,18 @@ class AnalogData(ContinuousData):
         if not __plt__:
             raise SPYError(pltErrMsg.format("multiplot"))
         
-        # Pass provided selections on to `Selector` class which performs error 
-        # checking and generates required indexing arrays
-        self._selection = {"trials": trials, 
-                           "channels": channels, 
-                           "toilim": toilim}
-        
         # Ensure binary flags are in fact binary
         vNames = ["avg_trials", "avg_channels"]
         for k, flag in enumerate([avg_trials, avg_channels]):
             if not isinstance(flag, bool):
                 raise SPYTypeError(flag, varname=vNames[k], expected="bool")
 
+        # Pass provided selections on to `Selector` class which performs error 
+        # checking and generates required indexing arrays
+        self._selection = {"trials": trials, 
+                           "channels": channels, 
+                           "toilim": toilim}
+        
         # Ensure any optional keywords controlling plotting appearance make sense
         if title is not None:
             if not isinstance(title, str):
@@ -810,6 +873,9 @@ class AnalogData(ContinuousData):
         chanIdx = self.dimord.index("channel")
         timeIdx = self.dimord.index("time")
         idx[chanIdx] = self._selection.channel
+        
+        # Generic title for overlay figures
+        overlayTitle = "Overlay of {} datasets"
 
         # Either construct subplot panel layout/vet provided layout or fetch existing
         if fig is None:
@@ -934,7 +1000,7 @@ class AnalogData(ContinuousData):
                 handles, labels = ax.get_legend_handles_labels()
                 ax.legend(handles, labels)
                 if title is None:
-                    title = "Overlay of {} datasets".format(len(handles))
+                    title = overlayTitle.format(len(handles))
                 fig.suptitle(title, size=pltConfig["singleTitleSize"])
                 
         # Panels correspond to trials
@@ -969,14 +1035,14 @@ class AnalogData(ContinuousData):
                 handles, labels = ax.get_legend_handles_labels()
                 ax.legend(handles, labels)
                 if title is None:
-                    title = "Overlay of {} datasets".format(len(handles))
+                    title = overlayTitle.format(len(handles))
                 fig.suptitle(title, size=pltConfig["singleTitleSize"])
 
         # Panels correspond to channels (if `trials` is `None`) otherwise trials
         elif not avg_trials and not avg_channels:
             
             # Plot each channel in separate panel
-            if trials is None:
+            if nTrials == 0:
                 chanSec = np.arange(self.channel.size)[self._selection.channel]
                 for k, chan in enumerate(chanSec):
                     idx[chanIdx] = chan
@@ -1001,7 +1067,7 @@ class AnalogData(ContinuousData):
                     handles, labels = ax.get_legend_handles_labels()
                     ax.legend(handles, labels)
                     if title is None:
-                        title = "Overlay of {} datasets".format(len(handles))
+                        title = overlayTitle.format(len(handles))
                     fig.suptitle(title, size=pltConfig["singleTitleSize"])
             
             # Each trial gets its own panel w/multiple channels per panel
@@ -1063,12 +1129,13 @@ class AnalogData(ContinuousData):
                     ax.legend(handles[ : : (nChan + 1)], 
                               labels[ : : (nChan + 1)])
                     if title is None:
-                        title = "Overlay of {} datasets".format(len(handles))
+                        title = overlayTitle.format(len(handles))
                     fig.suptitle(title, size=pltConfig["singleTitleSize"])
         
-        # Increment overlay-counter and draw figure
+        # Increment overlay-counter, draw figure and wipe data-selection slot
         fig.objCount += 1
         plt.draw()
+        data._selection = None
 
     # "Constructor"
     def __init__(self,
