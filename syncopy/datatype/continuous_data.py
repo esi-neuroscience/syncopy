@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-14 18:19:53>
+# Last modification time: <2020-04-15 12:04:21>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -30,6 +30,7 @@ from syncopy.plotting.spy_plotting import pltErrMsg, pltConfig
 from syncopy import __plt__
 if __plt__:
     import matplotlib.pyplot as plt
+    import matplotlib as mpl
 
 __all__ = ["AnalogData", "SpectralData"]
 
@@ -621,10 +622,10 @@ class AnalogData(ContinuousData):
                 nrow, ncol = ax_arr[0].numRows, ax_arr[0].numCols
             else:
                 (fig, ax_arr) = plt.subplots(nrow, ncol, constrained_layout=False,
-                                                gridspec_kw={"wspace": 0, "hspace": 0.35,
-                                                             "left": 0.05, "right": 0.97},
-                                                figsize=pltConfig["singleMultiTrialFigSize"],
-                                                sharey=True, squeeze=False)
+                                             gridspec_kw={"wspace": 0, "hspace": 0.35,
+                                                          "left": 0.05, "right": 0.97},
+                                             figsize=pltConfig["singleMultiTrialFigSize"],
+                                             sharey=True, squeeze=False)
 
                 # Show xlabel only on bottom panel row
                 for col in range(ncol):
@@ -843,12 +844,18 @@ class AnalogData(ContinuousData):
                 xLabel = "samples"
             for col in range(ncol):
                 ax_arr[-1, col].set_xlabel(xLabel, size=pltConfig["multiLabelSize"])
+                
+            # Omit first x-tick in all panels except first panel-row
+            for row in range(nrow):
+                for col in range(1, ncol):
+                    ax_arr[row, col].xaxis.get_major_locator().set_params(prune="lower")
                     
             # Flatten axis array to make counting a little easier in here and make
             # any surplus panels as unobtrusive as possible
             ax_arr = ax_arr.flatten(order="C")
             for ax in ax_arr:
                 ax.tick_params(axis="both", labelsize=pltConfig["multiTickSize"])
+                ax.autoscale(enable=True, axis="x", tight=True)
             for k in range(npanels, nrow * ncol):
                 ax_arr[k].set_xticks([])
                 ax_arr[k].set_yticks([])
@@ -905,7 +912,6 @@ class AnalogData(ContinuousData):
             time = self.time[trList[k]][self._selection.time[0]]
             for k, chan in enumerate(chArr):
                 ax_arr[k].plot(time, pltArr[:, k], label=os.path.basename(self.filename))
-                ax_arr[k].set_xlim([time[0], time[-1]])
                 if grid is not None:
                     ax_arr[k].grid(grid)
                 
@@ -914,7 +920,6 @@ class AnalogData(ContinuousData):
             if fig.objCount == 0:
                 for k, chan in enumerate(chArr):
                     ax_arr[k].set_title(chan, size=pltConfig["multiTitleSize"])
-                    ax_arr[k].set_xticks(ax_arr[k].get_xticks()[int((k % ncol) > 0):])
                 fig.nChanPanels = nChan
                 if title is None:
                     if nTrials > 1:
@@ -942,7 +947,6 @@ class AnalogData(ContinuousData):
                 ax_arr[k].plot(time, 
                                self._get_trial(trlno)[tuple(idx)].mean(axis=chanIdx).squeeze(),
                                label=os.path.basename(self.filename))
-                ax_arr[k].set_xlim([time[0], time[-1]])
                 if grid is not None:
                     ax_arr[k].grid(grid)
 
@@ -951,7 +955,6 @@ class AnalogData(ContinuousData):
             if fig.objCount == 0:
                 for k, trlno in enumerate(trList):
                     ax_arr[k].set_title("Trial #{}".format(trlno), size=pltConfig["multiTitleSize"])
-                    ax_arr[k].set_xticks(ax_arr[k].get_xticks()[int((k % ncol) > 0):])
                 fig.nTrialPanels = nTrials
                 if title is None:
                     if nChan > 1:
@@ -987,7 +990,6 @@ class AnalogData(ContinuousData):
                 if fig.objCount == 0:
                     for k, chan in enumerate(chArr):
                         ax_arr[k].set_title(chan, size=pltConfig["multiTitleSize"])
-                        ax_arr[k].set_xticks(ax_arr[k].get_xticks()[int((k % ncol) > 0):])
                     fig.nChanPanels = nChan
                     if title is None:
                         title = "Entire Data Timecourse"
@@ -1014,10 +1016,14 @@ class AnalogData(ContinuousData):
                 # If required, compute max amplitude across provided trials + channels
                 if not hasattr(fig, "chanOffsets"):
                     maxAmps = np.zeros((nTrials,), dtype=self.data.dtype)
+                    tickOffsets = maxAmps.copy()
                     for k, trlno in enumerate(trList):
                         idx[timeIdx] = self._selection.time[k]
-                        maxAmps[k] = np.abs(self._get_trial(trlno)[tuple(idx)]).max()
+                        pltArr = np.abs(self._get_trial(trlno)[tuple(idx)])
+                        maxAmps[k] = pltArr.max()
+                        tickOffsets[k] = pltArr.mean()
                     fig.chanOffsets = np.cumsum([0] + [maxAmps.max()] * (nChan - 1))
+                    fig.tickOffsets = fig.chanOffsets + tickOffsets.mean()
                 
                 # Cycle through panels to plot by-trial multi-channel time-courses
                 for k, trlno in enumerate(trList):
@@ -1028,18 +1034,19 @@ class AnalogData(ContinuousData):
                                    (pltArr + fig.chanOffsets.reshape(rIdx)).reshape(time.size, nChan), 
                                    color=plt.rcParams["axes.prop_cycle"].by_key()["color"][fig.objCount],
                                    label=os.path.basename(self.filename))
-                    ax_arr[k].set_xlim([time[0], time[-1]])
                     if grid is not None:
                         ax_arr[k].grid(grid)
 
                 # If we're overlaying datasets, adjust panel- and sup-titles: include
                 # legend in top-right axis (note: `ax_arr` is row-major flattened)
+                # Note: y-axis is shared across panels, so `yticks` need only be set once
                 if fig.objCount == 0:
                     for k, trlno in enumerate(trList):
                         ax_arr[k].set_title("Trial #{}".format(trlno), size=pltConfig["multiTitleSize"])
-                        ax_arr[k].set_xticks(ax_arr[k].get_xticks()[int((k % ncol) > 0):])
-                        ax_arr[k].set_yticks(fig.chanOffsets)
-                        ax_arr[k].set_yticklabels(chArr)
+                    ax_arr[0].set_yticks(fig.tickOffsets)
+                    ax_arr[0].set_yticklabels(chArr)
+                    for i in range(k + 1, nrow * ncol):
+                        ax_arr[i].tick_params(axis="both", length=0, width=0)
                     fig.nTrialPanels = nTrials
                     if title is None:
                         if nChan > 1:
@@ -1050,10 +1057,11 @@ class AnalogData(ContinuousData):
                 else:
                     for k, trlno in enumerate(trList):
                         ax_arr[k].set_title("{0}/#{1}".format(ax_arr[k].get_title(), trlno))
-                        ax_arr[k].set_yticklabels([" "] * chArr.size)
+                    ax_arr[0].set_yticklabels([" "] * chArr.size)
                     ax = ax_arr[ncol - 1]
                     handles, labels = ax.get_legend_handles_labels()
-                    ax.legend(handles, labels)
+                    ax.legend(handles[ : : (nChan + 1)], 
+                              labels[ : : (nChan + 1)])
                     if title is None:
                         title = "Overlay of {} datasets".format(len(handles))
                     fig.suptitle(title, size=pltConfig["singleTitleSize"])

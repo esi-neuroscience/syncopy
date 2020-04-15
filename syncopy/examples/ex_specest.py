@@ -58,6 +58,7 @@ if __name__ == "__main__":
     data.multiplot(trials=[5,9,100], channels=channels, toilim=toilim, fig=plt.gcf())
     plt.pause(1.0)
     data.multiplot(trials=trials, channels=channels, toilim=toilim, avg_trials=False)
+    # sys.exit()
     plt.pause(1.0)
     data.multiplot(trials=[5,9,100], channels=channels, toilim=toilim, fig=plt.gcf(), avg_trials=False)
     plt.pause(1.0)
@@ -74,6 +75,29 @@ if __name__ == "__main__":
     data.multiplot(trials=trials, channels=channels, toilim=toilim, grid=True, title="grid is true")
     
     sys.exit()
+    
+    # # relevant for tests...    
+    # data.multiplot(trials=trials, channels=channels, toilim=toilim)
+    # plt.pause(1.0)
+    # data.multiplot(trials=[5,9,100], channels=channels, toilim=toilim, fig=plt.gcf())
+    # plt.pause(1.0)
+    # data.multiplot(trials=trials, channels=channels, toilim=toilim, avg_trials=False)
+    # plt.pause(1.0)
+    # data.multiplot(trials=[5,9,100], channels=channels, toilim=toilim, fig=plt.gcf(), avg_trials=False)
+    # plt.pause(1.0)
+    # data.multiplot(trials=[81, 82, 83], channels=channels, toilim=toilim, fig=plt.gcf(), avg_trials=False)
+    # plt.pause(1.0)
+    # data.multiplot(trials=None, channels=channels)
+    # plt.pause(1.0)
+    # data.multiplot(trials=np.arange(8), channels=channels, toilim=toilim, avg_trials=False)
+    # # sys.exit()
+    # plt.pause(1.0)
+    # data.multiplot(trials=np.arange(100, 120), channels=channels, toilim=toilim, avg_trials=False)
+    # plt.pause(1.0)
+    # data.multiplot(trials=trials, channels=channels, toilim=toilim, grid=False, title="grid is false")
+    # plt.pause(1.0)
+    # data.multiplot(trials=trials, channels=channels, toilim=toilim, grid=True, title="grid is true")
+    
     # client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")
     # client = dd.Client()
 
