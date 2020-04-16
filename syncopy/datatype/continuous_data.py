@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-15 17:17:33>
+# Last modification time: <2020-04-16 17:41:20>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -458,6 +458,8 @@ class AnalogData(ContinuousData):
             fig
             nrow
             ncol
+            
+        return fig!
         """
         
         # FIXME: maybe summarize this part in a `plotting_parser(...)`?
@@ -519,13 +521,26 @@ class AnalogData(ContinuousData):
         timeIdx = self.dimord.index("time")
         idx[chanIdx] = self._selection.channel
 
+        # Ensure provided timing selection can actually be averaged (leverage 
+        # the fact that `toilim` selections exclusively generate slices)
+        if nTrials > 0:
+            tLengths = np.zeros((nTrials,), dtype=np.intp)
+            for k, tsel in enumerate(self._selection.time):
+                start, stop = tsel.start, tsel.stop
+                if start is None:
+                    start = 0
+                if stop is None:
+                    stop = self._get_time([trList[k]], 
+                                          toilim=[-np.inf, np.inf])[0].stop
+                tLengths[k] = stop - start
+            if np.unique(tLengths).size > 1:
+                # import ipdb; ipdb.set_trace()
+                lgl = "time-selections of equal length for averaging"
+                act = "time-selections of varying length"
+                raise SPYValueError(legal=lgl, varname="toilim/avg_trials", actual=act)
+
         # Generic titles for figures
         overlayTitle = "Overlay of {} datasets"
-        if nChan > 1:
-            chanTitle = "Average of {} channels".format(nChan)
-        else:
-            chanTitle = chArr[0]
-        
 
         # Either create new figure or fetch existing
         if fig is None:
@@ -544,6 +559,12 @@ class AnalogData(ContinuousData):
 
         # Single-channel panel        
         if avg_channels:
+
+            # Set up pieces of generic figure titles
+            if nChan > 1:
+                chanTitle = "Average of {} channels".format(nChan)
+            else:
+                chanTitle = chArr[0]
             
             # Plot entire timecourse
             if nTrials == 0:        
@@ -566,27 +587,6 @@ class AnalogData(ContinuousData):
             # Average across trials
             else:
             
-                # Ensure provided timing selection can actually be averaged (leverage 
-                # the fact that `toilim` selections exclusively generate slices)
-                tLengths = np.zeros((nTrials,), dtype=np.intp)
-                for k, tsel in enumerate(self._selection.time):
-                    start, stop = tsel.start, tsel.stop
-                    if start is None:
-                        start = 0
-                    if stop is None:
-                        stop = self._get_time([trList[k]], 
-                                            toilim=[-np.inf, np.inf])[0].stop
-                    tLengths[k] = stop - start
-                    
-                # For averaging, all `toilim` selections must be of identical length. 
-                # If they aren't close any freshly opened figures and complain appropriately
-                if np.unique(tLengths).size > 1:
-                    if fig.objCount == 0:
-                        plt.close(fig)
-                    lgl = "time-selections of equal length for averaging"
-                    act = "time-selections of varying length"
-                    raise SPYValueError(legal=lgl, varname="toilim/avg_trials", actual=act)
-
                 # Compute channel-/trial-average time-course: 2D array with slice/list
                 # selection does not require fancy indexing - no need to check this here
                 pltArr = np.zeros((tLengths[0],), dtype=self.data.dtype)
@@ -607,7 +607,7 @@ class AnalogData(ContinuousData):
                     if title is None:
                         if nTrials > 1:
                             trTitle = "{0}across {1} trials".format("averaged " if nChan == 1 else "",
-                                                                  nTrials)
+                                                                    nTrials)
                         else:
                             trTitle = "Trial #{}".format(trList[0])
                         title = "{}, {}".format(chanTitle, trTitle)
@@ -622,159 +622,97 @@ class AnalogData(ContinuousData):
         # Multi-channel panel
         else:
 
-            # Prepare reshaping index to convert the (N,)-`chanOffset` array 
-            # to a row/column vector depending on `dimord`
-            rIdx = [1, 1]
-            rIdx[chanIdx] = nChan
-            rIdx = tuple(rIdx)
-            
-            # If required, compute max amplitude across provided trials + channels
-            if not hasattr(fig, "chanOffsets"):
-                maxAmps = np.zeros((nChan,), dtype=self.data.dtype)
-                tickOffsets = maxAmps.copy()
-                chanSec = np.arange(self.channel.size)[self._selection.channel]
-                for k, chan in enumerate(chanSec):
-                    idx[chanIdx] = chan
-                    pltArr = np.abs(self.data[tuple(idx)].squeeze())
-                    maxAmps[k] = pltArr.max()
-                    tickOffsets[k] = pltArr.mean()
-                fig.chanOffsets = np.cumsum([0] + [maxAmps.max()] * (nChan - 1))
-                fig.tickOffsets = fig.chanOffsets + tickOffsets.mean()
-            
-            # Cycle through panels to plot by-trial multi-channel time-courses
-            for k, trlno in enumerate(trList):
-                idx[timeIdx] = self._selection.time[k]
-                time = self.time[trList[k]][self._selection.time[k]]
-                pltArr = self._get_trial(trlno)[tuple(idx)]
-                ax_arr[k].plot(time, 
-                                (pltArr + fig.chanOffsets.reshape(rIdx)).reshape(time.size, nChan), 
-                                color=plt.rcParams["axes.prop_cycle"].by_key()["color"][fig.objCount],
-                                label=os.path.basename(self.filename))
-                if grid is not None:
-                    ax_arr[k].grid(grid)
-                    
-                    
-            for k, chan in enumerate(chArr):
-                ax_arr[k].plot(time, pltArr[:, k], label=os.path.basename(self.filename))
-                ax_arr[k].set_xlim([time[0], time[-1]])
-                if grid is not None:
-                    ax_arr[k].grid(grid)
-                    
-                chanSec = np.arange(self.channel.size)[self._selection.channel]
-                for k, chan in enumerate(chanSec):
-                    idx[chanIdx] = chan
-                    ax_arr[k].plot(self.data[tuple(idx)].squeeze(),
-                                   label=os.path.basename(self.filename))
-                    if grid is not None:
-                        ax_arr[k].grid(grid)
-                    
-
-
-            # Plot entire timecourses
+            # "Raw" data, do not respect any trials
             if nTrials == 0:
-                pass
-        
-         
-        # Multi-panel   
-        elif nTrials > 1:
             
-            # Prepare new axes or fetch existing (layout is optimized for one to 
-            # two panel rows)
-            if fig:
-                ax_arr = fig.get_axes()
-                nrow, ncol = ax_arr[0].numRows, ax_arr[0].numCols
-            else:
-                (fig, ax_arr) = plt.subplots(nrow, ncol, constrained_layout=False,
-                                             gridspec_kw={"wspace": 0, "hspace": 0.35,
-                                                          "left": 0.05, "right": 0.97},
-                                             figsize=pltConfig["singleMultiTrialFigSize"],
-                                             sharey=True, squeeze=False)
+                # If required, compute max amplitude across provided channels
+                if not hasattr(fig, "chanOffsets"):
+                    maxAmps = np.zeros((nChan,), dtype=self.data.dtype)
+                    tickOffsets = maxAmps.copy()
+                    chanSec = np.arange(self.channel.size)[self._selection.channel]
+                    for k, chan in enumerate(chanSec):
+                        idx[chanIdx] = chan
+                        pltArr = np.abs(self.data[tuple(idx)].squeeze())
+                        maxAmps[k] = pltArr.max()
+                        tickOffsets[k] = pltArr.mean()
+                    fig.chanOffsets = np.cumsum([0] + [maxAmps.max()] * (nChan - 1))
+                    fig.tickOffsets = fig.chanOffsets + tickOffsets.mean()
 
-                # Show xlabel only on bottom panel row
-                for col in range(ncol):
-                    ax_arr[-1, col].set_xlabel("time [s]", size=pltConfig["singleLabelSize"])
-                    
-                # Flatten axis array to make counting a little easier in here
-                ax_arr = ax_arr.flatten(order="C")
-                
-                # Format axes that will actually contain something
-                for k, trlno in enumerate(trList):
-                    ax_arr[k].set_title("Trial #{}".format(trlno), size=pltConfig["singleTitleSize"])
-                    ax_arr[k].tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
-                
-                # Make any remainders as unobtrusive as possible
-                for j in range(k + 1, nrow * ncol):
-                    ax_arr[j].set_xticks([])
-                    ax_arr[j].set_yticks([])
-                    ax_arr[j].set_xlabel("")
-                    for spine in ax_arr[j].spines.values():
-                        spine.set_visible(False)
-                ax_arr[min(k + 1, nrow * ncol - 1)].spines["left"].set_visible(True)
+                # Do not plot all at once but cycle through channels to not overflow memory            
+                for k, chan in enumerate(chanSec):
+                    idx[chanIdx] = chan
+                    ax.plot(self.data[tuple(idx)].squeeze() + fig.chanOffsets[k],
+                            color=plt.rcParams["axes.prop_cycle"].by_key()["color"][fig.objCount],
+                            label=os.path.basename(self.filename))
+                    if grid is not None:
+                        ax.grid(grid)
                         
-                fig.objCount = 0
-                fig.trialPanels = list(trList)
-                    
-            # Cycle through panels to plot by-trial channel(-averaged) data
-            for k, trlno in enumerate(trList):
-                idx[timeIdx] = self._selection.time[k]
-                time = self.time[trList[k]][self._selection.time[k]]
-                ax_arr[k].plot(time, 
-                               self._get_trial(trlno)[tuple(idx)].mean(axis=chanIdx).squeeze(),
-                               label=os.path.basename(self.filename))
-                ax_arr[k].set_xlim([time[0], time[-1]])
-                ax_arr[k].set_xticks(ax_arr[k].get_xticks()[int(k > 0):])
-                if grid is not None:
-                    ax_arr[k].grid(grid)
-                
-            # If we're overlaying datasets, adjust panel- and sup-titles: include
-            # legend in top-right axis (note: `ax_arr` is row-major flattened)
-            if fig.objCount == 0:
-                if title is None:
-                    title = chanStr
-                fig.suptitle(title, size=pltConfig["singleTitleSize"])
+                # Set plot title depending on dataset overlay
+                if fig.objCount == 0:
+                    if title is None:
+                        if nChan > 1:
+                            title = "Entire Data Timecourse of {} channels".format(nChan)
+                        else:
+                            title = "Entire Data Timecourse of {}".format(chArr[0])
+                    ax.set_title(title, size=pltConfig["singleTitleSize"])
+                else:
+                    handles, labels = ax.get_legend_handles_labels()
+                    ax.legend(handles[ : : (nChan + 1)], 
+                              labels[ : : (nChan + 1)])
+                    if title is None:
+                        title = overlayTitle.format(len(handles))
+                    ax.set_title(title, size=pltConfig["singleTitleSize"])
+
+            # Average across trial(s)
             else:
+
+                # Prepare reshaping index to convert the (N,)-`chanOffset` array 
+                # to a row/column vector depending on `dimord`
+                rIdx = [1, 1]
+                rIdx[chanIdx] = nChan
+                rIdx = tuple(rIdx)
+
+                # Compute trial-average                
+                pltArr = np.zeros((tLengths[0], nChan), dtype=self.data.dtype)
                 for k, trlno in enumerate(trList):
-                    ax_arr[k].set_title("{0}/#{1}".format(ax_arr[k].get_title(), trlno))
-                ax = ax_arr[ncol - 1]
-                handles, labels = ax.get_legend_handles_labels()
-                ax.legend(handles, labels)
-                if title is None:
-                    title = overlayTitle.format(len(handles))
-                fig.suptitle(title, size=pltConfig["singleTitleSize"])
+                    idx[timeIdx] = self._selection.time[k]
+                    pltArr += self._get_trial(trlno)[tuple(idx)]
+                pltArr /= nTrials
 
-        # Single panel "raw"                
-        else:
-            
-            # Prepare new axis or fetch existing
-            if fig:
-                ax, = fig.get_axes()
-            else:
-                fig, ax = plt.subplots(1, tight_layout=True,
-                                          figsize=pltConfig["singleAvgTrialFigSize"])
-                fig.objCount = 0
-                ax.set_xlabel("samples", size=pltConfig["singleLabelSize"])
-                ax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
+                # If required, compute offsets for multi-channel plot
+                if not hasattr(fig, "chanOffsets"):
+                    fig.chanOffsets = np.cumsum([0] + [np.abs(pltArr).max()] * (nChan - 1))
+                    fig.tickOffsets = fig.chanOffsets + np.abs(pltArr).mean()
 
-            # Plot entire time-course of selected channel(s)                
-            ax.plot(self.data[tuple(idx)].mean(axis=chanIdx).squeeze())
-            if grid is not None:
-                ax.grid(grid)
-            
-            # Set plot title depending on dataset overlay
-            if fig.objCount == 0:
-                if title is None:
-                    title = chanStr
-                ax.set_title(title, size=pltConfig["singleTitleSize"])
-            else:
-                handles, labels = ax.get_legend_handles_labels()
-                ax.legend(handles, labels)
-                if title is None:
-                    title = overlayTitle.format(len(handles))
-                ax.set_title(title, size=pltConfig["singleTitleSize"])
-                
+                # Plot the entire trial-averaged array at once
+                time = self.time[trList[0]][self._selection.time[0]]
+                ax.plot(time, 
+                        (pltArr + fig.chanOffsets.reshape(rIdx)).reshape(time.size, nChan),
+                        color=plt.rcParams["axes.prop_cycle"].by_key()["color"][fig.objCount],
+                        label=os.path.basename(self.filename))
+                if grid is not None:
+                    ax.grid(grid)
+                        
+                # Set plot title depending on dataset overlay
+                if fig.objCount == 0:
+                    if title is None:
+                        title = "{0} channels {1}across {2} trials".format(nChan, 
+                                                                           "averaged " if nTrials > 1 else "",
+                                                                           nTrials)
+                    ax.set_title(title, size=pltConfig["singleTitleSize"])
+                else:
+                    handles, labels = ax.get_legend_handles_labels()
+                    ax.legend(handles[ : : (nChan + 1)], 
+                              labels[ : : (nChan + 1)])
+                    if title is None:
+                        title = overlayTitle.format(len(handles))
+                    ax.set_title(title, size=pltConfig["singleTitleSize"])
+        
         # Increment overlay-counter and draw figure
         fig.objCount += 1
         plt.draw()
+        self._selection = None
+        return fig
         
     # Visualize data using a multi-panel plot
     def multiplot(self, trials="all", channels="all", toilim=None, avg_trials=True,
@@ -786,6 +724,8 @@ class AnalogData(ContinuousData):
         avg_trial = False -> multi panel plot
         
         avg_channel = avg_trial = False -> multi-panel multi-line plot
+        
+        return fig!
         """
         
         # FIXME: maybe summarize this part in a `plotting_parser(...)`?
@@ -1135,7 +1075,8 @@ class AnalogData(ContinuousData):
         # Increment overlay-counter, draw figure and wipe data-selection slot
         fig.objCount += 1
         plt.draw()
-        data._selection = None
+        self._selection = None
+        return fig
 
     # "Constructor"
     def __init__(self,

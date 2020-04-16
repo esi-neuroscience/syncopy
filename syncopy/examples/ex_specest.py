@@ -52,6 +52,18 @@ if __name__ == "__main__":
                        "channels": channels, 
                        "toilim": toilim}
 
+    # all-all average (FIXME: use toilim=None for datasets of identically spaced trials)
+    ff = data.singleplot(toilim=[-0.1, 0.2])
+    # plt.gcf().savefig("test.png")
+    # data.selectdata(toilim=[-0.1, 0.2]).singleplot()
+    # plt.gcf().savefig("test2.png")
+    # print(np.array_equal(plt.imread("test.png"), plt.imread("test2.png")))
+    # sys.exit()
+    
+    plt.pause(1.0)
+    aa = data.singleplot(trials=trials, toilim=toilim, fig=plt.gcf())
+    sys.exit()
+
     # relevant for tests...    
     data.multiplot(trials=trials, channels=channels, toilim=toilim)
     plt.pause(1.0)
