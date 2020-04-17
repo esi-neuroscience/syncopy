@@ -136,3 +136,15 @@ def construct_spy_filename(basepath, obj):
     basename = os.path.split(basepath)[1]
     objext = _data_classname_to_extension(obj.__class__.__name__)
     return os.path.join(basepath + FILE_EXT["dir"], basename + objext)
+
+    
+def compare_figs(fig1, fig2, tol=0):
+    """
+    Coming soon...
+    """
+    with tempfile.NamedTemporaryFile(suffix='.png') as img1:
+        with tempfile.NamedTemporaryFile(suffix='.png') as img2:
+            fig1.savefig(img1.name)
+            fig2.savefig(img2.name)
+            return np.array_equal(plt.imread(img1.name), plt.imread(img2.name))
+    

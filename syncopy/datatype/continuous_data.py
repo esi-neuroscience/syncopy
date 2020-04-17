@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-16 17:41:20>
+# Last modification time: <2020-04-17 18:15:39>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -559,7 +559,7 @@ class AnalogData(ContinuousData):
 
         # Single-channel panel        
         if avg_channels:
-
+            
             # Set up pieces of generic figure titles
             if nChan > 1:
                 chanTitle = "Average of {} channels".format(nChan)
@@ -567,8 +567,18 @@ class AnalogData(ContinuousData):
                 chanTitle = chArr[0]
             
             # Plot entire timecourse
-            if nTrials == 0:        
-                ax.plot(self.data[tuple(idx)].mean(axis=chanIdx).squeeze())
+            if nTrials == 0:
+                
+                # Do not fetch entire dataset at once, but channel by channel
+                chanSec = np.arange(self.channel.size)[self._selection.channel]
+                pltArr = np.zeros((self.data.shape[timeIdx],), dtype=self.data.dtype)
+                for chan in chanSec:
+                    idx[chanIdx] = chan
+                    pltArr += self.data[tuple(idx)].squeeze()
+                pltArr /= nChan
+
+                # The actual plotting command...
+                ax.plot(pltArr)
                 if grid is not None:
                     ax.grid(grid)
                 
@@ -654,6 +664,8 @@ class AnalogData(ContinuousData):
                             title = "Entire Data Timecourse of {} channels".format(nChan)
                         else:
                             title = "Entire Data Timecourse of {}".format(chArr[0])
+                    ax.set_yticks(fig.tickOffsets)
+                    ax.set_yticklabels(chArr)
                     ax.set_title(title, size=pltConfig["singleTitleSize"])
                 else:
                     handles, labels = ax.get_legend_handles_labels()

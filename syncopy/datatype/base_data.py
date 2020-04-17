@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-12 10:05:39>
+# Last modification time: <2020-04-17 17:32:14>
 
 
 # Builtin/3rd party package imports
@@ -1160,8 +1160,6 @@ class Selector():
         
           Class name of `data`
         
-          If `True`, selection requires "fancy" (or "advanced") array indexing
-          
         * `_samplerate` : float
         
           Samplerate of `data` (only relevant for objects supporting time-selections)

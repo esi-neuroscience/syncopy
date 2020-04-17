@@ -39,6 +39,8 @@ if __name__ == "__main__":
                                        nChannels=nChannels,
                                        equidistant=True,
                                        overlapping=True)
+    
+    dataReg.singleplot(trials=None, channels=[14, 13, 12, 12, 15], avg_channels=False)
     sys.exit()
     
     data = spy.load("~/Documents/job/SyNCoPy/Data/testdata.spy")
