@@ -10,11 +10,16 @@ import subprocess
 import sys
 import os
 import h5py
+import tempfile
 import numpy as np
 
 # Local imports
 from syncopy.datatype import AnalogData
 from syncopy.shared.filetypes import _data_classname_to_extension, FILE_EXT
+from syncopy import __plt__
+if __plt__:
+    import matplotlib.pyplot as plt
+
 
 def is_win_vm():
     """
@@ -100,10 +105,10 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True,
     # Define by-trial offsets to generate (non-)equidistant/(non-)overlapping trials
     trialdefinition = np.zeros((nTrials, 3), dtype='int')
     if equidistant:
-        if not overlapping:
-            offsets = np.zeros((nTrials,), dtype=sig.dtype)
-        else:
-            offsets = np.full((nTrials,), 100, dtype=sig.dtype)
+        equiOffset = 0
+        if overlapping:
+            equiOffset = 100
+        offsets = np.full((nTrials,), equiOffset, dtype=sig.dtype)
     else:
         offsets = np.random.randint(low=int(0.1*t.size),
                                     high=int(0.2*t.size), size=(nTrials,))
@@ -116,15 +121,18 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True,
         trialdefinition[iTrial, :] = np.array([iTrial*t.size - shift*offsets[iTrial],
                                                (iTrial + 1)*t.size + shift*offsets[iTrial],
                                                1000])
-    trialdefinition[0, 0] = 0
-    trialdefinition[-1, 1] = nTrials*t.size
-
+    if equidistant:
+        trialdefinition[0, :2] += equiOffset
+        trialdefinition[-1, :2] -= equiOffset
+    else:
+        trialdefinition[0, 0] = 0
+        trialdefinition[-1, 1] = nTrials*t.size
     out.definetrial(trialdefinition)
 
     return out
+
 
 def construct_spy_filename(basepath, obj):
     basename = os.path.split(basepath)[1]
     objext = _data_classname_to_extension(obj.__class__.__name__)
     return os.path.join(basepath + FILE_EXT["dir"], basename + objext)
-    

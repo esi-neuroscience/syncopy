@@ -33,8 +33,13 @@ from time import time
 
 if __name__ == "__main__":
 
-    # data = generate_artificial_data(nTrials=2, nChannels=16, 
-    #                                  equidistant=True, inmemory=False)
+    nChannels = 16
+    nTrials = 8
+    dataReg = generate_artificial_data(nTrials=nTrials,
+                                       nChannels=nChannels,
+                                       equidistant=True,
+                                       overlapping=True)
+    sys.exit()
     
     data = spy.load("~/Documents/job/SyNCoPy/Data/testdata.spy")
     
