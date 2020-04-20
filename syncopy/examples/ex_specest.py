@@ -29,7 +29,7 @@ from syncopy.tests.misc import generate_artificial_data
 import dask.distributed as dd
 from time import time
 
-sys.exit()
+# sys.exit()
 
 if __name__ == "__main__":
 
@@ -37,7 +37,7 @@ if __name__ == "__main__":
                                      equidistant=True, inmemory=False)
     
     # data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
-    # sys.exit()
+    sys.exit()
     # client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")
     # client = dd.Client()
 

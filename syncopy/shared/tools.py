@@ -4,7 +4,7 @@
 # 
 # Created: 2020-01-27 13:37:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-11 15:54:09>
+# Last modification time: <2020-04-20 11:01:08>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -66,6 +66,9 @@ def best_match(source, selection, span=False, tol=None, squash_duplicates=False)
         ``lo <= src <= hi for src in source`` (typically used for 
         `toilim`/`foilim`-like selections). 
     tol : None or float
+        If `None` for each component of `selection` the closest value in `source`
+        is selected, e.g., for ``source = [10, 20]`` and ``selection = [-50, 0, 50]``
+        the closest values are `[10, 10, 20]`. 
         If not `None`, ensures values in `selection` do not deviate further 
         than `tol` from `source`. If any element `sel` of `selection` is outside 
         a `tol`-neighborhood around `source`, i.e., 
@@ -118,6 +121,10 @@ def best_match(source, selection, span=False, tol=None, squash_duplicates=False)
     >>> best_match(np.arange(10), [2.9, 6.1], span=True)
     (array([3, 4, 5, 6]), array([3, 4, 5, 6]))
     """
+    
+    # Make `source` a NumPy array if necessary
+    if isinstance(source, list):
+        source = np.array(source)
     
     # Ensure selection is within `tol` bounds from `source`
     if tol is not None:
