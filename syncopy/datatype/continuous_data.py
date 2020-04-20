@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-17 18:15:39>
+# Last modification time: <2020-04-20 11:59:11>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -30,7 +30,6 @@ from syncopy.plotting.spy_plotting import pltErrMsg, pltConfig
 from syncopy import __plt__
 if __plt__:
     import matplotlib.pyplot as plt
-    import matplotlib as mpl
 
 __all__ = ["AnalogData", "SpectralData"]
 
@@ -462,7 +461,7 @@ class AnalogData(ContinuousData):
         return fig!
         """
         
-        # FIXME: maybe summarize this part in a `plotting_parser(...)`?
+        # Abort if matplotlib is not available
         if not __plt__:
             raise SPYError(pltErrMsg.format("singleplot"))
         

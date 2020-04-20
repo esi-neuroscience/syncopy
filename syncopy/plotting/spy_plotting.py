@@ -4,13 +4,14 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-09 16:08:25>
+# Last modification time: <2020-04-20 13:33:15>
 
 # # Builtin/3rd party package imports
 # import tensorlfow
 
 # Local imports
 from syncopy.shared.kwarg_decorators import unwrap_cfg
+from syncopy.shared.errors import SPYError
 from syncopy import __plt__
 
 # Conditional imports
@@ -34,7 +35,7 @@ pltConfig = {"singleTitleSize": 12,
              "multiLegendSize": 8,
              "multiFigSize": (10, 4.8)}
 
-# Global consistent error message if mpl is missing
+# Global consistent error message if matplotlib is missing
 pltErrMsg = "Could not import 'matplotlib': {} requires a working matplotlib installation!"
 
 __all__ = ["singleplot", "multiplot"]
@@ -42,9 +43,10 @@ msg = "Plotting not available"
 
 
 @unwrap_cfg
-def singleplot(data, trials=None, channels=None, toi=None, toilim=None, foi=None,
-               foilim=None, tapers=None, units=None, eventids=None, overlay=False, 
-               out=None, **kwargs):
+def singleplot(data, *args, 
+               trials="all", channels="all", toilim=None, 
+               avg_channels=True, avg_trials=True, 
+               title=None, grid=None, **kwargs):
     """
     Coming soon...
     
@@ -67,9 +69,9 @@ def singleplot(data, trials=None, channels=None, toi=None, toilim=None, foi=None
     If you specify multiple datasets they should contain the same channels, etc.
     """
     
+    # Abort if matplotlib is not available
     if not __plt__:
-        print('ASDF')
-    pass
+        raise SPYError(pltErrMsg.format("singleplot"))
 
 
 @unwrap_cfg
@@ -83,4 +85,7 @@ def multiplot(data, trials=None, channels=None, toi=None, toilim=None, foi=None,
     
     plot(data) with data nSample x nChannel generates nChannel 2DLines 
     """
-    pass
+
+    # Abort if matplotlib is not available
+    if not __plt__:
+        raise SPYError(pltErrMsg.format("multiplot"))
