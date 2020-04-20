@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-17 17:32:14>
+# Last modification time: <2020-04-20 18:18:34>
 
 
 # Builtin/3rd party package imports
@@ -71,6 +71,7 @@ class BaseData(ABC):
     # Dummy allocations of class attributes that are actually initialized in subclasses
     _mode = None
     
+    # Set caller for `SPYWarning` to not have it show up as '<module>' 
     _spwCaller = "BaseData.{}"
     
     @property
@@ -227,8 +228,9 @@ class BaseData(ABC):
                 act = "data with shape {}".format(str(inData.shape))
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             if prop.dtype != inData.dtype:
-                SPYWarning("Input data-type mismatch", 
-                           caller=self._spwCaller.format("data"))
+                lgl = "HDF5 dataset/memmap of type {}".format(self.data.dtype.name)
+                act = "data of type {}".format(inData.dtype.name)
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
             prop[...] = inData
             
         # or create backing container on disk 
