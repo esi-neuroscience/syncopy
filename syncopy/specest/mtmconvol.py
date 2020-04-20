@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-14 21:51:23>
+# Last modification time: <2020-03-09 14:17:16>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -16,6 +16,7 @@ from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.datatype import padding
 import syncopy.specest.freqanalysis as spyfreq
 from syncopy.shared.errors import SPYWarning
+from syncopy.shared.tools import best_match
 
 
 # Local workhorse that performs the computational heavy lifting
@@ -80,13 +81,13 @@ def mtmconvol(
     stftKw["window"] = win[0, :]
     if equidistant:
         freq, _, pxx = signal.stft(dat[soi, :], **stftKw)
-        fIdx = np.searchsorted(freq, foi)
+        _, fIdx = best_match(freq, foi, squash_duplicates=True)
         spec[:, 0, ...] = \
             spyfreq.spectralConversions[output_fmt](
                 pxx.reshape(nTime, nFreq, nChannels))[:, fIdx, :]
     else:
         freq, _, pxx = signal.stft(dat[soi[0], :], **stftKw)
-        fIdx = np.searchsorted(freq, foi)
+        _, fIdx = best_match(freq, foi, squash_duplicates=True)
         spec[0, 0, ...] = \
             spyfreq.spectralConversions[output_fmt](
                 pxx.reshape(nFreq, nChannels))[fIdx, :]

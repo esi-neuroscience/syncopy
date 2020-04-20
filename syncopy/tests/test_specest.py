@@ -104,7 +104,7 @@ class TestMTMFFT():
             sel = Selector(self.adata, select)
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
                                 output="pow", select=select)
-
+            
             chanList = np.arange(self.nChannels)[sel.channel]
             amps = np.empty((len(sel.trials) * len(chanList),))
             k = 0
@@ -125,7 +125,7 @@ class TestMTMFFT():
             # `foi` lims outside valid bounds
             with pytest.raises(SPYValueError):
                 freqanalysis(self.adata, method="mtmfft", taper="hann",
-                             foi=[0.5, self.fs / 3], select=select)
+                             foi=[-0.5, self.fs / 3], select=select)
             with pytest.raises(SPYValueError):
                 freqanalysis(self.adata, method="mtmfft", taper="hann",
                              foi=[1, self.fs], select=select)
@@ -165,7 +165,7 @@ class TestMTMFFT():
 
         # non-equidistant data w/multiple tapers
         artdata = generate_artificial_data(nTrials=5, nChannels=16,
-                                          equidistant=False, inmemory=False)
+                                           equidistant=False, inmemory=False)
         timeAxis = artdata.dimord.index("time")
         cfg = StructDict()
         cfg.method = "mtmfft"
@@ -173,7 +173,7 @@ class TestMTMFFT():
         cfg.tapsmofrq = 9.3
 
         # trigger error for non-equidistant trials w/o padding
-        cfg.pad = None
+        cfg.pad = False
         with pytest.raises(SPYValueError):
             spec = freqanalysis(cfg, artdata)
 
@@ -183,7 +183,7 @@ class TestMTMFFT():
             cfg.pop("pad", None)
             if select is not None and "toi" in select.keys():
                 select["toi"] = self.seed.choice(artdata.time[0], int(artdata.time[0].size))
-                cfg.pad = None
+                cfg.pad = False
             sel = Selector(artdata, select)
             cfg.select = select
 
@@ -218,7 +218,7 @@ class TestMTMFFT():
             cfg.pop("pad", None)
             if select is not None and "toi" in select.keys():
                 select["toi"] = self.seed.choice(cfg.data.time[0], int(cfg.data.time[0].size))
-                cfg.pad = None
+                cfg.pad = False
             sel = Selector(cfg.data, select)
             cfg.select = select
 
@@ -254,7 +254,7 @@ class TestMTMFFT():
             cfg.pop("pad", None)
             if select is not None and "toi" in select.keys():
                 select["toi"] = self.seed.choice(cfg.data.time[0], int(cfg.data.time[0].size))
-                cfg.pad = None
+                cfg.pad = False
             sel = Selector(cfg.data, select)
             cfg.select = select
 

@@ -37,7 +37,7 @@ if __name__ == "__main__":
                                      equidistant=True, inmemory=False)
     
     # data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
-    # sys.exit()
+    sys.exit()
     # client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")
     # client = dd.Client()
 
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     cfg.output = 'pow'
     cfg.tapsmofrq = 20
     cfg.keeptrials = True
-    cfg.keeptapers = False
+    cfg.keeptapers = True
     cfg.toi = np.arange(1.5, 3.5, 0.1) 
     # cfg.toi = [1.1, 1.9, 3.0]
     # cfg.toi = "all"
@@ -146,7 +146,7 @@ if __name__ == "__main__":
     #                  np.ones((int(ns/5), )),
     #                  np.ones((int(ns/5), )) * np.pi]).T
 
-    from syncopy.shared.tools.StructDict
+    from syncopy.shared.tools import StructDict
     from syncopy.datatype import AnalogData, SpectralData, padding
     from syncopy.shared import esi_cluster_setup
 

@@ -3,8 +3,8 @@
 # SynCoPy DiscreteData abstract class + regular children
 # 
 # Created: 2019-03-20 11:20:04
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-24 11:25:08>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2020-03-06 11:20:40>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -19,6 +19,7 @@ from .methods.definetrial import definetrial
 from .methods.selectdata import selectdata
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError
+from syncopy.shared.tools import best_match
 
 __all__ = ["SpikeData", "EventData"]
 
@@ -268,8 +269,7 @@ class DiscreteData(BaseData, ABC):
                 trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
                 minSample = trlSample[np.where(trlTime >= toilim[0])[0][0]]
                 maxSample = trlSample[np.where(trlTime <= toilim[1])[0][-1]]
-                selSample = trlSample[np.intersect1d(np.where(trlSample >= minSample)[0], 
-                                                     np.where(trlSample <= maxSample)[0])]
+                selSample, _ = best_match(trlSample, [minSample, maxSample], span=True)
                 idxList = []
                 for smp in selSample:
                     idxList += list(np.where(thisTrial == smp)[0])
@@ -285,8 +285,7 @@ class DiscreteData(BaseData, ABC):
                 thisTrial = self.data[self.trialid == trlno, self.dimord.index("sample")]
                 trlSample = np.arange(*self.sampleinfo[trlno, :])
                 trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
-                selSample = [min(trlTime.size - 1, idx) 
-                                       for idx in np.searchsorted(trlTime, toi, side="left")]
+                _, selSample = best_match(trlTime, toi)
                 for k, idx in enumerate(selSample):
                     if np.abs(trlTime[idx - 1] - toi[k]) < np.abs(trlTime[idx] - toi[k]):
                         selSample[k] = trlSample[idx -1]

@@ -3,8 +3,8 @@
 # Save SynCoPy data objects on disk
 # 
 # Created: 2019-02-05 13:12:58
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-27 13:28:51>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2020-03-12 10:13:47>
 
 # Builtin/3rd party package imports
 import os
@@ -17,7 +17,7 @@ from collections import OrderedDict
 # Local imports
 from syncopy.shared.filetypes import FILE_EXT
 from syncopy.shared.parsers import filename_parser, data_parser, scalar_parser
-from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYError
+from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYError, SPYWarning
 from syncopy.io.utils import hash_file, startInfoDict
 from syncopy import __storage__
 
@@ -277,13 +277,12 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
             try:
                 h5f.attrs[key] = outDict[key]
             except RuntimeError:
-                msg = "syncopy.save: WARNING >>> Too many entries in `{}` " +\
-                      "- truncating HDF5 attribute. Please refer to {} for " +\
-                      "complete listing. <<<"
+                msg = "Too many entries in `{}` - truncating HDF5 attribute. " +\
+                    "Please refer to {} for complete listing."
                 info_fle = os.path.split(os.path.split(filename.format(ext=FILE_EXT["info"]))[0])[1]
                 info_fle = os.path.join(info_fle, os.path.basename(
                     filename.format(ext=FILE_EXT["info"])))
-                print(msg.format(key, info_fle))
+                SPYWarning(msg.format(key, info_fle))
                 h5f.attrs[key] = [outDict[key][0], "...", outDict[key][-1]]
     
     # Re-assign filename after saving (and remove source in case it came from `__storage__`)

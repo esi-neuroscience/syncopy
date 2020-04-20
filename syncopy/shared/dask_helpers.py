@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-22 12:38:16
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-04 12:59:19>
+# Last modification time: <2020-03-12 10:19:28>
 
 # Builtin/3rd party package imports
 import os
@@ -25,7 +25,8 @@ if sys.platform == "win32":
 # Local imports
 from syncopy import __dask__
 from syncopy.shared.parsers import scalar_parser, io_parser
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError
+from syncopy.shared.errors import (SPYValueError, SPYTypeError, SPYIOError,
+                                   SPYWarning)
 from syncopy.shared.queries import user_input, user_yesno
 if __dask__:
     from dask_jobqueue import SLURMCluster
@@ -182,9 +183,9 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
         else:
             mem_req = int(mem_per_job[:mem_per_job.find("GB")])
         if mem_req > mem_lim:
-            msg = "{name:s} WARNING: `mem_per_job` exceeds limit of " +\
-                  "{lim:d}GB for partition {par:s}. Capping memory at partition limit. "
-            print(msg.format(name=funcName, lim=mem_lim, par=partition))
+            msg = "`mem_per_job` exceeds limit of {lim:d}GB for partition {par:s}. " +\
+                "Capping memory at partition limit. "
+            SPYWarning(msg.format(lim=mem_lim, par=partition))
             mem_per_job = str(int(mem_lim)) + "GB"
 
     # Parse requested timeout period
@@ -241,7 +242,7 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
                            # interface="asdf", # interface is set via `psutil.net_if_addrs()`
                            # job_extra=["--hint=nomultithread",
                            #            "--threads-per-core=1"]
-
+                           
     # Compute total no. of workers and up-scale cluster accordingly
     total_workers = n_jobs * workers_per_job
     cluster.scale(total_workers)
@@ -251,7 +252,7 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
         return
     
     # Kill a zombie cluster in non-interactive mode
-    if not interactive and cluster._count_active_workers() == 0:
+    if not interactive and _count_running_workers(cluster) == 0:
         cluster.close()
         err = "SLURM jobs could not be started within given time-out " +\
               "interval of {0:d} seconds"
@@ -273,17 +274,17 @@ def _cluster_waiter(cluster, funcName, total_workers, timeout, interactive):
     """
 
     # Wait until all workers have been started successfully or we run out of time
-    wrkrs = cluster._count_active_workers()
+    wrkrs = _count_running_workers(cluster)
     to = str(timedelta(seconds=timeout))[2:]
     fmt = "{desc}: {n}/{total} \t[elapsed time {elapsed} | timeout at " + to + "]"
     ani = tqdm(desc="{} SLURM workers ready".format(funcName), total=total_workers,
                leave=True, bar_format=fmt, initial=wrkrs)
     counter = 0
-    while cluster._count_active_workers() < total_workers and counter < timeout:
+    while _count_running_workers(cluster) < total_workers and counter < timeout:
         time.sleep(1)
         counter += 1
-        ani.update(max(0, cluster._count_active_workers() - wrkrs))
-        wrkrs = cluster._count_active_workers()
+        ani.update(max(0, _count_running_workers(cluster) - wrkrs))
+        wrkrs = _count_running_workers(cluster)
         ani.refresh()   # force refresh to display elapsed time every second
     ani.close()
 
@@ -340,7 +341,8 @@ def cluster_cleanup():
     try:
         client = get_client()
     except ValueError:
-        print("{} WARNING: No dangling clients or clusters found.".format(funcName))
+        msg = "No dangling clients or clusters found."
+        SPYWarning(msg)
         return
     except Exception as exc:
         raise exc
@@ -348,13 +350,12 @@ def cluster_cleanup():
     # Prepare message for prompt
     if client.cluster.__class__.__name__ == "LocalCluster":
         userClust = "LocalCluster hosted on {}".format(client.scheduler_info()["address"])
-        nWorkers = len(client.cluster.workers)
     else:
         userName = getpass.getuser()
         outDir = client.cluster.job_header.partition("--output=")[-1]
         jobID = outDir.partition("{}_".format(userName))[-1].split(os.sep)[0]
         userClust = "cluster {0}_{1}".format(userName, jobID)
-        nWorkers = client.cluster._count_active_and_pending_workers()
+    nWorkers = len(client.cluster.workers)
     
     # If connection was successful, first close the client, then the cluster
     client.close()
@@ -367,3 +368,10 @@ def cluster_cleanup():
                      cname=userClust))
 
     return
+
+
+def _count_running_workers(cluster):
+    """
+    Local replacement for the late `._count_active_workers` class method
+    """
+    return sum(wrkr.status == "running" for wrkr in cluster.workers.values())
