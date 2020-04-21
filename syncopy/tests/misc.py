@@ -138,9 +138,38 @@ def construct_spy_filename(basepath, obj):
     return os.path.join(basepath + FILE_EXT["dir"], basename + objext)
 
     
-def compare_figs(fig1, fig2, tol=0):
+def figs_equal(fig1, fig2):
     """
-    Coming soon...
+    Test if two figures are identical
+    
+    Parameters
+    ----------
+    fig1 : matplotlib figure object
+        Reference figure
+    fig2 : matplotlib figure object
+        Template figure
+    
+    Returns
+    -------
+    equal : bool
+        `True` if `fig1` and `fig2` are identical, `False` otherwise
+        
+    Notes
+    -----
+    This is an auxiliary method that is intended purely for internal use. Thus, 
+    no error checking is performed. 
+    
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import matplotlib.pyplot as plt
+    >>> x = np.linspace(0, 2*np.pi, 100)
+    >>> fig1 = plt.figure(); plt.plot(x, np.sin(x))
+    >>> figs_equal(fig1, fig1)
+    True
+    >>> fig2 = plt.figure(); plt.plot(x, np.sin(x), color="red")
+    >>> figs_equal(fig1, fig2)
+    False
     """
     with tempfile.NamedTemporaryFile(suffix='.png') as img1:
         with tempfile.NamedTemporaryFile(suffix='.png') as img2:

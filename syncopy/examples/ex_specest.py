@@ -40,8 +40,10 @@ if __name__ == "__main__":
                                        equidistant=True,
                                        overlapping=True)
     
-    dataReg.singleplot(trials=None, channels=[14, 13, 12, 12, 15], avg_channels=False)
+    fig = dataReg.multiplot(avg_trials=True, avg_channels=False)
+    
     sys.exit()
+    dataReg.singleplot(trials=None, channels=[14, 13, 12, 12, 15], avg_channels=False)
     
     data = spy.load("~/Documents/job/SyNCoPy/Data/testdata.spy")
     

@@ -4,7 +4,7 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-20 13:33:15>
+# Last modification time: <2020-04-21 13:48:57>
 
 # # Builtin/3rd party package imports
 # import tensorlfow
@@ -33,7 +33,7 @@ pltConfig = {"singleTitleSize": 12,
              "multiLabelSize": 8,
              "multiTickSize": 6,
              "multiLegendSize": 8,
-             "multiFigSize": (10, 4.8)}
+             "multiFigSize": (10, 6.8)}
 
 # Global consistent error message if matplotlib is missing
 pltErrMsg = "Could not import 'matplotlib': {} requires a working matplotlib installation!"
