@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-22 10:56:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-12 10:22:52>
+# Last modification time: <2020-04-23 17:48:54>
 
 # Builtin/3rd party package imports
 import functools
@@ -136,7 +136,7 @@ def unwrap_cfg(func):
         # IMPORTANT: create a copy of `cfg` using `StructDict` constructor to
         # not manipulate `cfg` in user's namespace!
         if k == 1:
-            cfg = StructDict(args.pop(cfgidx))
+            cfg = StructDict(args.pop(cfgidx)) #FIXME
         elif k > 1:
             raise SPYValueError(legal="single `cfg` input",
                                 varname="cfg",
@@ -150,7 +150,7 @@ def unwrap_cfg(func):
             if cfg:
                 lgl = "`cfg` either as positional or keyword argument, not both"
                 raise SPYValueError(legal=lgl, varname="cfg")
-            cfg = StructDict(kwargs.pop("cfg"))
+            cfg = StructDict(kwargs.pop("cfg")) # FIXME
             if not isinstance(cfg, dict):
                 raise SPYTypeError(kwargs["cfg"], varname="cfg",
                                    expected="dictionary-like")
@@ -159,50 +159,85 @@ def unwrap_cfg(func):
         if cfg:
 
             # If a method is called using `cfg`, non-default values for
-            # keyword arguments *have* to be provided within the `cfg`
+            # keyword arguments must *only* to be provided via `cfg`
             defaults = get_defaults(func)
             for key, value in kwargs.items():
-                if defaults[key] != value:
+                if defaults.get(key, value) != value:
                     raise SPYValueError(legal="no keyword arguments",
                                         varname=key,
                                         actual="non-default value for {}".format(key))
 
-            # Translate any existing "yes" and "no" fields to `True` and `False`,
-            # respectively, and subsequently call the function with `cfg` unwrapped
+            # Translate any existing "yes" and "no" fields to `True` and `False`
             for key in cfg.keys():
                 if str(cfg[key]) == "yes":
                     cfg[key] = True
                 elif str(cfg[key]) == "no":
                     cfg[key] = False
-
-            # If `cfg` contains keys 'data' or 'dataset' extract corresponding
-            # entry and make it a positional argument (abort if both 'data'
-            # and 'dataset' are present)
-            data = cfg.pop("data", None)
-            if cfg.get("dataset"):
-                if data:
-                    lgl = "either 'data' or 'dataset' field in `cfg`, not both"
-                    raise SPYValueError(legal=lgl, varname="cfg")
-                data = cfg.pop("dataset")
-            if data:
-                args = [data] + args
-                
-            # Input keywords are all provided by `cfg`
-            kwords = cfg
-            
+                    
+        # No explicit `cfg`: rename `kwargs` to `cfg` to consolidate processing below;
+        # IMPORTANT: this does *not* create a copy of `kwargs`, thus the `pop`-ing
+        # below actually manipulates `kwargs` as well - crucial for the `kwargs.get("data")`
+        # error checking!
         else:
-        
-            # No meaningful `cfg` keyword found: take standard input keywords
-            kwords = kwargs
+            cfg = kwargs
+
+        # If `cfg` contains keys 'data' or 'dataset' extract corresponding
+        # entry and make it a positional argument (abort if both 'data'
+        # and 'dataset' are present)
+        data = cfg.pop("data", None)
+        if cfg.get("dataset"):
+            if data:
+                lgl = "either 'data' or 'dataset' in `cfg`/keywords, not both"
+                raise SPYValueError(legal=lgl, varname="cfg")
+            data = cfg.pop("dataset")
+
+        # If `cfg` did not contain `data`, look into `kwargs`           
+        if data is None:
+            data = kwargs.pop("data", None)
+            if kwargs.get("dataset"):
+                if data:
+                    lgl = "either `data` or `dataset` keyword, not both"
+                    raise SPYValueError(legal=lgl, varname="data/dataset") 
+                data = kwargs.pop("dataset")
             
-        # Remove data (always first positional argument) from anonymous `args` list
-        if len(args) == 0:
-            err = "{0} missing mandatory positional argument: `{1}`"
+        # If Syncopy data object(s) were provided convert single objects to one-element
+        # lists, ensure positional args do *not* contain add'l objects; ensure keyword 
+        # args (besides `cfg`) do *not* contain add'l objects; ensure `data` exclusively 
+        # contains Syncopy data objects. Finally, rename remaining positional arguments
+        if data:
+            if not isinstance(data, (tuple, list)):
+                data = [data]
+            if any(["syncopy.datatype" in str(type(arg)) for arg in args]):
+                lgl = "Syncopy data object(s) provided either via `cfg`/keyword or " +\
+                    "positional arguments, not both"
+                raise SPYValueError(legal=lgl, varname="cfg/data")
+            if kwargs.get("data") or kwargs.get("dataset"):
+                lgl = "Syncopy data object(s) provided either via `cfg` or as " +\
+                    "keyword argument, not both"
+                raise SPYValueError(legal=lgl, varname="cfg.data")
+            if any(["syncopy.datatype" not in str(type(obj)) for obj in data]):
+                raise SPYError("`data` must be Syncopy data object(s)!")
+            posargs = args
+
+        # If `data` was not provided via `cfg` or as kw-arg, parse positional arguments
+        if data is None:
+            data = []
+            posargs = []
+            while args:
+                arg = args.pop()
+                if "syncopy.datatype" in str(type(arg)):
+                    data.append(arg)
+                else:
+                    posargs.append(arg)
+                    
+        # At this point, `data` is a list: if it's empty, not a single Syncopy data object
+        # was provided (neither via `cfg`, `kwargs`, or `args`) and the call is invalid
+        if len(data) == 0:
+            err = "{0} missing mandatory argument: `{1}`"
             raise SPYError(err.format(func.__name__, arg0))
-        data = args.pop(0)
             
         # Call function with modified positional/keyword arguments
-        return func(data, *args, **kwords)
+        return func(data, *posargs, **cfg)
 
     # Append one-liner to docstring header mentioning the use of `cfg`
     introEntry = \
@@ -311,13 +346,15 @@ def unwrap_select(func):
     def wrapper_select(data, *args, **kwargs):
         
         # Process data selection: if provided, extract `select` from input kws
-        data._selection = kwargs.get("select")
-        
+        for obj in data:
+            obj._selection = kwargs.get("select")
+
         # Call function with modified data object
         res = func(data, *args, **kwargs)
         
         # Wipe data-selection slot to not alter user objects
-        data._selection = None
+        for obj in data:
+            obj._selection = None
 
         return res
     
