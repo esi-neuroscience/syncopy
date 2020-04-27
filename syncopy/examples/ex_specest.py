@@ -97,6 +97,9 @@ if __name__ == "__main__":
     
     sys.exit()
     
+    # data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
+    sys.exit()
+    
     # # relevant for tests...    
     # data.multiplot(trials=trials, channels=channels, toilim=toilim)
     # plt.pause(1.0)

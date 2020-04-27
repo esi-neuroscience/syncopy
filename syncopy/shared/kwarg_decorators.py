@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-22 10:56:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-09 09:52:29>
+# Last modification time: <2020-04-27 17:01:06>
 
 # Builtin/3rd party package imports
 import functools
@@ -42,29 +42,31 @@ def unwrap_cfg(func):
            :class:`~syncopy.StructDict`. *Every hit* is assumed to be a `cfg` option 
            "structure" and removed from the list. Raises a 
            :class:`~syncopy.shared.errors.SPYValueError` if (a) more than one 
-           dict or :class:`~syncopy.StructDict` is found in provided positional 
+           dict (or :class:`~syncopy.StructDict`) is found in provided positional 
            arguments (b) keywords are provided in addition to `cfg` (c) `cfg` is 
            provided as positional as well as keyword argument. 
         2. If no `cfg` is found in positional arguments, check `func`'s keyword
            arguments for a provided `cfg` entry. Raises a 
-           :class:`~syncopy.shared.errors.SPYTypeError` if `cfg` keyword 
+           :class:`~syncopy.shared.errors.SPYValueError` if `cfg` was provided 
+           as positional argument as well as keyword. 
+           A :class:`~syncopy.shared.errors.SPYTypeError` if `cfg` keyword 
            entry is not a Python dict or :class:`~syncopy.StructDict`. 
         3. If `cfg` was found either in positional or keyword arguments, then 
            (a) process its "linguistic" boolean keys (convert any "yes"/"no" entries 
-           to `True` /`False`) and then (b) extract an existing "data" entry and 
+           to `True` /`False`) and then (b) extract an existing "data"/"dataset" entry and 
            create a `data` variable. Raises a :class:`~syncopy.shared.errors.SPYValueError`
            if `cfg` contains both a "data" and "dataset" entry. 
         4. Perform the actual unwrapping: at this point, a provided `cfg` only 
            contains keyword arguments of `func`. If the (first) input object `data` 
            was provided as `cfg` entry, it already exists in the local namespace. 
-           If not, then by convention, it is the first element of the (remaining) 
-           positional argument list. Thus, the meta-function can now be called via
-           ``func(data, *args, **kwargs)``. 
+           If not, then by convention, `data` makes up the first elements of the 
+           (remaining) positional argument list. Thus, the meta-function can now 
+           be called via ``func(*data, *args, **kwargs)``. 
         5. Amend the docstring of `func`: add a one-liner mentioning the possibility
            of using `cfg` when calling `func` to the header of its docstring. 
            Append a paragraph to the docstrings' "Notes" section illustrating 
            how to call `func` with a `cfg` option "structure" that specifically 
-           uses `func` and its input parameters Note: both amendments are only 
+           uses `func` and its input parameters. Note: both amendments are only 
            inserted in `func`'s docstring if the respective sections already exist. 
            
     Notes
@@ -132,10 +134,8 @@ def unwrap_cfg(func):
 
         # If a dict was found, assume it's a `cfg` dict and extract it from
         # the positional argument list; if more than one dict was found, abort
-        # IMPORTANT: create a copy of `cfg` using `StructDict` constructor to
-        # not manipulate `cfg` in user's namespace!
         if k == 1:
-            cfg = StructDict(args.pop(cfgidx))
+            cfg = args.pop(cfgidx)
         elif k > 1:
             raise SPYValueError(legal="single `cfg` input",
                                 varname="cfg",
@@ -143,65 +143,103 @@ def unwrap_cfg(func):
             
         # Now parse provided keywords for `cfg` entry - if `cfg` was already
         # provided as positional argument, abort
-        # IMPORTANT: create a copy of `cfg` using `StructDict` constructor to
-        # not manipulate `cfg` in user's namespace!
         if kwargs.get("cfg") is not None:
             if cfg:
                 lgl = "`cfg` either as positional or keyword argument, not both"
                 raise SPYValueError(legal=lgl, varname="cfg")
-            cfg = StructDict(kwargs.pop("cfg"))
-            if not isinstance(cfg, dict):
-                raise SPYTypeError(kwargs["cfg"], varname="cfg",
-                                   expected="dictionary-like")
+            cfg = kwargs.pop("cfg")
 
         # If `cfg` was detected either in positional or keyword arguments, process it
         if cfg:
 
+            # If `cfg` is not dict-like, abort (`StructDict` is a `dict` child)
+            if not isinstance(cfg, dict):
+                raise SPYTypeError(cfg, varname="cfg", expected="dictionary-like")
+
+            # IMPORTANT: create a copy of `cfg` using `StructDict` constructor to
+            # not manipulate `cfg` in user's namespace!
+            cfg = StructDict(cfg) # FIXME
+
             # If a method is called using `cfg`, non-default values for
-            # keyword arguments *have* to be provided within the `cfg`
+            # keyword arguments must *only* to be provided via `cfg`
             defaults = get_defaults(func)
             for key, value in kwargs.items():
-                if defaults[key] != value:
+                if defaults.get(key, value) != value:
                     raise SPYValueError(legal="no keyword arguments",
                                         varname=key,
                                         actual="non-default value for {}".format(key))
 
-            # Translate any existing "yes" and "no" fields to `True` and `False`,
-            # respectively, and subsequently call the function with `cfg` unwrapped
+            # Translate any existing "yes" and "no" fields to `True` and `False`
             for key in cfg.keys():
                 if str(cfg[key]) == "yes":
                     cfg[key] = True
                 elif str(cfg[key]) == "no":
                     cfg[key] = False
-
-            # If `cfg` contains keys 'data' or 'dataset' extract corresponding
-            # entry and make it a positional argument (abort if both 'data'
-            # and 'dataset' are present)
-            data = cfg.pop("data", None)
-            if cfg.get("dataset"):
-                if data:
-                    lgl = "either 'data' or 'dataset' field in `cfg`, not both"
-                    raise SPYValueError(legal=lgl, varname="cfg")
-                data = cfg.pop("dataset")
-            if data:
-                args = [data] + args
-                
-            # Input keywords are all provided by `cfg`
-            kwords = cfg
-            
+                    
+        # No explicit `cfg`: rename `kwargs` to `cfg` to consolidate processing below;
+        # IMPORTANT: this does *not* create a copy of `kwargs`, thus the `pop`-ing
+        # below actually manipulates `kwargs` as well - crucial for the `kwargs.get("data")`
+        # error checking!
         else:
-        
-            # No meaningful `cfg` keyword found: take standard input keywords
-            kwords = kwargs
+            cfg = kwargs
+
+        # If `cfg` contains keys 'data' or 'dataset' extract corresponding
+        # entry and make it a positional argument (abort if both 'data'
+        # and 'dataset' are present)
+        data = cfg.pop("data", None)
+        if cfg.get("dataset"):
+            if data:
+                lgl = "either 'data' or 'dataset' in `cfg`/keywords, not both"
+                raise SPYValueError(legal=lgl, varname="cfg")
+            data = cfg.pop("dataset")
+
+        # If `cfg` did not contain `data`, look into `kwargs`           
+        if data is None:
+            data = kwargs.pop("data", None)
+            if kwargs.get("dataset"):
+                if data:
+                    lgl = "either `data` or `dataset` keyword, not both"
+                    raise SPYValueError(legal=lgl, varname="data/dataset") 
+                data = kwargs.pop("dataset")
             
-        # Remove data (always first positional argument) from anonymous `args` list
-        if len(args) == 0:
-            err = "{0} missing mandatory positional argument: `{1}`"
+        # If Syncopy data object(s) were provided convert single objects to one-element
+        # lists, ensure positional args do *not* contain add'l objects; ensure keyword 
+        # args (besides `cfg`) do *not* contain add'l objects; ensure `data` exclusively 
+        # contains Syncopy data objects. Finally, rename remaining positional arguments
+        if data:
+            if not isinstance(data, (tuple, list)):
+                data = [data]
+            if any([isinstance(arg, spy.datatype.base_data.BaseData) for arg in args]):
+                lgl = "Syncopy data object(s) provided either via `cfg`/keyword or " +\
+                    "positional arguments, not both"
+                raise SPYValueError(legal=lgl, varname="cfg/data")
+            if kwargs.get("data") or kwargs.get("dataset"):
+                lgl = "Syncopy data object(s) provided either via `cfg` or as " +\
+                    "keyword argument, not both"
+                raise SPYValueError(legal=lgl, varname="cfg.data")
+            if any([not isinstance(obj, spy.datatype.base_data.BaseData) for obj in data]):
+                raise SPYError("`data` must be Syncopy data object(s)!")
+            posargs = args
+
+        # If `data` was not provided via `cfg` or as kw-arg, parse positional arguments
+        if data is None:
+            data = []
+            posargs = []
+            while args:
+                arg = args.pop(0)
+                if isinstance(arg, spy.datatype.base_data.BaseData):
+                    data.append(arg)
+                else:
+                    posargs.append(arg)
+                    
+        # At this point, `data` is a list: if it's empty, not a single Syncopy data object
+        # was provided (neither via `cfg`, `kwargs`, or `args`) and the call is invalid
+        if len(data) == 0:
+            err = "{0} missing mandatory argument: `{1}`"
             raise SPYError(err.format(func.__name__, arg0))
-        data = args.pop(0)
             
-        # Call function with modified positional/keyword arguments
-        return func(data, *args, **kwords)
+        # Call function with unfolded `data` + modified positional/keyword args
+        return func(*data, *posargs, **cfg)
 
     # Append one-liner to docstring header mentioning the use of `cfg`
     introEntry = \
@@ -252,7 +290,7 @@ def unwrap_select(func):
     wrapper_select : callable
         Wrapped function; `wrapper_select` extracts `select` from keywords
         provided to `func` and uses it to set the `._selector` property of the 
-        input object. After successfully calling `func` with the modified input, 
+        input object(s). After successfully calling `func` with the modified input, 
         `wrapper_select` modifies `func` itself:
         
         1. The "Parameters" section in the docstring of `func` is amended by an 
@@ -264,11 +302,11 @@ def unwrap_select(func):
             
     Notes
     -----
-    This decorator assumes that the `func` has already been processed by 
-    :func:`~syncopy.shared.kwarg_decorators.unwrap_cfg` and hence expects the call signature 
-    of `func` to be of the form ``func(data, *args, **kwargs)``. In other words, 
-    :func:`~syncopy.shared.kwarg_decorators.unwrap_select` is intended as "inner" decorator 
-    of metafunctions, for instance
+    This decorator assumes that `func` has already been processed by 
+    :func:`~syncopy.shared.kwarg_decorators.unwrap_cfg` and hence expects 
+    `func` to obey standard Python call signature ``func(*args, **kwargs)``. 
+    In other words, :func:`~syncopy.shared.kwarg_decorators.unwrap_select` is 
+    intended as "inner" decorator of metafunctions, for instance
     
     .. code-block:: python
     
@@ -307,16 +345,24 @@ def unwrap_select(func):
     """
 
     @functools.wraps(func)
-    def wrapper_select(data, *args, **kwargs):
+    def wrapper_select(*args, **kwargs):
+
+        # If provided, extract `select` from input kws and cycle through positional 
+        # argument to apply in-place selection to all Syncopy objects
+        nData = 0
+        select = kwargs.get("select", None)
+        if select:
+            for obj in args:
+                if hasattr(obj, "_selection"):
+                    obj._selection = select
+                    nData += 1
+                    
+        # Call function with modified data object(s)  
+        res = func(*args, **kwargs)
         
-        # Process data selection: if provided, extract `select` from input kws
-        data._selection = kwargs.get("select")
-        
-        # Call function with modified data object
-        res = func(data, *args, **kwargs)
-        
-        # Wipe data-selection slot to not alter user objects
-        data._selection = None
+        # Wipe data-selection slot (if necessary) to not alter user objects
+        for n in range(nData):
+            args[n]._selection = None
 
         return res
     
@@ -362,10 +408,10 @@ def detect_parallel_client(func):
     Notes
     -----
     This decorator assumes that `func` has already been processed by 
-    :func:`~syncopy.shared.kwarg_decorators.unwrap_cfg` and hence expects the call 
-    signature of `func` to be of the form ``func(data, *args, **kwargs)``. 
+    :func:`~syncopy.shared.kwarg_decorators.unwrap_cfg` and hence expects 
+    `func` to obey standard Python call signature ``func(*args, **kwargs)``.     
     In other words, :func:`~syncopy.shared.kwarg_decorators.detect_parallel_client`
-    is intended as "inner" decorator of metafunctions, for instance. See Notes in 
+    is intended as "inner" decorator of, e.g.,  metafunctions. See Notes in 
     the docstring of :func:`~syncopy.shared.kwarg_decorators.unwrap_select` for 
     further details. 
     
@@ -376,7 +422,7 @@ def detect_parallel_client(func):
     """
     
     @functools.wraps(func)
-    def parallel_client_detector(data, *args, **kwargs):
+    def parallel_client_detector(*args, **kwargs):
 
         # Extract `parallel` keyword: if `parallel` is `False`, nothing happens
         parallel = kwargs.get("parallel")
@@ -406,7 +452,7 @@ def detect_parallel_client(func):
         # Add/update `parallel` to/in keyword args
         kwargs["parallel"] = parallel
 
-        return func(data, *args, **kwargs)
+        return func(*args, **kwargs)
     
     # Append `parallel` keyword entry to wrapped function's docstring and signature
     parallelDocEntry = \
