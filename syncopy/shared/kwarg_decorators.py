@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-22 10:56:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-24 16:44:13>
+# Last modification time: <2020-04-27 16:29:03>
 
 # Builtin/3rd party package imports
 import functools
@@ -210,7 +210,7 @@ def unwrap_cfg(func):
         if data:
             if not isinstance(data, (tuple, list)):
                 data = [data]
-            if any(["syncopy.datatype" in str(type(arg)) for arg in args]):
+            if any([isinstance(arg, spy.datatype.base_data.BaseData) for arg in args]):
                 lgl = "Syncopy data object(s) provided either via `cfg`/keyword or " +\
                     "positional arguments, not both"
                 raise SPYValueError(legal=lgl, varname="cfg/data")
@@ -218,7 +218,7 @@ def unwrap_cfg(func):
                 lgl = "Syncopy data object(s) provided either via `cfg` or as " +\
                     "keyword argument, not both"
                 raise SPYValueError(legal=lgl, varname="cfg.data")
-            if any(["syncopy.datatype" not in str(type(obj)) for obj in data]):
+            if any([not isinstance(obj, spy.datatype.base_data.BaseData) for obj in data]):
                 raise SPYError("`data` must be Syncopy data object(s)!")
             posargs = args
 
@@ -228,7 +228,7 @@ def unwrap_cfg(func):
             posargs = []
             while args:
                 arg = args.pop(0)
-                if "syncopy.datatype" in str(type(arg)):
+                if isinstance(arg, spy.datatype.base_data.BaseData):
                     data.append(arg)
                 else:
                     posargs.append(arg)
