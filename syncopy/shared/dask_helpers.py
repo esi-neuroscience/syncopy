@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-22 12:38:16
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-12 10:19:28>
+# Last modification time: <2020-04-27 13:47:34>
 
 # Builtin/3rd party package imports
 import os
@@ -229,6 +229,11 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
             io_parser(slurm_wdir, varname="slurmWorkingDirectory", isfile=False)
         except Exception as exc:
             raise exc
+        
+    # Hotfix for upgraded cluster-nodes: point to correct Python executable if working from /home
+    pyExec = sys.executable
+    if sys.executable.startswith("/home"):
+        pyExec = "/mnt/gs" + sys.executable
 
     # Create `SLURMCluster` object using provided parameters
     out_files = os.path.join(slurm_wdir, "slurm-%j.out")
@@ -238,6 +243,7 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
                            local_directory=slurm_wdir,
                            queue=partition,
                            name="spycluster",
+                           python=pyExec,
                            job_extra=["--output={}".format(out_files)])
                            # interface="asdf", # interface is set via `psutil.net_if_addrs()`
                            # job_extra=["--hint=nomultithread",
