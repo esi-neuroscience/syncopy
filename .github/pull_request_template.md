@@ -3,6 +3,7 @@ Author Guidelines
 - [ ] Is the change set **< 400 lines**?
 - [ ] Was the code checked for memory leaks/performance bottlenecks?
 - [ ] Is the code running locally **and** on the ESI cluster?
+- [ ] Is the code running on all supported platforms?
 
 Reviewer Checklist
 ------------------
