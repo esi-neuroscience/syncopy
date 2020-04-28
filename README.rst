@@ -3,7 +3,12 @@
 Systems Neuroscience Computing in Python
 ========================================
 
-.. image:: https://travis-ci.com/esi-neuroscience/syncopy.svg?token=j7G1ByixxJvLy2CpVSAt&branch=master
+master: |masterbuild| dev: |devbuild|
+
+.. |masterbuild| image:: https://travis-ci.com/esi-neuroscience/syncopy.svg?token=j7G1ByixxJvLy2CpVSAt&branch=master 
+
+.. |devbuild| image:: https://travis-ci.com/esi-neuroscience/syncopy.svg?token=j7G1ByixxJvLy2CpVSAt&branch=dev
+   
 
 Syncopy is going to be a user-friendly toolkit for large-scale
 electrophysiology data-analysis in Python. We strive to achieve the following goals:
