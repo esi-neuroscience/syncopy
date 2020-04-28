@@ -62,9 +62,13 @@ def is_slurm_node():
         return False
 
     
-def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True,
-                            overlapping=False, inmemory=True, dimord="default"):
+def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=None,
+                             overlapping=False, inmemory=True, dimord="default"):
     """
+    Parameters
+    ----------
+    nTrials : int
+
     Populate `AnalogData` object w/ artificial signal
     """
 
@@ -78,17 +82,34 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True,
     if dimord == "default":
         dimord = AnalogData._defaultDimord
     timeAxis = dimord.index("time")
+    chanAxis = dimord.index("channel")
     idx = [1, 1]
     idx[timeAxis] = -1
     sig = np.repeat(sig.reshape(*idx), axis=idx.index(1), repeats=nChannels)
 
+    # Initialize random number generator (with possibly user-provided seed-value)    
+    rng = np.random.default_rng(seed)    
+
     # Either construct the full data array in memory using tiling or create
     # an HDF5 container in `__storage__` and fill it trial-by-trial
+    # NOTE: if `seed` was provided, apply noise in a channel-by-channel manner 
+    # so that two objects created w/same seed really are affected w/identical 
+    # additive noise patterns, no matter their respective `dimord`. Since this 
+    # is much slower than slapping an entire noise-array onto `sig`, only do this
+    # if `seed` was explicitly set by the user
     out = AnalogData(samplerate=1/dt, dimord=dimord)
     if inmemory:
         idx[timeAxis] = nTrials 
         sig = np.tile(sig, idx)
-        sig += np.random.standard_normal(sig.shape).astype(sig.dtype) * 0.5
+        shp = [slice(None), slice(None)]
+        if seed:
+            for iTrial in range(nTrials):
+                shp[timeAxis] = slice(iTrial*t.size, (iTrial + 1)*t.size)
+                for chan in range(nChannels):
+                    shp[chanAxis] = chan
+                    sig[tuple(shp)] += rng.standard_normal((t.size, )).astype(sig.dtype) * 0.5
+        else:
+            sig += rng.standard_normal(sig.shape).astype(sig.dtype) * 0.5
         out.data = sig
     else:
         with h5py.File(out.filename, "w") as h5f:
@@ -98,7 +119,13 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True,
             shp = [slice(None), slice(None)]
             for iTrial in range(nTrials):
                 shp[timeAxis] = slice(iTrial*t.size, (iTrial + 1)*t.size)
-                dset[tuple(shp)] = sig + np.random.standard_normal(sig.shape).astype(sig.dtype) * 0.5
+                if seed:
+                    for chan in range(nChannels):
+                        shp[chanAxis] = chan
+                        dset[tuple(shp)] = sig[tuple(shp)] + \
+                            rng.standard_normal((t.size, )).astype(sig.dtype) * 0.5
+                else:
+                    dset[tuple(shp)] = sig + rng.standard_normal(sig.shape).astype(sig.dtype) * 0.5
                 dset.flush()
         out.data = h5py.File(out.filename, "r+")["data"]
 
@@ -110,8 +137,7 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True,
             equiOffset = 100
         offsets = np.full((nTrials,), equiOffset, dtype=sig.dtype)
     else:
-        offsets = np.random.randint(low=int(0.1*t.size),
-                                    high=int(0.2*t.size), size=(nTrials,))
+        offsets = rng.integers(low=int(0.1*t.size), high=int(0.2*t.size), size=(nTrials,))
 
     # Using generated offsets, construct trialdef array and make sure initial
     # and end-samples are within data bounds (only relevant if overlapping
@@ -138,7 +164,7 @@ def construct_spy_filename(basepath, obj):
     return os.path.join(basepath + FILE_EXT["dir"], basename + objext)
 
     
-def figs_equal(fig1, fig2):
+def figs_equal(fig1, fig2, tol=None):
     """
     Test if two figures are identical
     
@@ -148,6 +174,10 @@ def figs_equal(fig1, fig2):
         Reference figure
     fig2 : matplotlib figure object
         Template figure
+    tol : float
+        Positive scalar (b/w 0 and 1) specifying tolerance level for considering 
+        `fig1` and `fig2` identical. If `None`, two figures have to be exact 
+        pixel-perfect copies to be qualified as identical. 
     
     Returns
     -------
@@ -170,10 +200,14 @@ def figs_equal(fig1, fig2):
     >>> fig2 = plt.figure(); plt.plot(x, np.sin(x), color="red")
     >>> figs_equal(fig1, fig2)
     False
+    >>> figs_equal(fig1, fig2, tol=0.9)
+    True
     """
     with tempfile.NamedTemporaryFile(suffix='.png') as img1:
         with tempfile.NamedTemporaryFile(suffix='.png') as img2:
             fig1.savefig(img1.name)
             fig2.savefig(img2.name)
-            return np.array_equal(plt.imread(img1.name), plt.imread(img2.name))
+            if tol is None:
+                return np.array_equal(plt.imread(img1.name), plt.imread(img2.name))
+            return np.allclose(plt.imread(img1.name), plt.imread(img2.name), atol=tol)
     

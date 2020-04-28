@@ -4,7 +4,7 @@
 # 
 # Created: 2020-04-17 08:25:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-21 14:19:41>
+# Last modification time: <2020-04-28 15:49:39>
 
 import pytest
 import numpy as np
@@ -27,24 +27,29 @@ class TestAnalogDataPlotting():
     
     nChannels = 16
     nTrials = 8
+    seed = 130810
 
     # To use `selectdata` w/``trials = None``-raw plotting, the trials must not 
     # overlap - construct separate set of objects for testing!
     dataReg = generate_artificial_data(nTrials=nTrials,
                                        nChannels=nChannels,
+                                       seed=seed,
                                        equidistant=True,
                                        overlapping=True)
     dataInv = generate_artificial_data(nTrials=nTrials,
                                        nChannels=nChannels,
+                                       seed=seed,
                                        equidistant=True,
                                        overlapping=True,
                                        dimord=dataReg.dimord[::-1])
     rawReg = generate_artificial_data(nTrials=nTrials,
                                       nChannels=nChannels,
+                                      seed=seed,
                                       equidistant=True,
                                       overlapping=False)
     rawInv = generate_artificial_data(nTrials=nTrials,
                                       nChannels=nChannels,
+                                      seed=seed,
                                       equidistant=True,
                                       overlapping=False,
                                       dimord=rawReg.dimord[::-1])
@@ -72,12 +77,33 @@ class TestAnalogDataPlotting():
                         fig2 = selected.singleplot(trials="all", 
                                                    avg_channels=avg_channels)
                         assert figs_equal(fig1, fig2)
-                        plt.close("all")
+                        
+                        # Recreate `fig1` and `fig2` using the package-method:
+                        # `fig2a` is based on `dataInv` - be more lenient here
+                        fig1a, fig2a = singleplot(self.dataReg, self.dataInv,
+                                                  trials=trials,
+                                                  channels=channels,
+                                                  toilim=toilim,
+                                                  avg_channels=avg_channels,
+                                                  overlay=False)
+                        assert figs_equal(fig1, fig1a)
+                        try:
+                            assert figs_equal(fig2, fig2a)
+                        except AssertionError:
+                            try:
+                                assert figs_equal(fig2, fig2a, tol=1e-2)
+                            except:
+                                plt.ioff()
+                                import pdb; pdb.set_trace()
+                        # except Exception as exc:
+                        #     raise exc
+                        
                         # fig3 = singleplot(self.dataReg, self.dataInv,
                         #                   trials=trials,
                         #                   channels=channels,
                         #                   toilim=toilim,
-                        #                   avg_channels=avg_channels)
+                        #                   avg_channels=avg_channels,
+                        #                   overlay=True)
                         # fig4 = singleplot(self.dataInv, 
                         #                   trials=trials,
                         #                   channels=channels,
@@ -85,6 +111,11 @@ class TestAnalogDataPlotting():
                         #                   avg_channels=avg_channels,
                         #                   fig=fig1)
                         # assert figs_equal(fig3, fig4)
+                        # spy.singleplot(dataReg, fig=spy.singleplot(dataReg)) 
+
+                        plt.close("all")
+                        
+        sys.exit()
 
         # The `selectdata(trials="all")` part requires consecutive trials!
         for channels in self.channels:

@@ -24,7 +24,7 @@ from syncopy import *
 import syncopy as spy
 
 # Import artificial data generator
-from syncopy.tests.misc import generate_artificial_data
+from syncopy.tests.misc import generate_artificial_data, figs_equal
 
 import dask.distributed as dd
 from time import time
@@ -35,14 +35,28 @@ if __name__ == "__main__":
 
     nChannels = 16
     nTrials = 8
+    seed = 130810
+    
     dataReg = generate_artificial_data(nTrials=nTrials,
                                        nChannels=nChannels,
+                                       seed=seed,
                                        equidistant=True,
+                                       inmemory=True,
                                        overlapping=True)
+    dataInv = generate_artificial_data(nTrials=nTrials,
+                                       nChannels=nChannels,
+                                       seed=seed,
+                                       equidistant=True,
+                                       overlapping=True,
+                                       inmemory=True,
+                                       dimord=dataReg.dimord[::-1])
     
-    fig = dataReg.multiplot(avg_trials=True, avg_channels=False)
+    f1 = dataReg.singleplot(avg_channels=False)
+    f2 = dataInv.singleplot(avg_channels=False)
     
     sys.exit()
+    fig = dataReg.multiplot(avg_trials=True, avg_channels=False)
+    
     dataReg.singleplot(trials=None, channels=[14, 13, 12, 12, 15], avg_channels=False)
     
     data = spy.load("~/Documents/job/SyNCoPy/Data/testdata.spy")

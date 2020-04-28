@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-21 14:09:08>
+# Last modification time: <2020-04-28 16:54:52>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -574,7 +574,7 @@ class AnalogData(ContinuousData):
                     idx[chanIdx] = chan
                     pltArr += self.data[tuple(idx)].squeeze()
                 pltArr /= nChan
-
+                
                 # The actual plotting command...
                 ax.plot(pltArr)
                 if grid is not None:
@@ -676,17 +676,11 @@ class AnalogData(ContinuousData):
             # Average across trial(s)
             else:
 
-                # Prepare reshaping index to convert the (N,)-`chanOffset` array 
-                # to a row/column vector depending on `dimord`
-                rIdx = [1, 1]
-                rIdx[chanIdx] = nChan
-                rIdx = tuple(rIdx)
-
                 # Compute trial-average                
                 pltArr = np.zeros((tLengths[0], nChan), dtype=self.data.dtype)
                 for k, trlno in enumerate(trList):
                     idx[timeIdx] = self._selection.time[k]
-                    pltArr += self._get_trial(trlno)[tuple(idx)]
+                    pltArr += self._get_trial(trlno)[tuple(idx)].flatten(order="F").reshape(tLengths[0], nChan)
                 pltArr /= nTrials
 
                 # If required, compute offsets for multi-channel plot
@@ -697,7 +691,7 @@ class AnalogData(ContinuousData):
                 # Plot the entire trial-averaged array at once
                 time = self.time[trList[0]][self._selection.time[0]]
                 ax.plot(time, 
-                        (pltArr + fig.chanOffsets.reshape(rIdx)).reshape(time.size, nChan),
+                        (pltArr + fig.chanOffsets.reshape(1, nChan)).reshape(time.size, nChan),
                         color=plt.rcParams["axes.prop_cycle"].by_key()["color"][fig.objCount],
                         label=os.path.basename(self.filename))
                 if grid is not None:
