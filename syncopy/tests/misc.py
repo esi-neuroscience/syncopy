@@ -82,7 +82,6 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=None
     if dimord == "default":
         dimord = AnalogData._defaultDimord
     timeAxis = dimord.index("time")
-    chanAxis = dimord.index("channel")
     idx = [1, 1]
     idx[timeAxis] = -1
     sig = np.repeat(sig.reshape(*idx), axis=idx.index(1), repeats=nChannels)
@@ -92,24 +91,18 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=None
 
     # Either construct the full data array in memory using tiling or create
     # an HDF5 container in `__storage__` and fill it trial-by-trial
-    # NOTE: if `seed` was provided, apply noise in a channel-by-channel manner 
-    # so that two objects created w/same seed really are affected w/identical 
-    # additive noise patterns, no matter their respective `dimord`. Since this 
-    # is much slower than slapping an entire noise-array onto `sig`, only do this
-    # if `seed` was explicitly set by the user
+    # NOTE: use `swapaxes` here to ensure two objects created w/same seed really 
+    # are affected w/identical additive noise patterns, no matter their respective 
+    # `dimord`.
     out = AnalogData(samplerate=1/dt, dimord=dimord)
     if inmemory:
         idx[timeAxis] = nTrials 
         sig = np.tile(sig, idx)
         shp = [slice(None), slice(None)]
-        if seed:
-            for iTrial in range(nTrials):
-                shp[timeAxis] = slice(iTrial*t.size, (iTrial + 1)*t.size)
-                for chan in range(nChannels):
-                    shp[chanAxis] = chan
-                    sig[tuple(shp)] += rng.standard_normal((t.size, )).astype(sig.dtype) * 0.5
-        else:
-            sig += rng.standard_normal(sig.shape).astype(sig.dtype) * 0.5
+        for iTrial in range(nTrials):
+            shp[timeAxis] = slice(iTrial*t.size, (iTrial + 1)*t.size)
+            noise = rng.standard_normal((t.size, nChannels)).astype(sig.dtype) * 0.5
+            sig[tuple(shp)] += np.swapaxes(noise, timeAxis, 0) 
         out.data = sig
     else:
         with h5py.File(out.filename, "w") as h5f:
@@ -119,13 +112,8 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=None
             shp = [slice(None), slice(None)]
             for iTrial in range(nTrials):
                 shp[timeAxis] = slice(iTrial*t.size, (iTrial + 1)*t.size)
-                if seed:
-                    for chan in range(nChannels):
-                        shp[chanAxis] = chan
-                        dset[tuple(shp)] = sig[tuple(shp)] + \
-                            rng.standard_normal((t.size, )).astype(sig.dtype) * 0.5
-                else:
-                    dset[tuple(shp)] = sig + rng.standard_normal(sig.shape).astype(sig.dtype) * 0.5
+                noise = rng.standard_normal((t.size, nChannels)).astype(sig.dtype) * 0.5
+                dset[tuple(shp)] = sig + np.swapaxes(noise, timeAxis, 0) 
                 dset.flush()
         out.data = h5py.File(out.filename, "r+")["data"]
 

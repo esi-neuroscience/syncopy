@@ -41,14 +41,14 @@ if __name__ == "__main__":
                                        nChannels=nChannels,
                                        seed=seed,
                                        equidistant=True,
-                                       inmemory=True,
+                                       inmemory=False,
                                        overlapping=True)
     dataInv = generate_artificial_data(nTrials=nTrials,
                                        nChannels=nChannels,
                                        seed=seed,
                                        equidistant=True,
                                        overlapping=True,
-                                       inmemory=True,
+                                       inmemory=False,
                                        dimord=dataReg.dimord[::-1])
     
     f1 = dataReg.singleplot(avg_channels=False)

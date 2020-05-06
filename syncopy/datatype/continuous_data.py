@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-28 16:54:52>
+# Last modification time: <2020-05-06 09:23:38>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -680,7 +680,7 @@ class AnalogData(ContinuousData):
                 pltArr = np.zeros((tLengths[0], nChan), dtype=self.data.dtype)
                 for k, trlno in enumerate(trList):
                     idx[timeIdx] = self._selection.time[k]
-                    pltArr += self._get_trial(trlno)[tuple(idx)].flatten(order="F").reshape(tLengths[0], nChan)
+                    pltArr += np.swapaxes(self._get_trial(trlno)[tuple(idx)], timeIdx, 0)
                 pltArr /= nTrials
 
                 # If required, compute offsets for multi-channel plot
@@ -691,6 +691,7 @@ class AnalogData(ContinuousData):
                 # Plot the entire trial-averaged array at once
                 time = self.time[trList[0]][self._selection.time[0]]
                 ax.plot(time, 
+                        # pltArr,
                         (pltArr + fig.chanOffsets.reshape(1, nChan)).reshape(time.size, nChan),
                         color=plt.rcParams["axes.prop_cycle"].by_key()["color"][fig.objCount],
                         label=os.path.basename(self.filename))

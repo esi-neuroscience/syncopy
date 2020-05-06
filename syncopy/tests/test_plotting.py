@@ -4,7 +4,7 @@
 # 
 # Created: 2020-04-17 08:25:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-28 15:49:39>
+# Last modification time: <2020-05-06 10:17:57>
 
 import pytest
 import numpy as np
@@ -30,7 +30,7 @@ class TestAnalogDataPlotting():
     seed = 130810
 
     # To use `selectdata` w/``trials = None``-raw plotting, the trials must not 
-    # overlap - construct separate set of objects for testing!
+    # overlap - construct separate set of `raw*` AnalogData-objects for testing!
     dataReg = generate_artificial_data(nTrials=nTrials,
                                        nChannels=nChannels,
                                        seed=seed,
@@ -67,6 +67,9 @@ class TestAnalogDataPlotting():
             for channels in self.channels:
                 for toilim in self.toilim:
                     for avg_channels in [True, False]:
+                        
+                        # Render figure using singleplot mechanics, recreate w/`selectdata`, 
+                        # results must be identical
                         fig1 = self.dataReg.singleplot(trials=trials,
                                                        channels=channels,
                                                        toilim=toilim,
@@ -78,44 +81,40 @@ class TestAnalogDataPlotting():
                                                    avg_channels=avg_channels)
                         assert figs_equal(fig1, fig2)
                         
-                        # Recreate `fig1` and `fig2` using the package-method:
-                        # `fig2a` is based on `dataInv` - be more lenient here
+                        # Recreate `fig1` and `fig2` in a single sweep by using 
+                        # `spy.singleplot` w/multiple input objects 
                         fig1a, fig2a = singleplot(self.dataReg, self.dataInv,
                                                   trials=trials,
                                                   channels=channels,
                                                   toilim=toilim,
                                                   avg_channels=avg_channels,
                                                   overlay=False)
-                        assert figs_equal(fig1, fig1a)
-                        try:
-                            assert figs_equal(fig2, fig2a)
-                        except AssertionError:
-                            try:
-                                assert figs_equal(fig2, fig2a, tol=1e-2)
-                            except:
-                                plt.ioff()
-                                import pdb; pdb.set_trace()
-                        # except Exception as exc:
-                        #     raise exc
                         
-                        # fig3 = singleplot(self.dataReg, self.dataInv,
-                        #                   trials=trials,
-                        #                   channels=channels,
-                        #                   toilim=toilim,
-                        #                   avg_channels=avg_channels,
-                        #                   overlay=True)
-                        # fig4 = singleplot(self.dataInv, 
-                        #                   trials=trials,
-                        #                   channels=channels,
-                        #                   toilim=toilim,
-                        #                   avg_channels=avg_channels,
-                        #                   fig=fig1)
-                        # assert figs_equal(fig3, fig4)
-                        # spy.singleplot(dataReg, fig=spy.singleplot(dataReg)) 
+                        # `fig2a` is based on `dataInv` - be more lenient there
+                        tol = None
+                        if avg_channels:
+                            tol = 1e-2
+                        assert figs_equal(fig1, fig1a)
+                        assert figs_equal(fig2, fig2a, tol=tol)
+                        assert figs_equal(fig1, fig2a, tol=tol)
+                        
+                        # Create overlay figures: `fig3` combines `dataReg` and 
+                        # `dataInv` - must be identical to overlaying `fig1` w/`dataInv`
+                        fig3 = singleplot(self.dataReg, self.dataInv,
+                                          trials=trials,
+                                          channels=channels,
+                                          toilim=toilim,
+                                          avg_channels=avg_channels,
+                                          overlay=True)
+                        fig4 = singleplot(self.dataInv, 
+                                          trials=trials,
+                                          channels=channels,
+                                          toilim=toilim,
+                                          avg_channels=avg_channels,
+                                          fig=fig1)
+                        assert figs_equal(fig3, fig4)
 
                         plt.close("all")
-                        
-        sys.exit()
 
         # The `selectdata(trials="all")` part requires consecutive trials!
         for channels in self.channels:
@@ -178,7 +177,17 @@ class TestAnalogDataPlotting():
                                                       avg_trials=avg_trials,
                                                       avg_channels=avg_channels)
                             
-                            # `selectdata` preserve trial order but not numbering; ensure
+                            # # Recreate `fig1` and `fig2` in a single sweep by using 
+                            # # `spy.multiplot` w/multiple input objects 
+                            # fig1a, fig2a = multiplot(self.dataReg, self.dataInv,
+                            #                          trials=trials,
+                            #                          channels=channels,
+                            #                          toilim=toilim,
+                            #                          avg_trials=avg_trials,
+                            #                          avg_channels=avg_channels,
+                            #                          overlay=False)
+                            
+                            # `selectdata` preserves trial order but not numbering: ensure
                             # plot titles are correct, but then remove them to allow 
                             # comparison of `selected` and `dataReg` figures
                             if avg_trials is False:
@@ -197,7 +206,13 @@ class TestAnalogDataPlotting():
                                     continue
                                 
                             assert figs_equal(fig1, fig2)
-                            plt.close("all")
+                            
+                            # tol = None
+                            # if avg_channels:
+                            #     tol = 1e-2
+                            # assert figs_equal(fig1, fig1a)
+                            # assert figs_equal(fig2, fig2a, tol=tol)
+                            # assert figs_equal(fig1, fig2a, tol=tol)
                             
                             # fig3 = multiplot(self.dataReg, self.dataInv,
                             #                  trials=trials,
@@ -213,6 +228,8 @@ class TestAnalogDataPlotting():
                             #                  avg_channels=avg_channels,
                             #                  fig=fig1)
                             # assert figs_equal(fig3, fig4)
+
+                            plt.close("all")
 
         # The `selectdata(trials="all")` part requires consecutive trials! Add'ly, 
         # `avg_channels` must be `False`, otherwise single-panel plot warning is triggered
