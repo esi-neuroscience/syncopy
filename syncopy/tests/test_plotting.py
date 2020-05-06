@@ -4,10 +4,11 @@
 # 
 # Created: 2020-04-17 08:25:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-06 10:17:57>
+# Last modification time: <2020-05-06 18:24:58>
 
 import pytest
 import numpy as np
+from copy import copy
 
 from syncopy.tests.misc import generate_artificial_data, figs_equal
 from syncopy.shared.errors import SPYValueError
@@ -106,13 +107,13 @@ class TestAnalogDataPlotting():
                                           toilim=toilim,
                                           avg_channels=avg_channels,
                                           overlay=True)
-                        fig4 = singleplot(self.dataInv, 
+                        fig1 = singleplot(self.dataInv, 
                                           trials=trials,
                                           channels=channels,
                                           toilim=toilim,
                                           avg_channels=avg_channels,
                                           fig=fig1)
-                        assert figs_equal(fig3, fig4)
+                        assert figs_equal(fig1, fig3)
 
                         plt.close("all")
 
@@ -165,6 +166,14 @@ class TestAnalogDataPlotting():
                 for toilim in self.toilim:
                     for avg_trials in [True, False]:
                         for avg_channels in [True, False]:
+                            
+                            # ``avg_trials == avg_channels == True`` yields `SPYWarning` to 
+                            # use `singleplot` -> no figs to compare here
+                            if avg_trials is avg_channels is True:
+                                continue
+                            
+                            # Render figure using multiplot mechanics, recreate w/`selectdata`, 
+                            # results must be identical
                             fig1 = self.dataReg.multiplot(trials=trials,
                                                           channels=channels,
                                                           toilim=toilim,
@@ -177,57 +186,67 @@ class TestAnalogDataPlotting():
                                                       avg_trials=avg_trials,
                                                       avg_channels=avg_channels)
                             
-                            # # Recreate `fig1` and `fig2` in a single sweep by using 
-                            # # `spy.multiplot` w/multiple input objects 
-                            # fig1a, fig2a = multiplot(self.dataReg, self.dataInv,
-                            #                          trials=trials,
-                            #                          channels=channels,
-                            #                          toilim=toilim,
-                            #                          avg_trials=avg_trials,
-                            #                          avg_channels=avg_channels,
-                            #                          overlay=False)
+                            # Recreate `fig1` and `fig2` in a single sweep by using 
+                            # `spy.multiplot` w/multiple input objects 
+                            fig1a, fig2a = multiplot(self.dataReg, self.dataInv,
+                                                     trials=trials,
+                                                     channels=channels,
+                                                     toilim=toilim,
+                                                     avg_trials=avg_trials,
+                                                     avg_channels=avg_channels,
+                                                     overlay=False)
+                            
                             
                             # `selectdata` preserves trial order but not numbering: ensure
                             # plot titles are correct, but then remove them to allow 
                             # comparison of `selected` and `dataReg` figures
+                            figTitleLists = []
                             if avg_trials is False:
                                 if trials != "all":
-                                    titleList = []
-                                    for ax in fig1.axes:
-                                        titleList.append(ax.get_title())
-                                        ax.set_title("")
-                                    for ax in fig2.axes:
-                                        ax.set_title("")
-                                    assert titleList == ["Trial #{}".format(trlno) for trlno in trials]
-                            else:
-                                # ``avg_trials == avg_channels == True`` yields `SPYWarning` to 
-                                # use `singleplot` -> no figs to compare here
-                                if avg_channels is True:
-                                    continue
-                                
+                                    for fig in [fig1, fig1a]:
+                                        titleList = []
+                                        for ax in fig.axes:
+                                            titleList.append(copy(ax.title))
+                                            ax.set_title("")
+                                        titles = [title.get_text() for title in titleList]
+                                        assert titles == ["Trial #{}".format(trlno) for trlno in trials]
+                                        figTitleLists.append(titleList)
+                                    for fig in [fig2, fig2a]:
+                                        for ax in fig.axes:
+                                            ax.set_title("")
+
+                            # After (potential) axes title removal, compare figures
                             assert figs_equal(fig1, fig2)
                             
-                            # tol = None
-                            # if avg_channels:
-                            #     tol = 1e-2
-                            # assert figs_equal(fig1, fig1a)
-                            # assert figs_equal(fig2, fig2a, tol=tol)
-                            # assert figs_equal(fig1, fig2a, tol=tol)
-                            
-                            # fig3 = multiplot(self.dataReg, self.dataInv,
-                            #                  trials=trials,
-                            #                  channels=channels,
-                            #                  toilim=toilim,
-                            #                  avg_trials=avg_trials,
-                            #                  avg_channels=avg_channels)
-                            # fig4 = multiplot(self.dataInv, 
-                            #                  trials=trials,
-                            #                  channels=channels,
-                            #                  toilim=toilim,
-                            #                  avg_trials=avg_trials,
-                            #                  avg_channels=avg_channels,
-                            #                  fig=fig1)
-                            # assert figs_equal(fig3, fig4)
+                            # `fig2a` is based on `dataInv` - be more lenient there
+                            tol = None
+                            if avg_channels:
+                                tol = 1e-2
+                            assert figs_equal(fig1, fig1a)
+                            assert figs_equal(fig2, fig2a, tol=tol)
+                            assert figs_equal(fig1, fig2a, tol=tol)
+
+                            # If necessary, restore axes title from `figTitleLists`
+                            if figTitleLists:
+                                for k, ax in enumerate(fig1.axes):
+                                    ax.title = figTitleLists[0][k]
+
+                            # Create overlay figures: `fig3` combines `dataReg` and 
+                            # `dataInv` - must be identical to overlaying `fig1` w/`dataInv`
+                            fig3 = multiplot(self.dataReg, self.dataInv,
+                                             trials=trials,
+                                             channels=channels,
+                                             toilim=toilim,
+                                             avg_trials=avg_trials,
+                                             avg_channels=avg_channels)
+                            fig4 = multiplot(self.dataInv, 
+                                             trials=trials,
+                                             channels=channels,
+                                             toilim=toilim,
+                                             avg_trials=avg_trials,
+                                             avg_channels=avg_channels,
+                                             fig=fig1)
+                            assert figs_equal(fig3, fig4)
 
                             plt.close("all")
 

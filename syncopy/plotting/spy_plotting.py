@@ -4,7 +4,7 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-28 09:04:45>
+# Last modification time: <2020-05-06 14:29:30>
 
 # # Builtin/3rd party package imports
 # import tensorlfow
@@ -13,6 +13,7 @@
 from syncopy.shared.kwarg_decorators import unwrap_cfg
 from syncopy.shared.errors import SPYError, SPYTypeError, SPYWarning
 from syncopy.shared.parsers import data_parser
+from syncopy.shared.tools import get_defaults
 from syncopy import __plt__
 import syncopy as spy  # FIXME: for WIP type-error-checking
 
@@ -46,7 +47,7 @@ __all__ = ["singleplot", "multiplot"]
 @unwrap_cfg
 def singleplot(*data, 
                trials="all", channels="all", toilim=None, 
-               avg_channels=True, avg_trials=True, 
+               avg_channels=True, 
                title=None, grid=None, overlay=True, fig=None, **kwargs):
     """
     Coming soon...
@@ -73,6 +74,52 @@ def singleplot(*data,
     # Abort if matplotlib is not available
     if not __plt__:
         raise SPYError(pltErrMsg.format("singleplot"))
+    
+    # Collect all keywords of corresponding class-method (w/possibly user-provided 
+    # values) in dictionary 
+    defaults = get_defaults(data[0].singleplot)
+    lcls = locals()
+    kwords = {}
+    for kword in defaults:
+        kwords[kword] = lcls[kword]
+
+    # Call plotting manager
+    return _anyplot(*data, overlay=overlay, method="singleplot", **kwords, **kwargs)
+
+
+@unwrap_cfg
+def multiplot(*data, 
+              trials="all", channels="all", toilim=None, 
+              avg_channels=True, avg_trials=True, 
+              title=None, grid=None, overlay=True, fig=None, **kwargs):
+    """
+    Coming soon...
+    
+    For AnalogData: default dimord works w/matplotlib, i.e., 
+    
+    plot(data) with data nSample x nChannel generates nChannel 2DLines 
+    """
+
+    # Abort if matplotlib is not available
+    if not __plt__:
+        raise SPYError(pltErrMsg.format("multiplot"))
+
+    # Collect all keywords of corresponding class-method (w/possibly user-provided 
+    # values) in dictionary 
+    defaults = get_defaults(data[0].multiplot)
+    lcls = locals()
+    kwords = {}
+    for kword in defaults:
+        kwords[kword] = lcls[kword]
+
+    # Call plotting manager
+    return _anyplot(*data, overlay=overlay, method="multiplot", **kwords, **kwargs)
+
+
+def _anyplot(*data, overlay=None, method=None, **kwargs):
+    """
+    Coming soon...
+    """
 
     # The only error-checking done in here: ensure `overlay` is Boolean and assert 
     # `data` contains only non-empty Syncopy objects
@@ -87,45 +134,26 @@ def singleplot(*data,
         if not isinstance(obj, spy.AnalogData):
             errmsg = "Plotting currently only supported for `AnalogData` objects"
             raise NotImplementedError(errmsg)
-        
+
+    # See if figure was provided
     start = 0
     nData = len(data)
+    fig = kwargs.pop("fig", None)
     if not overlay and fig is not None and nData > 1:
         msg = "User-provided figures not supported for non-overlay visualization " +\
             "of {} datasets. Supplied figure will not be used. "
         SPYWarning(msg.format(nData))
         fig = None
-        
-    if overlay:
-        fig = data[0].singleplot(fig=fig, trials=trials, channels=channels, toilim=toilim,
-                                 avg_channels=avg_channels, avg_trials=avg_trials,
-                                 title=title, grid=grid, **kwargs)
-        start = 1
 
+    # If we're overlaying, preserve initial figure object to plot over iteratively        
+    if overlay:
+        fig = getattr(data[0], method)(fig=fig, **kwargs)
+        start = 1
     figList = []
     for n in range(start, nData):
-        figList.append(data[n].singleplot(fig=fig, trials=trials, channels=channels, 
-                                          toilim=toilim, avg_channels=avg_channels, 
-                                          avg_trials=avg_trials, title=title, grid=grid, 
-                                          **kwargs))
-    
+        figList.append(getattr(data[n], method)(fig=fig, **kwargs))
+
+    # Return single figure object (if `overlay` is `True`) or list of mulitple figs    
     if overlay:
         return fig
     return figList
-    
-
-@unwrap_cfg
-def multiplot(data, trials=None, channels=None, toi=None, toilim=None, foi=None,
-               foilim=None, tapers=None, units=None, eventids=None, 
-               out=None, **kwargs):
-    """
-    Coming soon...
-    
-    For AnalogData: default dimord works w/matplotlib, i.e., 
-    
-    plot(data) with data nSample x nChannel generates nChannel 2DLines 
-    """
-
-    # Abort if matplotlib is not available
-    if not __plt__:
-        raise SPYError(pltErrMsg.format("multiplot"))

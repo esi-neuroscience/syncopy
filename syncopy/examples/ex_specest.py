@@ -51,6 +51,7 @@ if __name__ == "__main__":
                                        inmemory=False,
                                        dimord=dataReg.dimord[::-1])
     
+    f0 = spy.singleplot(dataReg)
     f1 = dataReg.singleplot(avg_channels=False)
     f2 = dataInv.singleplot(avg_channels=False)
     
