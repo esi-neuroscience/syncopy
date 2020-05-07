@@ -65,11 +65,97 @@ def is_slurm_node():
 def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=None,
                              overlapping=False, inmemory=True, dimord="default"):
     """
+    Create :class:`~syncopy.AnalogData` object with synthetic trigonometric signal(s)
+    
     Parameters
     ----------
     nTrials : int
+        Number of trials to populate synthetic data object with
+    nChannels : int
+        Number of channels to populate synthetic object with
+    equidistant : bool
+        If `True`, trials of equal length are defined
+    seed : None or int
+        If `None`, imposed noise is completely random. If `seed` is an integer, 
+        it is used to fix the (initial) state of NumPy's random number generator 
+        :func:`numpy.random.default_rng`, i.e., objects created wtih same `seed` 
+        will be populated with identical artificial signals. 
+    overlapping : bool
+        If `True`, constructed trials overlap
+    inmemory : bool
+        If `True`, the full `data` array (all channels across all trials) is allocated
+        in memory (fast but dangerous for large arrays), otherwise the output data 
+        object's corresponding backing HDF5 file in `__storage__` is filled with 
+        synthetic data in a trial-by-trial manner (slow but safe even for very 
+        large datasets). 
+    dimord : str or list
+        If `dimord` is "default", the constructed output object uses the default
+        dimensional layout of a standard :class:`~syncopy.AnalogData` object. 
+        If `dimord` is a list (i.e., ``["channel", "time"]``) the provided sequence
+        of dimensions is used. 
+        
+    Returns
+    -------
+    out : :class:`~syncopy.AnalogData` object
+        Syncopy :class:`~syncopy.AnalogData` object with specified properties 
+        populated with a synthetic multivariate trigonometric signal. 
 
-    Populate `AnalogData` object w/ artificial signal
+    Notes
+    -----
+    This is an auxiliary method that is intended purely for internal use. Thus, 
+    no error checking is performed. 
+    
+    Examples
+    --------
+    Generate small artificial :class:`~syncopy.AnalogData` object in memory
+    
+    .. code-block:: python
+    
+        >>> iAmSmall = generate_artificial_data(nTrials=5, nChannels=10, inmemory=True)
+        >>> iAmSmall
+        Syncopy AnalogData object with fields
+        
+                    cfg : dictionary with keys ''
+                channel : [10] element <class 'numpy.ndarray'>
+              container : None
+                   data : 5 trials of length 3000 defined on [15000 x 10] float32 Dataset of size 0.57 MB
+                 dimord : 2 element list
+               filename : /Users/pantaray/.spy/spy_158f_4d4153e3.analog
+                   mode : r+
+             sampleinfo : [5 x 2] element <class 'numpy.ndarray'>
+             samplerate : 1000.0
+                    tag : None
+                   time : 5 element list
+              trialinfo : [5 x 0] element <class 'numpy.ndarray'>
+                 trials : 5 element iterable
+        
+        Use `.log` to see object history
+        
+    Generate artificial :class:`~syncopy.AnalogData` object of more substantial 
+    size on disk
+        
+    .. code-block:: python
+    
+        >>> iAmBig = generate_artificial_data(nTrials=50, nChannels=1024, inmemory=False)
+        >>> iAmBig
+        Syncopy AnalogData object with fields
+        
+                    cfg : dictionary with keys ''
+                channel : [1024] element <class 'numpy.ndarray'>
+              container : None
+                   data : 200 trials of length 3000 defined on [600000 x 1024] float32 Dataset of size 2.29 GB
+                 dimord : 2 element list
+               filename : /Users/pantaray/.spy/spy_158f_b80715fe.analog
+                   mode : r+
+             sampleinfo : [200 x 2] element <class 'numpy.ndarray'>
+             samplerate : 1000.0
+                    tag : None
+                   time : 200 element list
+              trialinfo : [200 x 0] element <class 'numpy.ndarray'>
+                 trials : 200 element iterable
+        
+        Use `.log` to see object history
+        
     """
 
     # Create dummy 1d signal that will be blown up to fill channels later
