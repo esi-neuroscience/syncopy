@@ -17,7 +17,8 @@ from syncopy import __plt__
 if __plt__:
     import matplotlib.pyplot as plt
     import matplotlib as mpl
-    mpl.rcParams["figure.dpi"] = 50
+    # mpl.rcParams["figure.dpi"] = 50
+    # mpl.rcParams["figure.dpi"] = 75
 
 # If matplotlib is not available, this whole testing module is pointless
 skip_without_plt = pytest.mark.skipif(not __plt__, reason="matplotlib not available")
@@ -63,6 +64,9 @@ class TestAnalogDataPlotting():
     
     def test_singleplot(self):
 
+        # Lowest possible dpi setting permitting valid png comparisons in `figs_equal`
+        mpl.rcParams["figure.dpi"] = 50
+        
         # Test everything except "raw" plotting       
         for trials in self.trials:
             for channels in self.channels:
@@ -80,7 +84,7 @@ class TestAnalogDataPlotting():
                                                            toilim=toilim)
                         fig2 = selected.singleplot(trials="all", 
                                                    avg_channels=avg_channels)
-                        assert figs_equal(fig1, fig2)
+                        # assert figs_equal(fig1, fig2)
                         
                         # Recreate `fig1` and `fig2` in a single sweep by using 
                         # `spy.singleplot` w/multiple input objects 
@@ -90,13 +94,23 @@ class TestAnalogDataPlotting():
                                                   toilim=toilim,
                                                   avg_channels=avg_channels,
                                                   overlay=False)
+
+                        # plt.show()
+                        # plt.draw()
+                        # plt.pause(0.1)
+
+                        # assert figs_equal(fig1, fig2)
                         
                         # `fig2a` is based on `dataInv` - be more lenient there
                         tol = None
                         if avg_channels:
                             tol = 1e-2
+                        assert figs_equal(fig1, fig2)
                         assert figs_equal(fig1, fig1a)
-                        assert figs_equal(fig2, fig2a, tol=tol)
+                        try:
+                            assert figs_equal(fig2, fig2a, tol=tol)
+                        except:
+                            import pdb; pdb.set_trace()
                         assert figs_equal(fig1, fig2a, tol=tol)
                         
                         # Create overlay figures: `fig3` combines `dataReg` and 
@@ -115,6 +129,7 @@ class TestAnalogDataPlotting():
                                           fig=fig1)
                         assert figs_equal(fig1, fig3)
 
+                        # Close figures to avoid memory overflow
                         plt.close("all")
 
         # The `selectdata(trials="all")` part requires consecutive trials!
@@ -160,6 +175,9 @@ class TestAnalogDataPlotting():
 
     def test_multiplot(self):
 
+        # Lowest possible dpi setting permitting valid png comparisons in `figs_equal`
+        mpl.rcParams["figure.dpi"] = 75
+        
         # Test everything except "raw" plotting       
         for trials in self.trials:
             for channels in self.channels:
@@ -215,13 +233,12 @@ class TestAnalogDataPlotting():
                                         for ax in fig.axes:
                                             ax.set_title("")
 
-                            # After (potential) axes title removal, compare figures
-                            assert figs_equal(fig1, fig2)
-                            
+                            # After (potential) axes title removal, compare figures; 
                             # `fig2a` is based on `dataInv` - be more lenient there
                             tol = None
                             if avg_channels:
                                 tol = 1e-2
+                            assert figs_equal(fig1, fig2)
                             assert figs_equal(fig1, fig1a)
                             assert figs_equal(fig2, fig2a, tol=tol)
                             assert figs_equal(fig1, fig2a, tol=tol)

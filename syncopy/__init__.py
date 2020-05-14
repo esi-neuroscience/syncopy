@@ -51,7 +51,7 @@ except ImportError:
         "Please consider installing 'matplotlib', e.g., via conda: \n" +\
         "\tconda install matplotlib\n" +\
         "or using pip:\n" +\
-        "\tpip install matplotlib" +\
+        "\tpip install matplotlib"
     print(msg)
 
 # Define package-wide temp directory (and create it if not already present)

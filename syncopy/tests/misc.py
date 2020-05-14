@@ -19,7 +19,7 @@ from syncopy.shared.filetypes import _data_classname_to_extension, FILE_EXT
 from syncopy import __plt__
 if __plt__:
     import matplotlib.pyplot as plt
-
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 def is_win_vm():
     """
@@ -277,6 +277,7 @@ def figs_equal(fig1, fig2, tol=None):
     >>> figs_equal(fig1, fig2, tol=0.9)
     True
     """
+    plt.draw_all(force=True)
     with tempfile.NamedTemporaryFile(suffix='.png') as img1:
         with tempfile.NamedTemporaryFile(suffix='.png') as img2:
             fig1.savefig(img1.name)
@@ -284,4 +285,3 @@ def figs_equal(fig1, fig2, tol=None):
             if tol is None:
                 return np.array_equal(plt.imread(img1.name), plt.imread(img2.name))
             return np.allclose(plt.imread(img1.name), plt.imread(img2.name), atol=tol)
-    
