@@ -4,7 +4,7 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-14 14:29:21>
+# Last modification time: <2020-05-14 17:08:23>
 
 # # Builtin/3rd party package imports
 # import tensorlfow
@@ -64,11 +64,11 @@ pltConfig = {"singleTitleSize": 12,
 # Global consistent error message if matplotlib is missing
 pltErrMsg = "Could not import 'matplotlib': {} requires a working matplotlib installation!"
 
-__all__ = ["singleplot", "multiplot"]
+__all__ = ["singlepanelplot", "multipanelplot"]
 
 
 @unwrap_cfg
-def singleplot(*data, 
+def singlepanelplot(*data, 
                trials="all", channels="all", toilim=None, 
                avg_channels=True, 
                title=None, grid=None, overlay=True, fig=None, **kwargs):
@@ -82,10 +82,10 @@ def singleplot(*data,
     :class:`~syncopy.AnalogData` : trials, channels, toi/toilim
         Examples
         
-        >>> fig1, fig2 = spy.singleplot(data1, data2, channels=["channel01", "channel02"], overlay=False)
+        >>> fig1, fig2 = spy.singlepanelplot(data1, data2, channels=["channel01", "channel02"], overlay=False)
         >>> cfg = spy.StructDict() 
         >>> cfg.trials = [5, 3, 0]; cfg.toilim = [0.25, 0.5]
-        >>> fig = spy.singleplot(cfg, data1, data2, overlay=True)
+        >>> fig = spy.singlepanelplot(cfg, data1, data2, overlay=True)
     
     Parameters
     ----------
@@ -156,7 +156,7 @@ def singleplot(*data,
     
     The actual rendering is performed by class methods specific to the provided 
     input object types (e.g., :class:`~syncopy.AnalogData`). Thus, 
-    :func:`~syncopy.singleplot` is mainly a convenience function and management routine
+    :func:`~syncopy.singlepanelplot` is mainly a convenience function and management routine
     that invokes the appropriate drawing code. 
     
     Data subset selection for plotting is performed using :func:`~syncopy.selectdata`, 
@@ -164,33 +164,33 @@ def singleplot(*data,
         
     Examples
     --------
-    Please refer to the respective `singleplot` class methods for detailed usage
+    Please refer to the respective `singlepanelplot` class methods for detailed usage
     examples specific to the respective Syncopy data object type. 
     
     See also
     --------
-    :func:`~syncopy.multiplot` : visualize Syncopy objects using multi-panel figure(s)
-    :meth:`syncopy.AnalogData.singleplot` : `singleplot` for :class:`~syncopy.AnalogData` objects
+    :func:`~syncopy.multipanelplot` : visualize Syncopy objects using multi-panel figure(s)
+    :meth:`syncopy.AnalogData.singlepanelplot` : `singlepanelplot` for :class:`~syncopy.AnalogData` objects
     """
     
     # Abort if matplotlib is not available
     if not __plt__:
-        raise SPYError(pltErrMsg.format("singleplot"))
+        raise SPYError(pltErrMsg.format("singlepanelplot"))
     
     # Collect all keywords of corresponding class-method (w/possibly user-provided 
     # values) in dictionary 
-    defaults = get_defaults(data[0].singleplot)
+    defaults = get_defaults(data[0].singlepanelplot)
     lcls = locals()
     kwords = {}
     for kword in defaults:
         kwords[kword] = lcls[kword]
 
     # Call plotting manager
-    return _anyplot(*data, overlay=overlay, method="singleplot", **kwords, **kwargs)
+    return _anyplot(*data, overlay=overlay, method="singlepanelplot", **kwords, **kwargs)
 
 
 @unwrap_cfg
-def multiplot(*data, 
+def multipanelplot(*data, 
               trials="all", channels="all", toilim=None, 
               avg_channels=False, avg_trials=True, 
               title=None, grid=None, overlay=True, fig=None, **kwargs):
@@ -204,10 +204,10 @@ def multiplot(*data,
     :class:`~syncopy.AnalogData` : trials, channels, toi/toilim
         Examples
         
-        >>> fig1, fig2 = spy.multiplot(data1, channels=["channel01", "channel02"])
+        >>> fig1, fig2 = spy.multipanelplot(data1, channels=["channel01", "channel02"])
         >>> cfg = spy.StructDict() 
         >>> cfg.trials = [5, 3, 0]; cfg.toilim = [0.25, 0.5]
-        >>> fig = spy.multiplot(cfg, data1, data2, overlay=True)
+        >>> fig = spy.multipanelplot(cfg, data1, data2, overlay=True)
     
     Parameters
     ----------
@@ -245,7 +245,7 @@ def multiplot(*data,
         multiple panels containing multiple time-courses are rendered with each 
         panel representing a trial, and each time-course corresponding to a single 
         channel. For ``avg_channel = avg_trials = True`` no output is generated, 
-        as this functionality is covered by :func:`~syncopy.singleplot`. 
+        as this functionality is covered by :func:`~syncopy.singlepanelplot`. 
     avg_trials : bool
         If `True`, plot input dataset(s) averaged across trials specified by `trials`. 
         Specific panel allocation depends on value of `avg_channels` (see above). 
@@ -288,7 +288,7 @@ def multiplot(*data,
     
     The actual rendering is performed by class methods specific to the provided 
     input object types (e.g., :class:`~syncopy.AnalogData`). Thus, 
-    :func:`~syncopy.multiplot` is mainly a convenience function and management routine
+    :func:`~syncopy.multipanelplot` is mainly a convenience function and management routine
     that invokes the appropriate drawing code. 
     
     Data subset selection for plotting is performed using :func:`~syncopy.selectdata`, 
@@ -296,34 +296,39 @@ def multiplot(*data,
         
     Examples
     --------
-    Please refer to the respective `multiplot` class methods for detailed usage
+    Please refer to the respective `multipanelplot` class methods for detailed usage
     examples specific to the respective Syncopy data object type. 
     
     See also
     --------
-    :func:`~syncopy.single` : visualize Syncopy objects using single-panel figure(s)
-    :meth:`syncopy.AnalogData.multiplot` : `multiplot` for :class:`~syncopy.AnalogData` objects
+    :func:`~syncopy.singlepanelplot` : visualize Syncopy objects using single-panel figure(s)
+    :meth:`syncopy.AnalogData.multipanelplot` : `multipanelplot` for :class:`~syncopy.AnalogData` objects
     """
 
     # Abort if matplotlib is not available
     if not __plt__:
-        raise SPYError(pltErrMsg.format("multiplot"))
+        raise SPYError(pltErrMsg.format("multipanelplot"))
 
     # Collect all keywords of corresponding class-method (w/possibly user-provided 
     # values) in dictionary 
-    defaults = get_defaults(data[0].multiplot)
+    defaults = get_defaults(data[0].multipanelplot)
     lcls = locals()
     kwords = {}
     for kword in defaults:
         kwords[kword] = lcls[kword]
 
     # Call plotting manager
-    return _anyplot(*data, overlay=overlay, method="multiplot", **kwords, **kwargs)
+    return _anyplot(*data, overlay=overlay, method="multipanelplot", **kwords, **kwargs)
 
 
 def _anyplot(*data, overlay=None, method=None, **kwargs):
     """
-    Coming soon...
+    Local management routine that invokes respective class methods based on 
+    caller (`obj.singlepanelplot` or `obj.multipanelplot`)
+    
+    This is an auxiliary method that is intended purely for internal use. Please
+    refer to the user-exposed methods :func:`~syncopy.singlepanelplot` and/or
+    :func:`~syncopy.multipanelplot` to actually generate plots of Syncopy data objects. 
     """
 
     # The only error-checking done in here: ensure `overlay` is Boolean and assert 

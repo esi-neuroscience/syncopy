@@ -4,7 +4,7 @@
 # 
 # Created: 2020-04-17 08:25:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-14 16:00:40>
+# Last modification time: <2020-05-14 16:43:44>
 
 import pytest
 import numpy as np
@@ -12,7 +12,7 @@ from copy import copy
 
 from syncopy.tests.misc import generate_artificial_data, figs_equal
 from syncopy.shared.errors import SPYValueError
-from syncopy.plotting import singleplot, multiplot
+from syncopy.plotting import singlepanelplot, multipanelplot
 from syncopy import __plt__
 if __plt__:
     import matplotlib.pyplot as plt
@@ -62,7 +62,7 @@ class TestAnalogDataPlotting():
     
     # trlToilim = lambda self, trl, tlim: None if trl is None else tlim
     
-    def test_singleplot(self):
+    def test_singlepanelplot(self):
 
         # Lowest possible dpi setting permitting valid png comparisons in `figs_equal`
         mpl.rcParams["figure.dpi"] = 50
@@ -73,22 +73,22 @@ class TestAnalogDataPlotting():
                 for toilim in self.toilim:
                     for avg_channels in [True, False]:
                         
-                        # Render figure using singleplot mechanics, recreate w/`selectdata`, 
+                        # Render figure using singlepanelplot mechanics, recreate w/`selectdata`, 
                         # results must be identical
-                        fig1 = self.dataReg.singleplot(trials=trials,
+                        fig1 = self.dataReg.singlepanelplot(trials=trials,
                                                        channels=channels,
                                                        toilim=toilim,
                                                        avg_channels=avg_channels)
                         selected = self.dataReg.selectdata(trials=trials, 
                                                            channels=channels,
                                                            toilim=toilim)
-                        fig2 = selected.singleplot(trials="all", 
+                        fig2 = selected.singlepanelplot(trials="all", 
                                                    avg_channels=avg_channels)
                         # assert figs_equal(fig1, fig2)
                         
                         # Recreate `fig1` and `fig2` in a single sweep by using 
-                        # `spy.singleplot` w/multiple input objects 
-                        fig1a, fig2a = singleplot(self.dataReg, self.dataInv,
+                        # `spy.singlepanelplot` w/multiple input objects 
+                        fig1a, fig2a = singlepanelplot(self.dataReg, self.dataInv,
                                                   trials=trials,
                                                   channels=channels,
                                                   toilim=toilim,
@@ -106,13 +106,13 @@ class TestAnalogDataPlotting():
                         
                         # Create overlay figures: `fig3` combines `dataReg` and 
                         # `dataInv` - must be identical to overlaying `fig1` w/`dataInv`
-                        fig3 = singleplot(self.dataReg, self.dataInv,
+                        fig3 = singlepanelplot(self.dataReg, self.dataInv,
                                           trials=trials,
                                           channels=channels,
                                           toilim=toilim,
                                           avg_channels=avg_channels,
                                           overlay=True)
-                        fig1 = singleplot(self.dataInv, 
+                        fig1 = singlepanelplot(self.dataInv, 
                                           trials=trials,
                                           channels=channels,
                                           toilim=toilim,
@@ -126,45 +126,45 @@ class TestAnalogDataPlotting():
         # The `selectdata(trials="all")` part requires consecutive trials!
         for channels in self.channels:
             for avg_channels in [True, False]:
-                fig1 = self.rawReg.singleplot(trials=None,
+                fig1 = self.rawReg.singlepanelplot(trials=None,
                                               channels=channels,
                                               avg_channels=avg_channels)
                 selected = self.rawReg.selectdata(trials="all",
                                                   channels=channels)
-                fig2 = selected.singleplot(trials=None, avg_channels=avg_channels)
+                fig2 = selected.singlepanelplot(trials=None, avg_channels=avg_channels)
                 assert figs_equal(fig1, fig2)
                 plt.close("all")
 
         # Do not allow selecting time-intervals w/o trial-specification        
         with pytest.raises(SPYValueError):
-            self.dataReg.singleplot(trials=None, toilim=self.toilim[1])
+            self.dataReg.singlepanelplot(trials=None, toilim=self.toilim[1])
         
         # Do not overlay multi-channel plot w/chan-average and unequal channel-count
-        multiChannelFig = self.dataReg.singleplot(avg_channels=False, 
+        multiChannelFig = self.dataReg.singlepanelplot(avg_channels=False, 
                                                   channels=self.channels[1])
         with pytest.raises(SPYValueError):
-            self.dataReg.singleplot(avg_channels=True, fig=multiChannelFig)
+            self.dataReg.singlepanelplot(avg_channels=True, fig=multiChannelFig)
         with pytest.raises(SPYValueError):
-            self.dataReg.singleplot(channels="all", fig=multiChannelFig)
+            self.dataReg.singlepanelplot(channels="all", fig=multiChannelFig)
             
-        # Do not overlay multi-panel plot w/figure produced by `singleplot`
+        # Do not overlay multi-panel plot w/figure produced by `singlepanelplot`
         multiChannelFig.nTrialsPanels = 99
         with pytest.raises(SPYValueError):
-            self.dataReg.singleplot(fig=multiChannelFig)
+            self.dataReg.singlepanelplot(fig=multiChannelFig)
         multiChannelFig.nChanPanels = 99
         with pytest.raises(SPYValueError):
-            self.dataReg.singleplot(fig=multiChannelFig)
+            self.dataReg.singlepanelplot(fig=multiChannelFig)
         
         # Ensure grid and title specifications are rendered correctly
         theTitle = "A title"
-        gridFig = self.dataReg.singleplot(grid=True)
+        gridFig = self.dataReg.singlepanelplot(grid=True)
         assert gridFig.axes[0].get_xgridlines()[0].get_visible() == True
-        titleFig = self.dataReg.singleplot(title=theTitle)
+        titleFig = self.dataReg.singlepanelplot(title=theTitle)
         assert titleFig.axes[0].get_title() == theTitle
         
         plt.close("all")
 
-    def test_multiplot(self):
+    def test_multipanelplot(self):
 
         # Lowest possible dpi setting permitting valid png comparisons in `figs_equal`
         mpl.rcParams["figure.dpi"] = 75
@@ -177,13 +177,13 @@ class TestAnalogDataPlotting():
                         for avg_channels in [True, False]:
                             
                             # ``avg_trials == avg_channels == True`` yields `SPYWarning` to 
-                            # use `singleplot` -> no figs to compare here
+                            # use `singlepanelplot` -> no figs to compare here
                             if avg_trials is avg_channels is True:
                                 continue
                             
-                            # Render figure using multiplot mechanics, recreate w/`selectdata`, 
+                            # Render figure using multipanelplot mechanics, recreate w/`selectdata`, 
                             # results must be identical
-                            fig1 = self.dataReg.multiplot(trials=trials,
+                            fig1 = self.dataReg.multipanelplot(trials=trials,
                                                           channels=channels,
                                                           toilim=toilim,
                                                           avg_trials=avg_trials,
@@ -191,13 +191,13 @@ class TestAnalogDataPlotting():
                             selected = self.dataReg.selectdata(trials=trials, 
                                                                channels=channels,
                                                                toilim=toilim)
-                            fig2 = selected.multiplot(trials="all", 
+                            fig2 = selected.multipanelplot(trials="all", 
                                                       avg_trials=avg_trials,
                                                       avg_channels=avg_channels)
                             
                             # Recreate `fig1` and `fig2` in a single sweep by using 
-                            # `spy.multiplot` w/multiple input objects 
-                            fig1a, fig2a = multiplot(self.dataReg, self.dataInv,
+                            # `spy.multipanelplot` w/multiple input objects 
+                            fig1a, fig2a = multipanelplot(self.dataReg, self.dataInv,
                                                      trials=trials,
                                                      channels=channels,
                                                      toilim=toilim,
@@ -241,13 +241,13 @@ class TestAnalogDataPlotting():
 
                             # Create overlay figures: `fig3` combines `dataReg` and 
                             # `dataInv` - must be identical to overlaying `fig1` w/`dataInv`
-                            fig3 = multiplot(self.dataReg, self.dataInv,
+                            fig3 = multipanelplot(self.dataReg, self.dataInv,
                                              trials=trials,
                                              channels=channels,
                                              toilim=toilim,
                                              avg_trials=avg_trials,
                                              avg_channels=avg_channels)
-                            fig4 = multiplot(self.dataInv, 
+                            fig4 = multipanelplot(self.dataInv, 
                                              trials=trials,
                                              channels=channels,
                                              toilim=toilim,
@@ -261,85 +261,85 @@ class TestAnalogDataPlotting():
         # The `selectdata(trials="all")` part requires consecutive trials! Add'ly, 
         # `avg_channels` must be `False`, otherwise single-panel plot warning is triggered
         for channels in self.channels:
-                fig1 = self.rawReg.multiplot(trials=None,
+                fig1 = self.rawReg.multipanelplot(trials=None,
                                              channels=channels,
                                              avg_channels=False,
                                              avg_trials=False)
                 selected = self.rawReg.selectdata(trials="all",
                                                   channels=channels)
-                fig2 = selected.multiplot(trials=None, 
+                fig2 = selected.multipanelplot(trials=None, 
                                           avg_channels=False)
                 assert figs_equal(fig1, fig2)
                 plt.close("all")
 
         # Do not allow selecting time-intervals w/o trial-specification        
         with pytest.raises(SPYValueError):
-            self.dataReg.multiplot(trials=None, toilim=self.toilim[1])
+            self.dataReg.multipanelplot(trials=None, toilim=self.toilim[1])
         
         # Panels = trials, each panel shows single (averaged) channel
-        multiTrialSingleChanFig = self.dataReg.multiplot(trials=self.trials[1], 
+        multiTrialSingleChanFig = self.dataReg.multipanelplot(trials=self.trials[1], 
                                                          avg_trials=False,
                                                          avg_channels=True)
         with pytest.raises(SPYValueError):  # trial-count does not match up
-            self.dataReg.multiplot(trials="all", 
+            self.dataReg.multipanelplot(trials="all", 
                                    avg_trials=False,
                                    avg_channels=True,
                                    fig=multiTrialSingleChanFig)
         with pytest.raises(SPYValueError):  # multi-channel overlay
-            self.dataReg.multiplot(trials=self.trials[1], 
+            self.dataReg.multipanelplot(trials=self.trials[1], 
                                    avg_trials=False,
                                    avg_channels=False,
                                    fig=multiTrialSingleChanFig)
 
         # Panels = trials, each panel shows multiple channels
-        multiTrialMultiChanFig = self.dataReg.multiplot(trials=self.trials[1],
+        multiTrialMultiChanFig = self.dataReg.multipanelplot(trials=self.trials[1],
                                                          avg_trials=False,
                                                          avg_channels=False)
         with pytest.raises(SPYValueError):  # no trial specification provided
-            self.dataReg.multiplot(trials=None, 
+            self.dataReg.multipanelplot(trials=None, 
                                    avg_trials=False,
                                    avg_channels=False,
                                    fig=multiTrialMultiChanFig)
         with pytest.raises(SPYValueError):  # channel-count does not match up
-            self.dataReg.multiplot(trials=self.trials[1], 
+            self.dataReg.multipanelplot(trials=self.trials[1], 
                                    channels=self.channels[1],
                                    avg_trials=False,
                                    avg_channels=False,
                                    fig=multiTrialMultiChanFig)
         with pytest.raises(SPYValueError):  # single-channel overlay
-            self.dataReg.multiplot(trials=self.trials[1], 
+            self.dataReg.multipanelplot(trials=self.trials[1], 
                                    avg_trials=False,
                                    avg_channels=True,
                                    fig=multiTrialMultiChanFig)
 
         # Panels = channels
-        multiChannelFig = self.dataReg.multiplot(trials=self.trials[1],
+        multiChannelFig = self.dataReg.multipanelplot(trials=self.trials[1],
                                                  avg_trials=True,
                                                  avg_channels=False)
         with pytest.raises(SPYValueError):  # multi-trial overlay
-            self.dataReg.multiplot(trials=self.trials[1], 
+            self.dataReg.multipanelplot(trials=self.trials[1], 
                                    avg_trials=False,
                                    avg_channels=False,
                                    fig=multiChannelFig)
         with pytest.raises(SPYValueError):  # channel-count does not match up
-            self.dataReg.multiplot(trials=self.trials[1], 
+            self.dataReg.multipanelplot(trials=self.trials[1], 
                                    channels=self.channels[1],
                                    avg_trials=True,
                                    avg_channels=False,
                                    fig=multiChannelFig)
             
-        # Do not overlay single-panel plot w/figure produced by `multiplot`
-        singlePanelFig = self.dataReg.singleplot()
+        # Do not overlay single-panel plot w/figure produced by `multipanelplot`
+        singlePanelFig = self.dataReg.singlepanelplot()
         with pytest.raises(SPYValueError):
-            self.dataReg.multiplot(fig=singlePanelFig)
+            self.dataReg.multipanelplot(fig=singlePanelFig)
         
         # Ensure grid and title specifications are rendered correctly
         theTitle = "A title"
-        gridFig = self.dataReg.multiplot(avg_trials=False, 
+        gridFig = self.dataReg.multipanelplot(avg_trials=False, 
                                          avg_channels=True, 
                                          grid=True)
         assert all([gridFig.axes[k].get_xgridlines()[0].get_visible() for k in range(self.nTrials)])
-        titleFig = self.dataReg.multiplot(avg_trials=False, 
+        titleFig = self.dataReg.multipanelplot(avg_trials=False, 
                                           avg_channels=True, 
                                           title=theTitle)
         assert titleFig._suptitle.get_text() == theTitle

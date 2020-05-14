@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:20:04
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-06 11:20:40>
+# Last modification time: <2020-05-14 16:45:26>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -413,7 +413,7 @@ class SpikeData(DiscreteData):
         """
         Create new `SpikeData` object from selection
         
-        Please refere to :func:`syncopy.selectdata` for detailed usage information. 
+        Please refer to :func:`syncopy.selectdata` for detailed usage information. 
         
         Examples
         --------
@@ -555,7 +555,7 @@ class EventData(DiscreteData):
         """
         Create new `EventData` object from selection
         
-        Please refere to :func:`syncopy.selectdata` for detailed usage information. 
+        Please refer to :func:`syncopy.selectdata` for detailed usage information. 
         
         Examples
         --------

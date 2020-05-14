@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-07 09:03:09>
+# Last modification time: <2020-05-14 16:45:26>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -412,8 +412,8 @@ class AnalogData(ContinuousData):
     _defaultDimord = ["time", "channel"]
  
     # Monkey-patch plotting routines to not clutter the core module code
-    singleplot = _plot_analog.singleplot
-    multiplot = _plot_analog.multiplot
+    singlepanelplot = _plot_analog.singlepanelplot
+    multipanelplot = _plot_analog.multipanelplot
     
     @property
     def hdr(self):
@@ -428,7 +428,7 @@ class AnalogData(ContinuousData):
         """
         Create new `AnalogData` object from selection
         
-        Please refere to :func:`syncopy.selectdata` for detailed usage information. 
+        Please refer to :func:`syncopy.selectdata` for detailed usage information. 
         
         Examples
         --------
@@ -599,7 +599,7 @@ class SpectralData(ContinuousData):
         """
         Create new `SpectralData` object from selection
         
-        Please refere to :func:`syncopy.selectdata` for detailed usage information. 
+        Please refer to :func:`syncopy.selectdata` for detailed usage information. 
         
         Examples
         --------
