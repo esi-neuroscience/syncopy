@@ -4,25 +4,19 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-12 10:23:56>
+# Last modification time: <2020-04-09 09:56:32>
 
 # Builtin/3rd party package imports
 import os
 import numpy as np
 import numbers
-import inspect
-
-
-
 
 # Local imports
 from syncopy.shared.filetypes import FILE_EXT
-from syncopy.shared.tools import StructDict
 from syncopy.shared.errors import (SPYIOError, SPYTypeError, SPYValueError,
                                    SPYWarning)
 
-
-__all__ = ["get_defaults"]
+__all__ = []
 
 
 def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
@@ -483,36 +477,6 @@ def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dim
             raise SPYValueError(legal=legal, varname=varname, actual=actual)
 
     return
-
-
-def get_defaults(obj):
-    """
-    Parse input arguments of `obj` and return dictionary
-
-    Parameters
-    ----------
-    obj : function or class
-        Object whose input arguments to parse. Can be either a class or
-        function.
-
-    Returns
-    -------
-    argdict : dictionary
-        Dictionary of `argument : default value` pairs constructed from
-        `obj`'s call-signature/instantiation.
-
-    Examples
-    --------
-    To see the default input arguments of :meth:`syncopy.specest.mtmfft` use
-    
-    >>> spy.get_defaults(spy.mtmfft)
-    """
-
-    if not callable(obj):
-        raise SPYTypeError(obj, varname="obj", expected="SyNCoPy function or class")
-    dct = {k: v.default for k, v in inspect.signature(obj).parameters.items()\
-           if v.default != v.empty and v.name != "cfg"}
-    return StructDict(dct)
 
 
 def filename_parser(filename, is_in_valid_container=None):

@@ -1,4 +1,4 @@
-numpy >=1.15, <2
+numpy >=1.18, <2
 dask >= 2.0, <3.0
 scipy >=1.1, <1.4
 distributed >= 2.0, <3.0

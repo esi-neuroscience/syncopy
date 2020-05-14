@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-05 16:22:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-24 15:55:17>
+# Last modification time: <2020-04-09 09:54:16>
 
 import os
 import platform
@@ -14,7 +14,7 @@ import numpy as np
 from collections import OrderedDict
 from syncopy.shared.parsers import (io_parser, scalar_parser, array_parser, 
                                     filename_parser, data_parser)
-from syncopy.shared import get_defaults
+from syncopy.shared.tools import get_defaults
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError
 from syncopy import AnalogData, SpectralData
 

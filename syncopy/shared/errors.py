@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-14 10:23:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-12 10:50:33>
+# Last modification time: <2020-04-09 09:26:30>
 
 # Builtin/3rd party package imports
 import sys
@@ -13,6 +13,9 @@ from collections import OrderedDict
 
 # Local imports
 from syncopy import __tbcount__
+
+# Custom definition of bold ANSI for formatting errors/warnings in iPython/Jupyter
+ansiBold = "\033[1m"
 
 __all__ = []
 
@@ -144,7 +147,7 @@ def SPYExceptionHandler(*excargs, **exckwargs):
             isipy = True
             cols = ipy.InteractiveTB.Colors
             cols.filename = cols.filenameEm
-            cols.bold = "\033[1m"
+            cols.bold = ansiBold
             sys.last_traceback = etb    # smartify ``sys``
         except NameError:
             isipy = False
@@ -301,7 +304,7 @@ def SPYWarning(msg, caller=None):
         cols = get_ipython().InteractiveTB.Colors
         warnCol = "\x1b[95;95m"
         normCol = cols.Normal
-        boldEm = cols.bold
+        boldEm = ansiBold
     except NameError:
         warnCol = ""
         normCol = ""

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-22 10:56:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-27 16:29:03>
+# Last modification time: <2020-04-27 17:01:06>
 
 # Builtin/3rd party package imports
 import functools
@@ -15,8 +15,7 @@ import numpy as np
 # Local imports
 from syncopy.shared.errors import (SPYIOError, SPYTypeError, SPYValueError, 
                                    SPYError, SPYWarning)
-from syncopy.shared.tools import StructDict
-from syncopy.shared.parsers import get_defaults
+from syncopy.shared.tools import StructDict, get_defaults
 import syncopy as spy
 if spy.__dask__:
     import dask.distributed as dd
