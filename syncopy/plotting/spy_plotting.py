@@ -4,7 +4,7 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-07 15:18:27>
+# Last modification time: <2020-05-14 14:29:21>
 
 # # Builtin/3rd party package imports
 # import tensorlfow
@@ -17,14 +17,37 @@ from syncopy.shared.tools import get_defaults
 from syncopy import __plt__
 import syncopy as spy  # FIXME: for WIP type-error-checking
 
-# Conditional imports
+# Conditional imports and mpl customizations (provided mpl defaults have not been 
+# changed by user)
 if __plt__:
     import matplotlib.pyplot as plt 
     import matplotlib.style as mplstyle
     import matplotlib as mpl
-    plt.ion()
-    mplstyle.use("fast")
-    mpl.rcParams["figure.dpi"] = 100
+    
+    # Syncopy default plotting settings
+    spyMplRc = {"figure.dpi": 100}
+    
+    # Check if we're running w/mpl's default settings: if user either changed 
+    # existing setting or appended new ones (e.g., color definitions), abort
+    changeMplConf = True
+    rcDefaults = mpl.rc_params()
+    rcKeys = rcDefaults.keys()
+    rcParams = dict(mpl.rcParams)
+    rcParams.pop("backend")
+    rcParams.pop("interactive")
+    for key, value in rcParams.items():
+        if key not in rcKeys:
+            changeMplConf = False
+            break
+        if rcDefaults[key] != value:
+            changeMplConf = False
+            break
+
+    # If matplotlib's global config has not been changed, incorporate modifications            
+    if changeMplConf:
+        mplstyle.use("fast")
+        for key, value in spyMplRc.items():
+            mpl.rcParams[key] = value
     
 # Global style settings for single-/multi-plots
 pltConfig = {"singleTitleSize": 12,

@@ -4,7 +4,7 @@
 # 
 # Created: 2020-04-17 08:25:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-06 18:24:58>
+# Last modification time: <2020-05-14 16:00:40>
 
 import pytest
 import numpy as np
@@ -95,22 +95,13 @@ class TestAnalogDataPlotting():
                                                   avg_channels=avg_channels,
                                                   overlay=False)
 
-                        # plt.show()
-                        # plt.draw()
-                        # plt.pause(0.1)
-
-                        # assert figs_equal(fig1, fig2)
-                        
                         # `fig2a` is based on `dataInv` - be more lenient there
                         tol = None
                         if avg_channels:
                             tol = 1e-2
                         assert figs_equal(fig1, fig2)
                         assert figs_equal(fig1, fig1a)
-                        try:
-                            assert figs_equal(fig2, fig2a, tol=tol)
-                        except:
-                            import pdb; pdb.set_trace()
+                        assert figs_equal(fig2, fig2a, tol=tol)
                         assert figs_equal(fig1, fig2a, tol=tol)
                         
                         # Create overlay figures: `fig3` combines `dataReg` and 
