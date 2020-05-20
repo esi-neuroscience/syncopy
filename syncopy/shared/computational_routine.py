@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-09 09:52:14>
+# Last modification time: <2020-05-20 08:46:10>
 
 # Builtin/3rd party package imports
 import os
@@ -197,7 +197,7 @@ class ComputationalRoutine(ABC):
         self._maxArgSize = 100
         
         # counter and maximal recursion depth for calling `self._sizeof`
-        self._callMax = 100
+        self._callMax = 10000
         self._callCount = 0
 
     def initialize(self, data, chan_per_worker=None, keeptrials=True):

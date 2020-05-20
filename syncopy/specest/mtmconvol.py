@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-09 14:17:16>
+# Last modification time: <2020-05-20 19:47:20>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -43,12 +43,18 @@ def mtmconvol(
         padKw = padding(dat, padtype, pad=pad, padlength=padlength, 
                         prepadlength=prepadlength, postpadlength=postpadlength,
                         create_new=False)
+        import ipdb; ipdb.set_trace()
+        # FIXME: this is just max(pakKw, padbegin)!
         padbegin = max(0, padbegin - padKw["pad_width"][0, 0])
         padend = max(0, padend - padKw["pad_width"][0, 1])
         padKw["pad_width"][0, :] += [padbegin, padend]
+        import ipdb; ipdb.set_trace()
+        if noCompute:
+            dat = padding(dat, padtype, pad="relative", padlength=None, prepadlength=padbegin, postpadlength=padend)
+        else:
+            dat = np.pad(dat, **padKw)
         padbegin = 0
         padend = 0
-        dat = np.pad(dat, **padKw)
     if padbegin > 0 or padend > 0:
         dat = padding(dat, padtype, pad="relative", padlength=None, 
                       prepadlength=padbegin, postpadlength=padend)

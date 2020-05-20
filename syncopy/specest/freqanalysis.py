@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-09 09:54:03>
+# Last modification time: <2020-05-20 16:29:01>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -235,7 +235,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         padding(data._preview_trial(trialList[0]), padtype, pad=pad, padlength=padlength,
                 prepadlength=prepadlength, postpadlength=postpadlength)
     
-        # Update `minSampleNum` to account for padding
+        # Compute `minSampleNum` accounting for padding
         minSamplePos = lenTrials.argmin()
         minSampleNum = padding(data._preview_trial(trialList[minSamplePos]), padtype, pad=pad,
                                padlength=padlength, prepadlength=True).shape[timeAxis]
@@ -331,7 +331,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 lgl = "`toi = 'all'` to center analysis windows on all time-points"
                 raise SPYValueError(legal=lgl, varname="toi", actual=toi)
             overlap = 1.1
-            toi = Ellipsis
+            toi = None
             equidistant = True
         elif isinstance(toi, Number):
             if method == "wavelet":
@@ -343,7 +343,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             except Exception as exc:
                 raise exc
             overlap = toi
-            toi = Ellipsis
+            toi = None
             equidistant = True
         else:
             overlap = -1
@@ -362,6 +362,17 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             # arrays that are numerically not exactly equidistant - `unique` will
             # show several entries here - use `allclose` to identify "even" spacings
             equidistant = np.allclose(tSteps, [tSteps[0]] * tSteps.size)
+
+        # If `toi` was 'all' or a percentage, use entire time interval of (selected)
+        # trials and ensure that those trials have *approximately* equal length 
+        # (modulo padding - hence the `pad` involvement here)
+        if toi is None:
+            if not np.allclose(lenTrials, [minSampleNum] * lenTrials.size) \
+                and (pad is None or pad == "relative"):
+                lgl = "trials of equal lengths to process `toi = 'all'`"
+                act = "trials of differing lengths"
+                raise SPYValueError(legal=lgl, varname="toi", actual=act)
+            toi = [tStart[0], tEnd[0]]
                 
         # The above `overlap`, `equidistant` etc. is really only relevant for `mtmconvol`        
         if method == "mtmconvol":
@@ -411,6 +422,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                     start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
                     stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
                     soi.append(slice(max(0, start), max(stop, stop - start + 1)))
+                    
                     
         else: # wavelets: probably some `toi` gymnastics
             pass
