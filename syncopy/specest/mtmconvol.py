@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-22 14:32:23>
+# Last modification time: <2020-05-22 15:19:41>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -69,27 +69,29 @@ def mtmconvol(
               "padded": stftPad,
               "axis": 0}
     
-    # Call `stft` w/first taper to get freq/time indices
+    # Call `stft` w/first taper to get freq/time indices: transpose resulting `pxx`
+    # to have a time x freq x channel array
     win = np.atleast_2d(taper(nperseg, **taperopt))
     stftKw["window"] = win[0, :]
     if equidistant:
         freq, _, pxx = signal.stft(dat[soi, :], **stftKw)
+        import ipdb; ipdb.set_trace()
         _, fIdx = best_match(freq, foi, squash_duplicates=True)
         spec[:, 0, ...] = \
             spyfreq.spectralConversions[output_fmt](
-                pxx.reshape(nTime, nFreq, nChannels))[:, fIdx, :]
+                pxx.transpose(2, 0, 1))[:nTime, fIdx, :]
     else:
         freq, _, pxx = signal.stft(dat[soi[0], :], **stftKw)
         _, fIdx = best_match(freq, foi, squash_duplicates=True)
         spec[0, 0, ...] = \
             spyfreq.spectralConversions[output_fmt](
-                pxx.reshape(nFreq, nChannels))[fIdx, :]
+                pxx.transpose(2, 0, 1).squeeze())[fIdx, :]
         for tk in range(1, len(soi)):
             spec[tk, 0, ...] = \
                 spyfreq.spectralConversions[output_fmt](
                     signal.stft(
                         dat[soi[tk], :], 
-                        **stftKw)[2].reshape(nFreq, nChannels))[fIdx, :]
+                        **stftKw)[2].transpose(2, 0, 1).squeeze())[fIdx, :]
 
     # Compute FT using determined indices above for the remaining tapers (if any)
     for taperIdx in range(1, win.shape[0]):
@@ -99,14 +101,14 @@ def mtmconvol(
                 spyfreq.spectralConversions[output_fmt](
                     signal.stft(
                         dat[soi, :],
-                        **stftKw)[2].reshape(nTime, nFreq, nChannels))[:, fIdx, :]
+                        **stftKw)[2].transpose(2, 0, 1))[:nTime, fIdx, :]
         else:
             for tk, sample in enumerate(soi):
                 spec[tk, taperIdx, ...] = \
                     spyfreq.spectralConversions[output_fmt](
                         signal.stft(
                             dat[sample, :],
-                            **stftKw)[2].reshape(nFreq, nChannels))[fIdx, :]
+                            **stftKw)[2].transpose(2, 0, 1).squeeze())[fIdx, :]
 
     # Average across tapers if wanted
     if not keeptapers:

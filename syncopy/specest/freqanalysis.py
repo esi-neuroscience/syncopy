@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-22 12:37:29>
+# Last modification time: <2020-05-22 15:30:30>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -78,7 +78,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         List of frequencies of interest (Hz) for output. If desired frequencies
         cannot be exactly matched using the given data length and padding,
         the closest frequencies will be used. If `foi` is `None`
-        or ``foi = "all"``, all frequencies are selected. 
+        or ``foi = "all"``, all attainable frequencies (i.e., 0 to Nyquist / 2) 
+        are selected. 
     foilim : array-like (floats [fmin, fmax]) or None or "all"
         Frequency-window ``[fmin, fmax]`` (in Hz) of interest. Window 
         specifications must be sorted (e.g., ``[90, 70]`` is invalid) and not NaN 
@@ -330,7 +331,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             tStart = data._t0 / data.samplerate
         tEnd = tStart + np.diff(sinfo).squeeze() / data.samplerate
 
-        # Process `toi`: `overlap > 1` => all, `0 < overlap < 1` => percentage, 
+        # Process `toi`: we have to account for three scenarios: (1) center sliding
+        # windows on all samples in (selected) trials (2) `toi` was provided as 
+        # percentage indicating the degree of overlap b/w time-windows and (3) a set
+        # of discrete time points was provided. These three cases are encoded in 
+        # `overlap, i.e., ``overlap > 1` => all, `0 < overlap < 1` => percentage, 
         # `overlap < 0` => discrete `toi`
         if isinstance(toi, str):
             if toi != "all":
@@ -349,7 +354,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             except Exception as exc:
                 raise exc
             overlap = toi
-            toi = None
+            toi = None  # use toi = 0.2 in `mtmconvol` to differentiate 
             equidistant = True
         else:
             overlap = -1
@@ -418,20 +423,24 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 for tk in range(len(trialList)):
                     starts = (data.samplerate * (toi - tStart[tk]) - halfWin).astype(np.intp)
                     stops = (data.samplerate * (toi - tStart[tk]) + halfWin + 1).astype(np.intp)
-                    stops = np.maximum(stops, stops - starts + 1, dtype=np.intp)
+                    stops = np.maximum(stops, stops - starts, dtype=np.intp)
                     starts = ((starts > 0) * starts).astype(np.intp)
                     soi.append([slice(start, stop) for start, stop in zip(starts, stops)])
             else:
                 for tk in range(len(trialList)):
                     start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
                     stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
-                    soi.append(slice(max(0, start), max(stop, stop - start + 1)))
+                    soi.append(slice(max(0, start), max(stop, stop - start)))
                     
-            # import ipdb; ipdb.set_trace()
+            import ipdb; ipdb.set_trace()
             # FIXME stop - start w/o +1 !
                     
         else: # wavelets: probably some `toi` gymnastics
             pass
+        
+        # Update `log_dct` w/method-specific options (use `lcls` to get actually
+        # provided keyword values, not defaults set in here)
+        log_dct["toi"] = lcls["toi"]
         
     # Check options specific to mtm*-methods (particularly tapers and foi/freqs alignment)
     if "mtm" in method:
