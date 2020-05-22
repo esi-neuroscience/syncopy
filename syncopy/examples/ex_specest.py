@@ -43,21 +43,23 @@ if __name__ == "__main__":
     cfg.tapsmofrq = 20
     cfg.keeptrials = True
     cfg.keeptapers = True
-    # cfg.keeptapers = False # =============== check for NaNs!
+    cfg.keeptapers = False # =============== check for NaNs!
     # cfg.toi = np.arange(1.5, 3.5, 0.1) 
     # cfg.toi = [1.1, 1.9, 3.0]
     cfg.toi = "all"
-    cfg.pad = 'nextpow2'
+    # cfg.pad = 'nextpow2'
     # cfg.toi = [-0.1, 0.0, 0.5]
     # cfg.toi = [-0.1, 0.0, 0.2]
     # cfg.toi = np.arange(-0.1, 0.5, 0.05) 
     # cfg.toi = np.arange(-0.1, 0.5, 0.1) 
     # cfg.toi = "all"
-    # cfg.t_ftimwin = 0.05
-    cfg.t_ftimwin = 0.75
+    cfg.t_ftimwin = 0.05
+    # cfg.t_ftimwin = 0.75
     # cfg.pad = 'nextpow2'
     # cfg.select = {"toilim": [-0.25, 0]}
-    cfg.select = {"trials": [0, 10, 20]}
+    cfg.select = {"trials": [0, 10]}
+    # cfg.select = {"trials": [0, 10, 20]}
+    # cfg.select = {"trials": [0, 10, 20], "toilim": [-0.001, 0.05]}
     tfSpectrum = spy.freqanalysis(cfg, data)
     # baselineSpectrum = spy.freqanalysis(cfg, data)
 

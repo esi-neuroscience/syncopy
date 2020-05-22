@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-20 16:29:01>
+# Last modification time: <2020-05-22 12:37:29>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -210,16 +210,23 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo)
     
-    # Set default padding options
+    # Set default padding options: after this, `pad` is either `None`, `False` or `str`
     defaultPadding = {"mtmfft": "nextpow2", "mtmconvol": None, "wavelet": None}
     if pad is None or pad is True:
         pad = defaultPadding[method]
+
+    # Sliding window FFT does not support "fancy" padding
+    if method == "mtmconvol" and isinstance(pad, str): 
+        msg = "method 'mtmconvol' only supports in-place padding for windows " +\
+            "exceeding trial boundaries. Your choice of `pad = '{}'` will be ignored. "
+        SPYWarning(msg.format(pad))
+        pad = None
         
     # Ensure padding selection makes sense: do not pad on a by-trial basis but 
     # use the longest trial as reference and compute `padlength` from there
     # (only relevant for "global" padding options such as `maxlen` or `nextpow2`)
     if pad:
-        if not isinstance(pad, (str, type(None))):
+        if not isinstance(pad, str):
             raise SPYTypeError(pad, varname="pad", expected="str or None")
         if pad == "maxlen":
             padlength = lenTrials.max()
@@ -239,7 +246,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         minSamplePos = lenTrials.argmin()
         minSampleNum = padding(data._preview_trial(trialList[minSamplePos]), padtype, pad=pad,
                                padlength=padlength, prepadlength=True).shape[timeAxis]
-    
     else:
         pad = None
         if method == "mtmfft" and np.unique((np.floor(lenTrials / 2))).size > 1:
@@ -364,15 +370,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             equidistant = np.allclose(tSteps, [tSteps[0]] * tSteps.size)
 
         # If `toi` was 'all' or a percentage, use entire time interval of (selected)
-        # trials and ensure that those trials have *approximately* equal length 
-        # (modulo padding - hence the `pad` involvement here)
+        # trials and check if those trials have *approximately* equal length 
         if toi is None:
-            if not np.allclose(lenTrials, [minSampleNum] * lenTrials.size) \
-                and (pad is None or pad == "relative"):
-                lgl = "trials of equal lengths to process `toi = 'all'`"
-                act = "trials of differing lengths"
-                raise SPYValueError(legal=lgl, varname="toi", actual=act)
-            toi = [tStart[0], tEnd[0]]
+            if not np.allclose(lenTrials, [minSampleNum] * lenTrials.size):
+                msg = "processing trials of different lengths (min = {}; max = {} samples)" +\
+                    " with `toi = 'all'`"
+                SPYWarning(msg.format(int(minSampleNum), int(lenTrials.max())))
+            toi = [tStart.min(), tEnd.max()]
                 
         # The above `overlap`, `equidistant` etc. is really only relevant for `mtmconvol`        
         if method == "mtmconvol":
@@ -423,6 +427,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                     stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
                     soi.append(slice(max(0, start), max(stop, stop - start + 1)))
                     
+            # import ipdb; ipdb.set_trace()
+            # FIXME stop - start w/o +1 !
                     
         else: # wavelets: probably some `toi` gymnastics
             pass

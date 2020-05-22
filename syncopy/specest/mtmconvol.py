@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-20 19:47:20>
+# Last modification time: <2020-05-22 14:32:23>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -25,7 +25,6 @@ def mtmconvol(
     trl_dat, soi, padbegin, padend,
     samplerate=None, noverlap=None, nperseg=None, equidistant=True, toi=None, foi=None,
     nTaper=1, timeAxis=0, taper=signal.windows.hann, taperopt={}, 
-    pad=None, padtype="zero", padlength=None, prepadlength=True, postpadlength=True, 
     keeptapers=True, polyorder=None, output_fmt="pow",
     noCompute=False, chunkShape=None):
     """
@@ -38,33 +37,21 @@ def mtmconvol(
     else:
         dat = trl_dat
         
-    # Padding: either combination of user-choice/necessity or just necessity
-    if pad is not None:
-        padKw = padding(dat, padtype, pad=pad, padlength=padlength, 
-                        prepadlength=prepadlength, postpadlength=postpadlength,
-                        create_new=False)
-        import ipdb; ipdb.set_trace()
-        # FIXME: this is just max(pakKw, padbegin)!
-        padbegin = max(0, padbegin - padKw["pad_width"][0, 0])
-        padend = max(0, padend - padKw["pad_width"][0, 1])
-        padKw["pad_width"][0, :] += [padbegin, padend]
-        import ipdb; ipdb.set_trace()
-        if noCompute:
-            dat = padding(dat, padtype, pad="relative", padlength=None, prepadlength=padbegin, postpadlength=padend)
-        else:
-            dat = np.pad(dat, **padKw)
-        padbegin = 0
-        padend = 0
+    # Pad input array if necessary
     if padbegin > 0 or padend > 0:
-        dat = padding(dat, padtype, pad="relative", padlength=None, 
+        dat = padding(dat, "zero", pad="relative", padlength=None, 
                       prepadlength=padbegin, postpadlength=padend)
 
     # Get shape of output for dry-run phase
     nChannels = dat.shape[1]
     if isinstance(toi, np.ndarray):
         nTime = toi.size
+        stftBdry = None
+        stftPad = False
     else:
         nTime = dat.shape[0]
+        stftBdry = "zeros"
+        stftPad = True
     nFreq = foi.size
     outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
     if noCompute:
@@ -78,8 +65,8 @@ def mtmconvol(
               "nperseg": nperseg,
               "noverlap": noverlap,
               "return_onesided": True,
-              "boundary": None,
-              "padded": False,
+              "boundary": stftBdry,
+              "padded": stftPad,
               "axis": 0}
     
     # Call `stft` w/first taper to get freq/time indices
@@ -132,40 +119,54 @@ class MultiTaperFFTConvol(ComputationalRoutine):
     computeFunction = staticmethod(mtmconvol)
 
     def process_metadata(self, data, out):
-        
-        # Extract user-provided time selection        
-        toi = self.cfg["toi"]
-        nToi = toi.size 
 
-        # Some index gymnastics to get trial begin/end samples
+        # Get trialdef array + channels from source        
         if data._selection is not None:
             chanSec = data._selection.channel
             trl = data._selection.trialdefinition
         else:
             chanSec = slice(None)
             trl = data.trialdefinition
-        time = np.cumsum([nToi] * trl.shape[0])
-        # time = time.reshape((time.size, 1))
-        trl[:, 0] = time - nToi
-        trl[:, 1] = time
 
-        # Important: differentiate b/w equidistant time ranges and disjoint points        
-        if self.cfg["equidistant"]:
-            out.samplerate = 1 / (toi[1] - toi[0])
-            trl[:, 2] = int(toi[0] * out.samplerate)
-        else:
-            msg = "`SpectralData`'s `time` property currently does not support " +\
-                  "unevenly spaced `toi` selections!"
-            SPYWarning(msg, caller="freqanalysis")
-            out.samplerate = 1.0
-            trl[:, 2] = 0
-
-        # Attach constructed trialdef-array (if necessary)
+        # Construct trialdef array (if necessary)
         if self.keeptrials:
+            
+            # If `toi` is array, construct timing, otherwise... 
+            toi = self.cfg["toi"]
+            if isinstance(toi, np.ndarray):
+                
+                # Some index gymnastics to get trial begin/end samples
+                nToi = toi.size
+                time = np.cumsum([nToi] * trl.shape[0])
+                trl[:, 0] = time - nToi
+                trl[:, 1] = time
+                
+                # If trigger onset was part of `toi`, get its relative position wrt 
+                # to other elements, otherwise use first element as "onset"
+                t0Idx = np.where(toi == 0)[0]
+                if t0Idx:
+                    trl[:, 2] = -t0Idx[0]
+                else:
+                    trl[:, 2] = 0
+                    
+                # Important: differentiate b/w equidistant time ranges and disjoint points        
+                if self.cfg["equidistant"]:
+                    out.samplerate = 1 / (toi[1] - toi[0])
+                else:
+                    msg = "`SpectralData`'s `time` property currently does not support " +\
+                        "unevenly spaced `toi` selections!"
+                    SPYWarning(msg, caller="freqanalysis")
+                    out.samplerate = 1.0
+                    trl[:, 2] = 0
+                    
+            # ... i.e., `toi='all'`, simply copy from source
+            else:
+                out.samplerate = data.samplerate
+                
             out.trialdefinition = trl
         else:
             out.trialdefinition = np.array([[0, 1, 0]])
-
+            
         # Attach remaining meta-data
         out.channel = np.array(data.channel[chanSec])
         out.taper = np.array([self.cfg["taper"].__name__] * self.outputShape[out.dimord.index("taper")])
