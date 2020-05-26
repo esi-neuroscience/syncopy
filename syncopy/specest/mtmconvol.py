@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-22 15:19:41>
+# Last modification time: <2020-05-26 16:58:01>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -44,12 +44,12 @@ def mtmconvol(
 
     # Get shape of output for dry-run phase
     nChannels = dat.shape[1]
-    if isinstance(toi, np.ndarray):
+    if isinstance(toi, np.ndarray):     # `toi` is an array of time-points
         nTime = toi.size
         stftBdry = None
         stftPad = False
-    else:
-        nTime = dat.shape[0]
+    else:                               # `toi` is either 'all' or a percentage
+        nTime = np.ceil(dat.shape[0] / (nperseg - noverlap)).astype(np.intp)
         stftBdry = "zeros"
         stftPad = True
     nFreq = foi.size
@@ -75,7 +75,6 @@ def mtmconvol(
     stftKw["window"] = win[0, :]
     if equidistant:
         freq, _, pxx = signal.stft(dat[soi, :], **stftKw)
-        import ipdb; ipdb.set_trace()
         _, fIdx = best_match(freq, foi, squash_duplicates=True)
         spec[:, 0, ...] = \
             spyfreq.spectralConversions[output_fmt](
@@ -133,7 +132,7 @@ class MultiTaperFFTConvol(ComputationalRoutine):
         # Construct trialdef array (if necessary)
         if self.keeptrials:
             
-            # If `toi` is array, construct timing, otherwise... 
+            # If `toi` is array, use it to construct timing info
             toi = self.cfg["toi"]
             if isinstance(toi, np.ndarray):
                 
@@ -161,11 +160,23 @@ class MultiTaperFFTConvol(ComputationalRoutine):
                     out.samplerate = 1.0
                     trl[:, 2] = 0
                     
-            # ... i.e., `toi='all'`, simply copy from source
-            else:
+            # If all samples have been used, simply copy relevant info from source
+            elif toi == "all":
                 out.samplerate = data.samplerate
-                
+                    
+            # If `toi` was a percentage, some cumsum/winSize algebra is required
+            else:
+                winSize = self.cfg['nperseg'] - self.cfg['noverlap']
+                trlLens = np.ceil(np.diff(trl[:, :2]) / winSize)
+                sumLens = np.cumsum(trlLens).reshape(trlLens.shape)
+                trl[:, 0] = np.ravel(sumLens - trlLens)
+                trl[:, 1] = sumLens.ravel()
+                trl[:, 2] = trl[:, 2] / winSize
+                out.samplerate = np.round(data.samplerate / winSize, 2) 
+            
+            # Assign (calculated) trialdef array     
             out.trialdefinition = trl
+            
         else:
             out.trialdefinition = np.array([[0, 1, 0]])
             
