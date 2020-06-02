@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-26 16:00:44>
+# Last modification time: <2020-06-02 19:40:13>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -35,13 +35,13 @@ spectralConversions = {"pow": lambda x: (x * np.conj(x)).real.astype(np.float32)
                        "fourier": lambda x: x.astype(np.complex128),
                        "abs": lambda x: (np.absolute(x)).real.astype(np.float32)}
 
-#: available outputs of :func:`freqanalysis`
+#: available outputs of :func:`~syncopy.freqanalysis`
 availableOutputs = tuple(spectralConversions.keys())
 
-#: available tapers of :func:`freqanalysis`
+#: available tapers of :func:`~syncopy.freqanalysis`
 availableTapers = ("hann", "dpss")
 
-#: available spectral estimation methods of :func:`freqanalysis`
+#: available spectral estimation methods of :func:`~syncopy.freqanalysis`
 availableMethods = ("mtmfft", "mtmconvol", "wavelet")
 
 __all__ = ["freqanalysis"]
@@ -58,27 +58,79 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                  wav="Morlet", t_ftimwin=None, toi=None, width=6, 
                  out=None, **kwargs):
     """
-    Perform a (time-)frequency analysis of time series data
+    Perform (time-)frequency analysis of Syncopy :class:`~syncopy.AnalogData` objects
+    
+    **Usage Summary**
+    
+    Options available in all analysis methods:
+    
+    * **output** : one of :data:`~.availableOutputs`; return power spectra, complex 
+      Fourier spectra or absolute values. 
+    * **foi**/**foilim** : frequencies of interest; either array of frequencies or 
+      frequency window (not both)
+    * **keeptrials** : return individual trials or grand average
+    * **polyremoval** : flag indicating if de-trending should be performed
+    * **polyorder** : de-trending method to use (0 = mean, 1 = linear, 2 = quadratic, 
+      3 = cubic, etc.)
+            
+    List of available analysis methods and respective distinct options:
+    
+    :func:`~syncopy.specest.mtmfft.mtmfft` : (Multi-)tapered Fourier transform
+        Perform frequency analysis on time-series trial data using either a single 
+        taper window (Hanning) or many tapers based on the discrete prolate 
+        spheroidal sequence (DPSS) that maximize energy concentration in the main
+        lobe. 
+        
+        * **taper** : one of :data:`~.availableTapers`
+        * **tapsmofrq** : spectral smoothing box for tapers (in Hz)
+        * **keeptapers** : return individual tapers or average
+        * **pad** : padding method to use (`None`, `True`, `False`, `'absolute'`, 
+          `'relative'`, `'maxlen'` or `'nextpow2'`). If `None`, then `'nextpow2'`
+          is selected by default. 
+        * **padtype** : values to pad data with (`'zero'`, `'nan'`, `'mean'`, `'localmean'`, 
+          `'edge'` or `'mirror'`)
+        * **padlength** : number of samples to pre-pend and/or append to each trial 
+        * **prepadlength** : number of samples to pre-pend to each trial 
+        * **postpadlength** : number of samples to append to each trial 
 
+    :func:`~syncopy.specest.mtmconvol.mtmconvol` : (Multi-)tapered sliding window Fourier transform
+        Perform time-frequency analysis on time-series trial data based on a sliding 
+        window short-time Fourier transform using either a single Hanning taper or 
+        multiple DPSS tapers. 
+        
+        * **taper** : one of :data:`~.availableTapers`
+        * **tapsmofrq** : spectral smoothing box for tapers (in Hz)
+        * **keeptapers** : return individual tapers or average
+        * **pad** : flag indicating, whether or not to pad trials. If `None`, 
+          trials are padded only if sliding window centroids are too close
+          to trial boundaries for the entire window to cover available data-points. 
+        * **toi** : time-points of interest; can be either an array representing 
+          analysis window centroids (in sec), a scalar between 0 and 1 encoding 
+          the percentage of overlap between adjacent windows or "all" to center 
+          a window on every sample in the data. 
+        * **t_ftimwin** : sliding window length (in sec)
+
+    **Full documentation below** 
+    
     Parameters
     ----------
     data : `~syncopy.AnalogData`
-        A child of :class:`syncopy.datatype.AnalogData`
+        A non-empty Syncopy :class:`~syncopy.datatype.AnalogData` object
     method : str
         Spectral estimation method, one of :data:`~.availableMethods` 
         (see below).
     output : str
-        Output of spectral estimation, `'pow'` for power spectrum 
-        (:obj:`numpy.float32`),  `'fourier'` (:obj:`numpy.complex128`)
-        for complex fourier coefficients or `'abs'` for absolute values
-        (:obj:`numpy.float32`).
+        Output of spectral estimation. One of :data:`~.availableOutputs` (see below); 
+        use `'pow'` for power spectrum (:obj:`numpy.float32`), `'fourier'` for complex 
+        Fourier coefficients (:obj:`numpy.complex128`) or `'abs'` for absolute 
+        values (:obj:`numpy.float32`).
     keeptrials : bool
-        Flag whether to return individual trials or average
+        If `True` spectral estimates of individual trials are returned, otherwise
+        results are averaged across trials. 
     foi : array-like or None
-        List of frequencies of interest (Hz) for output. If desired frequencies
-        cannot be exactly matched using the given data length and padding,
-        the closest frequencies will be used. If `foi` is `None`
-        or ``foi = "all"``, all attainable frequencies (i.e., 0 to Nyquist / 2) 
+        Frequencies of interest (Hz) for output. If desired frequencies cannot be 
+        matched exactly, the closest possible frequencies are used. If `foi` is `None`
+        or ``foi = "all"``, all attainable frequencies (i.e., zero to Nyquist / 2) 
         are selected. 
     foilim : array-like (floats [fmin, fmax]) or None or "all"
         Frequency-window ``[fmin, fmax]`` (in Hz) of interest. Window 
@@ -92,46 +144,58 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         If `pad` is `None` or ``pad = True``, then method-specific defaults are 
         chosen. Specifically, if `method` is `'mtmfft'` then `pad` is set to 
         `'nextpow2'` so that all trials in `data` are padded to the next power of 
-        two higher than the sample-count of the longest trial in `data`. Conversely, 
+        two higher than the sample-count of the longest (selected) trial in `data`. Conversely, 
         time-frequency analysis methods (`'mtmconvol'` and `'wavelet'`), only perform
         padding if necessary, i.e., if time-window centroids are chosen too close
-        to the boundary for the entire window to cover available data-points. 
+        to trial boundaries for the entire window to cover available data-points. 
         If `pad` is `False`, then no padding is performed. Then in case of 
         ``method = 'mtmfft'`` all trials have to have approximately the same 
-        length (up to next even sample-count), if ``method = 'mtmconvol'`` or 
-        ``method = 'wavelet'``, window-centroids have to be chosen with sufficient
-        distance from trial boundaries. For details on available padding methods, 
-        see :func:`syncopy.padding`. 
+        length (up to the next even sample-count), if ``method = 'mtmconvol'`` or 
+        ``method = 'wavelet'``, window-centroids have to keep sufficient
+        distance from trial boundaries. For more details on the padding methods 
+        `'absolute'`, `'relative'`, `'maxlen'` and `'nextpow2'` see :func:`syncopy.padding`. 
     padtype : str
-        Values to be used for padding. Can be 'zero', 'nan', 'mean', 
-        'localmean', 'edge' or 'mirror'. See :func:`syncopy.padding` for 
+        Values to be used for padding. Can be `'zero'`, `'nan'`, `'mean'`, 
+        `'localmean'`, `'edge'` or `'mirror'`. See :func:`syncopy.padding` for 
         more information.
     padlength : None, bool or positive scalar
-        Length to be padded to data in samples if `pad` is 'absolute' or 
-        'relative'. See :func:`syncopy.padding` for more information.
-    prepadlength : None
-        FIXME!!!!!!!!!!!!!!!!!!!
-    postpadlength : None
-        FIXME!!!!!!!!!!!!!!!!!!!
+        Only valid if `method` is `'mtmfft'` and `pad` is `'absolute'` or `'relative'`. 
+        Number of samples to pad data with. See :func:`syncopy.padding` for more 
+        information.
+    prepadlength : None or bool or int
+        Only valid if `method` is `'mtmfft'` and `pad` is `'relative'`. Number of 
+        samples to pre-pend to each trial. See :func:`syncopy.padding` for more 
+        information.
+    postpadlength : None or bool or int
+        Only valid if `method` is `'mtmfft'` and `pad` is `'relative'`. Number of 
+        samples to append to each trial. See :func:`syncopy.padding` for more 
+        information.
     polyremoval : bool
-        Flag whether a polynomial of order `polyorder` should be fitted and 
+        **FIXME: Not implemented yet**
+        Flag indicating whether a polynomial of order `polyorder` is to be fitted and 
         subtracted from each trial before spectral analysis. 
-        FIXME: not implemented yet.
     polyorder : int
-        Order of the removed polynomial. For example, a value of 1 
-        corresponds to a linear trend. The default is a mean subtraction, 
-        thus a value of 0. 
-        FIXME: not implemented yet.
+        **FIXME: Not implemented yet**
+        Order of polynomial used for de-trending data in the time domain prior 
+        to spectral analysis. A value of 0 corresponds to subtracting the mean 
+        ("de-meaning"), ``polyorder = 1`` removes linear trends (subtracting the 
+        least squares fit of a linear polynomial), ``polyorder = N`` for `N > 1` 
+        subtracts a polynomial of order `N` (``N = 2`` quadratic, ``N = 3`` cubic 
+        etc.). If `polyorder` is `None`, no de-trending is performed. 
     taper : str
-        Windowing function, one of :data:`~.availableTapers` (see below).
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. Windowing function, 
+        one of :data:`~.availableTapers` (see below).
     tapsmofrq : float
-        The amount of spectral smoothing through  multi-tapering (Hz).
-        Note that 4 Hz smoothing means plus-minus 4 Hz, i.e. a 8 Hz 
-        smoothing box.        
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. The amount of spectral 
+        smoothing through  multi-tapering (Hz). Note that smoothing frequency 
+        specifications are one-sided, i.e., 4 Hz smoothing means plus-minus 4 Hz, 
+        i.e., a 8 Hz smoothing box.
     keeptapers : bool
-        Flag for whether individual trials or average should be returned.            
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. If `True`, return 
+        spectral estimates for each taper, otherwise results are averaged across
+        tapers. 
     t_ftimwin : scalar
-        Time-window length (in seconds). Only used if ``method = "mtmconvol"``.
+        Only valid if `method` is `'mtmconvol'`. Sliding window length (in seconds). 
     toi : scalar or array-like or "all"
         **Mandatory input** for time-frequency analysis methods (`method` is either 
         `"mtmconvol"` or `"wavelet"`). 
@@ -142,20 +206,24 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         windows (in seconds). If `toi` is `"all"`, analysis windows are centered
         on all samples in the data. 
     width : scalar
-        Nondimensional frequency constant of wavelet. For a Morlet wavelet 
-        this number should be >= 6, which corresponds to 6 cycles within the 
-        analysis window (FIXME: how many SDs of the Gaussian window?)
+        Only valid if `method` is `'wavelet'`. Nondimensional frequency constant 
+        of wavelet function. For a Morlet wavelet this number should be >= 6, which 
+        corresponds to 6 cycles within the analysis window (FIXME: how many SDs of the Gaussian window?)
     out : None or :class:`SpectralData` object
-        None if a new :class:`SpectralData` object should be created,
-        or the (empty) object into which the result should be written.
+        None if a new :class:`SpectralData` object is to be created, or an empty :class:`SpectralData` object
+        
 
     Returns
     -------
-    :class:`~syncopy.SpectralData`
+    spec : :class:`~syncopy.SpectralData`
         (Time-)frequency spectrum of input data
         
     Notes
     -----
+    Coming soon...
+    
+    Examples
+    --------
     Coming soon...
         
 
@@ -164,7 +232,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     .. autodata:: syncopy.specest.freqanalysis.availableOutputs
 
     .. autodata:: syncopy.specest.freqanalysis.availableTapers
-
+    
+    See also
+    --------
+    syncopy.specest.mtmfft.mtmfft : (multi-)tapered Fourier transform of multi-channel time series data
+    syncopy.specest.mtmconvol.mtmconvol : time-frequency analysis of multi-channel time series data with a sliding window FFT
+    numpy.fft.fft : NumPy's reference FFT implementation
+    scipy.signal.stft : SciPy's Short Time Fourier Transform
     """
     
     # Make sure our one mandatory input object can be processed

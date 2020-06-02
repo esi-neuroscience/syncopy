@@ -55,5 +55,7 @@ syncopy.specest
 
     syncopy.specest.mtmfft.mtmfft
     syncopy.specest.mtmfft.MultiTaperFFT
+    syncopy.specest.mtmconvol.mtmconvol
+    syncopy.specest.mtmconvol.MultiTaperFFTConvol
     syncopy.specest.wavelet.wavelet
     syncopy.specest.wavelet.WaveletTransform

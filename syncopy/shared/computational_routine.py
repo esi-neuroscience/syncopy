@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-20 08:46:10>
+# Last modification time: <2020-06-02 12:12:13>
 
 # Builtin/3rd party package imports
 import os
@@ -54,7 +54,7 @@ class ComputationalRoutine(ABC):
 
     * Child of :class:`ComputationalRoutine`, binds :func:`computeFunction`
       as static method
-    * Provides class method :func:`process_data`
+    * Provides class method :func:`process_metadata`
 
     For details on writing compute classes and metafunctions for Syncopy, please 
     refer to :doc:`/developer/compute_kernels`.

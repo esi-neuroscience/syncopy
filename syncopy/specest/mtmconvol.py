@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-26 16:58:01>
+# Last modification time: <2020-06-02 19:24:30>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -28,7 +28,98 @@ def mtmconvol(
     keeptapers=True, polyorder=None, output_fmt="pow",
     noCompute=False, chunkShape=None):
     """
-    Coming soon...
+    Perform time-frequency analysis on multi-channel time series data using a sliding window FFT
+    
+    Parameters
+    ----------
+    trl_dat : 2D :class:`numpy.ndarray`
+        Uniformly sampled multi-channel time-series 
+    soi : list of slices or slice
+        Samples of interest; either a single slice encoding begin- to end-samples 
+        to perform analysis on (if sliding window centroids are equidistant)
+        or list of slices with each slice corresponding to coverage of a single
+        analysis window (if spacing between windows is not constant)
+    padbegin : int
+        Number of samples to pre-pend to `trl_dat`
+    padbegin : int
+        Number of samples to append to `trl_dat`
+    samplerate : int
+        Samplerate of `trl_dat` in Hz
+    noverlap : int
+        Number of samples covered by two adjacent analysis windows
+    nperseg : int
+        Size of analysis windows (in samples)
+    equidistant : bool
+        If `True`, spacing of window-centroids is equidistant. 
+    toi : 1D :class:`numpy.ndarray` or float or str
+        Either sample-indices of window centroids if `toi` is a :class:`numpy.ndarray`,
+        or percentage of overlap between windows if `toi` is a scalar or `"all"`
+        to center windows on all samples in `trl_dat`. Please refer to 
+        :func:`~syncopy.freqanalysis` for further details. **Note**: The value 
+        of `toi` has to agree with provided padding and window settings. See 
+        Notes for more information. 
+    foi : 1D :class:`numpy.ndarray`
+        Frequencies of interest  (Hz) for output. If desired frequencies
+        cannot be matched exactly the closest possible frequencies (respecting 
+        data length and padding) are used.
+    nTaper : int
+        Number of tapers to use
+    timeAxis : int
+        Index of running time axis in `trl_dat` (0 or 1)
+    taper : callable 
+        Taper function to use, one of :mod:`scipy.signal.windows`. Internal call
+        signature is ``taper(nSamples, **taperopt)``
+    taperopt : dict
+        Additional keyword arguments passed to `taper` (see above). For further 
+        details, please refer to the 
+        `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
+    keeptapers : bool
+        If `True`, results of Fourier transform are preserved for each taper, 
+        otherwise spectrum is averaged across tapers. 
+    polyorder : int
+        **FIXME: Not implemented yet**
+        Order of polynomial used for de-trending. A value of 0 corresponds to 
+        subtracting the mean ("de-meaning"), ``polyorder = 1`` removes linear 
+        trends (subtracting the least squares fit of a linear function), 
+        ``polyorder = N`` for `N > 1` subtracts a polynomial of order `N` (``N = 2`` 
+        quadratic, ``N = 3`` cubic etc.). If `polyorder` is `None`, no de-trending
+        is performed. 
+    output_fmt : str               
+        Output of spectral estimation; use `'pow'` for power spectrum 
+        (:obj:`numpy.float32`), `'fourier'` for complex Fourier coefficients 
+        (:obj:`numpy.complex128`) or `'abs'` for absolute values (:obj:`numpy.float32`).
+    noCompute : bool
+        Preprocessing flag. If `True`, do not perform actual calculation but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+    chunkShape : None or tuple
+        If not `None`, represents shape of output object `spec` (respecting provided 
+        values of `nTaper`, `keeptapers` etc.)
+    
+    Returns
+    -------
+    spec : :class:`numpy.ndarray`
+        Complex or real time-frequency representation of (padded) input data. 
+            
+    Notes
+    -----
+    This method is intended to be used as 
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`. 
+    Thus, input parameters are presumed to be forwarded from a parent metafunction. 
+    Consequently, this function does **not** perform any error checking and operates 
+    under the assumption that all inputs have been externally validated and cross-checked. 
+    
+    The computational heavy lifting in this code is performed by SciPy's Short Time 
+    Fourier Transform (STFT) implementation :func:`scipy.signal.stft`. 
+    
+    See also
+    --------
+    syncopy.freqanalysis : parent metafunction
+    MultiTaperFFTConvol : :class:`~syncopy.shared.computational_routine.ComputationalRoutine`
+                          instance that calls this method as 
+                          :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    scipy.signal.stft : SciPy's STFT implementation
     """
     
     # Re-arrange array if necessary and get dimensional information
@@ -57,7 +148,7 @@ def mtmconvol(
     if noCompute:
         return outShape, spyfreq.spectralDTypes[output_fmt]
     
-    # In case tapers aren't kept allocate `spec` "too big" and average afterwards
+    # In case tapers aren't preserved allocate `spec` "too big" and average afterwards
     spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spyfreq.spectralDTypes[output_fmt])
     
     # Collect keyword args for `stft` in dictionary
@@ -116,6 +207,17 @@ def mtmconvol(
     
 
 class MultiTaperFFTConvol(ComputationalRoutine):
+    """
+    Compute class that performs time-frequency analysis of :class:`~syncopy.AnalogData` objects
+    
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`, 
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute 
+    classes and metafunctions. 
+    
+    See also
+    --------
+    syncopy.freqanalysis : parent metafunction
+    """
 
     computeFunction = staticmethod(mtmconvol)
 

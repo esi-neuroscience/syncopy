@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-22 10:56:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-27 17:01:06>
+# Last modification time: <2020-06-02 12:29:49>
 
 # Builtin/3rd party package imports
 import functools
@@ -60,7 +60,7 @@ def unwrap_cfg(func):
            contains keyword arguments of `func`. If the (first) input object `data` 
            was provided as `cfg` entry, it already exists in the local namespace. 
            If not, then by convention, `data` makes up the first elements of the 
-           (remaining) positional argument list. Thus, the meta-function can now 
+           (remaining) positional argument list. Thus, the metafunction can now 
            be called via ``func(*data, *args, **kwargs)``. 
         5. Amend the docstring of `func`: add a one-liner mentioning the possibility
            of using `cfg` when calling `func` to the header of its docstring. 
