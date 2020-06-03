@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:44:41
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-02-11 13:11:36>
+# Last modification time: <2020-06-03 07:24:51>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -15,7 +15,7 @@ from syncopy.shared.computational_routine import ComputationalRoutine
 import syncopy.specest.wavelets as spywave 
 
 def wavelet(trl_dat, dt, timeAxis, foi,
-            toi=0.1, polyorder=None, wav=spywave.Morlet,
+            toi=0.1, polyremoval=None, wav=spywave.Morlet,
             width=6, output_fmt="pow",
             noCompute=False, chunkShape=None):
     """ dat = samples x channel

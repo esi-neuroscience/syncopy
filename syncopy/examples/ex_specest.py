@@ -33,112 +33,8 @@ from time import time
 
 if __name__ == "__main__":
 
-    nChannels = 16
-    nTrials = 8
-    seed = 130810
-    
-    dataReg = generate_artificial_data(nTrials=nTrials,
-                                       nChannels=nChannels,
-                                       seed=seed,
-                                       equidistant=True,
-                                       inmemory=False,
-                                       overlapping=True)
-    dataInv = generate_artificial_data(nTrials=nTrials,
-                                       nChannels=nChannels,
-                                       seed=seed,
-                                       equidistant=True,
-                                       overlapping=True,
-                                       inmemory=False,
-                                       dimord=dataReg.dimord[::-1])
-    
-    f0 = spy.singlepanelplot(dataReg)
-    f1 = dataReg.singlepanelplot(avg_channels=False)
-    f2 = dataInv.singlepanelplot(avg_channels=False)
-    
-    sys.exit()
-    fig = dataReg.multipanelplot(avg_trials=True, avg_channels=False)
-    
-    dataReg.singlepanelplot(trials=None, channels=[14, 13, 12, 12, 15], avg_channels=False)
-    
-    data = spy.load("~/Documents/job/SyNCoPy/Data/testdata.spy")
-    
-    # plt.figure()
-    # x = np.linspace(0, 2 * np.pi, 1000)
-    # plt.plot(x, np.sin(x))
-    
-    trials = [10, 3, 44]
-    channels = ['ecogMUA_033', 'ecogMUA_034', 'ecogMUA_035', 'ecogMUA_036']
-    toilim = [-0.1, 0.8]
-    # toilim = None
-    # toilim = [-np.inf, np.inf]
-    
-    data._selection = {"trials": trials, 
-                       "channels": channels, 
-                       "toilim": toilim}
-
-    # all-all average (FIXME: use toilim=None for datasets of identically spaced trials)
-    ff = data.singlepanelplot(toilim=[-0.1, 0.2])
-    # plt.gcf().savefig("test.png")
-    # data.selectdata(toilim=[-0.1, 0.2]).singlepanelplot()
-    # plt.gcf().savefig("test2.png")
-    # print(np.array_equal(plt.imread("test.png"), plt.imread("test2.png")))
-    # sys.exit()
-    
-    plt.pause(1.0)
-    aa = data.singlepanelplot(trials=trials, toilim=toilim, fig=plt.gcf())
-    sys.exit()
-
-    # relevant for tests...    
-    data.multipanelplot(trials=trials, channels=channels, toilim=toilim)
-    plt.pause(1.0)
-    data.multipanelplot(trials=[5,9,100], channels=channels, toilim=toilim, fig=plt.gcf())
-    plt.pause(1.0)
-    data.multipanelplot(trials=trials, channels=channels, toilim=toilim, avg_trials=False)
-    # sys.exit()
-    plt.pause(1.0)
-    data.multipanelplot(trials=[5,9,100], channels=channels, toilim=toilim, fig=plt.gcf(), avg_trials=False)
-    plt.pause(1.0)
-    data.multipanelplot(trials=[81, 82, 83], channels=channels, toilim=toilim, fig=plt.gcf(), avg_trials=False)
-    plt.pause(1.0)
-    data.multipanelplot(trials=None, channels=channels)
-    plt.pause(1.0)
-    data.multipanelplot(trials=np.arange(8), channels=channels, toilim=toilim, avg_trials=False)
-    plt.pause(1.0)
-    data.multipanelplot(trials=np.arange(100, 120), channels=channels, toilim=toilim, avg_trials=False)
-    plt.pause(1.0)
-    data.multipanelplot(trials=trials, channels=channels, toilim=toilim, grid=False, title="grid is false")
-    plt.pause(1.0)
-    data.multipanelplot(trials=trials, channels=channels, toilim=toilim, grid=True, title="grid is true")
-    
-    sys.exit()
-    
     # data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
-    sys.exit()
-    
-    # # relevant for tests...    
-    # data.multipanelplot(trials=trials, channels=channels, toilim=toilim)
-    # plt.pause(1.0)
-    # data.multipanelplot(trials=[5,9,100], channels=channels, toilim=toilim, fig=plt.gcf())
-    # plt.pause(1.0)
-    # data.multipanelplot(trials=trials, channels=channels, toilim=toilim, avg_trials=False)
-    # plt.pause(1.0)
-    # data.multipanelplot(trials=[5,9,100], channels=channels, toilim=toilim, fig=plt.gcf(), avg_trials=False)
-    # plt.pause(1.0)
-    # data.multipanelplot(trials=[81, 82, 83], channels=channels, toilim=toilim, fig=plt.gcf(), avg_trials=False)
-    # plt.pause(1.0)
-    # data.multipanelplot(trials=None, channels=channels)
-    # plt.pause(1.0)
-    # data.multipanelplot(trials=np.arange(8), channels=channels, toilim=toilim, avg_trials=False)
-    # # sys.exit()
-    # plt.pause(1.0)
-    # data.multipanelplot(trials=np.arange(100, 120), channels=channels, toilim=toilim, avg_trials=False)
-    # plt.pause(1.0)
-    # data.multipanelplot(trials=trials, channels=channels, toilim=toilim, grid=False, title="grid is false")
-    # plt.pause(1.0)
-    # data.multipanelplot(trials=trials, channels=channels, toilim=toilim, grid=True, title="grid is true")
-    
-    # client = spy.esi_cluster_setup(n_jobs=2, partition="DEV", mem_per_job="500MB")
-    # client = dd.Client()
+    data = spy.load('~/Documents/job/SyNCoPy/Data/testdata.spy/')
 
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmconvol'
@@ -147,15 +43,23 @@ if __name__ == "__main__":
     cfg.tapsmofrq = 20
     cfg.keeptrials = True
     cfg.keeptapers = True
-    cfg.toi = np.arange(1.5, 3.5, 0.1) 
+    # cfg.toi = np.arange(1.5, 3.5, 0.1) 
     # cfg.toi = [1.1, 1.9, 3.0]
+    cfg.toi = 0.25
     # cfg.toi = "all"
+    # cfg.pad = 'nextpow2'
     # cfg.toi = [-0.1, 0.0, 0.5]
+    # cfg.toi = [-0.1, 0.0, 0.2]
     # cfg.toi = np.arange(-0.1, 0.5, 0.05) 
-    # cfg.t_ftimwin = 0.05
-    cfg.t_ftimwin = 0.75
+    # cfg.toi = np.arange(-0.1, 0.5, 0.1) 
+    # cfg.toi = "all"
+    cfg.t_ftimwin = 0.05
+    # cfg.t_ftimwin = 0.75
     # cfg.pad = 'nextpow2'
     # cfg.select = {"toilim": [-0.25, 0]}
+    # cfg.select = {"trials": [0, 10]}
+    # cfg.select = {"trials": [0, 10, 20]}
+    cfg.select = {"trials": [0, 10, 20], "toilim": [-0.001, 0.05]}
     tfSpectrum = spy.freqanalysis(cfg, data)
     # baselineSpectrum = spy.freqanalysis(cfg, data)
 
