@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:25:34
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-06-02 19:24:19>
+# Last modification time: <2020-06-03 07:24:41>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -20,10 +20,10 @@ from syncopy.shared.tools import best_match
 
 # Local workhorse that performs the computational heavy lifting
 @unwrap_io
-def mtmfft(trl_dat, dt, foi=None, nTaper=1, timeAxis=0,
-           taper=spwin.hann, taperopt={}, tapsmofrq=None,
+def mtmfft(trl_dat, dt=None, foi=None, nTaper=1, timeAxis=0,
+           taper=spwin.hann, taperopt={}, 
            pad="nextpow2", padtype="zero", padlength=None,
-           keeptapers=True, polyorder=None, output_fmt="pow",
+           keeptapers=True, polyremoval=None, output_fmt="pow",
            noCompute=False, chunkShape=None):
     """
     Compute (multi-)tapered Fourier transform of multi-channel time series data
@@ -49,10 +49,6 @@ def mtmfft(trl_dat, dt, foi=None, nTaper=1, timeAxis=0,
         Additional keyword arguments passed to the `taper` function. For further 
         details, please refer to the 
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
-    tapsmofrq : float
-        The amount of spectral smoothing through  multi-tapering (Hz).
-        Note that 4 Hz smoothing means plus-minus 4 Hz, i.e. a 8 Hz 
-        smoothing box.  
     pad : str
         Padding mode; one of `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
         See :func:`syncopy.padding` for more information.
@@ -66,14 +62,14 @@ def mtmfft(trl_dat, dt, foi=None, nTaper=1, timeAxis=0,
     keeptapers : bool
         If `True`, results of Fourier transform are preserved for each taper, 
         otherwise spectrum is averaged across tapers. 
-    polyorder : int
+    polyremoval : int or None
         **FIXME: Not implemented yet**
-        Order of polynomial used for de-trending. A value of 0 corresponds to 
-        subtracting the mean ("de-meaning"), ``polyorder = 1`` removes linear 
-        trends (subtracting the least squares fit of a linear function), 
-        ``polyorder = N`` for `N > 1` subtracts a polynomial of order `N` (``N = 2`` 
-        quadratic, ``N = 3`` cubic etc.). If `polyorder` is `None`, no de-trending
-        is performed. 
+        Order of polynomial used for de-trending data in the time domain prior 
+        to spectral analysis. A value of 0 corresponds to subtracting the mean 
+        ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the 
+        least squares fit of a linear polynomial), ``polyremoval = N`` for `N > 1` 
+        subtracts a polynomial of order `N` (``N = 2`` quadratic, ``N = 3`` cubic 
+        etc.). If `polyremoval` is `None`, no de-trending is performed. 
     output_fmt : str               
         Output of spectral estimation; use `'pow'` for power spectrum 
         (:obj:`numpy.float32`), `'fourier'` for complex Fourier coefficients 
@@ -101,7 +97,7 @@ def mtmfft(trl_dat, dt, foi=None, nTaper=1, timeAxis=0,
     under the assumption that all inputs have been externally validated and cross-checked. 
     
     The computational heavy lifting in this code is performed by NumPy's reference
-    Fast Fourier Transform implementation :func:`numpy.fft.fft`. 
+    implementation of the Fast Fourier Transform :func:`numpy.fft.fft`. 
     
     See also
     --------
@@ -126,11 +122,15 @@ def mtmfft(trl_dat, dt, foi=None, nTaper=1, timeAxis=0,
     
     # Determine frequency band and shape of output (time=1 x taper x freq x channel)
     nFreq = int(np.floor(nSamples / 2) + 1)
-    fidx = slice(None)
-    if foi is not None:
-        freqs = np.linspace(0, 1 /(2 * dt), nFreq)
-        _, fidx = best_match(freqs, foi, squash_duplicates=True)
-        nFreq = fidx.size
+    freqs = np.linspace(0, 1 /(2 * dt), nFreq)
+    _, fidx = best_match(freqs, foi, squash_duplicates=True)
+    nFreq = fidx.size
+    # nFreq = int(np.floor(nSamples / 2) + 1)
+    # fidx = slice(None)
+    # if foi is not None:
+    #     freqs = np.linspace(0, 1 /(2 * dt), nFreq)
+    #     _, fidx = best_match(freqs, foi, squash_duplicates=True)
+    #     nFreq = fidx.size
     outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
     
     # For initialization of computational routine, just return output shape and dtype

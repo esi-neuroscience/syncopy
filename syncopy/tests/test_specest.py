@@ -413,4 +413,4 @@ class TestMTMFFT():
 
         client.close()
 
-    # FIXME: check polyorder/polyremoval once supported
+    # FIXME: check polyremoval once supported

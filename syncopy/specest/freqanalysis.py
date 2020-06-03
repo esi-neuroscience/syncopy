@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-06-02 19:40:13>
+# Last modification time: <2020-06-03 07:40:47>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -53,7 +53,7 @@ __all__ = ["freqanalysis"]
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, foilim=None, pad=None, padtype='zero',
                  padlength=None, prepadlength=None, postpadlength=None, 
-                 polyremoval=False, polyorder=None,
+                 polyremoval=None, 
                  taper="hann", tapsmofrq=None, keeptapers=False,
                  wav="Morlet", t_ftimwin=None, toi=None, width=6, 
                  out=None, **kwargs):
@@ -69,8 +69,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     * **foi**/**foilim** : frequencies of interest; either array of frequencies or 
       frequency window (not both)
     * **keeptrials** : return individual trials or grand average
-    * **polyremoval** : flag indicating if de-trending should be performed
-    * **polyorder** : de-trending method to use (0 = mean, 1 = linear, 2 = quadratic, 
+    * **polyremoval** : de-trending method to use (0 = mean, 1 = linear, 2 = quadratic, 
       3 = cubic, etc.)
             
     List of available analysis methods and respective distinct options:
@@ -170,18 +169,14 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         Only valid if `method` is `'mtmfft'` and `pad` is `'relative'`. Number of 
         samples to append to each trial. See :func:`syncopy.padding` for more 
         information.
-    polyremoval : bool
-        **FIXME: Not implemented yet**
-        Flag indicating whether a polynomial of order `polyorder` is to be fitted and 
-        subtracted from each trial before spectral analysis. 
-    polyorder : int
+    polyremoval : int or None
         **FIXME: Not implemented yet**
         Order of polynomial used for de-trending data in the time domain prior 
         to spectral analysis. A value of 0 corresponds to subtracting the mean 
-        ("de-meaning"), ``polyorder = 1`` removes linear trends (subtracting the 
-        least squares fit of a linear polynomial), ``polyorder = N`` for `N > 1` 
+        ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the 
+        least squares fit of a linear polynomial), ``polyremoval = N`` for `N > 1` 
         subtracts a polynomial of order `N` (``N = 2`` quadratic, ``N = 3`` cubic 
-        etc.). If `polyorder` is `None`, no de-trending is performed. 
+        etc.). If `polyremoval` is `None`, no de-trending is performed. 
     taper : str
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. Windowing function, 
         one of :data:`~.availableTapers` (see below).
@@ -264,7 +259,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         raise SPYValueError(legal=lgl, varname="output", actual=output)
 
     # Parse all Boolean keyword arguments
-    for vname in ["keeptrials", "keeptapers", "polyremoval"]:
+    for vname in ["keeptrials", "keeptapers"]:
         if not isinstance(lcls[vname], bool):
             raise SPYTypeError(lcls[vname], varname=vname, expected="Bool")
         
@@ -367,19 +362,12 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         
     # FIXME: implement detrending
     # see also https://docs.obspy.org/_modules/obspy/signal/detrend.html#polynomial
-    if polyremoval is True or polyorder is not None:
+    if polyremoval is not None:
         raise NotImplementedError("Detrending has not been implemented yet.")
-
-    # Check detrending options for consistency
-    if polyremoval:
         try:
-            scalar_parser(polyorder, varname="polyorder", lims=[0, 8], ntype="int_like")
+            scalar_parser(polyremoval, varname="polyremoval", lims=[0, 8], ntype="int_like")
         except Exception as exc:
             raise exc
-    else:
-        if polyorder != defaults["polyorder"]:
-            msg = "`polyorder` keyword will be ignored since `polyremoval` is `False`!"
-            SPYWarning(msg)
 
     # Prepare keyword dict for logging (use `lcls` to get actually provided 
     # keyword values, not defaults set above)
@@ -388,7 +376,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                "keeptapers": keeptapers,
                "keeptrials": keeptrials,
                "polyremoval": polyremoval,
-               "polyorder": polyorder,
                "pad": lcls["pad"],
                "padtype": lcls["padtype"],
                "padlength": lcls["padlength"],
@@ -613,7 +600,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 
         # Set up compute-class
         specestMethod = MultiTaperFFT(
-            1 / data.samplerate,
+            dt=1/data.samplerate,
             nTaper=nTaper, 
             timeAxis=timeAxis, 
             taper=taper, 
@@ -624,7 +611,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             padlength=padlength,
             foi=foi,
             keeptapers=keeptapers,
-            polyorder=polyorder,
+            polyremoval=polyremoval,
             output_fmt=output)
         
     elif method == "mtmconvol":
@@ -650,7 +637,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             prepadlength=prepadlength,
             postpadlength=postpadlength,
             keeptapers=keeptapers,
-            polyorder=polyorder,
+            polyremoval=polyremoval,
             output_fmt=output)
 
     elif method == "wavelet":
@@ -703,7 +690,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                                          timeAxis,
                                          foi,
                                          toi=toi,
-                                         polyorder=polyorder,
+                                         polyremoval=polyremoval,
                                          wav=wav,
                                          width=width,
                                          output_fmt=output)

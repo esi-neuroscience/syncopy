@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-06-02 19:24:30>
+# Last modification time: <2020-06-03 07:23:13>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -25,7 +25,7 @@ def mtmconvol(
     trl_dat, soi, padbegin, padend,
     samplerate=None, noverlap=None, nperseg=None, equidistant=True, toi=None, foi=None,
     nTaper=1, timeAxis=0, taper=signal.windows.hann, taperopt={}, 
-    keeptapers=True, polyorder=None, output_fmt="pow",
+    keeptapers=True, polyremoval=None, output_fmt="pow",
     noCompute=False, chunkShape=None):
     """
     Perform time-frequency analysis on multi-channel time series data using a sliding window FFT
@@ -76,13 +76,13 @@ def mtmconvol(
     keeptapers : bool
         If `True`, results of Fourier transform are preserved for each taper, 
         otherwise spectrum is averaged across tapers. 
-    polyorder : int
+    polyremoval : int
         **FIXME: Not implemented yet**
         Order of polynomial used for de-trending. A value of 0 corresponds to 
-        subtracting the mean ("de-meaning"), ``polyorder = 1`` removes linear 
+        subtracting the mean ("de-meaning"), ``polyremoval = 1`` removes linear 
         trends (subtracting the least squares fit of a linear function), 
-        ``polyorder = N`` for `N > 1` subtracts a polynomial of order `N` (``N = 2`` 
-        quadratic, ``N = 3`` cubic etc.). If `polyorder` is `None`, no de-trending
+        ``polyremoval = N`` for `N > 1` subtracts a polynomial of order `N` (``N = 2`` 
+        quadratic, ``N = 3`` cubic etc.). If `polyremoval` is `None`, no de-trending
         is performed. 
     output_fmt : str               
         Output of spectral estimation; use `'pow'` for power spectrum 
