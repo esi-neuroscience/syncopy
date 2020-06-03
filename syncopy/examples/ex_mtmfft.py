@@ -6,80 +6,76 @@
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
 # Last modification time: <2019-03-07 12:53:09>
 
-
-from dask.distributed import Client, LocalCluster
-from dask_jobqueue import SLURMCluster
-
-import numpy as np
-import scipy.signal.windows as windows
+# Add SynCoPy package to Python search path
 import os
 import sys
-import time
+spy_path = os.path.abspath(".." + os.sep + "..")
+if spy_path not in sys.path:
+    sys.path.insert(0, spy_path)
+import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm
+from scipy import signal
 
-spw_path = os.path.abspath(".." + os.sep + "..")
-if spw_path not in sys.path:
-    sys.path.insert(0, spw_path)
+from syncopy import *
 
+# Import SynCoPy
 import syncopy as spy
+from syncopy.specest.wavelets import cwt, Morlet
 
-slurmComputation = False
-#%%
-if slurmComputation:
-    cluster = SLURMCluster(processes=8,
-                           cores=8,
-                           memory="48GB",
-                           queue="DEV")
-
-    cluster.start_workers(1)
-else:
-    import socket
-    cluster = LocalCluster(ip=socket.gethostname(),
-                           n_workers=8,
-                           threads_per_worker=1,
-                           memory_limit="8G",
-                           processes=False)
-
-print("Waiting for workers to start")
-while len(cluster.workers) == 0:
-    time.sleep(0.5)
-client = Client(cluster)
-
-print(client)
+# Import artificial data generator
+from syncopy.tests.misc import generate_artificial_data, figs_equal
 
 
 if __name__ == "__main__":
 
-    # Set path to data directory
-    # datadir = ".." + os.sep + ".." + os.sep + ".." + os.sep + ".." + os.sep + "Data"\
-              # + os.sep + "testdata" + os.sep
-    datadir = os.path.join(os.sep, "mnt", "hpx", "it",
-                           "dev", "SpykeWave", "testdata")
-    basename = "MT_RFmapping_session-168a1"
-    data = spy.AnalogData(filename=os.path.join(datadir, basename + '.spy'),
-                          mode='r')
+    fs = 1e3
+    N = 1e5
+    amp = 2 * np.sqrt(2)
+    noise_power = 0.01 * fs / 2
+    time = np.arange(N) / float(fs)
+    mod = 500*np.cos(2*np.pi*0.125*time)
+    carrier = amp * np.sin(2*np.pi*3e2*time + mod)
+    noise = np.random.normal(scale=np.sqrt(noise_power),
+                            size=time.shape)
+    noise *= np.exp(-time/5)
+    x = carrier + noise    
+    
+    f, t, Zxx = signal.stft(x, fs, nperseg=1000)
+    plt.figure()
+    plt.pcolormesh(t, f, np.abs(Zxx), vmin=0, vmax=amp)
+    plt.title('STFT Magnitude')
+    plt.ylabel('Frequency [Hz]')
+    plt.xlabel('Time [sec]')
+    plt.show()
+    
+    foi = np.arange(501)
+    wav = Morlet()
+    widths = wav.scale_from_period(1/foi[foi > 0])  
+    tf = cwt(x, axis=0, wavelet=wav, widths=widths, dt=1/fs)
+    plt.figure()
+    plt.pcolormesh(time, foi[foi > 0], np.abs(tf))
+    plt.title('Wavelet Magnitude')
+    plt.ylabel('Frequency [Hz]')
+    plt.xlabel('Time [sec]')
+    plt.show()
+    
+# In [11]: widths[:10]                                                                                                                                                               
+# Out[11]: 
+# array([0.968 , 0.484 , 0.3227, 0.242 , 0.1936, 0.1613, 0.1383, 0.121 , 0.1076,
+#        0.0968])
 
-    cfg = spy.spy_get_defaults(spy.mtmfft)
-    print(cfg)
-    cfg["taper"] = windows.hanning
-    cfg["pad"] = "nextpow2"
-    cfg["tapsmofrq"] = 5
+# In [12]: wav.fourier_period(widths[:10])                                                                                                                                           
+# Out[12]: 
+# array([1.    , 0.5   , 0.3333, 0.25  , 0.2   , 0.1667, 0.1429, 0.125 , 0.1111,
+#        0.1   ])
 
-    # run spectral analysis
-    spec = spy.mtmfft(data, **cfg)
-    avgSpec = np.zeros(spec._shapes[0])[0, ...]
-    for trial in tqdm(spec.trials, desc="Averaging spectra..."):
-        avgSpec += np.absolute(trial)
-    avgSpec /= len(spec.trials)
+# In [13]: foi[1:11]                                                                                                                                                                 
+# Out[13]: array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10])
 
-    chanIdx = np.arange(35, 40)
-    plt.ion()
-    fig, ax = plt.subplots(1)
-    ax.plot(spec.freq, avgSpec[0, chanIdx, :].T, '.-')
-    ax.set_xlim([0.1, 100])
-    ax.set_xlabel('Frequency (Hz)')
-    ax.set_ylabel('Power (a.u.)')
-    ax.legend(np.array(spec.channel)[chanIdx])
-    fig.tight_layout()
-    plt.draw()
+# In [14]: 1/foi[1:11]                                                                                                                                                               
+# Out[14]: 
+# array([1.    , 0.5   , 0.3333, 0.25  , 0.2   , 0.1667, 0.1429, 0.125 , 0.1111,
+#        0.1   ])    
+# In [15]: 1/wav.fourier_period(widths[:10])                                                                                                                                         
+# Out[15]: array([ 1.,  2.,  3.,  4.,  5.,  6.,  7.,  8.,  9., 10.])
+    

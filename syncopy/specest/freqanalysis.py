@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-06-03 14:00:48>
+# Last modification time: <2020-06-03 18:01:07>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -448,9 +448,12 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                     "or if `toi` is 'all'"
                 act = "False"
                 raise SPYValueError(legal=lgl, actual=act, varname="pad")
-                
+
         # The above `overlap`, `equidistant` etc. is really only relevant for `mtmconvol`        
-        if method == "mtmconvol":
+        # FIXME: explain what's going on here            
+        if method == "wavelet":
+            t_ftimwin = 0
+        else:        
             try:
                 scalar_parser(t_ftimwin, varname="t_ftimwin", lims=[0, minTrialLength])
             except Exception as exc:
@@ -642,7 +645,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     elif method == "wavelet":
         pass
 
-        # check if taper, tapsmofrq, keeptapers is defined
+        # check if taper, tapsmofrq, keeptapers, t_ftimwin (set to 0 above) is defined 
         
         # check for consistency of width, wav
         
