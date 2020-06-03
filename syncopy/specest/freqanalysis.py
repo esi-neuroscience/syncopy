@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-06-03 07:40:47>
+# Last modification time: <2020-06-03 14:00:48>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -516,10 +516,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # Check options specific to mtm*-methods (particularly tapers and foi/freqs alignment)
     if "mtm" in method:
 
-        #: available tapers
-        options = ["hann", "dpss"]
-        if taper not in options:
-            lgl = "'" + "or '".join(opt + "' " for opt in options)
+        # See if taper choice is supported
+        if taper not in availableTapers:
+            lgl = "'" + "or '".join(opt + "' " for opt in availableTapers)
             raise SPYValueError(legal=lgl, varname="taper", actual=taper)
         taper = getattr(spwin, taper)
 
