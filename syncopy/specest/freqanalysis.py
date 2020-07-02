@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-06-03 18:01:07>
+# Last modification time: <2020-06-04 09:31:54>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -449,69 +449,71 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 act = "False"
                 raise SPYValueError(legal=lgl, actual=act, varname="pad")
 
-        # The above `overlap`, `equidistant` etc. is really only relevant for `mtmconvol`        
-        # FIXME: explain what's going on here            
-        if method == "wavelet":
-            t_ftimwin = 0
-        else:        
+        # Code recycling: `overlap`, `equidistant` etc. are really only relevant 
+        # for `mtmconvol`, but we use padding calc below for `wavelet` as well
+        if method == "mtmconvol":
             try:
-                scalar_parser(t_ftimwin, varname="t_ftimwin", lims=[0, minTrialLength])
+                scalar_parser(t_ftimwin, varname="t_ftimwin", lims=[1/data.samplerate, minTrialLength])
             except Exception as exc:
                 raise exc
-            nperseg = int(t_ftimwin * data.samplerate)
-            minSampleNum = nperseg
-            halfWin = int(nperseg / 2)
-            
-            if overlap < 0:         # `toi` is equidistant range or disjoint points
-                noverlap = nperseg - int(tSteps[0] * data.samplerate)
-            elif 0 <= overlap <= 1: # `toi` is percentage
-                noverlap = int(overlap * nperseg)
-            else:                   # `toi` is "all"
-                noverlap = nperseg - 1
-            
-            if overlap < 0:
-                
-                # Compute necessary padding at begin/end of trials to fit sliding windows
-                offStart = ((toi[0] - tStart) * data.samplerate).astype(np.intp)
-                padBegin = halfWin - offStart
-                padBegin = ((padBegin > 0) * padBegin).astype(np.intp)
-                
-                offEnd = ((tEnd - toi[-1]) * data.samplerate).astype(np.intp)
-                padEnd = halfWin - offEnd
-                padEnd = ((padEnd > 0) * padEnd).astype(np.intp)
-                
-                # Abort if padding was explicitly forbidden
-                if pad is False and (np.any(padBegin) or np.any(padBegin)):
-                    lgl = "windows within trial bounds"
-                    act = "windows exceeding trials no. " +\
-                        "".join(str(trlno) + ", "\
-                            for trlno in np.array(trialList)[(padBegin + padEnd) > 0])[:-2]
-                    raise SPYValueError(legal=lgl, varname="pad", actual=act)
+        else:        
+            t_ftimwin = 0
+        nperseg = int(t_ftimwin * data.samplerate)
+        minSampleNum = nperseg
+        halfWin = int(nperseg / 2)
 
-                # Compute sample-indices (one slice/list per trial) from time-selections
-                soi = []            
-                if not equidistant:
-                    for tk in range(numTrials):
-                        starts = (data.samplerate * (toi - tStart[tk]) - halfWin).astype(np.intp)
-                        stops = (data.samplerate * (toi - tStart[tk]) + halfWin + 1).astype(np.intp)
-                        stops = np.maximum(stops, stops - starts, dtype=np.intp)
-                        starts = ((starts > 0) * starts).astype(np.intp)
-                        soi.append([slice(start, stop) for start, stop in zip(starts, stops)])
-                else:
-                    for tk in range(numTrials):
-                        start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
-                        stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
-                        soi.append(slice(max(0, start), max(stop, stop - start)))
-                        
-            else:
-                
-                padBegin = np.zeros((numTrials,))
-                padEnd = np.zeros((numTrials,))
-                soi = [slice(None)] * numTrials
-                    
-        else: # wavelets: probably some `toi` gymnastics
-            pass
+        # `mtmconvol`: compute no. of samples overlapping across adjacent windows        
+        if overlap < 0:         # `toi` is equidistant range or disjoint points
+            noverlap = nperseg - int(tSteps[0] * data.samplerate)
+        elif 0 <= overlap <= 1: # `toi` is percentage
+            noverlap = int(overlap * nperseg)
+        else:                   # `toi` is "all"
+            noverlap = nperseg - 1
         
+        # `toi` is array
+        if overlap < 0:
+            
+            # Compute necessary padding at begin/end of trials to fit sliding windows
+            offStart = ((toi[0] - tStart) * data.samplerate).astype(np.intp)
+            padBegin = halfWin - offStart
+            padBegin = ((padBegin > 0) * padBegin).astype(np.intp)
+            
+            offEnd = ((tEnd - toi[-1]) * data.samplerate).astype(np.intp)
+            padEnd = halfWin - offEnd
+            padEnd = ((padEnd > 0) * padEnd).astype(np.intp)
+            
+            # Abort if padding was explicitly forbidden
+            if pad is False and (np.any(padBegin) or np.any(padBegin)):
+                lgl = "windows within trial bounds"
+                act = "windows exceeding trials no. " +\
+                    "".join(str(trlno) + ", "\
+                        for trlno in np.array(trialList)[(padBegin + padEnd) > 0])[:-2]
+                raise SPYValueError(legal=lgl, varname="pad", actual=act)
+
+            # Compute sample-indices (one slice/list per trial) from time-selections
+            soi = []            
+            if not equidistant:
+                for tk in range(numTrials):
+                    starts = (data.samplerate * (toi - tStart[tk]) - halfWin).astype(np.intp)
+                    stops = (data.samplerate * (toi - tStart[tk]) + halfWin + 1).astype(np.intp)
+                    stops = np.maximum(stops, stops - starts, dtype=np.intp)
+                    starts = ((starts > 0) * starts).astype(np.intp)
+                    soi.append([slice(start, stop) for start, stop in zip(starts, stops)])
+            else:
+                for tk in range(numTrials):
+                    start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
+                    stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
+                    soi.append(slice(max(0, start), max(stop, stop - start)))
+
+        # `toi` is percentage or "all"                    
+        else:
+            
+            padBegin = np.zeros((numTrials,))
+            padEnd = np.zeros((numTrials,))
+            soi = [slice(None)] * numTrials
+                
+        import ipdb; ipdb.set_trace()
+                    
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
         log_dct["toi"] = lcls["toi"]

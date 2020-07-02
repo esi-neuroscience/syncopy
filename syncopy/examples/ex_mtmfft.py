@@ -59,23 +59,12 @@ if __name__ == "__main__":
     plt.xlabel('Time [sec]')
     plt.show()
     
-# In [11]: widths[:10]                                                                                                                                                               
-# Out[11]: 
-# array([0.968 , 0.484 , 0.3227, 0.242 , 0.1936, 0.1613, 0.1383, 0.121 , 0.1076,
-#        0.0968])
-
-# In [12]: wav.fourier_period(widths[:10])                                                                                                                                           
-# Out[12]: 
-# array([1.    , 0.5   , 0.3333, 0.25  , 0.2   , 0.1667, 0.1429, 0.125 , 0.1111,
-#        0.1   ])
-
-# In [13]: foi[1:11]                                                                                                                                                                 
-# Out[13]: array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10])
-
-# In [14]: 1/foi[1:11]                                                                                                                                                               
-# Out[14]: 
-# array([1.    , 0.5   , 0.3333, 0.25  , 0.2   , 0.1667, 0.1429, 0.125 , 0.1111,
-#        0.1   ])    
-# In [15]: 1/wav.fourier_period(widths[:10])                                                                                                                                         
-# Out[15]: array([ 1.,  2.,  3.,  4.,  5.,  6.,  7.,  8.,  9., 10.])
+    cut = slice(int(20*fs), int(40*fs + 1))
+    tf_cut = cwt(x[cut], axis=0, wavelet=wav, widths=widths, dt=1/fs)
+    plt.figure()
+    plt.pcolormesh(time[cut], foi[foi > 0], np.abs(tf_cut))
+    plt.title('Trimmed Wavelet Magnitude')
+    plt.ylabel('Frequency [Hz]')
+    plt.xlabel('Time [sec]')
+    plt.show()
     
