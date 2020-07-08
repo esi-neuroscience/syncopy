@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-06-04 09:31:54>
+# Last modification time: <2020-07-08 14:11:35>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -495,9 +495,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             if not equidistant:
                 for tk in range(numTrials):
                     starts = (data.samplerate * (toi - tStart[tk]) - halfWin).astype(np.intp)
+                    starts += padBegin[tk]
                     stops = (data.samplerate * (toi - tStart[tk]) + halfWin + 1).astype(np.intp)
+                    stops += padBegin[tk]
                     stops = np.maximum(stops, stops - starts, dtype=np.intp)
-                    starts = ((starts > 0) * starts).astype(np.intp)
+                    # starts = ((starts > 0) * starts).astype(np.intp)
                     soi.append([slice(start, stop) for start, stop in zip(starts, stops)])
             else:
                 for tk in range(numTrials):

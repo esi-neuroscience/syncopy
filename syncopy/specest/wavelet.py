@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:44:41
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-06-03 07:24:51>
+# Last modification time: <2020-07-08 12:18:38>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -14,22 +14,47 @@ from numbers import Number
 from syncopy.shared.computational_routine import ComputationalRoutine
 import syncopy.specest.wavelets as spywave 
 
-def wavelet(trl_dat, dt, timeAxis, foi,
-            toi=0.1, polyremoval=None, wav=spywave.Morlet,
-            width=6, output_fmt="pow",
-            noCompute=False, chunkShape=None):
-    """ dat = samples x channel
+def wavelet(
+    trl_dat, soi, padbegin, padend,
+    samplerate=None, equidistant=True, toi=None, foi=None,
+    nTaper=1, timeAxis=0, taper=0, taperopt={}, 
+    keeptapers=True, polyremoval=None, output_fmt="pow",
+    noCompute=False, chunkShape=None):
+    
+    
+    # dt, timeAxis, foi,
+    #         toi=0.1, polyremoval=None, wav=spywave.Morlet,
+    #         width=6, output_fmt="pow",
+    #         noCompute=False, chunkShape=None):
+    """ 
+    dat = samples x channel
     """
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
-        dat = trl_dat.T.squeeze()       # does not copy but creates a view of `trl_dat`
+        dat = trl_dat.T       # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
-    nSamples = dat.shape[0]
-    nChannels = dat.shape[1]
 
-    # Initialize wavelet
+    # Pad input array if necessary
+    if padbegin > 0 or padend > 0:
+        dat = padding(dat, "zero", pad="relative", padlength=None, 
+                      prepadlength=padbegin, postpadlength=padend)
+
+    # Get shape of output for dry-run phase
+    nChannels = dat.shape[1]
+    if isinstance(toi, np.ndarray):     # `toi` is an array of time-points
+        nTime = toi.size
+        stftBdry = None
+        stftPad = False
+    else:                               # `toi` is either 'all' or a percentage
+        nTime = np.ceil(dat.shape[0] / (nperseg - noverlap)).astype(np.intp)
+        stftBdry = "zeros"
+        stftPad = True
+    nFreq = foi.size
+    outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
+    if noCompute:
+        return outShape, spyfreq.spectralDTypes[output_fmt]
     
 
     # Get time-stepping or explicit time-points of interest
