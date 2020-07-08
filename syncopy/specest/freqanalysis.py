@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-08 14:11:35>
+# Last modification time: <2020-07-08 17:31:02>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -499,7 +499,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                     stops = (data.samplerate * (toi - tStart[tk]) + halfWin + 1).astype(np.intp)
                     stops += padBegin[tk]
                     stops = np.maximum(stops, stops - starts, dtype=np.intp)
-                    # starts = ((starts > 0) * starts).astype(np.intp)
                     soi.append([slice(start, stop) for start, stop in zip(starts, stops)])
             else:
                 for tk in range(numTrials):
@@ -513,7 +512,29 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             padBegin = np.zeros((numTrials,))
             padEnd = np.zeros((numTrials,))
             soi = [slice(None)] * numTrials
+            
+        # For wavelets, we need to first trim the data (via `preSelect`), then 
+        # extract the wanted time-points (`postSelect`)
+        if method == "wavelet":
+            
+            # Simply recycle the indexing work done for `mtmconvol` (i.e., `soi`)
+            preSelect = []            
+            if not equidistant:
+                for tk in range(numTrials):
+                    preSelect.append(slice(soi[tk][0].start, soi[tk][-1].stop))
+            else:
+                preSelect = soi
                 
+            # If `toi` is an array, convert "global" indices to "local" ones 
+            # (select within `preSelect`'s selection), otherwise just take all
+            if overlap < 0:
+                postSelect = []
+                for tk in range(numTrials):
+                    postSelect.append((data.samplerate * (toi - tStart[tk]) - offStart[tk] \
+                        + padBegin[tk]).astype(np.intp))
+            else:
+                postSelect = [slice(None)] * numTrials
+
         import ipdb; ipdb.set_trace()
                     
         # Update `log_dct` w/method-specific options (use `lcls` to get actually

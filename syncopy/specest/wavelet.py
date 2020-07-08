@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:44:41
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-08 12:18:38>
+# Last modification time: <2020-07-08 17:51:23>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -15,12 +15,11 @@ from syncopy.shared.computational_routine import ComputationalRoutine
 import syncopy.specest.wavelets as spywave 
 
 def wavelet(
-    trl_dat, soi, padbegin, padend,
-    samplerate=None, equidistant=True, toi=None, foi=None,
-    nTaper=1, timeAxis=0, taper=0, taperopt={}, 
-    keeptapers=True, polyremoval=None, output_fmt="pow",
+    trl_dat, preselect, postselect, padbegin, padend,
+    samplerate=None, toi=None, foi=None, timeAxis=0, 
+    wav=None, scales=None,
+    polyremoval=None, output_fmt="pow",
     noCompute=False, chunkShape=None):
-    
     
     # dt, timeAxis, foi,
     #         toi=0.1, polyremoval=None, wav=spywave.Morlet,
@@ -36,7 +35,7 @@ def wavelet(
     else:
         dat = trl_dat
 
-    # Pad input array if necessary
+    # Pad input array if wanted/necessary
     if padbegin > 0 or padend > 0:
         dat = padding(dat, "zero", pad="relative", padlength=None, 
                       prepadlength=padbegin, postpadlength=padend)
@@ -45,17 +44,16 @@ def wavelet(
     nChannels = dat.shape[1]
     if isinstance(toi, np.ndarray):     # `toi` is an array of time-points
         nTime = toi.size
-        stftBdry = None
-        stftPad = False
-    else:                               # `toi` is either 'all' or a percentage
-        nTime = np.ceil(dat.shape[0] / (nperseg - noverlap)).astype(np.intp)
-        stftBdry = "zeros"
-        stftPad = True
+    else:                               # `toi` is 'all'
+        nTime = dat.shape[0]
     nFreq = foi.size
-    outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
+    outShape = (nTime, nFreq, nChannels)
     if noCompute:
         return outShape, spyfreq.spectralDTypes[output_fmt]
-    
+
+
+    spec = cwt(dat[preselect, :], axis=0, wavelet=wav, widths=scales, dt=1/samplerate)
+
 
     # Get time-stepping or explicit time-points of interest
     if isinstance(toi, Number):
@@ -81,6 +79,9 @@ def wavelet(
     transformed = transformed[:, 0:-1:tsize, :, np.newaxis].transpose([1, 3, 0, 2])
 
     return spectralConversions[output_fmt](transformed)
+
+    # METADATA:
+    # use fourier_period(self, s) to get foi from scales
 
 
 class WaveletTransform(ComputationalRoutine):
