@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-08 17:31:02>
+# Last modification time: <2020-07-10 15:30:08>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -41,6 +41,9 @@ availableOutputs = tuple(spectralConversions.keys())
 #: available tapers of :func:`~syncopy.freqanalysis`
 availableTapers = ("hann", "dpss")
 
+#: available wavelet functions of :func:`~syncopy.freqanalysis`
+availableWavelets = ("Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat")
+
 #: available spectral estimation methods of :func:`~syncopy.freqanalysis`
 availableMethods = ("mtmfft", "mtmconvol", "wavelet")
 
@@ -55,7 +58,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                  padlength=None, prepadlength=None, postpadlength=None, 
                  polyremoval=None, 
                  taper="hann", tapsmofrq=None, keeptapers=False,
-                 wav="Morlet", t_ftimwin=None, toi=None, width=6, 
+                 toi=None, t_ftimwin=None, wav="Morlet", width=6, order=None,
                  out=None, **kwargs):
     """
     Perform (time-)frequency analysis of Syncopy :class:`~syncopy.AnalogData` objects
@@ -109,6 +112,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
           a window on every sample in the data. 
         * **t_ftimwin** : sliding window length (in sec)
 
+        * **wav** : one of :data:`~.availableWavelets`
+
     **Full documentation below** 
     
     Parameters
@@ -157,7 +162,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         Values to be used for padding. Can be `'zero'`, `'nan'`, `'mean'`, 
         `'localmean'`, `'edge'` or `'mirror'`. See :func:`syncopy.padding` for 
         more information.
-    padlength : None, bool or positive scalar
+    padlength : None, bool or positive int
         Only valid if `method` is `'mtmfft'` and `pad` is `'absolute'` or `'relative'`. 
         Number of samples to pad data with. See :func:`syncopy.padding` for more 
         information.
@@ -189,9 +194,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. If `True`, return 
         spectral estimates for each taper, otherwise results are averaged across
         tapers. 
-    t_ftimwin : scalar
-        Only valid if `method` is `'mtmconvol'`. Sliding window length (in seconds). 
-    toi : scalar or array-like or "all"
+    toi : float or array-like or "all"
         **Mandatory input** for time-frequency analysis methods (`method` is either 
         `"mtmconvol"` or `"wavelet"`). 
         If `toi` is scalar, it must be a value between 0 and 1 indicating the 
@@ -200,10 +203,29 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         If `toi` is an array it explicitly selects the centroids of analysis 
         windows (in seconds). If `toi` is `"all"`, analysis windows are centered
         on all samples in the data. 
-    width : scalar
-        Only valid if `method` is `'wavelet'`. Nondimensional frequency constant 
-        of wavelet function. For a Morlet wavelet this number should be >= 6, which 
-        corresponds to 6 cycles within the analysis window (FIXME: how many SDs of the Gaussian window?)
+    t_ftimwin : positive float
+        Only valid if `method` is `'mtmconvol'`. Sliding window length (in seconds). 
+    wav : str
+        Only valid if `method` is `'wavelet'`. Wavelet function to use, one of 
+        :data:`~.availableWavelets` (see below).
+    width : positive float
+        Only valid if `method` is `'wavelet'` and `wav` is `'Morlet'`. Nondimensional 
+        frequency constant of Morlet wavelet function. This number should be >= 6, 
+        which corresponds to 6 cycles within the analysis window to ensure sufficient 
+        spectral sampling. 
+    order : positive int
+        Only valid if `method` is `'wavelet'` and `wav` is `'Paul'` or `'DOG'`. Order 
+        of the wavelet function. If `wav` is `'Paul'`, `order` should be chosen
+        >= 4 to ensure that the analysis window contains at least a single oscillation. 
+        At an order of 40, the Paul wavelet  exhibits about the same number of cycles 
+        as the Morlet wavelet with a `width` of 6. 
+        All other supported wavelets functions are *real-valued* derivatives of 
+        Gaussians (DOGs). Hence, if `wav` is `'DOG'`, `order` represents the derivative order. 
+        The special case of a second order DOG yields a function known as "Mexican Hat", 
+        "Marr" or "Ricker" wavelet, which can be selected alternatively by setting
+        `wav` to `'Mexican_hat'`, `'Marr'` or `'Ricker'`. **Note**: A real-valued
+        wavelet function encodes *only* information about peaks and discontinuities 
+        in the signal and does *not* provide any information about amplitude or phase. 
     out : None or :class:`SpectralData` object
         None if a new :class:`SpectralData` object is to be created, or an empty :class:`SpectralData` object
         
@@ -227,6 +249,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     .. autodata:: syncopy.specest.freqanalysis.availableOutputs
 
     .. autodata:: syncopy.specest.freqanalysis.availableTapers
+
+    .. autodata:: syncopy.specest.freqanalysis.availableWavelets
     
     See also
     --------
@@ -535,8 +559,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             else:
                 postSelect = [slice(None)] * numTrials
 
-        import ipdb; ipdb.set_trace()
-                    
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
         log_dct["toi"] = lcls["toi"]
@@ -668,49 +690,80 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             output_fmt=output)
 
     elif method == "wavelet":
-        pass
 
-        # check if taper, tapsmofrq, keeptapers, t_ftimwin (set to 0 above) is defined 
-        
-        # check for consistency of width, wav
-        
-        options = ["Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat"]
-        if wav not in options:
-            lgl = "'" + "or '".join(opt + "' " for opt in options)
+        # Check for non-default values of `taper`, `tapsmofrq`, `keeptapers` and 
+        # `t_ftimwin` (set to 0 above)
+        kwdict = {"taper": taper, "tapsmofrq": tapsmofrq, "keeptapers": keeptapers}
+        for name, kwarg in kwdict.items():
+            if kwarg is not lcls[name]:
+                msg = "option `{}` has no effect in method `wavelet`!"
+                SPYWarning(msg.format(name))
+        if t_ftimwin != 0:
+            msg = "option `t_ftimwin` has no effect in method `wavelet`!"
+            SPYWarning(msg)
+            
+        # Check wavelet selection        
+        if wav not in availableWavelets:
+            lgl = "'" + "or '".join(opt + "' " for opt in availableWavelets)
             raise SPYValueError(legal=lgl, varname="wav", actual=wav)
-        wav = getattr(spywave, wav)
-
-        if isinstance(toi, Number):
+        if wav not in ["Morlet", "Paul"]:
+            msg = "the chosen wavelet '{}' is real-valued and does not provide " +\
+                "any information about amplitude or phase of the data. This wavelet function " +\
+                "may be used to isolate peaks or discontinuities in the signal. "
+            SPYWarning(msg.format(wav))
+            
+        # Check for consistency of `width`, `order` and `wav`
+        if wav == "Morlet":
             try:
-                scalar_parser(toi, varname="toi", lims=[0, 1])
+                scalar_parser(width, varname="width", lims=[6, np.inf])
             except Exception as exc:
                 raise exc
+            wfun = getattr(spywave, wav)(w0=width)
         else:
+            if width != lcls["width"]:
+                msg = "option `width` has no effect for wavelet '{}'"
+                SPYWarning(msg.format(wav))
+                
+        if wav == "Paul":
             try:
-                array_parser(toi, varname="toi", hasinf=False, hasnan=False,
-                             lims=[timing.min(), timing.max()], dims=(None,))
+                scalar_parser(order, varname="order", lims=[4, np.inf], ntype="int_like")
             except Exception as exc:
                 raise exc
-            toi = np.array(toi)
-            toi.sort()
-
+            wfun = getattr(spywave, wav)(m=order)
+        elif wav == "DOG":
+            try:
+                scalar_parser(order, varname="order", lims=[1, np.inf], ntype="int_like")
+            except Exception as exc:
+                raise exc
+            wfun = getattr(spywave, wav)(m=order)
+        else:
+            if order is not None:
+                msg = "option `order` has no effect for wavelet '{}'"
+                SPYWarning(msg.format(wav))
+            wfun = getattr(spywave, wav)()
+            
+        # Monkey-patch local helper routine to just created wavelet class instances 
+        # (we don't do this in the class def to not collide w/already existing routine 
+        # `compute_optimal_scales` of `WaveletTransform`)
+        wfun._get_optimal_wavelet_scales = _get_optimal_wavelet_scales.__get__(wfun)
+        
+        # Process frequency selection (`toi` was taken care of above)
         if foi is None:
-            foi = 1 / _get_optimal_wavelet_scales(minTrialLength,
-                                                  1/data.samplerate,
-                                                  dj=0.25)
-
-        # FIXME: width setting depends on chosen wavelet
-        if width is not None:
-            try:
-                scalar_parser(width, varname="width", lims=[1, np.inf])
-            except Exception as exc:
-                raise exc
+            scales = wfun._get_optimal_wavelet_scales(int(minTrialLength * data.samplerate), 
+                                                      1 / data.samplerate)
+            if foilim is not None:
+                freqs = 1 / wfun.fourier_period(scales)
+                foi, _ = best_match(freqs, foilim, span=True, squash_duplicates=True)
+                scales = wfun.scale_from_period(1 / foi)
+        else:
+            scales = wav.scale_from_period(1 / foi)
+            scales = scales[::-1]  # FIXME: this only makes sense if `foi` was sorted -> cf Issue #94
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
         log_dct["wav"] = lcls["wav"]
-        log_dct["toi"] = lcls["toi"]
         log_dct["width"] = lcls["width"]
+        log_dct["order"] = lcls["order"]
 
         # Set up compute-class
         specestMethod = WaveletTransform(1/data.samplerate, 

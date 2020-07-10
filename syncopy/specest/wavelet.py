@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:44:41
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-08 17:51:23>
+# Last modification time: <2020-07-10 14:50:33>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -181,7 +181,7 @@ WaveletTransform.computeMethods = {"dask": WaveletTransform.compute_with_dask,
                                    "sequential": WaveletTransform.compute_sequential}
 
 
-def _get_optimal_wavelet_scales(nSamples, dt, dj=0.25, s0=1):
+def _get_optimal_wavelet_scales(self, nSamples, dt, dj=0.25, s0=None):
     """Form a set of scales to use in the wavelet transform.
 
     For non-orthogonal wavelet analysis, one can use an
@@ -204,7 +204,11 @@ def _get_optimal_wavelet_scales(nSamples, dt, dj=0.25, s0=1):
     that still adequately samples scale. Smaller dj gives finer
     scale resolution.
     """
-    s0 = 2 * dt
+    
+    # Compute `s0` so that the equivalent Fourier period is approximately ``2 * dt```
+    if s0 is None:
+        s0 = self.scale_from_period(2*dt)
+        
     # Largest scale
     J = int((1 / dj) * np.log2(nSamples * dt / s0))
     return s0 * 2 ** (dj * np.arange(0, J + 1))
