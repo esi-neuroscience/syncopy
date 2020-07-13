@@ -57,5 +57,7 @@ syncopy.specest
     syncopy.specest.mtmfft.MultiTaperFFT
     syncopy.specest.mtmconvol.mtmconvol
     syncopy.specest.mtmconvol.MultiTaperFFTConvol
+    syncopy.specest.mtmconvol._make_trialdef
     syncopy.specest.wavelet.wavelet
     syncopy.specest.wavelet.WaveletTransform
+    syncopy.specest.wavelet._get_optimal_wavelet_scales

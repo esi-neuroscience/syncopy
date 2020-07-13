@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:44:41
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-10 14:50:33>
+# Last modification time: <2020-07-13 17:21:02>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -12,19 +12,18 @@ from numbers import Number
 
 # Local imports
 from syncopy.shared.computational_routine import ComputationalRoutine
-import syncopy.specest.wavelets as spywave 
+from syncopy.specest.wavelets import cwt
+from syncopy.shared.kwarg_decorators import unwrap_io
+from syncopy.datatype import padding
+import syncopy.specest.freqanalysis as spyfreq
+from .mtmconvol import _make_trialdef
 
+@unwrap_io
 def wavelet(
     trl_dat, preselect, postselect, padbegin, padend,
-    samplerate=None, toi=None, foi=None, timeAxis=0, 
-    wav=None, scales=None,
+    samplerate=None, toi=None, scales=None, timeAxis=0, wav=None, 
     polyremoval=None, output_fmt="pow",
     noCompute=False, chunkShape=None):
-    
-    # dt, timeAxis, foi,
-    #         toi=0.1, polyremoval=None, wav=spywave.Morlet,
-    #         width=6, output_fmt="pow",
-    #         noCompute=False, chunkShape=None):
     """ 
     dat = samples x channel
     """
@@ -46,163 +45,101 @@ def wavelet(
         nTime = toi.size
     else:                               # `toi` is 'all'
         nTime = dat.shape[0]
-    nFreq = foi.size
-    outShape = (nTime, nFreq, nChannels)
+    nScales = scales.size
+    outShape = (nTime, 1, nScales, nChannels)
     if noCompute:
         return outShape, spyfreq.spectralDTypes[output_fmt]
 
-
-    spec = cwt(dat[preselect, :], axis=0, wavelet=wav, widths=scales, dt=1/samplerate)
-
-
-    # Get time-stepping or explicit time-points of interest
-    if isinstance(toi, Number):
-        toi /= dt
-        tsize = int(np.floor(nSamples / toi))
-    else:
-        tsize = toi.size
-
-    # Output shape: time x taper=1 x freq x channel
-    import ipdb; ipdb.set_trace()
-    scales = wav.scale_from_period(1/foi) # use wav.fourier_period instead?
-    outShape = (tsize,
-                1,
-                len(scales),
-                nChannels)
-
-    # For initialization of computational routine, just return output shape and dtype
-    if noCompute:
-        return outShape, spectralDTypes[output_fmt]
-
-    # Actual computation: ``cwt`` returns `(len(scales),) + dat.shape`
-    transformed = spywave.cwt(dat, axis=0, wavelet=wav, widths=scales, dt=dt)
-    transformed = transformed[:, 0:-1:tsize, :, np.newaxis].transpose([1, 3, 0, 2])
-
-    return spectralConversions[output_fmt](transformed)
-
-    # METADATA:
-    # use fourier_period(self, s) to get foi from scales
+    # Compute wavelet transform with given data/time-selection
+    spec = cwt(dat[preselect, :], 
+               axis=0, 
+               wavelet=wav, 
+               widths=scales, 
+               dt=1/samplerate).transpose(1, 0, 2)[postselect, :, :]
+    
+    return spyfreq.spectralConversions[output_fmt](spec[:, np.newaxis, :, :])
 
 
 class WaveletTransform(ComputationalRoutine):
+    """
+    Compute class that performs time-frequency analysis of :class:`~syncopy.AnalogData` objects
+    
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`, 
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute 
+    classes and metafunctions. 
+    
+    See also
+    --------
+    syncopy.freqanalysis : parent metafunction
+    """
 
     computeFunction = staticmethod(wavelet)
 
-    def __init__(self, *argv, **kwargs):
-        super().__init__(*argv, **kwargs)
-
-    def compute_parallel(self, data, out):
-
-        # Point to trials on disk by using delayed **static** method calls
-        lazy_trial = dask.delayed(data._copy_trial, traverse=False)
-        lazy_trls = [lazy_trial(trialno,
-                                data._filename,
-                                data.dimord,
-                                data.sampleinfo,
-                                data.hdr)
-                     for trialno in range(data.sampleinfo.shape[0])]
-
-        # Stack trials along new (3rd) axis inserted on the left
-        trl_block = da.stack([da.from_delayed(trl, shape=data._shapes[sk],
-                                              dtype=data.data.dtype)
-                              for sk, trl in enumerate(lazy_trls)])
-
-        # Use `map_blocks` to compute spectra for each trial in the
-        # constructed dask array
-        specs = trl_block.map_blocks(self.computeFunction,
-                                     *self.argv, **self.cfg,
-                                     dtype="complex",
-                                     chunks=self.cfg["chunkShape"],
-                                     new_axis=[0])
-        specs = specs.reshape(self.outputShape)
-
-        # Average across trials if wanted
-        if not self.keeptrials:
-            specs = specs.mean(axis=0)
-
-        return specs
-
-    # def initialize(self, data):
-    #     timeAxis = data.dimord.index("time")
-    #     minTrialLength = np.array(data._shapes)[:, timeAxis].min()
-    #     if self.cfg["foi"] is None:
-    #         self.cfg["foi"] = 1 / _get_optimal_wavelet_scales(minTrialLength,
-    #                                                           1 / data.samplerate,
-    #                                                           dj=0.25)
-    # 
-    #     if self.cfg["toi"] is None:
-    #         asdf
-    #         1/foi[-1] * w0
-    # 
-    #     dryRunKwargs = copy(self.cfg)
-    #     dryRunKwargs["noCompute"] = True
-    #     self.chunkShape, self.dtype = self.computeFunction(data.trials[0],
-    #                                                         *self.argv, **dryRunKwargs)
-
-    def preallocate_output(self, data, out):
-        totalTriallength = np.int(np.sum(np.floor(np.array(data._shapes)[:, 0] /
-                                                  self.cfg["stepsize"])))
-
-        result = open_memmap(out._filename,
-                             shape=(totalTriallength,) + self.chunkShape[1:],
-                             dtype=self.dtype,
-                             mode="w+")
-        del result
-
-    def compute_sequential(self, data, out):
-        outIndex = 0
-        for idx, trial in enumerate(tqdm(data.trials,
-                                         desc="Computing Wavelet spectrum...")):
-            tmp = self.computeFunction(trial, *self.argv, **self.cfg)
-            selector = slice(outIndex, outIndex + tmp.shape[0])
-            res = open_memmap(out._filename, mode="r+")[selector, :, :, :]
-            res[...] = tmp
-            del res
-            data.clear()
-
-    def compute_with_dask(self, data, out):
-        raise NotImplementedError("Dask computation of wavelet transform is not yet implemented")
-
     def process_metadata(self, data, out):
-        out.data = open_memmap(out._filename, mode="r+")
-        # We can't simply use ``redefinetrial`` here, prep things by hand
-        out.sampleinfo = np.floor(data.sampleinfo / self.cfg["stepsize"]).astype(np.int)
-        out.trialinfo = np.array(data.trialinfo)
-        out._t0 = data._t0 / self.cfg["stepsize"]
-
+        
+        # Get trialdef array + channels from source        
+        if data._selection is not None:
+            chanSec = data._selection.channel
+            trl = data._selection.trialdefinition
+        else:
+            chanSec = slice(None)
+            trl = data.trialdefinition
+            
+        # Construct trialdef array and compute new sampling rate (if necessary)
+        if self.keeptrials:
+            trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
+        else:
+            trl = np.array([[0, 1, 0]])
+            srate = 1.0
+            
         # Attach meta-data
-        out.samplerate = data.samplerate / self.cfg["stepsize"]
-        out.channel = np.array(data.channel)
-        out.freq = self.cfg["freqoi"]
-        return out
-
-
-WaveletTransform.computeMethods = {"dask": WaveletTransform.compute_with_dask,
-                                   "sequential": WaveletTransform.compute_sequential}
+        out.trialdefinition = trl    
+        out.samplerate = srate
+        out.channel = np.array(data.channel[chanSec])
+        out.freq = 1 / self.cfg["wav"].fourier_period(self.cfg["scales"][::-1])
 
 
 def _get_optimal_wavelet_scales(self, nSamples, dt, dj=0.25, s0=None):
-    """Form a set of scales to use in the wavelet transform.
+    """
+    Local helper to compute an "optimally spaced" set of scales for wavelet analysis 
+    
+    Parameters
+    ----------
+    nSamples : int
+        Sample-count (i.e., length) of time-series that is analyzed
+    dt : float
+        Time-series step-size; temporal spacing between consecutive samples 
+        (1 / sampling rate)
+    dj : float
+        Spectral resolution of scales. The choice of `dj` depends on the spectral 
+        width of the employed wavelet function. For instance, ``dj = 0.5`` is the 
+        largest value that still yields adequate sampling in scale for the Morlet
+        wavelet. Other wavelets allow larger values of `dj` while still providing 
+        sufficient spectral resolution. Small values of `dj` yield finer scale 
+        resolution. 
+    s0 : float or None
+        Smallest resolvable scale; should be chosen such that the equivalent 
+        Fourier period is approximately ``2 * dt``. If `None`, `s0` is computed
+        to satisfy this criterion. 
+        
+    Returns
+    -------
+    scales : 1D :class:`numpy.ndarray`
+        Set of scales to use in the wavelet transform
 
-    For non-orthogonal wavelet analysis, one can use an
-    arbitrary set of scales.
+    Notes
+    -----
+    The calculation of an "optimal" set of scales follows [ToCo98]_. 
+    This routine is a local auxiliary method that is purely intended for internal
+    use. Thus, no error checking is performed. 
+    
+    .. [ToCo98] C. Torrence and G. P. Compo. A Practical Guide to Wavelet Analysis. 
+       Bulletin of the American Meteorological Society. Vol. 79, No. 1, January 1998. 
 
-    It is convenient to write the scales as fractional powers of
-    two:
-
-        s_j = s_0 * 2 ** (j * dj), j = 0, 1, ..., J
-
-        J = (1 / dj) * log2(N * dt / s_0)
-
-    s0 - smallest resolvable scale
-    J - largest scale
-
-    choose s0 so that the equivalent Fourier period is 2 * dt.
-
-    The choice of dj depends on the width in spectral space of
-    the wavelet function. For the Morlet, dj=0.5 is the largest
-    that still adequately samples scale. Smaller dj gives finer
-    scale resolution.
+    See also
+    --------
+    syncopy.specest.wavelet.wavelet : :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+                                      performing time-frequency analysis using non-orthogonal continuous wavelet transform
     """
     
     # Compute `s0` so that the equivalent Fourier period is approximately ``2 * dt```

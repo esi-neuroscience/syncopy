@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-10 15:30:08>
+# Last modification time: <2020-07-13 16:48:03>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -112,7 +112,17 @@ def freqanalysis(data, method='mtmfft', output='fourier',
           a window on every sample in the data. 
         * **t_ftimwin** : sliding window length (in sec)
 
+    :func:`~syncopy.specest.wavelet.wavelet` : (Continuous non-orthogonal) wavelet transform
+        Perform time-frequency analysis on time-series trial data using a non-orthogonal
+        continuous wavelet transform. 
+        
         * **wav** : one of :data:`~.availableWavelets`
+        * **toi** : time-points of interest; can be either an array representing 
+          time points (in sec) to center wavelets on or "all" to center a wavelet 
+          on every sample in the data. 
+        * **width** : Nondimensional frequency constant of Morlet wavelet function (>= 6)
+        * **order** : Order of Paul wavelet function (>= 4) or derivative order
+          of real-valued DOG wavelets (2 = mexican hat)
 
     **Full documentation below** 
     
@@ -256,6 +266,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     --------
     syncopy.specest.mtmfft.mtmfft : (multi-)tapered Fourier transform of multi-channel time series data
     syncopy.specest.mtmconvol.mtmconvol : time-frequency analysis of multi-channel time series data with a sliding window FFT
+    syncopy.specest.wavelet.wavelet : time-frequency analysis of multi-channel time series data using a wavelet transform
     numpy.fft.fft : NumPy's reference FFT implementation
     scipy.signal.stft : SciPy's Short Time Fourier Transform
     """
@@ -366,6 +377,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                              lims=[0, data.samplerate/2], dims=(None,))
             except Exception as exc:
                 raise exc
+            foi = np.array(foi)
     if foilim is not None:
         if isinstance(foilim, str):
             if foilim == "all":
@@ -756,7 +768,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 foi, _ = best_match(freqs, foilim, span=True, squash_duplicates=True)
                 scales = wfun.scale_from_period(1 / foi)
         else:
-            scales = wav.scale_from_period(1 / foi)
+            foi[foi == 0] = np.finfo(np.float).eps
+            scales = wfun.scale_from_period(1 / foi)
             scales = scales[::-1]  # FIXME: this only makes sense if `foi` was sorted -> cf Issue #94
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
@@ -766,14 +779,18 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         log_dct["order"] = lcls["order"]
 
         # Set up compute-class
-        specestMethod = WaveletTransform(1/data.samplerate, 
-                                         timeAxis,
-                                         foi,
-                                         toi=toi,
-                                         polyremoval=polyremoval,
-                                         wav=wav,
-                                         width=width,
-                                         output_fmt=output)
+        specestMethod = WaveletTransform(
+            preSelect,
+            postSelect,
+            list(padBegin),
+            list(padEnd),
+            samplerate=data.samplerate,
+            toi=toi,
+            scales=scales,
+            timeAxis=timeAxis, 
+            wav=wfun,
+            polyremoval=polyremoval,
+            output_fmt=output)
         
     # If provided, make sure output object is appropriate
     if out is not None:

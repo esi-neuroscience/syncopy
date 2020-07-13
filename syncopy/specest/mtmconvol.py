@@ -4,9 +4,10 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-08 14:12:35>
+# Last modification time: <2020-07-13 16:50:56>
 
 # Builtin/3rd party package imports
+import numbers
 import numpy as np
 from scipy import signal
 
@@ -230,59 +231,96 @@ class MultiTaperFFTConvol(ComputationalRoutine):
         else:
             chanSec = slice(None)
             trl = data.trialdefinition
-
-        # Construct trialdef array (if necessary)
+            
+        # Construct trialdef array and compute new sampling rate (if necessary)
         if self.keeptrials:
-            
-            # If `toi` is array, use it to construct timing info
-            toi = self.cfg["toi"]
-            if isinstance(toi, np.ndarray):
-                
-                # Some index gymnastics to get trial begin/end samples
-                nToi = toi.size
-                time = np.cumsum([nToi] * trl.shape[0])
-                trl[:, 0] = time - nToi
-                trl[:, 1] = time
-                
-                # If trigger onset was part of `toi`, get its relative position wrt 
-                # to other elements, otherwise use first element as "onset"
-                t0Idx = np.where(toi == 0)[0]
-                if t0Idx:
-                    trl[:, 2] = -t0Idx[0]
-                else:
-                    trl[:, 2] = 0
-                    
-                # Important: differentiate b/w equidistant time ranges and disjoint points        
-                if self.cfg["equidistant"]:
-                    out.samplerate = 1 / (toi[1] - toi[0])
-                else:
-                    msg = "`SpectralData`'s `time` property currently does not support " +\
-                        "unevenly spaced `toi` selections!"
-                    SPYWarning(msg, caller="freqanalysis")
-                    out.samplerate = 1.0
-                    trl[:, 2] = 0
-                    
-            # If all samples have been used, simply copy relevant info from source
-            elif toi == "all":
-                out.samplerate = data.samplerate
-                    
-            # If `toi` was a percentage, some cumsum/winSize algebra is required
-            else:
-                winSize = self.cfg['nperseg'] - self.cfg['noverlap']
-                trlLens = np.ceil(np.diff(trl[:, :2]) / winSize)
-                sumLens = np.cumsum(trlLens).reshape(trlLens.shape)
-                trl[:, 0] = np.ravel(sumLens - trlLens)
-                trl[:, 1] = sumLens.ravel()
-                trl[:, 2] = trl[:, 2] / winSize
-                out.samplerate = np.round(data.samplerate / winSize, 2) 
-            
-            # Assign (calculated) trialdef array     
-            out.trialdefinition = trl
-            
+            trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
         else:
-            out.trialdefinition = np.array([[0, 1, 0]])
+            trl = np.array([[0, 1, 0]])
+            srate = 1.0
             
-        # Attach remaining meta-data
+        # Attach meta-data
+        out.trialdefinition = trl    
+        out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
         out.taper = np.array([self.cfg["taper"].__name__] * self.outputShape[out.dimord.index("taper")])
         out.freq = self.cfg["foi"]
+
+
+def _make_trialdef(cfg, trialdefinition, samplerate):
+    """
+    Local helper to construct trialdefinition arrays for time-frequency :class:`~syncopy.SpectralData` objects
+    
+    Parameters
+    ----------
+    cfg : dict
+        Config dictionary attribute of `ComputationalRoutine` subclass 
+    trialdefinition : 2D :class:`numpy.ndarray`
+        Provisional trialdefnition array either directly copied from the 
+        :class:`~syncopy.AnalogData` input object or computed by the
+        :class:`~syncopy.datatype.base_data.Selector` class. 
+    samplerate : float
+        Original sampling rate of :class:`~syncopy.AnalogData` input object
+        
+    Returns
+    -------
+    trialdefinition : 2D :class:`numpy.ndarray`
+        Updated trialdefinition array reflecting provided `toi`/`toilim` selection
+    samplerate : float
+        Sampling rate accouting for potentially new spacing b/w time-points (accouting 
+        for provided `toi`/`toilim` selection)
+    
+    Notes
+    -----
+    This routine is a local auxiliary method that is purely intended for internal
+    use. Thus, no error checking is performed. 
+    
+    See also
+    --------
+    syncopy.specest.mtmconvol.mtmconvol : :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+                                          performing time-frequency analysis using (multi-)tapered sliding window Fourier transform
+    syncopy.specest.wavelet.wavelet : :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+                                      performing time-frequency analysis using non-orthogonal continuous wavelet transform
+    """
+    # If `toi` is array, use it to construct timing info
+    toi = cfg["toi"]
+    if isinstance(toi, np.ndarray):
+        
+        # Some index gymnastics to get trial begin/end samples
+        nToi = toi.size
+        time = np.cumsum([nToi] * trialdefinition.shape[0])
+        trialdefinition[:, 0] = time - nToi
+        trialdefinition[:, 1] = time
+        
+        # If trigger onset was part of `toi`, get its relative position wrt 
+        # to other elements, otherwise use first element as "onset"
+        t0Idx = np.where(toi == 0)[0]
+        if t0Idx:
+            trialdefinition[:, 2] = -t0Idx[0]
+        else:
+            trialdefinition[:, 2] = 0
+            
+        # Important: differentiate b/w equidistant time ranges and disjoint points
+        tSteps = np.diff(toi)
+        if np.allclose(tSteps, [tSteps[0]] * tSteps.size):
+            samplerate = 1 / (toi[1] - toi[0])
+        else:
+            msg = "`SpectralData`'s `time` property currently does not support " +\
+                "unevenly spaced `toi` selections!"
+            SPYWarning(msg, caller="freqanalysis")
+            samplerate = 1.0
+            trialdefinition[:, 2] = 0
+            
+    # If `toi` was a percentage, some cumsum/winSize algebra is required
+    # Note: if `toi` was "all", simply use provided `trialdefinition` and `samplerate`
+    elif isinstance(toi, numbers.Number):
+        winSize = cfg['nperseg'] - cfg['noverlap']
+        trialdefinitionLens = np.ceil(np.diff(trialdefinition[:, :2]) / winSize)
+        sumLens = np.cumsum(trialdefinitionLens).reshape(trialdefinitionLens.shape)
+        trialdefinition[:, 0] = np.ravel(sumLens - trialdefinitionLens)
+        trialdefinition[:, 1] = sumLens.ravel()
+        trialdefinition[:, 2] = trialdefinition[:, 2] / winSize
+        samplerate = np.round(samplerate / winSize, 2) 
+        
+    return trialdefinition, samplerate
+    
