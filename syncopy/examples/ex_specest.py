@@ -66,6 +66,8 @@ if __name__ == "__main__":
 
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'wavelet'
+    cfg.wav = 'DOG'
+    cfg.order = 4
     cfg.output = 'pow'
     cfg.keeptrials = True
     cfg.toi = "all"
