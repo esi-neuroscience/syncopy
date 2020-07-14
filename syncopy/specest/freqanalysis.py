@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-13 16:48:03>
+# Last modification time: <2020-07-14 11:22:10>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -661,7 +661,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 
         # Set up compute-class
         specestMethod = MultiTaperFFT(
-            dt=1/data.samplerate,
+            samplerate=data.samplerate,
+            foi=foi,
             nTaper=nTaper, 
             timeAxis=timeAxis, 
             taper=taper, 
@@ -670,7 +671,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             pad=pad,
             padtype=padtype,
             padlength=padlength,
-            foi=foi,
             keeptapers=keeptapers,
             polyremoval=polyremoval,
             output_fmt=output)

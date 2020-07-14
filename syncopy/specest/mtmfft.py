@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:25:34
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-06-03 07:24:41>
+# Last modification time: <2020-07-14 11:19:03>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -20,7 +20,7 @@ from syncopy.shared.tools import best_match
 
 # Local workhorse that performs the computational heavy lifting
 @unwrap_io
-def mtmfft(trl_dat, dt=None, foi=None, nTaper=1, timeAxis=0,
+def mtmfft(trl_dat, samplerate=None, foi=None, nTaper=1, timeAxis=0,
            taper=spwin.hann, taperopt={}, 
            pad="nextpow2", padtype="zero", padlength=None,
            keeptapers=True, polyremoval=None, output_fmt="pow",
@@ -32,8 +32,8 @@ def mtmfft(trl_dat, dt=None, foi=None, nTaper=1, timeAxis=0,
     ----------
     trl_dat : 2D :class:`numpy.ndarray`
         Uniformly sampled multi-channel time-series 
-    dt : float
-        Sampling interval (`1/sampling-frequency`; between 0 and 1)
+    samplerate : float
+        Samplerate of `trl_dat` in Hz
     foi : 1D :class:`numpy.ndarray`
         Frequencies of interest  (Hz) for output. If desired frequencies
         cannot be matched exactly the closest possible frequencies (respecting 
@@ -43,8 +43,7 @@ def mtmfft(trl_dat, dt=None, foi=None, nTaper=1, timeAxis=0,
     timeAxis : int
         Index of running time axis in `trl_dat` (0 or 1)
     taper : callable 
-        Windowing function to use, one of :mod:`scipy.signal.windows`. This 
-        function is called as ``taper(nSamples, **taperopt)``
+        Taper function to use, one of :data:`~syncopy.specest.freqanalysis.availableTapers`
     taperopt : dict
         Additional keyword arguments passed to the `taper` function. For further 
         details, please refer to the 
@@ -70,10 +69,8 @@ def mtmfft(trl_dat, dt=None, foi=None, nTaper=1, timeAxis=0,
         least squares fit of a linear polynomial), ``polyremoval = N`` for `N > 1` 
         subtracts a polynomial of order `N` (``N = 2`` quadratic, ``N = 3`` cubic 
         etc.). If `polyremoval` is `None`, no de-trending is performed. 
-    output_fmt : str               
-        Output of spectral estimation; use `'pow'` for power spectrum 
-        (:obj:`numpy.float32`), `'fourier'` for complex Fourier coefficients 
-        (:obj:`numpy.complex128`) or `'abs'` for absolute values (:obj:`numpy.float32`).
+    output_fmt : str
+        Output of spectral estimation; one of :data:`~syncopy.specest.freqanalysis.availableOutputs`
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
@@ -122,15 +119,9 @@ def mtmfft(trl_dat, dt=None, foi=None, nTaper=1, timeAxis=0,
     
     # Determine frequency band and shape of output (time=1 x taper x freq x channel)
     nFreq = int(np.floor(nSamples / 2) + 1)
-    freqs = np.linspace(0, 1 /(2 * dt), nFreq)
+    freqs = np.linspace(0, samplerate / 2, nFreq)
     _, fidx = best_match(freqs, foi, squash_duplicates=True)
     nFreq = fidx.size
-    # nFreq = int(np.floor(nSamples / 2) + 1)
-    # fidx = slice(None)
-    # if foi is not None:
-    #     freqs = np.linspace(0, 1 /(2 * dt), nFreq)
-    #     _, fidx = best_match(freqs, foi, squash_duplicates=True)
-    #     nFreq = fidx.size
     outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
     
     # For initialization of computational routine, just return output shape and dtype

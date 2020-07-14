@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:44:41
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-13 17:21:02>
+# Last modification time: <2020-07-14 10:57:58>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -25,7 +25,79 @@ def wavelet(
     polyremoval=None, output_fmt="pow",
     noCompute=False, chunkShape=None):
     """ 
-    dat = samples x channel
+    Perform time-frequency analysis on multi-channel time series data using a wavelet transform
+    
+    Parameters
+    ----------
+    trl_dat : 2D :class:`numpy.ndarray`
+        Uniformly sampled multi-channel time-series 
+    preselect : slice
+        Begin- to end-samples to perform analysis on (trim data to interval). 
+        See Notes for details. 
+    postselect : list of slices or list of 1D NumPy arrays
+        Actual time-points of interest within interval defined by `preselect`
+        See Notes for details. 
+    padbegin : int
+        Number of samples to pre-pend to `trl_dat`
+    padend : int
+        Number of samples to append to `trl_dat`
+    samplerate : float
+        Samplerate of `trl_dat` in Hz
+    toi : 1D :class:`numpy.ndarray` or str
+        Either time-points to center wavelets on if `toi` is a :class:`numpy.ndarray`,
+        or `"all"` to center wavelets on all samples in `trl_dat`. Please refer to 
+        :func:`~syncopy.freqanalysis` for further details. **Note**: The value 
+        of `toi` has to agree with provided padding values. See Notes for more 
+        information. 
+    scales : 1D :class:`numpy.ndarray`
+        Set of scales to use in wavelet transform. 
+    timeAxis : int
+        Index of running time axis in `trl_dat` (0 or 1)
+    wav : callable 
+        Wavelet function to use, one of :data:`~syncopy.specest.freqanalysis.availableWavelets`
+    polyremoval : int
+        **FIXME: Not implemented yet**
+        Order of polynomial used for de-trending. A value of 0 corresponds to 
+        subtracting the mean ("de-meaning"), ``polyremoval = 1`` removes linear 
+        trends (subtracting the least squares fit of a linear function), 
+        ``polyremoval = N`` for `N > 1` subtracts a polynomial of order `N` (``N = 2`` 
+        quadratic, ``N = 3`` cubic etc.). If `polyremoval` is `None`, no de-trending
+        is performed. 
+    output_fmt : str
+        Output of spectral estimation; one of :data:`~syncopy.specest.freqanalysis.availableOutputs`
+    noCompute : bool
+        Preprocessing flag. If `True`, do not perform actual calculation but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+    chunkShape : None or tuple
+        If not `None`, represents shape of output object `spec` (respecting provided 
+        values of `scales`, `preselect`, `postselect` etc.)
+    
+    Returns
+    -------
+    spec : :class:`numpy.ndarray`
+        Complex or real time-frequency representation of (padded) input data. 
+            
+    Notes
+    -----
+    This method is intended to be used as 
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`. 
+    Thus, input parameters are presumed to be forwarded from a parent metafunction. 
+    Consequently, this function does **not** perform any error checking and operates 
+    under the assumption that all inputs have been externally validated and cross-checked. 
+
+    For wavelets, data concatenation is performed by first trimming `trl_dat` to
+    an interval of interest (via `preselect`), then performing the actual wavelet
+    transform, and subsequently extracting the actually wanted time-points 
+    (via `postselect`). 
+    
+    See also
+    --------
+    syncopy.freqanalysis : parent metafunction
+    WaveletTransform : :class:`~syncopy.shared.computational_routine.ComputationalRoutine`
+                       instance that calls this method as 
+                       :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     """
 
     # Re-arrange array if necessary and get dimensional information

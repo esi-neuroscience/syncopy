@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-13 16:50:56>
+# Last modification time: <2020-07-14 11:00:32>
 
 # Builtin/3rd party package imports
 import numbers
@@ -42,9 +42,9 @@ def mtmconvol(
         analysis window (if spacing between windows is not constant)
     padbegin : int
         Number of samples to pre-pend to `trl_dat`
-    padbegin : int
+    padend : int
         Number of samples to append to `trl_dat`
-    samplerate : int
+    samplerate : float
         Samplerate of `trl_dat` in Hz
     noverlap : int
         Number of samples covered by two adjacent analysis windows
@@ -53,7 +53,7 @@ def mtmconvol(
     equidistant : bool
         If `True`, spacing of window-centroids is equidistant. 
     toi : 1D :class:`numpy.ndarray` or float or str
-        Either sample-indices of window centroids if `toi` is a :class:`numpy.ndarray`,
+        Either time-points to center windows on if `toi` is a :class:`numpy.ndarray`,
         or percentage of overlap between windows if `toi` is a scalar or `"all"`
         to center windows on all samples in `trl_dat`. Please refer to 
         :func:`~syncopy.freqanalysis` for further details. **Note**: The value 
@@ -68,8 +68,7 @@ def mtmconvol(
     timeAxis : int
         Index of running time axis in `trl_dat` (0 or 1)
     taper : callable 
-        Taper function to use, one of :mod:`scipy.signal.windows`. Internal call
-        signature is ``taper(nSamples, **taperopt)``
+        Taper function to use, one of :data:`~syncopy.specest.freqanalysis.availableTapers`
     taperopt : dict
         Additional keyword arguments passed to `taper` (see above). For further 
         details, please refer to the 
@@ -85,10 +84,8 @@ def mtmconvol(
         ``polyremoval = N`` for `N > 1` subtracts a polynomial of order `N` (``N = 2`` 
         quadratic, ``N = 3`` cubic etc.). If `polyremoval` is `None`, no de-trending
         is performed. 
-    output_fmt : str               
-        Output of spectral estimation; use `'pow'` for power spectrum 
-        (:obj:`numpy.float32`), `'fourier'` for complex Fourier coefficients 
-        (:obj:`numpy.complex128`) or `'abs'` for absolute values (:obj:`numpy.float32`).
+    output_fmt : str
+        Output of spectral estimation; one of :data:`~syncopy.specest.freqanalysis.availableOutputs`
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
