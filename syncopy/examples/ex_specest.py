@@ -36,6 +36,17 @@ if __name__ == "__main__":
     # data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
     data = spy.load('~/Documents/job/SyNCoPy/Data/testdata.spy/')
 
+    cfg = spy.get_defaults(spy.freqanalysis)
+    cfg.method = 'mtmfft'
+    cfg.taper = "dpss"
+    cfg.tapsmofrq = 20
+    cfg.output = 'pow'
+    cfg.keeptrials = True
+    cfg.keeptapers = True
+    cfg.select = {"trials": [0, 10]}
+    overallSpectrum = spy.freqanalysis(cfg, data)
+    
+    sys.exit()
 
     # cfg = spy.get_defaults(spy.freqanalysis)
     # cfg.method = 'mtmconvol'
