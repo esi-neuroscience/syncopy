@@ -4,7 +4,7 @@
 # 
 # Created: 2020-07-15 10:26:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-15 15:25:25>
+# Last modification time: <2020-07-15 17:09:38>
 
 from syncopy.shared.errors import SPYValueError, SPYError, SPYTypeError, SPYWarning
 from syncopy.shared.tools import layout_subplot_panels
@@ -54,7 +54,9 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all", toilim=Non
     nTrials = len(trList)
     chArr = self.channel[self._selection.channel]
     nChan = chArr.size
-    tpArr = self.taper[self._selection.tapers]
+    freqArr = self.freq[self._selection.freq]
+    nFreq = freqArr.size
+    tpArr = self.taper[self._selection.taper]
     nTap = tpArr.size
 
     # Determine whether we're dealing w/tf data
@@ -80,9 +82,26 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all", toilim=Non
     idx = [slice(None), slice(None)]
     chanIdx = self.dimord.index("channel")
     timeIdx = self.dimord.index("time")
-    idx[chanIdx] = self._selection.channel
-    
+    freqIdx = self.dimord.index("freq")
+    taperIdx = self.dimord.index("taper")
+    # idx[chanIdx] = self._selection.channel
+
+    # No time-frequency shenanigans: this is a simple power-spectrum (line-plot)
     if not isTimeFrequency:
+        
+        # Generic titles for figures
+        overlayTitle = "Overlay of {} datasets"
+    
+        # Either create new figure or fetch existing
+        if fig is None:
+            fig, ax = plt.subplots(1, tight_layout=True, squeeze=True,
+                                   figsize=pltConfig["singleFigSize"])
+            ax.set_xlabel("frequency [Hz]", size=pltConfig["singleLabelSize"])            
+            ax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
+            ax.autoscale(enable=True, axis="x", tight=True)
+            fig.objCount = 0
+        else:
+            ax, = fig.get_axes()        
         
         if not avg_channels and not avg_tapers and nTap > 1:
             msg = "Either channels or trials need to be averaged for single-panel plot"
@@ -90,14 +109,33 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all", toilim=Non
             return
         
         if avg_channels and not avg_tapers:
-            pass
+            
+            panelTitle = "{} tapers averaged across {} channels and {} trials"
+            
+            # Compute channel-/trial-average time-course: 2D array with slice/list
+            # selection does not require fancy indexing - no need to check this here
+            pltArr = np.zeros((nFreq, nTap), dtype=self.data.dtype)
+            for trlno in trlList:
+                trlArr = self._get_trial(trlno)[tuple(idx)].mean(axis=chanIdx).squeeze()
+                pltArr += np.swapaxes(trlArr, freqIdx, 0)
+            pltArr /= nTrials
+            
+            ax.plot(freqArr, pltArr, label=os.path.basename(self.filename))
+            ax.set_xlim([time[0], time[-1]])
+            if grid is not None:
+                ax.grid(grid)
+            
+            
         if avg_tapers and not avg_channels:
             pass
         if avg_tapers and avg_channels:
             pass
         
     else:
-        pass
+        
+        if not avg_channels or (not avg_tapers and nTap > 1):
+            msg = "Time-frequency visualization requires averaging across both tapers and channels"
+            SPYWarning(msg)
     
 
 
