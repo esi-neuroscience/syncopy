@@ -4,14 +4,14 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-14 17:08:23>
+# Last modification time: <2020-07-20 13:57:57>
 
-# # Builtin/3rd party package imports
-# import tensorlfow
+# Builtin/3rd party package imports
+import numpy as np
 
 # Local imports
 from syncopy.shared.kwarg_decorators import unwrap_cfg
-from syncopy.shared.errors import SPYError, SPYTypeError, SPYWarning
+from syncopy.shared.errors import SPYError, SPYTypeError, SPYValueError, SPYWarning
 from syncopy.shared.parsers import data_parser
 from syncopy.shared.tools import get_defaults
 from syncopy import __plt__
@@ -367,3 +367,31 @@ def _anyplot(*data, overlay=None, method=None, **kwargs):
     if overlay:
         return fig
     return figList
+
+
+def _compute_toilim_avg(self):
+    """
+    Coming soon..
+    """
+    
+    tLengths = np.zeros((len(self._selection.trials),), dtype=np.intp)
+    for k, tsel in enumerate(self._selection.time):
+        start, stop = tsel.start, tsel.stop
+        if start is None:
+            start = 0
+        if stop is None:
+            stop = self._get_time([self._selection.trials[k]], 
+                                    toilim=[-np.inf, np.inf])[0].stop
+        tLengths[k] = stop - start
+        
+    if np.unique(tLengths).size > 1:
+        lgl = "time-selections of equal length for averaging across trials"
+        act = "time-selections of varying length"
+        raise SPYValueError(legal=lgl, varname="toilim", actual=act)
+
+    if tLengths[0] < 2:
+        lgl = "time-selections containing at least two samples"
+        act = "time-selections containing fewer than two samples"
+        raise SPYValueError(legal=lgl, varname="toilim", actual=act)
+        
+    return tLengths
