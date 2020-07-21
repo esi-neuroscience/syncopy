@@ -4,7 +4,7 @@
 # 
 # Created: 2020-07-15 10:26:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-20 14:54:56>
+# Last modification time: <2020-07-21 17:35:57>
 
 # Builtin/3rd party package imports
 import os
@@ -22,8 +22,8 @@ __all__ = []
 
 
 def singlepanelplot(self, trials="all", channels="all", tapers="all", toilim=None, foilim=None,
-                    avg_channels=True, avg_tapers=True, interp="spline36", cmap="plasma",
-                    title=None, grid=None, fig=None, **kwargs):
+                    avg_channels=True, avg_tapers=True, toi=None, foi=None,
+                    interp="spline36", cmap="plasma", title=None, grid=None, fig=None, **kwargs):
     """
     Coming soon...
     """
@@ -167,35 +167,44 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all", toilim=Non
         
     else:
         
-        
+        # For a single-panel TF visualization, we need to average across both tapers + channels        
         if not avg_channels or (not avg_tapers and nTap > 1):
             msg = "Single-panel time-frequency visualization requires averaging " +\
                 "across both tapers and channels"
             SPYWarning(msg)
             return
         
+        # Compute (and verify) length of selected time intervals and assemble array for plotting
+        panelTitle = "Average of {} channels, {} tapers and {} trials".format(nChan, nTap, nTrials)
         tLengths = _compute_toilim_avg(self)
         nTime = tLengths[0]
-        
-        # asdf
-        panelTitle = "Average of {} channels, {} tapers and {} trials".format(nChan, nTap, nTrials)
         pltArr = _compute_pltArr(self, nFreq, 1, nTime, complexConversion, pltDtype, 
                                  avg1="taper", avg2="channel")
-        
-        # import ipdb; ipdb.set_trace()
-        
+
+        # Prepare figure        
         fig, ax = plt.subplots(1, tight_layout=True, squeeze=True,
                                figsize=pltConfig["singleFigSize"])
         ax.set_xlabel("Time [s]", size=pltConfig["singleLabelSize"])            
-        ax.set_ylabel(dataLbl, size=pltConfig["singleLabelSize"])            
+        ax.set_ylabel("Frequency [Hz]", size=pltConfig["singleLabelSize"])            
         ax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
         ax.autoscale(enable=True, axis="x", tight=True)
         fig.objCount = 0
         
-        
-        ax.imshow(pltArr, origin="lower", interpolation=interp, cmap=cmap)
-        
-        # ax.xaxis.get_major_locator().set_params(prune="lower")
+        # Use `imshow` to render array as image
+        time = self.time[trList[0]][self._selection.time[0]]
+        ax.imshow(pltArr, origin="lower", interpolation=interp, cmap=cmap, 
+                  extent=(time[0], time[-1], freqArr[0], freqArr[-1]), aspect="auto")
+        if grid is not None:
+            ax.grid(grid)
+        if title is None:
+            title = panelTitle
+        ax.set_title(title, size=pltConfig["singleTitleSize"])
+
+    # Increment overlay-counter and draw figure
+    fig.objCount += 1
+    plt.draw()
+    self._selection = None
+    return fig
 
     
 def _compute_pltArr(self, nFreq, N, nTime, complexConversion, pltDtype,

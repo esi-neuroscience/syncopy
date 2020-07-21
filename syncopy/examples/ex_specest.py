@@ -84,6 +84,7 @@ if __name__ == "__main__":
     singlepanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80],
                     avg_channels=True, avg_tapers=True)
     plt.show()
+    sys.exit()
 
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'wavelet'

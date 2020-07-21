@@ -27,6 +27,17 @@ from syncopy.tests.misc import generate_artificial_data, figs_equal
 
 
 if __name__ == "__main__":
+    
+    def f(x,y):
+        return (x+y)*np.exp(-5.0*(x**2+y**2))
+    x,y = np.mgrid[-1:1:100j, -1:1:100j]
+    z = f(x,y)
+    plt.ion()
+    plt.imshow(z)
+    plt.colorbar()
+    plt.show()
+    
+    sys.exit()
 
     fs = 1e3
     N = 1e5
