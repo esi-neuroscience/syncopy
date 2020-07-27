@@ -36,7 +36,7 @@ if __name__ == "__main__":
     # data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
     data = spy.load('~/Documents/job/SyNCoPy/Data/testdata.spy/')
 
-    from syncopy.plotting._plot_spectral import singlepanelplot
+    from syncopy.plotting._plot_spectral import singlepanelplot, multipanelplot
     import matplotlib.pyplot as plt
 
     # cfg = spy.get_defaults(spy.freqanalysis)
@@ -81,8 +81,10 @@ if __name__ == "__main__":
     tfSpectrum = spy.freqanalysis(cfg, data)
     # baselineSpectrum = spy.freqanalysis(cfg, data)
 
-    singlepanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80],
-                    avg_channels=True, avg_tapers=True)
+    # singlepanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80],
+    #                 avg_channels=True, avg_tapers=True)
+    multipanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80],
+                    avg_channels=False, avg_tapers=True, avg_trials=False)
     plt.show()
     sys.exit()
 
