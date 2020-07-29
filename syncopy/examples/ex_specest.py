@@ -49,9 +49,11 @@ if __name__ == "__main__":
     # cfg.select = {"trials": [0, 10]}
     # overallSpectrum = spy.freqanalysis(cfg, data)
     
-    # singlepanelplot(overallSpectrum, channels=[10, 50, 20], tapers=[3, 0], foilim=[30, 80],
-    #                 avg_channels=True, avg_tapers=True)
-    
+    # # singlepanelplot(overallSpectrum, channels=[10, 50, 20], tapers=[3, 0], foilim=[30, 80],
+    # #                 avg_channels=True, avg_tapers=True)
+    # multipanelplot(overallSpectrum, channels=[10, 50, 20], tapers=[3, 0], foilim=[30, 80],
+    #                panels="tapers", avg_channels=True, avg_tapers=False, avg_trials=True)
+    # plt.show()
     # sys.exit()
 
     cfg = spy.get_defaults(spy.freqanalysis)
@@ -78,13 +80,13 @@ if __name__ == "__main__":
     cfg.select = {"trials": [0, 10]}
     # cfg.select = {"trials": [0, 10, 20]}
     # cfg.select = {"trials": [0, 10, 20], "toilim": [-0.001, 0.05]}
+    # tfSpectrum = spy.freqanalysis(cfg, data)
     tfSpectrum = spy.freqanalysis(cfg, data)
-    # baselineSpectrum = spy.freqanalysis(cfg, data)
 
     # singlepanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80],
     #                 avg_channels=True, avg_tapers=True)
-    multipanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80],
-                    avg_channels=False, avg_tapers=True, avg_trials=False)
+    multipanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80], panels="trials", 
+                    avg_channels=True, avg_tapers=True, avg_trials=False)
     plt.show()
     sys.exit()
 
