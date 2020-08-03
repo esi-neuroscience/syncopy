@@ -4,7 +4,7 @@
 # 
 # Created: 2020-07-15 10:26:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-29 18:50:58>
+# Last modification time: <2020-08-03 16:35:44>
 
 # Builtin/3rd party package imports
 import os
@@ -13,6 +13,7 @@ import numpy as np
 # Local imports
 from syncopy.shared.errors import SPYValueError, SPYError, SPYTypeError, SPYWarning
 from syncopy.shared.tools import layout_subplot_panels
+from syncopy.shared.parsers import scalar_parser
 from syncopy.plotting.spy_plotting import pltErrMsg, pltConfig, _compute_toilim_avg
 from syncopy import __plt__
 if __plt__:
@@ -24,7 +25,8 @@ __all__ = []
 
 def singlepanelplot(self, trials="all", channels="all", tapers="all", toilim=None, foilim=None,
                     avg_channels=True, avg_tapers=True, toi=None, foi=None,
-                    interp="spline36", cmap="plasma", title=None, grid=None, fig=None, **kwargs):
+                    interp="spline36", cmap="plasma", vmin=None, vmax=None, 
+                    title=None, grid=None, fig=None, **kwargs):
     """
     Coming soon...
     
@@ -75,6 +77,29 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all", toilim=Non
     isTimeFrequency = False
     if any([t.size > 1 for t in self.time]):
         isTimeFrequency = True
+        
+    # Ensure provided min/max range for plotting TF data makes sense
+    vminmax = False
+    if vmin is not None:
+        try:
+            scalar_parser(vmin, varname="vmin")
+        except Exception as exc:
+            raise exc 
+        vminmax = True
+    if vmax is not None:
+        try:
+            scalar_parser(vmin, varname="vmax")
+        except Exception as exc:
+            raise exc 
+        vminmax = True
+    if vmin is not None and vmax is not None:
+        if vmin >= vmax:
+            lgl = "minimal data range bound to be less than provided maximum "
+            act = "vmax < vmin"
+            raise SPYValueError(legal=lgl, varname="vmin/vamx", actual=act)
+    if vminmax and not isTimeFrequency:
+        msg = "`vmin` and `vmax` is only used for time-frequency visualizations"
+        SPYWarning(msg)
         
     # Check for complex entries in data and set datatype for plotting arrays 
     # constructed below (always use floats w/same precision as data)
@@ -175,15 +200,19 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all", toilim=Non
         panelTitle = "Average of {} channels, {} tapers and {} trials".format(nChan, nTap, nTrials)
         tLengths = _compute_toilim_avg(self)
         nTime = tLengths[0]
-        pltArr, vmin, vmax = _compute_pltArr(self, nFreq, 1, nTime, complexConversion, pltDtype, 
+        pltArr = _compute_pltArr(self, nFreq, 1, nTime, complexConversion, pltDtype, 
                                  avg1="taper", avg2="channel")
 
-        # Prepare figure        
-        fig, ax = plt.subplots(1, tight_layout=True, squeeze=True,
-                               figsize=pltConfig["singleFigSize"])
+        # Prepare figure
+        # FIXME: fig, ax_arr, cax = setup_figure(npanels, nrow=None, ncol=None, include_colorbar=False, sharex=None, sharey=None)
+        # FIXME: call here: fig, ax, cax = setup_figure(1, None, None, include_colorbar=True, sharex=False, sharey=False)
+        fig, (ax, cax) = plt.subplots(1, 2, tight_layout=True, squeeze=True, 
+                                      gridspec_kw={"wspace": 0.05, "width_ratios": [1, 0.025]},
+                                      figsize=pltConfig["singleFigSize"])
         ax.set_xlabel("Time [s]", size=pltConfig["singleLabelSize"])            
         ax.set_ylabel("Frequency [Hz]", size=pltConfig["singleLabelSize"])            
         ax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
+        cax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
         ax.autoscale(enable=True, axis="x", tight=True)
         fig.isSpectralPlot = True
         fig.singlepanelplot = True
@@ -191,18 +220,19 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all", toilim=Non
         
         # Use `imshow` to render array as image
         time = self.time[trList[0]][self._selection.time[0]]
-        ax.imshow(pltArr, origin="lower", interpolation=interp, cmap=cmap, 
+        ax.imshow(pltArr, origin="lower", interpolation=interp, 
+                  cmap=cmap, vmin=vmin, vmax=vmax,
                   extent=(time[0], time[-1], freqArr[0], freqArr[-1]), aspect="auto")
+        # FIXME: cbar = setup_colorbar(axes, cax, label=None, outline=False, vmin=None, vmax=None)
+        # FIXME: call here: cbar = setup_colorbar(ax.images[0], cax, label="Power")
+        cbar = fig.colorbar(ax.images[0], cax=cax) 
+        cbar.set_label(dataLbl, size=pltConfig["singleLabelSize"])
+        cbar.outline.set_visible(False)
         if grid is not None:
             ax.grid(grid)
         if title is None:
             title = panelTitle
         ax.set_title(title, size=pltConfig["singleTitleSize"])
-        
-        # fig.colorbar()
-        # norm = colors.Normalize(vmin=vmin, vmax=vmax)
-        # for im in images:
-        #     im.set_norm(norm)        
 
     # Increment overlay-counter and draw figure
     fig.objCount += 1
@@ -328,14 +358,25 @@ def multipanelplot(self, trials="all", channels="all", tapers="all", toilim=None
         npanels = nTap
     
     # Construct subplot panel layout or vet provided layout
+    # FIXME: fix, ax_arr, cax = setup_figure(npanels, nrow, ncol, include_colorbar=True, sharex=None, sharey=None)
     nrow, ncol = layout_subplot_panels(npanels, 
                                        nrow=kwargs.get("nrow", None), 
                                        ncol=kwargs.get("ncol", None))
-    (fig, ax_arr) = plt.subplots(nrow, ncol, constrained_layout=False,
-                                 gridspec_kw={"wspace": 0, "hspace": 0.35,
-                                              "left": 0.05, "right": 0.97},
-                                 figsize=pltConfig["multiFigSize"],
-                                 sharex=True, sharey=True, squeeze=False)
+    if not isTimeFrequency:
+        (fig, ax_arr) = plt.subplots(nrow, ncol, constrained_layout=False,
+                                     gridspec_kw={"wspace": 0, "hspace": 0.35,
+                                                  "left": 0.05, "right": 0.97},
+                                     figsize=pltConfig["multiFigSize"],
+                                     sharex=True, sharey=True, squeeze=False)
+    else:
+        (fig, ax_arr) = plt.subplots(nrow, ncol, constrained_layout=False,
+                                     gridspec_kw={"wspace": 0, "hspace": 0.35,
+                                                  "left": 0.05, "right": 0.94},
+                                     figsize=pltConfig["multiFigSize"],
+                                     sharex=True, sharey=True, squeeze=False)
+        gs = fig.add_gridspec(nrows=nrow, ncols=1, left=0.945, right=0.955)
+        cax = fig.add_subplot(gs[:, 0])
+        cax.tick_params(axis="both", labelsize=pltConfig["multiTickSize"])
 
     # Show xlabel only on bottom row of panels
     if isTimeFrequency:
@@ -343,7 +384,7 @@ def multipanelplot(self, trials="all", channels="all", tapers="all", toilim=None
         yLabel = "Frequency [Hz]"
     else:
         xLabel = "Frequency [Hz]"
-        yLabel = dataLbl
+        yLabel = dataLbl.replace(" [dB]", "")
     for col in range(ncol):
         ax_arr[-1, col].set_xlabel(xLabel, size=pltConfig["multiLabelSize"])
         
@@ -521,15 +562,26 @@ def multipanelplot(self, trials="all", channels="all", tapers="all", toilim=None
         # Loop over panels, within each panel, loop over `innerValues` to (potentially)
         # plot multiple spectra per panel        
         kwargs = {"avg1": avgDim1, "avg2": avgDim2}
+        vmins = []
+        vmaxs = []
         for panelCount, panelVal in enumerate(panelValues):
             kwargs[panelVar] = panelVal
             pltArr = _compute_pltArr(self, nFreq, N, nTime, complexConversion, pltDtype, **kwargs)
+            vmins.append(pltArr.min())
+            vmaxs.append(pltArr.max())
             ax_arr[panelCount].imshow(pltArr, origin="lower", interpolation=interp, cmap=cmap, 
                                       extent=(time[0], time[-1], freqArr[0], freqArr[-1]), 
                                       aspect="auto")
             ax_arr[panelCount].set_title(panelTitles[panelCount], size=pltConfig["multiTitleSize"])
             if grid is not None:
                 ax_arr[panelCount].grid(grid)
+                
+        norm = colors.Normalize(vmin=min(vmins), vmax=max(vmaxs))
+        for k in range(npanels):
+            ax_arr[k].images[0].set_norm(norm)
+        cbar = fig.colorbar(ax_arr[0].images[0], cax=cax)
+        cbar.set_label(dataLbl, size=pltConfig["multiLabelSize"])
+        cbar.outline.set_visible(False)
         if title is None:
             fig.suptitle(majorTitle, size=pltConfig["singleTitleSize"])
 
@@ -581,20 +633,11 @@ def _compute_pltArr(self, nFreq, N, nTime, complexConversion, pltDtype,
         
     if nTime == 1:
         pltArr = np.zeros((nFreq, N), dtype=pltDtype).squeeze()         # `squeeze` in case `N = 1`
-        getVmin = lambda x: x.min()
-        getVmax = lambda x: x.max()
-        # use lambda `getVmin` to "compute" vmin/vmax
     else:
         pltArr = np.zeros((nFreq, nTime, N), dtype=pltDtype).squeeze()  # `squeeze` for `singlepanelplot`
-        getVmin = lambda x: None
-        getVmax = getVmin
 
-    vmins = []
-    vmaxs = []        
     for trlno in trList:
         trlArr = complexConversion(self._get_trial(trlno))
-        vmins.append(getVmin(trlArr))
-        vmaxs.append(getVmax(trlArr))
         if not useFancy:
             trlArr = trlArr[tuple(idx)]
         else:
@@ -604,6 +647,4 @@ def _compute_pltArr(self, nFreq, N, nTime, complexConversion, pltDtype,
         if avg2:
             trlArr = trlArr.mean(axis=self.dimord.index(avg2), keepdims=True)
         pltArr += np.swapaxes(trlArr, freqIdx, 0).squeeze()
-    if nTime == 1:
-        return pltArr / len(trList)
-    return pltArr / len(trList), min(vmins), max(vmaxs)
+    return pltArr / len(trList)

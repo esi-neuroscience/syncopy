@@ -85,8 +85,8 @@ if __name__ == "__main__":
 
     # singlepanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80],
     #                 avg_channels=True, avg_tapers=True)
-    multipanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80], panels="trials", 
-                    avg_channels=True, avg_tapers=True, avg_trials=False)
+    multipanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80], panels="channels", 
+                    avg_channels=False, avg_tapers=True, avg_trials=True)
     plt.show()
     sys.exit()
 
