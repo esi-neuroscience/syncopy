@@ -39,22 +39,22 @@ if __name__ == "__main__":
     from syncopy.plotting._plot_spectral import singlepanelplot, multipanelplot
     import matplotlib.pyplot as plt
 
-    # cfg = spy.get_defaults(spy.freqanalysis)
-    # cfg.method = 'mtmfft'
-    # cfg.taper = "dpss"
-    # cfg.tapsmofrq = 20
-    # cfg.output = 'pow'
-    # cfg.keeptrials = True
-    # cfg.keeptapers = True
-    # cfg.select = {"trials": [0, 10]}
-    # overallSpectrum = spy.freqanalysis(cfg, data)
+    cfg = spy.get_defaults(spy.freqanalysis)
+    cfg.method = 'mtmfft'
+    cfg.taper = "dpss"
+    cfg.tapsmofrq = 20
+    cfg.output = 'pow'
+    cfg.keeptrials = True
+    cfg.keeptapers = True
+    cfg.select = {"trials": [0, 10]}
+    overallSpectrum = spy.freqanalysis(cfg, data)
     
-    # # singlepanelplot(overallSpectrum, channels=[10, 50, 20], tapers=[3, 0], foilim=[30, 80],
-    # #                 avg_channels=True, avg_tapers=True)
+    singlepanelplot(overallSpectrum, channels=[10, 50, 20], tapers=[3, 0], foilim=[30, 80],
+                    avg_channels=True, avg_tapers=True)
     # multipanelplot(overallSpectrum, channels=[10, 50, 20], tapers=[3, 0], foilim=[30, 80],
     #                panels="tapers", avg_channels=True, avg_tapers=False, avg_trials=True)
-    # plt.show()
-    # sys.exit()
+    plt.show()
+    sys.exit()
 
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmconvol'

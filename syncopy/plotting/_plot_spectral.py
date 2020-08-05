@@ -4,7 +4,7 @@
 # 
 # Created: 2020-07-15 10:26:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-03 16:35:44>
+# Last modification time: <2020-08-05 16:55:51>
 
 # Builtin/3rd party package imports
 import os
@@ -35,84 +35,111 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all", toilim=Non
     TF data: to compare different objects, vmin and vmax should be set!
     """
     
+    # import ipdb; ipdb.set_trace()
+    inputArgs = locals()
+    inputArgs.pop("self")
+    (dimArrs, 
+    dimCounts, 
+    isTimeFrequency, 
+    complexConversion, 
+    pltDtype, 
+    dataLbl) =  _prep_spectral_plots(self, "singlepanelplot", **inputArgs)
+                                    #  "singlepanelplot", 
+                                    #  trials, 
+                                    #  channels, 
+                                    #  tapers, 
+                                    #  toilim, 
+                                    #  foilim,
+                                    #  avg_channels, 
+                                    #  avg_tapers, 
+                                    #  title, 
+                                    #  grid,
+                                    #  vmin,
+                                    #  vmax)
+                                    
+    (nTrials, nChan, nFreq, nTap) = dimCounts
+    (trList, chArr, freqArr, tpArr) = dimArrs
+    
+    import ipdb; ipdb.set_trace()
+    
     # BEGIN OF >>> _prep_specral_plots(__name__, ...)
     
-    # Abort if matplotlib is not available
-    if not __plt__:
-        raise SPYError(pltErrMsg.format("singlepanelplot"))
+    # # Abort if matplotlib is not available
+    # if not __plt__:
+    #     raise SPYError(pltErrMsg.format("singlepanelplot"))
     
-    # Ensure our binary flags are actually binary
-    if not isinstance(avg_channels, bool):
-        raise SPYTypeError(avg_channels, varname="avg_channels", expected="bool")
-    if not isinstance(avg_tapers, bool):
-        raise SPYTypeError(avg_tapers, varname="avg_tapers", expected="bool")
+    # # Ensure our binary flags are actually binary
+    # if not isinstance(avg_channels, bool):
+    #     raise SPYTypeError(avg_channels, varname="avg_channels", expected="bool")
+    # if not isinstance(avg_tapers, bool):
+    #     raise SPYTypeError(avg_tapers, varname="avg_tapers", expected="bool")
     
-    # Pass provided selections on to `Selector` class which performs error 
-    # checking and generates required indexing arrays
-    self._selection = {"trials": trials, 
-                       "channels": channels, 
-                       "tapers": tapers,
-                       "toilim": toilim,
-                       "foilim": foilim}
+    # # Pass provided selections on to `Selector` class which performs error 
+    # # checking and generates required indexing arrays
+    # self._selection = {"trials": trials, 
+    #                    "channels": channels, 
+    #                    "tapers": tapers,
+    #                    "toilim": toilim,
+    #                    "foilim": foilim}
     
-    # Ensure any optional keywords controlling plotting appearance make sense
-    if title is not None:
-        if not isinstance(title, str):
-            raise SPYTypeError(title, varname="title", expected="str")
-    if grid is not None:
-        if not isinstance(grid, bool):
-            raise SPYTypeError(grid, varname="grid", expected="bool")
+    # # Ensure any optional keywords controlling plotting appearance make sense
+    # if title is not None:
+    #     if not isinstance(title, str):
+    #         raise SPYTypeError(title, varname="title", expected="str")
+    # if grid is not None:
+    #     if not isinstance(grid, bool):
+    #         raise SPYTypeError(grid, varname="grid", expected="bool")
 
-    # Get trial/channel/taper count
-    trList = self._selection.trials
-    nTrials = len(trList)
-    chArr = self.channel[self._selection.channel]
-    nChan = chArr.size
-    freqArr = self.freq[self._selection.freq]
-    nFreq = freqArr.size
-    tpArr = np.arange(self.taper.size)[self._selection.taper]
-    nTap = tpArr.size
+    # # Get trial/channel/taper count
+    # trList = self._selection.trials
+    # nTrials = len(trList)
+    # chArr = self.channel[self._selection.channel]
+    # nChan = chArr.size
+    # freqArr = self.freq[self._selection.freq]
+    # nFreq = freqArr.size
+    # tpArr = np.arange(self.taper.size)[self._selection.taper]
+    # nTap = tpArr.size
 
-    # Determine whether we're dealing w/tf data
-    isTimeFrequency = False
-    if any([t.size > 1 for t in self.time]):
-        isTimeFrequency = True
+    # # Determine whether we're dealing w/tf data
+    # isTimeFrequency = False
+    # if any([t.size > 1 for t in self.time]):
+    #     isTimeFrequency = True
         
-    # Ensure provided min/max range for plotting TF data makes sense
-    vminmax = False
-    if vmin is not None:
-        try:
-            scalar_parser(vmin, varname="vmin")
-        except Exception as exc:
-            raise exc 
-        vminmax = True
-    if vmax is not None:
-        try:
-            scalar_parser(vmin, varname="vmax")
-        except Exception as exc:
-            raise exc 
-        vminmax = True
-    if vmin is not None and vmax is not None:
-        if vmin >= vmax:
-            lgl = "minimal data range bound to be less than provided maximum "
-            act = "vmax < vmin"
-            raise SPYValueError(legal=lgl, varname="vmin/vamx", actual=act)
-    if vminmax and not isTimeFrequency:
-        msg = "`vmin` and `vmax` is only used for time-frequency visualizations"
-        SPYWarning(msg)
+    # # Ensure provided min/max range for plotting TF data makes sense
+    # vminmax = False
+    # if vmin is not None:
+    #     try:
+    #         scalar_parser(vmin, varname="vmin")
+    #     except Exception as exc:
+    #         raise exc 
+    #     vminmax = True
+    # if vmax is not None:
+    #     try:
+    #         scalar_parser(vmin, varname="vmax")
+    #     except Exception as exc:
+    #         raise exc 
+    #     vminmax = True
+    # if vmin is not None and vmax is not None:
+    #     if vmin >= vmax:
+    #         lgl = "minimal data range bound to be less than provided maximum "
+    #         act = "vmax < vmin"
+    #         raise SPYValueError(legal=lgl, varname="vmin/vamx", actual=act)
+    # if vminmax and not isTimeFrequency:
+    #     msg = "`vmin` and `vmax` is only used for time-frequency visualizations"
+    #     SPYWarning(msg)
         
-    # Check for complex entries in data and set datatype for plotting arrays 
-    # constructed below (always use floats w/same precision as data)
-    if "complex" in self.data.dtype.name:
-        msg = "Found complex Fourier coefficients - visualization will use absolute values."
-        SPYWarning(msg)
-        complexConversion = lambda x: np.absolute(x).real
-        pltDtype = "f{}".format(self.data.dtype.itemsize)
-        dataLbl = "Absolute Frequency [dB]"
-    else:
-        complexConversion = lambda x: x
-        pltDtype = self.data.dtype
-        dataLbl = "Power [dB]"
+    # # Check for complex entries in data and set datatype for plotting arrays 
+    # # constructed below (always use floats w/same precision as data)
+    # if "complex" in self.data.dtype.name:
+    #     msg = "Found complex Fourier coefficients - visualization will use absolute values."
+    #     SPYWarning(msg)
+    #     complexConversion = lambda x: np.absolute(x).real
+    #     pltDtype = "f{}".format(self.data.dtype.itemsize)
+    #     dataLbl = "Absolute Frequency [dB]"
+    # else:
+    #     complexConversion = lambda x: x
+    #     pltDtype = self.data.dtype
+    #     dataLbl = "Power [dB]"
         
     # END OF >>> _prep_specral_plots(__name__, ...)
     
@@ -648,3 +675,93 @@ def _compute_pltArr(self, nFreq, N, nTime, complexConversion, pltDtype,
             trlArr = trlArr.mean(axis=self.dimord.index(avg2), keepdims=True)
         pltArr += np.swapaxes(trlArr, freqIdx, 0).squeeze()
     return pltArr / len(trList)
+
+
+def _prep_spectral_plots(self, name, **inputArgs):
+    """
+    Local helper
+    """
+    
+    # Abort if matplotlib is not available
+    if not __plt__:
+        raise SPYError(pltErrMsg.format(name))
+    
+    # Ensure our binary flags are actually binary
+    if not isinstance(inputArgs["avg_channels"], bool):
+        raise SPYTypeError(inputArgs["avg_channels"], varname="avg_channels", expected="bool")
+    if not isinstance(inputArgs["avg_tapers"], bool):
+        raise SPYTypeError(inputArgs["avg_tapers"], varname="avg_tapers", expected="bool")
+    if not isinstance(inputArgs.get("avg_trials", True), bool):
+        raise SPYTypeError(inputArgs["avg_trials"], varname="avg_trials", expected="bool")
+    
+    # Pass provided selections on to `Selector` class which performs error 
+    # checking and generates required indexing arrays
+    self._selection = {"trials": inputArgs["trials"], 
+                       "channels": inputArgs["channels"], 
+                       "tapers": inputArgs["tapers"],
+                       "toilim": inputArgs["toilim"],
+                       "foilim": inputArgs["foilim"]}
+    
+    # Ensure any optional keywords controlling plotting appearance make sense
+    if inputArgs["title"] is not None:
+        if not isinstance(inputArgs["title"], str):
+            raise SPYTypeError(inputArgs["title"], varname="title", expected="str")
+    if inputArgs["grid"] is not None:
+        if not isinstance(inputArgs["grid"], bool):
+            raise SPYTypeError(inputArgs["grid"], varname="grid", expected="bool")
+
+    # Get trial/channel/taper count
+    trList = self._selection.trials
+    nTrials = len(trList)
+    chArr = self.channel[self._selection.channel]
+    nChan = chArr.size
+    freqArr = self.freq[self._selection.freq]
+    nFreq = freqArr.size
+    tpArr = np.arange(self.taper.size)[self._selection.taper]
+    nTap = tpArr.size
+    
+    dimCounts = (nTrials, nChan, nFreq, nTap)
+    dimArrs = (trList, chArr, freqArr, tpArr)
+
+    # Determine whether we're dealing w/tf data
+    isTimeFrequency = False
+    if any([t.size > 1 for t in self.time]):
+        isTimeFrequency = True
+        
+    # Ensure provided min/max range for plotting TF data makes sense
+    vminmax = False
+    if inputArgs["vmin"] is not None:
+        try:
+            scalar_parser(inputArgs["vmin"], varname="vmin")
+        except Exception as exc:
+            raise exc 
+        vminmax = True
+    if inputArgs["vmax"] is not None:
+        try:
+            scalar_parser(inputArgs["vmax"], varname="vmax")
+        except Exception as exc:
+            raise exc 
+        vminmax = True
+    if inputArgs["vmin"] is not None and inputArgs["vmax"] is not None:
+        if inputArgs["vmin"] >= inputArgs["vmax"]:
+            lgl = "minimal data range bound to be less than provided maximum "
+            act = "vmax < vmin"
+            raise SPYValueError(legal=lgl, varname="vmin/vamx", actual=act)
+    if vminmax and not isTimeFrequency:
+        msg = "`vmin` and `vmax` is only used for time-frequency visualizations"
+        SPYWarning(msg)
+        
+    # Check for complex entries in data and set datatype for plotting arrays 
+    # constructed below (always use floats w/same precision as data)
+    if "complex" in self.data.dtype.name:
+        msg = "Found complex Fourier coefficients - visualization will use absolute values."
+        SPYWarning(msg)
+        complexConversion = lambda x: np.absolute(x).real
+        pltDtype = "f{}".format(self.data.dtype.itemsize)
+        dataLbl = "Absolute Frequency [dB]"
+    else:
+        complexConversion = lambda x: x
+        pltDtype = self.data.dtype
+        dataLbl = "Power [dB]"
+    
+    return dimArrs, dimCounts, isTimeFrequency, complexConversion, pltDtype, dataLbl
