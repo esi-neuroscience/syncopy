@@ -4,7 +4,7 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-20 13:57:57>
+# Last modification time: <2020-08-06 14:40:38>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -12,10 +12,9 @@ import numpy as np
 # Local imports
 from syncopy.shared.kwarg_decorators import unwrap_cfg
 from syncopy.shared.errors import SPYError, SPYTypeError, SPYValueError, SPYWarning
-from syncopy.shared.parsers import data_parser
+from syncopy.shared.parsers import data_parser, scalar_parser
 from syncopy.shared.tools import get_defaults
 from syncopy import __plt__
-import syncopy as spy  # FIXME: for WIP type-error-checking
 
 # Conditional imports and mpl customizations (provided mpl defaults have not been 
 # changed by user)
@@ -23,6 +22,7 @@ if __plt__:
     import matplotlib.pyplot as plt 
     import matplotlib.style as mplstyle
     import matplotlib as mpl
+    from matplotlib import colors
     
     # Syncopy default plotting settings
     spyMplRc = {"figure.dpi": 100}
@@ -395,3 +395,233 @@ def _compute_toilim_avg(self):
         raise SPYValueError(legal=lgl, varname="toilim", actual=act)
         
     return tLengths
+
+
+def _setup_figure(npanels, nrow=None, ncol=None, xLabel=None, yLabel=None,
+                  include_colorbar=False, sharex=None, sharey=None):
+    """
+    Coming soon...
+    """
+    
+    # Note: if `xLabel` and/or `yLabel` is `None`, setting the corresponding axis
+    # label simply uses an empty string '' and does not alter the axis - no need
+    # for any ``if is None``` gymnastics below
+    if npanels == 1:
+        
+        # Simplest case: single panel, no colorbar
+        if not include_colorbar:
+            fig, ax = plt.subplots(1, tight_layout=True, squeeze=True,
+                                   figsize=pltConfig["singleFigSize"])
+            ax.set_xlabel(xLabel, size=pltConfig["singleLabelSize"])
+            ax.set_ylabel(yLabel, size=pltConfig["singleLabelSize"])
+            ax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
+            ax.autoscale(enable=True, axis="x", tight=True)
+
+        # Single panel w/colorbar            
+        else:
+            fig, (ax, cax) = plt.subplots(1, 2, tight_layout=True, squeeze=True, 
+                                          gridspec_kw={"wspace": 0.05, "width_ratios": [1, 0.025]},
+                                          figsize=pltConfig["singleFigSize"])
+            ax.set_xlabel(xLabel, size=pltConfig["singleLabelSize"])            
+            ax.set_ylabel(yLabel, size=pltConfig["singleLabelSize"])            
+            ax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
+            cax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
+            ax.autoscale(enable=True, axis="x", tight=True)
+
+        # Designate figure object as single-panel plotting target
+        fig.singlepanelplot = True
+        
+    else:
+
+        # Either use provided row/col settings or compute best fit
+        nrow, ncol = _layout_subplot_panels(npanels, nrow, ncol)
+        
+        # If no explicit axis sharing settings were provided, make an executive decision
+        if sharex is None:
+            sharex = True
+        if sharey is None:
+            sharey = True
+        
+        # Multiple panels, no colorbar
+        if not include_colorbar:
+            (fig, ax_arr) = plt.subplots(nrow, ncol, constrained_layout=False, 
+                                         gridspec_kw={"wspace": 0, "hspace": 0.35, 
+                                                      "left": 0.05, "right": 0.97},
+                                         figsize=pltConfig["multiFigSize"],
+                                         sharex=sharex, sharey=sharey, squeeze=False)
+
+        # Multiple panels, append colorbar via gridspec
+        else:
+            (fig, ax_arr) = plt.subplots(nrow, ncol, constrained_layout=False,
+                                         gridspec_kw={"wspace": 0, "hspace": 0.35,
+                                                      "left": 0.05, "right": 0.94},
+                                         figsize=pltConfig["multiFigSize"],
+                                         sharex=sharex, sharey=sharey, squeeze=False)
+            gs = fig.add_gridspec(nrows=nrow, ncols=1, left=0.945, right=0.955)
+            cax = fig.add_subplot(gs[:, 0])
+            cax.tick_params(axis="both", labelsize=pltConfig["multiTickSize"])
+            
+        # Show xlabel only on bottom row of panels
+        for col in range(ncol):
+            ax_arr[-1, col].set_xlabel(xLabel, size=pltConfig["multiLabelSize"])
+            
+        # Omit first x-tick in all panels except first panel-row, show ylabel only 
+        # on left border of first panel column
+        for row in range(nrow):
+            for col in range(1, ncol):
+                ax_arr[row, col].xaxis.get_major_locator().set_params(prune="lower")
+            ax_arr[row, 0].set_ylabel(yLabel, size=pltConfig["multiLabelSize"])
+                    
+        # Flatten axis array to make counting a little easier in here and make
+        # any surplus panels as unobtrusive as possible
+        ax_arr = ax_arr.flatten(order="C")
+        for ax in ax_arr:
+            ax.tick_params(axis="both", labelsize=pltConfig["multiTickSize"])
+            ax.autoscale(enable=True, axis="x", tight=True)
+        for k in range(npanels, nrow * ncol):
+            ax_arr[k].set_xticks([])
+            ax_arr[k].set_yticks([])
+            ax_arr[k].set_xlabel("")
+            for spine in ax_arr[k].spines.values():
+                spine.set_visible(False)
+        ax_arr[min(npanels, nrow * ncol - 1)].spines["left"].set_visible(True)
+        ax = ax_arr
+        
+        # Designate figure object as multi-panel plotting target
+        fig.multipanelplot = True
+        
+    # Attach custom Syncopy plotting attributes to newly created figure
+    fig.objCount = 0
+    fig.npanels = npanels
+
+    # All done, return figure object, axis (array) and potentially color-bar axis            
+    if not include_colorbar:
+        return fig, ax
+    return fig, ax, cax
+
+
+def _setup_colorbar(fig, ax, cax, label=None, outline=False, vmin=None, vmax=None):
+    """
+    Coming soon...
+    """
+    
+    if fig.npanels == 1:
+        axes = [ax]
+    else:
+        axes = ax
+        
+    if vmin is not None or vmax is not None:
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
+        for k in range(fig.npanels):
+            axes[k].images[0].set_norm(norm)
+    cbar = fig.colorbar(axes[0].images[0], cax=cax)
+    cbar.set_label(label, size=pltConfig["singleLabelSize"])
+    cbar.outline.set_visible(outline)
+    return cbar
+
+
+def _layout_subplot_panels(npanels, nrow=None, ncol=None, ndefault=5, maxpanels=50):
+    """
+    Create space-optimal subplot grid given required number of panels
+    
+    Parameters
+    ----------
+    npanels : int
+        Number of required subplot panels in figure
+    nrow : int or None
+        Required number of panel rows. Note, if both `nrow` and `ncol` are not `None`,
+        then ``nrow * ncol >= npanels`` has to be satisfied, otherwise a 
+        :class:`~syncopy.shared.errors.SPYValueError` is raised. 
+    ncol : int or None
+        Required number of panel columns. Note, if both `nrow` and `ncol` are not `None`,
+        then ``nrow * ncol >= npanels`` has to be satisfied, otherwise a 
+        :class:`~syncopy.shared.errors.SPYValueError` is raised. 
+    ndefault: int
+        Default number of panel columns for grid construction (only relevant if 
+        both `nrow` and `ncol` are `None`). 
+    maxpanels : int
+        Maximally allowed number of subplot panels for which a grid is constructed 
+        
+    Returns
+    -------
+    nrow : int
+        Number of rows of constructed subplot panel grid
+    nrow : int
+        Number of columns of constructed subplot panel grid
+        
+    Notes
+    -----
+    If both `nrow` and `ncol` are `None`, the constructed grid will have the 
+    dimension `N` x `ndefault`, where `N` is chosen "optimally", i.e., the smallest
+    integer that satisfies ``ndefault * N >= npanels``. 
+    Note further, that this is an auxiliary method that is intended purely for 
+    internal use. Thus, error-checking is only performed on potentially user-provided 
+    inputs (`nrow` and `ncol`). 
+    
+    Examples
+    --------
+    Create grid of default dimensions to hold eight panels
+    
+    >>> _layout_subplot_panels(8, ndefault=5)
+    (2, 5)
+    
+    Create a grid that must have 4 rows
+    
+    >>> _layout_subplot_panels(8, nrow=4)
+    (4, 2)
+    
+    Create a grid that must have 8 columns
+    
+    >>> _layout_subplot_panels(8, ncol=8)
+    (1, 8)
+    """
+
+    # Abort if requested panel count is less than one or exceeds provided maximum    
+    try:
+        scalar_parser(npanels, varname="npanels", ntype="int_like", lims=[1, np.inf])
+    except Exception as exc:
+        raise exc
+    if npanels > maxpanels:
+        lgl = "a maximum of {} panels in total".format(maxpanels)
+        raise SPYValueError(legal=lgl, actual=str(npanels), varname="npanels")
+
+    # Row specifcation was provided, cols may or may not
+    if nrow is not None:
+        try:
+            scalar_parser(nrow, varname="nrow", ntype="int_like", lims=[1, np.inf])
+        except Exception as exc:
+            raise exc
+        if ncol is None:
+            ncol = np.ceil(npanels / nrow).astype(np.intp)
+
+    # Column specifcation was provided, rows may or may not
+    if ncol is not None:
+        try:
+            scalar_parser(ncol, varname="ncol", ntype="int_like", lims=[1, np.inf])
+        except Exception as exc:
+            raise exc
+        if nrow is None:
+            nrow = np.ceil(npanels / ncol).astype(np.intp)
+
+    # After the preparations above, this condition is *only* satisfied if both
+    # `nrow` = `ncol` = `None` -> then use generic grid-layout
+    if nrow is None:
+        ncol = ndefault 
+        nrow = np.ceil(npanels / ncol).astype(np.intp)
+        ncol = min(ncol, npanels)
+
+    # Complain appropriately if requested no. of panels does not fit inside grid
+    if nrow * ncol < npanels:
+        lgl = "row- and column-specification of grid to fit all panels"
+        act = "grid with {0} rows and {1} columns but {2} panels"
+        raise SPYValueError(legal=lgl, actual=act.format(nrow, ncol, npanels), 
+                            varname="nrow/ncol")
+        
+    # In case a grid was provided too big for the requested no. of panels (e.g., 
+    # 8 panels in an 4 x 3 grid -> would fit in 3 x 3), just warn, don't crash
+    if nrow * ncol - npanels >= ncol:
+        msg = "Grid dimension ({0} rows x {1} columns) larger than necessary " +\
+            "for {2} panels. "
+        SPYWarning(msg.format(nrow, ncol, npanels))
+        
+    return nrow, ncol

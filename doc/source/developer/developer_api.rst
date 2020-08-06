@@ -44,7 +44,6 @@ syncopy.shared
     syncopy.shared.kwarg_decorators._append_docstring
     syncopy.shared.kwarg_decorators._append_signature
     syncopy.shared.tools.best_match
-    syncopy.shared.tools.layout_subplot_panels
 
 
 syncopy.specest
@@ -61,3 +60,11 @@ syncopy.specest
     syncopy.specest.wavelet.wavelet
     syncopy.specest.wavelet.WaveletTransform
     syncopy.specest.wavelet._get_optimal_wavelet_scales
+
+syncopy.plotting
+^^^^^^^^^^^^^^^^
+
+.. autosummary::
+    :toctree: _stubs
+
+    syncopy.plotting.spy_plotting._layout_subplot_panels

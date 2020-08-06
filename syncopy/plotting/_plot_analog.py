@@ -4,14 +4,13 @@
 # 
 # Created: 2020-05-06 13:32:40
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-15 11:18:37>
+# Last modification time: <2020-08-06 14:29:13>
 
 import numpy as np
 import os 
 
 from syncopy.shared.errors import SPYValueError, SPYError, SPYTypeError, SPYWarning
-from syncopy.shared.tools import layout_subplot_panels
-from syncopy.plotting.spy_plotting import pltErrMsg, pltConfig
+from syncopy.plotting.spy_plotting import pltErrMsg, pltConfig, _layout_subplot_panels
 from syncopy import __plt__
 if __plt__:
     import matplotlib.pyplot as plt
@@ -485,7 +484,7 @@ def multipanelplot(self, trials="all", channels="all", toilim=None, avg_channels
         # Construct subplot panel layout or vet provided layout
         nrow = kwargs.get("nrow", None)
         ncol = kwargs.get("ncol", None)
-        nrow, ncol = layout_subplot_panels(npanels, nrow=nrow, ncol=ncol)
+        nrow, ncol = _layout_subplot_panels(npanels, nrow=nrow, ncol=ncol)
         (fig, ax_arr) = plt.subplots(nrow, ncol, constrained_layout=False,
                                      gridspec_kw={"wspace": 0, "hspace": 0.35,
                                                   "left": 0.05, "right": 0.97},
