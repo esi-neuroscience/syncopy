@@ -4,7 +4,7 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-06 14:40:38>
+# Last modification time: <2020-08-07 14:41:09>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -341,8 +341,8 @@ def _anyplot(*data, overlay=None, method=None, **kwargs):
         except Exception as exc:
             raise exc
         # FIXME: while plotting is still WIP
-        if not isinstance(obj, spy.AnalogData):
-            errmsg = "Plotting currently only supported for `AnalogData` objects"
+        if obj.__class__.__name__ not in ["AnalogData", "SpectralData"]:
+            errmsg = "Plotting currently only supported for `AnalogData` and `SpectralData` objects"
             raise NotImplementedError(errmsg)
 
     # See if figure was provided
@@ -398,7 +398,7 @@ def _compute_toilim_avg(self):
 
 
 def _setup_figure(npanels, nrow=None, ncol=None, xLabel=None, yLabel=None,
-                  include_colorbar=False, sharex=None, sharey=None):
+                  include_colorbar=False, sharex=None, sharey=None, grid=None):
     """
     Coming soon...
     """
@@ -412,21 +412,20 @@ def _setup_figure(npanels, nrow=None, ncol=None, xLabel=None, yLabel=None,
         if not include_colorbar:
             fig, ax = plt.subplots(1, tight_layout=True, squeeze=True,
                                    figsize=pltConfig["singleFigSize"])
-            ax.set_xlabel(xLabel, size=pltConfig["singleLabelSize"])
-            ax.set_ylabel(yLabel, size=pltConfig["singleLabelSize"])
-            ax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
-            ax.autoscale(enable=True, axis="x", tight=True)
 
         # Single panel w/colorbar            
         else:
             fig, (ax, cax) = plt.subplots(1, 2, tight_layout=True, squeeze=True, 
                                           gridspec_kw={"wspace": 0.05, "width_ratios": [1, 0.025]},
                                           figsize=pltConfig["singleFigSize"])
-            ax.set_xlabel(xLabel, size=pltConfig["singleLabelSize"])            
-            ax.set_ylabel(yLabel, size=pltConfig["singleLabelSize"])            
-            ax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
             cax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
-            ax.autoscale(enable=True, axis="x", tight=True)
+
+        # Axes formatting gymnastics done for all single-panel plots            
+        ax.set_xlabel(xLabel, size=pltConfig["singleLabelSize"])            
+        ax.set_ylabel(yLabel, size=pltConfig["singleLabelSize"])            
+        ax.tick_params(axis="both", labelsize=pltConfig["singleTickSize"])
+        ax.autoscale(enable=True, axis="x", tight=True)
+        ax.grid(grid)
 
         # Designate figure object as single-panel plotting target
         fig.singlepanelplot = True
@@ -471,20 +470,15 @@ def _setup_figure(npanels, nrow=None, ncol=None, xLabel=None, yLabel=None,
             for col in range(1, ncol):
                 ax_arr[row, col].xaxis.get_major_locator().set_params(prune="lower")
             ax_arr[row, 0].set_ylabel(yLabel, size=pltConfig["multiLabelSize"])
-                    
-        # Flatten axis array to make counting a little easier in here and make
-        # any surplus panels as unobtrusive as possible
+            
+        # Flatten axis array (to ease panel counting) and remove surplus panels
         ax_arr = ax_arr.flatten(order="C")
         for ax in ax_arr:
             ax.tick_params(axis="both", labelsize=pltConfig["multiTickSize"])
             ax.autoscale(enable=True, axis="x", tight=True)
+            ax.grid(True)
         for k in range(npanels, nrow * ncol):
-            ax_arr[k].set_xticks([])
-            ax_arr[k].set_yticks([])
-            ax_arr[k].set_xlabel("")
-            for spine in ax_arr[k].spines.values():
-                spine.set_visible(False)
-        ax_arr[min(npanels, nrow * ncol - 1)].spines["left"].set_visible(True)
+            ax_arr[k].remove()
         ax = ax_arr
         
         # Designate figure object as multi-panel plotting target
@@ -493,8 +487,8 @@ def _setup_figure(npanels, nrow=None, ncol=None, xLabel=None, yLabel=None,
     # Attach custom Syncopy plotting attributes to newly created figure
     fig.objCount = 0
     fig.npanels = npanels
-
-    # All done, return figure object, axis (array) and potentially color-bar axis            
+    
+    # All done, return figure object, axis (array) and potentially color-bar axis
     if not include_colorbar:
         return fig, ax
     return fig, ax, cax

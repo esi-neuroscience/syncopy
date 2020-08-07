@@ -4,7 +4,7 @@
 # 
 # Created: 2020-04-17 08:25:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-14 16:43:44>
+# Last modification time: <2020-08-07 19:10:46>
 
 import pytest
 import numpy as np
@@ -336,8 +336,8 @@ class TestAnalogDataPlotting():
         # Ensure grid and title specifications are rendered correctly
         theTitle = "A title"
         gridFig = self.dataReg.multipanelplot(avg_trials=False, 
-                                         avg_channels=True, 
-                                         grid=True)
+                                              avg_channels=True, 
+                                              grid=True) 
         assert all([gridFig.axes[k].get_xgridlines()[0].get_visible() for k in range(self.nTrials)])
         titleFig = self.dataReg.multipanelplot(avg_trials=False, 
                                           avg_channels=True, 
