@@ -414,3 +414,28 @@ class TestMTMFFT():
         client.close()
 
     # FIXME: check polyremoval once supported
+
+class TestMTMConvol():
+    
+    nChannels = 32
+    nTrials = 8
+    fs = 1000
+    amp = 2 * np.sqrt(2)
+    noise_power = 0.01 * fs / 2
+    
+    N = 1e5
+    time = np.arange(N) / float(fs)
+    mod = 500*np.cos(2*np.pi*0.0625*time)
+    # mod = 500*np.cos(2*np.pi*0.125*time)
+    carrier = amp * np.sin(2*np.pi*3e2*time + mod)
+    noise = np.random.normal(scale=np.sqrt(noise_power),
+                            size=time.shape)
+    noise *= np.exp(-time/5)
+    x = carrier + noise    
+
+    # Trials: stitch together [x, x, x]
+    # channels: 
+    # 1, 3, 5, 7, ...: mod -> 0.0625 * time
+    # 0, 2, 4, 6, ...: mod -> 0.125 * time
+
+    

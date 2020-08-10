@@ -33,12 +33,33 @@ if __name__ == "__main__":
     amp = 2 * np.sqrt(2)
     noise_power = 0.01 * fs / 2
     time = np.arange(N) / float(fs)
-    mod = 500*np.cos(2*np.pi*0.125*time)
+    mod = 500*np.cos(2*np.pi*0.0625*time)
+    # mod = 500*np.cos(2*np.pi*0.125*time)
     carrier = amp * np.sin(2*np.pi*3e2*time + mod)
     noise = np.random.normal(scale=np.sqrt(noise_power),
                             size=time.shape)
     noise *= np.exp(-time/5)
     x = carrier + noise    
+    
+    # Trials: stitch together [x, x, x]
+    # channels: 
+    # 1, 3, 5, 7: mod -> 0.0625 * time
+    # 0, 2, 4, 6: mod -> 0.125 * time
+
+    fig, axes = plt.subplots(nrows=1, ncols=3, sharex=True, sharey=True, squeeze=True)    
+    axes[0].plot(time, carrier)
+    axes[0].set_title('Carrier')
+    axes[0].set_xlabel('Time [sec]')
+    axes[0].set_ylabel('Signal')
+    axes[1].plot(time, x)
+    axes[1].set_title('Carrier + Noise')
+    axes[1].set_xlabel('Time [sec]')
+    plt.show()
+    
+    plt.figure()
+    plt.plot(time, mod)
+    plt.xlabel('Time [sec]')
+    plt.title('Modulator')
     
     f, t, Zxx = signal.stft(x, fs, nperseg=1000)
     plt.figure()
@@ -47,6 +68,34 @@ if __name__ == "__main__":
     plt.ylabel('Frequency [Hz]')
     plt.xlabel('Time [sec]')
     plt.show()
+    
+    # max ~= amp / 2.1
+    
+# Ensure peak count in modulator corresponds to detected tf-waveform
+# np.where(mod == mod.max())[0].size                                                                                                                                   
+# Out[82]: 13
+
+# In [83]: np.where(mod == mod.min())[0].size                                                                                                                                   
+# Out[83]: 12
+
+# In [85]: freqIdx, timeIdx = np.where(np.abs(Zxx) >= (np.abs(Zxx).max() - 0.1*np.abs(Zxx).max()))                                                                              
+
+# # Only max and min frequencies are detected by this criterion
+# In [88]: np.unique(freqIdx)                                                                                                                                                   
+# Out[88]: array([238, 362])  -> assert np.unique(freqIdx).size == 2
+
+# In [86]: sum(freqIdx == freqIdx.min())                                                                                                                                        
+# Out[86]: 13
+
+# In [87]: sum(freqIdx == freqIdx.max())                                                                                                                                        
+# Out[87]: 12
+
+# assert np.abs(sum(freqIdx == freqIdx.max()) - np.where(mod == mod.max())[0].size) < 2
+# peak-count can be off by one (depending on windowing, initial down-ward slope
+# is reflected or not), but not more
+
+    
+    sys.exit()
     
     foi = np.arange(501)
     wav = Morlet()
