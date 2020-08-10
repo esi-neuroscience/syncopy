@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-14 16:45:26>
+# Last modification time: <2020-07-13 11:23:28>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -411,7 +411,7 @@ class AnalogData(ContinuousData):
     _infoFileProperties = ContinuousData._infoFileProperties + ("_hdr",)
     _defaultDimord = ["time", "channel"]
  
-    # Monkey-patch plotting routines to not clutter the core module code
+    # Attach plotting routines to not clutter the core module code
     singlepanelplot = _plot_analog.singlepanelplot
     multipanelplot = _plot_analog.multipanelplot
     
@@ -423,7 +423,7 @@ class AnalogData(ContinuousData):
         """
         return self._hdr
 
-    # Selector method FIXME: use monkey patching?
+    # Selector method FIXME: use plotting-routine-like patching?
     def selectdata(self, trials=None, channels=None, toi=None, toilim=None):
         """
         Create new `AnalogData` object from selection

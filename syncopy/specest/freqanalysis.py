@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-06-03 14:00:48>
+# Last modification time: <2020-07-14 11:22:10>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -41,6 +41,9 @@ availableOutputs = tuple(spectralConversions.keys())
 #: available tapers of :func:`~syncopy.freqanalysis`
 availableTapers = ("hann", "dpss")
 
+#: available wavelet functions of :func:`~syncopy.freqanalysis`
+availableWavelets = ("Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat")
+
 #: available spectral estimation methods of :func:`~syncopy.freqanalysis`
 availableMethods = ("mtmfft", "mtmconvol", "wavelet")
 
@@ -55,7 +58,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                  padlength=None, prepadlength=None, postpadlength=None, 
                  polyremoval=None, 
                  taper="hann", tapsmofrq=None, keeptapers=False,
-                 wav="Morlet", t_ftimwin=None, toi=None, width=6, 
+                 toi=None, t_ftimwin=None, wav="Morlet", width=6, order=None,
                  out=None, **kwargs):
     """
     Perform (time-)frequency analysis of Syncopy :class:`~syncopy.AnalogData` objects
@@ -109,6 +112,18 @@ def freqanalysis(data, method='mtmfft', output='fourier',
           a window on every sample in the data. 
         * **t_ftimwin** : sliding window length (in sec)
 
+    :func:`~syncopy.specest.wavelet.wavelet` : (Continuous non-orthogonal) wavelet transform
+        Perform time-frequency analysis on time-series trial data using a non-orthogonal
+        continuous wavelet transform. 
+        
+        * **wav** : one of :data:`~.availableWavelets`
+        * **toi** : time-points of interest; can be either an array representing 
+          time points (in sec) to center wavelets on or "all" to center a wavelet 
+          on every sample in the data. 
+        * **width** : Nondimensional frequency constant of Morlet wavelet function (>= 6)
+        * **order** : Order of Paul wavelet function (>= 4) or derivative order
+          of real-valued DOG wavelets (2 = mexican hat)
+
     **Full documentation below** 
     
     Parameters
@@ -157,7 +172,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         Values to be used for padding. Can be `'zero'`, `'nan'`, `'mean'`, 
         `'localmean'`, `'edge'` or `'mirror'`. See :func:`syncopy.padding` for 
         more information.
-    padlength : None, bool or positive scalar
+    padlength : None, bool or positive int
         Only valid if `method` is `'mtmfft'` and `pad` is `'absolute'` or `'relative'`. 
         Number of samples to pad data with. See :func:`syncopy.padding` for more 
         information.
@@ -189,9 +204,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. If `True`, return 
         spectral estimates for each taper, otherwise results are averaged across
         tapers. 
-    t_ftimwin : scalar
-        Only valid if `method` is `'mtmconvol'`. Sliding window length (in seconds). 
-    toi : scalar or array-like or "all"
+    toi : float or array-like or "all"
         **Mandatory input** for time-frequency analysis methods (`method` is either 
         `"mtmconvol"` or `"wavelet"`). 
         If `toi` is scalar, it must be a value between 0 and 1 indicating the 
@@ -200,10 +213,29 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         If `toi` is an array it explicitly selects the centroids of analysis 
         windows (in seconds). If `toi` is `"all"`, analysis windows are centered
         on all samples in the data. 
-    width : scalar
-        Only valid if `method` is `'wavelet'`. Nondimensional frequency constant 
-        of wavelet function. For a Morlet wavelet this number should be >= 6, which 
-        corresponds to 6 cycles within the analysis window (FIXME: how many SDs of the Gaussian window?)
+    t_ftimwin : positive float
+        Only valid if `method` is `'mtmconvol'`. Sliding window length (in seconds). 
+    wav : str
+        Only valid if `method` is `'wavelet'`. Wavelet function to use, one of 
+        :data:`~.availableWavelets` (see below).
+    width : positive float
+        Only valid if `method` is `'wavelet'` and `wav` is `'Morlet'`. Nondimensional 
+        frequency constant of Morlet wavelet function. This number should be >= 6, 
+        which corresponds to 6 cycles within the analysis window to ensure sufficient 
+        spectral sampling. 
+    order : positive int
+        Only valid if `method` is `'wavelet'` and `wav` is `'Paul'` or `'DOG'`. Order 
+        of the wavelet function. If `wav` is `'Paul'`, `order` should be chosen
+        >= 4 to ensure that the analysis window contains at least a single oscillation. 
+        At an order of 40, the Paul wavelet  exhibits about the same number of cycles 
+        as the Morlet wavelet with a `width` of 6. 
+        All other supported wavelets functions are *real-valued* derivatives of 
+        Gaussians (DOGs). Hence, if `wav` is `'DOG'`, `order` represents the derivative order. 
+        The special case of a second order DOG yields a function known as "Mexican Hat", 
+        "Marr" or "Ricker" wavelet, which can be selected alternatively by setting
+        `wav` to `'Mexican_hat'`, `'Marr'` or `'Ricker'`. **Note**: A real-valued
+        wavelet function encodes *only* information about peaks and discontinuities 
+        in the signal and does *not* provide any information about amplitude or phase. 
     out : None or :class:`SpectralData` object
         None if a new :class:`SpectralData` object is to be created, or an empty :class:`SpectralData` object
         
@@ -227,11 +259,14 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     .. autodata:: syncopy.specest.freqanalysis.availableOutputs
 
     .. autodata:: syncopy.specest.freqanalysis.availableTapers
+
+    .. autodata:: syncopy.specest.freqanalysis.availableWavelets
     
     See also
     --------
     syncopy.specest.mtmfft.mtmfft : (multi-)tapered Fourier transform of multi-channel time series data
     syncopy.specest.mtmconvol.mtmconvol : time-frequency analysis of multi-channel time series data with a sliding window FFT
+    syncopy.specest.wavelet.wavelet : time-frequency analysis of multi-channel time series data using a wavelet transform
     numpy.fft.fft : NumPy's reference FFT implementation
     scipy.signal.stft : SciPy's Short Time Fourier Transform
     """
@@ -342,6 +377,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                              lims=[0, data.samplerate/2], dims=(None,))
             except Exception as exc:
                 raise exc
+            foi = np.array(foi)
     if foilim is not None:
         if isinstance(foilim, str):
             if foilim == "all":
@@ -448,67 +484,93 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                     "or if `toi` is 'all'"
                 act = "False"
                 raise SPYValueError(legal=lgl, actual=act, varname="pad")
-                
-        # The above `overlap`, `equidistant` etc. is really only relevant for `mtmconvol`        
+
+        # Code recycling: `overlap`, `equidistant` etc. are really only relevant 
+        # for `mtmconvol`, but we use padding calc below for `wavelet` as well
         if method == "mtmconvol":
             try:
-                scalar_parser(t_ftimwin, varname="t_ftimwin", lims=[0, minTrialLength])
+                scalar_parser(t_ftimwin, varname="t_ftimwin", lims=[1/data.samplerate, minTrialLength])
             except Exception as exc:
                 raise exc
-            nperseg = int(t_ftimwin * data.samplerate)
-            minSampleNum = nperseg
-            halfWin = int(nperseg / 2)
-            
-            if overlap < 0:         # `toi` is equidistant range or disjoint points
-                noverlap = nperseg - int(tSteps[0] * data.samplerate)
-            elif 0 <= overlap <= 1: # `toi` is percentage
-                noverlap = int(overlap * nperseg)
-            else:                   # `toi` is "all"
-                noverlap = nperseg - 1
-            
-            if overlap < 0:
-                
-                # Compute necessary padding at begin/end of trials to fit sliding windows
-                offStart = ((toi[0] - tStart) * data.samplerate).astype(np.intp)
-                padBegin = halfWin - offStart
-                padBegin = ((padBegin > 0) * padBegin).astype(np.intp)
-                
-                offEnd = ((tEnd - toi[-1]) * data.samplerate).astype(np.intp)
-                padEnd = halfWin - offEnd
-                padEnd = ((padEnd > 0) * padEnd).astype(np.intp)
-                
-                # Abort if padding was explicitly forbidden
-                if pad is False and (np.any(padBegin) or np.any(padBegin)):
-                    lgl = "windows within trial bounds"
-                    act = "windows exceeding trials no. " +\
-                        "".join(str(trlno) + ", "\
-                            for trlno in np.array(trialList)[(padBegin + padEnd) > 0])[:-2]
-                    raise SPYValueError(legal=lgl, varname="pad", actual=act)
+        else:        
+            t_ftimwin = 0
+        nperseg = int(t_ftimwin * data.samplerate)
+        minSampleNum = nperseg
+        halfWin = int(nperseg / 2)
 
-                # Compute sample-indices (one slice/list per trial) from time-selections
-                soi = []            
-                if not equidistant:
-                    for tk in range(numTrials):
-                        starts = (data.samplerate * (toi - tStart[tk]) - halfWin).astype(np.intp)
-                        stops = (data.samplerate * (toi - tStart[tk]) + halfWin + 1).astype(np.intp)
-                        stops = np.maximum(stops, stops - starts, dtype=np.intp)
-                        starts = ((starts > 0) * starts).astype(np.intp)
-                        soi.append([slice(start, stop) for start, stop in zip(starts, stops)])
-                else:
-                    for tk in range(numTrials):
-                        start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
-                        stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
-                        soi.append(slice(max(0, start), max(stop, stop - start)))
-                        
-            else:
-                
-                padBegin = np.zeros((numTrials,))
-                padEnd = np.zeros((numTrials,))
-                soi = [slice(None)] * numTrials
-                    
-        else: # wavelets: probably some `toi` gymnastics
-            pass
+        # `mtmconvol`: compute no. of samples overlapping across adjacent windows        
+        if overlap < 0:         # `toi` is equidistant range or disjoint points
+            noverlap = nperseg - int(tSteps[0] * data.samplerate)
+        elif 0 <= overlap <= 1: # `toi` is percentage
+            noverlap = int(overlap * nperseg)
+        else:                   # `toi` is "all"
+            noverlap = nperseg - 1
         
+        # `toi` is array
+        if overlap < 0:
+            
+            # Compute necessary padding at begin/end of trials to fit sliding windows
+            offStart = ((toi[0] - tStart) * data.samplerate).astype(np.intp)
+            padBegin = halfWin - offStart
+            padBegin = ((padBegin > 0) * padBegin).astype(np.intp)
+            
+            offEnd = ((tEnd - toi[-1]) * data.samplerate).astype(np.intp)
+            padEnd = halfWin - offEnd
+            padEnd = ((padEnd > 0) * padEnd).astype(np.intp)
+            
+            # Abort if padding was explicitly forbidden
+            if pad is False and (np.any(padBegin) or np.any(padBegin)):
+                lgl = "windows within trial bounds"
+                act = "windows exceeding trials no. " +\
+                    "".join(str(trlno) + ", "\
+                        for trlno in np.array(trialList)[(padBegin + padEnd) > 0])[:-2]
+                raise SPYValueError(legal=lgl, varname="pad", actual=act)
+
+            # Compute sample-indices (one slice/list per trial) from time-selections
+            soi = []            
+            if not equidistant:
+                for tk in range(numTrials):
+                    starts = (data.samplerate * (toi - tStart[tk]) - halfWin).astype(np.intp)
+                    starts += padBegin[tk]
+                    stops = (data.samplerate * (toi - tStart[tk]) + halfWin + 1).astype(np.intp)
+                    stops += padBegin[tk]
+                    stops = np.maximum(stops, stops - starts, dtype=np.intp)
+                    soi.append([slice(start, stop) for start, stop in zip(starts, stops)])
+            else:
+                for tk in range(numTrials):
+                    start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
+                    stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
+                    soi.append(slice(max(0, start), max(stop, stop - start)))
+
+        # `toi` is percentage or "all"                    
+        else:
+            
+            padBegin = np.zeros((numTrials,))
+            padEnd = np.zeros((numTrials,))
+            soi = [slice(None)] * numTrials
+            
+        # For wavelets, we need to first trim the data (via `preSelect`), then 
+        # extract the wanted time-points (`postSelect`)
+        if method == "wavelet":
+            
+            # Simply recycle the indexing work done for `mtmconvol` (i.e., `soi`)
+            preSelect = []            
+            if not equidistant:
+                for tk in range(numTrials):
+                    preSelect.append(slice(soi[tk][0].start, soi[tk][-1].stop))
+            else:
+                preSelect = soi
+                
+            # If `toi` is an array, convert "global" indices to "local" ones 
+            # (select within `preSelect`'s selection), otherwise just take all
+            if overlap < 0:
+                postSelect = []
+                for tk in range(numTrials):
+                    postSelect.append((data.samplerate * (toi - tStart[tk]) - offStart[tk] \
+                        + padBegin[tk]).astype(np.intp))
+            else:
+                postSelect = [slice(None)] * numTrials
+
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
         log_dct["toi"] = lcls["toi"]
@@ -599,7 +661,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 
         # Set up compute-class
         specestMethod = MultiTaperFFT(
-            dt=1/data.samplerate,
+            samplerate=data.samplerate,
+            foi=foi,
             nTaper=nTaper, 
             timeAxis=timeAxis, 
             taper=taper, 
@@ -608,7 +671,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             pad=pad,
             padtype=padtype,
             padlength=padlength,
-            foi=foi,
             keeptapers=keeptapers,
             polyremoval=polyremoval,
             output_fmt=output)
@@ -640,59 +702,95 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             output_fmt=output)
 
     elif method == "wavelet":
-        pass
 
-        # check if taper, tapsmofrq, keeptapers is defined
-        
-        # check for consistency of width, wav
-        
-        options = ["Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat"]
-        if wav not in options:
-            lgl = "'" + "or '".join(opt + "' " for opt in options)
+        # Check for non-default values of `taper`, `tapsmofrq`, `keeptapers` and 
+        # `t_ftimwin` (set to 0 above)
+        kwdict = {"taper": taper, "tapsmofrq": tapsmofrq, "keeptapers": keeptapers}
+        for name, kwarg in kwdict.items():
+            if kwarg is not lcls[name]:
+                msg = "option `{}` has no effect in method `wavelet`!"
+                SPYWarning(msg.format(name))
+        if t_ftimwin != 0:
+            msg = "option `t_ftimwin` has no effect in method `wavelet`!"
+            SPYWarning(msg)
+            
+        # Check wavelet selection        
+        if wav not in availableWavelets:
+            lgl = "'" + "or '".join(opt + "' " for opt in availableWavelets)
             raise SPYValueError(legal=lgl, varname="wav", actual=wav)
-        wav = getattr(spywave, wav)
-
-        if isinstance(toi, Number):
+        if wav not in ["Morlet", "Paul"]:
+            msg = "the chosen wavelet '{}' is real-valued and does not provide " +\
+                "any information about amplitude or phase of the data. This wavelet function " +\
+                "may be used to isolate peaks or discontinuities in the signal. "
+            SPYWarning(msg.format(wav))
+            
+        # Check for consistency of `width`, `order` and `wav`
+        if wav == "Morlet":
             try:
-                scalar_parser(toi, varname="toi", lims=[0, 1])
+                scalar_parser(width, varname="width", lims=[6, np.inf])
             except Exception as exc:
                 raise exc
+            wfun = getattr(spywave, wav)(w0=width)
         else:
+            if width != lcls["width"]:
+                msg = "option `width` has no effect for wavelet '{}'"
+                SPYWarning(msg.format(wav))
+                
+        if wav == "Paul":
             try:
-                array_parser(toi, varname="toi", hasinf=False, hasnan=False,
-                             lims=[timing.min(), timing.max()], dims=(None,))
+                scalar_parser(order, varname="order", lims=[4, np.inf], ntype="int_like")
             except Exception as exc:
                 raise exc
-            toi = np.array(toi)
-            toi.sort()
-
+            wfun = getattr(spywave, wav)(m=order)
+        elif wav == "DOG":
+            try:
+                scalar_parser(order, varname="order", lims=[1, np.inf], ntype="int_like")
+            except Exception as exc:
+                raise exc
+            wfun = getattr(spywave, wav)(m=order)
+        else:
+            if order is not None:
+                msg = "option `order` has no effect for wavelet '{}'"
+                SPYWarning(msg.format(wav))
+            wfun = getattr(spywave, wav)()
+            
+        # Monkey-patch local helper routine to just created wavelet class instances 
+        # (we don't do this in the class def to not collide w/already existing routine 
+        # `compute_optimal_scales` of `WaveletTransform`)
+        wfun._get_optimal_wavelet_scales = _get_optimal_wavelet_scales.__get__(wfun)
+        
+        # Process frequency selection (`toi` was taken care of above)
         if foi is None:
-            foi = 1 / _get_optimal_wavelet_scales(minTrialLength,
-                                                  1/data.samplerate,
-                                                  dj=0.25)
-
-        # FIXME: width setting depends on chosen wavelet
-        if width is not None:
-            try:
-                scalar_parser(width, varname="width", lims=[1, np.inf])
-            except Exception as exc:
-                raise exc
+            scales = wfun._get_optimal_wavelet_scales(int(minTrialLength * data.samplerate), 
+                                                      1 / data.samplerate)
+            if foilim is not None:
+                freqs = 1 / wfun.fourier_period(scales)
+                foi, _ = best_match(freqs, foilim, span=True, squash_duplicates=True)
+                scales = wfun.scale_from_period(1 / foi)
+        else:
+            foi[foi == 0] = np.finfo(np.float).eps
+            scales = wfun.scale_from_period(1 / foi)
+            scales = scales[::-1]  # FIXME: this only makes sense if `foi` was sorted -> cf Issue #94
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
         log_dct["wav"] = lcls["wav"]
-        log_dct["toi"] = lcls["toi"]
         log_dct["width"] = lcls["width"]
+        log_dct["order"] = lcls["order"]
 
         # Set up compute-class
-        specestMethod = WaveletTransform(1/data.samplerate, 
-                                         timeAxis,
-                                         foi,
-                                         toi=toi,
-                                         polyremoval=polyremoval,
-                                         wav=wav,
-                                         width=width,
-                                         output_fmt=output)
+        specestMethod = WaveletTransform(
+            preSelect,
+            postSelect,
+            list(padBegin),
+            list(padEnd),
+            samplerate=data.samplerate,
+            toi=toi,
+            scales=scales,
+            timeAxis=timeAxis, 
+            wav=wfun,
+            polyremoval=polyremoval,
+            output_fmt=output)
         
     # If provided, make sure output object is appropriate
     if out is not None:
