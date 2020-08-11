@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-14 11:22:10>
+# Last modification time: <2020-08-11 17:19:57>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -810,6 +810,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                              chan_per_worker=kwargs.get("chan_per_worker"),
                              keeptrials=keeptrials)
     specestMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)
+
+    print("end of freqanalysis")
 
     # Either return newly created output container or simply quit
     return out if new_out else None

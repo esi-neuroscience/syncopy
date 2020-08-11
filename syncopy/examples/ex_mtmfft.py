@@ -28,23 +28,65 @@ from syncopy.tests.misc import generate_artificial_data, figs_equal
 
 if __name__ == "__main__":
 
-    fs = 1e3
-    N = 1e5
+    # fs = 1e3
+    # N = 1e5
+    # amp = 2 * np.sqrt(2)
+    # noise_power = 0.01 * fs / 2
+    # time = np.arange(N) / float(fs)
+    
+    # tstart = -29.5
+    # tstop = 70.5
+    # time = (np.arange(0, (tstop - tstart) * fs) + tstart * fs) / fs
+    # time1 = np.arange(time.size) / fs
+    
+    # mod = 500*np.cos(2*np.pi*0.0625*time)
+    # mod = 500*np.cos(2*np.pi*0.125*time)
+    # carrier = amp * np.sin(2*np.pi*3e2*time + mod)
+    # noise = np.random.normal(scale=np.sqrt(noise_power),
+    #                         size=time.shape)
+    # # noise *= np.exp(-time1/5)
+    # noise *= np.exp(-np.arange(time.size) / (5*fs))
+    # x = carrier + noise    
+``    
+    # # Trials: stitch together [x, x, x]
+    # # channels: 
+    # # 1, 3, 5, 7: mod -> 0.0625 * time
+    # # 0, 2, 4, 6: mod -> 0.125 * time
+
+    # Construct high-frequency signal modulated by slow oscillating cosine and 
+    # add time-decaying noise
+    nChannels = 8
+    nChan2 = int(nChannels / 2)
+    nTrials = 3
+    fs = 1000
     amp = 2 * np.sqrt(2)
     noise_power = 0.01 * fs / 2
-    time = np.arange(N) / float(fs)
-    mod = 500*np.cos(2*np.pi*0.0625*time)
-    # mod = 500*np.cos(2*np.pi*0.125*time)
-    carrier = amp * np.sin(2*np.pi*3e2*time + mod)
-    noise = np.random.normal(scale=np.sqrt(noise_power),
-                            size=time.shape)
-    noise *= np.exp(-time/5)
-    x = carrier + noise    
-    
-    # Trials: stitch together [x, x, x]
-    # channels: 
-    # 1, 3, 5, 7: mod -> 0.0625 * time
-    # 0, 2, 4, 6: mod -> 0.125 * time
+    numType = "float32"
+    modPeriods = [0.125, 0.0625]
+    rng = np.random.default_rng(151120)
+    tstart = -29.5
+    tstop = 70.5
+    time = (np.arange(0, (tstop - tstart) * fs, dtype=numType) + tstart * fs) / fs
+    N = time.size
+    carriers = np.zeros((N, 2), dtype=numType)
+    noise_decay = np.exp(-np.arange(N) / (5*fs))
+    for k, period in enumerate(modPeriods):
+        mod = 500 * np.cos(2 * np.pi * period * time)
+        carriers[:, k] = amp * np.sin(2 * np.pi * 3e2 * time + mod)
+    sig = np.zeros((N * nTrials, nChannels), dtype="float32")
+    even = [None, 0, 1]
+    odd = [None, 1, 0]
+    for ntrial in range(nTrials):
+        noise = rng.normal(scale=np.sqrt(noise_power), size=time.shape).astype(numType)
+        noise *= noise_decay
+        sig[ntrial*N : (ntrial + 1)*N, ::2] = np.tile(carriers[:, even[(-1)**ntrial]] + noise, (nChan2, 1)).T
+        sig[ntrial*N : (ntrial + 1)*N, 1::2] = np.tile(carriers[:, odd[(-1)**ntrial]] + noise, (nChan2, 1)).T
+        # signal[ntrial*N : (ntrial + 1)*N, 1::2] = carriers[:, odd[(-1)**ntrial]] + noise
+        # signal[ntrial*fs : (ntrial + 1)*fs, ::2] = carriers[:, even[(-1)**ntrial]] + noise
+        # signal[ntrial*fs : (ntrial + 1)*fs, 1::2] = carriers[:, odd[(-1)**ntrial]] + noise
+        
+    x = sig[:N, 1]
+    carrier = carriers[:, 1]
 
     fig, axes = plt.subplots(nrows=1, ncols=3, sharex=True, sharey=True, squeeze=True)    
     axes[0].plot(time, carrier)

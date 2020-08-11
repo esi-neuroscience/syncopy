@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-22 10:56:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-06-02 12:29:49>
+# Last modification time: <2020-08-11 17:40:52>
 
 # Builtin/3rd party package imports
 import functools

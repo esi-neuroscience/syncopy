@@ -23,7 +23,7 @@ from syncopy.shared.errors import SPYValueError
 from syncopy.datatype.methods.padding import _nextpow2
 from syncopy.datatype.base_data import VirtualData, Selector
 from syncopy.datatype import AnalogData, SpectralData, padding
-from syncopy.shared.tools import StructDict
+from syncopy.shared.tools import StructDict, get_defaults
 
 # Decorator to decide whether or not to run dask-related tests
 skip_without_dask = pytest.mark.skipif(
@@ -416,26 +416,81 @@ class TestMTMFFT():
     # FIXME: check polyremoval once supported
 
 class TestMTMConvol():
-    
-    nChannels = 32
-    nTrials = 8
+
+    # Construct high-frequency signal modulated by slow oscillating cosine and 
+    # add time-decaying noise
+    nChannels = 8
+    nChan2 = int(nChannels / 2)
+    nTrials = 3
     fs = 1000
+    seed = 151120
     amp = 2 * np.sqrt(2)
     noise_power = 0.01 * fs / 2
-    
-    N = 1e5
-    time = np.arange(N) / float(fs)
-    mod = 500*np.cos(2*np.pi*0.0625*time)
-    # mod = 500*np.cos(2*np.pi*0.125*time)
-    carrier = amp * np.sin(2*np.pi*3e2*time + mod)
-    noise = np.random.normal(scale=np.sqrt(noise_power),
-                            size=time.shape)
-    noise *= np.exp(-time/5)
-    x = carrier + noise    
+    numType = "float32"
+    modPeriods = [0.125, 0.0625]
+    rng = np.random.default_rng(seed)
+    tStart = -29.5
+    tStop = 70.5
+    t0 = -np.abs(tStart * fs).astype(np.intp)
+    time = (np.arange(0, (tStop - tStart) * fs, dtype=numType) + tStart * fs) / fs
+    N = time.size
+    carriers = np.zeros((N, 2), dtype=numType)
+    noise_decay = np.exp(-np.arange(N) / (5*fs))
+    for k, period in enumerate(modPeriods):
+        mod = 500 * np.cos(2 * np.pi * period * time)
+        carriers[:, k] = amp * np.sin(2 * np.pi * 3e2 * time + mod)
+        
+    # For trials: stitch together carrier + noise, each trial gets its own (fixed 
+    # but randomized) noise term, channels differ by period in modulator, stratified
+    # by trials, i.e., 
+    # Trial #0, channels 0, 2, 4, 6, ...: mod -> 0.125 * time
+    #                    1, 3, 5, 7, ...: mod -> 0.0625 * time
+    # Trial #1, channels 0, 2, 4, 6, ...: mod -> 0.0625 * time
+    #                    1, 3, 5, 7, ...: mod -> 0.125 * time
+    even = [None, 0, 1]
+    odd = [None, 1, 0]
+    sig = np.zeros((N * nTrials, nChannels), dtype="float32")
+    trialdefinition = np.zeros((nTrials, 3), dtype=np.intp)
+    for ntrial in range(nTrials):
+        noise = rng.normal(scale=np.sqrt(noise_power), size=time.shape).astype(numType)
+        noise *= noise_decay
+        nt1 = ntrial * N
+        nt2 = (ntrial + 1) * N
+        sig[nt1 : nt2, ::2] = np.tile(carriers[:, even[(-1)**ntrial]] + noise, (nChan2, 1)).T
+        sig[nt1 : nt2, 1::2] = np.tile(carriers[:, odd[(-1)**ntrial]] + noise, (nChan2, 1)).T
+        trialdefinition[ntrial, :] = np.array([nt1, nt2, t0])
 
-    # Trials: stitch together [x, x, x]
-    # channels: 
-    # 1, 3, 5, 7, ...: mod -> 0.0625 * time
-    # 0, 2, 4, 6, ...: mod -> 0.125 * time
+    # Finally allocate `AnalogData` object that makes use of all this
+    tfData = AnalogData(data=sig, samplerate=fs, trialdefinition=trialdefinition)
 
-    
+    # Data selection dict for the above object
+    dataSelections = [None,
+                      {"trials": [1, 2, 0],
+                       "channels": ["channel" + str(i) for i in range(2, 6)][::-1]},
+                      {"trials": [0, 2],
+                       "channels": range(0, nChan2),
+                       "toilim": [-20, 60.8]}]
+
+    def test_tf_output(self):
+        # ensure that output type specification is respected
+        cfg = get_defaults(freqanalysis)
+        cfg.method = "mtmconvol"
+        cfg.taper = "hann"
+        cfg.toi = np.linspace(-20, 60, 10)
+        cfg.t_ftimwin = 1.0
+                
+        for select in self.dataSelections:
+            cfg.select = select
+            cfg.output = "fourier"
+            print("select =", select)
+            try:
+                tfSpec = freqanalysis(cfg, self.tfData)
+            except:
+                import pdb; pdb.set_trace()
+            assert "complex" in tfSpec.data.dtype.name
+            # spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
+            #                     output="abs", select=select)
+            # assert "float" in spec.data.dtype.name
+            # spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
+            #                     output="pow", select=select)
+            # assert "float" in spec.data.dtype.name

@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-14 11:00:32>
+# Last modification time: <2020-08-11 17:41:11>
 
 # Builtin/3rd party package imports
 import numbers
@@ -229,12 +229,17 @@ class MultiTaperFFTConvol(ComputationalRoutine):
             chanSec = slice(None)
             trl = data.trialdefinition
             
+        import pdb; pdb.set_trace()
+        
         # Construct trialdef array and compute new sampling rate (if necessary)
         if self.keeptrials:
             trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
         else:
             trl = np.array([[0, 1, 0]])
             srate = 1.0
+
+        import pdb; pdb.set_trace()
+            
             
         # Attach meta-data
         out.trialdefinition = trl    
