@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-11 17:39:22>
+# Last modification time: <2020-08-11 17:57:28>
 
 
 # Builtin/3rd party package imports
@@ -449,7 +449,7 @@ class BaseData(ABC):
     @property
     def trialdefinition(self):
         """nTrials x >=3 :class:`numpy.ndarray` of [start, end, offset, trialinfo[:]]"""
-        return self._trialdefinition
+        return np.array(self._trialdefinition)
     
     @trialdefinition.setter
     def trialdefinition(self, trl):

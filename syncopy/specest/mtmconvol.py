@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-11 17:41:11>
+# Last modification time: <2020-08-11 18:00:29>
 
 # Builtin/3rd party package imports
 import numbers
@@ -229,8 +229,6 @@ class MultiTaperFFTConvol(ComputationalRoutine):
             chanSec = slice(None)
             trl = data.trialdefinition
             
-        import pdb; pdb.set_trace()
-        
         # Construct trialdef array and compute new sampling rate (if necessary)
         if self.keeptrials:
             trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
@@ -238,9 +236,6 @@ class MultiTaperFFTConvol(ComputationalRoutine):
             trl = np.array([[0, 1, 0]])
             srate = 1.0
 
-        import pdb; pdb.set_trace()
-            
-            
         # Attach meta-data
         out.trialdefinition = trl    
         out.samplerate = srate
@@ -297,7 +292,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
         # If trigger onset was part of `toi`, get its relative position wrt 
         # to other elements, otherwise use first element as "onset"
         t0Idx = np.where(toi == 0)[0]
-        if t0Idx:
+        if t0Idx.size:
             trialdefinition[:, 2] = -t0Idx[0]
         else:
             trialdefinition[:, 2] = 0

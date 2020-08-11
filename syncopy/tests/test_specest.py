@@ -482,15 +482,11 @@ class TestMTMConvol():
         for select in self.dataSelections:
             cfg.select = select
             cfg.output = "fourier"
-            print("select =", select)
-            try:
-                tfSpec = freqanalysis(cfg, self.tfData)
-            except:
-                import pdb; pdb.set_trace()
+            tfSpec = freqanalysis(cfg, self.tfData)
             assert "complex" in tfSpec.data.dtype.name
-            # spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
-            #                     output="abs", select=select)
-            # assert "float" in spec.data.dtype.name
-            # spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
-            #                     output="pow", select=select)
-            # assert "float" in spec.data.dtype.name
+            cfg.output = "abs"
+            tfSpec = freqanalysis(cfg, self.tfData)
+            assert "float" in tfSpec.data.dtype.name
+            cfg.output = "pow"
+            tfSpec = freqanalysis(cfg, self.tfData)
+            assert "float" in tfSpec.data.dtype.name
