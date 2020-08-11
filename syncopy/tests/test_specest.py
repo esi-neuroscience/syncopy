@@ -435,10 +435,11 @@ class TestMTMConvol():
     time = (np.arange(0, (tStop - tStart) * fs, dtype=numType) + tStart * fs) / fs
     N = time.size
     carriers = np.zeros((N, 2), dtype=numType)
+    modulators = np.zeros((N, 2), dtype=numType)
     noise_decay = np.exp(-np.arange(N) / (5*fs))
     for k, period in enumerate(modPeriods):
-        mod = 500 * np.cos(2 * np.pi * period * time)
-        carriers[:, k] = amp * np.sin(2 * np.pi * 3e2 * time + mod)
+        modulators[:, k] = 500 * np.cos(2 * np.pi * period * time)
+        carriers[:, k] = amp * np.sin(2 * np.pi * 3e2 * time + modulators[:, k])
         
     # For trials: stitch together carrier + noise, each trial gets its own (fixed 
     # but randomized) noise term, channels differ by period in modulator, stratified
@@ -470,9 +471,12 @@ class TestMTMConvol():
                       {"trials": [0, 2],
                        "channels": range(0, nChan2),
                        "toilim": [-20, 60.8]}]
+    
+    # test toi, foi, foilim, pad=False, taper(hann, dpss), t_ftimwin
+    # toi is scalar -> ensure resulting time-axis is correct
 
     def test_tf_output(self):
-        # ensure that output type specification is respected
+        # Set up basic TF analysis parameters to not slow down things too much
         cfg = get_defaults(freqanalysis)
         cfg.method = "mtmconvol"
         cfg.taper = "hann"
@@ -490,3 +494,48 @@ class TestMTMConvol():
             cfg.output = "pow"
             tfSpec = freqanalysis(cfg, self.tfData)
             assert "float" in tfSpec.data.dtype.name
+
+    def test_tf_solution(self):
+        
+        cfg = get_defaults(freqanalysis)
+        cfg.method = "mtmconvol"
+        cfg.taper = "hann"
+        cfg.t_ftimwin = 1.0
+        cfg.toi = 0
+        cfg.output = "pow"
+        cfg.keeptapers = False
+        
+        chanIdx = SpectralData._defaultDimord.index("channel")
+        tfIdx = [slice(None)] * len(SpectralData._defaultDimord)
+        
+        for select in self.dataSelections[:-1]:
+            cfg.select = select
+            tfSpec = freqanalysis(cfg, self.tfData)
+            for tk, trlArr in enumerate(tfSpec.trials):
+                trlNo = tk
+                if select:
+                    trlNo = select["trials"][tk]
+                for chan in range(tfSpec.channel.size):
+                    chanNo = chan
+                    if select:
+                        chanNo = np.where(self.tfData.channel == select["channels"][chan])[0][0]
+                    if chanNo % 2:
+                        modIdx = self.odd[(-1)**trlNo]
+                    else:
+                        modIdx = self.even[(-1)**trlNo]
+                    tfIdx[chanIdx] = chan
+                    Zxx = trlArr[tuple(tfIdx)].squeeze()
+                    freqPeaks, _ = np.where(Zxx >= (Zxx.max() - 0.1 * Zxx.max()))
+                    assert np.unique(freqPeaks).size == 2
+                    maxPeakCount = sum(freqPeaks == freqPeaks.max())
+                    maxModCount = sum(self.modulators[:, modIdx] == self.modulators[:, modIdx].max())
+                    assert np.abs(maxPeakCount - maxModCount) <= 1
+                    # minPeakCount = sum(freqPeaks == freqPeaks.min())
+                    
+                    # include: test foi/foilim: isolate peaks...
+                    
+                    # include test that time-axis is correct
+                    
+        # plt.figure(); plt.imshow(tfSpec.trials[1].squeeze()[...,0].T)
+            
+        

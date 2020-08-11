@@ -46,8 +46,8 @@ if __name__ == "__main__":
     #                         size=time.shape)
     # # noise *= np.exp(-time1/5)
     # noise *= np.exp(-np.arange(time.size) / (5*fs))
-    # x = carrier + noise    
-``    
+    # x = carrier + noise
+
     # # Trials: stitch together [x, x, x]
     # # channels: 
     # # 1, 3, 5, 7: mod -> 0.0625 * time
@@ -120,7 +120,7 @@ if __name__ == "__main__":
 # In [83]: np.where(mod == mod.min())[0].size                                                                                                                                   
 # Out[83]: 12
 
-# In [85]: freqIdx, timeIdx = np.where(np.abs(Zxx) >= (np.abs(Zxx).max() - 0.1*np.abs(Zxx).max()))                                                                              
+# In [85]: freqIdx, timeIdx = np.where(np.abs(Zxx) >= (np.abs(Zxx).max() - 0.1*np.abs(Zxx).max()))
 
 # # Only max and min frequencies are detected by this criterion
 # In [88]: np.unique(freqIdx)                                                                                                                                                   
