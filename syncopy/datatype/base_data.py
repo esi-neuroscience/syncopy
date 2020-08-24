@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-11 17:57:28>
+# Last modification time: <2020-08-24 18:23:26>
 
 
 # Builtin/3rd party package imports
@@ -32,7 +32,7 @@ from syncopy.shared.tools import StructDict
 from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser, 
                                     filename_parser, data_parser)
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError, SPYWarning
-from syncopy.datatype.methods.definetrial import definetrial
+from syncopy.datatype.methods.definetrial import definetrial as _definetrial
 from syncopy import __version__, __storage__, __dask__, __sessionid__
 if __dask__:
     import dask
@@ -184,7 +184,7 @@ class BaseData(ABC):
         
         if isHdf:
             h5keys = list(h5f.keys())
-            if not propertyName in h5keys and len(h5keys) != 1:                    
+            if propertyName not in h5keys and len(h5keys) != 1:                    
                 lgl = "HDF5 container with only one 'data' dataset or single dataset of arbitrary name"
                 act = "HDF5 container holding {} data-objects"
                 raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname=propertyName)
@@ -324,7 +324,7 @@ class BaseData(ABC):
             self._dimord = None        
             return
                 
-        if not set(dims) == set(self._defaultDimord):
+        if set(dims) != set(self._defaultDimord):
             base = "dimensional labels {}"
             lgl = base.format("'" + "' x '".join(str(dim) for dim in self._defaultDimord) + "'")
             act = base.format("'" + "' x '".join(str(dim) for dim in dims) + "'")
@@ -453,7 +453,7 @@ class BaseData(ABC):
     
     @trialdefinition.setter
     def trialdefinition(self, trl):
-        definetrial(self, trialdefinition=trl)        
+        _definetrial(self, trialdefinition=trl)        
 
     @property
     def sampleinfo(self):
@@ -469,7 +469,7 @@ class BaseData(ABC):
 
     @property
     def _t0(self):
-        if not self._trialdefinition is None: 
+        if self._trialdefinition is not None: 
             return self._trialdefinition[:, 2]
         else:
             return None
@@ -486,7 +486,7 @@ class BaseData(ABC):
         Each trial can have M properties (condition, original trial no., ...) coded by 
         numbers. This property are the fourth and onward columns of `BaseData._trialdefinition`.
         """
-        if not self._trialdefinition is None:
+        if self._trialdefinition is not None:
             if self._trialdefinition.shape[1] > 3:
                 return self._trialdefinition[:, 3:]
             else:
@@ -499,7 +499,6 @@ class BaseData(ABC):
     @trialinfo.setter
     def trialinfo(self, trl):
         raise SPYError("Cannot set trialinfo. Use `BaseData._trialdefinition` or `syncopy.definetrial` instead.")
-        
 
     # Selector method
     @abstractmethod
@@ -572,20 +571,8 @@ class BaseData(ABC):
                             
         return cpy
 
-    # Change trialdef of object
-    def definetrial(self, trl=None, pre=None, post=None, start=None,
-                    trigger=None, stop=None, clip_edges=False):
-        """(Re-)define trials for data
-
-        See also
-        --------
-        syncopy.definetrial
-
-        """
-        definetrial(self, trialdefinition=trl, pre=pre, post=post,
-                    start=start, trigger=trigger, stop=stop,
-                    clip_edges=clip_edges)
-
+    # Attach trial-definition routine to not re-invent the wheel here
+    definetrial = _definetrial
 
     # Wrapper that makes saving routine usable as class method
     def save(self, container=None, tag=None, filename=None, overwrite=False, memuse=100):

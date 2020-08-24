@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-06-02 12:12:13>
+# Last modification time: <2020-08-24 18:13:55>
 
 # Builtin/3rd party package imports
 import os
@@ -263,7 +263,7 @@ class ComputationalRoutine(ABC):
                 raise SPYValueError(legal=lgl, varname="argv", actual=act.format(argsize))
             
             if isinstance(arg, (list, tuple)):
-                if not len(arg) == numTrials:
+                if len(arg) != numTrials:
                     lgl = "list/tuple of positional arguments for each trial"
                     act = "length of list/tuple does not correspond to number of trials"
                     raise SPYValueError(legal=lgl, varname="argv", actual=act)

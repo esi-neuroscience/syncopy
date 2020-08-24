@@ -4,7 +4,7 @@
 # 
 # Created: 2019-02-05 13:12:58
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-12 10:13:47>
+# Last modification time: <2020-08-24 18:13:02>
 
 # Builtin/3rd party package imports
 import os
@@ -159,7 +159,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
     
     # Parse filename for validity and construct full path to HDF5 file
     fileInfo = filename_parser(filename)
-    if not fileInfo["extension"] == out._classname_to_extension():
+    if fileInfo["extension"] != out._classname_to_extension():
         raise SPYError("""Extension in filename ({ext}) does not match data 
                     class ({dclass})""".format(ext=fileInfo["extension"],
                                                 dclass=out.__class__.__name__))

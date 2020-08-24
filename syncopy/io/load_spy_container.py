@@ -246,7 +246,7 @@ def _load(filename, checksum, mode, out):
     with open(jsonFile, "r") as file:
         jsonDict = json.load(file)
 
-    if not "dataclass" in jsonDict.keys():
+    if "dataclass" not in jsonDict.keys():
         raise SPYError("Info file {} does not contain a dataclass field".format(jsonFile))
 
     if hasattr(spd, jsonDict["dataclass"]):
