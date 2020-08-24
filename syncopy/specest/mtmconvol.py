@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-11 18:00:29>
+# Last modification time: <2020-08-24 16:51:25>
 
 # Builtin/3rd party package imports
 import numbers
@@ -229,6 +229,7 @@ class MultiTaperFFTConvol(ComputationalRoutine):
             chanSec = slice(None)
             trl = data.trialdefinition
             
+
         # Construct trialdef array and compute new sampling rate (if necessary)
         if self.keeptrials:
             trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
@@ -279,6 +280,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
     syncopy.specest.wavelet.wavelet : :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
                                       performing time-frequency analysis using non-orthogonal continuous wavelet transform
     """
+    
     # If `toi` is array, use it to construct timing info
     toi = cfg["toi"]
     if isinstance(toi, np.ndarray):

@@ -12,6 +12,7 @@ import inspect
 import gc
 import pytest
 import numpy as np
+import scipy.signal as scisig
 from numpy.lib.format import open_memmap
 from syncopy import __dask__
 if __dask__:
@@ -496,7 +497,8 @@ class TestMTMConvol():
             assert "float" in tfSpec.data.dtype.name
 
     def test_tf_solution(self):
-        
+        # Compute "full" non-overlapping TF spectrum, i.e., center analysis windows 
+        # on all time-points with window-boundaries touching but not intersecting
         cfg = get_defaults(freqanalysis)
         cfg.method = "mtmconvol"
         cfg.taper = "hann"
@@ -504,17 +506,35 @@ class TestMTMConvol():
         cfg.toi = 0
         cfg.output = "pow"
         cfg.keeptapers = False
-        
+
+        # Set up index tuple for slicing computed TF spectra and collect values 
+        # of expected frequency peaks (for validation of `foi`/`foilim` selections below)
         chanIdx = SpectralData._defaultDimord.index("channel")
         tfIdx = [slice(None)] * len(SpectralData._defaultDimord)
+        maxFreqs = np.hstack([np.arange(325, 336), np.arange(355,366)])
         
         for select in self.dataSelections[:-1]:
             cfg.select = select
             tfSpec = freqanalysis(cfg, self.tfData)
+            cfg.foi = maxFreqs
+            tfSpecFoi = freqanalysis(cfg, self.tfData)
+            cfg.foi = None
+            cfg.foilim = [maxFreqs.min(), maxFreqs.max()]
+            tfSpecFoiLim = freqanalysis(cfg, self.tfData)
+            cfg.foilim = None
             for tk, trlArr in enumerate(tfSpec.trials):
                 trlNo = tk
                 if select:
                     trlNo = select["trials"][tk]
+                    
+                # refTime = np.unique(np.ceil(self.tfData.time[trlNo]))[:-1]
+                # try:
+                #     assert np.array_equal(refTime, tfSpec.time[tk])
+                # except:
+                #     import pdb; pdb.set_trace()
+                # assert np.array_equal(tfSpec.time[tk], tfSpecFoi.time[tk])
+                # assert np.array_equal(tfSpecFoi.time[tk], tfSpecFoiLim.time[tk])
+                
                 for chan in range(tfSpec.channel.size):
                     chanNo = chan
                     if select:
@@ -525,17 +545,25 @@ class TestMTMConvol():
                         modIdx = self.even[(-1)**trlNo]
                     tfIdx[chanIdx] = chan
                     Zxx = trlArr[tuple(tfIdx)].squeeze()
-                    freqPeaks, _ = np.where(Zxx >= (Zxx.max() - 0.1 * Zxx.max()))
-                    assert np.unique(freqPeaks).size == 2
-                    maxPeakCount = sum(freqPeaks == freqPeaks.max())
-                    maxModCount = sum(self.modulators[:, modIdx] == self.modulators[:, modIdx].max())
-                    assert np.abs(maxPeakCount - maxModCount) <= 1
-                    # minPeakCount = sum(freqPeaks == freqPeaks.min())
-                    
-                    # include: test foi/foilim: isolate peaks...
-                    
-                    # include test that time-axis is correct
-                    
-        # plt.figure(); plt.imshow(tfSpec.trials[1].squeeze()[...,0].T)
-            
-        
+
+                    # Use SciPy's `find_peaks` to identify frequency peaks in computed TF spectrum:
+                    # `peakProfile` is just a sliver of the TF spectrum around the peak frequency; to 
+                    # better understand what's happening here, look at 
+                    # plt.figure(); plt.plot(peakProfile); plt.plot(peaks, peakProfile[peaks], 'x')
+                    ZxxMax = Zxx.max()
+                    ZxxThresh = 0.1 * ZxxMax
+                    _, freqPeaks = np.where(Zxx >= (ZxxMax - ZxxThresh))
+                    freqMax, freqMin = freqPeaks.max(), freqPeaks.min()
+                    modulator = self.modulators[:, modIdx]
+                    modCounts = [sum(modulator == modulator.min()), sum(modulator == modulator.max())]
+                    for fk, freqPeak in enumerate([freqMin, freqMax]):
+                        peakProfile = Zxx[:, freqPeak - 1 : freqPeak + 2].mean(axis=1)
+                        peaks, _ = scisig.find_peaks(peakProfile, height=ZxxThresh)
+                        assert np.abs(peaks.size - modCounts[fk]) <= 1
+                        
+                    # Ensure that the `foi`/`foilim` selections correspond to the respective
+                    # slivers of the full TF spectrum
+                    assert np.allclose(tfSpecFoi.trials[tk][tuple(tfIdx)].squeeze(), 
+                                       Zxx[:, maxFreqs])
+                    assert np.allclose(tfSpecFoiLim.trials[tk][tuple(tfIdx)].squeeze(), 
+                                       Zxx[:, maxFreqs.min():maxFreqs.max() + 1])
