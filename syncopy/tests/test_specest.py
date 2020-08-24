@@ -513,7 +513,9 @@ class TestMTMConvol():
         tfIdx = [slice(None)] * len(SpectralData._defaultDimord)
         maxFreqs = np.hstack([np.arange(325, 336), np.arange(355,366)])
         
-        for select in self.dataSelections[:-1]:
+        for select in self.dataSelections:
+            
+            # Compute TF objects w\w/o`foi`/`foilim`
             cfg.select = select
             tfSpec = freqanalysis(cfg, self.tfData)
             cfg.foi = maxFreqs
@@ -522,23 +524,33 @@ class TestMTMConvol():
             cfg.foilim = [maxFreqs.min(), maxFreqs.max()]
             tfSpecFoiLim = freqanalysis(cfg, self.tfData)
             cfg.foilim = None
+            
             for tk, trlArr in enumerate(tfSpec.trials):
+                
+                # Compute expected timing array depending on `toilim`
                 trlNo = tk
+                timeArr = np.arange(self.tfData.time[trlNo][0], self.tfData.time[trlNo][-1])
+                timeSelection = slice(None)
                 if select:
                     trlNo = select["trials"][tk]
-                    
-                # refTime = np.unique(np.ceil(self.tfData.time[trlNo]))[:-1]
-                # try:
-                #     assert np.array_equal(refTime, tfSpec.time[tk])
-                # except:
-                #     import pdb; pdb.set_trace()
-                # assert np.array_equal(tfSpec.time[tk], tfSpecFoi.time[tk])
-                # assert np.array_equal(tfSpecFoi.time[tk], tfSpecFoiLim.time[tk])
+                    if "toilim" in select.keys():
+                        timeArr = np.arange(select["toilim"][0], select["toilim"][1])
+                        timeStart = int(select['toilim'][0] * self.tfData.samplerate - self.tfData._t0[trlNo])
+                        timeStop = int(select['toilim'][1] * self.tfData.samplerate - self.tfData._t0[trlNo])
+                        timeSelection = slice(timeStart, timeStop)
+
+                # Ensure timing array was computed correctly and independent of `foi`/`foilim`                
+                assert np.array_equal(timeArr, tfSpec.time[tk])
+                assert np.array_equal(tfSpec.time[tk], tfSpecFoi.time[tk])
+                assert np.array_equal(tfSpecFoi.time[tk], tfSpecFoiLim.time[tk])
                 
                 for chan in range(tfSpec.channel.size):
+                    
+                    # Get reference channel in input object to determine underlying modulator
                     chanNo = chan
                     if select:
-                        chanNo = np.where(self.tfData.channel == select["channels"][chan])[0][0]
+                        if "toilim" not in select.keys():
+                            chanNo = np.where(self.tfData.channel == select["channels"][chan])[0][0]
                     if chanNo % 2:
                         modIdx = self.odd[(-1)**trlNo]
                     else:
@@ -554,7 +566,7 @@ class TestMTMConvol():
                     ZxxThresh = 0.1 * ZxxMax
                     _, freqPeaks = np.where(Zxx >= (ZxxMax - ZxxThresh))
                     freqMax, freqMin = freqPeaks.max(), freqPeaks.min()
-                    modulator = self.modulators[:, modIdx]
+                    modulator = self.modulators[timeSelection, modIdx]
                     modCounts = [sum(modulator == modulator.min()), sum(modulator == modulator.max())]
                     for fk, freqPeak in enumerate([freqMin, freqMax]):
                         peakProfile = Zxx[:, freqPeak - 1 : freqPeak + 2].mean(axis=1)
@@ -567,3 +579,5 @@ class TestMTMConvol():
                                        Zxx[:, maxFreqs])
                     assert np.allclose(tfSpecFoiLim.trials[tk][tuple(tfIdx)].squeeze(), 
                                        Zxx[:, maxFreqs.min():maxFreqs.max() + 1])
+
+    # TODO: test toi = fraction -> time array + combination w/select
