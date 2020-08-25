@@ -187,7 +187,6 @@ class TestMTMFFT():
                 cfg.pad = False
             sel = Selector(artdata, select)
             cfg.select = select
-
             spec = freqanalysis(cfg, artdata)
 
             # ensure correctness of padding (respecting min. trial length + time-selection)
@@ -451,7 +450,7 @@ class TestMTMConvol():
     #                    1, 3, 5, 7, ...: mod -> 0.125 * time
     even = [None, 0, 1]
     odd = [None, 1, 0]
-    sig = np.zeros((N * nTrials, nChannels), dtype="float32")
+    sig = np.zeros((N * nTrials, nChannels), dtype=numType)
     trialdefinition = np.zeros((nTrials, 3), dtype=np.intp)
     for ntrial in range(nTrials):
         noise = rng.normal(scale=np.sqrt(noise_power), size=time.shape).astype(numType)
@@ -535,7 +534,6 @@ class TestMTMConvol():
                     trlNo = select["trials"][tk]
                     if "toilim" in select.keys():
                         timeArr = np.arange(*select["toilim"])
-                        # timeArr = np.arange(select["toilim"][0], select["toilim"][1])
                         timeStart = int(select['toilim'][0] * self.tfData.samplerate - self.tfData._t0[trlNo])
                         timeStop = int(select['toilim'][1] * self.tfData.samplerate - self.tfData._t0[trlNo])
                         timeSelection = slice(timeStart, timeStop)
@@ -582,71 +580,96 @@ class TestMTMConvol():
                                        Zxx[:, maxFreqs.min():maxFreqs.max() + 1])
                     
     def test_tf_toi(self):
-
+        # Use a Hanning window and throw away trials to speed up things a bit
         cfg = get_defaults(freqanalysis)
         cfg.method = "mtmconvol"
         cfg.taper = "hann"
         cfg.output = "pow"
-        cfg.keeptrials = True 
-        cfg.keeptapers = True
+        cfg.keeptrials = False 
+        cfg.keeptapers = False
         
+        # Test various combinations of `toi` and `t_ftimwin`: `toiArrs` comprises
+        # arrays containing the onset, purely pre-onset, purely after onset and 
+        # non-unit spacing
         toiVals = [0.9, 0.75]
+        toiArrs = [np.arange(-10, 15.1), 
+                   np.arange(-15, -10, 1/self.tfData.samplerate), 
+                   np.arange(1, 20, 2)]
         winSizes = [0.5, 1.0]
+
+        # Combine `toi`-testing w/in-place data-pre-selection        
+        for select in self.dataSelections:
+            cfg.select = select
+            tStart = self.tfData.time[0][0]
+            tStop = self.tfData.time[0][-1]
+            if select:
+                if "toilim" in select.keys():
+                    tStart = select["toilim"][0]
+                    tStop = select["toilim"][1]
+
+            # Test TF calculation w/different window-size/-centroids: ensure 
+            # resulting timing arrays are correct
+            for winsize in winSizes:
+                cfg.t_ftimwin = winsize
+                for toi in toiVals:
+                    cfg.toi = toi
+                    tfSpec = freqanalysis(cfg, self.tfData)
+                    tStep = winsize - toi * winsize
+                    timeArr = np.arange(tStart, tStop, tStep)
+                    assert np.allclose(timeArr, tfSpec.time[0])
         
-        # for select in self.dataSelections:
-        #     cfg.select = select
-        #     tStart = self.tfData.time[0][0]
-        #     tStop = self.tfData.time[0][-1]
-        #     if select:
-        #         if "toilim" in select.keys():
-        #             tStart = select["toilim"][0]
-        #             tStop = select["toilim"][1]
+            # Test window-centroids specified as time-point arrays    
+            cfg.t_ftimwin = 0.05
+            for toi in toiArrs:
+                cfg.toi = toi
+                tfSpec = freqanalysis(cfg, self.tfData)
+                assert np.allclose(cfg.toi, tfSpec.time[0])
+                assert tfSpec.samplerate == 1/(toi[1] - toi[0])
             
-        #     for winsize in winSizes:
-        #         cfg.t_ftimwin = winsize
-
-        #         for toi in toiVals:
-        #             cfg.toi = toi
-                    
-        #             tfSpec = freqanalysis(cfg, self.tfData)
-
-        #             tStep = winsize - toi * winsize
-        #             timeArr = np.arange(tStart, tStop, tStep)
-                    
-        #             try:
-        #                 assert np.allclose(timeArr, tfSpec.time[0])
-        #             except:
-        #                 import pdb; pdb.set_trace()
-
-        #     cfg.toi = np.arange(-10, 15.1)
-        #     tfSpec = freqanalysis(cfg, self.tfData)
-        #     assert np.array_equal(cfg.toi, tfSpec.time[0])
+            # Unevenly sampled array: timing currently in lala-land, but sizes must match
+            cfg.toi = [-5, 3, 10]
+            tfSpec = freqanalysis(cfg, self.tfData)
+            assert tfSpec.time[0].size == len(cfg.toi)
         
-        # TODO: unevenly spaced toi + toi w/larger spacing -> check for modified sampling rate in ouptut!
-
-        # # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
-        # # to not flood memory)    
-        # cfg.taper = "dpss"
-        # cfg.tapsmofrq = 10
-        # cfg.select = {"trials": [0], "channels": [0], "toilim": [-0.5, 0.5]}
-        # cfg.toi = "all"
-        # cfg.t_ftimwin = 0.05
-        # tfSpec = freqanalysis(cfg, self.tfData)
-        # dt = 1/self.tfData.samplerate
-        # timeArr = np.arange(cfg.select["toilim"][0], cfg.select["toilim"][1] + dt, dt)
-        # assert np.allclose(tfSpec.time[0], timeArr)
-
+        # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
+        # to not overflow memory here); same for ``toi = 1.0```
+        cfg.taper = "dpss"
+        cfg.tapsmofrq = 10
+        cfg.keeptapers = True
+        cfg.select = {"trials": [0], "channels": [0], "toilim": [-0.5, 0.5]}
+        cfg.toi = "all"
+        cfg.t_ftimwin = 0.05
+        tfSpec = freqanalysis(cfg, self.tfData)
+        assert tfSpec.taper.size > 1
+        dt = 1/self.tfData.samplerate
+        timeArr = np.arange(cfg.select["toilim"][0], cfg.select["toilim"][1] + dt, dt)
+        assert np.allclose(tfSpec.time[0], timeArr)
+        cfg.toi = 1.0
+        tfSpec = freqanalysis(cfg, self.tfData)
+        assert np.allclose(tfSpec.time[0], timeArr)
+        
+        # Forbid the code to pad but use all data points (including boundaries)
         cfg.toi = "all"
         cfg.pad = False
         with pytest.raises(SPYValueError) as spyval:
             tfSpec = freqanalysis(cfg, self.tfData)
             assert "`pad` to be `None` or `True` to permit zero-padding " in str(spyval.value)
 
+        # Use a window-size larger than the pre-selected interval defined above
         cfg.t_ftimwin = 5.0        
         with pytest.raises(SPYValueError) as spyval:
             freqanalysis(cfg, self.tfData)
             assert "Invalid value of `t_ftimwin`" in str(spyval.value)
-
-        import pdb; pdb.set_trace()
-        
-    
+            
+        # Use `toi` array outside trial boundaries
+        cfg.toi = self.tfData.time[0][:10]
+        with pytest.raises(SPYValueError) as spyval:
+            freqanalysis(cfg, self.tfData)
+            errmsg = "Invalid value of `toi`: expected all array elements to be bounded by {} and {}"
+            assert errmsg.format(*cfg.select["toilim"]) in str(spyval.value)
+            
+        # Unsorted `toi` array
+        cfg.toi = [0.3, -0.1, 0.2]
+        with pytest.raises(SPYValueError) as spyval:
+            freqanalysis(cfg, self.tfData)
+            assert "Invalid value of `toi`: 'unsorted list/array'" in str(spyval.value)

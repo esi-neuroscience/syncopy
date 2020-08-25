@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-25 11:03:11>
+# Last modification time: <2020-08-25 16:49:28>
 
 # Builtin/3rd party package imports
 import numbers
@@ -228,14 +228,16 @@ class MultiTaperFFTConvol(ComputationalRoutine):
         else:
             chanSec = slice(None)
             trl = data.trialdefinition
-            
 
-        # Construct trialdef array and compute new sampling rate (if necessary)
-        if self.keeptrials:
-            trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
-        else:
-            trl = np.array([[0, 1, 0]])
-            srate = 1.0
+        # Construct trialdef array and compute new sampling rate
+        trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
+        
+        # If trial-averaging was requested, use the first trial as reference 
+        # (all trials had to have identical lengths), and average onset timings
+        if not self.keeptrials:
+            t0 = trl[:, 2].mean()
+            trl = trl[[0], :]
+            trl[:, 2] = t0
 
         # Attach meta-data
         out.trialdefinition = trl    
@@ -291,14 +293,6 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
         trialdefinition[:, 0] = time - nToi
         trialdefinition[:, 1] = time
         
-        # If trigger onset was part of `toi`, get its relative position wrt 
-        # to other elements, otherwise use first element as "onset"
-        t0Idx = np.where(toi == 0)[0]
-        if t0Idx.size:
-            trialdefinition[:, 2] = -t0Idx[0]
-        else:
-            trialdefinition[:, 2] = 0
-            
         # Important: differentiate b/w equidistant time ranges and disjoint points
         tSteps = np.diff(toi)
         if np.allclose(tSteps, [tSteps[0]] * tSteps.size):
@@ -309,6 +303,9 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
             SPYWarning(msg, caller="freqanalysis")
             samplerate = 1.0
             trialdefinition[:, 2] = 0
+
+        # Reconstruct trigger-onset based on provided time-point array            
+        trialdefinition[:, 2] = toi[0] * samplerate
             
     # If `toi` was a percentage, some cumsum/winSize algebra is required
     # Note: if `toi` was "all", simply use provided `trialdefinition` and `samplerate`

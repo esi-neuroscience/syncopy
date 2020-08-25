@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-25 11:07:15>
+# Last modification time: <2020-08-25 13:33:57>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -353,7 +353,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         minSampleNum = padding(data._preview_trial(trialList[minSamplePos]), padtype, pad=pad,
                                padlength=padlength, prepadlength=True).shape[timeAxis]
     else:
-        pad = None
         if method == "mtmfft" and np.unique((np.floor(lenTrials / 2))).size > 1:
             lgl = "trials of approximately equal length for method 'mtmfft'"
             act = "trials of unequal length"
@@ -500,12 +499,12 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         # `mtmconvol`: compute no. of samples overlapping across adjacent windows        
         if overlap < 0:         # `toi` is equidistant range or disjoint points
-            noverlap = nperseg - int(tSteps[0] * data.samplerate)
+            noverlap = nperseg - max(1, int(tSteps[0] * data.samplerate))
         elif 0 <= overlap <= 1: # `toi` is percentage
-            noverlap = int(overlap * nperseg)
+            noverlap = min(nperseg - 1, int(overlap * nperseg))
         else:                   # `toi` is "all"
             noverlap = nperseg - 1
-        
+            
         # `toi` is array
         if overlap < 0:
             
