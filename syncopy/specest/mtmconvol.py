@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-25 16:49:28>
+# Last modification time: <2020-08-26 10:35:33>
 
 # Builtin/3rd party package imports
 import numbers
