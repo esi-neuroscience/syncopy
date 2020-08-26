@@ -52,6 +52,9 @@ if __name__ == "__main__":
     # # channels: 
     # # 1, 3, 5, 7: mod -> 0.0625 * time
     # # 0, 2, 4, 6: mod -> 0.125 * time
+    
+    artdata = generate_artificial_data(equidistant=False, overlapping=True)
+    sys.exit()
 
     # Construct high-frequency signal modulated by slow oscillating cosine and 
     # add time-decaying noise

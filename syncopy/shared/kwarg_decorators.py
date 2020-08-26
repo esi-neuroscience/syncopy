@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-22 10:56:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-26 14:46:24>
+# Last modification time: <2020-08-26 15:40:37>
 
 # Builtin/3rd party package imports
 import functools
@@ -353,7 +353,6 @@ def unwrap_select(func):
         select = kwargs.get("select", None)
         for obj in args:
             if hasattr(obj, "_selection"):
-                print("select = ", select)
                 obj._selection = select
                     
         # Call function with modified data object(s)  

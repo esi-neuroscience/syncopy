@@ -78,7 +78,7 @@ class TestMTMFFT():
                           "toi": None},
                          {"trials": [0, 1, 2],
                           "channels": range(0, 8),
-                          "toilim": [1., 1.5]}]
+                          "toilim": [-0.5, 0.6]}]
 
     # Error tolerances for target amplitudes (depend on data selection!)
     tols = [1, 1, 1.5]
