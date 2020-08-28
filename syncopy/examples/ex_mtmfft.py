@@ -107,8 +107,10 @@ if __name__ == "__main__":
     # cfg.toi = np.unique(np.floor(tfData.time[trlNo]))
     cfg.toi = np.arange(tfData.time[trlNo][0], tfData.time[trlNo][-1] + 1)   
     cfg.output = "pow"
-    
+    cfg.foi = np.arange(0, 501)  
     tfSpec = freqanalysis(cfg, tfData)
+    
+    plt.figure(); plt.imshow(tfSpec.trials[0][..., 0].squeeze().T)
     
     sys.exit()
         

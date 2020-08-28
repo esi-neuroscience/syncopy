@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-28 12:07:02>
+# Last modification time: <2020-08-28 13:34:07>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -376,7 +376,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                              lims=[0, data.samplerate/2], dims=(None,))
             except Exception as exc:
                 raise exc
-            foi = np.array(foi)
+            foi = np.array(foi, dtype="float")
     if foilim is not None:
         if isinstance(foilim, str):
             if foilim == "all":
@@ -768,7 +768,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 foi, _ = best_match(freqs, foilim, span=True, squash_duplicates=True)
                 scales = wfun.scale_from_period(1 / foi)
         else:
-            foi[foi == 0] = np.finfo(np.float).eps
+            # foi[foi == 0] = 2 * np.finfo(np.float).eps
+            foi[foi < 0.01] = 0.01
             scales = wfun.scale_from_period(1 / foi)
             scales = scales[::-1]  # FIXME: this only makes sense if `foi` was sorted -> cf Issue #94
 
