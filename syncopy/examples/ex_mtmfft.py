@@ -73,9 +73,16 @@ if __name__ == "__main__":
     carriers = np.zeros((N, 2), dtype=numType)
     modulators = np.zeros((N, 2), dtype=numType)
     noise_decay = np.exp(-np.arange(N) / (5*fs))
+    
+    fader = np.ones((N,), dtype=numType)
+    fadeIn = np.arange(20*fs)
+    fadeOut = np.arange(80*fs, 100*fs)
+    sigmoid = lambda x: 1 / (1 + np.exp(-x))
+    fader[fadeIn] = sigmoid(np.linspace(-2 * np.pi, 2 * np.pi, fadeIn.size))
+    fader[fadeOut] = sigmoid(-np.linspace(-2 * np.pi, 2 * np.pi, fadeOut.size))
     for k, period in enumerate(modPeriods):
         modulators[:, k] = 500 * np.cos(2 * np.pi * period * time)
-        carriers[:, k] = amp * np.sin(2 * np.pi * 3e2 * time + modulators[:, k])
+        carriers[:, k] = fader * amp * np.sin(2 * np.pi * 3e2 * time + modulators[:, k])
         
     # For trials: stitch together carrier + noise, each trial gets its own (fixed 
     # but randomized) noise term, channels differ by period in modulator, stratified
@@ -107,17 +114,16 @@ if __name__ == "__main__":
     # cfg.toi = np.unique(np.floor(tfData.time[trlNo]))
     cfg.toi = np.arange(tfData.time[trlNo][0], tfData.time[trlNo][-1] + 1)   
     cfg.output = "pow"
-    cfg.foi = np.arange(0, 501)  
+    # cfg.foi = np.arange(0, 501)  
     tfSpec = freqanalysis(cfg, tfData)
     
-    plt.figure(); plt.imshow(tfSpec.trials[0][..., 0].squeeze().T)
+    plt.figure(); plt.imshow(tfSpec.trials[0][..., 0].squeeze().T, aspect="auto")
     
-    sys.exit()
-        
+       
     x = sig[:N, 1]
     carrier = carriers[:, 1]
 
-    fig, axes = plt.subplots(nrows=1, ncols=3, sharex=True, sharey=True, squeeze=True)    
+    fig, axes = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, squeeze=True)    
     axes[0].plot(time, carrier)
     axes[0].set_title('Carrier')
     axes[0].set_xlabel('Time [sec]')
@@ -127,10 +133,15 @@ if __name__ == "__main__":
     axes[1].set_xlabel('Time [sec]')
     plt.show()
     
-    plt.figure()
-    plt.plot(time, mod)
-    plt.xlabel('Time [sec]')
-    plt.title('Modulator')
+    fig, axes = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, squeeze=True)    
+    axes[0].plot(time, modulators[:, 0])
+    axes[0].set_title('Modulator #1')
+    axes[0].set_xlabel('Time [sec]')
+    axes[0].set_ylabel('Signal')
+    axes[1].plot(time, modulators[:, 1])
+    axes[1].set_title('Modulator #2')
+    axes[1].set_xlabel('Time [sec]')
+    plt.show()
     
     f, t, Zxx = signal.stft(x, fs, nperseg=1000)
     plt.figure()
@@ -139,6 +150,8 @@ if __name__ == "__main__":
     plt.ylabel('Frequency [Hz]')
     plt.xlabel('Time [sec]')
     plt.show()
+    
+    sys.exit()
     
     # max ~= amp / 2.1
     

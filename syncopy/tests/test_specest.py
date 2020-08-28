@@ -415,6 +415,7 @@ class TestMTMFFT():
 
     # FIXME: check polyremoval once supported
 
+
 class TestMTMConvol():
 
     # Construct high-frequency signal modulated by slow oscillating cosine and 
@@ -472,9 +473,6 @@ class TestMTMConvol():
                        "channels": range(0, nChan2),
                        "toilim": [-20, 60.8]}]
     
-    # test toi, foi, foilim, pad=False, taper(hann, dpss), t_ftimwin
-    # toi is scalar -> ensure resulting time-axis is correct
-
     def test_tf_output(self):
         # Set up basic TF analysis parameters to not slow down things too much
         cfg = get_defaults(freqanalysis)
@@ -831,4 +829,102 @@ class TestMTMConvol():
         assert np.array_equal(np.unique(np.floor(artdata.time[0])), tfSpec.time[0])
         assert tfSpec.data.shape == (tfSpec.time[0].size, 1, expectedFreqs.size, self.nChannels)
 
-        client.close()        
+        client.close()
+        
+        
+class TestWavelet():
+    
+    # Prepare testing signal
+    nChannels = 8
+    nTrials = 3
+    seed = 151120
+    tfData, modulators, even, odd = _make_tf_signal(nChannels, nTrials, seed, 
+                                                    fadeIn=20, fadeOut=80)
+
+    # Set up in-place data-selection dicts for the constructed object
+    dataSelections = [None,
+                      {"trials": [1, 2, 0],
+                       "channels": ["channel" + str(i) for i in range(2, 6)][::-1]},
+                      {"trials": [0, 2],
+                       "channels": range(0, nChan2),
+                       "toilim": [-20, 60.8]}]
+
+    
+    def test_wav_solution(self):
+
+        # Compute TF specturm across entire time-interval (use integer-valued 
+        # time-points as wavelet centroids)
+        cfg = get_defaults(freqanalysis)
+        cfg.method = "wavelet"
+        cfg.wav = "Morlet"
+        cfg.toi = np.arange(tfData.time[trlNo][0], tfData.time[trlNo][-1] + 1)   
+        cfg.output = "pow"
+
+        for select in self.dataSelections:
+            
+            select = None # >>>> testing
+            
+        
+    def test_wav_toi(self):
+        
+        # cfg.toi = np.unique(np.floor(tfData.time[trlNo]))
+        pass
+
+# Local helper for constructing TF testing signals
+def _make_tf_signal(nChannels, nTrials, seed, fadeIn=None, fadeOut=None):
+    
+    # Construct high-frequency signal modulated by slow oscillating cosine and 
+    # add time-decaying noise
+    nChan2 = int(nChannels / 2)
+    fs = 1000
+    amp = 2 * np.sqrt(2)
+    noise_power = 0.01 * fs / 2
+    numType = "float32"
+    modPeriods = [0.125, 0.0625]
+    rng = np.random.default_rng(seed)
+    tStart = -29.5
+    tStop = 70.5
+    t0 = -np.abs(tStart * fs).astype(np.intp)
+    time = (np.arange(0, (tStop - tStart) * fs, dtype=numType) + tStart * fs) / fs
+    N = time.size
+    carriers = np.zeros((N, 2), dtype=numType)
+    modulators = np.zeros((N, 2), dtype=numType)
+    noise_decay = np.exp(-np.arange(N) / (5*fs))
+    fader = np.ones((N,), dtype=numType)
+    if fadeIn is None:
+        fadeIn = 0
+    if fadeOut is None:
+        fadeOut = 100
+    fadeIn = np.arange(0, fadeIn * fs)
+    fadeOut = np.arange(fadeOut * fs, 100 * fs)
+    sigmoid = lambda x: 1 / (1 + np.exp(-x))
+    fader[fadeIn] = sigmoid(np.linspace(-2 * np.pi, 2 * np.pi, fadeIn.size))
+    fader[fadeOut] = sigmoid(-np.linspace(-2 * np.pi, 2 * np.pi, fadeOut.size))
+    for k, period in enumerate(modPeriods):
+        modulators[:, k] = 500 * np.cos(2 * np.pi * period * time)
+        carriers[:, k] = fader * amp * np.sin(2 * np.pi * 3e2 * time + modulators[:, k])
+        
+    # For trials: stitch together carrier + noise, each trial gets its own (fixed 
+    # but randomized) noise term, channels differ by period in modulator, stratified
+    # by trials, i.e., 
+    # Trial #0, channels 0, 2, 4, 6, ...: mod -> 0.125 * time
+    #                    1, 3, 5, 7, ...: mod -> 0.0625 * time
+    # Trial #1, channels 0, 2, 4, 6, ...: mod -> 0.0625 * time
+    #                    1, 3, 5, 7, ...: mod -> 0.125 * time
+    even = [None, 0, 1]
+    odd = [None, 1, 0]
+    sig = np.zeros((N * nTrials, nChannels), dtype=numType)
+    trialdefinition = np.zeros((nTrials, 3), dtype=np.intp)
+    for ntrial in range(nTrials):
+        noise = rng.normal(scale=np.sqrt(noise_power), size=time.shape).astype(numType)
+        noise *= noise_decay
+        nt1 = ntrial * N
+        nt2 = (ntrial + 1) * N
+        sig[nt1 : nt2, ::2] = np.tile(carriers[:, even[(-1)**ntrial]] + noise, (nChan2, 1)).T
+        sig[nt1 : nt2, 1::2] = np.tile(carriers[:, odd[(-1)**ntrial]] + noise, (nChan2, 1)).T
+        trialdefinition[ntrial, :] = np.array([nt1, nt2, t0])
+
+    # Finally allocate `AnalogData` object that makes use of all this
+    tfData = AnalogData(data=sig, samplerate=fs, trialdefinition=trialdefinition)
+    
+    return tfData, modulators, even, odd
