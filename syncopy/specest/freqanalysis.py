@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-26 14:34:00>
+# Last modification time: <2020-08-28 12:07:02>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -313,7 +313,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     else:
         trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
-    lenTrials = np.diff(sinfo)
+    lenTrials = np.diff(sinfo).squeeze()
     numTrials = len(trialList)
     
     # Set default padding options: after this, `pad` is either `None`, `False` or `str`
@@ -426,7 +426,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             tStart = data._selection.trialdefinition[:, 2] / data.samplerate
         else:
             tStart = data._t0 / data.samplerate
-        tEnd = tStart + np.diff(sinfo).squeeze() / data.samplerate
+        tEnd = tStart + lenTrials / data.samplerate
         
         # Process `toi`: we have to account for three scenarios: (1) center sliding
         # windows on all samples in (selected) trials (2) `toi` was provided as 
@@ -540,8 +540,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                     start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
                     stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
                     soi.append(slice(max(0, start), max(stop, stop - start)))
-
-        # `toi` is percentage or "all"                    
+                    
+        # `toi` is percentage or "all"
         else:
             
             padBegin = np.zeros((numTrials,))
@@ -565,8 +565,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             if overlap < 0:
                 postSelect = []
                 for tk in range(numTrials):
-                    postSelect.append((data.samplerate * (toi - tStart[tk]) - offStart[tk] \
-                        + padBegin[tk]).astype(np.intp))
+                    smpIdx = np.minimum(lenTrials[tk] - 1, 
+                                        data.samplerate * (toi - tStart[tk]) - offStart[tk] + padBegin[tk])
+                    postSelect.append(smpIdx.astype(np.intp))
             else:
                 postSelect = [slice(None)] * numTrials
 

@@ -53,40 +53,64 @@ if __name__ == "__main__":
     # # 1, 3, 5, 7: mod -> 0.0625 * time
     # # 0, 2, 4, 6: mod -> 0.125 * time
     
-    artdata = generate_artificial_data(equidistant=False, overlapping=True)
-    sys.exit()
-
     # Construct high-frequency signal modulated by slow oscillating cosine and 
     # add time-decaying noise
     nChannels = 8
     nChan2 = int(nChannels / 2)
     nTrials = 3
     fs = 1000
+    seed = 151120
     amp = 2 * np.sqrt(2)
     noise_power = 0.01 * fs / 2
     numType = "float32"
     modPeriods = [0.125, 0.0625]
-    rng = np.random.default_rng(151120)
-    tstart = -29.5
-    tstop = 70.5
-    time = (np.arange(0, (tstop - tstart) * fs, dtype=numType) + tstart * fs) / fs
+    rng = np.random.default_rng(seed)
+    tStart = -29.5
+    tStop = 70.5
+    t0 = -np.abs(tStart * fs).astype(np.intp)
+    time = (np.arange(0, (tStop - tStart) * fs, dtype=numType) + tStart * fs) / fs
     N = time.size
     carriers = np.zeros((N, 2), dtype=numType)
+    modulators = np.zeros((N, 2), dtype=numType)
     noise_decay = np.exp(-np.arange(N) / (5*fs))
     for k, period in enumerate(modPeriods):
-        mod = 500 * np.cos(2 * np.pi * period * time)
-        carriers[:, k] = amp * np.sin(2 * np.pi * 3e2 * time + mod)
-    sig = np.zeros((N * nTrials, nChannels), dtype="float32")
+        modulators[:, k] = 500 * np.cos(2 * np.pi * period * time)
+        carriers[:, k] = amp * np.sin(2 * np.pi * 3e2 * time + modulators[:, k])
+        
+    # For trials: stitch together carrier + noise, each trial gets its own (fixed 
+    # but randomized) noise term, channels differ by period in modulator, stratified
+    # by trials, i.e., 
+    # Trial #0, channels 0, 2, 4, 6, ...: mod -> 0.125 * time
+    #                    1, 3, 5, 7, ...: mod -> 0.0625 * time
+    # Trial #1, channels 0, 2, 4, 6, ...: mod -> 0.0625 * time
+    #                    1, 3, 5, 7, ...: mod -> 0.125 * time
     even = [None, 0, 1]
     odd = [None, 1, 0]
+    sig = np.zeros((N * nTrials, nChannels), dtype=numType)
+    trialdefinition = np.zeros((nTrials, 3), dtype=np.intp)
     for ntrial in range(nTrials):
         noise = rng.normal(scale=np.sqrt(noise_power), size=time.shape).astype(numType)
         noise *= noise_decay
-        sig[ntrial*N : (ntrial + 1)*N, ::2] = np.tile(carriers[:, even[(-1)**ntrial]] + noise, (nChan2, 1)).T
-        sig[ntrial*N : (ntrial + 1)*N, 1::2] = np.tile(carriers[:, odd[(-1)**ntrial]] + noise, (nChan2, 1)).T
-        # signal[ntrial*N : (ntrial + 1)*N, 1::2] = carriers[:, odd[(-1)**ntrial]] + noise
-        # signal[ntrial*fs : (ntrial + 1)*fs, ::2] = carriers[:, even[(-1)**ntrial]] + noise
-        # signal[ntrial*fs : (ntrial + 1)*fs, 1::2] = carriers[:, odd[(-1)**ntrial]] + noise
+        nt1 = ntrial * N
+        nt2 = (ntrial + 1) * N
+        sig[nt1 : nt2, ::2] = np.tile(carriers[:, even[(-1)**ntrial]] + noise, (nChan2, 1)).T
+        sig[nt1 : nt2, 1::2] = np.tile(carriers[:, odd[(-1)**ntrial]] + noise, (nChan2, 1)).T
+        trialdefinition[ntrial, :] = np.array([nt1, nt2, t0])
+
+    # Finally allocate `AnalogData` object that makes use of all this
+    tfData = AnalogData(data=sig, samplerate=fs, trialdefinition=trialdefinition)
+
+    cfg = get_defaults(freqanalysis)
+    cfg.method = "wavelet"
+    cfg.wav = "Morlet"
+    trlNo = 0
+    # cfg.toi = np.unique(np.floor(tfData.time[trlNo]))
+    cfg.toi = np.arange(tfData.time[trlNo][0], tfData.time[trlNo][-1] + 1)   
+    cfg.output = "pow"
+    
+    tfSpec = freqanalysis(cfg, tfData)
+    
+    sys.exit()
         
     x = sig[:N, 1]
     carrier = carriers[:, 1]
@@ -139,8 +163,6 @@ if __name__ == "__main__":
 # peak-count can be off by one (depending on windowing, initial down-ward slope
 # is reflected or not), but not more
 
-    
-    sys.exit()
     
     foi = np.arange(501)
     wav = Morlet()

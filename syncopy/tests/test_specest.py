@@ -484,6 +484,7 @@ class TestMTMConvol():
         cfg.t_ftimwin = 1.0
                 
         for select in self.dataSelections:
+            select = self.dataSelections[-1]
             cfg.select = select
             cfg.output = "fourier"
             tfSpec = freqanalysis(cfg, self.tfData)
