@@ -31,6 +31,66 @@ skip_without_dask = pytest.mark.skipif(
     not __dask__, reason="dask not available")
 
 
+# Local helper for constructing TF testing signals
+def _make_tf_signal(nChannels, nTrials, seed, fadeIn=None, fadeOut=None):
+    
+    # Construct high-frequency signal modulated by slow oscillating cosine and 
+    # add time-decaying noise
+    nChan2 = int(nChannels / 2)
+    fs = 1000
+    amp = 2 * np.sqrt(2)
+    noise_power = 0.01 * fs / 2
+    numType = "float32"
+    modPeriods = [0.125, 0.0625]
+    rng = np.random.default_rng(seed)
+    tStart = -29.5
+    tStop = 70.5
+    t0 = -np.abs(tStart * fs).astype(np.intp)
+    time = (np.arange(0, (tStop - tStart) * fs, dtype=numType) + tStart * fs) / fs
+    N = time.size
+    carriers = np.zeros((N, 2), dtype=numType)
+    modulators = np.zeros((N, 2), dtype=numType)
+    noise_decay = np.exp(-np.arange(N) / (5*fs))
+    fader = np.ones((N,), dtype=numType)
+    if fadeIn is None:
+        fadeIn = tStart
+    if fadeOut is None:
+        fadeOut = tStop
+    fadeIn = np.arange(0, (fadeIn - tStart) * fs, dtype=np.intp)
+    fadeOut = np.arange((fadeOut - tStart) * fs, 100 * fs, dtype=np.intp)
+    sigmoid = lambda x: 1 / (1 + np.exp(-x))
+    fader[fadeIn] = sigmoid(np.linspace(-2 * np.pi, 2 * np.pi, fadeIn.size))
+    fader[fadeOut] = sigmoid(-np.linspace(-2 * np.pi, 2 * np.pi, fadeOut.size))
+    for k, period in enumerate(modPeriods):
+        modulators[:, k] = 500 * np.cos(2 * np.pi * period * time)
+        carriers[:, k] = fader * amp * np.sin(2 * np.pi * 3e2 * time + modulators[:, k])
+        
+    # For trials: stitch together carrier + noise, each trial gets its own (fixed 
+    # but randomized) noise term, channels differ by period in modulator, stratified
+    # by trials, i.e., 
+    # Trial #0, channels 0, 2, 4, 6, ...: mod -> 0.125 * time
+    #                    1, 3, 5, 7, ...: mod -> 0.0625 * time
+    # Trial #1, channels 0, 2, 4, 6, ...: mod -> 0.0625 * time
+    #                    1, 3, 5, 7, ...: mod -> 0.125 * time
+    even = [None, 0, 1]
+    odd = [None, 1, 0]
+    sig = np.zeros((N * nTrials, nChannels), dtype=numType)
+    trialdefinition = np.zeros((nTrials, 3), dtype=np.intp)
+    for ntrial in range(nTrials):
+        noise = rng.normal(scale=np.sqrt(noise_power), size=time.shape).astype(numType)
+        noise *= noise_decay
+        nt1 = ntrial * N
+        nt2 = (ntrial + 1) * N
+        sig[nt1 : nt2, ::2] = np.tile(carriers[:, even[(-1)**ntrial]] + noise, (nChan2, 1)).T
+        sig[nt1 : nt2, 1::2] = np.tile(carriers[:, odd[(-1)**ntrial]] + noise, (nChan2, 1)).T
+        trialdefinition[ntrial, :] = np.array([nt1, nt2, t0])
+
+    # Finally allocate `AnalogData` object that makes use of all this
+    tfData = AnalogData(data=sig, samplerate=fs, trialdefinition=trialdefinition)
+    
+    return tfData, modulators, even, odd, fader
+
+
 class TestMTMFFT():
 
     # Construct simple trigonometric signal to check FFT consistency: each
@@ -834,19 +894,22 @@ class TestMTMConvol():
         
 class TestWavelet():
     
-    # Prepare testing signal
+    # Prepare testing signal: ensure `fadeIn` and `fadeOut` are compatible w/`toilim`
+    # selection below
     nChannels = 8
     nTrials = 3
     seed = 151120
-    tfData, modulators, even, odd = _make_tf_signal(nChannels, nTrials, seed, 
-                                                    fadeIn=20, fadeOut=80)
+    fadeIn = -9.5
+    fadeOut = 50.5
+    tfData, modulators, even, odd, fader = _make_tf_signal(nChannels, nTrials, seed, 
+                                                           fadeIn=fadeIn, fadeOut=fadeOut)
 
     # Set up in-place data-selection dicts for the constructed object
     dataSelections = [None,
                       {"trials": [1, 2, 0],
                        "channels": ["channel" + str(i) for i in range(2, 6)][::-1]},
                       {"trials": [0, 2],
-                       "channels": range(0, nChan2),
+                       "channels": range(0, int(nChannels / 2)),
                        "toilim": [-20, 60.8]}]
 
     
@@ -857,74 +920,86 @@ class TestWavelet():
         cfg = get_defaults(freqanalysis)
         cfg.method = "wavelet"
         cfg.wav = "Morlet"
-        cfg.toi = np.arange(tfData.time[trlNo][0], tfData.time[trlNo][-1] + 1)   
+        cfg.toi = np.arange(self.tfData.time[0][0], self.tfData.time[0][-1])   
         cfg.output = "pow"
+
+        chanIdx = SpectralData._defaultDimord.index("channel")
+        tfIdx = [slice(None)] * len(SpectralData._defaultDimord)
+        maxFreqs = np.hstack([np.arange(325, 336), np.arange(355,366)])
+        foilimFreqs = np.arange(maxFreqs.min(), maxFreqs.max() + 1)
 
         for select in self.dataSelections:
             
-            select = None # >>>> testing
+            # Compute TF objects w\w/o`foi`/`foilim`
+            cfg.select = select
+            tfSpec = freqanalysis(cfg, self.tfData)
+            cfg.foi = maxFreqs
+            tfSpecFoi = freqanalysis(cfg, self.tfData)
+            cfg.foi = None
+            cfg.foilim = [maxFreqs.min(), maxFreqs.max()]
+            tfSpecFoiLim = freqanalysis(cfg, self.tfData)
+            cfg.foilim = None
+            
+            # Ensure TF objects contain expected/requested frequencies 
+            assert 0.02 > tfSpec.freq.min() > 0
+            assert tfSpec.freq.max() == (self.tfData.samplerate / 2)
+            assert tfSpec.freq.size > 60
+            assert np.allclose(tfSpecFoi.freq, maxFreqs)
+            assert np.allclose(tfSpecFoiLim.freq, foilimFreqs)
+            
+            for tk, trlArr in enumerate(tfSpec.trials):
+                
+                # Compute expected timing array depending on `toilim` and `fader`
+                trlNo = tk
+                timeArr = np.arange(self.tfData.time[trlNo][0], self.tfData.time[trlNo][-1])
+                if select:
+                    trlNo = select["trials"][tk]
+                    if "toilim" in select.keys():
+                        timeArr = np.arange(*select["toilim"])
+                        timeStart = int(select['toilim'][0] * self.tfData.samplerate - self.tfData._t0[trlNo])
+                        timeStop = int(select['toilim'][1] * self.tfData.samplerate - self.tfData._t0[trlNo])
+                        timeSelection = slice(timeStart, timeStop)
+                else:
+                    timeSelection = np.where(self.fader == 1.0)[0]
+
+                # Ensure timing array was computed correctly and independent of `foi`/`foilim`                
+                assert np.array_equal(timeArr, tfSpec.time[tk])
+                assert np.array_equal(tfSpec.time[tk], tfSpecFoi.time[tk])
+                assert np.array_equal(tfSpecFoi.time[tk], tfSpecFoiLim.time[tk])
+                    
+                for chan in range(tfSpec.channel.size):
+                    
+                    # Get reference channel in input object to determine underlying modulator
+                    chanNo = chan
+                    if select:
+                        if "toilim" not in select.keys():
+                            chanNo = np.where(self.tfData.channel == select["channels"][chan])[0][0]
+                    if chanNo % 2:
+                        modIdx = self.odd[(-1)**trlNo]
+                    else:
+                        modIdx = self.even[(-1)**trlNo]
+                    tfIdx[chanIdx] = chan
+                    Zxx = trlArr[tuple(tfIdx)].squeeze()
+
+                    # For tfSpec: don't scan for min/max freq, but all peaks at once
+                    # auto-freq solution too coarse to differentiate b/w min/max
+                    ZxxMax = Zxx.max()
+                    ZxxThresh = 0.2 * ZxxMax
+                    _, freqPeaks = np.where(Zxx >= (ZxxMax - ZxxThresh))
+                    freqMax, freqMin = freqPeaks.max(), freqPeaks.min()
+                    modulator = self.modulators[timeSelection, modIdx]
+                    modCounts = [sum(modulator == modulator.min()), sum(modulator == modulator.max())]
+                    for fk, freqPeak in enumerate([freqMin, freqMax]):
+                        peakProfile = Zxx[:, freqPeak - 1 : freqPeak + 2].mean(axis=1)
+                        peaks, _ = scisig.find_peaks(peakProfile, height=ZxxThresh)
+                        # assert np.abs(peaks.size - modCounts[fk]) <= 1
+                    import pdb; pdb.set_trace()
+                    
+                    # for tfSpecFoi/tfSpecFoiLim: use ZxxThresh = ZxxMax - 0.1 * ZxxMax
+                    # and consequently find_peaks(peakProfile, height=ZxxThresh)!
             
         
     def test_wav_toi(self):
         
         # cfg.toi = np.unique(np.floor(tfData.time[trlNo]))
         pass
-
-# Local helper for constructing TF testing signals
-def _make_tf_signal(nChannels, nTrials, seed, fadeIn=None, fadeOut=None):
-    
-    # Construct high-frequency signal modulated by slow oscillating cosine and 
-    # add time-decaying noise
-    nChan2 = int(nChannels / 2)
-    fs = 1000
-    amp = 2 * np.sqrt(2)
-    noise_power = 0.01 * fs / 2
-    numType = "float32"
-    modPeriods = [0.125, 0.0625]
-    rng = np.random.default_rng(seed)
-    tStart = -29.5
-    tStop = 70.5
-    t0 = -np.abs(tStart * fs).astype(np.intp)
-    time = (np.arange(0, (tStop - tStart) * fs, dtype=numType) + tStart * fs) / fs
-    N = time.size
-    carriers = np.zeros((N, 2), dtype=numType)
-    modulators = np.zeros((N, 2), dtype=numType)
-    noise_decay = np.exp(-np.arange(N) / (5*fs))
-    fader = np.ones((N,), dtype=numType)
-    if fadeIn is None:
-        fadeIn = 0
-    if fadeOut is None:
-        fadeOut = 100
-    fadeIn = np.arange(0, fadeIn * fs)
-    fadeOut = np.arange(fadeOut * fs, 100 * fs)
-    sigmoid = lambda x: 1 / (1 + np.exp(-x))
-    fader[fadeIn] = sigmoid(np.linspace(-2 * np.pi, 2 * np.pi, fadeIn.size))
-    fader[fadeOut] = sigmoid(-np.linspace(-2 * np.pi, 2 * np.pi, fadeOut.size))
-    for k, period in enumerate(modPeriods):
-        modulators[:, k] = 500 * np.cos(2 * np.pi * period * time)
-        carriers[:, k] = fader * amp * np.sin(2 * np.pi * 3e2 * time + modulators[:, k])
-        
-    # For trials: stitch together carrier + noise, each trial gets its own (fixed 
-    # but randomized) noise term, channels differ by period in modulator, stratified
-    # by trials, i.e., 
-    # Trial #0, channels 0, 2, 4, 6, ...: mod -> 0.125 * time
-    #                    1, 3, 5, 7, ...: mod -> 0.0625 * time
-    # Trial #1, channels 0, 2, 4, 6, ...: mod -> 0.0625 * time
-    #                    1, 3, 5, 7, ...: mod -> 0.125 * time
-    even = [None, 0, 1]
-    odd = [None, 1, 0]
-    sig = np.zeros((N * nTrials, nChannels), dtype=numType)
-    trialdefinition = np.zeros((nTrials, 3), dtype=np.intp)
-    for ntrial in range(nTrials):
-        noise = rng.normal(scale=np.sqrt(noise_power), size=time.shape).astype(numType)
-        noise *= noise_decay
-        nt1 = ntrial * N
-        nt2 = (ntrial + 1) * N
-        sig[nt1 : nt2, ::2] = np.tile(carriers[:, even[(-1)**ntrial]] + noise, (nChan2, 1)).T
-        sig[nt1 : nt2, 1::2] = np.tile(carriers[:, odd[(-1)**ntrial]] + noise, (nChan2, 1)).T
-        trialdefinition[ntrial, :] = np.array([nt1, nt2, t0])
-
-    # Finally allocate `AnalogData` object that makes use of all this
-    tfData = AnalogData(data=sig, samplerate=fs, trialdefinition=trialdefinition)
-    
-    return tfData, modulators, even, odd

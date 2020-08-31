@@ -74,12 +74,19 @@ if __name__ == "__main__":
     modulators = np.zeros((N, 2), dtype=numType)
     noise_decay = np.exp(-np.arange(N) / (5*fs))
     
+    fadeIn = -9.5
+    fadeOut = 50.5
     fader = np.ones((N,), dtype=numType)
-    fadeIn = np.arange(20*fs)
-    fadeOut = np.arange(80*fs, 100*fs)
+    if fadeIn is None:
+        fadeIn = tStart
+    if fadeOut is None:
+        fadeOut = tStop
+    fadeIn = np.arange(0, (fadeIn - tStart) * fs, dtype=np.intp)
+    fadeOut = np.arange((fadeOut - tStart) * fs, 100 * fs, dtype=np.intp)
     sigmoid = lambda x: 1 / (1 + np.exp(-x))
     fader[fadeIn] = sigmoid(np.linspace(-2 * np.pi, 2 * np.pi, fadeIn.size))
     fader[fadeOut] = sigmoid(-np.linspace(-2 * np.pi, 2 * np.pi, fadeOut.size))
+    sys.exit()
     for k, period in enumerate(modPeriods):
         modulators[:, k] = 500 * np.cos(2 * np.pi * period * time)
         carriers[:, k] = fader * amp * np.sin(2 * np.pi * 3e2 * time + modulators[:, k])
