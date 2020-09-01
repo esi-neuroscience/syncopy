@@ -911,7 +911,6 @@ class TestWavelet():
                       {"trials": [0, 2],
                        "channels": range(0, int(nChannels / 2)),
                        "toilim": [-20, 60.8]}]
-
     
     def test_wav_solution(self):
 
@@ -982,10 +981,11 @@ class TestWavelet():
                     Zxx = trlArr[tuple(tfIdx)].squeeze()
 
                     # For tfSpec: don't scan for min/max freq, but all peaks at once
-                    # auto-freq solution too coarse to differentiate b/w min/max
+                    # (auto-freq resolution potentially too coarse to differentiate b/w min/max)
                     ZxxMax = Zxx.max()
                     ZxxThresh = 0.2 * ZxxMax
                     _, freqPeaks = np.where(Zxx >= (ZxxMax - ZxxThresh))
+                    import pdb; pdb.set_trace()
                     freqMax, freqMin = freqPeaks.max(), freqPeaks.min()
                     modulator = self.modulators[timeSelection, modIdx]
                     modCounts = [sum(modulator == modulator.min()), sum(modulator == modulator.max())]
