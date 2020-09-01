@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-01 10:23:39>
+# Last modification time: <2020-09-01 12:13:43>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -727,7 +727,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # Check for consistency of `width`, `order` and `wav`
         if wav == "Morlet":
             try:
-                scalar_parser(width, varname="width", lims=[6, np.inf])
+                scalar_parser(width, varname="width", lims=[1, np.inf])
             except Exception as exc:
                 raise exc
             wfun = getattr(spywave, wav)(w0=width)
