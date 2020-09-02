@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:44:41
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-02 11:40:18>
+# Last modification time: <2020-09-02 12:49:37>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -168,7 +168,8 @@ class WaveletTransform(ComputationalRoutine):
             trl[:, 2] = t0
             
         # Attach meta-data
-        out.trialdefinition = trl    
+        # import pdb; pdb.set_trace()
+        out.trialdefinition = trl
         out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
         out.freq = 1 / self.cfg["wav"].fourier_period(self.cfg["scales"][::-1])

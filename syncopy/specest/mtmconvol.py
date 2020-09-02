@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-28 11:49:39>
+# Last modification time: <2020-09-02 12:49:28>
 
 # Builtin/3rd party package imports
 import numbers
@@ -240,6 +240,7 @@ class MultiTaperFFTConvol(ComputationalRoutine):
             trl[:, 2] = t0
 
         # Attach meta-data
+        # import pdb; pdb.set_trace()
         out.trialdefinition = trl    
         out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
