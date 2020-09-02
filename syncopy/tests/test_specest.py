@@ -1064,7 +1064,6 @@ class TestWavelet():
             cfg.t_ftimwin = 0.05
             for toi in toiArrs:
                 cfg.toi = toi
-                import pdb; pdb.set_trace()
                 tfSpec = freqanalysis(cfg, self.tfData)
                 assert np.allclose(cfg.toi, tfSpec.time[0])
                 assert tfSpec.samplerate == 1/(toi[1] - toi[0])
