@@ -1124,7 +1124,91 @@ class TestWavelet():
         artdata = generate_artificial_data(nTrials=5, nChannels=16,
                                            equidistant=True, inmemory=False)
         tfSpec = freqanalysis(artdata, **cfg)
-        import pdb; pdb.set_trace()
         for tk, origTime in enumerate(artdata.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
+
+        # non-equidistant trials w/multiple tapers
+        artdata = generate_artificial_data(nTrials=5, nChannels=16,
+                                           equidistant=False, inmemory=False)
+        tfSpec = freqanalysis(artdata, **cfg)
+        for tk, origTime in enumerate(artdata.time):
+            assert np.array_equal(origTime, tfSpec.time[tk])
+            
+        # same + reversed dimensional order in input object
+        cfg.data = generate_artificial_data(nTrials=5, nChannels=16,
+                                            equidistant=False, inmemory=False,
+                                            dimord=AnalogData._defaultDimord[::-1])
+        tfSpec = freqanalysis(cfg)
+        for tk, origTime in enumerate(cfg.data.time):
+            assert np.array_equal(origTime, tfSpec.time[tk])
+
+        # same + overlapping trials
+        cfg.data = generate_artificial_data(nTrials=5, nChannels=16,
+                                           equidistant=False, inmemory=False,
+                                           dimord=AnalogData._defaultDimord[::-1],
+                                           overlapping=True)
+        tfSpec = freqanalysis(cfg)
+        for tk, origTime in enumerate(cfg.data.time):
+            assert np.array_equal(origTime, tfSpec.time[tk])
         
+    @skip_without_dask
+    def test_wav_parallel(self, testcluster):
+        # collect all tests of current class and repeat them running concurrently
+        client = dd.Client(testcluster)
+        all_tests = [attr for attr in self.__dir__()
+                     if (inspect.ismethod(getattr(self, attr)) and attr != "test_wav_parallel")]
+        for test in all_tests:
+            getattr(self, test)()
+        
+        # now create uniform `cfg` for remaining SLURM tests
+        cfg = StructDict()
+        cfg.method = "wavelet"
+        cfg.wav = "Morlet"
+        cfg.output = "pow"
+        cfg.toi = "all"
+
+        # no. of HDF5 files that will make up virtual data-set in case of channel-chunking
+        chanPerWrkr = 2
+        nFiles = self.nTrials * (int(self.nChannels/chanPerWrkr)
+                                 + int(self.nChannels % chanPerWrkr > 0))
+
+        # simplest case: equidistant trial spacing, all in memory
+        fileCount = [self.nTrials, nFiles]
+        artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                           inmemory=True)
+        for k, chan_per_worker in enumerate([None, chanPerWrkr]):
+            cfg.chan_per_worker = chan_per_worker
+            tfSpec = freqanalysis(artdata, cfg)
+            assert tfSpec.data.is_virtual
+            assert len(tfSpec.data.virtual_sources()) == fileCount[k]
+
+        # non-equidistant trial spacing
+        cfg.keeptapers = False
+        artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                           inmemory=True, equidistant=False)
+        for chan_per_worker in enumerate([None, chanPerWrkr]):
+            tfSpec = freqanalysis(artdata, cfg)
+            assert 1 > tfSpec.freq.min() > 0
+            assert tfSpec.freq.max() == (self.tfData.samplerate / 2)
+
+        # equidistant trial spacing
+        cfg.output = "abs"
+        artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                           inmemory=False)
+        for chan_per_worker in enumerate([None, chanPerWrkr]):
+            tfSpec = freqanalysis(artdata, cfg)
+            for tk, origTime in enumerate(artdata.time):
+                assert np.array_equal(origTime, tfSpec.time[tk])
+
+        # overlapping trial spacing, throw away trials
+        cfg.keeptrials = "no"
+        cfg.foilim = [1, 250]
+        expectedFreqs = np.arange(1, cfg.foilim[1] + 1)
+        artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                           inmemory=False, equidistant=True,
+                                           overlapping=True)
+        tfSpec = freqanalysis(artdata, cfg)
+        assert np.allclose(tfSpec.freq, expectedFreqs)
+        assert tfSpec.data.shape == (tfSpec.time[0].size, 1, expectedFreqs.size, self.nChannels)
+
+        client.close()
