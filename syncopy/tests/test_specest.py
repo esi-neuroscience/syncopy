@@ -922,6 +922,8 @@ class TestWavelet():
         cfg.width = 1
         cfg.output = "pow"
 
+        # Set up index tuple for slicing computed TF spectra and collect values 
+        # of expected frequency peaks (for validation of `foi`/`foilim` selections below)
         chanIdx = SpectralData._defaultDimord.index("channel")
         tfIdx = [slice(None)] * len(SpectralData._defaultDimord)
         modFreqs = [330, 360]
@@ -931,6 +933,9 @@ class TestWavelet():
 
         for select in self.dataSelections:
 
+            # Timing of `tfData` is identical for all trials, so to speed things up, 
+            # set up `timeArr` here - if `tfData` is modified, these computations have 
+            # to be moved inside the `enumerate(tfSpec.trials)`-loop!
             timeArr = np.arange(self.tfData.time[0][0], self.tfData.time[0][-1])
             if select:
                 if "toilim" in select.keys():
@@ -944,10 +949,7 @@ class TestWavelet():
             
             # Compute TF objects w\w/o`foi`/`foilim`
             cfg.select = select
-            try:
-                tfSpec = freqanalysis(cfg, self.tfData)
-            except:
-                import pdb; pdb.set_trace()
+            tfSpec = freqanalysis(cfg, self.tfData)
             cfg.foi = maxFreqs
             tfSpecFoi = freqanalysis(cfg, self.tfData)
             cfg.foi = None
@@ -964,7 +966,7 @@ class TestWavelet():
             
             for tk, trlArr in enumerate(tfSpec.trials):
                 
-                # Compute expected timing array depending on `toilim` and `fader`
+                # Get reference trial-number in input object
                 trlNo = tk
                 # timeArr = np.arange(self.tfData.time[trlNo][0], self.tfData.time[trlNo][-1])
                 if select:
@@ -974,8 +976,8 @@ class TestWavelet():
                     #     timeStart = int(select['toilim'][0] * self.tfData.samplerate - self.tfData._t0[trlNo])
                     #     timeStop = int(select['toilim'][1] * self.tfData.samplerate - self.tfData._t0[trlNo])
                     #     timeSelection = slice(timeStart, timeStop)
-                else:
-                    timeSelection = np.where(self.fader == 1.0)[0]
+                # else:
+                #     timeSelection = np.where(self.fader == 1.0)[0]
 
                 # Ensure timing array was computed correctly and independent of `foi`/`foilim`                
                 assert np.array_equal(timeArr, tfSpec.time[tk])
@@ -998,7 +1000,7 @@ class TestWavelet():
                     modCounts = [sum(modulator == modulator.min()), sum(modulator == modulator.max())]
 
                     # Be more lenient w/`tfSpec`: don't scan for min/max freq, but all peaks at once
-                    # (auto-freq resolution potentially too coarse to differentiate b/w min/max)
+                    # (auto-scale resolution potentially too coarse to differentiate b/w min/max); 
                     # consider peak-count equal up to 2 misses
                     Zxx = trlArr[tuple(tfIdx)].squeeze()
                     ZxxMax = Zxx.max()
@@ -1009,13 +1011,12 @@ class TestWavelet():
                     modCount = np.ceil(sum(modCounts) / 2)
                     peakProfile = Zxx[:, freqPeak - 1 : freqPeak + 2].mean(axis=1)
                     peaks, _ = scisig.find_peaks(peakProfile, height=2*ZxxThresh, distance=5)
-                    try:
-                        assert np.abs(peaks.size - modCount) <= 2
-                    except:
-                        import pdb; pdb.set_trace()
+                    assert np.abs(peaks.size - modCount) <= 2
 
                     # Now for `tfSpecFoi`/`tfSpecFoiLim` on the other side be more 
-                    # stringent and really count maxima/minima
+                    # stringent and really count maxima/minima (frequency values have 
+                    # been explicitly queried, must not be too coarse); that said, 
+                    # the peak-profile is quite rugged, so adjust `height` if necessary
                     for tfObj in [tfSpecFoi, tfSpecFoiLim]:
                         Zxx = tfObj.trials[tk][tuple(tfIdx)].squeeze()
                         ZxxMax = Zxx.max()
@@ -1025,37 +1026,50 @@ class TestWavelet():
                             freqPeak = tfObj.freq.size - freqIdx
                             peakProfile = Zxx[:, freqPeak - 1 : freqPeak + 2].mean(axis=1)
                             height = (1 - fk * 0.25) * ZxxThresh
-                            # if fk == 1:
-                            #     height = 0.75 * ZxxThresh
-                            # else:
-                            #     height = ZxxThresh
                             peaks, _ = scisig.find_peaks(peakProfile, prominence=0.75*height, height=height, distance=5)
-                            # this isn't super elegant...
-                            try:
-                                assert np.abs(peaks.size - modCounts[fk]) <= 2
-                            except AssertionError:
+                            # if it doesn't fit, use a bigger hammer...
+                            if np.abs(peaks.size - modCounts[fk]) > 2:
                                 height = 0.9 * ZxxThresh
                                 peaks, _ = scisig.find_peaks(peakProfile, prominence=0.75*height, height=height, distance=5)
-                                try:
-                                    assert np.abs(peaks.size - modCounts[fk]) <= 2
-                                except:
-                                    import pdb; pdb.set_trace()
-                        
-                        # _, freqPeaks = np.where(Zxx >= (ZxxThresh))
-                        # freqIdx = np.where(np.abs(tfSpecFoi.freq - 360) < 1)[0][0]
-                        # freqMax = tfSpecFoi.freq.size - freqIdx
-                    
-                    # import pdb; pdb.set_trace()
-                    
-                    # _, freqPeaks = np.where(Zxx >= ZxxThresh)
-                    # freqMax, freqMin = freqPeaks.max(), freqPeaks.min()
-                    # for fk, freqPeak in enumerate([freqMin, freqMax]):
-                    #     peakProfile = Zxx[:, freqPeak - 1 : freqPeak + 2].mean(axis=1)
-                    #     peaks, _ = scisig.find_peaks(peakProfile, height=ZxxThresh)
-                    #     # assert np.abs(peaks.size - modCounts[fk]) <= 1
+                            assert np.abs(peaks.size - modCounts[fk]) <= 2
             
-        
     def test_wav_toi(self):
         
+        # Don't keep trials to speed things up a bit
+        cfg = get_defaults(freqanalysis)
+        cfg.method = "wavelet"
+        cfg.wav = "Morlet"
+        # cfg.width = 1
+        cfg.output = "pow"
+        cfg.keeptrials = False 
         # cfg.toi = np.unique(np.floor(tfData.time[trlNo]))
-        pass
+
+        # Test time-point arrays comprising onset, purely pre-onset, purely after 
+        # onset and non-unit spacing
+        toiArrs = [np.arange(-10, 15.1), 
+                   np.arange(-15, -10, 1/self.tfData.samplerate), 
+                   np.arange(1, 20, 2)]
+
+        # Combine `toi`-testing w/in-place data-pre-selection        
+        for select in self.dataSelections:
+            cfg.select = select
+            tStart = self.tfData.time[0][0]
+            tStop = self.tfData.time[0][-1]
+            if select:
+                if "toilim" in select.keys():
+                    tStart = select["toilim"][0]
+                    tStop = select["toilim"][1]
+
+            # Test window-centroids specified as time-point arrays    
+            cfg.t_ftimwin = 0.05
+            for toi in toiArrs:
+                cfg.toi = toi
+                import pdb; pdb.set_trace()
+                tfSpec = freqanalysis(cfg, self.tfData)
+                assert np.allclose(cfg.toi, tfSpec.time[0])
+                assert tfSpec.samplerate == 1/(toi[1] - toi[0])
+            
+            # Unevenly sampled array: timing currently in lala-land, but sizes must match
+            cfg.toi = [-5, 3, 10]
+            tfSpec = freqanalysis(cfg, self.tfData)
+            assert tfSpec.time[0].size == len(cfg.toi)
