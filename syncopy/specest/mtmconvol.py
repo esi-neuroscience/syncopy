@@ -4,7 +4,7 @@
 # 
 # Created: 2020-02-05 09:36:38
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-02 12:49:28>
+# Last modification time: <2020-09-02 15:42:56>
 
 # Builtin/3rd party package imports
 import numbers
@@ -240,8 +240,7 @@ class MultiTaperFFTConvol(ComputationalRoutine):
             trl[:, 2] = t0
 
         # Attach meta-data
-        # import pdb; pdb.set_trace()
-        out.trialdefinition = trl    
+        out.trialdefinition = trl
         out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
         out.taper = np.array([self.cfg["taper"].__name__] * self.outputShape[out.dimord.index("taper")])
@@ -318,6 +317,13 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
         trialdefinition[:, 1] = sumLens.ravel()
         trialdefinition[:, 2] = trialdefinition[:, 2] / winSize
         samplerate = np.round(samplerate / winSize, 2) 
+    
+    # If `toi` was "all", do **not** simply use provided `trialdefinition`: overlapping
+    # trials require thie below `cumsum` gymnastics
+    else:
+        bounds = np.cumsum(np.diff(trialdefinition[:, :2]))
+        trialdefinition[1:, 0] = bounds[:-1]
+        trialdefinition[:, 1] = bounds
         
     return trialdefinition, samplerate
     

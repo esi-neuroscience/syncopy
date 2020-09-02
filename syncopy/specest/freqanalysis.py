@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-02 12:49:14>
+# Last modification time: <2020-09-02 15:49:49>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -573,9 +573,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
-        # toi = lcls["toi"]
+        if toi is None:
+            toi = "all"
         log_dct["toi"] = lcls["toi"]
-        # import pdb; pdb.set_trace()
         
     # Check options specific to mtm*-methods (particularly tapers and foi/freqs alignment)
     if "mtm" in method:

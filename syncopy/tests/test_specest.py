@@ -698,48 +698,48 @@ class TestMTMConvol():
         cfg.keeptrials = False 
         cfg.keeptapers = False
         
-        # # Test various combinations of `toi` and `t_ftimwin`: `toiArrs` comprises
-        # # arrays containing the onset, purely pre-onset, purely after onset and 
-        # # non-unit spacing
-        # toiVals = [0.9, 0.75]
-        # toiArrs = [np.arange(-10, 15.1), 
-        #            np.arange(-15, -10, 1/self.tfData.samplerate), 
-        #            np.arange(1, 20, 2)]
-        # winSizes = [0.5, 1.0]
+        # Test various combinations of `toi` and `t_ftimwin`: `toiArrs` comprises
+        # arrays containing the onset, purely pre-onset, purely after onset and 
+        # non-unit spacing
+        toiVals = [0.9, 0.75]
+        toiArrs = [np.arange(-10, 15.1), 
+                   np.arange(-15, -10, 1/self.tfData.samplerate), 
+                   np.arange(1, 20, 2)]
+        winSizes = [0.5, 1.0]
 
-        # # Combine `toi`-testing w/in-place data-pre-selection        
-        # for select in self.dataSelections:
-        #     cfg.select = select
-        #     tStart = self.tfData.time[0][0]
-        #     tStop = self.tfData.time[0][-1]
-        #     if select:
-        #         if "toilim" in select.keys():
-        #             tStart = select["toilim"][0]
-        #             tStop = select["toilim"][1]
+        # Combine `toi`-testing w/in-place data-pre-selection        
+        for select in self.dataSelections:
+            cfg.select = select
+            tStart = self.tfData.time[0][0]
+            tStop = self.tfData.time[0][-1]
+            if select:
+                if "toilim" in select.keys():
+                    tStart = select["toilim"][0]
+                    tStop = select["toilim"][1]
 
-        #     # Test TF calculation w/different window-size/-centroids: ensure 
-        #     # resulting timing arrays are correct
-        #     for winsize in winSizes:
-        #         cfg.t_ftimwin = winsize
-        #         for toi in toiVals:
-        #             cfg.toi = toi
-        #             tfSpec = freqanalysis(cfg, self.tfData)
-        #             tStep = winsize - toi * winsize
-        #             timeArr = np.arange(tStart, tStop, tStep)
-        #             assert np.allclose(timeArr, tfSpec.time[0])
+            # Test TF calculation w/different window-size/-centroids: ensure 
+            # resulting timing arrays are correct
+            for winsize in winSizes:
+                cfg.t_ftimwin = winsize
+                for toi in toiVals:
+                    cfg.toi = toi
+                    tfSpec = freqanalysis(cfg, self.tfData)
+                    tStep = winsize - toi * winsize
+                    timeArr = np.arange(tStart, tStop, tStep)
+                    assert np.allclose(timeArr, tfSpec.time[0])
         
-        #     # Test window-centroids specified as time-point arrays    
-        #     cfg.t_ftimwin = 0.05
-        #     for toi in toiArrs:
-        #         cfg.toi = toi
-        #         tfSpec = freqanalysis(cfg, self.tfData)
-        #         assert np.allclose(cfg.toi, tfSpec.time[0])
-        #         assert tfSpec.samplerate == 1/(toi[1] - toi[0])
+            # Test window-centroids specified as time-point arrays    
+            cfg.t_ftimwin = 0.05
+            for toi in toiArrs:
+                cfg.toi = toi
+                tfSpec = freqanalysis(cfg, self.tfData)
+                assert np.allclose(cfg.toi, tfSpec.time[0])
+                assert tfSpec.samplerate == 1/(toi[1] - toi[0])
             
-        #     # Unevenly sampled array: timing currently in lala-land, but sizes must match
-        #     cfg.toi = [-5, 3, 10]
-        #     tfSpec = freqanalysis(cfg, self.tfData)
-        #     assert tfSpec.time[0].size == len(cfg.toi)
+            # Unevenly sampled array: timing currently in lala-land, but sizes must match
+            cfg.toi = [-5, 3, 10]
+            tfSpec = freqanalysis(cfg, self.tfData)
+            assert tfSpec.time[0].size == len(cfg.toi)
         
         # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
         # to not overflow memory here); same for ``toi = 1.0```
@@ -750,7 +750,6 @@ class TestMTMConvol():
         cfg.toi = "all"
         cfg.t_ftimwin = 0.05
         tfSpec = freqanalysis(cfg, self.tfData)
-        import pdb; pdb.set_trace()
         assert tfSpec.taper.size > 1
         dt = 1/self.tfData.samplerate
         timeArr = np.arange(cfg.select["toilim"][0], cfg.select["toilim"][1] + dt, dt)
@@ -790,27 +789,43 @@ class TestMTMConvol():
     def test_tf_irregular_trials(self):
         # Settings for computing "full" non-overlapping TF-spectrum with DPSS tapers: 
         # ensure non-equidistant/overlapping trials are processed (padded) correctly
+        # also make sure ``toi = "all"`` works under any circumstance
         cfg = get_defaults(freqanalysis)
         cfg.method = "mtmconvol"
         cfg.taper = "dpss"
         cfg.tapsmofrq = 10
-        cfg.toi = 0.0
         cfg.t_ftimwin = 1.0
         cfg.output = "pow"
         cfg.keeptapers = True
         
-        cfg.toi = "all"
-        
-        # non-equidistant trials w/multiple tapers
+        # start harmless: equidistant trials w/multiple tapers
+        cfg.toi = 0.0
         artdata = generate_artificial_data(nTrials=5, nChannels=16,
-                                           equidistant=False, inmemory=False)
+                                           equidistant=True, inmemory=False)
         tfSpec = freqanalysis(artdata, **cfg)
-        import pdb; pdb.set_trace()
         assert tfSpec.taper.size > 1
         for tk, origTime in enumerate(artdata.time):
             assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
+        cfg.toi = "all"
+        tfSpec = freqanalysis(artdata, **cfg)
+        for tk, origTime in enumerate(artdata.time):
+            assert np.array_equal(origTime, tfSpec.time[tk])
+        
+        # non-equidistant trials w/multiple tapers
+        cfg.toi = 0.0
+        artdata = generate_artificial_data(nTrials=5, nChannels=16,
+                                           equidistant=False, inmemory=False)
+        tfSpec = freqanalysis(artdata, **cfg)
+        assert tfSpec.taper.size > 1
+        for tk, origTime in enumerate(artdata.time):
+            assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
+        cfg.toi = "all"
+        tfSpec = freqanalysis(artdata, **cfg)
+        for tk, origTime in enumerate(artdata.time):
+            assert np.array_equal(origTime, tfSpec.time[tk])
             
         # same + reversed dimensional order in input object
+        cfg.toi = 0.0
         cfg.data = generate_artificial_data(nTrials=5, nChannels=16,
                                             equidistant=False, inmemory=False,
                                             dimord=AnalogData._defaultDimord[::-1])
@@ -818,8 +833,13 @@ class TestMTMConvol():
         assert tfSpec.taper.size > 1
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
+        cfg.toi = "all"
+        tfSpec = freqanalysis(cfg)
+        for tk, origTime in enumerate(cfg.data.time):
+            assert np.array_equal(origTime, tfSpec.time[tk])
 
         # same + overlapping trials
+        cfg.toi = 0.0
         cfg.data = generate_artificial_data(nTrials=5, nChannels=16,
                                            equidistant=False, inmemory=False,
                                            dimord=AnalogData._defaultDimord[::-1],
@@ -828,6 +848,10 @@ class TestMTMConvol():
         assert tfSpec.taper.size > 1
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
+        cfg.toi = "all"
+        tfSpec = freqanalysis(cfg)
+        for tk, origTime in enumerate(cfg.data.time):
+            assert np.array_equal(origTime, tfSpec.time[tk])
             
     @skip_without_dask
     def test_tf_parallel(self, testcluster):
@@ -1089,36 +1113,18 @@ class TestWavelet():
             assert "Invalid value of `toi`: 'unsorted list/array'" in str(spyval.value)
 
     def test_wav_irregular_trials(self):
-        # Set up 
+        # Set up wavelet to compute "full" TF spectrum for all time-points
         cfg = get_defaults(freqanalysis)
         cfg.method = "wavelet"
         cfg.wav = "Morlet"
         cfg.output = "pow"
         cfg.toi = "all"
-        
-        # non-equidistant trials 
+
+        # start harmless: equidistant trials w/multiple tapers
         artdata = generate_artificial_data(nTrials=5, nChannels=16,
-                                           equidistant=False, inmemory=False)
+                                           equidistant=True, inmemory=False)
         tfSpec = freqanalysis(artdata, **cfg)
         import pdb; pdb.set_trace()
         for tk, origTime in enumerate(artdata.time):
-            assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
-            
-        # same + reversed dimensional order in input object
-        cfg.data = generate_artificial_data(nTrials=5, nChannels=16,
-                                            equidistant=False, inmemory=False,
-                                            dimord=AnalogData._defaultDimord[::-1])
-        tfSpec = freqanalysis(cfg)
-        assert tfSpec.taper.size > 1
-        for tk, origTime in enumerate(cfg.data.time):
-            assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
-
-        # same + overlapping trials
-        cfg.data = generate_artificial_data(nTrials=5, nChannels=16,
-                                           equidistant=False, inmemory=False,
-                                           dimord=AnalogData._defaultDimord[::-1],
-                                           overlapping=True)
-        tfSpec = freqanalysis(cfg)
-        assert tfSpec.taper.size > 1
-        for tk, origTime in enumerate(cfg.data.time):
-            assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
+            assert np.array_equal(origTime, tfSpec.time[tk])
+        
