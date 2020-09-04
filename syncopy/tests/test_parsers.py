@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-05 16:22:56
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-09 09:54:16>
+# Last modification time: <2020-09-04 15:57:23>
 
 import os
 import platform
@@ -181,6 +181,40 @@ class TestArrayParser():
         array_parser(channels, varname="channels", dims=(None,))
         with pytest.raises(SPYValueError):
             array_parser(channels, varname="channels", dims=(4,))
+            
+    def test_sorted_arrays(self):
+        ladder = np.arange(10)
+        array_parser(ladder, issorted=True)
+        array_parser(ladder, dims=1, ntype="int_like", issorted=True)
+        array_parser([1, 0, 4], issorted=False)
+        with pytest.raises(SPYValueError) as spyval:
+            array_parser(np.ones((2, 2)), issorted=True)
+            errmsg = "'2-dimensional array'; expected 1-dimensional array"
+            assert errmsg in str(spyval.value)
+        with pytest.raises(SPYValueError) as spyval:
+            array_parser(np.ones((3, 1)), issorted=True)
+            errmsg = "'unsorted array'; expected array with elements in ascending order"
+            assert errmsg in str(spyval.value)
+        with pytest.raises(SPYValueError) as spyval:
+            array_parser(ladder[::-1], issorted=True)
+            errmsg = "'unsorted array'; expected array with elements in ascending order"
+            assert errmsg in str(spyval.value)
+        with pytest.raises(SPYValueError) as spyval:
+            array_parser([1+3j, 3, 4], issorted=True)
+            errmsg = "'array containing complex elements'; expected real-valued array"
+            assert errmsg in str(spyval.value)
+        with pytest.raises(SPYValueError) as spyval:
+            array_parser(ladder, issorted=False)
+            errmsg = "'array with elements in ascending order'; expected unsorted array"
+            assert errmsg in str(spyval.value)
+        with pytest.raises(SPYValueError) as spyval:
+            array_parser(['a', 'b', 'c'], issorted=True)
+            errmsg = "expected dtype = numeric"
+            assert errmsg in str(spyval.value)
+        with pytest.raises(SPYValueError) as spyval:
+            array_parser(np.ones(0), issorted=True)
+            errmsg = "'array containing (fewer than) one element"
+            assert errmsg in str(spyval.value)
 
 
 class TestFilenameParser():

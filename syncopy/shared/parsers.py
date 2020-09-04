@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-08 09:58:11
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-09 09:56:32>
+# Last modification time: <2020-09-04 16:03:28>
 
 # Builtin/3rd party package imports
 import os
@@ -225,7 +225,7 @@ def scalar_parser(var, varname="", ntype=None, lims=None):
 
 
 def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
-                 lims=None, dims=None):
+                 lims=None, dims=None, issorted=None):
     """
     Parse array-like objects
 
@@ -281,6 +281,12 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
         any array `var` with `var.shape = (10, )` is considered invalid if 
         `dims = 2` and conversely, `dims = 1` and `var.shape = (10,  1)` 
         triggers an exception. 
+    issorted : None or bool
+        If `issorted` is `True`, `var` is expected to be a 1d-array (or 2d-array 
+        with a single singleton-dimension, i.e., a row- or column-vector) with 
+        elements in ascending order. Conversely, if `issorted` is `False`, `var` 
+        is considered invalid if its elements are ordered by magnitude. If 
+        `issorted` is `None`, order of array elements is not inspected. 
     
     Returns
     -------
@@ -295,13 +301,17 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
     >>> array_parser(time, varname="time", lims=[0, 10], dims=1)
     >>> array_parser(time, varname="time", lims=[0, 10], dims=(100,))
 
+    Ensure additionally that all elements of `time` are ordered by magnitude
+    
+    >>> array_parser(time, varname="time", lims=[0, 10], dims=(100,), issorted=True)
+
     Artificially appending a singleton dimension to `time` does not affect
     parsing:
 
     >>> time = time[:,np.newaxis]
     >>> time.shape
     (100, 1)
-    >>> array_parser(time, varname="time", lims=[0, 10], dims=(100,))
+    >>> array_parser(time, varname="time", lims=[0, 10], dims=(100,), issorted=True)
 
     However, explicitly querying for a row-vector fails
 
@@ -318,6 +328,10 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
 
     >>> array_parser(spec, varname="spec", lims=[-3, 5])    # valid
     >>> array_parser(spec, varname="spec", lims=[-1, 5])    # invalid since spec[1].imag < lims[0]
+    
+    However, complex numbers do not admit an order relationship:
+    
+    >>> array_parser(spec, varname="spec", lims=[-3, 5], issorted=True)  # invalid
 
     Character lists can be parsed as well:
 
@@ -339,6 +353,14 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
     # generic "numeric" option to ensure array is actually numeric
     if (lims is not None or hasnan is not None or hasinf is not None) and ntype is None:
         ntype = "numeric"
+
+    # If array-element order parsing is requested by `ntype` and/or `dims` are not
+    # set, use sane defaults to ensure array is numeric and one-dimensional
+    if issorted is not None:
+        if ntype is None:
+            ntype = "numeric"
+        if dims is None:
+            dims = (None, )
 
     # If required, parse type (handle "int_like" and "numeric" separately)
     if ntype is not None:
@@ -420,6 +442,26 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
             if ndim != dims:
                 raise SPYValueError(str(dims) + "d-array", varname=varname,
                                     actual=str(ndim) + "d-array")
+
+    # If required check if array elements are orderd by magnitude                
+    if issorted is not None:
+        if not np.all(np.isreal(arr)):
+            lgl = "real-valued array"
+            act = "array containing complex elements"
+            raise SPYValueError(legal=lgl, varname=varname, actual=act)
+        if arr.size <= 1:
+            lgl = "array with at least two elements"
+            act = "array containing (fewer than) one element"
+            raise SPYValueError(legal=lgl, varname=varname, actual=act)
+        ascending = np.diff(arr.flatten()).min() > 0  
+        if issorted and not ascending:
+            lgl = "array with elements in ascending order"
+            act = "unsorted array"
+            raise SPYValueError(legal=lgl, varname=varname, actual=act)
+        if not issorted and ascending:
+            lgl = "unsorted array"
+            act = "array with elements in ascending order"
+            raise SPYValueError(legal=lgl, varname=varname, actual=act)
 
     return
 
