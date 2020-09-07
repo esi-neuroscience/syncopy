@@ -4,7 +4,7 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-07 14:41:09>
+# Last modification time: <2020-09-07 16:13:34>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -69,9 +69,10 @@ __all__ = ["singlepanelplot", "multipanelplot"]
 
 @unwrap_cfg
 def singlepanelplot(*data, 
-               trials="all", channels="all", toilim=None, 
-               avg_channels=True, 
-               title=None, grid=None, overlay=True, fig=None, **kwargs):
+                    trials="all", channels="all", tapers="all", toilim=None, foilim=None,
+                    avg_channels=True, avg_tapers=True, toi=None, foi=None,
+                    interp="spline36", cmap="plasma", vmin=None, vmax=None, 
+                    title=None, grid=None, overlay=True, fig=None, **kwargs):
     """
     Plot contents of Syncopy data object(s) using single-panel figure(s)
 
@@ -82,10 +83,20 @@ def singlepanelplot(*data,
     :class:`~syncopy.AnalogData` : trials, channels, toi/toilim
         Examples
         
-        >>> fig1, fig2 = spy.singlepanelplot(data1, data2, channels=["channel01", "channel02"], overlay=False)
+        >>> fig1, fig2 = spy.singlepanelplot(data1, data2, channels=["channel1", "channel2"], overlay=False)
         >>> cfg = spy.StructDict() 
         >>> cfg.trials = [5, 3, 0]; cfg.toilim = [0.25, 0.5]
         >>> fig = spy.singlepanelplot(cfg, data1, data2, overlay=True)
+
+    :class:`~syncopy.SpectralData` : trials, channels, tapers, toi/toilim, foi/foilim
+        Examples
+        
+        >>> fig1, fig2 = spy.singlepanelplot(data1, data2, channels=["channel1", "channel2"], 
+                                             tapers=[3, 0], foilim=[30, 80], avg_channels=False, 
+                                             avg_tapers=True, grid=True, overlay=False)
+        >>> cfg = spy.StructDict() 
+        >>> cfg.trials = [1, 0, 3]; cfg.toilim = [-0.25, 0.5]
+        >>> fig = spy.singlepanelplot(cfg, tfData1, tfData2, overlay=False)
     
     Parameters
     ----------
@@ -191,9 +202,9 @@ def singlepanelplot(*data,
 
 @unwrap_cfg
 def multipanelplot(*data, 
-              trials="all", channels="all", toilim=None, 
-              avg_channels=False, avg_trials=True, 
-              title=None, grid=None, overlay=True, fig=None, **kwargs):
+                   trials="all", channels="all", toilim=None, 
+                   avg_channels=False, avg_trials=True, 
+                   title=None, grid=None, overlay=True, fig=None, **kwargs):
     """
     Plot contents of Syncopy data object(s) using multi-panel figure(s)
 
@@ -204,7 +215,7 @@ def multipanelplot(*data,
     :class:`~syncopy.AnalogData` : trials, channels, toi/toilim
         Examples
         
-        >>> fig1, fig2 = spy.multipanelplot(data1, channels=["channel01", "channel02"])
+        >>> fig1, fig2 = spy.multipanelplot(data1, channels=["channel1", "channel2"])
         >>> cfg = spy.StructDict() 
         >>> cfg.trials = [5, 3, 0]; cfg.toilim = [0.25, 0.5]
         >>> fig = spy.multipanelplot(cfg, data1, data2, overlay=True)

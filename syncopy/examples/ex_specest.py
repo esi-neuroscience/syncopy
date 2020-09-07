@@ -33,28 +33,38 @@ from time import time
 
 if __name__ == "__main__":
 
-    # data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
-    data = spy.load('~/Documents/job/SyNCoPy/Data/testdata.spy/')
+    data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
+    # data = spy.load('~/Documents/job/SyNCoPy/Data/testdata.spy/')
 
-    from syncopy.plotting._plot_spectral import singlepanelplot, multipanelplot
+    # from syncopy.plotting._plot_spectral import singlepanelplot, multipanelplot
     import matplotlib.pyplot as plt
-
-    # cfg = spy.get_defaults(spy.freqanalysis)
-    # cfg.method = 'mtmfft'
-    # cfg.taper = "dpss"
-    # cfg.tapsmofrq = 20
-    # cfg.output = 'pow'
-    # cfg.keeptrials = True
-    # cfg.keeptapers = True
-    # cfg.select = {"trials": [0, 10]}
-    # overallSpectrum = spy.freqanalysis(cfg, data)
     
-    # singlepanelplot(overallSpectrum, channels=[10, 50, 20], tapers=[3, 0], foilim=[30, 80],
+    # data1 = generate_artificial_data()
+    # data2 = data1
+    # spy.singlepanelplot(data1, data2, channels=["channel1", "channel2"], overlay=False)
+    
+    # sys.exit()
+
+    cfg = spy.get_defaults(spy.freqanalysis)
+    cfg.method = 'mtmfft'
+    cfg.taper = "dpss"
+    cfg.tapsmofrq = 20
+    cfg.output = 'pow'
+    cfg.keeptrials = True
+    cfg.keeptapers = True
+    cfg.select = {"trials": [0, 10]}
+    overallSpectrum = spy.freqanalysis(cfg, data)
+    
+    # spy.singlepanelplot(overallSpectrum, channels=[10, 50, 20], tapers=[3, 0], foilim=[30, 80],
     #                 avg_channels=False, avg_tapers=True, grid=True)
     # # multipanelplot(overallSpectrum, channels=[10, 50, 20], tapers=[3, 0], foilim=[30, 80],
     # #                panels="tapers", avg_channels=True, avg_tapers=False, avg_trials=True)
-    # plt.show()
-    # sys.exit()
+    
+    fig1, fig2 = spy.singlepanelplot(overallSpectrum, overallSpectrum, tapers=[3, 0], 
+                                 foilim=[30, 80], avg_channels=False, avg_tapers=True, grid=True, overlay=True)
+    
+    plt.show()
+    sys.exit()
 
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmconvol'

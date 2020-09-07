@@ -4,7 +4,7 @@
 # 
 # Created: 2020-04-17 08:25:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-07 19:10:46>
+# Last modification time: <2020-09-07 15:48:31>
 
 import pytest
 import numpy as np
@@ -84,7 +84,6 @@ class TestAnalogDataPlotting():
                                                            toilim=toilim)
                         fig2 = selected.singlepanelplot(trials="all", 
                                                    avg_channels=avg_channels)
-                        # assert figs_equal(fig1, fig2)
                         
                         # Recreate `fig1` and `fig2` in a single sweep by using 
                         # `spy.singlepanelplot` w/multiple input objects 
