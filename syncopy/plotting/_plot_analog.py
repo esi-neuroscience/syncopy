@@ -4,13 +4,14 @@
 # 
 # Created: 2020-05-06 13:32:40
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-07 19:21:25>
+# Last modification time: <2020-09-08 09:32:59>
 
 import numpy as np
 import os 
 
-from syncopy.shared.errors import SPYValueError, SPYError, SPYTypeError, SPYWarning
-from syncopy.plotting.spy_plotting import pltErrMsg, pltConfig, _layout_subplot_panels, _compute_toilim_avg, _setup_figure
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
+from syncopy.plotting.spy_plotting import (pltConfig, _layout_subplot_panels, 
+                                           _compute_toilim_avg, _setup_figure, _prep_plots)
 from syncopy import __plt__
 if __plt__:
     import matplotlib.pyplot as plt
@@ -582,9 +583,8 @@ def _prep_analog_plots(self, name, **inputArgs):
     Local helper
     """
     
-    # Abort if matplotlib is not available
-    if not __plt__:
-        raise SPYError(pltErrMsg.format(name))
+    # Basic sanity checks for all plotting routines w/any Syncopy object
+    _prep_plots(self, name, **inputArgs)
     
     # Ensure our binary flags are actually binary
     if not isinstance(inputArgs["avg_channels"], bool):

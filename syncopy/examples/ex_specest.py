@@ -41,30 +41,32 @@ if __name__ == "__main__":
     
     # data1 = generate_artificial_data()
     # data2 = data1
-    # spy.singlepanelplot(data1, data2, channels=["channel1", "channel2"], overlay=False)
+    # spy.singlepanelplot(data1, data2, channels=["channel1", "channel2"], toilim=[1.2, 1.5], overlay=False)
     
-    # sys.exit()
-
-    cfg = spy.get_defaults(spy.freqanalysis)
-    cfg.method = 'mtmfft'
-    cfg.taper = "dpss"
-    cfg.tapsmofrq = 20
-    cfg.output = 'pow'
-    cfg.keeptrials = True
-    cfg.keeptapers = True
-    cfg.select = {"trials": [0, 10]}
-    overallSpectrum = spy.freqanalysis(cfg, data)
+    # spy.singlepanelplot(data1, channels=["channel1", "channel2"], toilim=[0.2, 0.5])
     
-    # spy.singlepanelplot(overallSpectrum, channels=[10, 50, 20], tapers=[3, 0], foilim=[30, 80],
-    #                 avg_channels=False, avg_tapers=True, grid=True)
-    # # multipanelplot(overallSpectrum, channels=[10, 50, 20], tapers=[3, 0], foilim=[30, 80],
-    # #                panels="tapers", avg_channels=True, avg_tapers=False, avg_trials=True)
-    
-    fig1, fig2 = spy.singlepanelplot(overallSpectrum, overallSpectrum, tapers=[3, 0], 
-                                 foilim=[30, 80], avg_channels=False, avg_tapers=True, grid=True, overlay=True)
-    
-    plt.show()
     sys.exit()
+
+    # cfg = spy.get_defaults(spy.freqanalysis)
+    # cfg.method = 'mtmfft'
+    # cfg.taper = "dpss"
+    # cfg.tapsmofrq = 20
+    # cfg.output = 'pow'
+    # cfg.keeptrials = True
+    # cfg.keeptapers = True
+    # cfg.select = {"trials": [0, 10]}
+    # overallSpectrum = spy.freqanalysis(cfg, data)
+    
+    # # spy.singlepanelplot(overallSpectrum, channels=[10, 50, 20], tapers=[3, 0], foilim=[30, 80],
+    # #                 avg_channels=False, avg_tapers=True, grid=True)
+    # # # multipanelplot(overallSpectrum, channels=[10, 50, 20], tapers=[3, 0], foilim=[30, 80],
+    # # #                panels="tapers", avg_channels=True, avg_tapers=False, avg_trials=True)
+    
+    # fig1, fig2 = spy.singlepanelplot(overallSpectrum, overallSpectrum, tapers=[3, 0], 
+    #                              foilim=[30, 80], avg_channels=False, avg_tapers=True, grid=True, overlay=True)
+    
+    # plt.show()
+    # sys.exit()
 
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmconvol'
@@ -92,6 +94,10 @@ if __name__ == "__main__":
     # cfg.select = {"trials": [0, 10, 20], "toilim": [-0.001, 0.05]}
     # tfSpectrum = spy.freqanalysis(cfg, data)
     tfSpectrum = spy.freqanalysis(cfg, data)
+    
+    fig = tfSpectrum.singlepanelplot(toilim=[-0.1, 0.1]) 
+    
+    sys.exit()
 
     singlepanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80],
                     avg_channels=True, avg_tapers=True, grid=True)
@@ -113,7 +119,7 @@ if __name__ == "__main__":
     # cfg.toi = [-0.1, 0.0, 0.2]
     # cfg.select = {"trials": [0, 10]}
     cfg.select = {"trials": [0, 10], "toilim": [-0.001, 0.05]}
-    tfSpectrum = spy.freqanalysis(cfg, data)
+    tfSpectrum = spy.freqanalysis(cfg, data, select=dict(cfg.select))
 
     sys.exit()
     

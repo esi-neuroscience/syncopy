@@ -4,7 +4,7 @@
 # 
 # Created: 2020-07-15 10:26:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-07 18:57:29>
+# Last modification time: <2020-09-08 09:56:43>
 
 # Builtin/3rd party package imports
 import os
@@ -452,6 +452,7 @@ def _compute_pltArr(self, nFreq, N, nTime, complexConversion, pltDtype,
 
     for trlno in trList:
         trlArr = complexConversion(self._get_trial(trlno))
+        idx[timeIdx] = self._selection.time[trlno]
         if not useFancy:
             trlArr = trlArr[tuple(idx)]
         else:

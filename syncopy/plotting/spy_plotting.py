@@ -4,9 +4,10 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-07 16:13:34>
+# Last modification time: <2020-09-08 10:31:16>
 
 # Builtin/3rd party package imports
+import warnings
 import numpy as np
 
 # Local imports
@@ -32,7 +33,10 @@ if __plt__:
     changeMplConf = True
     rcDefaults = mpl.rc_params()
     rcKeys = rcDefaults.keys()
-    rcParams = dict(mpl.rcParams)
+    with warnings.catch_warnings(): # examples.directory was deprecated in Matplotlib 3.0, silence the warning
+        warnings.simplefilter("ignore")
+        rcParams = dict(mpl.rcParams)
+        rcParams.pop("examples.directory", None)  
     rcParams.pop("backend")
     rcParams.pop("interactive")
     for key, value in rcParams.items():
@@ -184,7 +188,7 @@ def singlepanelplot(*data,
     :meth:`syncopy.AnalogData.singlepanelplot` : `singlepanelplot` for :class:`~syncopy.AnalogData` objects
     """
     
-    # Abort if matplotlib is not available
+    # Abort if matplotlib is not available: FIXME -> `_prep_plots`?
     if not __plt__:
         raise SPYError(pltErrMsg.format("singlepanelplot"))
     
@@ -316,7 +320,7 @@ def multipanelplot(*data,
     :meth:`syncopy.AnalogData.multipanelplot` : `multipanelplot` for :class:`~syncopy.AnalogData` objects
     """
 
-    # Abort if matplotlib is not available
+    # Abort if matplotlib is not available FIXME -> `_prep_plots`?
     if not __plt__:
         raise SPYError(pltErrMsg.format("multipanelplot"))
 
@@ -341,7 +345,7 @@ def _anyplot(*data, overlay=None, method=None, **kwargs):
     refer to the user-exposed methods :func:`~syncopy.singlepanelplot` and/or
     :func:`~syncopy.multipanelplot` to actually generate plots of Syncopy data objects. 
     """
-
+    
     # The only error-checking done in here: ensure `overlay` is Boolean and assert 
     # `data` contains only non-empty Syncopy objects
     if not isinstance(overlay, bool):
@@ -380,6 +384,22 @@ def _anyplot(*data, overlay=None, method=None, **kwargs):
     return figList
 
 
+def _prep_plots(self, name, **inputs):
+    """
+    Coming soon...
+    """
+    
+    # Abort if matplotlib is not available
+    if not __plt__:
+        raise SPYError(pltErrMsg.format(name))
+
+    # Abort if in-place selection is attempted
+    if inputs.get("kwargs", {}).get("select") is not None:
+        msg = "In-place data-selection not supported in plotting routines. " + \
+            "Please use method-specific keywords (`trials`, `channels`, etc.) instead. "
+        raise SPYError(msg)
+
+
 def _compute_toilim_avg(self):
     """
     Coming soon..
@@ -387,6 +407,9 @@ def _compute_toilim_avg(self):
     
     tLengths = np.zeros((len(self._selection.trials),), dtype=np.intp)
     for k, tsel in enumerate(self._selection.time):
+        if not isinstance(tsel, slice):
+            msg = "Cannot average `toilim` selection. Please check `.time` property for consistency. "
+            raise SPYError(msg)
         start, stop = tsel.start, tsel.stop
         if start is None:
             start = 0
@@ -413,6 +436,10 @@ def _setup_figure(npanels, nrow=None, ncol=None, xLabel=None, yLabel=None,
     """
     Coming soon...
     """
+    
+    # If `grid` was not provided, do not render grid-lines in plots
+    if grid is None:
+        grid = False
     
     # Note: if `xLabel` and/or `yLabel` is `None`, setting the corresponding axis
     # label simply uses an empty string '' and does not alter the axis - no need
@@ -487,7 +514,7 @@ def _setup_figure(npanels, nrow=None, ncol=None, xLabel=None, yLabel=None,
         for ax in ax_arr:
             ax.tick_params(axis="both", labelsize=pltConfig["multiTickSize"])
             ax.autoscale(enable=True, axis="x", tight=True)
-            ax.grid(True)
+            ax.grid(grid)
         for k in range(npanels, nrow * ncol):
             ax_arr[k].remove()
         ax = ax_arr
