@@ -31,6 +31,9 @@ from syncopy.shared.errors import (SPYIOError, SPYValueError, SPYParallelError,
 if __dask__:
     import dask.distributed as dd
     import dask.bag as db
+    # # In case of problems w/worker-stealing, uncomment the following lines
+    # import dask
+    # dask.config.set(distributed__scheduler__work_stealing=False)
 
 __all__ = []
 
@@ -192,6 +195,9 @@ class ComputationalRoutine(ABC):
 
         # if `True`, enforces use of single-threaded scheduler in `compute_parallel`
         self.parallelDebug = False
+        
+        # format string for tqdm progress bars in sequential and parallel computations
+        self.tqdmFormat = "{desc}: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
 
         # maximal acceptable size (in MB) of any provided positional argument
         self._maxArgSize = 100
@@ -616,7 +622,6 @@ class ComputationalRoutine(ABC):
                 spy_path = os.path.abspath(os.path.split(__path__[0])[0])
                 if spy_path not in sys.path:
                     sys.path.insert(0, spy_path)
-            client = dd.get_client()
             client.register_worker_callbacks(init_syncopy)
             
             # Store provided debugging state
@@ -771,7 +776,8 @@ class ComputationalRoutine(ABC):
                                      "outgrid": self.targetLayout[chk],
                                      "outshape": self.targetShapes[chk],
                                      "dtype": self.dtype}
-                                     for chk in range(len(self.sourceLayout))]) 
+                                     for chk in range(len(self.sourceLayout))],
+                                   npartitions=len(self.sourceLayout)) 
 
         # Convert by-worker argv-list to dask bags to distribute across cluster
         # Format: ``ArgV = [(3, 0, 'a'), (3, 0, 'a'), (3, 1, 'b'), (3, 1, 'b')]``
@@ -782,20 +788,46 @@ class ComputationalRoutine(ABC):
             
         # Map all components (channel-trial-blocks) onto `computeFunction`
         results = mainBag.map(self.computeFunction, *bags, **self.cfg)
-
-        # If debugging is requested, drop existing client and enforce use of
-        # single-threaded scheduler
+        
+        # Let the fun begin... 
         if not self.parallelDebug:
             
             # Make sure that all futures are executed (i.e., data is actually written)
-            # Note: `dd.progress` works in (i)Python but is not blocking in Jupyter, 
-            # but `while status == 'pending"` is respected, hence the double-whammy
-            # futures = dd.client.futures_of(results.persist())
-            futures = dd.client.futures_of(results.persist(scheduler="single-threaded"))
-            dd.progress(futures, notebook=False)
-            # while any(f.status == "pending" for f in futures): # FIXME: maybe use this for pretty progress-bars
-            #     time.sleep(self.sleepTime)
-            
+            # Note 1: `dd.progress` does not correctly track worker progress hence 
+            #         the custom-tailored `while` formulation: that periodically 
+            #         checks in on the status of all allocated futures
+            #         -> Do not use this `dd.progress(futures, notebook=False)`
+            # Note 2: the while loop below does not run indefinitely - erring or 
+            #         stalling futures get status 'error' or 'waiting'. After 
+            #         some time the status of all futures is one of 'finished', 
+            #         'error' or 'waiting', but none is 'pending' any more.  
+            futures = dd.client.futures_of(results.persist())
+            totalTasks = len(futures)
+            pbar = tqdm(total=totalTasks, bar_format=self.tqdmFormat)
+            cnt = 0
+            while any(f.status == "pending" for f in futures):
+                time.sleep(self.sleepTime)
+                new = max(0, sum([f.status == "finished" for f in futures]) - cnt)
+                cnt += new
+                pbar.update(new)
+            pbar.close()
+
+            # If some futures erred or stalled, perform the Herculean task of 
+            # tracking down which dask worker was executed by which SLURM job...
+            if sum([f.status == "finished" for f in futures]) < totalTasks:
+                client = dd.get_client()
+                failedFutures = [f for f in futures if f.status != "finished"]
+                failedJobs = [f.exception().last_worker.identity()["id"] for f in failedFutures]
+                failedJobs = list(set(failedJobs))
+                failedJobIDs = [client.cluster.workers[job].job_id for job in failedJobs]
+                slurmOutDir = client.cluster.job_header.split("--output=")[1].replace("%j", "{}")
+                msg = "Parallel computation failed: {}/{} tasks failed or stalled.\n" +\
+                    "Please consult the following SLURM log files for details:\n"
+                msg += "".join(slurmOutDir.format(id) + "\n" for id in failedJobIDs)
+                raise SPYParallelError(msg.format(len(failedFutures), totalTasks), client=client)
+
+        # If debugging is requested, drop existing client and enforce use of
+        # single-threaded scheduler
         else:
             results.compute(scheduler="single-threaded")
             
@@ -858,7 +890,7 @@ class ComputationalRoutine(ABC):
         with h5py.File(out.filename, "r+") as h5fout:
             target = h5fout[self.datasetName]
 
-            for nblock in tqdm(range(len(self.trialList)), bar_format=fmt):
+            for nblock in tqdm(range(len(self.trialList)), bar_format=self.tqdmFormat):
 
                 # Extract respective indexing tuples from constructed lists                
                 ingrid = self.sourceLayout[nblock]

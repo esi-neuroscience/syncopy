@@ -19,7 +19,7 @@ if __dask__:
     from syncopy.shared import esi_cluster_setup
     from syncopy.tests.misc import is_slurm_node
     if is_slurm_node():
-        cluster = esi_cluster_setup(partition="DEV", mem_per_job="4GB",
+        cluster = esi_cluster_setup(partition="DEV", n_jobs=10, mem_per_job="4GB",
                                     timeout=600, interactive=False,
                                     start_client=False)
     else:

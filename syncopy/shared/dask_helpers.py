@@ -161,10 +161,10 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     # set for partitions w/o limit
     idx = partition.find("GB")
     if idx > 0:
-        mem_lim = int(partition[:idx])
+        mem_lim = float(partition[:idx]) - 0.5
     else:
         if partition == "PREPO":
-            mem_lim = 16
+            mem_lim = 15.5
         else:
             if mem_per_job is None:
                 lgl = "explicit memory amount as required by partition '{}'"
@@ -242,8 +242,9 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
                            processes=workers_per_job,
                            local_directory=slurm_wdir,
                            queue=partition,
-                           name="spycluster",
+                           name="spyswarm",
                            python=pyExec,
+                           header_skip=["-t", "--mem"],
                            job_extra=["--output={}".format(out_files)])
                            # interface="asdf", # interface is set via `psutil.net_if_addrs()`
                            # job_extra=["--hint=nomultithread",
@@ -380,4 +381,4 @@ def _count_running_workers(cluster):
     """
     Local replacement for the late `._count_active_workers` class method
     """
-    return sum(wrkr.status == "running" for wrkr in cluster.workers.values())
+    return len(cluster.scheduler_info.get('workers'))
