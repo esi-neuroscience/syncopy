@@ -756,16 +756,15 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 SPYWarning(msg.format(wav))
             wfun = getattr(spywave, wav)()
             
-        # Monkey-patch local helper routine to just created wavelet class instances 
-        # (we don't do this in the class def to not collide w/already existing routine 
-        # `compute_optimal_scales` of `WaveletTransform`)
-        wfun._get_optimal_wavelet_scales = _get_optimal_wavelet_scales.__get__(wfun)
-        
         # Process frequency selection (`toi` was taken care of above): `foilim`
         # selections are wrapped into `foi` thus the seemingly weird if construct
+        # Note: SLURM workers don't like monkey-patching, so let's pretend 
+        # `get_optimal_wavelet_scales` is a class method by passing `wfun` as its 
+        # first argument
         if foi is None:
-            scales = wfun._get_optimal_wavelet_scales(int(minTrialLength * data.samplerate), 
-                                                      1 / data.samplerate)
+            scales = _get_optimal_wavelet_scales(wfun, 
+                                                 int(minTrialLength * data.samplerate), 
+                                                 1 / data.samplerate)
         if foilim is not None:
             foi = np.arange(foilim[0], foilim[1] + 1)
         if foi is not None:
