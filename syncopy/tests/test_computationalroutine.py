@@ -4,7 +4,7 @@
 # 
 # Created: 2019-07-03 11:31:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-10 11:13:03>
+# Last modification time: <2020-08-26 16:27:06>
 
 import os
 import tempfile
@@ -130,7 +130,7 @@ class TestComputationalRoutine():
                           "toi": None},
                          {"trials": [0, 1, 2],
                           "channels": range(0, int(nChannels / 2)),
-                          "toilim": [1.0, 1.25]}]
+                          "toilim": [-0.5, 0.6]}]
     
     # Error tolerances and respective quality metrics (depend on data selection!)
     tols = [1e-6, 1e-6, 1e-2]

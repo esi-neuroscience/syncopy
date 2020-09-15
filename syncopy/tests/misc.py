@@ -220,7 +220,7 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=None
     for iTrial in range(nTrials):
         trialdefinition[iTrial, :] = np.array([iTrial*t.size - shift*offsets[iTrial],
                                                (iTrial + 1)*t.size + shift*offsets[iTrial],
-                                               1000])
+                                               -1000])
     if equidistant:
         trialdefinition[0, :2] += equiOffset
         trialdefinition[-1, :2] -= equiOffset

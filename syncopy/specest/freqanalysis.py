@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-22 09:07:47
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-14 11:22:10>
+# Last modification time: <2020-09-02 15:49:49>
 
 # Builtin/3rd party package imports
 from numbers import Number
@@ -313,7 +313,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     else:
         trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
-    lenTrials = np.diff(sinfo)
+    lenTrials = np.diff(sinfo).squeeze()
     numTrials = len(trialList)
     
     # Set default padding options: after this, `pad` is either `None`, `False` or `str`
@@ -353,7 +353,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         minSampleNum = padding(data._preview_trial(trialList[minSamplePos]), padtype, pad=pad,
                                padlength=padlength, prepadlength=True).shape[timeAxis]
     else:
-        pad = None
         if method == "mtmfft" and np.unique((np.floor(lenTrials / 2))).size > 1:
             lgl = "trials of approximately equal length for method 'mtmfft'"
             act = "trials of unequal length"
@@ -377,7 +376,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                              lims=[0, data.samplerate/2], dims=(None,))
             except Exception as exc:
                 raise exc
-            foi = np.array(foi)
+            foi = np.array(foi, dtype="float")
     if foilim is not None:
         if isinstance(foilim, str):
             if foilim == "all":
@@ -427,7 +426,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             tStart = data._selection.trialdefinition[:, 2] / data.samplerate
         else:
             tStart = data._t0 / data.samplerate
-        tEnd = tStart + np.diff(sinfo).squeeze() / data.samplerate
+        tEnd = tStart + lenTrials / data.samplerate
         
         # Process `toi`: we have to account for three scenarios: (1) center sliding
         # windows on all samples in (selected) trials (2) `toi` was provided as 
@@ -500,12 +499,12 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         # `mtmconvol`: compute no. of samples overlapping across adjacent windows        
         if overlap < 0:         # `toi` is equidistant range or disjoint points
-            noverlap = nperseg - int(tSteps[0] * data.samplerate)
+            noverlap = nperseg - max(1, int(tSteps[0] * data.samplerate))
         elif 0 <= overlap <= 1: # `toi` is percentage
-            noverlap = int(overlap * nperseg)
+            noverlap = min(nperseg - 1, int(overlap * nperseg))
         else:                   # `toi` is "all"
             noverlap = nperseg - 1
-        
+            
         # `toi` is array
         if overlap < 0:
             
@@ -541,8 +540,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                     start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
                     stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
                     soi.append(slice(max(0, start), max(stop, stop - start)))
-
-        # `toi` is percentage or "all"                    
+                    
+        # `toi` is percentage or "all"
         else:
             
             padBegin = np.zeros((numTrials,))
@@ -566,13 +565,16 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             if overlap < 0:
                 postSelect = []
                 for tk in range(numTrials):
-                    postSelect.append((data.samplerate * (toi - tStart[tk]) - offStart[tk] \
-                        + padBegin[tk]).astype(np.intp))
+                    smpIdx = np.minimum(lenTrials[tk] - 1, 
+                                        data.samplerate * (toi - tStart[tk]) - offStart[tk] + padBegin[tk])
+                    postSelect.append(smpIdx.astype(np.intp))
             else:
                 postSelect = [slice(None)] * numTrials
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
+        if toi is None:
+            toi = "all"
         log_dct["toi"] = lcls["toi"]
         
     # Check options specific to mtm*-methods (particularly tapers and foi/freqs alignment)
@@ -727,7 +729,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # Check for consistency of `width`, `order` and `wav`
         if wav == "Morlet":
             try:
-                scalar_parser(width, varname="width", lims=[6, np.inf])
+                scalar_parser(width, varname="width", lims=[1, np.inf])
             except Exception as exc:
                 raise exc
             wfun = getattr(spywave, wav)(w0=width)
@@ -754,21 +756,19 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 SPYWarning(msg.format(wav))
             wfun = getattr(spywave, wav)()
             
-        # Monkey-patch local helper routine to just created wavelet class instances 
-        # (we don't do this in the class def to not collide w/already existing routine 
-        # `compute_optimal_scales` of `WaveletTransform`)
-        wfun._get_optimal_wavelet_scales = _get_optimal_wavelet_scales.__get__(wfun)
-        
-        # Process frequency selection (`toi` was taken care of above)
+        # Process frequency selection (`toi` was taken care of above): `foilim`
+        # selections are wrapped into `foi` thus the seemingly weird if construct
+        # Note: SLURM workers don't like monkey-patching, so let's pretend 
+        # `get_optimal_wavelet_scales` is a class method by passing `wfun` as its 
+        # first argument
         if foi is None:
-            scales = wfun._get_optimal_wavelet_scales(int(minTrialLength * data.samplerate), 
-                                                      1 / data.samplerate)
-            if foilim is not None:
-                freqs = 1 / wfun.fourier_period(scales)
-                foi, _ = best_match(freqs, foilim, span=True, squash_duplicates=True)
-                scales = wfun.scale_from_period(1 / foi)
-        else:
-            foi[foi == 0] = np.finfo(np.float).eps
+            scales = _get_optimal_wavelet_scales(wfun, 
+                                                 int(minTrialLength * data.samplerate), 
+                                                 1 / data.samplerate)
+        if foilim is not None:
+            foi = np.arange(foilim[0], foilim[1] + 1)
+        if foi is not None:
+            foi[foi < 0.01] = 0.01
             scales = wfun.scale_from_period(1 / foi)
             scales = scales[::-1]  # FIXME: this only makes sense if `foi` was sorted -> cf Issue #94
 
@@ -802,7 +802,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise exc
         new_out = False
     else:
-        out = SpectralData(dimord=SpectralData._defaultDimord)        
+        out = SpectralData(dimord=SpectralData._defaultDimord)
         new_out = True
 
     # Perform actual computation

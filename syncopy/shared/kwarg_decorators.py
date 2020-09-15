@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-22 10:56:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-06-02 12:29:49>
+# Last modification time: <2020-08-26 15:40:37>
 
 # Builtin/3rd party package imports
 import functools
@@ -347,22 +347,21 @@ def unwrap_select(func):
     @functools.wraps(func)
     def wrapper_select(*args, **kwargs):
 
-        # If provided, extract `select` from input kws and cycle through positional 
-        # argument to apply in-place selection to all Syncopy objects
-        nData = 0
+        # Either extract `select` from input kws and cycle through positional 
+        # argument to apply in-place selection to all Syncopy objects, or clean
+        # any unintended leftovers in `_selection` if no `select` keyword was provided
         select = kwargs.get("select", None)
-        if select:
-            for obj in args:
-                if hasattr(obj, "_selection"):
-                    obj._selection = select
-                    nData += 1
+        for obj in args:
+            if hasattr(obj, "_selection"):
+                obj._selection = select
                     
         # Call function with modified data object(s)  
         res = func(*args, **kwargs)
         
-        # Wipe data-selection slot (if necessary) to not alter user objects
-        for n in range(nData):
-            args[n]._selection = None
+        # Wipe data-selection slot to not alter user objects
+        for obj in args:
+            if hasattr(obj, "_selection"):
+                obj._selection = None
 
         return res
     

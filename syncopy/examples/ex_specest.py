@@ -32,10 +32,28 @@ from time import time
 # sys.exit()
 
 if __name__ == "__main__":
+    
 
-    # data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
-    data = spy.load('~/Documents/job/SyNCoPy/Data/testdata.spy/')
+    data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
+    # sys.exit()
+    # data = spy.load('~/Documents/job/SyNCoPy/Data/testdata.spy/')
+    
+    client = spy.esi_cluster_setup(partition="16GBXS", n_jobs=2, mem_per_job="16GB")
+    # client = spy.esi_cluster_setup(partition="DEV", n_jobs=5, mem_per_job="4GB")
+    sys.exit()
+    
+    # sys.exit()
 
+    cfg = spy.get_defaults(spy.freqanalysis)
+    cfg.method = 'mtmfft'
+    cfg.taper = "dpss"
+    cfg.tapsmofrq = 10
+    cfg.keeptapers = "yes"
+    cfg.output = 'pow'
+    cfg.keeptrials = True
+    overallSpectrum = spy.freqanalysis(cfg, data)
+    
+    sys.exit()
 
     # cfg = spy.get_defaults(spy.freqanalysis)
     # cfg.method = 'mtmconvol'

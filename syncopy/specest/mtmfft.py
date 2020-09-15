@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:25:34
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-14 11:19:03>
+# Last modification time: <2020-08-25 11:20:00>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -112,7 +112,7 @@ def mtmfft(trl_dat, samplerate=None, foi=None, nTaper=1, timeAxis=0,
         dat = trl_dat
 
     # Padding (updates no. of samples)
-    if pad is not None:
+    if pad:
         dat = padding(dat, padtype, pad=pad, padlength=padlength, prepadlength=True)
     nSamples = dat.shape[0]
     nChannels = dat.shape[1]
