@@ -15,7 +15,7 @@ clusterTests:
     - source $HOME/miniconda3/bin/activate
     - pip install --upgrade pip
     - pip install --upgrade tox
-    - srun -p 8GBS --mem=8000m -c 4 tox -r 
+    - srun -p DEV --mem=8000m -c 4 tox -r 
 
 windowsTests:
     stage: test

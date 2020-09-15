@@ -38,9 +38,9 @@ if __name__ == "__main__":
     # sys.exit()
     # data = spy.load('~/Documents/job/SyNCoPy/Data/testdata.spy/')
     
-    client = spy.esi_cluster_setup(partition="8GBXS", n_jobs=220)
+    client = spy.esi_cluster_setup(partition="16GBXS", n_jobs=2, mem_per_job="16GB")
     # client = spy.esi_cluster_setup(partition="DEV", n_jobs=5, mem_per_job="4GB")
-    # sys.exit()
+    sys.exit()
     
     # sys.exit()
 

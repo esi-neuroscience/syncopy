@@ -15,6 +15,7 @@ import time
 import numpy as np
 from abc import ABC, abstractmethod
 from copy import copy
+from glob import glob
 from numpy.lib.format import open_memmap
 from tqdm.auto import tqdm
 if sys.platform == "win32":
@@ -26,8 +27,7 @@ if sys.platform == "win32":
 # Local imports
 from .tools import get_defaults
 from syncopy import __storage__, __dask__, __path__
-from syncopy.shared.errors import (SPYIOError, SPYValueError, SPYParallelError, 
-                                   SPYTypeError, SPYWarning)
+from syncopy.shared.errors import SPYIOError, SPYValueError, SPYParallelError, SPYWarning
 if __dask__:
     import dask.distributed as dd
     import dask.bag as db
@@ -811,20 +811,38 @@ class ComputationalRoutine(ABC):
                 cnt += new
                 pbar.update(new)
             pbar.close()
+            
+            # Avoid race condition: give futures time to perform switch from 'pending' 
+            # to 'finished' so that `finishedTasks` is computed correctly
+            time.sleep(self.sleepTime)
 
             # If some futures erred or stalled, perform the Herculean task of 
             # tracking down which dask worker was executed by which SLURM job...
-            if sum([f.status == "finished" for f in futures]) < totalTasks:
+            # If number of 'finished' tasks is less than expected, go into 
+            # problem analysis mode: all futures that erred hav an `.exception`
+            # method which can be used to track down the worker it was executed by
+            # Once we know the worker, we can point to the right log file. If 
+            # futures were cancelled (by the user or the SLURM controller), 
+            # `.exception` is `None` and we can't relialby track down the 
+            # 
+            finishedTasks = sum([f.status == "finished" for f in futures])
+            if finishedTasks < totalTasks:
                 client = dd.get_client()
-                failedFutures = [f for f in futures if f.status != "finished"]
-                failedJobs = [f.exception().last_worker.identity()["id"] for f in failedFutures]
-                failedJobs = list(set(failedJobs))
-                failedJobIDs = [client.cluster.workers[job].job_id for job in failedJobs]
-                slurmOutDir = client.cluster.job_header.split("--output=")[1].replace("%j", "{}")
-                msg = "Parallel computation failed: {}/{} tasks failed or stalled.\n" +\
-                    "Please consult the following SLURM log files for details:\n"
-                msg += "".join(slurmOutDir.format(id) + "\n" for id in failedJobIDs)
-                raise SPYParallelError(msg.format(len(failedFutures), totalTasks), client=client)
+                erredFutures = [f for f in futures if f.status == "error"]
+                erredJobs = [f.exception().last_worker.identity()["id"] for f in erredFutures]
+                erredJobs = list(set(erredJobs))
+                erredJobIDs = [client.cluster.workers[job].job_id for job in erredJobs]
+                slurmFiles = client.cluster.job_header.split("--output=")[1].replace("%j", "{}")
+                slurmOutDir = os.path.split(slurmFiles)[0]
+                errFiles = glob(slurmOutDir + os.sep + "*.err")
+                msg = "Parallel computation failed: {}/{} tasks failed or stalled.\n"
+                if len(erredFutures) or len(errFiles):
+                    msg += "Please consult the following SLURM log files for details:\n"
+                    msg += "".join(slurmFiles.format(id) + "\n" for id in erredJobIDs)
+                    msg += "".join(errfile + "\n" for errfile in errFiles)
+                else:
+                    msg += "Please check SLURM logs in {}".format(slurmOutDir)
+                raise SPYParallelError(msg.format(totalTasks - finishedTasks, totalTasks), client=client)
 
         # If debugging is requested, drop existing client and enforce use of
         # single-threaded scheduler

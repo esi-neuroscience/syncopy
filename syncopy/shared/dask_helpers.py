@@ -161,10 +161,10 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     # set for partitions w/o limit
     idx = partition.find("GB")
     if idx > 0:
-        mem_lim = float(partition[:idx]) - 0.5
+        mem_lim = int(partition[:idx]) * 1000
     else:
         if partition == "PREPO":
-            mem_lim = 15.5
+            mem_lim = 16000
         else:
             if mem_per_job is None:
                 lgl = "explicit memory amount as required by partition '{}'"
@@ -174,14 +174,12 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
 
     # Consolidate requested memory with chosen partition (or assign default memory)
     if mem_per_job is None:
-        mem_per_job = str(mem_lim) + "GB"
+        mem_per_job = str(mem_lim) + "MB"
     else:
         if "MB" in mem_per_job:
-            mem_req = round(int(mem_per_job[:mem_per_job.find("MB")]) / 1000, 1)
-            if int(mem_req) == mem_req:
-                mem_req = int(mem_req)
+            mem_req = int(mem_per_job[:mem_per_job.find("MB")])
         else:
-            mem_req = int(mem_per_job[:mem_per_job.find("GB")])
+            mem_req = int(round(float(mem_per_job[:mem_per_job.find("GB")]) * 1000))
         if mem_req > mem_lim:
             msg = "`mem_per_job` exceeds limit of {lim:d}GB for partition {par:s}. " +\
                 "Capping memory at partition limit. "
@@ -234,7 +232,7 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     pyExec = sys.executable
     if sys.executable.startswith("/home"):
         pyExec = "/mnt/gs" + sys.executable
-
+        
     # Create `SLURMCluster` object using provided parameters
     out_files = os.path.join(slurm_wdir, "slurm-%j.out")
     cluster = SLURMCluster(cores=n_cores,
