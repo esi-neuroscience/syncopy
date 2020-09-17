@@ -28,7 +28,7 @@ def test_storage_access():
 
 # check if `SPYTMPDIR` is respected
 def test_spytmpdir():
-    tmpDir = os.path.join(tempfile.gettempdir(), "spy_storage")
+    tmpDir = os.path.join(syncopy.__storage__, "__testStorage__")
     os.environ["SPYTMPDIR"] = tmpDir
     importlib.reload(syncopy)
     assert syncopy.__storage__ == tmpDir
