@@ -4,7 +4,7 @@
 # 
 # Created: 2020-07-15 10:26:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-17 14:24:28>
+# Last modification time: <2020-09-17 15:22:11>
 
 # Builtin/3rd party package imports
 import os
@@ -18,6 +18,9 @@ from syncopy.plotting.spy_plotting import (pltErrMsg, pltConfig, _compute_toilim
 from syncopy import __plt__
 if __plt__:
     import matplotlib.pyplot as plt
+
+#: available panel settings for :func:`~syncopy.multipanelplot`
+availablePanels = tuple(["channels", "trials", "tapers"])
 
 __all__ = []
 
@@ -41,6 +44,10 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all",
     overlay-plotting not supported for TF data
     
     TF data: to compare different objects, vmin and vmax should be set!
+
+    See also
+    --------
+    syncopy.singlepanelplot : visualize Syncopy data objects using single-panel plots
     """
     
     # Collect input arguments in dict `inputArgs` and process them
@@ -160,11 +167,21 @@ def multipanelplot(self, trials="all", channels="all", tapers="all", toilim=None
                    interp="spline36", cmap="plasma", vmin=None, vmax=None,
                    title=None, grid=None, fig=None, **kwargs):
     """
-    Coming soon...
+    Plot contents of :class:`~syncopy.SpectralData` objects using multi-panel figure(s)
+    
+    Please refer to :func:`syncopy.multipanelplot` for detailed usage information. 
+    
+    Examples
+    --------
+    Coming soon... 
     
     overlay-plotting not supported (at all)
     
     use `availablePanels` in Parameters section!
+    
+    See also
+    --------
+    syncopy.multipanelplot : visualize Syncopy data objects using multi-panel plots
     """
 
     # Collect input arguments in dict `inputArgs` and process them
@@ -178,9 +195,6 @@ def multipanelplot(self, trials="all", channels="all", tapers="all", toilim=None
     dataLbl) =  _prep_spectral_plots(self, "multipanelplot", **inputArgs)
     (nTrials, nChan, nFreq, nTap) = dimCounts
     (trList, chArr, freqArr, tpArr) = dimArrs
-
-    #: available panel settings for :func:`~syncopy.multipanelplot`
-    availablePanels = tuple(["channels", "trials", "tapers"])
 
     # No overlaying here...
     if hasattr(fig, "objCount"): 

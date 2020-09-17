@@ -4,7 +4,7 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-17 14:02:04>
+# Last modification time: <2020-09-17 15:19:25>
 
 # Builtin/3rd party package imports
 import warnings
@@ -235,6 +235,7 @@ def singlepanelplot(*data,
     --------
     :func:`~syncopy.multipanelplot` : visualize Syncopy objects using multi-panel figure(s)
     :meth:`syncopy.AnalogData.singlepanelplot` : `singlepanelplot` for :class:`~syncopy.AnalogData` objects
+    :meth:`syncopy.SpectralData.singlepanelplot` : `singlepanelplot` for :class:`~syncopy.SpectralData` objects
     """
     
     # Abort if matplotlib is not available: FIXME -> `_prep_plots`?
@@ -304,6 +305,12 @@ def multipanelplot(*data,
         range (``range(3, 10)``). Selections can be unsorted and may include 
         repetitions. If multiple input objects are provided, `channels` needs to be a
         valid selector for all supplied datasets. 
+    tapers : list (integers or strings), slice, range or "all"
+        Taper-selection; can be a list of taper names (``['dpss-win-1', 'dpss-win-3']``), 
+        a list of taper indices (``[3, 5]``), a slice (``slice(3, 10)``) or range 
+        (``range(3, 10)``). Selections can be unsorted and may include repetitions 
+        but must match exactly, be finite and not NaN. If multiple input objects 
+        are provided, `tapers` needs to be a valid selector for all supplied datasets.
     toilim : list (floats [tmin, tmax]) or None
         Time-window ``[tmin, tmax]`` (in seconds) to be extracted from each trial. 
         Window specifications must be sorted and not NaN but may be unbounded. Edges 
@@ -311,20 +318,56 @@ def multipanelplot(*data,
         the entire time-span in each trial is selected. If multiple input objects 
         are provided, `toilim` needs to be a valid selector for all supplied datasets. 
         **Note** `toilim` is only a valid selector if `trials` is not `None`. 
+    foilim : list (floats [fmin, fmax]) or "all"
+        Frequency-window ``[fmin, fmax]`` (in Hz) to be extracted from each trial; 
+        Window specifications must be sorted and not NaN but may be unbounded. 
+        Boundaries `fmin` and `fmax` are included in the selection. If `foilim` 
+        is `None` or all frequencies are selected for plotting. If multiple input 
+        objects are provided, `foilim` needs to be a valid selector for all supplied 
+        datasets.
+        
     avg_channels : bool
         If `True`, plot input dataset(s) averaged across channels specified by
-        `channels`. If `False`, and ``avg_trials = True`` no channel-averaging is 
-        performed resulting in multiple panels, each representing the (trial-averaged) 
-        time-course of a single channel. If ``avg_channels = avg_trials = False``,
-        multiple panels containing multiple time-courses are rendered with each 
-        panel representing a trial, and each time-course corresponding to a single 
-        channel. For ``avg_channel = avg_trials = True`` no output is generated, 
-        as this functionality is covered by :func:`~syncopy.singlepanelplot`. 
+        `channels`. If `False` no channel-averaging is performed. 
+    avg_tapers : bool
+        If `True`, plot :class:`~syncopy.SpectralData` objects averaged across 
+        tapers specified by `tapers`. If `False`, no averaging is performed.  
     avg_trials : bool
         If `True`, plot input dataset(s) averaged across trials specified by `trials`. 
-        Specific panel allocation depends on value of `avg_channels` (see above). 
-        If `avg_trials` is `True` but `trials` is `None`, 
-        a :class:`~syncopy.shared.errors.SPYValueError` is raised. 
+        Specific panel allocation depends on value of `avg_channels` and `avg_tapers`
+        (if applicable). For :class:`~syncopy.AnalogData` objects setting `avg_trials` 
+        to `True` but `trials` to `None` triggers a :class:`~syncopy.shared.errors.SPYValueError`. 
+    panels : str
+        Panel specification. Only valid for :class:`~syncopy.SpectralData` objects. 
+        Can be one of :data:`~syncopy.plotting._plot_spectral.availablePanels`. 
+        Panel specification and averaging flags have to align, i.e., if `panels` 
+        is `trials` then `avg_trials` must be `False`, otherwise the code issues 
+        a :class:`~syncopy.shared.errors.SPYWarning` and exits. Note that a 
+        multi-panel visualization of time-frequency datasets requires averaging 
+        across two out of three data dimensions (i.e., two of the flags `avg_channels`, 
+        `avg_tapers` and `avg_trials` must be `True`). 
+    interp : str or None
+        Interpolation method used for plotting two-dimensional contour maps 
+        such as time-frequency power spectra. Can be one of 
+        :data:`~.availableInterpolations`. Pleasee consult the matplotlib 
+        documentation for more details. Has no effect on line-plots. 
+    cmap : str
+        Colormap used for plotting two-dimensional contour maps 
+        such as time-frequency power spectra. Can be one of 
+        :data:`~.availableColormaps`. Pleasee consult the matplotlib documentation 
+        for more details. Has no effect on line-plots.
+    vmin : float or None
+        Lower bound of data-range covered by colormap when plotting two-dimensional 
+        contour maps such as time-frequency power spectra. If `vmin` is `None`
+        the minimal (absolute) value across all shown panels is used. When comparing 
+        multiple objects, all visualizations should use the same `vmin` to 
+        ensure quantitative similarity of peak values. 
+    vmax : float or None
+        Upper bound of data-range covered by colormap when plotting two-dimensional 
+        contour maps such as time-frequency power spectra. If `vmax` is `None`
+        the maximal (absolute) value of all shown panels is used. When comparing 
+        multiple contour maps, all visualizations should use the same `vmin` to 
+        ensure quantitative similarity of peak values.   
     title : str or None
         If `str`, `title` specifies figure title, if `None`, an auto-generated
         title is used. 
@@ -336,8 +379,10 @@ def multipanelplot(*data,
         plotted on top of each other (in the order of submission). If a single object 
         was provided, ``overlay = True`` and `fig` is a :class:`~matplotlib.figure.Figure`, 
         the supplied dataset is overlaid on top of any existing plot(s) in `fig`. 
-        **Note**: using an existing figure to overlay dataset(s) is only 
-        supported for figures created with this routine.
+        **Note 1**: using an existing figure to overlay dataset(s) is only 
+        supported for figures created with this routine. 
+        **Note 2**: overlay-plotting is *not* supported for time-frequency 
+        :class:`~syncopy.SpectralData` objects. 
     fig : matplotlib.figure.Figure or None
         If `None`, new :class:`~matplotlib.figure.Figure` instance(s) are created
         for provided input dataset(s). If `fig` is a :class:`~matplotlib.figure.Figure`,
@@ -377,6 +422,7 @@ def multipanelplot(*data,
     --------
     :func:`~syncopy.singlepanelplot` : visualize Syncopy objects using single-panel figure(s)
     :meth:`syncopy.AnalogData.multipanelplot` : `multipanelplot` for :class:`~syncopy.AnalogData` objects
+    :meth:`syncopy.SpectralData.multipanelplot` : `multipanelplot` for :class:`~syncopy.SpectralData` objects
     """
 
     # Abort if matplotlib is not available FIXME -> `_prep_plots`?
