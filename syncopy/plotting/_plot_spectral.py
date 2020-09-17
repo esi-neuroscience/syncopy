@@ -4,7 +4,7 @@
 # 
 # Created: 2020-07-15 10:26:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-16 14:10:40>
+# Last modification time: <2020-09-17 14:24:28>
 
 # Builtin/3rd party package imports
 import os
@@ -156,8 +156,9 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all",
 
 
 def multipanelplot(self, trials="all", channels="all", tapers="all", toilim=None, foilim=None,
-                   avg_channels=True, avg_tapers=True, avg_trials=False, panels="channels",
-                   interp="spline36", cmap="plasma", title=None, grid=None, fig=None, **kwargs):
+                   avg_channels=False, avg_tapers=True, avg_trials=True, panels="channels",
+                   interp="spline36", cmap="plasma", vmin=None, vmax=None,
+                   title=None, grid=None, fig=None, **kwargs):
     """
     Coming soon...
     
@@ -403,8 +404,12 @@ def multipanelplot(self, trials="all", channels="all", tapers="all", toilim=None
             ax_arr[panelCount].set_title(panelTitles[panelCount], size=pltConfig["multiTitleSize"])
 
         # Render colorbar
+        if vmin is None:
+            vmin = min(vmins)
+        if vmax is None:
+            vmax = max(vmaxs)
         cbar = _setup_colorbar(fig, ax_arr, cax, label=dataLbl.replace(" [dB]", ""), 
-                               outline=False, vmin=min(vmins), vmax=max(vmaxs))
+                               outline=False, vmin=vmin, vmax=vmax)
         if title is None:
             fig.suptitle(majorTitle, size=pltConfig["singleTitleSize"])
 

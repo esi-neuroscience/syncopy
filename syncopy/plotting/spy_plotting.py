@@ -4,7 +4,7 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-17 13:47:31>
+# Last modification time: <2020-09-17 14:02:04>
 
 # Builtin/3rd party package imports
 import warnings
@@ -279,8 +279,9 @@ def multipanelplot(*data,
         
         >>> fig1, fig2 = spy.multipanelplot(data1, data2, channels=["channel1", "channel2"])
         >>> cfg = spy.StructDict() 
-        >>> cfg.trials = [5, 3, 0]; cfg.toilim = [0.25, 0.5]
-        >>> fig = spy.multipanelplot(cfg, data1, data2, overlay=True)
+        >>> cfg.toilim = [0.25, 0.5]; cfg.foilim=[30, 80]; cfg.avg_trials = False 
+        >>> cfg.avg_channels = True; cfg.panels = "trials"
+        >>> fig = spy.multipanelplot(cfg, tfData)
     
     Parameters
     ----------

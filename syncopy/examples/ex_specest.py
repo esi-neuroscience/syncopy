@@ -97,11 +97,11 @@ if __name__ == "__main__":
     
     # fig = tfSpectrum.singlepanelplot(toilim=[-0.1, 0.1]) 
     
-    # sys.exit()
+    sys.exit()
 
     # singlepanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80],
     #                 avg_channels=True, avg_tapers=True, grid=True)
-    spy.multipanelplot(tfSpectrum, tfSpectrum, channels=[10, 50, 20], foilim=[30, 80], panels="channels")
+    fig1, fig2 = spy.multipanelplot(tfSpectrum, tfSpectrum, channels=[10, 50, 20], foilim=[30, 80], panels="trials", avg_trials=False, avg_channels=True, overlay=False)#, vmin=10, vmax=1000)
     plt.show()
     sys.exit()
     
