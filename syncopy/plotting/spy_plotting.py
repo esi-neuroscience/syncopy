@@ -4,7 +4,7 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-08 10:31:16>
+# Last modification time: <2020-09-17 13:47:31>
 
 # Builtin/3rd party package imports
 import warnings
@@ -52,6 +52,12 @@ if __plt__:
         mplstyle.use("fast")
         for key, value in spyMplRc.items():
             mpl.rcParams[key] = value
+            
+    #: available interpolation methods for visualization of 2D contour maps            
+    availableInterpolations = tuple(mpl.image._interpd_.keys())
+    
+    #: available colormaps for visualization of 2D contour maps            
+    availableColormaps = tuple(mpl.cm._gen_cmap_d().keys())
     
 # Global style settings for single-/multi-plots
 pltConfig = {"singleTitleSize": 12,
@@ -73,8 +79,8 @@ __all__ = ["singlepanelplot", "multipanelplot"]
 
 @unwrap_cfg
 def singlepanelplot(*data, 
-                    trials="all", channels="all", tapers="all", toilim=None, foilim=None,
-                    avg_channels=True, avg_tapers=True, toi=None, foi=None,
+                    trials="all", channels="all", tapers="all", 
+                    toilim=None, foilim=None, avg_channels=True, avg_tapers=True,  
                     interp="spline36", cmap="plasma", vmin=None, vmax=None, 
                     title=None, grid=None, overlay=True, fig=None, **kwargs):
     """
@@ -99,8 +105,8 @@ def singlepanelplot(*data,
                                              tapers=[3, 0], foilim=[30, 80], avg_channels=False, 
                                              avg_tapers=True, grid=True, overlay=False)
         >>> cfg = spy.StructDict() 
-        >>> cfg.trials = [1, 0, 3]; cfg.toilim = [-0.25, 0.5]
-        >>> fig = spy.singlepanelplot(cfg, tfData1, tfData2, overlay=False)
+        >>> cfg.trials = [1, 0, 3]; cfg.toilim = [-0.25, 0.5]; cfg.vmin=0.2; cfg.vmax=1.0
+        >>> fig = spy.singlepanelplot(cfg, tfData1)
     
     Parameters
     ----------
@@ -109,31 +115,72 @@ def singlepanelplot(*data,
         datasets are provided, they must be all of the same type (e.g., 
         :class:`~syncopy.AnalogData`) and should contain the same or at 
         least comparable channels, trials etc. Consequently, some keywords are 
-        only valid for certain types of Syncopy objects, e.g., "freqs" is not a 
+        only valid for certain types of Syncopy objects, e.g., `foilim` is not a 
         valid plotting-selector for an :class:`~syncopy.AnalogData` object. 
     trials : list (integers) or None or "all"
         Trials to average across. Either list of integers representing trial numbers 
-        (can include repetitions and need not be sorted), "all" or `None`. If 
-        `trials` is `None`, no trial information is used and the raw contents of 
+        (can include repetitions and need not be sorted), "all" or `None`. If `data`
+        is a (series of) :class:`~syncopy.AnalogData` object(s), `trials` may be
+        `None`, so that no trial information is used and the raw contents of 
         provided input dataset(s) is plotted (**Warning**: depending on the size 
-        of the supplied dataset(s), this might be very memory-intensive). 
+        of the supplied dataset(s), this might be very memory-intensive). For all
+        other Syncopy data objects, `trials` must not be `None`. 
     channels : list (integers or strings), slice, range or "all"
         Channel-selection; can be a list of channel names (``['channel3', 'channel1']``), 
         a list of channel indices (``[3, 5]``), a slice (``slice(3, 10)``) or 
         range (``range(3, 10)``). Selections can be unsorted and may include 
         repetitions. If multiple input objects are provided, `channels` needs to be a
         valid selector for all supplied datasets. 
+    tapers : list (integers or strings), slice, range or "all"
+        Taper-selection; can be a list of taper names (``['dpss-win-1', 'dpss-win-3']``), 
+        a list of taper indices (``[3, 5]``), a slice (``slice(3, 10)``) or range 
+        (``range(3, 10)``). Selections can be unsorted and may include repetitions 
+        but must match exactly, be finite and not NaN. If multiple input objects 
+        are provided, `tapers` needs to be a valid selector for all supplied datasets.
     toilim : list (floats [tmin, tmax]) or None
         Time-window ``[tmin, tmax]`` (in seconds) to be extracted from each trial. 
-        Window specifications must be sorted and not NaN but may be unbounded. Edges 
+        Window specifications must be sorted and not NaN but may be unbounded. Boundaries 
         `tmin` and `tmax` are included in the selection. If `toilim` is `None`, 
         the entire time-span in each trial is selected. If multiple input objects 
         are provided, `toilim` needs to be a valid selector for all supplied datasets. 
         **Note** `toilim` is only a valid selector if `trials` is not `None`. 
+    foilim : list (floats [fmin, fmax]) or "all"
+        Frequency-window ``[fmin, fmax]`` (in Hz) to be extracted from each trial; 
+        Window specifications must be sorted and not NaN but may be unbounded. 
+        Boundaries `fmin` and `fmax` are included in the selection. If `foilim` 
+        is `None` or all frequencies are selected for plotting. If multiple input 
+        objects are provided, `foilim` needs to be a valid selector for all supplied 
+        datasets.
     avg_channels : bool
         If `True`, plot input dataset(s) averaged across channels specified by
         `channels`. If `False`, no averaging is performed resulting in multiple
-        time-course plots, each representing a single channel. 
+        plots, each representing a single channel. 
+    avg_tapers : bool
+        If `True`, plot :class:`~syncopy.SpectralData` objects averaged across 
+        tapers specified by `tapers`. If `False`, no averaging is performed 
+        resulting in multiple plots, each representing a single taper. 
+    interp : str or None
+        Interpolation method used for plotting two-dimensional contour maps 
+        such as time-frequency power spectra. Can be one of 
+        :data:`~.availableInterpolations`. Pleasee consult the matplotlib 
+        documentation for more details. Has no effect on line-plots. 
+    cmap : str
+        Colormap used for plotting two-dimensional contour maps 
+        such as time-frequency power spectra. Can be one of 
+        :data:`~.availableColormaps`. Pleasee consult the matplotlib documentation 
+        for more details. Has no effect on line-plots.
+    vmin : float or None
+        Lower bound of data-range covered by colormap when plotting two-dimensional 
+        contour maps such as time-frequency power spectra. If `vmin` is `None`
+        the minimal (absolute) value of the shown dataset is used. When comparing 
+        multiple contour maps, all visualizations should use the same `vmin` to 
+        ensure quantitative similarity of peak values.   
+    vmax : float or None
+        Upper bound of data-range covered by colormap when plotting two-dimensional 
+        contour maps such as time-frequency power spectra. If `vmax` is `None`
+        the maximal (absolute) value of the shown dataset is used. When comparing 
+        multiple contour maps, all visualizations should use the same `vmin` to 
+        ensure quantitative similarity of peak values.   
     title : str or None
         If `str`, `title` specifies as axis panel-title, if `None`, an auto-generated
         title is used. 
@@ -145,8 +192,10 @@ def singlepanelplot(*data,
         plotted on top of each other (in the order of submission). If a single object 
         was provided, ``overlay = True`` and `fig` is a :class:`~matplotlib.figure.Figure`, 
         the supplied dataset is overlaid on top of any existing plot(s) in `fig`. 
-        **Note**: using an existing figure to overlay dataset(s) is only 
-        supported for figures created with this routine.
+        **Note 1**: using an existing figure to overlay dataset(s) is only 
+        supported for figures created with this routine. 
+        **Note 2**: overlay-plotting is *not* supported for time-frequency 
+        :class:`~syncopy.SpectralData` objects. 
     fig : matplotlib.figure.Figure or None
         If `None`, new :class:`~matplotlib.figure.Figure` instance(s) are created
         for provided input dataset(s). If `fig` is a :class:`~matplotlib.figure.Figure`,
@@ -171,8 +220,8 @@ def singlepanelplot(*data,
     
     The actual rendering is performed by class methods specific to the provided 
     input object types (e.g., :class:`~syncopy.AnalogData`). Thus, 
-    :func:`~syncopy.singlepanelplot` is mainly a convenience function and management routine
-    that invokes the appropriate drawing code. 
+    :func:`~syncopy.singlepanelplot` is mainly a convenience function and management 
+    routine that invokes the appropriate drawing code. 
     
     Data subset selection for plotting is performed using :func:`~syncopy.selectdata`, 
     thus additional in-place data-selection via a `select` keyword is **not** supported. 
@@ -206,8 +255,9 @@ def singlepanelplot(*data,
 
 @unwrap_cfg
 def multipanelplot(*data, 
-                   trials="all", channels="all", toilim=None, 
-                   avg_channels=False, avg_trials=True, 
+                   trials="all", channels="all", tapers="all",
+                   toilim=None, foilim=None, avg_channels=False, avg_tapers=True, avg_trials=True, 
+                   panels="channels", interp="spline36", cmap="plasma", vmin=None, vmax=None, 
                    title=None, grid=None, overlay=True, fig=None, **kwargs):
     """
     Plot contents of Syncopy data object(s) using multi-panel figure(s)
@@ -219,7 +269,15 @@ def multipanelplot(*data,
     :class:`~syncopy.AnalogData` : trials, channels, toi/toilim
         Examples
         
-        >>> fig1, fig2 = spy.multipanelplot(data1, channels=["channel1", "channel2"])
+        >>> fig = spy.multipanelplot(data, channels=["channel1", "channel2"])
+        >>> cfg = spy.StructDict() 
+        >>> cfg.trials = [5, 3, 0]; cfg.toilim = [0.25, 0.5]
+        >>> fig = spy.multipanelplot(cfg, data1, data2, overlay=True)
+
+    :class:`~syncopy.SpectralData` : trials, channels, tapers, toi/toilim, foi/foilim
+        Examples
+        
+        >>> fig1, fig2 = spy.multipanelplot(data1, data2, channels=["channel1", "channel2"])
         >>> cfg = spy.StructDict() 
         >>> cfg.trials = [5, 3, 0]; cfg.toilim = [0.25, 0.5]
         >>> fig = spy.multipanelplot(cfg, data1, data2, overlay=True)

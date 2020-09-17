@@ -45,7 +45,7 @@ if __name__ == "__main__":
     
     # spy.singlepanelplot(data1, channels=["channel1", "channel2"], toilim=[0.2, 0.5])
     
-    sys.exit()
+    # sys.exit()
 
     # cfg = spy.get_defaults(spy.freqanalysis)
     # cfg.method = 'mtmfft'
@@ -95,14 +95,18 @@ if __name__ == "__main__":
     # tfSpectrum = spy.freqanalysis(cfg, data)
     tfSpectrum = spy.freqanalysis(cfg, data)
     
-    fig = tfSpectrum.singlepanelplot(toilim=[-0.1, 0.1]) 
+    # fig = tfSpectrum.singlepanelplot(toilim=[-0.1, 0.1]) 
     
-    sys.exit()
+    # sys.exit()
 
-    singlepanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80],
-                    avg_channels=True, avg_tapers=True, grid=True)
-    # multipanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80], panels="channels", 
-    #                 avg_channels=False, avg_tapers=True, avg_trials=True)
+    # singlepanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80],
+    #                 avg_channels=True, avg_tapers=True, grid=True)
+    spy.multipanelplot(tfSpectrum, tfSpectrum, channels=[10, 50, 20], foilim=[30, 80], panels="channels")
+    plt.show()
+    sys.exit()
+    
+    multipanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80], panels="channels", 
+                    avg_channels=False, avg_tapers=True, avg_trials=True)
     plt.show()
     sys.exit()
 

@@ -4,7 +4,7 @@
 # 
 # Created: 2020-07-15 10:26:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-08 09:56:43>
+# Last modification time: <2020-09-16 14:10:40>
 
 # Builtin/3rd party package imports
 import os
@@ -22,11 +22,20 @@ if __plt__:
 __all__ = []
 
 
-def singlepanelplot(self, trials="all", channels="all", tapers="all", toilim=None, foilim=None,
-                    avg_channels=True, avg_tapers=True, toi=None, foi=None,
+def singlepanelplot(self, trials="all", channels="all", tapers="all", 
+                    toilim=None, foilim=None, avg_channels=True, avg_tapers=True,  
                     interp="spline36", cmap="plasma", vmin=None, vmax=None, 
                     title=None, grid=None, fig=None, **kwargs):
     """
+    Plot contents of :class:`~syncopy.SpectralData` objects using single-panel figure(s)
+    
+    Please refer to :func:`syncopy.singlepanelplot` for detailed usage information. 
+    
+    Examples
+    --------
+    Use :func:`~syncopy.tests.misc.generate_artificial_data` to create two synthetic 
+    :class:`~syncopy.AnalogData` objects. 
+
     Coming soon...
     
     overlay-plotting not supported for TF data
