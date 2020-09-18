@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-25 10:13:31
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-06 14:15:47>
+# Last modification time: <2020-08-24 18:20:48>
 
 import pytest
 import numpy as np
@@ -430,7 +430,7 @@ class TestSelector():
                                     stop = len(dummy.channel)
                                 elif stop < 0:
                                     stop = len(dummy.channel) + stop
-                                if not step in [None, 1]:
+                                if step not in [None, 1]:
                                     solution = list(range(start, stop))[solution]
                                 else:
                                     solution = slice(start, stop, step)

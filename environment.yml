@@ -1,14 +1,15 @@
 channels:
   - defaults
+  - conda-forge
  
 dependencies:
-  - python>= 3.7,<3.8
-  - dask >= 1.2
-  - scipy >= 1.2, <1.4
-  - numpy >= 1.15, <1.17
-  - tqdm
+  - numpy >= 1.15
+  - scipy >= 1.5, < 1.6
+  - matplotlib >= 3.3, < 3.5
+  - tqdm >= 4.31
+  - memory_profiler
+  - dask >= 2.25
+  - dask-jobqueue >= 0.7.1
   - h5py >= 2.9, < 3.0
-  - pip
-  - pip:
-     - dask-jobqueue>= 0.4,<0.5
-
+  - bokeh
+  - fsspec

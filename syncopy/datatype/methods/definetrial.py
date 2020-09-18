@@ -4,7 +4,7 @@
 # 
 # Created: 2019-10-14 12:48:30
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-11 15:37:44>
+# Last modification time: <2020-08-24 17:15:42>
 
 # Builtin/3rd party package imports
 import numbers
@@ -109,7 +109,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
             except Exception as exc:
                 raise exc            
             
-            trl = trialdefinition
+            trl = np.array(trialdefinition, dtype="float")
             ref = obj
             tgt = obj
             evt = False

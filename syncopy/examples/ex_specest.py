@@ -32,8 +32,10 @@ from time import time
 # sys.exit()
 
 if __name__ == "__main__":
+    
 
     data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
+<<<<<<< HEAD
     # data = spy.load('~/Documents/job/SyNCoPy/Data/testdata.spy/')
 
     # from syncopy.plotting._plot_spectral import singlepanelplot, multipanelplot
@@ -46,6 +48,27 @@ if __name__ == "__main__":
     # spy.singlepanelplot(data1, channels=["channel1", "channel2"], toilim=[0.2, 0.5])
     
     # sys.exit()
+=======
+    # sys.exit()
+    # data = spy.load('~/Documents/job/SyNCoPy/Data/testdata.spy/')
+    
+    client = spy.esi_cluster_setup(partition="16GBXS", n_jobs=2, mem_per_job="16GB")
+    # client = spy.esi_cluster_setup(partition="DEV", n_jobs=5, mem_per_job="4GB")
+    sys.exit()
+    
+    # sys.exit()
+
+    cfg = spy.get_defaults(spy.freqanalysis)
+    cfg.method = 'mtmfft'
+    cfg.taper = "dpss"
+    cfg.tapsmofrq = 10
+    cfg.keeptapers = "yes"
+    cfg.output = 'pow'
+    cfg.keeptrials = True
+    overallSpectrum = spy.freqanalysis(cfg, data)
+    
+    sys.exit()
+>>>>>>> dev
 
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmfft'

@@ -4,7 +4,7 @@
 # 
 # Created: 2019-09-02 14:44:41
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-14 16:36:32>
+# Last modification time: <2020-09-02 14:50:24>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -157,15 +157,18 @@ class WaveletTransform(ComputationalRoutine):
             chanSec = slice(None)
             trl = data.trialdefinition
             
-        # Construct trialdef array and compute new sampling rate (if necessary)
-        if self.keeptrials:
-            trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
-        else:
-            trl = np.array([[0, 1, 0]])
-            srate = 1.0
+        # Construct trialdef array and compute new sampling rate
+        trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
+        
+        # If trial-averaging was requested, use the first trial as reference 
+        # (all trials had to have identical lengths), and average onset timings
+        if not self.keeptrials:
+            t0 = trl[:, 2].mean()
+            trl = trl[[0], :]
+            trl[:, 2] = t0
             
         # Attach meta-data
-        out.trialdefinition = trl    
+        out.trialdefinition = trl
         out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
         out.freq = 1 / self.cfg["wav"].fourier_period(self.cfg["scales"][::-1])

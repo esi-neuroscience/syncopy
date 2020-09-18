@@ -3,8 +3,8 @@
 # SynCoPy StatisticalData abstract class + regular children
 # 
 # Created: 2019-09-09 16:59:22
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-27 10:25:11>
+# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
+# Last modification time: <2020-08-24 17:51:23>
 """Statistics data
 
 """
@@ -17,7 +17,6 @@ import numpy as np
 
 # Local imports
 from .base_data import BaseData
-# from .methods import _selectdata_continuous, definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser, io_parser
 from syncopy.shared.errors import SPYValueError, SPYIOError
 import syncopy as spy

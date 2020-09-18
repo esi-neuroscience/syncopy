@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-06-02 12:12:13>
+# Last modification time: <2020-08-24 18:13:55>
 
 # Builtin/3rd party package imports
 import os
@@ -15,6 +15,7 @@ import time
 import numpy as np
 from abc import ABC, abstractmethod
 from copy import copy
+from glob import glob
 from numpy.lib.format import open_memmap
 from tqdm.auto import tqdm
 if sys.platform == "win32":
@@ -26,11 +27,13 @@ if sys.platform == "win32":
 # Local imports
 from .tools import get_defaults
 from syncopy import __storage__, __dask__, __path__
-from syncopy.shared.errors import (SPYIOError, SPYValueError, SPYParallelError, 
-                                   SPYTypeError, SPYWarning)
+from syncopy.shared.errors import SPYIOError, SPYValueError, SPYParallelError, SPYWarning
 if __dask__:
     import dask.distributed as dd
     import dask.bag as db
+    # # In case of problems w/worker-stealing, uncomment the following lines
+    # import dask
+    # dask.config.set(distributed__scheduler__work_stealing=False)
 
 __all__ = []
 
@@ -192,6 +195,9 @@ class ComputationalRoutine(ABC):
 
         # if `True`, enforces use of single-threaded scheduler in `compute_parallel`
         self.parallelDebug = False
+        
+        # format string for tqdm progress bars in sequential and parallel computations
+        self.tqdmFormat = "{desc}: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
 
         # maximal acceptable size (in MB) of any provided positional argument
         self._maxArgSize = 100
@@ -263,7 +269,7 @@ class ComputationalRoutine(ABC):
                 raise SPYValueError(legal=lgl, varname="argv", actual=act.format(argsize))
             
             if isinstance(arg, (list, tuple)):
-                if not len(arg) == numTrials:
+                if len(arg) != numTrials:
                     lgl = "list/tuple of positional arguments for each trial"
                     act = "length of list/tuple does not correspond to number of trials"
                     raise SPYValueError(legal=lgl, varname="argv", actual=act)
@@ -616,7 +622,6 @@ class ComputationalRoutine(ABC):
                 spy_path = os.path.abspath(os.path.split(__path__[0])[0])
                 if spy_path not in sys.path:
                     sys.path.insert(0, spy_path)
-            client = dd.get_client()
             client.register_worker_callbacks(init_syncopy)
             
             # Store provided debugging state
@@ -771,7 +776,8 @@ class ComputationalRoutine(ABC):
                                      "outgrid": self.targetLayout[chk],
                                      "outshape": self.targetShapes[chk],
                                      "dtype": self.dtype}
-                                     for chk in range(len(self.sourceLayout))]) 
+                                     for chk in range(len(self.sourceLayout))],
+                                   npartitions=len(self.sourceLayout)) 
 
         # Convert by-worker argv-list to dask bags to distribute across cluster
         # Format: ``ArgV = [(3, 0, 'a'), (3, 0, 'a'), (3, 1, 'b'), (3, 1, 'b')]``
@@ -782,20 +788,64 @@ class ComputationalRoutine(ABC):
             
         # Map all components (channel-trial-blocks) onto `computeFunction`
         results = mainBag.map(self.computeFunction, *bags, **self.cfg)
-
-        # If debugging is requested, drop existing client and enforce use of
-        # single-threaded scheduler
+        
+        # Let the fun begin... 
         if not self.parallelDebug:
             
             # Make sure that all futures are executed (i.e., data is actually written)
-            # Note: `dd.progress` works in (i)Python but is not blocking in Jupyter, 
-            # but `while status == 'pending"` is respected, hence the double-whammy
-            # futures = dd.client.futures_of(results.persist())
-            futures = dd.client.futures_of(results.persist(scheduler="single-threaded"))
-            dd.progress(futures, notebook=False)
-            # while any(f.status == "pending" for f in futures): # FIXME: maybe use this for pretty progress-bars
-            #     time.sleep(self.sleepTime)
+            # Note 1: `dd.progress` does not correctly track worker progress hence 
+            #         the custom-tailored `while` formulation: that periodically 
+            #         checks in on the status of all allocated futures
+            #         -> Do not use this `dd.progress(futures, notebook=False)`
+            # Note 2: the while loop below does not run indefinitely - erring or 
+            #         stalling futures get status 'error' or 'waiting'. After 
+            #         some time the status of all futures is one of 'finished', 
+            #         'error' or 'waiting', but none is 'pending' any more.  
+            futures = dd.client.futures_of(results.persist())
+            totalTasks = len(futures)
+            pbar = tqdm(total=totalTasks, bar_format=self.tqdmFormat)
+            cnt = 0
+            while any(f.status == "pending" for f in futures):
+                time.sleep(self.sleepTime)
+                new = max(0, sum([f.status == "finished" for f in futures]) - cnt)
+                cnt += new
+                pbar.update(new)
+            pbar.close()
             
+            # Avoid race condition: give futures time to perform switch from 'pending' 
+            # to 'finished' so that `finishedTasks` is computed correctly
+            time.sleep(self.sleepTime)
+
+            # If some futures erred or stalled, perform the Herculean task of 
+            # tracking down which dask worker was executed by which SLURM job...
+            # If number of 'finished' tasks is less than expected, go into 
+            # problem analysis mode: all futures that erred hav an `.exception`
+            # method which can be used to track down the worker it was executed by
+            # Once we know the worker, we can point to the right log file. If 
+            # futures were cancelled (by the user or the SLURM controller), 
+            # `.exception` is `None` and we can't relialby track down the 
+            # 
+            finishedTasks = sum([f.status == "finished" for f in futures])
+            if finishedTasks < totalTasks:
+                client = dd.get_client()
+                erredFutures = [f for f in futures if f.status == "error"]
+                erredJobs = [f.exception().last_worker.identity()["id"] for f in erredFutures]
+                erredJobs = list(set(erredJobs))
+                erredJobIDs = [client.cluster.workers[job].job_id for job in erredJobs]
+                slurmFiles = client.cluster.job_header.split("--output=")[1].replace("%j", "{}")
+                slurmOutDir = os.path.split(slurmFiles)[0]
+                errFiles = glob(slurmOutDir + os.sep + "*.err")
+                msg = "Parallel computation failed: {}/{} tasks failed or stalled.\n"
+                if len(erredFutures) or len(errFiles):
+                    msg += "Please consult the following SLURM log files for details:\n"
+                    msg += "".join(slurmFiles.format(id) + "\n" for id in erredJobIDs)
+                    msg += "".join(errfile + "\n" for errfile in errFiles)
+                else:
+                    msg += "Please check SLURM logs in {}".format(slurmOutDir)
+                raise SPYParallelError(msg.format(totalTasks - finishedTasks, totalTasks), client=client)
+
+        # If debugging is requested, drop existing client and enforce use of
+        # single-threaded scheduler
         else:
             results.compute(scheduler="single-threaded")
             
@@ -858,7 +908,7 @@ class ComputationalRoutine(ABC):
         with h5py.File(out.filename, "r+") as h5fout:
             target = h5fout[self.datasetName]
 
-            for nblock in tqdm(range(len(self.trialList)), bar_format=fmt):
+            for nblock in tqdm(range(len(self.trialList)), bar_format=self.tqdmFormat):
 
                 # Extract respective indexing tuples from constructed lists                
                 ingrid = self.sourceLayout[nblock]

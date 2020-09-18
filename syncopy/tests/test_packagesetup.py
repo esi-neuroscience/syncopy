@@ -23,15 +23,18 @@ def test_storage_access():
     folderCascade = os.path.join(*dirNames)
     os.makedirs(folderCascade)
     shutil.rmtree(folderCascade)
+    time.sleep(1)
 
 
 # check if `SPYTMPDIR` is respected
 def test_spytmpdir():
-    tmpDir = os.path.join(tempfile.gettempdir(), "spy_storage")
+    tmpDir = os.path.join(syncopy.__storage__, "__testStorage__")
     os.environ["SPYTMPDIR"] = tmpDir
     importlib.reload(syncopy)
     assert syncopy.__storage__ == tmpDir
     shutil.rmtree(tmpDir)
+    del os.environ["SPYTMPDIR"]
+    time.sleep(1)
 
 
 # check if `cleanup` does what it's supposed to do
@@ -80,4 +83,5 @@ def test_cleanup():
     # now kill 2nd instance and wipe `tmpDir`
     process2.kill()    
     shutil.rmtree(tmpDir)
+    del os.environ["SPYTMPDIR"]
     time.sleep(1)
