@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-24 18:23:26>
+# Last modification time: <2020-09-18 11:51:05>
 
 
 # Builtin/3rd party package imports
@@ -1703,12 +1703,7 @@ class Selector():
         For instances of :class:`~syncopy.datatype.continuous_data.ContinuousData` 
         child classes (i.e., :class:`~syncopy.AnalogData` and :class:`~syncopy.SpectralData`
         objects) the integrity of conjoint multi-dimensional selections
-        is ensured by guaranteeing that cross-dimensional selections are
-        finite (i.e., lists) and no more than two lists are used simultaneously
-        for a selection. If the current Selector instance contains multiple
-        index lists, the contents of all selection properties is converted
-        (if required) to lists so that multi-dimensional array-indexing can
-        be readily performed via :func:`numpy.ix_`. 
+        is ensured. 
         For instances of :class:`~syncopy.datatype.discrete_data.DiscreteData` 
         child classes (i.e., :class:`~syncopy.SpikeData` and :class:`~syncopy.EventData`
         objects), any selection (`unit`, `eventid`, `time` and `channel`) operates 
@@ -1802,48 +1797,8 @@ class Selector():
                         listCount += 1
                         break
                 
-        # If (on a by-trial basis) we have two or more lists, we need fancy indexing, 
-        # thus convert all slice- to list-selectors
+        # If (on a by-trial basis) we have two or more lists, we need fancy indexing
         if listCount >= 2:
-            for tk, tsel in enumerate(self.time):
-                if isinstance(tsel, slice):
-                    start, stop, step = tsel.start, tsel.stop, tsel.step
-                    if start is None:
-                        start = 0
-                    if stop is None:
-                        stop = -1
-                    if start < 0 or stop < 0:
-                        trlTime = data._get_time([self.trials[tk]], toilim=[-np.inf, np.inf])[0]
-                        if isinstance(trlTime, list):
-                            if start < 0:
-                                start += len(trlTime)
-                            if stop < 0:
-                                stop += len(trlTime)
-                        else:
-                            if start < 0:
-                                start += trlTime.stop
-                            if stop < 0:
-                                stop += trlTime.stop
-                    if step is None:
-                        step = 1
-                    self.time[tk] = list(range(start, stop, step))
-            for prop in self._dimProps:
-                sel = getattr(self, prop)
-                if isinstance(sel, slice):
-                    start, stop, step = sel.start, sel.stop, sel.step
-                    if start is None:
-                        start = 0
-                    if stop is None:
-                        stop = -1
-                    if start < 0 or stop < 0:
-                        propSize = getattr(data, prop).size
-                        if start < 0:
-                            start += propSize
-                        if stop < 0:
-                            stop += propSize
-                    if step is None:
-                        step = 1
-                    setattr(self, "_{}".format(prop), list(range(start, stop, step)))
             self._useFancy = True
 
         # Finally, prepare new `trialdefinition` array for objects with `time` dimensions
