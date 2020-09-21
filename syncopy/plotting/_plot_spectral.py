@@ -4,7 +4,7 @@
 # 
 # Created: 2020-07-15 10:26:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-17 15:22:11>
+# Last modification time: <2020-09-21 15:54:59>
 
 # Builtin/3rd party package imports
 import os
@@ -36,15 +36,27 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all",
     
     Examples
     --------
-    Use :func:`~syncopy.tests.misc.generate_artificial_data` to create two synthetic 
-    :class:`~syncopy.AnalogData` objects. 
-
-    Coming soon...
+    Show frequency range 30-80 Hz of channel `'ecog_mua2'` averaged across 
+    trials 2, 4, and 6:
     
-    overlay-plotting not supported for TF data
+    >>> fig = spy.singlepanelplot(freqData, trials=[2, 4, 6], channels=["ecog_mua2"],
+                                  foilim=[30, 80])
+                                  
+    Overlay channel `'ecog_mua3'` with same settings:
     
-    TF data: to compare different objects, vmin and vmax should be set!
-
+    >>> fig2 = spy.singlepanelplot(freqData, trials=[2, 4, 6], channels=['ecog_mua3'],
+                                   foilim=[30, 80], fig=fig)
+                                   
+    Plot time-frequency contents of channel `'ecog_mua1'` present in both objects 
+    `tfData1` and `tfData2` using the 'viridis' colormap, a plot grid, manually 
+    defined lower and upper color value limits and no interpolation
+    
+    >>> fig1, fig2 = spy.singlepanelplot(tfData1, tfData2, channels=['ecog_mua1'],
+                                         cmap="viridis", vmin=0.25, vmax=0.95, 
+                                         interp=None, grid=True, overlay=False)
+    
+    Note that overlay plotting is **not** supported for time-frequency objects. 
+ 
     See also
     --------
     syncopy.singlepanelplot : visualize Syncopy data objects using single-panel plots
@@ -173,11 +185,25 @@ def multipanelplot(self, trials="all", channels="all", tapers="all", toilim=None
     
     Examples
     --------
-    Coming soon... 
+    Use 16 panels to show frequency range 30-80 Hz of first 16 channels in `freqData` 
+    averaged across trials 2, 4, and 6:
     
-    overlay-plotting not supported (at all)
+    >>> fig = spy.multipanelplot(freqData, trials=[2, 4, 6], channels=range(16),
+                                 foilim=[30, 80], panels="channels")
+                                  
+    Same settings, but each panel represents a trial:
     
-    use `availablePanels` in Parameters section!
+    >>> fig = spy.multipanelplot(freqData, trials=[2, 4, 6], channels=range(16),
+                                 foilim=[30, 80], panels="trials", avg_trials=False, 
+                                 avg_channels=True)
+    
+    Plot time-frequency contents of channels `'ecog_mua1'` and `'ecog_mua2'` of 
+    `tfData` 
+        
+    >>> fig = spy.multipanelplot(tfData, channels=['ecog_mua1', 'ecog_mua2'])
+    
+    Note that multi-panel overlay plotting is **not** supported for 
+    :class:`~syncopy.SpectralData` objects.
     
     See also
     --------
@@ -478,9 +504,9 @@ def _compute_pltArr(self, nFreq, N, nTime, complexConversion, pltDtype,
     else:
         pltArr = np.zeros((nFreq, nTime, N), dtype=pltDtype).squeeze()  # `squeeze` for `singlepanelplot`
 
-    for trlno in trList:
+    for tk, trlno in enumerate(trList):
         trlArr = complexConversion(self._get_trial(trlno))
-        idx[timeIdx] = self._selection.time[trlno]
+        idx[timeIdx] = self._selection.time[tk]
         if not useFancy:
             trlArr = trlArr[tuple(idx)]
         else:

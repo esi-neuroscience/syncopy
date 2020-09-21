@@ -35,26 +35,12 @@ if __name__ == "__main__":
     
 
     data = spy.load('/mnt/hpx/it/dev/testdata.spy/')
-<<<<<<< HEAD
-    # data = spy.load('~/Documents/job/SyNCoPy/Data/testdata.spy/')
-
-    # from syncopy.plotting._plot_spectral import singlepanelplot, multipanelplot
-    import matplotlib.pyplot as plt
-    
-    # data1 = generate_artificial_data()
-    # data2 = data1
-    # spy.singlepanelplot(data1, data2, channels=["channel1", "channel2"], toilim=[1.2, 1.5], overlay=False)
-    
-    # spy.singlepanelplot(data1, channels=["channel1", "channel2"], toilim=[0.2, 0.5])
-    
-    # sys.exit()
-=======
     # sys.exit()
     # data = spy.load('~/Documents/job/SyNCoPy/Data/testdata.spy/')
     
-    client = spy.esi_cluster_setup(partition="16GBXS", n_jobs=2, mem_per_job="16GB")
-    # client = spy.esi_cluster_setup(partition="DEV", n_jobs=5, mem_per_job="4GB")
-    sys.exit()
+    # client = spy.esi_cluster_setup(partition="16GBXS", n_jobs=2, mem_per_job="16GB")
+    # # client = spy.esi_cluster_setup(partition="DEV", n_jobs=5, mem_per_job="4GB")
+    # sys.exit()
     
     # sys.exit()
 
@@ -67,8 +53,13 @@ if __name__ == "__main__":
     cfg.keeptrials = True
     overallSpectrum = spy.freqanalysis(cfg, data)
     
+    fig = spy.multipanelplot(overallSpectrum, trials=[2, 4, 6], channels=range(16),
+                             foilim=[30, 80], panels="channels")
+    fig = spy.multipanelplot(overallSpectrum, trials=[2, 4, 6], channels=range(16),
+                             foilim=[30, 80], panels="trials", avg_trials=False, 
+                             avg_channels=True)
+    
     sys.exit()
->>>>>>> dev
 
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmfft'
