@@ -4,7 +4,7 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-22 10:58:16>
+# Last modification time: <2020-09-22 17:10:00>
 
 # Builtin/3rd party package imports
 import warnings
@@ -53,12 +53,6 @@ if __plt__:
         for key, value in spyMplRc.items():
             mpl.rcParams[key] = value
             
-    #: available interpolation methods for visualization of 2D contour maps            
-    availableInterpolations = tuple(mpl.image._interpd_.keys())
-    
-    #: available colormaps for visualization of 2D contour maps            
-    availableColormaps = tuple(mpl.cm._cmap_registry.keys())
-    
 # Global style settings for single-/multi-plots
 pltConfig = {"singleTitleSize": 12,
              "singleLabelSize": 10,
@@ -161,14 +155,16 @@ def singlepanelplot(*data,
         resulting in multiple plots, each representing a single taper. 
     interp : str or None
         Interpolation method used for plotting two-dimensional contour maps 
-        such as time-frequency power spectra. Can be one of 
-        :data:`~.availableInterpolations`. Pleasee consult the matplotlib 
-        documentation for more details. Has no effect on line-plots. 
+        such as time-frequency power spectra. To see a list of available 
+        interpolation methods use the command ``list(mpl.image._interpd_.keys())``. 
+        Please consult the matplotlib documentation for more details. 
+        Has no effect on line-plots. 
     cmap : str
         Colormap used for plotting two-dimensional contour maps 
-        such as time-frequency power spectra. Can be one of 
-        :data:`~.availableColormaps`. Pleasee consult the matplotlib documentation 
-        for more details. Has no effect on line-plots.
+        such as time-frequency power spectra. To see a list of available 
+        color-maps use the command ``list(mpl.cm._cmap_registry.keys())``. 
+        Pleasee consult the matplotlib documentation for more details. 
+        Has no effect on line-plots.
     vmin : float or None
         Lower bound of data-range covered by colormap when plotting two-dimensional 
         contour maps such as time-frequency power spectra. If `vmin` is `None`
@@ -339,7 +335,7 @@ def multipanelplot(*data,
         to `True` but `trials` to `None` triggers a :class:`~syncopy.shared.errors.SPYValueError`. 
     panels : str
         Panel specification. Only valid for :class:`~syncopy.SpectralData` objects. 
-        Can be one of :data:`~syncopy.plotting._plot_spectral.availablePanels`. 
+        Can be `"channels"`, `"trials"`, or `"tapers"`. 
         Panel specification and averaging flags have to align, i.e., if `panels` 
         is `trials` then `avg_trials` must be `False`, otherwise the code issues 
         a :class:`~syncopy.shared.errors.SPYWarning` and exits. Note that a 
@@ -348,14 +344,16 @@ def multipanelplot(*data,
         `avg_tapers` and `avg_trials` must be `True`). 
     interp : str or None
         Interpolation method used for plotting two-dimensional contour maps 
-        such as time-frequency power spectra. Can be one of 
-        :data:`~.availableInterpolations`. Pleasee consult the matplotlib 
-        documentation for more details. Has no effect on line-plots. 
+        such as time-frequency power spectra. To see a list of available 
+        interpolation methods use the command ``list(mpl.image._interpd_.keys())``. 
+        Please consult the matplotlib documentation for more details. 
+        Has no effect on line-plots. 
     cmap : str
         Colormap used for plotting two-dimensional contour maps 
-        such as time-frequency power spectra. Can be one of 
-        :data:`~.availableColormaps`. Pleasee consult the matplotlib documentation 
-        for more details. Has no effect on line-plots.
+        such as time-frequency power spectra. To see a list of available 
+        color-maps use the command ``list(mpl.cm._cmap_registry.keys())``. 
+        Pleasee consult the matplotlib documentation for more details. 
+        Has no effect on line-plots.
     vmin : float or None
         Lower bound of data-range covered by colormap when plotting two-dimensional 
         contour maps such as time-frequency power spectra. If `vmin` is `None`

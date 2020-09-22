@@ -4,7 +4,7 @@
 # 
 # Created: 2020-07-15 10:26:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-21 15:54:59>
+# Last modification time: <2020-09-22 16:35:17>
 
 # Builtin/3rd party package imports
 import os
@@ -463,11 +463,61 @@ def _compute_pltArr(self, nFreq, N, nTime, complexConversion, pltDtype,
                     avg1="channel", avg2=None, trial="all", channel="all", 
                     freq="all", taper="all"):
     """
-    Local helper
+    Local helper that extracts/averages data from :class:`~syncopy.SpectralData` object
     
-    N = nChan, nTap or 1
-    
-    trial, channel, freq and taper have to be single-entity identifiers! 
+    Parameters
+    ----------
+    self : :class:`~syncopy.SpectralData` object
+        Syncopy :class:`~syncopy.SpectralData` object that is being processed by 
+        the respective :meth:`.singlepanelplot` or :meth:`.multipanelplot` class methods
+        defined in this module. 
+    nFreq : int
+        Number of frequencies of interest
+    N : int
+        Size of free dimension post averaging. Depending on `avg1` and `avg2` 
+        can be either `nChan`, `nTap` or 1
+    nTime : int
+        Number of time-points of interest. If object does not contain time-frequency
+        data, `nTime` has to be 1
+    complexConversion : callable
+        Automatically set by :meth:`~syncopy.plotting._plot_spectral._prep_spectral_plots` 
+        to (potentially) convert complex Fourier coefficients to float. 
+    pltDtype : str or :class:`numpy.dtype`
+        Automatically set by :meth:`~syncopy.plotting._plot_spectral._prep_spectral_plots`: 
+        numeric type of (potentially converted) complex Fourier coefficients. 
+    avg1 : str or None
+        First dimension for averaging. If `None`, no mean-value is computed. Otherwise, 
+        `avg1` can be either `"channel"` or `"taper"`. 
+    avg2 : str or None
+        Second dimension for averaging. If `None`, no mean-value is computed. Otherwise, 
+        `avg2` can be either `"channel"` or `"taper"`. 
+    trial : str or list
+        Either list of trial indices or `"all"`; set by 
+        :meth:`~syncopy.plotting._plot_spectral._prep_spectral_plots`
+    channel : str or :class:`numpy.ndarray`
+        Either array of channel specifiers or `"all"`; set by 
+        :meth:`~syncopy.plotting._plot_spectral._prep_spectral_plots`
+    freq : str or :class:`numpy.ndarray`
+        Either array of frequency specifiers or `"all"`; set by 
+        :meth:`~syncopy.plotting._plot_spectral._prep_spectral_plots`
+    taper : str or :class:`numpy.ndarray`
+        Either array of taper specifiers or `"all"`; set by 
+        :meth:`~syncopy.plotting._plot_spectral._prep_spectral_plots`
+
+    Returns
+    -------
+    pltArr : 1D, 2D or 3D :class:`numpy.ndarray`
+        Extracted/averaged data ready for plotting; if the :class:`~syncopy.SpectralData`
+        input object contains time-frequency data, `pltArr` is a three-dimensional
+        array of shape ``(nFreq, nTime, N)``, otherwise `pltArr` is two-dimensional
+        with shape ``(nFreq, N)`` for ``N > 1``, or a one-dimensional ``(nFreq,)``
+        array if ``N = 1``. 
+
+    Notes
+    -----
+    This is an auxiliary method that is intended purely for internal use. Please
+    refer to the user-exposed methods :func:`~syncopy.singlepanelplot` and/or
+    :func:`~syncopy.multipanelplot` to actually generate plots of Syncopy data objects. 
     """
     
     # Prepare indexing list respecting potential non-default `dimord`s

@@ -13,5 +13,3 @@ files.
     data_handling
     fieldtrip
     user_api
-
-

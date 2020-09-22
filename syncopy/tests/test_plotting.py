@@ -4,7 +4,7 @@
 # 
 # Created: 2020-04-17 08:25:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-22 11:48:16>
+# Last modification time: <2020-09-22 12:08:54>
 
 import pytest
 import numpy as np
@@ -64,7 +64,6 @@ class TestAnalogDataPlotting():
 
         # Lowest possible dpi setting permitting valid png comparisons in `figs_equal`
         mpl.rcParams["figure.dpi"] = 150
-        # mpl.rcParams["figure.dpi"] = 50
         
         # Test everything except "raw" plotting       
         for trials in self.trials:

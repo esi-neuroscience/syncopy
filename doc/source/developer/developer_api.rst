@@ -68,3 +68,5 @@ syncopy.plotting
     :toctree: _stubs
 
     syncopy.plotting.spy_plotting._layout_subplot_panels
+    syncopy.plotting._plot_spectral._compute_pltArr
+    syncopy.plotting._plot_spectral._prep_spectral_plots
