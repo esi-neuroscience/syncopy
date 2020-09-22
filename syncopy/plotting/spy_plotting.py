@@ -4,7 +4,7 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-17 15:19:25>
+# Last modification time: <2020-09-22 10:58:16>
 
 # Builtin/3rd party package imports
 import warnings
@@ -57,7 +57,7 @@ if __plt__:
     availableInterpolations = tuple(mpl.image._interpd_.keys())
     
     #: available colormaps for visualization of 2D contour maps            
-    availableColormaps = tuple(mpl.cm._gen_cmap_d().keys())
+    availableColormaps = tuple(mpl.cm._cmap_registry.keys())
     
 # Global style settings for single-/multi-plots
 pltConfig = {"singleTitleSize": 12,

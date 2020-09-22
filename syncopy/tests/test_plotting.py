@@ -4,7 +4,7 @@
 # 
 # Created: 2020-04-17 08:25:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-07 15:48:31>
+# Last modification time: <2020-09-22 11:48:16>
 
 import pytest
 import numpy as np
@@ -17,8 +17,6 @@ from syncopy import __plt__
 if __plt__:
     import matplotlib.pyplot as plt
     import matplotlib as mpl
-    # mpl.rcParams["figure.dpi"] = 50
-    # mpl.rcParams["figure.dpi"] = 75
 
 # If matplotlib is not available, this whole testing module is pointless
 skip_without_plt = pytest.mark.skipif(not __plt__, reason="matplotlib not available")
@@ -65,7 +63,8 @@ class TestAnalogDataPlotting():
     def test_singlepanelplot(self):
 
         # Lowest possible dpi setting permitting valid png comparisons in `figs_equal`
-        mpl.rcParams["figure.dpi"] = 50
+        mpl.rcParams["figure.dpi"] = 150
+        # mpl.rcParams["figure.dpi"] = 50
         
         # Test everything except "raw" plotting       
         for trials in self.trials:
