@@ -4,7 +4,7 @@
 # 
 # Created: 2020-04-17 08:25:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-14 16:43:44>
+# Last modification time: <2020-09-22 12:08:54>
 
 import pytest
 import numpy as np
@@ -17,8 +17,6 @@ from syncopy import __plt__
 if __plt__:
     import matplotlib.pyplot as plt
     import matplotlib as mpl
-    # mpl.rcParams["figure.dpi"] = 50
-    # mpl.rcParams["figure.dpi"] = 75
 
 # If matplotlib is not available, this whole testing module is pointless
 skip_without_plt = pytest.mark.skipif(not __plt__, reason="matplotlib not available")
@@ -65,7 +63,7 @@ class TestAnalogDataPlotting():
     def test_singlepanelplot(self):
 
         # Lowest possible dpi setting permitting valid png comparisons in `figs_equal`
-        mpl.rcParams["figure.dpi"] = 50
+        mpl.rcParams["figure.dpi"] = 150
         
         # Test everything except "raw" plotting       
         for trials in self.trials:
@@ -84,7 +82,6 @@ class TestAnalogDataPlotting():
                                                            toilim=toilim)
                         fig2 = selected.singlepanelplot(trials="all", 
                                                    avg_channels=avg_channels)
-                        # assert figs_equal(fig1, fig2)
                         
                         # Recreate `fig1` and `fig2` in a single sweep by using 
                         # `spy.singlepanelplot` w/multiple input objects 
@@ -336,8 +333,8 @@ class TestAnalogDataPlotting():
         # Ensure grid and title specifications are rendered correctly
         theTitle = "A title"
         gridFig = self.dataReg.multipanelplot(avg_trials=False, 
-                                         avg_channels=True, 
-                                         grid=True)
+                                              avg_channels=True, 
+                                              grid=True) 
         assert all([gridFig.axes[k].get_xgridlines()[0].get_visible() for k in range(self.nTrials)])
         titleFig = self.dataReg.multipanelplot(avg_trials=False, 
                                           avg_channels=True, 

@@ -38,9 +38,9 @@ if __name__ == "__main__":
     # sys.exit()
     # data = spy.load('~/Documents/job/SyNCoPy/Data/testdata.spy/')
     
-    client = spy.esi_cluster_setup(partition="16GBXS", n_jobs=2, mem_per_job="16GB")
-    # client = spy.esi_cluster_setup(partition="DEV", n_jobs=5, mem_per_job="4GB")
-    sys.exit()
+    # client = spy.esi_cluster_setup(partition="16GBXS", n_jobs=2, mem_per_job="16GB")
+    # # client = spy.esi_cluster_setup(partition="DEV", n_jobs=5, mem_per_job="4GB")
+    # sys.exit()
     
     # sys.exit()
 
@@ -53,34 +53,76 @@ if __name__ == "__main__":
     cfg.keeptrials = True
     overallSpectrum = spy.freqanalysis(cfg, data)
     
+    fig = spy.multipanelplot(overallSpectrum, trials=[2, 4, 6], channels=range(16),
+                             foilim=[30, 80], panels="channels")
+    fig = spy.multipanelplot(overallSpectrum, trials=[2, 4, 6], channels=range(16),
+                             foilim=[30, 80], panels="trials", avg_trials=False, 
+                             avg_channels=True)
+    
     sys.exit()
 
-    # cfg = spy.get_defaults(spy.freqanalysis)
-    # cfg.method = 'mtmconvol'
-    # cfg.taper = 'dpss'
-    # cfg.output = 'pow'
-    # cfg.tapsmofrq = 20
-    # cfg.keeptrials = True
-    # cfg.keeptapers = True
-    # # cfg.foi = [30, 40, 50]
+    cfg = spy.get_defaults(spy.freqanalysis)
+    cfg.method = 'mtmfft'
+    cfg.taper = "dpss"
+    cfg.tapsmofrq = 20
+    cfg.output = 'pow'
+    cfg.keeptrials = True
+    cfg.keeptapers = True
+    cfg.select = {"trials": [0, 10]}
+    overallSpectrum = spy.freqanalysis(cfg, data)
+    
+    fig = spy.singlepanelplot(overallSpectrum, channels=[10, 50, 20], tapers=[3, 0], foilim=[30, 80],
+                    avg_channels=False, avg_tapers=True, grid=True)
+    fig = multipanelplot(overallSpectrum, channels=[10, 50, 20], tapers=[3, 0], foilim=[30, 80],
+                         panels="tapers", avg_channels=True, avg_tapers=False, avg_trials=True)
+    
+    # fig1, fig2 = spy.singlepanelplot(overallSpectrum, overallSpectrum, tapers=[3, 0], 
+    #                              foilim=[30, 80], avg_channels=False, avg_tapers=True, grid=True, overlay=True)
+    
+    plt.show()
+    sys.exit()
+
+    cfg = spy.get_defaults(spy.freqanalysis)
+    cfg.method = 'mtmconvol'
+    cfg.taper = 'dpss'
+    cfg.output = 'pow'
+    cfg.tapsmofrq = 20
+    cfg.keeptrials = True
+    cfg.keeptapers = True
+    # cfg.foi = [30, 40, 50]
     # cfg.foilim = [30, 80]
-    # # cfg.toi = 0.25
-    # # cfg.toi = "all"
-    # # cfg.pad = 'nextpow2'
-    # # cfg.toi = [-0.1, 0.0, 0.5]
+    # cfg.toi = 0.25
+    # cfg.toi = "all"
+    # cfg.pad = 'nextpow2'
+    # cfg.toi = [-0.1, 0.0, 0.5]
     # cfg.toi = [-0.1, 0.0, 0.2]
-    # # cfg.toi = np.arange(-0.1, 0.5, 0.05) 
-    # # cfg.toi = np.arange(-0.1, 0.5, 0.1) 
-    # # cfg.toi = "all"
-    # # cfg.t_ftimwin = 0.05
+    cfg.toi = np.arange(-0.1, 0.5, 0.05) 
+    # cfg.toi = np.arange(-0.1, 0.5, 0.1) 
+    # cfg.toi = "all"
+    cfg.t_ftimwin = 0.05
     # cfg.t_ftimwin = 0.75
-    # # cfg.pad = 'nextpow2'
-    # # cfg.select = {"toilim": [-0.25, 0]}
-    # cfg.select = {"trials": [0, 10]}
-    # # cfg.select = {"trials": [0, 10, 20]}
-    # # cfg.select = {"trials": [0, 10, 20], "toilim": [-0.001, 0.05]}
+    # cfg.pad = 'nextpow2'
+    # cfg.select = {"toilim": [-0.25, 0]}
+    cfg.select = {"trials": [0, 10]}
+    # cfg.select = {"trials": [0, 10, 20]}
+    # cfg.select = {"trials": [0, 10, 20], "toilim": [-0.001, 0.05]}
     # tfSpectrum = spy.freqanalysis(cfg, data)
-    # # baselineSpectrum = spy.freqanalysis(cfg, data)
+    tfSpectrum = spy.freqanalysis(cfg, data)
+    
+    # fig = tfSpectrum.singlepanelplot(toilim=[-0.1, 0.1]) 
+    
+    sys.exit()
+
+    # singlepanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80],
+    #                 avg_channels=True, avg_tapers=True, grid=True)
+    fig1, fig2 = spy.multipanelplot(tfSpectrum, tfSpectrum, channels=[10, 50, 20], foilim=[30, 80], panels="trials", avg_trials=False, avg_channels=True, overlay=False)#, vmin=10, vmax=1000)
+    plt.show()
+    sys.exit()
+    
+    multipanelplot(tfSpectrum, channels=[10, 50, 20], foilim=[30, 80], panels="channels", 
+                    avg_channels=False, avg_tapers=True, avg_trials=True)
+    plt.show()
+    sys.exit()
 
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'wavelet'
@@ -95,7 +137,7 @@ if __name__ == "__main__":
     # cfg.toi = [-0.1, 0.0, 0.2]
     # cfg.select = {"trials": [0, 10]}
     cfg.select = {"trials": [0, 10], "toilim": [-0.001, 0.05]}
-    tfSpectrum = spy.freqanalysis(cfg, data)
+    tfSpectrum = spy.freqanalysis(cfg, data, select=dict(cfg.select))
 
     sys.exit()
     

@@ -4,7 +4,7 @@
 # 
 # Created: 2020-01-27 13:37:32
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-20 18:20:44>
+# Last modification time: <2020-08-06 11:58:04>
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -12,7 +12,6 @@ import inspect
 
 # Local imports
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYTypeError
-from syncopy.shared.parsers import scalar_parser
 
 __all__ = ["StructDict", "get_defaults"]
 
@@ -201,108 +200,3 @@ def get_defaults(obj):
     return StructDict(dct)
 
 
-def layout_subplot_panels(npanels, nrow=None, ncol=None, ndefault=5, maxpanels=50):
-    """
-    Create space-optimal subplot grid given required number of panels
-    
-    Parameters
-    ----------
-    npanels : int
-        Number of required subplot panels in figure
-    nrow : int or None
-        Required number of panel rows. Note, if both `nrow` and `ncol` are not `None`,
-        then ``nrow * ncol >= npanels`` has to be satisfied, otherwise a 
-        :class:`~syncopy.shared.errors.SPYValueError` is raised. 
-    ncol : int or None
-        Required number of panel columns. Note, if both `nrow` and `ncol` are not `None`,
-        then ``nrow * ncol >= npanels`` has to be satisfied, otherwise a 
-        :class:`~syncopy.shared.errors.SPYValueError` is raised. 
-    ndefault: int
-        Default number of panel columns for grid construction (only relevant if 
-        both `nrow` and `ncol` are `None`). 
-    maxpanels : int
-        Maximally allowed number of subplot panels for which a grid is constructed 
-        
-    Returns
-    -------
-    nrow : int
-        Number of rows of constructed subplot panel grid
-    nrow : int
-        Number of columns of constructed subplot panel grid
-        
-    Notes
-    -----
-    If both `nrow` and `ncol` are `None`, the constructed grid will have the 
-    dimension `N` x `ndefault`, where `N` is chosen "optimally", i.e., the smallest
-    integer that satisfies ``ndefault * N >= npanels``. 
-    Note further, that this is an auxiliary method that is intended purely for 
-    internal use. Thus, error-checking is only performed on potentially user-provided 
-    inputs (`nrow` and `ncol`). 
-    
-    Examples
-    --------
-    Create grid of default dimensions to hold eight panels
-    
-    >>> layout_subplot_panels(8, ndefault=5)
-    (2, 5)
-    
-    Create a grid that must have 4 rows
-    
-    >>> layout_subplot_panels(8, nrow=4)
-    (4, 2)
-    
-    Create a grid that must have 8 columns
-    
-    >>> layout_subplot_panels(8, ncol=8)
-    (1, 8)
-    """
-
-    # Abort if requested panel count is less than one or exceeds provided maximum    
-    try:
-        scalar_parser(npanels, varname="npanels", ntype="int_like", lims=[1, np.inf])
-    except Exception as exc:
-        raise exc
-    if npanels > maxpanels:
-        lgl = "a maximum of {} panels in total".format(maxpanels)
-        raise SPYValueError(legal=lgl, actual=str(npanels), varname="npanels")
-
-    # Row specifcation was provided, cols may or may not
-    if nrow is not None:
-        try:
-            scalar_parser(nrow, varname="nrow", ntype="int_like", lims=[1, np.inf])
-        except Exception as exc:
-            raise exc
-        if ncol is None:
-            ncol = np.ceil(npanels / nrow).astype(np.intp)
-
-    # Column specifcation was provided, rows may or may not
-    if ncol is not None:
-        try:
-            scalar_parser(ncol, varname="ncol", ntype="int_like", lims=[1, np.inf])
-        except Exception as exc:
-            raise exc
-        if nrow is None:
-            nrow = np.ceil(npanels / ncol).astype(np.intp)
-
-    # After the preparations above, this condition is *only* satisfied if both
-    # `nrow` = `ncol` = `None` -> then use generic grid-layout
-    if nrow is None:
-        ncol = ndefault 
-        nrow = np.ceil(npanels / ncol).astype(np.intp)
-        ncol = min(ncol, npanels)
-
-    # Complain appropriately if requested no. of panels does not fit inside grid
-    if nrow * ncol < npanels:
-        lgl = "row- and column-specification of grid to fit all panels"
-        act = "grid with {0} rows and {1} columns but {2} panels"
-        raise SPYValueError(legal=lgl, actual=act.format(nrow, ncol, npanels), 
-                            varname="nrow/ncol")
-        
-    # In case a grid was provided too big for the requested no. of panels (e.g., 
-    # 8 panels in an 4 x 3 grid -> would fit in 3 x 3), just warn, don't crash
-    if nrow * ncol - npanels >= ncol:
-        msg = "Grid dimension ({0} rows x {1} columns) larger than necessary " +\
-            "for {2} panels. "
-        SPYWarning(msg.format(nrow, ncol, npanels))
-        
-    return nrow, ncol

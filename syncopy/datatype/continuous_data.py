@@ -4,7 +4,7 @@
 # 
 # Created: 2019-03-20 11:11:44
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-07-13 11:23:28>
+# Last modification time: <2020-09-07 16:02:41>
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -27,6 +27,7 @@ from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYIOError
 from syncopy.shared.tools import best_match
 from syncopy.plotting import _plot_analog
+from syncopy.plotting import _plot_spectral
 
 __all__ = ["AnalogData", "SpectralData"]
 
@@ -535,6 +536,10 @@ class SpectralData(ContinuousData):
     
     _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
     _defaultDimord = ["time", "taper", "freq", "channel"]
+
+    # Attach plotting routines to not clutter the core module code
+    singlepanelplot = _plot_spectral.singlepanelplot
+    multipanelplot = _plot_spectral.multipanelplot
     
     @property
     def taper(self):
