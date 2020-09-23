@@ -4,14 +4,14 @@
 # 
 # Created: 2020-05-06 13:32:40
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-08 09:32:59>
+# Last modification time: <2020-09-23 14:21:35>
 
 import numpy as np
 import os 
 
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 from syncopy.plotting.spy_plotting import (pltConfig, _layout_subplot_panels, 
-                                           _compute_toilim_avg, _setup_figure, _prep_plots)
+                                           _prep_toilim_avg, _setup_figure, _prep_plots)
 from syncopy import __plt__
 if __plt__:
     import matplotlib.pyplot as plt
@@ -88,7 +88,7 @@ def singlepanelplot(self, trials="all", channels="all", toilim=None, avg_channel
     # Ensure provided timing selection can actually be averaged (leverage 
     # the fact that `toilim` selections exclusively generate slices)
     if nTrials > 0:
-        tLengths = _compute_toilim_avg(self)
+        tLengths = _prep_toilim_avg(self)
 
     # Generic titles for figures
     overlayTitle = "Overlay of {} datasets"
@@ -417,7 +417,7 @@ def multipanelplot(self, trials="all", channels="all", toilim=None, avg_channels
         
         # Ensure provided timing selection can actually be averaged (leverage 
         # the fact that `toilim` selections exclusively generate slices)
-        tLengths = _compute_toilim_avg(self)
+        tLengths = _prep_toilim_avg(self)
 
         # Compute trial-averaged time-courses: 2D array with slice/list
         # selection does not require fancy indexing - no need to check this here
@@ -580,7 +580,48 @@ def multipanelplot(self, trials="all", channels="all", toilim=None, avg_channels
 
 def _prep_analog_plots(self, name, **inputArgs):
     """
-    Local helper
+    Local helper that performs sanity checks and sets up data selection
+
+    Parameters
+    ----------
+    self : :class:`~syncopy.AnalogData` object
+        Syncopy :class:`~syncopy.AnalogData` object that is being processed by 
+        the respective :meth:`.singlepanelplot` or :meth:`.multipanelplot` class methods
+        defined in this module. 
+    name : str
+        Name of caller (i.e., "singlepanelplot" or "multipanelplot")
+    inputArgs : dict
+        Input arguments of caller (i.e., :meth:`.singlepanelplot` or :meth:`.multipanelplot`)
+        collected in dictionary
+        
+    Returns
+    -------
+    dimArrs : tuple
+        Tuple containing (in this order) `trList`, list of (selected) 
+        trials to visualize and `chArr`, 1D :class:`numpy.ndarray` of channel specifiers
+        based on provided user selection. Note that `"all"` and `None` selections 
+        are converted to arrays ready for indexing. 
+    dimCounts : tuple
+        Tuple holding sizes of corresponding selection arrays comprised
+        in `dimArrs`. Elements are `nTrials`, number of (selected) trials and `nChan`, 
+        number of (selected) channels. 
+    idx : list
+        Three element indexing list (respecting non-default `dimord`s) intended 
+        for use with trial-array data. 
+    timeIdx : int
+        Position of time-axis within indexing list `idx` (either 0 or 1). 
+    chanIdx : int
+        Position of channel-axis within indexing list `idx` (either 0 or 1). 
+        
+    Notes
+    -----
+    This is an auxiliary method that is intended purely for internal use. Please
+    refer to the user-exposed methods :func:`~syncopy.singlepanelplot` and/or
+    :func:`~syncopy.multipanelplot` to actually generate plots of Syncopy data objects. 
+        
+    See also
+    --------
+    :meth:`syncopy.plotting.spy_plotting._prep_plots` : General basic input parsing for all Syncopy plotting routines
     """
     
     # Basic sanity checks for all plotting routines w/any Syncopy object

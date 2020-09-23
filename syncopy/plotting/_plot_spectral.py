@@ -4,7 +4,7 @@
 # 
 # Created: 2020-07-15 10:26:48
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-22 16:35:17>
+# Last modification time: <2020-09-23 14:41:52>
 
 # Builtin/3rd party package imports
 import os
@@ -13,8 +13,8 @@ import numpy as np
 # Local imports
 from syncopy.shared.errors import SPYValueError, SPYError, SPYTypeError, SPYWarning
 from syncopy.shared.parsers import scalar_parser
-from syncopy.plotting.spy_plotting import (pltErrMsg, pltConfig, _compute_toilim_avg, 
-                                           _setup_figure, _setup_colorbar)
+from syncopy.plotting.spy_plotting import (pltErrMsg, pltConfig, _prep_toilim_avg, 
+                                           _setup_figure, _setup_colorbar, _prep_plots)
 from syncopy import __plt__
 if __plt__:
     import matplotlib.pyplot as plt
@@ -147,7 +147,7 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all",
         
         # Compute (and verify) length of selected time intervals and assemble array for plotting
         panelTitle = "Average of {} channels, {} tapers and {} trials".format(nChan, nTap, nTrials)
-        tLengths = _compute_toilim_avg(self)
+        tLengths = _prep_toilim_avg(self)
         nTime = tLengths[0]
         pltArr = _compute_pltArr(self, nFreq, 1, nTime, complexConversion, pltDtype, 
                                  avg1="taper", avg2="channel")
@@ -399,7 +399,7 @@ def multipanelplot(self, trials="all", channels="all", tapers="all", toilim=None
     else:
         
         # Compute (and verify) length of selected time intervals
-        tLengths = _compute_toilim_avg(self)
+        tLengths = _prep_toilim_avg(self)
         nTime = tLengths[0]
         time = self.time[trList[0]][self._selection.time[0]]
         N = 1
@@ -571,12 +571,58 @@ def _compute_pltArr(self, nFreq, N, nTime, complexConversion, pltDtype,
 
 def _prep_spectral_plots(self, name, **inputArgs):
     """
-    Local helper
+    Local helper that performs sanity checks and sets up data selection
+    
+    Parameters
+    ----------
+    self : :class:`~syncopy.SpectralData` object
+        Syncopy :class:`~syncopy.SpectralData` object that is being processed by 
+        the respective :meth:`.singlepanelplot` or :meth:`.multipanelplot` class methods
+        defined in this module. 
+    name : str
+        Name of caller (i.e., "singlepanelplot" or "multipanelplot")
+    inputArgs : dict
+        Input arguments of caller (i.e., :meth:`.singlepanelplot` or :meth:`.multipanelplot`)
+        collected in dictionary
+        
+    Returns
+    -------
+    dimArrs : tuple
+        Four-element tuple containing (in this order): `trList`, list of (selected) 
+        trials to visualize, `chArr`, 1D :class:`numpy.ndarray` of channel specifiers
+        based on provided user selection, `freqArr`, 1D :class:`numpy.ndarray` of 
+        frequency specifiers based on provided user selection, `tpArr`, 
+        1D :class:`numpy.ndarray` of taper specifiers based on provided user selection. 
+        Note that `"all"` and `None` selections are converted to arrays ready for
+        indexing. 
+    dimCounts : tuple
+        Four-element tuple holding sizes of corresponding selection arrays comprised
+        in `dimArrs`. Elements are (in this order): number of (selected) trials 
+        `nTrials`, number of (selected) channels `nChan`, number of (selected) 
+        frequencies `nFreq`, number of (selected) tapers `nTap`. 
+    isTimeFrequency : bool
+        If `True`, input object contains time-frequency data, `False` otherwise
+    complexConversion : callable
+        Lambda function that performs complex-to-float conversion of Fourier 
+        coefficients (if necessary). 
+    pltDtype : str or :class:`numpy.dtype`
+        Numeric type of (potentially converted) complex Fourier coefficients. 
+    dataLbl : str
+        Caption for y-axis or colorbar (depending on value of `isTimeFrequency`). 
+        
+    Notes
+    -----
+    This is an auxiliary method that is intended purely for internal use. Please
+    refer to the user-exposed methods :func:`~syncopy.singlepanelplot` and/or
+    :func:`~syncopy.multipanelplot` to actually generate plots of Syncopy data objects. 
+        
+    See also
+    --------
+    :meth:`syncopy.plotting.spy_plotting._prep_plots` : General basic input parsing for all Syncopy plotting routines
     """
     
-    # Abort if matplotlib is not available
-    if not __plt__:
-        raise SPYError(pltErrMsg.format(name))
+    # Basic sanity checks for all plotting routines w/any Syncopy object
+    _prep_plots(self, name, **inputArgs)
     
     # Ensure our binary flags are actually binary
     if not isinstance(inputArgs["avg_channels"], bool):

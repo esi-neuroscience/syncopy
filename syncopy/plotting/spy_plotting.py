@@ -4,7 +4,7 @@
 # 
 # Created: 2020-03-17 17:33:35
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-22 17:10:00>
+# Last modification time: <2020-09-23 16:03:50>
 
 # Builtin/3rd party package imports
 import warnings
@@ -321,7 +321,6 @@ def multipanelplot(*data,
         is `None` or all frequencies are selected for plotting. If multiple input 
         objects are provided, `foilim` needs to be a valid selector for all supplied 
         datasets.
-        
     avg_channels : bool
         If `True`, plot input dataset(s) averaged across channels specified by
         `channels`. If `False` no channel-averaging is performed. 
@@ -489,7 +488,33 @@ def _anyplot(*data, overlay=None, method=None, **kwargs):
 
 def _prep_plots(self, name, **inputs):
     """
-    Coming soon...
+    Helper performing most basal error checking for all plotting sub-routines
+    
+    Parameters
+    ----------
+    self : Syncopy data object
+        Input object that is being processed by the respective :func:`~syncopy.singlepanelplot` 
+        or :func:`~syncopy.multipanelplot` function/class method. 
+    name : str
+        Name of caller (i.e., "singlepanelplot" or "multipanelplot")
+    inputArgs : dict
+        Input arguments of caller (i.e., :func:`~syncopy.singlepanelplot` or 
+        :func:`~syncopy.multipanelplot`) collected in dictionary
+        
+    Returns
+    -------
+    Nothing : None
+    
+    Notes
+    -----
+    This is an auxiliary method that is intended purely for internal use. Please
+    refer to the user-exposed methods :func:`~syncopy.singlepanelplot` and/or
+    :func:`~syncopy.multipanelplot` to actually generate plots of Syncopy data objects. 
+    
+    See also
+    --------
+    :meth:`syncopy.plotting._plot_spectral._prep_spectral_plots` : sanity checks and data selection for plotting :class:`~syncopy.SpectralData` objects
+    :meth:`syncopy.plotting._plot_analog._prep_analog_plots` : sanity checks and data selection for plotting :class:`~syncopy.AnalogData` objects
     """
     
     # Abort if matplotlib is not available
@@ -503,9 +528,35 @@ def _prep_plots(self, name, **inputs):
         raise SPYError(msg)
 
 
-def _compute_toilim_avg(self):
+def _prep_toilim_avg(self):
     """
-    Coming soon..
+    Set up averaging data across trials given `toilim` selection
+    
+    Parameters
+    ----------
+    self : Syncopy data object
+        Input object that is being processed by the respective :func:`~syncopy.singlepanelplot` 
+        or :func:`~syncopy.multipanelplot` function/class method. 
+        
+    Returns
+    -------
+    tLengths : 1D :class:`numpy.ndarray`
+        Array of length `nSelectedTrials` with each element encoding the number of 
+        samples contained in the provided `toilim` selection. 
+        
+    Notes
+    -----
+    If `tLengths` contains more than one unique element, a
+    :class:`~syncopy.shared.errors.SPYValueError` is raised. 
+    
+    Note further, that this is an auxiliary method that is intended purely for 
+    internal use. Please refer to the user-exposed methods :func:`~syncopy.singlepanelplot` 
+    and/or :func:`~syncopy.multipanelplot` to actually generate plots of Syncopy data objects. 
+    
+    See also
+    --------
+    :func:`~syncopy.singlepanelplot` : visualize Syncopy objects using single-panel figure(s)
+    :func:`~syncopy.multipanelplot` : visualize Syncopy objects using multi-panel figure(s)
     """
     
     tLengths = np.zeros((len(self._selection.trials),), dtype=np.intp)
@@ -537,7 +588,65 @@ def _compute_toilim_avg(self):
 def _setup_figure(npanels, nrow=None, ncol=None, xLabel=None, yLabel=None,
                   include_colorbar=False, sharex=None, sharey=None, grid=None):
     """
-    Coming soon...
+    Create and set up a :class:`~matplotlib.figure.Figure` object for Syncopy visualizations    
+    
+    Parameters
+    ----------
+    npanels, nrow, ncol : int or None
+        Subplot-panel parameters. Please refer to :func:`._layout_subplot_panels` 
+        for details. 
+    xLabel : str or None
+        If not `None`, x-axis caption. 
+    yLabel : str or None
+        If not `None`, y-axis caption. 
+    include_colorbar : bool
+        If `True`, axis panel(s) are set up to leave enough space for a colorbar
+    sharex : bool or None
+        If `True`, axis panels have common x-axis ticks and limits. If `None` 
+        or `False`, x-ticks and -limits are not shared across axis panels. 
+    sharey : bool or None
+        If `True`, axis panels have common y-axis ticks and limits. If `None` 
+        or `False`, y-ticks and -limits are not shared across axis panels. 
+    grid : bool or None
+        If `True`, axis panels are set up to include grid-lines, if `None` or 
+        `False` no grid-lines will be rendered. 
+        
+    Returns
+    -------
+    fig : :class:`~matplotlib.figure.Figure` object
+        Matplotlib figure formatted for Syncopy plotting routines
+    ax : (list of) :class:`~matplotlib.axis.Axis` instance(s)
+        Either single :class:`~matplotlib.axis.Axis` object (if ``npanels = 1``)
+        or list of multiple :class:`~matplotlib.axis.Axis` objects (if ``npanels > 1``)
+    cax : None or :class:`~matplotlib.axis.Axis`
+        If `include_colorbar` is `True`, all axis panels are laid out to leave 
+        space for an additional axis `cax` reserved for a colorbar. 
+        
+    Notes
+    -----
+    If `npanels` is greater than one, the local helper function :func:`._layout_subplot_panels` 
+    is invoked to create a space-optimal panel grid (adjusted for an additional
+    axis reserved for a colorbar, if `include_colorbar` is `True`). 
+    
+    To ease internal processing, this routine attaches a number of additional 
+    attributes to the generated :class:`~matplotlib.figure.Figure` object `fig`, namely:
+    
+    * **fig.singlepanelplot** (bool): if ``npanels = 1`` the caller was :func:`~syncopy.singlepanelplot` 
+      and the identically named attribute is created
+    * **fig.multipanelplot** (bool): conversely, if ``npanels > 1`` the caller was 
+      :func:`~syncopy.multipanelplot` and the identically named attribute is created
+    * **fig.objCount** (int): internal counter used for overlay-plotting. Initially, 
+      `fig.objCount` is set to 0, every overly increments `fig.objCount` by one
+    * **fig.npanels** (int): number of panels as given by the input argument `npanels`
+
+    Note  that this is an auxiliary method that is intended purely for internal use. 
+    Please refer to the user-exposed methods :func:`~syncopy.singlepanelplot` 
+    and/or :func:`~syncopy.multipanelplot` to actually generate plots of Syncopy data objects. 
+    
+    See also
+    --------
+    :func:`._layout_subplot_panels` : Create space-optimal subplot grid for Syncopy visualizations
+    :func:`._setup_colorbar` : format colorbar for Syncopy visualizations
     """
     
     # If `grid` was not provided, do not render grid-lines in plots
@@ -637,7 +746,46 @@ def _setup_figure(npanels, nrow=None, ncol=None, xLabel=None, yLabel=None,
 
 def _setup_colorbar(fig, ax, cax, label=None, outline=False, vmin=None, vmax=None):
     """
-    Coming soon...
+    Create and format a :class:`~matplotlib.colorbar.Colorbar` object for Syncopy visualizations
+    
+    Parameters
+    ----------
+    fig : :class:`~matplotlib.figure.Figure`
+        Matplotlib figure object created by :func:`._setup_figure`
+    ax : (list of) :class:`~matplotlib.axis.Axis`
+        Either single :class:`~matplotlib.axis.Axis` object or list of multiple 
+        :class:`~matplotlib.axis.Axis` objects created by :func:`._setup_figure`
+    cax : :class:`~matplotlib.axis.Axis`
+        Matplotlib :class:`~matplotlib.axis.Axis` object created by :func:`._setup_figure`
+        reserved for a colorbar
+    label : None or str
+        Caption for colorbar (if not `None`)
+    outline : bool
+        If `True`, draw border-lines around colorbar. 
+    vmin : float or None
+        If not `None`, lower bound of data-range covered by colorbar. If `vmin`
+        is `None`, the colorbar uses the lowest data-value found in the last 
+        invoked axis. 
+    vmax : float or None
+        If not `None`, upper bound of data-range covered by colorbar. If `vmax`
+        is `None`, the colorbar uses the highest data-value found in the last 
+        invoked axis. 
+    
+    Returns
+    -------
+    cbar : :class:`~matplotlib.colorbar.Colorbar`
+        Color-bar attached to provided :class:`~matplotlib.axis.Axis` `cax`
+        
+    Notes
+    -----
+    This is an auxiliary method that is intended purely for internal use. Please
+    refer to the user-exposed methods :func:`~syncopy.singlepanelplot` and/or
+    :func:`~syncopy.multipanelplot` to actually generate plots of Syncopy data objects. 
+
+    See also
+    --------
+    :func:`._layout_subplot_panels` : Create space-optimal subplot grid for Syncopy visualizations
+    :func:`._setup_figure` : create figures for Syncopy visualizations
     """
     
     if fig.npanels == 1:
@@ -692,6 +840,10 @@ def _layout_subplot_panels(npanels, nrow=None, ncol=None, ndefault=5, maxpanels=
     Note further, that this is an auxiliary method that is intended purely for 
     internal use. Thus, error-checking is only performed on potentially user-provided 
     inputs (`nrow` and `ncol`). 
+    
+    See also
+    --------
+    :func:`._setup_figure` : create and prepare figures for Syncopy visualizations
     
     Examples
     --------
