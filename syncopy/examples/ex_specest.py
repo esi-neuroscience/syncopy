@@ -51,7 +51,10 @@ if __name__ == "__main__":
     cfg.keeptapers = "yes"
     cfg.output = 'pow'
     cfg.keeptrials = True
+    # sys.exit()
     overallSpectrum = spy.freqanalysis(cfg, data)
+    
+    sys.exit()
     
     fig = spy.multipanelplot(overallSpectrum, trials=[2, 4, 6], channels=range(16),
                              foilim=[30, 80], panels="channels")

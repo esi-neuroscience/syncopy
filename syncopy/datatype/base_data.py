@@ -4,7 +4,7 @@
 # 
 # Created: 2019-01-07 09:22:33
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-18 14:50:12>
+# Last modification time: <2020-09-25 11:28:25>
 
 
 # Builtin/3rd party package imports
@@ -683,7 +683,7 @@ class BaseData(ABC):
                 if isinstance(prop, h5py.Dataset):
                     try:
                         prop.file.close()
-                    except (IOError, ValueError, TypeError):
+                    except (IOError, ValueError, TypeError, ImportError):
                         pass
                     except Exception as exc:
                         raise exc
@@ -1032,7 +1032,10 @@ class SessionLogger():
         return "Session {}".format(__sessionid__)
 
     def __del__(self):
-        self._rm(self.sessionfile)
+        try:
+            self._rm(self.sessionfile)
+        except FileNotFoundError:
+            pass
 
 
 class FauxTrial():

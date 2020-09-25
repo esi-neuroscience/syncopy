@@ -4,7 +4,7 @@
 # 
 # Created: 2019-05-13 09:18:55
 # Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-24 18:13:55>
+# Last modification time: <2020-09-25 11:50:50>
 
 # Builtin/3rd party package imports
 import os
@@ -816,33 +816,51 @@ class ComputationalRoutine(ABC):
             # to 'finished' so that `finishedTasks` is computed correctly
             time.sleep(self.sleepTime)
 
-            # If some futures erred or stalled, perform the Herculean task of 
-            # tracking down which dask worker was executed by which SLURM job...
             # If number of 'finished' tasks is less than expected, go into 
             # problem analysis mode: all futures that erred hav an `.exception`
             # method which can be used to track down the worker it was executed by
             # Once we know the worker, we can point to the right log file. If 
             # futures were cancelled (by the user or the SLURM controller), 
             # `.exception` is `None` and we can't relialby track down the 
-            # 
+            # respective executing worker
             finishedTasks = sum([f.status == "finished" for f in futures])
             if finishedTasks < totalTasks:
                 client = dd.get_client()
+                schedulerLog = list(client.cluster.get_logs(cluster=False, scheduler=True, workers=False).values())[0]
                 erredFutures = [f for f in futures if f.status == "error"]
-                erredJobs = [f.exception().last_worker.identity()["id"] for f in erredFutures]
-                erredJobs = list(set(erredJobs))
-                erredJobIDs = [client.cluster.workers[job].job_id for job in erredJobs]
-                slurmFiles = client.cluster.job_header.split("--output=")[1].replace("%j", "{}")
-                slurmOutDir = os.path.split(slurmFiles)[0]
-                errFiles = glob(slurmOutDir + os.sep + "*.err")
                 msg = "Parallel computation failed: {}/{} tasks failed or stalled.\n"
-                if len(erredFutures) or len(errFiles):
-                    msg += "Please consult the following SLURM log files for details:\n"
-                    msg += "".join(slurmFiles.format(id) + "\n" for id in erredJobIDs)
-                    msg += "".join(errfile + "\n" for errfile in errFiles)
+                msg = msg.format(totalTasks - finishedTasks, totalTasks)
+                msg += "Concurrent computing scheduler log below: \n\n"
+                msg += schedulerLog + "\n"
+                
+                # If we're working w/`SLURMCluster`, perform the Herculean task of 
+                # tracking down which dask worker was executed by which SLURM job...
+                if client.cluster.__class__.__name__ == "SLURMCluster":
+                    try:
+                        erredJobs = [f.exception().last_worker.identity()["id"] for f in erredFutures]
+                    except AttributeError:
+                        erredJobs = []
+                    erredJobs = list(set(erredJobs))
+                    erredJobIDs = [client.cluster.workers[job].job_id for job in erredJobs]
+                    slurmFiles = client.cluster.job_header.split("--output=")[1].replace("%j", "{}")
+                    slurmOutDir = os.path.split(slurmFiles)[0]
+                    errFiles = glob(slurmOutDir + os.sep + "*.err")
+                    if len(erredFutures) or len(errFiles):
+                        msg += "Please consult the following SLURM log files for details:\n"
+                        msg += "".join(slurmFiles.format(id) + "\n" for id in erredJobIDs)
+                        msg += "".join(errfile + "\n" for errfile in errFiles)
+                    else:
+                        msg += "Please check SLURM logs in {}".format(slurmOutDir)
+                
+                # In case of a `LocalCluster`, syphon worker logs
                 else:
-                    msg += "Please check SLURM logs in {}".format(slurmOutDir)
-                raise SPYParallelError(msg.format(totalTasks - finishedTasks, totalTasks), client=client)
+                    msg += "\nParallel worker logs below: \n"
+                    workerLogs = client.cluster.get_logs(cluster=False, scheduler=False, workers=True).values()
+                    for wLog in workerLogs:
+                        if "Failed" in wLog:
+                            msg += wLog
+                    
+                raise SPYParallelError(msg, client=client)
 
         # If debugging is requested, drop existing client and enforce use of
         # single-threaded scheduler
