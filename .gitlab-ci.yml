@@ -69,11 +69,7 @@ docs:
     - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda activate
     - conda update --yes conda
-    - conda env update --file environment.yml
-    - conda  install -y sphinx
-    - pip install --upgrade sphinx-bootstrap-theme
-    - pip install --upgrade sphinx-automodapi
-    - conda install -y python-graphviz
+    - conda env update --file syncopy.yml
     - cd doc
     - make html
     - rsync -av -e "ssh" --delete build/html/* root@monitor:/var/www/html/syncopy

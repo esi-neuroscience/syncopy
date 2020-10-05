@@ -1,0 +1,29 @@
+name: syncopy
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python==3.8.3
+  - pip
+  - numpy >= 1.0, < 2.0
+  - scipy >= 1.5, < 1.6
+  - dask >= 2.25, < 2.26
+  - distributed >= 2.25, < 2.26
+  - dask-jobqueue >= 0.7.1, < 0.8
+  - h5py >= 2.9
+  - matplotlib >= 3.3, < 3.5
+  - jupyter
+  - jupyterlab
+  - tqdm >= 4.31
+  - natsort
+  - python-graphviz
+  - memory_profiler
+  - numpydoc
+  - sphinx_bootstrap_theme
+  - pytest
+  - pylint
+  - ipdb
+  - tox
+  - ruamel.yaml
+  - pip:
+    - sphinx_automodapi
