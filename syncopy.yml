@@ -3,6 +3,7 @@ channels:
   - defaults
   - conda-forge
 dependencies:
+  # SyNCoPy runtime requirements
   - python==3.8.3
   - pip
   - numpy >= 1.0, < 2.0
@@ -16,6 +17,7 @@ dependencies:
   - jupyterlab
   - tqdm >= 4.31
   - natsort
+  # Optional packages required for running the test-suite and building the HTML docs
   - python-graphviz
   - memory_profiler
   - numpydoc
@@ -26,4 +28,5 @@ dependencies:
   - tox
   - ruamel.yaml
   - pip:
+    # Optional: only necessary when building the HTML documentation
     - sphinx_automodapi

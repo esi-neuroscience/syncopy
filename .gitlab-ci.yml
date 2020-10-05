@@ -43,11 +43,9 @@ deploy-to-testpypi:
     - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda activate
     - conda update --yes conda
-    - python setup.py bdist_wheel
-    - python setup.py sdist
+    - python setup.py sdist bdist_wheel
     - twine upload --repository testpypi dist/*
     
-
 docs:
     stage: deploy
     tags:
