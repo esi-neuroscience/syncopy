@@ -56,6 +56,10 @@ dask-worker-space
 # Test-related files
 .tox
 
+# Auto-generated files
+requirements.txt
+requirements-test.txt
+
 # spy containers
 *.spy
 
