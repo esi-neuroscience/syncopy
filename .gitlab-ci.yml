@@ -44,8 +44,8 @@ deploy-to-testpypi:
     - conda update --yes conda
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
-    - conda install --yes pbr twine keyring rfc3986
-    - conda update --yes pbr twine keyring rfc3986
+    - conda install --yes twine keyring rfc3986
+    - conda update --yes twine keyring rfc3986
     - python setup.py sdist bdist_wheel
     - twine upload --repository testpypi dist/*
     
