@@ -11,6 +11,8 @@ dependencies:
   - dask >= 2.25, < 2.26
   - distributed >= 2.25, < 2.26
   - dask-jobqueue >= 0.7.1, < 0.8
+  - fsspec >= 0.3.3
+  - bokeh
   - h5py >= 2.9
   - matplotlib >= 3.3, < 3.5
   - jupyter
