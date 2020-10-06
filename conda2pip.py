@@ -1,12 +1,18 @@
 # -*- coding: utf-8 -*-
 # 
-# Convert conda-environment YAML to pip-style requirements.txt file
+# Convert conda-environment YAML file to pip-style requirements.txt
 #
 
 # Builtin/3rd party package imports
 import ruamel.yaml
 import datetime
 import os
+
+# List of keywords to search for in comments highlighting optional packages
+commentKeys = ["test", "optional", "development"]
+
+# Map conda packages to their respective pip equivalents
+pkgConvert = {"python-graphviz" : "graphviz"}
 
 
 def conda2pip(ymlFile="syncopy.yml", return_lists=False):
@@ -131,20 +137,29 @@ def _process_comments(ymlSeq):
     Local helper performing the heavy YAML sequence lifting
     """
 
+    # Replace any conda-specific packages with their pip equivalents (note: this 
+    # does *not* change the no. of elements, so `cutoff` below is unharmed!)
+    for condaPkg, pipPkg in pkgConvert.items():
+        pkgFound = [pkg.startswith(condaPkg) for pkg in ymlSeq]
+        if any(pkgFound):
+            pkgIdx = pkgFound.index(True)
+            pkgEntry = ymlSeq[pkgIdx].replace(condaPkg, pipPkg)
+            ymlSeq[pkgIdx] = pkgEntry
+
     # Cycle through comment items to determine `cutoff` index, i.e., line-number 
     # of comment containing one of the keywords; then split packages into 
     # required/testing accordingly    
     cutoff = None    
     for lineno, tokens in ymlSeq.ca.items.items():
         for token in [t[0] if isinstance(t, list) else t for t in tokens]:
-            if any([keyword in token.value.lower() if token is not None else False for keyword in ["test", "optional"]]):
+            if any([keyword in token.value.lower() if token is not None else False for keyword in commentKeys]):
                 if lineno == 0:
                     cutoff = max(0, token.end_mark.line - ymlSeq.lc.data[0][0] - 1)
                 else:
                     cutoff = lineno + 1
                 break
             
-    # If no testing packages are present, `cutoff` is `None` and ``needed == ymlSeq```
+    # If no testing packages are present, `cutoff` is `None` and ``needed == ymlSeq``
     needed = ymlSeq[:cutoff]
     optional = []
     if cutoff is not None:
