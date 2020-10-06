@@ -41,8 +41,11 @@ deploy-to-testpypi:
     - deploy
     script: 
     - source $HOME/miniconda/etc/profile.d/conda.sh
-    - conda activate
     - conda update --yes conda
+    - conda env update -f syncopy.yml --prune
+    - conda activate syncopy
+    - conda install --yes pbr twine keyring rfc3986
+    - conda update --yes pbr twine keyring rfc3986
     - python setup.py sdist bdist_wheel
     - twine upload --repository testpypi dist/*
     
@@ -65,9 +68,9 @@ docs:
         export PATH="$HOME/miniconda/bin:$PATH";
       fi
     - source $HOME/miniconda/etc/profile.d/conda.sh
-    - conda activate
     - conda update --yes conda
     - conda env update --file syncopy.yml
+    - conda activate syncopy
     - cd doc
     - make html
     - rsync -av -e "ssh" --delete build/html/* root@monitor:/var/www/html/syncopy
