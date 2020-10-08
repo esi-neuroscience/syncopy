@@ -1,13 +1,14 @@
-.. image:: doc/source/_static/syncopy_logo.png
-
+.. image:: https://raw.githubusercontent.com/esi-neuroscience/syncopy/master/doc/source/_static/syncopy_logo.png
+   :alt: Syncopy-Logo
+   
 Systems Neuroscience Computing in Python
 ========================================
 
 master: |masterbuild| dev: |devbuild|
 
-.. |masterbuild| image:: https://travis-ci.com/esi-neuroscience/syncopy.svg?token=j7G1ByixxJvLy2CpVSAt&branch=master 
+.. |masterbuild| image:: https://travis-ci.com/esi-neuroscience/syncopy.svg?token=CyD2hzqVziTxH1wbqky6&branch=master
 
-.. |devbuild| image:: https://travis-ci.com/esi-neuroscience/syncopy.svg?token=j7G1ByixxJvLy2CpVSAt&branch=dev
+.. |devbuild| image:: https://travis-ci.com/esi-neuroscience/syncopy.svg?token=CyD2hzqVziTxH1wbqky6&branch=dev
    
 
 Syncopy is going to be a user-friendly toolkit for large-scale
