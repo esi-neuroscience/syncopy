@@ -2,9 +2,6 @@
 # 
 # Helper routines for working w/dask 
 # 
-# Created: 2019-05-22 12:38:16
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-27 13:47:34>
 
 # Builtin/3rd party package imports
 import os

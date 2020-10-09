@@ -1,12 +1,8 @@
 #!/bin/bash
-# Some quick shortcuts to ease running Syncopy's testing pipeline on the ESI cluster
+# Some quick shortcuts to ease running Syncopy's testing pipeline
 
 # First and foremost, check if `srun` is available
-if ! command -v srun &> /dev/null
-then
-    echo "srun is not available. Are you running me on a SLURM node?"
-    exit
-fi
+_useSLURM=$(command -v srun)
 
 # Stuff only relevant in here
 _self=$(basename "$BASH_SOURCE")
@@ -24,6 +20,7 @@ Run Syncopy's testing pipeline via SLURM
 Arguments:
   COMMAND
     pytest        perform testing using pytest in current user environment
+                  (if SLURM is available, tests are executed via `srun`)
     tox           use tox to set up a new virtual environment (as defined in tox.ini)
                   and run tests within this newly created env
     -h or --help  show this help message and exit
@@ -37,20 +34,28 @@ if [ "$1" == "" ]; then
     usage
 fi
 
+# Set up "global" pytest options for running test-suite 
+export PYTEST_ADDOPTS="--color=yes -q --tb=short --verbose"
+
 # The while construction allows parsing of multiple positional/optional args (future-proofing...)
 while [ "$1" != "" ]; do
     case "$1" in
         pytest)
             shift
             export PYTHONPATH=$(cd ../../ && pwd)
-            export PYTEST_ADDOPTS="--color=yes -q --tb=short -v"
-            echo $PYTHONPATH
-            echo $PYTEST_ADDOPTS
-            srun -p DEV --mem=8000m -c 4 pytest
+            if [ $_useSLURM ]; then
+                srun -p DEV --mem=8000m -c 4 pytest
+            else
+                pytest
+            fi
             ;;
         tox)
             shift
-            srun -p DEV --mem=8000m -c 4 tox -r
+            if [ $_useSLURM ]; then
+                srun -p DEV --mem=8000m -c 4 tox -r
+            else
+                tox -r
+            fi
             ;;
         -h | --help)
             shift

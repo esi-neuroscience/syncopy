@@ -2,9 +2,6 @@
 # 
 # Time-frequency analysis with wavelets
 # 
-# Created: 2019-09-02 14:44:41
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-02 14:50:24>
 
 # Builtin/3rd party package imports
 import numpy as np

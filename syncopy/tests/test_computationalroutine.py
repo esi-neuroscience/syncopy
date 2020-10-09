@@ -2,10 +2,8 @@
 # 
 # Test basic functionality of ComputationalRoutine class
 # 
-# Created: 2019-07-03 11:31:33
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-25 11:51:47>
 
+# Builtin/3rd party package imports
 import os
 import tempfile
 import time
@@ -13,6 +11,8 @@ import pytest
 import numpy as np
 from glob import glob
 from scipy import signal
+
+# Local imports
 from syncopy import __dask__
 if __dask__:
     import dask.distributed as dd

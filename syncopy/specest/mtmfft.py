@@ -2,9 +2,6 @@
 # 
 # Spectral estimation with (multi-)tapered FFT
 # 
-# Created: 2019-09-02 14:25:34
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-25 11:45:59>
 
 # Builtin/3rd party package imports
 import numpy as np

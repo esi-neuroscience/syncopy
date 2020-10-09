@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # 
-# SyNCoPy spectral estimation methods
+# Syncopy spectral estimation methods
 # 
-# Created: 2019-01-22 09:07:47
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-02 15:49:49>
 
 # Builtin/3rd party package imports
 from numbers import Number

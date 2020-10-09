@@ -2,9 +2,6 @@
 # 
 # Auxiliaries used across all of Syncopy
 # 
-# Created: 2020-01-27 13:37:32
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-06 11:58:04>
 
 # Builtin/3rd party package imports
 import numpy as np

@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # 
+# Import utility functions mainly used internally
 # 
-# 
-# Created: 2019-01-15 11:04:33
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-27 14:16:05>
 
 # Import __all__ routines from local modules
 from . import (queries, errors, parsers, kwarg_decorators, 

@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # 
+# Populate namespace with statistics routines and classes
 # 
-# 
-# Created: 2019-10-01 11:40:45
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-14 13:07:58>
 
 # Import __all__ routines from local modules
 from .timelockanalysis import *

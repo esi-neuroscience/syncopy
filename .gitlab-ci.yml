@@ -12,9 +12,10 @@ clusterTests:
     variables:
         PYTEST_ADDOPTS: "--color=yes -q --tb=short"
     script:
-    - source $HOME/miniconda3/bin/activate
-    - pip install --upgrade pip
-    - pip install --upgrade tox
+    - source $HOME/miniconda3/etc/profile.d/conda.sh
+    - conda update --yes conda
+    - conda env update -f syncopy.yml --prune
+    - conda activate syncopy
     - srun -p DEV --mem=8000m -c 4 tox -r 
 
 windowsTests:
@@ -41,13 +42,23 @@ deploy-to-testpypi:
     - deploy
     script: 
     - source $HOME/miniconda/etc/profile.d/conda.sh
-    - conda activate
     - conda update --yes conda
-    - python setup.py bdist_wheel
-    - python setup.py sdist
+    - conda env update -f syncopy.yml --prune
+    - conda activate syncopy
+    - conda install --yes twine keyring rfc3986
+    - conda update --yes twine keyring rfc3986
+    - python setup.py sdist bdist_wheel
     - twine upload --repository testpypi dist/*
+    - tarname="$(basename -- $(ls dist/*.tar.gz) .tar.gz)"
+    - version="${tarname#*-}"
+    - conda create --yes --name piptest
+    - conda activate piptest
+    - conda install --yes pip
+    - pip install --extra-index-url https://testpypi.python.org/pypi esi-syncopy==$version
+    - python -c "import syncopy as spy"
+    - conda deactivate
+    - conda remove --yes --name piptest --all
     
-
 docs:
     stage: deploy
     tags:
@@ -67,13 +78,9 @@ docs:
         export PATH="$HOME/miniconda/bin:$PATH";
       fi
     - source $HOME/miniconda/etc/profile.d/conda.sh
-    - conda activate
     - conda update --yes conda
-    - conda env update --file environment.yml
-    - conda  install -y sphinx
-    - pip install --upgrade sphinx-bootstrap-theme
-    - pip install --upgrade sphinx-automodapi
-    - conda install -y python-graphviz
+    - conda env update --file syncopy.yml
+    - conda activate syncopy
     - cd doc
     - make html
     - rsync -av -e "ssh" --delete build/html/* root@monitor:/var/www/html/syncopy

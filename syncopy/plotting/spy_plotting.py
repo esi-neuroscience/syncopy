@@ -2,9 +2,6 @@
 # 
 # Syncopy plotting routines
 # 
-# Created: 2020-03-17 17:33:35
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-23 16:03:50>
 
 # Builtin/3rd party package imports
 import warnings

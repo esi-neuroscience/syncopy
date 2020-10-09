@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 # 
-# SynCoPy ContinuousData abstract class + regular children
+# Syncopy's abstract base class for continuous data + regular children
 # 
-# Created: 2019-03-20 11:11:44
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-07 16:02:41>
+
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.

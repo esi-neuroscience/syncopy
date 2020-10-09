@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 # 
-# SynCoPy StatisticalData abstract class + regular children
+# Syncopy's abstract base class for statistical data + regular children
 # 
-# Created: 2019-09-09 16:59:22
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-24 17:51:23>
+
 """Statistics data
 
 """

@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 #
-# Load data from SynCoPy containers
+# Load data from Syncopy containers
 #
-# Created: 2019-02-06 11:40:56
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-23 10:09:14>
 
 # Builtin/3rd party package imports
 import os

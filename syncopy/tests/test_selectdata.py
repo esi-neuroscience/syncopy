@@ -2,13 +2,13 @@
 # 
 # Test functionality of data selection features in Syncopy
 # 
-# Created: 2019-10-25 10:13:31
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-24 18:20:48>
 
+# Builtin/3rd party package imports
 import pytest
 import numpy as np
 import inspect
+
+# Local imports
 import syncopy.datatype as spd
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.datatype.base_data import Selector

@@ -2,9 +2,6 @@
 #
 # Read binary files from disk
 # 
-# Created: 2019-01-22 09:13:56
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-05-09 13:54:59>
 
 # Builtin/3rd party package imports
 import os

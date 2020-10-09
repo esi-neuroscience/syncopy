@@ -2,16 +2,17 @@
 # 
 # Outsourced plotting class methods from respective parent classes
 # 
-# Created: 2020-05-06 13:32:40
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-23 14:21:35>
 
+# Builtin/3rd party package imports
 import numpy as np
 import os 
 
+# Local imports
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 from syncopy.plotting.spy_plotting import (pltConfig, _layout_subplot_panels, 
                                            _prep_toilim_avg, _setup_figure, _prep_plots)
+
+# Conditional matplotlib import
 from syncopy import __plt__
 if __plt__:
     import matplotlib.pyplot as plt
