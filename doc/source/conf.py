@@ -115,7 +115,7 @@ html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-html_logo = "_static/icon.png"
+html_logo = "_static/syncopy_icon.png"
 html_theme_options = {
     "navbar_title": "Syncopy",
     "navbar_site_name": "Documentation",

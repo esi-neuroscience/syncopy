@@ -11,13 +11,13 @@ master: |masterbuild| dev: |devbuild|
 .. |devbuild| image:: https://travis-ci.com/esi-neuroscience/syncopy.svg?token=CyD2hzqVziTxH1wbqky6&branch=dev
    
 
-Syncopy is going to be a user-friendly toolkit for large-scale
+Syncopy aims to be a user-friendly toolkit for large-scale
 electrophysiology data-analysis in Python. We strive to achieve the following goals:
 
 1. Syncopy is a *fully open source Python* environment for electrophysiology
    data analysis. 
-2. Syncopy is *scalable* and built for *very large datasets*. It will automatically 
-   make use of available computing resources and is developed with built-in 
+2. Syncopy is *scalable* and built for *very large datasets*. It automatically 
+   makes use of available computing resources and is developed with built-in 
    parallelism in mind. 
 3. Syncopy is *compatible with FieldTrip*. 
     - data and results can be loaded into MATLAB and Python
@@ -30,8 +30,8 @@ and released free of charge under the
 
 Contact
 -------
-To report bugs or ask questions please use our GitHub issue tracker. For
-general inquiries please contact syncopy (at) esi-frankfurt.de. 
+To report bugs or ask questions please use our `GitHub issue tracker <https://github.com/esi-neuroscience/syncopy/issues>`_. 
+For general inquiries please contact syncopy (at) esi-frankfurt.de. 
 
 Installation
 ============
@@ -45,8 +45,8 @@ To get the latest development version, simply clone our GitHub repository:
 
 .. code-block:: bash
 
-   git clone https://github.com/path/to/syncopy
+   git clone https://github.com/esi-neuroscience/syncopy.git
 
 Getting Started
 ===============
-Please visit our `online documentation <http://monitor/syncopy/quickstart.html>`. 
+Please visit our `online documentation <https://syncopy.org/quickstart.html>`_. 
