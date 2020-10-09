@@ -118,10 +118,15 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
         
         # SLURM is not installed, either allocate `LocalCluster` or just leave
         if "sinfo: not found" in err:
-            msg = "{name:s} SLURM does not seem to be installed on this machine " +\
-                  "({host:s}). Do you want to start a local multi-processing " +\
-                  "computing client instead? "
-            if user_yesno(msg.format(name=funcName, host=socket.gethostname()), default="no"):
+            if interactive:
+                msg = "{name:s} SLURM does not seem to be installed on this machine " +\
+                    "({host:s}). Do you want to start a local multi-processing " +\
+                    "computing client instead? "
+                startLocal = user_yesno(msg.format(name=funcName, host=socket.gethostname()), 
+                                        default="no")
+            else:
+                startLocal = True
+            if startLocal:                    
                 client = Client()
                 if start_client:
                     return client
