@@ -2,10 +2,8 @@
 #
 # Test spectral estimation methods
 #
-# Created: 2019-06-17 09:45:47
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-15 12:05:40>
 
+# Builtin/3rd party package imports
 import os
 import tempfile
 import inspect
@@ -18,6 +16,7 @@ from syncopy import __dask__
 if __dask__:
     import dask.distributed as dd
     
+# Local imports
 from syncopy.tests.misc import generate_artificial_data
 from syncopy.specest.freqanalysis import freqanalysis
 from syncopy.shared.errors import SPYValueError

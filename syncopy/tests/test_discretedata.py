@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 #
-# Test proper functionality of SyNCoPy DiscreteData-type classes
+# Test proper functionality of Syncopy DiscreteData-type classes
 #
-# Created: 2019-03-21 15:44:03
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-27 15:03:47>
 
+# Builtin/3rd party package imports
 import os
 import tempfile
 import time
 import pytest
 import numpy as np
+
+# Local imports
 from syncopy.datatype import AnalogData, SpikeData, EventData
 from syncopy.datatype.base_data import Selector
 from syncopy.shared.tools import StructDict

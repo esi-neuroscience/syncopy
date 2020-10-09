@@ -2,10 +2,8 @@
 #
 # Helper methods for testing routines
 #
-# Created: 2019-04-18 14:41:32
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-09-06 16:28:43>
 
+# Builtin/3rd party package imports
 import subprocess
 import sys
 import os

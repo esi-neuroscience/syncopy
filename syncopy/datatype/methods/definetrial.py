@@ -2,9 +2,6 @@
 # 
 # Set/update trial settings of Syncopy data objects
 # 
-# Created: 2019-10-14 12:48:30
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-08-24 17:15:42>
 
 # Builtin/3rd party package imports
 import numbers

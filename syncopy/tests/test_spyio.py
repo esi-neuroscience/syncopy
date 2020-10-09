@@ -2,10 +2,8 @@
 # 
 # Test functionality of SyNCoPy-container I/O routines
 # 
-# Created: 2019-03-19 14:21:12
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-27 13:48:31>
 
+# Builtin/3rd party package imports
 import os
 import tempfile
 import shutil
@@ -16,6 +14,8 @@ import numpy as np
 from numpy.lib.format import open_memmap
 from glob import glob
 from memory_profiler import memory_usage
+
+# Local imports
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.datatype.base_data import VirtualData
 from syncopy.io import save, load

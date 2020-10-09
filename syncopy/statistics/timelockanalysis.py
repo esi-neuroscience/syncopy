@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # 
+# Syncopy timelock-analysis methods
 # 
-# 
-# Created: 2019-10-01 11:39:36
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-27 14:04:28>
 
 import os
 import numpy as np

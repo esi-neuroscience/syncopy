@@ -2,9 +2,6 @@
 # 
 # Syncopy data selection methods
 # 
-# Created: 2019-10-14 12:46:54
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-09 09:51:49>
 
 # Local imports
 from syncopy.shared.parsers import data_parser

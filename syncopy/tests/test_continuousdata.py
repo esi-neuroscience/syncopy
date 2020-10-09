@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
 # 
+# Test proper functionality of Syncopy's `ContinuousData` class + subclasses
 # 
-# 
-# Created: 2019-03-20 11:46:31
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-09 10:21:58>
 
+# Builtin/3rd party package imports
 import os
 import tempfile
 import time
 import pytest
 import numpy as np
 from numpy.lib.format import open_memmap
+
+# Local imports
 from syncopy.datatype import AnalogData, SpectralData, padding
 from syncopy.io import save, load
 from syncopy.datatype.base_data import VirtualData, Selector

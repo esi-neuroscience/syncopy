@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 # 
+# Test Syncopy's plotting functionality
 # 
-# 
-# Created: 2020-04-17 08:25:48
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-22 12:08:54>
 
+# Builtin/3rd party package imports
 import pytest
 import numpy as np
 from copy import copy
 
+# Local imports
 from syncopy.tests.misc import generate_artificial_data, figs_equal
 from syncopy.shared.errors import SPYValueError
 from syncopy.plotting import singlepanelplot, multipanelplot

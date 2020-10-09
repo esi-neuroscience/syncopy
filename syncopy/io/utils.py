@@ -2,9 +2,6 @@
 # 
 # Collection of I/O utility functions
 # 
-# Created: 2019-02-06 14:30:17
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-27 13:24:21>
 
 # Builtin/3rd party package imports
 import os

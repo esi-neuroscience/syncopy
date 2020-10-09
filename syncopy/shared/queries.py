@@ -2,9 +2,6 @@
 #
 # Auxiliary functions for querying things/people
 # 
-# Created: 2019-05-22 15:40:19
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-06-07 11:52:24>
 
 __all__ = []
 

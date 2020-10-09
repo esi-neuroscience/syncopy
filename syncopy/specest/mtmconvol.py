@@ -2,9 +2,6 @@
 # 
 # Time-frequency analysis based on a short-time Fourier transform
 # 
-# Created: 2020-02-05 09:36:38
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-02 15:42:56>
 
 # Builtin/3rd party package imports
 import numbers

@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # 
-# Module for all kinds of parsing gymnastics
+# Module for all kinds of parsing/input sanitization gymnastics
 # 
-# Created: 2019-01-08 09:58:11
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-04 16:03:28>
 
 # Builtin/3rd party package imports
 import os

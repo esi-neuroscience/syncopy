@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 # 
+# Test proper functionality of Syncopy's decorator mechanics
 # 
-# 
-# Created: 2020-04-22 09:17:57
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-24 16:11:53>
 
+# Builtin/3rd party package imports
 import string
 import pytest
 from syncopy.shared.kwarg_decorators import unwrap_cfg, unwrap_select

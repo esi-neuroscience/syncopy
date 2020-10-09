@@ -2,9 +2,6 @@
 # 
 # Outsourced plotting class methods from respective parent classes
 # 
-# Created: 2020-07-15 10:26:48
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-23 14:41:52>
 
 # Builtin/3rd party package imports
 import os
@@ -15,6 +12,8 @@ from syncopy.shared.errors import SPYValueError, SPYError, SPYTypeError, SPYWarn
 from syncopy.shared.parsers import scalar_parser
 from syncopy.plotting.spy_plotting import (pltErrMsg, pltConfig, _prep_toilim_avg, 
                                            _setup_figure, _setup_colorbar, _prep_plots)
+
+# Conditional matplotlib import
 from syncopy import __plt__
 if __plt__:
     import matplotlib.pyplot as plt

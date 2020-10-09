@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # 
-# Collection of utility classes/functions for SynCoPy
+# Collection of utility classes/functions for Syncopy
 # 
-# Created: 2019-01-14 10:23:44
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-04-09 09:26:30>
 
 # Builtin/3rd party package imports
 import sys

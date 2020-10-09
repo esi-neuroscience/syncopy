@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # 
-# Save SynCoPy data objects on disk
+# Save Syncopy data objects to disk
 # 
-# Created: 2019-02-05 13:12:58
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-24 14:34:14>
 
 # Builtin/3rd party package imports
 import os

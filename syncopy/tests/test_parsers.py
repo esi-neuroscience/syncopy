@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
 # 
+# Test Syncopy's parsers for consistency
 # 
-# 
-# Created: 2019-03-05 16:22:56
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-04 15:57:23>
 
+# Builtin/3rd party package imports
 import os
 import platform
 import tempfile
 import pytest
 import numpy as np
 from collections import OrderedDict
+
+# Local imports
 from syncopy.shared.parsers import (io_parser, scalar_parser, array_parser, 
                                     filename_parser, data_parser)
 from syncopy.shared.tools import get_defaults

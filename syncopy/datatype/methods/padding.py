@@ -2,9 +2,6 @@
 # 
 # Pad Syncopy data objects
 # 
-# Created: 2019-10-14 12:50:33
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-12 10:11:13>
 
 # Builtin/3rd party package imports
 import numpy as np

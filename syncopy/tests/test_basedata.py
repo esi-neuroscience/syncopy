@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 # 
-# Test proper functionality of SyNCoPy's `BaseData` class + helpers
+# Test proper functionality of Syncopy's `BaseData` class + helpers
 # 
-# Created: 2019-03-19 10:43:22
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-11 15:23:21>
 
+# Builtin/3rd party package imports
 import os
 import tempfile
 import h5py
@@ -14,6 +12,8 @@ import pytest
 import numpy as np
 from numpy.lib.format import open_memmap
 from memory_profiler import memory_usage
+
+# Local imports
 from syncopy.datatype import AnalogData
 import syncopy.datatype as spd
 from syncopy.datatype.base_data import VirtualData

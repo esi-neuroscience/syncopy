@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # 
+# Populate namespace with specest routines
 # 
-# 
-# Created: 2019-01-22 15:46:03
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-14 13:23:48>
 
 # Import __all__ routines from local modules
 from .freqanalysis import *

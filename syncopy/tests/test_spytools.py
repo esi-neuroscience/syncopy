@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
 # 
+# Ensure tooling functions shared across the package work as intended
 # 
-# 
-# Created: 2020-03-11 10:49:58
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-11 13:59:47>
 
+# Builtin/3rd party package imports
 import numpy as np
 import pytest
+
+# Local imports
 from syncopy.shared.tools import best_match
 from syncopy.shared.errors import SPYValueError
+
 
 class TestBestMatch():
 

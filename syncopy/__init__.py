@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # 
+# Main package initializer
 # 
-# 
-# Created: 2019-01-15 09:03:46
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-03-17 18:17:38>
 
 # Builtin/3rd party package imports
 import os

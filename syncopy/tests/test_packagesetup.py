@@ -2,10 +2,8 @@
 # 
 # Test if Syncopy's basic import setup/tmp storage initialization works as intended
 # 
-# Created: 2019-11-08 12:20:26
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-01-16 15:05:20>
 
+# Builtin/3rd party package imports
 import os
 import sys
 import shutil
@@ -14,6 +12,8 @@ import tempfile
 import importlib
 import subprocess
 from glob import glob
+
+# Local imports
 import syncopy
 
 

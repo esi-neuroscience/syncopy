@@ -2,9 +2,6 @@
 # 
 # Base class for all computational classes in Syncopy
 # 
-# Created: 2019-05-13 09:18:55
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-09-25 11:50:50>
 
 # Builtin/3rd party package imports
 import os

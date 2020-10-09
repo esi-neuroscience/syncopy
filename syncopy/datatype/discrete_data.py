@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # 
-# SynCoPy DiscreteData abstract class + regular children
+# Syncopy's abstract base class for discrete data + regular children
 # 
-# Created: 2019-03-20 11:20:04
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-05-14 16:45:26>
 
 # Builtin/3rd party package imports
 import numpy as np

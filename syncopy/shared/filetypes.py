@@ -2,9 +2,6 @@
 # 
 # Supported Syncopy classes and file extensions
 # 
-# Created: 2020-01-27 13:23:10
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-27 13:27:26>
 
 def _data_classname_to_extension(name):
     return "." + name.split('Data')[0].lower()
