@@ -35,7 +35,7 @@ if [ "$1" == "" ]; then
 fi
 
 # Set up "global" pytest options for running test-suite 
-export PYTEST_ADDOPTS="--color=yes -q --tb=short --verbose"
+export PYTEST_ADDOPTS="--color=yes --tb=short --verbose"
 
 # The while construction allows parsing of multiple positional/optional args (future-proofing...)
 while [ "$1" != "" ]; do

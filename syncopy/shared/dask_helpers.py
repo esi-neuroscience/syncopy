@@ -118,10 +118,15 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
         
         # SLURM is not installed, either allocate `LocalCluster` or just leave
         if "sinfo: not found" in err:
-            msg = "{name:s} SLURM does not seem to be installed on this machine " +\
-                  "({host:s}). Do you want to start a local multi-processing " +\
-                  "computing client instead? "
-            if user_yesno(msg.format(name=funcName, host=socket.gethostname()), default="no"):
+            if interactive:
+                msg = "{name:s} SLURM does not seem to be installed on this machine " +\
+                    "({host:s}). Do you want to start a local multi-processing " +\
+                    "computing client instead? "
+                startLocal = user_yesno(msg.format(name=funcName, host=socket.gethostname()), 
+                                        default="no")
+            else:
+                startLocal = True
+            if startLocal:                    
                 client = Client()
                 if start_client:
                     return client
@@ -319,13 +324,16 @@ def _cluster_waiter(cluster, funcName, total_workers, timeout, interactive):
 
     return False
 
-def cluster_cleanup():
+def cluster_cleanup(client=None):
     """
     Stop and close dangling parallel processing jobs
     
     Parameters
     ----------
-    Nothing : None
+    client : dask distributed computing client or None
+        Either a concrete `dask client object <https://distributed.dask.org/en/latest/client.html>`_
+        or `None`. If `None`, a global client is queried for and shut-down
+        if found (without confirmation!). 
     
     Returns
     -------
@@ -340,14 +348,18 @@ def cluster_cleanup():
     funcName = "Syncopy <{}>".format(inspect.currentframe().f_code.co_name)
     
     # Attempt to establish connection to dask client
-    try:
-        client = get_client()
-    except ValueError:
-        msg = "No dangling clients or clusters found."
-        SPYWarning(msg)
-        return
-    except Exception as exc:
-        raise exc
+    if client is None:
+        try:
+            client = get_client()
+        except ValueError:
+            msg = "No dangling clients or clusters found."
+            SPYWarning(msg)
+            return
+        except Exception as exc:
+            raise exc
+    else:
+        if not isinstance(client, Client):
+            raise SPYTypeError(client, varname="client", expected="dask client object")
     
     # Prepare message for prompt
     if client.cluster.__class__.__name__ == "LocalCluster":
