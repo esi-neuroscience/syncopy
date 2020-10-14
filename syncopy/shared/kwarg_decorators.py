@@ -16,6 +16,7 @@ from syncopy.shared.tools import StructDict, get_defaults
 import syncopy as spy
 if spy.__dask__:
     import dask.distributed as dd
+    from syncopy.shared.dask_helpers import esi_cluster_setup, cluster_cleanup
 
 __all__ = []
 
@@ -424,6 +425,8 @@ def detect_parallel_client(func):
         parallel = kwargs.get("parallel")
         
         # Detect if dask client is running and set `parallel` keyword accordingly
+        results = []
+        cleanup = False
         if parallel is None or parallel is True:
             if spy.__dask__:
                 try:
@@ -431,13 +434,21 @@ def detect_parallel_client(func):
                     parallel = True
                 except ValueError:
                     if parallel is True:
-                        wrng = \
-                        "no running parallel processing client found. " +\
-                        "Please use `spy.esi_cluster_setup` to launch a " +\
-                        "distributed computing cluster. Computation will be performed" +\
-                        "sequentially. "
-                        SPYWarning(wrng)
-                    parallel = False
+                        objList = []
+                        argList = list(args)
+                        nTrials = 0
+                        for arg in args:
+                            if hasattr(arg, "trials"):
+                                objList.append(arg)
+                                nTrials = max(nTrials, len(arg.trials))
+                                argList.remove(arg)
+                        client = esi_cluster_setup(n_jobs=nTrials, interactive=False)
+                        cleanup = True
+                        if len(objList) > 1:
+                            for obj in objList:
+                                results.append(func(obj, *argList, **kwargs))
+                    else:
+                        parallel = False
             else:
                 wrng = \
                 "dask seems not to be installed on this system. " +\
@@ -447,8 +458,13 @@ def detect_parallel_client(func):
                 
         # Add/update `parallel` to/in keyword args
         kwargs["parallel"] = parallel
+        
+        if len(results) == 0:
+            results = func(*args, **kwargs)
+        if cleanup:
+            cluster_cleanup(client=client)
 
-        return func(*args, **kwargs)
+        return results
     
     # Append `parallel` keyword entry to wrapped function's docstring and signature
     parallelDocEntry = \
