@@ -1,7 +1,15 @@
 language: python
 python:
   - "3.8"
-# command to install dependencies
+
+cache: pip
+
+# safelist
+branches:
+  only:
+  - master
+  - dev
+
 install:
   - pip install ruamel.yaml
   - python -m conda2pip
@@ -11,4 +19,3 @@ install:
 # command to run tests
 script:
   - pytest -v
-  
