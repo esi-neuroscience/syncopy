@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # 
-# Collection of utility classes/functions for SynCoPy
+# Collection of utility classes/functions for Syncopy
 # 
-# Created: 2019-01-14 10:23:44
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-04 15:45:36>
 
 # Builtin/3rd party package imports
 import sys
@@ -13,6 +10,9 @@ from collections import OrderedDict
 
 # Local imports
 from syncopy import __tbcount__
+
+# Custom definition of bold ANSI for formatting errors/warnings in iPython/Jupyter
+ansiBold = "\033[1m"
 
 __all__ = []
 
@@ -142,9 +142,9 @@ def SPYExceptionHandler(*excargs, **exckwargs):
         try:                            # careful: if iPython is used to launch a script, ``get_ipython`` is not defined
             ipy = get_ipython()
             isipy = True
-            cols = get_ipython().InteractiveTB.Colors
+            cols = ipy.InteractiveTB.Colors
             cols.filename = cols.filenameEm
-            cols.bold = "\033[1m"
+            cols.bold = ansiBold
             sys.last_traceback = etb    # smartify ``sys``
         except NameError:
             isipy = False
@@ -275,3 +275,44 @@ def SPYExceptionHandler(*excargs, **exckwargs):
     if isipy:
         if ipy.call_pdb:
             ipy.InteractiveTB.debugger()
+
+
+def SPYWarning(msg, caller=None):
+    """
+    Standardized Syncopy warning message
+    
+    Parameters
+    ----------
+    msg : str
+        Warning message to be printed
+    caller : None or str
+        Issuer of warning message. If `None`, name of calling method is 
+        automatically fetched and pre-pended to `msg`. 
+    
+    Returns
+    -------
+    Nothing : None
+    """
+            
+    # If Syncopy's running in Jupyter/iPython colorize warning message
+    # Use the following chart (enter FG color twice b/w ';') to change:
+    # https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
+    try:
+        cols = get_ipython().InteractiveTB.Colors
+        warnCol = "\x1b[95;95m"
+        normCol = cols.Normal
+        boldEm = ansiBold
+    except NameError:
+        warnCol = ""
+        normCol = ""
+        boldEm = ""
+
+    # Plug together message string and print it
+    if caller is None:
+        caller = sys._getframe().f_back.f_code.co_name
+    PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} WARNING: {msg:s}{coloroff:s}"
+    print(PrintMsg.format(coloron=warnCol,
+                          bold=boldEm,
+                          caller=" <" + caller +">" if len(caller) else caller, 
+                          msg=msg,
+                          coloroff=normCol))

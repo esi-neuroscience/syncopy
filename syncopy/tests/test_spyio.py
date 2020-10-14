@@ -2,10 +2,8 @@
 # 
 # Test functionality of SyNCoPy-container I/O routines
 # 
-# Created: 2019-03-19 14:21:12
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-11 13:47:16>
 
+# Builtin/3rd party package imports
 import os
 import tempfile
 import shutil
@@ -16,10 +14,12 @@ import numpy as np
 from numpy.lib.format import open_memmap
 from glob import glob
 from memory_profiler import memory_usage
+
+# Local imports
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.datatype.base_data import VirtualData
 from syncopy.io import save, load
-from syncopy.io.utils import FILE_EXT
+from syncopy.shared.filetypes import FILE_EXT
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError, SPYError
 import syncopy.datatype as swd
 from syncopy.tests.misc import generate_artificial_data, construct_spy_filename

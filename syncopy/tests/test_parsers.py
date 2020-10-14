@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
 # 
+# Test Syncopy's parsers for consistency
 # 
-# 
-# Created: 2019-03-05 16:22:56
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-24 15:55:17>
 
+# Builtin/3rd party package imports
 import os
 import platform
 import tempfile
 import pytest
 import numpy as np
 from collections import OrderedDict
+
+# Local imports
 from syncopy.shared.parsers import (io_parser, scalar_parser, array_parser, 
                                     filename_parser, data_parser)
-from syncopy.shared import get_defaults
+from syncopy.shared.tools import get_defaults
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError
 from syncopy import AnalogData, SpectralData
 
@@ -181,6 +181,40 @@ class TestArrayParser():
         array_parser(channels, varname="channels", dims=(None,))
         with pytest.raises(SPYValueError):
             array_parser(channels, varname="channels", dims=(4,))
+            
+    def test_sorted_arrays(self):
+        ladder = np.arange(10)
+        array_parser(ladder, issorted=True)
+        array_parser(ladder, dims=1, ntype="int_like", issorted=True)
+        array_parser([1, 0, 4], issorted=False)
+        with pytest.raises(SPYValueError) as spyval:
+            array_parser(np.ones((2, 2)), issorted=True)
+            errmsg = "'2-dimensional array'; expected 1-dimensional array"
+            assert errmsg in str(spyval.value)
+        with pytest.raises(SPYValueError) as spyval:
+            array_parser(np.ones((3, 1)), issorted=True)
+            errmsg = "'unsorted array'; expected array with elements in ascending order"
+            assert errmsg in str(spyval.value)
+        with pytest.raises(SPYValueError) as spyval:
+            array_parser(ladder[::-1], issorted=True)
+            errmsg = "'unsorted array'; expected array with elements in ascending order"
+            assert errmsg in str(spyval.value)
+        with pytest.raises(SPYValueError) as spyval:
+            array_parser([1+3j, 3, 4], issorted=True)
+            errmsg = "'array containing complex elements'; expected real-valued array"
+            assert errmsg in str(spyval.value)
+        with pytest.raises(SPYValueError) as spyval:
+            array_parser(ladder, issorted=False)
+            errmsg = "'array with elements in ascending order'; expected unsorted array"
+            assert errmsg in str(spyval.value)
+        with pytest.raises(SPYValueError) as spyval:
+            array_parser(['a', 'b', 'c'], issorted=True)
+            errmsg = "expected dtype = numeric"
+            assert errmsg in str(spyval.value)
+        with pytest.raises(SPYValueError) as spyval:
+            array_parser(np.ones(0), issorted=True)
+            errmsg = "'array containing (fewer than) one element"
+            assert errmsg in str(spyval.value)
 
 
 class TestFilenameParser():

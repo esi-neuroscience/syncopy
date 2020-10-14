@@ -39,6 +39,7 @@ doc/source/api
 # setuptools /dist directory
 /dist
 *.egg-info
+.eggs/
 
 # Python
 # Byte-compiled / optimized / DLL files
@@ -54,6 +55,10 @@ dask-worker-space
 
 # Test-related files
 .tox
+
+# Auto-generated files
+requirements.txt
+requirements-test.txt
 
 # spy containers
 *.spy

@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 #
-# Load data from SynCoPy containers
+# Load data from Syncopy containers
 #
-# Created: 2019-02-06 11:40:56
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-07-23 10:09:14>
 
 # Builtin/3rd party package imports
 import os
@@ -17,9 +14,12 @@ from collections import OrderedDict
 from glob import glob
 
 # Local imports
+from syncopy.shared.filetypes import FILE_EXT
 from syncopy.shared.parsers import io_parser, data_parser, filename_parser, array_parser
-from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYIOError, SPYError
-from syncopy.io.utils import hash_file, FILE_EXT, startInfoDict
+from syncopy.shared.errors import (SPYTypeError, SPYValueError, SPYIOError, 
+                                   SPYError, SPYWarning)
+from syncopy.io.utils import hash_file, startInfoDict
+
 import syncopy.datatype as spd
 
 __all__ = ["load"]
@@ -206,8 +206,8 @@ def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None
         if len(fileList) == 1:
             return _load(fileList[0], checksum, mode, out)
         if out is not None:
-            print("syncopy.load: WARNING >>> When loading multiple objects, " +
-                  "the `out` keyword is ignored. <<< ")
+            msg = "When loading multiple objects, the `out` keyword is ignored"
+            SPYWarning(msg)
         objectDict = {}
         for fname in fileList:
             obj = _load(fname, checksum, mode, None)
@@ -243,7 +243,7 @@ def _load(filename, checksum, mode, out):
     with open(jsonFile, "r") as file:
         jsonDict = json.load(file)
 
-    if not "dataclass" in jsonDict.keys():
+    if "dataclass" not in jsonDict.keys():
         raise SPYError("Info file {} does not contain a dataclass field".format(jsonFile))
 
     if hasattr(spd, jsonDict["dataclass"]):

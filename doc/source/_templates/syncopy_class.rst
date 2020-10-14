@@ -13,7 +13,7 @@
    .. rubric:: Methods
 
    .. autosummary::
-   {% for item in methods %}
+   {% for item in methods|unique %}
       ~{{ name }}.{{ item }}
    {%- endfor %}
 

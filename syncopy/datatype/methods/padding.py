@@ -2,16 +2,13 @@
 # 
 # Pad Syncopy data objects
 # 
-# Created: 2019-10-14 12:50:33
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-17 15:42:34>
 
 # Builtin/3rd party package imports
 import numpy as np
 
 # Local imports
 from syncopy.shared.parsers import data_parser, array_parser, scalar_parser
-from syncopy.shared.errors import SPYTypeError, SPYValueError
+from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYWarning
 
 __all__ = ["padding"]
 
@@ -413,8 +410,9 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
 
             # Warn of potential conflicts
             if padlength and (prepadlength or postpadlength):
-                print("WARNING: Found `padlength` and `prepadlength` and/or " +\
-                      "`postpadlength`. Symmetric padding is performed. ")
+                msg = "Found `padlength` and `prepadlength` and/or " +\
+                    "`postpadlength`. Symmetric padding is performed. "
+                SPYWarning(msg)
 
         # If both pre-/post- are `None`, set them to `True` to use symmetric
         # padding, otherwise convert `None` entries to `False`

@@ -16,5 +16,4 @@ Reviewer Checklist
   - [ ] Does the code adhere to agreed-upon naming conventions?
   - [ ] Are keywords clearly named and easy to understand?
   - [ ] No commented-out code?
-  - [ ] Is a file header present/properly updated?
 - [ ] Are all docstrings complete and accurate?

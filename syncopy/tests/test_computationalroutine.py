@@ -2,17 +2,17 @@
 # 
 # Test basic functionality of ComputationalRoutine class
 # 
-# Created: 2019-07-03 11:31:33
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-01-16 15:05:47>
 
+# Builtin/3rd party package imports
 import os
 import tempfile
-import pytest
 import time
+import pytest
 import numpy as np
 from glob import glob
 from scipy import signal
+
+# Local imports
 from syncopy import __dask__
 if __dask__:
     import dask.distributed as dd
@@ -28,7 +28,7 @@ skip_without_dask = pytest.mark.skipif(not __dask__, reason="dask not available"
 
 
 @unwrap_io
-def lowpass(arr, b, a, noCompute=None, chunkShape=None):
+def lowpass(arr, b, a=None, noCompute=None, chunkShape=None):
     if noCompute:
         return arr.shape, arr.dtype
     res = signal.filtfilt(b, a, arr.T, padlen=200).T
@@ -64,7 +64,7 @@ class LowPassFilter(ComputationalRoutine):
 def filter_manager(data, b=None, a=None, 
                    out=None, select=None, chan_per_worker=None, keeptrials=True,
                    parallel=False, parallel_store=None, log_dict=None):
-    myfilter = LowPassFilter(b, a)
+    myfilter = LowPassFilter(b, a=a)
     myfilter.initialize(data, chan_per_worker=chan_per_worker, keeptrials=keeptrials)
     newOut = False
     if out is None:
@@ -130,7 +130,7 @@ class TestComputationalRoutine():
                           "toi": None},
                          {"trials": [0, 1, 2],
                           "channels": range(0, int(nChannels / 2)),
-                          "toilim": [1.0, 1.25]}]
+                          "toilim": [-0.5, 0.6]}]
     
     # Error tolerances and respective quality metrics (depend on data selection!)
     tols = [1e-6, 1e-6, 1e-2]
@@ -233,13 +233,16 @@ class TestComputationalRoutine():
         for sk, select in enumerate(self.sigdataSelections):
             sel = Selector(self.sigdata, select)
             out = filter_manager(self.sigdata, self.b, self.a, select=select,
-                                 log_dict={"a": self.a, "b": self.b})
+                                 log_dict={"a": "this is a", "b": "this is b"})
             
-            assert set(["a", "b"]) == set(out.cfg.keys())
+            # only keyword args (`a` in this case here) are stored in `cfg`
+            assert set(["a"]) == set(out.cfg.keys())
             assert np.array_equal(out.cfg["a"], self.a)
-            assert np.array_equal(out.cfg["b"], self.b)
             assert len(out.trials) == len(sel.trials)
+            # ensure our `log_dict` specification was respected
             assert "lowpass" in out._log
+            assert "a = this is a" in out._log
+            assert "b = this is b" in out._log
 
             # ensure pre-selection is equivalent to in-place selection
             if select is None:
@@ -247,22 +250,21 @@ class TestComputationalRoutine():
             else:
                 selected = self.sigdata.selectdata(**select)
             out_sel = filter_manager(selected, self.b, self.a, 
-                                     log_dict={"a": self.a, "b": self.b})
-            assert set(["a", "b"]) == set(out_sel.cfg.keys())
-            assert np.array_equal(out.cfg["a"], out_sel.cfg["a"])
-            assert np.array_equal(out.cfg["b"], out_sel.cfg["b"])
+                                     log_dict={"a": "this is a", "b": "this is b"})
+            assert set(["a"]) == set(out.cfg.keys())
+            assert np.array_equal(out.cfg["a"], self.a)
             assert len(out.trials) == len(out_sel.trials)
-            assert "lowpass" in out_sel._log
-            
+            assert "lowpass" in out._log
+            assert "a = this is a" in out._log
+            assert "b = this is b" in out._log
+           
             # save and re-load result, ensure nothing funky happens
             with tempfile.TemporaryDirectory() as tdir:
                 fname = os.path.join(tdir, "dummy")
                 out.save(fname)
                 dummy = load(fname)
                 assert "a" in dummy.cfg.keys()
-                assert "b" in dummy.cfg.keys()
                 assert np.array_equal(dummy.cfg["a"], self.a)
-                assert np.array_equal(dummy.cfg["b"], self.b)
                 assert out.filename == dummy.filename
                 if select is None:
                     reference = self.orig
@@ -282,9 +284,7 @@ class TestComputationalRoutine():
                 out_sel.save(fname2)
                 dummy2 = load(fname2)
                 assert "a" in dummy2.cfg.keys()
-                assert "b" in dummy2.cfg.keys()
                 assert np.array_equal(dummy2.cfg["a"], dummy.cfg["a"])
-                assert np.array_equal(dummy2.cfg["b"], dummy.cfg["b"])
                 assert np.array_equal(dummy.data, dummy2.data)
                 assert np.array_equal(dummy.channel, dummy2.channel)
                 assert np.array_equal(dummy.time, dummy2.time)
@@ -437,14 +437,17 @@ class TestComputationalRoutine():
             for sk, select in enumerate(self.sigdataSelections):
                 sel = Selector(self.sigdata, select)
                 out = filter_manager(self.sigdata, self.b, self.a, select=select,
-                                     log_dict={"a": self.a, "b": self.b},
+                                     log_dict={"a": "this is a", "b": "this is b"},
                                      parallel=True, parallel_store=parallel_store)
                 
-                assert set(["a", "b"]) == set(out.cfg.keys())
+                # only keyword args (`a` in this case here) are stored in `cfg`
+                assert set(["a"]) == set(out.cfg.keys())
                 assert np.array_equal(out.cfg["a"], self.a)
-                assert np.array_equal(out.cfg["b"], self.b)
                 assert len(out.trials) == len(sel.trials)
+                # ensure our `log_dict` specification was respected
                 assert "lowpass" in out._log
+                assert "a = this is a" in out._log
+                assert "b = this is b" in out._log
 
                 # ensure pre-selection is equivalent to in-place selection
                 if select is None:
@@ -452,13 +455,16 @@ class TestComputationalRoutine():
                 else:
                     selected = self.sigdata.selectdata(**select)
                 out_sel = filter_manager(selected, self.b, self.a,
-                                         log_dict={"a": self.a, "b": self.b},
+                                         log_dict={"a": "this is a", "b": "this is b"},
                                          parallel=True, parallel_store=parallel_store)
-                assert set(["a", "b"]) == set(out_sel.cfg.keys())
-                assert np.array_equal(out.cfg["a"], out_sel.cfg["a"])
-                assert np.array_equal(out.cfg["b"], out_sel.cfg["b"])
-                assert len(out.trials) == len(out_sel.trials)
-                assert "lowpass" in out_sel._log
+                # only keyword args (`a` in this case here) are stored in `cfg`
+                assert set(["a"]) == set(out.cfg.keys())
+                assert np.array_equal(out.cfg["a"], self.a)
+                assert len(out.trials) == len(sel.trials)
+                # ensure our `log_dict` specification was respected
+                assert "lowpass" in out._log
+                assert "a = this is a" in out._log
+                assert "b = this is b" in out._log
                 
                 # save and re-load result, ensure nothing funky happens
                 with tempfile.TemporaryDirectory() as tdir:
@@ -466,9 +472,7 @@ class TestComputationalRoutine():
                     out.save(fname)
                     dummy = load(fname)
                     assert "a" in dummy.cfg.keys()
-                    assert "b" in dummy.cfg.keys()
                     assert np.array_equal(dummy.cfg["a"], self.a)
-                    assert np.array_equal(dummy.cfg["b"], self.b)
                     assert out.filename == dummy.filename
                     assert not out.data.is_virtual
                     if select is None:
@@ -488,9 +492,7 @@ class TestComputationalRoutine():
                     out_sel.save(fname2)
                     dummy2 = load(fname2)
                     assert "a" in dummy2.cfg.keys()
-                    assert "b" in dummy2.cfg.keys()
                     assert np.array_equal(dummy2.cfg["a"], dummy.cfg["a"])
-                    assert np.array_equal(dummy2.cfg["b"], dummy.cfg["b"])
                     assert np.array_equal(dummy.data, dummy2.data)
                     assert np.array_equal(dummy.channel, dummy2.channel)
                     assert np.array_equal(dummy.time, dummy2.time)

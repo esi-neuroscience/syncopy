@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # 
-# SynCoPy BaseData abstract class + helper classes
+# Syncopy's main abstract base class + helpers
 # 
-# Created: 2019-01-07 09:22:33
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-24 13:30:17>
 
 # Builtin/3rd party package imports
 import getpass
@@ -27,16 +24,17 @@ import scipy as sp
 
 # Local imports
 import syncopy as spy
-from syncopy.datatype.methods.definetrial import definetrial
+from syncopy.shared.tools import StructDict
 from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser, 
                                     filename_parser, data_parser)
-from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
+from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError, SPYWarning
+from syncopy.datatype.methods.definetrial import definetrial as _definetrial
 from syncopy import __version__, __storage__, __dask__, __sessionid__
 if __dask__:
     import dask
 
 
-__all__ = ["StructDict"]
+__all__ = []
 
 
 class BaseData(ABC):
@@ -68,6 +66,9 @@ class BaseData(ABC):
     
     # Dummy allocations of class attributes that are actually initialized in subclasses
     _mode = None
+    
+    # Set caller for `SPYWarning` to not have it show up as '<module>' 
+    _spwCaller = "BaseData.{}"
     
     @property
     @classmethod
@@ -179,7 +180,7 @@ class BaseData(ABC):
         
         if isHdf:
             h5keys = list(h5f.keys())
-            if not propertyName in h5keys and len(h5keys) != 1:                    
+            if propertyName not in h5keys and len(h5keys) != 1:                    
                 lgl = "HDF5 container with only one 'data' dataset or single dataset of arbitrary name"
                 act = "HDF5 container holding {} data-objects"
                 raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname=propertyName)
@@ -223,7 +224,9 @@ class BaseData(ABC):
                 act = "data with shape {}".format(str(inData.shape))
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             if prop.dtype != inData.dtype:
-                print("Syncopy core - data: WARNING >> Input data-type mismatch << ")
+                lgl = "HDF5 dataset/memmap of type {}".format(self.data.dtype.name)
+                act = "data of type {}".format(inData.dtype.name)
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
             prop[...] = inData
             
         # or create backing container on disk 
@@ -317,7 +320,7 @@ class BaseData(ABC):
             self._dimord = None        
             return
                 
-        if not set(dims) == set(self._defaultDimord):
+        if set(dims) != set(self._defaultDimord):
             base = "dimensional labels {}"
             lgl = base.format("'" + "' x '".join(str(dim) for dim in self._defaultDimord) + "'")
             act = base.format("'" + "' x '".join(str(dim) for dim in dims) + "'")
@@ -442,11 +445,11 @@ class BaseData(ABC):
     @property
     def trialdefinition(self):
         """nTrials x >=3 :class:`numpy.ndarray` of [start, end, offset, trialinfo[:]]"""
-        return self._trialdefinition
+        return np.array(self._trialdefinition)
     
     @trialdefinition.setter
     def trialdefinition(self, trl):
-        definetrial(self, trialdefinition=trl)        
+        _definetrial(self, trialdefinition=trl)        
 
     @property
     def sampleinfo(self):
@@ -462,7 +465,7 @@ class BaseData(ABC):
 
     @property
     def _t0(self):
-        if not self._trialdefinition is None: 
+        if self._trialdefinition is not None: 
             return self._trialdefinition[:, 2]
         else:
             return None
@@ -477,9 +480,9 @@ class BaseData(ABC):
         """nTrials x M :class:`numpy.ndarray` with numeric information about each trial
 
         Each trial can have M properties (condition, original trial no., ...) coded by 
-        numbers. This property are the fourth and onward columsn of `BaseData._trialdefinition`.
+        numbers. This property are the fourth and onward columns of `BaseData._trialdefinition`.
         """
-        if not self._trialdefinition is None:
+        if self._trialdefinition is not None:
             if self._trialdefinition.shape[1] > 3:
                 return self._trialdefinition[:, 3:]
             else:
@@ -492,7 +495,6 @@ class BaseData(ABC):
     @trialinfo.setter
     def trialinfo(self, trl):
         raise SPYError("Cannot set trialinfo. Use `BaseData._trialdefinition` or `syncopy.definetrial` instead.")
-        
 
     # Selector method
     @abstractmethod
@@ -565,20 +567,8 @@ class BaseData(ABC):
                             
         return cpy
 
-    # Change trialdef of object
-    def definetrial(self, trl=None, pre=None, post=None, start=None,
-                    trigger=None, stop=None, clip_edges=False):
-        """(Re-)define trials for data
-
-        See also
-        --------
-        syncopy.definetrial
-
-        """
-        definetrial(self, trialdefinition=trl, pre=pre, post=post,
-                    start=start, trigger=trigger, stop=stop,
-                    clip_edges=clip_edges)
-
+    # Attach trial-definition routine to not re-invent the wheel here
+    definetrial = _definetrial
 
     # Wrapper that makes saving routine usable as class method
     def save(self, container=None, tag=None, filename=None, overwrite=False, memuse=100):
@@ -689,7 +679,7 @@ class BaseData(ABC):
                 if isinstance(prop, h5py.Dataset):
                     try:
                         prop.file.close()
-                    except (IOError, ValueError, TypeError):
+                    except (IOError, ValueError, TypeError, ImportError):
                         pass
                     except Exception as exc:
                         raise exc
@@ -1038,41 +1028,11 @@ class SessionLogger():
         return "Session {}".format(__sessionid__)
 
     def __del__(self):
-        self._rm(self.sessionfile)
+        try:
+            self._rm(self.sessionfile)
+        except FileNotFoundError:
+            pass
 
-
-class StructDict(dict):
-    """Child-class of dict for emulating MATLAB structs
-
-    Examples
-    --------
-    cfg = StructDict()
-    cfg.a = [0, 25]
-
-    """
-    
-    def __init__(self, *args, **kwargs):
-        """
-        Create a child-class of dict whose attributes are its keys
-        (thus ensuring that attributes and items are always in sync)
-        """
-        super().__init__(*args, **kwargs)
-        self.__dict__ = self
-        
-    def __repr__(self):
-        return self.__str__()
-    
-    def __str__(self):
-        if self.keys():
-            ppStr = "Syncopy StructDict\n\n"
-            maxKeyLength = max([len(val) for val in self.keys()])
-            printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
-            for key, value in self.items():
-                ppStr += printString.format(key, str(value))
-            ppStr += "\nUse `dict(cfg)` for copy-paste-friendly format"
-        else:
-            ppStr = "{}"
-        return ppStr
 
 class FauxTrial():
     """
@@ -1146,8 +1106,8 @@ class Selector():
     ----------
     data : Syncopy data object
         A non-empty Syncopy data object
-    select : dict or :class:`~syncopy.datatype.base_data.StructDict` or None or str
-        Dictionary or :class:`~syncopy.datatype.base_data.StructDict` with keys
+    select : dict or :class:`~syncopy.shared.tools.StructDict` or None or str
+        Dictionary or :class:`~syncopy.shared.tools.StructDict` with keys
         specifying data selectors. **Note**: some keys are only valid for certain types
         of Syncopy objects, e.g., "freqs" is not a valid selector for an 
         :class:`~syncopy.AnalogData` object. Supported keys are (please see 
@@ -1188,8 +1148,6 @@ class Selector():
         
           Class name of `data`
         
-          If `True`, selection requires "fancy" (or "advanced") array indexing
-          
         * `_samplerate` : float
         
           Samplerate of `data` (only relevant for objects supporting time-selections)
@@ -1744,12 +1702,7 @@ class Selector():
         For instances of :class:`~syncopy.datatype.continuous_data.ContinuousData` 
         child classes (i.e., :class:`~syncopy.AnalogData` and :class:`~syncopy.SpectralData`
         objects) the integrity of conjoint multi-dimensional selections
-        is ensured by guaranteeing that cross-dimensional selections are
-        finite (i.e., lists) and no more than two lists are used simultaneously
-        for a selection. If the current Selector instance contains multiple
-        index lists, the contents of all selection properties is converted
-        (if required) to lists so that multi-dimensional array-indexing can
-        be readily performed via :func:`numpy.ix_`. 
+        is ensured. 
         For instances of :class:`~syncopy.datatype.discrete_data.DiscreteData` 
         child classes (i.e., :class:`~syncopy.SpikeData` and :class:`~syncopy.EventData`
         objects), any selection (`unit`, `eventid`, `time` and `channel`) operates 
@@ -1843,48 +1796,8 @@ class Selector():
                         listCount += 1
                         break
                 
-        # If (on a by-trial basis) we have two or more lists, we need fancy indexing, 
-        # thus convert all slice- to list-selectors
+        # If (on a by-trial basis) we have two or more lists, we need fancy indexing
         if listCount >= 2:
-            for tk, tsel in enumerate(self.time):
-                if isinstance(tsel, slice):
-                    start, stop, step = tsel.start, tsel.stop, tsel.step
-                    if start is None:
-                        start = 0
-                    if stop is None:
-                        stop = -1
-                    if start < 0 or stop < 0:
-                        trlTime = data._get_time([self.trials[tk]], toilim=[-np.inf, np.inf])[0]
-                        if isinstance(trlTime, list):
-                            if start < 0:
-                                start += len(trlTime)
-                            if stop < 0:
-                                stop += len(trlTime)
-                        else:
-                            if start < 0:
-                                start += trlTime.stop
-                            if stop < 0:
-                                stop += trlTime.stop
-                    if step is None:
-                        step = 1
-                    self.time[tk] = list(range(start, stop, step))
-            for prop in self._dimProps:
-                sel = getattr(self, prop)
-                if isinstance(sel, slice):
-                    start, stop, step = sel.start, sel.stop, sel.step
-                    if start is None:
-                        start = 0
-                    if stop is None:
-                        stop = -1
-                    if start < 0 or stop < 0:
-                        propSize = getattr(data, prop).size
-                        if start < 0:
-                            start += propSize
-                        if stop < 0:
-                            stop += propSize
-                    if step is None:
-                        step = 1
-                    setattr(self, "_{}".format(prop), list(range(start, stop, step)))
             self._useFancy = True
 
         # Finally, prepare new `trialdefinition` array for objects with `time` dimensions

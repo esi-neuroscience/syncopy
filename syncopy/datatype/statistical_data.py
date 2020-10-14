@@ -1,23 +1,20 @@
 # -*- coding: utf-8 -*-
 # 
-# SynCoPy StatisticalData abstract class + regular children
+# Syncopy's abstract base class for statistical data + regular children
 # 
-# Created: 2019-09-09 16:59:22
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-24 13:40:24>
+
 """Statistics data
 
 """
 # Builtin/3rd party package imports
 
-import numpy as np
 from abc import ABC
 from collections.abc import Iterator
 import inspect
+import numpy as np
 
 # Local imports
 from .base_data import BaseData
-# from .methods import _selectdata_continuous, definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser, io_parser
 from syncopy.shared.errors import SPYValueError, SPYIOError
 import syncopy as spy

@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # 
+# Populate namespace with io routines
 # 
-# 
-# Created: 2019-01-23 09:56:41
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-24 09:16:56>
 
 # Import __all__ routines from local modules
 from . import utils, load_raw_binary, load_spy_container, save_spy_container

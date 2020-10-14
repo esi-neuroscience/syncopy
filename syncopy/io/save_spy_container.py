@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # 
-# Save SynCoPy data objects on disk
+# Save Syncopy data objects to disk
 # 
-# Created: 2019-02-05 13:12:58
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-05 10:31:04>
 
 # Builtin/3rd party package imports
 import os
@@ -15,9 +12,10 @@ import numpy as np
 from collections import OrderedDict
 
 # Local imports
+from syncopy.shared.filetypes import FILE_EXT
 from syncopy.shared.parsers import filename_parser, data_parser, scalar_parser
-from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYError
-from syncopy.io.utils import hash_file, FILE_EXT, startInfoDict
+from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYError, SPYWarning
+from syncopy.io.utils import hash_file, startInfoDict
 from syncopy import __storage__
 
 __all__ = ["save"]
@@ -158,7 +156,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
     
     # Parse filename for validity and construct full path to HDF5 file
     fileInfo = filename_parser(filename)
-    if not fileInfo["extension"] == out._classname_to_extension():
+    if fileInfo["extension"] != out._classname_to_extension():
         raise SPYError("""Extension in filename ({ext}) does not match data 
                     class ({dclass})""".format(ext=fileInfo["extension"],
                                                 dclass=out.__class__.__name__))
@@ -276,13 +274,12 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
             try:
                 h5f.attrs[key] = outDict[key]
             except RuntimeError:
-                msg = "syncopy.save: WARNING >>> Too many entries in `{}` " +\
-                      "- truncating HDF5 attribute. Please refer to {} for " +\
-                      "complete listing. <<<"
+                msg = "Too many entries in `{}` - truncating HDF5 attribute. " +\
+                    "Please refer to {} for complete listing."
                 info_fle = os.path.split(os.path.split(filename.format(ext=FILE_EXT["info"]))[0])[1]
                 info_fle = os.path.join(info_fle, os.path.basename(
                     filename.format(ext=FILE_EXT["info"])))
-                print(msg.format(key, info_fle))
+                SPYWarning(msg.format(key, info_fle))
                 h5f.attrs[key] = [outDict[key][0], "...", outDict[key][-1]]
     
     # Re-assign filename after saving (and remove source in case it came from `__storage__`)
@@ -340,5 +337,9 @@ def _dict_converter(dct, firstrun=True):
         else:
             if hasattr(value, "item"):
                 value = value.item()
+            try:
+                json.dumps(value)
+            except (TypeError, OverflowError):
+                value = str(value)
             dct[key] = value
     return

@@ -2,13 +2,13 @@
 # 
 # Test functionality of data selection features in Syncopy
 # 
-# Created: 2019-10-25 10:13:31
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-10-31 16:49:00>
 
+# Builtin/3rd party package imports
 import pytest
 import numpy as np
 import inspect
+
+# Local imports
 import syncopy.datatype as spd
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.datatype.base_data import Selector
@@ -430,7 +430,7 @@ class TestSelector():
                                     stop = len(dummy.channel)
                                 elif stop < 0:
                                     stop = len(dummy.channel) + stop
-                                if not step in [None, 1]:
+                                if step not in [None, 1]:
                                     solution = list(range(start, stop))[solution]
                                 else:
                                     solution = slice(start, stop, step)
@@ -569,7 +569,7 @@ class TestSelector():
                 result = [idx] * len(ang.trials)
                 
                 # check correct format of selector (list -> slice etc.)
-                assert result == sel
+                assert np.array_equal(result, sel)
                 
                 # perform actual data-selection and ensure identity of results
                 selected = selectdata(ang, {tselect: timeSel})
@@ -715,7 +715,7 @@ class TestSelector():
                         idx = slice(idx[0], idx[-1] + 1, 1)
                         
                 # check correct format of selector (list -> slice etc.)
-                assert idx == sel
+                assert np.array_equal(idx, sel)
 
                 # perform actual data-selection and ensure identity of results
                 selected = selectdata(spc, {fselect: freqSel})

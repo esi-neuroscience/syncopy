@@ -1,9 +1,0 @@
-numpy >=1.15, <2
-dask >= 2.0, <3.0
-scipy >=1.1, <1.4
-distributed >= 2.0, <3.0
-dask_jobqueue >=0.6
-h5py >= 2.8, <3.0
-tqdm >= 4.31, <5
-fsspec 
-bokeh

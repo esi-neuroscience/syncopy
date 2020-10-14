@@ -1,22 +1,23 @@
 # -*- coding: utf-8 -*-
 # 
+# Test proper functionality of Syncopy's `ContinuousData` class + subclasses
 # 
-# 
-# Created: 2019-03-20 11:46:31
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2019-11-01 13:57:36>
 
+# Builtin/3rd party package imports
 import os
 import tempfile
 import time
 import pytest
 import numpy as np
 from numpy.lib.format import open_memmap
+
+# Local imports
 from syncopy.datatype import AnalogData, SpectralData, padding
 from syncopy.io import save, load
-from syncopy.datatype.base_data import VirtualData, Selector, StructDict
+from syncopy.datatype.base_data import VirtualData, Selector
 from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.shared.tools import StructDict
 from syncopy.tests.misc import generate_artificial_data, construct_spy_filename
 from syncopy import __dask__
 if __dask__:
@@ -87,23 +88,24 @@ class TestAnalogData():
             trl_ref = self.data.T[:, start:start + 5]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
-        # test ``_copy_trial`` with memmap'ed data
-        with tempfile.TemporaryDirectory() as tdir:
-            fname = os.path.join(tdir, "dummy.npy")
-            np.save(fname, self.data)
-            mm = open_memmap(fname, mode="r")
-            dummy = AnalogData(mm, trialdefinition=self.trl)
-            for trlno, start in enumerate(range(0, self.ns, 5)):
-                trl_ref = self.data[start:start + 5, :]
-                trl_tmp = dummy._copy_trial(trlno,
-                                            dummy.filename,
-                                            dummy.dimord,
-                                            dummy.sampleinfo,
-                                            dummy.hdr)
-                assert np.array_equal(trl_tmp, trl_ref)
-
-            # Delete all open references to file objects b4 closing tmp dir
-            del mm, dummy
+        # # test ``_copy_trial`` with memmap'ed data
+        # with tempfile.TemporaryDirectory() as tdir:
+        #     fname = os.path.join(tdir, "dummy.npy")
+        #     np.save(fname, self.data)
+        #     mm = open_memmap(fname, mode="r")
+        #     dummy = AnalogData(mm, trialdefinition=self.trl)
+        #     for trlno, start in enumerate(range(0, self.ns, 5)):
+        #         trl_ref = self.data[start:start + 5, :]
+        #         trl_tmp = dummy._copy_trial(trlno,
+        #                                     dummy.filename,
+        #                                     dummy.dimord,
+        #                                     dummy.sampleinfo,
+        #                                     dummy.hdr)
+        #         assert np.array_equal(trl_tmp, trl_ref)
+        #
+        #    # Delete all open references to file objects b4 closing tmp dir
+        #    del mm, dummy
+        del dummy
 
     def test_saveload(self):
         with tempfile.TemporaryDirectory() as tdir:
@@ -506,21 +508,22 @@ class TestSpectralData():
             trl_ref = self.data2[..., start:start + 5]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
-        # test ``_copy_trial`` with memmap'ed data
-        with tempfile.TemporaryDirectory() as tdir:
-            fname = os.path.join(tdir, "dummy.npy")
-            np.save(fname, self.data)
-            mm = open_memmap(fname, mode="r")
-            dummy = SpectralData(mm, trialdefinition=self.trl)
-            for trlno, start in enumerate(range(0, self.ns, 5)):
-                trl_ref = self.data[start:start + 5, ...]
-                trl_tmp = dummy._copy_trial(trlno,
-                                            dummy.filename,
-                                            dummy.dimord,
-                                            dummy.sampleinfo,
-                                            None)
-                assert np.array_equal(trl_tmp, trl_ref)
-            del mm, dummy
+        # # test ``_copy_trial`` with memmap'ed data
+        # with tempfile.TemporaryDirectory() as tdir:
+        #     fname = os.path.join(tdir, "dummy.npy")
+        #     np.save(fname, self.data)
+        #     mm = open_memmap(fname, mode="r")
+        #     dummy = SpectralData(mm, trialdefinition=self.trl)
+        #     for trlno, start in enumerate(range(0, self.ns, 5)):
+        #         trl_ref = self.data[start:start + 5, ...]
+        #         trl_tmp = dummy._copy_trial(trlno,
+        #                                     dummy.filename,
+        #                                     dummy.dimord,
+        #                                     dummy.sampleinfo,
+        #                                     None)
+        #         assert np.array_equal(trl_tmp, trl_ref)
+        #     del mm, dummy
+        del dummy
 
     def test_saveload(self):
         with tempfile.TemporaryDirectory() as tdir:

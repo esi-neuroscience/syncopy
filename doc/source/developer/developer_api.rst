@@ -36,12 +36,14 @@ syncopy.shared
     syncopy.shared.errors.SPYTypeError
     syncopy.shared.errors.SPYValueError
     syncopy.shared.errors.SPYIOError
+    syncopy.shared.errors.SPYWarning
     syncopy.shared.kwarg_decorators.unwrap_cfg
     syncopy.shared.kwarg_decorators.unwrap_select
     syncopy.shared.kwarg_decorators.unwrap_io
     syncopy.shared.kwarg_decorators.detect_parallel_client
     syncopy.shared.kwarg_decorators._append_docstring
     syncopy.shared.kwarg_decorators._append_signature
+    syncopy.shared.tools.best_match
 
 
 syncopy.specest
@@ -52,5 +54,24 @@ syncopy.specest
 
     syncopy.specest.mtmfft.mtmfft
     syncopy.specest.mtmfft.MultiTaperFFT
+    syncopy.specest.mtmconvol.mtmconvol
+    syncopy.specest.mtmconvol.MultiTaperFFTConvol
+    syncopy.specest.mtmconvol._make_trialdef
     syncopy.specest.wavelet.wavelet
     syncopy.specest.wavelet.WaveletTransform
+    syncopy.specest.wavelet._get_optimal_wavelet_scales
+
+syncopy.plotting
+^^^^^^^^^^^^^^^^
+
+.. autosummary::
+    :toctree: _stubs
+
+    syncopy.plotting.spy_plotting._layout_subplot_panels
+    syncopy.plotting.spy_plotting._prep_plots
+    syncopy.plotting.spy_plotting._prep_toilim_avg
+    syncopy.plotting.spy_plotting._setup_figure
+    syncopy.plotting.spy_plotting._setup_colorbar
+    syncopy.plotting._plot_spectral._compute_pltArr
+    syncopy.plotting._plot_spectral._prep_spectral_plots
+    syncopy.plotting._plot_analog._prep_analog_plots

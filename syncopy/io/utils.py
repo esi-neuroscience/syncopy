@@ -2,9 +2,6 @@
 # 
 # Collection of I/O utility functions
 # 
-# Created: 2019-02-06 14:30:17
-# Last modified by: Stefan Fuertinger [stefan.fuertinger@esi-frankfurt.de]
-# Last modification time: <2020-01-16 10:52:35>
 
 # Builtin/3rd party package imports
 import os
@@ -30,23 +27,6 @@ from syncopy.shared.errors import SPYTypeError
 from syncopy.shared.queries import user_yesno, user_input
 
 __all__ = ["cleanup", "clear"]
-
-def _all_subclasses(cls):
-    return set(cls.__subclasses__()).union(
-        [s for c in cls.__subclasses__() for s in _all_subclasses(c)])
-
-def _data_classname_to_extension(name):
-    return "." + name.split('Data')[0].lower()
-
-# data file extensions are first word of data class name in lower-case
-supportedDataExtensions = tuple([_data_classname_to_extension(cls.__name__)
-    for cls in _all_subclasses(BaseData) 
-    if not cls.__name__ in ['ContinuousData', 'DiscreteData']])
-
-# Define SynCoPy's general file-/directory-naming conventions
-FILE_EXT = {"dir" : ".spy",
-            "info" : ".info",
-            "data" : supportedDataExtensions}
 
 # Dictionary keys for beginning of info/json file that are not class properties
 startInfoDict = OrderedDict()

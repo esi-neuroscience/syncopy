@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 # 
-# SynCoPy ContinuousData abstract class + regular children
+# Syncopy's abstract base class for continuous data + regular children
 # 
-# Created: 2019-03-20 11:11:44
-# Last modified by: Joscha Schmiedt [joscha.schmiedt@esi-frankfurt.de]
-# Last modification time: <2020-01-24 13:30:39>
+
 """Uniformly sampled (continuous data).
 
 This module holds classes to represent data with a uniformly sampled time axis.
@@ -12,12 +10,12 @@ This module holds classes to represent data with a uniformly sampled time axis.
 """
 # Builtin/3rd party package imports
 import h5py
+import os
 import inspect
 import numpy as np
 from abc import ABC
 from collections.abc import Iterator
 from numpy.lib.format import open_memmap
-
 
 # Local imports
 from .base_data import BaseData, FauxTrial
@@ -25,7 +23,9 @@ from .methods.definetrial import definetrial
 from .methods.selectdata import selectdata
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYIOError
-import syncopy as spy
+from syncopy.shared.tools import best_match
+from syncopy.plotting import _plot_analog
+from syncopy.plotting import _plot_spectral
 
 __all__ = ["AnalogData", "SpectralData"]
 
@@ -185,40 +185,40 @@ class ContinuousData(BaseData, ABC):
             return [(np.arange(0, stop - start) + self._t0[tk]) / self.samplerate \
                     for tk, (start, stop) in enumerate(self.sampleinfo)]
 
-    # Helper function that reads a single trial into memory
-    @staticmethod
-    def _copy_trial(trialno, filename, dimord, sampleinfo, hdr):
-        """
-        # FIXME: currently unused - check back to see if we need this functionality
-        """
-        idx = [slice(None)] * len(dimord)
-        idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
-        idx = tuple(idx)
-        if hdr is None:
-            # Generic case: data is either a HDF5 dataset or memmap
-            try:
-                with h5py.File(filename, mode="r") as h5f:
-                    h5keys = list(h5f.keys())
-                    cnt = [h5keys.count(dclass) for dclass in spy.datatype.__all__
-                           if not inspect.isfunction(getattr(spy.datatype, dclass))]
-                    if len(h5keys) == 1:
-                        arr = h5f[h5keys[0]][idx]
-                    else:
-                        arr = h5f[spy.datatype.__all__[cnt.index(1)]][idx]
-            except:
-                try:
-                    arr = np.array(open_memmap(filename, mode="c")[idx])
-                except:
-                    raise SPYIOError(filename)
-            return arr
-        else:
-            # For VirtualData objects
-            dsets = []
-            for fk, fname in enumerate(filename):
-                dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
-                                       mode="r", dtype=hdr[fk]["dtype"],
-                                       shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
-            return np.vstack(dsets)
+    # # Helper function that reads a single trial into memory
+    # @staticmethod
+    # def _copy_trial(trialno, filename, dimord, sampleinfo, hdr):
+    #     """
+    #     # FIXME: currently unused - check back to see if we need this functionality
+    #     """
+    #     idx = [slice(None)] * len(dimord)
+    #     idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
+    #     idx = tuple(idx)
+    #     if hdr is None:
+    #         # Generic case: data is either a HDF5 dataset or memmap
+    #         try:
+    #             with h5py.File(filename, mode="r") as h5f:
+    #                 h5keys = list(h5f.keys())
+    #                 cnt = [h5keys.count(dclass) for dclass in spy.datatype.__all__
+    #                        if not inspect.isfunction(getattr(spy.datatype, dclass))]
+    #                 if len(h5keys) == 1:
+    #                     arr = h5f[h5keys[0]][idx]
+    #                 else:
+    #                     arr = h5f[spy.datatype.__all__[cnt.index(1)]][idx]
+    #         except:
+    #             try:
+    #                 arr = np.array(open_memmap(filename, mode="c")[idx])
+    #             except:
+    #                 raise SPYIOError(filename)
+    #         return arr
+    #     else:
+    #         # For VirtualData objects
+    #         dsets = []
+    #         for fk, fname in enumerate(filename):
+    #             dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
+    #                                    mode="r", dtype=hdr[fk]["dtype"],
+    #                                    shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
+    #         return np.vstack(dsets)
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
@@ -347,9 +347,8 @@ class ContinuousData(BaseData, ABC):
         timing = []
         if toilim is not None:
             for trlno in trials:
-                trlTime = self.time[trlno]
-                selTime = np.intersect1d(np.where(trlTime >= toilim[0])[0], 
-                                         np.where(trlTime <= toilim[1])[0])
+                _, selTime = best_match(self.time[trlno], toilim, span=True)
+                selTime = selTime.tolist()
                 if len(selTime) > 1:
                     timing.append(slice(selTime[0], selTime[-1] + 1, 1))
                 else:
@@ -357,12 +356,8 @@ class ContinuousData(BaseData, ABC):
                     
         elif toi is not None:
             for trlno in trials:
-                trlTime = self.time[trlno]
-                selTime = [min(trlTime.size - 1, idx) 
-                           for idx in np.searchsorted(trlTime, toi, side="left")]
-                for k, idx in enumerate(selTime):
-                    if np.abs(trlTime[idx - 1] - toi[k]) < np.abs(trlTime[idx] - toi[k]):
-                        selTime[k] = idx -1
+                _, selTime = best_match(self.time[trlno], toi)
+                selTime = selTime.tolist()
                 if len(selTime) > 1:
                     timeSteps = np.diff(selTime)
                     if timeSteps.min() == timeSteps.max() == 1:
@@ -397,10 +392,6 @@ class ContinuousData(BaseData, ABC):
                 # First, fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
 
-        # # Dummy assignment: if we have no data but channel labels, assign bogus to tigger setter warning
-        # else:
-        #     if isinstance(kwargs.get("channel"), (list, np.ndarray)):
-        #         self.channel = ['channel']
 
 class AnalogData(ContinuousData):
     """Multi-channel, uniformly-sampled, analog (real float) data
@@ -418,6 +409,10 @@ class AnalogData(ContinuousData):
     
     _infoFileProperties = ContinuousData._infoFileProperties + ("_hdr",)
     _defaultDimord = ["time", "channel"]
+ 
+    # Attach plotting routines to not clutter the core module code
+    singlepanelplot = _plot_analog.singlepanelplot
+    multipanelplot = _plot_analog.multipanelplot
     
     @property
     def hdr(self):
@@ -427,12 +422,12 @@ class AnalogData(ContinuousData):
         """
         return self._hdr
 
-    # Selector method
+    # Selector method FIXME: use plotting-routine-like patching?
     def selectdata(self, trials=None, channels=None, toi=None, toilim=None):
         """
         Create new `AnalogData` object from selection
         
-        Please refere to :func:`syncopy.selectdata` for detailed usage information. 
+        Please refer to :func:`syncopy.selectdata` for detailed usage information. 
         
         Examples
         --------
@@ -443,7 +438,7 @@ class AnalogData(ContinuousData):
         syncopy.selectdata : create new objects via deep-copy selections
         """
         return selectdata(self, trials=trials, channels=channels, toi=toi, toilim=toilim)
-
+        
     # "Constructor"
     def __init__(self,
                  data=None,
@@ -539,6 +534,10 @@ class SpectralData(ContinuousData):
     
     _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
     _defaultDimord = ["time", "taper", "freq", "channel"]
+
+    # Attach plotting routines to not clutter the core module code
+    singlepanelplot = _plot_spectral.singlepanelplot
+    multipanelplot = _plot_spectral.multipanelplot
     
     @property
     def taper(self):
@@ -603,7 +602,7 @@ class SpectralData(ContinuousData):
         """
         Create new `SpectralData` object from selection
         
-        Please refere to :func:`syncopy.selectdata` for detailed usage information. 
+        Please refer to :func:`syncopy.selectdata` for detailed usage information. 
         
         Examples
         --------
@@ -623,20 +622,14 @@ class SpectralData(ContinuousData):
         Error checking is performed by `Selector` class
         """
         if foilim is not None:
-            allFreqs = self.freq
-            selFreq = np.intersect1d(np.where(allFreqs >= foilim[0])[0], 
-                                     np.where(allFreqs <= foilim[1])[0])
+            _, selFreq = best_match(self.freq, foilim, span=True)
+            selFreq = selFreq.tolist()
             if len(selFreq) > 1:
                 selFreq = slice(selFreq[0], selFreq[-1] + 1, 1)
                 
         elif foi is not None:
-            allFreqs = self.freq
-            selFreq = [min(allFreqs.size - 1, idx) 
-                       for idx in np.searchsorted(allFreqs, foi, side="left")]
-            for k, idx in enumerate(selFreq):
-                if np.abs(allFreqs[idx - 1] - foi[k]) < np.abs(allFreqs[idx] - foi[k]):
-                    selFreq[k] = idx -1
-            # selFreq = [max(0, idx - 1) for idx in np.searchsorted(allFreqs, foi, side="right")]
+            _, selFreq = best_match(self.freq, foi)
+            selFreq = selFreq.tolist()
             if len(selFreq) > 1:
                 freqSteps = np.diff(selFreq)
                 if freqSteps.min() == freqSteps.max() == 1:
