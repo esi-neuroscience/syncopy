@@ -5,10 +5,10 @@ Syncopy utilizes a simple data format based on `HDF5
 <https://en.wikipedia.org/wiki/JSON>`_ (see :doc:`../developer/io` for details).
 These formats were chosen for their *ubiquity* as they can be handled well in
 virtually all popular programming languages, and for allowing *streaming,
-parallel access* enabling computing on parallel architecures.
+parallel access* enabling computing on parallel architectures.
 
 Currently, data in other formats (e.g. from  a recording system) have to be
-converted first. For this purpose, later versions of Syncopy will include
+converted before use with Syncopy. For this purpose, later versions of Syncopy will include
 importing and exporting engines, for example based on `Neo
 <https://neo.readthedocs.io/en/latest/>`_ or `NWB <https://www.nwb.org/>`_.
 
@@ -21,8 +21,6 @@ Reading and writing data with Syncopy
 
     syncopy.load
     syncopy.save
-
-
 
 Functions for Editing Syncopy Data Objects
 -------------------------------------------

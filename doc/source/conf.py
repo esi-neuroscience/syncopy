@@ -21,7 +21,7 @@ import syncopy
 # -- Project information -----------------------------------------------------
 
 project = 'Syncopy'
-copyright = '2019, Joscha Schmiedt and Stefan Fuertinger'
+copyright = '2020, Joscha Schmiedt and Stefan Fuertinger'
 author = 'Joscha Schmiedt and Stefan Fuertinger'
 
 # The short X.Y version
@@ -131,7 +131,7 @@ html_theme_options = {
     'globaltoc_depth': 2,
     'bootswatch_theme': "lumen",
     'navbar_links': [
-        ("GitHub", "https://www.github.com/esi-neuroscience/syncopy"),    
+        ("GitHub", "https://www.github.com/esi-neuroscience/syncopy", True),
     ],
 }
 

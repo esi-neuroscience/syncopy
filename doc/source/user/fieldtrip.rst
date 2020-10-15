@@ -132,20 +132,20 @@ can be computed in Syncopy with
 .. code-block:: python
       
     cfg = spy.get_defaults(spy.freqanalysis)
-    cfg.method = 'mtmfft';
-    cfg.foilim = [1, 150];
-    cfg.output = 'pow';
-    cfg.taper = 'dpss';
-    cfg.tapsmofrq = 10;
+    cfg.method = 'mtmfft'
+    cfg.foilim = [1, 150]
+    cfg.output = 'pow'
+    cfg.taper = 'dpss'
+    cfg.tapsmofrq = 10
     spec = spy.freqanalysis(cfg, data)
 
 
 Key Differences between FieldTrip and Syncopy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* FieldTrip has more features. Syncopy is still in early development and will
+* FieldTrip has **a lot** more features. Syncopy is still in early development and will
   never cover the rich feature-set of FieldTrip.
-* FieldTrip supports many data formats. Syncopy currently only supports data import 
+* FieldTrip supports **many** data formats. Syncopy currently only supports data import 
   from FieldTrip (see below). 
 * Syncopy data objects use disk-streaming and are thus never fully loaded into memory.
 
@@ -153,6 +153,6 @@ Exchanging Data between FieldTrip and Syncopy
 ---------------------------------------------
 
 Data created with Syncopy can be loaded into MATLAB using the `matlab-syncopy
-<http://git.esi.local/it/matlab-syncopy>`_ interface. It's still in early
+<https://github.com/esi-neuroscience/syncopy-matlab>`_ interface. It's still in early
 development and supports only a subset of data classes. Also, the MATLAB
-interface does not support loading data larger than local memory.
+interface does not support loading data that do not fit into local memory.

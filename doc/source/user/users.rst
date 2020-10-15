@@ -10,6 +10,7 @@ files.
 .. toctree ::
     :maxdepth: 2
 
-    data_handling
     fieldtrip
+    data_handling
+    processing
     user_api

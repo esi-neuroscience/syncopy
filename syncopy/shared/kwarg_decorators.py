@@ -442,6 +442,10 @@ def detect_parallel_client(func):
                                 objList.append(arg)
                                 nTrials = max(nTrials, len(arg.trials))
                                 argList.remove(arg)
+                        nObs = len(objList)        
+                        msg = "Syncopy <{fname:s}> Launching parallel computing client " +\
+                            "to process {no:d} objects..."
+                        print(msg.format(fname=func.__name__, no=nObs))
                         client = esi_cluster_setup(n_jobs=nTrials, interactive=False)
                         cleanup = True
                         if len(objList) > 1:

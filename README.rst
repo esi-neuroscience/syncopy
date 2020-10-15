@@ -19,9 +19,8 @@ electrophysiology data-analysis in Python. We strive to achieve the following go
 2. Syncopy is *scalable* and built for *very large datasets*. It automatically 
    makes use of available computing resources and is developed with built-in 
    parallelism in mind. 
-3. Syncopy is *compatible with FieldTrip*. 
-    - data and results can be loaded into MATLAB and Python
-    - parameter names and function call syntax are as similar as possible
+3. Syncopy is *compatible with FieldTrip*. Data and results can be loaded into MATLAB and Python, 
+   parameter names and function call syntax are as similar as possible
 
 Syncopy is developed at the
 `Ernst Strüngmann Institute (ESI) gGmbH for Neuroscience in Cooperation with Max Planck Society <https://www.esi-frankfurt.de/>`_
@@ -39,7 +38,7 @@ Syncopy is available on pip
 
 .. code-block:: bash
 
-   pip install syncopy
+   pip install esi-syncopy
 
 To get the latest development version, simply clone our GitHub repository:
 
