@@ -109,6 +109,9 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
     
     # For later reference: dynamically fetch name of current function
     funcName = "Syncopy <{}>".format(inspect.currentframe().f_code.co_name)
+    
+    # Be optimistic: prepare success message
+    successMsg = "{name:s} Cluster dashboard accessible at {dash:s}"
 
     # Retrieve all partitions currently available in SLURM
     out, err = subprocess.Popen("sinfo -h -o %P",
@@ -126,8 +129,10 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
                                         default="no")
             else:
                 startLocal = True
-            if startLocal:                    
+            if startLocal:
                 client = Client()
+                successMsg = "{name:s} Local parallel computing client ready. \n" + successMsg
+                print(successMsg.format(name=funcName, dash=client.cluster.dashboard_link))
                 if start_client:
                     return client
                 return client.cluster
@@ -266,8 +271,7 @@ def esi_cluster_setup(partition="8GBS", n_jobs=2, mem_per_job=None,
         raise TimeoutError(err.format(timeout))
     
     # Highlight how to connect to dask performance monitor
-    print("{name:s} Cluster dashboard accessible at {dash:s}".format(name=funcName,
-                                                                     dash=cluster.dashboard_link))
+    print(successMsg.format(name=funcName, dash=cluster.dashboard_link))
 
     # If client was requested, return that instead of the created cluster
     if start_client:
