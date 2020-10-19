@@ -50,11 +50,11 @@ deploy-to-testpypi:
     - python setup.py sdist bdist_wheel
     - twine upload --repository testpypi dist/*
     - tarname="$(basename -- $(ls dist/*.tar.gz) .tar.gz)"
-    - version="${tarname#*-}"
+    - version=$(sed -e 's/esi-syncopy-\(.*\)/\1/' <<< "$tarname")
     - conda create --yes --name piptest
     - conda activate piptest
     - conda install --yes pip
-    - pip install --extra-index-url https://testpypi.python.org/pypi esi-syncopy==$version
+    - pip --no-cache-dir install --extra-index-url https://testpypi.python.org/pypi esi-syncopy==$version
     - python -c "import syncopy as spy"
     - conda deactivate
     - conda remove --yes --name piptest --all
