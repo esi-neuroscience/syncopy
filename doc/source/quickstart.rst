@@ -4,17 +4,15 @@ Getting started with Syncopy
 Installing Syncopy
 ------------------
 
-Until the end of our public beta, Syncopy is only hosted on
-`TestPyPI <https://test.pypi.org/project/syncopy/>`_. It can be installed using
-`Pip <https://pypi.org/project/pip/>`_:
+Syncopy can be installed using `Pip <https://pypi.org/project/pip/>`_:
 
 .. code-block:: bash
 
-    pip install -i https://test.pypi.org/simple/ esi-syncopy
+    pip install esi-syncopy
 
-Eventually, Syncopy will be hosted on `PyPI <https://pypi.org/>`_ and
-`conda-forge <https://conda-forge.org/>`_. If you're working on the ESI cluster
-installing Syncopy is only necessary if you create your own Conda environment.
+Syncopy will soon be hosted on `conda-forge <https://conda-forge.org/>`_ as well. 
+If you're working on the ESI cluster installing Syncopy is only necessary if 
+you create your own Conda environment.
 
 Setting Up Your Python Environment
 ----------------------------------
