@@ -1,0 +1,31 @@
+cff-version: 1.1.0
+title: 'SyNCoPy: Systems Neuroscience Computing in Python'
+message: 'If you use this software, please cite it based on metadata found in this
+  file. SyNCoPy is heavily inspired by and intended to be used complementary to the
+  MATLAB toolbox FieldTrip: Robert Oostenveld, Pascal Fries, Eric Maris, and Jan-Mathijs
+  Schoffelen. FieldTrip: Open Source Software for Advanced Analysis of MEG, EEG, and
+  Invasive Electrophysiological Data. Computational Intelligence and Neuroscience,
+  vol. 2011, Article ID 156869, 9 pages, 2011. doi:10.1155/2011/156869.'
+authors:
+- affiliation: Ernst Strüngmann Institute for Neuroscience in Cooperation with Max
+    Planck Society
+  family-names: Fuertinger
+  given-names: Stefan
+  orcid: https://orcid.org/0000-0002-8118-036X
+- affiliation: Ernst Strüngmann Institute for Neuroscience in Cooperation with Max
+    Planck Society
+  family-names: Schmiedt
+  given-names: Joscha
+  orcid: https://orcid.org/0000-0001-6233-1866
+license: BSD-3-Clause
+keywords:
+- large-scale electrophysiology
+- computational-neuroscience
+- high-performance computing
+- parallel computing
+- systems-neuroscience
+- spectral-methods
+- brain
+repository-code: https://github.com/esi-neuroscience/syncopy
+version: 0.1b
+date-released: '2020-10-19'
