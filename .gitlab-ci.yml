@@ -58,6 +58,22 @@ deploy-to-testpypi:
     - python -c "import syncopy as spy"
     - conda deactivate
     - conda remove --yes --name piptest --all
+
+deploy-pypi:
+    when: manual
+    stage: deploy
+    only:
+    - master
+    - tags    
+    script:
+    - source $HOME/miniconda/etc/profile.d/conda.sh
+    - conda update --yes conda
+    - conda env update -f syncopy.yml --prune
+    - conda activate syncopy
+    - conda install --yes twine keyring rfc3986
+    - conda update --yes twine keyring rfc3986
+    - python setup.py sdist bdist_wheel
+    - twine upload dist/*
     
 docs:
     stage: deploy
