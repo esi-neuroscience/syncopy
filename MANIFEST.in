@@ -1,4 +1,5 @@
-include tox.ini
+include CITATION.cff
 include conda2pip.py
 include syncopy.yml
+include tox.ini
 recursive-include syncopy *.py
