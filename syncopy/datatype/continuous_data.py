@@ -52,8 +52,8 @@ class ContinuousData(BaseData, ABC):
 
         if getattr(self._data, "id", None) is not None:
             if self._data.id.valid == 0:
-                lgl = "open HDF5 container"
-                act = "backing HDF5 container {} has been closed"
+                lgl = "open HDF5 file"
+                act = "backing HDF5 file {} has been closed"
                 raise SPYValueError(legal=lgl, actual=act.format(self.filename),
                                     varname="data")
         return self._data

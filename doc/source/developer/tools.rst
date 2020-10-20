@@ -1,6 +1,9 @@
 Tools for Developing Syncopy
 ============================
-Coming soon...
+The following is a collection of routines, decorators and classes that constitute
+the basic building blocks of Syncopy. Syncopy's entire source-code is built using 
+following a modular structure where basic building blocks are written (and tested)
+once and then re-used throughout the entire package. 
 
 Input Parsing and Error Checking
 --------------------------------
@@ -28,7 +31,6 @@ Decorators
 
 Writing A New Analysis Routine
 ------------------------------
-
 Any analysis routine that operates on Syncopy data is always structured in three
 (hierarchical) parts:
 
@@ -38,13 +40,13 @@ Any analysis routine that operates on Syncopy data is always structured in three
    parallelization and post-computation cleanup. The class should be based on the
    abstract class :class:`syncopy.shared.computational_routine.ComputationalRoutine`
 3. Another wrapping metafunction handling method selection, parameterization and
-   error checking is then provided user interaction.
+   error checking is then provided for user interaction.
 
 An example of this type of structure is the multi-taper fourier analysis. The
 corresponding stages here are
 
-1. Numerical function: :func:`syncopy.specest.mtmfft`
-2. Wrapper class: :class:`syncopy.specest.MultiTaperFFT`
+1. Numerical function: :func:`syncopy.specest.mtmfft.mtmfft`
+2. Wrapper class: :class:`syncopy.specest.mtmfft.MultiTaperFFT`
 3. Metafunction: :func:`syncopy.freqanalysis` 
 
 .. image:: ../_static/ComputationalRoutine.png
