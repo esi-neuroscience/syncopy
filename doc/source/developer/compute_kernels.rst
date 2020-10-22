@@ -211,9 +211,7 @@ Examples
 --------
 Consider the following example illustrating the implementation of a
 (deliberately simple) filtering routine by subclassing
-:class:`ComputationalRoutine` and designing a |cf|_.  Please refer to
-:func:`syncopy.ex_comproutine` to review the source code of a fully
-executed standalone version of this example.
+:class:`ComputationalRoutine` and designing a |cf|_.  
 
 As a first step, a |cf|_ is defined:
 
@@ -292,7 +290,5 @@ with the `parallel` keyword set to `True`:
 >>> myfilter.initialize(data)
 >>> myfilter.compute(data, out, parallel=True)
 
-The full source code of this particular example can be found in
-:func:`syncopy.ex_comproutine`.  For realizing more complex mechanisms,
-consult the implementations of :func:`syncopy.freqanalysis` or other
-metafunctions in Syncopy.
+For realizing more complex mechanisms, consult the implementations of 
+:func:`syncopy.freqanalysis` or other metafunctions in Syncopy.

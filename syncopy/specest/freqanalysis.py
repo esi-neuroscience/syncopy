@@ -808,5 +808,5 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                              keeptrials=keeptrials)
     specestMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)
 
-    # Either return newly created output container or simply quit
+    # Either return newly created output object or simply quit
     return out if new_out else None

@@ -51,8 +51,8 @@ def unwrap_cfg(func):
            entry is not a Python dict or :class:`~syncopy.StructDict`. 
         3. If `cfg` was found either in positional or keyword arguments, then 
            (a) process its "linguistic" boolean keys (convert any "yes"/"no" entries 
-           to `True` /`False`) and then (b) extract an existing "data"/"dataset" entry and 
-           create a `data` variable. Raises a :class:`~syncopy.shared.errors.SPYValueError`
+           to `True` /`False`) and then (b) extract any existing "data"/"dataset" 
+           entry/entries. Raises a :class:`~syncopy.shared.errors.SPYValueError`
            if `cfg` contains both a "data" and "dataset" entry. 
         4. Perform the actual unwrapping: at this point, a provided `cfg` only 
            contains keyword arguments of `func`. If the (first) input object `data` 
@@ -80,13 +80,20 @@ def unwrap_cfg(func):
     * ``func(cfg, data)``: `cfg` exclusively contains keyword arguments of `func`, 
       `data` is a Syncopy data object. 
     * ``func(data, cfg)``: same as above
+    * ``func(data1, data2, data3, cfg)``: same as above with multiple Syncopy 
+      data objects. **Note**: the `cfg` object has to be valid for *all* provided
+      input objects!
     * ``func(data, cfg=cfg)``: same as above, but `cfg` itself is provided as 
       keyword argument
+    * ``func(data1, data2, cfg=cfg)``: same as above, but `cfg` itself is provided as 
+      keyword argument for multiple input objects. 
     * ``func(cfg)``: `cfg` contains a field `data` or `dataset` (not both!) 
-      holding a Syncopy data object used as input of `func`
+      holding one or more Syncopy data objects used as input of `func`
     * ``func(cfg=cfg)``: same as above with `cfg` being provided as keyword
     * ``func(data, kw1=val1, kw2=val2)``: standard Python call style with keywords
       being provided explicitly 
+    * ``func(data1, data2, kw1=val1, kw2=val2)``: same as above with multiple input
+      objects
       
     Invalid call signatures:
     
@@ -529,7 +536,7 @@ def unwrap_io(func):
     avoid inter-worker network communication. 
     
     In case of parallel writing, trial-channel blocks are stored in individual 
-    HDF5 containers (virtual sources) that are consolidated into a single 
+    HDF5 files (virtual sources) that are consolidated into a single 
     :class:`h5py.VirtualLayout` which is subsequently used to allocate a virtual 
     dataset inside a newly created HDF5 file (located in Syncopy's temporary 
     storage folder). 
@@ -608,8 +615,8 @@ def unwrap_io(func):
             res = func(arr, *wrkargs, **kwargs)
         
         # === STEP 3 === write result to disk
-        # Write result to stand-alone HDF file or use a mutex to write to a 
-        # single container (sequentially)
+        # Write result to multiple stand-alone HDF files or use a mutex to write to a 
+        # common single file (sequentially)
         if vdsdir is not None:
             with h5py.File(outfilename, "w") as h5fout:
                 h5fout.create_dataset(outdset, data=res)

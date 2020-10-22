@@ -175,14 +175,14 @@ class BaseData(ABC):
         except OSError as exc:
             err = "HDF5: " + str(exc)
         if not isNpy and not isHdf:
-            raise SPYValueError("accessible HDF5 container or memory-mapped npy-file",
+            raise SPYValueError("accessible HDF5 file or memory-mapped npy-file",
                                 actual=err, varname="data")
         
         if isHdf:
             h5keys = list(h5f.keys())
             if propertyName not in h5keys and len(h5keys) != 1:                    
-                lgl = "HDF5 container with only one 'data' dataset or single dataset of arbitrary name"
-                act = "HDF5 container holding {} data-objects"
+                lgl = "HDF5 file with only one 'data' dataset or single dataset of arbitrary name"
+                act = "HDF5 file holding {} data-objects"
                 raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname=propertyName)
             if len(h5keys) == 1:                
                 setattr(self, propertyName, h5f[h5keys[0]])
@@ -229,7 +229,7 @@ class BaseData(ABC):
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             prop[...] = inData
             
-        # or create backing container on disk 
+        # or create backing file on disk 
         else:
             if self.filename is None:
                 self.filename = self._gen_filename()            
@@ -279,8 +279,8 @@ class BaseData(ABC):
         """
                  
         if inData.id.valid == 0:
-            lgl = "open HDF5 container"
-            act = "backing HDF5 container is closed"
+            lgl = "open HDF5 file"
+            act = "backing HDF5 file is closed"
             raise SPYValueError(legal=lgl, actual=act, varname="data")
         
         self._mode = inData.file.mode
@@ -572,7 +572,7 @@ class BaseData(ABC):
 
     # Wrapper that makes saving routine usable as class method
     def save(self, container=None, tag=None, filename=None, overwrite=False, memuse=100):
-        r"""Save data object as new ``spy`` HDF container to disk (:func:`syncopy.save_data`)
+        r"""Save data object as new ``spy`` container to disk (:func:`syncopy.save_data`)
         
         FIXME: update docu
         

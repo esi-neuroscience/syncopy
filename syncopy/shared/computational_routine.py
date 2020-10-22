@@ -675,7 +675,7 @@ class ComputationalRoutine(ABC):
         out : syncopy data object
            Empty object for holding results
         parallel_store : bool
-           If `True`, a directory for virtual source containers is created 
+           If `True`, a directory for virtual source files is created 
            in Syncopy's temporary on-disk storage (defined by `syncopy.__storage__`). 
            Otherwise, a dataset of appropriate type and shape is allocated 
            in a new regular HDF5 file created inside Syncopy's temporary 
@@ -694,7 +694,7 @@ class ComputationalRoutine(ABC):
         self.datasetName = "data"
 
         # In case parallel writing via VDS storage is requested, prepare
-        # directory for by-chunk HDF5 containers and construct virutal HDF layout
+        # directory for by-chunk HDF5 files and construct virutal HDF layout
         if parallel_store:
             vdsdir = os.path.splitext(os.path.basename(out.filename))[0]
             self.virtualDatasetDir = os.path.join(__storage__, vdsdir)
