@@ -1,3 +1,5 @@
+.. _syncopy-data-format:
+
 Reading and Writing Data
 =========================
 
