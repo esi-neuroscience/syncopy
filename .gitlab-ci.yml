@@ -50,14 +50,30 @@ deploy-to-testpypi:
     - python setup.py sdist bdist_wheel
     - twine upload --repository testpypi dist/*
     - tarname="$(basename -- $(ls dist/*.tar.gz) .tar.gz)"
-    - version="${tarname#*-}"
+    - version=$(sed -e 's/esi-syncopy-\(.*\)/\1/' <<< "$tarname")
     - conda create --yes --name piptest
     - conda activate piptest
     - conda install --yes pip
-    - pip install --extra-index-url https://testpypi.python.org/pypi esi-syncopy==$version
+    - pip --no-cache-dir install --extra-index-url https://testpypi.python.org/pypi esi-syncopy==$version
     - python -c "import syncopy as spy"
     - conda deactivate
     - conda remove --yes --name piptest --all
+
+deploy-pypi:
+    when: manual
+    stage: deploy
+    only:
+    - master
+    - tags    
+    script:
+    - source $HOME/miniconda/etc/profile.d/conda.sh
+    - conda update --yes conda
+    - conda env update -f syncopy.yml --prune
+    - conda activate syncopy
+    - conda install --yes twine keyring rfc3986
+    - conda update --yes twine keyring rfc3986
+    - python setup.py sdist bdist_wheel
+    - twine upload dist/*
     
 docs:
     stage: deploy
@@ -84,4 +100,3 @@ docs:
     - cd doc
     - make html
     - rsync -av -e "ssh" --delete build/html/* root@monitor:/var/www/html/syncopy
-    - rsync -av -e "ssh" --delete build/html/* syncopy-docs:public_html/syncopy

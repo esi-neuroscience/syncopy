@@ -1,3 +1,5 @@
+.. _syncopy-data-format:
+
 Reading and Writing Data
 =========================
 
@@ -8,18 +10,17 @@ Reading and Writing Data
 
 The Syncopy Data Format (``*.spy``)
 -----------------------------------
-
 As each Syncopy data object is simply an annotated multi-dimensional
 array every object is stored as
 
-1. a binary file for the data arrays and
+1. a binary file holding data arrays and
 2. a human-readable file for metadata.
 
-Syncopy aims to be scalable for very large files that don't fit into memory. To
-cope with such files, it is usually necessary to perform on-demand streaming 
-of data from and to disk. A file format that is well-established for this 
-purpose is `HDF5 <https://www.hdfgroup.org/>`_, which is, therefore, the default
-storage backend of Syncopy. In addition, metadata are stored in `JSON
+Syncopy aims to be scalable to process small experimental data-sets to very large 
+files that don't fit into memory. To meet these requirements, Syncopy performs 
+on-demand streaming of data from and to disk. A file format that is well-established 
+for this purpose is `HDF5 <https://www.hdfgroup.org/>`_, which is, therefore, 
+the default storage backend of Syncopy. In addition, metadata are stored in `JSON
 <https://en.wikipedia.org/wiki/JSON>`_, which is both easily human- 
 and machine-readable.
 
@@ -74,8 +75,8 @@ The HDF5 file contains some metadata (`HDF5 attributes
 redundant with the corresponding JSON file), the ``data`` array in binary form 
 (`HDF5 dataset <http://docs.h5py.org/en/stable/high/dataset.html>`_), and a ``[nTrials x
 3+k]``-sized ``trialdefinition`` array containing information about the trials
-defined on the data (trial_start, trial_stop, trial_triggeroffset, trialinfo_1,
-trialinfo_2, ..., trialinfo_k).
+defined on the data (`trial_start`, `trial_stop`, `trial_triggeroffset`, `trialinfo_1`,
+`trialinfo_2`, ..., `trialinfo_k`).
 
 ::
 
@@ -102,24 +103,28 @@ the data directly include `HDFView
 Structure of the Metadata File (JSON)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The JSON file contains all metadata relevant to the data object. The required fields
-in the JSON file are:
+The JSON file contains all metadata relevant to the data object. All Syncopy data 
+objects need to specify (at least) the fields set in ``startInfoDict`` defined 
+in ``syncopy.io.utils``:
 
-=============  =====  ===========
-name           type   description
-=============  =====  ===========
-"dimord"       list   labels of array dimensions
-"version"      str    version of spy format
-"log"          str    "prosaic" history of data
-"cfg"          dict   "rigorous" history of data
-"data"         str    filename of HDF5 file
-"data_dtype"   str    NumPy datatype of data array
-"data_shape"   list   shape of data array
-"data_offset"  int    offset from begin of file of data array (bytes)
-"trl_dtype"    str    NumPy datatype of trialdata array
-"trl_shape"    list   shape of trialdata array
-"trl_offset"   int    offset from begin of file of trialdata array (bytes)
-=============  =====  ===========
+====================    =====  ===========
+name                    type   description
+====================    =====  ===========
+"filename"              str    filename of HDF5 file
+"dataclass"             str    one of :ref:`syncopy-data-classes:`
+"data_dtype"            str    NumPy datatype of data array
+"data_shape"            list   shape of data array
+"data_offset"           int    offset from begin of file of data array (bytes)
+"trl_dtype"             str    NumPy datatype of trialdata array
+"trl_shape"             list   shape of trialdata array
+"trl_offset"            int    offset from begin of file of trialdata array (bytes)
+"file_checksum"         str    checksum value of HDF5 file on disk
+"order"                 str    either "C" or "F" (row-major or column-major order of array on disk)
+"checksum_algorithm"    str    employed checksum algorithm
+"_version"              str    Syncopy package version
+"_log"                  str    "prosaic" history of data
+"cfg"                   dict   "rigorous" history of data
+====================    =====  ===========
 
 .. warning:: 
     As Syncopy is still in early development, the definition of the required
@@ -131,13 +136,8 @@ Example JSON file:
 .. code-block:: javascript
 
     {
-        "type": "AnalogData",
-        "dimord": [
-            "time",
-            "channel"
-        ],
-        "version": "0.1a",
-        "data": "example.c1a8.dat",
+        "filename": "example.c1a8.analog",
+        "dataclass": "AnalogData",
         "data_dtype": "float32",
         "data_shape": [
             406680,
@@ -151,28 +151,25 @@ Example JSON file:
         ],
         "trl_offset": 910965248,
         "samplerate": 1000.0,
-        "data_checksum": "074602b93ef237b9831fe8ee7ea59b4f8b2ce3614338d65c88081dc9eaddd098964fb68e6061b940de599ab966c3b242e27bd522f80779b1794c3dc3cc518c8e",
-        "log": "...",
-        "hdr": [
-            {
-                "version": 1,
-                "length": 128,
-                "dtype": "float32",
-                "M": 406680,
-                "N": 256,
-                "tSample": 1000000,
-                "file": "MT_RFmapping_session-168a1_xWav.lfp"            
-            }
+        "file_checksum": "074602b93ef237b9831fe8ee7ea59b4f8b2ce3614338d65c88081dc9eaddd098964fb68e6061b940de599ab966c3b242e27bd522f80779b1794c3dc3cc518c8e",
+        "order": "C",
+        "checksum_algorithm": "openssl_sha1",
+        "dimord": [
+            "time",
+            "channel"
         ],
+        "_version": "0.1a",
+        "_log": "...",
+        "cfg": {
+            "...": "..."
+        }
+        "samplerate": 1000.0,
         "channel": [
             "ecogLfp_000",
             "ecogLfp_001",
             "..."
             
         ],
-        "cfg": {
-            "...": "..."
-        }
     }
 
     

@@ -10,7 +10,7 @@ from hashlib import blake2b, sha1
 import numpy as np
 
 # Global version number
-__version__ = "0.1b"
+__version__ = "0.1b1"
 
 # Set up sensible printing options for NumPy arrays
 np.set_printoptions(suppress=True, precision=4, linewidth=80)

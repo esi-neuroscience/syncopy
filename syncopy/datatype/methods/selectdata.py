@@ -283,7 +283,7 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
     # Wipe data-selection slot to not alter input object
     data._selection = None
 
-    # Either return newly created output container or simply quit
+    # Either return newly created output object or simply quit
     return out if new_out else None
 
 

@@ -231,7 +231,7 @@ class TestBaseData():
                 with pytest.raises(SPYValueError):
                     getattr(spd, dclass)(data=dset)
 
-                # # attempt allocation using illegal HDF5 container
+                # # attempt allocation using illegal HDF5 file
                 del h5f["dummy"]
                 h5f.create_dataset("dummy1", data=self.data[dclass])
                 # FIXME: unused: h5f.create_dataset("dummy2", data=self.data[dclass])
@@ -239,7 +239,7 @@ class TestBaseData():
                 # with pytest.raises(SPYValueError):
                 #     getattr(spd, dclass)(hname)
 
-                # allocate with valid dataset of "illegal" container
+                # allocate with valid dataset of "illegal" file
                 dset = h5py.File(hname, mode="r")["dummy1"]
                 dummy = getattr(spd, dclass)(data=dset, filename=fname)
 
@@ -248,7 +248,7 @@ class TestBaseData():
                 with pytest.raises(SPYValueError):
                     dummy.data[0, ...]
 
-                # attempt allocation with HDF5 dataset of closed container
+                # attempt allocation with HDF5 dataset of closed file
                 with pytest.raises(SPYValueError):
                     getattr(spd, dclass)(data=dset)
 
@@ -318,7 +318,7 @@ class TestBaseData():
             assert hash(str(dummy._t0)) == hash(str(dummy2._t0))
             assert hash(str(dummy.trialinfo)) == hash(str(dummy2.trialinfo))
 
-        # test shallow + deep copies of memmaps + HDF5 containers
+        # test shallow + deep copies of memmaps + HDF5 files
         with tempfile.TemporaryDirectory() as tdir:
             for dclass in self.classes:
                 fname = os.path.join(tdir, "dummy.npy")
@@ -369,5 +369,5 @@ class TestBaseData():
                 del mm, dummy, dummy2, dummy3
                 time.sleep(0.01)
 
-                # remove container for next round
+                # remove file for next round
                 os.unlink(hname)
