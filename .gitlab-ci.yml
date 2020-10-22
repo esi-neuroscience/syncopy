@@ -100,4 +100,3 @@ docs:
     - cd doc
     - make html
     - rsync -av -e "ssh" --delete build/html/* root@monitor:/var/www/html/syncopy
-    - rsync -av -e "ssh" --delete build/html/* syncopy-docs:public_html/syncopy
