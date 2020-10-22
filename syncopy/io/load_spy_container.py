@@ -259,6 +259,12 @@ def _load(filename, checksum, mode, out):
                            .format(field=key,
                                    cls=dataclass.__name__,
                                    file=jsonFile))
+            
+    # If `_hdr` is an empty list, set it to `None` to not confuse meta-functions
+    hdr = jsonDict.get("_hdr")
+    if isinstance(hdr, (list, np.ndarray)):
+        if len(hdr) == 0:
+            jsonDict["_hdr"] = None
 
     # FIXME: add version comparison (syncopy.__version__ vs jsonDict["_version"])
 
