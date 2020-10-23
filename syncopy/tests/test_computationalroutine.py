@@ -337,7 +337,7 @@ class TestComputationalRoutine():
                     out_sel = filter_manager(selected, self.b, self.a,
                                              chan_per_worker=chan_per_worker, parallel=True,
                                              parallel_store=parallel_store)
-                    assert np.array_equal(out.data, out_sel.data)
+                    assert np.allclose(out.data, out_sel.data)
                     assert np.array_equal(out.channel, out_sel.channel)
                     assert np.array_equal(out.time, out_sel.time)
 
@@ -363,7 +363,7 @@ class TestComputationalRoutine():
                     out_sel = filter_manager(selected, self.b, self.a,
                                              parallel=True, parallel_store=parallel_store, 
                                              keeptrials=False)
-                    assert np.array_equal(out.data, out_sel.data)
+                    assert np.allclose(out.data, out_sel.data)
                     assert np.array_equal(out.channel, out_sel.channel)
                     assert np.array_equal(out.time, out_sel.time)
 
@@ -423,7 +423,7 @@ class TestComputationalRoutine():
                         out_sel = filter_manager(selected, self.b, self.a,
                                                  chan_per_worker=chan_per_worker, parallel=True,
                                                  parallel_store=parallel_store)
-                        assert np.array_equal(out.data, out_sel.data)
+                        assert np.allclose(out.data, out_sel.data)
                         assert np.array_equal(out.channel, out_sel.channel)
                         for tk in range(len(out.trials)):
                             assert np.array_equal(out.time[tk], out_sel.time[tk])
