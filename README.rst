@@ -48,4 +48,4 @@ To get the latest development version, simply clone our GitHub repository:
 
 Getting Started
 ===============
-Please visit our `online documentation <https://syncopy.org>`_. 
+Please visit our `online documentation <syncopy.org>`_. 
