@@ -48,9 +48,15 @@ deploy-to-testpypi:
     - conda install --yes twine keyring rfc3986
     - conda update --yes twine keyring rfc3986
     - python setup.py sdist bdist_wheel
-    - twine upload --repository testpypi dist/*
     - tarname="$(basename -- $(ls dist/*.tar.gz) .tar.gz)"
     - version=$(sed -e 's/esi-syncopy-\(.*\)/\1/' <<< "$tarname")
+    - whlfile="$(basename dist/*.whl)"
+    - whltype=${whlfile##*$version}
+    - whlname=${whlfile%%$version*}
+    - rhash=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 8 | head -n 1)
+    - mv dist/$tarname.tar.gz dist/$tarname$rhash.tar.gz
+    - mv dist/$whlfile dist/$whlname$version$rhash$whltype
+    - twine upload --repository testpypi dist/*
     - conda create --yes --name piptest
     - conda activate piptest
     - conda install --yes pip
