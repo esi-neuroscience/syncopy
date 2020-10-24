@@ -12,7 +12,7 @@ e.g.,
 
 .. code-block:: python
       
-    spec = spy.freqanalysis(data, method="mtmff", foilim=[1, 150], output="pow", taper="dpss", tapsmofrq=10)
+    spec = spy.freqanalysis(data, method="mtmfft", foilim=[1, 150], output="pow", taper="dpss", tapsmofrq=10)
 
 or using a ``cfg`` configuration structure:
 
