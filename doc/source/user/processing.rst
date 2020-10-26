@@ -12,7 +12,7 @@ e.g.,
 
 .. code-block:: python
       
-    spec = spy.freqanalysis(data, method="mtmff", foilim=[1, 150], output="pow", taper="dpss", tapsmofrq=10)
+    spec = spy.freqanalysis(data, method="mtmfft", foilim=[1, 150], output="pow", taper="dpss", tapsmofrq=10)
 
 or using a ``cfg`` configuration structure:
 
@@ -36,7 +36,7 @@ is by using the `parallel` keyword supported by all Syncopy meta-functions, i.e.
 
 .. code-block:: python
       
-    spec = spy.freqanalysis(data, method="mtmff", foilim=[1, 150], output="pow", taper="dpss", tapsmofrq=10, parallel=True)
+    spec = spy.freqanalysis(data, method="mtmfft", foilim=[1, 150], output="pow", taper="dpss", tapsmofrq=10, parallel=True)
 
 or 
 
@@ -101,4 +101,4 @@ Syncopy offers convenience functions for quick visual inspection of its data obj
     :align: right
 
 For more information, please refer to the documentation of :func:`~syncopy.singlepanelplot`
-and :func:`~syncopy.multipanelplot`. 
+and :func:`~syncopy.multipanelplot`.
