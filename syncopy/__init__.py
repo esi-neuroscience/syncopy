@@ -133,13 +133,14 @@ else:
 __checksum_algorithm__ = sha1
 
 # Fill up namespace
-from . import shared, io, datatype, specest, statistics, plotting
+from . import shared, io, datatype, specest, statistics, plotting, acme
 from .shared import *
 from .io import *
 from .datatype import *
 from .specest import *
 from .statistics import *
 from .plotting import *
+from .acme.acme import *
 
 # Register session
 __session__ = datatype.base_data.SessionLogger()
@@ -163,3 +164,4 @@ __all__.extend(shared.__all__)
 __all__.extend(specest.__all__)
 __all__.extend(statistics.__all__)
 __all__.extend(plotting.__all__)
+__all__.extend(acme.acme.__all__)

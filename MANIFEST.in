@@ -1,5 +1,8 @@
-include CITATION.cff
-include conda2pip.py
-include syncopy.yml
-include tox.ini
+exclude .gitignore
+exclude .gitlab-ci.yml
+exclude .gitmodules
+exclude .readthedocs.yml
+exclude .travis.yml
+recursive-exclude .github *
+recursive-exclude doc *
 recursive-include syncopy *.py
