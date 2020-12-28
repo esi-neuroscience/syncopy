@@ -1,16 +1,35 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Main package initializer
-# 
+#
 
 # Builtin/3rd party package imports
 import os
 import sys
-from hashlib import blake2b, sha1
+import subprocess
 import numpy as np
+from hashlib import blake2b, sha1
+from importlib.metadata import version, PackageNotFoundError
 
-# Global version number
-__version__ = "0.1b1"
+# Get package version: either via meta-information from egg or via latest git commit
+try:
+    __version__ = version(__name__)
+except PackageNotFoundError:
+    proc = subprocess.Popen("git describe --always",
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, shell=True)
+    out, err = proc.communicate()
+    if proc.returncode != 0:
+        proc = subprocess.Popen("git rev-parse HEAD:acme/__init__.py",
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, shell=True)
+        out, err = proc.communicate()
+        if proc.returncode != 0:
+            msg = "\nSyncopy <core> WARNING: Package is not installed in site-packages nor cloned via git. " +\
+                "Please consider obtaining SyNCoPy sources from supported channels. "
+            print(msg)
+            out = "-999"
+    __version__ = out.rstrip("\n")
 
 # Set up sensible printing options for NumPy arrays
 np.set_printoptions(suppress=True, precision=4, linewidth=80)
@@ -37,7 +56,7 @@ except ImportError:
 
 # Check if we're being imported by a parallel worker process
 if __dask__:
-    try: 
+    try:
         dd.get_worker()
         __worker__ = True
     except ValueError:
@@ -47,7 +66,7 @@ else:
 
 # (Try to) set up visualization environment
 try:
-    import matplotlib.pyplot as plt 
+    import matplotlib.pyplot as plt
     import matplotlib.style as mplstyle
     import matplotlib as mpl
     __plt__ = True
@@ -75,7 +94,7 @@ if not __worker__ and not os.path.exists(__storage__):
               "Original error message below\n{}"
         raise IOError(err.format( __storage__, str(exc)))
 
-# Ensure Syncopy has write permissions and can actually use its temp storage    
+# Ensure Syncopy has write permissions and can actually use its temp storage
 if not __worker__:
     try:
         filePath = os.path.join(__storage__, "__test__.spy")
@@ -103,7 +122,7 @@ if not __worker__:
 # Establish ID and log-file for current session
 __sessionid__ = blake2b(digest_size=2, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
 __sessionfile__ = os.path.join(__storage__, "session_{}.id".format(__sessionid__))
-        
+
 # Set max. depth of traceback info shown in prompt
 if __worker__:
     __tbcount__ = 999

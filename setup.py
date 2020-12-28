@@ -2,31 +2,17 @@
 import datetime
 import ruamel.yaml
 from setuptools import setup
-import codecs
-import os.path
+from setuptools_scm import get_version
 
 # Local imports
 from conda2pip import conda2pip
 
-# Recommended reference implementation taken from PyPA
-def read(rel_path):
-    here = os.path.abspath(os.path.dirname(__file__))
-    with codecs.open(os.path.join(here, rel_path), 'r') as fp:
-        return fp.read()
-
-def get_version(rel_path):
-    for line in read(rel_path).splitlines():
-        if line.startswith('__version__'):
-            delim = '"' if '"' in line else "'"
-            return line.split(delim)[1]
-    else:
-        raise RuntimeError("Unable to find Syncopy version string.")
-
-# Get package version w/o actually importing it (do not trigger dependency import)
-spyVersion = get_version("syncopy/__init__.py")
-
 # Get necessary and optional package dependencies
 required, dev = conda2pip(return_lists=True)
+
+# Get package version for citationFile (for dev-builds this might differ from
+# test-PyPI versions, which are ordered by recency)
+spyVersion = get_version(root='.', relative_to=__file__)
 
 # Update citation file
 citationFile = "CITATION.cff"
@@ -36,10 +22,12 @@ with open(citationFile) as fl:
 ymlObj["version"] = spyVersion
 ymlObj["date-released"] = datetime.datetime.now().strftime("%Y-%m-%d")
 with open(citationFile, "w") as fl:
-    yaml.dump(ymlObj, fl) 
+    yaml.dump(ymlObj, fl)
 
 # Run setup (note: identical arguments supplied in setup.cfg will take precedence)
 setup(
-    install_requires=required,
+    # install_requires=required,
+    use_scm_version=True,
+    setup_requires=['setuptools_scm'],
     extras_require={"dev": dev},
 )

@@ -29,6 +29,7 @@ dependencies:
   - ipdb
   - tox
   - ruamel.yaml
+  - setuptools_scm
   - pip:
     # Optional: only necessary when building the HTML documentation
     - sphinx_automodapi
