@@ -71,6 +71,8 @@ deploy-pypi:
     only:
     - master
     - tags    
+    tags:
+    - deploy
     script:
     - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda update --yes conda
@@ -79,7 +81,7 @@ deploy-pypi:
     - conda install --yes twine keyring rfc3986
     - conda update --yes twine keyring rfc3986
     - python setup.py sdist bdist_wheel
-    - twine upload dist/*
+    - twine upload --cert /etc/ssl/certs/ca-certificates.crt dist/*
     
 docs:
     stage: deploy
