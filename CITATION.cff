@@ -27,5 +27,5 @@ keywords:
 - spectral-methods
 - brain
 repository-code: https://github.com/esi-neuroscience/syncopy
-version: 0.1b2.dev14+ga36245b.d20201228
-date-released: '2020-12-28'
+version: 0.1b2.dev16+g0079dc6.d20201229
+date-released: '2020-12-29'

@@ -11,7 +11,7 @@ clusterTests:
     - master
     - dev
     variables:
-        PYTEST_ADDOPTS: "--color=yes --tb=short --verbose"
+        PYTEST_ADDOPTS: "--color=yes --tb=short --verbose --ignore=syncopy/acme"
     script:
     - source $HOME/miniconda3/etc/profile.d/conda.sh
     - conda update --yes conda
@@ -28,7 +28,7 @@ windowsTests:
     - master
     - dev
     variables:
-        PYTEST_ADDOPTS: "--color=yes --tb=short --verbose"
+        PYTEST_ADDOPTS: "--color=yes --tb=short --verbose --ignore=syncopy/acme"
     script:
     - python -m pip install --upgrade --user pip
     - python -m pip install --upgrade --user tox

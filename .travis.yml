@@ -18,4 +18,4 @@ install:
   - python setup.py -q install
 # command to run tests
 script:
-  - pytest -v
+  - pytest -v --ignore=syncopy/acme"
