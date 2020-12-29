@@ -26,7 +26,7 @@ with open(citationFile, "w") as fl:
 
 # Run setup (note: identical arguments supplied in setup.cfg will take precedence)
 setup(
-    use_scm_version=True,
+    use_scm_version={"local_scheme": "no-local-version"},
     setup_requires=['setuptools_scm'],
     install_requires=required,
     extras_require={"dev": dev},
