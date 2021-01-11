@@ -15,8 +15,6 @@ dependencies:
   - bokeh
   - h5py >= 2.9
   - matplotlib >= 3.3, < 3.5
-  - jupyter
-  - jupyterlab
   - tqdm >= 4.31
   - natsort
   # Optional packages required for running the test-suite and building the HTML docs
@@ -25,7 +23,6 @@ dependencies:
   - numpydoc
   - sphinx_bootstrap_theme
   - pytest
-  - pylint
   - ipdb
   - tox
   - ruamel.yaml
