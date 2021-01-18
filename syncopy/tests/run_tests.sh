@@ -15,7 +15,7 @@ usage()
     echo "
 usage: $_selfie COMMAND
 
-Run Syncopy's testing pipeline via SLURM 
+Run Syncopy's testing pipeline via SLURM
 
 Arguments:
   COMMAND
@@ -34,8 +34,8 @@ if [ "$1" == "" ]; then
     usage
 fi
 
-# Set up "global" pytest options for running test-suite 
-export PYTEST_ADDOPTS="--color=yes --tb=short --verbose"
+# Set up "global" pytest options for running test-suite
+export PYTEST_ADDOPTS="--color=yes --tb=short --verbose --ignore=syncopy/acme"
 
 # The while construction allows parsing of multiple positional/optional args (future-proofing...)
 while [ "$1" != "" ]; do

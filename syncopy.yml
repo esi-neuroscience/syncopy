@@ -13,10 +13,8 @@ dependencies:
   - dask-jobqueue >= 0.7.1, < 0.8
   - fsspec >= 0.3.3
   - bokeh
-  - h5py >= 2.9
+  - h5py >= 2.9, < 3
   - matplotlib >= 3.3, < 3.5
-  - jupyter
-  - jupyterlab
   - tqdm >= 4.31
   - natsort
   # Optional packages required for running the test-suite and building the HTML docs
@@ -29,6 +27,7 @@ dependencies:
   - ipdb
   - tox
   - ruamel.yaml
+  - setuptools_scm
   - pip:
     # Optional: only necessary when building the HTML documentation
     - sphinx_automodapi

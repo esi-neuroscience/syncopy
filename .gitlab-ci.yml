@@ -1,46 +1,47 @@
 stages:
     - test
+    - upload
     - deploy
 
 clusterTests:
     stage: test
-    tags: 
+    tags:
     - slurm
     only:
     - master
     - dev
     variables:
-        PYTEST_ADDOPTS: "--color=yes --tb=short --verbose"
+        PYTEST_ADDOPTS: "--color=yes --tb=short --verbose --ignore=syncopy/acme"
     script:
     - source $HOME/miniconda3/etc/profile.d/conda.sh
     - conda update --yes conda
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
-    - srun -p DEV --mem=8000m -c 4 tox -r 
+    - srun -p DEV --mem=8000m -c 4 tox -r
 
 windowsTests:
     stage: test
     allow_failure: true
-    tags: 
+    tags:
     - windows10
     only:
     - master
     - dev
     variables:
-        PYTEST_ADDOPTS: "--color=yes --tb=short --verbose"
+        PYTEST_ADDOPTS: "--color=yes --tb=short --verbose --ignore=syncopy/acme"
     script:
     - python -m pip install --upgrade --user pip
     - python -m pip install --upgrade --user tox
     - tox -r
 
 deploy-to-testpypi:
-    stage: deploy
+    stage: upload
     only:
     - master
-    - tags    
+    - tags
     tags:
     - deploy
-    script: 
+    script:
     - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda update --yes conda
     - conda env update -f syncopy.yml --prune
@@ -50,14 +51,8 @@ deploy-to-testpypi:
     - python setup.py sdist bdist_wheel
     - tarname="$(basename -- $(ls dist/*.tar.gz) .tar.gz)"
     - version=$(sed -e 's/esi-syncopy-\(.*\)/\1/' <<< "$tarname")
-    - whlfile="$(basename dist/*.whl)"
-    - whltype=${whlfile##*$version}
-    - whlname=${whlfile%%$version*}
-    - rhash=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 8 | head -n 1)
-    - mv dist/$tarname.tar.gz dist/$tarname$rhash.tar.gz
-    - mv dist/$whlfile dist/$whlname$version$rhash$whltype
     - twine upload --repository testpypi dist/*
-    - conda create --yes --name piptest
+    - conda create --yes --name piptest python=3.8
     - conda activate piptest
     - conda install --yes pip
     - pip --no-cache-dir install --extra-index-url https://testpypi.python.org/pypi esi-syncopy==$version
@@ -70,7 +65,9 @@ deploy-pypi:
     stage: deploy
     only:
     - master
-    - tags    
+    - tags
+    tags:
+    - deploy
     script:
     - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda update --yes conda
@@ -79,8 +76,8 @@ deploy-pypi:
     - conda install --yes twine keyring rfc3986
     - conda update --yes twine keyring rfc3986
     - python setup.py sdist bdist_wheel
-    - twine upload dist/*
-    
+    - twine upload --cert /etc/ssl/certs/ca-certificates.crt dist/*
+
 docs:
     stage: deploy
     tags:
@@ -89,19 +86,10 @@ docs:
     - dev
     - master
     - tags
-    
     script:
-    - if hash $HOME/miniconda/bin/conda 2>/dev/null; 
-      then
-         export PATH="$HOME/miniconda/bin:$PATH";
-      else
-        wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-        bash miniconda.sh -b -p $HOME/miniconda;
-        export PATH="$HOME/miniconda/bin:$PATH";
-      fi
     - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda update --yes conda
-    - conda env update --file syncopy.yml
+    - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - cd doc
     - make html

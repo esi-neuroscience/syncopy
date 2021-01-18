@@ -1,3 +1,4 @@
-[submodule "syncopy/matlab"]
-	path = syncopy/matlab
-	url = git@github.com:esi-neuroscience/syncopy-matlab.git
+[submodule "syncopy/acme"]
+	path = syncopy/acme
+	url = https://github.com/esi-neuroscience/acme.git
+	branch = main
