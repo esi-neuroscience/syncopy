@@ -52,7 +52,7 @@ deploy-to-testpypi:
     - tarname="$(basename -- $(ls dist/*.tar.gz) .tar.gz)"
     - version=$(sed -e 's/esi-syncopy-\(.*\)/\1/' <<< "$tarname")
     - twine upload --repository testpypi dist/*
-    - conda create --yes --name piptest
+    - conda create --yes --name piptest python=3.8
     - conda activate piptest
     - conda install --yes pip
     - pip --no-cache-dir install --extra-index-url https://testpypi.python.org/pypi esi-syncopy==$version
