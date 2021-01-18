@@ -12,6 +12,7 @@ clusterTests:
     - dev
     variables:
         PYTEST_ADDOPTS: "--color=yes --tb=short --verbose --ignore=syncopy/acme"
+        GIT_SUBMODULE_STRATEGY: recursive
     script:
     - source $HOME/miniconda3/etc/profile.d/conda.sh
     - conda update --yes conda
@@ -29,6 +30,7 @@ windowsTests:
     - dev
     variables:
         PYTEST_ADDOPTS: "--color=yes --tb=short --verbose --ignore=syncopy/acme"
+        GIT_SUBMODULE_STRATEGY: recursive
     script:
     - python -m pip install --upgrade --user pip
     - python -m pip install --upgrade --user tox
@@ -41,6 +43,8 @@ deploy-to-testpypi:
     - tags
     tags:
     - deploy
+    variables:
+        GIT_SUBMODULE_STRATEGY: recursive
     script:
     - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda update --yes conda
@@ -68,6 +72,8 @@ deploy-pypi:
     - tags
     tags:
     - deploy
+    variables:
+        GIT_SUBMODULE_STRATEGY: recursive
     script:
     - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda update --yes conda
@@ -86,6 +92,8 @@ docs:
     - dev
     - master
     - tags
+    variables:
+        GIT_SUBMODULE_STRATEGY: recursive
     script:
     - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda update --yes conda
