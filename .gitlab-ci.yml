@@ -13,6 +13,7 @@ clusterTests:
     variables:
         PYTEST_ADDOPTS: "--color=yes --tb=short --verbose --ignore=syncopy/acme"
         GIT_SUBMODULE_STRATEGY: recursive
+        GIT_FETCH_EXTRA_FLAGS: --tags
     script:
     - source $HOME/miniconda3/etc/profile.d/conda.sh
     - conda update --yes conda
@@ -31,6 +32,7 @@ windowsTests:
     variables:
         PYTEST_ADDOPTS: "--color=yes --tb=short --verbose --ignore=syncopy/acme"
         GIT_SUBMODULE_STRATEGY: recursive
+        GIT_FETCH_EXTRA_FLAGS: --tags
     script:
     - python -m pip install --upgrade --user pip
     - python -m pip install --upgrade --user tox
@@ -45,6 +47,7 @@ deploy-to-testpypi:
     - deploy
     variables:
         GIT_SUBMODULE_STRATEGY: recursive
+        GIT_FETCH_EXTRA_FLAGS: --tags
     script:
     - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda update --yes conda
@@ -59,7 +62,7 @@ deploy-to-testpypi:
     - conda create --yes --name piptest python=3.8
     - conda activate piptest
     - conda install --yes pip
-    - pip --no-cache-dir install --extra-index-url https://testpypi.python.org/pypi esi-syncopy==$version
+    - pip --no-cache-dir install --extra-index-url https://test.pypi.org/simple esi-syncopy==$version
     - python -c "import syncopy as spy"
     - conda deactivate
     - conda remove --yes --name piptest --all
@@ -74,6 +77,7 @@ deploy-pypi:
     - deploy
     variables:
         GIT_SUBMODULE_STRATEGY: recursive
+        GIT_FETCH_EXTRA_FLAGS: --tags
     script:
     - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda update --yes conda
@@ -94,6 +98,7 @@ docs:
     - tags
     variables:
         GIT_SUBMODULE_STRATEGY: recursive
+        GIT_FETCH_EXTRA_FLAGS: --tags
     script:
     - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda update --yes conda
