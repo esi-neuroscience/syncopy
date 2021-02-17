@@ -97,7 +97,7 @@ def singlepanelplot(self, trials="all", channels="all", toilim=None, avg_channel
     # Either create new figure or fetch existing
     if fig is None:
         if nTrials > 0:
-            xLabel = "Time [s]"
+            xLabel = "Time (s)"
         else:
             xLabel = "Samples"
         fig, ax = _setup_figure(1, xLabel=xLabel, grid=grid)
@@ -399,7 +399,7 @@ def multipanelplot(self, trials="all", channels="all", toilim=None, avg_channels
         # Although, `_setup_figure` can call `_layout_subplot_panels` for us, we 
         # need `nrow` and `ncol` below, so do it here
         if nTrials > 0:
-            xLabel = "Time [s]"
+            xLabel = "Time (s)"
         else:
             xLabel = "Samples"
         nrow = kwargs.get("nrow", None)

@@ -95,7 +95,7 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all",
     
         # Either create new figure or fetch existing
         if fig is None:
-            fig, ax = _setup_figure(1, xLabel="Frequency [Hz]", yLabel=dataLbl, grid=grid)
+            fig, ax = _setup_figure(1, xLabel="Frequency (Hz)", yLabel=dataLbl, grid=grid)
             fig.spectralPlot = True
         else:
             ax, = fig.get_axes()        
@@ -152,7 +152,7 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all",
                                  avg1="taper", avg2="channel")
 
         # Prepare figure
-        fig, ax, cax = _setup_figure(1, xLabel="Time [s]", yLabel="Frequency [Hz]", 
+        fig, ax, cax = _setup_figure(1, xLabel="Time (s)", yLabel="Frequency (Hz)", 
                                      include_colorbar=True, grid=grid)
         fig.spectralPlot = True
         
@@ -161,7 +161,7 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all",
         ax.imshow(pltArr, origin="lower", interpolation=interp, 
                   cmap=cmap, vmin=vmin, vmax=vmax,
                   extent=(time[0], time[-1], freqArr[0], freqArr[-1]), aspect="auto")
-        cbar = _setup_colorbar(fig, ax, cax, label=dataLbl.replace(" [dB]", ""))
+        cbar = _setup_colorbar(fig, ax, cax, label=dataLbl.replace(" (dB)", ""))
         if title is None:
             title = panelTitle
         ax.set_title(title, size=pltConfig["singleTitleSize"])
@@ -270,14 +270,14 @@ def multipanelplot(self, trials="all", channels="all", tapers="all", toilim=None
     ncol = kwargs.get("ncol", None)
     if not isTimeFrequency:
         fig, ax_arr = _setup_figure(npanels, nrow=nrow, ncol=ncol,
-                                    xLabel="Frequency [Hz]",
+                                    xLabel="Frequency (Hz)",
                                     yLabel=dataLbl, grid=grid,
                                     include_colorbar=False, 
                                     sharex=True, sharey=True)
     else:
         fig, ax_arr, cax = _setup_figure(npanels, nrow=nrow, ncol=ncol,
-                                         xLabel="Time [s]",
-                                         yLabel="Frequency [Hz]", grid=grid,
+                                         xLabel="Time (s)",
+                                         yLabel="Frequency (Hz)", grid=grid,
                                          include_colorbar=True, 
                                          sharex=True, sharey=True)
     
@@ -447,7 +447,7 @@ def multipanelplot(self, trials="all", channels="all", tapers="all", toilim=None
             vmin = min(vmins)
         if vmax is None:
             vmax = max(vmaxs)
-        cbar = _setup_colorbar(fig, ax_arr, cax, label=dataLbl.replace(" [dB]", ""), 
+        cbar = _setup_colorbar(fig, ax_arr, cax, label=dataLbl.replace(" (dB)", ""), 
                                outline=False, vmin=vmin, vmax=vmax)
         if title is None:
             fig.suptitle(majorTitle, size=pltConfig["singleTitleSize"])
@@ -694,10 +694,10 @@ def _prep_spectral_plots(self, name, **inputArgs):
         SPYWarning(msg)
         complexConversion = lambda x: np.absolute(x).real
         pltDtype = "f{}".format(self.data.dtype.itemsize)
-        dataLbl = "Absolute Frequency [dB]"
+        dataLbl = "Absolute Frequency (dB)"
     else:
         complexConversion = lambda x: x
         pltDtype = self.data.dtype
-        dataLbl = "Power [dB]"
+        dataLbl = "Power (dB)"
     
     return dimArrs, dimCounts, isTimeFrequency, complexConversion, pltDtype, dataLbl
