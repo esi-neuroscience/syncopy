@@ -610,7 +610,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         if taper.__name__ == "dpss":
 
             # Try to derive "sane" settings by using 3/4 octave smoothing of highest `foi`
-            # following Hill et al. "Oscillatory Synchronization in Large-Scale
+            # following Hipp et al. "Oscillatory Synchronization in Large-Scale
             # Cortical Networks Predicts Perception", Neuron, 2011
             if tapsmofrq is None:
                 foimax = foi.max()
