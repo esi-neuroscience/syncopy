@@ -5,7 +5,7 @@
 
 # Builtin/3rd party package imports
 import numpy as np
-from numbers import Number
+# from numbers import Number
 
 # Local imports
 from syncopy.shared.computational_routine import ComputationalRoutine
