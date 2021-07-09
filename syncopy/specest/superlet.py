@@ -14,3 +14,14 @@ from syncopy.specest.wavelets import cwt
 from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.datatype import padding
 import syncopy.specest.freqanalysis as spyfreq
+
+
+@unwrap_io
+def superlet():
+    pass
+
+
+class SuperletTransform(ComputationalRoutine):
+
+    computeFunction = staticmethod(superlet)
+
