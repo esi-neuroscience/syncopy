@@ -17,10 +17,10 @@ from .mtmconvol import _make_trialdef
 
 @unwrap_io
 def wavelet(
-    trl_dat, preselect, postselect, padbegin, padend,
-    samplerate=None, toi=None, scales=None, timeAxis=0, wav=None, 
-    polyremoval=None, output_fmt="pow",
-    noCompute=False, chunkShape=None):
+        trl_dat, preselect, postselect, padbegin, padend,
+        samplerate=None, toi=None, scales=None, timeAxis=0, wav=None, 
+        polyremoval=None, output_fmt="pow",
+        noCompute=False, chunkShape=None):
     """ 
     Perform time-frequency analysis on multi-channel time series data using a wavelet transform
     
@@ -74,6 +74,9 @@ def wavelet(
     -------
     spec : :class:`numpy.ndarray`
         Complex or real time-frequency representation of (padded) input data. 
+        Shape is (nTime, 1, len(scales), nChannels), so that the 
+        individual spectra per channel can be assessed via 
+        `spec[:, 1, :, channel]`.
             
     Notes
     -----
