@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as ppl
 
 from syncopy.specest.wavelet import _get_optimal_wavelet_scales, wavelet
-from syncopy.specest.superlet import SuperletTransform, MorletSL
+from syncopy.specest.superlet import SuperletTransform, MorletSL, cwt
 from syncopy.specest.wavelets import Morlet
 
 
@@ -48,14 +48,52 @@ preselect = np.ones(len(s1), dtype=bool)
 pads = 0
 
 ts = np.arange(-50,50)
-morletTC = Morlet(5)
-morletSL = MorletSL(30)
+morletTC = Morlet(w0=5)
+morletSL = MorletSL(c_i=30)
 
-# frequencies to look at
+# frequencies to look at, 10th freq is around 20Hz
 freqs = np.linspace(1 / len(s1), 100, 50) # up to 100Hz
+scalesTC = morletTC.scale_from_period(1 / freqs)
+scalesSL = morletSL.scale_from_period(1 / freqs)
 
 
-def do_cwt(wav, scales=None):
+def get_superlet_support(scale, dt, cycles, k_sd=5):
+
+    '''
+    this mimics the `cwt` routine support
+    '''
+
+    # number of points needed to capture wavelet
+    M = 10 * scale * cycles  / dt
+    print(M)
+    # times to use, centred at zero
+    t = np.arange((-M + 1) / 2., (M + 1) / 2.) * dt
+
+    return t
+
+
+def do_superlet_cwt(wav, scales=None):
+
+    if scales is None: 
+        # scales = _get_optimal_wavelet_scales(wav, len(s1), 1/fs)
+        scales = wav.scale_from_period(1 / freqs)
+    
+    res = cwt(s1,
+              wav,
+              scales=scales,
+              dt=1/fs)              
+
+    ppl.figure()
+    extent = [0, len(s1) / fs, freqs[-1], freqs[0]]    
+    ppl.imshow(np.abs(res), cmap='plasma', aspect='auto', extent=extent)
+    ppl.plot([0, len(s1) / fs], [20, 20], 'k--')
+    ppl.plot([0, len(s1) / fs], [40, 40], 'k--')
+    ppl.plot([0, len(s1) / fs], [60, 60], 'k--')
+
+    return res.T
+
+
+def do_normal_cwt(wav, scales=None):
 
     if scales is None: 
         # scales = _get_optimal_wavelet_scales(wav, len(s1), 1/fs)
