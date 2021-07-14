@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as ppl
 
 from syncopy.specest.wavelet import _get_optimal_wavelet_scales, wavelet
-from syncopy.specest.superlet import SuperletTransform, MorletSL, cwt
+from syncopy.specest.superlet import SuperletTransform, MorletSL, cwt, _get_superlet_support
 from syncopy.specest.wavelets import Morlet
 
 
@@ -56,21 +56,19 @@ freqs = np.linspace(1 / len(s1), 100, 50) # up to 100Hz
 scalesTC = morletTC.scale_from_period(1 / freqs)
 scalesSL = morletSL.scale_from_period(1 / freqs)
 
+# a multiplicative Superlet - a set of Morlets, order 1 - 30
+c_1 = 1
+cycles = c_1 * np.arange(1, 31)
+sl = [MorletSL(c) for c in cycles]
 
-def get_superlet_support(scale, dt, cycles, k_sd=5):
+# the individual supports
+ts = [lambda scale: _get_superlet_support(scale, 1/fs, cycle) for cycle in cycles]
 
-    '''
-    this mimics the `cwt` routine support
-    '''
 
-    # number of points needed to capture wavelet
-    M = 10 * scale * cycles  / dt
-    print(M)
-    # times to use, centred at zero
-    t = np.arange((-M + 1) / 2., (M + 1) / 2.) * dt
+def show_MorletSL(scale, cycle):
 
-    return t
-
+    ts = _get_superlet_support(scale, 1/fs, cycle)
+    ppl.plot(ts, MorletSL(cycle)(ts, scale))
 
 def do_superlet_cwt(wav, scales=None):
 

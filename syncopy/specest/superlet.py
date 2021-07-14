@@ -7,7 +7,6 @@
 
 # Builtin/3rd party package imports
 import numpy as np
-import scipy
 
 # Local imports
 from syncopy.shared.computational_routine import ComputationalRoutine
@@ -103,25 +102,39 @@ def cwt(data, wavelet, scales, dt):
     - normalisation is with 1/scale as also suggested by Moca et al. 2021
     '''
     
-    
     # wavelets can be complex so output is complex
     output = np.zeros((len(scales),) + data.shape, dtype=np.complex64)
 
     # this checks if really a Superlet Wavelet is being used
     if not isinstance(wavelet, MorletSL):
-        raise ValueError("Wavelet is not a Superlet!")
+        raise ValueError("Wavelet is not of MorletSL type!")
     
     # compute in time
     for ind, scale in enumerate(scales):
-        # number of points needed to capture wavelet
-        # depends here also on the cycle parameter!
-        M = 10 * scale * wavelet.c_i / dt
-        # times to use, centred at zero
-        t = np.arange((-M + 1) / 2., (M + 1) / 2.) * dt
+
+        t = _get_superlet_support(scale, dt, wavelet.c_i)
+        
         # sample wavelet and normalise
         norm = dt ** .5 / scale
         wavelet_data = norm * wavelet(t, scale) # this is an 1d array for sure!
-        output[ind, :] = scipy.signal.fftconvolve(data,
-                                                  wavelet_data,
-                                                  mode='same')
+
+        # np.convolve is also via fft..
+        output[ind, :] = np.convolve(data,
+                                     wavelet_data,
+                                     mode='same')
     return output
+
+
+def _get_superlet_support(scale, dt, cycles):
+
+    '''
+    Effective support for the convolution is here not only 
+    scale but also cycle dependent.
+    '''
+
+    # number of points needed to capture wavelet
+    M = 10 * scale * cycles  / dt
+    # times to use, centred at zero
+    t = np.arange((-M + 1) / 2., (M + 1) / 2.) * dt
+
+    return t
