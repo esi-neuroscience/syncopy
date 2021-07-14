@@ -7,6 +7,7 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+from scipy.signal import fftconvolve
 
 # Local imports
 from syncopy.shared.computational_routine import ComputationalRoutine
@@ -16,8 +17,40 @@ from syncopy.shared.kwarg_decorators import unwrap_io
 
 
 @unwrap_io
-def superlet():
-    pass
+def superlet(signal, 
+             samplerate, scales, 
+             order_max, order_min=1, c_1=3, adaptive=True,
+             noCompute=False,
+             chunkShape=None):
+
+    """
+    Performs Superlet Transform (SLT) according to Moca et al. 2021
+    """
+
+    dt = 1 / samplerate
+    # comes later..
+    if adaptive:
+        pass
+
+    # create a multiplicative set
+    cycles = c_1 * np.arange(order_min, order_max + 1)
+    SL = [MorletSL(c) for c in cycles]
+
+    specs = []
+
+    for wavelet in SL:
+
+        spec = cwt(signal,
+                   wavelet,
+                   scales,
+                   dt)
+
+        specs.append(np.power(np.abs(spec), 2 / order_max))
+
+    # geometric mean
+    gmean_spec = np.prod(np.array(specs), axis=0 )
+
+    return gmean_spec
 
 
 class SuperletTransform(ComputationalRoutine):
@@ -113,13 +146,14 @@ def cwt(data, wavelet, scales, dt):
     for ind, scale in enumerate(scales):
 
         t = _get_superlet_support(scale, dt, wavelet.c_i)
-        
         # sample wavelet and normalise
         norm = dt ** .5 / scale
         wavelet_data = norm * wavelet(t, scale) # this is an 1d array for sure!
 
-        # np.convolve is also via fft..
-        output[ind, :] = np.convolve(data,
+        # np.convolve only works if support is capped
+        # at signal lengths, as its output has shape
+        # max(len(data), len(wavelet_data)
+        output[ind, :] = fftconvolve(data,
                                      wavelet_data,
                                      mode='same')
     return output

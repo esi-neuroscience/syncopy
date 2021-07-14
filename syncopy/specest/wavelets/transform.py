@@ -101,10 +101,12 @@ def cwt_time(data, wavelet, widths, dt, axis):
         # sample wavelet and normalise
         norm = (dt / width) ** .5
         wavelet_data = norm * wavelet(t, width)
-        
-        output[ind, :] = np.convolve(data,
-                                     wavelet_data[slices],
-                                     mode='same')
+
+        # support might be longer than data, but fftconvolve
+        # returns result of 1st input argument lengths!
+        output[ind, :] = scipy.signal.fftconvolve(data,
+                                                  wavelet_data[slices],
+                                                  mode='same')
     return output
 
 
