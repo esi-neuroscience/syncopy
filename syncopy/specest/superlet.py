@@ -12,12 +12,14 @@ from scipy.signal import fftconvolve
 # Local imports
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
+from syncopy.specest.freqanalysis import spectralConversions
 
 
 @unwrap_io
 def superlet(signal, 
              samplerate, scales, 
              order_max, order_min=1, c_1=3, adaptive=False,
+             output_fmt="pow",
              noCompute=False,
              chunkShape=None):
 
@@ -26,42 +28,76 @@ def superlet(signal,
     """
 
     dt = 1 / samplerate
-    # comes later..
-    if adaptive:
 
+    # create the complete multiplicative set spanning
+    # order_min - order_max
+    cycles = c_1 * np.arange(order_min, order_max + 1)
+    SLs = [MorletSL(c) for c in cycles]
+    
+    # Adaptive SLT
+    if adaptive:
+        
         # frequencies of interest
-        # from the scales for the SL Morlet
+        # from the scales for the SL Morlet with w0=1
         fois = 1 / (2 * np.pi * scales)
         orders = compute_adaptive_order(fois, order_min, order_max, fois[0], fois[-1])
+        
+        # potentially every scale needs a different exponent
+        # for the geometric mean
+        exponents = 1 / orders
 
-        specs = []
-        # each frequency has its own multiplicative SL set 
-        for order in orders:
-            cycles = c_1 * np.arange(order_min, order + 1)
-            SLs = [MorletSL(c) for c in cycles]
+        # which frequencies/scales use the same SL set
+        # or the number of different orders - 1 ;)
+        # if len(orders) >= len(scales) this is just
+        # a continuous index array [0, 1, ..., len(scales) - 2] 
+        order_jumps = np.where(np.diff(orders))[0]
+
+        # 1st order
+        # lowest order is needed for all scales/frequencies
+        gmean_spec = cwtSL(signal,
+                           SLs[0], # 1st order <-> order_min
+                           scales,
+                           dt)
+        
+        # Geometric normalization according to scale dependent order
+        gmean_spec = np.power(gmean_spec.T, exponents).T
+                
+        # each frequency/scale can have its own multiplicative SL set
+        # which overlap -> higher orders have all the lower orders
+        for i, jump in enumerate(order_jumps):
             
-            
+            # relevant scales for that order
+            scales_o = scales[jump + 1:]
+            wavelet = SLs[i + 1]
+
+            spec = cwtSL(signal,
+                         wavelet,
+                         scales_o,
+                         dt)
+
+            # normalize according to scale dependent order
+            spec = np.power(spec.T, exponents[jump + 1:]).T
+            gmean_spec[jump + 1:] *= spec
 
     # multiplicative SLT
     else:
-        # create a multiplicative set
-        cycles = c_1 * np.arange(order_min, order_max + 1)
-        SLs = [MorletSL(c) for c in cycles]
-
-        specs = []
-        for wavelet in SLs:
+        # lowest order
+        gmean_spec = cwtSL(signal,
+                           SLs[0],
+                           scales,
+                           dt)
+        gmean_spec = np.power(gmean_spec, 1 / order_max)
+        
+        for wavelet in SLs[1:]:
 
             spec = cwtSL(signal,
                          wavelet,
                          scales,
                          dt)
 
-            specs.append(np.power(np.abs(spec), 2 / order_max))
+            gmean_spec *= np.power(spec, 1 / order_max)
 
-    # geometric mean
-    gmean_spec = np.prod(np.array(specs), axis=0 )
-
-    return gmean_spec
+    return spectralConversions[output_fmt](gmean_spec)
 
 
 class SuperletTransform(ComputationalRoutine):

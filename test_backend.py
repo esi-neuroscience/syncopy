@@ -43,7 +43,7 @@ def gen_superlet_testdata(freqs=[20, 40, 60], cycles=11, fs=1000):
 
 # test the Wavelet transform
 fs = 1000
-s1 = 5 * gen_superlet_testdata(fs=fs) # 20Hz, 40Hz and 60Hz
+s1 = 7 * gen_superlet_testdata(fs=fs) # 20Hz, 40Hz and 60Hz
 preselect = np.ones(len(s1), dtype=bool)
 pads = 0
 
@@ -65,13 +65,15 @@ sl = [MorletSL(c) for c in cycles]
 spec = superlet(s1, samplerate=fs, scales=scalesSL, order_max=30)
 
 
-def do_slt(signal, scales=scalesSL, order_max=10):
-    spec = superlet(s1, samplerate=fs, scales=scales, order_max=order_max)
+def do_slt(signal, scales=scalesSL, **slkwargs):
+    spec = superlet(s1, samplerate=fs,
+                    scales=scales,
+                    **slkwargs)
 
     print(spec.max())
     ppl.figure()
     extent = [0, len(s1) / fs, freqs[-1], freqs[0]]    
-    ppl.imshow(spec, cmap='plasma', aspect='auto', extent=extent)
+    ppl.imshow(np.abs(spec), cmap='plasma', aspect='auto', extent=extent)
     ppl.plot([0, len(s1) / fs], [20, 20], 'k--')
     ppl.plot([0, len(s1) / fs], [40, 40], 'k--')
     ppl.plot([0, len(s1) / fs], [60, 60], 'k--')
