@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as ppl
 
 from syncopy.specest.wavelet import _get_optimal_wavelet_scales, wavelet
-from syncopy.specest.superlet import SuperletTransform, MorletSL, cwt, _get_superlet_support, superlet
+from syncopy.specest.superlet import SuperletTransform, MorletSL, cwtSL, _get_superlet_support, superlet, compute_adaptive_order
 from syncopy.specest.wavelets import Morlet
 
 
@@ -43,7 +43,7 @@ def gen_superlet_testdata(freqs=[20, 40, 60], cycles=11, fs=1000):
 
 # test the Wavelet transform
 fs = 1000
-s1 = gen_superlet_testdata(fs=fs) # 20Hz, 40Hz and 60Hz
+s1 = 5 * gen_superlet_testdata(fs=fs) # 20Hz, 40Hz and 60Hz
 preselect = np.ones(len(s1), dtype=bool)
 pads = 0
 
@@ -64,6 +64,7 @@ sl = [MorletSL(c) for c in cycles]
 
 spec = superlet(s1, samplerate=fs, scales=scalesSL, order_max=30)
 
+
 def do_slt(signal, scales=scalesSL, order_max=10):
     spec = superlet(s1, samplerate=fs, scales=scales, order_max=order_max)
 
@@ -76,6 +77,8 @@ def do_slt(signal, scales=scalesSL, order_max=10):
     ppl.plot([0, len(s1) / fs], [60, 60], 'k--')
 
     return spec
+
+
 def show_MorletSL(morletSL, scale):
 
     cycle = morletSL.c_i
@@ -89,11 +92,10 @@ def do_superlet_cwt(wav, scales=None):
         # scales = _get_optimal_wavelet_scales(wav, len(s1), 1/fs)
         scales = wav.scale_from_period(1 / freqs)
 
-    res = cwt(s1,
-              wav,
-              scales=scales,
-              dt=1/fs)              
-
+    res = cwtSL(s1,
+                wav,
+                scales=scales,
+                dt=1/fs)              
     
     ppl.figure()
     extent = [0, len(s1) / fs, freqs[-1], freqs[0]]    
@@ -118,6 +120,7 @@ def do_normal_cwt(wav, scales=None):
                   pads,
                   samplerate=fs,
                   # toi='some',
+                  output_fmt="pow",
                   scales=scales,
                   wav=wav)
 

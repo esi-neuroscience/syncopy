@@ -14,12 +14,10 @@ from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
 
 
-
-
 @unwrap_io
 def superlet(signal, 
              samplerate, scales, 
-             order_max, order_min=1, c_1=3, adaptive=True,
+             order_max, order_min=1, c_1=3, adaptive=False,
              noCompute=False,
              chunkShape=None):
 
@@ -30,22 +28,35 @@ def superlet(signal,
     dt = 1 / samplerate
     # comes later..
     if adaptive:
-        pass
 
-    # create a multiplicative set
-    cycles = c_1 * np.arange(order_min, order_max + 1)
-    SL = [MorletSL(c) for c in cycles]
+        # frequencies of interest
+        # from the scales for the SL Morlet
+        fois = 1 / (2 * np.pi * scales)
+        orders = compute_adaptive_order(fois, order_min, order_max, fois[0], fois[-1])
 
-    specs = []
+        specs = []
+        # each frequency has its own multiplicative SL set 
+        for order in orders:
+            cycles = c_1 * np.arange(order_min, order + 1)
+            SLs = [MorletSL(c) for c in cycles]
+            
+            
 
-    for wavelet in SL:
+    # multiplicative SLT
+    else:
+        # create a multiplicative set
+        cycles = c_1 * np.arange(order_min, order_max + 1)
+        SLs = [MorletSL(c) for c in cycles]
 
-        spec = cwt(signal,
-                   wavelet,
-                   scales,
-                   dt)
+        specs = []
+        for wavelet in SLs:
 
-        specs.append(np.power(np.abs(spec), 2 / order_max))
+            spec = cwtSL(signal,
+                         wavelet,
+                         scales,
+                         dt)
+
+            specs.append(np.power(np.abs(spec), 2 / order_max))
 
     # geometric mean
     gmean_spec = np.prod(np.array(specs), axis=0 )
@@ -97,6 +108,7 @@ class MorletSL:
 
         ts = t / s 
         # scaled time spread parameter
+        # also includes scale normalisation!
         B_c = self.k_sd / (s * self.c_i * (2 * np.pi)**1.5)
         
         output = B_c * np.exp(1j * ts)                 
@@ -122,7 +134,7 @@ class MorletSL:
         return 2 * np.pi * scale 
 
 
-def cwt(data, wavelet, scales, dt):
+def cwtSL(data, wavelet, scales, dt):
 
     '''
     The continuous Wavelet transform specifically
@@ -132,7 +144,10 @@ def cwt(data, wavelet, scales, dt):
     Differences to :func:`~syncopy.specest.wavelets.transform.cwt_time`:
 
     - Morlet support gets adjusted by number of cycles
-    - normalisation is with 1/scale as also suggested by Moca et al. 2021
+    - normalisation is with 1/(scale * 4pi)
+    - this way the absolute value of the spectrum (modulus) 
+      at the corresponding harmonic frequency is the 
+      harmonic signal's amplitude
     '''
     
     # wavelets can be complex so output is complex
@@ -147,7 +162,7 @@ def cwt(data, wavelet, scales, dt):
 
         t = _get_superlet_support(scale, dt, wavelet.c_i)
         # sample wavelet and normalise
-        norm = dt ** .5 / scale
+        norm = dt ** .5 / (4 * np.pi)
         wavelet_data = norm * wavelet(t, scale) # this is an 1d array for sure!
 
         # np.convolve only works if support is capped
@@ -172,3 +187,21 @@ def _get_superlet_support(scale, dt, cycles):
     t = np.arange((-M + 1) / 2., (M + 1) / 2.) * dt
 
     return t
+
+
+def compute_adaptive_order(freq, order_min, order_max, f_min, f_max):
+
+    '''
+    Computes the superlet order for a given frequency of interest 
+    for the adaptive SLT (ASLT) according to 
+    equation 7 of Moca et al. 2021.
+    
+    This is a simple linear mapping between the minimal
+    and maximal order onto the respective minimal and maximal
+    frequencies. As the order strictly is of integer type, this can lead
+    to discrete jumps.
+    '''
+
+    order = (order_max - order_min) * (freq - f_min) / (f_max - f_min)
+    
+    return np.int32(order_min + np.rint(order))
