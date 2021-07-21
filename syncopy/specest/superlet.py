@@ -111,16 +111,16 @@ def superlet(signal,
         # create the complete multiplicative set spanning
         # order_min - order_max
         cycles = c_1 * np.arange(order_min, order_max + 1)
-        SLs = [MorletSL(c) for c in cycles]
+        SL = [MorletSL(c) for c in cycles]
         
         # lowest order
         gmean_spec = cwtSL(signal,
-                           SLs[0],
+                           SL[0],
                            scales,
                            dt)
         gmean_spec = np.power(gmean_spec, 1 / order_max)
         
-        for wavelet in SLs[1:]:
+        for wavelet in SL[1:]:
 
             spec = cwtSL(signal,
                          wavelet,
@@ -138,8 +138,9 @@ def superlet(signal,
         fois = 1 / (2 * np.pi * scales)
         orders = compute_adaptive_order(fois, order_min, order_max, fois[0], fois[-1])
 
+        # create the complete superlet
         cycles = c_1 * np.unique(orders)
-        SLs = [MorletSL(c) for c in cycles]
+        SL = [MorletSL(c) for c in cycles]
         
         # potentially every scale needs a different exponent
         # for the geometric mean
@@ -151,12 +152,12 @@ def superlet(signal,
         # a continuous index array [0, 1, ..., len(scales) - 2]
         # as every scale has it's own order
         # otherwise it provides the mapping scales -> order
-        assert len(SLs) == len(order_jumps) + 1 == np.unique(orders).size
+        assert len(SL) == len(order_jumps) + 1 == np.unique(orders).size
 
         # 1st order
         # lowest order is needed for all scales/frequencies
         gmean_spec = cwtSL(signal,
-                           SLs[0], # 1st order <-> order_min
+                           SL[0], # 1st order <-> order_min
                            scales,
                            dt)
         # Geometric normalization according to scale dependent order
@@ -168,7 +169,7 @@ def superlet(signal,
             
             # relevant scales for that order
             scales_o = scales[jump + 1:]
-            wavelet = SLs[i + 1]
+            wavelet = SL[i + 1]
 
             spec = cwtSL(signal,
                          wavelet,
