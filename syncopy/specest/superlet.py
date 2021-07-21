@@ -29,28 +29,54 @@ def superlet(signal,
 
     dt = 1 / samplerate
 
-    # create the complete multiplicative set spanning
-    # order_min - order_max
-    cycles = c_1 * np.arange(order_min, order_max + 1)
-    SLs = [MorletSL(c) for c in cycles]
+    # multiplicative SLT
+    if not adaptive:
+
+        # create the complete multiplicative set spanning
+        # order_min - order_max
+        cycles = c_1 * np.arange(order_min, order_max + 1)
+        SLs = [MorletSL(c) for c in cycles]
+        
+        # lowest order
+        gmean_spec = cwtSL(signal,
+                           SLs[0],
+                           scales,
+                           dt)
+        gmean_spec = np.power(gmean_spec, 1 / order_max)
+        
+        for wavelet in SLs[1:]:
+
+            spec = cwtSL(signal,
+                         wavelet,
+                         scales,
+                         dt)
+
+            gmean_spec *= np.power(spec, 1 / order_max)
     
     # Adaptive SLT
-    if adaptive:
+    else:
         
         # frequencies of interest
-        # from the scales for the SL Morlet with w0=1
+        # from the scales for the SL Morlet
+        # for len(orders) < len(scales)
+        # multiple scales have the same order/SL set (discrete banding)
         fois = 1 / (2 * np.pi * scales)
         orders = compute_adaptive_order(fois, order_min, order_max, fois[0], fois[-1])
+
+        cycles = c_1 * np.unique(orders)
+        SLs = [MorletSL(c) for c in cycles]
         
         # potentially every scale needs a different exponent
         # for the geometric mean
         exponents = 1 / orders
 
         # which frequencies/scales use the same SL set
-        # or the number of different orders - 1 ;)
-        # if len(orders) >= len(scales) this is just
-        # a continuous index array [0, 1, ..., len(scales) - 2] 
         order_jumps = np.where(np.diff(orders))[0]
+        # if len(orders) >= len(scales) this is just
+        # a continuous index array [0, 1, ..., len(scales) - 2]
+        # as every scale has it's own order
+        # otherwise it provides the mapping scales -> order
+        assert len(SLs) == len(order_jumps) + 1 == np.unique(orders).size
 
         # 1st order
         # lowest order is needed for all scales/frequencies
@@ -58,7 +84,6 @@ def superlet(signal,
                            SLs[0], # 1st order <-> order_min
                            scales,
                            dt)
-        
         # Geometric normalization according to scale dependent order
         gmean_spec = np.power(gmean_spec.T, exponents).T
                 
@@ -76,26 +101,8 @@ def superlet(signal,
                          dt)
 
             # normalize according to scale dependent order
-            spec = np.power(spec.T, exponents[jump + 1:]).T
+            spec = np.power(spec.T, exponents[jump + 1:]).T            
             gmean_spec[jump + 1:] *= spec
-
-    # multiplicative SLT
-    else:
-        # lowest order
-        gmean_spec = cwtSL(signal,
-                           SLs[0],
-                           scales,
-                           dt)
-        gmean_spec = np.power(gmean_spec, 1 / order_max)
-        
-        for wavelet in SLs[1:]:
-
-            spec = cwtSL(signal,
-                         wavelet,
-                         scales,
-                         dt)
-
-            gmean_spec *= np.power(spec, 1 / order_max)
 
     return spectralConversions[output_fmt](gmean_spec)
 
