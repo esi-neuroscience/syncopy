@@ -13,7 +13,6 @@ from syncopy.specest.wavelets import cwt
 from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.datatype import padding
 import syncopy.specest.freqanalysis as spyfreq
-from .mtmconvol import _make_trialdef
 
 @unwrap_io
 def wavelet(
@@ -158,7 +157,7 @@ class WaveletTransform(ComputationalRoutine):
             trl = data.trialdefinition
             
         # Construct trialdef array and compute new sampling rate
-        trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
+        trl, srate = spyfreq._make_trialdef(self.cfg, trl, data.samplerate)
         
         # If trial-averaging was requested, use the first trial as reference 
         # (all trials had to have identical lengths), and average onset timings
