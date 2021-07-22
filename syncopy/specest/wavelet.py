@@ -126,7 +126,7 @@ def wavelet(
                axis=0, 
                wavelet=wav, 
                widths=scales, 
-               dt=1/samplerate).transpose(1, 0, 2)[postselect, :, :]
+               dt=1 / samplerate).transpose(1, 0, 2)[postselect, :, :]
     
     return spyfreq.spectralConversions[output_fmt](spec[:, np.newaxis, :, :])
 

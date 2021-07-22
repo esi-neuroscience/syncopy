@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Time-frequency analysis with superlets
 # Based on 'Time-frequency super-resolution with superlets'
 # by Moca et al., 2021 Nature Communications
-# 
+#
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -12,15 +12,26 @@ from scipy.signal import fftconvolve
 # Local imports
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
-from syncopy.specest.freqanalysis import spectralConversions, _make_trialdef
+from syncopy.specest.freqanalysis import (
+    spectralConversions,
+    spectralDTypes,
+    _make_trialdef,
+)
+
 
 @unwrap_io
-def superlet(signal, 
-             samplerate, scales, 
-             order_max, order_min=1, c_1=3, adaptive=False,
-             output_fmt="pow",
-             noCompute=False,
-             chunkShape=None):
+def superlet(
+    trl_dat,
+    samplerate,
+    scales,
+    order_max,
+    order_min=1,
+    c_1=3,
+    adaptive=False,
+    output_fmt="pow",
+    noCompute=False,
+    chunkShape=None,
+):
 
     """
     Performs Superlet Transform (SLT) according to Moca et al. [1]_
@@ -38,8 +49,9 @@ def superlet(signal,
 
     Parameters
     ----------
-    signal : 1D :class:`numpy.ndarray`
-        Uniformly sampled single channel time-series
+    trl_dat : 2D :class:`numpy.ndarray`
+        Uniformly sampled multi-channel time-series
+        The 1st dimension is interpreted as the time axis
     samplerate : float
         Samplerate of the time-series in Hz
     scales : 1D :class:`numpy.ndarray`
@@ -105,6 +117,14 @@ def superlet(signal,
 
     dt = 1 / samplerate
 
+    # Get shape of output for dry-run phase
+    nChannels = trl_dat.shape[1]
+    nTime = trl_dat.shape[0]
+    nScales = scales.size
+    outShape = (nTime, 1, nScales, nChannels)
+    if noCompute:
+        return outShape, spectralDTypes[output_fmt]
+
     # multiplicative SLT
     if not adaptive:
 
@@ -112,25 +132,19 @@ def superlet(signal,
         # order_min - order_max
         cycles = c_1 * np.arange(order_min, order_max + 1)
         SL = [MorletSL(c) for c in cycles]
-        
+
         # lowest order
-        gmean_spec = cwtSL(signal,
-                           SL[0],
-                           scales,
-                           dt)
+        gmean_spec = cwtSL(trl_dat, SL[0], scales, dt)
         gmean_spec = np.power(gmean_spec, 1 / order_max)
-        
+
         for wavelet in SL[1:]:
 
-            spec = cwtSL(signal,
-                         wavelet,
-                         scales,
-                         dt)
+            spec = cwtSL(trl_dat, wavelet, scales, dt)
             gmean_spec *= np.power(spec, 1 / order_max)
-    
+
     # Adaptive SLT
     else:
-        
+
         # frequencies of interest
         # from the scales for the SL Morlet
         # for len(orders) < len(scales)
@@ -141,12 +155,12 @@ def superlet(signal,
         # create the complete superlet
         cycles = c_1 * np.unique(orders)
         SL = [MorletSL(c) for c in cycles]
-        
+
         # potentially every scale needs a different exponent
         # for the geometric mean
         exponents = 1 / orders
 
-        # which frequencies/scales use the same SL 
+        # which frequencies/scales use the same SL
         order_jumps = np.where(np.diff(orders))[0]
         # if len(orders) >= len(scales) this is just
         # a continuous index array [0, 1, ..., len(scales) - 2]
@@ -156,31 +170,25 @@ def superlet(signal,
 
         # 1st order
         # lowest order is needed for all scales/frequencies
-        gmean_spec = cwtSL(signal,
-                           SL[0], # 1st order <-> order_min
-                           scales,
-                           dt)
+        gmean_spec = cwtSL(trl_dat, SL[0], scales, dt)  # 1st order <-> order_min
         # Geometric normalization according to scale dependent order
         gmean_spec = np.power(gmean_spec.T, exponents).T
-                
-        # each frequency/scale can have its own multiplicative SL 
+
+        # each frequency/scale can have its own multiplicative SL
         # which overlap -> higher orders have all the lower orders
         for i, jump in enumerate(order_jumps):
-            
+
             # relevant scales for that order
-            scales_o = scales[jump + 1:]
+            scales_o = scales[jump + 1 :]
             wavelet = SL[i + 1]
 
-            spec = cwtSL(signal,
-                         wavelet,
-                         scales_o,
-                         dt)
+            spec = cwtSL(trl_dat, wavelet, scales_o, dt)
 
             # normalize according to scale dependent order
-            spec = np.power(spec.T, exponents[jump + 1:]).T            
-            gmean_spec[jump + 1:] *= spec
+            spec = np.power(spec.T, exponents[jump + 1 :]).T
+            gmean_spec[jump + 1 :] *= spec
 
-    return spectralConversions[output_fmt](gmean_spec)
+    return spectralConversions[output_fmt](gmean_spec[:, np.newaxis, :, :])
 
 
 class SuperletTransform(ComputationalRoutine):
@@ -199,46 +207,45 @@ class SuperletTransform(ComputationalRoutine):
     computeFunction = staticmethod(superlet)
 
     def process_metadata(self, data, out):
-        
-        # Get trialdef array + channels from source        
+
+        # Get trialdef array + channels from source
         if data._selection is not None:
             chanSec = data._selection.channel
             trl = data._selection.trialdefinition
         else:
             chanSec = slice(None)
             trl = data.trialdefinition
-            
+
         # Construct trialdef array and compute new sampling rate
         trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
-    
+
         # Construct trialdef array and compute new sampling rate
         trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
-        
-        # If trial-averaging was requested, use the first trial as reference 
+
+        # If trial-averaging was requested, use the first trial as reference
         # (all trials had to have identical lengths), and average onset timings
         if not self.keeptrials:
             t0 = trl[:, 2].mean()
             trl = trl[[0], :]
             trl[:, 2] = t0
-            
+
         # Attach meta-data
         out.trialdefinition = trl
         out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
         # for the SL Morlets the conversion is straightforward
-        out.freq = 1 / (2 * np.pi * self.cfg['scales'])[::-1]
+        out.freq = 1 / (2 * np.pi * self.cfg["scales"])[::-1]
 
 
 class MorletSL:
-
     def __init__(self, c_i=3, k_sd=5):
-        
+
         """ The Morlet formulation according to
         Moca et al. shifts the admissability criterion from
         the central frequency to the number of cycles c_i
         within the Gaussian envelope which has a constant 
         standard deviation of k_sd.
-        """ 
+        """
 
         self.c_i = c_i
         self.k_sd = k_sd
@@ -266,14 +273,14 @@ class MorletSL:
         
         """
 
-        ts = t / s 
+        ts = t / s
         # scaled time spread parameter
         # also includes scale normalisation!
-        B_c = self.k_sd / (s * self.c_i * (2 * np.pi)**1.5)
-        
-        output = B_c * np.exp(1j * ts)                 
-        output *= np.exp(-0.5 * (self.k_sd * ts / (2 * np.pi * self.c_i))**2)
-        
+        B_c = self.k_sd / (s * self.c_i * (2 * np.pi) ** 1.5)
+
+        output = B_c * np.exp(1j * ts)
+        output *= np.exp(-0.5 * (self.k_sd * ts / (2 * np.pi * self.c_i)) ** 2)
+
         return output
 
     def scale_from_period(self, period):
@@ -290,13 +297,13 @@ class MorletSL:
         Morlet formulation, hence the scales are not compatible
         to the standard Wavelet definitions!
         """
-        
-        return 2 * np.pi * scale 
+
+        return 2 * np.pi * scale
 
 
 def cwtSL(data, wavelet, scales, dt):
 
-    '''
+    """
     The continuous Wavelet transform specifically
     for Morlets with the Superlet formulation
     of Moca et al. 2021.
@@ -308,50 +315,57 @@ def cwtSL(data, wavelet, scales, dt):
     - this way the absolute value of the spectrum (modulus) 
       at the corresponding harmonic frequency is the 
       harmonic signal's amplitude
-    '''
+
+    Notes
+    -----
     
+    The time axis is expectet to be along the 1st dimension.
+    """
+
     # wavelets can be complex so output is complex
     output = np.zeros((len(scales),) + data.shape, dtype=np.complex64)
 
     # this checks if really a Superlet Wavelet is being used
     if not isinstance(wavelet, MorletSL):
         raise ValueError("Wavelet is not of MorletSL type!")
-    
+
+    # 1st axis is time
+    slices = [None for _ in data.shape]
+    slices[0] = slice(None)
+
     # compute in time
     for ind, scale in enumerate(scales):
 
         t = _get_superlet_support(scale, dt, wavelet.c_i)
         # sample wavelet and normalise
-        norm = dt ** .5 / (4 * np.pi)
-        wavelet_data = norm * wavelet(t, scale) # this is an 1d array for sure!
+        norm = dt ** 0.5 / (4 * np.pi)
+        wavelet_data = norm * wavelet(t, scale)  # this is an 1d array for sure!
 
         # np.convolve only works if support is capped
         # at signal lengths, as its output has shape
         # max(len(data), len(wavelet_data)
-        output[ind, :] = fftconvolve(data,
-                                     wavelet_data,
-                                     mode='same')
+        output[ind, :] = fftconvolve(data, wavelet_data[tuple(slices)], mode="same")
     return output
 
 
 def _get_superlet_support(scale, dt, cycles):
 
-    '''
+    """
     Effective support for the convolution is here not only 
     scale but also cycle dependent.
-    '''
+    """
 
     # number of points needed to capture wavelet
-    M = 10 * scale * cycles  / dt
+    M = 10 * scale * cycles / dt
     # times to use, centred at zero
-    t = np.arange((-M + 1) / 2., (M + 1) / 2.) * dt
+    t = np.arange((-M + 1) / 2.0, (M + 1) / 2.0) * dt
 
     return t
 
 
 def compute_adaptive_order(freq, order_min, order_max, f_min, f_max):
 
-    '''
+    """
     Computes the superlet order for a given frequency of interest 
     for the adaptive SLT (ASLT) according to 
     equation 7 of Moca et al. 2021.
@@ -360,8 +374,8 @@ def compute_adaptive_order(freq, order_min, order_max, f_min, f_max):
     and maximal order onto the respective minimal and maximal
     frequencies. As the order strictly is of integer type, this can lead
     to discrete jumps.
-    '''
+    """
 
     order = (order_max - order_min) * (freq - f_min) / (f_max - f_min)
-    
+
     return np.int32(order_min + np.rint(order))
