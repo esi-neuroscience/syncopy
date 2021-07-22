@@ -6,10 +6,10 @@
 
 ## Available Methods
 
-- [mtmfft](./specest/mtmfft.py): (multi-)tapered windowed Fourier transform, returns a periodogram estimate
-- [mtmconvol](./specest/mtmconvol.py): (multi-)tapered windowed Fourier transform, returns time-frequency representation
-- [wavelet](./specest/wavelet.py): Wavelet analysis based on [Torrence and Compo, 1998](https://cobblab.eas.gatech.edu/seminar/torrence&compo98.pdf)
-- [superlet](./specest/superlet.py): Superlet transform as proposed in [Moca et al. 2021](https://www.nature.com/articles/s41467-020-20539-9) (coming soon..)
+- [mtmfft](./mtmfft.py): (multi-)tapered windowed Fourier transform, returns a periodogram estimate
+- [mtmconvol](./mtmconvol.py): (multi-)tapered windowed Fourier transform, returns time-frequency representation
+- [wavelet](./wavelet.py): Wavelet analysis based on [Torrence and Compo, 1998](https://cobblab.eas.gatech.edu/seminar/torrence&compo98.pdf)
+- [superlet](./superlet.py): Superlet transform as proposed in [Moca et al. 2021](https://www.nature.com/articles/s41467-020-20539-9) (coming soon..)
 
 ## Usage Examples (TODO..)
 
