@@ -3,8 +3,9 @@
 import numpy as np
 import matplotlib.pyplot as ppl
 
+from syncopy.shared.parsers import data_parser, scalar_parser, array_parser 
 from syncopy.specest.wavelet import _get_optimal_wavelet_scales, wavelet
-from syncopy.specest.superlet import SuperletTransform, MorletSL, cwtSL, _get_superlet_support, superlet, compute_adaptive_order
+from syncopy.specest.superlet import SuperletTransform, MorletSL, cwtSL, _get_superlet_support, superlet, compute_adaptive_order, scale_from_period
 from syncopy.specest.wavelets import Morlet
 from scipy.signal import fftconvolve
 
@@ -58,27 +59,27 @@ morletSL = MorletSL(c_i=30)
 freqs = np.linspace(1, 100, 50) # up to 100Hz
 scalesTC = morletTC.scale_from_period(1 / freqs)
 # scales are cycle independent!
-scalesSL = morletSL.scale_from_period(1 / freqs)
+scalesSL = scale_from_period(1 / freqs)
 
 # a multiplicative Superlet - a set of Morlets, order 1 - 30
 c_1 = 1
 cycles = c_1 * np.arange(1, 31)
 sl = [MorletSL(c) for c in cycles]
 
-res = wavelet(data,
-              preselect,
-              preselect,
-              pads,
-              pads,
-              samplerate=fs,
-              # toi='some',
-              output_fmt="pow",
-              scales=scalesSL,
-              wav=MorletSL(4),
-              noCompute=True)
+# res = wavelet(data,
+#               preselect,
+#               preselect,
+#               pads,
+#               pads,
+#               samplerate=fs,
+#               # toi='some',
+#               output_fmt="pow",
+#               scales=scalesSL,
+#               wav=MorletSL(4),
+#               noCompute=True)
 
 
-spec = superlet(data, samplerate=fs, scales=scalesSL, order_max=30)
+# spec = superlet(data, samplerate=fs, scales=scalesSL, order_max=30)
 nc = superlet(data, samplerate=fs, scales=scalesSL, order_max=30,noCompute=True)
 
 

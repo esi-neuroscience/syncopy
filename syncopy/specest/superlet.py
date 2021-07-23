@@ -145,7 +145,6 @@ def superlet(
                                        order_min,
                                        c_1)
         
-
     # the cwtSL stacks the scales on the 1st axis
     gmean_spec = gmean_spec.transpose(1,0,2)
     return spectralConversions[output_fmt](gmean_spec[:, np.newaxis, :, :])
@@ -276,24 +275,26 @@ class MorletSL:
 
         return output
 
-    def scale_from_period(self, period):
 
-        return period / (2 * np.pi)
+def fourier_period(scale):
 
-    def fourier_period(self, scale):
+    """
+    This is the approximate Morlet fourier period
+    as used in the source publication of Moca et al. 2021
 
-        """
-        This is the approximate Morlet fourier period
-        as used in the source publication of Moca et al. 2021
+    Note that w0 (central frequency) is always 1 in this 
+    Morlet formulation, hence the scales are not compatible
+    to the standard Wavelet definitions!
+    """
 
-        Note that w0 (central frequency) is always 1 in this 
-        Morlet formulation, hence the scales are not compatible
-        to the standard Wavelet definitions!
-        """
+    return 2 * np.pi * scale
 
-        return 2 * np.pi * scale
+    
+def scale_from_period(period):
 
+    return period / (2 * np.pi)
 
+    
 def cwtSL(data, wavelet, scales, dt):
 
     """

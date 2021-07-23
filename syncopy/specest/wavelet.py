@@ -14,6 +14,7 @@ from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.datatype import padding
 import syncopy.specest.freqanalysis as spyfreq
 
+
 @unwrap_io
 def wavelet(
         trl_dat, preselect, postselect, padbegin, padend,

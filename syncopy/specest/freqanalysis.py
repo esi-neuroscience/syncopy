@@ -21,6 +21,7 @@ from syncopy.shared.tools import best_match
 from syncopy.specest.mtmfft import MultiTaperFFT
 from syncopy.specest.mtmconvol import MultiTaperFFTConvol
 from syncopy.specest.wavelet import _get_optimal_wavelet_scales, WaveletTransform
+from syncopy.specest import superlet 
 
 # Module-wide output specs
 spectralDTypes = {"pow": np.float32,
@@ -42,7 +43,8 @@ availableTapers = ("hann", "dpss")
 availableWavelets = ("Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat")
 
 #: available spectral estimation methods of :func:`~syncopy.freqanalysis`
-availableMethods = ("mtmfft", "mtmconvol", "wavelet")
+availableMethods = ("mtmfft", "mtmconvol", "wavelet", "superlet")
+
 
 __all__ = ["freqanalysis"]
 
@@ -56,6 +58,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                  polyremoval=None, 
                  taper="hann", tapsmofrq=None, keeptapers=False,
                  toi=None, t_ftimwin=None, wav="Morlet", width=6, order=None,
+                 order_max=None, order_min=1, c_1=3, adaptive=False,
                  out=None, **kwargs):
     """
     Perform (time-)frequency analysis of Syncopy :class:`~syncopy.AnalogData` objects
@@ -120,6 +123,19 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         * **width** : Nondimensional frequency constant of Morlet wavelet function (>= 6)
         * **order** : Order of Paul wavelet function (>= 4) or derivative order
           of real-valued DOG wavelets (2 = mexican hat)
+
+    :func:`~syncopy.specest.superlet.superlet` : Superlet transform
+        Perform time-frequency analysis on time-series trial data using 
+        the super-resolution superlet transform from [Moca2021]_.
+        
+        * **order_max** : Maximal order of the superlet set 
+
+        * **order_min** : Minimal order of the superlet set 
+
+        * **c_1** : Number of cycles of the base Morlet wavelet 
+
+        * **adaptive** : If set to True perform adaptive SLT, 
+          otherwise perform multiplicative SLT
 
     **Full documentation below** 
     
@@ -244,7 +260,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         
     Notes
     -----
-    Coming soon...
+    .. [Moca2021] Moca, Vasile V., et al. "Time-frequency super-resolution with superlets." 
+       Nature communications 12.1 (2021): 1-18.
+
     
     Examples
     --------
@@ -414,7 +432,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                "foi": lcls["foi"]}
     
     # 1st: Check time-frequency inputs to prepare/sanitize `toi`
-    if method in ["mtmconvol", "wavelet"]:
+    if method in ["mtmconvol", "wavelet", "superlet"]:
         
         # Get start/end timing info respecting potential in-place selection
         if toi is None:
@@ -440,6 +458,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             equidistant = True
         elif isinstance(toi, Number):
             if method == "wavelet":
+                # this is not correct.. or it's simply sub-sampling?!
                 lgl = "array of time-points wavelets are to be centered on"
                 act = "scalar value"
                 raise SPYValueError(legal=lgl, varname="toi", actual=act)
@@ -547,7 +566,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             
         # For wavelets, we need to first trim the data (via `preSelect`), then 
         # extract the wanted time-points (`postSelect`)
-        if method == "wavelet":
+        if method in ["wavelet", "superlet"]:
             
             # Simply recycle the indexing work done for `mtmconvol` (i.e., `soi`)
             preSelect = []            
@@ -647,8 +666,25 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             if kwarg is not lcls[name]:
                 msg = "option `{}` has no effect in methods `mtmfft` and `mtmconvol`!"
                 SPYWarning(msg.format(name))
-            
+
+    elif method in ["wavelet", "superlet"]:
+
+        # there's no taper in these methods
+        # Check for non-default values of `taper`, `tapsmofrq`, `keeptapers` and 
+        # `t_ftimwin` (set to 0 above)
+        kwdict = {"taper": taper, "tapsmofrq": tapsmofrq, "keeptapers": keeptapers}
+        for name, kwarg in kwdict.items():
+            if kwarg is not lcls[name]:
+                msg = "option `{}` has no effect in method `{}`!"
+                SPYWarning(msg.format(name, method))
+        if t_ftimwin != 0:
+            msg = "option `t_ftimwin` has no effect in method `{}`!"
+            SPYWarning(msg.format(method))
+
+    # -------------------------------------------------------
     # Now, prepare explicit compute-classes for chosen method
+    # -------------------------------------------------------
+    
     if method == "mtmfft":
         
         # Check for non-default values of options not supported by chosen method
@@ -701,17 +737,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             output_fmt=output)
 
     elif method == "wavelet":
-
-        # Check for non-default values of `taper`, `tapsmofrq`, `keeptapers` and 
-        # `t_ftimwin` (set to 0 above)
-        kwdict = {"taper": taper, "tapsmofrq": tapsmofrq, "keeptapers": keeptapers}
-        for name, kwarg in kwdict.items():
-            if kwarg is not lcls[name]:
-                msg = "option `{}` has no effect in method `wavelet`!"
-                SPYWarning(msg.format(name))
-        if t_ftimwin != 0:
-            msg = "option `t_ftimwin` has no effect in method `wavelet`!"
-            SPYWarning(msg)
             
         # Check wavelet selection        
         if wav not in availableWavelets:
@@ -788,6 +813,65 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             wav=wfun,
             polyremoval=polyremoval,
             output_fmt=output)
+
+    elif method == "superlet":
+
+        # check and parse superlet specific arguments
+        if order_max is None:
+            lgl = "Positive integer needed for order_max" 
+            raise SPYValueError(legal=lgl, varname="order_max",
+                                actual=None)
+        else:
+            scalar_parser(
+                order_max,
+                varname="order_max",
+                lims=[1, np.inf],
+                ntype="int_like"
+            )
+            
+        scalar_parser(
+            order_min, varname="order_min",
+            lims=[1, order_max - 1],
+            ntype="int_like"
+        )
+        scalar_parser(c_1, varname="c_1", lims=[1, np.inf], ntype="int_like")
+            
+        if foi is not None and foilim is not None:
+            lgl = "either `foi` or `foilim` specification"
+            act = "both"
+            raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
+        
+        # the superlet method needs a specified range of frequencies,
+        # either by setting `foi` or `foilim` directly
+        if foi is None and foilim is None:
+            lgl = "Set the frequencies of interest for method 'superlet'" 
+            raise SPYValueError(legal=lgl, varname="foi, foilim",
+                                actual=[None, None])
+
+        if foi is not None:
+            scales = superlet.scale_from_period(1 / foi)
+        # frequency range in 1Hz steps        
+        elif foilim is not None:
+            foi = np.arange(foilim[0], foilim[1] + 1)
+
+        log_dct["c_1"] = lcls["c_1"]
+        log_dct["order_max"] = lcls["order_max"]
+        log_dct["order_min"] = lcls["order_min"]
+        
+        # Set up compute-class
+        specestMethod = superlet.SuperletTransform(
+            preSelect,
+            postSelect,
+            list(padBegin),
+            list(padEnd),
+            samplerate=data.samplerate,
+            scales=scales,
+            order_max=order_max,
+            order_min=order_min,
+            c_1=c_1,
+            adaptive=adaptive,
+            output_fmt=output)
+
         
     # If provided, make sure output object is appropriate
     if out is not None:
