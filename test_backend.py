@@ -6,6 +6,7 @@ import matplotlib.pyplot as ppl
 from syncopy.specest.wavelet import _get_optimal_wavelet_scales, wavelet
 from syncopy.specest.superlet import SuperletTransform, MorletSL, cwtSL, _get_superlet_support, superlet, compute_adaptive_order
 from syncopy.specest.wavelets import Morlet
+from scipy.signal import fftconvolve
 
 
 def gen_superlet_testdata(freqs=[20, 40, 60], cycles=11, fs=1000):
@@ -64,7 +65,6 @@ c_1 = 1
 cycles = c_1 * np.arange(1, 31)
 sl = [MorletSL(c) for c in cycles]
 
-
 res = wavelet(data,
               preselect,
               preselect,
@@ -82,15 +82,15 @@ spec = superlet(data, samplerate=fs, scales=scalesSL, order_max=30)
 nc = superlet(data, samplerate=fs, scales=scalesSL, order_max=30,noCompute=True)
 
 
-def do_slt(signal, scales=scalesSL, **slkwargs):
-    spec = superlet(s1, samplerate=fs,
+def do_slt(data, scales=scalesSL, **slkwargs):
+    spec = superlet(data, samplerate=fs,
                     scales=scales,
                     **slkwargs)
 
     print(spec.max())
     ppl.figure()
     extent = [0, len(s1) / fs, freqs[-1], freqs[0]]    
-    ppl.imshow(np.abs(spec), cmap='plasma', aspect='auto', extent=extent)
+    ppl.imshow(np.abs(spec[:,0,:,0].T), cmap='plasma', aspect='auto', extent=extent)
     ppl.plot([0, len(s1) / fs], [20, 20], 'k--')
     ppl.plot([0, len(s1) / fs], [40, 40], 'k--')
     ppl.plot([0, len(s1) / fs], [60, 60], 'k--')

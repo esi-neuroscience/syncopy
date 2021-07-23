@@ -18,6 +18,8 @@ from syncopy.specest.freqanalysis import (
     _make_trialdef,
 )
 
+import syncopy.specest.freqanalysis as spyfreq
+print(type(spyfreq))
 
 @unwrap_io
 def superlet(
@@ -115,8 +117,6 @@ def superlet(
 
     """
 
-    dt = 1 / samplerate
-
     # Get shape of output for dry-run phase
     nChannels = trl_dat.shape[1]
     nTime = trl_dat.shape[0]
@@ -125,116 +125,109 @@ def superlet(
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
 
-    # multiplicative SLT
-    if not adaptive:
+    # adaptive SLT    
+    if adaptive:
 
-        # create the complete multiplicative set spanning
-        # order_min - order_max
-        cycles = c_1 * np.arange(order_min, order_max + 1)
-        SL = [MorletSL(c) for c in cycles]
+        gmean_spec = adaptiveSLT(trl_dat,
+                                 samplerate,
+                                 scales,
+                                 order_max,
+                                 order_min,
+                                 c_1)
 
-        # lowest order
-        gmean_spec = cwtSL(trl_dat, SL[0], scales, dt)
-        gmean_spec = np.power(gmean_spec, 1 / order_max)
-
-        for wavelet in SL[1:]:
-
-            spec = cwtSL(trl_dat, wavelet, scales, dt)
-            gmean_spec *= np.power(spec, 1 / order_max)
-
-    # Adaptive SLT
+    # multiplicative SLT    
     else:
+        
+        gmean_spec = multiplicativeSLT(trl_dat,
+                                       samplerate,
+                                       scales,
+                                       order_max,
+                                       order_min,
+                                       c_1)
+        
 
-        # frequencies of interest
-        # from the scales for the SL Morlet
-        # for len(orders) < len(scales)
-        # multiple scales have the same order/wavelet set (discrete banding)
-        fois = 1 / (2 * np.pi * scales)
-        orders = compute_adaptive_order(fois, order_min, order_max, fois[0], fois[-1])
-
-        # create the complete superlet
-        cycles = c_1 * np.unique(orders)
-        SL = [MorletSL(c) for c in cycles]
-
-        # potentially every scale needs a different exponent
-        # for the geometric mean
-        exponents = 1 / orders
-
-        # which frequencies/scales use the same SL
-        order_jumps = np.where(np.diff(orders))[0]
-        # if len(orders) >= len(scales) this is just
-        # a continuous index array [0, 1, ..., len(scales) - 2]
-        # as every scale has it's own order
-        # otherwise it provides the mapping scales -> order
-        assert len(SL) == len(order_jumps) + 1 == np.unique(orders).size
-
-        # 1st order
-        # lowest order is needed for all scales/frequencies
-        gmean_spec = cwtSL(trl_dat, SL[0], scales, dt)  # 1st order <-> order_min
-        # Geometric normalization according to scale dependent order
-        gmean_spec = np.power(gmean_spec.T, exponents).T
-
-        # each frequency/scale can have its own multiplicative SL
-        # which overlap -> higher orders have all the lower orders
-        for i, jump in enumerate(order_jumps):
-
-            # relevant scales for that order
-            scales_o = scales[jump + 1 :]
-            wavelet = SL[i + 1]
-
-            spec = cwtSL(trl_dat, wavelet, scales_o, dt)
-
-            # normalize according to scale dependent order
-            spec = np.power(spec.T, exponents[jump + 1 :]).T
-            gmean_spec[jump + 1 :] *= spec
-
+    # the cwtSL stacks the scales on the 1st axis
+    gmean_spec = gmean_spec.transpose(1,0,2)
     return spectralConversions[output_fmt](gmean_spec[:, np.newaxis, :, :])
 
 
-class SuperletTransform(ComputationalRoutine):
-    """
-    Compute class that performs time-frequency analysis of :class:`~syncopy.AnalogData` objects
+def multiplicativeSLT(trl_dat,
+                      samplerate,
+                      scales,
+                      order_max,
+                      order_min=1,
+                      c_1=3):
+
+    dt = 1 / samplerate    
+    # create the complete multiplicative set spanning
+    # order_min - order_max
+    cycles = c_1 * np.arange(order_min, order_max + 1)
+    SL = [MorletSL(c) for c in cycles]
+
+    # lowest order
+    gmean_spec = cwtSL(trl_dat, SL[0], scales, dt)
+    gmean_spec = np.power(gmean_spec, 1 / order_max)
+
+    for wavelet in SL[1:]:
+        
+        spec = cwtSL(trl_dat, wavelet, scales, dt)
+        gmean_spec *= np.power(spec, 1 / order_max)
+
+    return gmean_spec
+
+
+def adaptiveSLT(trl_dat,
+                samplerate,
+                scales,
+                order_max,
+                order_min=1,
+                c_1=3):
+
+    dt = 1 / samplerate    
+    # frequencies of interest
+    # from the scales for the SL Morlet
+    # for len(orders) < len(scales)
+    # multiple scales have the same order/wavelet set (discrete banding)
+    fois = 1 / (2 * np.pi * scales)
+    orders = compute_adaptive_order(fois, order_min, order_max, fois[0], fois[-1])
+
+    # create the complete superlet
+    cycles = c_1 * np.unique(orders)
+    SL = [MorletSL(c) for c in cycles]
+
+    # potentially every scale needs a different exponent
+    # for the geometric mean
+    exponents = 1 / orders
+
+    # which frequencies/scales use the same SL
+    order_jumps = np.where(np.diff(orders))[0]
+    # if len(orders) >= len(scales) this is just
+    # a continuous index array [0, 1, ..., len(scales) - 2]
+    # as every scale has it's own order
+    # otherwise it provides the mapping scales -> order
+    assert len(SL) == len(order_jumps) + 1 == np.unique(orders).size
+
+    # 1st order
+    # lowest order is needed for all scales/frequencies
+    gmean_spec = cwtSL(trl_dat, SL[0], scales, dt)  # 1st order <-> order_min
+    # Geometric normalization according to scale dependent order
+    gmean_spec = np.power(gmean_spec.T, exponents).T
+
+    # each frequency/scale can have its own multiplicative SL
+    # which overlap -> higher orders have all the lower orders
+    for i, jump in enumerate(order_jumps):
+
+        # relevant scales for that order
+        scales_o = scales[jump + 1 :]
+        wavelet = SL[i + 1]
+
+        spec = cwtSL(trl_dat, wavelet, scales_o, dt)
+
+        # normalize according to scale dependent order
+        spec = np.power(spec.T, exponents[jump + 1 :]).T
+        gmean_spec[jump + 1 :] *= spec
     
-    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`, 
-    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute 
-    classes and metafunctions. 
-    
-    See also
-    --------
-    syncopy.freqanalysis : parent metafunction
-    """
-
-    computeFunction = staticmethod(superlet)
-
-    def process_metadata(self, data, out):
-
-        # Get trialdef array + channels from source
-        if data._selection is not None:
-            chanSec = data._selection.channel
-            trl = data._selection.trialdefinition
-        else:
-            chanSec = slice(None)
-            trl = data.trialdefinition
-
-        # Construct trialdef array and compute new sampling rate
-        trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
-
-        # Construct trialdef array and compute new sampling rate
-        trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
-
-        # If trial-averaging was requested, use the first trial as reference
-        # (all trials had to have identical lengths), and average onset timings
-        if not self.keeptrials:
-            t0 = trl[:, 2].mean()
-            trl = trl[[0], :]
-            trl[:, 2] = t0
-
-        # Attach meta-data
-        out.trialdefinition = trl
-        out.samplerate = srate
-        out.channel = np.array(data.channel[chanSec])
-        # for the SL Morlets the conversion is straightforward
-        out.freq = 1 / (2 * np.pi * self.cfg["scales"])[::-1]
+    return gmean_spec
 
 
 class MorletSL:
@@ -379,3 +372,49 @@ def compute_adaptive_order(freq, order_min, order_max, f_min, f_max):
     order = (order_max - order_min) * (freq - f_min) / (f_max - f_min)
 
     return np.int32(order_min + np.rint(order))
+
+
+class SuperletTransform(ComputationalRoutine):
+    """
+    Compute class that performs time-frequency analysis of :class:`~syncopy.AnalogData` objects
+    
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`, 
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute 
+    classes and metafunctions. 
+    
+    See also
+    --------
+    syncopy.freqanalysis : parent metafunction
+    """
+
+    computeFunction = staticmethod(superlet)
+
+    def process_metadata(self, data, out):
+
+        # Get trialdef array + channels from source
+        if data._selection is not None:
+            chanSec = data._selection.channel
+            trl = data._selection.trialdefinition
+        else:
+            chanSec = slice(None)
+            trl = data.trialdefinition
+
+        # Construct trialdef array and compute new sampling rate
+        trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
+
+        # Construct trialdef array and compute new sampling rate
+        trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
+
+        # If trial-averaging was requested, use the first trial as reference
+        # (all trials had to have identical lengths), and average onset timings
+        if not self.keeptrials:
+            t0 = trl[:, 2].mean()
+            trl = trl[[0], :]
+            trl[:, 2] = t0
+
+        # Attach meta-data
+        out.trialdefinition = trl
+        out.samplerate = srate
+        out.channel = np.array(data.channel[chanSec])
+        # for the SL Morlets the conversion is straightforward
+        out.freq = 1 / (2 * np.pi * self.cfg["scales"])[::-1]
