@@ -12,14 +12,11 @@ from scipy.signal import fftconvolve
 # Local imports
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
-from syncopy.specest.freqanalysis import (
+from syncopy.specest.const_def import (
     spectralConversions,
     spectralDTypes,
     _make_trialdef,
 )
-
-import syncopy.specest.freqanalysis as spyfreq
-print(type(spyfreq))
 
 @unwrap_io
 def superlet(

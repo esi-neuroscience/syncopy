@@ -10,9 +10,12 @@ import scipy.signal.windows as spwin
 # Local imports
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.datatype import padding
-import syncopy.specest.freqanalysis as freq
 from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.shared.tools import best_match
+from syncopy.specest.const_def import (
+    spectralConversions,
+    spectralDTypes,
+)
 
 
 # Local workhorse that performs the computational heavy lifting
@@ -123,10 +126,10 @@ def mtmfft(trl_dat, samplerate=None, foi=None, nTaper=1, timeAxis=0,
     
     # For initialization of computational routine, just return output shape and dtype
     if noCompute:
-        return outShape, freq.spectralDTypes[output_fmt]
+        return outShape, spectralDTypes[output_fmt]
 
     # In case tapers aren't preserved allocate `spec` "too big" and average afterwards
-    spec = np.full((1, nTaper, nFreq, nChannels), np.nan, dtype=freq.spectralDTypes[output_fmt])
+    spec = np.full((1, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
     fill_idx = tuple([slice(None, dim) for dim in outShape[2:]])
 
     # Actual computation
@@ -134,7 +137,7 @@ def mtmfft(trl_dat, samplerate=None, foi=None, nTaper=1, timeAxis=0,
     for taperIdx, taper in enumerate(win):
         if dat.ndim > 1:
             taper = np.tile(taper, (nChannels, 1)).T
-        spec[(0, taperIdx,) + fill_idx] = freq.spectralConversions[output_fmt](np.fft.rfft(dat * taper, axis=0)[fidx, :])
+        spec[(0, taperIdx,) + fill_idx] = spectralConversions[output_fmt](np.fft.rfft(dat * taper, axis=0)[fidx, :])
 
     # Average across tapers if wanted
     if not keeptapers:

@@ -12,7 +12,11 @@ from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.specest.wavelets import cwt
 from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.datatype import padding
-import syncopy.specest.freqanalysis as spyfreq
+from syncopy.specest.const_def import (
+    spectralConversions,
+    spectralDTypes,
+    _make_trialdef,
+)
 
 
 @unwrap_io
@@ -120,7 +124,7 @@ def wavelet(
     nScales = scales.size
     outShape = (nTime, 1, nScales, nChannels)
     if noCompute:
-        return outShape, spyfreq.spectralDTypes[output_fmt]
+        return outShape, spectralDTypes[output_fmt]
 
     # Compute wavelet transform with given data/time-selection
     spec = cwt(dat[preselect, :], 
@@ -129,7 +133,7 @@ def wavelet(
                widths=scales, 
                dt=1 / samplerate).transpose(1, 0, 2)[postselect, :, :]
     
-    return spyfreq.spectralConversions[output_fmt](spec[:, np.newaxis, :, :])
+    return spectralConversions[output_fmt](spec[:, np.newaxis, :, :])
 
 
 class WaveletTransform(ComputationalRoutine):
@@ -158,7 +162,7 @@ class WaveletTransform(ComputationalRoutine):
             trl = data.trialdefinition
             
         # Construct trialdef array and compute new sampling rate
-        trl, srate = spyfreq._make_trialdef(self.cfg, trl, data.samplerate)
+        trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
         
         # If trial-averaging was requested, use the first trial as reference 
         # (all trials had to have identical lengths), and average onset timings

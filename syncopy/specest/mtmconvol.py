@@ -11,8 +11,12 @@ from scipy import signal
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.datatype import padding
-import syncopy.specest.freqanalysis as spyfreq
 from syncopy.shared.tools import best_match
+from syncopy.specest.const_def import (
+    spectralConversions,
+    spectralDTypes,
+    _make_trialdef,
+)
 
 
 # Local workhorse that performs the computational heavy lifting
@@ -139,10 +143,10 @@ def mtmconvol(
     nFreq = foi.size
     outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
     if noCompute:
-        return outShape, spyfreq.spectralDTypes[output_fmt]
+        return outShape, spectralDTypes[output_fmt]
     
     # In case tapers aren't preserved allocate `spec` "too big" and average afterwards
-    spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spyfreq.spectralDTypes[output_fmt])
+    spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
     
     # Collect keyword args for `stft` in dictionary
     stftKw = {"fs": samplerate,
@@ -161,17 +165,17 @@ def mtmconvol(
         freq, _, pxx = signal.stft(dat[soi, :], **stftKw)
         _, fIdx = best_match(freq, foi, squash_duplicates=True)
         spec[:, 0, ...] = \
-            spyfreq.spectralConversions[output_fmt](
+            spectralConversions[output_fmt](
                 pxx.transpose(2, 0, 1))[:nTime, fIdx, :]
     else:
         freq, _, pxx = signal.stft(dat[soi[0], :], **stftKw)
         _, fIdx = best_match(freq, foi, squash_duplicates=True)
         spec[0, 0, ...] = \
-            spyfreq.spectralConversions[output_fmt](
+            spectralConversions[output_fmt](
                 pxx.transpose(2, 0, 1).squeeze())[fIdx, :]
         for tk in range(1, len(soi)):
             spec[tk, 0, ...] = \
-                spyfreq.spectralConversions[output_fmt](
+                spectralConversions[output_fmt](
                     signal.stft(
                         dat[soi[tk], :], 
                         **stftKw)[2].transpose(2, 0, 1).squeeze())[fIdx, :]
@@ -181,14 +185,14 @@ def mtmconvol(
         stftKw["window"] = win[taperIdx, :]
         if equidistant:
             spec[:, taperIdx, ...] = \
-                spyfreq.spectralConversions[output_fmt](
+                spectralConversions[output_fmt](
                     signal.stft(
                         dat[soi, :],
                         **stftKw)[2].transpose(2, 0, 1))[:nTime, fIdx, :]
         else:
             for tk, sample in enumerate(soi):
                 spec[tk, taperIdx, ...] = \
-                    spyfreq.spectralConversions[output_fmt](
+                    spectralConversions[output_fmt](
                         signal.stft(
                             dat[sample, :],
                             **stftKw)[2].transpose(2, 0, 1).squeeze())[fIdx, :]
@@ -225,7 +229,7 @@ class MultiTaperFFTConvol(ComputationalRoutine):
             trl = data.trialdefinition
 
         # Construct trialdef array and compute new sampling rate
-        trl, srate = spyfreq._make_trialdef(self.cfg, trl, data.samplerate)
+        trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
         
         # If trial-averaging was requested, use the first trial as reference 
         # (all trials had to have identical lengths), and average onset timings
