@@ -20,7 +20,7 @@ from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
 from syncopy.shared.tools import best_match
 from syncopy.specest.mtmfft import MultiTaperFFT
 from syncopy.specest.mtmconvol import MultiTaperFFTConvol
-from syncopy.specest.wavelet import _get_optimal_wavelet_scales, WaveletTransform
+from syncopy.specest.wavelet import get_optimal_wavelet_scales, WaveletTransform
 from syncopy.specest import superlet 
 from syncopy.specest.const_def import (
     spectralConversions,
@@ -772,13 +772,12 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             
         # Process frequency selection (`toi` was taken care of above): `foilim`
         # selections are wrapped into `foi` thus the seemingly weird if construct
-        # Note: SLURM workers don't like monkey-patching, so let's pretend 
-        # `get_optimal_wavelet_scales` is a class method by passing `wfun` as its 
         # first argument
         if foi is None:
-            scales = _get_optimal_wavelet_scales(wfun, 
-                                                 int(minTrialLength * data.samplerate), 
-                                                 1 / data.samplerate)
+            scales = get_optimal_wavelet_scales(
+                wfun.scale_from_period, # all availableWavelets sport one!
+                int(minTrialLength * data.samplerate), 
+                1 / data.samplerate)
         if foilim is not None:
             foi = np.arange(foilim[0], foilim[1] + 1)
         if foi is not None:
@@ -823,7 +822,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             
         scalar_parser(
             order_min, varname="order_min",
-            lims=[1, order_max - 1],
+            lims=[1, order_max],
             ntype="int_like"
         )
         scalar_parser(c_1, varname="c_1", lims=[1, np.inf], ntype="int_like")
@@ -832,16 +831,17 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             lgl = "either `foi` or `foilim` specification"
             act = "both"
             raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
-        
-        # the superlet method needs a specified range of frequencies,
-        # either by setting `foi` or `foilim` directly
+
+        # if no frequencies are user selected, take a sensitive default
         if foi is None and foilim is None:
-            lgl = "Set the frequencies of interest for method 'superlet'" 
-            raise SPYValueError(legal=lgl, varname="foi, foilim",
-                                actual=[None, None])
+            scales = get_optimal_wavelet_scales(
+                superlet.scale_from_period, # all availableWavelets sport one!
+                int(minTrialLength * data.samplerate), 
+                1 / data.samplerate)
 
         if foi is not None:
             scales = superlet.scale_from_period(1 / foi)
+        
         # frequency range in 1Hz steps        
         elif foilim is not None:
             foi = np.arange(foilim[0], foilim[1] + 1)
@@ -858,7 +858,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             # list(padBegin),
             # list(padEnd),
             samplerate=data.samplerate,
-            scales=scales[::-1],
+            scales=scales,
             order_max=order_max,
             order_min=order_min,
             c_1=c_1,

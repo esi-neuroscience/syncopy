@@ -178,12 +178,15 @@ class WaveletTransform(ComputationalRoutine):
         out.freq = 1 / self.cfg["wav"].fourier_period(self.cfg["scales"][::-1])
 
 
-def _get_optimal_wavelet_scales(self, nSamples, dt, dj=0.25, s0=None):
+def get_optimal_wavelet_scales(scale_from_period, nSamples,
+                               dt, dj=0.25, s0=None):
     """
     Local helper to compute an "optimally spaced" set of scales for wavelet analysis 
     
     Parameters
     ----------
+    scale_from_period : func
+        Function to convert periods to Wavelet specific scales.
     nSamples : int
         Sample-count (i.e., length) of time-series that is analyzed
     dt : float
@@ -223,7 +226,7 @@ def _get_optimal_wavelet_scales(self, nSamples, dt, dj=0.25, s0=None):
     
     # Compute `s0` so that the equivalent Fourier period is approximately ``2 * dt```
     if s0 is None:
-        s0 = self.scale_from_period(2*dt)
+        s0 = scale_from_period(2*dt)
         
     # Largest scale
     J = int((1 / dj) * np.log2(nSamples * dt / s0))
