@@ -439,7 +439,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             toi = None
             equidistant = True
         elif isinstance(toi, Number):
-            if method == "wavelet":
+            if method in ["wavelet", "superlet"]:
                 # this is not correct.. or it's simply sub-sampling?!
                 lgl = "array of time-points wavelets are to be centered on"
                 act = "scalar value"
@@ -546,7 +546,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             padEnd = np.zeros((numTrials,))
             soi = [slice(None)] * numTrials
             
-        # For wavelets, we need to first trim the data (via `preSelect`), then 
+        # For wavelets/superlets, we need to first trim the data
+        # (via `preSelect`), then 
         # extract the wanted time-points (`postSelect`)
         if method in ["wavelet", "superlet"]:
             
@@ -842,10 +843,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         
         # Set up compute-class
         specestMethod = superlet.SuperletTransform(
-            preSelect,
-            postSelect,
-            list(padBegin),
-            list(padEnd),
+            # preSelect,
+            # postSelect,
+            # list(padBegin),
+            # list(padEnd),
             samplerate=data.samplerate,
             scales=scales,
             order_max=order_max,
