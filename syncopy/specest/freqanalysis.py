@@ -444,7 +444,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         elif isinstance(toi, Number):
             if method in ["wavelet", "superlet"]:
                 # this is not correct.. or it's simply sub-sampling?!
-                lgl = "array of time-points wavelets are to be centered on"
+                lgl = "array of equidistant time-points"
                 act = "scalar value"
                 raise SPYValueError(legal=lgl, varname="toi", actual=act)
             try:
@@ -453,6 +453,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 raise exc
             overlap = toi
             equidistant = True
+        # this captures all other cases, e.i. toi is of sequence type
         else:
             overlap = -1
             try:
@@ -554,11 +555,16 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # extract the wanted time-points (`postSelect`)
         if method in ["wavelet", "superlet"]:
             
-            # Simply recycle the indexing work done for `mtmconvol` (i.e., `soi`)
+            # Simply recycle the indexing work done
+            # for `mtmconvol` (i.e., `soi`) won't work
+            # here as these estimation methods require equidstancy (atm)
             preSelect = []            
             if not equidistant:
-                for tk in range(numTrials):
-                    preSelect.append(slice(soi[tk][0].start, soi[tk][-1].stop))
+                lgl = "toi needs to be an equidistant " \
+                    "set of time points for wavelet based methods"            
+                act = "not an equidistant sequence"
+                raise SPYValueError(legal=lgl, varname="toi", actual=act)
+            
             else:
                 preSelect = soi
                 
