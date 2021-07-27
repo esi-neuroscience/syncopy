@@ -13,8 +13,10 @@ r_mtm = freqanalysis(tdat)
 
 
 # test classical wavelet analysis
-r_wav = freqanalysis(tdat, method="wavelet", toi='all', output='abs')
-res_trials = [t for t in r_wav.trials]
+r_wav = freqanalysis(tdat, method="wavelet", toi='all', output='abs') # , foilim=[5, 500])
+res_wtrials = [t for t in r_wav.trials]
 
 # test superlet analysis
-# r_sup = freqanalysis(tdat, method="superlet", toi='all')
+foi = np.logspace(-1, 2.6, 25)
+r_sup = freqanalysis(tdat, method="superlet", toi='all', order_max=30, foi=foi, output='abs',order_min=5, adaptive=True)
+res_strials = [t for t in r_sup.trials]

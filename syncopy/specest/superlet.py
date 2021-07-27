@@ -21,11 +21,12 @@ from syncopy.specest.const_def import (
 @unwrap_io
 def superlet(
     trl_dat,
-    samplerate,
-    scales,
-    order_max,
+    samplerate=None,
+    scales=None,
+    order_max=None,
     order_min=1,
     c_1=3,
+    toi='all',
     adaptive=False,
     output_fmt="pow",
     noCompute=False,

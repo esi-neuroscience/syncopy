@@ -314,7 +314,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     numTrials = len(trialList)
     
     # Set default padding options: after this, `pad` is either `None`, `False` or `str`
-    defaultPadding = {"mtmfft": "nextpow2", "mtmconvol": None, "wavelet": None}
+    defaultPadding = {"mtmfft": "nextpow2",
+                      "mtmconvol": None,
+                      "wavelet": None,
+                      "superlet" : None}
     if pad is None or pad is True:
         pad = defaultPadding[method]
 
@@ -836,6 +839,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # frequency range in 1Hz steps        
         elif foilim is not None:
             foi = np.arange(foilim[0], foilim[1] + 1)
+            scales = superlet.scale_from_period(1 / foi)
 
         log_dct["c_1"] = lcls["c_1"]
         log_dct["order_max"] = lcls["order_max"]
@@ -848,7 +852,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             # list(padBegin),
             # list(padEnd),
             samplerate=data.samplerate,
-            scales=scales,
+            scales=scales[::-1],
             order_max=order_max,
             order_min=order_min,
             c_1=c_1,
