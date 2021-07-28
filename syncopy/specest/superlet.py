@@ -416,4 +416,4 @@ class SuperletTransform(ComputationalRoutine):
         out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
         # for the SL Morlets the conversion is straightforward
-        out.freq = 1 / (2 * np.pi * self.cfg["scales"])[::-1]
+        out.freq = 1 / (2 * np.pi * self.cfg["scales"])

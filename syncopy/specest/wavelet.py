@@ -175,7 +175,7 @@ class WaveletTransform(ComputationalRoutine):
         out.trialdefinition = trl
         out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
-        out.freq = 1 / self.cfg["wav"].fourier_period(self.cfg["scales"][::-1])
+        out.freq = 1 / self.cfg["wav"].fourier_period(self.cfg["scales"])
 
 
 def get_optimal_wavelet_scales(scale_from_period, nSamples,
