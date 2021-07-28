@@ -31,9 +31,9 @@ from syncopy.specest.const_def import (
 __all__ = ["freqanalysis"]
 
 
-@unwrap_cfg
-@unwrap_select
-@detect_parallel_client
+# @unwrap_cfg
+# @unwrap_select
+# @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, foilim=None, pad=None, padtype='zero',
                  padlength=None, prepadlength=None, postpadlength=None, 
@@ -811,7 +811,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         if order_max is None:
             lgl = "Positive integer needed for order_max" 
             raise SPYValueError(legal=lgl, varname="order_max",
-                                actual=None)
+                                actual=None)            
         else:
             scalar_parser(
                 order_max,
@@ -819,14 +819,14 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 lims=[1, np.inf],
                 ntype="int_like"
             )
-            
+        
         scalar_parser(
             order_min, varname="order_min",
             lims=[1, order_max],
             ntype="int_like"
         )
         scalar_parser(c_1, varname="c_1", lims=[1, np.inf], ntype="int_like")
-            
+
         if foi is not None and foilim is not None:
             lgl = "either `foi` or `foilim` specification"
             act = "both"
@@ -855,20 +855,25 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         log_dct["c_1"] = lcls["c_1"]
         log_dct["order_max"] = lcls["order_max"]
         log_dct["order_min"] = lcls["order_min"]
+
+        # method specific parameters
+        mkwargs = {'samplerate' : data.samplerate,
+                   'scales' : scales,
+                   'order_max' : order_max,
+                   'order_min' : order_min,
+                   'c_1' : c_1,
+                   'adaptive' : adaptive}
         
         # Set up compute-class
         specestMethod = superlet.SuperletTransform(
-            # preSelect,
-            # postSelect,
-            # list(padBegin),
-            # list(padEnd),
-            samplerate=data.samplerate,
-            scales=scales,
-            order_max=order_max,
-            order_min=order_min,
-            c_1=c_1,
-            adaptive=adaptive,
-            output_fmt=output)
+            preSelect,
+            postSelect,
+            list(padBegin),
+            list(padEnd),
+            toi=toi,
+            timeAxis=timeAxis,             
+            output_fmt=output,
+            mkwargs=mkwargs)
 
     # -------------------------------------------------
     # Sanitize output and call the ComputationalRoutine

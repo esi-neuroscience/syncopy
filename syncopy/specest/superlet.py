@@ -10,6 +10,7 @@ import numpy as np
 from scipy.signal import fftconvolve
 
 # Local imports
+from syncopy.datatype import padding
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.specest.const_def import (
@@ -18,19 +19,15 @@ from syncopy.specest.const_def import (
     _make_trialdef,
 )
 
-@unwrap_io
+
 def superlet(
-    trl_dat,
+    data_arr,
     samplerate=None,
     scales=None,
     order_max=None,
     order_min=1,
     c_1=3,
-    toi='all',
     adaptive=False,
-    output_fmt="pow",
-    noCompute=False,
-    chunkShape=None,
 ):
 
     """
@@ -49,7 +46,7 @@ def superlet(
 
     Parameters
     ----------
-    trl_dat : 2D :class:`numpy.ndarray`
+    trl_arr : 2D :class:`numpy.ndarray`
         Uniformly sampled multi-channel time-series
         The 1st dimension is interpreted as the time axis
     samplerate : float
@@ -76,17 +73,6 @@ def superlet(
         linearly with the frequencies of interest from `order_min` 
         to `order_max`. If set to False the same SL will be used for
         all frequencies.
-    output_fmt : str
-        Output of spectral estimation; one of 
-        :data:`~syncopy.specest.freqanalysis.availableOutputs`
-    noCompute : bool
-        Preprocessing flag. If `True`, do not perform actual calculation but
-        instead return expected shape and :class:`numpy.dtype` of output
-        array.
-    chunkShape : None or tuple
-        If not `None`, represents shape of output object `gmean_spec` 
-        (respecting provided values of `scales`, `preselect`, `postselect` etc.)
-
     
     Returns
     -------
@@ -98,35 +84,14 @@ def superlet(
     -----
     .. [1] Moca, Vasile V., et al. "Time-frequency super-resolution with superlets." 
        Nature communications 12.1 (2021): 1-18.
-
-    This method is intended to be used as 
-    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`. 
-    Thus, input parameters are presumed to be forwarded from a parent metafunction. 
-    Consequently, this function does **not** perform any error checking and operates 
-    under the assumption that all inputs have been externally validated and cross-checked. 
-
-    See also
-    --------
-    syncopy.freqanalysis : parent metafunction
-    SuperletTransform : :class:`~syncopy.shared.computational_routine.ComputationalRoutine`
-                       instance that calls this method as 
-                       :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-
+ 
+ 
     """
-
-    # Get shape of output for dry-run phase
-    nChannels = trl_dat.shape[1]
-    nTime = trl_dat.shape[0]
-    nScales = scales.size
-    outShape = (nTime, 1, nScales, nChannels)
-    if noCompute:
-        return outShape, spectralDTypes[output_fmt]
 
     # adaptive SLT    
     if adaptive:
 
-        gmean_spec = adaptiveSLT(trl_dat,
+        gmean_spec = adaptiveSLT(data_arr,
                                  samplerate,
                                  scales,
                                  order_max,
@@ -136,19 +101,17 @@ def superlet(
     # multiplicative SLT    
     else:
         
-        gmean_spec = multiplicativeSLT(trl_dat,
+        gmean_spec = multiplicativeSLT(data_arr,
                                        samplerate,
                                        scales,
                                        order_max,
                                        order_min,
                                        c_1)
-        
-    # the cwtSL stacks the scales on the 1st axis
-    gmean_spec = gmean_spec.transpose(1,0,2)
-    return spectralConversions[output_fmt](gmean_spec[:, np.newaxis, :, :])
+
+    return gmean_spec
 
 
-def multiplicativeSLT(trl_dat,
+def multiplicativeSLT(data_arr,
                       samplerate,
                       scales,
                       order_max,
@@ -162,18 +125,18 @@ def multiplicativeSLT(trl_dat,
     SL = [MorletSL(c) for c in cycles]
 
     # lowest order
-    gmean_spec = cwtSL(trl_dat, SL[0], scales, dt)
+    gmean_spec = cwtSL(data_arr, SL[0], scales, dt)
     gmean_spec = np.power(gmean_spec, 1 / order_max)
 
     for wavelet in SL[1:]:
         
-        spec = cwtSL(trl_dat, wavelet, scales, dt)
+        spec = cwtSL(data_arr, wavelet, scales, dt)
         gmean_spec *= np.power(spec, 1 / order_max)
 
     return gmean_spec
 
 
-def adaptiveSLT(trl_dat,
+def adaptiveSLT(data_arr,
                 samplerate,
                 scales,
                 order_max,
@@ -206,7 +169,7 @@ def adaptiveSLT(trl_dat,
 
     # 1st order
     # lowest order is needed for all scales/frequencies
-    gmean_spec = cwtSL(trl_dat, SL[0], scales, dt)  # 1st order <-> order_min
+    gmean_spec = cwtSL(data_arr, SL[0], scales, dt)  # 1st order <-> order_min
     # Geometric normalization according to scale dependent order
     gmean_spec = np.power(gmean_spec.T, exponents).T
 
@@ -218,7 +181,7 @@ def adaptiveSLT(trl_dat,
         scales_o = scales[jump + 1 :]
         wavelet = SL[i + 1]
 
-        spec = cwtSL(trl_dat, wavelet, scales_o, dt)
+        spec = cwtSL(data_arr, wavelet, scales_o, dt)
 
         # normalize according to scale dependent order
         spec = np.power(spec.T, exponents[jump + 1 :]).T
@@ -366,11 +329,126 @@ def compute_adaptive_order(freq, order_min, order_max, f_min, f_max):
     and maximal order onto the respective minimal and maximal
     frequencies. As the order strictly is of integer type, this can lead
     to discrete jumps.
-    """
 
+    Note that `freq` should be ordered low to high.
+    """
+    
     order = (order_max - order_min) * (freq - f_min) / (f_max - f_min)
 
     return np.int32(order_min + np.rint(order))
+
+
+@unwrap_io
+def _staticmethod(
+        trl_dat,
+        preselect,
+        postselect,
+        padbegin,
+        padend,
+        toi=None,
+        timeAxis=0,
+        output_fmt="pow",
+        noCompute=False,
+        chunkShape=None,
+        mkwargs=None,
+):
+
+    """
+    This is the glue function for the 
+        :func:`~syncopy.specest.superlet.superlet
+    spectral estimation method. 
+
+
+    Parameters
+    ----------
+    trl_dat : 2D :class:`numpy.ndarray`
+        Uniformly sampled multi-channel time-series
+    preselect : slice
+        Begin- to end-samples to perform analysis on (trim data to interval). 
+        See Notes for details. 
+    postselect : list of slices or list of 1D NumPy arrays
+        Actual time-points of interest within interval defined by `preselect`
+        See Notes for details. 
+    padbegin : int
+        Number of samples to pre-pend to `trl_dat`
+    padend : int
+        Number of samples to append to `trl_dat`
+    toi : 1D :class:`numpy.ndarray` or str
+        Either array of equidistant time-points 
+        or `"all"` to perform analysis on all samples in `trl_dat`. Please refer to 
+        :func:`~syncopy.freqanalysis` for further details. **Note**: The value 
+        of `toi` has to agree with provided padding values. See Notes for more 
+        information. 
+    output_fmt : str
+        Output of spectral estimation; one of 
+        :data:`~syncopy.specest.freqanalysis.availableOutputs`
+    noCompute : bool
+        Preprocessing flag. If `True`, do not perform actual calculation but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+    chunkShape : None or tuple
+        If not `None`, represents shape of output object `gmean_spec` 
+        (respecting provided values of `scales`, `preselect`, `postselect` etc.)    
+    mkwargs : dict
+        Keyword arguments for :func:`~syncopy.specest.superlet.superlet
+
+    
+    Returns
+    -------
+    gmean_spec : :class:`numpy.ndarray`
+        Complex or real time-frequency representation of the input data. 
+        Shape is (nTime, len(scales)).
+
+    Notes
+    -----
+    This method is intended to be used as 
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`. 
+    Thus, input parameters are presumed to be forwarded from a parent metafunction. 
+    Consequently, this function does **not** perform any error checking and operates 
+    under the assumption that all inputs have been externally validated and cross-checked. 
+
+    See also
+    --------
+    syncopy.freqanalysis : parent metafunction
+    SuperletTransform : :class:`~syncopy.shared.computational_routine.ComputationalRoutine`
+                       instance that calls this method as 
+                       :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+
+    """
+
+    # Re-arrange array if necessary and get dimensional information
+    if timeAxis != 0:
+        dat = trl_dat.T       # does not copy but creates view of `trl_dat`
+    else:
+        dat = trl_dat
+
+    # Pad input array if wanted/necessary
+    if padbegin > 0 or padend > 0:
+        dat = padding(dat, "zero", pad="relative", padlength=None, 
+                      prepadlength=padbegin, postpadlength=padend)
+
+    # Get shape of output for dry-run phase
+    nChannels = trl_dat.shape[1]
+    if isinstance(toi, np.ndarray):     # `toi` is an array of time-points
+        nTime = toi.size
+    else:                               # `toi` is 'all'
+        nTime = dat.shape[0]
+    nScales = mkwargs['scales'].size
+    outShape = (nTime, 1, nScales, nChannels)
+    if noCompute:
+        return outShape, spectralDTypes[output_fmt]
+
+    # ------------------
+    # actual method call
+    # ------------------
+    gmean_spec = superlet(trl_dat[preselect, :],
+                          **mkwargs)
+        
+    # the cwtSL stacks the scales on the 1st axis
+    gmean_spec = gmean_spec.transpose(1, 0, 2)[postselect, :, :]
+    
+    return spectralConversions[output_fmt](gmean_spec[:, np.newaxis, :, :])
 
 
 class SuperletTransform(ComputationalRoutine):
@@ -386,7 +464,7 @@ class SuperletTransform(ComputationalRoutine):
     syncopy.freqanalysis : parent metafunction
     """
 
-    computeFunction = staticmethod(superlet)
+    computeFunction = staticmethod(_staticmethod)
 
     def process_metadata(self, data, out):
 
@@ -416,4 +494,4 @@ class SuperletTransform(ComputationalRoutine):
         out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
         # for the SL Morlets the conversion is straightforward
-        out.freq = 1 / (2 * np.pi * self.cfg["scales"])
+        out.freq = 1 / (2 * np.pi * self.cfg["mkwargs"]["scales"])
