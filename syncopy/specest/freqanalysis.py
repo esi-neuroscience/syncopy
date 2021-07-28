@@ -841,7 +841,12 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         if foi is not None:
             scales = superlet.scale_from_period(1 / foi)
-        
+
+        # ASLT needs ordered frequencies low - high
+        # meaning the scales have to go high - low
+        if adaptive:
+            scales = np.sort(scales)[::-1]
+            
         # frequency range in 1Hz steps        
         elif foilim is not None:
             foi = np.arange(foilim[0], foilim[1] + 1)
@@ -865,7 +870,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             adaptive=adaptive,
             output_fmt=output)
 
-        
+    # -------------------------------------------------
+    # Sanitize output and call the ComputationalRoutine
+    # -------------------------------------------------
+    
     # If provided, make sure output object is appropriate
     if out is not None:
         try:

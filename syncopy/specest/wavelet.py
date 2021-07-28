@@ -207,7 +207,8 @@ def get_optimal_wavelet_scales(scale_from_period, nSamples,
     Returns
     -------
     scales : 1D :class:`numpy.ndarray`
-        Set of scales to use in the wavelet transform
+        Set of scales to use in the wavelet transform, ordered
+        from high(low) scale(frequency) to low(high) scale(frequency)
 
     Notes
     -----
@@ -230,4 +231,6 @@ def get_optimal_wavelet_scales(scale_from_period, nSamples,
         
     # Largest scale
     J = int((1 / dj) * np.log2(nSamples * dt / s0))
-    return s0 * 2 ** (dj * np.arange(0, J + 1))
+    scales = s0 * 2 ** (dj * np.arange(0, J + 1))
+    # we want the low frequencies first
+    return scales[::-1]
