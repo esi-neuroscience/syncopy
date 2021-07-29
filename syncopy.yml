@@ -6,7 +6,7 @@ dependencies:
   # SyNCoPy runtime requirements
   - python==3.8.3
   - pip
-  - numpy >= 1.0, < 2.0
+  - numpy >= 1.10, < 2.0
   - scipy >= 1.5, < 1.6
   - dask >= 2.25, < 2.26
   - distributed >= 2.25, < 2.26
