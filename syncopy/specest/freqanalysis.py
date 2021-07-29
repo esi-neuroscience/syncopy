@@ -31,9 +31,9 @@ from syncopy.specest.const_def import (
 __all__ = ["freqanalysis"]
 
 
-# @unwrap_cfg
-# @unwrap_select
-# @detect_parallel_client
+#@unwrap_cfg
+#@unwrap_select
+#@detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, foilim=None, pad=None, padtype='zero',
                  padlength=None, prepadlength=None, postpadlength=None, 
@@ -857,12 +857,14 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         log_dct["order_min"] = lcls["order_min"]
 
         # method specific parameters
-        mkwargs = {'samplerate' : data.samplerate,
-                   'scales' : scales,
-                   'order_max' : order_max,
-                   'order_min' : order_min,
-                   'c_1' : c_1,
-                   'adaptive' : adaptive}
+        method_kwargs = {
+            'samplerate' : data.samplerate,
+            'scales' : scales,
+            'order_max' : order_max,
+            'order_min' : order_min,
+            'c_1' : c_1,
+            'adaptive' : adaptive
+        }
         
         # Set up compute-class
         specestMethod = superlet.SuperletTransform(
@@ -873,7 +875,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             toi=toi,
             timeAxis=timeAxis,             
             output_fmt=output,
-            mkwargs=mkwargs)
+            method_kwargs=method_kwargs)
 
     # -------------------------------------------------
     # Sanitize output and call the ComputationalRoutine

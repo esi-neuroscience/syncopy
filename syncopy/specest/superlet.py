@@ -46,7 +46,7 @@ def superlet(
 
     Parameters
     ----------
-    trl_arr : 2D :class:`numpy.ndarray`
+    data_arr : 2D :class:`numpy.ndarray`
         Uniformly sampled multi-channel time-series
         The 1st dimension is interpreted as the time axis
     samplerate : float
@@ -54,7 +54,8 @@ def superlet(
     scales : 1D :class:`numpy.ndarray`
         Set of scales to use in wavelet transform. 
         Note that for the SL Morlet the relationship
-        between scale and frequency simply is s(f) = 1/(2*pi*f).
+        between scale and frequency simply is s(f) = 1/(2*pi*f)
+        Need to be ordered high to low for `adaptive=True`
     order_max : int
         Maximal order of the superlet set. Controls the maximum
         number of cycles within a SL together
@@ -78,7 +79,7 @@ def superlet(
     -------
     gmean_spec : :class:`numpy.ndarray`
         Complex or real time-frequency representation of the input data. 
-        Shape is (nTime, len(scales)).
+        Shape is (data_arr.shape[0], len(scales)).
 
     Notes
     -----
@@ -149,7 +150,7 @@ def adaptiveSLT(data_arr,
     # for len(orders) < len(scales)
     # multiple scales have the same order/wavelet set (discrete banding)
     fois = 1 / (2 * np.pi * scales)
-    orders = compute_adaptive_order(fois, order_min, order_max, fois[0], fois[-1])
+    orders = compute_adaptive_order(fois, order_min, order_max)
 
     # create the complete superlet
     cycles = c_1 * np.unique(orders)
@@ -318,7 +319,7 @@ def _get_superlet_support(scale, dt, cycles):
     return t
 
 
-def compute_adaptive_order(freq, order_min, order_max, f_min, f_max):
+def compute_adaptive_order(freq, order_min, order_max):
 
     """
     Computes the superlet order for a given frequency of interest 
@@ -332,14 +333,15 @@ def compute_adaptive_order(freq, order_min, order_max, f_min, f_max):
 
     Note that `freq` should be ordered low to high.
     """
-    
+
+    f_min, f_max = freq[0], freq[-1]
     order = (order_max - order_min) * (freq - f_min) / (f_max - f_min)
 
     return np.int32(order_min + np.rint(order))
 
 
 @unwrap_io
-def _staticmethod(
+def _computeFunction(
         trl_dat,
         preselect,
         postselect,
@@ -350,7 +352,7 @@ def _staticmethod(
         output_fmt="pow",
         noCompute=False,
         chunkShape=None,
-        mkwargs=None,
+        method_kwargs=None        
 ):
 
     """
@@ -363,6 +365,9 @@ def _staticmethod(
     ----------
     trl_dat : 2D :class:`numpy.ndarray`
         Uniformly sampled multi-channel time-series
+    method_kwargs : dict
+        Keyword arguments for :func:`~syncopy.specest.superlet.superlet
+        controlling the spectral estimation method
     preselect : slice
         Begin- to end-samples to perform analysis on (trim data to interval). 
         See Notes for details. 
@@ -389,15 +394,13 @@ def _staticmethod(
     chunkShape : None or tuple
         If not `None`, represents shape of output object `gmean_spec` 
         (respecting provided values of `scales`, `preselect`, `postselect` etc.)    
-    mkwargs : dict
-        Keyword arguments for :func:`~syncopy.specest.superlet.superlet
 
     
     Returns
     -------
     gmean_spec : :class:`numpy.ndarray`
         Complex or real time-frequency representation of the input data. 
-        Shape is (nTime, len(scales)).
+        Shape is (nTime, 1, nScales, nChannels).
 
     Notes
     -----
@@ -434,7 +437,7 @@ def _staticmethod(
         nTime = toi.size
     else:                               # `toi` is 'all'
         nTime = dat.shape[0]
-    nScales = mkwargs['scales'].size
+    nScales = method_kwargs['scales'].size
     outShape = (nTime, 1, nScales, nChannels)
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
@@ -443,7 +446,7 @@ def _staticmethod(
     # actual method call
     # ------------------
     gmean_spec = superlet(trl_dat[preselect, :],
-                          **mkwargs)
+                          **method_kwargs)
         
     # the cwtSL stacks the scales on the 1st axis
     gmean_spec = gmean_spec.transpose(1, 0, 2)[postselect, :, :]
@@ -464,7 +467,7 @@ class SuperletTransform(ComputationalRoutine):
     syncopy.freqanalysis : parent metafunction
     """
 
-    computeFunction = staticmethod(_staticmethod)
+    computeFunction = staticmethod(_computeFunction)
 
     def process_metadata(self, data, out):
 
@@ -494,4 +497,4 @@ class SuperletTransform(ComputationalRoutine):
         out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
         # for the SL Morlets the conversion is straightforward
-        out.freq = 1 / (2 * np.pi * self.cfg["mkwargs"]["scales"])
+        out.freq = 1 / (2 * np.pi * self.cfg["method_kwargs"]["scales"])
