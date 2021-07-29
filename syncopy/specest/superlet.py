@@ -32,9 +32,10 @@ def superlet(
 
     """
     Performs Superlet Transform (SLT) according to Moca et al. [1]_
-    Both multiplicative SLT and adaptive SLT are available. The former
-    is recommended for a narrow frequency band of interest, whereas the
-    latter is best suited for the analysis of a wide range of frequencies.
+    Both multiplicative SLT and fractional adaptive SLT are available. 
+    The former is recommended for a narrow frequency band of interest, 
+    whereas the  is better suited for the analysis of a broad range 
+    of frequencies.
 
     A superlet (SL) is a set of Morlet wavelets with increasing number
     of cycles within the Gaussian envelope. Hence the bandwith 
@@ -46,8 +47,8 @@ def superlet(
 
     Parameters
     ----------
-    data_arr : 2D :class:`numpy.ndarray`
-        Uniformly sampled multi-channel time-series
+    data_arr : nD :class:`numpy.ndarray`
+        Uniformly sampled time-series data
         The 1st dimension is interpreted as the time axis
     samplerate : float
         Samplerate of the time-series in Hz
@@ -69,7 +70,7 @@ def superlet(
         than 3 increase `order_min` as to never have less than 3 cycles
         in a wavelet!
     adaptive : bool
-        Wether to perform multiplicative SLT or adaptive SLT.
+        Wether to perform multiplicative SLT or fractional adaptive SLT.
         If set to True, the order of the wavelet set will increase
         linearly with the frequencies of interest from `order_min` 
         to `order_max`. If set to False the same SL will be used for
@@ -79,7 +80,7 @@ def superlet(
     -------
     gmean_spec : :class:`numpy.ndarray`
         Complex or real time-frequency representation of the input data. 
-        Shape is (data_arr.shape[0], len(scales), data_arr.shape[1]).
+        Shape is (len(scales), data_arr.shape[0], data_arr.shape[1]).
 
     Notes
     -----
@@ -92,13 +93,13 @@ def superlet(
     # adaptive SLT    
     if adaptive:
 
-        gmean_spec = adaptiveSLT(data_arr,
-                                 samplerate,
-                                 scales,
-                                 order_max,
-                                 order_min,
-                                 c_1)
-
+        gmean_spec = FASLT(data_arr,
+                           samplerate,
+                           scales,
+                           order_max,
+                           order_min,
+                           c_1)
+        
     # multiplicative SLT    
     else:
         
@@ -137,12 +138,95 @@ def multiplicativeSLT(data_arr,
     return gmean_spec
 
 
+def FASLT(data_arr,
+          samplerate,
+          scales,
+          order_max,
+          order_min=1,          
+          c_1=3):
+
+    ''' Fractional adaptive SL transform '''
+
+    dt = 1 / samplerate    
+    # frequencies of interest
+    # from the scales for the SL Morlet
+    fois = 1 / (2 * np.pi * scales)
+    orders = compute_adaptive_order(fois, order_min, order_max)
+
+    # create the complete superlet set from
+    # all enclosed integer orders
+    orders_int = np.int32(np.floor(orders))
+    cycles = c_1 * np.unique(orders_int)
+    SL = [MorletSL(c) for c in cycles]
+
+    # every scale needs a different exponent
+    # for the geometric mean
+    exponents = 1 / orders
+
+    # which frequencies/scales use the same integer order SL
+    order_jumps = np.where(np.diff(orders_int))[0]
+    # each frequency/scale will have its own multiplicative SL
+    # which overlap -> higher orders have all the lower orders
+    
+    # the fractions
+    alphas = orders % orders_int
+    
+    # 1st order
+    # lowest order is needed for all scales/frequencies
+    gmean_spec = cwtSL(data_arr, SL[0], scales, dt)  # 1st order <-> order_min
+    # Geometric normalization according to scale dependent order
+    gmean_spec = np.power(gmean_spec.T, exponents).T
+    
+    # order + 1 for fractional weight
+    next_spec = cwtSL(data_arr, SL[1], scales[1:], dt)
+    # we go to the next scale and order in any case..
+    pre_jump = 1
+    
+    for i, jump in enumerate(order_jumps):
+
+        # which fractions for the current two orders
+        scale_span = slice(pre_jump, jump + 1)
+        gmean_spec[scale_span, :] *= np.power(
+            next_spec[:jump - pre_jump + 1].T,
+            alphas[scale_span] * exponents[scale_span]).T
+        
+        # multiply old next_spec for all remaining
+        # scales/frequencies
+        gmean_spec[jump + 1 :] *= np.power(
+            next_spec[jump - pre_jump + 1:].T,
+            exponents[jump + 1 :]).T
+
+        # last order is not fractional!
+        if i == len(SL) - 2:
+            break
+        
+        # relevant scales for the next order
+        scales_o = scales[jump + 1 :]
+        wavelet = SL[i + 2]
+        
+        # order + 1 spectrum to be combined
+        next_spec = cwtSL(data_arr, wavelet, scales_o, dt)        
+        pre_jump = jump + 1
+
+    # last order
+    jump = order_jumps[-1]
+    gmean_spec[jump + 1 :] *= np.power(
+        next_spec[jump - pre_jump + 1:].T,
+        exponents[jump + 1 :]).T
+        
+    return gmean_spec
+
+
 def adaptiveSLT(data_arr,
                 samplerate,
                 scales,
                 order_max,
                 order_min=1,
                 c_1=3):
+
+    '''This function is not used atm, it implements
+    the non-fractional adaptive SLT. Kept here for 
+    reference/comparisons if ever needed'''
 
     dt = 1 / samplerate    
     # frequencies of interest
@@ -151,6 +235,7 @@ def adaptiveSLT(data_arr,
     # multiple scales have the same order/wavelet set (discrete banding)
     fois = 1 / (2 * np.pi * scales)
     orders = compute_adaptive_order(fois, order_min, order_max)
+    orders = np.int32(np.rint(orders))
 
     # create the complete superlet
     cycles = c_1 * np.unique(orders)
@@ -323,13 +408,12 @@ def compute_adaptive_order(freq, order_min, order_max):
 
     """
     Computes the superlet order for a given frequency of interest 
-    for the adaptive SLT (ASLT) according to 
+    for the fractional adaptive SLT (FASLT) according to 
     equation 7 of Moca et al. 2021.
     
     This is a simple linear mapping between the minimal
     and maximal order onto the respective minimal and maximal
-    frequencies. As the order strictly is of integer type, this can lead
-    to discrete jumps.
+    frequencies. 
 
     Note that `freq` should be ordered low to high.
     """
@@ -337,7 +421,8 @@ def compute_adaptive_order(freq, order_min, order_max):
     f_min, f_max = freq[0], freq[-1]
     order = (order_max - order_min) * (freq - f_min) / (f_max - f_min)
 
-    return np.int32(order_min + np.rint(order))
+    # return np.int32(order_min + np.rint(order))
+    return order_min + order
 
 
 @unwrap_io
