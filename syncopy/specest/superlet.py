@@ -22,9 +22,9 @@ from syncopy.specest.const_def import (
 
 def superlet(
     data_arr,
-    samplerate=None,
-    scales=None,
-    order_max=None,
+    samplerate,
+    scales,
+    order_max,
     order_min=1,
     c_1=3,
     adaptive=False,
@@ -79,7 +79,7 @@ def superlet(
     Returns
     -------
     gmean_spec : :class:`numpy.ndarray`
-        Complex or real time-frequency representation of the input data. 
+        Complex time-frequency representation of the input data. 
         Shape is (len(scales), data_arr.shape[0], data_arr.shape[1]).
 
     Notes
@@ -170,10 +170,12 @@ def FASLT(data_arr,
     # for the geometric mean
     exponents = 1 / orders
 
-    # which frequencies/scales use the same integer orders SL
+    # which frequencies/scales use the same integer orders
     order_jumps = np.where(np.diff(orders_int))[0]
     # each frequency/scale will have its own multiplicative SL
-    # which overlap -> higher orders have all the lower orders
+    # which overlap -> higher orders enclose all the lower orders
+
+    assert len(SL) == len(order_jumps) + 1
     
     # the fractions
     alphas = orders % orders_int
@@ -357,7 +359,7 @@ def cwtSL(data, wavelet, scales, dt):
     Notes
     -----
     
-    The time axis is expectet to be along the 1st dimension.
+    The time axis is expected to be along the 1st dimension.
     """
 
     # wavelets can be complex so output is complex
