@@ -145,7 +145,14 @@ def FASLT(data_arr,
           order_min=1,          
           c_1=3):
 
-    ''' Fractional adaptive SL transform '''
+    ''' Fractional adaptive SL transform
+
+    For non-integer orders fractional SLTs are
+    calculated in the interval [order, order+1) via:
+    
+    R(o_f) = R_1 * R_2 * ... * R_i * R_i+1 ** alpha 
+    with o_f = o_i + alpha
+    '''
 
     dt = 1 / samplerate    
     # frequencies of interest
@@ -163,7 +170,7 @@ def FASLT(data_arr,
     # for the geometric mean
     exponents = 1 / orders
 
-    # which frequencies/scales use the same integer order SL
+    # which frequencies/scales use the same integer orders SL
     order_jumps = np.where(np.diff(orders_int))[0]
     # each frequency/scale will have its own multiplicative SL
     # which overlap -> higher orders have all the lower orders
@@ -177,42 +184,32 @@ def FASLT(data_arr,
     # Geometric normalization according to scale dependent order
     gmean_spec = np.power(gmean_spec.T, exponents).T
     
-    # order + 1 for fractional weight
-    next_spec = cwtSL(data_arr, SL[1], scales[1:], dt)
     # we go to the next scale and order in any case..
-    pre_jump = 1
-    
+    # but for order_max == 1 for which order_jumps is empty
+    last_jump = 1
+
     for i, jump in enumerate(order_jumps):
 
-        # which fractions for the current two orders
-        scale_span = slice(pre_jump, jump + 1)
+        # relevant scales for the next order
+        scales_o = scales[last_jump:]
+        # order + 1 spec 
+        next_spec = cwtSL(data_arr, SL[i + 1], scales_o, dt)
+        
+        # which fractions for the current next_spec
+        # in the interval [order, order+1)
+        scale_span = slice(last_jump, jump + 1)
         gmean_spec[scale_span, :] *= np.power(
-            next_spec[:jump - pre_jump + 1].T,
+            next_spec[:jump - last_jump + 1].T,
             alphas[scale_span] * exponents[scale_span]).T
         
-        # multiply old next_spec for all remaining
-        # scales/frequencies
+        # multiply non-fractional next_spec for
+        # all remaining scales/frequencies          
         gmean_spec[jump + 1 :] *= np.power(
-            next_spec[jump - pre_jump + 1:].T,
+            next_spec[jump - last_jump + 1:].T,
             exponents[jump + 1 :]).T
 
-        # last order is not fractional!
-        if i == len(SL) - 2:
-            break
-        
-        # relevant scales for the next order
-        scales_o = scales[jump + 1 :]
-        wavelet = SL[i + 2]
-        
-        # order + 1 spectrum to be combined
-        next_spec = cwtSL(data_arr, wavelet, scales_o, dt)        
-        pre_jump = jump + 1
-
-    # last order
-    jump = order_jumps[-1]
-    gmean_spec[jump + 1 :] *= np.power(
-        next_spec[jump - pre_jump + 1:].T,
-        exponents[jump + 1 :]).T
+        # go to the next [order, order+1) interval 
+        last_jump = jump + 1
         
     return gmean_spec
 
