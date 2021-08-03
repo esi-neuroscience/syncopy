@@ -61,7 +61,8 @@ def superlet(
         Maximal order of the superlet set. Controls the maximum
         number of cycles within a SL together
         with the `c_1` parameter: c_max = c_1 * order_max
-    order_min : Minimal order of the superlet set. Controls 
+    order_min : int
+        Minimal order of the superlet set. Controls 
         the minimal number of cycles within a SL together
         with the `c_1` parameter: c_min = c_1 * order_min
         Note that for admissability reasons c_min should be at least 3!

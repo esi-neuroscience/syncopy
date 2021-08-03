@@ -31,9 +31,9 @@ from syncopy.specest.const_def import (
 __all__ = ["freqanalysis"]
 
 
-#@unwrap_cfg
-#@unwrap_select
-#@detect_parallel_client
+@unwrap_cfg
+@unwrap_select
+@detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, foilim=None, pad=None, padtype='zero',
                  padlength=None, prepadlength=None, postpadlength=None, 
@@ -108,15 +108,15 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     :func:`~syncopy.specest.superlet.superlet` : Superlet transform
         Perform time-frequency analysis on time-series trial data using 
-        the super-resolution superlet transform from [Moca2021]_.
+        the super-resolution superlet transform (SLT) from [Moca2021]_.
         
-        * **order_max** : Maximal order of the superlet set 
+        * **order_max** : Maximal order of the superlet 
 
-        * **order_min** : Minimal order of the superlet set 
+        * **order_min** : Minimal order of the superlet
 
         * **c_1** : Number of cycles of the base Morlet wavelet 
 
-        * **adaptive** : If set to True perform adaptive SLT, 
+        * **adaptive** : If set to `True` perform fractional adaptive SLT, 
           otherwise perform multiplicative SLT
 
     **Full documentation below** 
@@ -231,6 +231,29 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         `wav` to `'Mexican_hat'`, `'Marr'` or `'Ricker'`. **Note**: A real-valued
         wavelet function encodes *only* information about peaks and discontinuities 
         in the signal and does *not* provide any information about amplitude or phase. 
+    order_max : int
+        Only valid if `method` is `'superlet'`. 
+        Maximal order of the superlet set. Controls the maximum
+        number of cycles within a SL together
+        with the `c_1` parameter: c_max = c_1 * order_max
+    order_min : int
+        Only valid if `method` is `'superlet'`. 
+        Minimal order of the superlet set. Controls 
+        the minimal number of cycles within a SL together
+        with the `c_1` parameter: c_min = c_1 * order_min
+        Note that for admissability reasons c_min should be at least 3!
+    c_1 : int
+        Only valid if `method` is `'superlet'`. 
+        Number of cycles of the base Morlet wavelet. If set to lower
+        than 3 increase `order_min` as to never have less than 3 cycles
+        in a wavelet!
+    adaptive : bool
+        Only valid if `method` is `'superlet'`. 
+        Wether to perform multiplicative SLT or fractional adaptive SLT.
+        If set to True, the order of the wavelet set will increase
+        linearly with the frequencies of interest from `order_min` 
+        to `order_max`. If set to False the same SL will be used for
+        all frequencies.
     out : None or :class:`SpectralData` object
         None if a new :class:`SpectralData` object is to be created, or an empty :class:`SpectralData` object
         
