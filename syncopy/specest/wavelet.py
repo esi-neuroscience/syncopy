@@ -15,8 +15,9 @@ from syncopy.datatype import padding
 from syncopy.specest.const_def import (
     spectralConversions,
     spectralDTypes,
-    _make_trialdef,
 )
+# this is temporary!
+from .compRoutines import _make_trialdef
 
 
 @unwrap_io

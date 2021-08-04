@@ -8,26 +8,30 @@ from numbers import Number
 import numpy as np
 import scipy.signal.windows as spwin
 
-# Local imports
-from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
+# Syncopy imports
+from syncopy.shared.parsers import data_parser, scalar_parser, array_parser 
 from syncopy.shared.tools import get_defaults
 from syncopy.datatype import SpectralData, padding
 from syncopy.datatype.methods.padding import _nextpow2
-import syncopy.specest.wavelets as spywave
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.tools import best_match
-from syncopy.specest.mtmfft import MultiTaperFFT
-from syncopy.specest.mtmconvol import MultiTaperFFTConvol
-from syncopy.specest.wavelet import get_optimal_wavelet_scales, WaveletTransform
-from syncopy.specest import superlet
-from syncopy.specest.const_def import (
+import syncopy.specest.wavelets as spywave
+import syncopy.specest.superlet as superlet
+
+# Local imports
+from .mtmfft import MultiTaperFFT
+from .mtmconvol import MultiTaperFFTConvol
+from .wavelet import get_optimal_wavelet_scales, WaveletTransform
+from .const_def import (
     spectralConversions,
     availableTapers,
     availableWavelets,
     availableMethods
 )
+from .compRoutines import SuperletTransform
+
 __all__ = ["freqanalysis"]
 
 
@@ -410,9 +414,15 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         else:
             try:
                 array_parser(foilim, varname="foilim", hasinf=False, hasnan=False,
-                            lims=[0, data.samplerate/2], dims=(2,))
+                             lims=[0, data.samplerate/2], dims=(2,))
             except Exception as exc:
                 raise exc
+            # foilim is of shape (2,)
+            if foilim[0] > foilim[1]:
+                msg = "Sorting foilim low to high.."
+                SPYWarning(msg)
+                foilim = np.sort(foilim)
+            
     if foi is not None and foilim is not None:
         lgl = "either `foi` or `foilim` specification"
         act = "both"
@@ -806,7 +816,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         if foi is not None:
             foi[foi < 0.01] = 0.01
             scales = wfun.scale_from_period(1 / foi)
-            scales = scales[::-1]  # FIXME: this only makes sense if `foi` was sorted -> cf Issue #94
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
@@ -850,31 +859,33 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         )
         scalar_parser(c_1, varname="c_1", lims=[1, np.inf], ntype="int_like")
 
-        if foi is not None and foilim is not None:
-            lgl = "either `foi` or `foilim` specification"
-            act = "both"
-            raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
-
         # if no frequencies are user selected, take a sensitive default
         if foi is None and foilim is None:
             scales = get_optimal_wavelet_scales(
-                superlet.scale_from_period, # all availableWavelets sport one!
-                int(minTrialLength * data.samplerate),
+                superlet.scale_from_period, 
+                int(minTrialLength * data.samplerate), 
                 1 / data.samplerate)
 
         if foi is not None:
             scales = superlet.scale_from_period(1 / foi)
-
-        # ASLT needs ordered frequencies low - high
-        # meaning the scales have to go high - low
-        if adaptive:
-            scales = np.sort(scales)[::-1]
 
         # frequency range in 1Hz steps
         elif foilim is not None:
             foi = np.arange(foilim[0], foilim[1] + 1)
             scales = superlet.scale_from_period(1 / foi)
 
+        # FASLT needs ordered frequencies low - high
+        # meaning the scales have to go high - low
+        if adaptive:
+            if len(scales) < 2:
+                lgl = "A range of frequencies"
+                act = "Single frequency"
+                raise SPYValueError(legal=lgl, varname="foi", actual=act)
+            if np.any(np.diff(scales) > 0):
+                msg = "Sorting frequencies low to high for adaptive SLT.." 
+                SPYWarning(msg)
+                scales = np.sort(scales)[::-1]
+            
         log_dct["c_1"] = lcls["c_1"]
         log_dct["order_max"] = lcls["order_max"]
         log_dct["order_min"] = lcls["order_min"]
@@ -890,7 +901,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         }
 
         # Set up compute-class
-        specestMethod = superlet.SuperletTransform(
+        specestMethod = SuperletTransform(
             preSelect,
             postSelect,
             list(padBegin),

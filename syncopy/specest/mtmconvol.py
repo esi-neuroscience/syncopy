@@ -15,8 +15,9 @@ from syncopy.shared.tools import best_match
 from syncopy.specest.const_def import (
     spectralConversions,
     spectralDTypes,
-    _make_trialdef,
 )
+# this is temporary!
+from .compRoutines import _make_trialdef
 
 
 # Local workhorse that performs the computational heavy lifting
