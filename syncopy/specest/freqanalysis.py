@@ -414,9 +414,15 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         else:
             try:
                 array_parser(foilim, varname="foilim", hasinf=False, hasnan=False,
-                            lims=[0, data.samplerate/2], dims=(2,))
+                             lims=[0, data.samplerate/2], dims=(2,))
             except Exception as exc:
                 raise exc
+            # foilim is of shape (2,)
+            if foilim[0] > foilim[1]:
+                msg = "Sorting foilim low to high.."
+                SPYWarning(msg)
+                foilim = np.sort(foilim)
+            
     if foi is not None and foilim is not None:
         lgl = "either `foi` or `foilim` specification"
         act = "both"
@@ -810,7 +816,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         if foi is not None:
             foi[foi < 0.01] = 0.01
             scales = wfun.scale_from_period(1 / foi)
-            scales = scales[::-1]  # FIXME: this only makes sense if `foi` was sorted -> cf Issue #94
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
@@ -854,11 +859,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         )
         scalar_parser(c_1, varname="c_1", lims=[1, np.inf], ntype="int_like")
 
-        if foi is not None and foilim is not None:
-            lgl = "either `foi` or `foilim` specification"
-            act = "both"
-            raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
-
         # if no frequencies are user selected, take a sensitive default
         if foi is None and foilim is None:
             scales = get_optimal_wavelet_scales(
@@ -869,16 +869,23 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         if foi is not None:
             scales = superlet.scale_from_period(1 / foi)
 
-        # ASLT needs ordered frequencies low - high
-        # meaning the scales have to go high - low
-        if adaptive:
-            scales = np.sort(scales)[::-1]
-
         # frequency range in 1Hz steps
         elif foilim is not None:
             foi = np.arange(foilim[0], foilim[1] + 1)
             scales = superlet.scale_from_period(1 / foi)
 
+        # FASLT needs ordered frequencies low - high
+        # meaning the scales have to go high - low
+        if adaptive:
+            if len(scales) < 2:
+                lgl = "A range of frequencies"
+                act = "Single frequency"
+                raise SPYValueError(legal=lgl, varname="foi", actual=act)
+            if np.any(np.diff(scales) > 0):
+                msg = "Sorting frequencies low to high for adaptive SLT.." 
+                SPYWarning(msg)
+                scales = np.sort(scales)[::-1]
+            
         log_dct["c_1"] = lcls["c_1"]
         log_dct["order_max"] = lcls["order_max"]
         log_dct["order_min"] = lcls["order_min"]
