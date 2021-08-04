@@ -8,26 +8,30 @@ from numbers import Number
 import numpy as np
 import scipy.signal.windows as spwin
 
-# Local imports
-from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
+# Syncopy imports
+from syncopy.shared.parsers import data_parser, scalar_parser, array_parser 
 from syncopy.shared.tools import get_defaults
 from syncopy.datatype import SpectralData, padding
 from syncopy.datatype.methods.padding import _nextpow2
-import syncopy.specest.wavelets as spywave
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.tools import best_match
-from syncopy.specest.mtmfft import MultiTaperFFT
-from syncopy.specest.mtmconvol import MultiTaperFFTConvol
-from syncopy.specest.wavelet import get_optimal_wavelet_scales, WaveletTransform
-from syncopy.specest import superlet
-from syncopy.specest.const_def import (
+import syncopy.specest.wavelets as spywave
+import syncopy.specest.superlet as superlet
+
+# Local imports
+from .mtmfft import MultiTaperFFT
+from .mtmconvol import MultiTaperFFTConvol
+from .wavelet import get_optimal_wavelet_scales, WaveletTransform
+from .const_def import (
     spectralConversions,
     availableTapers,
     availableWavelets,
     availableMethods
 )
+from .compRoutines import SuperletTransform
+
 __all__ = ["freqanalysis"]
 
 
@@ -858,8 +862,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # if no frequencies are user selected, take a sensitive default
         if foi is None and foilim is None:
             scales = get_optimal_wavelet_scales(
-                superlet.scale_from_period, # all availableWavelets sport one!
-                int(minTrialLength * data.samplerate),
+                superlet.scale_from_period, 
+                int(minTrialLength * data.samplerate), 
                 1 / data.samplerate)
 
         if foi is not None:
@@ -890,7 +894,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         }
 
         # Set up compute-class
-        specestMethod = superlet.SuperletTransform(
+        specestMethod = SuperletTransform(
             preSelect,
             postSelect,
             list(padBegin),
