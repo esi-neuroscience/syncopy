@@ -60,6 +60,10 @@ dask-worker-space
 requirements.txt
 requirements-test.txt
 
+# Code coverage reports
+.coverage
+.coverage.*
+
 # spy containers
 *.spy
 
