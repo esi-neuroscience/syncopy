@@ -987,15 +987,11 @@ class TestWavelet():
             cfg.foilim = None
 
             # Ensure TF objects contain expected/requested frequencies
-            # FIXME: repair freq ordering!
             assert 0.02 > tfSpec.freq.min() > 0
             assert tfSpec.freq.max() == (self.tfData.samplerate / 2)
             assert tfSpec.freq.size > 60
-            try:
-                assert np.allclose(tfSpecFoi.freq, maxFreqs)
-                assert np.allclose(tfSpecFoiLim.freq, foilimFreqs)
-            except:
-                pass
+            assert np.allclose(tfSpecFoi.freq, maxFreqs)
+            assert np.allclose(tfSpecFoiLim.freq, foilimFreqs)
 
             for tk, trlArr in enumerate(tfSpec.trials):
 
@@ -1047,8 +1043,7 @@ class TestWavelet():
                         ZxxMax = Zxx.max()
                         ZxxThresh = ZxxMax - 0.1 * ZxxMax
                         for fk, mFreq in enumerate(modFreqs):
-                            freqIdx = np.where(np.abs(tfObj.freq - mFreq) < 1)[0][0]
-                            freqPeak = tfObj.freq.size - freqIdx
+                            freqPeak = np.where(np.abs(tfObj.freq - mFreq) < 1)[0][0]
                             peakProfile = Zxx[:, freqPeak - 1 : freqPeak + 2].mean(axis=1)
                             height = (1 - fk * 0.25) * ZxxThresh
                             peaks, _ = scisig.find_peaks(peakProfile, prominence=0.75*height, height=height, distance=5)
