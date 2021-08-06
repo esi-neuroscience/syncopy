@@ -5,22 +5,27 @@
 
 # Builtin/3rd party package imports
 import numpy as np
-from numbers import Number
+# from numbers import Number
 
 # Local imports
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.specest.wavelets import cwt
 from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.datatype import padding
-import syncopy.specest.freqanalysis as spyfreq
-from .mtmconvol import _make_trialdef
+from syncopy.specest.const_def import (
+    spectralConversions,
+    spectralDTypes,
+)
+# this is temporary!
+from .compRoutines import _make_trialdef
+
 
 @unwrap_io
 def wavelet(
-    trl_dat, preselect, postselect, padbegin, padend,
-    samplerate=None, toi=None, scales=None, timeAxis=0, wav=None, 
-    polyremoval=None, output_fmt="pow",
-    noCompute=False, chunkShape=None):
+        trl_dat, preselect, postselect, padbegin, padend,
+        samplerate=None, toi=None, scales=None, timeAxis=0, wav=None, 
+        polyremoval=None, output_fmt="pow",
+        noCompute=False, chunkShape=None):
     """ 
     Perform time-frequency analysis on multi-channel time series data using a wavelet transform
     
@@ -74,6 +79,9 @@ def wavelet(
     -------
     spec : :class:`numpy.ndarray`
         Complex or real time-frequency representation of (padded) input data. 
+        Shape is (nTime, 1, len(scales), nChannels), so that the 
+        individual spectra per channel can be assessed via 
+        `spec[:, 1, :, channel]`.
             
     Notes
     -----
@@ -117,16 +125,16 @@ def wavelet(
     nScales = scales.size
     outShape = (nTime, 1, nScales, nChannels)
     if noCompute:
-        return outShape, spyfreq.spectralDTypes[output_fmt]
+        return outShape, spectralDTypes[output_fmt]
 
     # Compute wavelet transform with given data/time-selection
     spec = cwt(dat[preselect, :], 
                axis=0, 
                wavelet=wav, 
                widths=scales, 
-               dt=1/samplerate).transpose(1, 0, 2)[postselect, :, :]
+               dt=1 / samplerate).transpose(1, 0, 2)[postselect, :, :]
     
-    return spyfreq.spectralConversions[output_fmt](spec[:, np.newaxis, :, :])
+    return spectralConversions[output_fmt](spec[:, np.newaxis, :, :])
 
 
 class WaveletTransform(ComputationalRoutine):
@@ -168,15 +176,18 @@ class WaveletTransform(ComputationalRoutine):
         out.trialdefinition = trl
         out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
-        out.freq = 1 / self.cfg["wav"].fourier_period(self.cfg["scales"][::-1])
+        out.freq = 1 / self.cfg["wav"].fourier_period(self.cfg["scales"])
 
 
-def _get_optimal_wavelet_scales(self, nSamples, dt, dj=0.25, s0=None):
+def get_optimal_wavelet_scales(scale_from_period, nSamples,
+                               dt, dj=0.25, s0=None):
     """
     Local helper to compute an "optimally spaced" set of scales for wavelet analysis 
     
     Parameters
     ----------
+    scale_from_period : func
+        Function to convert periods to Wavelet specific scales.
     nSamples : int
         Sample-count (i.e., length) of time-series that is analyzed
     dt : float
@@ -197,7 +208,8 @@ def _get_optimal_wavelet_scales(self, nSamples, dt, dj=0.25, s0=None):
     Returns
     -------
     scales : 1D :class:`numpy.ndarray`
-        Set of scales to use in the wavelet transform
+        Set of scales to use in the wavelet transform, ordered
+        from high(low) scale(frequency) to low(high) scale(frequency)
 
     Notes
     -----
@@ -216,8 +228,10 @@ def _get_optimal_wavelet_scales(self, nSamples, dt, dj=0.25, s0=None):
     
     # Compute `s0` so that the equivalent Fourier period is approximately ``2 * dt```
     if s0 is None:
-        s0 = self.scale_from_period(2*dt)
+        s0 = scale_from_period(2*dt)
         
     # Largest scale
     J = int((1 / dj) * np.log2(nSamples * dt / s0))
-    return s0 * 2 ** (dj * np.arange(0, J + 1))
+    scales = s0 * 2 ** (dj * np.arange(0, J + 1))
+    # we want the low frequencies first
+    return scales[::-1]

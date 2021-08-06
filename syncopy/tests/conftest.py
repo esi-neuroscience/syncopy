@@ -4,7 +4,10 @@
 #
 
 # Builtin/3rd party package imports
+import os
+import importlib
 import pytest
+import syncopy
 from syncopy import __dask__
 import syncopy.tests.test_packagesetup as setupTestModule
 
@@ -17,8 +20,10 @@ if __dask__:
     from syncopy.acme.acme.dask_helpers import esi_cluster_setup
     from syncopy.tests.misc import is_slurm_node
     if is_slurm_node():
+        os.environ["SPYTMPDIR"] = "/mnt/hpx/home/{}/.spy".format(os.environ["USER"])
+        importlib.reload(syncopy)
         cluster = esi_cluster_setup(partition="DEV", n_jobs=10, mem_per_job="8GB",
-                                    timeout=600, interactive=False,
+                                    timeout=60, interactive=False,
                                     start_client=False)
     else:
         cluster = dd.LocalCluster(n_workers=2)

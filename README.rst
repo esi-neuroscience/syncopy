@@ -46,6 +46,12 @@ To get the latest development version, please clone our GitHub repository:
 
    git clone --recurse-submodules https://github.com/esi-neuroscience/syncopy.git
 
+To also get the latest `ACME <https://github.com/esi-neuroscience/acme>`_ version do inside the newly cloned repository:
+
+.. code-block:: bash
+
+   git pull --recurse-submodules
+
 Getting Started
 ===============
 Please visit our `online documentation <http://syncopy.org>`_.

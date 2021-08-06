@@ -42,7 +42,7 @@ while [ "$1" != "" ]; do
     case "$1" in
         pytest)
             shift
-            export PYTHONPATH=$(cd ../../ && pwd)
+            export PYTHONPATH=$(cd ../../../ && pwd)
             if [ $_useSLURM ]; then
                 srun -p DEV --mem=8000m -c 4 pytest
             else
@@ -52,7 +52,7 @@ while [ "$1" != "" ]; do
         tox)
             shift
             if [ $_useSLURM ]; then
-                srun -p DEV --mem=8000m -c 4 tox
+                srun -p DEV --mem=8000m -c 4 tox -r
             else
                 tox -r
             fi
