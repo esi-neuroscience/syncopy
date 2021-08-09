@@ -71,7 +71,7 @@ def superlet(
     -------
     gmean_spec : :class:`numpy.ndarray`
         Complex time-frequency representation of the input data. 
-        Shape is (len(scales), data_arr.shape[0], data_arr.shape[1]).
+        Shape is (len(scales),) + data_arr.shape
 
     Notes
     -----

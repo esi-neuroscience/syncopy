@@ -23,21 +23,21 @@ import syncopy.specest.superlet as superlet
 # Local imports
 from .mtmfft import MultiTaperFFT
 from .mtmconvol import MultiTaperFFTConvol
-from .wavelet import get_optimal_wavelet_scales, WaveletTransform
+from .wavelet import get_optimal_wavelet_scales
 from .const_def import (
     spectralConversions,
     availableTapers,
     availableWavelets,
     availableMethods
 )
-from .compRoutines import SuperletTransform
+from .compRoutines import SuperletTransform, WaveletTransform
 
 __all__ = ["freqanalysis"]
 
 
-@unwrap_cfg
-@unwrap_select
-@detect_parallel_client
+# @unwrap_cfg
+# @unwrap_select
+# @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, foilim=None, pad=None, padtype='zero',
                  padlength=None, prepadlength=None, postpadlength=None,
@@ -822,6 +822,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         log_dct["wav"] = lcls["wav"]
         log_dct["width"] = lcls["width"]
         log_dct["order"] = lcls["order"]
+        
+        # method specific parameters
+        method_kwargs = {
+            'samplerate' : data.samplerate,
+            'scales' : scales,
+            'wavelet' : wfun
+        }
 
         # Set up compute-class
         specestMethod = WaveletTransform(
@@ -829,13 +836,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             postSelect,
             list(padBegin),
             list(padEnd),
-            samplerate=data.samplerate,
             toi=toi,
-            scales=scales,
             timeAxis=timeAxis,
-            wav=wfun,
             polyremoval=polyremoval,
-            output_fmt=output)
+            output_fmt=output,
+            method_kwargs=method_kwargs)
 
     elif method == "superlet":
 
