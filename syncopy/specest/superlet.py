@@ -115,16 +115,17 @@ def multiplicativeSLT(data_arr,
     # create the complete multiplicative set spanning
     # order_min - order_max
     cycles = c_1 * np.arange(order_min, order_max + 1)
+    order_num = order_max + 1 - order_min # number of different orders
     SL = [MorletSL(c) for c in cycles]
 
     # lowest order
     gmean_spec = cwtSL(data_arr, SL[0], scales, dt)
-    gmean_spec = np.power(gmean_spec, 1 / order_max)
+    gmean_spec = np.power(gmean_spec, 1 / order_num)
 
     for wavelet in SL[1:]:
         
         spec = cwtSL(data_arr, wavelet, scales, dt)
-        gmean_spec *= np.power(spec, 1 / order_max)
+        gmean_spec *= np.power(spec, 1 / order_num)
 
     return gmean_spec
 
@@ -159,7 +160,7 @@ def FASLT(data_arr,
 
     # every scale needs a different exponent
     # for the geometric mean
-    exponents = 1 / orders
+    exponents = 1 / (orders - order_min + 1)
 
     # which frequencies/scales use the same integer orders
     order_jumps = np.where(np.diff(orders_int))[0]
