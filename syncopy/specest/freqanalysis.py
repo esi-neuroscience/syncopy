@@ -209,10 +209,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         tapers.
     toi : float or array-like or "all"
         **Mandatory input** for time-frequency analysis methods (`method` is either
-        `"mtmconvol"` or `"wavelet"`).
+        `"mtmconvol"` or `"wavelet"` or `"superlet"`).
         If `toi` is scalar, it must be a value between 0 and 1 indicating the
         percentage of overlap between time-windows specified by `t_ftimwin` (only
-        valid if `method` is `'mtmconvol'`, invalid for `'wavelet'`).
+        valid if `method` is `'mtmconvol'`).
         If `toi` is an array it explicitly selects the centroids of analysis
         windows (in seconds). If `toi` is `"all"`, analysis windows are centered
         on all samples in the data.
@@ -690,9 +690,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         log_dct["nTaper"] = nTaper
 
         # Check for non-default values of options not supported by chosen method
-        kwdict = {"wav": wav, "width": width}
-        for name, kwarg in kwdict.items():
-            if kwarg is not lcls[name]:
+        # This is hardcoded and has to be checked agains the actual signature!
+        expected = {"wav": ["Morlet", None], "width": [6, None]}
+        for name in expected:
+            if lcls[name] not in expected[name]:
                 msg = "option `{}` has no effect in methods `mtmfft` and `mtmconvol`!"
                 SPYWarning(msg.format(name))
 
@@ -701,14 +702,14 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # there's no taper in these methods
         # Check for non-default values of `taper`, `tapsmofrq`, `keeptapers` and
         # `t_ftimwin` (set to 0 above)
-        kwdict = {"taper": taper, "tapsmofrq": tapsmofrq, "keeptapers": keeptapers}
-        for name, kwarg in kwdict.items():
-            if kwarg is not lcls[name]:
+        expected = {"taper": None,
+                    "tapsmofrq": None,
+                    "keeptapers": False,
+                    "t_ftimwin": None}
+        for name in expected:
+            if lcls[name] != expected[name]:
                 msg = "option `{}` has no effect in method `{}`!"
                 SPYWarning(msg.format(name, method))
-        if t_ftimwin != 0:
-            msg = "option `t_ftimwin` has no effect in method `{}`!"
-            SPYWarning(msg.format(method))
 
     # -------------------------------------------------------
     # Now, prepare explicit compute-classes for chosen method
@@ -717,9 +718,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     if method == "mtmfft":
 
         # Check for non-default values of options not supported by chosen method
-        kwdict = {"t_ftimwin": t_ftimwin, "toi": toi}
-        for name, kwarg in kwdict.items():
-            if kwarg is not lcls[name]:
+        expected = {"t_ftimwin": [None], "toi": [None, "all"]}
+        for name in expected:
+            if lcls[name] not in expected[name]:
                 msg = "option `{}` has no effect in method `mtmfft`!"
                 SPYWarning(msg.format(name))
 
