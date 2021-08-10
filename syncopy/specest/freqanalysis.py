@@ -22,7 +22,7 @@ import syncopy.specest.superlet as superlet
 
 # Local imports
 from .mtmfft import MultiTaperFFT
-from .mtmconvol import MultiTaperFFTConvol
+
 from .wavelet import get_optimal_wavelet_scales
 from .const_def import (
     spectralConversions,
@@ -30,7 +30,11 @@ from .const_def import (
     availableWavelets,
     availableMethods
 )
-from .compRoutines import SuperletTransform, WaveletTransform
+from .compRoutines import (
+    SuperletTransform,
+    WaveletTransform,
+    MultiTaperFFTConvol
+)
 
 __all__ = ["freqanalysis"]
 
@@ -557,7 +561,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 lgl = "windows within trial bounds"
                 act = "windows exceeding trials no. " +\
                     "".join(str(trlno) + ", "\
-                        for trlno in np.array(trialList)[(padBegin + padEnd) > 0])[:-2]
+                            for trlno in np.array(trialList)[(padBegin + padEnd) > 0])[:-2]
                 raise SPYValueError(legal=lgl, varname="pad", actual=act)
 
             # Compute sample-indices (one slice/list per trial) from time-selections
@@ -633,8 +637,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise SPYTypeError(taperopt, varname="taperopt", expected="dictionary")
 
         # Construct array of maximally attainable frequencies
-        nFreq = int(np.floor(minSampleNum / 2) + 1)
-        freqs = np.linspace(0, data.samplerate / 2, nFreq)
+        nFreq = minSampleNum // 2 + 1
+        freqs = np.linspace(1 / minSampleNum, data.samplerate / 2, nFreq)
 
         # Match desired frequencies as close as possible to actually attainable freqs
         if foi is not None:
