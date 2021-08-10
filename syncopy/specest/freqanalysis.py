@@ -701,13 +701,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         # there's no taper in these methods
         # Check for non-default values of `taper`, `tapsmofrq`, `keeptapers` and
-        # `t_ftimwin` (set to 0 above)
-        expected = {"taper": None,
-                    "tapsmofrq": None,
-                    "keeptapers": False,
-                    "t_ftimwin": None}
+        # `t_ftimwin` 
+        expected = {"taper": ["hann", None],
+                    "tapsmofrq": [None],
+                    "keeptapers": [False],
+                    "t_ftimwin": [None]}
         for name in expected:
-            if lcls[name] != expected[name]:
+            if lcls[name] not in expected[name]:
                 msg = "option `{}` has no effect in method `{}`!"
                 SPYWarning(msg.format(name, method))
 
