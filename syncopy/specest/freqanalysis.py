@@ -22,22 +22,26 @@ import syncopy.specest.superlet as superlet
 
 # Local imports
 from .mtmfft import MultiTaperFFT
-from .mtmconvol import MultiTaperFFTConvol
-from .wavelet import get_optimal_wavelet_scales, WaveletTransform
+
+from .wavelet import get_optimal_wavelet_scales
 from .const_def import (
     spectralConversions,
     availableTapers,
     availableWavelets,
     availableMethods
 )
-from .compRoutines import SuperletTransform
+from .compRoutines import (
+    SuperletTransform,
+    WaveletTransform,
+    MultiTaperFFTConvol
+)
 
 __all__ = ["freqanalysis"]
 
 
-@unwrap_cfg
-@unwrap_select
-@detect_parallel_client
+# @unwrap_cfg
+# @unwrap_select
+# @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, foilim=None, pad=None, padtype='zero',
                  padlength=None, prepadlength=None, postpadlength=None,
@@ -205,10 +209,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         tapers.
     toi : float or array-like or "all"
         **Mandatory input** for time-frequency analysis methods (`method` is either
-        `"mtmconvol"` or `"wavelet"`).
+        `"mtmconvol"` or `"wavelet"` or `"superlet"`).
         If `toi` is scalar, it must be a value between 0 and 1 indicating the
         percentage of overlap between time-windows specified by `t_ftimwin` (only
-        valid if `method` is `'mtmconvol'`, invalid for `'wavelet'`).
+        valid if `method` is `'mtmconvol'`).
         If `toi` is an array it explicitly selects the centroids of analysis
         windows (in seconds). If `toi` is `"all"`, analysis windows are centered
         on all samples in the data.
@@ -557,7 +561,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 lgl = "windows within trial bounds"
                 act = "windows exceeding trials no. " +\
                     "".join(str(trlno) + ", "\
-                        for trlno in np.array(trialList)[(padBegin + padEnd) > 0])[:-2]
+                            for trlno in np.array(trialList)[(padBegin + padEnd) > 0])[:-2]
                 raise SPYValueError(legal=lgl, varname="pad", actual=act)
 
             # Compute sample-indices (one slice/list per trial) from time-selections
@@ -633,8 +637,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise SPYTypeError(taperopt, varname="taperopt", expected="dictionary")
 
         # Construct array of maximally attainable frequencies
-        nFreq = int(np.floor(minSampleNum / 2) + 1)
-        freqs = np.linspace(0, data.samplerate / 2, nFreq)
+        nFreq = minSampleNum // 2 + 1
+        freqs = np.linspace(1 / minSampleNum, data.samplerate / 2, nFreq)
 
         # Match desired frequencies as close as possible to actually attainable freqs
         if foi is not None:
@@ -686,9 +690,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         log_dct["nTaper"] = nTaper
 
         # Check for non-default values of options not supported by chosen method
-        kwdict = {"wav": wav, "width": width}
-        for name, kwarg in kwdict.items():
-            if kwarg is not lcls[name]:
+        # This is hardcoded and has to be checked agains the actual signature!
+        expected = {"wav": ["Morlet", None], "width": [6, None]}
+        for name in expected:
+            if lcls[name] not in expected[name]:
                 msg = "option `{}` has no effect in methods `mtmfft` and `mtmconvol`!"
                 SPYWarning(msg.format(name))
 
@@ -696,15 +701,15 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         # there's no taper in these methods
         # Check for non-default values of `taper`, `tapsmofrq`, `keeptapers` and
-        # `t_ftimwin` (set to 0 above)
-        kwdict = {"taper": taper, "tapsmofrq": tapsmofrq, "keeptapers": keeptapers}
-        for name, kwarg in kwdict.items():
-            if kwarg is not lcls[name]:
+        # `t_ftimwin` 
+        expected = {"taper": ["hann", None],
+                    "tapsmofrq": [None],
+                    "keeptapers": [False],
+                    "t_ftimwin": [None]}
+        for name in expected:
+            if lcls[name] not in expected[name]:
                 msg = "option `{}` has no effect in method `{}`!"
                 SPYWarning(msg.format(name, method))
-        if t_ftimwin != 0:
-            msg = "option `t_ftimwin` has no effect in method `{}`!"
-            SPYWarning(msg.format(method))
 
     # -------------------------------------------------------
     # Now, prepare explicit compute-classes for chosen method
@@ -713,9 +718,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     if method == "mtmfft":
 
         # Check for non-default values of options not supported by chosen method
-        kwdict = {"t_ftimwin": t_ftimwin, "toi": toi}
-        for name, kwarg in kwdict.items():
-            if kwarg is not lcls[name]:
+        expected = {"t_ftimwin": [None], "toi": [None, "all"]}
+        for name in expected:
+            if lcls[name] not in expected[name]:
                 msg = "option `{}` has no effect in method `mtmfft`!"
                 SPYWarning(msg.format(name))
 
@@ -822,6 +827,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         log_dct["wav"] = lcls["wav"]
         log_dct["width"] = lcls["width"]
         log_dct["order"] = lcls["order"]
+        
+        # method specific parameters
+        method_kwargs = {
+            'samplerate' : data.samplerate,
+            'scales' : scales,
+            'wavelet' : wfun
+        }
 
         # Set up compute-class
         specestMethod = WaveletTransform(
@@ -829,13 +841,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             postSelect,
             list(padBegin),
             list(padEnd),
-            samplerate=data.samplerate,
             toi=toi,
-            scales=scales,
             timeAxis=timeAxis,
-            wav=wfun,
             polyremoval=polyremoval,
-            output_fmt=output)
+            output_fmt=output,
+            method_kwargs=method_kwargs)
 
     elif method == "superlet":
 
