@@ -48,7 +48,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                  padlength=None, prepadlength=None, postpadlength=None,
                  polyremoval=None,
                  taper="hann", tapsmofrq=None, keeptapers=False,
-                 toi=None, t_ftimwin=None, wav="Morlet", width=6, order=None,
+                 toi="all", t_ftimwin=None, wav="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
                  out=None, **kwargs):
     """
@@ -454,7 +454,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                "padlength": lcls["padlength"],
                "foi": lcls["foi"]}
 
-    # 1st: Check time-frequency inputs to prepare/sanitize `toi`
+    # --------------------------------
+    # 1st: Check time-frequency inputs
+    # to prepare/sanitize `toi` 
+    # --------------------------------
+    
     if method in ["mtmconvol", "wavelet", "superlet"]:
 
         # Get start/end timing info respecting potential in-place selection
@@ -466,25 +470,72 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             tStart = data._t0 / data.samplerate
         tEnd = tStart + lenTrials / data.samplerate
 
-        # Process `toi`: we have to account for three scenarios: (1) center sliding
-        # windows on all samples in (selected) trials (2) `toi` was provided as
-        # percentage indicating the degree of overlap b/w time-windows and (3) a set
-        # of discrete time points was provided. These three cases are encoded in
-        # `overlap, i.e., ``overlap > 1` => all, `0 < overlap < 1` => percentage,
-        # `overlap < 0` => discrete `toi`
+    # for these methods only 'all' or an equidistant array
+    # of time points (sub-sampling, trimming) are valid
+    if method in ["wavelet", "superlet"]:
+
+        valid = True
+        if isinstance(toi, Number):
+            valid = False
+
+        elif isinstance(toi, str):
+            if toi != "all":
+                valid = False
+            else:
+                # take everything
+                preSelect = [slice(None)] * numTrials
+                postSelect = [slice(None)] * numTrials
+                                
+        elif not iter(toi):
+            valid = False
+
+        # this is the sequence type            
+        else:
+            toi = np.array(toi)
+            # catch non-numeric sequence
+            if not np.issubdtype(toi.dtype, np.number):
+                valid = False
+            # check for equidistancy
+            elif not np.allclose(np.diff(toi, 2), np.zeros(len(toi) - 2)):
+                valid = False
+            # trim (preSelect) and subsample output (postSelect)
+            else:
+                preSelect = []
+                postSelect = []                
+                # get sample intervals from toi
+                for tk in range(numTrials):
+                    start = int(data.samplerate * (toi[0] - tStart[tk]))
+                    stop = int(data.samplerate * (toi[-1] - tStart[tk]) + 1)
+                    preSelect.append(slice(max(0, start), max(stop, stop - start)))
+                    smpIdx = np.minimum(lenTrials[tk] - 1,
+                                        data.samplerate * (toi - tStart[tk]) - start)
+                    postSelect.append(smpIdx.astype(np.intp))
+                    
+
+        # get out if sth wasn't right
+        if not valid:
+            lgl = "array of equidistant time-points or 'all' for wavelet based methods"
+            raise SPYValueError(legal=lgl, varname="toi", actual=toi)
+
+        print("New", preSelect, '\n', postSelect)
+        
+    # Process `toi`: we have to account for three scenarios: (1) center sliding
+    # windows on all samples in (selected) trials (2) `toi` was provided as
+    # percentage indicating the degree of overlap b/w time-windows and (3) a set
+    # of discrete time points was provided. These three cases are encoded in
+    # `overlap, i.e., ``overlap > 1` => all, `0 < overlap < 1` => percentage,
+    # `overlap < 0` => discrete `toi`
+
+    if method in ["mtmconvol", "wavelet"]:
+
+        # overlap = None
         if isinstance(toi, str):
             if toi != "all":
                 lgl = "`toi = 'all'` to center analysis windows on all time-points"
                 raise SPYValueError(legal=lgl, varname="toi", actual=toi)
-            overlap = 1.1
-            toi = None
             equidistant = True
+            
         elif isinstance(toi, Number):
-            if method in ["wavelet", "superlet"]:
-                # this is not correct.. or it's simply sub-sampling?!
-                lgl = "array of equidistant time-points"
-                act = "scalar value"
-                raise SPYValueError(legal=lgl, varname="toi", actual=act)
             try:
                 scalar_parser(toi, varname="toi", lims=[0, 1])
             except Exception as exc:
@@ -591,36 +642,32 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # For wavelets/superlets, we need to first trim the data
         # (via `preSelect`), then
         # extract the wanted time-points (`postSelect`)
-        if method in ["wavelet", "superlet"]:
+        # if method in ["wavelet", "superlet"]:
 
-            # Simply recycle the indexing work done
-            # for `mtmconvol` (i.e., `soi`) won't work
-            # here as these estimation methods require equidstancy (atm)
-            preSelect = []
-            if not equidistant:
-                lgl = "toi needs to be an equidistant " \
-                    "set of time points for wavelet-based methods"
-                act = "not an equidistant sequence"
-                raise SPYValueError(legal=lgl, varname="toi", actual=act)
+        #     # Simply recycle the indexing work done
+        #     # for `mtmconvol` (i.e., `soi`) won't work
+        #     # here as these estimation methods require equidstancy (atm)
+        #     if not equidistant:
+        #         lgl = "toi needs to be an equidistant " \
+        #             "set of time points for wavelet-based methods"
+        #         act = "not an equidistant sequence"
+        #         raise SPYValueError(legal=lgl, varname="toi", actual=act)
 
-            else:
-                preSelect = soi
+        #     preSelect = soi
 
-            # If `toi` is an array, convert "global" indices to "local" ones
-            # (select within `preSelect`'s selection), otherwise just take all
-            if overlap < 0:
-                postSelect = []
-                for tk in range(numTrials):
-                    smpIdx = np.minimum(lenTrials[tk] - 1,
-                                        data.samplerate * (toi - tStart[tk]) - offStart[tk] + padBegin[tk])
-                    postSelect.append(smpIdx.astype(np.intp))
-            else:
-                postSelect = [slice(None)] * numTrials
-
+        #     # If `toi` is an array, convert "global" indices to "local" ones
+        #     # (select within `preSelect`'s selection), otherwise just take all
+        #     if overlap < 0:
+        #         postSelect = []
+        #         for tk in range(numTrials):
+        #             smpIdx = np.minimum(lenTrials[tk] - 1,
+        #                                 data.samplerate * (toi - tStart[tk]) - offStart[tk] + padBegin[tk])
+        #             postSelect.append(smpIdx.astype(np.intp))
+        #     else:
+        #         postSelect = [slice(None)] * numTrials
+        #     print(preSelect, '\n', postSelect, offStart[0])
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
-        if toi is None:
-            toi = "all"
         log_dct["toi"] = lcls["toi"]
 
     # Check options specific to mtm*-methods (particularly tapers and foi/freqs alignment)
