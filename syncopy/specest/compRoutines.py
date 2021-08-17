@@ -274,8 +274,8 @@ def wavelet_cf(
     trl_dat,
     preselect,
     postselect,
-    padbegin,
-    padend,
+    # padbegin, # were always 0!
+    # padend,
     toi=None,
     timeAxis=0,
     polyremoval=None,
@@ -370,16 +370,15 @@ leWavelets`
         dat = trl_dat
 
     # Pad input array if wanted/necessary
-    if padbegin > 0 or padend > 0:
-        dat = padding(
-            dat,
-            "zero",
-            pad="relative",
-            padlength=None,
-            prepadlength=padbegin,
-            postpadlength=padend,
-        )
-
+    # if padbegin > 0 or padend > 0:
+    #     dat = padding(
+    #         dat,
+    #         "zero",
+    #         pad="relative",
+    #         padlength=None,
+    #         prepadlength=padbegin,
+    #         postpadlength=padend,
+    #     )
 
     # Get shape of output for dry-run phase
     nChannels = dat.shape[1]
@@ -457,8 +456,8 @@ def superlet_cF(
     trl_dat,
     preselect,
     postselect,
-    padbegin,
-    padend,
+    # padbegin, # were always 0!
+    # padend,
     toi=None,
     timeAxis=0,
     output_fmt="pow",
@@ -536,16 +535,16 @@ def superlet_cF(
     else:
         dat = trl_dat
 
-    # Pad input array if wanted/necessary
-    if padbegin > 0 or padend > 0:
-        dat = padding(
-            dat,
-            "zero",
-            pad="relative",
-            padlength=None,
-            prepadlength=padbegin,
-            postpadlength=padend,
-        )
+    # # Pad input array if wanted/necessary
+    # if padbegin > 0 or padend > 0:
+    #     dat = padding(
+    #         dat,
+    #         "zero",
+    #         pad="relative",
+    #         padlength=None,
+    #         prepadlength=padbegin,
+    #         postpadlength=padend,
+    #     )
 
     # Get shape of output for dry-run phase
     nChannels = trl_dat.shape[1]

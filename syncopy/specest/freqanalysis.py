@@ -517,8 +517,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             lgl = "array of equidistant time-points or 'all' for wavelet based methods"
             raise SPYValueError(legal=lgl, varname="toi", actual=toi)
 
-        print("New", preSelect, '\n', postSelect)
-        
     # Process `toi`: we have to account for three scenarios: (1) center sliding
     # windows on all samples in (selected) trials (2) `toi` was provided as
     # percentage indicating the degree of overlap b/w time-windows and (3) a set
@@ -526,7 +524,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # `overlap, i.e., ``overlap > 1` => all, `0 < overlap < 1` => percentage,
     # `overlap < 0` => discrete `toi`
 
-    if method in ["mtmconvol", "wavelet"]:
+    if method == "mtmconvol":
 
         # overlap = None
         if isinstance(toi, str):
@@ -751,12 +749,18 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         # there's no taper in these methods
         # Check for non-default values of `taper`, `tapsmofrq`, `keeptapers` and
-        # `t_ftimwin` yet still allow `None` 
+        # `t_ftimwin` yet still allow `None`
+        # and padding probably not meaningful, wasn't working in any case
         expected = {"taper": [None],
                     "tapsmofrq": [None],
                     "keeptapers": [None],
-                    "t_ftimwin": [None]}
-        
+                    "t_ftimwin": [None],
+                    "pad": [None],
+                    "padlength" : [None],
+                    "prepadlength" : [None],
+                    "postpadlength" : [None]
+                    }
+                            
         for name in expected:
             if defaults[name] is not None:
                 expected[name].append(defaults[name]) # add non-None defaults
@@ -892,8 +896,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         specestMethod = WaveletTransform(
             preSelect,
             postSelect,
-            list(padBegin),
-            list(padEnd),
+            # list(padBegin),
+            # list(padEnd),
             toi=toi,
             timeAxis=timeAxis,
             polyremoval=polyremoval,
@@ -967,8 +971,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         specestMethod = SuperletTransform(
             preSelect,
             postSelect,
-            list(padBegin),
-            list(padEnd),
+            # list(padBegin),
+            # list(padEnd),
             toi=toi,
             timeAxis=timeAxis,
             output_fmt=output,
