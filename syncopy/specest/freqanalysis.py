@@ -17,13 +17,14 @@ from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.tools import best_match
+
+# method specific imports
 import syncopy.specest.wavelets as spywave
 import syncopy.specest.superlet as superlet
+from .mtmfft import MultiTaperFFT # temporary
+from .wavelet import get_optimal_wavelet_scales
 
 # Local imports
-from .mtmfft import MultiTaperFFT
-
-from .wavelet import get_optimal_wavelet_scales
 from .const_def import (
     spectralConversions,
     availableTapers,
@@ -308,7 +309,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     timeAxis = data.dimord.index("time")
 
     # Get everything of interest in local namespace
-    defaults = get_defaults(freqanalysis)
+    defaults = get_defaults(freqanalysis) 
     lcls = locals()
 
     # Ensure a valid computational method was selected
@@ -527,7 +528,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # for `mtmconvol`, but we use padding calc below for `wavelet` as well
         if method == "mtmconvol":
             try:
-                scalar_parser(t_ftimwin, varname="t_ftimwin", lims=[1/data.samplerate, minTrialLength])
+                scalar_parser(t_ftimwin, varname="t_ftimwin", lims=[1 / data.samplerate, minTrialLength])
             except Exception as exc:
                 raise exc
         else:
@@ -690,9 +691,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         log_dct["nTaper"] = nTaper
 
         # Check for non-default values of options not supported by chosen method
-        # This is hardcoded and has to be checked agains the actual signature!
-        expected = {"wav": ["Morlet", None], "width": [6, None]}
+        # yet still allow `None` 
+        expected = {"wav": [None], "width": [None]}
         for name in expected:
+            if defaults[name] is not None:
+                expected[name].append(defaults[name]) 
             if lcls[name] not in expected[name]:
                 msg = "option `{}` has no effect in methods `mtmfft` and `mtmconvol`!"
                 SPYWarning(msg.format(name))
@@ -701,12 +704,15 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         # there's no taper in these methods
         # Check for non-default values of `taper`, `tapsmofrq`, `keeptapers` and
-        # `t_ftimwin` 
-        expected = {"taper": ["hann", None],
+        # `t_ftimwin` yet still allow `None` 
+        expected = {"taper": [None],
                     "tapsmofrq": [None],
-                    "keeptapers": [False],
+                    "keeptapers": [None],
                     "t_ftimwin": [None]}
+        
         for name in expected:
+            if defaults[name] is not None:
+                expected[name].append(defaults[name]) # add non-None defaults
             if lcls[name] not in expected[name]:
                 msg = "option `{}` has no effect in method `{}`!"
                 SPYWarning(msg.format(name, method))

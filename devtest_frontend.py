@@ -5,6 +5,8 @@ import matplotlib.pyplot as ppl
 from scipy import signal
 from syncopy.specest import freqanalysis
 from syncopy.tests.misc import generate_artificial_data
+from syncopy.shared.tools import get_defaults
+
 
 tdat = generate_artificial_data()
 
@@ -15,21 +17,22 @@ toi_ival = 'all'
 # foi = np.logspace(-1, 2.6, 50)
 foi = np.linspace(0.1, 45, 50)
 
-r_mtm = freqanalysis(tdat, method="mtmfft",
+r_mtm = freqanalysis(tdat, method="mtmconvol",
                      toi=toi_ival,
-                     t_ftimwin=10.5,
                      output='abs',
                      taper='dpss',
-                     tapsmofrq=10,
-#                     foi=foi
+                     tapsmofrq=None,
+                     t_ftimwin=1,
+                     wav=None,
+                     foi=foi
 )
 #, foilim=[5, 500])
 
 # test classical wavelet analysis
-# r_wav = freqanalysis(tdat, method="wavelet",
-#                      toi=toi_ival,
-#                      output='abs',
-#                      foi=foi) #, foilim=[5, 500])
+r_wav = freqanalysis(tdat, method="wavelet",
+                     toi=toi_ival,
+                     output='abs',
+                     foi=foi) #, foilim=[5, 500])
 
 # # test superlet analysis
 # r_sup = freqanalysis(tdat, method="superlet", toi=toi_ival,
