@@ -1,22 +1,28 @@
 # -*- coding: utf-8 -*-
 #
 # Definition of the respective ComputationalRoutines
-# for the `freqanalysis` frontend. The *_cF function
+# for the `freqanalysis` frontend. The *method*_cF function
 # definitions serve as middleware connecting the pure
 # backend methods to the ComputationalRoutines. The
 # 1st argument always is the data, and the last argument
 # `method_kwargs` gets passed as is to the underlying
 # backend, so that the following calling signature
-# is valid for all backend methods: backend_method(data, **method_kwargs)
+# is valid for all backend methods: method(data, **method_kwargs)
+# 
+# To transparently trace the respective parameter names
+# all ComputationalRoutines have two additional class constants:
 #
+# method_keys : list of names of the backend method parameters
+# cF_keys : list of names of the parameters of the middleware computeFunctions
 
 
 # Builtin/3rd party package imports
+from inspect import signature
 import numpy as np
 from numbers import Number
 from scipy import signal
 
-# backend imports
+# backend method imports
 from .superlet import superlet
 from .wavelet import wavelet
 
@@ -417,6 +423,13 @@ class WaveletTransform(ComputationalRoutine):
 
     computeFunction = staticmethod(wavelet_cF)
 
+    # bind all possible parameter names for the backend method
+    # 1st argument is the data - omitted
+    method_keys = list(signature(wavelet).parameters.keys())[1:]
+    # bind all possible (non-backend method) computeFunction parameters
+    # last argument are the method_kwars (with the method_keys from above)
+    cf_keys = list(signature(wavelet_cF).parameters.keys())[1:-1] 
+    
     def process_metadata(self, data, out):
 
         # Get trialdef array + channels from source
