@@ -365,8 +365,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     # Ensure padding selection makes sense: do not pad on a by-trial basis but
     # use the longest trial as reference and compute `padlength` from there
-    # (only relevant for "global" padding options such as `maxlen` or `nextpow2`)
-    # for mtmfft method
+    # (only relevant for "global" padding options such as `maxlen` or
+    # `nextpow2`)for mtmfft method
     if method == 'mtmfft':
         if pad:
             if not isinstance(pad, str):
@@ -478,9 +478,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         tEnd = tStart + lenTrials / data.samplerate
 
     elif method == 'mtmfft':
-
         # avoid elementwise array comparison if toi is ndarray
-        if toi is not None or type(toi) == np.ndarray or toi != "all":
+        if toi is not None and toi != "all":
             msg = f"option `toi` has no effect in method `{method}`!"
             SPYWarning(msg)
 
@@ -674,10 +673,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # provided keyword values, not defaults set in here)
         log_dct["toi"] = lcls["toi"]
 
-        # explicit user controlled padding probably not
+        # explicit user controlled padding not
         # supported for mtmconvol
-        expected = {"pad": [None],
-                    "padlength" : [None],
+        expected = {"padlength" : [None],
                     "prepadlength" : [None],
                     "postpadlength" : [None],
                     "padtype" : [None]

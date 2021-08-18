@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # Definition of the respective ComputationalRoutines
-# for the `freqanalysis` frontend. The *_cf function
+# for the `freqanalysis` frontend. The *_cF function
 # definitions serve as middleware connecting the pure
 # backend methods to the ComputationalRoutines. The
 # 1st argument always is the data, and the last argument
@@ -270,7 +270,7 @@ class MultiTaperFFTConvol(ComputationalRoutine):
 
 
 @unwrap_io
-def wavelet_cf(
+def wavelet_cF(
     trl_dat,
     preselect,
     postselect,
@@ -415,7 +415,7 @@ class WaveletTransform(ComputationalRoutine):
     syncopy.freqanalysis : parent metafunction
     """
 
-    computeFunction = staticmethod(wavelet_cf)
+    computeFunction = staticmethod(wavelet_cF)
 
     def process_metadata(self, data, out):
 
@@ -581,6 +581,7 @@ class SuperletTransform(ComputationalRoutine):
     """
 
     computeFunction = staticmethod(superlet_cF)
+    
 
     def process_metadata(self, data, out):
 
