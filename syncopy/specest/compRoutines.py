@@ -14,7 +14,9 @@
 #
 # method_keys : list of names of the backend method parameters
 # cF_keys : list of names of the parameters of the middleware computeFunctions
-
+#
+# the backend method name als gets explictly attached as a class constant:
+# method: backend method name
 
 # Builtin/3rd party package imports
 from inspect import signature
@@ -423,12 +425,11 @@ class WaveletTransform(ComputationalRoutine):
 
     computeFunction = staticmethod(wavelet_cF)
 
-    # bind all possible parameter names for the backend method
-    # 1st argument is the data - omitted
+    method = "wavelet"
+    # 1st argument,the data, gets omitted
     method_keys = list(signature(wavelet).parameters.keys())[1:]
-    # bind all possible (non-backend method) computeFunction parameters
-    # last argument are the method_kwars (with the method_keys from above)
-    cf_keys = list(signature(wavelet_cF).parameters.keys())[1:-1] 
+    # here also last argument, the method_kwargs, are omitted 
+    cF_keys = list(signature(wavelet_cF).parameters.keys())[1:-1] 
     
     def process_metadata(self, data, out):
 
@@ -594,7 +595,13 @@ class SuperletTransform(ComputationalRoutine):
     """
 
     computeFunction = staticmethod(superlet_cF)
-    
+
+    method = "superlet"
+    # 1st argument,the data, gets omitted
+    method_keys = list(signature(superlet).parameters.keys())[1:]
+    # here also last argument, the method_kwargs, are omitted 
+    cF_keys = list(signature(superlet_cF).parameters.keys())[1:-1]
+
 
     def process_metadata(self, data, out):
 

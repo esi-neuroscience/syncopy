@@ -28,3 +28,6 @@ availableWavelets = ("Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat")
 #: available spectral estimation methods of :func:`~syncopy.freqanalysis`
 availableMethods = ("mtmfft", "mtmconvol", "wavelet", "superlet")
 
+#: general, method agnostic, parameters of :func:`~syncopy.freqanalysis`
+generalParameters = ("method", "output", "keeptrials",
+                     "foi", "foilim", "polyremoval", "out")

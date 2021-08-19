@@ -8,6 +8,13 @@ from syncopy.shared.tools import get_defaults
 from syncopy.specest import freqanalysis
 from syncopy.tests.misc import generate_artificial_data
 
+from syncopy.specest.compRoutines import (
+    SuperletTransform,
+    WaveletTransform,
+    MultiTaperFFTConvol
+)
+
+
 tdat = generate_artificial_data()
 
 toi_ival = np.linspace(-0.5, 1, 100)
@@ -54,13 +61,17 @@ r_wav = freqanalysis(
     toi=toi_ival,
     output='abs',
     foi=foi,
+    pad=True,
+    padtype='sth',
+    adaptive=True
 ) # , foilim=[5, 500])
 
 # # test superlet analysis
-# r_sup = freqanalysis(tdat, method="superlet", toi=toi_ival,
-#                      order_max=30, output='abs',
-#                      order_min=1,
-#                      c_1 = 3,
-#                      foi=foi,
-#                      adaptive=True)
+r_sup = freqanalysis(tdat, method="superlet", toi=toi_ival,
+                     order_max=30, output='abs',
+                     order_min=1,
+                     c_1 = 3,
+                     foi=foi,
+                     adaptive=True,
+                     wav="Paul")
 

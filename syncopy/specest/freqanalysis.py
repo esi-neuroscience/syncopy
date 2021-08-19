@@ -29,8 +29,10 @@ from .const_def import (
     spectralConversions,
     availableTapers,
     availableWavelets,
-    availableMethods
+    availableMethods,
+    generalParameters
 )
+
 from .compRoutines import (
     SuperletTransform,
     WaveletTransform,
@@ -530,27 +532,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             lgl = "array of equidistant time-points or 'all' for wavelet based methods"
             raise SPYValueError(legal=lgl, varname="toi", actual=toi)
 
-        # there's no taper in these methods
-        # Check for non-default values of `taper`, `tapsmofrq`, `keeptapers` and
-        # `t_ftimwin` yet still allow `None`
-        # explicit manual padding not supported atm
-        expected = {"taper": [None],
-                    "tapsmofrq": [None],
-                    "keeptapers": [None],
-                    "t_ftimwin": [None],
-                    "padlength" : [None],
-                    "prepadlength" : [None],
-                    "postpadlength" : [None],
-                    "padtype" : [None]
-                    }
-                            
-        for name in expected:
-            if defaults[name] is not None:
-                expected[name].append(defaults[name]) # add non-None defaults
-            if lcls[name] not in expected[name]:
-                msg = "option `{}` has no effect in method `{}`!"
-                SPYWarning(msg.format(name, method))
-        
     # Process `toi` for sliding window multi taper fft,
     # we have to account for three scenarios: (1) center sliding
     # windows on all samples in (selected) trials (2) `toi` was provided as
@@ -823,6 +804,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     elif method == "wavelet":
 
+        _check_effective_parameters(WaveletTransform, defaults, lcls)
+        
         # Check wavelet selection
         if wav not in availableWavelets:
             lgl = "'" + "or '".join(opt + "' " for opt in availableWavelets)
@@ -903,7 +886,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             method_kwargs=method_kwargs)
 
     elif method == "superlet":
-
+        
+        _check_effective_parameters(SuperletTransform, defaults, lcls)
+        
         # check and parse superlet specific arguments
         if order_max is None:
             lgl = "Positive integer needed for order_max"
@@ -1002,3 +987,22 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # Either return newly created output object or simply quit
     return out if new_out else None
 
+
+def _check_effective_parameters(CR, defaults, lcls):
+
+    '''
+    For a given ComputationalRoutine, compare set parameters
+    (*lcls*) with the accepted parameters and the *defaults*
+    to warn if any ineffective parameters are set.
+    
+    #FIXME: If general structure of this function proofs 
+    useful for all CRs/syncopy in general,
+    probably best to move this to syncopy.shared.tools
+    '''
+    # list of possible parameter names of the CR
+    expected = CR.method_keys + CR.cF_keys
+    relevant = [name for name in defaults if name not in generalParameters]
+    for name in relevant:                
+        if name not in expected and (lcls[name] != defaults[name]):  
+            msg = f"option `{name}` has no effect in method `{CR.method}`!"
+            SPYWarning(msg)
