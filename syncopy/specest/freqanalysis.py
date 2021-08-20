@@ -12,7 +12,7 @@ from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.tools import get_defaults
 from syncopy.datatype import SpectralData, padding
 from syncopy.datatype.methods.padding import _nextpow2
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.tools import best_match
@@ -435,7 +435,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             # foilim is of shape (2,)
             if foilim[0] > foilim[1]:
                 msg = "Sorting foilim low to high.."
-                SPYWarning(msg)
+                SPYInfo(msg)
                 foilim = np.sort(foilim)
             
     if foi is not None and foilim is not None:
@@ -694,7 +694,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 foimax = foi.max()
                 tapsmofrq = (foimax * 2**(3/4/2) - foimax * 2**(-3/4/2)) / 2
                 msg = f'Automatic setting of `tapsmofreq` to {tapsmofrq:.2f}'
-                SPYWarning(msg)
+                SPYInfo(msg)
                 
             else:
                 try:
@@ -706,7 +706,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             if not nTaper:
                 nTaper = int(max(2, min(50, np.floor(tapsmofrq * minSampleNum * 1 / data.samplerate))))
                 msg = f'Automatic setting of `nTaper` to {nTaper}'
-                SPYWarning(msg)
+                SPYInfo(msg)
 
 
         # Warn the user in case `tapsmofrq` has no effect
