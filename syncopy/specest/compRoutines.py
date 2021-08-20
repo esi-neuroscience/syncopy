@@ -47,7 +47,7 @@ from syncopy.specest.const_def import (
 
 @unwrap_io
 def mtmfft_cF(trl_dat, samplerate=None, foi=None, timeAxis=0,
-              taper="hann", tapsmofrq=None, nTaper=None, 
+              taper="hann", tapsmofrq=None, nTaper=1, 
               pad="nextpow2", padtype="zero", padlength=None,
               keeptapers=True, polyremoval=None, output_fmt="pow",
               noCompute=False, chunkShape=None):
@@ -65,16 +65,16 @@ def mtmfft_cF(trl_dat, samplerate=None, foi=None, timeAxis=0,
         Frequencies of interest  (Hz) for output. If desired frequencies
         cannot be matched exactly the closest possible frequencies (respecting 
         data length and padding) are used.
+    tapsmofrq : float
+        The amount of spectral smoothing through  multi-tapering (Hz) for Slepian
+        tapers (`taper`="dpss").
     nTaper : int
-        Number of filter windows to use
+        Number of filter windows to use for Slepian
+        tapers (`taper`="dpss").
     timeAxis : int
         Index of running time axis in `trl_dat` (0 or 1)
-    taper : callable 
-        Taper function to use, one of :data:`~syncopy.specest.freqanalysis.availableTapers`
-    taperopt : dict
-        Additional keyword arguments passed to the `taper` function. For further 
-        details, please refer to the 
-        `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
+    taper : str
+        Taper to use, one of :data:`~syncopy.specest.freqanalysis.availableTapers`
     pad : str
         Padding mode; one of `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
         See :func:`syncopy.padding` for more information.
@@ -85,9 +85,6 @@ def mtmfft_cF(trl_dat, samplerate=None, foi=None, timeAxis=0,
     padlength : None, bool or positive scalar
         Number of samples to pad to data (if `pad` is 'absolute' or 'relative'). 
         See :func:`syncopy.padding` for more information.
-    keeptapers : bool
-        If `True`, results of Fourier transform are preserved for each taper, 
-        otherwise spectrum is averaged across tapers. 
     polyremoval : int or None
         **FIXME: Not implemented yet**
         Order of polynomial used for de-trending data in the time domain prior 
@@ -105,6 +102,9 @@ def mtmfft_cF(trl_dat, samplerate=None, foi=None, timeAxis=0,
     chunkShape : None or tuple
         If not `None`, represents shape of output `spec` (respecting provided 
         values of `nTaper`, `keeptapers` etc.)
+    method_kwargs : dict
+        Keyword arguments passed to :func:`~syncopy.specest.mtmfft.mtmfft`
+        controlling the spectral estimation method
         
     Returns
     -------
@@ -135,10 +135,6 @@ def mtmfft_cF(trl_dat, samplerate=None, foi=None, timeAxis=0,
     # only taper with supported options
     if taper == 'dpss':
         taperopt = {"NW" : tapsmofrq, "Kmax" : nTaper}
-    else:
-        taperopt = {}
-
-    taper_func = getattr(signal.windows,  taper)
         
     # needed only for out shape computation
     if not nTaper:
@@ -150,35 +146,30 @@ def mtmfft_cF(trl_dat, samplerate=None, foi=None, timeAxis=0,
     else:
         dat = trl_dat
 
-    # Padding (updates no. of samples)
+    # Symmetric Padding (updates no. of samples)
     if pad:
-        dat = padding(dat, padtype, pad=pad, padlength=padlength, prepadlength=True)
-    nSamples = dat.shape[0]
+        dat = padding(dat, padtype, pad=pad, padlength=padlength)
+    nSamples = dat.shape[0]        
     nChannels = dat.shape[1]
 
     # Determine frequency band and shape of output (time=1 x taper x freq x channel)
     nFreq = int(np.floor(nSamples / 2) + 1)
     freqs = np.linspace(0, samplerate / 2, nFreq)
-    _, fidx = best_match(freqs, foi, squash_duplicates=True)
-    nFreq = fidx.size
+    _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
+    nFreq = freq_idx.size
     outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
     
     # For initialization of computational routine, just return output shape and dtype
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
 
-    # In case tapers aren't preserved allocate `spec` "too big" and average afterwards
-    spec = np.full((1, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
-    fill_idx = tuple([slice(None, dim) for dim in outShape[2:]])
-
-    # Actual computation
-    win = np.atleast_2d(taper_func(nSamples, **taperopt))
-    for taperIdx, taper in enumerate(win):
-        if dat.ndim > 1:
-            taper = np.tile(taper, (nChannels, 1)).T
-        spec[(0, taperIdx,) + fill_idx] = spectralConversions[output_fmt](np.fft.rfft(dat * taper, axis=0)[fidx, :])
+    # call actual specest method
+    res = mtmfft(dat, taper, taperopt)[:, freq_idx, :]
+    # attach time-axis and convert to output_fmt
+    spec = spectralConversions[output_fmt](res)[np.newaxis, :]    
 
     # Average across tapers if wanted
+    # averaging is only correct if output_fmt != 'fourier' !
     if not keeptapers:
         return spec.mean(axis=1, keepdims=True)
     return spec
@@ -535,7 +526,7 @@ leWavelets`
         If not `None`, represents shape of output object `spec` (respecting provided 
         values of `scales`, `preselect`, `postselect` etc.)
     method_kwargs : dict
-        Keyword arguments passed to :func:`~syncopy.specest.wavelet.wavelet
+        Keyword arguments passed to :func:`~syncopy.specest.wavelet.wavelet`
         controlling the spectral estimation method
     
     Returns

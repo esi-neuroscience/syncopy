@@ -371,20 +371,21 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # (only relevant for "global" padding options such as `maxlen` or
     # `nextpow2`)for mtmfft method
     if method == 'mtmfft':
+        # pad was None or True or a string...
         if pad:
             if not isinstance(pad, str):
-                raise SPYTypeError(pad, varname="pad", expected="str or None")
+                raise SPYTypeError(pad, varname="pad", expected="str or None")            
             if pad == "maxlen": # FIXME: this is not working, bug in padding()?!
+                if padlength:
+                    msg = f'option `padlength` has no effect for pad set to {pad}'
                 padlength = lenTrials.max()
-                prepadlength = True
-                postpadlength = False
             elif pad == "nextpow2":
+                if padlength:
+                    msg = f'option `padlength` has no effect for pad set to {pad}'       
                 padlength = 0
                 for ltrl in lenTrials:
                     padlength = max(padlength, _nextpow2(ltrl))
                 pad = "absolute"
-                prepadlength = True
-                postpadlength = False
             padding(data._preview_trial(trialList[0]), padtype, pad=pad, padlength=padlength,
                     prepadlength=prepadlength, postpadlength=postpadlength)
 
@@ -397,6 +398,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             lgl = "trials of approximately equal length for method 'mtmfft' or set pad to True"
             act = "trials of unequal length"
             raise SPYValueError(legal=lgl, varname="data", actual=act)
+        else:
+            minSampleNum = int(lenTrials.min())
+            
     # no manual padding for other methods atm
     else:
         minSampleNum = lenTrials.min()
@@ -671,6 +675,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         elif foilim is not None:
             foi, _ = best_match(freqs, foilim, span=True, squash_duplicates=True)
         else:
+            msg = (f"Automatic FFT frequency selection from {freqs[0]:.1f}Hz to " 
+                   f"{freqs[-1]:.1f}Hz")
+            SPYInfo(msg)
             foi = freqs
 
         # Abort if desired frequency selection is empty
@@ -683,6 +690,16 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         if taper not in availableTapers:
             lgl = "'" + "or '".join(opt + "' " for opt in availableTapers)
             raise SPYValueError(legal=lgl, varname="taper", actual=taper)
+
+        # Warn the user in case `tapsmofrq` has no effect
+        if tapsmofrq is not None and taper != "dpss":
+            msg = "`tapsmofrq` is only used if `taper` is `dpss`!"
+            SPYWarning(msg)
+
+        # Warn the user in case `nTaper` has no effect
+        if nTaper is not None and taper != "dpss":
+            msg = "`nTaper` is only used if `taper` is `dpss`!"
+            SPYWarning(msg)            
         
         # Set/get `tapsmofrq` if we're working w/Slepian tapers
         if taper == "dpss":
@@ -707,18 +724,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 nTaper = int(max(2, min(50, np.floor(tapsmofrq * minSampleNum * 1 / data.samplerate))))
                 msg = f'Automatic setting of `nTaper` to {nTaper}'
                 SPYInfo(msg)
-
-
-        # Warn the user in case `tapsmofrq` has no effect
-        if tapsmofrq is not None and taper != "dpss":
-            msg = "`tapsmofrq` is only used if `taper` is `dpss`!"
-            SPYWarning(msg)
-
-        # Warn the user in case `nTaper` has no effect
-        if nTaper is not None and taper != "dpss":
-            msg = "`nTaper` is only used if `taper` is `dpss`!"
-            SPYWarning(msg)            
-
+                
+        else:
+            nTaper = 1 # for the computeFunction
+                
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
         log_dct["taper"] = lcls["taper"]
@@ -731,6 +740,12 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     if method == "mtmfft":
 
         _check_effective_parameters(MultiTaperFFT, defaults, lcls)
+
+        try:
+            scalar_parser(nTaper, varname="nTaper", ntype="int_like", lims=[1, np.inf])
+        except Exception as exc:
+            raise exc
+
 
         # Set up compute-class
         specestMethod = MultiTaperFFT(

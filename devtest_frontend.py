@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as ppl
 from scipy import signal
 
+from syncopy.shared.parsers import data_parser, scalar_parser, array_parser 
 from syncopy.datatype import padding
 from syncopy.shared.tools import get_defaults
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
@@ -38,9 +39,10 @@ postpadlength = 150
 
 r_mtm = freqanalysis(tdat, method="mtmfft",
                      toi=toi_ival,
-                     t_ftimwin=10.5,
-                     output='abs',
+                     t_ftimwin=1.5,
+                     output='pow',
                      taper='dpss',
+                     nTaper=None,
                      tapsmofrq=None,
                      pad=pad,
                      padlength=100,
