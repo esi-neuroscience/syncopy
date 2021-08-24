@@ -8,32 +8,54 @@ import numpy as np
 from scipy import signal
 
 
-def mtmfft(data_arr, taper="hann", taperopt={}):
+def mtmfft(data_arr, samplerate, taper="dpss", taperopt={}):
 
     '''
-    Multi-taper fast Fourier transform. Returns
-    full complex Fourier transform in samplerate units.
-    Multi-taper only supported for Slepian windwows (`taper="dpss"`).
+    (Multi-)tapered fast Fourier transform. Returns
+    full complex Fourier transform in samplerate units
+    for each taper.
+    Multi-tapering only supported for Slepian windwows (`taper="dpss"`).
 
     Parameters
     ----------
     data_arr : (N,) :class:`numpy.ndarray`
         Uniformly sampled time-series data
         The 1st dimension is interpreted as the time axis
+    samplerate : float
+        Samplerate in Hz
     taper : str
         Taper function to use, one of scipy.signal.windows
     taperopt : dict
-        Additional keyword arguments passed to the `taper` function. For further 
-        details, please refer to the 
+        Additional keyword arguments passed to the `taper` function. 
+        For further details, please refer to the 
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
-    '''
 
+    Returns
+    -------
+
+    spec : 3D :class:`numpy.ndarray`
+         Complex output has shape (nTapers x nFreq x nChannels).
+
+    freqs : 1D :class:`numpy.ndarray`
+         Array of Fourier frequencies
+    
+    Notes
+    -----
+
+    For a (MTM) power spectral estimate average the absolute squared
+    transforms across tapers:
+
+    Sxx = np.real(spec * spec.conj()).mean(axis=0)
+          
+    '''
+    
     data_arr = np.atleast_2d(data_arr)
     nSamples = data_arr.shape[0]
     nChannels = data_arr.shape[1]
     taper_func = getattr(signal.windows,  taper)
 
-    nFreq = int(np.floor(nSamples / 2) + 1)
+    freqs = np.fft.rfftfreq(nSamples, 1 / samplerate)
+    nFreq = freqs.size
     # only really 2d if taper='dpss' with Kmax > 1
     windows = np.atleast_2d(taper_func(nSamples, **taperopt))
     # (nTapers x nFreq x nChannels)
@@ -43,7 +65,7 @@ def mtmfft(data_arr, taper="hann", taperopt={}):
         win = np.tile(win, (nChannels, 1)).T
         spec[taperIdx] = np.fft.rfft(data_arr * win, axis=0)
 
-    return spec
+    return spec, freqs
 
     
         

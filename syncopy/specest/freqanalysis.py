@@ -209,9 +209,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         specifications are one-sided, i.e., 4 Hz smoothing means plus-minus 4 Hz,
         i.e., a 8 Hz smoothing box.
     keeptapers : bool
-        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. If `True`, return
-        spectral estimates for each taper, otherwise results are averaged across
-        tapers.
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. 
+        If `True`, return spectral estimates for each taper. 
+        Otherwise power spectrum is averaged across tapers, 
+        if and only if `output` is `pow`.
     toi : float or array-like or "all"
         **Mandatory input** for time-frequency analysis methods (`method` is either
         `"mtmconvol"` or `"wavelet"` or `"superlet"`).
@@ -664,12 +665,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # --------------------------------------------
     
     if "mtm" in method:
-
+        
         # Construct array of maximally attainable frequencies
-        nFreq = minSampleNum // 2 + 1
-        freqs = np.linspace(1 / minSampleNum, data.samplerate / 2, nFreq)
+        freqs = np.fft.rfftfreq(minSampleNum, 1 / data.samplerate)
 
-        # Match desired frequencies as close as possible to actually attainable freqs
+        # Match desired frequencies as close as possible to
+        # actually attainable freqs
+        # What happens if padding is applied later?!
         if foi is not None:
             foi, _ = best_match(freqs, foi, squash_duplicates=True)
         elif foilim is not None:
@@ -691,20 +693,28 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             lgl = "'" + "or '".join(opt + "' " for opt in availableTapers)
             raise SPYValueError(legal=lgl, varname="taper", actual=taper)
 
-        # Warn the user in case `tapsmofrq` has no effect
-        if tapsmofrq is not None and taper != "dpss":
-            msg = "`tapsmofrq` is only used if `taper` is `dpss`!"
-            SPYWarning(msg)
-
-        # Warn the user in case `nTaper` has no effect
-        if nTaper is not None and taper != "dpss":
-            msg = "`nTaper` is only used if `taper` is `dpss`!"
-            SPYWarning(msg)            
-        
+        # Warn user about DPSS only settings
+        if taper != "dpss":     
+            if tapsmofrq is not None:
+                msg = "`tapsmofrq` is only used if `taper` is `dpss`!"
+                SPYWarning(msg)
+            if nTaper is not None:
+                msg = "`nTaper` is only used if `taper` is `dpss`!"
+                SPYWarning(msg)
+            if keeptapers:
+                msg = "`keeptapers` is only used if `taper` is `dpss`!"
+                SPYWarning(msg)            
+                    
         # Set/get `tapsmofrq` if we're working w/Slepian tapers
         if taper == "dpss":
 
-            # Try to derive "sane" settings by using 3/4 octave smoothing of highest `foi`
+            # direct mtm estimate (averaging) only valid for spectral power
+            if not keeptapers and output != "pow":
+                lgl = "'pow', the only option for taper averaging"
+                raise SPYValueError(legal=lgl, varname="output", actual=output)
+            
+            # Try to derive "sane" settings by using 3/4 octave
+            # smoothing of highest `foi`
             # following Hill et al. "Oscillatory Synchronization in Large-Scale
             # Cortical Networks Predicts Perception", Neuron, 2011
             if tapsmofrq is None:
@@ -724,10 +734,20 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 nTaper = int(max(2, min(50, np.floor(tapsmofrq * minSampleNum * 1 / data.samplerate))))
                 msg = f'Automatic setting of `nTaper` to {nTaper}'
                 SPYInfo(msg)
+            else:
+                try:
+                    scalar_parser(nTaper,
+                                  varname="nTaper",
+                                  ntype="int_like", lims=[1, np.inf])
+                except Exception as exc:
+                    raise exc
                 
+            taperopt = {"NW" : tapsmofrq, "Kmax" : nTaper}
+            
+        # only taper with supported options is DPSS            
         else:
-            nTaper = 1 # for the computeFunction
-                
+            taperopt = {}
+                                    
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
         log_dct["taper"] = lcls["taper"]
@@ -741,26 +761,25 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         _check_effective_parameters(MultiTaperFFT, defaults, lcls)
 
-        try:
-            scalar_parser(nTaper, varname="nTaper", ntype="int_like", lims=[1, np.inf])
-        except Exception as exc:
-            raise exc
-
-
+        # method specific parameters
+        method_kwargs = {
+            'samplerate' : data.samplerate,
+            'taper' : taper,
+            'taperopt' : taperopt
+        }
+        
         # Set up compute-class
         specestMethod = MultiTaperFFT(
             samplerate=data.samplerate,
             foi=foi,
             timeAxis=timeAxis,
-            taper=taper,
-            tapsmofrq=tapsmofrq,
-            nTaper=nTaper,
             pad=pad,
             padtype=padtype,
             padlength=padlength,
             keeptapers=keeptapers,
             polyremoval=polyremoval,
-            output_fmt=output)
+            output_fmt=output,
+            method_kwargs=method_kwargs)
 
     elif method == "mtmconvol":
 
@@ -968,6 +987,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     specestMethod.initialize(data,
                              chan_per_worker=kwargs.get("chan_per_worker"),
                              keeptrials=keeptrials)
+    print('sdf')
     specestMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)
 
     # Either return newly created output object or simply quit

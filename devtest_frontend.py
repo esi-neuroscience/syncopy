@@ -19,33 +19,35 @@ from syncopy.specest.compRoutines import (
 )
 
 
-tdat = generate_artificial_data()
+tdat = generate_artificial_data(inmemory=True)
 
-toi_ival = np.linspace(-0.5, 1, 100)
-toi_ival = np.arange(0, 0.5, step=0.2)
-toi_ival = [0,0.1,0.3]
+toi_ival = [0, 1]
+toi_eqd = np.arange(0, 0.5, step=0.2)
+toi_neqd = [0,0.1,0.3]
 # toi_ival = [0,1]
 # toi_ival = 'all'
 # toi_ival = None
 # foi = np.logspace(-1, 2.6, 50)
-foi = np.linspace(0.1, 45, 50)
+foi = np.linspace(0, 45, 46)
 
 pad = 'relative'
 # pad = 'absolute'
 # pad = 'maxlen'
-padlength = 3100
-prepadlength = 150
-postpadlength = 150
+padlength = 200
+# prepadlength = 150
+# postpadlength = 150
+
 
 r_mtm = freqanalysis(tdat, method="mtmfft",
                      toi=toi_ival,
                      t_ftimwin=1.5,
                      output='pow',
                      taper='dpss',
-                     nTaper=None,
+                     nTaper=10,
                      tapsmofrq=None,
+                     keeptapers=False,
                      pad=pad,
-                     padlength=100,
+                     padlength=padlength,
                      foi=foi)
 
 # r_mtmc = freqanalysis(tdat, method="mtmconvol",
@@ -62,15 +64,17 @@ r_mtm = freqanalysis(tdat, method="mtmfft",
 # , foilim=[5, 500])
 
 # test classical wavelet analysis
-# r_wav = freqanalysis(
-#     tdat, method="wavelet",
-#     toi=toi_ival,
-#     output='abs',
-#     foi=foi,
-#     pad=True,
-#     padtype='sth',
-#     adaptive=True
-# ) 
+r_wav = freqanalysis(
+    tdat, method="wavelet",
+    toi=toi_eqd,
+    wav='Paul',
+    order=4,
+    output='abs',
+    foi=foi,
+    pad=True,
+    padtype='sth',
+    adaptive=True
+) 
 
 # # test superlet analysis
 # r_sup = freqanalysis(tdat, method="superlet", toi=toi_ival,

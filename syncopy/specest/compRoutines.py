@@ -46,11 +46,12 @@ from syncopy.specest.const_def import (
 # -----------------------
 
 @unwrap_io
-def mtmfft_cF(trl_dat, samplerate=None, foi=None, timeAxis=0,
-              taper="hann", tapsmofrq=None, nTaper=1, 
+def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
+              keeptapers=True,
               pad="nextpow2", padtype="zero", padlength=None,
-              keeptapers=True, polyremoval=None, output_fmt="pow",
-              noCompute=False, chunkShape=None):
+              polyremoval=None, output_fmt="pow",
+              noCompute=False, chunkShape=None,
+              method_kwargs=None):
     
     """
     Compute (multi-)tapered Fourier transform of multi-channel time series data
@@ -59,22 +60,19 @@ def mtmfft_cF(trl_dat, samplerate=None, foi=None, timeAxis=0,
     ----------
     trl_dat : 2D :class:`numpy.ndarray`
         Uniformly sampled multi-channel time-series 
-    samplerate : float
-        Samplerate of `trl_dat` in Hz
     foi : 1D :class:`numpy.ndarray`
         Frequencies of interest  (Hz) for output. If desired frequencies
         cannot be matched exactly the closest possible frequencies (respecting 
         data length and padding) are used.
+    timeAxis : int
+        Index of running time axis in `trl_dat` (0 or 1)
     tapsmofrq : float
         The amount of spectral smoothing through  multi-tapering (Hz) for Slepian
         tapers (`taper`="dpss").
-    nTaper : int
-        Number of filter windows to use for Slepian
-        tapers (`taper`="dpss").
-    timeAxis : int
-        Index of running time axis in `trl_dat` (0 or 1)
-    taper : str
-        Taper to use, one of :data:`~syncopy.specest.freqanalysis.availableTapers`
+    keeptapers : bool
+        If `True`, return spectral estimates for each taper. 
+        Otherwise power spectrum is averaged across tapers, 
+        only valid spectral estimate if `output_fmt` is `pow`.
     pad : str
         Padding mode; one of `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
         See :func:`syncopy.padding` for more information.
@@ -105,6 +103,7 @@ def mtmfft_cF(trl_dat, samplerate=None, foi=None, timeAxis=0,
     method_kwargs : dict
         Keyword arguments passed to :func:`~syncopy.specest.mtmfft.mtmfft`
         controlling the spectral estimation method
+                
         
     Returns
     -------
@@ -132,13 +131,7 @@ def mtmfft_cF(trl_dat, samplerate=None, foi=None, timeAxis=0,
     numpy.fft.rfft : NumPy's FFT implementation
     """
 
-    # only taper with supported options
-    if taper == 'dpss':
-        taperopt = {"NW" : tapsmofrq, "Kmax" : nTaper}
-        
-    # needed only for out shape computation
-    if not nTaper:
-        nTaper = 1
+    nTaper = method_kwargs["taperopt"].get("Kmax", 1)
     
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
@@ -153,23 +146,25 @@ def mtmfft_cF(trl_dat, samplerate=None, foi=None, timeAxis=0,
     nChannels = dat.shape[1]
 
     # Determine frequency band and shape of output (time=1 x taper x freq x channel)
-    nFreq = int(np.floor(nSamples / 2) + 1)
-    freqs = np.linspace(0, samplerate / 2, nFreq)
+    freqs = np.fft.rfftfreq(nSamples, 1 / method_kwargs["samplerate"])
     _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
     nFreq = freq_idx.size
     outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
-    
-    # For initialization of computational routine, just return output shape and dtype
+
+    # For initialization of computational routine,
+    # just return output shape and dtype
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
 
     # call actual specest method
-    res = mtmfft(dat, taper, taperopt)[:, freq_idx, :]
+    res, _ = mtmfft(dat, **method_kwargs)
+    
     # attach time-axis and convert to output_fmt
-    spec = spectralConversions[output_fmt](res)[np.newaxis, :]    
-
+    spec = res[np.newaxis, :, freq_idx, :]
+    spec = spectralConversions[output_fmt](spec)
     # Average across tapers if wanted
-    # averaging is only correct if output_fmt != 'fourier' !
+    # averaging is only valid spectral estimate
+    # if output_fmt == 'pow'! (gets checked in parent meta)
     if not keeptapers:
         return spec.mean(axis=1, keepdims=True)
     return spec
@@ -221,7 +216,7 @@ class MultiTaperFFT(ComputationalRoutine):
         # Attach remaining meta-data
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel[chanSec])
-        out.taper = np.array([self.cfg["taper"]] * self.outputShape[out.dimord.index("taper")])
+        out.taper = np.array([self.cfg["method_kwargs"]["taper"]] * self.outputShape[out.dimord.index("taper")])
         out.freq = self.cfg["foi"]
 
 
@@ -789,7 +784,6 @@ class SuperletTransform(ComputationalRoutine):
     method_keys = list(signature(superlet).parameters.keys())[1:]
     # here also last argument, the method_kwargs, are omitted 
     cF_keys = list(signature(superlet_cF).parameters.keys())[1:-1]
-
 
     def process_metadata(self, data, out):
 
