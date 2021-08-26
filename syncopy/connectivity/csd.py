@@ -19,7 +19,7 @@ def csd(data_arr, samplerate, taper="hann", taperopt={}, norm=False):
     of the input data. First all the individual Fourier transforms
     are calculated via a (multi-)tapered FFT, then the pairwise
     coherence is calculated. Averaging over tapers is done implicitly.
-    Output consists of all (nChannels x nChannels-1)/2 different CSD estimates
+    Output consists of all (nChannels x nChannels+1)/2 different CSD estimates
     aranged in a symmetric fashion (CSD_ij == CSD_ji). The elements on the
     main diagonal (CSD_ii) are the auto-spectra.
 
@@ -41,17 +41,35 @@ def csd(data_arr, samplerate, taper="hann", taperopt={}, norm=False):
     # has shape (nChannels x nChannels x nFreq)
     output = np.zeros((nChannels, nChannels, freqs.size))
 
-    for i in range(nChannels):
-        for j in range(i, nChannels):
-            output[i, j, :] = np.real(specs[0, :, i] * specs[0, :, j].conj())
-            output[j, i, :] = output[i, j, :]
-
-    # there is probably a more efficient way
+    # somewhat vectorized - not really fast :/                
     if norm:
-        for i in range(nChannels):
-            for j in range(i, nChannels):
-                output[i, j, :] = output[i, j, :] / np.sqrt(
-                    output[i, i, :] * output[j, j, :]
-                )
+        # main diagonal: auto spectrum for each taper and averaging
+        diag = np.multiply(specs, specs.conj()).mean(axis=0)
+        # output[range(nChannels), range(nChannels), :] = np.real(diag.T)
+        diag = np.real(diag).T
 
-    return output, freqs
+        for i in range(nChannels):
+            idx = slice(i, nChannels)
+            row = np.multiply(specs[..., np.tile(i, nChannels - i)],
+                              specs.conj()[..., idx])
+
+            # normalization
+            denom = np.multiply(np.tile(diag[i], ((nChannels - i), 1)), diag[i:])
+            row = row.mean(axis=0).T / np.sqrt(denom)
+            output[i, i:, ...] = np.real(row)
+        
+    else:
+        for i in range(nChannels):
+            idx = slice(i, nChannels)
+            row = np.multiply(specs[..., np.tile(i, nChannels - i)], specs.conj()[..., idx])
+            output[i, i:, ...] = np.real(row.mean(axis=0).T)
+            
+    return output # , freqs
+
+
+# dummy input
+a = np.ones((10, 3)) * np.arange(1,4)
+# dummy mtmfft result
+b = np.arange(1, 4) * np.ones((2,10,3)).astype('complex')
+# dummt csd matrix
+c = np.ones((5, 5, 10))
