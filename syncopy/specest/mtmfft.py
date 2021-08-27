@@ -8,14 +8,13 @@ import numpy as np
 from scipy import signal
 
 
-def mtmfft(data_arr, samplerate, taper="dpss", taperopt={}):
+def mtmfft(data_arr, samplerate, taper="dpss", nTaper=None, tapsmofrq=None, taperopt={}):
 
     '''
     (Multi-)tapered fast Fourier transform. Returns
-    full complex Fourier transform in samplerate units
-    for each taper.
-    Multi-tapering only supported for Slepian windwows (`taper="dpss"`).
-
+    full complex Fourier transform for each taper.
+    Multi-tapering only supported with Slepian windwows (`taper="dpss"`).
+    
     Parameters
     ----------
     data_arr : (N,) :class:`numpy.ndarray`
@@ -25,6 +24,12 @@ def mtmfft(data_arr, samplerate, taper="dpss", taperopt={}):
         Samplerate in Hz
     taper : str
         Taper function to use, one of scipy.signal.windows
+    nTaper : int
+        Only effective if `taper='dpss'`. Number of orthogonal tapers to use.    
+    tapsmofrq : float
+        Only effective if `taper='dpss'`. The amount of spectral smoothing through  
+        multi-tapering (Hz).  Note that smoothing frequency specifications are one-sided, 
+        i.e., 4 Hz smoothing means plus-minus 4 Hz, i.e., a 8 Hz smoothing box.
     taperopt : dict
         Additional keyword arguments passed to the `taper` function. 
         For further details, please refer to the 
@@ -48,7 +53,12 @@ def mtmfft(data_arr, samplerate, taper="dpss", taperopt={}):
     Sxx = np.real(spec * spec.conj()).mean(axis=0)
           
     '''
-    
+
+    # Slepian window parameters
+    if taper == "dpss":
+        taperopt['Kmax'] = nTaper
+        taperopt['NW'] = tapsmofrq
+
     data_arr = np.atleast_2d(data_arr)
     nSamples = data_arr.shape[0]
     nChannels = data_arr.shape[1]

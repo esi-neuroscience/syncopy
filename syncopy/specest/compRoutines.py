@@ -130,8 +130,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
                     :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     numpy.fft.rfft : NumPy's FFT implementation
     """
-
-    nTaper = method_kwargs["taperopt"].get("Kmax", 1)
+    nTaper = method_kwargs.get('nTaper', 1)
     
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
