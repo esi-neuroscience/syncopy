@@ -17,7 +17,7 @@ from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.tools import best_match
 
-# method specific imports
+# method specific imports - they should go!
 import syncopy.specest.wavelets as spywave
 import syncopy.specest.superlet as superlet
 from .wavelet import get_optimal_wavelet_scales
@@ -723,7 +723,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             if tapsmofrq is None:
                 foimax = foi.max()
                 tapsmofrq = (foimax * 2**(3/4/2) - foimax * 2**(-3/4/2)) / 2
-                msg = f'Automatic setting of `tapsmofreq` to {tapsmofrq:.2f}'
+                msg = f'Automatic setting of `tapsmofrq` to {tapsmofrq:.2f}'
                 SPYInfo(msg)
                 
             else:
@@ -767,9 +767,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             'samplerate' : data.samplerate,
             'taper' : taper
         }
-        if taper == 'dpss':
-            method_kwargs['nTaper'] = nTaper
-            method_kwargs['tapsmofrq'] = tapsmofrq
                     
         # Set up compute-class
         specestMethod = MultiTaperFFT(
@@ -780,6 +777,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             padtype=padtype,
             padlength=padlength,
             keeptapers=keeptapers,
+            nTaper = nTaper,
+            tapsmofrq = tapsmofrq,
             polyremoval=polyremoval,
             output_fmt=output,
             method_kwargs=method_kwargs)

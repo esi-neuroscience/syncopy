@@ -29,6 +29,7 @@ toi_neqd = [0,0.1,0.3]
 # toi_ival = None
 # foi = np.logspace(-1, 2.6, 50)
 foi = np.linspace(0, 45, 46)
+foi = None
 
 pad = 'relative'
 # pad = 'absolute'
@@ -42,7 +43,7 @@ r_mtm = freqanalysis(tdat, method="mtmfft",
                      toi=toi_ival,
                      t_ftimwin=1.5,
                      output='pow',
-                     taper='hann',
+                     taper='dpss',
                      nTaper=10,
                      tapsmofrq=None,
                      keeptapers=False,

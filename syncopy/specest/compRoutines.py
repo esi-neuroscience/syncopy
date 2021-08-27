@@ -47,7 +47,7 @@ from syncopy.specest.const_def import (
 
 @unwrap_io
 def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
-              keeptapers=True,
+              keeptapers=True, nTaper=None, tapsmofrq=None,
               pad="nextpow2", padtype="zero", padlength=None,
               polyremoval=None, output_fmt="pow",
               noCompute=False, chunkShape=None,
@@ -73,6 +73,12 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
         If `True`, return spectral estimates for each taper. 
         Otherwise power spectrum is averaged across tapers, 
         only valid spectral estimate if `output_fmt` is `pow`.
+    nTaper : int
+        Only effective if `taper='dpss'`. Number of orthogonal tapers to use.    
+    tapsmofrq : float
+        Only effective if `taper='dpss'`. The amount of spectral smoothing through  
+        multi-tapering (Hz).  Note that smoothing frequency specifications are one-sided, 
+        i.e., 4 Hz smoothing means plus-minus 4 Hz, i.e., a 8 Hz smoothing box.
     pad : str
         Padding mode; one of `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
         See :func:`syncopy.padding` for more information.
@@ -130,6 +136,15 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
                     :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     numpy.fft.rfft : NumPy's FFT implementation
     """
+
+    # Slepian window parameters    
+    if method_kwargs['taper'] == "dpss":
+        taperopt = {"Kmax" : nTaper, "NW" : tapsmofrq}
+    else:
+        taperopt = {}
+
+    method_kwargs['taperopt'] = taperopt
+    
     nTaper = method_kwargs.get('nTaper', 1)
     
     # Re-arrange array if necessary and get dimensional information
