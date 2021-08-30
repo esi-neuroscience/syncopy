@@ -12,7 +12,7 @@ import itertools
 from syncopy.specest.mtmfft import mtmfft
 
 
-def csd(data_arr, samplerate, taper="hann", taperopt={}, norm=False):
+def csd(data_arr, samplerate, taper="hann", taperopt={}, norm=False, naive=True):
 
     """
     Cross spectral density (CSD) estimate between all channels
@@ -40,7 +40,7 @@ def csd(data_arr, samplerate, taper="hann", taperopt={}, norm=False):
 
     # has shape (nChannels x nChannels x nFreq)
     output = np.zeros((nChannels, nChannels, freqs.size))
-
+    
     # somewhat vectorized - not really fast :/                
     if norm:
         # main diagonal: auto spectrum for each taper and averaging
@@ -58,18 +58,42 @@ def csd(data_arr, samplerate, taper="hann", taperopt={}, norm=False):
             row = row.mean(axis=0).T / np.sqrt(denom)
             output[i, i:, ...] = np.real(row)
         
-    else:
+    elif naive:
         for i in range(nChannels):
-            idx = slice(i, nChannels)
-            row = np.multiply(specs[..., np.tile(i, nChannels - i)], specs.conj()[..., idx])
-            output[i, i:, ...] = np.real(row.mean(axis=0).T)
-            
-    return output # , freqs
+            for j in range(i, nChannels):
+                output[i, j] = np.real(specs[:, :, i] * specs[:, :, j].conj()).mean(axis=0)
+                output[j, i] = output[i, j]
+                
+    else:
+        # build single taper array
+        chan_idx = np.arange(nChannels)
+        idx1, idx2 = np.meshgrid(chan_idx, chan_idx)        
+        output = np.real(specs[:, :, idx1] * specs[:, :, idx2].conj()).mean(axis=0).transpose(2,1,0)
+    return output
 
 
 # dummy input
 a = np.ones((10, 3)) * np.arange(1,4)
+abig = np.ones((100, 50)) * np.arange(1,51)
 # dummy mtmfft result
-b = np.arange(1, 4) * np.ones((2,10,3)).astype('complex')
+# b = np.arange(1, 4) * np.ones((2,10,3)).astype('complex')
 # dummt csd matrix
 c = np.ones((5, 5, 10))
+
+def vectorized(arr):
+    nSamples, nChannels = arr.shape
+    r = np.multiply.outer(arr,arr.T).reshape(nSamples, nChannels**2 ,nSamples).diagonal(axis1=0, axis2=2)
+
+    return r.reshape((nChannels, nChannels, nSamples))
+
+def arr_loop(arr):
+    nChannels = arr.shape[1]
+    output = np.zeros((nChannels, nChannels, arr.shape[0]))
+    
+    for i in range(nChannels):
+        for j in range(i, nChannels):
+            output[i, j] = np.real(arr[:, i] * arr[:, j])
+            output[j, i] = output[i, j]
+
+    return output
+    
