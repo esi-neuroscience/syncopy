@@ -65,26 +65,28 @@ def csd(data_arr, samplerate, taper="hann", taperopt={}, norm=False, naive=True)
                 output[j, i] = output[i, j]
                 
     else:
-        # build single taper array
-        chan_idx = np.arange(nChannels)
-        idx1, idx2 = np.meshgrid(chan_idx, chan_idx)        
-        output = np.real(specs[:, :, idx1] * specs[:, :, idx2].conj()).mean(axis=0).transpose(2,1,0)
+        # outer product along channel axis
+        output = specs[:, :, np.newaxis, :] * specs[:, :, :, np.newaxis].conj()
+        # average tapers
+        output = np.real(output.mean(axis=0).T)
+
     return output
 
 
 # dummy input
 a = np.ones((10, 3)) * np.arange(1,4)
-abig = np.ones((100, 50)) * np.arange(1,51)
+abig = np.ones((100, 500)) * np.arange(1,501)
 # dummy mtmfft result
 # b = np.arange(1, 4) * np.ones((2,10,3)).astype('complex')
 # dummt csd matrix
 c = np.ones((5, 5, 10))
 
+# for timing
+
 def vectorized(arr):
     nSamples, nChannels = arr.shape
-    r = np.multiply.outer(arr,arr.T).reshape(nSamples, nChannels**2 ,nSamples).diagonal(axis1=0, axis2=2)
 
-    return r.reshape((nChannels, nChannels, nSamples))
+    return (arr[:, np.newaxis, :] * arr[:, :, np.newaxis]).T
 
 def arr_loop(arr):
     nChannels = arr.shape[1]
