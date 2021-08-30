@@ -1,9 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as ppl
+from scipy.signal import windows
 
 from syncopy.specest import mtmfft
 from syncopy.specest import superlet, wavelet
 from syncopy.specest import wavelets as spywave
+
 
 
 def gen_testdata(freqs=[20, 40, 60],
@@ -187,15 +189,18 @@ def test_wavelet():
     
 def test_mtmfft():
 
-    # superposition 40Hz and 100Hz oscillations 3:2 for 1s
+    # superposition 40Hz and 100Hz oscillations A1:A2 for 1s
     f1, f2 = 40, 100
-    A1, A2 = 3, 2
+    A1, A2 = 5, 3
     tvec = np.arange(0, 1, 1 / 1000)
 
     signal = A1 * np.cos(2 * np.pi * 40 * tvec)
     signal += A2 * np.cos(2 * np.pi * 100 * tvec)
 
-    # test untapered
+    # --------------------
+    # -- test untapered --
+    # --------------------
+    
     taperopt = {}
     ftr, freqs = mtmfft.mtmfft(signal, fs, taper=None)
 
@@ -207,43 +212,62 @@ def test_mtmfft():
     # average over potential tapers (only 1 here)
     spec = np.real(ftr * ftr.conj()).mean(axis=0)
     amplitudes = np.sqrt(spec)[:, 0] # only 1 channel
+    # our FFT normalisation recovers the signal amplitudes:
+    assert np.allclose([A1, A2], amplitudes[[f1, f2]]) 
 
     fig, ax = ppl.subplots()
-    ax.set_title("Amplitude spectrum 3 x 40Hz + 2 x 100Hz")
+    ax.set_title(f"Amplitude spectrum {A1} x 40Hz + {A2} x 100Hz")
     ax.plot(freqs[:150], amplitudes[:150], label="No taper", lw=2)
     ax.set_xlabel('frequency (Hz)')
     ax.set_ylabel('amplitude (a.u.)')
 
-    # our FFT normalisation recovers the signal amplitudes:
-    assert np.allclose([A1, A2], amplitudes[[f1, f2]]) 
-
-    # test hann taper
-    ftr, freqs = mtmfft.mtmfft(signal, fs, taper="hann")
-    # average over tapers (only 1 here)
-    hann_spec = np.real(ftr * ftr.conj()).mean(axis=0)
-    hann_amplitudes = np.sqrt(hann_spec)[:, 0] # only 1 channel
-
+    # -------------------------
+    # test multi-taper analysis
+    # -------------------------
+    
+    taperopt = {'Kmax' : 8, 'NW' : 1}
+    ftr, freqs = mtmfft.mtmfft(signal, fs, taper="dpss", taperopt=taperopt)
+    # average over tapers 
+    dpss_spec = np.real(ftr * ftr.conj()).mean(axis=0)
+    dpss_amplitudes = np.sqrt(dpss_spec)[:, 0] # only 1 channel
     # check for amplitudes (and taper normalisation)
-    assert np.allclose([A1, A2], hann_amplitudes[[f1, f2]], rtol=1e-2)
+    assert np.allclose(dpss_amplitudes[[f1, f2]], [A1, A2], atol=1e-1)
 
-    # test kaiser taper (is the box for beta -> inf)
+    ax.plot(freqs[:150], dpss_amplitudes[:150], label="Slepian", lw=2)
+    ax.legend()
+
+    # -----------------
+    # test kaiser taper (is boxcar for beta -> inf)
+    # -----------------
+    
     taperopt = {'beta' : 2}
     ftr, freqs = mtmfft.mtmfft(signal, fs, taper="kaiser", taperopt=taperopt)
     # average over tapers (only 1 here)
     kaiser_spec = np.real(ftr * ftr.conj()).mean(axis=0)
     kaiser_amplitudes = np.sqrt(kaiser_spec)[:, 0] # only 1 channel
+    # check for amplitudes (and taper normalisation)
+    assert np.allclose(kaiser_amplitudes[[f1, f2]], [A1, A2], atol=1e-2) 
 
-    # Kaiser taper is not normalised :/, check at least the ratio
-    assert np.allclose(A1 / A2, kaiser_amplitudes[f1] / kaiser_amplitudes[f2], rtol=1e-4) 
+    # -------------------------------
+    # test all other window functions (which don't need a parameter)
+    # -------------------------------
+    
+    for win in windows.__all__:
+        taperopt = {}
+        # that guy isn't symmetric
+        if win == 'exponential':
+            continue
+        # that guy is deprecated
+        if win == 'hanning':
+            continue            
+        try:
+            ftr, freqs = mtmfft.mtmfft(signal, fs, taper=win, taperopt=taperopt)
+            # average over tapers (only 1 here)
+            spec = np.real(ftr * ftr.conj()).mean(axis=0)
+            amplitudes = np.sqrt(spec)[:, 0] # only 1 channel
+            # print(win, amplitudes[[f1, f2]])        
+            assert np.allclose(amplitudes[[f1, f2]], [A1, A2], atol=1e-3)         
+        except TypeError:
+            # we didn't provide default parameters..
+            pass
 
-    # test multi-taper analysis 
-    taperopt = {'Kmax' : 6, 'NW' : 1}
-    ftr, freqs = mtmfft.mtmfft(signal, fs, taper="dpss", taperopt=taperopt)
-    # average over tapers 
-    dpss_spec = np.real(ftr * ftr.conj()).mean(axis=0)
-    dpss_amplitudes = np.sqrt(dpss_spec)[:, 0] # only 1 channel
-    ax.plot(freqs[:150], dpss_amplitudes[:150], label="Slepian", lw=2)
-    ax.legend()
-
-    # Slepian tapers are normalized
-    assert np.allclose([A1, A2], dpss_amplitudes[[f1, f2]], rtol=1e-2) 

@@ -27,7 +27,8 @@ def mtmfft(data_arr, samplerate, taper="hann", taperopt={}):
         Set to `None` for no tapering.
     taperopt : dict
         Additional keyword arguments passed to the `taper` function. 
-        For multi-tapering with `taper='dpss'` set the keys `'Kmax'` and `'NW'`.
+        For multi-tapering with `taper='dpss'` set the keys 
+        `'Kmax'` and `'NW'`.
         For further details, please refer to the 
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
 
@@ -70,13 +71,14 @@ def mtmfft(data_arr, samplerate, taper="hann", taperopt={}):
     windows = np.atleast_2d(taper_func(nSamples, **taperopt))
     
     # only(!!) slepian windows are already normalized
-    # so we have to 'de-normalize' here 
+    # still have to normalize by number of tapers
+    # such that taper-averaging yields correct amplitudes
     if taper == 'dpss':
-        windows = windows * np.sqrt(nSamples) * np.sqrt(taperopt.get('Kmax', 1))
-    # normalisation for tapers like 'hann', 'hamming', 'bartlett' 
-    elif taper != 'boxcar':
-        windows = 2 * windows
-    
+        windows = windows * np.sqrt(taperopt.get('Kmax', 1))        
+    # per pedes L2 normalisation for all other tapers 
+    else:
+        windows = windows * np.sqrt(nSamples) / np.sum(windows)
+        
     # Fourier transforms (nTapers x nFreq x nChannels)
     ftr = np.zeros((windows.shape[0], nFreq, nChannels), dtype='complex128')
 
@@ -86,11 +88,7 @@ def mtmfft(data_arr, samplerate, taper="hann", taperopt={}):
         # multiply by 2 to correct for this
         ftr[taperIdx] = 2 * np.fft.rfft(data_arr * win, axis=0)
         # normalization 
-        ftr[taperIdx] /= nSamples
+        ftr[taperIdx] /= np.sqrt(nSamples)
 
     return ftr, freqs
-
-    
-        
-        
 
