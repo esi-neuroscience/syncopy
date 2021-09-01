@@ -4,11 +4,13 @@ import matplotlib.pyplot as ppl
 from syncopy.connectivity import csd
 
 
-def gen_testdata():
+def gen_testdata(eps=0.3):
 
     '''
     Superposition of harmonics with 
     distinct phase relationships between channel.
+
+    Add some white noise to avoid almost 0 frequency bins.
 
     Every channel has a 30Hz and a pi/2 shifted 80Hz band,
     plus an additional channel specific shift:
@@ -33,7 +35,7 @@ def gen_testdata():
         sig = 2 * np.cos(omegas[0] * tvec + pshift)
         sig += np.cos(omegas[1] * tvec + pshift + np.pi / 2)
 
-        data[:, i] = sig
+        data[:, i] = sig + eps * np.random.randn(nSamples)
 
     return data
 
