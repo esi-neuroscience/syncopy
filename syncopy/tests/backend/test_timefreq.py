@@ -1,8 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as ppl
+from scipy.signal import windows
 
+from syncopy.specest import mtmfft
 from syncopy.specest import superlet, wavelet
 from syncopy.specest import wavelets as spywave
+
 
 
 def gen_testdata(freqs=[20, 40, 60],
@@ -13,6 +16,9 @@ def gen_testdata(freqs=[20, 40, 60],
     Harmonic superposition of multiple
     few-cycle oscillations akin to the
     example of Figure 3 in Moca et al. 2021 NatComm
+
+    Each harmonic has a frequency neighbor with +10Hz
+    and a time neighbor after 2 cycles(periods).
     '''
 
     signal = []
@@ -22,6 +28,7 @@ def gen_testdata(freqs=[20, 40, 60],
         tvec = np.arange(cycles / freq, step=1 / fs)
 
         harmonic = np.cos(2 * np.pi * freq * tvec)
+        # frequency neighbor
         f_neighbor = np.cos(2 * np.pi * (freq + 10) * tvec) 
         packet = harmonic +  f_neighbor
 
@@ -61,7 +68,7 @@ freq_idx = []
 for frequency in signal_freqs:
     freq_idx.append(np.argmax(foi >= frequency))
     
-
+    
 def test_superlet():
     
     scalesSL = superlet.scale_from_period(1 / foi)
@@ -178,3 +185,89 @@ def test_wavelet():
         assert cycle_num < 3 * cycles
 
     fig.tight_layout()
+
+    
+def test_mtmfft():
+
+    # superposition 40Hz and 100Hz oscillations A1:A2 for 1s
+    f1, f2 = 40, 100
+    A1, A2 = 5, 3
+    tvec = np.arange(0, 1, 1 / 1000)
+
+    signal = A1 * np.cos(2 * np.pi * 40 * tvec)
+    signal += A2 * np.cos(2 * np.pi * 100 * tvec)
+
+    # --------------------
+    # -- test untapered --
+    # --------------------
+    
+    taperopt = {}
+    ftr, freqs = mtmfft.mtmfft(signal, fs, taper=None)
+
+    # with 1000Hz sampling frequency and 1000 samples this gives
+    # exactly 1Hz frequency resolution ranging from 0 - 500Hz:
+    assert freqs[f1] == f1
+    assert freqs[f2] == f2
+
+    # average over potential tapers (only 1 here)
+    spec = np.real(ftr * ftr.conj()).mean(axis=0)
+    amplitudes = np.sqrt(spec)[:, 0] # only 1 channel
+    # our FFT normalisation recovers the signal amplitudes:
+    assert np.allclose([A1, A2], amplitudes[[f1, f2]]) 
+
+    fig, ax = ppl.subplots()
+    ax.set_title(f"Amplitude spectrum {A1} x 40Hz + {A2} x 100Hz")
+    ax.plot(freqs[:150], amplitudes[:150], label="No taper", lw=2)
+    ax.set_xlabel('frequency (Hz)')
+    ax.set_ylabel('amplitude (a.u.)')
+
+    # -------------------------
+    # test multi-taper analysis
+    # -------------------------
+    
+    taperopt = {'Kmax' : 8, 'NW' : 1}
+    ftr, freqs = mtmfft.mtmfft(signal, fs, taper="dpss", taperopt=taperopt)
+    # average over tapers 
+    dpss_spec = np.real(ftr * ftr.conj()).mean(axis=0)
+    dpss_amplitudes = np.sqrt(dpss_spec)[:, 0] # only 1 channel
+    # check for amplitudes (and taper normalisation)
+    assert np.allclose(dpss_amplitudes[[f1, f2]], [A1, A2], atol=1e-1)
+
+    ax.plot(freqs[:150], dpss_amplitudes[:150], label="Slepian", lw=2)
+    ax.legend()
+
+    # -----------------
+    # test kaiser taper (is boxcar for beta -> inf)
+    # -----------------
+    
+    taperopt = {'beta' : 2}
+    ftr, freqs = mtmfft.mtmfft(signal, fs, taper="kaiser", taperopt=taperopt)
+    # average over tapers (only 1 here)
+    kaiser_spec = np.real(ftr * ftr.conj()).mean(axis=0)
+    kaiser_amplitudes = np.sqrt(kaiser_spec)[:, 0] # only 1 channel
+    # check for amplitudes (and taper normalisation)
+    assert np.allclose(kaiser_amplitudes[[f1, f2]], [A1, A2], atol=1e-2) 
+
+    # -------------------------------
+    # test all other window functions (which don't need a parameter)
+    # -------------------------------
+    
+    for win in windows.__all__:
+        taperopt = {}
+        # that guy isn't symmetric
+        if win == 'exponential':
+            continue
+        # that guy is deprecated
+        if win == 'hanning':
+            continue            
+        try:
+            ftr, freqs = mtmfft.mtmfft(signal, fs, taper=win, taperopt=taperopt)
+            # average over tapers (only 1 here)
+            spec = np.real(ftr * ftr.conj()).mean(axis=0)
+            amplitudes = np.sqrt(spec)[:, 0] # only 1 channel
+            # print(win, amplitudes[[f1, f2]])        
+            assert np.allclose(amplitudes[[f1, f2]], [A1, A2], atol=1e-3)         
+        except TypeError:
+            # we didn't provide default parameters..
+            pass
+

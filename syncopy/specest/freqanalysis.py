@@ -17,7 +17,7 @@ from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.tools import best_match
 
-# method specific imports
+# method specific imports - they should go!
 import syncopy.specest.wavelets as spywave
 import syncopy.specest.superlet as superlet
 from .wavelet import get_optimal_wavelet_scales
@@ -49,7 +49,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                  padlength=None, prepadlength=None, postpadlength=None,
                  polyremoval=None,
                  taper="hann", tapsmofrq=None, nTaper=None, keeptapers=False,
-                 toi="all", t_ftimwin=None, wav="Morlet", width=6, order=None,
+                 toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
                  out=None, **kwargs):
     """
@@ -204,10 +204,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. Windowing function,
         one of :data:`~.availableTapers` (see below).
     tapsmofrq : float
-        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. The amount of spectral
-        smoothing through  multi-tapering (Hz). Note that smoothing frequency
-        specifications are one-sided, i.e., 4 Hz smoothing means plus-minus 4 Hz,
-        i.e., a 8 Hz smoothing box.
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and `taper` is `'dpss'`. 
+        The amount of spectral smoothing through  multi-tapering (Hz). 
+        Note that smoothing frequency specifications are one-sided, 
+        i.e., 4 Hz smoothing means plus-minus 4 Hz, i.e., a 8 Hz smoothing box.
+    nTaper : int
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and `taper='dpss'`. 
+        Number of orthogonal tapers to use.    
     keeptapers : bool
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. 
         If `True`, return spectral estimates for each taper. 
@@ -720,7 +723,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             if tapsmofrq is None:
                 foimax = foi.max()
                 tapsmofrq = (foimax * 2**(3/4/2) - foimax * 2**(-3/4/2)) / 2
-                msg = f'Automatic setting of `tapsmofreq` to {tapsmofrq:.2f}'
+                msg = f'Automatic setting of `tapsmofrq` to {tapsmofrq:.2f}'
                 SPYInfo(msg)
                 
             else:
@@ -742,11 +745,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 except Exception as exc:
                     raise exc
                 
-            taperopt = {"NW" : tapsmofrq, "Kmax" : nTaper}
-            
-        # only taper with supported options is DPSS            
+        # only taper with frontend supported options is DPSS                            
         else:
-            taperopt = {}
+            nTaper = 1
                                     
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
@@ -764,10 +765,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # method specific parameters
         method_kwargs = {
             'samplerate' : data.samplerate,
-            'taper' : taper,
-            'taperopt' : taperopt
+            'taper' : taper
         }
-        
+                    
         # Set up compute-class
         specestMethod = MultiTaperFFT(
             samplerate=data.samplerate,
@@ -777,6 +777,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             padtype=padtype,
             padlength=padlength,
             keeptapers=keeptapers,
+            nTaper = nTaper,
+            tapsmofrq = tapsmofrq,
             polyremoval=polyremoval,
             output_fmt=output,
             method_kwargs=method_kwargs)
@@ -812,44 +814,44 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         _check_effective_parameters(WaveletTransform, defaults, lcls)
         
         # Check wavelet selection
-        if wav not in availableWavelets:
+        if wavelet not in availableWavelets:
             lgl = "'" + "or '".join(opt + "' " for opt in availableWavelets)
-            raise SPYValueError(legal=lgl, varname="wav", actual=wav)
-        if wav not in ["Morlet", "Paul"]:
+            raise SPYValueError(legal=lgl, varname="wavelet", actual=wavelet)
+        if wavelet not in ["Morlet", "Paul"]:
             msg = "the chosen wavelet '{}' is real-valued and does not provide " +\
                 "any information about amplitude or phase of the data. This wavelet function " +\
                 "may be used to isolate peaks or discontinuities in the signal. "
-            SPYWarning(msg.format(wav))
+            SPYWarning(msg.format(wavelet))
 
-        # Check for consistency of `width`, `order` and `wav`
-        if wav == "Morlet":
+        # Check for consistency of `width`, `order` and `wavelet`
+        if wavelet == "Morlet":
             try:
                 scalar_parser(width, varname="width", lims=[1, np.inf])
             except Exception as exc:
                 raise exc
-            wfun = getattr(spywave, wav)(w0=width)
+            wfun = getattr(spywave, wavelet)(w0=width)
         else:
             if width != lcls["width"]:
                 msg = "option `width` has no effect for wavelet '{}'"
-                SPYWarning(msg.format(wav))
+                SPYWarning(msg.format(wavelet))
 
-        if wav == "Paul":
+        if wavelet == "Paul":
             try:
                 scalar_parser(order, varname="order", lims=[4, np.inf], ntype="int_like")
             except Exception as exc:
                 raise exc
-            wfun = getattr(spywave, wav)(m=order)
-        elif wav == "DOG":
+            wfun = getattr(spywave, wavelet)(m=order)
+        elif wavelet == "DOG":
             try:
                 scalar_parser(order, varname="order", lims=[1, np.inf], ntype="int_like")
             except Exception as exc:
                 raise exc
-            wfun = getattr(spywave, wav)(m=order)
+            wfun = getattr(spywave, wavelet)(m=order)
         else:
             if order is not None:
                 msg = "option `order` has no effect for wavelet '{}'"
-                SPYWarning(msg.format(wav))
-            wfun = getattr(spywave, wav)()
+                SPYWarning(msg.format(wavelet))
+            wfun = getattr(spywave, wavelet)()
 
         # Process frequency selection (`toi` was taken care of above): `foilim`
         # selections are wrapped into `foi` thus the seemingly weird if construct
@@ -867,7 +869,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
-        log_dct["wav"] = lcls["wav"]
+        log_dct["wavelet"] = lcls["wavelet"]
         log_dct["width"] = lcls["width"]
         log_dct["order"] = lcls["order"]
         
@@ -987,7 +989,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     specestMethod.initialize(data,
                              chan_per_worker=kwargs.get("chan_per_worker"),
                              keeptrials=keeptrials)
-    print('sdf')
     specestMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)
 
     # Either return newly created output object or simply quit
