@@ -40,6 +40,9 @@ def csd(data_arr, samplerate, taper="hann", taperopt={}, norm=False):
         `M = K // 2 + 1` is the number of Fourier frequency bins, 
         `N` corresponds to number of input channels.
 
+    freqs : (M,) :class:`numpy.ndarray`
+        The Fourier frequencies
+
     See also
     --------
     mtmfft : :func:`~syncopy.specest.mtmfft.mtmfft`
@@ -60,7 +63,7 @@ def csd(data_arr, samplerate, taper="hann", taperopt={}, norm=False):
     CSD_ij = np.real(CSD_ij.mean(axis=0).T)
     
     if norm:
-        # main diagonal: auto spectrum for each taper and averaging
+        # main diagonal: the auto spectra
         # has shape (nChannels x nFreq)        
         diag = CSD_ij.diagonal()
         # get the needed product pairs of the autospectra
