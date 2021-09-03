@@ -479,8 +479,6 @@ def wavelet_cF(
     trl_dat,
     preselect,
     postselect,
-    # padbegin, # were always 0!
-    # padend,
     toi=None,
     timeAxis=0,
     polyremoval=None,
@@ -504,16 +502,10 @@ def wavelet_cF(
     postselect : list of slices or list of 1D NumPy arrays
         Actual time-points of interest within interval defined by `preselect`
         See Notes for details. 
-    padbegin : int
-        Number of samples to pre-pend to `trl_dat`
-    padend : int
-        Number of samples to append to `trl_dat`
     toi : 1D :class:`numpy.ndarray` or str
         Either time-points to center wavelets on if `toi` is a :class:`numpy.ndarray`,
         or `"all"` to center wavelets on all samples in `trl_dat`. Please refer to 
-        :func:`~syncopy.freqanalysis` for further details. **Note**: The value 
-        of `toi` has to agree with provided padding values. See Notes for more 
-        information. 
+        :func:`~syncopy.freqanalysis` for further details.
     timeAxis : int
         Index of running time axis in `trl_dat` (0 or 1)
 leWavelets`
@@ -568,22 +560,12 @@ leWavelets`
                        :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     """
 
+    print(preselect, postselect, toi)
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
         dat = trl_dat.T  # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
-
-    # Pad input array if wanted/necessary
-    # if padbegin > 0 or padend > 0:
-    #     dat = padding(
-    #         dat,
-    #         "zero",
-    #         pad="relative",
-    #         padlength=None,
-    #         prepadlength=padbegin,
-    #         postpadlength=padend,
-    #     )
 
     # Get shape of output for dry-run phase
     nChannels = dat.shape[1]
@@ -692,16 +674,10 @@ def superlet_cF(
     postselect : list of slices or list of 1D NumPy arrays
         Actual time-points of interest within interval defined by `preselect`
         See Notes for details. 
-    padbegin : int
-        Number of samples to pre-pend to `trl_dat`
-    padend : int
-        Number of samples to append to `trl_dat`
     toi : 1D :class:`numpy.ndarray` or str
         Either array of equidistant time-points 
         or `"all"` to perform analysis on all samples in `trl_dat`. Please refer to 
-        :func:`~syncopy.freqanalysis` for further details. **Note**: The value 
-        of `toi` has to agree with provided padding values. See Notes for more 
-        information. 
+        :func:`~syncopy.freqanalysis` for further details. 
     output_fmt : str
         Output of spectral estimation; one of 
         :data:`~syncopy.specest.freqanalysis.availableOutputs`
@@ -745,17 +721,6 @@ def superlet_cF(
         dat = trl_dat.T  # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
-
-    # # Pad input array if wanted/necessary
-    # if padbegin > 0 or padend > 0:
-    #     dat = padding(
-    #         dat,
-    #         "zero",
-    #         pad="relative",
-    #         padlength=None,
-    #         prepadlength=padbegin,
-    #         postpadlength=padend,
-    #     )
 
     # Get shape of output for dry-run phase
     nChannels = trl_dat.shape[1]

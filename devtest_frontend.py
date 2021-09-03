@@ -31,10 +31,11 @@ toi_neqd = [0,0.1,0.3]
 foi = np.linspace(0, 45, 46)
 foi = None
 
-pad = 'relative'
+# pad = 'relative'
 # pad = 'absolute'
-# pad = 'maxlen'
-padlength = 200
+# pad = 'absolute'
+pad = 'maxlen'
+padlength = 4000
 # prepadlength = 150
 # postpadlength = 150
 

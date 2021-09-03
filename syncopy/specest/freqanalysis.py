@@ -355,14 +355,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     lenTrials = np.diff(sinfo).squeeze()
     numTrials = len(trialList)
 
-    # Set default padding options: after this, `pad` is either `None`, `False` or `str`
-    defaultPadding = {"mtmfft": "nextpow2",
-                      "mtmconvol": None,
-                      "wavelet": None,
-                      "superlet" : None}
-    if pad is None or pad is True:
-        pad = defaultPadding[method]
-
     # Sliding window FFT does not support "fancy" padding
     if method == "mtmconvol" and isinstance(pad, str):
         msg = "method 'mtmconvol' only supports in-place padding for windows " +\
@@ -370,34 +362,43 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         SPYWarning(msg.format(pad))
         pad = None
 
+    # Set default padding options: after this, `pad` is either `None`, `False` or `str`
+    defaultPadding = {"mtmfft": "nextpow2",
+                      "mtmconvol": None
+                      }    
+                
     # Ensure padding selection makes sense: do not pad on a by-trial basis but
     # use the longest trial as reference and compute `padlength` from there
     # (only relevant for "global" padding options such as `maxlen` or
     # `nextpow2`)for mtmfft method
     if method == 'mtmfft':
-        # pad was None or True or a string...
+
+        # get the default, leave False
+        if pad is True or pad is None:
+            pad = defaultPadding[method]            
+        
         if pad:
-            if not isinstance(pad, str):
-                raise SPYTypeError(pad, varname="pad", expected="str or None")            
             if pad == "maxlen": # FIXME: this is not working, bug in padding()?!
                 if padlength:
                     msg = f'option `padlength` has no effect for pad set to {pad}'
+                    SPYWarning(msg.format(pad))
                 padlength = lenTrials.max()
+                pad = "absolute"                
             elif pad == "nextpow2":
                 if padlength:
-                    msg = f'option `padlength` has no effect for pad set to {pad}'       
+                    msg = f'option `padlength` has no effect for pad set to {pad}'
+                    SPYWarning(msg.format(pad))                    
                 padlength = 0
                 for ltrl in lenTrials:
                     padlength = max(padlength, _nextpow2(ltrl))
                 pad = "absolute"
-            padding(data._preview_trial(trialList[0]), padtype, pad=pad, padlength=padlength,
-                    prepadlength=prepadlength, postpadlength=postpadlength)
 
             # Compute `minSampleNum` accounting for padding
             minSamplePos = lenTrials.argmin()
             minSampleNum = padding(data._preview_trial(trialList[minSamplePos]), padtype, pad=pad,
                                    padlength=padlength, prepadlength=True).shape[timeAxis]
-            
+
+        # without padding we need equal trial lengths
         elif np.unique((np.floor(lenTrials / 2))).size > 1:
             lgl = "trials of approximately equal length for method 'mtmfft' or set pad to True"
             act = "trials of unequal length"
@@ -405,7 +406,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         else:
             minSampleNum = int(lenTrials.min())
             
-    # no manual padding for other methods atm
+    # no manual padding for other methods
     else:
         minSampleNum = lenTrials.min()
 
@@ -487,7 +488,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         else:
             tStart = data._t0 / data.samplerate
         tEnd = tStart + lenTrials / data.samplerate
-
         
     # for these methods only 'all' or an equidistant array
     # of time points (sub-sampling, trimming) are valid
@@ -884,8 +884,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         specestMethod = WaveletTransform(
             preSelect,
             postSelect,
-            # list(padBegin),
-            # list(padEnd),
             toi=toi,
             timeAxis=timeAxis,
             polyremoval=polyremoval,
@@ -961,8 +959,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         specestMethod = SuperletTransform(
             preSelect,
             postSelect,
-            # list(padBegin),
-            # list(padEnd),
             toi=toi,
             timeAxis=timeAxis,
             output_fmt=output,
