@@ -60,7 +60,7 @@ def csd(data_arr, samplerate, taper="hann", taperopt={}, norm=False):
     
     # average tapers and transpose:
     # now has shape (nChannels x nChannels x nFreq)        
-    CSD_ij = np.real(CSD_ij.mean(axis=0).T)
+    CSD_ij = CSD_ij.mean(axis=0).T
     
     if norm:
         # main diagonal: the auto spectra
@@ -70,4 +70,4 @@ def csd(data_arr, samplerate, taper="hann", taperopt={}, norm=False):
         Ciijj = np.sqrt(diag[:, :, None] * diag[:, None, :]).T
         CSD_ij = CSD_ij / Ciijj
         
-    return CSD_ij, freqs
+    return CSD_ij, specs

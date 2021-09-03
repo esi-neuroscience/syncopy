@@ -41,5 +41,5 @@ def gen_testdata(eps=0.3):
 
 
 data = gen_testdata()
-        
+data2 = np.random.randn(1000,3)        
                                    
