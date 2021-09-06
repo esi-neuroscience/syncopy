@@ -21,10 +21,9 @@ from syncopy.specest.compRoutines import (
 
 tdat = generate_artificial_data(inmemory=True)
 
-toi_ival = [0, 1]
-# toi_eqd = np.arange(0, 0.5, step=0.2)
-# toi_neqd = [0,0.1,0.3]
-# toi_ival = [0,1]
+toi_ival = [-1, 2]
+toi_eqd = np.arange(0, 0.5, step=0.01)
+toi_neqd = [0,0.1,0.3,0.30001]
 # toi_ival = 'all'
 # toi_ival = None
 # foi = np.logspace(-1, 2.6, 50)
@@ -40,17 +39,30 @@ padlength = 4000
 # postpadlength = 150
 
 
-r_mtm = freqanalysis(tdat, method="mtmfft",
-                     toi=toi_ival,
-                     t_ftimwin=1.5,
-                     output='pow',
-                     taper='dpss',
-                     nTaper=10,
-                     tapsmofrq=None,
-                     keeptapers=False,
-                     pad=pad,
-                     padlength=padlength,
-                     foi=foi)
+r_mtmc = freqanalysis(tdat, method="mtmconvol",
+                      toi=toi_eqd,
+                      t_ftimwin=1.5,
+                      output='pow',
+                      taper='dpss',
+                      nTaper=10,
+                      tapsmofrq=None,
+                      keeptapers=False,
+                      pad=pad,
+                      padlength=padlength,
+                      foi=foi)
+
+
+# r_mtm = freqanalysis(tdat, method="mtmfft",
+#                      toi=toi_ival,
+#                      t_ftimwin=1.5,
+#                      output='pow',
+#                      taper='dpss',
+#                      nTaper=10,
+#                      tapsmofrq=None,
+#                      keeptapers=False,
+#                      pad=pad,
+#                      padlength=padlength,
+#                      foi=foi)
 
 # r_mtmc = freqanalysis(tdat, method="mtmconvol",
 #                       toi=toi_ival,
@@ -81,11 +93,11 @@ r_wav = freqanalysis(
 ) 
 
 # # test superlet analysis
-r_sup = freqanalysis(tdat, method="superlet", toi=toi_ival,
-                     order_max=30, output='abs',
-                     order_min=1,
-                     c_1 = 3,
-                     foi=foi,
-                     adaptive=True,
-                     wav="Paul")
+# r_sup = freqanalysis(tdat, method="superlet", toi=toi_ival,
+#                      order_max=30, output='abs',
+#                      order_min=1,
+#                      c_1 = 3,
+#                      foi=foi,
+#                      adaptive=True,
+#                      wav="Paul")
 

@@ -536,128 +536,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             lgl = "array of equidistant time-points or 'all' for wavelet based methods"
             raise SPYValueError(legal=lgl, varname="toi", actual=toi)
 
-    # Process `toi` for sliding window multi taper fft,
-    # we have to account for three scenarios: (1) center sliding
-    # windows on all samples in (selected) trials (2) `toi` was provided as
-    # percentage indicating the degree of overlap b/w time-windows and (3) a set
-    # of discrete time points was provided. These three cases are encoded in
-    # `overlap, i.e., ``overlap > 1` => all, `0 < overlap < 1` => percentage,
-    # `overlap < 0` => discrete `toi`
-
-    elif method == "mtmconvol":
-
-        # overlap = None
-        if isinstance(toi, str):
-            if toi != "all":
-                lgl = "`toi = 'all'` to center analysis windows on all time-points"
-                raise SPYValueError(legal=lgl, varname="toi", actual=toi)
-            equidistant = True
-            
-        elif isinstance(toi, Number):
-            try:
-                scalar_parser(toi, varname="toi", lims=[0, 1])
-            except Exception as exc:
-                raise exc
-            overlap = toi
-            equidistant = True
-        # this captures all other cases, e.i. toi is of sequence type
-        else:
-            overlap = -1
-            try:
-                array_parser(toi, varname="toi", hasinf=False, hasnan=False,
-                             lims=[tStart.min(), tEnd.max()], dims=(None,))
-            except Exception as exc:
-                raise exc
-            toi = np.array(toi)
-            tSteps = np.diff(toi)
-            if (tSteps < 0).any():
-                lgl = "ordered list/array of time-points"
-                act = "unsorted list/array"
-                raise SPYValueError(legal=lgl, varname="toi", actual=act)
-            # This is imho a bug in NumPy - even `arange` and `linspace` may produce
-            # arrays that are numerically not exactly equidistant - `unique` will
-            # show several entries here - use `allclose` to identify "even" spacings
-            equidistant = np.allclose(tSteps, [tSteps[0]] * tSteps.size)
-
-        # If `toi` was 'all' or a percentage, use entire time interval of (selected)
-        # trials and check if those trials have *approximately* equal length
-        if toi is None:
-            if not np.allclose(lenTrials, [minSampleNum] * lenTrials.size):
-                msg = "processing trials of different lengths (min = {}; max = {} samples)" +\
-                    " with `toi = 'all'`"
-                SPYWarning(msg.format(int(minSampleNum), int(lenTrials.max())))
-            if pad is False:
-                lgl = "`pad` to be `None` or `True` to permit zero-padding " +\
-                    "at trial boundaries to accommodate windows if `0 < toi < 1` " +\
-                    "or if `toi` is 'all'"
-                act = "False"
-                raise SPYValueError(legal=lgl, actual=act, varname="pad")
-
-        # get the sliding window size
-        try:
-            scalar_parser(t_ftimwin, varname="t_ftimwin", lims=[1 / data.samplerate, minTrialLength])
-        except Exception as exc:
-            raise exc
-        
-        nperseg = int(t_ftimwin * data.samplerate)
-        minSampleNum = nperseg # this is the effective FFT sample size (per window)
-        halfWin = int(nperseg / 2)
-
-        # `mtmconvol`: compute no. of samples overlapping across adjacent windows
-        if overlap < 0:         # `toi` is equidistant range or disjoint points
-            noverlap = nperseg - max(1, int(tSteps[0] * data.samplerate))
-        elif 0 <= overlap <= 1: # `toi` is percentage
-            noverlap = min(nperseg - 1, int(overlap * nperseg))
-        else:                   # `toi` is "all"
-            noverlap = nperseg - 1
-
-        # `toi` is array
-        if overlap < 0:
-            print('AAA' * 5)
-            # Compute necessary padding at begin/end of trials to fit sliding windows
-            offStart = ((toi[0] - tStart) * data.samplerate).astype(np.intp)
-            print(offStart, halfWin)
-            padBegin = halfWin - offStart
-            print('A', padBegin)
-            padBegin = ((padBegin > 0) * padBegin).astype(np.intp)
-            print('B', padBegin)
-            offEnd = ((tEnd - toi[-1]) * data.samplerate).astype(np.intp)
-            padEnd = halfWin - offEnd
-            print('A', padEnd)            
-            padEnd = ((padEnd > 0) * padEnd).astype(np.intp)
-            print('B', padEnd)
-            # Abort if padding was explicitly forbidden
-            if pad is False and (np.any(padBegin) or np.any(padBegin)):
-                lgl = "windows within trial bounds"
-                act = "windows exceeding trials no. " +\
-                    "".join(str(trlno) + ", "\
-                            for trlno in np.array(trialList)[(padBegin + padEnd) > 0])[:-2]
-                raise SPYValueError(legal=lgl, varname="pad", actual=act)
-
-            # Compute sample-indices (one slice/list per trial) from time-selections
-            soi = []
-            if not equidistant:
-                for tk in range(numTrials):
-                    starts = (data.samplerate * (toi - tStart[tk]) - halfWin).astype(np.intp)
-                    starts += padBegin[tk]
-                    stops = (data.samplerate * (toi - tStart[tk]) + halfWin + 1).astype(np.intp)
-                    stops += padBegin[tk]
-                    stops = np.maximum(stops, stops - starts, dtype=np.intp)
-                    soi.append([slice(start, stop) for start, stop in zip(starts, stops)])
-                print('Soi:', soi)
-
-            else:
-                for tk in range(numTrials):
-                    start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
-                    stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
-                    soi.append(slice(max(0, start), max(stop, stop - start)))
-                print('Soi:', soi)
-        # `toi` is percentage or "all"
-        else:
-
-            padBegin = np.zeros((numTrials,))
-            padEnd = np.zeros((numTrials,))
-            soi = [slice(None)] * numTrials
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
@@ -669,6 +547,17 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # --------------------------------------------
     
     if "mtm" in method:
+
+        if method == "mtmconvol":
+            # get the sliding window size
+            try:
+                scalar_parser(t_ftimwin, varname="t_ftimwin",
+                              lims=[1 / data.samplerate, minTrialLength])
+            except Exception as exc:
+                raise exc
+        
+            # this is the effective sliding window FFT sample size
+            minSampleNum = int(t_ftimwin * data.samplerate)            
         
         # Construct array of maximally attainable frequencies
         freqs = np.fft.rfftfreq(minSampleNum, 1 / data.samplerate)
@@ -714,7 +603,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
             # direct mtm estimate (averaging) only valid for spectral power
             if not keeptapers and output != "pow":
-                lgl = "'pow', the only option for taper averaging"
+                lgl = "'pow', the only valid option for taper averaging"
                 raise SPYValueError(legal=lgl, varname="output", actual=output)
             
             # Try to derive "sane" settings by using 3/4 octave
@@ -785,6 +674,120 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             method_kwargs=method_kwargs)
 
     elif method == "mtmconvol":
+
+        # Process `toi` for sliding window multi taper fft,
+        # we have to account for three scenarios: (1) center sliding
+        # windows on all samples in (selected) trials (2) `toi` was provided as
+        # percentage indicating the degree of overlap b/w time-windows and (3) a set
+        # of discrete time points was provided. These three cases are encoded in
+        # `overlap, i.e., ``overlap > 1` => all, `0 < overlap < 1` => percentage,
+        # `overlap < 0` => discrete `toi`
+                
+        # overlap = None
+        if isinstance(toi, str):
+            if toi != "all":
+                lgl = "`toi = 'all'` to center analysis windows on all time-points"
+                raise SPYValueError(legal=lgl, varname="toi", actual=toi)
+            equidistant = True
+            
+        elif isinstance(toi, Number):
+            try:
+                scalar_parser(toi, varname="toi", lims=[0, 1])
+            except Exception as exc:
+                raise exc
+            overlap = toi
+            equidistant = True
+        # this captures all other cases, e.i. toi is of sequence type
+        else:
+            overlap = -1
+            try:
+                array_parser(toi, varname="toi", hasinf=False, hasnan=False,
+                             lims=[tStart.min(), tEnd.max()], dims=(None,))
+            except Exception as exc:
+                raise exc
+            toi = np.array(toi)
+            tSteps = np.diff(toi)
+            if (tSteps < 0).any():
+                lgl = "ordered list/array of time-points"
+                act = "unsorted list/array"
+                raise SPYValueError(legal=lgl, varname="toi", actual=act)
+            if (tSteps < 1 / data.samplerate).any():
+                msg = f"`toi` selection to fine, max. time resolution is {1/data.samplerate}s"
+                SPYWarning(msg)
+            # This is imho a bug in NumPy - even `arange` and `linspace` may produce
+            # arrays that are numerically not exactly equidistant - `unique` will
+            # show several entries here - use `allclose` to identify "even" spacings
+            equidistant = np.allclose(tSteps, [tSteps[0]] * tSteps.size)
+
+        # If `toi` was 'all' or a percentage, use entire time interval of (selected)
+        # trials and check if those trials have *approximately* equal length
+        if toi is None:
+            if not np.allclose(lenTrials, [minSampleNum] * lenTrials.size):
+                msg = "processing trials of different lengths (min = {}; max = {} samples)" +\
+                    " with `toi = 'all'`"
+                SPYWarning(msg.format(int(minSampleNum), int(lenTrials.max())))
+            if pad is False:
+                lgl = "`pad` to be `None` or `True` to permit zero-padding " +\
+                    "at trial boundaries to accommodate windows if `0 < toi < 1` " +\
+                    "or if `toi` is 'all'"
+                act = "False"
+                raise SPYValueError(legal=lgl, actual=act, varname="pad")
+
+        # number of samples per window
+        nperseg = int(t_ftimwin * data.samplerate)
+        halfWin = int(nperseg / 2)
+
+        # `mtmconvol`: compute no. of samples overlapping across adjacent windows
+        if overlap < 0:         # `toi` is equidistant range or disjoint points
+            noverlap = nperseg - max(1, int(tSteps[0] * data.samplerate))
+        elif 0 <= overlap <= 1: # `toi` is percentage
+            noverlap = min(nperseg - 1, int(overlap * nperseg))
+        else:                   # `toi` is "all"
+            noverlap = nperseg - 1
+
+        # `toi` is array
+        if overlap < 0:
+            # Compute necessary padding at begin/end of trials to fit sliding windows
+            offStart = ((toi[0] - tStart) * data.samplerate).astype(np.intp)
+            padBegin = halfWin - offStart
+            padBegin = ((padBegin > 0) * padBegin).astype(np.intp)
+            offEnd = ((tEnd - toi[-1]) * data.samplerate).astype(np.intp)
+            padEnd = halfWin - offEnd
+            padEnd = ((padEnd > 0) * padEnd).astype(np.intp)
+            # Abort if padding was explicitly forbidden
+            if pad is False and (np.any(padBegin) or np.any(padBegin)):
+                lgl = "windows within trial bounds"
+                act = "windows exceeding trials no. " +\
+                    "".join(str(trlno) + ", "\
+                            for trlno in np.array(trialList)[(padBegin + padEnd) > 0])[:-2]
+                raise SPYValueError(legal=lgl, varname="pad", actual=act)
+
+            # Compute sample-indices (one slice/list per trial) from time-selections
+            soi = []
+            if not equidistant:
+                for tk in range(numTrials):
+                    starts = (data.samplerate * (toi - tStart[tk]) - halfWin).astype(np.intp)
+                    starts += padBegin[tk]
+                    stops = (data.samplerate * (toi - tStart[tk]) + halfWin + 1).astype(np.intp)
+                    stops += padBegin[tk]
+                    stops = np.maximum(stops, stops - starts, dtype=np.intp)
+                    soi.append([slice(start, stop) for start, stop in zip(starts, stops)])
+
+            else:
+                # chosen sampling interval in sample units, min. is 1
+                delta_idx =  int(tSteps[0] * data.samplerate)
+                delta_idx = delta_idx if delta_idx > 1 else 1
+                print(delta_idx)
+                for tk in range(numTrials):
+                    start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
+                    stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
+                    soi.append(slice(max(0, start), max(stop, stop - start), delta_idx))
+        # `toi` is percentage or "all"
+        else:
+            padBegin = np.zeros((numTrials,))
+            padEnd = np.zeros((numTrials,))
+            soi = [slice(None)] * numTrials
+        
 
         # Set up compute-class
         specestMethod = MultiTaperFFTConvol(
