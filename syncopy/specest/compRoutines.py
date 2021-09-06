@@ -159,7 +159,8 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
     nSamples = dat.shape[0]        
     nChannels = dat.shape[1]
 
-    # Determine frequency band and shape of output (time=1 x taper x freq x channel)
+    # Determine frequency band and shape of output
+    # (time=1 x taper x freq x channel)
     freqs = np.fft.rfftfreq(nSamples, 1 / method_kwargs["samplerate"])
     _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
     nFreq = freq_idx.size
@@ -206,7 +207,7 @@ class MultiTaperFFT(ComputationalRoutine):
     cF_keys = list(signature(mtmfft_cF).parameters.keys())[1:-1]         
 
     def process_metadata(self, data, out):
-        
+
         # Some index gymnastics to get trial begin/end "samples"
         if data._selection is not None:
             chanSec = data._selection.channel
@@ -560,7 +561,6 @@ leWavelets`
                        :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     """
 
-    print(preselect, postselect, toi)
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
         dat = trl_dat.T  # does not copy but creates view of `trl_dat`

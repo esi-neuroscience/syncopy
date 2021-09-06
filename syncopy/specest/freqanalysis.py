@@ -46,8 +46,7 @@ __all__ = ["freqanalysis"]
 # @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, foilim=None, pad=None, padtype='zero',
-                 padlength=None, prepadlength=None, postpadlength=None,
-                 polyremoval=None,
+                 padlength=None, polyremoval=None,
                  taper="hann", tapsmofrq=None, nTaper=None, keeptapers=False,
                  toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
@@ -508,14 +507,16 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         elif not iter(toi):
             valid = False
 
-        # this is the sequence type            
+        # this is the sequence type - can only be an interval!
         else:
+            try:
+                array_parser(toi, varname="toi", hasinf=False, hasnan=False,
+                             lims=[tStart.min(), tEnd.max()], dims=(None,))
+            except Exception as exc:
+                raise exc                            
             toi = np.array(toi)
-            # catch non-numeric sequence
-            if not np.issubdtype(toi.dtype, np.number):
-                valid = False
             # check for equidistancy
-            elif not np.allclose(np.diff(toi, 2), np.zeros(len(toi) - 2)):
+            if not np.allclose(np.diff(toi, 2), np.zeros(len(toi) - 2)):
                 valid = False
             # trim (preSelect) and subsample output (postSelect)
             else:
@@ -599,7 +600,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise exc
         
         nperseg = int(t_ftimwin * data.samplerate)
-        minSampleNum = nperseg
+        minSampleNum = nperseg # this is the effective FFT sample size (per window)
         halfWin = int(nperseg / 2)
 
         # `mtmconvol`: compute no. of samples overlapping across adjacent windows
@@ -674,7 +675,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         # Match desired frequencies as close as possible to
         # actually attainable freqs
-        # What happens if padding is applied later?!
+        # these are the frequencies attached to the SpectralData by the CR!
         if foi is not None:
             foi, _ = best_match(freqs, foi, squash_duplicates=True)
         elif foilim is not None:
@@ -803,8 +804,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             pad=pad,
             padtype=padtype,
             padlength=padlength,
-            prepadlength=prepadlength,
-            postpadlength=postpadlength,
             keeptapers=keeptapers,
             polyremoval=polyremoval,
             output_fmt=output)
@@ -853,18 +852,22 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 SPYWarning(msg.format(wavelet))
             wfun = getattr(spywave, wavelet)()
 
-        # Process frequency selection (`toi` was taken care of above): `foilim`
-        # selections are wrapped into `foi` thus the seemingly weird if construct
-        # first argument
-        if foi is None:
+        # automatic frequency selection
+        if foi is None and foilim is None:
             scales = get_optimal_wavelet_scales(
                 wfun.scale_from_period, # all availableWavelets sport one!
                 int(minTrialLength * data.samplerate),
                 1 / data.samplerate)
-        if foilim is not None:
+            foi = 1 / wfun.fourier_period(scales)
+            msg = (f"Automatic wavelet frequency selection from {foi[0]:.1f}Hz to " 
+                   f"{foi[-1]:.1f}Hz")
+            SPYInfo(msg)
+        elif foilim is not None:
             foi = np.arange(foilim[0], foilim[1] + 1)
-        if foi is not None:
             foi[foi < 0.01] = 0.01
+            scales = wfun.scale_from_period(1 / foi)
+        # foi is given as array
+        else:
             scales = wfun.scale_from_period(1 / foi)
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
@@ -920,13 +923,16 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 superlet.scale_from_period, 
                 int(minTrialLength * data.samplerate), 
                 1 / data.samplerate)
-
-        if foi is not None:
-            scales = superlet.scale_from_period(1 / foi)
-
+            foi = 1 / superlet.fourier_period(scales)
+            msg = (f"Automatic superlet frequency selection from {foi[0]:.1f}Hz to " 
+                   f"{foi[-1]:.1f}Hz")
+            SPYInfo(msg)
         # frequency range in 1Hz steps
         elif foilim is not None:
             foi = np.arange(foilim[0], foilim[1] + 1)
+            scales = superlet.scale_from_period(1 / foi)
+        # foi is given as array            
+        else:
             scales = superlet.scale_from_period(1 / foi)
 
         # FASLT needs ordered frequencies low - high

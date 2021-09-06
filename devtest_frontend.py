@@ -22,8 +22,8 @@ from syncopy.specest.compRoutines import (
 tdat = generate_artificial_data(inmemory=True)
 
 toi_ival = [0, 1]
-toi_eqd = np.arange(0, 0.5, step=0.2)
-toi_neqd = [0,0.1,0.3]
+# toi_eqd = np.arange(0, 0.5, step=0.2)
+# toi_neqd = [0,0.1,0.3]
 # toi_ival = [0,1]
 # toi_ival = 'all'
 # toi_ival = None
@@ -68,22 +68,24 @@ r_mtm = freqanalysis(tdat, method="mtmfft",
 # test classical wavelet analysis
 r_wav = freqanalysis(
     tdat, method="wavelet",
-    toi=toi_eqd,
+    toi=toi_ival,
+    # toi='all',
     wav='Paul',
     order=4,
     output='abs',
+    #foilim=[2,10],
     foi=foi,
-    pad=True,
+    pad=None,
     padtype='sth',
     adaptive=True
 ) 
 
 # # test superlet analysis
-# r_sup = freqanalysis(tdat, method="superlet", toi=toi_ival,
-#                      order_max=30, output='abs',
-#                      order_min=1,
-#                      c_1 = 3,
-#                      foi=foi,
-#                      adaptive=True,
-#                      wav="Paul")
+r_sup = freqanalysis(tdat, method="superlet", toi=toi_ival,
+                     order_max=30, output='abs',
+                     order_min=1,
+                     c_1 = 3,
+                     foi=foi,
+                     adaptive=True,
+                     wav="Paul")
 
