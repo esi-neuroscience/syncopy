@@ -689,6 +689,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 lgl = "`toi = 'all'` to center analysis windows on all time-points"
                 raise SPYValueError(legal=lgl, varname="toi", actual=toi)
             equidistant = True
+            overlap = np.inf
             
         elif isinstance(toi, Number):
             try:
@@ -711,7 +712,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 lgl = "ordered list/array of time-points"
                 act = "unsorted list/array"
                 raise SPYValueError(legal=lgl, varname="toi", actual=act)
-            if (tSteps < 1 / data.samplerate).any():
+            if not (tSteps - 1 / data.samplerate < 1e-8).any():
                 msg = f"`toi` selection to fine, max. time resolution is {1/data.samplerate}s"
                 SPYWarning(msg)
             # This is imho a bug in NumPy - even `arange` and `linspace` may produce
@@ -742,7 +743,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             noverlap = nperseg - max(1, int(tSteps[0] * data.samplerate))
         elif 0 <= overlap <= 1: # `toi` is percentage
             noverlap = min(nperseg - 1, int(overlap * nperseg))
-        else:                   # `toi` is "all"
+        else:                   # `toi` is "all" - windows get shifted exactly 1 sample
             noverlap = nperseg - 1
 
         # `toi` is array
@@ -777,7 +778,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 # chosen sampling interval in sample units, min. is 1
                 delta_idx =  int(tSteps[0] * data.samplerate)
                 delta_idx = delta_idx if delta_idx > 1 else 1
-                print(delta_idx)
                 for tk in range(numTrials):
                     start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
                     stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
@@ -789,27 +789,28 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             soi = [slice(None)] * numTrials
         
 
+        # Collect keyword args for `mtmconvol` in dictionary
+        method_kwargs = {"samplerate": data.samplerate,
+                         "nperseg": nperseg,
+                         "noverlap": noverlap,
+                         "taper" : taper}
+            
         # Set up compute-class
         specestMethod = MultiTaperFFTConvol(
             soi,
             list(padBegin),
             list(padEnd),
-            samplerate=data.samplerate,
-            noverlap=noverlap,
-            nperseg=nperseg,
             equidistant=equidistant,
             toi=toi,
             foi=foi,
+            taper=taper,            
             nTaper=nTaper,
-            timeAxis=timeAxis,
-            taper=taper,
-            taperopt=taperopt,
-            pad=pad,
-            padtype=padtype,
-            padlength=padlength,
+            tapsmofrq=tapsmofrq,
+            timeAxis=timeAxis,            
             keeptapers=keeptapers,
             polyremoval=polyremoval,
-            output_fmt=output)
+            output_fmt=output,
+            method_kwargs=method_kwargs)
 
     elif method == "wavelet":
 

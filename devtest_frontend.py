@@ -22,7 +22,7 @@ from syncopy.specest.compRoutines import (
 tdat = generate_artificial_data(inmemory=True)
 
 toi_ival = [-1, 2]
-toi_eqd = np.arange(0, 0.5, step=0.01)
+toi_eqd = np.arange(0, 1, step=0.001)
 toi_neqd = [0,0.1,0.3,0.30001]
 # toi_ival = 'all'
 # toi_ival = None
@@ -41,15 +41,16 @@ padlength = 4000
 
 r_mtmc = freqanalysis(tdat, method="mtmconvol",
                       toi=toi_eqd,
-                      t_ftimwin=1.5,
+                      # toi='all',
+                      # toi=0.6,
+                      t_ftimwin=.2,
                       output='pow',
                       taper='dpss',
                       nTaper=10,
                       tapsmofrq=None,
                       keeptapers=False,
                       pad=pad,
-                      padlength=padlength,
-                      foi=foi)
+                      foilim=[0, 50])
 
 
 # r_mtm = freqanalysis(tdat, method="mtmfft",
