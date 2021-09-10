@@ -712,7 +712,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 lgl = "ordered list/array of time-points"
                 act = "unsorted list/array"
                 raise SPYValueError(legal=lgl, varname="toi", actual=act)
-            if not (tSteps - 1 / data.samplerate < 1e-8).any():
+            if tSteps[0] < 1 / data.samplerate:
                 msg = f"`toi` selection to fine, max. time resolution is {1/data.samplerate}s"
                 SPYWarning(msg)
             # This is imho a bug in NumPy - even `arange` and `linspace` may produce
@@ -737,13 +737,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # number of samples per window
         nperseg = int(t_ftimwin * data.samplerate)
         halfWin = int(nperseg / 2)
+        postSelect = slice(None) # select all is the default
 
-        # `mtmconvol`: compute no. of samples overlapping across adjacent windows
-        if overlap < 0:         # `toi` is equidistant range or disjoint points
-            noverlap = nperseg - max(1, int(tSteps[0] * data.samplerate))
-        elif 0 <= overlap <= 1: # `toi` is percentage
+        if 0 <= overlap <= 1: # `toi` is percentage
             noverlap = min(nperseg - 1, int(overlap * nperseg))
-        else:                   # `toi` is "all" - windows get shifted exactly 1 sample
+        # windows get shifted exactly 1 sample
+        # to get a spectral estimate at each sample
+        else:                   
             noverlap = nperseg - 1
 
         # `toi` is array
@@ -765,7 +765,21 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
             # Compute sample-indices (one slice/list per trial) from time-selections
             soi = []
-            if not equidistant:
+            if equidistant:
+                # soi just trims the input data to the [toi[0], toi[-1]] interval
+                # postSelect then subsamples the spectral esimate to the user given toi
+                postSelect = []
+                for tk in range(numTrials):
+                    start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
+                    stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
+                    soi.append(slice(max(0, start), max(stop, stop - start)))
+                    
+                # chosen toi subsampling interval in sample units, min. is 1
+                delta_idx =  int(tSteps[0] * data.samplerate)
+                delta_idx = delta_idx if delta_idx > 1 else 1
+                postSelect = slice(None, None, delta_idx) 
+                
+            else:
                 for tk in range(numTrials):
                     starts = (data.samplerate * (toi - tStart[tk]) - halfWin).astype(np.intp)
                     starts += padBegin[tk]
@@ -773,15 +787,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                     stops += padBegin[tk]
                     stops = np.maximum(stops, stops - starts, dtype=np.intp)
                     soi.append([slice(start, stop) for start, stop in zip(starts, stops)])
-
-            else:
-                # chosen sampling interval in sample units, min. is 1
-                delta_idx =  int(tSteps[0] * data.samplerate)
-                delta_idx = delta_idx if delta_idx > 1 else 1
-                for tk in range(numTrials):
-                    start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
-                    stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
-                    soi.append(slice(max(0, start), max(stop, stop - start), delta_idx))
+                    # postSelect here remains slice(None), as resulting spectrum
+                    # has exactly one entry for each soi
+                
         # `toi` is percentage or "all"
         else:
             padBegin = np.zeros((numTrials,))
@@ -798,6 +806,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # Set up compute-class
         specestMethod = MultiTaperFFTConvol(
             soi,
+            postSelect,
             list(padBegin),
             list(padEnd),
             equidistant=equidistant,

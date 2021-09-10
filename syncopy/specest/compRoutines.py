@@ -244,6 +244,7 @@ class MultiTaperFFT(ComputationalRoutine):
 def mtmconvol_cF(
         trl_dat,
         soi,
+        postselect,
         padbegin,
         padend,
         equidistant=True,
@@ -378,30 +379,35 @@ def mtmconvol_cF(
     outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
-    
-    # In case tapers aren't preserved allocate `spec` "too big" and average afterwards
-    spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
-    
+        
     # additional keyword args for `stft` in dictionary
     method_kwargs.update({"boundary": stftBdry,
                           "padded": stftPad})
 
     if equidistant:
-        print('EQD!')
         ftr, freqs = mtmconvol(dat[soi, :], **method_kwargs)
-        _, fIdx = best_match(freqs, foi, squash_duplicates=True)
-        spec = ftr[:nTime, :, fIdx, :]
+        _, fIdx = best_match(freqs, foi, squash_duplicates=True)        
+        spec = ftr[postselect, :, fIdx, :]
         spec = spectralConversions[output_fmt](spec)
+        
     else:
-        print('NEQD!')
-        ftr, freqs = mtmconvol(dat[soi[0], :],  **method_kwargs)
+        # in this case only a single window gets centered on
+        # every individual soi, so we can use mtmfft!        
+        samplerate = method_kwargs['samplerate']
+        taper = method_kwargs['taper']
+        taperopt = method_kwargs['taperopt']
+        
+        # In case tapers aren't preserved allocate `spec` "too big"
+        # and average afterwards
+        spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
+        
+        ftr, freqs = mtmfft(dat[soi[0], :],  samplerate, taper, taperopt)
         _, fIdx = best_match(freqs, foi, squash_duplicates=True)
-        spec[0, ...] = ftr[:, :, fIdx, :]
-        # loop over remaining window sample ranges
+        spec[0, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
+        # loop over remaining soi to center windows on
         for tk in range(1, len(soi)):
-            ftr, freqs = mtmconvol(dat[soi[tk], :], **method_kwargs)
-            spec[tk, ...] = ftr[:, :, fIdx, :]
-        spec = spectralConversions[output_fmt](spec)
+            ftr, freqs = mtmfft(dat[soi[tk], :],  samplerate, taper, taperopt)
+            spec[tk, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
             
     # Average across tapers if wanted
     # only valid if output_fmt='pow' !
@@ -845,8 +851,10 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
 
     # If `toi` was a percentage, some cumsum/winSize algebra is required
     # Note: if `toi` was "all", simply use provided `trialdefinition` and `samplerate`
+
     elif isinstance(toi, Number):
-        winSize = cfg["nperseg"] - cfg["noverlap"]
+        mKw = cfg['method_kwargs']
+        winSize = mKw["nperseg"] - mKw["noverlap"]
         trialdefinitionLens = np.ceil(np.diff(trialdefinition[:, :2]) / winSize)
         sumLens = np.cumsum(trialdefinitionLens).reshape(trialdefinitionLens.shape)
         trialdefinition[:, 0] = np.ravel(sumLens - trialdefinitionLens)

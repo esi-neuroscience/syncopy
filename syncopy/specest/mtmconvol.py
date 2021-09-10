@@ -29,22 +29,22 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
 
     # number of time points in the output    
     if boundary is None:
-        # we loose half the window on each side
+        # no padding: we loose half the window on each side
         nTime = int(np.ceil(nSamples / (nperseg - noverlap))) - nperseg
     else:
-        # the signal is padded with 0's on each side as to cover
+        # the signal is padded on each side as to cover
         # the whole signal
         nTime = int(np.ceil(nSamples / (nperseg - noverlap)))
-    
+
     # Short time Fourier transforms (nTime x nTapers x nFreq x nChannels)
     ftr = np.zeros((nTime, windows.shape[0], nFreq, nChannels), dtype='complex128')
+
     for taperIdx, win in enumerate(windows):
         # pxx has shape (nFreq, nChannels, nTime)        
         freq, _, pxx = signal.stft(data_arr, samplerate, win,
                                    nperseg, noverlap, boundary=boundary, padded=padded, axis=0)
         ftr[:, taperIdx, ...] = pxx.transpose(2, 0, 1)[:nTime, ...]
 
-    # print(ftr.shape)
     return ftr, freqs
     
 

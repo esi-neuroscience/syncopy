@@ -58,7 +58,7 @@ def mtmfft(data_arr, samplerate, taper="hann", taperopt={}):
 
     nSamples = data_arr.shape[0]
     nChannels = data_arr.shape[1]
-    
+
     freqs = np.fft.rfftfreq(nSamples, 1 / samplerate)
     nFreq = freqs.size
 
