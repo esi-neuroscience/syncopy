@@ -27,6 +27,12 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
     # only truly 2d for multi-taper "dpss"
     windows = np.atleast_2d(taper_func(nperseg, **taperopt))
 
+    # only(!!) slepian windows are already normalized
+    # still have to normalize by number of tapers
+    # such that taper-averaging yields correct amplitudes
+    if taper == 'dpss':
+        windows = windows * np.sqrt(taperopt.get('Kmax', 1))            
+
     # number of time points in the output    
     if boundary is None:
         # no padding: we loose half the window on each side
@@ -43,7 +49,8 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
         # pxx has shape (nFreq, nChannels, nTime)        
         freq, _, pxx = signal.stft(data_arr, samplerate, win,
                                    nperseg, noverlap, boundary=boundary, padded=padded, axis=0)
-        ftr[:, taperIdx, ...] = pxx.transpose(2, 0, 1)[:nTime, ...]
+        # normalisation for half the spectrum/power
+        ftr[:, taperIdx, ...] = 2 * pxx.transpose(2, 0, 1)[:nTime, ...]  
 
     return ftr, freqs
     
