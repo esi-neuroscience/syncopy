@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Cross Spectral Density and Coherency
+# Cross Spectral Density 
 #
 
 # Builtin/3rd party package imports
@@ -16,13 +16,10 @@ def csd(data_arr, samplerate, taper="hann", taperopt={}, norm=False):
     Cross spectral density (CSD) estimate between all channels
     of the input data. First all the individual Fourier transforms
     are calculated via a (multi-)tapered FFT, then the pairwise
-    coherence is calculated. Averaging over tapers is done implicitly.
+    cross-spectra are calculated. Averaging over tapers is done implicitly.
     Output consists of all (nChannels x nChannels+1)/2 different CSD estimates
     aranged in a symmetric fashion (CSD_ij == CSD_ji). The elements on the
     main diagonal (CSD_ii) are the auto-spectra.
-
-    If normalization is required (`norm=True`) the respective coherencies
-    are returned.
 
     Parameters
     ----------
@@ -70,4 +67,9 @@ def csd(data_arr, samplerate, taper="hann", taperopt={}, norm=False):
         Ciijj = np.sqrt(diag[:, :, None] * diag[:, None, :]).T
         CSD_ij = CSD_ij / Ciijj
         
-    return CSD_ij, specs
+    return freqs, CSD_ij, specs
+
+
+# white noise ensemble
+
+
