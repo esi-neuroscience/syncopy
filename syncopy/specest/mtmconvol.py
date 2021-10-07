@@ -63,10 +63,9 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
     Sxx = np.real(ftr * ftr.conj()).mean(axis=0)
 
     The short time FFT result is normalized such that 
-    this yields the squared amplitudes.          
+    this yields the squared harmonic amplitudes.          
     '''
     
-
     # attach dummy channel axis in case only a
     # single signal/channel is the input
     if data_arr.ndim < 2:
@@ -80,13 +79,20 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
     nFreq = freqs.size
 
     taper_func = getattr(signal.windows,  taper)
+    
+    # this parameter mitigates the sum-to-zero problem for the odd slepians
+    # as signal.stft has hardcoded scaling='spectrum'
+    # -> normalizes with win.sum() :/
+    # see also https://github.com/scipy/scipy/issues/14740
+    if taper == 'dpss':
+        taperopt['sym']  = False
+        
     # only truly 2d for multi-taper "dpss"
     windows = np.atleast_2d(taper_func(nperseg, **taperopt))
 
     # Slepian normalization
     if taper == 'dpss':
         windows = windows * np.sqrt(taperopt.get('Kmax', 1)) / np.sqrt(nperseg)
-
         
     # number of time points in the output    
     if boundary is None:
@@ -98,8 +104,6 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
         nTime = int(np.ceil(nSamples / (nperseg - noverlap)))
 
     # Short time Fourier transforms (nTime x nTapers x nFreq x nChannels)
-    # we really might need 2x 64Bit precision here, due to slepian odd window
-    # normalization!!
     ftr = np.zeros((nTime, windows.shape[0], nFreq, nChannels), dtype='complex128')
 
     for taperIdx, win in enumerate(windows):

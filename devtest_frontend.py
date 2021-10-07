@@ -33,7 +33,6 @@ foi = None
 
 # pad = 'relative'
 # pad = 'absolute'
-# pad = 'absolute'
 pad = 'maxlen'
 padlength = 4000
 # prepadlength = 150
@@ -54,50 +53,38 @@ r_mtmc = freqanalysis(tdat, method="mtmconvol",
                       foilim=[0, 50])
 print(r_mtmc.trials[0].shape)
 
-# r_mtm = freqanalysis(tdat, method="mtmfft",
-#                      toi=toi_ival,
-#                      t_ftimwin=1.5,
-#                      output='pow',
-#                      taper='dpss',
-#                      nTaper=10,
-#                      tapsmofrq=None,
-#                      keeptapers=False,
-#                      pad=pad,
-#                      padlength=padlength,
-#                      foi=foi)
+r_mtm = freqanalysis(tdat, method="mtmfft",
+                     toi=toi_ival,
+                     t_ftimwin=1.5,
+                     output='pow',
+                     taper='dpss',
+                     nTaper=10,
+                     tapsmofrq=None,
+                     keeptapers=False,
+                     pad=pad,
+                     padlength=padlength,
+                     foi=foi)
 
-# r_mtmc = freqanalysis(tdat, method="mtmconvol",
-#                       toi=toi_ival,
-#                       t_ftimwin=.5,
-#                       output='abs',
-#                       taper='hann',
-#                       tapsmofrq=2,
-#                       pad=True,
-#                       padlength=100,
-#                       order_max=10,
-#                       foi=foi)
-
-# , foilim=[5, 500])
 
 # test classical wavelet analysis
-# r_wav = freqanalysis(
-#     tdat, method="wavelet",
-#     # toi=toi_ival,
-#     toi='all',
-#     wav=None,
-#     order=4,
-#     output='abs',
-#     foilim=[0.1,50],
-#     #foi=foi,
-#     adaptive=True
-# ) 
+r_wav = freqanalysis(
+    tdat, method="wavelet",
+    # toi=toi_ival,
+    toi='all',
+    wav=None,
+    order=4,
+    output='abs',
+    foilim=[0.1,50],
+    #foi=foi,
+    adaptive=True
+) 
 
-# # test superlet analysis
-# r_sup = freqanalysis(tdat, method="superlet", toi=toi_ival,
-#                      order_max=30, output='abs',
-#                      order_min=1,
-#                      c_1 = 3,
-#                      foi=foi,
-#                      adaptive=True,
-#                      wav="Paul")
+# test superlet analysis
+r_sup = freqanalysis(tdat, method="superlet", toi=toi_ival,
+                     order_max=30, output='abs',
+                     order_min=1,
+                     c_1 = 3,
+                     foi=foi,
+                     adaptive=True,
+                     wav="Paul")
 
