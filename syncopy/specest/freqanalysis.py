@@ -6,33 +6,35 @@
 # Builtin/3rd party package imports
 from numbers import Number
 import numpy as np
-import scipy.signal.windows as spwin
 
 # Syncopy imports
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser 
 from syncopy.shared.tools import get_defaults
 from syncopy.datatype import SpectralData, padding
 from syncopy.datatype.methods.padding import _nextpow2
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.tools import best_match
+
+# method specific imports - they should go!
 import syncopy.specest.wavelets as spywave
 import syncopy.specest.superlet as superlet
+from .wavelet import get_optimal_wavelet_scales
 
 # Local imports
-from .mtmfft import MultiTaperFFT
-
-from .wavelet import get_optimal_wavelet_scales
 from .const_def import (
     spectralConversions,
     availableTapers,
     availableWavelets,
-    availableMethods
+    availableMethods,
+    generalParameters
 )
+
 from .compRoutines import (
     SuperletTransform,
     WaveletTransform,
+    MultiTaperFFT,
     MultiTaperFFTConvol
 )
 
@@ -44,10 +46,9 @@ __all__ = ["freqanalysis"]
 # @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, foilim=None, pad=None, padtype='zero',
-                 padlength=None, prepadlength=None, postpadlength=None,
-                 polyremoval=None,
-                 taper="hann", tapsmofrq=None, keeptapers=False,
-                 toi=None, t_ftimwin=None, wav="Morlet", width=6, order=None,
+                 padlength=None, polyremoval=None,
+                 taper="hann", tapsmofrq=None, nTaper=None, keeptapers=False,
+                 toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
                  out=None, **kwargs):
     """
@@ -74,7 +75,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         lobe.
 
         * **taper** : one of :data:`~.availableTapers`
-        * **tapsmofrq** : spectral smoothing box for tapers (in Hz)
+        * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
+        * **nTaper** : number of orthogonal tapers for slepian tapers
         * **keeptapers** : return individual tapers or average
         * **pad** : padding method to use (`None`, `True`, `False`, `'absolute'`,
           `'relative'`, `'maxlen'` or `'nextpow2'`). If `None`, then `'nextpow2'`
@@ -91,7 +93,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         multiple DPSS tapers.
 
         * **taper** : one of :data:`~.availableTapers`
-        * **tapsmofrq** : spectral smoothing box for tapers (in Hz)
+        * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
+        * **nTaper** : number of orthogonal tapers for slepian tapers
         * **keeptapers** : return individual tapers or average
         * **pad** : flag indicating, whether or not to pad trials. If `None`,
           trials are padded only if sliding window centroids are too close
@@ -109,7 +112,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         * **wav** : one of :data:`~.availableWavelets`
         * **toi** : time-points of interest; can be either an array representing
           time points (in sec) to center wavelets on or "all" to center a wavelet
-          on every sample in the data.
+          on every sample in the data. #FIXME: not correct: toi only affects pre-trimming 
+          and subsampling of results!
         * **width** : Nondimensional frequency constant of Morlet wavelet function (>= 6)
         * **order** : Order of Paul wavelet function (>= 4) or derivative order
           of real-valued DOG wavelets (2 = mexican hat)
@@ -162,19 +166,19 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         chosen. Specifically, if `method` is `'mtmfft'` then `pad` is set to
         `'nextpow2'` so that all trials in `data` are padded to the next power of
         two higher than the sample-count of the longest (selected) trial in `data`. Conversely,
-        time-frequency analysis methods (`'mtmconvol'` and `'wavelet'`), only perform
+        the sliding window time-frequency analysis method (`'mtmconvol'`), only performs
         padding if necessary, i.e., if time-window centroids are chosen too close
         to trial boundaries for the entire window to cover available data-points.
         If `pad` is `False`, then no padding is performed. Then in case of
         ``method = 'mtmfft'`` all trials have to have approximately the same
-        length (up to the next even sample-count), if ``method = 'mtmconvol'`` or
-        ``method = 'wavelet'``, window-centroids have to keep sufficient
+        length (up to the next even sample-count), if ``method = 'mtmconvol'``, 
+        window-centroids have to keep sufficient
         distance from trial boundaries. For more details on the padding methods
         `'absolute'`, `'relative'`, `'maxlen'` and `'nextpow2'` see :func:`syncopy.padding`.
     padtype : str
         Values to be used for padding. Can be `'zero'`, `'nan'`, `'mean'`,
         `'localmean'`, `'edge'` or `'mirror'`. See :func:`syncopy.padding` for
-        more information.
+        more information. Only valid for method `'mtmfft'`.
     padlength : None, bool or positive int
         Only valid if `method` is `'mtmfft'` and `pad` is `'absolute'` or `'relative'`.
         Number of samples to pad data with. See :func:`syncopy.padding` for more
@@ -199,14 +203,18 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. Windowing function,
         one of :data:`~.availableTapers` (see below).
     tapsmofrq : float
-        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. The amount of spectral
-        smoothing through  multi-tapering (Hz). Note that smoothing frequency
-        specifications are one-sided, i.e., 4 Hz smoothing means plus-minus 4 Hz,
-        i.e., a 8 Hz smoothing box.
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and `taper` is `'dpss'`. 
+        The amount of spectral smoothing through  multi-tapering (Hz). 
+        Note that smoothing frequency specifications are one-sided, 
+        i.e., 4 Hz smoothing means plus-minus 4 Hz, i.e., a 8 Hz smoothing box.
+    nTaper : int
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and `taper='dpss'`. 
+        Number of orthogonal tapers to use.    
     keeptapers : bool
-        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. If `True`, return
-        spectral estimates for each taper, otherwise results are averaged across
-        tapers.
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. 
+        If `True`, return spectral estimates for each taper. 
+        Otherwise power spectrum is averaged across tapers, 
+        if and only if `output` is `pow`.
     toi : float or array-like or "all"
         **Mandatory input** for time-frequency analysis methods (`method` is either
         `"mtmconvol"` or `"wavelet"` or `"superlet"`).
@@ -214,8 +222,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         percentage of overlap between time-windows specified by `t_ftimwin` (only
         valid if `method` is `'mtmconvol'`).
         If `toi` is an array it explicitly selects the centroids of analysis
-        windows (in seconds). If `toi` is `"all"`, analysis windows are centered
-        on all samples in the data.
+        windows (in seconds), if `toi` is `"all"`, analysis windows are centered
+        on all samples in the data for `method="mtmconvol"`. For wavelet based
+        methods (`"wavelet"` or `"superlet"`) toi needs to be either an 
+        equidistant array of time points or "all".
     t_ftimwin : positive float
         Only valid if `method` is `'mtmconvol'`. Sliding window length (in seconds).
     wav : str
@@ -308,7 +318,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     timeAxis = data.dimord.index("time")
 
     # Get everything of interest in local namespace
-    defaults = get_defaults(freqanalysis)
+    defaults = get_defaults(freqanalysis) 
     lcls = locals()
 
     # Ensure a valid computational method was selected
@@ -344,14 +354,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     lenTrials = np.diff(sinfo).squeeze()
     numTrials = len(trialList)
 
-    # Set default padding options: after this, `pad` is either `None`, `False` or `str`
-    defaultPadding = {"mtmfft": "nextpow2",
-                      "mtmconvol": None,
-                      "wavelet": None,
-                      "superlet" : None}
-    if pad is None or pad is True:
-        pad = defaultPadding[method]
-
     # Sliding window FFT does not support "fancy" padding
     if method == "mtmconvol" and isinstance(pad, str):
         msg = "method 'mtmconvol' only supports in-place padding for windows " +\
@@ -359,39 +361,56 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         SPYWarning(msg.format(pad))
         pad = None
 
+    # Set default padding options: after this, `pad` is either `None`, `False` or `str`
+    defaultPadding = {"mtmfft": "nextpow2",
+                      "mtmconvol": None
+                      }    
+                
     # Ensure padding selection makes sense: do not pad on a by-trial basis but
     # use the longest trial as reference and compute `padlength` from there
-    # (only relevant for "global" padding options such as `maxlen` or `nextpow2`)
-    if pad:
-        if not isinstance(pad, str):
-            raise SPYTypeError(pad, varname="pad", expected="str or None")
-        if pad == "maxlen":
-            padlength = lenTrials.max()
-            prepadlength = True
-            postpadlength = False
-        elif pad == "nextpow2":
-            padlength = 0
-            for ltrl in lenTrials:
-                padlength = max(padlength, _nextpow2(ltrl))
-            pad = "absolute"
-            prepadlength = True
-            postpadlength = False
-        padding(data._preview_trial(trialList[0]), padtype, pad=pad, padlength=padlength,
-                prepadlength=prepadlength, postpadlength=postpadlength)
+    # (only relevant for "global" padding options such as `maxlen` or
+    # `nextpow2`)for mtmfft method
+    if method == 'mtmfft':
 
-        # Compute `minSampleNum` accounting for padding
-        minSamplePos = lenTrials.argmin()
-        minSampleNum = padding(data._preview_trial(trialList[minSamplePos]), padtype, pad=pad,
-                               padlength=padlength, prepadlength=True).shape[timeAxis]
-    else:
-        if method == "mtmfft" and np.unique((np.floor(lenTrials / 2))).size > 1:
-            lgl = "trials of approximately equal length for method 'mtmfft'"
+        # get the default, leave False
+        if pad is True or pad is None:
+            pad = defaultPadding[method]            
+        
+        if pad:
+            if pad == "maxlen": # FIXME: this is not working, bug in padding()?!
+                if padlength:
+                    msg = f'option `padlength` has no effect for pad set to {pad}'
+                    SPYWarning(msg.format(pad))
+                padlength = lenTrials.max()
+                pad = "absolute"                
+            elif pad == "nextpow2":
+                if padlength:
+                    msg = f'option `padlength` has no effect for pad set to {pad}'
+                    SPYWarning(msg.format(pad))                    
+                padlength = 0
+                for ltrl in lenTrials:
+                    padlength = max(padlength, _nextpow2(ltrl))
+                pad = "absolute"
+
+            # Compute `minSampleNum` accounting for padding
+            minSamplePos = lenTrials.argmin()
+            minSampleNum = padding(data._preview_trial(trialList[minSamplePos]), padtype, pad=pad,
+                                   padlength=padlength, prepadlength=True).shape[timeAxis]
+
+        # without padding we need equal trial lengths
+        elif np.unique((np.floor(lenTrials / 2))).size > 1:
+            lgl = "trials of approximately equal length for method 'mtmfft' or set pad to True"
             act = "trials of unequal length"
             raise SPYValueError(legal=lgl, varname="data", actual=act)
+        else:
+            minSampleNum = int(lenTrials.min())
+            
+    # no manual padding for other methods
+    else:
         minSampleNum = lenTrials.min()
 
     # Compute length (in samples) of shortest trial
-    minTrialLength = minSampleNum/data.samplerate
+    minTrialLength = minSampleNum / data.samplerate
 
     # Basic sanitization of frequency specifications
     if foi is not None:
@@ -424,7 +443,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             # foilim is of shape (2,)
             if foilim[0] > foilim[1]:
                 msg = "Sorting foilim low to high.."
-                SPYWarning(msg)
+                SPYInfo(msg)
                 foilim = np.sort(foilim)
             
     if foi is not None and foilim is not None:
@@ -453,7 +472,11 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                "padlength": lcls["padlength"],
                "foi": lcls["foi"]}
 
-    # 1st: Check time-frequency inputs to prepare/sanitize `toi`
+    # --------------------------------
+    # 1st: Check time-frequency inputs
+    # to prepare/sanitize `toi` 
+    # --------------------------------
+    
     if method in ["mtmconvol", "wavelet", "superlet"]:
 
         # Get start/end timing info respecting potential in-place selection
@@ -464,26 +487,211 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         else:
             tStart = data._t0 / data.samplerate
         tEnd = tStart + lenTrials / data.samplerate
+        
+    # for these methods only 'all' or an equidistant array
+    # of time points (sub-sampling, trimming) are valid
+    if method in ["wavelet", "superlet"]:
 
-        # Process `toi`: we have to account for three scenarios: (1) center sliding
+        valid = True
+        if isinstance(toi, Number):
+            valid = False
+
+        elif isinstance(toi, str):
+            if toi != "all":
+                valid = False
+            else:
+                # take everything
+                preSelect = [slice(None)] * numTrials
+                postSelect = [slice(None)] * numTrials
+                                
+        elif not iter(toi):
+            valid = False
+
+        # this is the sequence type - can only be an interval!
+        else:
+            try:
+                array_parser(toi, varname="toi", hasinf=False, hasnan=False,
+                             lims=[tStart.min(), tEnd.max()], dims=(None,))
+            except Exception as exc:
+                raise exc                            
+            toi = np.array(toi)
+            # check for equidistancy
+            if not np.allclose(np.diff(toi, 2), np.zeros(len(toi) - 2)):
+                valid = False
+            # trim (preSelect) and subsample output (postSelect)
+            else:
+                preSelect = []
+                postSelect = []                
+                # get sample intervals and relative indices from toi
+                for tk in range(numTrials):
+                    start = int(data.samplerate * (toi[0] - tStart[tk]))
+                    stop = int(data.samplerate * (toi[-1] - tStart[tk]) + 1)
+                    preSelect.append(slice(max(0, start), max(stop, stop - start)))
+                    smpIdx = np.minimum(lenTrials[tk] - 1,
+                                        data.samplerate * (toi - tStart[tk]) - start)
+                    postSelect.append(smpIdx.astype(np.intp))
+                    
+        # get out if sth wasn't right
+        if not valid:
+            lgl = "array of equidistant time-points or 'all' for wavelet based methods"
+            raise SPYValueError(legal=lgl, varname="toi", actual=toi)
+
+
+        # Update `log_dct` w/method-specific options (use `lcls` to get actually
+        # provided keyword values, not defaults set in here)
+        log_dct["toi"] = lcls["toi"]
+    
+    # --------------------------------------------
+    # Check options specific to mtm*-methods
+    # (particularly tapers and foi/freqs alignment)
+    # --------------------------------------------
+    
+    if "mtm" in method:
+
+        if method == "mtmconvol":
+            # get the sliding window size
+            try:
+                scalar_parser(t_ftimwin, varname="t_ftimwin",
+                              lims=[1 / data.samplerate, minTrialLength])
+            except Exception as exc:
+                raise exc
+        
+            # this is the effective sliding window FFT sample size
+            minSampleNum = int(t_ftimwin * data.samplerate)            
+        
+        # Construct array of maximally attainable frequencies
+        freqs = np.fft.rfftfreq(minSampleNum, 1 / data.samplerate)
+
+        # Match desired frequencies as close as possible to
+        # actually attainable freqs
+        # these are the frequencies attached to the SpectralData by the CR!
+        if foi is not None:
+            foi, _ = best_match(freqs, foi, squash_duplicates=True)
+        elif foilim is not None:
+            foi, _ = best_match(freqs, foilim, span=True, squash_duplicates=True)
+        else:
+            msg = (f"Automatic FFT frequency selection from {freqs[0]:.1f}Hz to " 
+                   f"{freqs[-1]:.1f}Hz")
+            SPYInfo(msg)
+            foi = freqs
+
+        # Abort if desired frequency selection is empty
+        if foi.size == 0:
+            lgl = "non-empty frequency specification"
+            act = "empty frequency selection"
+            raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
+
+        # See if taper choice is supported
+        if taper not in availableTapers:
+            lgl = "'" + "or '".join(opt + "' " for opt in availableTapers)
+            raise SPYValueError(legal=lgl, varname="taper", actual=taper)
+
+        # Warn user about DPSS only settings
+        if taper != "dpss":     
+            if tapsmofrq is not None:
+                msg = "`tapsmofrq` is only used if `taper` is `dpss`!"
+                SPYWarning(msg)
+            if nTaper is not None:
+                msg = "`nTaper` is only used if `taper` is `dpss`!"
+                SPYWarning(msg)
+            if keeptapers:
+                msg = "`keeptapers` is only used if `taper` is `dpss`!"
+                SPYWarning(msg)            
+                    
+        # Set/get `tapsmofrq` if we're working w/Slepian tapers
+        if taper == "dpss":
+
+            # direct mtm estimate (averaging) only valid for spectral power
+            if not keeptapers and output != "pow":
+                lgl = "'pow', the only valid option for taper averaging"
+                raise SPYValueError(legal=lgl, varname="output", actual=output)
+            
+            # Try to derive "sane" settings by using 3/4 octave
+            # smoothing of highest `foi`
+            # following Hill et al. "Oscillatory Synchronization in Large-Scale
+            # Cortical Networks Predicts Perception", Neuron, 2011
+            if tapsmofrq is None:
+                foimax = foi.max()
+                tapsmofrq = (foimax * 2**(3/4/2) - foimax * 2**(-3/4/2)) / 2
+                msg = f'Automatic setting of `tapsmofrq` to {tapsmofrq:.2f}'
+                SPYInfo(msg)
+                
+            else:
+                try:
+                    scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[1, np.inf])
+                except Exception as exc:
+                    raise exc
+            
+            # Get/compute number of tapers to use (at least 1 and max. 50)
+            if not nTaper:
+                nTaper = int(max(2, min(50, np.floor(tapsmofrq * minSampleNum * 1 / data.samplerate))))
+                msg = f'Automatic setting of `nTaper` to {nTaper}'
+                SPYInfo(msg)
+            else:
+                try:
+                    scalar_parser(nTaper,
+                                  varname="nTaper",
+                                  ntype="int_like", lims=[1, np.inf])
+                except Exception as exc:
+                    raise exc
+                
+        # only taper with frontend supported options is DPSS                            
+        else:
+            nTaper = 1
+                                    
+        # Update `log_dct` w/method-specific options (use `lcls` to get actually
+        # provided keyword values, not defaults set in here)
+        log_dct["taper"] = lcls["taper"]
+        log_dct["tapsmofrq"] = lcls["tapsmofrq"]
+
+    # -------------------------------------------------------
+    # Now, prepare explicit compute-classes for chosen method
+    # -------------------------------------------------------
+
+    if method == "mtmfft":
+
+        _check_effective_parameters(MultiTaperFFT, defaults, lcls)
+
+        # method specific parameters
+        method_kwargs = {
+            'samplerate' : data.samplerate,
+            'taper' : taper
+        }
+                    
+        # Set up compute-class
+        specestMethod = MultiTaperFFT(
+            samplerate=data.samplerate,
+            foi=foi,
+            timeAxis=timeAxis,
+            pad=pad,
+            padtype=padtype,
+            padlength=padlength,
+            keeptapers=keeptapers,
+            nTaper = nTaper,
+            tapsmofrq = tapsmofrq,
+            polyremoval=polyremoval,
+            output_fmt=output,
+            method_kwargs=method_kwargs)
+
+    elif method == "mtmconvol":
+
+        # Process `toi` for sliding window multi taper fft,
+        # we have to account for three scenarios: (1) center sliding
         # windows on all samples in (selected) trials (2) `toi` was provided as
         # percentage indicating the degree of overlap b/w time-windows and (3) a set
         # of discrete time points was provided. These three cases are encoded in
         # `overlap, i.e., ``overlap > 1` => all, `0 < overlap < 1` => percentage,
         # `overlap < 0` => discrete `toi`
+                
+        # overlap = None
         if isinstance(toi, str):
             if toi != "all":
                 lgl = "`toi = 'all'` to center analysis windows on all time-points"
                 raise SPYValueError(legal=lgl, varname="toi", actual=toi)
-            overlap = 1.1
-            toi = None
             equidistant = True
+            overlap = np.inf
+            
         elif isinstance(toi, Number):
-            if method in ["wavelet", "superlet"]:
-                # this is not correct.. or it's simply sub-sampling?!
-                lgl = "array of equidistant time-points"
-                act = "scalar value"
-                raise SPYValueError(legal=lgl, varname="toi", actual=act)
             try:
                 scalar_parser(toi, varname="toi", lims=[0, 1])
             except Exception as exc:
@@ -504,6 +712,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 lgl = "ordered list/array of time-points"
                 act = "unsorted list/array"
                 raise SPYValueError(legal=lgl, varname="toi", actual=act)
+            if tSteps[0] < 1 / data.samplerate:
+                msg = f"`toi` selection to fine, max. time resolution is {1/data.samplerate}s"
+                SPYWarning(msg)
             # This is imho a bug in NumPy - even `arange` and `linspace` may produce
             # arrays that are numerically not exactly equidistant - `unique` will
             # show several entries here - use `allclose` to identify "even" spacings
@@ -523,39 +734,27 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 act = "False"
                 raise SPYValueError(legal=lgl, actual=act, varname="pad")
 
-        # Code recycling: `overlap`, `equidistant` etc. are really only relevant
-        # for `mtmconvol`, but we use padding calc below for `wavelet` as well
-        if method == "mtmconvol":
-            try:
-                scalar_parser(t_ftimwin, varname="t_ftimwin", lims=[1/data.samplerate, minTrialLength])
-            except Exception as exc:
-                raise exc
-        else:
-            t_ftimwin = 0
+        # number of samples per window
         nperseg = int(t_ftimwin * data.samplerate)
-        minSampleNum = nperseg
         halfWin = int(nperseg / 2)
+        postSelect = slice(None) # select all is the default
 
-        # `mtmconvol`: compute no. of samples overlapping across adjacent windows
-        if overlap < 0:         # `toi` is equidistant range or disjoint points
-            noverlap = nperseg - max(1, int(tSteps[0] * data.samplerate))
-        elif 0 <= overlap <= 1: # `toi` is percentage
+        if 0 <= overlap <= 1: # `toi` is percentage
             noverlap = min(nperseg - 1, int(overlap * nperseg))
-        else:                   # `toi` is "all"
+        # windows get shifted exactly 1 sample
+        # to get a spectral estimate at each sample
+        else:                   
             noverlap = nperseg - 1
 
         # `toi` is array
         if overlap < 0:
-
             # Compute necessary padding at begin/end of trials to fit sliding windows
             offStart = ((toi[0] - tStart) * data.samplerate).astype(np.intp)
             padBegin = halfWin - offStart
             padBegin = ((padBegin > 0) * padBegin).astype(np.intp)
-
             offEnd = ((tEnd - toi[-1]) * data.samplerate).astype(np.intp)
             padEnd = halfWin - offEnd
             padEnd = ((padEnd > 0) * padEnd).astype(np.intp)
-
             # Abort if padding was explicitly forbidden
             if pad is False and (np.any(padBegin) or np.any(padBegin)):
                 lgl = "windows within trial bounds"
@@ -566,7 +765,21 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
             # Compute sample-indices (one slice/list per trial) from time-selections
             soi = []
-            if not equidistant:
+            if equidistant:
+                # soi just trims the input data to the [toi[0], toi[-1]] interval
+                # postSelect then subsamples the spectral esimate to the user given toi
+                postSelect = []
+                for tk in range(numTrials):
+                    start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
+                    stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
+                    soi.append(slice(max(0, start), max(stop, stop - start)))
+                    
+                # chosen toi subsampling interval in sample units, min. is 1
+                delta_idx =  int(tSteps[0] * data.samplerate)
+                delta_idx = delta_idx if delta_idx > 1 else 1
+                postSelect = slice(None, None, delta_idx) 
+                
+            else:
                 for tk in range(numTrials):
                     starts = (data.samplerate * (toi - tStart[tk]) - halfWin).astype(np.intp)
                     starts += padBegin[tk]
@@ -574,257 +787,105 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                     stops += padBegin[tk]
                     stops = np.maximum(stops, stops - starts, dtype=np.intp)
                     soi.append([slice(start, stop) for start, stop in zip(starts, stops)])
-            else:
-                for tk in range(numTrials):
-                    start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
-                    stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
-                    soi.append(slice(max(0, start), max(stop, stop - start)))
-
+                    # postSelect here remains slice(None), as resulting spectrum
+                    # has exactly one entry for each soi
+                
         # `toi` is percentage or "all"
         else:
-
             padBegin = np.zeros((numTrials,))
             padEnd = np.zeros((numTrials,))
             soi = [slice(None)] * numTrials
+        
 
-        # For wavelets/superlets, we need to first trim the data
-        # (via `preSelect`), then
-        # extract the wanted time-points (`postSelect`)
-        if method in ["wavelet", "superlet"]:
-
-            # Simply recycle the indexing work done
-            # for `mtmconvol` (i.e., `soi`) won't work
-            # here as these estimation methods require equidstancy (atm)
-            preSelect = []
-            if not equidistant:
-                lgl = "toi needs to be an equidistant " \
-                    "set of time points for wavelet-based methods"
-                act = "not an equidistant sequence"
-                raise SPYValueError(legal=lgl, varname="toi", actual=act)
-
-            else:
-                preSelect = soi
-
-            # If `toi` is an array, convert "global" indices to "local" ones
-            # (select within `preSelect`'s selection), otherwise just take all
-            if overlap < 0:
-                postSelect = []
-                for tk in range(numTrials):
-                    smpIdx = np.minimum(lenTrials[tk] - 1,
-                                        data.samplerate * (toi - tStart[tk]) - offStart[tk] + padBegin[tk])
-                    postSelect.append(smpIdx.astype(np.intp))
-            else:
-                postSelect = [slice(None)] * numTrials
-
-        # Update `log_dct` w/method-specific options (use `lcls` to get actually
-        # provided keyword values, not defaults set in here)
-        if toi is None:
-            toi = "all"
-        log_dct["toi"] = lcls["toi"]
-
-    # Check options specific to mtm*-methods (particularly tapers and foi/freqs alignment)
-    if "mtm" in method:
-
-        # See if taper choice is supported
-        if taper not in availableTapers:
-            lgl = "'" + "or '".join(opt + "' " for opt in availableTapers)
-            raise SPYValueError(legal=lgl, varname="taper", actual=taper)
-        taper = getattr(spwin, taper)
-
-        # Advanced usage: see if `taperopt` was provided - if not, leave it empty
-        taperopt = kwargs.get("taperopt", {})
-        if not isinstance(taperopt, dict):
-            raise SPYTypeError(taperopt, varname="taperopt", expected="dictionary")
-
-        # Construct array of maximally attainable frequencies
-        nFreq = minSampleNum // 2 + 1
-        freqs = np.linspace(1 / minSampleNum, data.samplerate / 2, nFreq)
-
-        # Match desired frequencies as close as possible to actually attainable freqs
-        if foi is not None:
-            foi, _ = best_match(freqs, foi, squash_duplicates=True)
-        elif foilim is not None:
-            foi, _ = best_match(freqs, foilim, span=True, squash_duplicates=True)
-        else:
-            foi = freqs
-
-        # Abort if desired frequency selection is empty
-        if foi.size == 0:
-            lgl = "non-empty frequency specification"
-            act = "empty frequency selection"
-            raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
-
-        # Set/get `tapsmofrq` if we're working w/Slepian tapers
-        if taper.__name__ == "dpss":
-
-            # Try to derive "sane" settings by using 3/4 octave smoothing of highest `foi`
-            # following Hill et al. "Oscillatory Synchronization in Large-Scale
-            # Cortical Networks Predicts Perception", Neuron, 2011
-            if tapsmofrq is None:
-                foimax = foi.max()
-                tapsmofrq = (foimax * 2**(3/4/2) - foimax * 2**(-3/4/2)) / 2
-            else:
-                try:
-                    scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[1, np.inf])
-                except Exception as exc:
-                    raise exc
-
-            # Get/compute number of tapers to use (at least 1 and max. 50)
-            nTaper = taperopt.get("Kmax", 1)
-            if not taperopt:
-                nTaper = int(max(2, min(50, np.floor(tapsmofrq * minSampleNum * 1 / data.samplerate))))
-                taperopt = {"NW": tapsmofrq, "Kmax": nTaper}
-
-        else:
-            nTaper = 1
-
-        # Warn the user in case `tapsmofrq` has no effect
-        if tapsmofrq is not None and taper.__name__ != "dpss":
-            msg = "`tapsmofrq` is only used if `taper` is `dpss`!"
-            SPYWarning(msg)
-
-        # Update `log_dct` w/method-specific options (use `lcls` to get actually
-        # provided keyword values, not defaults set in here)
-        log_dct["taper"] = lcls["taper"]
-        log_dct["tapsmofrq"] = lcls["tapsmofrq"]
-        log_dct["nTaper"] = nTaper
-
-        # Check for non-default values of options not supported by chosen method
-        # This is hardcoded and has to be checked agains the actual signature!
-        expected = {"wav": ["Morlet", None], "width": [6, None]}
-        for name in expected:
-            if lcls[name] not in expected[name]:
-                msg = "option `{}` has no effect in methods `mtmfft` and `mtmconvol`!"
-                SPYWarning(msg.format(name))
-
-    elif method in ["wavelet", "superlet"]:
-
-        # there's no taper in these methods
-        # Check for non-default values of `taper`, `tapsmofrq`, `keeptapers` and
-        # `t_ftimwin` 
-        expected = {"taper": ["hann", None],
-                    "tapsmofrq": [None],
-                    "keeptapers": [False],
-                    "t_ftimwin": [None]}
-        for name in expected:
-            if lcls[name] not in expected[name]:
-                msg = "option `{}` has no effect in method `{}`!"
-                SPYWarning(msg.format(name, method))
-
-    # -------------------------------------------------------
-    # Now, prepare explicit compute-classes for chosen method
-    # -------------------------------------------------------
-
-    if method == "mtmfft":
-
-        # Check for non-default values of options not supported by chosen method
-        expected = {"t_ftimwin": [None], "toi": [None, "all"]}
-        for name in expected:
-            if lcls[name] not in expected[name]:
-                msg = "option `{}` has no effect in method `mtmfft`!"
-                SPYWarning(msg.format(name))
-
-        # Set up compute-class
-        specestMethod = MultiTaperFFT(
-            samplerate=data.samplerate,
-            foi=foi,
-            nTaper=nTaper,
-            timeAxis=timeAxis,
-            taper=taper,
-            taperopt=taperopt,
-            tapsmofrq=tapsmofrq,
-            pad=pad,
-            padtype=padtype,
-            padlength=padlength,
-            keeptapers=keeptapers,
-            polyremoval=polyremoval,
-            output_fmt=output)
-
-    elif method == "mtmconvol":
-
+        # Collect keyword args for `mtmconvol` in dictionary
+        method_kwargs = {"samplerate": data.samplerate,
+                         "nperseg": nperseg,
+                         "noverlap": noverlap,
+                         "taper" : taper}
+            
         # Set up compute-class
         specestMethod = MultiTaperFFTConvol(
             soi,
+            postSelect,
             list(padBegin),
             list(padEnd),
-            samplerate=data.samplerate,
-            noverlap=noverlap,
-            nperseg=nperseg,
             equidistant=equidistant,
             toi=toi,
             foi=foi,
+            taper=taper,            
             nTaper=nTaper,
-            timeAxis=timeAxis,
-            taper=taper,
-            taperopt=taperopt,
-            pad=pad,
-            padtype=padtype,
-            padlength=padlength,
-            prepadlength=prepadlength,
-            postpadlength=postpadlength,
+            tapsmofrq=tapsmofrq,
+            timeAxis=timeAxis,            
             keeptapers=keeptapers,
             polyremoval=polyremoval,
-            output_fmt=output)
+            output_fmt=output,
+            method_kwargs=method_kwargs)
 
     elif method == "wavelet":
 
+        _check_effective_parameters(WaveletTransform, defaults, lcls)
+        
         # Check wavelet selection
-        if wav not in availableWavelets:
+        if wavelet not in availableWavelets:
             lgl = "'" + "or '".join(opt + "' " for opt in availableWavelets)
-            raise SPYValueError(legal=lgl, varname="wav", actual=wav)
-        if wav not in ["Morlet", "Paul"]:
+            raise SPYValueError(legal=lgl, varname="wavelet", actual=wavelet)
+        if wavelet not in ["Morlet", "Paul"]:
             msg = "the chosen wavelet '{}' is real-valued and does not provide " +\
                 "any information about amplitude or phase of the data. This wavelet function " +\
                 "may be used to isolate peaks or discontinuities in the signal. "
-            SPYWarning(msg.format(wav))
+            SPYWarning(msg.format(wavelet))
 
-        # Check for consistency of `width`, `order` and `wav`
-        if wav == "Morlet":
+        # Check for consistency of `width`, `order` and `wavelet`
+        if wavelet == "Morlet":
             try:
                 scalar_parser(width, varname="width", lims=[1, np.inf])
             except Exception as exc:
                 raise exc
-            wfun = getattr(spywave, wav)(w0=width)
+            wfun = getattr(spywave, wavelet)(w0=width)
         else:
             if width != lcls["width"]:
                 msg = "option `width` has no effect for wavelet '{}'"
-                SPYWarning(msg.format(wav))
+                SPYWarning(msg.format(wavelet))
 
-        if wav == "Paul":
+        if wavelet == "Paul":
             try:
                 scalar_parser(order, varname="order", lims=[4, np.inf], ntype="int_like")
             except Exception as exc:
                 raise exc
-            wfun = getattr(spywave, wav)(m=order)
-        elif wav == "DOG":
+            wfun = getattr(spywave, wavelet)(m=order)
+        elif wavelet == "DOG":
             try:
                 scalar_parser(order, varname="order", lims=[1, np.inf], ntype="int_like")
             except Exception as exc:
                 raise exc
-            wfun = getattr(spywave, wav)(m=order)
+            wfun = getattr(spywave, wavelet)(m=order)
         else:
             if order is not None:
                 msg = "option `order` has no effect for wavelet '{}'"
-                SPYWarning(msg.format(wav))
-            wfun = getattr(spywave, wav)()
+                SPYWarning(msg.format(wavelet))
+            wfun = getattr(spywave, wavelet)()
 
-        # Process frequency selection (`toi` was taken care of above): `foilim`
-        # selections are wrapped into `foi` thus the seemingly weird if construct
-        # first argument
-        if foi is None:
+        # automatic frequency selection
+        if foi is None and foilim is None:
             scales = get_optimal_wavelet_scales(
                 wfun.scale_from_period, # all availableWavelets sport one!
                 int(minTrialLength * data.samplerate),
                 1 / data.samplerate)
-        if foilim is not None:
+            foi = 1 / wfun.fourier_period(scales)
+            msg = (f"Automatic wavelet frequency selection from {foi[0]:.1f}Hz to " 
+                   f"{foi[-1]:.1f}Hz")
+            SPYInfo(msg)
+        elif foilim is not None:
             foi = np.arange(foilim[0], foilim[1] + 1)
-        if foi is not None:
             foi[foi < 0.01] = 0.01
+            scales = wfun.scale_from_period(1 / foi)
+        # foi is given as array
+        else:
             scales = wfun.scale_from_period(1 / foi)
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
-        log_dct["wav"] = lcls["wav"]
+        log_dct["wavelet"] = lcls["wavelet"]
         log_dct["width"] = lcls["width"]
         log_dct["order"] = lcls["order"]
         
@@ -839,8 +900,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         specestMethod = WaveletTransform(
             preSelect,
             postSelect,
-            list(padBegin),
-            list(padEnd),
             toi=toi,
             timeAxis=timeAxis,
             polyremoval=polyremoval,
@@ -848,7 +907,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             method_kwargs=method_kwargs)
 
     elif method == "superlet":
-
+        
+        _check_effective_parameters(SuperletTransform, defaults, lcls)
+        
         # check and parse superlet specific arguments
         if order_max is None:
             lgl = "Positive integer needed for order_max"
@@ -875,13 +936,16 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 superlet.scale_from_period, 
                 int(minTrialLength * data.samplerate), 
                 1 / data.samplerate)
-
-        if foi is not None:
-            scales = superlet.scale_from_period(1 / foi)
-
+            foi = 1 / superlet.fourier_period(scales)
+            msg = (f"Automatic superlet frequency selection from {foi[0]:.1f}Hz to " 
+                   f"{foi[-1]:.1f}Hz")
+            SPYInfo(msg)
         # frequency range in 1Hz steps
         elif foilim is not None:
             foi = np.arange(foilim[0], foilim[1] + 1)
+            scales = superlet.scale_from_period(1 / foi)
+        # foi is given as array            
+        else:
             scales = superlet.scale_from_period(1 / foi)
 
         # FASLT needs ordered frequencies low - high
@@ -914,8 +978,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         specestMethod = SuperletTransform(
             preSelect,
             postSelect,
-            list(padBegin),
-            list(padEnd),
             toi=toi,
             timeAxis=timeAxis,
             output_fmt=output,
@@ -947,3 +1009,32 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # Either return newly created output object or simply quit
     return out if new_out else None
 
+
+def _check_effective_parameters(CR, defaults, lcls):
+
+    '''
+    For a given ComputationalRoutine, compare set parameters
+    (*lcls*) with the accepted parameters and the *defaults*
+    to warn if any ineffective parameters are set.
+    
+    #FIXME: If general structure of this function proofs 
+    useful for all CRs/syncopy in general,
+    probably best to move this to syncopy.shared.tools
+
+    Parameters
+    ----------
+
+    CR : :class:`~syncopy.shared.computational_routine.ComputationalRoutine
+    defaults : dict
+        Result of :func:`~syncopy.shared.tools.get_defaults`, the function
+        parameter names plus values with default values
+    lcls : dict
+        Result of `locals()`, all names and values of the local name space
+    '''
+    # list of possible parameter names of the CR
+    expected = CR.method_keys + CR.cF_keys
+    relevant = [name for name in defaults if name not in generalParameters]
+    for name in relevant:                
+        if name not in expected and (lcls[name] != defaults[name]):  
+            msg = f"option `{name}` has no effect in method `{CR.method}`!"
+            SPYWarning(msg, caller=__name__.split('.')[-1])

@@ -1,22 +1,32 @@
 # -*- coding: utf-8 -*-
 #
 # Definition of the respective ComputationalRoutines
-# for the `freqanalysis` frontend. The *_cf function
+# for the `freqanalysis` frontend. The *method*_cF function
 # definitions serve as middleware connecting the pure
 # backend methods to the ComputationalRoutines. The
 # 1st argument always is the data, and the last argument
 # `method_kwargs` gets passed as is to the underlying
 # backend, so that the following calling signature
-# is valid for all backend methods: backend_method(data, **method_kwargs)
+# is valid for all backend methods: method(data, **method_kwargs)
+# 
+# To transparently trace the respective parameter names
+# all ComputationalRoutines have two additional class constants:
 #
-
+# method_keys : list of names of the backend method parameters
+# cF_keys : list of names of the parameters of the middleware computeFunctions
+#
+# the backend method name als gets explictly attached as a class constant:
+# method: backend method name
 
 # Builtin/3rd party package imports
+from inspect import signature
 import numpy as np
 from numbers import Number
 from scipy import signal
 
-# backend imports
+# backend method imports
+from .mtmfft import mtmfft
+from .mtmconvol import mtmconvol
 from .superlet import superlet
 from .wavelet import wavelet
 
@@ -33,18 +43,216 @@ from syncopy.specest.const_def import (
 
 
 # -----------------------
-# MultiTaper/Windowed FFT
+# MultiTaper FFT
+# -----------------------
+
+@unwrap_io
+def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
+              keeptapers=True, nTaper=None, tapsmofrq=None,
+              pad="nextpow2", padtype="zero", padlength=None,
+              polyremoval=None, output_fmt="pow",
+              noCompute=False, chunkShape=None,
+              method_kwargs=None):
+    
+    """
+    Compute (multi-)tapered Fourier transform of multi-channel time series data
+    
+    Parameters
+    ----------
+    trl_dat : 2D :class:`numpy.ndarray`
+        Uniformly sampled multi-channel time-series 
+    foi : 1D :class:`numpy.ndarray`
+        Frequencies of interest  (Hz) for output. If desired frequencies
+        cannot be matched exactly the closest possible frequencies (respecting 
+        data length and padding) are used.
+    timeAxis : int
+        Index of running time axis in `trl_dat` (0 or 1)
+    tapsmofrq : float
+        The amount of spectral smoothing through  multi-tapering (Hz) for Slepian
+        tapers (`taper`="dpss").
+    keeptapers : bool
+        If `True`, return spectral estimates for each taper. 
+        Otherwise power spectrum is averaged across tapers, 
+        only valid spectral estimate if `output_fmt` is `pow`.
+    nTaper : int
+        Only effective if `taper='dpss'`. Number of orthogonal tapers to use.    
+    tapsmofrq : float
+        Only effective if `taper='dpss'`. The amount of spectral smoothing through  
+        multi-tapering (Hz).  Note that smoothing frequency specifications are one-sided, 
+        i.e., 4 Hz smoothing means plus-minus 4 Hz, i.e., a 8 Hz smoothing box.
+    pad : str
+        Padding mode; one of `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
+        See :func:`syncopy.padding` for more information.
+    padtype : str
+        Values to be used for padding. Can be 'zero', 'nan', 'mean', 
+        'localmean', 'edge' or 'mirror'. See :func:`syncopy.padding` for 
+        more information.
+    padlength : None, bool or positive scalar
+        Number of samples to pad to data (if `pad` is 'absolute' or 'relative'). 
+        See :func:`syncopy.padding` for more information.
+    polyremoval : int or None
+        **FIXME: Not implemented yet**
+        Order of polynomial used for de-trending data in the time domain prior 
+        to spectral analysis. A value of 0 corresponds to subtracting the mean 
+        ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the 
+        least squares fit of a linear polynomial), ``polyremoval = N`` for `N > 1` 
+        subtracts a polynomial of order `N` (``N = 2`` quadratic, ``N = 3`` cubic 
+        etc.). If `polyremoval` is `None`, no de-trending is performed. 
+    output_fmt : str
+        Output of spectral estimation; one of :data:`~syncopy.specest.freqanalysis.availableOutputs`
+    noCompute : bool
+        Preprocessing flag. If `True`, do not perform actual calculation but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+    chunkShape : None or tuple
+        If not `None`, represents shape of output `spec` (respecting provided 
+        values of `nTaper`, `keeptapers` etc.)
+    method_kwargs : dict
+        Keyword arguments passed to :func:`~syncopy.specest.mtmfft.mtmfft`
+        controlling the spectral estimation method
+                
+        
+    Returns
+    -------
+    spec : :class:`numpy.ndarray`
+        Complex or real spectrum of (padded) input data. 
+
+    Notes
+    -----
+    This method is intended to be used as 
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`. 
+    Thus, input parameters are presumed to be forwarded from a parent metafunction. 
+    Consequently, this function does **not** perform any error checking and operates 
+    under the assumption that all inputs have been externally validated and cross-checked. 
+    
+    The computational heavy lifting in this code is performed by NumPy's reference
+    implementation of the Fast Fourier Transform :func:`numpy.fft.fft`. 
+    
+    See also
+    --------
+    syncopy.freqanalysis : parent metafunction
+    MultiTaperFFT : :class:`~syncopy.shared.computational_routine.ComputationalRoutine`
+                    instance that calls this method as 
+                    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    numpy.fft.rfft : NumPy's FFT implementation
+    """
+
+    # Slepian window parameters    
+    if method_kwargs['taper'] == "dpss":
+        taperopt = {"Kmax" : nTaper, "NW" : tapsmofrq}
+    else:
+        taperopt = {}
+
+    method_kwargs['taperopt'] = taperopt
+    
+    # Re-arrange array if necessary and get dimensional information
+    if timeAxis != 0:
+        dat = trl_dat.T       # does not copy but creates view of `trl_dat`
+    else:
+        dat = trl_dat
+
+    # Symmetric Padding (updates no. of samples)
+    if pad:
+        dat = padding(dat, padtype, pad=pad, padlength=padlength)
+    nSamples = dat.shape[0]        
+    nChannels = dat.shape[1]
+
+    # Determine frequency band and shape of output
+    # (time=1 x taper x freq x channel)
+    freqs = np.fft.rfftfreq(nSamples, 1 / method_kwargs["samplerate"])
+    _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
+    nFreq = freq_idx.size
+    outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
+
+    # For initialization of computational routine,
+    # just return output shape and dtype
+    if noCompute:
+        return outShape, spectralDTypes[output_fmt]
+
+    # call actual specest method
+    res, _ = mtmfft(dat, **method_kwargs)
+    
+    # attach time-axis and convert to output_fmt
+    spec = res[np.newaxis, :, freq_idx, :]
+    spec = spectralConversions[output_fmt](spec)
+    # Average across tapers if wanted
+    # averaging is only valid spectral estimate
+    # if output_fmt == 'pow'! (gets checked in parent meta)
+    if not keeptapers:
+        return spec.mean(axis=1, keepdims=True)
+    return spec
+
+
+class MultiTaperFFT(ComputationalRoutine):
+    """
+    Compute class that calculates (multi-)tapered Fourier transfrom of :class:`~syncopy.AnalogData` objects
+    
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`, 
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute 
+    classes and metafunctions. 
+    
+    See also
+    --------
+    syncopy.freqanalysis : parent metafunction
+    """
+
+    computeFunction = staticmethod(mtmfft_cF)
+
+    method = "mtmfft"
+    # 1st argument,the data, gets omitted
+    method_keys = list(signature(mtmfft).parameters.keys())[1:]
+    # here also last argument, the method_kwargs, are omitted 
+    cF_keys = list(signature(mtmfft_cF).parameters.keys())[1:-1]         
+
+    def process_metadata(self, data, out):
+
+        # Some index gymnastics to get trial begin/end "samples"
+        if data._selection is not None:
+            chanSec = data._selection.channel
+            trl = data._selection.trialdefinition
+            for row in range(trl.shape[0]):
+                trl[row, :2] = [row, row + 1]
+        else:
+            chanSec = slice(None)
+            time = np.arange(len(data.trials))
+            time = time.reshape((time.size, 1))
+            trl = np.hstack((time, time + 1, 
+                             np.zeros((len(data.trials), 1)), 
+                             np.array(data.trialinfo)))
+
+        # Attach constructed trialdef-array (if even necessary)
+        if self.keeptrials:
+            out.trialdefinition = trl
+        else:
+            out.trialdefinition = np.array([[0, 1, 0]])
+
+        # Attach remaining meta-data
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel[chanSec])
+        out.taper = np.array([self.cfg["method_kwargs"]["taper"]] * self.outputShape[out.dimord.index("taper")])
+        out.freq = self.cfg["foi"]
+
+
+# -----------------------
+# MultiTaper Windowed FFT
 # -----------------------
 
 
 # Local workhorse that performs the computational heavy lifting
 @unwrap_io
 def mtmconvol_cF(
-        trl_dat, soi, padbegin, padend,
-        samplerate=None, noverlap=None, nperseg=None, equidistant=True, toi=None, foi=None,
-        nTaper=1, timeAxis=0, taper=None, taperopt={}, 
+        trl_dat,
+        soi,
+        postselect,
+        padbegin,
+        padend,
+        equidistant=True,
+        toi=None,
+        foi=None,
+        nTaper=1, tapsmofrq=None,  timeAxis=0, 
         keeptapers=True, polyremoval=None, output_fmt="pow",
-        noCompute=False, chunkShape=None):
+        noCompute=False, chunkShape=None, method_kwargs=None):
     """
     Perform time-frequency analysis on multi-channel time series data using a sliding window FFT
     
@@ -58,9 +266,9 @@ def mtmconvol_cF(
         or list of slices with each slice corresponding to coverage of a single
         analysis window (if spacing between windows is not constant)
     padbegin : int
-        Number of samples to pre-pend to `trl_dat`
+        Number of samples to pre-pend to `trl_dat`, max is half window size
     padend : int
-        Number of samples to append to `trl_dat`
+        Number of samples to append to `trl_dat`, max is half window size
     samplerate : float
         Samplerate of `trl_dat` in Hz
     noverlap : int
@@ -136,7 +344,7 @@ def mtmconvol_cF(
                           :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     scipy.signal.stft : SciPy's STFT implementation
     """
-    
+
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
@@ -148,6 +356,14 @@ def mtmconvol_cF(
         dat = padding(dat, "zero", pad="relative", padlength=None, 
                       prepadlength=padbegin, postpadlength=padend)
 
+    # Slepian window parameters    
+    if method_kwargs['taper'] == "dpss":
+        taperopt = {"Kmax" : nTaper, "NW" : tapsmofrq}
+    else:
+        taperopt = {}
+
+    method_kwargs['taperopt'] = taperopt    
+        
     # Get shape of output for dry-run phase
     nChannels = dat.shape[1]
     if isinstance(toi, np.ndarray):     # `toi` is an array of time-points
@@ -155,67 +371,46 @@ def mtmconvol_cF(
         stftBdry = None
         stftPad = False
     else:                               # `toi` is either 'all' or a percentage
-        nTime = np.ceil(dat.shape[0] / (nperseg - noverlap)).astype(np.intp)
+        nTime = np.ceil(dat.shape[0] / (method_kwargs['nperseg'] - method_kwargs['noverlap'])).astype(np.intp)
+                        
         stftBdry = "zeros"
         stftPad = True
     nFreq = foi.size
     outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
-    
-    # In case tapers aren't preserved allocate `spec` "too big" and average afterwards
-    spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
-    
-    # Collect keyword args for `stft` in dictionary
-    stftKw = {"fs": samplerate,
-              "nperseg": nperseg,
-              "noverlap": noverlap,
-              "return_onesided": True,
-              "boundary": stftBdry,
-              "padded": stftPad,
-              "axis": 0}
-    
-    # Call `stft` w/first taper to get freq/time indices: transpose resulting `pxx`
-    # to have a time x freq x channel array
-    win = np.atleast_2d(taper(nperseg, **taperopt))
-    stftKw["window"] = win[0, :]
+        
+    # additional keyword args for `stft` in dictionary
+    method_kwargs.update({"boundary": stftBdry,
+                          "padded": stftPad})
+
     if equidistant:
-        freq, _, pxx = signal.stft(dat[soi, :], **stftKw)
-        _, fIdx = best_match(freq, foi, squash_duplicates=True)
-        spec[:, 0, ...] = \
-            spectralConversions[output_fmt](
-                pxx.transpose(2, 0, 1))[:nTime, fIdx, :]
+        ftr, freqs = mtmconvol(dat[soi, :], **method_kwargs)
+        _, fIdx = best_match(freqs, foi, squash_duplicates=True)        
+        spec = ftr[postselect, :, fIdx, :]
+        spec = spectralConversions[output_fmt](spec)
+        
     else:
-        freq, _, pxx = signal.stft(dat[soi[0], :], **stftKw)
-        _, fIdx = best_match(freq, foi, squash_duplicates=True)
-        spec[0, 0, ...] = \
-            spectralConversions[output_fmt](
-                pxx.transpose(2, 0, 1).squeeze())[fIdx, :]
+        # in this case only a single window gets centered on
+        # every individual soi, so we can use mtmfft!        
+        samplerate = method_kwargs['samplerate']
+        taper = method_kwargs['taper']
+        taperopt = method_kwargs['taperopt']
+        
+        # In case tapers aren't preserved allocate `spec` "too big"
+        # and average afterwards
+        spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
+        
+        ftr, freqs = mtmfft(dat[soi[0], :],  samplerate, taper, taperopt)
+        _, fIdx = best_match(freqs, foi, squash_duplicates=True)
+        spec[0, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
+        # loop over remaining soi to center windows on
         for tk in range(1, len(soi)):
-            spec[tk, 0, ...] = \
-                spectralConversions[output_fmt](
-                    signal.stft(
-                        dat[soi[tk], :], 
-                        **stftKw)[2].transpose(2, 0, 1).squeeze())[fIdx, :]
-
-    # Compute FT using determined indices above for the remaining tapers (if any)
-    for taperIdx in range(1, win.shape[0]):
-        stftKw["window"] = win[taperIdx, :]
-        if equidistant:
-            spec[:, taperIdx, ...] = \
-                spectralConversions[output_fmt](
-                    signal.stft(
-                        dat[soi, :],
-                        **stftKw)[2].transpose(2, 0, 1))[:nTime, fIdx, :]
-        else:
-            for tk, sample in enumerate(soi):
-                spec[tk, taperIdx, ...] = \
-                    spectralConversions[output_fmt](
-                        signal.stft(
-                            dat[sample, :],
-                            **stftKw)[2].transpose(2, 0, 1).squeeze())[fIdx, :]
-
+            ftr, freqs = mtmfft(dat[soi[tk], :],  samplerate, taper, taperopt)
+            spec[tk, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
+            
     # Average across tapers if wanted
+    # only valid if output_fmt='pow' !
     if not keeptapers:
         return np.nanmean(spec, axis=1, keepdims=True)
     return spec
@@ -260,7 +455,7 @@ class MultiTaperFFTConvol(ComputationalRoutine):
         out.trialdefinition = trl
         out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
-        out.taper = np.array([self.cfg["taper"].__name__] * self.outputShape[out.dimord.index("taper")])
+        out.taper = np.array([self.cfg["method_kwargs"]["taper"]] * self.outputShape[out.dimord.index("taper")])
         out.freq = self.cfg["foi"]
 
 
@@ -270,12 +465,10 @@ class MultiTaperFFTConvol(ComputationalRoutine):
 
 
 @unwrap_io
-def wavelet_cf(
+def wavelet_cF(
     trl_dat,
     preselect,
     postselect,
-    padbegin,
-    padend,
     toi=None,
     timeAxis=0,
     polyremoval=None,
@@ -299,16 +492,10 @@ def wavelet_cf(
     postselect : list of slices or list of 1D NumPy arrays
         Actual time-points of interest within interval defined by `preselect`
         See Notes for details. 
-    padbegin : int
-        Number of samples to pre-pend to `trl_dat`
-    padend : int
-        Number of samples to append to `trl_dat`
     toi : 1D :class:`numpy.ndarray` or str
         Either time-points to center wavelets on if `toi` is a :class:`numpy.ndarray`,
         or `"all"` to center wavelets on all samples in `trl_dat`. Please refer to 
-        :func:`~syncopy.freqanalysis` for further details. **Note**: The value 
-        of `toi` has to agree with provided padding values. See Notes for more 
-        information. 
+        :func:`~syncopy.freqanalysis` for further details.
     timeAxis : int
         Index of running time axis in `trl_dat` (0 or 1)
 leWavelets`
@@ -330,7 +517,7 @@ leWavelets`
         If not `None`, represents shape of output object `spec` (respecting provided 
         values of `scales`, `preselect`, `postselect` etc.)
     method_kwargs : dict
-        Keyword arguments passed to :func:`~syncopy.specest.wavelet.wavelet
+        Keyword arguments passed to :func:`~syncopy.specest.wavelet.wavelet`
         controlling the spectral estimation method
     
     Returns
@@ -369,18 +556,6 @@ leWavelets`
     else:
         dat = trl_dat
 
-    # Pad input array if wanted/necessary
-    if padbegin > 0 or padend > 0:
-        dat = padding(
-            dat,
-            "zero",
-            pad="relative",
-            padlength=None,
-            prepadlength=padbegin,
-            postpadlength=padend,
-        )
-
-
     # Get shape of output for dry-run phase
     nChannels = dat.shape[1]
     if isinstance(toi, np.ndarray):  # `toi` is an array of time-points
@@ -416,8 +591,14 @@ class WaveletTransform(ComputationalRoutine):
     syncopy.freqanalysis : parent metafunction
     """
 
-    computeFunction = staticmethod(wavelet_cf)
+    computeFunction = staticmethod(wavelet_cF)
 
+    method = "wavelet"
+    # 1st argument,the data, gets omitted
+    method_keys = list(signature(wavelet).parameters.keys())[1:]
+    # here also last argument, the method_kwargs, are omitted 
+    cF_keys = list(signature(wavelet_cF).parameters.keys())[1:-1] 
+    
     def process_metadata(self, data, out):
 
         # Get trialdef array + channels from source
@@ -457,8 +638,8 @@ def superlet_cF(
     trl_dat,
     preselect,
     postselect,
-    padbegin,
-    padend,
+    # padbegin, # were always 0!
+    # padend,
     toi=None,
     timeAxis=0,
     output_fmt="pow",
@@ -482,16 +663,10 @@ def superlet_cF(
     postselect : list of slices or list of 1D NumPy arrays
         Actual time-points of interest within interval defined by `preselect`
         See Notes for details. 
-    padbegin : int
-        Number of samples to pre-pend to `trl_dat`
-    padend : int
-        Number of samples to append to `trl_dat`
     toi : 1D :class:`numpy.ndarray` or str
         Either array of equidistant time-points 
         or `"all"` to perform analysis on all samples in `trl_dat`. Please refer to 
-        :func:`~syncopy.freqanalysis` for further details. **Note**: The value 
-        of `toi` has to agree with provided padding values. See Notes for more 
-        information. 
+        :func:`~syncopy.freqanalysis` for further details. 
     output_fmt : str
         Output of spectral estimation; one of 
         :data:`~syncopy.specest.freqanalysis.availableOutputs`
@@ -536,17 +711,6 @@ def superlet_cF(
     else:
         dat = trl_dat
 
-    # Pad input array if wanted/necessary
-    if padbegin > 0 or padend > 0:
-        dat = padding(
-            dat,
-            "zero",
-            pad="relative",
-            padlength=None,
-            prepadlength=padbegin,
-            postpadlength=padend,
-        )
-
     # Get shape of output for dry-run phase
     nChannels = trl_dat.shape[1]
     if isinstance(toi, np.ndarray):  # `toi` is an array of time-points
@@ -582,6 +746,12 @@ class SuperletTransform(ComputationalRoutine):
     """
 
     computeFunction = staticmethod(superlet_cF)
+
+    method = "superlet"
+    # 1st argument,the data, gets omitted
+    method_keys = list(signature(superlet).parameters.keys())[1:]
+    # here also last argument, the method_kwargs, are omitted 
+    cF_keys = list(signature(superlet_cF).parameters.keys())[1:-1]
 
     def process_metadata(self, data, out):
 
@@ -681,8 +851,10 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
 
     # If `toi` was a percentage, some cumsum/winSize algebra is required
     # Note: if `toi` was "all", simply use provided `trialdefinition` and `samplerate`
+
     elif isinstance(toi, Number):
-        winSize = cfg["nperseg"] - cfg["noverlap"]
+        mKw = cfg['method_kwargs']
+        winSize = mKw["nperseg"] - mKw["noverlap"]
         trialdefinitionLens = np.ceil(np.diff(trialdefinition[:, :2]) / winSize)
         sumLens = np.cumsum(trialdefinitionLens).reshape(trialdefinitionLens.shape)
         trialdefinition[:, 0] = np.ravel(sumLens - trialdefinitionLens)

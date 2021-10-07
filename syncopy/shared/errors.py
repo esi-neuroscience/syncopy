@@ -313,6 +313,48 @@ def SPYWarning(msg, caller=None):
     PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} WARNING: {msg:s}{coloroff:s}"
     print(PrintMsg.format(coloron=warnCol,
                           bold=boldEm,
-                          caller=" <" + caller +">" if len(caller) else caller, 
+                          caller=" <" + caller + ">" if len(caller) else caller, 
                           msg=msg,
                           coloroff=normCol))
+
+
+def SPYInfo(msg, caller=None):
+    """
+    Standardized Syncopy info message
+    
+    Parameters
+    ----------
+    msg : str
+        Info message to be printed
+    caller : None or str
+        Issuer of info message. If `None`, name of calling method is 
+        automatically fetched and pre-pended to `msg`. 
+    
+    Returns
+    -------
+    Nothing : None
+    """
+            
+    # If Syncopy's running in Jupyter/iPython colorize warning message
+    # Use the following chart (enter FG color twice b/w ';') to change:
+    # https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
+    try:
+        cols = get_ipython().InteractiveTB.Colors
+        infoCol = cols.Normal # infos are fine with just bold text
+        normCol = cols.Normal
+        boldEm = ansiBold
+    except NameError:
+        infoCol = ""
+        normCol = ""
+        boldEm = ""
+
+    # Plug together message string and print it
+    if caller is None:
+        caller = sys._getframe().f_back.f_code.co_name
+    PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} INFO: {msg:s}{coloroff:s}"
+    print(PrintMsg.format(coloron=infoCol,
+                          bold=boldEm,
+                          caller=" <" + caller + ">" if len(caller) else caller, 
+                          msg=msg,
+                          coloroff=normCol))
+    
