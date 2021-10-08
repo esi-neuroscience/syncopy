@@ -10,16 +10,21 @@ import numpy as np
 from syncopy.specest.mtmfft import mtmfft
 
 
-def csd(data_arr, samplerate, taper="hann", taperopt={}, norm=False):
+def cross_spectra(data_arr, samplerate, taper="hann", taperopt={}):
 
     """
-    Cross spectral density (CSD) estimate between all channels
+    Single trial cross spectra estimates between all channels
     of the input data. First all the individual Fourier transforms
     are calculated via a (multi-)tapered FFT, then the pairwise
     cross-spectra are calculated. Averaging over tapers is done implicitly.
-    Output consists of all (nChannels x nChannels+1)/2 different CSD estimates
-    aranged in a symmetric fashion (CSD_ij == CSD_ji). The elements on the
-    main diagonal (CSD_ii) are the auto-spectra.
+    Output consists of all (nChannels x nChannels+1)/2 different estimates
+    aranged in a symmetric fashion (CS_ij == CS_ji). The elements on the
+    main diagonal (CS_ii) are the auto-spectra.
+
+    This is NOT the same as what is commonly referred to as 
+    "cross spectral density" as there is no (time) averaging!!
+    Multi-tapering alone usually is not sufficient to get enough
+    statitstical power for a robust csd estimate.
 
     Parameters
     ----------
@@ -27,13 +32,11 @@ def csd(data_arr, samplerate, taper="hann", taperopt={}, norm=False):
         Uniformly sampled multi-channel time-series data
         The 1st dimension is interpreted as the time axis,
         columns represent individual channels.
-    norm : bool
-        Set to `True` to normalize the cross spectra 
 
     Returns
     -------    
-    CSD_ij : (N, N, M) :class:`numpy.ndarray`
-        Cross spectral densities or coherencies if `norm=True`. 
+    CS_ij : (N, N, M) :class:`numpy.ndarray`
+        Cross spectra for all channel combinations i,j.
         `M = K // 2 + 1` is the number of Fourier frequency bins, 
         `N` corresponds to number of input channels.
 

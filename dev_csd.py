@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.signal import csd as sci_csd
-from syncopy.specest import csd
+from syncopy.connectivity.single_trial_compRoutines import cross_spectra_cF
 import matplotlib.pyplot as ppl
 
 
@@ -31,7 +31,10 @@ def sci_est(x, y, nper, norm=False):
     return (freqs1, np.abs(csd1)), (freqs2, np.abs(csd2))
     
 
-freqs, CSD, specs = csd.csd(data1, fs, 'bartlett', norm=False)
+freqs, CS = cross_spectra_cF(data1, fs, taper='bartlett')
+# freqs, CS2, specs = cross_spectra(data1, fs, 'dpss',
+#                                  taperopt={'Kmax' : 60, 'NW' : 14})
+
 
 # harmonics
 tvec = np.arange(nSamples) / fs
@@ -40,12 +43,11 @@ phase_shifts = np.array([0, np.pi / 2, np.pi])
 
 data2 = [np.sum([np.cos(om * tvec + ps) for om in omegas], axis=0) for ps in phase_shifts]
 data2 = np.array(data2).T
-data2 = data2 + np.random.randn(nSamples, 3) * .3
+data2 = data2 + np.random.randn(nSamples, 3) * 1
 
-# x1 = data2[:, 0]
-# y1 = data2[:, 1]
+x2 = data2[:, 0]
+y2 = data2[:, 1]
 
-# freqs2, csd1 = sci_csd(x1, y1, fs, window='bartlett', nperseg=10000)
-# freqs2, csd2 = sci_csd(y1, y1, fs, window='bartlett', nperseg=10000)
+freqs, CS = cross_spectra_cF(data2, fs, taper='bartlett')
+freqs, CS2 = cross_spectra_cF(data2, fs, taper='dpss', taperopt={'Kmax' : 12, 'NW' : 4})
 
-# freqs, CSD, specs = csd.csd(data2, fs, 'bartlett', norm=False)
