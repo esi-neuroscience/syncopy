@@ -22,16 +22,16 @@ def superlet(
 
     """
     Performs Superlet Transform (SLT) according to Moca et al. [1]_
-    Both multiplicative SLT and fractional adaptive SLT are available. 
-    The former is recommended for a narrow frequency band of interest, 
-    whereas the  is better suited for the analysis of a broad range 
+    Both multiplicative SLT and fractional adaptive SLT are available.
+    The former is recommended for a narrow frequency band of interest,
+    whereas the  is better suited for the analysis of a broad range
     of frequencies.
 
     A superlet (SL) is a set of Morlet wavelets with increasing number
-    of cycles within the Gaussian envelope. Hence the bandwith 
+    of cycles within the Gaussian envelope. Hence the bandwith
     is constrained more and more with more cycles yielding a sharper
     frequency resolution. Complementary the low cycle numbers will give a
-    high time resolution. The SLT then is the geometric mean 
+    high time resolution. The SLT then is the geometric mean
     of the set of individual wavelet transforms, combining both wide
     and narrow-bandwidth wavelets into a super-resolution estimate.
 
@@ -43,18 +43,18 @@ def superlet(
     samplerate : float
         Samplerate of the time-series in Hz
     scales : 1D :class:`numpy.ndarray`
-        Set of scales to use in wavelet transform. 
+        Set of scales to use in wavelet transform.
         Note that for the SL Morlet the relationship
-        between scale and frequency simply is s(f) = 1/(2*pi*f)
+        between scale and frequency simply is ``s(f) = 1/(2*pi*f)``
         Need to be ordered high to low for `adaptive=True`
     order_max : int
         Maximal order of the superlet set. Controls the maximum
         number of cycles within a SL together
-        with the `c_1` parameter: c_max = c_1 * order_max
+        with the `c_1` parameter: ``c_max = c_1 * order_max``
     order_min : int
-        Minimal order of the superlet set. Controls 
+        Minimal order of the superlet set. Controls
         the minimal number of cycles within a SL together
-        with the `c_1` parameter: c_min = c_1 * order_min
+        with the `c_1` parameter: ``c_min = c_1 * order_min``
         Note that for admissability reasons c_min should be at least 3!
     c_1 : int
         Number of cycles of the base Morlet wavelet. If set to lower
@@ -63,25 +63,25 @@ def superlet(
     adaptive : bool
         Wether to perform multiplicative SLT or fractional adaptive SLT.
         If set to True, the order of the wavelet set will increase
-        linearly with the frequencies of interest from `order_min` 
+        linearly with the frequencies of interest from `order_min`
         to `order_max`. If set to False the same SL will be used for
         all frequencies.
-    
+
     Returns
     -------
     gmean_spec : :class:`numpy.ndarray`
-        Complex time-frequency representation of the input data. 
-        Shape is (len(scales),) + data_arr.shape
+        Complex time-frequency representation of the input data.
+        Shape is ``(len(scales),) + data_arr.shape``
 
     Notes
     -----
-    .. [1] Moca, Vasile V., et al. "Time-frequency super-resolution with superlets." 
+    .. [1] Moca, Vasile V., et al. "Time-frequency super-resolution with superlets."
        Nature communications 12.1 (2021): 1-18.
- 
- 
+
+
     """
 
-    # adaptive SLT    
+    # adaptive SLT
     if adaptive:
 
         gmean_spec = FASLT(data_arr,
@@ -90,10 +90,10 @@ def superlet(
                            order_max,
                            order_min,
                            c_1)
-        
-    # multiplicative SLT    
+
+    # multiplicative SLT
     else:
-        
+
         gmean_spec = multiplicativeSLT(data_arr,
                                        samplerate,
                                        scales,
@@ -111,7 +111,7 @@ def multiplicativeSLT(data_arr,
                       order_min=1,
                       c_1=3):
 
-    dt = 1 / samplerate    
+    dt = 1 / samplerate
     # create the complete multiplicative set spanning
     # order_min - order_max
     cycles = c_1 * np.arange(order_min, order_max + 1)
@@ -123,7 +123,7 @@ def multiplicativeSLT(data_arr,
     gmean_spec = np.power(gmean_spec, 1 / order_num)
 
     for wavelet in SL[1:]:
-        
+
         spec = cwtSL(data_arr, wavelet, scales, dt)
         gmean_spec *= np.power(spec, 1 / order_num)
 
@@ -134,19 +134,19 @@ def FASLT(data_arr,
           samplerate,
           scales,
           order_max,
-          order_min=1,          
+          order_min=1,
           c_1=3):
 
     ''' Fractional adaptive SL transform
 
     For non-integer orders fractional SLTs are
     calculated in the interval [order, order+1) via:
-    
-    R(o_f) = R_1 * R_2 * ... * R_i * R_i+1 ** alpha 
+
+    R(o_f) = R_1 * R_2 * ... * R_i * R_i+1 ** alpha
     with o_f = o_i + alpha
     '''
 
-    dt = 1 / samplerate    
+    dt = 1 / samplerate
     # frequencies of interest
     # from the scales for the SL Morlet
     fois = 1 / (2 * np.pi * scales)
@@ -168,16 +168,16 @@ def FASLT(data_arr,
     # which overlap -> higher orders enclose all the lower orders
 
     assert len(SL) == len(order_jumps) + 1
-    
+
     # the fractions
     alphas = orders % orders_int
-    
+
     # 1st order
     # lowest order is needed for all scales/frequencies
     gmean_spec = cwtSL(data_arr, SL[0], scales, dt)  # 1st order <-> order_min
     # Geometric normalization according to scale dependent order
     gmean_spec = np.power(gmean_spec.T, exponents).T
-    
+
     # we go to the next scale and order in any case..
     # but for order_max == 1 for which order_jumps is empty
     last_jump = 1
@@ -186,25 +186,25 @@ def FASLT(data_arr,
 
         # relevant scales for the next order
         scales_o = scales[last_jump:]
-        # order + 1 spec 
+        # order + 1 spec
         next_spec = cwtSL(data_arr, SL[i + 1], scales_o, dt)
-        
+
         # which fractions for the current next_spec
         # in the interval [order, order+1)
         scale_span = slice(last_jump, jump + 1)
         gmean_spec[scale_span, :] *= np.power(
             next_spec[:jump - last_jump + 1].T,
             alphas[scale_span] * exponents[scale_span]).T
-        
+
         # multiply non-fractional next_spec for
-        # all remaining scales/frequencies          
+        # all remaining scales/frequencies
         gmean_spec[jump + 1 :] *= np.power(
             next_spec[jump - last_jump + 1:].T,
             exponents[jump + 1 :]).T
 
-        # go to the next [order, order+1) interval 
+        # go to the next [order, order+1) interval
         last_jump = jump + 1
-        
+
     return gmean_spec
 
 
@@ -216,10 +216,10 @@ def adaptiveSLT(data_arr,
                 c_1=3):
 
     '''This function is not used atm, it implements
-    the non-fractional adaptive SLT. Kept here for 
+    the non-fractional adaptive SLT. Kept here for
     reference/comparisons if ever needed'''
 
-    dt = 1 / samplerate    
+    dt = 1 / samplerate
     # frequencies of interest
     # from the scales for the SL Morlet
     # for len(orders) < len(scales)
@@ -263,7 +263,7 @@ def adaptiveSLT(data_arr,
         # normalize according to scale dependent order
         spec = np.power(spec.T, exponents[jump + 1 :]).T
         gmean_spec[jump + 1 :] *= spec
-    
+
     return gmean_spec
 
 
@@ -273,7 +273,7 @@ class MorletSL:
         """ The Morlet formulation according to
         Moca et al. shifts the admissability criterion from
         the central frequency to the number of cycles c_i
-        within the Gaussian envelope which has a constant 
+        within the Gaussian envelope which has a constant
         standard deviation of k_sd.
         """
 
@@ -287,7 +287,7 @@ class MorletSL:
 
         """
         Complext Morlet wavelet in the SL formulation.
-        
+
         Parameters
         ----------
         t : float
@@ -300,7 +300,7 @@ class MorletSL:
         -------
         out : complex
             Value of the Morlet wavelet at the given time
-        
+
         """
 
         ts = t / s
@@ -320,19 +320,19 @@ def fourier_period(scale):
     This is the approximate Morlet fourier period
     as used in the source publication of Moca et al. 2021
 
-    Note that w0 (central frequency) is always 1 in this 
+    Note that w0 (central frequency) is always 1 in this
     Morlet formulation, hence the scales are not compatible
     to the standard Wavelet definitions!
     """
 
     return 2 * np.pi * scale
 
-    
+
 def scale_from_period(period):
 
     return period / (2 * np.pi)
 
-    
+
 def cwtSL(data, wavelet, scales, dt):
 
     """
@@ -344,13 +344,13 @@ def cwtSL(data, wavelet, scales, dt):
 
     - Morlet support gets adjusted by number of cycles
     - normalisation is with 1/(scale * 4pi)
-    - this way the absolute value of the spectrum (modulus) 
-      at the corresponding harmonic frequency is the 
+    - this way the absolute value of the spectrum (modulus)
+      at the corresponding harmonic frequency is the
       harmonic signal's amplitude
 
     Notes
     -----
-    
+
     The time axis is expected to be along the 1st dimension.
     """
 
@@ -383,7 +383,7 @@ def cwtSL(data, wavelet, scales, dt):
 def _get_superlet_support(scale, dt, cycles):
 
     """
-    Effective support for the convolution is here not only 
+    Effective support for the convolution is here not only
     scale but also cycle dependent.
     """
 
@@ -398,13 +398,13 @@ def _get_superlet_support(scale, dt, cycles):
 def compute_adaptive_order(freq, order_min, order_max):
 
     """
-    Computes the superlet order for a given frequency of interest 
-    for the fractional adaptive SLT (FASLT) according to 
+    Computes the superlet order for a given frequency of interest
+    for the fractional adaptive SLT (FASLT) according to
     equation 7 of Moca et al. 2021.
-    
+
     This is a simple linear mapping between the minimal
     and maximal order onto the respective minimal and maximal
-    frequencies. 
+    frequencies.
 
     Note that `freq` should be ordered low to high.
     """

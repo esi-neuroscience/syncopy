@@ -195,7 +195,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'Syncopy.tex', 'Syncopy Documentation',
-     'Joscha Schmiedt and Stefan Fuertinger', 'manual'),
+     'Gregor Moenke, Joscha Schmiedt and Stefan Fuertinger', 'manual'),
 ]
 
 
