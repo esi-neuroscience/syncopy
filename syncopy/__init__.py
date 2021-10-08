@@ -13,14 +13,14 @@ from importlib.metadata import version, PackageNotFoundError
 
 # Get package version: either via meta-information from egg or via latest git commit
 try:
-    __version__ = version(__name__)
+    __version__ = version("esi-syncopy")
 except PackageNotFoundError:
     proc = subprocess.Popen("git describe --always",
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             text=True, shell=True)
     out, err = proc.communicate()
     if proc.returncode != 0:
-        proc = subprocess.Popen("git rev-parse HEAD:acme/__init__.py",
+        proc = subprocess.Popen("git rev-parse HEAD:syncopy/__init__.py",
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 text=True, shell=True)
         out, err = proc.communicate()
@@ -34,28 +34,22 @@ except PackageNotFoundError:
 # Set up sensible printing options for NumPy arrays
 np.set_printoptions(suppress=True, precision=4, linewidth=80)
 
-# Check dask configuration: (attempt to) import `dask` and `distributed`
+# Check concurrent computing  setup (if acme is installed, dask is present too)
 try:
-    import dask
+    import acme
     import dask.distributed as dd
-    __dask__ = True
+    __acme__ = True
 except ImportError:
-    __dask__ = False
-    msg = "\nSyncopy <core> WARNING: Could not import 'dask' and/or 'dask.distributed'. \n" +\
-        "Syncopy's parallel processing engine requires a working dask installation. \n" +\
-        "Please consider installing 'dask' as well as 'distributed' \n" +\
-        "(and potentially 'dask_jobqueue'), e.g., via conda: \n" +\
-        "\tconda install dask\n" +\
-        "\tconda install distributed\n" +\
-        "\tconda install -c conda-forge dask-jobqueue\n" +\
+    __acme__ = False
+    msg = "\nSyncopy <core> WARNING: Could not import Syncopy's parallel processing engine ACME. \n" +\
+        "Please consider installing it via conda: \n" +\
+        "\tconda install -c conda-forge esi-acme\n" +\
         "or using pip:\n" +\
-        "\tpip install dask\n" +\
-        "\tpip install distributed\n" +\
-        "\tpip install dask-jobqueue"
+        "\tpip install esi-acme"
     print(msg)
 
 # Check if we're being imported by a parallel worker process
-if __dask__:
+if __acme__:
     try:
         dd.get_worker()
         __worker__ = True
@@ -133,14 +127,13 @@ else:
 __checksum_algorithm__ = sha1
 
 # Fill up namespace
-from . import shared, io, datatype, specest, statistics, plotting, acme
+from . import shared, io, datatype, specest, statistics, plotting
 from .shared import *
 from .io import *
 from .datatype import *
 from .specest import *
 from .statistics import *
 from .plotting import *
-from .acme.acme import *
 
 # Register session
 __session__ = datatype.base_data.SessionLogger()
@@ -156,7 +149,7 @@ try:
 except:
     sys.excepthook = SPYExceptionHandler
 
-# Take care of `from syncopy import *` statements
+# Manage user-exposed namespace imports
 __all__ = []
 __all__.extend(datatype.__all__)
 __all__.extend(io.__all__)
@@ -164,4 +157,3 @@ __all__.extend(shared.__all__)
 __all__.extend(specest.__all__)
 __all__.extend(statistics.__all__)
 __all__.extend(plotting.__all__)
-__all__.extend(acme.acme.__all__)

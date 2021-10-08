@@ -14,9 +14,9 @@ from syncopy.shared.errors import (SPYIOError, SPYTypeError, SPYValueError,
                                    SPYError, SPYWarning)
 from syncopy.shared.tools import StructDict, get_defaults
 import syncopy as spy
-if spy.__dask__:
+if spy.__acme__:
     import dask.distributed as dd
-    from syncopy.acme.acme.dask_helpers import esi_cluster_setup, cluster_cleanup
+    from acme.dask_helpers import esi_cluster_setup, cluster_cleanup
 
 __all__ = []
 
@@ -435,7 +435,7 @@ def detect_parallel_client(func):
         results = []
         cleanup = False
         if parallel is None or parallel is True:
-            if spy.__dask__:
+            if spy.__acme__:
                 try:
                     dd.get_client()
                     parallel = True

@@ -29,8 +29,8 @@ from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser,
                                     filename_parser, data_parser)
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError, SPYWarning
 from syncopy.datatype.methods.definetrial import definetrial as _definetrial
-from syncopy import __version__, __storage__, __dask__, __sessionid__
-if __dask__:
+from syncopy import __version__, __storage__, __acme__, __sessionid__
+if __acme__:
     import dask
 
 
@@ -742,16 +742,18 @@ class BaseData(ABC):
               "Created: {timestamp:s} \n\n" +\
               "System Profile: \n" +\
               "{sysver:s} \n" +\
+              "ACME:  {acver:s}\n" +\
+              "Dask:  {daver:s}\n" +\
               "NumPy: {npver:s}\n" +\
-              "SciPy: {spver:s}\n" +\
-              "Dask:  {daver:s}\n\n" +\
+              "SciPy: {spver:s}\n\n" +\
               "--- LOG ---"
         self._log_header = lhd.format(ver=__version__,
                                       timestamp=time.asctime(),
                                       sysver=sys.version,
+                                      acver=acme.__version__ if __acme__ else "--",
+                                      daver=dask.__version__ if __acme__ else "--",
                                       npver=np.__version__,
-                                      spver=sp.__version__,
-                                      daver=dask.__version__ if __dask__ else "--")
+                                      spver=sp.__version__)
         self._log = ""
         self.log = "created {clname:s} object".format(clname=self.__class__.__name__)
 

@@ -18,13 +18,13 @@ from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.io import save, load
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests.misc import construct_spy_filename
-from syncopy import __dask__
-if __dask__:
+from syncopy import __acme__
+if __acme__:
     import dask.distributed as dd
 
 # Decorator to decide whether or not to run dask-related tests
-skip_without_dask = pytest.mark.skipif(
-    not __dask__, reason="dask not available")
+skip_without_acme = pytest.mark.skipif(
+    not __acme__, reason="acme not available")
 
 
 class TestSpikeData():
@@ -123,7 +123,7 @@ class TestSpikeData():
             assert dummy2.samplerate == 20
             del dummy, dummy2
             time.sleep(0.1)  # wait to kick-off garbage collection
-            
+
             # ensure trialdefinition is saved and loaded correctly
             dummy = SpikeData(self.data, trialdefinition=self.trl, samplerate=10)
             dummy.save(fname, overwrite=True)
@@ -149,8 +149,8 @@ class TestSpikeData():
 
     # test data-selection via class method
     def test_dataselection(self):
-        dummy = SpikeData(data=self.data, 
-                          trialdefinition=self.trl, 
+        dummy = SpikeData(data=self.data,
+                          trialdefinition=self.trl,
                           samplerate=2.0)
         # selections are chosen so that result is not empty
         trialSelections = [
@@ -166,7 +166,7 @@ class TestSpikeData():
         toiSelections = [
             "all",  # non-type-conform string
             [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
-            ] 
+            ]
         toilimSelections = [
             [0.5, 3.5],  # regular range
             [1.0, np.inf]  # unbounded from above
@@ -178,12 +178,12 @@ class TestSpikeData():
             slice(-2, None)  # negative-start slice
             ]
         timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
-            + list(zip(["toilim"] * len(toilimSelections), toilimSelections)) 
+            + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
 
         chanIdx = dummy.dimord.index("channel")
         unitIdx = dummy.dimord.index("unit")
         chanArr = np.arange(dummy.channel.size)
-        
+
         for trialSel in trialSelections:
             for chanSel in chanSelections:
                 for unitSel in unitSelections:
@@ -205,7 +205,7 @@ class TestSpikeData():
                                 tk += 1
                         assert set(selected.data[:, chanIdx]).issubset(chanArr[selector.channel])
                         assert set(selected.channel) == set(dummy.channel[selector.channel])
-                        assert np.array_equal(selected.unit, 
+                        assert np.array_equal(selected.unit,
                                               dummy.unit[np.unique(selected.data[:, unitIdx])])
                         cfg.data = dummy
                         cfg.out = SpikeData(dimord=SpikeData._defaultDimord)
@@ -214,8 +214,8 @@ class TestSpikeData():
                         assert np.array_equal(cfg.out.channel, selected.channel)
                         assert np.array_equal(cfg.out.unit, selected.unit)
                         assert np.array_equal(cfg.out.data, selected.data)
-        
-    @skip_without_dask
+
+    @skip_without_acme
     def test_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
@@ -469,11 +469,11 @@ class TestEventData():
         ang_dummy = AnalogData(self.adata, samplerate=sr_a)
         with pytest.raises(SPYValueError):
             ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
-            
+
     # test data-selection via class method
     def test_dataselection(self):
-        dummy = EventData(data=self.data, 
-                          trialdefinition=self.trl, 
+        dummy = EventData(data=self.data,
+                          trialdefinition=self.trl,
                           samplerate=2.0)
         # selections are chosen so that result is not empty
         trialSelections = [
@@ -488,16 +488,16 @@ class TestEventData():
         toiSelections = [
             "all",  # non-type-conform string
             [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
-            ] 
+            ]
         toilimSelections = [
             [0.5, 3.5],  # regular range
             [0.0, np.inf]  # unbounded from above
             ]
         timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
-            + list(zip(["toilim"] * len(toilimSelections), toilimSelections)) 
+            + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
 
         eventidIdx = dummy.dimord.index("eventid")
-        
+
         for trialSel in trialSelections:
             for eventidSel in eventidSelections:
                 for timeSel in timeSelections:
@@ -515,7 +515,7 @@ class TestEventData():
                             assert np.array_equal(dummy.trials[trialno][selector.time[tk], :],
                                                   selected.trials[tk])
                             tk += 1
-                    assert np.array_equal(selected.eventid, 
+                    assert np.array_equal(selected.eventid,
                                           dummy.eventid[np.unique(selected.data[:, eventidIdx]).astype(np.intp)])
                     cfg.data = dummy
                     cfg.out = EventData(dimord=EventData._defaultDimord)
@@ -524,7 +524,7 @@ class TestEventData():
                     assert np.array_equal(cfg.out.eventid, selected.eventid)
                     assert np.array_equal(cfg.out.data, selected.data)
 
-    @skip_without_dask
+    @skip_without_acme
     def test_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)

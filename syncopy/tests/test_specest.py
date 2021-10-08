@@ -12,8 +12,8 @@ import pytest
 import numpy as np
 import scipy.signal as scisig
 from numpy.lib.format import open_memmap
-from syncopy import __dask__
-if __dask__:
+from syncopy import __acme__
+if __acme__:
     import dask.distributed as dd
 
 # Local imports
@@ -26,8 +26,8 @@ from syncopy.datatype import AnalogData, SpectralData, padding
 from syncopy.shared.tools import StructDict, get_defaults
 
 # Decorator to decide whether or not to run dask-related tests
-skip_without_dask = pytest.mark.skipif(
-    not __dask__, reason="dask not available")
+skip_without_acme = pytest.mark.skipif(
+    not __acme__, reason="acme not available")
 
 
 # Local helper for constructing TF testing signals
@@ -393,7 +393,7 @@ class TestMTMFFT():
             del avdata, vdata, dmap, spec
             gc.collect()  # force-garbage-collect object so that tempdir can be closed
 
-    @skip_without_dask
+    @skip_without_acme
     def test_parallel(self, testcluster):
         # collect all tests of current class and repeat them using dask
         # (skip VirtualData tests since ``wrapper_io`` expects valid headers)
@@ -852,7 +852,7 @@ class TestMTMConvol():
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
-    @skip_without_dask
+    @skip_without_acme
     def test_tf_parallel(self, testcluster):
         # collect all tests of current class and repeat them running concurrently
         client = dd.Client(testcluster)
@@ -1144,7 +1144,7 @@ class TestWavelet():
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
-    @skip_without_dask
+    @skip_without_acme
     def test_wav_parallel(self, testcluster):
         # collect all tests of current class and repeat them running concurrently
         client = dd.Client(testcluster)

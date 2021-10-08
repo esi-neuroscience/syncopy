@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Base class for all computational classes in Syncopy
-# 
+#
 
 # Builtin/3rd party package imports
 import os
@@ -23,9 +23,9 @@ if sys.platform == "win32":
 
 # Local imports
 from .tools import get_defaults
-from syncopy import __storage__, __dask__, __path__
+from syncopy import __storage__, __acme__, __path__
 from syncopy.shared.errors import SPYIOError, SPYValueError, SPYParallelError, SPYWarning
-if __dask__:
+if __acme__:
     import dask.distributed as dd
     import dask.bag as db
     # # In case of problems w/worker-stealing, uncomment the following lines
@@ -47,7 +47,7 @@ class ComputationalRoutine(ABC):
 
     * First positional argument is a :class:`numpy.ndarray`, the keywords
       `chunkShape` and `noCompute` are supported
-    * Returns a :class:`numpy.ndarray` if `noCompute` is `False` and expected 
+    * Returns a :class:`numpy.ndarray` if `noCompute` is `False` and expected
       shape and numerical type of output array otherwise.
 
     Requirements for :class:`ComputationalRoutine`:
@@ -56,7 +56,7 @@ class ComputationalRoutine(ABC):
       as static method
     * Provides class method :func:`process_metadata`
 
-    For details on writing compute classes and metafunctions for Syncopy, please 
+    For details on writing compute classes and metafunctions for Syncopy, please
     refer to :doc:`/developer/compute_kernels`.
     """
 
@@ -115,90 +115,90 @@ class ComputationalRoutine(ABC):
         Returns
         -------
         obj : instance of :class:`ComputationalRoutine`-subclass
-           Usable class instance for processing Syncopy data objects. 
+           Usable class instance for processing Syncopy data objects.
         """
 
         # list of positional arguments to `computeFunction` for all workers, format:
         # ``self.argv = [3, [0, 1, 1], ('a', 'b', 'c')]`` (compare to `self.ArgV` below)
         self.argv = list(argv)
 
-        # list of positional keyword arguments split up for each worker w/format: 
+        # list of positional keyword arguments split up for each worker w/format:
         # ``self.ArgV = [(3,0,'a'), (3,1,'b'), (3,1,'c')`` (compare `self.argv` above)
         self.ArgV = None
 
         # dict of default keyword values accepted by `computeFunction`
         self.defaultCfg = get_defaults(self.computeFunction)
-        
+
         # dict of actual keyword argument values to `computeFunction` provided by user
         self.cfg = copy(self.defaultCfg)
         for key in set(self.cfg.keys()).intersection(kwargs.keys()):
             self.cfg[key] = kwargs[key]
-            
+
         # binary flag: if `True`, average across trials, do nothing otherwise
         self.keeptrials = None
-        
+
         # full shape of final output dataset (all trials, all chunks, etc.)
         self.outputShape = None
-        
+
         # numerical type of output dataset
         self.dtype = None
-        
+
         # list of dicts encoding header info of raw binary input files (experimental!)
         self.hdr = None
-        
+
         # list of trial numbers to process (either `data.trials` or `data._selection.trials`)
         self.trialList = None
-        
-        # list of index-tuples for extracting trial-chunks from input HDF5 dataset 
+
+        # list of index-tuples for extracting trial-chunks from input HDF5 dataset
         # >>> MUST be ordered, no repetitions! <<<
         # indices are ABSOLUTE, i.e., wrt entire dataset, not just current trial!
         self.sourceLayout = None
-        
-        # list of index-tuples for re-ordering NumPy arrays extracted w/`self.sourceLayout` 
+
+        # list of index-tuples for re-ordering NumPy arrays extracted w/`self.sourceLayout`
         # >>> can be unordered w/repetitions <<<
         # indices are RELATIVE, i.e., wrt current trial!
         self.sourceSelectors = None
-        
-        # list of index-tuples for storing trial-chunk result in output dataset 
+
+        # list of index-tuples for storing trial-chunk result in output dataset
         # >>> MUST be ordered, no repetitions! <<<
         # indices are ABSOLUTE, i.e., wrt entire dataset, not just current trial
         self.targetLayout = None
-        
+
         # list of shape-tuples of trial-chunk results
         self.targetShapes = None
-        
-        # binary flag: if `True`, use fancy array indexing via `np.ix_` to extract 
+
+        # binary flag: if `True`, use fancy array indexing via `np.ix_` to extract
         # data from input via `self.sourceLayout` + `self.sourceSelectors`; if `False`,
         # only use `self.sourceLayout` (selections ordered, no reps)
         self.useFancyIdx = None
-        
+
         # integer, max. memory footprint of largest input array piece (in bytes)
         self.chunkMem = None
-        
+
         # directory for storing source-HDF5 files making up virtual output dataset
         self.virtualDatasetDir = None
-        
+
         # h5py layout encoding shape/geometry of file sources within virtual output dataset
         self.VirtualDatasetLayout = None
-        
+
         # name of output dataset
         self.datasetName = None
-        
+
         # tmp holding var for preserving original access mode of `data`
         self.dataMode = None
-        
+
         # time (in seconds) b/w querying state of futures ('pending' -> 'finished')
         self.sleepTime = 0.1
 
         # if `True`, enforces use of single-threaded scheduler in `compute_parallel`
         self.parallelDebug = False
-        
+
         # format string for tqdm progress bars in sequential and parallel computations
         self.tqdmFormat = "{desc}: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
 
         # maximal acceptable size (in MB) of any provided positional argument
         self._maxArgSize = 100
-        
+
         # counter and maximal recursion depth for calling `self._sizeof`
         self._callMax = 10000
         self._callCount = 0
@@ -210,37 +210,37 @@ class ComputationalRoutine(ABC):
         Parameters
         ----------
         data : syncopy data object
-           Syncopy data object to be processed (has to be the same object 
-           that is passed to :meth:`compute` for the actual calculation). 
+           Syncopy data object to be processed (has to be the same object
+           that is passed to :meth:`compute` for the actual calculation).
         chan_per_worker : None or int
            Number of channels to be processed by each worker (only relevant in
-           case of concurrent processing). If `chan_per_worker` is `None` (default) 
-           by-trial parallelism is used, i.e., each worker processes 
-           data corresponding to a full trial. If `chan_per_worker > 0`, trials 
-           are split into channel-groups of size `chan_per_worker` (+ rest if the 
-           number of channels is not divisible by `chan_per_worker` without 
-           remainder) and workers are assigned by-trial channel-groups for 
-           processing. 
+           case of concurrent processing). If `chan_per_worker` is `None` (default)
+           by-trial parallelism is used, i.e., each worker processes
+           data corresponding to a full trial. If `chan_per_worker > 0`, trials
+           are split into channel-groups of size `chan_per_worker` (+ rest if the
+           number of channels is not divisible by `chan_per_worker` without
+           remainder) and workers are assigned by-trial channel-groups for
+           processing.
         keeptrials : bool
             Flag indicating whether to return individual trials or average
-        
+
         Returns
         -------
         Nothing : None
-        
+
         Notes
         -----
         This class method **has** to be called prior to performing the actual
-        computation realized in :meth:`computeFunction`. 
+        computation realized in :meth:`computeFunction`.
 
         See also
         --------
         compute : core routine performing the actual computation
         """
-        
+
         # First store `keeptrial` keyword value (important for output shapes below)
         self.keeptrials = keeptrials
-        
+
         # Determine if data-selection was provided; if so, extract trials and check
         # whether selection requires fancy array indexing
         if data._selection is not None:
@@ -264,7 +264,7 @@ class ComputationalRoutine(ABC):
                 lgl = "positional arguments less than 100 MB each"
                 act = "positional argument with memory footprint of {0:4.2f} MB"
                 raise SPYValueError(legal=lgl, varname="argv", actual=act.format(argsize))
-            
+
             if isinstance(arg, (list, tuple)):
                 if len(arg) != numTrials:
                     lgl = "list/tuple of positional arguments for each trial"
@@ -279,7 +279,7 @@ class ComputationalRoutine(ABC):
                         "a list or tuple instead!"
                     SPYWarning(msg)
             self.argv[ak] = [arg] * numTrials
-                
+
         # Prepare dryrun arguments and determine geometry of trials in output
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
@@ -289,14 +289,14 @@ class ComputationalRoutine(ABC):
         for tk, trialno in enumerate(self.trialList):
             trial = data._preview_trial(trialno)
             trlArg = tuple(arg[tk] for arg in self.argv)
-            chunkShape, dtype = self.computeFunction(trial, 
+            chunkShape, dtype = self.computeFunction(trial,
                                                      *trlArg,
                                                      **dryRunKwargs)
             chk_list.append(list(chunkShape))
             dtp_list.append(dtype)
             trials.append(trial)
-            
-        # The aggregate shape is computed as max across all chunks                    
+
+        # The aggregate shape is computed as max across all chunks
         chk_arr = np.array(chk_list)
         if np.unique(chk_arr[:, 0]).size > 1 and not self.keeptrials:
             err = "Averaging trials of unequal lengths in output currently not supported!"
@@ -325,7 +325,7 @@ class ComputationalRoutine(ABC):
                     "parallelization not yet supported!"
                 SPYWarning(msg)
                 chan_per_worker = None
-            
+
         # Allocate control variables
         trial = trials[0]
         trlArg0 = tuple(arg[0] for arg in self.argv)
@@ -336,17 +336,17 @@ class ComputationalRoutine(ABC):
         targetShapes = []
         ArgV = []
 
-        # If parallelization across channels is requested the first trial is 
+        # If parallelization across channels is requested the first trial is
         # split up into several chunks that need to be processed/allocated
         if chan_per_worker is not None:
 
             # Set up channel-chunking
             nChannels = data.channel.size
             rem = int(nChannels % chan_per_worker)
-            n_blocks = [chan_per_worker] * int(nChannels//chan_per_worker) + [rem] * int(rem > 0)        
+            n_blocks = [chan_per_worker] * int(nChannels//chan_per_worker) + [rem] * int(rem > 0)
             inchanidx = data.dimord.index("channel")
-            
-            # Perform dry-run w/first channel-block of first trial to identify 
+
+            # Perform dry-run w/first channel-block of first trial to identify
             # changes in output shape w.r.t. full-trial output (`chunkShape`)
             shp = list(trial.shape)
             idx = list(trial.idx)
@@ -360,8 +360,8 @@ class ComputationalRoutine(ABC):
                 lgl = "exactly one output dimension to scale w/channel count"
                 act = "{0:d} dimensions affected by varying channel count".format(len(outchan))
                 raise SPYValueError(legal=lgl, varname="chan_per_worker", actual=act)
-            outchanidx = res.index(outchan[0])            
-            
+            outchanidx = res.index(outchan[0])
+
             # Get output chunks and grid indices for first trial
             chanstack = 0
             blockstack = 0
@@ -387,7 +387,7 @@ class ComputationalRoutine(ABC):
             targetShapes.append(chunkShape0)
             sourceLayout.append(trial.idx)
             ArgV.append(trlArg0)
-            
+
         # Construct dimensional layout of output
         stacking = targetLayout[0][0].stop
         for tk in range(1, len(self.trialList)):
@@ -420,21 +420,21 @@ class ComputationalRoutine(ABC):
                     chanstack += res[outchanidx]
                     blockstack += block
                     ArgV.append(trlArg)
-                    
-        # If the determined source layout contains unordered lists and/or index 
+
+        # If the determined source layout contains unordered lists and/or index
         # repetitions, set `self.useFancyIdx` to `True` and prepare a separate
-        # `sourceSelectors` list that is used in addition to `sourceLayout` for 
-        # data extraction. 
-        # In this case `sourceLayout` uses ABSOLUTE indices (indices wrt to size 
-        # of ENTIRE DATASET) that are SORTED W/O REPS to extract a NumPy array 
-        # of appropriate size from HDF5. 
-        # Then `sourceLayout` uses RELATIVE indices (indices wrt to size of CURRENT 
-        # TRIAL) that can be UNSORTED W/REPS to actually perform the requested 
-        # selection on the NumPy array extracted w/`sourceLayout`. 
+        # `sourceSelectors` list that is used in addition to `sourceLayout` for
+        # data extraction.
+        # In this case `sourceLayout` uses ABSOLUTE indices (indices wrt to size
+        # of ENTIRE DATASET) that are SORTED W/O REPS to extract a NumPy array
+        # of appropriate size from HDF5.
+        # Then `sourceLayout` uses RELATIVE indices (indices wrt to size of CURRENT
+        # TRIAL) that can be UNSORTED W/REPS to actually perform the requested
+        # selection on the NumPy array extracted w/`sourceLayout`.
         for grd in sourceLayout:
-            if any([np.diff(sel).min() <= 0 if isinstance(sel, list) 
+            if any([np.diff(sel).min() <= 0 if isinstance(sel, list)
                     and len(sel) > 1 else False for sel in grd]):
-                self.useFancyIdx = True 
+                self.useFancyIdx = True
                 break
         if self.useFancyIdx:
             sourceSelectors = []
@@ -459,7 +459,7 @@ class ComputationalRoutine(ABC):
                 sourceLayout[gk] = tuple(ingrid)
         else:
             sourceSelectors = [Ellipsis] * len(sourceLayout)
-            
+
         # Store determined shapes and grid layout
         self.sourceLayout = sourceLayout
         self.sourceSelectors = sourceSelectors
@@ -472,7 +472,7 @@ class ComputationalRoutine(ABC):
             self.chunkMem = np.prod(self.cfg["chunkShape"]) * self.dtype.itemsize
         else:
             self.chunkMem = max([np.prod(shp) for shp in self.targetShapes]) * self.dtype.itemsize
-        
+
         # Get data access mode (only relevant for parallel reading access)
         self.dataMode = data.mode
 
@@ -485,33 +485,33 @@ class ComputationalRoutine(ABC):
         ----------
         data : syncopy data object
            Syncopy data object to be processed (has to be the same object
-           that was used by :meth:`initialize` in the pre-calculation 
-           dry-run). 
+           that was used by :meth:`initialize` in the pre-calculation
+           dry-run).
         out : syncopy data object
            Empty object for holding results
         parallel : bool
-           If `True`, processing is performed in parallel (i.e., 
-           :meth:`computeFunction` is executed concurrently across trials). 
-           If `parallel` is `False`, :meth:`computeFunction` is executed 
+           If `True`, processing is performed in parallel (i.e.,
+           :meth:`computeFunction` is executed concurrently across trials).
+           If `parallel` is `False`, :meth:`computeFunction` is executed
            consecutively trial after trial (i.e., the calculation realized
-           in :meth:`computeFunction` is performed sequentially). 
+           in :meth:`computeFunction` is performed sequentially).
         parallel_store : None or bool
            Flag controlling saving mechanism. If `None`,
-           ``parallel_store = parallel``, i.e., the compute-paradigm 
+           ``parallel_store = parallel``, i.e., the compute-paradigm
            dictates the employed writing method. Thus, in case of parallel
            processing, results are written in a fully concurrent
-           manner (each worker saves its own local result segment on disk as 
+           manner (each worker saves its own local result segment on disk as
            soon as it is done with its part of the computation). If `parallel_store`
-           is `False` and `parallel` is `True` the processing result is saved 
+           is `False` and `parallel` is `True` the processing result is saved
            sequentially using a mutex. If both `parallel` and `parallel_store`
            are `False` standard single-process HDF5 writing is employed for
-           saving the result of the (sequential) computation. 
+           saving the result of the (sequential) computation.
         method : None or str
            If `None` the predefined methods :meth:`compute_parallel` or
            :meth:`compute_sequential` are used to control the actual computation
            (specifically, calling :meth:`computeFunction`) depending on whether
-           `parallel` is `True` or `False`, respectively. If `method` is a 
-           string, it has to specify the name of an alternative (provided) 
+           `parallel` is `True` or `False`, respectively. If `method` is a
+           string, it has to specify the name of an alternative (provided)
            class method that is invoked using `getattr`.
         mem_thresh : float
            Fraction of available memory required to perform computation. By
@@ -519,24 +519,24 @@ class ComputationalRoutine(ABC):
            50% (``mem_thresh = 0.5``) of available single-machine or worker
            memory (if `parallel` is `False` or `True`, respectively).
         log_dict : None or dict
-           If `None`, the `log` properties of `out` is populated with the employed 
-           keyword arguments used in :meth:`computeFunction`. 
-           Otherwise, `out`'s `log` properties are filled  with items taken 
-           from `log_dict`. 
+           If `None`, the `log` properties of `out` is populated with the employed
+           keyword arguments used in :meth:`computeFunction`.
+           Otherwise, `out`'s `log` properties are filled  with items taken
+           from `log_dict`.
         parallel_debug : bool
            If `True`, concurrent processing is performed using a single-threaded
            scheduler, i.e., all parallel computing task are run in the current
-           Python thread permitting usage of tools like `pdb`/`ipdb`, `cProfile` 
-           and the like in :meth:`computeFunction`.  
-           Note that enabling parallel debugging effectively runs the given computation 
-           on the calling local machine thereby requiring sufficient memory and 
-           CPU capacity. 
-        
+           Python thread permitting usage of tools like `pdb`/`ipdb`, `cProfile`
+           and the like in :meth:`computeFunction`.
+           Note that enabling parallel debugging effectively runs the given computation
+           on the calling local machine thereby requiring sufficient memory and
+           CPU capacity.
+
         Returns
         -------
         Nothing : None
-           The result of the computation is available in `out` once 
-           :meth:`compute` terminated successfully. 
+           The result of the computation is available in `out` once
+           :meth:`compute` terminated successfully.
 
         Notes
         -----
@@ -544,8 +544,8 @@ class ComputationalRoutine(ABC):
         pre- and post-processing steps in a fully automatic manner without
         requiring any user-input. Specifically, the following class methods
         are invoked consecutively (in the given order):
-        
-        1. :meth:`preallocate_output` allocates a (virtual) HDF5 dataset 
+
+        1. :meth:`preallocate_output` allocates a (virtual) HDF5 dataset
            of appropriate dimension for storing the result
         2. :meth:`compute_parallel` (or :meth:`compute_sequential`) performs
            the actual computation via concurrently (or sequentially) calling
@@ -553,9 +553,9 @@ class ComputationalRoutine(ABC):
         3. :meth:`process_metadata` attaches all relevant meta-information to
            the result `out` after successful termination of the calculation
         4. :meth:`write_log` stores employed input arguments in `out.cfg`
-           and `out.log` to reproduce all relevant computational steps that 
-           generated `out`. 
-        
+           and `out.log` to reproduce all relevant computational steps that
+           generated `out`.
+
         See also
         --------
         initialize : pre-calculation preparations
@@ -569,7 +569,7 @@ class ComputationalRoutine(ABC):
         # By default, use VDS storage for parallel computing
         if parallel_store is None:
             parallel_store = parallel
-            
+
         # Do not spill trials on disk if they're supposed to be removed anyway
         if parallel_store and not self.keeptrials:
             msg = "trial-averaging only supports sequential writing!"
@@ -585,13 +585,13 @@ class ComputationalRoutine(ABC):
             except ValueError as exc:
                 msg = "parallel computing client: {}"
                 raise SPYIOError(msg.format(exc.args[0]))
-            
+
             # Check if the underlying cluster hosts actually usable workers
             if not len(client.cluster.workers):
                 raise SPYParallelError("No active workers found in distributed computing cluster",
                                        client=client)
 
-            # Note: `dask_jobqueue` may not be available even if `__dask__` is `True`,
+            # Note: `dask_jobqueue` may not be available even if `__acme__` is `True`,
             # hence the `__name__` shenanigans instead of a simple `isinstance`
             if isinstance(client.cluster, dd.LocalCluster):
                 memAttr = "memory_limit"
@@ -620,7 +620,7 @@ class ComputationalRoutine(ABC):
                 if spy_path not in sys.path:
                     sys.path.insert(0, spy_path)
             client.register_worker_callbacks(init_syncopy)
-            
+
             # Store provided debugging state
             self.parallelDebug = parallel_debug
 
@@ -636,7 +636,7 @@ class ComputationalRoutine(ABC):
 
         # Create HDF5 dataset of appropriate dimension
         self.preallocate_output(out, parallel_store=parallel_store)
-        
+
         # The `method` keyword can be used to override the `parallel` flag
         if method is None:
             if parallel:
@@ -646,19 +646,19 @@ class ComputationalRoutine(ABC):
         else:
             computeMethod = getattr(self, "compute_" + method, None)
 
-        # Ensure `data` is openend read-only to permit (potentially concurrent) 
+        # Ensure `data` is openend read-only to permit (potentially concurrent)
         # reading access to backing device on disk
         data.mode = "r"
-        
-        # Take care of `VirtualData` objects 
+
+        # Take care of `VirtualData` objects
         self.hdr = getattr(data, "hdr", None)
-            
+
         # Perform actual computation
         computeMethod(data, out)
 
         # Reset data access mode
         data.mode = self.dataMode
-        
+
         # Attach computed results to output object
         out.data = h5py.File(out.filename, mode="r+")[self.datasetName]
 
@@ -675,11 +675,11 @@ class ComputationalRoutine(ABC):
         out : syncopy data object
            Empty object for holding results
         parallel_store : bool
-           If `True`, a directory for virtual source files is created 
-           in Syncopy's temporary on-disk storage (defined by `syncopy.__storage__`). 
-           Otherwise, a dataset of appropriate type and shape is allocated 
-           in a new regular HDF5 file created inside Syncopy's temporary 
-           storage folder. 
+           If `True`, a directory for virtual source files is created
+           in Syncopy's temporary on-disk storage (defined by `syncopy.__storage__`).
+           Otherwise, a dataset of appropriate type and shape is allocated
+           in a new regular HDF5 file created inside Syncopy's temporary
+           storage folder.
 
         Returns
         -------
@@ -699,7 +699,7 @@ class ComputationalRoutine(ABC):
             vdsdir = os.path.splitext(os.path.basename(out.filename))[0]
             self.virtualDatasetDir = os.path.join(__storage__, vdsdir)
             os.mkdir(self.virtualDatasetDir)
-            
+
             layout = h5py.VirtualLayout(shape=self.outputShape, dtype=self.dtype)
             for k, idx in enumerate(self.targetLayout):
                 fname = os.path.join(self.virtualDatasetDir, "{0:d}.h5".format(k))
@@ -708,7 +708,7 @@ class ComputationalRoutine(ABC):
 
         # Create regular HDF5 dataset for sequential writing
         else:
-            
+
             # The shape of the target depends on trial-averaging
             if not self.keeptrials:
                 shp = self.cfg["chunkShape"]
@@ -736,32 +736,32 @@ class ComputationalRoutine(ABC):
         Notes
         -----
         This method mereley acts as a concurrent wrapper for :meth:`computeFunction`
-        by passing along all necessary information for parallel execution and 
+        by passing along all necessary information for parallel execution and
         storage of results using a dask bag of dictionaries. The actual reading
-        of source data and writing of results is managed by the decorator 
-        :func:`syncopy.shared.parsers.unwrap_io`. Note that this routine first 
-        builds an entire parallel instruction tree and only kicks off execution 
-        on the cluster at the very end of the calculation command assembly. 
+        of source data and writing of results is managed by the decorator
+        :func:`syncopy.shared.parsers.unwrap_io`. Note that this routine first
+        builds an entire parallel instruction tree and only kicks off execution
+        on the cluster at the very end of the calculation command assembly.
 
         See also
         --------
         compute : management routine invoking parallel/sequential compute kernels
         compute_sequential : serial processing counterpart of this method
         """
-        
+
         # Prepare to write chunks concurrently
         if self.virtualDatasetDir is not None:
             outfilename = os.path.join(self.virtualDatasetDir, "{0:d}.h5")
             outdsetname = "chk"
 
-        # Write chunks sequentially            
+        # Write chunks sequentially
         else:
             outfilename = out.filename
             outdsetname = self.datasetName
-            
+
         # Construct a dask bag with all necessary components for parallelization
         mainBag = db.from_sequence([{"hdr": self.hdr,
-                                     "keeptrials": self.keeptrials, 
+                                     "keeptrials": self.keeptrials,
                                      "infile": data.filename,
                                      "indset": data.data.name,
                                      "ingrid": self.sourceLayout[chk],
@@ -774,30 +774,30 @@ class ComputationalRoutine(ABC):
                                      "outshape": self.targetShapes[chk],
                                      "dtype": self.dtype}
                                      for chk in range(len(self.sourceLayout))],
-                                   npartitions=len(self.sourceLayout)) 
+                                   npartitions=len(self.sourceLayout))
 
         # Convert by-worker argv-list to dask bags to distribute across cluster
         # Format: ``ArgV = [(3, 0, 'a'), (3, 0, 'a'), (3, 1, 'b'), (3, 1, 'b')]``
         # then ``list(zip(*ArgV)) = [(3, 3, 3, 3), (0, 0, 1, 1), ('a', 'a', 'b', 'b')]``
-        bags = []        
+        bags = []
         for arg in zip(*self.ArgV):
             bags.append(db.from_sequence(arg))
-            
+
         # Map all components (channel-trial-blocks) onto `computeFunction`
         results = mainBag.map(self.computeFunction, *bags, **self.cfg)
-        
-        # Let the fun begin... 
+
+        # Let the fun begin...
         if not self.parallelDebug:
-            
+
             # Make sure that all futures are executed (i.e., data is actually written)
-            # Note 1: `dd.progress` does not correctly track worker progress hence 
-            #         the custom-tailored `while` formulation: that periodically 
+            # Note 1: `dd.progress` does not correctly track worker progress hence
+            #         the custom-tailored `while` formulation: that periodically
             #         checks in on the status of all allocated futures
             #         -> Do not use this `dd.progress(futures, notebook=False)`
-            # Note 2: the while loop below does not run indefinitely - erring or 
-            #         stalling futures get status 'error' or 'waiting'. After 
-            #         some time the status of all futures is one of 'finished', 
-            #         'error' or 'waiting', but none is 'pending' any more.  
+            # Note 2: the while loop below does not run indefinitely - erring or
+            #         stalling futures get status 'error' or 'waiting'. After
+            #         some time the status of all futures is one of 'finished',
+            #         'error' or 'waiting', but none is 'pending' any more.
             futures = dd.client.futures_of(results.persist())
             totalTasks = len(futures)
             pbar = tqdm(total=totalTasks, bar_format=self.tqdmFormat)
@@ -808,17 +808,17 @@ class ComputationalRoutine(ABC):
                 cnt += new
                 pbar.update(new)
             pbar.close()
-            
-            # Avoid race condition: give futures time to perform switch from 'pending' 
+
+            # Avoid race condition: give futures time to perform switch from 'pending'
             # to 'finished' so that `finishedTasks` is computed correctly
             time.sleep(self.sleepTime)
 
-            # If number of 'finished' tasks is less than expected, go into 
+            # If number of 'finished' tasks is less than expected, go into
             # problem analysis mode: all futures that erred hav an `.exception`
             # method which can be used to track down the worker it was executed by
-            # Once we know the worker, we can point to the right log file. If 
-            # futures were cancelled (by the user or the SLURM controller), 
-            # `.exception` is `None` and we can't relialby track down the 
+            # Once we know the worker, we can point to the right log file. If
+            # futures were cancelled (by the user or the SLURM controller),
+            # `.exception` is `None` and we can't relialby track down the
             # respective executing worker
             finishedTasks = sum([f.status == "finished" for f in futures])
             if finishedTasks < totalTasks:
@@ -829,8 +829,8 @@ class ComputationalRoutine(ABC):
                 msg = msg.format(totalTasks - finishedTasks, totalTasks)
                 msg += "Concurrent computing scheduler log below: \n\n"
                 msg += schedulerLog + "\n"
-                
-                # If we're working w/`SLURMCluster`, perform the Herculean task of 
+
+                # If we're working w/`SLURMCluster`, perform the Herculean task of
                 # tracking down which dask worker was executed by which SLURM job...
                 if client.cluster.__class__.__name__ == "SLURMCluster":
                     try:
@@ -848,7 +848,7 @@ class ComputationalRoutine(ABC):
                         msg += "".join(errfile + "\n" for errfile in errFiles)
                     else:
                         msg += "Please check SLURM logs in {}".format(slurmOutDir)
-                
+
                 # In case of a `LocalCluster`, syphon worker logs
                 else:
                     msg += "\nParallel worker logs below: \n"
@@ -856,31 +856,31 @@ class ComputationalRoutine(ABC):
                     for wLog in workerLogs:
                         if "Failed" in wLog:
                             msg += wLog
-                    
+
                 raise SPYParallelError(msg, client=client)
 
         # If debugging is requested, drop existing client and enforce use of
         # single-threaded scheduler
         else:
             results.compute(scheduler="single-threaded")
-            
+
         # When writing concurrently, now's the time to finally create the virtual dataset
         if self.virtualDatasetDir is not None:
             with h5py.File(out.filename, mode="w") as h5f:
                 h5f.create_virtual_dataset(self.datasetName, self.VirtualDatasetLayout)
-                
+
         # If trial-averaging was requested, normalize computed sum to get mean
         if not self.keeptrials:
             with h5py.File(out.filename, mode="r+") as h5f:
                 h5f[self.datasetName][()] /= len(self.trialList)
                 h5f.flush()
-        
-        return 
-        
+
+        return
+
     def compute_sequential(self, data, out):
         """
         Sequential computing kernel
-        
+
         Parameters
         ----------
         data : syncopy data object
@@ -891,22 +891,22 @@ class ComputationalRoutine(ABC):
         Returns
         -------
         Nothing : None
-        
+
         Notes
         -----
         This method most closely reflects classic iterative process execution:
         trials in `data` are passed sequentially to :meth:`computeFunction`,
-        results are stored consecutively in a regular HDF5 dataset (that was 
-        pre-allocated by :meth:`preallocate_output`). Since the calculation result 
+        results are stored consecutively in a regular HDF5 dataset (that was
+        pre-allocated by :meth:`preallocate_output`). Since the calculation result
         is immediately stored on disk, propagation of arrays across routines
-        is avoided and memory usage is kept to a minimum. 
+        is avoided and memory usage is kept to a minimum.
 
         See also
         --------
         compute : management routine invoking parallel/sequential compute kernels
         compute_parallel : concurrent processing counterpart of this method
         """
-        
+
         # Initialize on-disk backing device (either HDF5 file or memmap)
         if self.hdr is None:
             try:
@@ -917,7 +917,7 @@ class ComputationalRoutine(ABC):
                 isHDF = False
             except Exception as exc:
                 raise exc
-            
+
         # Iterate over (selected) trials and write directly to target HDF5 dataset
         fmt = "{desc}: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
         with h5py.File(out.filename, "r+") as h5fout:
@@ -925,13 +925,13 @@ class ComputationalRoutine(ABC):
 
             for nblock in tqdm(range(len(self.trialList)), bar_format=self.tqdmFormat):
 
-                # Extract respective indexing tuples from constructed lists                
+                # Extract respective indexing tuples from constructed lists
                 ingrid = self.sourceLayout[nblock]
                 sigrid = self.sourceSelectors[nblock]
                 outgrid = self.targetLayout[nblock]
                 argv = self.ArgV[nblock]
-                
-                # Catch empty source-array selections; this workaround is not 
+
+                # Catch empty source-array selections; this workaround is not
                 # necessary for h5py version 2.10+ (see https://github.com/h5py/h5py/pull/1174)
                 if any([not sel for sel in ingrid]):
                     res = np.empty(self.targetShapes[nblock], dtype=self.dtype)
@@ -962,13 +962,13 @@ class ComputationalRoutine(ABC):
 
                     # Perform computation
                     res = self.computeFunction(arr, *argv, **self.cfg)
-                    
+
                 # Either write result to `outgrid` location in `target` or add it up
                 if self.keeptrials:
                     target[outgrid] = res
                 else:
                     target[()] = np.nansum([target, res], axis=0)
-                
+
                 # Flush every iteration to avoid memory leakage
                 h5fout.flush()
 
@@ -978,8 +978,8 @@ class ComputationalRoutine(ABC):
 
         # If source was HDF5 file, close it to prevent access errors
         if isHDF:
-            sourceObj.file.close()    
-            
+            sourceObj.file.close()
+
         return
 
     def write_log(self, data, out, log_dict=None):
@@ -993,15 +993,15 @@ class ComputationalRoutine(ABC):
         out : syncopy data object
            Syncopy data object holding calculation results
         log_dict : None or dict
-           If `None`, the `log` properties of `out` is populated with the employed 
-           keyword arguments used in :meth:`computeFunction`. 
-           Otherwise, `out`'s `log` properties are filled  with items taken 
-           from `log_dict`. 
-        
+           If `None`, the `log` properties of `out` is populated with the employed
+           keyword arguments used in :meth:`computeFunction`.
+           Otherwise, `out`'s `log` properties are filled  with items taken
+           from `log_dict`.
+
         Returns
         -------
         Nothing : None
- 
+
         See also
         --------
         process_metadata : Management of meta-information
@@ -1045,9 +1045,9 @@ class ComputationalRoutine(ABC):
 
         Notes
         -----
-        This routine is an abstract method and is thus intended to be overloaded. 
-        Consult the developer documentation (:doc:`/developer/compute_kernels`) for 
-        further details. 
+        This routine is an abstract method and is thus intended to be overloaded.
+        Consult the developer documentation (:doc:`/developer/compute_kernels`) for
+        further details.
 
         See also
         --------
@@ -1057,38 +1057,38 @@ class ComputationalRoutine(ABC):
 
     def _sizeof(self, obj):
         """
-        Estimate memory consumption of Python objects 
-        
+        Estimate memory consumption of Python objects
+
         Parameters
         ----------
         obj : Python object
-           Any valid Python object whose memory footprint is of interest. 
-        
+           Any valid Python object whose memory footprint is of interest.
+
         Returns
         -------
         objsize : float
-           Approximate memory footprint of `obj` in megabytes (MB). 
-           
+           Approximate memory footprint of `obj` in megabytes (MB).
+
         Notes
         -----
-        Memory consumption is is estimated by recursively calling :meth:`sys.getsizeof`. 
+        Memory consumption is is estimated by recursively calling :meth:`sys.getsizeof`.
         Circular object references are followed up to a (preset) maximal recursion
-        depth. This method was inspired by a routine in 
-        `Nifty <https://github.com/mwojnars/nifty/blob/master/util.py>`_. 
+        depth. This method was inspired by a routine in
+        `Nifty <https://github.com/mwojnars/nifty/blob/master/util.py>`_.
         """
-        
-        # Protect against circular object references by adhering to max. no. of 
+
+        # Protect against circular object references by adhering to max. no. of
         # recursive calls `self._callMax`
         self._callCount += 1
         if self._callCount >= self._callMax:
             lgl = "minimally nested positional arguments"
             act = "argument with nesting depth >= {}"
             raise SPYValueError(legal=lgl, varname="argv", actual=act.format(self._callMax))
-        
+
         # Use `sys.getsizeof` to estimate memory consumption of primitive objects
         objsize = sys.getsizeof(obj) / 1024**2
-        if isinstance(obj, dict): 
+        if isinstance(obj, dict):
             return objsize + sum(list(map(self._sizeof, obj.keys()))) + sum(list(map(self._sizeof, obj.values())))
-        if isinstance(obj, (list, tuple, set)): 
+        if isinstance(obj, (list, tuple, set)):
             return objsize + sum(list(map(self._sizeof, obj)))
         return objsize

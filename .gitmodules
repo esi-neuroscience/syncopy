@@ -1,4 +1,0 @@
-[submodule "syncopy/acme"]
-	path = syncopy/acme
-	url = https://github.com/esi-neuroscience/acme.git
-	branch = main
