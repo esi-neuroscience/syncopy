@@ -462,7 +462,7 @@ def detect_parallel_client(func):
                         parallel = False
             else:
                 wrng = \
-                "dask seems not to be installed on this system. " +\
+                "ACME seems not to be installed on this system. " +\
                 "Parallel processing capabilities cannot be used. "
                 SPYWarning(wrng)
                 parallel = False

@@ -41,9 +41,9 @@ from .compRoutines import (
 __all__ = ["freqanalysis"]
 
 
-# @unwrap_cfg
-# @unwrap_select
-# @detect_parallel_client
+@unwrap_cfg
+@unwrap_select
+@detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, foilim=None, pad=None, padtype='zero',
                  padlength=None, polyremoval=None,
@@ -355,6 +355,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo).squeeze()
     numTrials = len(trialList)
+
+    print("lenTrials=", lenTrials)
 
     # Sliding window FFT does not support "fancy" padding
     if method == "mtmconvol" and isinstance(pad, str):
@@ -1034,7 +1036,7 @@ def _check_effective_parameters(CR, defaults, lcls):
         Result of `locals()`, all names and values of the local name space
     '''
     # list of possible parameter names of the CR
-    expected = CR.method_keys + CR.cF_keys
+    expected = CR.method_keys + CR.cF_keys + ["parallel", "select"]
     relevant = [name for name in defaults if name not in generalParameters]
     for name in relevant:
         if name not in expected and (lcls[name] != defaults[name]):
