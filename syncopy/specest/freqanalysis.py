@@ -356,8 +356,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     lenTrials = np.diff(sinfo).squeeze()
     numTrials = len(trialList)
 
-    print("lenTrials=", lenTrials)
-
     # Sliding window FFT does not support "fancy" padding
     if method == "mtmconvol" and isinstance(pad, str):
         msg = "method 'mtmconvol' only supports in-place padding for windows " +\
@@ -415,6 +413,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     # Compute length (in samples) of shortest trial
     minTrialLength = minSampleNum / data.samplerate
+
+    # Shortcut to data sampling interval
+    dt = 1 / data.samplerate
 
     # Basic sanitization of frequency specifications
     if foi is not None:
@@ -556,7 +557,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             # get the sliding window size
             try:
                 scalar_parser(t_ftimwin, varname="t_ftimwin",
-                              lims=[1 / data.samplerate, minTrialLength])
+                              lims=[dt, minTrialLength])
             except Exception as exc:
                 raise exc
 
@@ -564,7 +565,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             minSampleNum = int(t_ftimwin * data.samplerate)
 
         # Construct array of maximally attainable frequencies
-        freqs = np.fft.rfftfreq(minSampleNum, 1 / data.samplerate)
+        freqs = np.fft.rfftfreq(minSampleNum, dt)
 
         # Match desired frequencies as close as possible to
         # actually attainable freqs
@@ -628,7 +629,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
             # Get/compute number of tapers to use (at least 1 and max. 50)
             if not nTaper:
-                nTaper = int(max(2, min(50, np.floor(tapsmofrq * minSampleNum * 1 / data.samplerate))))
+                nTaper = int(max(2, min(50, np.floor(tapsmofrq * minSampleNum * dt))))
                 msg = f'Automatic setting of `nTaper` to {nTaper}'
                 SPYInfo(msg)
             else:
@@ -716,8 +717,12 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 lgl = "ordered list/array of time-points"
                 act = "unsorted list/array"
                 raise SPYValueError(legal=lgl, varname="toi", actual=act)
-            if tSteps[0] < 1 / data.samplerate:
-                msg = f"`toi` selection to fine, max. time resolution is {1/data.samplerate}s"
+            # Account for round-off errors: if toi spacing is almost at sample interval
+            # manually correct it
+            if np.isclose(tSteps.min(), dt):
+                tSteps[np.isclose(tSteps, dt)] = dt
+            if tSteps.min() < dt:
+                msg = f"`toi` selection too fine, max. time resolution is {dt}s"
                 SPYWarning(msg)
             # This is imho a bug in NumPy - even `arange` and `linspace` may produce
             # arrays that are numerically not exactly equidistant - `unique` will
@@ -774,8 +779,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 # postSelect then subsamples the spectral esimate to the user given toi
                 postSelect = []
                 for tk in range(numTrials):
-                    start = int(data.samplerate * (toi[0] - tStart[tk]) - halfWin)
-                    stop = int(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1)
+                    start = int(round(data.samplerate * (toi[0] - tStart[tk]) - halfWin))
+                    stop = int(round(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1))
                     soi.append(slice(max(0, start), max(stop, stop - start)))
 
                 # chosen toi subsampling interval in sample units, min. is 1
@@ -874,7 +879,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             scales = get_optimal_wavelet_scales(
                 wfun.scale_from_period, # all availableWavelets sport one!
                 int(minTrialLength * data.samplerate),
-                1 / data.samplerate)
+                dt)
             foi = 1 / wfun.fourier_period(scales)
             msg = (f"Automatic wavelet frequency selection from {foi[0]:.1f}Hz to "
                    f"{foi[-1]:.1f}Hz")
@@ -939,7 +944,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             scales = get_optimal_wavelet_scales(
                 superlet.scale_from_period,
                 int(minTrialLength * data.samplerate),
-                1 / data.samplerate)
+                dt)
             foi = 1 / superlet.fourier_period(scales)
             msg = (f"Automatic superlet frequency selection from {foi[0]:.1f}Hz to "
                    f"{foi[-1]:.1f}Hz")
