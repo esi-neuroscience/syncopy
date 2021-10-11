@@ -5,7 +5,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### NEW
+- Made SyNCoPy PEP 517 compliant: added pyproject.toml and modified setup.py
+  accordingly
+- Added IBM POWER testing pipeline (via dedicated GitLab Runner)
 
+### CHANGED
+
+### REMOVED
+- Retired tox in `slurmtest` CI pipeline in favor of a "simple" pytest testing
+  session due to file-locking problems of tox environments on NFS mounts
+
+### DEPRECATED
+- Removed ACME from source repository: the submodule setup proved to be too
+  unreliable and hard to maintain. ACME is now an optional (but recommended)
+  dependency of SyNCoPy
+
+### FIXED
+- Stream-lined GitLab Runner setup: use cluster-wide conda instead of local
+  installations (that differ slightly across runners) and leverage `tox-conda`
+  to fetch pre-built dependencies
 
 ## [v0.1b2] - 2020-01-15
 Housekeeping and maintenance release
