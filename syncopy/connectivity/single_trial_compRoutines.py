@@ -86,7 +86,8 @@ def cross_spectra_cF(trl_dat,
         Index of running time axis in `trl_dat` (0 or 1)
     norm : bool, optional
         Set to `True` to normalize for a single-trial coherence measure.
-        Only meaningful in a multi-taper (`taper="dpss"`) setup!
+        Only meaningful in a multi-taper (`taper="dpss"`) setup and if no
+        additional (trial-)averaging is perfomed afterwards.
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
