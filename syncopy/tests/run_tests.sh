@@ -35,7 +35,7 @@ if [ "$1" == "" ]; then
 fi
 
 # Set up "global" pytest options for running test-suite
-export PYTEST_ADDOPTS="--color=yes --tb=short --verbose --ignore=syncopy/acme"
+export PYTEST_ADDOPTS="--color=yes --tb=short --verbose"
 
 # The while construction allows parsing of multiple positional/optional args (future-proofing...)
 while [ "$1" != "" ]; do
@@ -54,7 +54,7 @@ while [ "$1" != "" ]; do
             if [ $_useSLURM ]; then
                 srun -p DEV --mem=8000m -c 4 tox
             else
-                tox -r
+                tox
             fi
             ;;
         -h | --help)

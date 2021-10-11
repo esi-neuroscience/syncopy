@@ -1,10 +1,14 @@
-# Builtin/3rd party package imports
+# Builtins
 import datetime
-import ruamel.yaml
 from setuptools import setup
+
+# External packages
+import ruamel.yaml
 from setuptools_scm import get_version
 
 # Local imports
+import sys
+sys.path.insert(0, ".")
 from conda2pip import conda2pip
 
 # Get necessary and optional package dependencies
@@ -12,7 +16,7 @@ required, dev = conda2pip(return_lists=True)
 
 # Get package version for citationFile (for dev-builds this might differ from
 # test-PyPI versions, which are ordered by recency)
-spyVersion = get_version(root='.', relative_to=__file__)
+spyVersion = get_version(root='.', relative_to=__file__, local_scheme="no-local-version")
 
 # Update citation file
 citationFile = "CITATION.cff"
