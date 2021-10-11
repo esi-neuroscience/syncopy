@@ -5,7 +5,7 @@ import matplotlib.pyplot as ppl
 
 
 # white noise ensemble
-nSamples = 10000
+nSamples = 1000
 fs = 1000
 nChannels = 5
 data1 = np.random.randn(nSamples, nChannels)
@@ -32,8 +32,12 @@ def sci_est(x, y, nper, norm=False):
     
 
 freqs, CS = cross_spectra_cF(data1, fs, taper='bartlett')
-# freqs, CS2, specs = cross_spectra(data1, fs, 'dpss',
-#                                  taperopt={'Kmax' : 60, 'NW' : 14})
+freqs, CS2 = cross_spectra_cF(data1, fs, taper='dpss',
+                              taperopt={'Kmax' : 10, 'NW' : 3}, norm=True)
+
+freqs, CS3 = cross_spectra_cF(data1, fs, taper='dpss',
+                              taperopt={'Kmax' : 20, 'NW' : 3}, norm=True)
+
 
 
 # harmonics
@@ -43,11 +47,11 @@ phase_shifts = np.array([0, np.pi / 2, np.pi])
 
 data2 = [np.sum([np.cos(om * tvec + ps) for om in omegas], axis=0) for ps in phase_shifts]
 data2 = np.array(data2).T
-data2 = data2 + np.random.randn(nSamples, 3) * 1
+eps = 1
+data2 = 5 * (data2 + np.random.randn(nSamples, 3) * eps)
 
 x2 = data2[:, 0]
 y2 = data2[:, 1]
 
 freqs, CS = cross_spectra_cF(data2, fs, taper='bartlett')
-freqs, CS2 = cross_spectra_cF(data2, fs, taper='dpss', taperopt={'Kmax' : 12, 'NW' : 4})
-
+freqs, CS2 = cross_spectra_cF(data2, fs, taper='dpss', taperopt={'Kmax' : 20, 'NW' : 6}, norm=True)

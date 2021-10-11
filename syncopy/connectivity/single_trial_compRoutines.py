@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# computeFunctions and -Routines to calculate
+# computeFunctions and -Routines to parallel calculate
 # single trial measures needed for the averaged
 # measures like cross spectral densities
 #
@@ -26,6 +26,7 @@ def cross_spectra_cF(trl_dat,
                      taperopt={},
                      polyremoval=False,
                      timeAxis=0,
+                     norm=False,
                      noCompute=False):
 
     """
@@ -43,8 +44,10 @@ def cross_spectra_cF(trl_dat,
 
     This is NOT the same as what is commonly referred to as 
     "cross spectral density" as there is no (time) averaging!!
-    Multi-tapering alone usually is not sufficient to get enough
-    statitstical power for a robust csd estimate.
+    Multi-tapering alone is not necessarily sufficient to get enough
+    statitstical power for a robust csd estimate. Yet for completeness
+    and testing the option `norm=True` will output a single-trial
+    coherence estimate.
 
     Parameters
     ----------
@@ -55,7 +58,7 @@ def cross_spectra_cF(trl_dat,
         Dimensions can be transposed to (N, K) with the `timeAxis` parameter.
     samplerate : float
         Samplerate in Hz
-    foi : 1D :class:`numpy.ndarray`
+    foi : 1D :class:`numpy.ndarray` or None, optional
         Frequencies of interest  (Hz) for output. If desired frequencies
         cannot be matched exactly the closest possible frequencies (respecting 
         data length and padding) are used.
@@ -65,7 +68,7 @@ def cross_spectra_cF(trl_dat,
     taper : str or None
         Taper function to use, one of scipy.signal.windows
         Set to `None` for no tapering.
-    taperopt : dict
+    taperopt : dict, optional
         Additional keyword arguments passed to the `taper` function. 
         For multi-tapering with `taper='dpss'` set the keys 
         `'Kmax'` and `'NW'`.
@@ -79,8 +82,11 @@ def cross_spectra_cF(trl_dat,
         least squares fit of a linear polynomial), ``polyremoval = N`` for `N > 1` 
         subtracts a polynomial of order `N` (``N = 2`` quadratic, ``N = 3`` cubic 
         etc.). If `polyremoval` is `None`, no de-trending is performed. 
-    timeAxis : int
+    timeAxis : int, optional
         Index of running time axis in `trl_dat` (0 or 1)
+    norm : bool, optional
+        Set to `True` to normalize for a single-trial coherence measure.
+        Only meaningful in a multi-taper (`taper="dpss"`) setup!
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
@@ -151,11 +157,27 @@ def cross_spectra_cF(trl_dat,
     # now has shape (nChannels x nChannels x nFreq)        
     CS_ij = CS_ij.mean(axis=0).T
 
+    if norm:
+        # only meaningful for multi-tapering
+        assert taper == 'dpss'
+        # main diagonal: the auto spectra
+        # has shape (nChannels x nFreq)        
+        diag = CS_ij.diagonal()
+        # # get the needed product pairs of the autospectra
+        Ciijj = np.sqrt(diag[:, :, None] * diag[:, None, :]).T
+        CS_ij = CS_ij / Ciijj
+    
     # where does freqs go/come from?!
     return freqs[freq_idx], CS_ij[np.newaxis, ..., freq_idx]
 
 
-def covariance_cF(trl_dat):
+def cross_covariance_cF(trl_dat,
+                        samplerate=1,
+                        padding_opt={},
+                        polyremoval=False,
+                        timeAxis=0,
+                        norm=False,
+                        noCompute=False):
 
     """
     Single trial covariance estimates between all channels
@@ -170,29 +192,59 @@ def covariance_cF(trl_dat):
         Uniformly sampled multi-channel time-series data
         The 1st dimension is interpreted as the time axis,
         columns represent individual channels.
+        Dimensions can be transposed to (N, K) with the `timeAxis` parameter.
+    samplerate : float
+        Samplerate in Hz
+    padding_opt : dict
+        Parameters to be used for padding. See :func:`syncopy.padding` for 
+        more details.
+    polyremoval : int or None
+        **FIXME: Not implemented yet**
+        Order of polynomial used for de-trending data in the time domain prior 
+        to spectral analysis. A value of 0 corresponds to subtracting the mean 
+        ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the 
+        least squares fit of a linear polynomial), ``polyremoval = N`` for `N > 1` 
+        subtracts a polynomial of order `N` (``N = 2`` quadratic, ``N = 3`` cubic 
+        etc.). If `polyremoval` is `None`, no de-trending is performed. 
+    timeAxis : int, optional
+        Index of running time axis in `trl_dat` (0 or 1)
+    norm : bool, optional
+        Set to `True` to normalize for single-trial cross-correlation.
+    noCompute : bool
+        Preprocessing flag. If `True`, do not perform actual calculation but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+
 
     Returns
     -------    
-    COV_ij : (N, N, M) :class:`numpy.ndarray`
-        Covariances for all channel combinations i,j.
+    CC_ij : (K, 1, N, N) :class:`numpy.ndarray`
+        Cross covariance for all channel combinations i,j.
+        `N` corresponds to number of input channels.
 
-    See also
-    --------
-
-    
-    mtmfft : :func:`~syncopy.specest.mtmfft.mtmfft`
-             (Multi-)tapered Fourier analysis
+    Notes
+    -----
+    This method is intended to be used as 
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`. 
+    Thus, input parameters are presumed to be forwarded from a parent metafunction. 
+    Consequently, this function does **not** perform any error checking and operates 
+    under the assumption that all inputs have been externally validated and cross-checked. 
 
     """
 
-    COV = np.cov(trl_dat, rowvar=False)
+    # Re-arrange array if necessary and get dimensional information
+    if timeAxis != 0:
+        dat = trl_dat.T       # does not copy but creates view of `trl_dat`
+    else:
+        dat = trl_dat
 
-# # main diagonal: the auto spectra
-# # has shape (nChannels x nFreq)        
-# diag = CSD_ij.diagonal()
-# # get the needed product pairs of the autospectra
-# Ciijj = np.sqrt(diag[:, :, None] * diag[:, None, :]).T
-# CSD_ij = CSD_ij / Ciijj
+    # Symmetric Padding (updates no. of samples)
+    if padding_opt:
+        dat = padding(dat, **padding_opt)
+        
+    nChannels = dat.shape[1]
+
 
 
 
