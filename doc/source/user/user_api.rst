@@ -5,4 +5,3 @@ API for Users
     :no-heading:
     :skip: TimelockData
     :skip: timelockanalysis
-    :skip: ACMEdaemon

@@ -11,6 +11,8 @@ import numpy as np
 from hashlib import blake2b, sha1
 from importlib.metadata import version, PackageNotFoundError
 
+import acme
+
 # Get package version: either via meta-information from egg or via latest git commit
 try:
     __version__ = version("esi-syncopy")
@@ -40,6 +42,7 @@ try:
     import dask.distributed as dd
     __acme__ = True
 except ImportError:
+    print("HEEEEEEEEEEEEEEEEEEEEEERE")
     __acme__ = False
     msg = "\nSyncopy <core> WARNING: Could not import Syncopy's parallel processing engine ACME. \n" +\
         "Please consider installing it via conda: \n" +\

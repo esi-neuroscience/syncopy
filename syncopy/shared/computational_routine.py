@@ -11,6 +11,7 @@ import h5py
 import time
 import numpy as np
 from abc import ABC, abstractmethod
+from collections.abc import Sized
 from copy import copy
 from glob import glob
 from numpy.lib.format import open_memmap
@@ -122,6 +123,7 @@ class ComputationalRoutine(ABC):
         # ``self.argv = [3, [0, 1, 1], ('a', 'b', 'c')]`` (compare to `self.ArgV` below)
         self.argv = list(argv)
 
+        # FIXME: let ACME take care of this
         # list of positional keyword arguments split up for each worker w/format:
         # ``self.ArgV = [(3,0,'a'), (3,1,'b'), (3,1,'c')`` (compare `self.argv` above)
         self.ArgV = None
@@ -181,8 +183,17 @@ class ComputationalRoutine(ABC):
         # h5py layout encoding shape/geometry of file sources within virtual output dataset
         self.VirtualDatasetLayout = None
 
-        # name of output dataset
-        self.datasetName = None
+        # name of temporary datasets (only relevant for virtual output datasets)
+        self.virtualDatasetNames = "chk"
+
+        # placeholder name for (temporary) output datasets
+        self.tmpDsetName = None
+
+        # Name of output HDF5 file
+        self.outFileName = None
+
+        # name of target HDF5 dataset in output object
+        self.outDatasetName = "data"
 
         # tmp holding var for preserving original access mode of `data`
         self.dataMode = None
@@ -251,34 +262,34 @@ class ComputationalRoutine(ABC):
             self.useFancyIdx = False
         numTrials = len(self.trialList)
 
-        # If lists/tuples are in positional arguments, ensure `len == numTrials`
-        # Scalars are duplicated to fit trials, e.g., ``self.argv = [3, [0, 1, 1]]``
-        # then ``argv = [[3, 3, 3], [0, 1, 1]]``
-        for ak, arg in enumerate(self.argv):
+        # # If lists/tuples are in positional arguments, ensure `len == numTrials`
+        # # Scalars are duplicated to fit trials, e.g., ``self.argv = [3, [0, 1, 1]]``
+        # # then ``argv = [[3, 3, 3], [0, 1, 1]]``
+        # for ak, arg in enumerate(self.argv):
 
-            # Ensure arguments are within reasonable size for distribution across workers
-            # (protect against circular object references by imposing max. calls)
-            self._callCount = 0
-            argsize = self._sizeof(arg)
-            if argsize > self._maxArgSize:
-                lgl = "positional arguments less than 100 MB each"
-                act = "positional argument with memory footprint of {0:4.2f} MB"
-                raise SPYValueError(legal=lgl, varname="argv", actual=act.format(argsize))
+        #     # Ensure arguments are within reasonable size for distribution across workers
+        #     # (protect against circular object references by imposing max. calls)
+        #     self._callCount = 0
+        #     argsize = self._sizeof(arg)
+        #     if argsize > self._maxArgSize:
+        #         lgl = "positional arguments less than 100 MB each"
+        #         act = "positional argument with memory footprint of {0:4.2f} MB"
+        #         raise SPYValueError(legal=lgl, varname="argv", actual=act.format(argsize))
 
-            if isinstance(arg, (list, tuple)):
-                if len(arg) != numTrials:
-                    lgl = "list/tuple of positional arguments for each trial"
-                    act = "length of list/tuple does not correspond to number of trials"
-                    raise SPYValueError(legal=lgl, varname="argv", actual=act)
-                continue
-            elif isinstance(arg, np.ndarray):
-                if arg.size == numTrials:
-                    msg = "found NumPy array with size == #Trials. " +\
-                        "Regardless, every worker will receive an identical copy " +\
-                        "of this array. To propagate elements across workers, use " +\
-                        "a list or tuple instead!"
-                    SPYWarning(msg)
-            self.argv[ak] = [arg] * numTrials
+        #     if isinstance(arg, (list, tuple)):
+        #         if len(arg) != numTrials:
+        #             lgl = "list/tuple of positional arguments for each trial"
+        #             act = "length of list/tuple does not correspond to number of trials"
+        #             raise SPYValueError(legal=lgl, varname="argv", actual=act)
+        #         continue
+        #     elif isinstance(arg, np.ndarray):
+        #         if arg.size == numTrials:
+        #             msg = "found NumPy array with size == #Trials. " +\
+        #                 "Regardless, every worker will receive an identical copy " +\
+        #                 "of this array. To propagate elements across workers, use " +\
+        #                 "a list or tuple instead!"
+        #             SPYWarning(msg)
+        #     self.argv[ak] = [arg] * numTrials
 
         # Prepare dryrun arguments and determine geometry of trials in output
         dryRunKwargs = copy(self.cfg)
@@ -288,7 +299,7 @@ class ComputationalRoutine(ABC):
         trials = []
         for tk, trialno in enumerate(self.trialList):
             trial = data._preview_trial(trialno)
-            trlArg = tuple(arg[tk] for arg in self.argv)
+            trlArg = tuple(arg[tk] if isinstance(arg, Sized) else arg for arg in self.argv)
             chunkShape, dtype = self.computeFunction(trial,
                                                      *trlArg,
                                                      **dryRunKwargs)
@@ -328,7 +339,7 @@ class ComputationalRoutine(ABC):
 
         # Allocate control variables
         trial = trials[0]
-        trlArg0 = tuple(arg[0] for arg in self.argv)
+        trlArg0 = tuple(arg[0] if isinstance(arg, Sized) else arg for arg in self.argv)
         chunkShape0 = chk_arr[0, :]
         lyt = [slice(0, stop) for stop in chunkShape0]
         sourceLayout = []
@@ -392,7 +403,7 @@ class ComputationalRoutine(ABC):
         stacking = targetLayout[0][0].stop
         for tk in range(1, len(self.trialList)):
             trial = trials[tk]
-            trlArg = tuple(arg[tk] for arg in self.argv)
+            trlArg = tuple(arg[tk] if isinstance(arg, Sized) else arg for arg in self.argv)
             chkshp = chk_list[tk]
             lyt = [slice(0, stop) for stop in chkshp]
             lyt[0] = slice(stacking, stacking + chkshp[0])
@@ -576,8 +587,63 @@ class ComputationalRoutine(ABC):
             SPYWarning(msg)
             parallel_store = False
 
+        # Create HDF5 dataset of appropriate dimension
+        self.preallocate_output(out, parallel_store=parallel_store)
+
         # Concurrent processing requires some additional prep-work...
         if parallel:
+
+            workerDicts = [[{"hdr": self.hdr,
+                            "keeptrials": self.keeptrials,
+                            "infile": data.filename,
+                            "indset": data.data.name,
+                            "ingrid": self.sourceLayout[chk],
+                            "sigrid": self.sourceSelectors[chk],
+                            "fancy": self.useFancyIdx,
+                            "vdsdir": self.virtualDatasetDir,
+                            "outfile": self.outFileName.format(chk),
+                            "outdset": self.tmpDsetName,
+                            "outgrid": self.targetLayout[chk],
+                            "outshape": self.targetShapes[chk],
+                            "dtype": self.dtype}] for chk in range(len(self.sourceLayout))]
+
+            import ipdb; ipdb.set_trace()
+            from acme import ACMEdaemon, ParallelMap
+            inargs = workerDicts
+            pmap = ParallelMap(self.computeFunction,
+                               *workerDicts,
+                               n_inputs=len(self.sourceLayout),
+                               write_worker_results=False,
+                               write_pickle=False,
+                               partition="auto",
+                               n_jobs="auto",
+                               mem_per_job="auto",
+                               setup_timeout=60,
+                               setup_interactive=False,
+                               stop_client="auto",
+                               verbose=None,
+                               logfile=None,
+                               **self.cfg)
+            import ipdb; ipdb.set_trace()
+
+            daemon = ACMEdaemon(pmap=None,
+                                func=self.computeFunction,
+                                argv=self.argv,
+                                kwargv=self.cfg,
+                                n_calls=len(self.sourceLayout),
+                                n_jobs="auto",
+                                write_worker_results=False,
+                                write_pickle=False,
+                                partition="auto",
+                                mem_per_job="auto",
+                                setup_timeout=60,
+                                setup_interactive=False,
+                                stop_client="auto",
+                                verbose=None,
+                                logfile=None)
+
+            import ipdb; ipdb.set_trace()
+
 
             # First and foremost, make sure a dask client is accessible
             try:
@@ -634,9 +700,6 @@ class ComputationalRoutine(ABC):
                       "memory ({1:2.2f} GB) currently not supported"
                 raise NotImplementedError(msg.format(self.chunkMem, mem_size))
 
-        # Create HDF5 dataset of appropriate dimension
-        self.preallocate_output(out, parallel_store=parallel_store)
-
         # The `method` keyword can be used to override the `parallel` flag
         if method is None:
             if parallel:
@@ -660,7 +723,7 @@ class ComputationalRoutine(ABC):
         data.mode = self.dataMode
 
         # Attach computed results to output object
-        out.data = h5py.File(out.filename, mode="r+")[self.datasetName]
+        out.data = h5py.File(out.filename, mode="r+")[self.outDatasetName]
 
         # Store meta-data, write log and get outta here
         self.process_metadata(data, out)
@@ -690,9 +753,6 @@ class ComputationalRoutine(ABC):
         compute : management routine controlling memory pre-allocation
         """
 
-        # Set name of target HDF5 dataset in output object
-        self.datasetName = "data"
-
         # In case parallel writing via VDS storage is requested, prepare
         # directory for by-chunk HDF5 files and construct virutal HDF layout
         if parallel_store:
@@ -703,8 +763,10 @@ class ComputationalRoutine(ABC):
             layout = h5py.VirtualLayout(shape=self.outputShape, dtype=self.dtype)
             for k, idx in enumerate(self.targetLayout):
                 fname = os.path.join(self.virtualDatasetDir, "{0:d}.h5".format(k))
-                layout[idx] = h5py.VirtualSource(fname, "chk", shape=self.targetShapes[k])
+                layout[idx] = h5py.VirtualSource(fname, self.virtualDatasetNames, shape=self.targetShapes[k])
             self.VirtualDatasetLayout = layout
+            self.outFileName = os.path.join(self.virtualDatasetDir, "{0:d}.h5")
+            self.tmpDsetName = self.virtualDatasetNames
 
         # Create regular HDF5 dataset for sequential writing
         else:
@@ -715,8 +777,10 @@ class ComputationalRoutine(ABC):
             else:
                 shp = self.outputShape
             with h5py.File(out.filename, mode="w") as h5f:
-                h5f.create_dataset(name=self.datasetName,
+                h5f.create_dataset(name=self.outDatasetName,
                                    dtype=self.dtype, shape=shp)
+            self.outFileName = out.filename
+            self.tmpDsetName = self.outDatasetName
 
     def compute_parallel(self, data, out):
         """
@@ -749,15 +813,15 @@ class ComputationalRoutine(ABC):
         compute_sequential : serial processing counterpart of this method
         """
 
-        # Prepare to write chunks concurrently
-        if self.virtualDatasetDir is not None:
-            outfilename = os.path.join(self.virtualDatasetDir, "{0:d}.h5")
-            outdsetname = "chk"
+        # # Prepare to write chunks concurrently
+        # if self.virtualDatasetDir is not None:
+        #     outfilename = os.path.join(self.virtualDatasetDir, "{0:d}.h5")
+        #     outdsetname = "chk"
 
-        # Write chunks sequentially
-        else:
-            outfilename = out.filename
-            outdsetname = self.datasetName
+        # # Write chunks sequentially
+        # else:
+        #     outfilename = out.filename
+        #     outdsetname = self.datasetName
 
         # Construct a dask bag with all necessary components for parallelization
         mainBag = db.from_sequence([{"hdr": self.hdr,
@@ -867,12 +931,12 @@ class ComputationalRoutine(ABC):
         # When writing concurrently, now's the time to finally create the virtual dataset
         if self.virtualDatasetDir is not None:
             with h5py.File(out.filename, mode="w") as h5f:
-                h5f.create_virtual_dataset(self.datasetName, self.VirtualDatasetLayout)
+                h5f.create_virtual_dataset(self.outDatasetName, self.VirtualDatasetLayout)
 
         # If trial-averaging was requested, normalize computed sum to get mean
         if not self.keeptrials:
             with h5py.File(out.filename, mode="r+") as h5f:
-                h5f[self.datasetName][()] /= len(self.trialList)
+                h5f[self.outDatasetName][()] /= len(self.trialList)
                 h5f.flush()
 
         return
@@ -921,7 +985,7 @@ class ComputationalRoutine(ABC):
         # Iterate over (selected) trials and write directly to target HDF5 dataset
         fmt = "{desc}: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
         with h5py.File(out.filename, "r+") as h5fout:
-            target = h5fout[self.datasetName]
+            target = h5fout[self.outDatasetName]
 
             for nblock in tqdm(range(len(self.trialList)), bar_format=self.tqdmFormat):
 

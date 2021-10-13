@@ -31,6 +31,7 @@ from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError, SPYWarn
 from syncopy.datatype.methods.definetrial import definetrial as _definetrial
 from syncopy import __version__, __storage__, __acme__, __sessionid__
 if __acme__:
+    import acme
     import dask
 
 
