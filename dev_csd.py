@@ -2,19 +2,66 @@ import numpy as np
 from scipy.signal import csd as sci_csd
 import scipy.signal as sci
 from syncopy.connectivity.single_trial_compRoutines import cross_spectra_cF
+from syncopy.connectivity.single_trial_compRoutines import cross_covariance_cF
 import matplotlib.pyplot as ppl
 
 
 # white noise ensemble
-nSamples = 1000
+nSamples = 1001
 fs = 1000
 tvec = np.arange(nSamples) / fs
+omegas = np.array([21, 42, 59, 78]) * 2 * np.pi
+omegas = np.arange(10, 40) * 2 * np.pi
+data = np.c_[[1*np.cos(om * tvec) for om in omegas]].T
 
 nChannels = 5
 data1 = np.random.randn(nSamples, nChannels)
 
 x1 = data1[:, 0]
 y1 = data1[:, 1]
+
+
+def dev_cc(nSamples=1001):
+    
+    tvec = np.arange(nSamples) / fs
+    
+    sig1 = np.cos(2 * np.pi * 30 * tvec)
+    sig2 = np.sin(2 * np.pi * 30 * tvec)
+
+    mode = 'same'
+    t_half = nSamples // 2
+
+    r = sci.correlate(sig2, sig2, mode=mode, method='fft')
+    r2 = sci.fftconvolve(sig2, sig2[::-1], mode=mode)
+    assert np.all(r == r2)
+
+
+    lags = np.arange(-nSamples // 2, nSamples // 2)
+    if nSamples % 2 != 0:
+        lags = lags + 1
+    lags = lags * 1 / fs
+
+    if nSamples % 2 == 0:
+        half_lags = np.arange(0, nSamples // 2)
+    else:
+        half_lags = np.arange(0, nSamples // 2 + 1)
+    half_lags = half_lags * 1 / fs
+
+    ppl.figure(1)
+    ppl.xlabel('lag (s)')
+    ppl.ylabel('convolution result')
+
+    ppl.plot(lags, r2, lw = 1.5)
+    #  ppl.xlim((490,600))
+
+
+    norm = np.arange(nSamples, t_half, step = -1) / 2
+    # norm = np.r_[norm, norm[::-1]]
+
+    ppl.figure(2)
+    ppl.xlabel('lag (s)')
+    ppl.ylabel('correlation')
+    ppl.plot(half_lags, r2[nSamples // 2:] / norm, lw = 1.5)
 
 
 def sci_est(x, y, nper, norm=False):
@@ -49,8 +96,8 @@ def mtm_csd_harmonics():
     
     for i in range(NN):
 
-        freqs, CS = cross_spectra_cF(data, fs, taper='bartlett')
-        freqs, CS2 = cross_spectra_cF(data, fs, taper='dpss', taperopt={'Kmax' : Kmax, 'NW' : 6}, norm=True)
+        CS, freqs = cross_spectra_cF(data, fs, taper='bartlett')
+        CS2, freqs = cross_spectra_cF(data, fs, taper='dpss', taperopt={'Kmax' : Kmax, 'NW' : 6}, norm=True)
 
         res[:, i] = np.abs(CS2[0, 0, 1, :])
 
@@ -67,37 +114,3 @@ def mtm_csd_harmonics():
     c = 'cornflowerblue'
     ax.plot(freqs, med, lw=2, alpha=0.8, c=c)
     ax.fill_between(freqs, q1, q3, color=c, alpha=0.3)
-
-
-sig1 = np.cos(2 * np.pi * 30 * tvec)
-sig2 = np.sin(2 * np.pi * 30 * tvec)
-
-mode = 'same'
-r = sci.correlate(sig1, sig2, mode=mode, method='fft')
-r2 = sci.fftconvolve(sig1, sig2[::-1], mode=mode)
-assert np.all(r == r2)
-
-lags = np.arange(-nSamples // 2, nSamples // 2)
-
-ppl.figure(1)
-ppl.xlabel('lag (s)')
-ppl.ylabel('convolution result')
-
-ppl.plot(lags, r2, lw = 1.5)
-#  ppl.xlim((490,600))
-
-norm = np.arange(nSamples // 2, nSamples) / 2
-norm = np.r_[norm, norm[::-1]]
-
-ppl.figure(2)
-ppl.xlabel('lag (s)')
-ppl.ylabel('correlation')
-ppl.plot(lags, r2 / norm, lw = 1.5)
-
-
-sig3 = np.cos(2 * np.pi * 30 * tvec + np.pi)
-data = np.c_[sig1, sig2, sig3, sig1]
-
-rr = sci.fftconvolve(data, data[::-1, ::-1], mode='same')
-
-

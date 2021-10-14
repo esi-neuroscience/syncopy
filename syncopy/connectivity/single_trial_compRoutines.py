@@ -7,6 +7,7 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+from scipy.signal import fftconvolve
 
 # syncopy imports
 from syncopy.specest.mtmfft import mtmfft
@@ -93,10 +94,9 @@ def cross_spectra_cF(trl_dat,
         instead return expected shape and :class:`numpy.dtype` of output
         array.
 
-
     Returns
     -------    
-    CS_ij : (1, nFreq, N, N) :class:`numpy.ndarray`
+    CS_ij : (nFreq, N, N) :class:`numpy.ndarray`
         Cross spectra for all channel combinations i,j.
         `N` corresponds to number of input channels.
 
@@ -141,8 +141,7 @@ def cross_spectra_cF(trl_dat,
         nFreq = freqs.size
         
     # we always average over tapers here
-    # use dummy time-axis
-    outShape = (1, nFreq, nChannels, nChannels)
+    outShape = (nFreq, nChannels, nChannels)
     
     # For initialization of computational routine,
     # just return output shape and dtype
@@ -161,15 +160,14 @@ def cross_spectra_cF(trl_dat,
     if norm:
         # only meaningful for multi-tapering
         assert taper == 'dpss'
-        # main diagonal: the auto spectra
-        # has shape (nChannels x nFreq)        
+        # main diagonal has shape (nChannels x nFreq): the auto spectra
         diag = CS_ij.diagonal()
-        # # get the needed product pairs of the autospectra
+        # get the needed product pairs of the autospectra
         Ciijj = np.sqrt(diag[:, :, None] * diag[:, None, :]).T
         CS_ij = CS_ij / Ciijj
     
     # where does freqs go/come from?!
-    return freqs[freq_idx], CS_ij[np.newaxis, ..., freq_idx]
+    return CS_ij[..., freq_idx].transpose(2, 0, 1), freqs[freq_idx]
 
 
 def cross_covariance_cF(trl_dat,
@@ -216,10 +214,9 @@ def cross_covariance_cF(trl_dat,
         instead return expected shape and :class:`numpy.dtype` of output
         array.
 
-
     Returns
     -------    
-    CC_ij : (K, 1, N, N) :class:`numpy.ndarray`
+    CC_ij : (K, N, N) :class:`numpy.ndarray`
         Cross covariance for all channel combinations i,j.
         `N` corresponds to number of input channels.
 
@@ -243,8 +240,46 @@ def cross_covariance_cF(trl_dat,
     # Symmetric Padding (updates no. of samples)
     if padding_opt:
         dat = padding(dat, **padding_opt)
-        
+
+    nSamples = dat.shape[0]
     nChannels = dat.shape[1]
+
+    # positive lags in time units
+    if nSamples % 2 == 0:
+        lags = np.arange(0, nSamples // 2)
+    else:
+        lags = np.arange(0, nSamples // 2 + 1)
+    lags = lags * 1 / samplerate
+
+    outShape = (len(lags), nChannels, nChannels)
+    
+    # For initialization of computational routine,
+    # just return output shape and dtype
+    # cross spectra are complex!
+    if noCompute:
+        return outShape, spectralDTypes["abs"]
+
+    
+    # re-normalize output for different effective overlaps
+    norm_overlap = np.arange(nSamples, nSamples // 2, step = -1) / 4
+
+    CC = np.empty(outShape)
+    for i in range(nChannels):
+        for j in range(i + 1):
+            cc12 = fftconvolve(dat[:, i], dat[::-1, j], mode='same')
+            CC[:, i, j] = cc12[nSamples // 2:] / norm_overlap
+            if i != j:
+                # cross-correlation is NOT symmetric..
+                cc21 = fftconvolve(dat[:, j], dat[::-1, i], mode='same')
+                CC[:, j, i] = cc21[nSamples // 2:] / norm_overlap
+
+    # normalize with products of std
+    if norm:
+        STDs = np.std(dat, axis=0)
+        N = STDs[:, None] * STDs[None, :]
+        CC = CC / N
+        
+    return CC, lags
 
 
 
