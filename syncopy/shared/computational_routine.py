@@ -27,8 +27,10 @@ from .tools import get_defaults
 from syncopy import __storage__, __acme__, __path__
 from syncopy.shared.errors import SPYIOError, SPYValueError, SPYParallelError, SPYWarning
 if __acme__:
+    from acme import ParallelMap
     import dask.distributed as dd
-    import dask.bag as db
+    import dask_jobqueue as dj
+    # import dask.bag as db
     # # In case of problems w/worker-stealing, uncomment the following lines
     # import dask
     # dask.config.set(distributed__scheduler__work_stealing=False)
@@ -176,6 +178,9 @@ class ComputationalRoutine(ABC):
 
         # integer, max. memory footprint of largest input array piece (in bytes)
         self.chunkMem = None
+
+        # instance of ACME's `ParallelMap` to handle actual parallel computing workload
+        self.pmap = None
 
         # directory for storing source-HDF5 files making up virtual output dataset
         self.virtualDatasetDir = None
@@ -523,7 +528,7 @@ class ComputationalRoutine(ABC):
            (specifically, calling :meth:`computeFunction`) depending on whether
            `parallel` is `True` or `False`, respectively. If `method` is a
            string, it has to specify the name of an alternative (provided)
-           class method that is invoked using `getattr`.
+           class method (starting with the word `"compute_"`).
         mem_thresh : float
            Fraction of available memory required to perform computation. By
            default, the largest single trial result must not occupy more than
@@ -593,7 +598,9 @@ class ComputationalRoutine(ABC):
         # Concurrent processing requires some additional prep-work...
         if parallel:
 
-            workerDicts = [[{"hdr": self.hdr,
+            # Construct list of dicts that will be passed on to workers: in the
+            # parallel case, `trl_dat` is a dictionary!
+            workerDicts = [{"hdr": self.hdr,
                             "keeptrials": self.keeptrials,
                             "infile": data.filename,
                             "indset": data.data.name,
@@ -605,100 +612,59 @@ class ComputationalRoutine(ABC):
                             "outdset": self.tmpDsetName,
                             "outgrid": self.targetLayout[chk],
                             "outshape": self.targetShapes[chk],
-                            "dtype": self.dtype}] for chk in range(len(self.sourceLayout))]
+                            "dtype": self.dtype} for chk in range(len(self.sourceLayout))]
 
-            import ipdb; ipdb.set_trace()
-            from acme import ACMEdaemon, ParallelMap
-            inargs = workerDicts
-            pmap = ParallelMap(self.computeFunction,
-                               *workerDicts,
-                               n_inputs=len(self.sourceLayout),
-                               write_worker_results=False,
-                               write_pickle=False,
-                               partition="auto",
-                               n_jobs="auto",
-                               mem_per_job="auto",
-                               setup_timeout=60,
-                               setup_interactive=False,
-                               stop_client="auto",
-                               verbose=None,
-                               logfile=None,
-                               **self.cfg)
-            import ipdb; ipdb.set_trace()
+            # Positional args for computeFunctions consist of `trl_dat` + others
+            # (stored in `self.argv`). Account for this when seeting up the
+            # `ParallelMap` manager
+            if len(self.argv) == 0:
+                inargs = (workerDicts, )
+            else:
+                inargs = (workerDicts, self.argv)
 
-            daemon = ACMEdaemon(pmap=None,
-                                func=self.computeFunction,
-                                argv=self.argv,
-                                kwargv=self.cfg,
-                                n_calls=len(self.sourceLayout),
-                                n_jobs="auto",
-                                write_worker_results=False,
-                                write_pickle=False,
-                                partition="auto",
-                                mem_per_job="auto",
-                                setup_timeout=60,
-                                setup_interactive=False,
-                                stop_client="auto",
-                                verbose=None,
-                                logfile=None)
+            # Let ACME take care of argument distribution and memory checks
+            self.pmap = ParallelMap(self.computeFunction,
+                                    *inargs,
+                                    n_inputs=len(self.sourceLayout),
+                                    write_worker_results=False,
+                                    write_pickle=False,
+                                    partition="auto",
+                                    n_jobs="auto",
+                                    mem_per_job="auto",
+                                    setup_timeout=60,
+                                    setup_interactive=False,
+                                    stop_client="auto",
+                                    verbose=None,
+                                    logfile=None,
+                                    **self.cfg)
 
-            import ipdb; ipdb.set_trace()
-
-
-            # First and foremost, make sure a dask client is accessible
-            try:
-                client = dd.get_client()
-            except ValueError as exc:
-                msg = "parallel computing client: {}"
-                raise SPYIOError(msg.format(exc.args[0]))
-
-            # Check if the underlying cluster hosts actually usable workers
-            if not len(client.cluster.workers):
-                raise SPYParallelError("No active workers found in distributed computing cluster",
-                                       client=client)
-
-            # Note: `dask_jobqueue` may not be available even if `__acme__` is `True`,
-            # hence the `__name__` shenanigans instead of a simple `isinstance`
-            if isinstance(client.cluster, dd.LocalCluster):
-                memAttr = "memory_limit"
-            elif client.cluster.__class__.__name__ == "SLURMCluster":
-                memAttr = "worker_memory"
+            # Check if trials actually fit into memory before we start computation
+            client = self.pmap.daemon.client
+            if isinstance(client.cluster, (dd.LocalCluster, dj.SLURMCluster)):
+                workerMem = max(w["memory_limit"] for w in client.cluster.scheduler_info["workers"].values())
+                if self.chunkMem >= mem_thresh * workerMem:
+                    self.chunkMem /= 1024**3
+                    workerMem /= 1000**3
+                    msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
+                        "worker memory ({1:2.2f} GB) currently not supported"
+                    raise NotImplementedError(msg.format(self.chunkMem, workerMem))
             else:
                 msg = "`ComputationalRoutine` only supports `LocalCluster` and " +\
                     "`SLURMCluster` dask cluster objects. Proceed with caution. "
                 SPYWarning(msg)
-                memAttr = None
-
-            # Check if trials actually fit into memory before we start computation
-            if memAttr:
-                wrk_size = max(getattr(wrkr, memAttr) for wrkr in client.cluster.workers.values())
-                if self.chunkMem >= mem_thresh * wrk_size:
-                    self.chunkMem /= 1024**3
-                    wrk_size /= 1000**3
-                    msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
-                        "worker memory ({1:2.2f} GB) currently not supported"
-                    raise NotImplementedError(msg.format(self.chunkMem, wrk_size))
-
-            # In some cases distributed dask workers suffer from spontaneous
-            # dementia and forget the `sys.path` of their parent process. Fun!
-            def init_syncopy(dask_worker):
-                spy_path = os.path.abspath(os.path.split(__path__[0])[0])
-                if spy_path not in sys.path:
-                    sys.path.insert(0, spy_path)
-            client.register_worker_callbacks(init_syncopy)
 
             # Store provided debugging state
             self.parallelDebug = parallel_debug
 
         # For sequential processing, just ensure enough memory is available
         else:
-            mem_size = psutil.virtual_memory().available
-            if self.chunkMem >= mem_thresh * mem_size:
+            memSize = psutil.virtual_memory().available
+            if self.chunkMem >= mem_thresh * memSize:
                 self.chunkMem /= 1024**3
-                mem_size /= 1024**3
+                memSize /= 1024**3
                 msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
                       "memory ({1:2.2f} GB) currently not supported"
-                raise NotImplementedError(msg.format(self.chunkMem, mem_size))
+                raise NotImplementedError(msg.format(self.chunkMem, memSize))
 
         # The `method` keyword can be used to override the `parallel` flag
         if method is None:
@@ -754,7 +720,7 @@ class ComputationalRoutine(ABC):
         """
 
         # In case parallel writing via VDS storage is requested, prepare
-        # directory for by-chunk HDF5 files and construct virutal HDF layout
+        # directory for by-chunk HDF5 files and construct virtual HDF layout
         if parallel_store:
             vdsdir = os.path.splitext(os.path.basename(out.filename))[0]
             self.virtualDatasetDir = os.path.join(__storage__, vdsdir)
@@ -813,120 +779,126 @@ class ComputationalRoutine(ABC):
         compute_sequential : serial processing counterpart of this method
         """
 
-        # # Prepare to write chunks concurrently
-        # if self.virtualDatasetDir is not None:
-        #     outfilename = os.path.join(self.virtualDatasetDir, "{0:d}.h5")
-        #     outdsetname = "chk"
+        # Let ACME do the heavy lifting
+        with self.pmap as pm:
+            pm.compute(debug=self.parallelDebug)
 
-        # # Write chunks sequentially
+        import ipdb; ipdb.set_trace()
+
+        # # # Prepare to write chunks concurrently
+        # # if self.virtualDatasetDir is not None:
+        # #     outfilename = os.path.join(self.virtualDatasetDir, "{0:d}.h5")
+        # #     outdsetname = "chk"
+
+        # # # Write chunks sequentially
+        # # else:
+        # #     outfilename = out.filename
+        # #     outdsetname = self.datasetName
+
+        # # Construct a dask bag with all necessary components for parallelization
+        # mainBag = db.from_sequence([{"hdr": self.hdr,
+        #                              "keeptrials": self.keeptrials,
+        #                              "infile": data.filename,
+        #                              "indset": data.data.name,
+        #                              "ingrid": self.sourceLayout[chk],
+        #                              "sigrid": self.sourceSelectors[chk],
+        #                              "fancy": self.useFancyIdx,
+        #                              "vdsdir": self.virtualDatasetDir,
+        #                              "outfile": outfilename.format(chk),
+        #                              "outdset": outdsetname,
+        #                              "outgrid": self.targetLayout[chk],
+        #                              "outshape": self.targetShapes[chk],
+        #                              "dtype": self.dtype}
+        #                              for chk in range(len(self.sourceLayout))],
+        #                            npartitions=len(self.sourceLayout))
+
+        # # Convert by-worker argv-list to dask bags to distribute across cluster
+        # # Format: ``ArgV = [(3, 0, 'a'), (3, 0, 'a'), (3, 1, 'b'), (3, 1, 'b')]``
+        # # then ``list(zip(*ArgV)) = [(3, 3, 3, 3), (0, 0, 1, 1), ('a', 'a', 'b', 'b')]``
+        # bags = []
+        # for arg in zip(*self.ArgV):
+        #     bags.append(db.from_sequence(arg))
+
+        # # Map all components (channel-trial-blocks) onto `computeFunction`
+        # results = mainBag.map(self.computeFunction, *bags, **self.cfg)
+
+        # # Let the fun begin...
+        # if not self.parallelDebug:
+
+        #     # Make sure that all futures are executed (i.e., data is actually written)
+        #     # Note 1: `dd.progress` does not correctly track worker progress hence
+        #     #         the custom-tailored `while` formulation: that periodically
+        #     #         checks in on the status of all allocated futures
+        #     #         -> Do not use this `dd.progress(futures, notebook=False)`
+        #     # Note 2: the while loop below does not run indefinitely - erring or
+        #     #         stalling futures get status 'error' or 'waiting'. After
+        #     #         some time the status of all futures is one of 'finished',
+        #     #         'error' or 'waiting', but none is 'pending' any more.
+        #     futures = dd.client.futures_of(results.persist())
+        #     totalTasks = len(futures)
+        #     pbar = tqdm(total=totalTasks, bar_format=self.tqdmFormat)
+        #     cnt = 0
+        #     while any(f.status == "pending" for f in futures):
+        #         time.sleep(self.sleepTime)
+        #         new = max(0, sum([f.status == "finished" for f in futures]) - cnt)
+        #         cnt += new
+        #         pbar.update(new)
+        #     pbar.close()
+
+        #     # Avoid race condition: give futures time to perform switch from 'pending'
+        #     # to 'finished' so that `finishedTasks` is computed correctly
+        #     time.sleep(self.sleepTime)
+
+        #     # If number of 'finished' tasks is less than expected, go into
+        #     # problem analysis mode: all futures that erred hav an `.exception`
+        #     # method which can be used to track down the worker it was executed by
+        #     # Once we know the worker, we can point to the right log file. If
+        #     # futures were cancelled (by the user or the SLURM controller),
+        #     # `.exception` is `None` and we can't relialby track down the
+        #     # respective executing worker
+        #     finishedTasks = sum([f.status == "finished" for f in futures])
+        #     if finishedTasks < totalTasks:
+        #         client = dd.get_client()
+        #         schedulerLog = list(client.cluster.get_logs(cluster=False, scheduler=True, workers=False).values())[0]
+        #         erredFutures = [f for f in futures if f.status == "error"]
+        #         msg = "Parallel computation failed: {}/{} tasks failed or stalled.\n"
+        #         msg = msg.format(totalTasks - finishedTasks, totalTasks)
+        #         msg += "Concurrent computing scheduler log below: \n\n"
+        #         msg += schedulerLog + "\n"
+
+        #         # If we're working w/`SLURMCluster`, perform the Herculean task of
+        #         # tracking down which dask worker was executed by which SLURM job...
+        #         if client.cluster.__class__.__name__ == "SLURMCluster":
+        #             try:
+        #                 erredJobs = [f.exception().last_worker.identity()["id"] for f in erredFutures]
+        #             except AttributeError:
+        #                 erredJobs = []
+        #             erredJobs = list(set(erredJobs))
+        #             erredJobIDs = [client.cluster.workers[job].job_id for job in erredJobs]
+        #             slurmFiles = client.cluster.job_header.split("--output=")[1].replace("%j", "{}")
+        #             slurmOutDir = os.path.split(slurmFiles)[0]
+        #             errFiles = glob(slurmOutDir + os.sep + "*.err")
+        #             if len(erredFutures) or len(errFiles):
+        #                 msg += "Please consult the following SLURM log files for details:\n"
+        #                 msg += "".join(slurmFiles.format(id) + "\n" for id in erredJobIDs)
+        #                 msg += "".join(errfile + "\n" for errfile in errFiles)
+        #             else:
+        #                 msg += "Please check SLURM logs in {}".format(slurmOutDir)
+
+        #         # In case of a `LocalCluster`, syphon worker logs
+        #         else:
+        #             msg += "\nParallel worker logs below: \n"
+        #             workerLogs = client.cluster.get_logs(cluster=False, scheduler=False, workers=True).values()
+        #             for wLog in workerLogs:
+        #                 if "Failed" in wLog:
+        #                     msg += wLog
+
+        #         raise SPYParallelError(msg, client=client)
+
+        # # If debugging is requested, drop existing client and enforce use of
+        # # single-threaded scheduler
         # else:
-        #     outfilename = out.filename
-        #     outdsetname = self.datasetName
-
-        # Construct a dask bag with all necessary components for parallelization
-        mainBag = db.from_sequence([{"hdr": self.hdr,
-                                     "keeptrials": self.keeptrials,
-                                     "infile": data.filename,
-                                     "indset": data.data.name,
-                                     "ingrid": self.sourceLayout[chk],
-                                     "sigrid": self.sourceSelectors[chk],
-                                     "fancy": self.useFancyIdx,
-                                     "vdsdir": self.virtualDatasetDir,
-                                     "outfile": outfilename.format(chk),
-                                     "outdset": outdsetname,
-                                     "outgrid": self.targetLayout[chk],
-                                     "outshape": self.targetShapes[chk],
-                                     "dtype": self.dtype}
-                                     for chk in range(len(self.sourceLayout))],
-                                   npartitions=len(self.sourceLayout))
-
-        # Convert by-worker argv-list to dask bags to distribute across cluster
-        # Format: ``ArgV = [(3, 0, 'a'), (3, 0, 'a'), (3, 1, 'b'), (3, 1, 'b')]``
-        # then ``list(zip(*ArgV)) = [(3, 3, 3, 3), (0, 0, 1, 1), ('a', 'a', 'b', 'b')]``
-        bags = []
-        for arg in zip(*self.ArgV):
-            bags.append(db.from_sequence(arg))
-
-        # Map all components (channel-trial-blocks) onto `computeFunction`
-        results = mainBag.map(self.computeFunction, *bags, **self.cfg)
-
-        # Let the fun begin...
-        if not self.parallelDebug:
-
-            # Make sure that all futures are executed (i.e., data is actually written)
-            # Note 1: `dd.progress` does not correctly track worker progress hence
-            #         the custom-tailored `while` formulation: that periodically
-            #         checks in on the status of all allocated futures
-            #         -> Do not use this `dd.progress(futures, notebook=False)`
-            # Note 2: the while loop below does not run indefinitely - erring or
-            #         stalling futures get status 'error' or 'waiting'. After
-            #         some time the status of all futures is one of 'finished',
-            #         'error' or 'waiting', but none is 'pending' any more.
-            futures = dd.client.futures_of(results.persist())
-            totalTasks = len(futures)
-            pbar = tqdm(total=totalTasks, bar_format=self.tqdmFormat)
-            cnt = 0
-            while any(f.status == "pending" for f in futures):
-                time.sleep(self.sleepTime)
-                new = max(0, sum([f.status == "finished" for f in futures]) - cnt)
-                cnt += new
-                pbar.update(new)
-            pbar.close()
-
-            # Avoid race condition: give futures time to perform switch from 'pending'
-            # to 'finished' so that `finishedTasks` is computed correctly
-            time.sleep(self.sleepTime)
-
-            # If number of 'finished' tasks is less than expected, go into
-            # problem analysis mode: all futures that erred hav an `.exception`
-            # method which can be used to track down the worker it was executed by
-            # Once we know the worker, we can point to the right log file. If
-            # futures were cancelled (by the user or the SLURM controller),
-            # `.exception` is `None` and we can't relialby track down the
-            # respective executing worker
-            finishedTasks = sum([f.status == "finished" for f in futures])
-            if finishedTasks < totalTasks:
-                client = dd.get_client()
-                schedulerLog = list(client.cluster.get_logs(cluster=False, scheduler=True, workers=False).values())[0]
-                erredFutures = [f for f in futures if f.status == "error"]
-                msg = "Parallel computation failed: {}/{} tasks failed or stalled.\n"
-                msg = msg.format(totalTasks - finishedTasks, totalTasks)
-                msg += "Concurrent computing scheduler log below: \n\n"
-                msg += schedulerLog + "\n"
-
-                # If we're working w/`SLURMCluster`, perform the Herculean task of
-                # tracking down which dask worker was executed by which SLURM job...
-                if client.cluster.__class__.__name__ == "SLURMCluster":
-                    try:
-                        erredJobs = [f.exception().last_worker.identity()["id"] for f in erredFutures]
-                    except AttributeError:
-                        erredJobs = []
-                    erredJobs = list(set(erredJobs))
-                    erredJobIDs = [client.cluster.workers[job].job_id for job in erredJobs]
-                    slurmFiles = client.cluster.job_header.split("--output=")[1].replace("%j", "{}")
-                    slurmOutDir = os.path.split(slurmFiles)[0]
-                    errFiles = glob(slurmOutDir + os.sep + "*.err")
-                    if len(erredFutures) or len(errFiles):
-                        msg += "Please consult the following SLURM log files for details:\n"
-                        msg += "".join(slurmFiles.format(id) + "\n" for id in erredJobIDs)
-                        msg += "".join(errfile + "\n" for errfile in errFiles)
-                    else:
-                        msg += "Please check SLURM logs in {}".format(slurmOutDir)
-
-                # In case of a `LocalCluster`, syphon worker logs
-                else:
-                    msg += "\nParallel worker logs below: \n"
-                    workerLogs = client.cluster.get_logs(cluster=False, scheduler=False, workers=True).values()
-                    for wLog in workerLogs:
-                        if "Failed" in wLog:
-                            msg += wLog
-
-                raise SPYParallelError(msg, client=client)
-
-        # If debugging is requested, drop existing client and enforce use of
-        # single-threaded scheduler
-        else:
-            results.compute(scheduler="single-threaded")
+        #     results.compute(scheduler="single-threaded")
 
         # When writing concurrently, now's the time to finally create the virtual dataset
         if self.virtualDatasetDir is not None:

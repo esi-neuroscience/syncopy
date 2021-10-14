@@ -29,7 +29,7 @@ from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser,
                                     filename_parser, data_parser)
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError, SPYWarning
 from syncopy.datatype.methods.definetrial import definetrial as _definetrial
-from syncopy import __version__, __storage__, __acme__, __sessionid__
+from syncopy import __version__, __storage__, __acme__, __sessionid__, __storagelimit__
 if __acme__:
     import acme
     import dask
@@ -1014,15 +1014,42 @@ class SessionLogger():
     __slots__ = ["sessionfile", "_rm"]
 
     def __init__(self):
+
+        # Create package-wide tmp directory if not already present
+        if not os.path.exists(__storage__):
+            try:
+                os.mkdir(__storage__)
+            except Exception as exc:
+                err = "Syncopy core: cannot create temporary storage directory {}. " +\
+                    "Original error message below\n{}"
+                raise IOError(err.format( __storage__, str(exc)))
+
+        # Check for upper bound of temp directory size
+        with os.scandir(__storage__) as scan:
+            st_fles = [fle.stat().st_size/1024**3 for fle in scan]
+            st_size = sum(st_fles)
+            if st_size > __storagelimit__:
+                msg = "\nSyncopy <core> WARNING: Temporary storage folder {tmpdir:s} " +\
+                    "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n" +\
+                    "Consider running `spy.cleanup()` to free up disk space."
+                print(msg.format(tmpdir=__storage__, nfs=len(st_fles), sze=st_size))
+
+        # If we made it to this point, (attempt to) write the session file
         sess_log = "{user:s}@{host:s}: <{time:s}> started session {sess:s}"
         self.sessionfile = os.path.join(__storage__,
                                         "session_{}_log.id".format(__sessionid__))
-        with open(self.sessionfile, "w") as fid:
-            fid.write(sess_log.format(user=getpass.getuser(),
-                                      host=socket.gethostname(),
-                                      time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                      sess=__sessionid__))
-        self._rm = os.unlink # workaround to prevent Python from garbage-collectiing ``os.unlink``
+        try:
+            with open(self.sessionfile, "w") as fid:
+                fid.write(sess_log.format(user=getpass.getuser(),
+                                        host=socket.gethostname(),
+                                        time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                        sess=__sessionid__))
+        except Exception as exc:
+            err = "Syncopy core: cannot access {}. Original error message below\n{}"
+            raise IOError(err.format(self.sessionfile, str(exc)))
+
+        # Workaround to prevent Python from garbage-collecting ``os.unlink``
+        self._rm = os.unlink
 
     def __repr__(self):
         return self.__str__()

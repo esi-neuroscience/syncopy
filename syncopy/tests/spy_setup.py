@@ -25,6 +25,7 @@ if __name__ == "__main__":
     # Construct simple trigonometric signal to check FFT consistency: each
     # channel is a sine wave of frequency `freqs[nchan]` with single unique
     # amplitude `amp` and sampling frequency `fs`
+    # sys.exit()
     nChannels = 32
     nTrials = 8
     fs = 1024
