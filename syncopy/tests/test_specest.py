@@ -412,6 +412,7 @@ class TestMTMFFT():
         cfg.method = "mtmfft"
         cfg.taper = "dpss"
         cfg.tapsmofrq = 9.3
+        cfg.output = "pow"
 
         # no. of HDF5 files that will make up virtual data-set in case of channel-chunking
         chanPerWrkr = 7
@@ -456,6 +457,7 @@ class TestMTMFFT():
         # non-equidistant, overlapping trial spacing, throw away trials and tapers
         cfg.keeptapers = False
         cfg.keeptrials = "no"
+        cfg.output = "pow"
         artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
                                           inmemory=False, equidistant=False,
                                           overlapping=True)
@@ -740,9 +742,12 @@ class TestMTMConvol():
                 assert tfSpec.samplerate == 1/(toi[1] - toi[0])
 
             # Unevenly sampled array: timing currently in lala-land, but sizes must match
+            print("B$ THIS BULLSHIT!!!!!!!!!!!!!!!!!!!!!!!!")
             cfg.toi = [-5, 3, 10]
             tfSpec = freqanalysis(cfg, self.tfData)
             assert tfSpec.time[0].size == len(cfg.toi)
+
+        print("after select nonsense")
 
         # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
         # to not overflow memory here); same for ``toi = 1.0```
@@ -855,7 +860,12 @@ class TestMTMConvol():
         all_tests = [attr for attr in self.__dir__()
                      if (inspect.ismethod(getattr(self, attr)) and attr != "test_tf_parallel")]
         for test in all_tests:
+            print("----------------TEST: ", test)
             getattr(self, test)()
+
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>HERE<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+
+
 
         # now create uniform `cfg` for remaining SLURM tests
         cfg = StructDict()

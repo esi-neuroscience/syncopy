@@ -25,12 +25,11 @@ if sys.platform == "win32":
 # Local imports
 from .tools import get_defaults
 from syncopy import __storage__, __acme__, __path__
-from syncopy.shared.errors import SPYIOError, SPYValueError, SPYParallelError, SPYWarning
+from syncopy.shared.errors import SPYValueError, SPYWarning
 if __acme__:
     from acme import ParallelMap
     import dask.distributed as dd
     import dask_jobqueue as dj
-    # import dask.bag as db
     # # In case of problems w/worker-stealing, uncomment the following lines
     # import dask
     # dask.config.set(distributed__scheduler__work_stealing=False)
@@ -153,6 +152,9 @@ class ComputationalRoutine(ABC):
         # list of trial numbers to process (either `data.trials` or `data._selection.trials`)
         self.trialList = None
 
+        # number of trials to process (shortcut for `len(self.trialList)`)
+        self.numTrials = None
+
         # list of index-tuples for extracting trial-chunks from input HDF5 dataset
         # >>> MUST be ordered, no repetitions! <<<
         # indices are ABSOLUTE, i.e., wrt entire dataset, not just current trial!
@@ -209,7 +211,7 @@ class ComputationalRoutine(ABC):
         # if `True`, enforces use of single-threaded scheduler in `compute_parallel`
         self.parallelDebug = False
 
-        # format string for tqdm progress bars in sequential and parallel computations
+        # format string for tqdm progress bars in sequential computation
         self.tqdmFormat = "{desc}: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
 
         # maximal acceptable size (in MB) of any provided positional argument
@@ -265,7 +267,7 @@ class ComputationalRoutine(ABC):
         else:
             self.trialList = list(range(len(data.trials)))
             self.useFancyIdx = False
-        numTrials = len(self.trialList)
+        self.numTrials = len(self.trialList)
 
         # # If lists/tuples are in positional arguments, ensure `len == numTrials`
         # # Scalars are duplicated to fit trials, e.g., ``self.argv = [3, [0, 1, 1]]``
@@ -304,7 +306,8 @@ class ComputationalRoutine(ABC):
         trials = []
         for tk, trialno in enumerate(self.trialList):
             trial = data._preview_trial(trialno)
-            trlArg = tuple(arg[tk] if isinstance(arg, Sized) else arg for arg in self.argv)
+            trlArg = tuple(arg[tk] if isinstance(arg, Sized) and len(arg) == self.numTrials \
+                else arg for arg in self.argv)
             chunkShape, dtype = self.computeFunction(trial,
                                                      *trlArg,
                                                      **dryRunKwargs)
@@ -344,7 +347,8 @@ class ComputationalRoutine(ABC):
 
         # Allocate control variables
         trial = trials[0]
-        trlArg0 = tuple(arg[0] if isinstance(arg, Sized) else arg for arg in self.argv)
+        trlArg0 = tuple(arg[0] if isinstance(arg, Sized) and len(arg) == self.numTrials \
+            else arg for arg in self.argv)
         chunkShape0 = chk_arr[0, :]
         lyt = [slice(0, stop) for stop in chunkShape0]
         sourceLayout = []
@@ -405,10 +409,14 @@ class ComputationalRoutine(ABC):
             ArgV.append(trlArg0)
 
         # Construct dimensional layout of output
+        # FIXME: should be targetLayout[0][stackingDim].stop
+        # FIXME: should be lyt[stackingDim] = slice(stacking, stacking + chkshp[stackingDim])
+        # FIXME: should be stacking += chkshp[stackingDim]
         stacking = targetLayout[0][0].stop
-        for tk in range(1, len(self.trialList)):
+        for tk in range(1, self.numTrials):
             trial = trials[tk]
-            trlArg = tuple(arg[tk] if isinstance(arg, Sized) else arg for arg in self.argv)
+            trlArg = tuple(arg[tk] if isinstance(arg, Sized) and len(arg) == self.numTrials \
+                else arg for arg in self.argv)
             chkshp = chk_list[tk]
             lyt = [slice(0, stop) for stop in chkshp]
             lyt[0] = slice(stacking, stacking + chkshp[0])
@@ -620,7 +628,7 @@ class ComputationalRoutine(ABC):
             if len(self.argv) == 0:
                 inargs = (workerDicts, )
             else:
-                inargs = (workerDicts, self.argv)
+                inargs = (workerDicts, *self.argv)
 
             # Let ACME take care of argument distribution and memory checks
             self.pmap = ParallelMap(self.computeFunction,
@@ -637,6 +645,13 @@ class ComputationalRoutine(ABC):
                                     verbose=None,
                                     logfile=None,
                                     **self.cfg)
+
+            if "toi" in self.cfg.keys():
+                import numbers
+                if isinstance(self.cfg['toi'], numbers.Number):
+                    if self.cfg["toi"] == -5:
+                        import pdb; pdb.set_trace()
+
 
             # Check if trials actually fit into memory before we start computation
             client = self.pmap.daemon.client
@@ -783,123 +798,6 @@ class ComputationalRoutine(ABC):
         with self.pmap as pm:
             pm.compute(debug=self.parallelDebug)
 
-        import ipdb; ipdb.set_trace()
-
-        # # # Prepare to write chunks concurrently
-        # # if self.virtualDatasetDir is not None:
-        # #     outfilename = os.path.join(self.virtualDatasetDir, "{0:d}.h5")
-        # #     outdsetname = "chk"
-
-        # # # Write chunks sequentially
-        # # else:
-        # #     outfilename = out.filename
-        # #     outdsetname = self.datasetName
-
-        # # Construct a dask bag with all necessary components for parallelization
-        # mainBag = db.from_sequence([{"hdr": self.hdr,
-        #                              "keeptrials": self.keeptrials,
-        #                              "infile": data.filename,
-        #                              "indset": data.data.name,
-        #                              "ingrid": self.sourceLayout[chk],
-        #                              "sigrid": self.sourceSelectors[chk],
-        #                              "fancy": self.useFancyIdx,
-        #                              "vdsdir": self.virtualDatasetDir,
-        #                              "outfile": outfilename.format(chk),
-        #                              "outdset": outdsetname,
-        #                              "outgrid": self.targetLayout[chk],
-        #                              "outshape": self.targetShapes[chk],
-        #                              "dtype": self.dtype}
-        #                              for chk in range(len(self.sourceLayout))],
-        #                            npartitions=len(self.sourceLayout))
-
-        # # Convert by-worker argv-list to dask bags to distribute across cluster
-        # # Format: ``ArgV = [(3, 0, 'a'), (3, 0, 'a'), (3, 1, 'b'), (3, 1, 'b')]``
-        # # then ``list(zip(*ArgV)) = [(3, 3, 3, 3), (0, 0, 1, 1), ('a', 'a', 'b', 'b')]``
-        # bags = []
-        # for arg in zip(*self.ArgV):
-        #     bags.append(db.from_sequence(arg))
-
-        # # Map all components (channel-trial-blocks) onto `computeFunction`
-        # results = mainBag.map(self.computeFunction, *bags, **self.cfg)
-
-        # # Let the fun begin...
-        # if not self.parallelDebug:
-
-        #     # Make sure that all futures are executed (i.e., data is actually written)
-        #     # Note 1: `dd.progress` does not correctly track worker progress hence
-        #     #         the custom-tailored `while` formulation: that periodically
-        #     #         checks in on the status of all allocated futures
-        #     #         -> Do not use this `dd.progress(futures, notebook=False)`
-        #     # Note 2: the while loop below does not run indefinitely - erring or
-        #     #         stalling futures get status 'error' or 'waiting'. After
-        #     #         some time the status of all futures is one of 'finished',
-        #     #         'error' or 'waiting', but none is 'pending' any more.
-        #     futures = dd.client.futures_of(results.persist())
-        #     totalTasks = len(futures)
-        #     pbar = tqdm(total=totalTasks, bar_format=self.tqdmFormat)
-        #     cnt = 0
-        #     while any(f.status == "pending" for f in futures):
-        #         time.sleep(self.sleepTime)
-        #         new = max(0, sum([f.status == "finished" for f in futures]) - cnt)
-        #         cnt += new
-        #         pbar.update(new)
-        #     pbar.close()
-
-        #     # Avoid race condition: give futures time to perform switch from 'pending'
-        #     # to 'finished' so that `finishedTasks` is computed correctly
-        #     time.sleep(self.sleepTime)
-
-        #     # If number of 'finished' tasks is less than expected, go into
-        #     # problem analysis mode: all futures that erred hav an `.exception`
-        #     # method which can be used to track down the worker it was executed by
-        #     # Once we know the worker, we can point to the right log file. If
-        #     # futures were cancelled (by the user or the SLURM controller),
-        #     # `.exception` is `None` and we can't relialby track down the
-        #     # respective executing worker
-        #     finishedTasks = sum([f.status == "finished" for f in futures])
-        #     if finishedTasks < totalTasks:
-        #         client = dd.get_client()
-        #         schedulerLog = list(client.cluster.get_logs(cluster=False, scheduler=True, workers=False).values())[0]
-        #         erredFutures = [f for f in futures if f.status == "error"]
-        #         msg = "Parallel computation failed: {}/{} tasks failed or stalled.\n"
-        #         msg = msg.format(totalTasks - finishedTasks, totalTasks)
-        #         msg += "Concurrent computing scheduler log below: \n\n"
-        #         msg += schedulerLog + "\n"
-
-        #         # If we're working w/`SLURMCluster`, perform the Herculean task of
-        #         # tracking down which dask worker was executed by which SLURM job...
-        #         if client.cluster.__class__.__name__ == "SLURMCluster":
-        #             try:
-        #                 erredJobs = [f.exception().last_worker.identity()["id"] for f in erredFutures]
-        #             except AttributeError:
-        #                 erredJobs = []
-        #             erredJobs = list(set(erredJobs))
-        #             erredJobIDs = [client.cluster.workers[job].job_id for job in erredJobs]
-        #             slurmFiles = client.cluster.job_header.split("--output=")[1].replace("%j", "{}")
-        #             slurmOutDir = os.path.split(slurmFiles)[0]
-        #             errFiles = glob(slurmOutDir + os.sep + "*.err")
-        #             if len(erredFutures) or len(errFiles):
-        #                 msg += "Please consult the following SLURM log files for details:\n"
-        #                 msg += "".join(slurmFiles.format(id) + "\n" for id in erredJobIDs)
-        #                 msg += "".join(errfile + "\n" for errfile in errFiles)
-        #             else:
-        #                 msg += "Please check SLURM logs in {}".format(slurmOutDir)
-
-        #         # In case of a `LocalCluster`, syphon worker logs
-        #         else:
-        #             msg += "\nParallel worker logs below: \n"
-        #             workerLogs = client.cluster.get_logs(cluster=False, scheduler=False, workers=True).values()
-        #             for wLog in workerLogs:
-        #                 if "Failed" in wLog:
-        #                     msg += wLog
-
-        #         raise SPYParallelError(msg, client=client)
-
-        # # If debugging is requested, drop existing client and enforce use of
-        # # single-threaded scheduler
-        # else:
-        #     results.compute(scheduler="single-threaded")
-
         # When writing concurrently, now's the time to finally create the virtual dataset
         if self.virtualDatasetDir is not None:
             with h5py.File(out.filename, mode="w") as h5f:
@@ -908,7 +806,7 @@ class ComputationalRoutine(ABC):
         # If trial-averaging was requested, normalize computed sum to get mean
         if not self.keeptrials:
             with h5py.File(out.filename, mode="r+") as h5f:
-                h5f[self.outDatasetName][()] /= len(self.trialList)
+                h5f[self.outDatasetName][()] /= self.numTrials
                 h5f.flush()
 
         return
@@ -955,17 +853,18 @@ class ComputationalRoutine(ABC):
                 raise exc
 
         # Iterate over (selected) trials and write directly to target HDF5 dataset
-        fmt = "{desc}: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
         with h5py.File(out.filename, "r+") as h5fout:
             target = h5fout[self.outDatasetName]
 
-            for nblock in tqdm(range(len(self.trialList)), bar_format=self.tqdmFormat):
+            for nblock in tqdm(range(self.numTrials), bar_format=self.tqdmFormat):
 
                 # Extract respective indexing tuples from constructed lists
                 ingrid = self.sourceLayout[nblock]
                 sigrid = self.sourceSelectors[nblock]
                 outgrid = self.targetLayout[nblock]
-                argv = self.ArgV[nblock]
+                argv = tuple(arg[nblock] \
+                    if isinstance(arg, Sized) and len(arg) == self.numTrials \
+                        else arg for arg in self.argv)
 
                 # Catch empty source-array selections; this workaround is not
                 # necessary for h5py version 2.10+ (see https://github.com/h5py/h5py/pull/1174)
@@ -1010,7 +909,7 @@ class ComputationalRoutine(ABC):
 
             # If trial-averaging was requested, normalize computed sum to get mean
             if not self.keeptrials:
-                target[()] /= len(self.trialList)
+                target[()] /= self.numTrials
 
         # If source was HDF5 file, close it to prevent access errors
         if isHDF:
@@ -1090,41 +989,3 @@ class ComputationalRoutine(ABC):
         write_log : Logging of calculation parameters
         """
         pass
-
-    def _sizeof(self, obj):
-        """
-        Estimate memory consumption of Python objects
-
-        Parameters
-        ----------
-        obj : Python object
-           Any valid Python object whose memory footprint is of interest.
-
-        Returns
-        -------
-        objsize : float
-           Approximate memory footprint of `obj` in megabytes (MB).
-
-        Notes
-        -----
-        Memory consumption is is estimated by recursively calling :meth:`sys.getsizeof`.
-        Circular object references are followed up to a (preset) maximal recursion
-        depth. This method was inspired by a routine in
-        `Nifty <https://github.com/mwojnars/nifty/blob/master/util.py>`_.
-        """
-
-        # Protect against circular object references by adhering to max. no. of
-        # recursive calls `self._callMax`
-        self._callCount += 1
-        if self._callCount >= self._callMax:
-            lgl = "minimally nested positional arguments"
-            act = "argument with nesting depth >= {}"
-            raise SPYValueError(legal=lgl, varname="argv", actual=act.format(self._callMax))
-
-        # Use `sys.getsizeof` to estimate memory consumption of primitive objects
-        objsize = sys.getsizeof(obj) / 1024**2
-        if isinstance(obj, dict):
-            return objsize + sum(list(map(self._sizeof, obj.keys()))) + sum(list(map(self._sizeof, obj.values())))
-        if isinstance(obj, (list, tuple, set)):
-            return objsize + sum(list(map(self._sizeof, obj)))
-        return objsize
