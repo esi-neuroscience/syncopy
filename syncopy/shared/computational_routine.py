@@ -10,6 +10,7 @@ import psutil
 import h5py
 import time
 import numpy as np
+from itertools import chain
 from abc import ABC, abstractmethod
 from collections.abc import Sized
 from copy import copy
@@ -155,6 +156,15 @@ class ComputationalRoutine(ABC):
         # number of trials to process (shortcut for `len(self.trialList)`)
         self.numTrials = None
 
+        # number of channel blocks to process per Trial (1 by default, only > 1 if
+        # `chan_per_worker` is not `None`)
+        self.numBlocksPerTrial = None
+
+        # actual number of parallel calls to `computeFunction` to perform
+        # (if `chan_per_worker` is `None`, then `numCalls` = `numTrials`, otherwise
+        # `numCalls` = `numBlocksPerTrial * numTrials`)
+        self.numCalls = None
+
         # list of index-tuples for extracting trial-chunks from input HDF5 dataset
         # >>> MUST be ordered, no repetitions! <<<
         # indices are ABSOLUTE, i.e., wrt entire dataset, not just current trial!
@@ -298,6 +308,8 @@ class ComputationalRoutine(ABC):
         #             SPYWarning(msg)
         #     self.argv[ak] = [arg] * numTrials
 
+
+
         # Prepare dryrun arguments and determine geometry of trials in output
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
@@ -354,24 +366,25 @@ class ComputationalRoutine(ABC):
         sourceLayout = []
         targetLayout = []
         targetShapes = []
+        c_blocks = [1]
         ArgV = []
 
         # If parallelization across channels is requested the first trial is
         # split up into several chunks that need to be processed/allocated
         if chan_per_worker is not None:
 
-            # Set up channel-chunking
+            # Set up channel-chunking: `c_blocks` holds channel blocks per trial
             nChannels = data.channel.size
             rem = int(nChannels % chan_per_worker)
-            n_blocks = [chan_per_worker] * int(nChannels//chan_per_worker) + [rem] * int(rem > 0)
+            c_blocks = [chan_per_worker] * int(nChannels//chan_per_worker) + [rem] * int(rem > 0)
             inchanidx = data.dimord.index("channel")
 
             # Perform dry-run w/first channel-block of first trial to identify
             # changes in output shape w.r.t. full-trial output (`chunkShape`)
             shp = list(trial.shape)
             idx = list(trial.idx)
-            shp[inchanidx] = n_blocks[0]
-            idx[inchanidx] = slice(0, n_blocks[0])
+            shp[inchanidx] = c_blocks[0]
+            idx[inchanidx] = slice(0, c_blocks[0])
             trial.shape = tuple(shp)
             trial.idx = tuple(idx)
             res, _ = self.computeFunction(trial, *trlArg0, **dryRunKwargs)
@@ -385,7 +398,7 @@ class ComputationalRoutine(ABC):
             # Get output chunks and grid indices for first trial
             chanstack = 0
             blockstack = 0
-            for block in n_blocks:
+            for block in c_blocks:
                 shp = list(trial.shape)
                 idx = list(trial.idx)
                 shp[inchanidx] = block
@@ -429,7 +442,7 @@ class ComputationalRoutine(ABC):
             else:
                 chanstack = 0
                 blockstack = 0
-                for block in n_blocks:
+                for block in c_blocks:
                     shp = list(trial.shape)
                     idx = list(trial.idx)
                     shp[inchanidx] = block
@@ -444,6 +457,10 @@ class ComputationalRoutine(ABC):
                     chanstack += res[outchanidx]
                     blockstack += block
                     ArgV.append(trlArg)
+
+        # Infer how many concurrent `computeFunction` calls we're about to execute
+        self.numBlocksPerTrial = len(c_blocks)
+        self.numCalls = self.numBlocksPerTrial * self.numTrials
 
         # If the determined source layout contains unordered lists and/or index
         # repetitions, set `self.useFancyIdx` to `True` and prepare a separate
@@ -482,7 +499,7 @@ class ComputationalRoutine(ABC):
                 sourceSelectors.append(tuple(sigrid))
                 sourceLayout[gk] = tuple(ingrid)
         else:
-            sourceSelectors = [Ellipsis] * len(sourceLayout)
+            sourceSelectors = [Ellipsis] * self.numCalls
 
         # Store determined shapes and grid layout
         self.sourceLayout = sourceLayout
@@ -620,20 +637,38 @@ class ComputationalRoutine(ABC):
                             "outdset": self.tmpDsetName,
                             "outgrid": self.targetLayout[chk],
                             "outshape": self.targetShapes[chk],
-                            "dtype": self.dtype} for chk in range(len(self.sourceLayout))]
+                            "dtype": self.dtype} for chk in range(self.numCalls)]
+
+            # If channel-block parallelization has been set up, positional args of
+            # `computeFunction` need to be massaged: any list whose elements represent
+            # trial-specific args, needs to be expanded (so that each channel-block
+            # per trial receives the correct number of pos. args)
+            ArgV = list(self.argv)
+            if self.numBlocksPerTrial > 1:
+                for ak, arg in enumerate(self.argv):
+                    if isinstance(arg, (list, tuple)):
+                        if len(arg) == self.numTrials:
+                            unrolled = chain.from_iterable([[ag] * self.numBlocksPerTrial for ag in arg])
+                            if isinstance(arg, list):
+                                ArgV[ak] = list(unrolled)
+                            else:
+                                ArgV[ak] = tuple(unrolled)
+                    elif isinstance(arg, np.ndarray):
+                        if len(arg.squeeze().shape) == 1 and arg.squeeze().size == self.numTrials:
+                            ArgV[ak] = np.array(chain.from_iterable([[ag] * self.numBlocksPerTrial for ag in arg]))
 
             # Positional args for computeFunctions consist of `trl_dat` + others
-            # (stored in `self.argv`). Account for this when seeting up the
-            # `ParallelMap` manager
-            if len(self.argv) == 0:
+            # (stored in `ArgV`). Account for this when seeting up `ParallelMap`
+            if len(ArgV) == 0:
                 inargs = (workerDicts, )
             else:
-                inargs = (workerDicts, *self.argv)
+                inargs = (workerDicts, *ArgV)
 
-            # Let ACME take care of argument distribution and memory checks
+            # Let ACME take care of argument distribution and memory checks: note
+            # that `cfg` is trial-independent, i.e., we can simply throw it in here!
             self.pmap = ParallelMap(self.computeFunction,
                                     *inargs,
-                                    n_inputs=len(self.sourceLayout),
+                                    n_inputs=self.numCalls,
                                     write_worker_results=False,
                                     write_pickle=False,
                                     partition="auto",
@@ -646,12 +681,57 @@ class ComputationalRoutine(ABC):
                                     logfile=None,
                                     **self.cfg)
 
-            if "toi" in self.cfg.keys():
-                import numbers
-                if isinstance(self.cfg['toi'], numbers.Number):
-                    if self.cfg["toi"] == -5:
-                        import pdb; pdb.set_trace()
+            # if "toi" in self.cfg.keys():
+            #     # if isinstance(self.cfg["toi"], str):
+            #     #     import pdb; pdb.set_trace()
+            #     import numbers
+            #     print(self.cfg["toi"])
+            #     if not isinstance(self.cfg["toi"], numbers.Number):
+            #         if self.cfg["toi"][0] == -5:
+            #         # if self.cfg["toi"][0] == -5 and self.cfg["toi"][1] == 3 and self.cfg["toi"][2] == 10:
+            #             import pdb; pdb.set_trace()
+            #     if isinstance(self.cfg['toi'], numbers.Number):
+            #         if self.cfg["toi"] == -5:
+            #             import pdb; pdb.set_trace()
 
+            # trlArg = tuple(arg[0] if isinstance(arg, Sized) and len(arg) == self.numTrials \
+            #     else arg for arg in self.argv)
+
+            # import pdb; pdb.set_trace()
+
+            # Edge-case correction: if by chance, any array-like element `x` of `cfg`
+            # satisfies `len(x) = numCalls`, `ParallelMap` attempts to tear open `x` and
+            # distribute its elements across workers. Prevent this!
+            if self.numCalls > 1:
+                for key, value in self.pmap.kwargv.items():
+                    if isinstance(value, (list, tuple)):
+                        if len(value) == self.numCalls:
+                            self.pmap.kwargv[key] = [value]
+                    elif isinstance(value, np.ndarray):
+                        if len(value.squeeze().shape) == 1 and value.squeeze().size == self.numCalls:
+                            self.pmap.kwargv[key] = [value]
+
+            # import pdb; pdb.set_trace()
+
+            if "toi" in self.cfg.keys():
+                if isinstance(self.cfg["toi"], str):
+                    import pdb; pdb.set_trace()
+
+            # trlArg0 = tuple(arg[0] if isinstance(arg, Sized) and len(arg) == self.numTrials \
+            #     else arg for arg in self.argv)
+            # # for pk, parg in enumerate(self.pmap.argv[1:]):
+            # #     if parg == trlArg
+
+            # # if "toi" in self.cfg.keys():
+            # #     import numbers
+            # #     print(self.cfg["toi"])
+            # #     if not isinstance(self.cfg["toi"], numbers.Number):
+            # #         if self.cfg["toi"][0] == -5:
+            # #         # if self.cfg["toi"][0] == -5 and self.cfg["toi"][1] == 3 and self.cfg["toi"][2] == 10:
+            # #             import pdb; pdb.set_trace()
+            # #     if isinstance(self.cfg['toi'], numbers.Number):
+            # #         if self.cfg["toi"] == -5:
+            # #             import pdb; pdb.set_trace()
 
             # Check if trials actually fit into memory before we start computation
             client = self.pmap.daemon.client
@@ -796,7 +876,8 @@ class ComputationalRoutine(ABC):
 
         # Let ACME do the heavy lifting
         with self.pmap as pm:
-            pm.compute(debug=self.parallelDebug)
+            pm.compute(debug=True)
+            # pm.compute(debug=self.parallelDebug)
 
         # When writing concurrently, now's the time to finally create the virtual dataset
         if self.virtualDatasetDir is not None:

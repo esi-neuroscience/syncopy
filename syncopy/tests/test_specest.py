@@ -742,12 +742,9 @@ class TestMTMConvol():
                 assert tfSpec.samplerate == 1/(toi[1] - toi[0])
 
             # Unevenly sampled array: timing currently in lala-land, but sizes must match
-            print("B$ THIS BULLSHIT!!!!!!!!!!!!!!!!!!!!!!!!")
             cfg.toi = [-5, 3, 10]
             tfSpec = freqanalysis(cfg, self.tfData)
             assert tfSpec.time[0].size == len(cfg.toi)
-
-        print("after select nonsense")
 
         # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
         # to not overflow memory here); same for ``toi = 1.0```
@@ -806,7 +803,11 @@ class TestMTMConvol():
         assert tfSpec.taper.size > 1
         for tk, origTime in enumerate(artdata.time):
             assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
+
+        # to process all time-points via `stft`, reduce dataset size (avoid oom kills)
         cfg.toi = "all"
+        artdata = generate_artificial_data(nTrials=5, nChannels=8,
+                                           equidistant=True, inmemory=False)
         tfSpec = freqanalysis(artdata, **cfg)
         for tk, origTime in enumerate(artdata.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
@@ -857,15 +858,21 @@ class TestMTMConvol():
     def test_tf_parallel(self, testcluster):
         # collect all tests of current class and repeat them running concurrently
         client = dd.Client(testcluster)
-        all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and attr != "test_tf_parallel")]
-        for test in all_tests:
-            print("----------------TEST: ", test)
-            getattr(self, test)()
+        # all_tests = [attr for attr in self.__dir__()
+        #              if (inspect.ismethod(getattr(self, attr)) and attr != "test_tf_parallel")]
+        # for test in all_tests:
+        #     getattr(self, test)()
 
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>HERE<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-
-
+        # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>allcout")
+        # self.test_tf_allocout()
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>irregular trials")
+        self.test_tf_irregular_trials()
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>output")
+        self.test_tf_output()
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>solution")
+        self.test_tf_solution()
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>toi")
+        self.test_tf_toi()
 
         # now create uniform `cfg` for remaining SLURM tests
         cfg = StructDict()
@@ -885,6 +892,7 @@ class TestMTMConvol():
         artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
                                            inmemory=True)
         for k, chan_per_worker in enumerate([None, chanPerWrkr]):
+            print("k=", k)
             cfg.chan_per_worker = chan_per_worker
             tfSpec = freqanalysis(artdata, cfg)
             assert tfSpec.data.is_virtual
@@ -914,6 +922,7 @@ class TestMTMConvol():
         # overlapping trial spacing, throw away trials and tapers
         cfg.keeptapers = False
         cfg.keeptrials = "no"
+        cfg.output = "pow"
         artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
                                            inmemory=False, equidistant=True,
                                            overlapping=True)

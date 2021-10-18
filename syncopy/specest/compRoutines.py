@@ -370,7 +370,6 @@ def mtmconvol_cF(
         stftPad = False
     else:                               # `toi` is either 'all' or a percentage
         nTime = np.ceil(dat.shape[0] / (method_kwargs['nperseg'] - method_kwargs['noverlap'])).astype(np.intp)
-
         stftBdry = "zeros"
         stftPad = True
     nFreq = foi.size
