@@ -122,13 +122,8 @@ class ComputationalRoutine(ABC):
         """
 
         # list of positional arguments to `computeFunction` for all workers, format:
-        # ``self.argv = [3, [0, 1, 1], ('a', 'b', 'c')]`` (compare to `self.ArgV` below)
+        # ``self.argv = [3, [0, 1, 1], ('a', 'b', 'c')]``
         self.argv = list(argv)
-
-        # FIXME: let ACME take care of this
-        # list of positional keyword arguments split up for each worker w/format:
-        # ``self.ArgV = [(3,0,'a'), (3,1,'b'), (3,1,'c')`` (compare `self.argv` above)
-        self.ArgV = None
 
         # dict of default keyword values accepted by `computeFunction`
         self.defaultCfg = get_defaults(self.computeFunction)
@@ -279,37 +274,6 @@ class ComputationalRoutine(ABC):
             self.useFancyIdx = False
         self.numTrials = len(self.trialList)
 
-        # # If lists/tuples are in positional arguments, ensure `len == numTrials`
-        # # Scalars are duplicated to fit trials, e.g., ``self.argv = [3, [0, 1, 1]]``
-        # # then ``argv = [[3, 3, 3], [0, 1, 1]]``
-        # for ak, arg in enumerate(self.argv):
-
-        #     # Ensure arguments are within reasonable size for distribution across workers
-        #     # (protect against circular object references by imposing max. calls)
-        #     self._callCount = 0
-        #     argsize = self._sizeof(arg)
-        #     if argsize > self._maxArgSize:
-        #         lgl = "positional arguments less than 100 MB each"
-        #         act = "positional argument with memory footprint of {0:4.2f} MB"
-        #         raise SPYValueError(legal=lgl, varname="argv", actual=act.format(argsize))
-
-        #     if isinstance(arg, (list, tuple)):
-        #         if len(arg) != numTrials:
-        #             lgl = "list/tuple of positional arguments for each trial"
-        #             act = "length of list/tuple does not correspond to number of trials"
-        #             raise SPYValueError(legal=lgl, varname="argv", actual=act)
-        #         continue
-        #     elif isinstance(arg, np.ndarray):
-        #         if arg.size == numTrials:
-        #             msg = "found NumPy array with size == #Trials. " +\
-        #                 "Regardless, every worker will receive an identical copy " +\
-        #                 "of this array. To propagate elements across workers, use " +\
-        #                 "a list or tuple instead!"
-        #             SPYWarning(msg)
-        #     self.argv[ak] = [arg] * numTrials
-
-
-
         # Prepare dryrun arguments and determine geometry of trials in output
         dryRunKwargs = copy(self.cfg)
         dryRunKwargs["noCompute"] = True
@@ -367,7 +331,6 @@ class ComputationalRoutine(ABC):
         targetLayout = []
         targetShapes = []
         c_blocks = [1]
-        ArgV = []
 
         # If parallelization across channels is requested the first trial is
         # split up into several chunks that need to be processed/allocated
@@ -410,7 +373,6 @@ class ComputationalRoutine(ABC):
                 targetLayout.append(tuple(lyt))
                 targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
                 sourceLayout.append(trial.idx)
-                ArgV.append(trlArg0)
                 chanstack += res[outchanidx]
                 blockstack += block
 
@@ -419,7 +381,6 @@ class ComputationalRoutine(ABC):
             targetLayout.append(tuple(lyt))
             targetShapes.append(chunkShape0)
             sourceLayout.append(trial.idx)
-            ArgV.append(trlArg0)
 
         # Construct dimensional layout of output
         # FIXME: should be targetLayout[0][stackingDim].stop
@@ -438,7 +399,6 @@ class ComputationalRoutine(ABC):
                 targetLayout.append(tuple(lyt))
                 targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
                 sourceLayout.append(trial.idx)
-                ArgV.append(trlArg)
             else:
                 chanstack = 0
                 blockstack = 0
@@ -456,7 +416,6 @@ class ComputationalRoutine(ABC):
                     sourceLayout.append(trial.idx)
                     chanstack += res[outchanidx]
                     blockstack += block
-                    ArgV.append(trlArg)
 
         # Infer how many concurrent `computeFunction` calls we're about to execute
         self.numBlocksPerTrial = len(c_blocks)
@@ -506,7 +465,6 @@ class ComputationalRoutine(ABC):
         self.sourceSelectors = sourceSelectors
         self.targetLayout = targetLayout
         self.targetShapes = targetShapes
-        self.ArgV = ArgV
 
         # Compute max. memory footprint of chunks
         if chan_per_worker is None:
@@ -570,7 +528,7 @@ class ComputationalRoutine(ABC):
            Python thread permitting usage of tools like `pdb`/`ipdb`, `cProfile`
            and the like in :meth:`computeFunction`.
            Note that enabling parallel debugging effectively runs the given computation
-           on the calling local machine thereby requiring sufficient memory and
+           on the calling machine locally thereby requiring sufficient memory and
            CPU capacity.
 
         Returns
@@ -597,6 +555,11 @@ class ComputationalRoutine(ABC):
            and `out.log` to reproduce all relevant computational steps that
            generated `out`.
 
+        Parallel processing setup and input sanitization is performed by
+        `ACME <https://github.com/esi-neuroscience/acme>`_. Specifically, all
+        necessary information for parallel execution and storage of results is
+        propagated to the :class:`~acme.ParallelMap` context manager.
+
         See also
         --------
         initialize : pre-calculation preparations
@@ -605,6 +568,7 @@ class ComputationalRoutine(ABC):
         compute_sequential : sequential computation using :meth:`computeFunction`
         process_metadata : management of meta-information
         write_log : log-entry organization
+        acme.ParallelMap : concurrent execution of Python callables
         """
 
         # By default, use VDS storage for parallel computing
@@ -681,24 +645,6 @@ class ComputationalRoutine(ABC):
                                     logfile=None,
                                     **self.cfg)
 
-            # if "toi" in self.cfg.keys():
-            #     # if isinstance(self.cfg["toi"], str):
-            #     #     import pdb; pdb.set_trace()
-            #     import numbers
-            #     print(self.cfg["toi"])
-            #     if not isinstance(self.cfg["toi"], numbers.Number):
-            #         if self.cfg["toi"][0] == -5:
-            #         # if self.cfg["toi"][0] == -5 and self.cfg["toi"][1] == 3 and self.cfg["toi"][2] == 10:
-            #             import pdb; pdb.set_trace()
-            #     if isinstance(self.cfg['toi'], numbers.Number):
-            #         if self.cfg["toi"] == -5:
-            #             import pdb; pdb.set_trace()
-
-            # trlArg = tuple(arg[0] if isinstance(arg, Sized) and len(arg) == self.numTrials \
-            #     else arg for arg in self.argv)
-
-            # import pdb; pdb.set_trace()
-
             # Edge-case correction: if by chance, any array-like element `x` of `cfg`
             # satisfies `len(x) = numCalls`, `ParallelMap` attempts to tear open `x` and
             # distribute its elements across workers. Prevent this!
@@ -710,28 +656,6 @@ class ComputationalRoutine(ABC):
                     elif isinstance(value, np.ndarray):
                         if len(value.squeeze().shape) == 1 and value.squeeze().size == self.numCalls:
                             self.pmap.kwargv[key] = [value]
-
-            # import pdb; pdb.set_trace()
-
-            if "toi" in self.cfg.keys():
-                if isinstance(self.cfg["toi"], str):
-                    import pdb; pdb.set_trace()
-
-            # trlArg0 = tuple(arg[0] if isinstance(arg, Sized) and len(arg) == self.numTrials \
-            #     else arg for arg in self.argv)
-            # # for pk, parg in enumerate(self.pmap.argv[1:]):
-            # #     if parg == trlArg
-
-            # # if "toi" in self.cfg.keys():
-            # #     import numbers
-            # #     print(self.cfg["toi"])
-            # #     if not isinstance(self.cfg["toi"], numbers.Number):
-            # #         if self.cfg["toi"][0] == -5:
-            # #         # if self.cfg["toi"][0] == -5 and self.cfg["toi"][1] == 3 and self.cfg["toi"][2] == 10:
-            # #             import pdb; pdb.set_trace()
-            # #     if isinstance(self.cfg['toi'], numbers.Number):
-            # #         if self.cfg["toi"] == -5:
-            # #             import pdb; pdb.set_trace()
 
             # Check if trials actually fit into memory before we start computation
             client = self.pmap.daemon.client
@@ -860,13 +784,8 @@ class ComputationalRoutine(ABC):
 
         Notes
         -----
-        This method mereley acts as a concurrent wrapper for :meth:`computeFunction`
-        by passing along all necessary information for parallel execution and
-        storage of results using a dask bag of dictionaries. The actual reading
-        of source data and writing of results is managed by the decorator
-        :func:`syncopy.shared.parsers.unwrap_io`. Note that this routine first
-        builds an entire parallel instruction tree and only kicks off execution
-        on the cluster at the very end of the calculation command assembly.
+        The actual reading of source data and writing of results is managed by
+        the decorator :func:`syncopy.shared.parsers.unwrap_io`.
 
         See also
         --------
@@ -876,8 +795,7 @@ class ComputationalRoutine(ABC):
 
         # Let ACME do the heavy lifting
         with self.pmap as pm:
-            pm.compute(debug=True)
-            # pm.compute(debug=self.parallelDebug)
+            pm.compute(debug=self.parallelDebug)
 
         # When writing concurrently, now's the time to finally create the virtual dataset
         if self.virtualDatasetDir is not None:

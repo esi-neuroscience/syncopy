@@ -814,7 +814,7 @@ class TestMTMConvol():
 
         # non-equidistant trials w/multiple tapers
         cfg.toi = 0.0
-        artdata = generate_artificial_data(nTrials=5, nChannels=16,
+        artdata = generate_artificial_data(nTrials=5, nChannels=8,
                                            equidistant=False, inmemory=False)
         tfSpec = freqanalysis(artdata, **cfg)
         assert tfSpec.taper.size > 1
@@ -827,7 +827,7 @@ class TestMTMConvol():
 
         # same + reversed dimensional order in input object
         cfg.toi = 0.0
-        cfg.data = generate_artificial_data(nTrials=5, nChannels=16,
+        cfg.data = generate_artificial_data(nTrials=5, nChannels=8,
                                             equidistant=False, inmemory=False,
                                             dimord=AnalogData._defaultDimord[::-1])
         tfSpec = freqanalysis(cfg)
@@ -841,7 +841,7 @@ class TestMTMConvol():
 
         # same + overlapping trials
         cfg.toi = 0.0
-        cfg.data = generate_artificial_data(nTrials=5, nChannels=16,
+        cfg.data = generate_artificial_data(nTrials=5, nChannels=8,
                                            equidistant=False, inmemory=False,
                                            dimord=AnalogData._defaultDimord[::-1],
                                            overlapping=True)
@@ -858,21 +858,10 @@ class TestMTMConvol():
     def test_tf_parallel(self, testcluster):
         # collect all tests of current class and repeat them running concurrently
         client = dd.Client(testcluster)
-        # all_tests = [attr for attr in self.__dir__()
-        #              if (inspect.ismethod(getattr(self, attr)) and attr != "test_tf_parallel")]
-        # for test in all_tests:
-        #     getattr(self, test)()
-
-        # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>allcout")
-        # self.test_tf_allocout()
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>irregular trials")
-        self.test_tf_irregular_trials()
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>output")
-        self.test_tf_output()
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>solution")
-        self.test_tf_solution()
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>toi")
-        self.test_tf_toi()
+        all_tests = [attr for attr in self.__dir__()
+                     if (inspect.ismethod(getattr(self, attr)) and attr != "test_tf_parallel")]
+        for test in all_tests:
+            getattr(self, test)()
 
         # now create uniform `cfg` for remaining SLURM tests
         cfg = StructDict()
@@ -892,7 +881,6 @@ class TestMTMConvol():
         artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
                                            inmemory=True)
         for k, chan_per_worker in enumerate([None, chanPerWrkr]):
-            print("k=", k)
             cfg.chan_per_worker = chan_per_worker
             tfSpec = freqanalysis(artdata, cfg)
             assert tfSpec.data.is_virtual
