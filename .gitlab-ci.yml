@@ -57,6 +57,7 @@ intelwin:
 
 slurmtest:
     stage: slurm
+    allow_failure: true
     tags:
     - slurm
     only:

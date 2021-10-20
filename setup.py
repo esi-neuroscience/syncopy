@@ -18,6 +18,15 @@ required, dev = conda2pip(return_lists=True)
 # test-PyPI versions, which are ordered by recency)
 spyVersion = get_version(root='.', relative_to=__file__, local_scheme="no-local-version")
 
+# For release-versions, remove local versioning suffix "dev0"; for TestPyPI uploads,
+# keep the local `tag.devx` scheme
+versionParts = spyVersion.split(".dev")
+if versionParts[-1] == "0":
+    spyVersion = "v0.1b1"
+    versionKws = {"use_scm_version" : False, "version" : spyVersion}
+else:
+    versionKws = {"use_scm_version" : {"local_scheme": "no-local-version"}}
+
 # Update citation file
 citationFile = "CITATION.cff"
 yaml = ruamel.yaml.YAML()
@@ -30,8 +39,8 @@ with open(citationFile, "w") as fl:
 
 # Run setup (note: identical arguments supplied in setup.cfg will take precedence)
 setup(
-    use_scm_version={"local_scheme": "no-local-version"},
     setup_requires=['setuptools_scm'],
     install_requires=required,
     extras_require={"dev": dev},
+    **versionKws
 )
