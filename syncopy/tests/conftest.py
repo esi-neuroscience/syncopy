@@ -20,9 +20,9 @@ if __acme__:
     from acme.dask_helpers import esi_cluster_setup
     from syncopy.tests.misc import is_slurm_node
     if is_slurm_node():
-        os.environ["SPYTMPDIR"] = "/mnt/hpx/home/{}/.spy".format(os.environ["USER"])
+        os.environ["SPYTMPDIR"] = "/cs/home/{}/.spy".format(os.environ["USER"])
         importlib.reload(syncopy)
-        cluster = esi_cluster_setup(partition="DEV", n_jobs=10, mem_per_job="8GB",
+        cluster = esi_cluster_setup(partition="8GBXS", n_jobs=10,
                                     timeout=60, interactive=False,
                                     start_client=False)
     else:
