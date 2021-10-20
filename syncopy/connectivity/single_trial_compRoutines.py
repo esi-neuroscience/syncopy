@@ -261,7 +261,7 @@ def cross_covariance_cF(trl_dat,
 
     
     # re-normalize output for different effective overlaps
-    norm_overlap = np.arange(nSamples, nSamples // 2, step = -1) / 4
+    norm_overlap = np.arange(nSamples, nSamples // 2, step = -1) 
 
     CC = np.empty(outShape)
     for i in range(nChannels):

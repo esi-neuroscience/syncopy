@@ -22,7 +22,9 @@ y1 = data1[:, 1]
 
 
 def dev_cc(nSamples=1001):
-    
+
+    nSamples = 1001
+    fs = 1000    
     tvec = np.arange(nSamples) / fs
     
     sig1 = np.cos(2 * np.pi * 30 * tvec)
@@ -89,17 +91,17 @@ def mtm_csd_harmonics():
     NN = 50
     res = np.zeros((nSamples // 2 + 1, NN))
     eps = 1
-    Kmax = 5
+    Kmax = 15
     data = [np.sum([np.cos(om * tvec + ps) for om in omegas], axis=0) for ps in phase_shifts]
     data = np.array(data).T
-    data = 5 * (data + np.random.randn(nSamples, 3) * eps)
     
     for i in range(NN):
+        dataR = 5 * (data + np.random.randn(nSamples, 3) * eps)
 
         CS, freqs = cross_spectra_cF(data, fs, taper='bartlett')
-        CS2, freqs = cross_spectra_cF(data, fs, taper='dpss', taperopt={'Kmax' : Kmax, 'NW' : 6}, norm=True)
+        CS2, freqs = cross_spectra_cF(dataR, fs, taper='dpss', taperopt={'Kmax' : Kmax, 'NW' : 6}, norm=True)
 
-        res[:, i] = np.abs(CS2[0, 0, 1, :])
+        res[:, i] = np.abs(CS2[:, 0, 1])
 
     q1 = np.percentile(res, 25, axis=1)
     q3 = np.percentile(res, 75, axis=1)
@@ -114,3 +116,41 @@ def mtm_csd_harmonics():
     c = 'cornflowerblue'
     ax.plot(freqs, med, lw=2, alpha=0.8, c=c)
     ax.fill_between(freqs, q1, q3, color=c, alpha=0.3)
+
+
+# omegas = np.arange(30, 50, step=1) * 2 * np.pi
+# data = np.array([np.cos(om * tvec) for om in omegas]).T
+# dataR = 1 * (data + np.random.randn(*data.shape) * 1)
+# CS, freqs = cross_spectra_cF(dataR, fs, taper='dpss', taperopt={'Kmax' : 15, 'NW' : 6}, norm=True)
+
+# CS2, freqs = cross_spectra_cF(dataR, fs, taper='dpss', taperopt={'Kmax' : 15, 'NW' : 6}, norm=False)
+
+# noisy phase evolution
+def phase_evo(omega0, eps, fs=1000, N=1000):
+    wn = np.random.randn(N) * 1 / fs
+    delta_ts = np.ones(N) * 1 / fs
+    phase = np.cumsum(omega0 * delta_ts + eps * wn)
+    return phase
+
+
+eps = 0.3 * fs
+omega = 50 * 2 * np.pi
+p1 = phase_evo(omega, eps, N=nSamples)
+p2 = phase_evo(omega, eps, N=nSamples)
+s1 = np.cos(p1) + np.cos(2 * omega * tvec) + .5 * np.random.randn(nSamples)
+s2 = np.cos(p2) + np.cos(2 * omega * tvec) + .5 * np.random.randn(nSamples)
+data = np.c_[s1, s2]
+
+CS, freqs = cross_spectra_cF(data, fs, taper='dpss', taperopt={'Kmax' : 15, 'NW' : 6}, norm=True)
+CS2, freqs = cross_spectra_cF(data, fs, taper='dpss', taperopt={'Kmax' : 15, 'NW' : 6}, norm=False)
+
+fig, ax = ppl.subplots(figsize=(6,4), num=None)
+ax.set_xlabel('frequency (Hz)')
+ax.set_ylabel('$|CSD(f)|$')
+ax.set_ylim((-.02,1.25))
+
+ax.plot(freqs, np.abs(CS2[:, 0, 0]), label = '$CSD_{00}$', lw = 2, alpha = 0.7)
+ax.plot(freqs, np.abs(CS2[:, 1, 1]), label = '$CSD_{11}$', lw = 2, alpha = 0.7)
+ax.plot(freqs, np.abs(CS2[:, 0, 1]), label = '$CSD_{01}$', lw = 2, alpha = 0.7)
+
+ax.legend()
