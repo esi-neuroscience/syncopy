@@ -7,7 +7,7 @@
 
 # Builtin/3rd party package imports
 import numpy as np
-from scipy.signal import fftconvolve
+from scipy.signal import fftconvolve, detrend
 
 # syncopy imports
 from syncopy.specest.mtmfft import mtmfft
@@ -76,13 +76,11 @@ def cross_spectra_cF(trl_dat,
         For further details, please refer to the 
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
     polyremoval : int or None
-        **FIXME: Not implemented yet**
-        Order of polynomial used for de-trending data in the time domain prior 
-        to spectral analysis. A value of 0 corresponds to subtracting the mean 
-        ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the 
-        least squares fit of a linear polynomial), ``polyremoval = N`` for `N > 1` 
-        subtracts a polynomial of order `N` (``N = 2`` quadratic, ``N = 3`` cubic 
-        etc.). If `polyremoval` is `None`, no de-trending is performed. 
+        Order of polynomial used for de-trending data in the time domain prior
+        to spectral analysis. A value of 0 corresponds to subtracting the mean
+        ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
+        least squares fit of a linear polynomial).
+        If `polyremoval` is `None`, no de-trending is performed.
     timeAxis : int, optional
         Index of running time axis in `trl_dat` (0 or 1)
     norm : bool, optional
@@ -125,6 +123,13 @@ def cross_spectra_cF(trl_dat,
     else:
         dat = trl_dat
 
+    # detrend
+    if polyremoval == 0:
+        # SciPy's overwrite_data not working for type='constant' :/
+        dat = detrend(dat, type='constant', axis=0, overwrite_data=True)
+    elif polyremoval == 1:
+        detrend(dat, type='linear', axis=0, overwrite_data=True)
+        
     # Symmetric Padding (updates no. of samples)
     if padding_opt:
         dat = padding(dat, **padding_opt)
@@ -132,7 +137,7 @@ def cross_spectra_cF(trl_dat,
     nChannels = dat.shape[1]
 
     # specs have shape (nTapers x nFreq x nChannels)    
-    specs, freqs = mtmfft(trl_dat, samplerate, taper, taperopt)
+    specs, freqs = mtmfft(dat, samplerate, taper, taperopt)
     if foi is not None:
         _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
         nFreq = freq_idx.size        
@@ -198,13 +203,11 @@ def cross_covariance_cF(trl_dat,
         Parameters to be used for padding. See :func:`syncopy.padding` for 
         more details.
     polyremoval : int or None
-        **FIXME: Not implemented yet**
-        Order of polynomial used for de-trending data in the time domain prior 
-        to spectral analysis. A value of 0 corresponds to subtracting the mean 
-        ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the 
-        least squares fit of a linear polynomial), ``polyremoval = N`` for `N > 1` 
-        subtracts a polynomial of order `N` (``N = 2`` quadratic, ``N = 3`` cubic 
-        etc.). If `polyremoval` is `None`, no de-trending is performed. 
+        Order of polynomial used for de-trending data in the time domain prior
+        to spectral analysis. A value of 0 corresponds to subtracting the mean
+        ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
+        least squares fit of a linear polynomial).
+        If `polyremoval` is `None`, no de-trending is performed.
     timeAxis : int, optional
         Index of running time axis in `trl_dat` (0 or 1)
     norm : bool, optional
@@ -237,6 +240,13 @@ def cross_covariance_cF(trl_dat,
     else:
         dat = trl_dat
 
+    # detrend
+    if polyremoval == 0:
+        # SciPy's overwrite_data not working for type='constant' :/
+        dat = detrend(dat, type='constant', axis=0, overwrite_data=True)
+    elif polyremoval == 1:
+        detrend(dat, type='linear', axis=0, overwrite_data=True)
+        
     # Symmetric Padding (updates no. of samples)
     if padding_opt:
         dat = padding(dat, **padding_opt)
@@ -279,7 +289,3 @@ def cross_covariance_cF(trl_dat,
         CC = CC / N
         
     return CC, lags
-
-
-
-

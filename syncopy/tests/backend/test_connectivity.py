@@ -13,14 +13,18 @@ def test_csd():
     harm_freq = 40
     phase_shifts = np.array([0, np.pi / 2, np.pi])
 
-    # 1 phase phase shifted harmonics + white noise, SNR = 1
-    data = [np.cos(harm_freq * 2 * np. pi * tvec + ps)
-            for ps in phase_shifts]
+    # 1 phase phase shifted harmonics + white noise + constant, SNR = 1
+    data = [10 + np.cos(harm_freq * 2 * np. pi * tvec + ps)
+            for ps in phase_shifts] 
     data = np.array(data).T
     data = np.array(data) + np.random.randn(nSamples, len(phase_shifts))
-
+    
     Kmax = 8 # multiple tapers for single trial coherence
-    CSD, freqs = stCR.cross_spectra_cF(data, fs, taper='dpss', taperopt={'Kmax' : Kmax, 'NW' : 6}, norm=True)
+    CSD, freqs = stCR.cross_spectra_cF(data, fs,
+                                       polyremoval=1,
+                                       taper='dpss',
+                                       taperopt={'Kmax' : Kmax, 'NW' : 6},
+                                       norm=True)
 
     # output has shape (1, nFreq, nChannels, nChannels)
     assert CSD.shape == (1, len(freqs), data.shape[1], data.shape[1])
