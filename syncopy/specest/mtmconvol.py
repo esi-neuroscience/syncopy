@@ -103,7 +103,7 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
         nTime = int(np.ceil(nSamples / (nperseg - noverlap)))
 
     # Short time Fourier transforms (nTime x nTapers x nFreq x nChannels)
-    ftr = np.zeros((nTime, windows.shape[0], nFreq, nChannels), dtype='complex128')
+    ftr = np.zeros((nTime, windows.shape[0], nFreq, nChannels), dtype='complex64')
 
     for taperIdx, win in enumerate(windows):
         # pxx has shape (nFreq, nChannels, nTime)
