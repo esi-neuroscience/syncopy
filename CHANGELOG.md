@@ -9,6 +9,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Made SyNCoPy PEP 517 compliant: added pyproject.toml and modified setup.py
   accordingly
 - Added IBM POWER testing pipeline (via dedicated GitLab Runner)
+- Added Superlet spectral estimation method
 
 ### CHANGED
 
