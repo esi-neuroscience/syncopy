@@ -39,9 +39,9 @@ def cross_spectra_cF(trl_dat,
     Averaging over tapers is done implicitly
     for multi-taper analysis with `taper="dpss"`.
 
-    Output consists of all (nChannels x nChannels+1)/2 different estimates
-    aranged in a symmetric fashion (CS_ij == CS_ji). The elements on the
-    main diagonal (CS_ii) are the auto-spectra.
+    Output consists of all (nChannels x nChannels+1)/2 different complex 
+    estimates aranged in a symmetric fashion (CS_ij == CS_ji*). The 
+    elements on the main diagonal (CS_ii) are the (real) auto-spectra.
 
     This is NOT the same as what is commonly referred to as 
     "cross spectral density" as there is no (time) averaging!!
@@ -96,7 +96,7 @@ def cross_spectra_cF(trl_dat,
 
     Returns
     -------    
-    CS_ij : (nFreq, N, N) :class:`numpy.ndarray`
+    CS_ij : (1, nFreq, N, N) :class:`numpy.ndarray`
         Cross spectra for all channel combinations i,j.
         `N` corresponds to number of input channels.
 
@@ -131,7 +131,7 @@ def cross_spectra_cF(trl_dat,
         
     nChannels = dat.shape[1]
 
-    # specs has shape (nTapers x nFreq x nChannels)    
+    # specs have shape (nTapers x nFreq x nChannels)    
     specs, freqs = mtmfft(trl_dat, samplerate, taper, taperopt)
     if foi is not None:
         _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
@@ -141,7 +141,7 @@ def cross_spectra_cF(trl_dat,
         nFreq = freqs.size
         
     # we always average over tapers here
-    outShape = (nFreq, nChannels, nChannels)
+    outShape = (1, nFreq, nChannels, nChannels)
     
     # For initialization of computational routine,
     # just return output shape and dtype
@@ -166,8 +166,8 @@ def cross_spectra_cF(trl_dat,
         Ciijj = np.sqrt(diag[:, :, None] * diag[:, None, :]).T
         CS_ij = CS_ij / Ciijj
     
-    # where does freqs go/come from?!
-    return CS_ij[..., freq_idx].transpose(2, 0, 1), freqs[freq_idx]
+    # where does freqs go/come from - we will allow tuples as return values yeah!
+    return CS_ij[None, ..., freq_idx].transpose(0, 3, 1, 2), freqs[freq_idx]
 
 
 def cross_covariance_cF(trl_dat,
@@ -216,7 +216,7 @@ def cross_covariance_cF(trl_dat,
 
     Returns
     -------    
-    CC_ij : (K, N, N) :class:`numpy.ndarray`
+    CC_ij : (K, 1, N, N) :class:`numpy.ndarray`
         Cross covariance for all channel combinations i,j.
         `N` corresponds to number of input channels.
 
@@ -251,14 +251,13 @@ def cross_covariance_cF(trl_dat,
         lags = np.arange(0, nSamples // 2 + 1)
     lags = lags * 1 / samplerate
 
-    outShape = (len(lags), nChannels, nChannels)
+    outShape = (len(lags), 1, nChannels, nChannels)
     
     # For initialization of computational routine,
     # just return output shape and dtype
-    # cross spectra are complex!
+    # cross covariances are real!
     if noCompute:
         return outShape, spectralDTypes["abs"]
-
     
     # re-normalize output for different effective overlaps
     norm_overlap = np.arange(nSamples, nSamples // 2, step = -1) 
@@ -267,11 +266,11 @@ def cross_covariance_cF(trl_dat,
     for i in range(nChannels):
         for j in range(i + 1):
             cc12 = fftconvolve(dat[:, i], dat[::-1, j], mode='same')
-            CC[:, i, j] = cc12[nSamples // 2:] / norm_overlap
+            CC[:,0, i, j] = cc12[nSamples // 2:] / norm_overlap
             if i != j:
                 # cross-correlation is NOT symmetric..
                 cc21 = fftconvolve(dat[:, j], dat[::-1, i], mode='same')
-                CC[:, j, i] = cc21[nSamples // 2:] / norm_overlap
+                CC[:, 0, j, i] = cc21[nSamples // 2:] / norm_overlap
 
     # normalize with products of std
     if norm:

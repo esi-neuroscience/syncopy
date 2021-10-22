@@ -22,17 +22,22 @@ def test_csd():
     Kmax = 8 # multiple tapers for single trial coherence
     CSD, freqs = stCR.cross_spectra_cF(data, fs, taper='dpss', taperopt={'Kmax' : Kmax, 'NW' : 6}, norm=True)
 
+    # output has shape (1, nFreq, nChannels, nChannels)
+    assert CSD.shape == (1, len(freqs), data.shape[1], data.shape[1])
+
+    # single trial coherence between channel 0 and 1
+    coh = np.abs(CSD[0, :, 0, 1])
+
     fig, ax = ppl.subplots(figsize=(6,4), num=None)
     ax.set_xlabel('frequency (Hz)')
     ax.set_ylabel('coherence')
     ax.set_ylim((-.02,1.05))
     ax.set_title(f'MTM coherence, {Kmax} tapers, SNR=1')
 
-    coh = np.abs(CSD[:, 0, 1])
     assert ax.plot(freqs, coh, lw=2, alpha=0.8, c='cornflowerblue')
 
     # we test for the highest peak sitting at
-    # the vicinity (± 5Hz) of one of the harmonics
+    # the vicinity (± 5Hz) of one the harmonic
     peak_val = np.max(coh)
     peak_idx = np.argmax(coh)
     peak_freq = freqs[peak_idx]
@@ -41,7 +46,7 @@ def test_csd():
 
     # we test that the peak value
     # is at least 0.9 and max 1
-    assert 0.8 < peak_val < 1
+    assert 0.9 < peak_val < 1
 
 
 def test_cross_cov():
@@ -54,12 +59,14 @@ def test_cross_cov():
     sine = np.sin(2 * np.pi * 30 * tvec)
     data = np.c_[cosine, sine]
 
-    # output shape is (nLags x nChannels x nChannels)
+    # output shape is (nLags x 1 x nChannels x nChannels)
     CC, lags = stCR.cross_covariance_cF(data, samplerate=fs, norm=True)
     # test for result is returned in the [0, np.ceil(nSamples / 2)] lag interval
     nLags = int(np.ceil(nSamples / 2))
-    assert CC.shape[0] == nLags
+    
+    # output has shape (nLags, 1, nChannels, nChannels)
+    assert CC.shape == (nLags, 1, data.shape[1], data.shape[1])
     
     # cross-correlation (normalized cross-covariance) between
     # cosine and sine analytically equals minus sine    
-    assert np.all(CC[:, 0, 1] + sine[:nLags] < 1e-5)
+    assert np.all(CC[:, 0, 0, 1] + sine[:nLags] < 1e-5)
