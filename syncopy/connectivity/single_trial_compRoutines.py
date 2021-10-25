@@ -19,6 +19,7 @@ from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
 
 
+@unwrap_io
 def cross_spectra_cF(trl_dat,
                      samplerate=1,
                      foi=None,
@@ -95,7 +96,7 @@ def cross_spectra_cF(trl_dat,
     Returns
     -------    
     CS_ij : (1, nFreq, N, N) :class:`numpy.ndarray`
-        Cross spectra for all channel combinations i,j.
+        Complex cross spectra for all channel combinations i,j.
         `N` corresponds to number of input channels.
 
     freqs : (M,) :class:`numpy.ndarray`
@@ -175,6 +176,7 @@ def cross_spectra_cF(trl_dat,
     return CS_ij[None, ..., freq_idx].transpose(0, 3, 1, 2), freqs[freq_idx]
 
 
+@unwrap_io
 def cross_covariance_cF(trl_dat,
                         samplerate=1,
                         padding_opt={},
