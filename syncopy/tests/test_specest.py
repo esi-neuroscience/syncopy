@@ -484,50 +484,14 @@ class TestMTMConvol():
 
     # Construct high-frequency signal modulated by slow oscillating cosine and
     # add time-decaying noise
-    nChannels = 8
+    nChannels = 6
     nChan2 = int(nChannels / 2)
     nTrials = 3
-    fs = 1000
     seed = 151120
-    amp = 2 * np.sqrt(2)
-    noise_power = 0.01 * fs / 2
-    numType = "float32"
-    modPeriods = [0.125, 0.0625]
-    rng = np.random.default_rng(seed)
-    tStart = -29.5
-    tStop = 70.5
-    t0 = -np.abs(tStart * fs).astype(np.intp)
-    time = (np.arange(0, (tStop - tStart) * fs, dtype=numType) + tStart * fs) / fs
-    N = time.size
-    carriers = np.zeros((N, 2), dtype=numType)
-    modulators = np.zeros((N, 2), dtype=numType)
-    noise_decay = np.exp(-np.arange(N) / (5*fs))
-    for k, period in enumerate(modPeriods):
-        modulators[:, k] = 500 * np.cos(2 * np.pi * period * time)
-        carriers[:, k] = amp * np.sin(2 * np.pi * 3e2 * time + modulators[:, k])
-
-    # For trials: stitch together carrier + noise, each trial gets its own (fixed
-    # but randomized) noise term, channels differ by period in modulator, stratified
-    # by trials, i.e.,
-    # Trial #0, channels 0, 2, 4, 6, ...: mod -> 0.125 * time
-    #                    1, 3, 5, 7, ...: mod -> 0.0625 * time
-    # Trial #1, channels 0, 2, 4, 6, ...: mod -> 0.0625 * time
-    #                    1, 3, 5, 7, ...: mod -> 0.125 * time
-    even = [None, 0, 1]
-    odd = [None, 1, 0]
-    sig = np.zeros((N * nTrials, nChannels), dtype=numType)
-    trialdefinition = np.zeros((nTrials, 3), dtype=np.intp)
-    for ntrial in range(nTrials):
-        noise = rng.normal(scale=np.sqrt(noise_power), size=time.shape).astype(numType)
-        noise *= noise_decay
-        nt1 = ntrial * N
-        nt2 = (ntrial + 1) * N
-        sig[nt1 : nt2, ::2] = np.tile(carriers[:, even[(-1)**ntrial]] + noise, (nChan2, 1)).T
-        sig[nt1 : nt2, 1::2] = np.tile(carriers[:, odd[(-1)**ntrial]] + noise, (nChan2, 1)).T
-        trialdefinition[ntrial, :] = np.array([nt1, nt2, t0])
-
-    # Finally allocate `AnalogData` object that makes use of all this
-    tfData = AnalogData(data=sig, samplerate=fs, trialdefinition=trialdefinition)
+    fadeIn = None
+    fadeOut = None
+    tfData, modulators, even, odd, fader = _make_tf_signal(nChannels, nTrials, seed,
+                                                           fadeIn=fadeIn, fadeOut=fadeOut)
 
     # Data selection dict for the above object
     dataSelections = [None,
@@ -806,7 +770,7 @@ class TestMTMConvol():
 
         # to process all time-points via `stft`, reduce dataset size (avoid oom kills)
         cfg.toi = "all"
-        artdata = generate_artificial_data(nTrials=5, nChannels=8,
+        artdata = generate_artificial_data(nTrials=5, nChannels=4,
                                            equidistant=True, inmemory=False)
         tfSpec = freqanalysis(artdata, **cfg)
         for tk, origTime in enumerate(artdata.time):
@@ -841,7 +805,7 @@ class TestMTMConvol():
 
         # same + overlapping trials
         cfg.toi = 0.0
-        cfg.data = generate_artificial_data(nTrials=5, nChannels=8,
+        cfg.data = generate_artificial_data(nTrials=5, nChannels=4,
                                            equidistant=False, inmemory=False,
                                            dimord=AnalogData._defaultDimord[::-1],
                                            overlapping=True)
@@ -928,7 +892,7 @@ class TestWavelet():
 
     # Prepare testing signal: ensure `fadeIn` and `fadeOut` are compatible w/`toilim`
     # selection below
-    nChannels = 8
+    nChannels = 4
     nTrials = 3
     seed = 151120
     fadeIn = -9.5

@@ -23,7 +23,7 @@ if __acme__:
         os.environ["SPYTMPDIR"] = "/cs/home/{}/.spy".format(os.environ["USER"])
         importlib.reload(syncopy)
         cluster = esi_cluster_setup(partition="8GBXS", n_jobs=10,
-                                    timeout=60, interactive=False,
+                                    timeout=360, interactive=False,
                                     start_client=False)
     else:
         cluster = dd.LocalCluster(n_workers=2)

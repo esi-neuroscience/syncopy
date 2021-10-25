@@ -430,6 +430,7 @@ class TestAnalogData():
                     cfg = StructDict(kwdict)
                     # data selection via class-method + `Selector` instance for indexing
                     selected = dummy.selectdata(**kwdict)
+                    time.sleep(0.05)
                     selector = Selector(dummy, kwdict)
                     idx[chanIdx] = selector.channel
                     for tk, trialno in enumerate(selector.trials):
@@ -442,6 +443,7 @@ class TestAnalogData():
                     selectdata(cfg)
                     assert np.array_equal(cfg.out.channel, selected.channel)
                     assert np.array_equal(cfg.out.data, selected.data)
+                    time.sleep(0.05)
 
     @skip_without_acme
     def test_parallel(self, testcluster):
@@ -471,7 +473,7 @@ class TestSpectralData():
     data2 = np.moveaxis(data, 0, -1)
     samplerate = 2.0
 
-    def test_empty(self):
+    def test_sd_empty(self):
         dummy = SpectralData()
         assert len(dummy.cfg) == 0
         assert dummy.dimord == None
@@ -480,7 +482,7 @@ class TestSpectralData():
         with pytest.raises(SPYTypeError):
             SpectralData({})
 
-    def test_nparray(self):
+    def test_sd_nparray(self):
         dummy = SpectralData(self.data)
         assert dummy.dimord == SpectralData._defaultDimord
         assert dummy.channel.size == self.nc
@@ -494,7 +496,7 @@ class TestSpectralData():
         with pytest.raises(SPYValueError):
             SpectralData(data=np.ones((3,)))
 
-    def test_trialretrieval(self):
+    def test_sd_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order
         dummy = SpectralData(self.data, trialdefinition=self.trl)
         for trlno, start in enumerate(range(0, self.ns, 5)):
@@ -525,7 +527,7 @@ class TestSpectralData():
         #     del mm, dummy
         del dummy
 
-    def test_saveload(self):
+    def test_sd_saveload(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "dummy")
 
@@ -573,7 +575,7 @@ class TestSpectralData():
             del dummy, dummy2
 
     # test data-selection via class method
-    def test_dataselection(self):
+    def test_sd_dataselection(self):
         dummy = SpectralData(data=self.data,
                              trialdefinition=self.trl,
                              samplerate=self.samplerate,
@@ -639,6 +641,7 @@ class TestSpectralData():
                             cfg = StructDict(kwdict)
                             # data selection via class-method + `Selector` instance for indexing
                             selected = dummy.selectdata(**kwdict)
+                            time.sleep(0.05)
                             selector = Selector(dummy, kwdict)
                             idx[chanIdx] = selector.channel
                             idx[freqIdx] = selector.freq
@@ -656,12 +659,13 @@ class TestSpectralData():
                             assert np.array_equal(cfg.out.freq, selected.freq)
                             assert np.array_equal(cfg.out.taper, selected.taper)
                             assert np.array_equal(cfg.out.data, selected.data)
+                            time.sleep(0.05)
 
     @skip_without_acme
-    def test_parallel(self, testcluster):
+    def test_sd_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
-        par_tests = ["test_dataselection"]
+        par_tests = ["test_sd_dataselection"]
         for test in par_tests:
             getattr(self, test)()
         client.close()
