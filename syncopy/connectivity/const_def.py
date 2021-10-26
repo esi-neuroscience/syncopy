@@ -19,3 +19,11 @@ availableMethods = ("csd", "corr")
 #: general, method agnostic, parameters of :func:`~syncopy.connectivity_analysis`
 generalParameters = ("method", "output", "keeptrials",
                      "foi", "foilim", "polyremoval", "out")
+
+
+# auxiliary functions
+def nextpow2(number):
+    n = 1
+    while n < number:
+        n *= 2
+    return n
