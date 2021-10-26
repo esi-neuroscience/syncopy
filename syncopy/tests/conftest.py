@@ -22,7 +22,7 @@ if __acme__:
     if is_slurm_node():
         os.environ["SPYTMPDIR"] = "/cs/home/{}/.spy".format(os.environ["USER"])
         importlib.reload(syncopy)
-        cluster = esi_cluster_setup(partition="8GBXS", n_jobs=10,
+        cluster = esi_cluster_setup(partition="8GBS", n_jobs=10,
                                     timeout=360, interactive=False,
                                     start_client=False)
     else:

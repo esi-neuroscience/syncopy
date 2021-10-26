@@ -26,7 +26,7 @@ if sys.platform == "win32":
 # Local imports
 from .tools import get_defaults
 from syncopy import __storage__, __acme__, __path__
-from syncopy.shared.errors import SPYValueError, SPYWarning
+from syncopy.shared.errors import SPYValueError, SPYWarning, SPYParallelError
 if __acme__:
     from acme import ParallelMap
     import dask.distributed as dd
@@ -660,13 +660,16 @@ class ComputationalRoutine(ABC):
             # Check if trials actually fit into memory before we start computation
             client = self.pmap.daemon.client
             if isinstance(client.cluster, (dd.LocalCluster, dj.SLURMCluster)):
-                workerMem = max(w["memory_limit"] for w in client.cluster.scheduler_info["workers"].values())
-                if self.chunkMem >= mem_thresh * workerMem:
+                workerMem = [w["memory_limit"] for w in client.cluster.scheduler_info["workers"].values()]
+                if len(workerMem) == 0:
+                    raise SPYParallelError("no online workers found", client=client)
+                workerMemMax = max(workerMem)
+                if self.chunkMem >= mem_thresh * workerMemMax:
                     self.chunkMem /= 1024**3
-                    workerMem /= 1000**3
+                    workerMemMax /= 1000**3
                     msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
                         "worker memory ({1:2.2f} GB) currently not supported"
-                    raise NotImplementedError(msg.format(self.chunkMem, workerMem))
+                    raise NotImplementedError(msg.format(self.chunkMem, workerMemMax))
             else:
                 msg = "`ComputationalRoutine` only supports `LocalCluster` and " +\
                     "`SLURMCluster` dask cluster objects. Proceed with caution. "
