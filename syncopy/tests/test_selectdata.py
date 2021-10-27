@@ -10,6 +10,7 @@ import inspect
 
 # Local imports
 import syncopy.datatype as spd
+from syncopy.tests.misc import flush_local_cluster
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.datatype.base_data import Selector
 from syncopy.datatype.methods.selectdata import selectdata
@@ -733,6 +734,7 @@ class TestSelector():
                      if (inspect.ismethod(getattr(self, attr)) and attr != "test_parallel")]
         for test in all_tests:
             getattr(self, test)()
+            flush_local_cluster(testcluster)
         client.close()
 
 

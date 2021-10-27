@@ -19,7 +19,7 @@ if __acme__:
     import dask.distributed as dd
 
 # Local imports
-from syncopy.tests.misc import generate_artificial_data
+from syncopy.tests.misc import generate_artificial_data, flush_local_cluster
 from syncopy.specest.freqanalysis import freqanalysis
 from syncopy.shared.errors import SPYValueError
 from syncopy.datatype.methods.padding import _nextpow2
@@ -30,20 +30,6 @@ from syncopy.shared.tools import StructDict, get_defaults
 # Decorator to decide whether or not to run dask-related tests
 skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 
-
-# Workaround: close and re-open `LocalCluster` to free up memory accumulated over tests
-def _flush_local_cluster():
-    if __acme__:
-        try:
-            client = dd.get_client()
-            if isinstance(client.cluster, dd.LocalCluster):
-                cluster = client.cluster
-                client.close()
-                del client
-                client = dd.Client(cluster)
-        except ValueError:
-            pass
-    return
 
 # Local helper for constructing TF testing signals
 def _make_tf_signal(nChannels, nTrials, seed, fadeIn=None, fadeOut=None):
@@ -166,15 +152,13 @@ class TestMTMFFT():
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
                                 output="fourier", select=select)
             assert "complex" in spec.data.dtype.name
-            _flush_local_cluster()
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
                                 output="abs", select=select)
             assert "float" in spec.data.dtype.name
-            _flush_local_cluster()
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
                                 output="pow", select=select)
             assert "float" in spec.data.dtype.name
-            _flush_local_cluster()
+
 
     def test_allocout(self):
         # call `freqanalysis` w/pre-allocated output object
@@ -185,7 +169,6 @@ class TestMTMFFT():
         assert out.freq.size == self.fband.size + 1
         assert np.allclose([0] + self.fband.tolist(), out.freq)
         assert out.channel.size == self.nChannels
-        _flush_local_cluster()
 
         # build `cfg` object for calling
         cfg = StructDict()
@@ -201,7 +184,6 @@ class TestMTMFFT():
         assert len(cfg.out.time[0]) == 1
         assert np.all(cfg.out.sampleinfo == [0, 1])
         assert cfg.out.data.shape[0] == 1  # ensure trial-count == 1
-        _flush_local_cluster()
 
         # keep trials but throw away tapers
         out = SpectralData(dimord=SpectralData._defaultDimord)
@@ -209,7 +191,6 @@ class TestMTMFFT():
                      keeptapers=False, output="pow", out=out)
         assert out.sampleinfo.shape == (self.nTrials, 2)
         assert out.taper.size == 1
-        _flush_local_cluster()
 
         # re-use `cfg` from above and additionally throw away `tapers`
         cfg.dataset = self.adata
@@ -219,7 +200,6 @@ class TestMTMFFT():
         cfg.keeptapers = False
         freqanalysis(cfg)
         assert cfg.out.taper.size == 1
-        _flush_local_cluster()
 
     def test_solution(self):
         # ensure channel-specific frequencies are identified correctly
@@ -227,7 +207,6 @@ class TestMTMFFT():
             sel = Selector(self.adata, select)
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
                                 output="pow", select=select)
-            _flush_local_cluster()
 
             chanList = np.arange(self.nChannels)[sel.channel]
             amps = np.empty((len(sel.trials) * len(chanList),))
@@ -261,14 +240,12 @@ class TestMTMFFT():
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
                                 foi=ftmp, select=select)
             assert np.all(spec.freq == foi)
-            _flush_local_cluster()
 
             # unsorted, duplicate entries in `foi` - result must stay the same
             ftmp = np.hstack([foi, np.full(20, foi[0])])
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
                                 foi=ftmp, select=select)
             assert np.all(spec.freq == foi)
-            _flush_local_cluster()
 
     def test_dpss(self):
 
@@ -281,14 +258,12 @@ class TestMTMFFT():
                                 taper="dpss", output="pow", select=select)
             assert spec.taper.size == 1
             assert spec.channel.size == len(chanList)
-            _flush_local_cluster()
 
             # specify tapers
             spec = freqanalysis(self.adata, method="mtmfft", taper="dpss",
                                 tapsmofrq=7, keeptapers=True, select=select)
             assert spec.taper.size == 7
             assert spec.channel.size == len(chanList)
-            _flush_local_cluster()
 
         # non-equidistant data w/multiple tapers
         artdata = generate_artificial_data(nTrials=5, nChannels=16,
@@ -315,7 +290,6 @@ class TestMTMFFT():
             sel = Selector(artdata, select)
             cfg.select = select
             spec = freqanalysis(cfg, artdata)
-            _flush_local_cluster()
 
             # ensure correctness of padding (respecting min. trial length + time-selection)
             if select is None:
@@ -351,7 +325,6 @@ class TestMTMFFT():
             cfg.select = select
 
             spec = freqanalysis(cfg)
-            _flush_local_cluster()
 
             # ensure correctness of padding (respecting min. trial length + time-selection)
             if select is None:
@@ -389,7 +362,6 @@ class TestMTMFFT():
             cfg.select = select
 
             spec = freqanalysis(cfg)
-            _flush_local_cluster()
 
             # ensure correctness of padding (respecting min. trial length + time-selection)
             if select is None:
@@ -436,7 +408,7 @@ class TestMTMFFT():
         all_tests.remove("test_vdata")
         for test in all_tests:
             getattr(self, test)()
-            _flush_local_cluster()
+            flush_local_cluster(testcluster)
 
         # now create uniform `cfg` for remaining SLURM tests
         cfg = StructDict()
@@ -459,7 +431,6 @@ class TestMTMFFT():
             spec = freqanalysis(artdata, cfg)
             assert spec.data.is_virtual
             assert len(spec.data.virtual_sources()) == fileCount[k]
-            _flush_local_cluster()
 
         # non-equidistant trial spacing
         cfg.keeptapers = False
@@ -476,7 +447,6 @@ class TestMTMFFT():
             assert spec.freq.size == freqs.size
             assert np.allclose(spec.freq, freqs)
             assert spec.taper.size == 1
-            _flush_local_cluster()
 
         # equidistant trial spacing, keep tapers
         cfg.output = "abs"
@@ -486,7 +456,6 @@ class TestMTMFFT():
         for k, chan_per_worker in enumerate([None, chanPerWrkr]):
             spec = freqanalysis(artdata, cfg)
             assert spec.taper.size > 1
-            _flush_local_cluster()
 
         # non-equidistant, overlapping trial spacing, throw away trials and tapers
         cfg.keeptapers = False
@@ -496,7 +465,6 @@ class TestMTMFFT():
                                           inmemory=False, equidistant=False,
                                           overlapping=True)
         spec = freqanalysis(artdata, cfg)
-        _flush_local_cluster()
         timeAxis = artdata.dimord.index("time")
         maxtrlno = np.diff(artdata.sampleinfo).argmax()
         tmp = padding(artdata.trials[maxtrlno], "zero", spec.cfg.pad,
@@ -549,15 +517,12 @@ class TestMTMConvol():
             cfg.select = select
             cfg.output = "fourier"
             tfSpec = freqanalysis(cfg, self.tfData)
-            _flush_local_cluster()
             assert "complex" in tfSpec.data.dtype.name
             cfg.output = "abs"
             tfSpec = freqanalysis(cfg, self.tfData)
-            _flush_local_cluster()
             assert "float" in tfSpec.data.dtype.name
             cfg.output = "pow"
             tfSpec = freqanalysis(cfg, self.tfData)
-            _flush_local_cluster()
             assert "float" in tfSpec.data.dtype.name
 
     def test_tf_allocout(self):
@@ -569,7 +534,6 @@ class TestMTMConvol():
         assert out.taper.size == 1
         assert out.freq.size == self.tfData.samplerate / 2 + 1
         assert out.channel.size == self.nChannels
-        _flush_local_cluster()
 
         # build `cfg` object for calling
         cfg = StructDict()
@@ -588,7 +552,6 @@ class TestMTMConvol():
         assert len(cfg.out.time[0]) == trLen
         assert np.all(cfg.out.sampleinfo == [0, trLen])
         assert cfg.out.data.shape[0] == trLen  # ensure trial-count == 1
-        _flush_local_cluster()
 
         # keep trials but throw away tapers
         out = SpectralData(dimord=SpectralData._defaultDimord)
@@ -597,7 +560,6 @@ class TestMTMConvol():
                      out=out)
         assert out.sampleinfo.shape == (self.nTrials, 2)
         assert out.taper.size == 1
-        _flush_local_cluster()
 
         # re-use `cfg` from above and additionally throw away `tapers`
         cfg.dataset = self.tfData
@@ -607,7 +569,6 @@ class TestMTMConvol():
         cfg.output = "pow"
         freqanalysis(cfg)
         assert cfg.out.taper.size == 1
-        _flush_local_cluster()
 
     def test_tf_solution(self):
         # Compute "full" non-overlapping TF spectrum, i.e., center analysis windows
@@ -633,14 +594,11 @@ class TestMTMConvol():
             # Compute TF objects w\w/o`foi`/`foilim`
             cfg.select = select
             tfSpec = freqanalysis(cfg, self.tfData)
-            _flush_local_cluster()
             cfg.foi = maxFreqs
             tfSpecFoi = freqanalysis(cfg, self.tfData)
-            _flush_local_cluster()
             cfg.foi = None
             cfg.foilim = [maxFreqs.min(), maxFreqs.max()]
             tfSpecFoiLim = freqanalysis(cfg, self.tfData)
-            _flush_local_cluster()
             cfg.foilim = None
 
             # Ensure TF objects contain expected/requested frequencies
@@ -741,7 +699,6 @@ class TestMTMConvol():
                     tStep = winsize - toi * winsize
                     timeArr = np.arange(tStart, tStop, tStep)
                     assert np.allclose(timeArr, tfSpec.time[0])
-                    _flush_local_cluster()
 
             # Test window-centroids specified as time-point arrays
             cfg.t_ftimwin = 0.05
@@ -750,13 +707,11 @@ class TestMTMConvol():
                 tfSpec = freqanalysis(cfg, self.tfData)
                 assert np.allclose(cfg.toi, tfSpec.time[0])
                 assert tfSpec.samplerate == 1/(toi[1] - toi[0])
-                _flush_local_cluster()
 
             # Unevenly sampled array: timing currently in lala-land, but sizes must match
             cfg.toi = [-5, 3, 10]
             tfSpec = freqanalysis(cfg, self.tfData)
             assert tfSpec.time[0].size == len(cfg.toi)
-            _flush_local_cluster()
 
         # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
         # to not overflow memory here); same for ``toi = 1.0```
@@ -767,7 +722,6 @@ class TestMTMConvol():
         cfg.toi = "all"
         cfg.t_ftimwin = 0.05
         tfSpec = freqanalysis(cfg, self.tfData)
-        _flush_local_cluster()
         assert tfSpec.taper.size > 1
         dt = 1/self.tfData.samplerate
         timeArr = np.arange(cfg.select["toilim"][0], cfg.select["toilim"][1] + dt, dt)
@@ -775,7 +729,6 @@ class TestMTMConvol():
         cfg.toi = 1.0
         tfSpec = freqanalysis(cfg, self.tfData)
         assert np.allclose(tfSpec.time[0], timeArr)
-        _flush_local_cluster()
 
         # Use a window-size larger than the pre-selected interval defined above
         cfg.t_ftimwin = 5.0
@@ -814,7 +767,6 @@ class TestMTMConvol():
         artdata = generate_artificial_data(nTrials=5, nChannels=16,
                                            equidistant=True, inmemory=False)
         tfSpec = freqanalysis(artdata, **cfg)
-        _flush_local_cluster()
         assert tfSpec.taper.size > 1
         for tk, origTime in enumerate(artdata.time):
             assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
@@ -824,7 +776,6 @@ class TestMTMConvol():
         artdata = generate_artificial_data(nTrials=5, nChannels=4,
                                            equidistant=True, inmemory=False)
         tfSpec = freqanalysis(artdata, **cfg)
-        _flush_local_cluster()
         for tk, origTime in enumerate(artdata.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
@@ -833,13 +784,11 @@ class TestMTMConvol():
         artdata = generate_artificial_data(nTrials=5, nChannels=8,
                                            equidistant=False, inmemory=False)
         tfSpec = freqanalysis(artdata, **cfg)
-        _flush_local_cluster()
         assert tfSpec.taper.size > 1
         for tk, origTime in enumerate(artdata.time):
             assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
         cfg.toi = "all"
         tfSpec = freqanalysis(artdata, **cfg)
-        _flush_local_cluster()
         for tk, origTime in enumerate(artdata.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
@@ -849,13 +798,11 @@ class TestMTMConvol():
                                             equidistant=False, inmemory=False,
                                             dimord=AnalogData._defaultDimord[::-1])
         tfSpec = freqanalysis(cfg)
-        _flush_local_cluster()
         assert tfSpec.taper.size > 1
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
         cfg.toi = "all"
         tfSpec = freqanalysis(cfg)
-        _flush_local_cluster()
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
@@ -866,13 +813,11 @@ class TestMTMConvol():
                                            dimord=AnalogData._defaultDimord[::-1],
                                            overlapping=True)
         tfSpec = freqanalysis(cfg)
-        _flush_local_cluster()
         assert tfSpec.taper.size > 1
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
         cfg.toi = "all"
         tfSpec = freqanalysis(cfg)
-        _flush_local_cluster()
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
@@ -884,7 +829,7 @@ class TestMTMConvol():
                      if (inspect.ismethod(getattr(self, attr)) and attr != "test_tf_parallel")]
         for test in all_tests:
             getattr(self, test)()
-            _flush_local_cluster()
+            flush_local_cluster(testcluster)
 
         # now create uniform `cfg` for remaining SLURM tests
         cfg = StructDict()
@@ -908,7 +853,6 @@ class TestMTMConvol():
             tfSpec = freqanalysis(artdata, cfg)
             assert tfSpec.data.is_virtual
             assert len(tfSpec.data.virtual_sources()) == fileCount[k]
-            _flush_local_cluster()
 
         # non-equidistant trial spacing
         cfg.keeptapers = False
@@ -919,7 +863,6 @@ class TestMTMConvol():
             tfSpec = freqanalysis(artdata, cfg)
             assert np.array_equal(tfSpec.freq, expectedFreqs)
             assert tfSpec.taper.size == 1
-            _flush_local_cluster()
 
         # equidistant trial spacing, keep tapers
         cfg.output = "abs"
@@ -931,7 +874,6 @@ class TestMTMConvol():
         for chan_per_worker in enumerate([None, chanPerWrkr]):
             tfSpec = freqanalysis(artdata, cfg)
             assert tfSpec.taper.size > 1
-            _flush_local_cluster()
 
         # overlapping trial spacing, throw away trials and tapers
         cfg.keeptapers = False
@@ -946,7 +888,6 @@ class TestMTMConvol():
         assert tfSpec.taper.size == 1
         assert np.array_equal(np.unique(np.floor(artdata.time[0])), tfSpec.time[0])
         assert tfSpec.data.shape == (tfSpec.time[0].size, 1, expectedFreqs.size, self.nChannels)
-        _flush_local_cluster()
 
         client.close()
 
@@ -1009,14 +950,11 @@ class TestWavelet():
             # Compute TF objects w\w/o`foi`/`foilim`
             cfg.select = select
             tfSpec = freqanalysis(cfg, self.tfData)
-            _flush_local_cluster()
             cfg.foi = maxFreqs
             tfSpecFoi = freqanalysis(cfg, self.tfData)
-            _flush_local_cluster()
             cfg.foi = None
             cfg.foilim = [maxFreqs.min(), maxFreqs.max()]
             tfSpecFoiLim = freqanalysis(cfg, self.tfData)
-            _flush_local_cluster()
             cfg.foilim = None
 
             # Ensure TF objects contain expected/requested frequencies
@@ -1096,7 +1034,6 @@ class TestWavelet():
         cfg.wav = "Morlet"
         cfg.output = "pow"
         cfg.keeptrials = False
-        _flush_local_cluster()
 
         # Test time-point arrays comprising onset, purely pre-onset, purely after
         # onset and non-unit spacing
@@ -1112,7 +1049,6 @@ class TestWavelet():
                 tfSpec = freqanalysis(cfg, self.tfData)
                 assert np.allclose(cfg.toi, tfSpec.time[0])
                 assert tfSpec.samplerate == 1/(toi[1] - toi[0])
-                _flush_local_cluster()
 
         # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
         # to not overflow memory here)
@@ -1122,7 +1058,6 @@ class TestWavelet():
         dt = 1/self.tfData.samplerate
         timeArr = np.arange(cfg.select["toilim"][0], cfg.select["toilim"][1] + dt, dt)
         assert np.allclose(tfSpec.time[0], timeArr)
-        _flush_local_cluster()
 
         # Use `toi` array outside trial boundaries
         cfg.toi = self.tfData.time[0][:10]
@@ -1144,13 +1079,11 @@ class TestWavelet():
         cfg.wav = "Morlet"
         cfg.output = "pow"
         cfg.toi = "all"
-        _flush_local_cluster()
 
         # start harmless: equidistant trials w/multiple tapers
         artdata = generate_artificial_data(nTrials=5, nChannels=16,
                                            equidistant=True, inmemory=False)
         tfSpec = freqanalysis(artdata, **cfg)
-        _flush_local_cluster()
         for tk, origTime in enumerate(artdata.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
@@ -1158,7 +1091,6 @@ class TestWavelet():
         artdata = generate_artificial_data(nTrials=5, nChannels=16,
                                            equidistant=False, inmemory=False)
         tfSpec = freqanalysis(artdata, **cfg)
-        _flush_local_cluster()
         for tk, origTime in enumerate(artdata.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
@@ -1167,7 +1099,6 @@ class TestWavelet():
                                             equidistant=False, inmemory=False,
                                             dimord=AnalogData._defaultDimord[::-1])
         tfSpec = freqanalysis(cfg)
-        _flush_local_cluster()
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
@@ -1177,7 +1108,6 @@ class TestWavelet():
                                            dimord=AnalogData._defaultDimord[::-1],
                                            overlapping=True)
         tfSpec = freqanalysis(cfg)
-        _flush_local_cluster()
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
@@ -1189,7 +1119,7 @@ class TestWavelet():
                      if (inspect.ismethod(getattr(self, attr)) and attr != "test_wav_parallel")]
         for test in all_tests:
             getattr(self, test)()
-            _flush_local_cluster()
+            flush_local_cluster(testcluster)
 
         # now create uniform `cfg` for remaining SLURM tests
         cfg = StructDict()
@@ -1212,7 +1142,6 @@ class TestWavelet():
             tfSpec = freqanalysis(artdata, cfg)
             assert tfSpec.data.is_virtual
             assert len(tfSpec.data.virtual_sources()) == fileCount[k]
-            _flush_local_cluster()
 
         # non-equidistant trial spacing
         cfg.keeptapers = False
@@ -1222,7 +1151,6 @@ class TestWavelet():
             tfSpec = freqanalysis(artdata, cfg)
             assert 1 > tfSpec.freq.min() > 0
             assert tfSpec.freq.max() == (self.tfData.samplerate / 2)
-            _flush_local_cluster()
 
         # equidistant trial spacing
         cfg.output = "abs"
@@ -1230,7 +1158,6 @@ class TestWavelet():
                                            inmemory=False)
         for chan_per_worker in enumerate([None, chanPerWrkr]):
             tfSpec = freqanalysis(artdata, cfg)
-            _flush_local_cluster()
             for tk, origTime in enumerate(artdata.time):
                 assert np.array_equal(origTime, tfSpec.time[tk])
 
@@ -1244,6 +1171,5 @@ class TestWavelet():
         tfSpec = freqanalysis(artdata, cfg)
         assert np.allclose(tfSpec.freq, expectedFreqs)
         assert tfSpec.data.shape == (tfSpec.time[0].size, 1, expectedFreqs.size, self.nChannels)
-        _flush_local_cluster()
 
         client.close()

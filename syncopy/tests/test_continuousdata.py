@@ -18,7 +18,7 @@ from syncopy.datatype.base_data import VirtualData, Selector
 from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.tools import StructDict
-from syncopy.tests.misc import generate_artificial_data, construct_spy_filename
+from syncopy.tests.misc import flush_local_cluster, generate_artificial_data, construct_spy_filename
 from syncopy import __acme__
 if __acme__:
     import dask.distributed as dd
@@ -455,6 +455,7 @@ class TestAnalogData():
                      "test_dataselection"]
         for test in par_tests:
             getattr(self, test)()
+            flush_local_cluster(testcluster)
         client.close()
 
 
@@ -668,4 +669,5 @@ class TestSpectralData():
         par_tests = ["test_sd_dataselection"]
         for test in par_tests:
             getattr(self, test)()
+            flush_local_cluster(testcluster)
         client.close()

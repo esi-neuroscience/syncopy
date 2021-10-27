@@ -7,6 +7,7 @@
 import os
 import sys
 import subprocess
+import getpass
 import numpy as np
 from hashlib import blake2b, sha1
 from importlib.metadata import version, PackageNotFoundError
@@ -59,10 +60,14 @@ except ImportError:
     __plt__ = False
 
 # Set package-wide temp directory
+csHome = "/cs/home/{}".format(getpass.getuser())
 if os.environ.get("SPYTMPDIR"):
     __storage__ = os.path.abspath(os.path.expanduser(os.environ["SPYTMPDIR"]))
 else:
-    __storage__ = os.path.join(os.path.expanduser("~"), ".spy")
+    if os.path.exists(csHome):
+        __storage__ = os.path.join(csHome, ".spy")
+    else:
+        __storage__ = os.path.join(os.path.expanduser("~"), ".spy")
 
 # Set upper bound for temp directory size (in GB)
 __storagelimit__ = 10

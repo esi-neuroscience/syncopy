@@ -17,7 +17,7 @@ from syncopy.shared.tools import StructDict
 from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.io import save, load
 from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.tests.misc import construct_spy_filename
+from syncopy.tests.misc import construct_spy_filename, flush_local_cluster
 from syncopy import __acme__
 if __acme__:
     import dask.distributed as dd
@@ -222,6 +222,7 @@ class TestSpikeData():
         par_tests = ["test_dataselection"]
         for test in par_tests:
             getattr(self, test)()
+            flush_local_cluster(testcluster)
         client.close()
 
 class TestEventData():
@@ -244,7 +245,7 @@ class TestEventData():
 
     adata = np.arange(1, nc * ns + 1).reshape(ns, nc)
 
-    def test_empty(self):
+    def test_ed_empty(self):
         dummy = EventData()
         assert len(dummy.cfg) == 0
         assert dummy.dimord == None
@@ -253,7 +254,7 @@ class TestEventData():
         with pytest.raises(SPYTypeError):
             EventData({})
 
-    def test_nparray(self):
+    def test_ed_nparray(self):
         dummy = EventData(self.data)
         assert dummy.dimord == ["sample", "eventid"]
         assert dummy.eventid.size == self.num_evt
@@ -267,7 +268,7 @@ class TestEventData():
         with pytest.raises(SPYValueError):
             EventData(np.ones((3,)))
 
-    def test_trialretrieval(self):
+    def test_ed_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order
         dummy = EventData(self.data, trialdefinition=self.trl)
         smp = self.data[:, 0]
@@ -287,7 +288,7 @@ class TestEventData():
             trl_ref = self.data2[idx, ...]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
-    def test_saveload(self):
+    def test_ed_saveload(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "dummy")
 
@@ -338,7 +339,7 @@ class TestEventData():
             del dummy, dummy2
             time.sleep(0.1)
 
-    def test_trialsetting(self):
+    def test_ed_trialsetting(self):
 
         # Create sampleinfo w/ EventData vs. AnalogData samplerate
         sr_e = 2
@@ -471,7 +472,7 @@ class TestEventData():
             ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
 
     # test data-selection via class method
-    def test_dataselection(self):
+    def test_ed_dataselection(self):
         dummy = EventData(data=self.data,
                           trialdefinition=self.trl,
                           samplerate=2.0)
@@ -525,10 +526,11 @@ class TestEventData():
                     assert np.array_equal(cfg.out.data, selected.data)
 
     @skip_without_acme
-    def test_parallel(self, testcluster):
+    def test_ed_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
-        par_tests = ["test_dataselection"]
+        par_tests = ["test_ed_dataselection"]
         for test in par_tests:
             getattr(self, test)()
+            flush_local_cluster(testcluster)
         client.close()
