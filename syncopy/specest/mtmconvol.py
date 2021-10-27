@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Time-frequency analysis based on a short-time Fourier transform
-# 
+#
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -15,7 +15,7 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
     (Multi-)tapered short time fast Fourier transform. Returns
     full complex Fourier transform for each taper.
     Multi-tapering only supported with Slepian windwows (`taper="dpss"`).
-    
+
     Parameters
     ----------
     data_arr : (N,) :class:`numpy.ndarray`
@@ -32,28 +32,27 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
         Taper function to use, one of scipy.signal.windows
         Set to `None` for no tapering.
     taperopt : dict
-        Additional keyword arguments passed to the `taper` function. 
-        For multi-tapering with `taper='dpss'` set the keys 
+        Additional keyword arguments passed to the `taper` function.
+        For multi-tapering with `taper='dpss'` set the keys
         `'Kmax'` and `'NW'`.
-        For further details, please refer to the 
+        For further details, please refer to the
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
     boundary : bool
-        Wether or not to auto-pad the signal such that a window is centered on each 
+        Wether or not to auto-pad the signal such that a window is centered on each
         sample. If set to `False` half the window size (`nperseg`) will be lost
         on each side of the signal.
     padded : bool
         Additional padding in case `noverlap != nperseg - 1` to fit an integer number
         of windows.
-        
+
     Returns
     -------
-
     ftr : 4D :class:`numpy.ndarray`
          The Fourier transforms, complex output has shape:
          (nTime, nTapers x nFreq x nChannels)
     freqs : 1D :class:`numpy.ndarray`
          Array of Fourier frequencies
-    
+
     Notes
     -----
 
@@ -62,10 +61,10 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
 
     Sxx = np.real(ftr * ftr.conj()).mean(axis=0)
 
-    The short time FFT result is normalized such that 
-    this yields the squared harmonic amplitudes.          
+    The short time FFT result is normalized such that
+    this yields the squared harmonic amplitudes.
     '''
-    
+
     # attach dummy channel axis in case only a
     # single signal/channel is the input
     if data_arr.ndim < 2:
@@ -73,28 +72,28 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
 
     nSamples = data_arr.shape[0]
     nChannels = data_arr.shape[1]
-    
+
     # FFT frequencies from the window size
-    freqs = np.fft.rfftfreq(nperseg, 1 / samplerate)    
+    freqs = np.fft.rfftfreq(nperseg, 1 / samplerate)
     nFreq = freqs.size
 
     taper_func = getattr(signal.windows,  taper)
-    
+
     # this parameter mitigates the sum-to-zero problem for the odd slepians
     # as signal.stft has hardcoded scaling='spectrum'
     # -> normalizes with win.sum() :/
     # see also https://github.com/scipy/scipy/issues/14740
     if taper == 'dpss':
         taperopt['sym']  = False
-        
+
     # only truly 2d for multi-taper "dpss"
     windows = np.atleast_2d(taper_func(nperseg, **taperopt))
 
     # Slepian normalization
     if taper == 'dpss':
         windows = windows * np.sqrt(taperopt.get('Kmax', 1)) / np.sqrt(nperseg)
-        
-    # number of time points in the output    
+
+    # number of time points in the output
     if boundary is None:
         # no padding: we loose half the window on each side
         nTime = int(np.ceil(nSamples / (nperseg - noverlap))) - nperseg
@@ -104,24 +103,24 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
         nTime = int(np.ceil(nSamples / (nperseg - noverlap)))
 
     # Short time Fourier transforms (nTime x nTapers x nFreq x nChannels)
-    ftr = np.zeros((nTime, windows.shape[0], nFreq, nChannels), dtype='complex128')
+    ftr = np.zeros((nTime, windows.shape[0], nFreq, nChannels), dtype='complex64')
 
     for taperIdx, win in enumerate(windows):
-        # pxx has shape (nFreq, nChannels, nTime)        
-        freq, _, pxx = signal.stft(data_arr, samplerate, win,
+        # pxx has shape (nFreq, nChannels, nTime)
+        _, _, pxx = signal.stft(data_arr, samplerate, win,
                                    nperseg, noverlap, boundary=boundary,
                                    padded=padded, axis=0)
 
         if taper == 'dpss':
             # reverse scipy window normalization
             pxx = win.sum() * pxx
-            
+
         # normalization for half the spectrum/power
-        ftr[:, taperIdx, ...] =  2 * pxx.transpose(2, 0, 1)[:nTime, ...]  
+        ftr[:, taperIdx, ...] =  2 * pxx.transpose(2, 0, 1)[:nTime, ...]
 
     return ftr, freqs
-    
 
 
 
-    
+
+

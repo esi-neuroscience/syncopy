@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Simple script for testing Syncopy w/o pip-installing it
 #
 
@@ -21,6 +21,6 @@ from syncopy.tests.misc import generate_artificial_data
 
 # Prepare code to be executed using, e.g., iPython's `%run` magic command
 if __name__ == "__main__":
-    
+
     # Test stuff within here...
     pass

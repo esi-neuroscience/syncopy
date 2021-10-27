@@ -1,8 +1,7 @@
 exclude .gitignore
 exclude .gitlab-ci.yml
-exclude .gitmodules
+exclude MANIFEST.in
 exclude .readthedocs.yml
 exclude .travis.yml
 recursive-exclude .github *
 recursive-exclude doc *
-recursive-include syncopy *.py
