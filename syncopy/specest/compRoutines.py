@@ -8,7 +8,7 @@
 # `method_kwargs` gets passed as is to the underlying
 # backend, so that the following calling signature
 # is valid for all backend methods: method(data, **method_kwargs)
-# 
+#
 # To transparently trace the respective parameter names
 # all ComputationalRoutines have two additional class constants:
 #
@@ -53,17 +53,17 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
               polyremoval=None, output_fmt="pow",
               noCompute=False, chunkShape=None,
               method_kwargs=None):
-    
+
     """
     Compute (multi-)tapered Fourier transform of multi-channel time series data
-    
+
     Parameters
     ----------
     trl_dat : 2D :class:`numpy.ndarray`
-        Uniformly sampled multi-channel time-series 
+        Uniformly sampled multi-channel time-series
     foi : 1D :class:`numpy.ndarray`
         Frequencies of interest  (Hz) for output. If desired frequencies
-        cannot be matched exactly the closest possible frequencies (respecting 
+        cannot be matched exactly the closest possible frequencies (respecting
         data length and padding) are used.
     timeAxis : int
         Index of running time axis in `trl_dat` (0 or 1)
@@ -71,81 +71,79 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
         The amount of spectral smoothing through  multi-tapering (Hz) for Slepian
         tapers (`taper`="dpss").
     keeptapers : bool
-        If `True`, return spectral estimates for each taper. 
-        Otherwise power spectrum is averaged across tapers, 
+        If `True`, return spectral estimates for each taper.
+        Otherwise power spectrum is averaged across tapers,
         only valid spectral estimate if `output_fmt` is `pow`.
     nTaper : int
-        Only effective if `taper='dpss'`. Number of orthogonal tapers to use.    
+        Only effective if ``taper='dpss'``. Number of orthogonal tapers to use.
     tapsmofrq : float
-        Only effective if `taper='dpss'`. The amount of spectral smoothing through  
-        multi-tapering (Hz).  Note that smoothing frequency specifications are one-sided, 
+        Only effective if ``taper='dpss'``. The amount of spectral smoothing through
+        multi-tapering (Hz).  Note that smoothing frequency specifications are one-sided,
         i.e., 4 Hz smoothing means plus-minus 4 Hz, i.e., a 8 Hz smoothing box.
     pad : str
         Padding mode; one of `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
         See :func:`syncopy.padding` for more information.
     padtype : str
-        Values to be used for padding. Can be 'zero', 'nan', 'mean', 
-        'localmean', 'edge' or 'mirror'. See :func:`syncopy.padding` for 
+        Values to be used for padding. Can be 'zero', 'nan', 'mean',
+        'localmean', 'edge' or 'mirror'. See :func:`syncopy.padding` for
         more information.
     padlength : None, bool or positive scalar
-        Number of samples to pad to data (if `pad` is 'absolute' or 'relative'). 
+        Number of samples to pad to data (if `pad` is 'absolute' or 'relative').
         See :func:`syncopy.padding` for more information.
     polyremoval : int or None
         **FIXME: Not implemented yet**
-        Order of polynomial used for de-trending data in the time domain prior 
-        to spectral analysis. A value of 0 corresponds to subtracting the mean 
-        ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the 
-        least squares fit of a linear polynomial), ``polyremoval = N`` for `N > 1` 
-        subtracts a polynomial of order `N` (``N = 2`` quadratic, ``N = 3`` cubic 
-        etc.). If `polyremoval` is `None`, no de-trending is performed. 
+        Order of polynomial used for de-trending data in the time domain prior
+        to spectral analysis. A value of 0 corresponds to subtracting the mean
+        ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
+        least squares fit of a linear polynomial), ``polyremoval = N`` for `N > 1`
+        subtracts a polynomial of order `N` (``N = 2`` quadratic, ``N = 3`` cubic
+        etc.). If `polyremoval` is `None`, no de-trending is performed.
     output_fmt : str
-        Output of spectral estimation; one of :data:`~syncopy.specest.freqanalysis.availableOutputs`
+        Output of spectral estimation; one of :data:`~syncopy.specest.const_def.availableOutputs`
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
         array.
     chunkShape : None or tuple
-        If not `None`, represents shape of output `spec` (respecting provided 
+        If not `None`, represents shape of output `spec` (respecting provided
         values of `nTaper`, `keeptapers` etc.)
     method_kwargs : dict
         Keyword arguments passed to :func:`~syncopy.specest.mtmfft.mtmfft`
         controlling the spectral estimation method
-                
-        
+
+
     Returns
     -------
     spec : :class:`numpy.ndarray`
-        Complex or real spectrum of (padded) input data. 
+        Complex or real spectrum of (padded) input data.
 
     Notes
     -----
-    This method is intended to be used as 
-    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`. 
-    Thus, input parameters are presumed to be forwarded from a parent metafunction. 
-    Consequently, this function does **not** perform any error checking and operates 
-    under the assumption that all inputs have been externally validated and cross-checked. 
-    
+    This method is intended to be used as :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+
     The computational heavy lifting in this code is performed by NumPy's reference
-    implementation of the Fast Fourier Transform :func:`numpy.fft.fft`. 
-    
+    implementation of the Fast Fourier Transform :func:`numpy.fft.fft`.
+
     See also
     --------
     syncopy.freqanalysis : parent metafunction
-    MultiTaperFFT : :class:`~syncopy.shared.computational_routine.ComputationalRoutine`
-                    instance that calls this method as 
-                    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    MultiTaperFFT : :class:`~syncopy.shared.computational_routine.ComputationalRoutine` instance
+                     that calls this method as :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     numpy.fft.rfft : NumPy's FFT implementation
     """
 
-    # Slepian window parameters    
+    # Slepian window parameters
     if method_kwargs['taper'] == "dpss":
         taperopt = {"Kmax" : nTaper, "NW" : tapsmofrq}
     else:
         taperopt = {}
 
     method_kwargs['taperopt'] = taperopt
-    
+
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
@@ -155,7 +153,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
     # Symmetric Padding (updates no. of samples)
     if pad:
         dat = padding(dat, padtype, pad=pad, padlength=padlength)
-    nSamples = dat.shape[0]        
+    nSamples = dat.shape[0]
     nChannels = dat.shape[1]
 
     # Determine frequency band and shape of output
@@ -172,7 +170,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
 
     # call actual specest method
     res, _ = mtmfft(dat, **method_kwargs)
-    
+
     # attach time-axis and convert to output_fmt
     spec = res[np.newaxis, :, freq_idx, :]
     spec = spectralConversions[output_fmt](spec)
@@ -187,11 +185,11 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
 class MultiTaperFFT(ComputationalRoutine):
     """
     Compute class that calculates (multi-)tapered Fourier transfrom of :class:`~syncopy.AnalogData` objects
-    
-    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`, 
-    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute 
-    classes and metafunctions. 
-    
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
     See also
     --------
     syncopy.freqanalysis : parent metafunction
@@ -202,8 +200,8 @@ class MultiTaperFFT(ComputationalRoutine):
     method = "mtmfft"
     # 1st argument,the data, gets omitted
     method_keys = list(signature(mtmfft).parameters.keys())[1:]
-    # here also last argument, the method_kwargs, are omitted 
-    cF_keys = list(signature(mtmfft_cF).parameters.keys())[1:-1]         
+    # here also last argument, the method_kwargs, are omitted
+    cF_keys = list(signature(mtmfft_cF).parameters.keys())[1:-1]
 
     def process_metadata(self, data, out):
 
@@ -217,8 +215,8 @@ class MultiTaperFFT(ComputationalRoutine):
             chanSec = slice(None)
             time = np.arange(len(data.trials))
             time = time.reshape((time.size, 1))
-            trl = np.hstack((time, time + 1, 
-                             np.zeros((len(data.trials), 1)), 
+            trl = np.hstack((time, time + 1,
+                             np.zeros((len(data.trials), 1)),
                              np.array(data.trialinfo)))
 
         # Attach constructed trialdef-array (if even necessary)
@@ -250,18 +248,18 @@ def mtmconvol_cF(
         equidistant=True,
         toi=None,
         foi=None,
-        nTaper=1, tapsmofrq=None,  timeAxis=0, 
+        nTaper=1, tapsmofrq=None,  timeAxis=0,
         keeptapers=True, polyremoval=None, output_fmt="pow",
         noCompute=False, chunkShape=None, method_kwargs=None):
     """
     Perform time-frequency analysis on multi-channel time series data using a sliding window FFT
-    
+
     Parameters
     ----------
     trl_dat : 2D :class:`numpy.ndarray`
-        Uniformly sampled multi-channel time-series 
+        Uniformly sampled multi-channel time-series
     soi : list of slices or slice
-        Samples of interest; either a single slice encoding begin- to end-samples 
+        Samples of interest; either a single slice encoding begin- to end-samples
         to perform analysis on (if sliding window centroids are equidistant)
         or list of slices with each slice corresponding to coverage of a single
         analysis window (if spacing between windows is not constant)
@@ -276,71 +274,71 @@ def mtmconvol_cF(
     nperseg : int
         Size of analysis windows (in samples)
     equidistant : bool
-        If `True`, spacing of window-centroids is equidistant. 
+        If `True`, spacing of window-centroids is equidistant.
     toi : 1D :class:`numpy.ndarray` or float or str
         Either time-points to center windows on if `toi` is a :class:`numpy.ndarray`,
         or percentage of overlap between windows if `toi` is a scalar or `"all"`
-        to center windows on all samples in `trl_dat`. Please refer to 
-        :func:`~syncopy.freqanalysis` for further details. **Note**: The value 
-        of `toi` has to agree with provided padding and window settings. See 
-        Notes for more information. 
+        to center windows on all samples in `trl_dat`. Please refer to
+        :func:`~syncopy.freqanalysis` for further details. **Note**: The value
+        of `toi` has to agree with provided padding and window settings. See
+        Notes for more information.
     foi : 1D :class:`numpy.ndarray`
         Frequencies of interest  (Hz) for output. If desired frequencies
-        cannot be matched exactly the closest possible frequencies (respecting 
+        cannot be matched exactly the closest possible frequencies (respecting
         data length and padding) are used.
     nTaper : int
         Number of tapers to use
     timeAxis : int
         Index of running time axis in `trl_dat` (0 or 1)
-    taper : callable 
-        Taper function to use, one of :data:`~syncopy.specest.freqanalysis.availableTapers`
+    taper : callable
+        Taper function to use, one of :data:`~syncopy.specest.const_def.availableTapers`
     taperopt : dict
-        Additional keyword arguments passed to `taper` (see above). For further 
-        details, please refer to the 
+        Additional keyword arguments passed to `taper` (see above). For further
+        details, please refer to the
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
     keeptapers : bool
-        If `True`, results of Fourier transform are preserved for each taper, 
-        otherwise spectrum is averaged across tapers. 
+        If `True`, results of Fourier transform are preserved for each taper,
+        otherwise spectrum is averaged across tapers.
     polyremoval : int
         **FIXME: Not implemented yet**
-        Order of polynomial used for de-trending. A value of 0 corresponds to 
-        subtracting the mean ("de-meaning"), ``polyremoval = 1`` removes linear 
-        trends (subtracting the least squares fit of a linear function), 
-        ``polyremoval = N`` for `N > 1` subtracts a polynomial of order `N` (``N = 2`` 
+        Order of polynomial used for de-trending. A value of 0 corresponds to
+        subtracting the mean ("de-meaning"), ``polyremoval = 1`` removes linear
+        trends (subtracting the least squares fit of a linear function),
+        ``polyremoval = N`` for `N > 1` subtracts a polynomial of order `N` (``N = 2``
         quadratic, ``N = 3`` cubic etc.). If `polyremoval` is `None`, no de-trending
-        is performed. 
+        is performed.
     output_fmt : str
-        Output of spectral estimation; one of :data:`~syncopy.specest.freqanalysis.availableOutputs`
+        Output of spectral estimation; one of :data:`~syncopy.specest.const_def.availableOutputs`
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
         array.
     chunkShape : None or tuple
-        If not `None`, represents shape of output object `spec` (respecting provided 
+        If not `None`, represents shape of output object `spec` (respecting provided
         values of `nTaper`, `keeptapers` etc.)
-    
+
     Returns
     -------
     spec : :class:`numpy.ndarray`
-        Complex or real time-frequency representation of (padded) input data. 
-            
+        Complex or real time-frequency representation of (padded) input data.
+
     Notes
     -----
-    This method is intended to be used as 
+    This method is intended to be used as
     :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`. 
-    Thus, input parameters are presumed to be forwarded from a parent metafunction. 
-    Consequently, this function does **not** perform any error checking and operates 
-    under the assumption that all inputs have been externally validated and cross-checked. 
-    
-    The computational heavy lifting in this code is performed by SciPy's Short Time 
-    Fourier Transform (STFT) implementation :func:`scipy.signal.stft`. 
-    
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+
+    The computational heavy lifting in this code is performed by SciPy's Short Time
+    Fourier Transform (STFT) implementation :func:`scipy.signal.stft`.
+
     See also
     --------
     syncopy.freqanalysis : parent metafunction
     MultiTaperFFTConvol : :class:`~syncopy.shared.computational_routine.ComputationalRoutine`
-                          instance that calls this method as 
+                          instance that calls this method as
                           :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     scipy.signal.stft : SciPy's STFT implementation
     """
@@ -350,20 +348,20 @@ def mtmconvol_cF(
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
-        
+
     # Pad input array if necessary
     if padbegin > 0 or padend > 0:
-        dat = padding(dat, "zero", pad="relative", padlength=None, 
+        dat = padding(dat, "zero", pad="relative", padlength=None,
                       prepadlength=padbegin, postpadlength=padend)
 
-    # Slepian window parameters    
+    # Slepian window parameters
     if method_kwargs['taper'] == "dpss":
         taperopt = {"Kmax" : nTaper, "NW" : tapsmofrq}
     else:
         taperopt = {}
 
-    method_kwargs['taperopt'] = taperopt    
-        
+    method_kwargs['taperopt'] = taperopt
+
     # Get shape of output for dry-run phase
     nChannels = dat.shape[1]
     if isinstance(toi, np.ndarray):     # `toi` is an array of time-points
@@ -372,35 +370,34 @@ def mtmconvol_cF(
         stftPad = False
     else:                               # `toi` is either 'all' or a percentage
         nTime = np.ceil(dat.shape[0] / (method_kwargs['nperseg'] - method_kwargs['noverlap'])).astype(np.intp)
-                        
         stftBdry = "zeros"
         stftPad = True
     nFreq = foi.size
     outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
-        
+
     # additional keyword args for `stft` in dictionary
     method_kwargs.update({"boundary": stftBdry,
                           "padded": stftPad})
 
     if equidistant:
         ftr, freqs = mtmconvol(dat[soi, :], **method_kwargs)
-        _, fIdx = best_match(freqs, foi, squash_duplicates=True)        
+        _, fIdx = best_match(freqs, foi, squash_duplicates=True)
         spec = ftr[postselect, :, fIdx, :]
         spec = spectralConversions[output_fmt](spec)
-        
+
     else:
         # in this case only a single window gets centered on
-        # every individual soi, so we can use mtmfft!        
+        # every individual soi, so we can use mtmfft!
         samplerate = method_kwargs['samplerate']
         taper = method_kwargs['taper']
         taperopt = method_kwargs['taperopt']
-        
+
         # In case tapers aren't preserved allocate `spec` "too big"
         # and average afterwards
         spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
-        
+
         ftr, freqs = mtmfft(dat[soi[0], :],  samplerate, taper, taperopt)
         _, fIdx = best_match(freqs, foi, squash_duplicates=True)
         spec[0, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
@@ -408,22 +405,22 @@ def mtmconvol_cF(
         for tk in range(1, len(soi)):
             ftr, freqs = mtmfft(dat[soi[tk], :],  samplerate, taper, taperopt)
             spec[tk, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
-            
+
     # Average across tapers if wanted
     # only valid if output_fmt='pow' !
     if not keeptapers:
         return np.nanmean(spec, axis=1, keepdims=True)
     return spec
-    
+
 
 class MultiTaperFFTConvol(ComputationalRoutine):
     """
     Compute class that performs time-frequency analysis of :class:`~syncopy.AnalogData` objects
-    
-    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`, 
-    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute 
-    classes and metafunctions. 
-    
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
     See also
     --------
     syncopy.freqanalysis : parent metafunction
@@ -433,7 +430,7 @@ class MultiTaperFFTConvol(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Get trialdef array + channels from source        
+        # Get trialdef array + channels from source
         if data._selection is not None:
             chanSec = data._selection.channel
             trl = data._selection.trialdefinition
@@ -443,8 +440,8 @@ class MultiTaperFFTConvol(ComputationalRoutine):
 
         # Construct trialdef array and compute new sampling rate
         trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
-        
-        # If trial-averaging was requested, use the first trial as reference 
+
+        # If trial-averaging was requested, use the first trial as reference
         # (all trials had to have identical lengths), and average onset timings
         if not self.keeptrials:
             t0 = trl[:, 2].mean()
@@ -477,76 +474,74 @@ def wavelet_cF(
     chunkShape=None,
     method_kwargs=None,
 ):
-    """ 
-    This is the middleware for the 
-    :func:`~syncopy.specest.wavelet.wavelet
-    spectral estimation method. 
-    
+    """
+    This is the middleware for the :func:`~syncopy.specest.wavelet.wavelet`
+    spectral estimation method.
+
     Parameters
     ----------
     trl_dat : 2D :class:`numpy.ndarray`
-        Uniformly sampled multi-channel time-series 
+        Uniformly sampled multi-channel time-series
     preselect : slice
-        Begin- to end-samples to perform analysis on (trim data to interval). 
-        See Notes for details. 
+        Begin- to end-samples to perform analysis on (trim data to interval).
+        See Notes for details.
     postselect : list of slices or list of 1D NumPy arrays
         Actual time-points of interest within interval defined by `preselect`
-        See Notes for details. 
+        See Notes for details.
     toi : 1D :class:`numpy.ndarray` or str
         Either time-points to center wavelets on if `toi` is a :class:`numpy.ndarray`,
-        or `"all"` to center wavelets on all samples in `trl_dat`. Please refer to 
+        or `"all"` to center wavelets on all samples in `trl_dat`. Please refer to
         :func:`~syncopy.freqanalysis` for further details.
     timeAxis : int
         Index of running time axis in `trl_dat` (0 or 1)
-leWavelets`
     polyremoval : int
         **FIXME: Not implemented yet**
-        Order of polynomial used for de-trending. A value of 0 corresponds to 
-        subtracting the mean ("de-meaning"), ``polyremoval = 1`` removes linear 
-        trends (subtracting the least squares fit of a linear function), 
-        ``polyremoval = N`` for `N > 1` subtracts a polynomial of order `N` (``N = 2`` 
+        Order of polynomial used for de-trending. A value of 0 corresponds to
+        subtracting the mean ("de-meaning"), ``polyremoval = 1`` removes linear
+        trends (subtracting the least squares fit of a linear function),
+        ``polyremoval = N`` for `N > 1` subtracts a polynomial of order `N` (``N = 2``
         quadratic, ``N = 3`` cubic etc.). If `polyremoval` is `None`, no de-trending
-        is performed. 
+        is performed.
     output_fmt : str
-        Output of spectral estimation; one of :data:`~syncopy.specest.freqanalysis.availableOutputs`
+        Output of spectral estimation; one of :data:`~syncopy.specest.const_def.availableOutputs`
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
         array.
     chunkShape : None or tuple
-        If not `None`, represents shape of output object `spec` (respecting provided 
+        If not `None`, represents shape of output object `spec` (respecting provided
         values of `scales`, `preselect`, `postselect` etc.)
     method_kwargs : dict
         Keyword arguments passed to :func:`~syncopy.specest.wavelet.wavelet`
         controlling the spectral estimation method
-    
+
     Returns
     -------
     spec : :class:`numpy.ndarray`
-        Complex or real time-frequency representation of (padded) input data. 
-        Shape is (nTime, 1, len(scales), nChannels), so that the 
-        individual spectra per channel can be assessed via 
+        Complex or real time-frequency representation of (padded) input data.
+        Shape is (nTime, 1, len(scales), nChannels), so that the
+        individual spectra per channel can be assessed via
         `spec[:, 1, :, channel]`.
-            
+
     Notes
     -----
-    This method is intended to be used as 
+    This method is intended to be used as
     :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`. 
-    Thus, input parameters are presumed to be forwarded from a parent metafunction. 
-    Consequently, this function does **not** perform any error checking and operates 
-    under the assumption that all inputs have been externally validated and cross-checked. 
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
 
     For wavelets, data concatenation is performed by first trimming `trl_dat` to
     an interval of interest (via `preselect`), then performing the actual wavelet
-    transform, and subsequently extracting the actually wanted time-points 
-    (via `postselect`). 
-    
+    transform, and subsequently extracting the actually wanted time-points
+    (via `postselect`).
+
     See also
     --------
     syncopy.freqanalysis : parent metafunction
     WaveletTransform : :class:`~syncopy.shared.computational_routine.ComputationalRoutine`
-                       instance that calls this method as 
+                       instance that calls this method as
                        :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     """
 
@@ -569,7 +564,7 @@ leWavelets`
 
     # ------------------
     # actual method call
-    # ------------------    
+    # ------------------
     # Compute wavelet transform with given data/time-selection
     spec = wavelet(dat[preselect, :], **method_kwargs)
     # the cwt stacks the scales on the 1st axis, move to 2nd
@@ -581,11 +576,11 @@ leWavelets`
 class WaveletTransform(ComputationalRoutine):
     """
     Compute class that performs time-frequency analysis of :class:`~syncopy.AnalogData` objects
-    
-    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`, 
-    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute 
-    classes and metafunctions. 
-    
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
     See also
     --------
     syncopy.freqanalysis : parent metafunction
@@ -596,9 +591,9 @@ class WaveletTransform(ComputationalRoutine):
     method = "wavelet"
     # 1st argument,the data, gets omitted
     method_keys = list(signature(wavelet).parameters.keys())[1:]
-    # here also last argument, the method_kwargs, are omitted 
-    cF_keys = list(signature(wavelet_cF).parameters.keys())[1:-1] 
-    
+    # here also last argument, the method_kwargs, are omitted
+    cF_keys = list(signature(wavelet_cF).parameters.keys())[1:-1]
+
     def process_metadata(self, data, out):
 
         # Get trialdef array + channels from source
@@ -649,58 +644,57 @@ def superlet_cF(
 ):
 
     """
-    This is the middleware for the 
-        :func:`~syncopy.specest.superlet.superlet
-    spectral estimation method. 
+    This is the middleware for the :func:`~syncopy.specest.superlet.superlet`
+    spectral estimation method.
 
     Parameters
     ----------
     trl_dat : 2D :class:`numpy.ndarray`
         Uniformly sampled multi-channel time-series
     preselect : slice
-        Begin- to end-samples to perform analysis on (trim data to interval). 
-        See Notes for details. 
+        Begin- to end-samples to perform analysis on (trim data to interval).
+        See Notes for details.
     postselect : list of slices or list of 1D NumPy arrays
         Actual time-points of interest within interval defined by `preselect`
-        See Notes for details. 
+        See Notes for details.
     toi : 1D :class:`numpy.ndarray` or str
-        Either array of equidistant time-points 
-        or `"all"` to perform analysis on all samples in `trl_dat`. Please refer to 
-        :func:`~syncopy.freqanalysis` for further details. 
+        Either array of equidistant time-points
+        or `"all"` to perform analysis on all samples in `trl_dat`. Please refer to
+        :func:`~syncopy.freqanalysis` for further details.
     output_fmt : str
-        Output of spectral estimation; one of 
-        :data:`~syncopy.specest.freqanalysis.availableOutputs`
+        Output of spectral estimation; one of
+        :data:`~syncopy.specest.const_def.availableOutputs`
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
         array.
     chunkShape : None or tuple
-        If not `None`, represents shape of output object `gmean_spec` 
-        (respecting provided values of `scales`, `preselect`, `postselect` etc.)    
+        If not `None`, represents shape of output object `gmean_spec`
+        (respecting provided values of `scales`, `preselect`, `postselect` etc.)
     method_kwargs : dict
         Keyword arguments passed to :func:`~syncopy.specest.superlet.superlet
         controlling the spectral estimation method
-    
+
     Returns
     -------
     gmean_spec : :class:`numpy.ndarray`
-        Complex time-frequency representation of the input data. 
+        Complex time-frequency representation of the input data.
         Shape is (nTime, 1, nScales, nChannels).
 
     Notes
     -----
-    This method is intended to be used as 
+    This method is intended to be used as
     :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`. 
-    Thus, input parameters are presumed to be forwarded from a parent metafunction. 
-    Consequently, this function does **not** perform any error checking and operates 
-    under the assumption that all inputs have been externally validated and cross-checked. 
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
 
     See also
     --------
     syncopy.freqanalysis : parent metafunction
     SuperletTransform : :class:`~syncopy.shared.computational_routine.ComputationalRoutine`
-                       instance that calls this method as 
+                       instance that calls this method as
                        :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
 
     """
@@ -735,11 +729,11 @@ def superlet_cF(
 class SuperletTransform(ComputationalRoutine):
     """
     Compute class that performs time-frequency analysis of :class:`~syncopy.AnalogData` objects
-    
-    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`, 
-    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute 
-    classes and metafunctions. 
-    
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
     See also
     --------
     syncopy.freqanalysis : parent metafunction
@@ -750,7 +744,7 @@ class SuperletTransform(ComputationalRoutine):
     method = "superlet"
     # 1st argument,the data, gets omitted
     method_keys = list(signature(superlet).parameters.keys())[1:]
-    # here also last argument, the method_kwargs, are omitted 
+    # here also last argument, the method_kwargs, are omitted
     cF_keys = list(signature(superlet_cF).parameters.keys())[1:-1]
 
     def process_metadata(self, data, out):
@@ -786,32 +780,33 @@ class SuperletTransform(ComputationalRoutine):
 
 def _make_trialdef(cfg, trialdefinition, samplerate):
     """
-    Local helper to construct trialdefinition arrays for time-frequency :class:`~syncopy.SpectralData` objects
-    
+    Local helper to construct trialdefinition arrays for time-frequency
+    :class:`~syncopy.SpectralData` objects
+
     Parameters
     ----------
     cfg : dict
-        Config dictionary attribute of `ComputationalRoutine` subclass 
+        Config dictionary attribute of `ComputationalRoutine` subclass
     trialdefinition : 2D :class:`numpy.ndarray`
-        Provisional trialdefnition array either directly copied from the 
+        Provisional trialdefnition array either directly copied from the
         :class:`~syncopy.AnalogData` input object or computed by the
-        :class:`~syncopy.datatype.base_data.Selector` class. 
+        :class:`~syncopy.datatype.base_data.Selector` class.
     samplerate : float
         Original sampling rate of :class:`~syncopy.AnalogData` input object
-        
+
     Returns
     -------
     trialdefinition : 2D :class:`numpy.ndarray`
         Updated trialdefinition array reflecting provided `toi`/`toilim` selection
     samplerate : float
-        Sampling rate accouting for potentially new spacing b/w time-points (accouting 
+        Sampling rate accouting for potentially new spacing b/w time-points (accouting
         for provided `toi`/`toilim` selection)
-    
+
     Notes
     -----
     This routine is a local auxiliary method that is purely intended for internal
-    use. Thus, no error checking is performed. 
-    
+    use. Thus, no error checking is performed.
+
     See also
     --------
     syncopy.specest.mtmconvol.mtmconvol : :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`

@@ -9,15 +9,19 @@ import sys
 import os
 import h5py
 import tempfile
+import time
 import numpy as np
 
 # Local imports
 from syncopy.datatype import AnalogData
 from syncopy.shared.filetypes import _data_classname_to_extension, FILE_EXT
-from syncopy import __plt__
+from syncopy import __plt__, __acme__
 if __plt__:
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_agg import FigureCanvasAgg
+if __acme__:
+    import dask.distributed as dd
+
 
 def is_win_vm():
     """
@@ -59,12 +63,12 @@ def is_slurm_node():
     else:
         return False
 
-    
+
 def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=None,
                              overlapping=False, inmemory=True, dimord="default"):
     """
     Create :class:`~syncopy.AnalogData` object with synthetic harmonic signal(s)
-    
+
     Parameters
     ----------
     nTrials : int
@@ -74,45 +78,45 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=None
     equidistant : bool
         If `True`, trials of equal length are defined
     seed : None or int
-        If `None`, imposed noise is completely random. If `seed` is an integer, 
-        it is used to fix the (initial) state of NumPy's random number generator 
-        :func:`numpy.random.default_rng`, i.e., objects created wtih same `seed` 
-        will be populated with identical artificial signals. 
+        If `None`, imposed noise is completely random. If `seed` is an integer,
+        it is used to fix the (initial) state of NumPy's random number generator
+        :func:`numpy.random.default_rng`, i.e., objects created wtih same `seed`
+        will be populated with identical artificial signals.
     overlapping : bool
         If `True`, constructed trials overlap
     inmemory : bool
         If `True`, the full `data` array (all channels across all trials) is allocated
-        in memory (fast but dangerous for large arrays), otherwise the output data 
-        object's corresponding backing HDF5 file in `__storage__` is filled with 
-        synthetic data in a trial-by-trial manner (slow but safe even for very 
-        large datasets). 
+        in memory (fast but dangerous for large arrays), otherwise the output data
+        object's corresponding backing HDF5 file in `__storage__` is filled with
+        synthetic data in a trial-by-trial manner (slow but safe even for very
+        large datasets).
     dimord : str or list
         If `dimord` is "default", the constructed output object uses the default
-        dimensional layout of a standard :class:`~syncopy.AnalogData` object. 
+        dimensional layout of a standard :class:`~syncopy.AnalogData` object.
         If `dimord` is a list (i.e., ``["channel", "time"]``) the provided sequence
-        of dimensions is used. 
-        
+        of dimensions is used.
+
     Returns
     -------
     out : :class:`~syncopy.AnalogData` object
-        Syncopy :class:`~syncopy.AnalogData` object with specified properties 
-        populated with a synthetic multivariate trigonometric signal. 
+        Syncopy :class:`~syncopy.AnalogData` object with specified properties
+        populated with a synthetic multivariate trigonometric signal.
 
     Notes
     -----
-    This is an auxiliary method that is intended purely for internal use. Thus, 
-    no error checking is performed. 
-    
+    This is an auxiliary method that is intended purely for internal use. Thus,
+    no error checking is performed.
+
     Examples
     --------
     Generate small artificial :class:`~syncopy.AnalogData` object in memory
-    
+
     .. code-block:: python
-    
+
         >>> iAmSmall = generate_artificial_data(nTrials=5, nChannels=10, inmemory=True)
         >>> iAmSmall
         Syncopy AnalogData object with fields
-        
+
                     cfg : dictionary with keys ''
                 channel : [10] element <class 'numpy.ndarray'>
               container : None
@@ -126,18 +130,18 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=None
                    time : 5 element list
               trialinfo : [5 x 0] element <class 'numpy.ndarray'>
                  trials : 5 element iterable
-        
+
         Use `.log` to see object history
-        
-    Generate artificial :class:`~syncopy.AnalogData` object of more substantial 
+
+    Generate artificial :class:`~syncopy.AnalogData` object of more substantial
     size on disk
-        
+
     .. code-block:: python
-    
+
         >>> iAmBig = generate_artificial_data(nTrials=50, nChannels=1024, inmemory=False)
         >>> iAmBig
         Syncopy AnalogData object with fields
-        
+
                     cfg : dictionary with keys ''
                 channel : [1024] element <class 'numpy.ndarray'>
               container : None
@@ -151,9 +155,9 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=None
                    time : 200 element list
               trialinfo : [200 x 0] element <class 'numpy.ndarray'>
                  trials : 200 element iterable
-        
+
         Use `.log` to see object history
-        
+
     """
 
     # Create dummy 1d signal that will be blown up to fill channels later
@@ -170,23 +174,23 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=None
     idx[timeAxis] = -1
     sig = np.repeat(sig.reshape(*idx), axis=idx.index(1), repeats=nChannels)
 
-    # Initialize random number generator (with possibly user-provided seed-value)    
-    rng = np.random.default_rng(seed)    
+    # Initialize random number generator (with possibly user-provided seed-value)
+    rng = np.random.default_rng(seed)
 
     # Either construct the full data array in memory using tiling or create
     # an HDF5 container in `__storage__` and fill it trial-by-trial
-    # NOTE: use `swapaxes` here to ensure two objects created w/same seed really 
-    # are affected w/identical additive noise patterns, no matter their respective 
+    # NOTE: use `swapaxes` here to ensure two objects created w/same seed really
+    # are affected w/identical additive noise patterns, no matter their respective
     # `dimord`.
     out = AnalogData(samplerate=1/dt, dimord=dimord)
     if inmemory:
-        idx[timeAxis] = nTrials 
+        idx[timeAxis] = nTrials
         sig = np.tile(sig, idx)
         shp = [slice(None), slice(None)]
         for iTrial in range(nTrials):
             shp[timeAxis] = slice(iTrial*t.size, (iTrial + 1)*t.size)
             noise = rng.standard_normal((t.size, nChannels)).astype(sig.dtype) * 0.5
-            sig[tuple(shp)] += np.swapaxes(noise, timeAxis, 0) 
+            sig[tuple(shp)] += np.swapaxes(noise, timeAxis, 0)
         out.data = sig
     else:
         with h5py.File(out.filename, "w") as h5f:
@@ -197,7 +201,7 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=None
             for iTrial in range(nTrials):
                 shp[timeAxis] = slice(iTrial*t.size, (iTrial + 1)*t.size)
                 noise = rng.standard_normal((t.size, nChannels)).astype(sig.dtype) * 0.5
-                dset[tuple(shp)] = sig + np.swapaxes(noise, timeAxis, 0) 
+                dset[tuple(shp)] = sig + np.swapaxes(noise, timeAxis, 0)
                 dset.flush()
         out.data = h5py.File(out.filename, "r+")["data"]
 
@@ -235,11 +239,11 @@ def construct_spy_filename(basepath, obj):
     objext = _data_classname_to_extension(obj.__class__.__name__)
     return os.path.join(basepath + FILE_EXT["dir"], basename + objext)
 
-    
+
 def figs_equal(fig1, fig2, tol=None):
     """
     Test if two figures are identical
-    
+
     Parameters
     ----------
     fig1 : matplotlib figure object
@@ -247,20 +251,20 @@ def figs_equal(fig1, fig2, tol=None):
     fig2 : matplotlib figure object
         Template figure
     tol : float
-        Positive scalar (b/w 0 and 1) specifying tolerance level for considering 
-        `fig1` and `fig2` identical. If `None`, two figures have to be exact 
-        pixel-perfect copies to be qualified as identical. 
-    
+        Positive scalar (b/w 0 and 1) specifying tolerance level for considering
+        `fig1` and `fig2` identical. If `None`, two figures have to be exact
+        pixel-perfect copies to be qualified as identical.
+
     Returns
     -------
     equal : bool
         `True` if `fig1` and `fig2` are identical, `False` otherwise
-        
+
     Notes
     -----
-    This is an auxiliary method that is intended purely for internal use. Thus, 
-    no error checking is performed. 
-    
+    This is an auxiliary method that is intended purely for internal use. Thus,
+    no error checking is performed.
+
     Examples
     --------
     >>> import numpy as np
@@ -283,3 +287,21 @@ def figs_equal(fig1, fig2, tol=None):
             if tol is None:
                 return np.array_equal(plt.imread(img1.name), plt.imread(img2.name))
             return np.allclose(plt.imread(img1.name), plt.imread(img2.name), atol=tol)
+
+
+def flush_local_cluster(testcluster, timeout=10):
+    """
+    Resets a parallel computing client to avoid memory spilling
+    """
+    if isinstance(testcluster, dd.LocalCluster):
+        # client.restart()
+        client = dd.get_client()
+        client.close()
+        time.sleep(1.0)
+        client = dd.Client(testcluster)
+        waiting = 0
+        while len([w["memory_limit"] for w in testcluster.scheduler_info["workers"].values()]) == 0 \
+            and waiting < timeout:
+                time.sleep(1.0)
+                waiting += 1
+    return

@@ -11,11 +11,11 @@ branches:
   - dev
 
 install:
-  - pip install ruamel.yaml
+  - pip install "ruamel.yaml >=0.16,<0.17" setuptools_scm
   - python -m conda2pip
   - pip install -r requirements.txt
   - pip install -r requirements-test.txt
   - python setup.py -q install
 # command to run tests
 script:
-  - pytest -v --ignore=syncopy/acme
+  - pytest -v

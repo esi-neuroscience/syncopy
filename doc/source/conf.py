@@ -195,7 +195,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'Syncopy.tex', 'Syncopy Documentation',
-     'Joscha Schmiedt and Stefan Fuertinger', 'manual'),
+     'Gregor Moenke, Joscha Schmiedt and Stefan Fuertinger', 'manual'),
 ]
 
 
@@ -250,7 +250,8 @@ intersphinx_mapping = {
     'scipy': ('https://docs.scipy.org/doc/scipy/reference', None),
     'matplotlib': ('https://matplotlib.org', None),
     'h5py': ('http://docs.h5py.org/en/latest/', None),
-    'dask': ('https://docs.dask.org/en/latest/', None)
+    'dask': ('https://docs.dask.org/en/latest/', None),
+    'acme': ('https://esi-acme.readthedocs.io/en/latest/', None)
 }
 
 # -- Options for todo extension ----------------------------------------------

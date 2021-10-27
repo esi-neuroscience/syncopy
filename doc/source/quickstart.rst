@@ -10,8 +10,8 @@ Syncopy can be installed using `Pip <https://pypi.org/project/pip/>`_:
 
     pip install esi-syncopy
 
-Syncopy will soon be hosted on `conda-forge <https://conda-forge.org/>`_ as well. 
-If you're working on the ESI cluster installing Syncopy is only necessary if 
+Syncopy will soon be hosted on `conda-forge <https://conda-forge.org/>`_ as well.
+If you're working on the ESI cluster installing Syncopy is only necessary if
 you create your own Conda environment.
 
 Setting Up Your Python Environment
@@ -37,7 +37,7 @@ variable is set to use the high performance storage:
 
 .. code-block:: bash
 
-    SPYTMPDIR=/mnt/hpx/home/$USER/.spy
+    SPYTMPDIR=/cs/home/$USER/.spy
 
 
 Importing Syncopy
@@ -61,14 +61,14 @@ Starting Up Parallel Workers
 ----------------------------
 
 In Syncopy all computations are designed to run in parallel taking advantage of
-modern multi-core system architectures. The simplest way to leverage any available 
-concurrent processing hardware is to use the `parallel` keyword, e.g., 
+modern multi-core system architectures. The simplest way to leverage any available
+concurrent processing hardware is to use the `parallel` keyword, e.g.,
 
-.. code-block:: python 
+.. code-block:: python
 
     spy.freqanalysis(data, method="mtmfft", parallel=True)
 
-This will allocate a parallel worker for each trial defined in `data`. If your code 
-is running on the ESI cluster, Syncopy will automatically use the existing SLURM 
-scheduler, in a single-machine setup, any available local multi-processing resources 
+This will allocate a parallel worker for each trial defined in `data`. If your code
+is running on the ESI cluster, Syncopy will automatically use the existing SLURM
+scheduler, in a single-machine setup, any available local multi-processing resources
 will be utilized. More details can be found in the :doc:`Data Analysis Guide <user/processing>`

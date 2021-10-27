@@ -1,7 +1,9 @@
-Resources by Topic 
+:orphan:
+
+Resources by Topic
 ==================
-Looking for information regarding a specific analysis method? The table below 
-might help. 
+Looking for information regarding a specific analysis method? The table below
+might help.
 
 .. cssclass:: table-hover
 
@@ -71,7 +73,7 @@ might help.
 .. |ConTutDesc| replace:: An introduction to connectivity estimation in Syncopy
 .. |ConEx| replace:: Connectivity Examples
 .. |ConExDesc| replace:: Example scripts and notebooks illustrating the use of connectivity metrics in Syncopy
-.. |ConAdv| replace:: Advanced Topics in Connectivity 
+.. |ConAdv| replace:: Advanced Topics in Connectivity
 .. |ConAdvDesc| replace:: Technical details and notes for advanced users/developers
 
 Sitemap
@@ -81,7 +83,7 @@ Sitemap
    :maxdepth: 2
 
    quickstart
-   user/users.rst    
-   developer/developers.rst   
+   user/users.rst
+   developer/developers.rst
 
-Still no luck finding what you're looking for? Try using the :ref:`search <search>` function. 
+Still no luck finding what you're looking for? Try using the :ref:`search <search>` function.

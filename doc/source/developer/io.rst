@@ -16,20 +16,20 @@ array every object is stored as
 1. a binary file holding data arrays and
 2. a human-readable file for metadata.
 
-Syncopy aims to be scalable to process small experimental data-sets to very large 
-files that don't fit into memory. To meet these requirements, Syncopy performs 
-on-demand streaming of data from and to disk. A file format that is well-established 
-for this purpose is `HDF5 <https://www.hdfgroup.org/>`_, which is, therefore, 
+Syncopy aims to be scalable to process small experimental data-sets to very large
+files that don't fit into memory. To meet these requirements, Syncopy performs
+on-demand streaming of data from and to disk. A file format that is well-established
+for this purpose is `HDF5 <https://www.hdfgroup.org/>`_, which is, therefore,
 the default storage backend of Syncopy. In addition, metadata are stored in `JSON
-<https://en.wikipedia.org/wiki/JSON>`_, which is both easily human- 
+<https://en.wikipedia.org/wiki/JSON>`_, which is both easily human-
 and machine-readable.
 
 By default, Syncopy's data files are stored in a folder called ``<basename>.spy``, which
 can contain the on-disk representations of multiple objects of different classes
-(e.g., spikes and local field potentials that have been recorded simultaneously). 
+(e.g., spikes and local field potentials that have been recorded simultaneously).
 The standard naming pattern of Syncopy's data files is as follows:
 
-:: 
+::
 
     <basename>.spy
       └── <basename>_<tag1>.<dataclass>
@@ -41,13 +41,13 @@ The standard naming pattern of Syncopy's data files is as follows:
 The ``<dataclass>`` specifies the type of data that is stored in the file, i.e.
 one of the :ref:`syncopy-data-classes`. The ``<tag>`` part of the filename is
 user-defined to distinguish data of the same data class, that should be kept
-separate, e.g. data from separate electrode arrays. Data can be loaded using 
+separate, e.g. data from separate electrode arrays. Data can be loaded using
 the :func:`syncopy.load` function.
 
 
 **Example folder**
 
-:: 
+::
 
     monkeyB_20190709_rfmapping_1.spy
       └── monkeyB_20190709_rfmapping_1_amua-stimon.analog
@@ -72,7 +72,7 @@ Structure of the Data File (HDF5)
 
 The HDF5 file contains some metadata (`HDF5 attributes
 <http://docs.h5py.org/en/stable/high/attr.html>`_) in its header (partially
-redundant with the corresponding JSON file), the ``data`` array in binary form 
+redundant with the corresponding JSON file), the ``data`` array in binary form
 (`HDF5 dataset <http://docs.h5py.org/en/stable/high/dataset.html>`_), and a ``[nTrials x
 3+k]``-sized ``trialdefinition`` array containing information about the trials
 defined on the data (`trial_start`, `trial_stop`, `trial_triggeroffset`, `trialinfo_1`,
@@ -103,15 +103,15 @@ the data directly include `HDFView
 Structure of the Metadata File (JSON)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The JSON file contains all metadata relevant to the data object. All Syncopy data 
-objects need to specify (at least) the fields set in ``startInfoDict`` defined 
+The JSON file contains all metadata relevant to the data object. All Syncopy data
+objects need to specify (at least) the fields set in ``startInfoDict`` defined
 in ``syncopy.io.utils``:
 
 ====================    =====  ===========
 name                    type   description
 ====================    =====  ===========
 "filename"              str    filename of HDF5 file
-"dataclass"             str    one of :ref:`syncopy-data-classes:`
+"dataclass"             str    one of :ref:`syncopy-data-classes`
 "data_dtype"            str    NumPy datatype of data array
 "data_shape"            list   shape of data array
 "data_offset"           int    offset from begin of file of data array (bytes)
@@ -126,7 +126,7 @@ name                    type   description
 "cfg"                   dict   "rigorous" history of data
 ====================    =====  ===========
 
-.. warning:: 
+.. warning::
     As Syncopy is still in early development, the definition of the required
     JSON fields may change in the future.
 
@@ -168,11 +168,11 @@ Example JSON file:
             "ecogLfp_000",
             "ecogLfp_001",
             "..."
-            
+
         ],
     }
 
-    
+
 
 Reading Other File Formats
 --------------------------

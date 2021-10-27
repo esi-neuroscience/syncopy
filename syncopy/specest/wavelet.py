@@ -12,28 +12,28 @@ from syncopy.specest.wavelets import cwt
 
 def wavelet(data_arr, samplerate, scales, wavelet):
 
-    """ 
-    Perform time-frequency analysis on multi-channel time series data 
+    """
+    Perform time-frequency analysis on multi-channel time series data
     using a wavelet transform
 
     Parameters
     ----------
 
     data_arr : 2D :class:`numpy.ndarray`
-        Uniformly sampled multi-channel time-series 
+        Uniformly sampled multi-channel time-series
         The 1st dimension is interpreted as the time axis
     samplerate : float
         Samplerate of `data_arr` in Hz
     scales : 1D :class:`numpy.ndarray`
-        Set of scales to use in wavelet transform. 
-    wavelet : callable 
-        Wavelet function to use, one of 
-        :data:`~syncopy.specest.const_def.availableWavelets
+        Set of scales to use in wavelet transform.
+    wavelet : callable
+        Wavelet function to use, one of
+        :data:`~syncopy.specest.const_def.availableWavelets`
 
     Returns
     -------
     spec : :class:`numpy.ndarray`
-        Complex time-frequency representation of the input data. 
+        Complex time-frequency representation of the input data.
         Shape is (len(scales),) + data_arr.shape
     """
 
@@ -44,8 +44,8 @@ def wavelet(data_arr, samplerate, scales, wavelet):
 
 def get_optimal_wavelet_scales(scale_from_period, nSamples, dt, dj=0.25, s0=None):
     """
-    Local helper to compute an "optimally spaced" set of scales for wavelet analysis 
-    
+    Local helper to compute an "optimally spaced" set of scales for wavelet analysis
+
     Parameters
     ----------
     scale_from_period : func
@@ -53,20 +53,20 @@ def get_optimal_wavelet_scales(scale_from_period, nSamples, dt, dj=0.25, s0=None
     nSamples : int
         Sample-count (i.e., length) of time-series that is analyzed
     dt : float
-        Time-series step-size; temporal spacing between consecutive samples 
+        Time-series step-size; temporal spacing between consecutive samples
         (1 / sampling rate)
     dj : float
-        Spectral resolution of scales. The choice of `dj` depends on the spectral 
-        width of the employed wavelet function. For instance, ``dj = 0.5`` is the 
+        Spectral resolution of scales. The choice of `dj` depends on the spectral
+        width of the employed wavelet function. For instance, ``dj = 0.5`` is the
         largest value that still yields adequate sampling in scale for the Morlet
-        wavelet. Other wavelets allow larger values of `dj` while still providing 
-        sufficient spectral resolution. Small values of `dj` yield finer scale 
-        resolution. 
+        wavelet. Other wavelets allow larger values of `dj` while still providing
+        sufficient spectral resolution. Small values of `dj` yield finer scale
+        resolution.
     s0 : float or None
-        Smallest resolvable scale; should be chosen such that the equivalent 
+        Smallest resolvable scale; should be chosen such that the equivalent
         Fourier period is approximately ``2 * dt``. If `None`, `s0` is computed
-        to satisfy this criterion. 
-        
+        to satisfy this criterion.
+
     Returns
     -------
     scales : 1D :class:`numpy.ndarray`
@@ -75,12 +75,12 @@ def get_optimal_wavelet_scales(scale_from_period, nSamples, dt, dj=0.25, s0=None
 
     Notes
     -----
-    The calculation of an "optimal" set of scales follows [ToCo98]_. 
+    The calculation of an "optimal" set of scales follows [ToCo98]_.
     This routine is a local auxiliary method that is purely intended for internal
-    use. Thus, no error checking is performed. 
-    
-    .. [ToCo98] C. Torrence and G. P. Compo. A Practical Guide to Wavelet Analysis. 
-       Bulletin of the American Meteorological Society. Vol. 79, No. 1, January 1998. 
+    use. Thus, no error checking is performed.
+
+    .. [ToCo98] C. Torrence and G. P. Compo. A Practical Guide to Wavelet Analysis.
+       Bulletin of the American Meteorological Society. Vol. 79, No. 1, January 1998.
 
     See also
     --------

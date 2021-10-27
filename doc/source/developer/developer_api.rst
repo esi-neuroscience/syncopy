@@ -53,13 +53,20 @@ syncopy.specest
     :toctree: _stubs
 
     syncopy.specest.mtmfft.mtmfft
-    syncopy.specest.mtmfft.MultiTaperFFT
+    syncopy.specest.compRoutines.MultiTaperFFT
+    syncopy.specest.compRoutines.mtmfft_cF
     syncopy.specest.mtmconvol.mtmconvol
-    syncopy.specest.mtmconvol.MultiTaperFFTConvol
-    syncopy.specest.mtmconvol._make_trialdef
+    syncopy.specest.compRoutines.MultiTaperFFTConvol
+    syncopy.specest.compRoutines.mtmconvol_cF
+    syncopy.specest.compRoutines._make_trialdef
     syncopy.specest.wavelet.wavelet
-    syncopy.specest.wavelet.WaveletTransform
-    syncopy.specest.wavelet._get_optimal_wavelet_scales
+    syncopy.specest.compRoutines.WaveletTransform
+    syncopy.specest.compRoutines.wavelet_cF
+    syncopy.specest.compRoutines.SuperletTransform
+    syncopy.specest.compRoutines.superlet_cF
+    syncopy.specest.compRoutines._make_trialdef
+    syncopy.specest.superlet.superlet
+    syncopy.specest.wavelet.get_optimal_wavelet_scales
 
 syncopy.plotting
 ^^^^^^^^^^^^^^^^

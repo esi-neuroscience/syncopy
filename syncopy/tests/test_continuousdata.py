@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Test proper functionality of Syncopy's `ContinuousData` class + subclasses
-# 
+#
 
 # Builtin/3rd party package imports
 import os
@@ -18,14 +18,14 @@ from syncopy.datatype.base_data import VirtualData, Selector
 from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.tools import StructDict
-from syncopy.tests.misc import generate_artificial_data, construct_spy_filename
-from syncopy import __dask__
-if __dask__:
+from syncopy.tests.misc import flush_local_cluster, generate_artificial_data, construct_spy_filename
+from syncopy import __acme__
+if __acme__:
     import dask.distributed as dd
 
 # Decorator to decide whether or not to run dask-related tests
-skip_without_dask = pytest.mark.skipif(
-    not __dask__, reason="dask not available")
+skip_without_acme = pytest.mark.skipif(
+    not __acme__, reason="acme not available")
 
 
 class TestAnalogData():
@@ -128,7 +128,7 @@ class TestAnalogData():
             for attr in checkAttr:
                 assert np.array_equal(getattr(dummy4, attr), getattr(dummy, attr))
             del dummy, dummy3, dummy4  # avoid PermissionError in Windows
-            
+
             # # FIXME: either remove or repair this
             # # save object hosting VirtualData
             # np.save(fname + ".npy", self.data)
@@ -140,7 +140,7 @@ class TestAnalogData():
             # assert dummy2.mode == "r+"
             # assert np.array_equal(dummy2.data, vdata[:, :])
             # del dummy, dummy2  # avoid PermissionError in Windows
-            
+
             # ensure trialdefinition is saved and loaded correctly
             dummy = AnalogData(data=self.data, trialdefinition=self.trl, samplerate=1000)
             dummy.save(fname + "_trl")
@@ -156,7 +156,7 @@ class TestAnalogData():
             del dummy, dummy2  # avoid PermissionError in Windows
 
             # swap dimensions and ensure `dimord` is preserved
-            dummy = AnalogData(data=self.data, 
+            dummy = AnalogData(data=self.data,
                                dimord=["channel", "time"], samplerate=1000)
             dummy.save(fname + "_dimswap")
             filename = construct_spy_filename(fname + "_dimswap", dummy)
@@ -390,8 +390,8 @@ class TestAnalogData():
 
     # test data-selection via class method
     def test_dataselection(self):
-        dummy = AnalogData(data=self.data, 
-                           trialdefinition=self.trl, 
+        dummy = AnalogData(data=self.data,
+                           trialdefinition=self.trl,
                            samplerate=self.samplerate)
         trialSelections = [
             "all",  # enforce below selections in all trials of `dummy`
@@ -407,19 +407,19 @@ class TestAnalogData():
             "all",  # non-type-conform string
             [0.6],  # single inexact match
             [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
-            ] 
+            ]
         toilimSelections = [
             [0.5, 1.5],  # regular range
             [1.5, 2.0],  # minimal range (just two-time points)
             [1.0, np.inf]  # unbounded from above
             ]
         timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
-            + list(zip(["toilim"] * len(toilimSelections), toilimSelections)) 
+            + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
 
         idx = [slice(None)] * len(dummy.dimord)
         timeIdx = dummy.dimord.index("time")
         chanIdx = dummy.dimord.index("channel")
-        
+
         for trialSel in trialSelections:
             for chanSel in chanSelections:
                 for timeSel in timeSelections:
@@ -430,6 +430,7 @@ class TestAnalogData():
                     cfg = StructDict(kwdict)
                     # data selection via class-method + `Selector` instance for indexing
                     selected = dummy.selectdata(**kwdict)
+                    time.sleep(0.05)
                     selector = Selector(dummy, kwdict)
                     idx[chanIdx] = selector.channel
                     for tk, trialno in enumerate(selector.trials):
@@ -442,17 +443,19 @@ class TestAnalogData():
                     selectdata(cfg)
                     assert np.array_equal(cfg.out.channel, selected.channel)
                     assert np.array_equal(cfg.out.data, selected.data)
+                    time.sleep(0.05)
 
-    @skip_without_dask
+    @skip_without_acme
     def test_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
-        par_tests = ["test_relative_array_padding", 
+        par_tests = ["test_relative_array_padding",
                      "test_absolute_nextpow2_array_padding",
                      "test_object_padding",
                      "test_dataselection"]
         for test in par_tests:
             getattr(self, test)()
+            flush_local_cluster(testcluster)
         client.close()
 
 
@@ -471,7 +474,7 @@ class TestSpectralData():
     data2 = np.moveaxis(data, 0, -1)
     samplerate = 2.0
 
-    def test_empty(self):
+    def test_sd_empty(self):
         dummy = SpectralData()
         assert len(dummy.cfg) == 0
         assert dummy.dimord == None
@@ -480,7 +483,7 @@ class TestSpectralData():
         with pytest.raises(SPYTypeError):
             SpectralData({})
 
-    def test_nparray(self):
+    def test_sd_nparray(self):
         dummy = SpectralData(self.data)
         assert dummy.dimord == SpectralData._defaultDimord
         assert dummy.channel.size == self.nc
@@ -494,7 +497,7 @@ class TestSpectralData():
         with pytest.raises(SPYValueError):
             SpectralData(data=np.ones((3,)))
 
-    def test_trialretrieval(self):
+    def test_sd_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order
         dummy = SpectralData(self.data, trialdefinition=self.trl)
         for trlno, start in enumerate(range(0, self.ns, 5)):
@@ -525,7 +528,7 @@ class TestSpectralData():
         #     del mm, dummy
         del dummy
 
-    def test_saveload(self):
+    def test_sd_saveload(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "dummy")
 
@@ -573,9 +576,9 @@ class TestSpectralData():
             del dummy, dummy2
 
     # test data-selection via class method
-    def test_dataselection(self):
-        dummy = SpectralData(data=self.data, 
-                             trialdefinition=self.trl, 
+    def test_sd_dataselection(self):
+        dummy = SpectralData(data=self.data,
+                             trialdefinition=self.trl,
                              samplerate=self.samplerate,
                              taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)])
         trialSelections = [
@@ -592,7 +595,7 @@ class TestSpectralData():
             "all",  # non-type-conform string
             [0.6],  # single inexact match
             [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
-            ] 
+            ]
         toilimSelections = [
             [0.5, 1.5],  # regular range
             [1.5, 2.0],  # minimal range (just two-time points)
@@ -602,7 +605,7 @@ class TestSpectralData():
             "all",  # non-type-conform string
             [2.6],  # single inexact match
             [1.1, 1.9, 2.1, 3.9, 9.2, 11.8, 12.9, 5.1, 13.8]  # unordered, inexact, repetions
-            ] 
+            ]
         foilimSelections = [
             [2, 11],  # regular range
             [1, 2.0],  # minimal range (just two-time points)
@@ -615,16 +618,16 @@ class TestSpectralData():
             slice(0, 5, 2),  # slice w/non-unitary step-size
             ]
         timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
-            + list(zip(["toilim"] * len(toilimSelections), toilimSelections)) 
+            + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
         freqSelections = list(zip(["foi"] * len(foiSelections), foiSelections)) \
-            + list(zip(["foilim"] * len(foilimSelections), foilimSelections)) 
+            + list(zip(["foilim"] * len(foilimSelections), foilimSelections))
 
         idx = [slice(None)] * len(dummy.dimord)
         timeIdx = dummy.dimord.index("time")
         chanIdx = dummy.dimord.index("channel")
         freqIdx = dummy.dimord.index("freq")
         taperIdx = dummy.dimord.index("taper")
-        
+
         for trialSel in trialSelections:
             for chanSel in chanSelections:
                 for timeSel in timeSelections:
@@ -639,6 +642,7 @@ class TestSpectralData():
                             cfg = StructDict(kwdict)
                             # data selection via class-method + `Selector` instance for indexing
                             selected = dummy.selectdata(**kwdict)
+                            time.sleep(0.05)
                             selector = Selector(dummy, kwdict)
                             idx[chanIdx] = selector.channel
                             idx[freqIdx] = selector.freq
@@ -656,12 +660,14 @@ class TestSpectralData():
                             assert np.array_equal(cfg.out.freq, selected.freq)
                             assert np.array_equal(cfg.out.taper, selected.taper)
                             assert np.array_equal(cfg.out.data, selected.data)
+                            time.sleep(0.05)
 
-    @skip_without_dask
-    def test_parallel(self, testcluster):
+    @skip_without_acme
+    def test_sd_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
-        par_tests = ["test_dataselection"]
+        par_tests = ["test_sd_dataselection"]
         for test in par_tests:
             getattr(self, test)()
+            flush_local_cluster(testcluster)
         client.close()

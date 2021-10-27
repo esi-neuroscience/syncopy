@@ -1,0 +1,3 @@
+[build-system]
+requires = ["ruamel.yaml >=0.16,<0.17", "setuptools", "setuptools_scm", "wheel"]
+build-backend = "setuptools.build_meta"
