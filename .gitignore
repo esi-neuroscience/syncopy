@@ -69,3 +69,6 @@ requirements-test.txt
 
 # Editor-related stuff
 .vscode
+
+# Mac OS related stuff
+.DS_Store
