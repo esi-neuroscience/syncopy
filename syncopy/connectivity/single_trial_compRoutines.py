@@ -129,7 +129,7 @@ def cross_spectra_cF(trl_dat,
         # SciPy's overwrite_data not working for type='constant' :/
         dat = detrend(dat, type='constant', axis=0, overwrite_data=True)
     elif polyremoval == 1:
-        detrend(dat, type='linear', axis=0, overwrite_data=True)
+        dat = detrend(dat, type='linear', axis=0, overwrite_data=True)
         
     # Symmetric Padding (updates no. of samples)
     if padding_opt:

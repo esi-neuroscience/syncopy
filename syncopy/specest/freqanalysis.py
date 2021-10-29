@@ -46,7 +46,7 @@ __all__ = ["freqanalysis"]
 @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, foilim=None, pad=None, padtype='zero',
-                 padlength=None, polyremoval=None,
+                 padlength=None, polyremoval=0,
                  taper="hann", tapsmofrq=None, nTaper=None, keeptapers=False,
                  toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
@@ -63,8 +63,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     * **foi**/**foilim** : frequencies of interest; either array of frequencies or
       frequency window (not both)
     * **keeptrials** : return individual trials or grand average
-    * **polyremoval** : de-trending method to use (0 = mean, 1 = linear, 2 = quadratic,
-      3 = cubic, etc.)
+    * **polyremoval** : de-trending method to use (0 = mean, 1 = linear)
 
     List of available analysis methods and respective distinct options:
 
@@ -192,13 +191,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         samples to append to each trial. See :func:`syncopy.padding` for more
         information.
     polyremoval : int or None
-        **FIXME: Not implemented yet**
         Order of polynomial used for de-trending data in the time domain prior
         to spectral analysis. A value of 0 corresponds to subtracting the mean
         ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
-        least squares fit of a linear polynomial), ``polyremoval = N`` for `N > 1`
-        subtracts a polynomial of order `N` (``N = 2`` quadratic, ``N = 3`` cubic
-        etc.). If `polyremoval` is `None`, no de-trending is performed.
+        least squares fit of a linear polynomial). 
+        If `polyremoval` is `None`, no de-trending is performed. Note that
+        for spectral estimation de-meaning is very advisable and hence also the
+        default.
     taper : str
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. Windowing function,
         one of :data:`~syncopy.specest.const_def.availableTapers` (see below).
@@ -459,9 +458,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # FIXME: implement detrending
     # see also https://docs.obspy.org/_modules/obspy/signal/detrend.html#polynomial
     if polyremoval is not None:
-        raise NotImplementedError("Detrending has not been implemented yet.")
         try:
-            scalar_parser(polyremoval, varname="polyremoval", lims=[0, 8], ntype="int_like")
+            scalar_parser(polyremoval, varname="polyremoval", lims=[0, 1], ntype="int_like")
         except Exception as exc:
             raise exc
 
@@ -989,6 +987,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             postSelect,
             toi=toi,
             timeAxis=timeAxis,
+            polyremoval=polyremoval,            
             output_fmt=output,
             method_kwargs=method_kwargs)
 

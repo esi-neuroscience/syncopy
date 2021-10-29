@@ -91,13 +91,11 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
         Number of samples to pad to data (if `pad` is 'absolute' or 'relative').
         See :func:`syncopy.padding` for more information.
     polyremoval : int or None
-        **FIXME: Not implemented yet**
         Order of polynomial used for de-trending data in the time domain prior
         to spectral analysis. A value of 0 corresponds to subtracting the mean
         ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
-        least squares fit of a linear polynomial), ``polyremoval = N`` for `N > 1`
-        subtracts a polynomial of order `N` (``N = 2`` quadratic, ``N = 3`` cubic
-        etc.). If `polyremoval` is `None`, no de-trending is performed.
+        least squares fit of a linear polynomial).
+        If `polyremoval` is `None`, no de-trending is performed.
     output_fmt : str
         Output of spectral estimation; one of :data:`~syncopy.specest.const_def.availableOutputs`
     noCompute : bool
@@ -168,6 +166,12 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
 
+    # detrend, does not work with 'FauxTrial' data..
+    if polyremoval == 0:
+        dat = signal.detrend(dat, type='constant', axis=0, overwrite_data=True)
+    elif polyremoval == 1:
+        dat = signal.detrend(dat, type='linear', axis=0, overwrite_data=True)
+    
     # call actual specest method
     res, _ = mtmfft(dat, **method_kwargs)
 
@@ -249,7 +253,7 @@ def mtmconvol_cF(
         toi=None,
         foi=None,
         nTaper=1, tapsmofrq=None,  timeAxis=0,
-        keeptapers=True, polyremoval=None, output_fmt="pow",
+        keeptapers=True, polyremoval=0, output_fmt="pow",
         noCompute=False, chunkShape=None, method_kwargs=None):
     """
     Perform time-frequency analysis on multi-channel time series data using a sliding window FFT
@@ -300,13 +304,11 @@ def mtmconvol_cF(
         If `True`, results of Fourier transform are preserved for each taper,
         otherwise spectrum is averaged across tapers.
     polyremoval : int
-        **FIXME: Not implemented yet**
-        Order of polynomial used for de-trending. A value of 0 corresponds to
-        subtracting the mean ("de-meaning"), ``polyremoval = 1`` removes linear
-        trends (subtracting the least squares fit of a linear function),
-        ``polyremoval = N`` for `N > 1` subtracts a polynomial of order `N` (``N = 2``
-        quadratic, ``N = 3`` cubic etc.). If `polyremoval` is `None`, no de-trending
-        is performed.
+        Order of polynomial used for de-trending data in the time domain prior
+        to spectral analysis. A value of 0 corresponds to subtracting the mean
+        ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
+        least squares fit of a linear polynomial). Detrending is done on each segment!
+        If `polyremoval` is `None`, no de-trending is performed.
     output_fmt : str
         Output of spectral estimation; one of :data:`~syncopy.specest.const_def.availableOutputs`
     noCompute : bool
@@ -348,7 +350,7 @@ def mtmconvol_cF(
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
-
+        
     # Pad input array if necessary
     if padbegin > 0 or padend > 0:
         dat = padding(dat, "zero", pad="relative", padlength=None,
@@ -377,9 +379,18 @@ def mtmconvol_cF(
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
 
+    # detrending options for each segment
+    if polyremoval == 0:
+        detrend = 'constant'
+    elif polyremoval == 1:
+        detrend = 'linear'
+    else:
+        detrend = False
+        
     # additional keyword args for `stft` in dictionary
     method_kwargs.update({"boundary": stftBdry,
-                          "padded": stftPad})
+                          "padded": stftPad,
+                          "detrend" : detrend})
 
     if equidistant:
         ftr, freqs = mtmconvol(dat[soi, :], **method_kwargs)
@@ -468,7 +479,7 @@ def wavelet_cF(
     postselect,
     toi=None,
     timeAxis=0,
-    polyremoval=None,
+    polyremoval=0,
     output_fmt="pow",
     noCompute=False,
     chunkShape=None,
@@ -495,13 +506,11 @@ def wavelet_cF(
     timeAxis : int
         Index of running time axis in `trl_dat` (0 or 1)
     polyremoval : int
-        **FIXME: Not implemented yet**
-        Order of polynomial used for de-trending. A value of 0 corresponds to
-        subtracting the mean ("de-meaning"), ``polyremoval = 1`` removes linear
-        trends (subtracting the least squares fit of a linear function),
-        ``polyremoval = N`` for `N > 1` subtracts a polynomial of order `N` (``N = 2``
-        quadratic, ``N = 3`` cubic etc.). If `polyremoval` is `None`, no de-trending
-        is performed.
+        Order of polynomial used for de-trending data in the time domain prior
+        to spectral analysis. A value of 0 corresponds to subtracting the mean
+        ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
+        least squares fit of a linear polynomial).
+        If `polyremoval` is `None`, no de-trending is performed.
     output_fmt : str
         Output of spectral estimation; one of :data:`~syncopy.specest.const_def.availableOutputs`
     noCompute : bool
@@ -550,7 +559,7 @@ def wavelet_cF(
         dat = trl_dat.T  # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
-
+        
     # Get shape of output for dry-run phase
     nChannels = dat.shape[1]
     if isinstance(toi, np.ndarray):  # `toi` is an array of time-points
@@ -562,6 +571,12 @@ def wavelet_cF(
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
 
+    # detrend, does not work with 'FauxTrial' data..
+    if polyremoval == 0:
+        dat = signal.detrend(dat, type='constant', axis=0, overwrite_data=True)
+    elif polyremoval == 1:
+        dat = signal.detrend(dat, type='linear', axis=0, overwrite_data=True)
+    
     # ------------------
     # actual method call
     # ------------------
@@ -633,10 +648,9 @@ def superlet_cF(
     trl_dat,
     preselect,
     postselect,
-    # padbegin, # were always 0!
-    # padend,
     toi=None,
     timeAxis=0,
+    polyremoval=0,
     output_fmt="pow",
     noCompute=False,
     chunkShape=None,
@@ -661,6 +675,14 @@ def superlet_cF(
         Either array of equidistant time-points
         or `"all"` to perform analysis on all samples in `trl_dat`. Please refer to
         :func:`~syncopy.freqanalysis` for further details.
+    timeAxis : int
+        Index of running time axis in `trl_dat` (0 or 1)
+    polyremoval : int or None
+        Order of polynomial used for de-trending data in the time domain prior
+        to spectral analysis. A value of 0 corresponds to subtracting the mean
+        ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
+        least squares fit of a linear polynomial).
+        If `polyremoval` is `None`, no de-trending is performed.
     output_fmt : str
         Output of spectral estimation; one of
         :data:`~syncopy.specest.const_def.availableOutputs`
@@ -704,7 +726,7 @@ def superlet_cF(
         dat = trl_dat.T  # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
-
+        
     # Get shape of output for dry-run phase
     nChannels = trl_dat.shape[1]
     if isinstance(toi, np.ndarray):  # `toi` is an array of time-points
@@ -716,6 +738,12 @@ def superlet_cF(
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
 
+    # detrend, does not work with 'FauxTrial' data..
+    if polyremoval == 0:
+        dat = signal.detrend(dat, type='constant', axis=0, overwrite_data=True)
+    elif polyremoval == 1:
+        dat = signal.detrend(dat, type='linear', axis=0, overwrite_data=True)
+    
     # ------------------
     # actual method call
     # ------------------
