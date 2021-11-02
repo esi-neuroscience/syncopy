@@ -9,7 +9,7 @@ from scipy import signal
 
 
 def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
-              taperopt={}, boundary='zeros', padded=True):
+              taperopt={}, boundary='zeros', padded=True, detrend=False):
 
     '''
     (Multi-)tapered short time fast Fourier transform. Returns
@@ -108,8 +108,8 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
     for taperIdx, win in enumerate(windows):
         # pxx has shape (nFreq, nChannels, nTime)
         _, _, pxx = signal.stft(data_arr, samplerate, win,
-                                   nperseg, noverlap, boundary=boundary,
-                                   padded=padded, axis=0)
+                                nperseg, noverlap, boundary=boundary,
+                                padded=padded, axis=0, detrend=detrend)
 
         if taper == 'dpss':
             # reverse scipy window normalization
