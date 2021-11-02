@@ -27,7 +27,7 @@ import syncopy as spy
 from syncopy.shared.tools import StructDict
 from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser,
                                     filename_parser, data_parser)
-from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError, SPYWarning
+from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
 from syncopy.datatype.methods.definetrial import definetrial as _definetrial
 from syncopy import __version__, __storage__, __acme__, __sessionid__, __storagelimit__
 if __acme__:

@@ -23,4 +23,7 @@ from syncopy.tests.misc import generate_artificial_data
 if __name__ == "__main__":
 
     # Test stuff within here...
-    pass
+    artdata = generate_artificial_data(nTrials=5, nChannels=16,
+                                       equidistant=False, inmemory=False)
+    spec = spy.freqanalysis(artdata, method="mtmfft", taper="dpss", output="pow")
+
