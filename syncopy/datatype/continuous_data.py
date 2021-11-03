@@ -27,7 +27,7 @@ from syncopy.shared.tools import best_match
 from syncopy.plotting import _plot_analog
 from syncopy.plotting import _plot_spectral
 
-__all__ = ["AnalogData", "SpectralData"]
+__all__ = ["AnalogData", "SpectralData", "CrossSpectralData"]
 
 
 class ContinuousData(BaseData, ABC):
@@ -684,8 +684,11 @@ class SpectralData(ContinuousData):
             if taper is not None:
                 self.taper = ['taper']
 
+                
 class CrossSpectralData(ContinuousData):
 
+    _defaultDimord = ["time", "freq", "channel1", "channel2"]
+    
     _backingObject = None
     _channel1 = None
     _channel2 = None
@@ -700,7 +703,7 @@ class CrossSpectralData(ContinuousData):
     @channel.setter
     def channel(self, channelTuple):
         """ Set channel1 and channel2 """
-        channel1, channel2 = channelTuple
+        channel1, channel2 = channelTuple                
         if channel1 is channel2 is None:
             SPYWarning("No channels provided for assignment", caller="CrossSpectralData")
             return
@@ -719,6 +722,7 @@ class CrossSpectralData(ContinuousData):
     @dimord.setter
     def dimord(self, dims):
         """Override `dimord` setter from `BaseData`"""
+
         if dims is not None:
             try:
                 array_parser(dims, varname="dims", ntype="str", dims=1)
@@ -755,6 +759,7 @@ class CrossSpectralData(ContinuousData):
 
     def __init__(self,
                  data=None,
+                 filename=None,
                  channel1=None,
                  channel2=None,
                  samplerate=None,
@@ -764,6 +769,14 @@ class CrossSpectralData(ContinuousData):
         # If provided, build linear index so that backing object can be instantiated correctly
         self.channel = (channel1, channel2)
 
+        # as we don't call the parent contructor
+        # we have to initialize some things by hand
+        self._dimord = None 
+        if filename is not None:
+            self.filename = filename
+        else:
+            self.filename = self._gen_filename()
+        
         # Set dimensional labels
         self.dimord = dimord
 

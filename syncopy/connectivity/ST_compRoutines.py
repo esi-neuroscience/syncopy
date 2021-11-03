@@ -8,6 +8,7 @@
 # Builtin/3rd party package imports
 import numpy as np
 from scipy.signal import fftconvolve, detrend
+from inspect import signature
 
 # syncopy imports
 from syncopy.specest.mtmfft import mtmfft
@@ -29,6 +30,7 @@ def cross_spectra_cF(trl_dat,
                      polyremoval=False,
                      timeAxis=0,
                      norm=False,
+                     chunkShape=None,                     
                      noCompute=False):
 
     """
@@ -117,35 +119,30 @@ def cross_spectra_cF(trl_dat,
              (Multi-)tapered Fourier analysis
 
     """
-    
+
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
 
-    # detrend
-    if polyremoval == 0:
-        # SciPy's overwrite_data not working for type='constant' :/
-        dat = detrend(dat, type='constant', axis=0, overwrite_data=True)
-    elif polyremoval == 1:
-        dat = detrend(dat, type='linear', axis=0, overwrite_data=True)
-        
     # Symmetric Padding (updates no. of samples)
     if padding_opt:
         dat = padding(dat, **padding_opt)
-        
+
     nChannels = dat.shape[1]
 
-    # specs have shape (nTapers x nFreq x nChannels)    
-    specs, freqs = mtmfft(dat, samplerate, taper, taperopt)
+    freqs = np.fft.rfftfreq(dat.shape[0], 1 / samplerate)
+    _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
+    nFreq = freq_idx.size
+    
     if foi is not None:
         _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
         nFreq = freq_idx.size        
     else:
         freq_idx = slice(None)
         nFreq = freqs.size
-        
+
     # we always average over tapers here
     outShape = (1, nFreq, nChannels, nChannels)
     
@@ -155,6 +152,17 @@ def cross_spectra_cF(trl_dat,
     if noCompute:
         return outShape, spectralDTypes["fourier"]
 
+    # detrend
+    if polyremoval == 0:
+        # SciPy's overwrite_data not working for type='constant' :/
+        dat = detrend(dat, type='constant', axis=0, overwrite_data=True)
+    elif polyremoval == 1:
+        dat = detrend(dat, type='linear', axis=0, overwrite_data=True)
+
+    # compute the individual spectra
+    # specs have shape (nTapers x nFreq x nChannels)    
+    specs, freqs = mtmfft(dat, samplerate, taper, taperopt)
+        
     # outer product along channel axes
     # has shape (nTapers x nFreq x nChannels x nChannels)        
     CS_ij = specs[:, :, np.newaxis, :] * specs[:, :, :, np.newaxis].conj()
@@ -176,6 +184,58 @@ def cross_spectra_cF(trl_dat,
     return CS_ij[None, ..., freq_idx].transpose(0, 3, 1, 2), freqs[freq_idx]
 
 
+class ST_CrossSpectra(ComputationalRoutine):
+
+    """
+    Compute class that calculates single-trial (multi-)tapered cross spectra 
+    of :class:`~syncopy.AnalogData` objects
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.connectivityanalysis : parent metafunction
+    """
+
+    # the hard wired dimord of the cF
+    dimord = ['None', 'freq', 'channel1', 'channel2']
+    
+    computeFunction = staticmethod(cross_spectra_cF)
+
+    method = "cross_spectra"
+    # 1st argument,the data, gets omitted
+    method_keys = list(signature(cross_spectra_cF).parameters.keys())[1:]
+    cF_keys = list(signature(cross_spectra_cF).parameters.keys())[1:]
+
+    def process_metadata(self, data, out):
+
+        # Some index gymnastics to get trial begin/end "samples"
+        if data._selection is not None:
+            chanSec = data._selection.channel
+            trl = data._selection.trialdefinition
+            for row in range(trl.shape[0]):
+                trl[row, :2] = [row, row + 1]
+        else:
+            chanSec = slice(None)
+            time = np.arange(len(data.trials))
+            time = time.reshape((time.size, 1))
+            trl = np.hstack((time, time + 1,
+                             np.zeros((len(data.trials), 1)),
+                             np.array(data.trialinfo)))
+
+        # Attach constructed trialdef-array (if even necessary)
+        if self.keeptrials:
+            out.trialdefinition = trl
+        else:
+            out.trialdefinition = np.array([[0, 1, 0]])
+            
+        # Attach remaining meta-data
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel[chanSec])
+
+
 @unwrap_io
 def cross_covariance_cF(trl_dat,
                         samplerate=1,
@@ -183,6 +243,7 @@ def cross_covariance_cF(trl_dat,
                         polyremoval=False,
                         timeAxis=0,
                         norm=False,
+                        chunkShape=None,                                             
                         noCompute=False):
 
     """

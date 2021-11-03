@@ -1,7 +1,9 @@
 import numpy as np
 import scipy.signal as sci
-from syncopy.connectivity.single_trial_compRoutines import cross_spectra_cF
-from syncopy.connectivity.single_trial_compRoutines import cross_covariance_cF
+
+from syncopy.datatype import CrossSpectralData, padding, SpectralData
+from syncopy.connectivity.ST_compRoutines import cross_spectra_cF, ST_CrossSpectra
+from syncopy.connectivity.ST_compRoutines import cross_covariance_cF
 from syncopy.connectivity import connectivityanalysis
 from syncopy.specest import freqanalysis
 import matplotlib.pyplot as ppl
@@ -23,12 +25,16 @@ sdict2 = {"trials": [0], 'channels' : ['channel1'], 'toilim' : [-1, 0]}
 print('sdict1')
 connectivityanalysis(data=tdat, select=sdict1, pad_to_length=4200)
 # connectivityanalysis(data=tdat, select=sdict1, pad_to_length='nextpow2')
-# connectivityanalysis(data=tdat, select=sdict1, pad_to_length=None)
-print('sdict2')
-# connectivityanalysis(data=tdat, select=sdict2)
-print('no selection')
+
+# print('no selection')
 # connectivityanalysis(data=tdat, foi = np.arange(20, 80))
 # connectivityanalysis(data=tdat, foilim = [20, 80])
+
+# the hard wired dimord of the cF
+dimord = ['None', 'freq', 'channel1', 'channel2']
+# CrossSpectralData()
+# CrossSpectralData(dimord=ST_CrossSpectra.dimord)
+# SpectralData()
 
 
 res = freqanalysis(data=tdat,

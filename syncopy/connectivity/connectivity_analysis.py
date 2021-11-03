@@ -10,7 +10,7 @@ from numbers import Number
 # Syncopy imports
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser 
 from syncopy.shared.tools import get_defaults
-from syncopy.datatype import SpectralData, padding
+from syncopy.datatype import CrossSpectralData, padding
 from syncopy.datatype.methods.padding import _nextpow2
 from syncopy.shared.tools import best_match
 from syncopy.shared.errors import (
@@ -31,9 +31,8 @@ from .const_def import (
 )
 
 # CRs still missing, CFs are already there
-from .single_trial_compRoutines import (
-    cross_spectra_cF,
-    cross_covariance_cF
+from .ST_compRoutines import (
+    ST_CrossSpectra
 )
 
 __all__ = ["connectivityanalysis"]
@@ -45,7 +44,7 @@ __all__ = ["connectivityanalysis"]
 def connectivityanalysis(data, method='csd', 
                          foi=None, foilim=None, pad_to_length=None,
                          polyremoval=None, taper="hann", tapsmofrq=None,
-                         nTaper=None, toi="all",
+                         nTaper=None, toi="all", out=None,
                          **kwargs):
 
     """
@@ -177,7 +176,7 @@ def connectivityanalysis(data, method='csd',
     # only now set foi array for foilim in 1Hz steps
     if foilim:
         foi = np.arange(foilim[0], foilim[1] + 1)
-
+    
     if method ==  'csd':
 
         if foi is None and foilim is None:
@@ -188,18 +187,36 @@ def connectivityanalysis(data, method='csd',
             SPYInfo(msg)
             foi = freqs
         
-        # for now manually select a trial
-        if data._selection is not None:
-            single_trial = data.trials[data._selection.trials]
-        else:
-            single_trial = data.trials[0]
-            
-        res, freqs = cross_spectra_cF(single_trial, samplerate=data.samplerate,
-                                      padding_opt=padding_opt, foi=foi)
+        st_CompRoutine = ST_CrossSpectra(samplerate=data.samplerate,
+                                         padding_opt=padding_opt,
+                                         foi=foi)
 
-        print('A')
-        print(res.shape)
-        print(freqs[-10:])
-        print(foi[-10:])
-        print('B')
-                
+        # hard coded as class attribute
+        st_dimord = ST_CrossSpectra.dimord
+
+    # --------------------------------------------------------
+    # Sanitize output and call the chosen ComputationalRoutine
+    # --------------------------------------------------------
+        
+    # If provided, make sure output object is appropriate
+    if out is not None:
+        try:
+            data_parser(out, varname="out", writable=True, empty=True,
+                        dataclass="CrossSpectralData",
+                        dimord=st_dimord)
+        except Exception as exc:
+            raise exc
+        new_out = False
+    else:
+        out = CrossSpectralData(dimord=st_dimord)
+        new_out = True
+        
+    # Perform actual computation
+    st_CompRoutine.initialize(data,
+                              chan_per_worker=kwargs.get("chan_per_worker"),
+                              keeptrials=True)
+    st_CompRoutine.compute(data, out, parallel=kwargs.get("parallel"), log_dict={})
+
+    # Either return newly created output object or simply quit
+    return out if new_out else None
+            
