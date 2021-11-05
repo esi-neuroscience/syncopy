@@ -180,8 +180,9 @@ def cross_spectra_cF(trl_dat,
         Ciijj = np.sqrt(diag[:, :, None] * diag[:, None, :]).T
         CS_ij = CS_ij / Ciijj
 
-    # where does freqs go/come from - we will allow tuples as return values yeah!
-    return CS_ij[None, ..., freq_idx].transpose(0, 3, 1, 2), freqs[freq_idx]
+    # where does freqs go/come from -
+    # we will eventually allow tuples as return values yeah!
+    return CS_ij[None, ..., freq_idx].transpose(0, 3, 1, 2)#, freqs[freq_idx]
 
 
 class ST_CrossSpectra(ComputationalRoutine):

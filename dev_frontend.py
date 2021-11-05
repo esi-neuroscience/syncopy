@@ -23,11 +23,11 @@ sdict1 = {"trials": [0], 'channels' : ['channel1'], 'toi': np.arange(-1, 1, 0.00
 sdict2 = {"trials": [0], 'channels' : ['channel1'], 'toilim' : [-1, 0]}
 
 print('sdict1')
-connectivityanalysis(data=tdat, select=sdict1, pad_to_length=4200)
+# connectivityanalysis(data=tdat, select=sdict1, pad_to_length=4200)
 # connectivityanalysis(data=tdat, select=sdict1, pad_to_length='nextpow2')
 
 # print('no selection')
-# connectivityanalysis(data=tdat, foi = np.arange(20, 80))
+connectivityanalysis(data=tdat)#, foi = np.arange(20, 80))
 # connectivityanalysis(data=tdat, foilim = [20, 80])
 
 # the hard wired dimord of the cF
