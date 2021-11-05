@@ -77,16 +77,15 @@ class ContinuousData(BaseData, ABC):
         ppattrs.sort()
 
         # Construct string for pretty-printing class attributes
-        dsep = "' x '"
-        dinfo = ""
+        dsep = " by "
         hdstr = "Syncopy {clname:s} object with fields\n\n"
-        ppstr = hdstr.format(diminfo=dinfo + "'"  + \
-                             dsep.join(dim for dim in self.dimord) + "' " if self.dimord is not None else "Empty ",
-                             clname=self.__class__.__name__)
+        ppstr = hdstr.format(clname=self.__class__.__name__)
         maxKeyLength = max([len(k) for k in ppattrs])
         printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
         for attr in ppattrs:
             value = getattr(self, attr)
+            if attr == "dimord" and value is not None:
+                valueString = dsep.join(dim for dim in self.dimord)
             if hasattr(value, 'shape') and attr == "data" and self.sampleinfo is not None:
                 tlen = np.unique([sinfo[1] - sinfo[0] for sinfo in self.sampleinfo])
                 if tlen.size == 1:
@@ -110,7 +109,10 @@ class ContinuousData(BaseData, ABC):
                 valueString = "[" + " x ".join([str(numel) for numel in value.shape]) \
                               + "] element " + str(type(value))
             elif isinstance(value, list):
-                valueString = "{0} element list".format(len(value))
+                if attr == "dimord" and value is not None:
+                    valueString = dsep.join(dim for dim in self.dimord)
+                else:
+                    valueString = "{0} element list".format(len(value))
             elif isinstance(value, dict):
                 msg = "dictionary with {nk:s}keys{ks:s}"
                 keylist = value.keys()
@@ -525,11 +527,11 @@ class AnalogData(ContinuousData):
 
 
 class SpectralData(ContinuousData):
-    """Multi-channel, real or complex spectral data
+    """
+    Multi-channel, real or complex spectral data
 
     This class can be used for representing any data with a frequency, channel,
     and optionally a time axis. The datatype can be complex or float.
-
     """
 
     _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
@@ -684,15 +686,22 @@ class SpectralData(ContinuousData):
             if taper is not None:
                 self.taper = ['taper']
 
-                
+
 class CrossSpectralData(ContinuousData):
+    """
+    Multi-channel real or complex spectral connectivity data
+
+    This class can be used for representing channel-channel interactions involving
+    frequency and optionally time or lag. The datatype can be complex or float.
+    """
 
     _defaultDimord = ["time", "freq", "channel1", "channel2"]
-    
+
     _backingObject = None
     _channel1 = None
     _channel2 = None
 
+    # Override channel: `CrossSpectralData` uses channel combinations
     @property
     def channel(self):
         """ Linearized list of channel-channel combinations """
@@ -700,10 +709,11 @@ class CrossSpectralData(ContinuousData):
             return None
         return np.array([c1 + '-' + c2 for c1 in self._channel1 for c2 in self._channel2])
 
+    # Override channel-setter as well
     @channel.setter
     def channel(self, channelTuple):
         """ Set channel1 and channel2 """
-        channel1, channel2 = channelTuple                
+        channel1, channel2 = channelTuple
         if channel1 is channel2 is None:
             SPYWarning("No channels provided for assignment", caller="CrossSpectralData")
             return
@@ -714,11 +724,14 @@ class CrossSpectralData(ContinuousData):
         self._channel1 = np.array(channel1)
         self._channel2 = np.array(channel2)
 
+    # Override dimord: since `CrossSpectralData` uses a "virtual" dimord we need some
+    # customizations
     @property
     def dimord(self):
         """list(str): ordered list of data dimension labels"""
         return self._dimord
 
+    # Override dimord setter as well
     @dimord.setter
     def dimord(self, dims):
         """Override `dimord` setter from `BaseData`"""
@@ -737,6 +750,16 @@ class CrossSpectralData(ContinuousData):
 
         self._dimord = list(dims)
 
+    # Override property so that setter points to backing object
+    @property
+    def trialdefinition(self):
+        """nTrials x >=3 :class:`numpy.ndarray` of [start, end, offset, trialinfo[:]]"""
+        return np.array(self._trialdefinition)
+
+    @trialdefinition.setter
+    def trialdefinition(self, trl):
+        self.backingObject._definetrial(self._backingObject, trialdefinition=trl)
+
     # Override selector method
     def selectdata(self, trials=None, channels1=None, channels2=None, toi=None, toilim=None,
                    foi=None, foilim=None):
@@ -753,9 +776,36 @@ class CrossSpectralData(ContinuousData):
         --------
         syncopy.selectdata : create new objects via deep-copy selections
         """
-
+        channels = self._ind2sub(channels1, channels2)
         return selectdata(self._backingObject, trials=trials, channels=channels, toi=toi,
                           toilim=toilim, foi=foi, foilim=foilim)
+
+    # Local 2d -> 1d channel index converter
+    def _ind2sub(self, channel1, channel2):
+        """Convert 2d channel tuple to linear 1d index"""
+
+        chanIdx = []
+        for channel in (channel1, channel2):
+            if isinstance(channel, (slice, range)):
+                channel = list(channel)
+            if all(isinstance(c, str) for c in channel):
+                target = self.channel
+            else:
+                target = np.arange(self.channel.size)
+
+            # Use set comparison to ensure (a) no mixed-type selections (['a', 2, 'c'])
+            # and (b) no invalid selections ([-99, 0.01])
+            if not set(channel).issubset(target):
+                lgl = "list/array of existing channel names or indices"
+                raise SPYValueError(legal=lgl, varname="channel")
+
+            # Preserve order and duplicates of selection - don't use `np.isin` here!
+            chanIdx.append([np.where(target == c)[0] for c in channel])
+
+        # Almost: `ravel_multi_index` expects a tuple of arrays, so perform some zipping
+        linearIndex = [(c1, c2) for c1 in chanIdx[0] for c2 in chanIdx[1]]
+        return np.ravel_multi_index(tuple(zip(*linearIndex)),
+                                    dims=(self._channel1.size, self._channel2.size))
 
     def __init__(self,
                  data=None,
@@ -769,30 +819,36 @@ class CrossSpectralData(ContinuousData):
         # If provided, build linear index so that backing object can be instantiated correctly
         self.channel = (channel1, channel2)
 
-        # as we don't call the parent contructor
-        # we have to initialize some things by hand
-        self._dimord = None 
-        if filename is not None:
-            self.filename = filename
-        else:
-            self.filename = self._gen_filename()
-        
         # Set dimensional labels
         self.dimord = dimord
 
+        # We're not calling our parent constructor, so do this by hand
+        self.filename = self._gen_filename()
+
         # Allocate backing object
         self._backingObject = SpectralData(data=data,
+                                           dimord=SpectralData._defaultDimord,
+                                           filename=self.filename,
                                            samplerate=samplerate,
                                            channel=self.channel,
                                            taper=None,
                                            freq=freq)
 
-        # Override class attributes: short-cut to backing object
-        self.data = self._backingObject.data
-        self.samplerate = self._backingObject.samplerate
-        self.freq = self._backingObject.freq
+        # Override class attributes: short-cut to backing object; Note: `filename`
+        # takes care of correctly pointing to `container` and `tag`
+        self._data = self._backingObject.data
+        self._freq = self._backingObject.freq
+        self._samplerate = self._backingObject.samplerate
 
-        # Override class helpers: short-cut to backing object
+        # Override class helpers: short-cut to backing object; Note: by pointing
+        # `_trialdefinition` to backing object, `sampleinfo`, `trialinfo` etc.
+        # are automatically processed correctly (all wrangle `_trialdefinition`)
+        self.definetrial = self._backingObject.definetrial
         self._get_trial = self._backingObject._get_trial
+        self._trialdefinition = self._backingObject._trialdefinition
+
+        # The other way round: ensure on-disk backing device modes align
+        self.mode = "r+"
+        self._backingObject._mode = self._mode
 
 

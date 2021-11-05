@@ -30,23 +30,23 @@ def cross_spectra_cF(trl_dat,
                      polyremoval=False,
                      timeAxis=0,
                      norm=False,
-                     chunkShape=None,                     
+                     chunkShape=None,
                      noCompute=False):
 
     """
     Single trial Fourier cross spectra estimates between all channels
     of the input data. First all the individual Fourier transforms
     are calculated via a (multi-)tapered FFT, then the pairwise
-    cross-spectra are computed. 
+    cross-spectra are computed.
 
     Averaging over tapers is done implicitly
     for multi-taper analysis with `taper="dpss"`.
 
-    Output consists of all (nChannels x nChannels+1)/2 different complex 
-    estimates aranged in a symmetric fashion (CS_ij == CS_ji*). The 
+    Output consists of all (nChannels x nChannels+1)/2 different complex
+    estimates aranged in a symmetric fashion (CS_ij == CS_ji*). The
     elements on the main diagonal (CS_ii) are the (real) auto-spectra.
 
-    This is NOT the same as what is commonly referred to as 
+    This is NOT the same as what is commonly referred to as
     "cross spectral density" as there is no (time) averaging!!
     Multi-tapering alone is not necessarily sufficient to get enough
     statitstical power for a robust csd estimate. Yet for completeness
@@ -64,19 +64,19 @@ def cross_spectra_cF(trl_dat,
         Samplerate in Hz
     foi : 1D :class:`numpy.ndarray` or None, optional
         Frequencies of interest  (Hz) for output. If desired frequencies
-        cannot be matched exactly the closest possible frequencies (respecting 
+        cannot be matched exactly the closest possible frequencies (respecting
         data length and padding) are used.
     padding_opt : dict
-        Parameters to be used for padding. See :func:`syncopy.padding` for 
+        Parameters to be used for padding. See :func:`syncopy.padding` for
         more details.
     taper : str or None
         Taper function to use, one of scipy.signal.windows
         Set to `None` for no tapering.
     taperopt : dict, optional
-        Additional keyword arguments passed to the `taper` function. 
-        For multi-tapering with `taper='dpss'` set the keys 
+        Additional keyword arguments passed to the `taper` function.
+        For multi-tapering with `taper='dpss'` set the keys
         `'Kmax'` and `'NW'`.
-        For further details, please refer to the 
+        For further details, please refer to the
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
     polyremoval : int or None
         Order of polynomial used for de-trending data in the time domain prior
@@ -96,7 +96,7 @@ def cross_spectra_cF(trl_dat,
         array.
 
     Returns
-    -------    
+    -------
     CS_ij : (1, nFreq, N, N) :class:`numpy.ndarray`
         Complex cross spectra for all channel combinations i,j.
         `N` corresponds to number of input channels.
@@ -106,12 +106,12 @@ def cross_spectra_cF(trl_dat,
 
     Notes
     -----
-    This method is intended to be used as 
+    This method is intended to be used as
     :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`. 
-    Thus, input parameters are presumed to be forwarded from a parent metafunction. 
-    Consequently, this function does **not** perform any error checking and operates 
-    under the assumption that all inputs have been externally validated and cross-checked. 
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
 
     See also
     --------
@@ -135,17 +135,17 @@ def cross_spectra_cF(trl_dat,
     freqs = np.fft.rfftfreq(dat.shape[0], 1 / samplerate)
     _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
     nFreq = freq_idx.size
-    
+
     if foi is not None:
         _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
-        nFreq = freq_idx.size        
+        nFreq = freq_idx.size
     else:
         freq_idx = slice(None)
         nFreq = freqs.size
 
     # we always average over tapers here
     outShape = (1, nFreq, nChannels, nChannels)
-    
+
     # For initialization of computational routine,
     # just return output shape and dtype
     # cross spectra are complex!
@@ -160,15 +160,15 @@ def cross_spectra_cF(trl_dat,
         dat = detrend(dat, type='linear', axis=0, overwrite_data=True)
 
     # compute the individual spectra
-    # specs have shape (nTapers x nFreq x nChannels)    
+    # specs have shape (nTapers x nFreq x nChannels)
     specs, freqs = mtmfft(dat, samplerate, taper, taperopt)
-        
+
     # outer product along channel axes
-    # has shape (nTapers x nFreq x nChannels x nChannels)        
+    # has shape (nTapers x nFreq x nChannels x nChannels)
     CS_ij = specs[:, :, np.newaxis, :] * specs[:, :, :, np.newaxis].conj()
-    
+
     # average tapers and transpose:
-    # now has shape (nChannels x nChannels x nFreq)        
+    # now has shape (nChannels x nChannels x nFreq)
     CS_ij = CS_ij.mean(axis=0).T
 
     if norm:
@@ -179,7 +179,7 @@ def cross_spectra_cF(trl_dat,
         # get the needed product pairs of the autospectra
         Ciijj = np.sqrt(diag[:, :, None] * diag[:, None, :]).T
         CS_ij = CS_ij / Ciijj
-    
+
     # where does freqs go/come from - we will allow tuples as return values yeah!
     return CS_ij[None, ..., freq_idx].transpose(0, 3, 1, 2), freqs[freq_idx]
 
@@ -187,7 +187,7 @@ def cross_spectra_cF(trl_dat,
 class ST_CrossSpectra(ComputationalRoutine):
 
     """
-    Compute class that calculates single-trial (multi-)tapered cross spectra 
+    Compute class that calculates single-trial (multi-)tapered cross spectra
     of :class:`~syncopy.AnalogData` objects
 
     Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
@@ -200,8 +200,8 @@ class ST_CrossSpectra(ComputationalRoutine):
     """
 
     # the hard wired dimord of the cF
-    dimord = ['None', 'freq', 'channel1', 'channel2']
-    
+    dimord = ['freq', 'channel1', 'channel2']
+
     computeFunction = staticmethod(cross_spectra_cF)
 
     method = "cross_spectra"
@@ -230,7 +230,7 @@ class ST_CrossSpectra(ComputationalRoutine):
             out.trialdefinition = trl
         else:
             out.trialdefinition = np.array([[0, 1, 0]])
-            
+
         # Attach remaining meta-data
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel[chanSec])
@@ -243,13 +243,13 @@ def cross_covariance_cF(trl_dat,
                         polyremoval=False,
                         timeAxis=0,
                         norm=False,
-                        chunkShape=None,                                             
+                        chunkShape=None,
                         noCompute=False):
 
     """
     Single trial covariance estimates between all channels
-    of the input data. Output consists of all (nChannels x nChannels+1)/2 
-    different estimates aranged in a symmetric fashion 
+    of the input data. Output consists of all (nChannels x nChannels+1)/2
+    different estimates aranged in a symmetric fashion
     (COV_ij == COV_ji). The elements on the
     main diagonal (CS_ii) are the channel variances.
 
@@ -263,7 +263,7 @@ def cross_covariance_cF(trl_dat,
     samplerate : float
         Samplerate in Hz
     padding_opt : dict
-        Parameters to be used for padding. See :func:`syncopy.padding` for 
+        Parameters to be used for padding. See :func:`syncopy.padding` for
         more details.
     polyremoval : int or None
         Order of polynomial used for de-trending data in the time domain prior
@@ -281,19 +281,19 @@ def cross_covariance_cF(trl_dat,
         array.
 
     Returns
-    -------    
+    -------
     CC_ij : (K, 1, N, N) :class:`numpy.ndarray`
         Cross covariance for all channel combinations i,j.
         `N` corresponds to number of input channels.
 
     Notes
     -----
-    This method is intended to be used as 
+    This method is intended to be used as
     :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`. 
-    Thus, input parameters are presumed to be forwarded from a parent metafunction. 
-    Consequently, this function does **not** perform any error checking and operates 
-    under the assumption that all inputs have been externally validated and cross-checked. 
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
 
     """
 
@@ -309,7 +309,7 @@ def cross_covariance_cF(trl_dat,
         dat = detrend(dat, type='constant', axis=0, overwrite_data=True)
     elif polyremoval == 1:
         detrend(dat, type='linear', axis=0, overwrite_data=True)
-        
+
     # Symmetric Padding (updates no. of samples)
     if padding_opt:
         dat = padding(dat, **padding_opt)
@@ -325,15 +325,15 @@ def cross_covariance_cF(trl_dat,
     lags = lags * 1 / samplerate
 
     outShape = (len(lags), 1, nChannels, nChannels)
-    
+
     # For initialization of computational routine,
     # just return output shape and dtype
     # cross covariances are real!
     if noCompute:
         return outShape, spectralDTypes["abs"]
-    
+
     # re-normalize output for different effective overlaps
-    norm_overlap = np.arange(nSamples, nSamples // 2, step = -1) 
+    norm_overlap = np.arange(nSamples, nSamples // 2, step = -1)
 
     CC = np.empty(outShape)
     for i in range(nChannels):
@@ -350,5 +350,5 @@ def cross_covariance_cF(trl_dat,
         STDs = np.std(dat, axis=0)
         N = STDs[:, None] * STDs[None, :]
         CC = CC / N
-        
+
     return CC, lags

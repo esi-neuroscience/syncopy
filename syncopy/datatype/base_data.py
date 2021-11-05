@@ -71,6 +71,13 @@ class BaseData(ABC):
     # Set caller for `SPYWarning` to not have it show up as '<module>'
     _spwCaller = "BaseData.{}"
 
+    # Initialize hidden attributes used by all children
+    _cfg = {}
+    _filename = None
+    _trialdefinition = None
+    _dimord = None
+    _mode = None
+
     @property
     @classmethod
     @abstractmethod
@@ -703,11 +710,6 @@ class BaseData(ABC):
         """
 
         # Initialize hidden attributes
-        self._cfg = {}
-        self._filename = None
-        self._trialdefinition = None
-        self._dimord = None
-        self._mode = None
         for propertyName in self._hdfFileDatasetProperties:
             setattr(self, "_" + propertyName, None)
 
