@@ -15,10 +15,11 @@ import inspect
 import numpy as np
 from abc import ABC
 from collections.abc import Iterator
+from numpy.lib.arraysetops import isin
 from numpy.lib.format import open_memmap
 
 # Local imports
-from .base_data import BaseData, FauxTrial
+from .base_data import BaseData, FauxTrial, Selector
 from .methods.definetrial import definetrial
 from .methods.selectdata import selectdata
 from syncopy.shared.parsers import scalar_parser, array_parser
@@ -752,13 +753,31 @@ class CrossSpectralData(ContinuousData):
 
     # Override property so that setter points to backing object
     @property
+    def _selection(self):
+        """Data selection specified by :class:`Selector`"""
+        return self._selector
+
+    @_selection.setter
+    def _selection(self, select):
+        if select is None:
+            self._selector = None
+        else:
+            if "channels1" or "channels2" in select.keys():
+                actualSelect = dict(select)
+                channels1 = actualSelect.pop("channels1", None)
+                channels2 = actualSelect.pop("channels2", None)
+                actualSelect["channels"] = self._ind2sub(channels1, channels2)
+            self._selector = Selector(self._backingObject, actualSelect)
+
+    # Override property so that setter points to backing object
+    @property
     def trialdefinition(self):
         """nTrials x >=3 :class:`numpy.ndarray` of [start, end, offset, trialinfo[:]]"""
         return np.array(self._trialdefinition)
 
     @trialdefinition.setter
     def trialdefinition(self, trl):
-        self.backingObject._definetrial(self._backingObject, trialdefinition=trl)
+        self._backingObject._definetrial(self._backingObject, trialdefinition=trl)
 
     # Override selector method
     def selectdata(self, trials=None, channels1=None, channels2=None, toi=None, toilim=None,
@@ -785,19 +804,28 @@ class CrossSpectralData(ContinuousData):
         """Convert 2d channel tuple to linear 1d index"""
 
         chanIdx = []
-        for channel in (channel1, channel2):
-            if isinstance(channel, (slice, range)):
+        for ck, channel in enumerate((channel1, channel2)):
+            target = getattr(self, "_channel{}".format(ck + 1))
+            if isinstance(channel, str):
+                if channel == "all":
+                    channel = None
+                else:
+                    raise SPYValueError(legal="'all' or `None` or list/array",
+                                        varname="channels", actual=channel)
+            if channel is None:
+                channel = target
+            if isinstance(channel, range):
                 channel = list(channel)
-            if all(isinstance(c, str) for c in channel):
-                target = self.channel
-            else:
-                target = np.arange(self.channel.size)
+            elif isinstance(channel, slice):
+                channel = target[channel]
 
             # Use set comparison to ensure (a) no mixed-type selections (['a', 2, 'c'])
             # and (b) no invalid selections ([-99, 0.01])
             if not set(channel).issubset(target):
                 lgl = "list/array of existing channel names or indices"
                 raise SPYValueError(legal=lgl, varname="channel")
+            if not all(isinstance(c, str) for c in channel):
+                target = np.arange(target.size)
 
             # Preserve order and duplicates of selection - don't use `np.isin` here!
             chanIdx.append([np.where(target == c)[0] for c in channel])
@@ -846,6 +874,7 @@ class CrossSpectralData(ContinuousData):
         self.definetrial = self._backingObject.definetrial
         self._get_trial = self._backingObject._get_trial
         self._trialdefinition = self._backingObject._trialdefinition
+        self._preview_trial = self._backingObject._preview_trial
 
         # The other way round: ensure on-disk backing device modes align
         self.mode = "r+"
