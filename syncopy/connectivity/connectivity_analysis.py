@@ -8,7 +8,7 @@ import numpy as np
 from numbers import Number
 
 # Syncopy imports
-from syncopy.shared.parsers import data_parser, scalar_parser, array_parser 
+from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.tools import get_defaults
 from syncopy.datatype import CrossSpectralData, padding
 from syncopy.datatype.methods.padding import _nextpow2
@@ -41,7 +41,7 @@ __all__ = ["connectivityanalysis"]
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
-def connectivityanalysis(data, method='csd', 
+def connectivityanalysis(data, method='csd',
                          foi=None, foilim=None, pad_to_length=None,
                          polyremoval=None, taper="hann", tapsmofrq=None,
                          nTaper=None, toi="all", out=None,
@@ -60,7 +60,7 @@ def connectivityanalysis(data, method='csd',
     timeAxis = data.dimord.index("time")
 
     # Get everything of interest in local namespace
-    defaults = get_defaults(connectivityanalysis) 
+    defaults = get_defaults(connectivityanalysis)
     lcls = locals()
 
     # Ensure a valid computational method was selected
@@ -82,12 +82,12 @@ def connectivityanalysis(data, method='csd',
             if isinstance(tsel, list):
                 lgl = "equidistant time points (toi) or time slice (toilim)"
                 actual = "non-equidistant set of time points"
-                raise SPYValueError(legal=lgl, varname="select", actual=actual)                
+                raise SPYValueError(legal=lgl, varname="select", actual=actual)
 
             sinfo[tk, :] = [trl.idx[timeAxis].start, trl.idx[timeAxis].stop]
     else:
         trialList = list(range(len(data.trials)))
-        sinfo = data.sampleinfo        
+        sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo).squeeze()
 
     # here we enforce equal lengths trials as is required for
@@ -99,19 +99,19 @@ def connectivityanalysis(data, method='csd',
         actual = "trials of different lengths - please pre-pad!"
         raise SPYValueError(legal=lgl, varname="lenTrials", actual=actual)
 
-    numTrials = len(trialList)    
-    
+    numTrials = len(trialList)
+
     print(lenTrials)
-    
+
     # --- Padding ---
 
-    # manual symmetric zero padding of ALL trials the same way    
+    # manual symmetric zero padding of ALL trials the same way
     if isinstance(pad_to_length, Number):
 
         scalar_parser(pad_to_length,
                       varname='pad_to_length',
                       ntype='int_like',
-                      lims=[lenTrials.max(), np.inf])        
+                      lims=[lenTrials.max(), np.inf])
         padding_opt = {
             'padtype' : 'zero',
             'pad' : 'absolute',
@@ -128,12 +128,12 @@ def connectivityanalysis(data, method='csd',
         # after padding
         nSamples = nextpow2(int(lenTrials.min()))
     # no padding
-    else:        
+    else:
         padding_opt = None
         nSamples = int(lenTrials.min())
 
     # --- foi sanitization ---
-    
+
     if foi is not None:
         if isinstance(foi, str):
             if foi == "all":
@@ -148,7 +148,7 @@ def connectivityanalysis(data, method='csd',
             except Exception as exc:
                 raise exc
             foi = np.array(foi, dtype="float")
-            
+
     if foilim is not None:
         if isinstance(foilim, str):
             if foilim == "all":
@@ -172,21 +172,21 @@ def connectivityanalysis(data, method='csd',
         lgl = "either `foi` or `foilim` specification"
         act = "both"
         raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
-    
+
     # only now set foi array for foilim in 1Hz steps
     if foilim:
         foi = np.arange(foilim[0], foilim[1] + 1)
-    
+
     if method ==  'csd':
 
         if foi is None and foilim is None:
             # Construct array of maximally attainable frequencies
             freqs = np.fft.rfftfreq(nSamples, 1 / data.samplerate)
-            msg = (f"Automatic FFT frequency selection from {freqs[0]:.1f}Hz to " 
+            msg = (f"Automatic FFT frequency selection from {freqs[0]:.1f}Hz to "
                    f"{freqs[-1]:.1f}Hz")
             SPYInfo(msg)
             foi = freqs
-        
+
         st_CompRoutine = ST_CrossSpectra(samplerate=data.samplerate,
                                          padding_opt=padding_opt,
                                          foi=foi)
@@ -197,7 +197,7 @@ def connectivityanalysis(data, method='csd',
     # --------------------------------------------------------
     # Sanitize output and call the chosen ComputationalRoutine
     # --------------------------------------------------------
-        
+
     # If provided, make sure output object is appropriate
     if out is not None:
         try:
@@ -210,7 +210,7 @@ def connectivityanalysis(data, method='csd',
     else:
         out = CrossSpectralData(dimord=st_dimord)
         new_out = True
-        
+
     # Perform actual computation
     st_CompRoutine.initialize(data,
                               chan_per_worker=kwargs.get("chan_per_worker"),
@@ -219,4 +219,4 @@ def connectivityanalysis(data, method='csd',
 
     # Either return newly created output object or simply quit
     return out if new_out else None
-            
+

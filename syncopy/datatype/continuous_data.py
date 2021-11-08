@@ -697,7 +697,7 @@ class CrossSpectralData(ContinuousData):
     """
 
     _defaultDimord = ["time", "freq", "channel1", "channel2"]
-
+    _data = None
     _backingObject = None
     _channel1 = None
     _channel2 = None
@@ -751,6 +751,54 @@ class CrossSpectralData(ContinuousData):
 
         self._dimord = list(dims)
 
+    # Override data property: keep in sync w/`_backingObject`
+    @property
+    def data(self):
+        """
+        Point to data property of `self._backingObject`
+        """
+        return self._backingObject.data
+
+    @data.setter
+    def data(self, inData):
+        self._backingObject.data = inData
+
+    # Override freq property: keep in sync w/`_backingObject`
+    @property
+    def freq(self):
+        """
+        Point to data property of `self._backingObject`
+        """
+        return self._backingObject.freq
+
+    @freq.setter
+    def freq(self, freq):
+        self._backingObject.freq = freq
+
+    # Override mode property: keep in sync w/`_backingObject`
+    @property
+    def mode(self):
+        """
+        Point to mode property of `self._backingObject`
+        """
+        return self._backingObject.mode
+
+    @mode.setter
+    def mode(self, md):
+        self._backingObject.mode = md
+
+    # Override samplerate property: keep in sync w/`_backingObject`
+    @property
+    def samplerate(self):
+        """
+        Point to samplerate property of `self._backingObject`
+        """
+        return self._backingObject.samplerate
+
+    @samplerate.setter
+    def samplerate(self, sr):
+        self._backingObject.samplerate = sr
+
     # Override property so that setter points to backing object
     @property
     def _selection(self):
@@ -769,15 +817,39 @@ class CrossSpectralData(ContinuousData):
                 actualSelect["channels"] = self._ind2sub(channels1, channels2)
             self._selector = Selector(self._backingObject, actualSelect)
 
+    # Override property to point to backing object
+    @property
+    def sampleinfo(self):
+        """Point to sampleinfo property of `self._backingObject`"""
+        return self._backingObject.sampleinfo
+
+    # Override property so that setter points to backing object
+    @property
+    def time(self):
+        """Point to time property of `self._backingObject`"""
+        return self._backingObject.time
+
     # Override property so that setter points to backing object
     @property
     def trialdefinition(self):
-        """nTrials x >=3 :class:`numpy.ndarray` of [start, end, offset, trialinfo[:]]"""
-        return np.array(self._trialdefinition)
+        """Point to trialdefinition property of `self._backingObject`"""
+        return self._backingObject.trialdefinition
 
     @trialdefinition.setter
     def trialdefinition(self, trl):
-        self._backingObject._definetrial(self._backingObject, trialdefinition=trl)
+        self._backingObject.trialdefinition = trl
+
+    # Override property to point to backing object
+    @property
+    def trialinfo(self):
+        """Point to trialinfo property of `self._backingObject`"""
+        return self._backingObject.trialinfo
+
+    # Override property so that setter points to backing object
+    @property
+    def trials(self):
+        """Point to trials property of `self._backingObject`"""
+        return self._backingObject.trials
 
     # Override selector method
     def selectdata(self, trials=None, channels1=None, channels2=None, toi=None, toilim=None,
@@ -862,12 +934,6 @@ class CrossSpectralData(ContinuousData):
                                            taper=None,
                                            freq=freq)
 
-        # Override class attributes: short-cut to backing object; Note: `filename`
-        # takes care of correctly pointing to `container` and `tag`
-        self._data = self._backingObject.data
-        self._freq = self._backingObject.freq
-        self._samplerate = self._backingObject.samplerate
-
         # Override class helpers: short-cut to backing object; Note: by pointing
         # `_trialdefinition` to backing object, `sampleinfo`, `trialinfo` etc.
         # are automatically processed correctly (all wrangle `_trialdefinition`)
@@ -876,8 +942,5 @@ class CrossSpectralData(ContinuousData):
         self._trialdefinition = self._backingObject._trialdefinition
         self._preview_trial = self._backingObject._preview_trial
 
-        # The other way round: ensure on-disk backing device modes align
-        self.mode = "r+"
-        self._backingObject._mode = self._mode
-
-
+        # Manually create object log (due to uncalled parent constructor)
+        self.log = "created {clname:s} object".format(clname=self.__class__.__name__)

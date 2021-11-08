@@ -77,6 +77,23 @@ class BaseData(ABC):
     _trialdefinition = None
     _dimord = None
     _mode = None
+    _lhd = "\n\t\t>>> SyNCopy v. {ver:s} <<< \n\n" +\
+           "Created: {timestamp:s} \n\n" +\
+           "System Profile: \n" +\
+           "{sysver:s} \n" +\
+           "ACME:  {acver:s}\n" +\
+           "Dask:  {daver:s}\n" +\
+           "NumPy: {npver:s}\n" +\
+           "SciPy: {spver:s}\n\n" +\
+           "--- LOG ---"
+    _log_header = _lhd.format(ver=__version__,
+                              timestamp=time.asctime(),
+                              sysver=sys.version,
+                              acver=acme.__version__ if __acme__ else "--",
+                              daver=dask.__version__ if __acme__ else "--",
+                              npver=np.__version__,
+                              spver=sp.__version__)
+    _log = ""
 
     @property
     @classmethod
@@ -740,24 +757,7 @@ class BaseData(ABC):
         for propertyName in self._hdfFileDatasetProperties:
             setattr(self, propertyName, kwargs[propertyName])
 
-        # Prepare log + header and write first entry
-        lhd = "\n\t\t>>> SyNCopy v. {ver:s} <<< \n\n" +\
-              "Created: {timestamp:s} \n\n" +\
-              "System Profile: \n" +\
-              "{sysver:s} \n" +\
-              "ACME:  {acver:s}\n" +\
-              "Dask:  {daver:s}\n" +\
-              "NumPy: {npver:s}\n" +\
-              "SciPy: {spver:s}\n\n" +\
-              "--- LOG ---"
-        self._log_header = lhd.format(ver=__version__,
-                                      timestamp=time.asctime(),
-                                      sysver=sys.version,
-                                      acver=acme.__version__ if __acme__ else "--",
-                                      daver=dask.__version__ if __acme__ else "--",
-                                      npver=np.__version__,
-                                      spver=sp.__version__)
-        self._log = ""
+        # Write initial log entry
         self.log = "created {clname:s} object".format(clname=self.__class__.__name__)
 
         # Write version

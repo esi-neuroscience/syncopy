@@ -8,8 +8,8 @@ from syncopy.connectivity import connectivityanalysis
 from syncopy.specest import freqanalysis
 import matplotlib.pyplot as ppl
 
-from syncopy.shared.parsers import data_parser, scalar_parser, array_parser    
-from syncopy.shared.tools import get_defaults 
+from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
+from syncopy.shared.tools import get_defaults
 from syncopy.datatype import SpectralData, padding
 
 from syncopy.tests.misc import generate_artificial_data
@@ -27,7 +27,7 @@ print('sdict1')
 # connectivityanalysis(data=tdat, select=sdict1, pad_to_length='nextpow2')
 
 # print('no selection')
-connectivityanalysis(data=tdat)#, foi = np.arange(20, 80))
+csd = connectivityanalysis(data=tdat)#, foi = np.arange(20, 80))
 # connectivityanalysis(data=tdat, foilim = [20, 80])
 
 # the hard wired dimord of the cF
