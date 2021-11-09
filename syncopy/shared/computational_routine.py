@@ -751,7 +751,9 @@ class ComputationalRoutine(ABC):
             layout = h5py.VirtualLayout(shape=self.outputShape, dtype=self.dtype)
             for k, idx in enumerate(self.targetLayout):
                 fname = os.path.join(self.virtualDatasetDir, "{0:d}.h5".format(k))
-                layout[idx] = h5py.VirtualSource(fname, self.virtualDatasetNames, shape=self.targetShapes[k])
+                # Catch empty selections: don't map empty sources into the layout of the VDS
+                if all([sel for sel in self.sourceLayout[k]]):
+                    layout[idx] = h5py.VirtualSource(fname, self.virtualDatasetNames, shape=self.targetShapes[k])
             self.VirtualDatasetLayout = layout
             self.outFileName = os.path.join(self.virtualDatasetDir, "{0:d}.h5")
             self.tmpDsetName = self.virtualDatasetNames
