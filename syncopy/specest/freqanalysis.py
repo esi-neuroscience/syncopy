@@ -353,6 +353,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo).squeeze()
+    if not lenTrials.shape:
+        lenTrials = lenTrials[None]
     numTrials = len(trialList)
 
     # Sliding window FFT does not support "fancy" padding
