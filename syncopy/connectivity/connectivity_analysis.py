@@ -41,10 +41,10 @@ __all__ = ["connectivityanalysis"]
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
-def connectivityanalysis(data, method='csd',
+def connectivityanalysis(data, method='csd', keeptrials=False,
                          foi=None, foilim=None, pad_to_length=None,
                          polyremoval=None, taper="hann", tapsmofrq=None,
-                         nTaper=None, toi="all", out=None,
+                         nTaper=None, toi="all", out=None, 
                          **kwargs):
 
     """
@@ -214,7 +214,7 @@ def connectivityanalysis(data, method='csd',
     # Perform actual computation
     st_CompRoutine.initialize(data,
                               chan_per_worker=kwargs.get("chan_per_worker"),
-                              keeptrials=True)
+                              keeptrials=keeptrials)
     st_CompRoutine.compute(data, out, parallel=kwargs.get("parallel"), log_dict={})
 
     # Either return newly created output object or simply quit

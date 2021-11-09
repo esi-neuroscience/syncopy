@@ -13,27 +13,28 @@ from syncopy.shared.tools import get_defaults
 from syncopy.datatype import SpectralData, padding
 
 from syncopy.tests.misc import generate_artificial_data
-tdat = generate_artificial_data(inmemory=True)
+tdat = generate_artificial_data(inmemory=True, seed=1230)
 
 foilim = [30, 50]
 # this still gives type(tsel) = slice :)
 sdict1 = {"trials": [0], 'channels' : ['channel1'], 'toi': np.arange(-1, 1, 0.001)}
 # this gives type(tsel) = list
 # sdict1 = {"trials": [0], 'channels' : ['channel1'], 'toi': np.array([0, 0.3, 1])}
-sdict2 = {"trials": [0], 'channels' : ['channel1'], 'toilim' : [-1, 0]}
+sdict2 = {"trials": [0], 'toilim' : [-1, 0]}
 
 print('sdict1')
 # connectivityanalysis(data=tdat, select=sdict1, pad_to_length=4200)
 # connectivityanalysis(data=tdat, select=sdict1, pad_to_length='nextpow2')
 
 # print('no selection')
-csd = connectivityanalysis(data=tdat)#, foi = np.arange(20, 80))
+csd = connectivityanalysis(data=tdat, keeptrials=False, foi = np.arange(20, 80))
+# csd = connectivityanalysis(data=tdat, keeptrials=False)#, select=sdict2)
 # connectivityanalysis(data=tdat, foilim = [20, 80])
 
 # the hard wired dimord of the cF
-dimord = ['None', 'freq', 'channel1', 'channel2']
+dimord = ['None', 'freq', 'channel_i', 'channel_j']
 # CrossSpectralData()
-# CrossSpectralData(dimord=ST_CrossSpectra.dimord)
+# CrossSpectralData(dimord=dimord)
 # SpectralData()
 
 
@@ -44,4 +45,7 @@ res = freqanalysis(data=tdat,
                    foi=np.arange(1, 150, 5),
                    output='abs',
 #                   polyremoval=1,
-                   t_ftimwin=0.5)
+                   t_ftimwin=0.5,
+                   keeptrials=False,
+                   parallel=False, # try this!!!!!!
+                   select={"trials" : [0,1]})

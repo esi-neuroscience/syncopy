@@ -2,7 +2,7 @@
 
 import numpy as np
 import matplotlib.pyplot as ppl
-from syncopy.connectivity import single_trial_compRoutines as stCR
+from syncopy.connectivity import ST_compRoutines as stCR
 
 
 def test_csd():
@@ -24,7 +24,8 @@ def test_csd():
                                        polyremoval=1,
                                        taper='dpss',
                                        taperopt={'Kmax' : Kmax, 'NW' : 6},
-                                       norm=True)
+                                       norm=True,
+                                       fullOutput=True)
 
     # output has shape (1, nFreq, nChannels, nChannels)
     assert CSD.shape == (1, len(freqs), data.shape[1], data.shape[1])
@@ -64,7 +65,8 @@ def test_cross_cov():
     data = np.c_[cosine, sine]
 
     # output shape is (nLags x 1 x nChannels x nChannels)
-    CC, lags = stCR.cross_covariance_cF(data, samplerate=fs, norm=True)
+    CC, lags = stCR.cross_covariance_cF(data, samplerate=fs, norm=True, fullOutput=True)
+
     # test for result is returned in the [0, np.ceil(nSamples / 2)] lag interval
     nLags = int(np.ceil(nSamples / 2))
     

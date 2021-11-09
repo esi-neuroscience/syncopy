@@ -290,7 +290,9 @@ class ContinuousData(BaseData, ABC):
                 shp[tidx] = len(tsel)
 
             # process the rest
-            for dim in ["channel", "freq", "taper"]:
+            dims = list(self.dimord)
+            dims.pop(dims.index("time"))
+            for dim in dims:
                 sel = getattr(self._selection, dim)
                 if sel:
                     dimIdx = self.dimord.index(dim)
@@ -696,160 +698,119 @@ class CrossSpectralData(ContinuousData):
     frequency and optionally time or lag. The datatype can be complex or float.
     """
 
-    _defaultDimord = ["time", "freq", "channel1", "channel2"]
+    _infoFileProperties = ContinuousData._infoFileProperties + ("freq",)
+    _defaultDimord = ["time", "freq", "channel_i", "channel_j"]
+    _channel_i = None
+    _channel_j = None
+    _samplerate = None
     _data = None
-    _backingObject = None
-    _channel1 = None
-    _channel2 = None
 
-    # Override channel: `CrossSpectralData` uses channel combinations
+    # override channel property to avoid accidental access
     @property
     def channel(self):
-        """ Linearized list of channel-channel combinations """
-        if self._channel1 is None:
-            return None
-        return np.array([c1 + '-' + c2 for c1 in self._channel1 for c2 in self._channel2])
+        pass
+        # msg = f"CrossSpectralData has no 'channel' but dimord: {self._dimord}"
+        # SPYWarning(msg)
+        # raise NotImplementedError(msg)
 
-    # Override channel-setter as well
     @channel.setter
-    def channel(self, channelTuple):
-        """ Set channel1 and channel2 """
-        channel1, channel2 = channelTuple
-        if channel1 is channel2 is None:
-            SPYWarning("No channels provided for assignment", caller="CrossSpectralData")
-            return
-        if channel1 is None:
-            channel1 = channel2
-        if channel2 is None:
-            channel2 = channel1
-        self._channel1 = np.array(channel1)
-        self._channel2 = np.array(channel2)
-
-    # Override dimord: since `CrossSpectralData` uses a "virtual" dimord we need some
-    # customizations
-    @property
-    def dimord(self):
-        """list(str): ordered list of data dimension labels"""
-        return self._dimord
-
-    # Override dimord setter as well
-    @dimord.setter
-    def dimord(self, dims):
-        """Override `dimord` setter from `BaseData`"""
-
-        if dims is not None:
-            try:
-                array_parser(dims, varname="dims", ntype="str", dims=1)
-            except Exception as exc:
-                raise exc
+    def channel(self, channel):
+        if channel is None:
+            # print('channel None setter called')
+            pass
         else:
+            msg = f"CrossSpectralData has no 'channel' to set but dimord: {self._dimord}"
+            raise NotImplementedError(msg)
+    
+    @property
+    def channel_i(self):
+        """ :class:`numpy.ndarray` : list of recording channel names """
+        # if data exists but no user-defined channel labels, create them on the fly
+        if self._channel_i is None and self._data is not None:
+            nChannel = self.data.shape[self.dimord.index("channel_i")]
+            return np.array(["channel_i-" + str(i + 1).zfill(len(str(nChannel)))
+                             for i in range(nChannel)])
+        
+        return self._channel_i
+
+    @channel_i.setter
+    def channel_i(self, channel_i):
+        """ :class:`numpy.ndarray` : list of channel labels """
+        if channel_i is None:
+            self._channel_i = None
             return
 
-        if self._dimord is not None:
-            lgl = "empty `dimord` attribute"
-            raise SPYValueError(legal=lgl, varname="dimord", actual=self._dimord)
+        if self.data is None:
+            raise SPYValueError("Syncopy: Cannot assign `channels` without data. " +
+                  "Please assign data first")
 
-        self._dimord = list(dims)
+        try:
+            array_parser(channel_i, varname="channel_i", ntype="str",
+                         dims=(self.data.shape[self.dimord.index("channel_i")],))
+        except Exception as exc:
+            raise exc
 
-    # Override data property: keep in sync w/`_backingObject`
+        self._channel_i = np.array(channel_i)
+
     @property
-    def data(self):
-        """
-        Point to data property of `self._backingObject`
-        """
-        return self._backingObject.data
+    def channel_j(self):
+        """ :class:`numpy.ndarray` : list of recording channel names """
+        # if data exists but no user-defined channel labels, create them on the fly
+        if self._channel_j is None and self._data is not None:
+            nChannel = self.data.shape[self.dimord.index("channel_j")]
+            return np.array(["channel_j-" + str(i + 1).zfill(len(str(nChannel)))
+                             for i in range(nChannel)])
+        
+        return self._channel_j
 
-    @data.setter
-    def data(self, inData):
-        self._backingObject.data = inData
+    @channel_j.setter
+    def channel_j(self, channel_j):
+        """ :class:`numpy.ndarray` : list of channel labels """
+        if channel_j is None:
+            self._channel_j = None
+            return
 
-    # Override freq property: keep in sync w/`_backingObject`
+        if self.data is None:
+            raise SPYValueError("Syncopy: Cannot assign `channels` without data. " +
+                  "Please assign data first")
+
+        try:
+            array_parser(channel_j, varname="channel_j", ntype="str",
+                         dims=(self.data.shape[self.dimord.index("channel_j")],))
+        except Exception as exc:
+            raise exc
+
+        self._channel_j = np.array(channel_j)
+        
     @property
     def freq(self):
-        """
-        Point to data property of `self._backingObject`
-        """
-        return self._backingObject.freq
+        """:class:`numpy.ndarray`: frequency axis in Hz """
+        # if data exists but no user-defined frequency axis,
+        # create a dummy one on the fly
+        
+        if self._freq is None and self._data is not None:
+            return np.arange(self.data.shape[self.dimord.index("freq")])
+        return self._freq
 
     @freq.setter
     def freq(self, freq):
-        self._backingObject.freq = freq
 
-    # Override mode property: keep in sync w/`_backingObject`
-    @property
-    def mode(self):
-        """
-        Point to mode property of `self._backingObject`
-        """
-        return self._backingObject.mode
+        if freq is None:
+            self._freq = None
+            return
 
-    @mode.setter
-    def mode(self, md):
-        self._backingObject.mode = md
+        if self.data is None:
+            print("Syncopy core - freq: Cannot assign `freq` without data. "+\
+                  "Please assing data first")
+            return
+        try:
 
-    # Override samplerate property: keep in sync w/`_backingObject`
-    @property
-    def samplerate(self):
-        """
-        Point to samplerate property of `self._backingObject`
-        """
-        return self._backingObject.samplerate
+            array_parser(freq, varname="freq", hasnan=False, hasinf=False,
+                         dims=(self.data.shape[self.dimord.index("freq")],))
+        except Exception as exc:
+            raise exc
 
-    @samplerate.setter
-    def samplerate(self, sr):
-        self._backingObject.samplerate = sr
-
-    # Override property so that setter points to backing object
-    @property
-    def _selection(self):
-        """Data selection specified by :class:`Selector`"""
-        return self._selector
-
-    @_selection.setter
-    def _selection(self, select):
-        if select is None:
-            self._selector = None
-        else:
-            if "channels1" or "channels2" in select.keys():
-                actualSelect = dict(select)
-                channels1 = actualSelect.pop("channels1", None)
-                channels2 = actualSelect.pop("channels2", None)
-                actualSelect["channels"] = self._ind2sub(channels1, channels2)
-            self._selector = Selector(self._backingObject, actualSelect)
-
-    # Override property to point to backing object
-    @property
-    def sampleinfo(self):
-        """Point to sampleinfo property of `self._backingObject`"""
-        return self._backingObject.sampleinfo
-
-    # Override property so that setter points to backing object
-    @property
-    def time(self):
-        """Point to time property of `self._backingObject`"""
-        return self._backingObject.time
-
-    # Override property so that setter points to backing object
-    @property
-    def trialdefinition(self):
-        """Point to trialdefinition property of `self._backingObject`"""
-        return self._backingObject.trialdefinition
-
-    @trialdefinition.setter
-    def trialdefinition(self, trl):
-        self._backingObject.trialdefinition = trl
-
-    # Override property to point to backing object
-    @property
-    def trialinfo(self):
-        """Point to trialinfo property of `self._backingObject`"""
-        return self._backingObject.trialinfo
-
-    # Override property so that setter points to backing object
-    @property
-    def trials(self):
-        """Point to trials property of `self._backingObject`"""
-        return self._backingObject.trials
+        self._freq = np.array(freq)
 
     # Override selector method
     def selectdata(self, trials=None, channels1=None, channels2=None, toi=None, toilim=None,
@@ -867,80 +828,67 @@ class CrossSpectralData(ContinuousData):
         --------
         syncopy.selectdata : create new objects via deep-copy selections
         """
-        channels = self._ind2sub(channels1, channels2)
-        return selectdata(self._backingObject, trials=trials, channels=channels, toi=toi,
+
+        if channels1 is not None or channels2 is not None:
+            raise NotImplementedError("Channel selection not yet supported for CrossSpectralData")
+
+        return selectdata(self, trials=trials, toi=toi,
                           toilim=toilim, foi=foi, foilim=foilim)
 
-    # Local 2d -> 1d channel index converter
-    def _ind2sub(self, channel1, channel2):
-        """Convert 2d channel tuple to linear 1d index"""
+    # # Local 2d -> 1d channel index converter
+    # def _ind2sub(self, channel1, channel2):
+    #     """Convert 2d channel tuple to linear 1d index"""
 
-        chanIdx = []
-        for ck, channel in enumerate((channel1, channel2)):
-            target = getattr(self, "_channel{}".format(ck + 1))
-            if isinstance(channel, str):
-                if channel == "all":
-                    channel = None
-                else:
-                    raise SPYValueError(legal="'all' or `None` or list/array",
-                                        varname="channels", actual=channel)
-            if channel is None:
-                channel = target
-            if isinstance(channel, range):
-                channel = list(channel)
-            elif isinstance(channel, slice):
-                channel = target[channel]
+    #     chanIdx = []
+    #     for ck, channel in enumerate((channel1, channel2)):
+    #         target = getattr(self, "_channel{}".format(ck + 1))
+    #         if isinstance(channel, str):
+    #             if channel == "all":
+    #                 channel = None
+    #             else:
+    #                 raise SPYValueError(legal="'all' or `None` or list/array",
+    #                                     varname="channels", actual=channel)
+    #         if channel is None:
+    #             channel = target
+    #         if isinstance(channel, range):
+    #             channel = list(channel)
+    #         elif isinstance(channel, slice):
+    #             channel = target[channel]
 
-            # Use set comparison to ensure (a) no mixed-type selections (['a', 2, 'c'])
-            # and (b) no invalid selections ([-99, 0.01])
-            if not set(channel).issubset(target):
-                lgl = "list/array of existing channel names or indices"
-                raise SPYValueError(legal=lgl, varname="channel")
-            if not all(isinstance(c, str) for c in channel):
-                target = np.arange(target.size)
+    #         # Use set comparison to ensure (a) no mixed-type selections (['a', 2, 'c'])
+    #         # and (b) no invalid selections ([-99, 0.01])
+    #         if not set(channel).issubset(target):
+    #             lgl = "list/array of existing channel names or indices"
+    #             raise SPYValueError(legal=lgl, varname="channel")
+    #         if not all(isinstance(c, str) for c in channel):
+    #             target = np.arange(target.size)
 
-            # Preserve order and duplicates of selection - don't use `np.isin` here!
-            chanIdx.append([np.where(target == c)[0] for c in channel])
+    #         # Preserve order and duplicates of selection - don't use `np.isin` here!
+    #         chanIdx.append([np.where(target == c)[0] for c in channel])
 
-        # Almost: `ravel_multi_index` expects a tuple of arrays, so perform some zipping
-        linearIndex = [(c1, c2) for c1 in chanIdx[0] for c2 in chanIdx[1]]
-        return np.ravel_multi_index(tuple(zip(*linearIndex)),
-                                    dims=(self._channel1.size, self._channel2.size))
+    #     # Almost: `ravel_multi_index` expects a tuple of arrays, so perform some zipping
+    #     linearIndex = [(c1, c2) for c1 in chanIdx[0] for c2 in chanIdx[1]]
+    #     return np.ravel_multi_index(tuple(zip(*linearIndex)),
+    #                                 dims=(self._channel1.size, self._channel2.size))
 
     def __init__(self,
                  data=None,
                  filename=None,
-                 channel1=None,
-                 channel2=None,
+                 channel_i=None,
+                 channel_j=None,
                  samplerate=None,
                  freq=None,
                  dimord=None):
 
-        # If provided, build linear index so that backing object can be instantiated correctly
-        self.channel = (channel1, channel2)
-
         # Set dimensional labels
         self.dimord = dimord
+        # set frequencies
+        self.freq = freq
 
-        # We're not calling our parent constructor, so do this by hand
-        self.filename = self._gen_filename()
-
-        # Allocate backing object
-        self._backingObject = SpectralData(data=data,
-                                           dimord=SpectralData._defaultDimord,
-                                           filename=self.filename,
-                                           samplerate=samplerate,
-                                           channel=self.channel,
-                                           taper=None,
-                                           freq=freq)
-
-        # Override class helpers: short-cut to backing object; Note: by pointing
-        # `_trialdefinition` to backing object, `sampleinfo`, `trialinfo` etc.
-        # are automatically processed correctly (all wrangle `_trialdefinition`)
-        self.definetrial = self._backingObject.definetrial
-        self._get_trial = self._backingObject._get_trial
-        self._trialdefinition = self._backingObject._trialdefinition
-        self._preview_trial = self._backingObject._preview_trial
-
-        # Manually create object log (due to uncalled parent constructor)
-        self.log = "created {clname:s} object".format(clname=self.__class__.__name__)
+        # Call parent initializer
+        super().__init__(data=data,
+                         filename=filename,
+                         samplerate=samplerate,
+                         freq=freq,
+                         dimord=dimord)
+        

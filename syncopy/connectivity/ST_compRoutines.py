@@ -31,7 +31,8 @@ def cross_spectra_cF(trl_dat,
                      timeAxis=0,
                      norm=False,
                      chunkShape=None,
-                     noCompute=False):
+                     noCompute=False,
+                     fullOutput=False):
 
     """
     Single trial Fourier cross spectra estimates between all channels
@@ -94,6 +95,9 @@ def cross_spectra_cF(trl_dat,
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
         array.
+    fullOutput : bool
+        For backend testing or stand-alone applications, set to `True`
+        to return also the `freqs` array.
 
     Returns
     -------
@@ -102,7 +106,7 @@ def cross_spectra_cF(trl_dat,
         `N` corresponds to number of input channels.
 
     freqs : (M,) :class:`numpy.ndarray`
-        The Fourier frequencies
+        The Fourier frequencies if `fullOutput=True`
 
     Notes
     -----
@@ -133,8 +137,6 @@ def cross_spectra_cF(trl_dat,
     nChannels = dat.shape[1]
 
     freqs = np.fft.rfftfreq(dat.shape[0], 1 / samplerate)
-    _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
-    nFreq = freq_idx.size
 
     if foi is not None:
         _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
@@ -182,9 +184,12 @@ def cross_spectra_cF(trl_dat,
 
     # where does freqs go/come from -
     # we will eventually allow tuples as return values yeah!
-    return CS_ij[None, ..., freq_idx].transpose(0, 3, 1, 2)#, freqs[freq_idx]
+    if not fullOutput:
+        return CS_ij[None, ..., freq_idx].transpose(0, 3, 1, 2)
+    else:
+        return CS_ij[None, ..., freq_idx].transpose(0, 3, 1, 2), freqs[freq_idx]
 
-
+    
 class ST_CrossSpectra(ComputationalRoutine):
 
     """
@@ -201,7 +206,7 @@ class ST_CrossSpectra(ComputationalRoutine):
     """
 
     # the hard wired dimord of the cF
-    dimord = ['freq', 'channel1', 'channel2']
+    dimord = ['time', 'freq', 'channel_i', 'channel_j']
 
     computeFunction = staticmethod(cross_spectra_cF)
 
@@ -231,10 +236,11 @@ class ST_CrossSpectra(ComputationalRoutine):
             out.trialdefinition = trl
         else:
             out.trialdefinition = np.array([[0, 1, 0]])
-
+            
         # Attach remaining meta-data
         out.samplerate = data.samplerate
-        out.channel = (np.array(data.channel[chanSec]), np.array(data.channel[chanSec]))
+        out.channel_i = np.array(data.channel[chanSec])
+        out.channel_j = np.array(data.channel[chanSec])
 
 
 @unwrap_io
@@ -245,7 +251,8 @@ def cross_covariance_cF(trl_dat,
                         timeAxis=0,
                         norm=False,
                         chunkShape=None,
-                        noCompute=False):
+                        noCompute=False,
+                        fullOutput=False):
 
     """
     Single trial covariance estimates between all channels
@@ -280,12 +287,18 @@ def cross_covariance_cF(trl_dat,
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
         array.
+    fullOutput : bool
+        For backend testing or stand-alone applications, set to `True`
+        to return also the `lags` array.
 
     Returns
     -------
     CC_ij : (K, 1, N, N) :class:`numpy.ndarray`
         Cross covariance for all channel combinations i,j.
         `N` corresponds to number of input channels.
+
+    lags : (M,) :class:`numpy.ndarray`
+        The lag times if `fullOutput=True`
 
     Notes
     -----
@@ -352,4 +365,7 @@ def cross_covariance_cF(trl_dat,
         N = STDs[:, None] * STDs[None, :]
         CC = CC / N
 
-    return CC, lags
+    if not fullOutput:
+        return CC
+    else:
+        return CC, lags

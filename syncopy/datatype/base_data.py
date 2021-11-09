@@ -345,10 +345,17 @@ class BaseData(ABC):
             self._dimord = None
             return
 
-        if set(dims) != set(self._defaultDimord):
-            base = "dimensional labels {}"
-            lgl = base.format("'" + "' x '".join(str(dim) for dim in self._defaultDimord) + "'")
-            act = base.format("'" + "' x '".join(str(dim) for dim in dims) + "'")
+        # this enforces the _defaultDimord
+        # if set(dims) != set(self._defaultDimord):
+        #     base = "dimensional labels {}"
+        #     lgl = base.format("'" + "' x '".join(str(dim) for dim in self._defaultDimord) + "'")
+        #     act = base.format("'" + "' x '".join(str(dim) for dim in dims) + "'")
+        #     raise SPYValueError(legal=lgl, varname="dimord", actual=act)
+
+        # this enforces that custom dimords are set for every axis
+        if len(dims) != len(self._defaultDimord):
+            lgl = f"Custom dimord has length {len(self._defaultDimord)}"
+            act = f"Custom dimord has length {len(dims)}"
             raise SPYValueError(legal=lgl, varname="dimord", actual=act)
 
         # Canonical way to perform initial allocation of dimensional properties

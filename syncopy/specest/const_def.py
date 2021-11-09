@@ -8,7 +8,7 @@ import numpy as np
 
 # Module-wide output specs
 spectralDTypes = {"pow": np.float32,
-                  "fourier": np.complex128,
+                  "fourier": np.complex64,
                   "abs": np.float32}
 
 #: output conversion of complex fourier coefficients
