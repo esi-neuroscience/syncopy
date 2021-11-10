@@ -105,7 +105,7 @@ def cross_spectra_cF(trl_dat,
         Complex cross spectra for all channel combinations i,j.
         `N` corresponds to number of input channels.
 
-    freqs : (M,) :class:`numpy.ndarray`
+    freqs : (nFreq,) :class:`numpy.ndarray`
         The Fourier frequencies if `fullOutput=True`
 
     Notes
@@ -241,6 +241,7 @@ class ST_CrossSpectra(ComputationalRoutine):
         out.samplerate = data.samplerate
         out.channel_i = np.array(data.channel[chanSec])
         out.channel_j = np.array(data.channel[chanSec])
+        out.freq = self.cfg['foi']
 
 
 @unwrap_io

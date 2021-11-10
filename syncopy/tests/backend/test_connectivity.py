@@ -3,9 +3,93 @@
 import numpy as np
 import matplotlib.pyplot as ppl
 from syncopy.connectivity import ST_compRoutines as stCR
+from syncopy.connectivity import AV_compRoutines as avCR
 
 
+def test_coherence():
+
+    '''
+    Tests the normalization cF to 
+    arrive at the coherence given
+    a trial averaged csd
+    '''
+
+    nSamples = 1001
+    fs = 1000
+    tvec = np.arange(nSamples) / fs    
+    harm_freq = 40
+    phase_shifts = np.array([0, np.pi / 2, np.pi])
+
+    nTrials = 50
+
+    # shape is (1, nFreq, nChannel, nChannel)
+    nFreq = nSamples // 2 + 1
+    nChannel = len(phase_shifts)
+    avCSD = np.zeros((1, nFreq, nChannel, nChannel), dtype=np.complex64)
+    
+    for i in range(nTrials):
+    
+        # 1 phase phase shifted harmonics + white noise + constant, SNR = 1
+        trl_dat = [10 + np.cos(harm_freq * 2 * np. pi * tvec + ps)
+                   for ps in phase_shifts] 
+        trl_dat = np.array(trl_dat).T
+        trl_dat = np.array(trl_dat) + np.random.randn(nSamples, len(phase_shifts))
+
+        # process every trial individually
+        CSD, freqs = stCR.cross_spectra_cF(trl_dat, fs,
+                                           polyremoval=1,
+                                           taper='hann',
+                                           norm=False, # this is important!
+                                           fullOutput=True)
+
+        assert avCSD.shape == CSD.shape
+        avCSD += CSD
+
+    # this is the result of the 
+    avCSD /= nTrials
+    
+    # perform the normalisation on the trial averaged csd's
+    Cij = avCR.normalize_csd_cF(avCSD)
+
+    # output has shape (1, nFreq, nChannels, nChannels)
+    assert Cij.shape == avCSD.shape
+
+    # coherence between channel 0 and 1
+    coh = Cij[0, :, 0, 1]
+
+    fig, ax = ppl.subplots(figsize=(6,4), num=None)
+    ax.set_xlabel('frequency (Hz)')
+    ax.set_ylabel('coherence')
+    ax.set_ylim((-.02,1.05))
+    ax.set_title('Trial average coherence,  SNR=1')
+
+    assert ax.plot(freqs, coh, lw=1.5, alpha=0.8, c='cornflowerblue')
+
+    # we test for the highest peak sitting at
+    # the vicinity (± 5Hz) of one the harmonic
+    peak_val = np.max(coh)
+    peak_idx = np.argmax(coh)
+    peak_freq = freqs[peak_idx]
+    print(peak_freq, peak_val)
+    assert harm_freq - 5 < peak_freq < harm_freq + 5
+
+    # we test that the peak value
+    # is at least 0.9 and max 1
+    assert 0.9 < peak_val < 1
+
+    # trial averaging should suppress the noise
+    # we test that away from the harmonic the coherence is low
+    level = 0.4
+    assert np.all(coh[:peak_idx - 2] < level)
+    assert np.all(coh[peak_idx + 2:] < level)
+
+    
 def test_csd():
+
+    '''
+    Tests multi-tapered single trial cross spectral
+    densities
+    '''
 
     nSamples = 1001
     fs = 1000
@@ -39,7 +123,7 @@ def test_csd():
     ax.set_ylim((-.02,1.05))
     ax.set_title(f'MTM coherence, {Kmax} tapers, SNR=1')
 
-    assert ax.plot(freqs, coh, lw=2, alpha=0.8, c='cornflowerblue')
+    assert ax.plot(freqs, coh, lw=1.5, alpha=0.8, c='cornflowerblue')
 
     # we test for the highest peak sitting at
     # the vicinity (± 5Hz) of one the harmonic

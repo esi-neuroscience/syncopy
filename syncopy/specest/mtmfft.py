@@ -80,7 +80,7 @@ def mtmfft(data_arr, samplerate, taper="hann", taperopt={}):
         windows = windows * np.sqrt(nSamples) / np.sum(windows)
         
     # Fourier transforms (nTapers x nFreq x nChannels)
-    ftr = np.zeros((windows.shape[0], nFreq, nChannels), dtype='complex128')
+    ftr = np.zeros((windows.shape[0], nFreq, nChannels), dtype='complex64')
 
     for taperIdx, win in enumerate(windows):
         win = np.tile(win, (nChannels, 1)).T

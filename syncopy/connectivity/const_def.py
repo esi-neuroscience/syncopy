@@ -7,8 +7,14 @@
 import numpy as np
 
 # Module-wide output specs
-spectralDTypes = {"complex": np.complex64,
-                  "real": np.float32}
+spectralDTypes = {"pow": np.float32,
+                  "fourier": np.complex64,
+                  "abs": np.float32}
+
+#: output conversion of complex fourier coefficients
+spectralConversions = {"pow": lambda x: (x * np.conj(x)).real.astype(np.float32),
+                       "fourier": lambda x: x.astype(np.complex64),
+                       "abs": lambda x: (np.absolute(x)).real.astype(np.float32)}
 
 #: available tapers of :func:`~syncopy.connectivity_analysis`
 availableTapers = ("hann", "dpss")

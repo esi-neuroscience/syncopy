@@ -13,7 +13,7 @@ spectralDTypes = {"pow": np.float32,
 
 #: output conversion of complex fourier coefficients
 spectralConversions = {"pow": lambda x: (x * np.conj(x)).real.astype(np.float32),
-                       "fourier": lambda x: x.astype(np.complex128),
+                       "fourier": lambda x: x.astype(np.complex64),
                        "abs": lambda x: (np.absolute(x)).real.astype(np.float32)}
 
 #: available outputs of :func:`~syncopy.freqanalysis`

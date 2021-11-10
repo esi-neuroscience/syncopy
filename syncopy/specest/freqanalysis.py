@@ -142,7 +142,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     output : str
         Output of spectral estimation. One of :data:`~syncopy.specest.const_def.availableOutputs` (see below);
         use `'pow'` for power spectrum (:obj:`numpy.float32`), `'fourier'` for complex
-        Fourier coefficients (:obj:`numpy.complex128`) or `'abs'` for absolute
+        Fourier coefficients (:obj:`numpy.complex64`) or `'abs'` for absolute
         values (:obj:`numpy.float32`).
     keeptrials : bool
         If `True` spectral estimates of individual trials are returned, otherwise

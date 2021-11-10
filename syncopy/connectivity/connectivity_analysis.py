@@ -34,14 +34,16 @@ from .const_def import (
 from .ST_compRoutines import (
     ST_CrossSpectra
 )
-
+from .AV_compRoutines import (
+    Normalize_CrossMeasure
+)
 __all__ = ["connectivityanalysis"]
 
 
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
-def connectivityanalysis(data, method='csd', keeptrials=False,
+def connectivityanalysis(data, method="csd", keeptrials=False, output="abs",
                          foi=None, foilim=None, pad_to_length=None,
                          polyremoval=None, taper="hann", tapsmofrq=None,
                          nTaper=None, toi="all", out=None, 
@@ -100,8 +102,6 @@ def connectivityanalysis(data, method='csd', keeptrials=False,
         raise SPYValueError(legal=lgl, varname="lenTrials", actual=actual)
 
     numTrials = len(trialList)
-
-    print(lenTrials)
 
     # --- Padding ---
 
@@ -187,18 +187,36 @@ def connectivityanalysis(data, method='csd', keeptrials=False,
             SPYInfo(msg)
             foi = freqs
 
-        st_CompRoutine = ST_CrossSpectra(samplerate=data.samplerate,
+        # parallel computation over trials
+        st_compRoutine = ST_CrossSpectra(samplerate=data.samplerate,
                                          padding_opt=padding_opt,
                                          foi=foi)
-
+        
         # hard coded as class attribute
         st_dimord = ST_CrossSpectra.dimord
+        
+        # final normalization after trial averaging
+        av_compRoutine = Normalize_CrossMeasure(output=output)
+
+    # -------------------------------------------------
+    # Call the chosen single trial ComputationalRoutine
+    # -------------------------------------------------
+
+    # the single trial results need a new DataSet
+    st_out = CrossSpectralData(dimord=st_dimord)
+
+
+    # Perform the trial-parallelized computation of the matrix quantity
+    st_compRoutine.initialize(data,
+                              chan_per_worker=None, # no parallelisation over channel possible
+                              keeptrials=False) # we need trial averaging!    
+    st_compRoutine.compute(data, st_out, parallel=kwargs.get("parallel"), log_dict={})
 
     # --------------------------------------------------------
     # Sanitize output and call the chosen ComputationalRoutine
     # --------------------------------------------------------
 
-    # If provided, make sure output object is appropriate
+    # If provided, make sure output object is appropriate    
     if out is not None:
         try:
             data_parser(out, varname="out", writable=True, empty=True,
@@ -210,13 +228,12 @@ def connectivityanalysis(data, method='csd', keeptrials=False,
     else:
         out = CrossSpectralData(dimord=st_dimord)
         new_out = True
-
-    # Perform actual computation
-    st_CompRoutine.initialize(data,
-                              chan_per_worker=kwargs.get("chan_per_worker"),
-                              keeptrials=keeptrials)
-    st_CompRoutine.compute(data, out, parallel=kwargs.get("parallel"), log_dict={})
-
+    
+    # now take the trial average from the single trial CR as input 
+    av_compRoutine.initialize(st_out, chan_per_worker=None)
+    av_compRoutine.pre_check() # make sure we got a trial_average
+    av_compRoutine.compute(st_out, out, parallel=False)
+    
     # Either return newly created output object or simply quit
     return out if new_out else None
 
