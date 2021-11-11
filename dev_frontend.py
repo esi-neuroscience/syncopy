@@ -15,7 +15,7 @@ from syncopy.datatype import SpectralData, padding
 from syncopy.tests.misc import generate_artificial_data
 tdat = generate_artificial_data(inmemory=True, seed=1230, nTrials=25)
 
-foilim = [30, 50]
+foilim = [1, 100]
 # this still gives type(tsel) = slice :)
 sdict1 = {"trials": [0], 'channels' : ['channel1'], 'toi': np.arange(-1, 1, 0.001)}
 # this gives type(tsel) = list
@@ -27,7 +27,9 @@ print('sdict1')
 # connectivityanalysis(data=tdat, select=sdict1, pad_to_length='nextpow2')
 
 # print('no selection')
-coherence = connectivityanalysis(data=tdat, keeptrials=False, foi = np.arange(1, 70))
+coherence = connectivityanalysis(data=tdat,
+                                 keeptrials=False, foilim=foilim,
+                                 output='pow')
 # csd = connectivityanalysis(data=tdat, keeptrials=False)#, select=sdict2)
 # connectivityanalysis(data=tdat, foilim = [20, 80])
 
@@ -42,7 +44,7 @@ res = freqanalysis(data=tdat,
                    method='mtmfft',
                    samplerate=tdat.samplerate,
                    order_max=20,
-                   foi=np.arange(1, 150, 5),
+                   foilim=foilim,
                    output='abs',
 #                   polyremoval=1,
                    t_ftimwin=0.5,

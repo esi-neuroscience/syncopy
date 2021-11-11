@@ -187,9 +187,20 @@ def connectivityanalysis(data, method="csd", keeptrials=False, output="abs",
             SPYInfo(msg)
             foi = freqs
 
+        # Warn user about DPSS only settings
+        if taper != "dpss":
+            if tapsmofrq is not None:
+                msg = "`tapsmofrq` is only used if `taper` is `dpss`!"
+                SPYWarning(msg)
+        
+            
         # parallel computation over trials
         st_compRoutine = ST_CrossSpectra(samplerate=data.samplerate,
                                          padding_opt=padding_opt,
+                                         taper=taper,
+                                         taperopt=taperopt,
+                                         polyremoval=polyremoval,
+                                         timeAxis=timeAxis,
                                          foi=foi)
         
         # hard coded as class attribute
@@ -212,9 +223,9 @@ def connectivityanalysis(data, method="csd", keeptrials=False, output="abs",
                               keeptrials=False) # we need trial averaging!    
     st_compRoutine.compute(data, st_out, parallel=kwargs.get("parallel"), log_dict={})
 
-    # --------------------------------------------------------
-    # Sanitize output and call the chosen ComputationalRoutine
-    # --------------------------------------------------------
+    # ----------------------------------------------------------------------------------
+    # Sanitize output and call the chosen ComputationalRoutine on the averaged ST output
+    # ----------------------------------------------------------------------------------
 
     # If provided, make sure output object is appropriate    
     if out is not None:
@@ -228,10 +239,10 @@ def connectivityanalysis(data, method="csd", keeptrials=False, output="abs",
     else:
         out = CrossSpectralData(dimord=st_dimord)
         new_out = True
-    
+
     # now take the trial average from the single trial CR as input 
     av_compRoutine.initialize(st_out, chan_per_worker=None)
-    av_compRoutine.pre_check() # make sure we got a trial_average
+    av_compRoutine.check_input() # make sure we got a trial_average
     av_compRoutine.compute(st_out, out, parallel=False)
     
     # Either return newly created output object or simply quit

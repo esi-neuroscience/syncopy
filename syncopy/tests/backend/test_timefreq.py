@@ -340,8 +340,8 @@ def test_mtmfft():
     A1, A2 = 5, 3
     tvec = np.arange(0, 1, 1 / 1000)
 
-    signal = A1 * np.cos(2 * np.pi * 40 * tvec)
-    signal += A2 * np.cos(2 * np.pi * 100 * tvec)
+    signal = A1 * np.cos(2 * np.pi * f1 * tvec)
+    signal += A2 * np.cos(2 * np.pi * f2 * tvec)
 
     # --------------------
     # -- test untapered --

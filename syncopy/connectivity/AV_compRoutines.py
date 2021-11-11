@@ -27,7 +27,7 @@ from syncopy.shared.errors import (
 
 
 @unwrap_io
-def normalize_csd_cF(trl_dat,
+def normalize_csd_cF(trl_av_dat,
                      output='abs',
                      chunkShape=None,
                      noCompute=False):
@@ -47,15 +47,15 @@ def normalize_csd_cF(trl_dat,
 
     Parameters
     ----------
-    trl_dat : (1, nFreq, N, N) :class:`numpy.ndarray`
+    trl_av_dat : (1, nFreq, N, N) :class:`numpy.ndarray`
         Cross-spectral densities for `N` x `N` channels
-        and `nFreq` frequencies.
-    output : {'abs', 'pow', 'fourier'}, default: 'abs'
+        and `nFreq` frequencies averaged over trials.
+    output : {'abs', 'pow', 'fourier', 'corr'}, default: 'abs'
         Also after normalization the coherency is still complex (`'fourier'`), 
         to get the real valued coherence 0 < C_ij(f) < 1 one can either take the
         absolute (`'abs'`) or the absolute squared (`'pow'`) values of the
         coherencies. The definitions are not uniform in the literature, 
-        hence multiple output types are supported.
+        hence multiple output types are supported. 
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
@@ -92,7 +92,7 @@ def normalize_csd_cF(trl_dat,
     """
 
     # it's the same as the input shape!
-    outShape = trl_dat.shape
+    outShape = trl_av_dat.shape
 
     # For initialization of computational routine,
     # just return output shape and dtype
@@ -101,7 +101,7 @@ def normalize_csd_cF(trl_dat,
         return outShape, spectralDTypes[output]
 
     # re-shape to (nChannels x nChannels x nFreq)
-    CS_ij = trl_dat.transpose(0, 2, 3, 1)[0, ...]
+    CS_ij = trl_av_dat.transpose(0, 2, 3, 1)[0, ...]
     
     # main diagonal has shape (nChannels x nFreq): the auto spectra
     diag = CS_ij.diagonal()
@@ -142,12 +142,17 @@ class Normalize_CrossMeasure(ComputationalRoutine):
     method_keys = {}
     cF_keys = list(signature(normalize_csd_cF).parameters.keys())[1:]
 
-    def pre_check(self):
+    def check_input(self):
         '''
         Make sure we have a trial average, 
         so the input data only consists of `1 trial`.
         Can only be performed after initialization!
         '''
+
+        if self.numTrials is None:
+            lgl = 'Initialize the computational Routine first!'
+            act = 'ComputationalRoutine not initialized!'
+            raise SPYValueError(legal=lgl, varname=self.__class__.__name__, actual=act)
         
         if self.numTrials != 1:
             lgl = "1 trial: normalizations can only be done on averaged quantities!"

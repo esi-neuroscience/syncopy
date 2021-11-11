@@ -248,7 +248,7 @@ class ST_CrossSpectra(ComputationalRoutine):
 def cross_covariance_cF(trl_dat,
                         samplerate=1,
                         padding_opt={},
-                        polyremoval=False,
+                        polyremoval=0,
                         timeAxis=0,
                         norm=False,
                         chunkShape=None,
