@@ -5,6 +5,7 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+from scipy.signal import windows
 
 # Module-wide output specs
 spectralDTypes = {"pow": np.float32,
@@ -20,7 +21,10 @@ spectralConversions = {"pow": lambda x: (x * np.conj(x)).real.astype(np.float32)
 availableOutputs = tuple(spectralConversions.keys())
 
 #: available tapers of :func:`~syncopy.freqanalysis`
-availableTapers = ("hann", "dpss")
+all_windows = windows.__all__
+all_windows.remove("exponential") # not symmetric
+all_windows.remove("hanning") # deprecated
+availableTapers = all_windows
 
 #: available wavelet functions of :func:`~syncopy.freqanalysis`
 availableWavelets = ("Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat")

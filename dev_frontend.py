@@ -15,7 +15,7 @@ from syncopy.datatype import SpectralData, padding
 from syncopy.tests.misc import generate_artificial_data
 tdat = generate_artificial_data(inmemory=True, seed=1230, nTrials=25)
 
-foilim = [1, 100]
+foilim = [1, 30]
 # this still gives type(tsel) = slice :)
 sdict1 = {"trials": [0], 'channels' : ['channel1'], 'toi': np.arange(-1, 1, 0.001)}
 # this gives type(tsel) = list
@@ -38,16 +38,20 @@ dimord = ['None', 'freq', 'channel_i', 'channel_j']
 # CrossSpectralData()
 # CrossSpectralData(dimord=dimord)
 # SpectralData()
-print('s')
 
 res = freqanalysis(data=tdat,
                    method='mtmfft',
                    samplerate=tdat.samplerate,
-                   order_max=20,
-                   foilim=foilim,
-                   output='abs',
+#                   order_max=20,
+#                   foilim=foilim,
+#                   foi=np.arange(502),
+                   output='pow',
 #                   polyremoval=1,
-                   t_ftimwin=0.5,
+#                   t_ftimwin=0.5,
                    keeptrials=False,
+                   taper='dpss',
+                   nTaper = 11,
+                   tapsmofrq=5,
+#                   t_ftimwin=0.5,
                    parallel=False, # try this!!!!!!
                    select={"trials" : [0,1]})

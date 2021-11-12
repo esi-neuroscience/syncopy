@@ -198,7 +198,7 @@ def connectivityanalysis(data, method="csd", keeptrials=False, output="abs",
         st_compRoutine = ST_CrossSpectra(samplerate=data.samplerate,
                                          padding_opt=padding_opt,
                                          taper=taper,
-                                         taperopt=taperopt,
+                                         taperopt={},
                                          polyremoval=polyremoval,
                                          timeAxis=timeAxis,
                                          foi=foi)

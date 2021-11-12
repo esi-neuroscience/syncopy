@@ -47,12 +47,10 @@ from syncopy.specest.const_def import (
 # -----------------------
 
 @unwrap_io
-def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
-              keeptapers=True, nTaper=None, tapsmofrq=None,
+def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True, 
               pad="nextpow2", padtype="zero", padlength=None,
               polyremoval=None, output_fmt="pow",
-              noCompute=False, chunkShape=None,
-              method_kwargs=None):
+              noCompute=False, chunkShape=None, method_kwargs=None):
 
     """
     Compute (multi-)tapered Fourier transform of multi-channel time series data
@@ -67,19 +65,10 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
         data length and padding) are used.
     timeAxis : int
         Index of running time axis in `trl_dat` (0 or 1)
-    tapsmofrq : float
-        The amount of spectral smoothing through  multi-tapering (Hz) for Slepian
-        tapers (`taper`="dpss").
     keeptapers : bool
         If `True`, return spectral estimates for each taper.
         Otherwise power spectrum is averaged across tapers,
         only valid spectral estimate if `output_fmt` is `pow`.
-    nTaper : int
-        Only effective if ``taper='dpss'``. Number of orthogonal tapers to use.
-    tapsmofrq : float
-        Only effective if ``taper='dpss'``. The amount of spectral smoothing through
-        multi-tapering (Hz).  Note that smoothing frequency specifications are one-sided,
-        i.e., 4 Hz smoothing means plus-minus 4 Hz, i.e., a 8 Hz smoothing box.
     pad : str
         Padding mode; one of `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
         See :func:`syncopy.padding` for more information.
@@ -109,7 +98,6 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
         Keyword arguments passed to :func:`~syncopy.specest.mtmfft.mtmfft`
         controlling the spectral estimation method
 
-
     Returns
     -------
     spec : :class:`numpy.ndarray`
@@ -134,13 +122,6 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
     numpy.fft.rfft : NumPy's FFT implementation
     """
 
-    # Slepian window parameters
-    if method_kwargs['taper'] == "dpss":
-        taperopt = {"Kmax" : nTaper, "NW" : tapsmofrq}
-    else:
-        taperopt = {}
-
-    method_kwargs['taperopt'] = taperopt
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
@@ -159,6 +140,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0,
     freqs = np.fft.rfftfreq(nSamples, 1 / method_kwargs["samplerate"])
     _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
     nFreq = freq_idx.size
+    nTaper = method_kwargs["taperopt"].get('Kmax', 1)
     outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
 
     # For initialization of computational routine,
@@ -203,9 +185,10 @@ class MultiTaperFFT(ComputationalRoutine):
 
     method = "mtmfft"
     # 1st argument,the data, gets omitted
-    method_keys = list(signature(mtmfft).parameters.keys())[1:]
-    # here also last argument, the method_kwargs, are omitted
-    cF_keys = list(signature(mtmfft_cF).parameters.keys())[1:-1]
+    valid_kws = list(signature(mtmfft_cF).parameters.keys())[1:]
+    valid_kws += list(signature(mtmfft).parameters.keys())[1:]    
+    # hardcode some parameter names which got digested from the frontend
+    valid_kws += ['tapsmofrq', 'nTaper']
 
     def process_metadata(self, data, out):
 
@@ -318,6 +301,9 @@ def mtmconvol_cF(
     chunkShape : None or tuple
         If not `None`, represents shape of output object `spec` (respecting provided
         values of `nTaper`, `keeptapers` etc.)
+    method_kwargs : dict
+        Keyword arguments passed to :func:`~syncopy.specest.mtmconvol.mtmconvol`
+        controlling the spectral estimation method
 
     Returns
     -------
@@ -355,14 +341,6 @@ def mtmconvol_cF(
     if padbegin > 0 or padend > 0:
         dat = padding(dat, "zero", pad="relative", padlength=None,
                       prepadlength=padbegin, postpadlength=padend)
-
-    # Slepian window parameters
-    if method_kwargs['taper'] == "dpss":
-        taperopt = {"Kmax" : nTaper, "NW" : tapsmofrq}
-    else:
-        taperopt = {}
-
-    method_kwargs['taperopt'] = taperopt
 
     # Get shape of output for dry-run phase
     nChannels = dat.shape[1]
@@ -438,6 +416,11 @@ class MultiTaperFFTConvol(ComputationalRoutine):
     """
 
     computeFunction = staticmethod(mtmconvol_cF)
+    # 1st argument,the data, gets omitted
+    valid_kws = list(signature(mtmconvol_cF).parameters.keys())[1:]
+    valid_kws += list(signature(mtmconvol).parameters.keys())[1:]    
+    # hardcode some parameter names which got digested from the frontend
+    valid_kws += ['tapsmofrq', 't_ftimwin', 'nTaper']
 
     def process_metadata(self, data, out):
 
@@ -605,9 +588,9 @@ class WaveletTransform(ComputationalRoutine):
 
     method = "wavelet"
     # 1st argument,the data, gets omitted
-    method_keys = list(signature(wavelet).parameters.keys())[1:]
+    valid_kws = list(signature(wavelet).parameters.keys())[1:]
     # here also last argument, the method_kwargs, are omitted
-    cF_keys = list(signature(wavelet_cF).parameters.keys())[1:-1]
+    valid_kws += list(signature(wavelet_cF).parameters.keys())[1:-1]
 
     def process_metadata(self, data, out):
 
@@ -771,9 +754,9 @@ class SuperletTransform(ComputationalRoutine):
 
     method = "superlet"
     # 1st argument,the data, gets omitted
-    method_keys = list(signature(superlet).parameters.keys())[1:]
-    # here also last argument, the method_kwargs, are omitted
-    cF_keys = list(signature(superlet_cF).parameters.keys())[1:-1]
+    
+    valid_kws = list(signature(superlet).parameters.keys())[1:]
+    valid_kws += list(signature(superlet_cF).parameters.keys())[1:-1]
 
     def process_metadata(self, data, out):
 
