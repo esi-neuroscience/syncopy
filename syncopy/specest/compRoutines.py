@@ -36,7 +36,7 @@ from syncopy.datatype import padding
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
-from syncopy.specest.const_def import (
+from syncopy.shared.const_def import (
     spectralConversions,
     spectralDTypes,
 )

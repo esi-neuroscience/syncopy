@@ -10,40 +10,37 @@ from numbers import Number
 # Syncopy imports
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.tools import get_defaults
-from syncopy.datatype import CrossSpectralData, padding
+from syncopy.datatype import CrossSpectralData
 from syncopy.datatype.methods.padding import _nextpow2
-from syncopy.shared.tools import best_match
 from syncopy.shared.errors import (
     SPYValueError,
     SPYTypeError,
     SPYWarning,
     SPYInfo)
-
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
+from syncopy.shared.tools import best_match
+from syncopy.shared.input_validators import validate_taper, validate_foi
+from syncopy.shared.const_def import (
+    spectralConversions,
+    availableTapers,
+    generalParameters
+)
 
 # Local imports
 from .const_def import (
-    availableTapers,
     availableMethods,
-    generalParameters,
-    nextpow2
 )
+from .ST_compRoutines import ST_CrossSpectra
+from .AV_compRoutines import Normalize_CrossMeasure
 
-# CRs still missing, CFs are already there
-from .ST_compRoutines import (
-    ST_CrossSpectra
-)
-from .AV_compRoutines import (
-    Normalize_CrossMeasure
-)
 __all__ = ["connectivityanalysis"]
 
 
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
-def connectivityanalysis(data, method="csd", keeptrials=False, output="abs",
+def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                          foi=None, foilim=None, pad_to_length=None,
                          polyremoval=None, taper="hann", tapsmofrq=None,
                          nTaper=None, toi="all", out=None, 
@@ -126,58 +123,23 @@ def connectivityanalysis(data, method="csd", keeptrials=False, output="abs",
             'pad' : 'nextpow2'
         }
         # after padding
-        nSamples = nextpow2(int(lenTrials.min()))
+        nSamples = _nextpow2(int(lenTrials.min()))
     # no padding
     else:
         padding_opt = None
         nSamples = int(lenTrials.min())
 
-    # --- foi sanitization ---
-
-    if foi is not None:
-        if isinstance(foi, str):
-            if foi == "all":
-                foi = None
-            else:
-                raise SPYValueError(legal="'all' or `None` or list/array",
-                                    varname="foi", actual=foi)
-        else:
-            try:
-                array_parser(foi, varname="foi", hasinf=False, hasnan=False,
-                             lims=[0, data.samplerate/2], dims=(None,))
-            except Exception as exc:
-                raise exc
-            foi = np.array(foi, dtype="float")
-
-    if foilim is not None:
-        if isinstance(foilim, str):
-            if foilim == "all":
-                foilim = None
-            else:
-                raise SPYValueError(legal="'all' or `None` or `[fmin, fmax]`",
-                                    varname="foilim", actual=foilim)
-        else:
-            try:
-                array_parser(foilim, varname="foilim", hasinf=False, hasnan=False,
-                             lims=[0, data.samplerate/2], dims=(2,))
-            except Exception as exc:
-                raise exc
-            # foilim is of shape (2,)
-            if foilim[0] > foilim[1]:
-                msg = "Sorting foilim low to high.."
-                SPYInfo(msg)
-                foilim = np.sort(foilim)
-
-    if foi is not None and foilim is not None:
-        lgl = "either `foi` or `foilim` specification"
-        act = "both"
-        raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
+    # --- Basic foi sanitization ---
+    
+    foi, foilim = validate_foi(foi, foilim, data.samplerate)
 
     # only now set foi array for foilim in 1Hz steps
     if foilim:
         foi = np.arange(foilim[0], foilim[1] + 1)
-
-    if method ==  'csd':
+        
+    # --- Settingn up specific Methods ---
+    
+    if method ==  'coh':
 
         if foi is None and foilim is None:
             # Construct array of maximally attainable frequencies
@@ -187,12 +149,14 @@ def connectivityanalysis(data, method="csd", keeptrials=False, output="abs",
             SPYInfo(msg)
             foi = freqs
 
-        # Warn user about DPSS only settings
-        if taper != "dpss":
-            if tapsmofrq is not None:
-                msg = "`tapsmofrq` is only used if `taper` is `dpss`!"
-                SPYWarning(msg)
-        
+        # sanitize taper selection and retrieve dpss settings 
+        taperopt = validate_taper(taper,
+                                  tapsmofrq,
+                                  nTaper,
+                                  keeptapers=False,
+                                  foimax=foi.max(),
+                                  samplerate=data.samplerate,
+                                  nSamples=nSamples)        
             
         # parallel computation over trials
         st_compRoutine = ST_CrossSpectra(samplerate=data.samplerate,

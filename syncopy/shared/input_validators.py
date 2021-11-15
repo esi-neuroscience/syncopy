@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 # Validators for user submitted frontend arguments like foi, taper, etc.
+# Input args are the parameters to check for validity + auxiliary parameters
+# needed for the checks.
 #
 
 # Builtin/3rd party package imports
@@ -11,8 +13,32 @@ from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 
 
 def validate_foi(foi, foilim, samplerate):
+
+    '''
+
+    Parameters to check
+    -------------------    
+    foi : 'all' or array like or None
+        frequencies of interest
+    foilim : 2-element sequence or None
+        foi limits
+
+    Auxiliary arguments
+    -------------------
+    samplerate : float
+        the samplerate in Hz
+
+    Returns
+    -------
+    foi, foilim : tuple
+    
+    Notes
+    -----    
+    Setting both `foi` and `foilim` to `None` is valid, the 
+    subsequent analysis methods should all have a default way to 
+    select a standard set of frequencies (e.g. np.fft.fftfreq).
+    '''
         
-    # Basic sanitization of frequency specifications
     if foi is not None and foilim is not None:
         lgl = "either `foi` or `foilim` specification"
         act = "both"
@@ -60,18 +86,43 @@ def validate_taper(taper,
                    nTaper,
                    keeptapers,
                    foimax,
-                   fs,
+                   samplerate,
                    nSamples):
 
     '''
     General taper validation and Slepian/dpss input sanitization.
-    We always want to max out nTaper to achieve the desired frequency
+    The default is to max out `nTaper` to achieve the desired frequency
     smoothing bandwidth. For details about the Slepion settings see 
 
     "The Effective Bandwidth of a Multitaper Spectral Estimator, 
     A. T. Walden, E. J. McCoy and D. B. Percival"
 
-    '''    
+    Parameters to check
+    -------------------    
+    taper : str
+        Windowing function, one of :data:`~syncopy.shared.const_def.availableTapers`
+    tapsmofrq : float or None
+        Taper smoothing bandwidth for `taper='dpss'`
+    nTaper : int_like or None
+        Number of tapers to user for multi-tapering (not recommended)
+
+    Auxiliary arguments
+    -------------------
+    keeptapers : bool
+    foimax : float
+        Maximum frequency for the analysis
+    samplerate : float
+        the samplerate in Hz
+    nSamples : int
+        Number of samples
+
+    Returns
+    -------
+    taperopt : dict
+        For multi-tapering (`taper='dpss'`) contains the 
+        parameters `NW` and `Kmax` for `scipy.signal.windows.dpss`.
+        For all other tapers this is an empty dictionary.
+    '''
 
     # Warn user about DPSS only settings
     if taper != "dpss":
@@ -93,13 +144,13 @@ def validate_taper(taper,
 
         # minimal smoothing bandwidth in Hz
         # if sampling rate is given in Hz
-        minBw = 2 * fs / nSamples
+        minBw = 2 * samplerate / nSamples
         
         # Try to derive "sane" settings by using 3/4 octave
         # smoothing of highest `foi`
         # following Hill et al. "Oscillatory Synchronization in Large-Scale
         # Cortical Networks Predicts Perception", Neuron, 2011
-        # FIX ME: This "sane setting" seems quite excessive
+        # FIX ME: This "sane setting" seems quite excessive (huuuge bwidths)
         
         if tapsmofrq is None:
             tapsmofrq = (foimax * 2**(3 / 4 / 2) - foimax * 2**(-3 / 4 / 2)) / 2
@@ -122,7 +173,7 @@ def validate_taper(taper,
 
         # --------------------------------------------
         # set parameters for scipy.signal.windows.dpss
-        NW = tapsmofrq * nSamples / (2 * fs)
+        NW = tapsmofrq * nSamples / (2 * samplerate)
         # from the minBw setting NW always is at least 1         
         Kmax = int(2 * NW - 1) # optimal number of tapers
         # --------------------------------------------

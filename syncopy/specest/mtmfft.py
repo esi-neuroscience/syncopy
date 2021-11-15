@@ -8,7 +8,7 @@ import numpy as np
 from scipy import signal
 
 
-def mtmfft(data_arr, samplerate, taper="hann", taperopt={}):
+def mtmfft(data_arr, samplerate, taper="hann", taperopt=None):
 
     '''
     (Multi-)tapered fast Fourier transform. Returns
@@ -25,7 +25,7 @@ def mtmfft(data_arr, samplerate, taper="hann", taperopt={}):
     taper : str or None
         Taper function to use, one of scipy.signal.windows
         Set to `None` for no tapering.
-    taperopt : dict
+    taperopt : dict or None
         Additional keyword arguments passed to the `taper` function. 
         For multi-tapering with `taper='dpss'` set the keys 
         `'Kmax'` and `'NW'`.
@@ -66,6 +66,9 @@ def mtmfft(data_arr, samplerate, taper="hann", taperopt={}):
     if taper is None:
         taper = 'boxcar'
 
+    if taperopt is None:
+        taperopt = {}
+        
     taper_func = getattr(signal.windows,  taper)        
     # only really 2d if taper='dpss' with Kmax > 1
     windows = np.atleast_2d(taper_func(nSamples, **taperopt))

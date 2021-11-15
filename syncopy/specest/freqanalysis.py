@@ -16,6 +16,12 @@ from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYIn
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.tools import best_match
+from syncopy.shared.const_def import (
+    spectralConversions,
+    availableTapers,
+    generalParameters
+)
+
 from syncopy.shared.input_validators import validate_taper, validate_foi
 
 # method specific imports - they should go!
@@ -25,11 +31,8 @@ from .wavelet import get_optimal_wavelet_scales
 
 # Local imports
 from .const_def import (
-    spectralConversions,
-    availableTapers,
     availableWavelets,
-    availableMethods,
-    generalParameters
+    availableMethods,    
 )
 
 from .compRoutines import (
@@ -566,7 +569,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                                   nTaper,
                                   keeptapers,
                                   foimax=foi.max(),
-                                  fs=data.samplerate,
+                                  samplerate=data.samplerate,
                                   nSamples=minSampleNum)
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually

@@ -15,7 +15,7 @@ import numpy as np
 from inspect import signature
 
 # syncopy imports
-from syncopy.specest.const_def import spectralDTypes, spectralConversions
+from syncopy.shared.const_def import spectralDTypes, spectralConversions
 from syncopy.shared.errors import SPYWarning
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io

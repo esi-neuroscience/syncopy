@@ -12,7 +12,7 @@ from inspect import signature
 
 # syncopy imports
 from syncopy.specest.mtmfft import mtmfft
-from syncopy.specest.const_def import spectralDTypes
+from syncopy.shared.const_def import spectralDTypes
 from syncopy.shared.errors import SPYWarning
 from syncopy.datatype import padding
 from syncopy.shared.tools import best_match
@@ -26,7 +26,7 @@ def cross_spectra_cF(trl_dat,
                      foi=None,
                      padding_opt={},
                      taper="hann",
-                     taperopt={},
+                     taperopt=None,
                      polyremoval=False,
                      timeAxis=0,
                      norm=False,
