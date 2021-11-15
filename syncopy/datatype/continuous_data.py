@@ -708,15 +708,11 @@ class CrossSpectralData(ContinuousData):
     # override channel property to avoid accidental access
     @property
     def channel(self):
-        pass
-        # msg = f"CrossSpectralData has no 'channel' but dimord: {self._dimord}"
-        # SPYWarning(msg)
-        # raise NotImplementedError(msg)
+        return "see channel_i and channel_j"
 
     @channel.setter
     def channel(self, channel):
         if channel is None:
-            # print('channel None setter called')
             pass
         else:
             msg = f"CrossSpectralData has no 'channel' to set but dimord: {self._dimord}"
