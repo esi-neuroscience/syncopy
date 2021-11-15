@@ -1,8 +1,9 @@
 import numpy as np
 from scipy.signal import csd as sci_csd
 import scipy.signal as sci
-from syncopy.connectivity.single_trial_compRoutines import cross_spectra_cF
-from syncopy.connectivity.single_trial_compRoutines import cross_covariance_cF
+from syncopy.connectivity.ST_compRoutines import cross_spectra_cF
+from syncopy.connectivity import wilson_sf
+from syncopy.connectivity.ST_compRoutines import cross_covariance_cF
 import matplotlib.pyplot as ppl
 
 
@@ -83,45 +84,12 @@ def sci_est(x, y, nper, norm=False):
     return (freqs1, np.abs(csd1)), (freqs2, np.abs(csd2))
     
 
-def mtm_csd_harmonics():
-
-    omegas = np.array([30, 80]) * 2 * np.pi
-    phase_shifts = np.array([0, np.pi / 2, np.pi])
-
-    NN = 50
-    res = np.zeros((nSamples // 2 + 1, NN))
-    eps = 1
-    Kmax = 15
-    data = [np.sum([np.cos(om * tvec + ps) for om in omegas], axis=0) for ps in phase_shifts]
-    data = np.array(data).T
-    
-    for i in range(NN):
-        dataR = 5 * (data + np.random.randn(nSamples, 3) * eps)
-
-        CS, freqs = cross_spectra_cF(data, fs, taper='bartlett')
-        CS2, freqs = cross_spectra_cF(dataR, fs, taper='dpss', taperopt={'Kmax' : Kmax, 'NW' : 6}, norm=True)
-
-        res[:, i] = np.abs(CS2[:, 0, 1])
-
-    q1 = np.percentile(res, 25, axis=1)
-    q3 = np.percentile(res, 75, axis=1)
-    med = np.percentile(res, 50, axis=1)
-
-    fig, ax = ppl.subplots(figsize=(6,4), num=None)
-    ax.set_xlabel('frequency (Hz)')
-    ax.set_ylabel('coherence')
-    ax.set_ylim((-.02,1.05))
-    ax.set_title(f'MTM coherence, {Kmax} tapers, SNR={1/eps**2}')
-
-    c = 'cornflowerblue'
-    ax.plot(freqs, med, lw=2, alpha=0.8, c=c)
-    ax.fill_between(freqs, q1, q3, color=c, alpha=0.3)
-
-
 # omegas = np.arange(30, 50, step=1) * 2 * np.pi
 # data = np.array([np.cos(om * tvec) for om in omegas]).T
 # dataR = 1 * (data + np.random.randn(*data.shape) * 1)
-# CS, freqs = cross_spectra_cF(dataR, fs, taper='dpss', taperopt={'Kmax' : 15, 'NW' : 6}, norm=True)
+# CS, freqs = cross_spectra_cF(dataR, fs, taper='dpss',
+#                              taper_opt={'Kmax' : 15, 'NW' : 6},
+#                              norm=True, fullOutput=True)
 
 # CS2, freqs = cross_spectra_cF(dataR, fs, taper='dpss', taperopt={'Kmax' : 15, 'NW' : 6}, norm=False)
 
@@ -141,16 +109,23 @@ s1 = np.cos(p1) + np.cos(2 * omega * tvec) + .5 * np.random.randn(nSamples)
 s2 = np.cos(p2) + np.cos(2 * omega * tvec) + .5 * np.random.randn(nSamples)
 data = np.c_[s1, s2]
 
-CS, freqs = cross_spectra_cF(data, fs, taper='dpss', taperopt={'Kmax' : 15, 'NW' : 6}, norm=True)
-CS2, freqs = cross_spectra_cF(data, fs, taper='dpss', taperopt={'Kmax' : 15, 'NW' : 6}, norm=False)
+bw = 10
+NW = bw * nSamples / (2 * fs)
+Kmax = int(2 * NW - 1) # optimal number of tapers
 
-fig, ax = ppl.subplots(figsize=(6,4), num=None)
+CS, freqs = cross_spectra_cF(data, fs, taper='dpss', taper_opt={'Kmax' : Kmax, 'NW' : NW},
+                             norm=True, fullOutput=True)
+CS2, freqs = cross_spectra_cF(data, fs, taper='dpss', taper_opt={'Kmax' : Kmax, 'NW' : NW},
+                              norm=False, fullOutput=True)
+
+
+fig, ax = ppl.subplots(figsize=(6,4), num=1)
 ax.set_xlabel('frequency (Hz)')
 ax.set_ylabel('$|CSD(f)|$')
 ax.set_ylim((-.02,1.25))
 
-ax.plot(freqs, np.abs(CS2[:, 0, 0]), label = '$CSD_{00}$', lw = 2, alpha = 0.7)
-ax.plot(freqs, np.abs(CS2[:, 1, 1]), label = '$CSD_{11}$', lw = 2, alpha = 0.7)
-ax.plot(freqs, np.abs(CS2[:, 0, 1]), label = '$CSD_{01}$', lw = 2, alpha = 0.7)
+ax.plot(freqs, np.abs(CS2[0,:, 0, 0]), label = '$CSD_{00}$', lw = 2, alpha = 0.7)
+ax.plot(freqs, np.abs(CS2[0,:, 1, 1]), label = '$CSD_{11}$', lw = 2, alpha = 0.7)
+ax.plot(freqs, np.abs(CS2[0,:, 0, 1]), label = '$CSD_{01}$', lw = 2, alpha = 0.7)
 
 ax.legend()
