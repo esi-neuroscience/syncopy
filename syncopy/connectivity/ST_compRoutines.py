@@ -26,7 +26,7 @@ def cross_spectra_cF(trl_dat,
                      foi=None,
                      padding_opt={},
                      taper="hann",
-                     taperopt=None,
+                     taper_opt=None,
                      polyremoval=False,
                      timeAxis=0,
                      norm=False,
@@ -73,7 +73,7 @@ def cross_spectra_cF(trl_dat,
     taper : str or None
         Taper function to use, one of scipy.signal.windows
         Set to `None` for no tapering.
-    taperopt : dict, optional
+    taper_opt : dict, optional
         Additional keyword arguments passed to the `taper` function.
         For multi-tapering with `taper='dpss'` set the keys
         `'Kmax'` and `'NW'`.
@@ -163,7 +163,7 @@ def cross_spectra_cF(trl_dat,
 
     # compute the individual spectra
     # specs have shape (nTapers x nFreq x nChannels)
-    specs, freqs = mtmfft(dat, samplerate, taper, taperopt)
+    specs, freqs = mtmfft(dat, samplerate, taper, taper_opt)
 
     # outer product along channel axes
     # has shape (nTapers x nFreq x nChannels x nChannels)

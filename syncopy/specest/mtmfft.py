@@ -8,7 +8,7 @@ import numpy as np
 from scipy import signal
 
 
-def mtmfft(data_arr, samplerate, taper="hann", taperopt=None):
+def mtmfft(data_arr, samplerate, taper="hann", taper_opt=None):
 
     '''
     (Multi-)tapered fast Fourier transform. Returns
@@ -25,7 +25,7 @@ def mtmfft(data_arr, samplerate, taper="hann", taperopt=None):
     taper : str or None
         Taper function to use, one of scipy.signal.windows
         Set to `None` for no tapering.
-    taperopt : dict or None
+    taper_opt : dict or None
         Additional keyword arguments passed to the `taper` function. 
         For multi-tapering with `taper='dpss'` set the keys 
         `'Kmax'` and `'NW'`.
@@ -66,18 +66,18 @@ def mtmfft(data_arr, samplerate, taper="hann", taperopt=None):
     if taper is None:
         taper = 'boxcar'
 
-    if taperopt is None:
-        taperopt = {}
+    if taper_opt is None:
+        taper_opt = {}
         
     taper_func = getattr(signal.windows,  taper)        
     # only really 2d if taper='dpss' with Kmax > 1
-    windows = np.atleast_2d(taper_func(nSamples, **taperopt))
+    windows = np.atleast_2d(taper_func(nSamples, **taper_opt))
     
     # only(!!) slepian windows are already normalized
     # still have to normalize by number of tapers
     # such that taper-averaging yields correct amplitudes
     if taper == 'dpss':
-        windows = windows * np.sqrt(taperopt.get('Kmax', 1))        
+        windows = windows * np.sqrt(taper_opt.get('Kmax', 1))        
     # per pedes L2 normalisation for all other tapers 
     else:
         windows = windows * np.sqrt(nSamples) / np.sum(windows)

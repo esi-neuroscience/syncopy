@@ -150,19 +150,20 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             foi = freqs
 
         # sanitize taper selection and retrieve dpss settings 
-        taperopt = validate_taper(taper,
-                                  tapsmofrq,
-                                  nTaper,
-                                  keeptapers=False,
-                                  foimax=foi.max(),
-                                  samplerate=data.samplerate,
-                                  nSamples=nSamples)        
-            
+        taper_opt = validate_taper(taper,
+                                   tapsmofrq,
+                                   nTaper,
+                                   keeptapers=False, # ST_CSD's always average tapers
+                                   foimax=foi.max(),
+                                   samplerate=data.samplerate,
+                                   nSamples=nSamples,
+                                   output="pow") # ST_CSD's always have this unit/norm        
+
         # parallel computation over trials
         st_compRoutine = ST_CrossSpectra(samplerate=data.samplerate,
                                          padding_opt=padding_opt,
                                          taper=taper,
-                                         taperopt={},
+                                         taper_opt=taper_opt,
                                          polyremoval=polyremoval,
                                          timeAxis=timeAxis,
                                          foi=foi)

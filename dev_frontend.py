@@ -49,9 +49,9 @@ res = freqanalysis(data=tdat,
 #                   polyremoval=1,
                    t_ftimwin=0.5,
                    keeptrials=False,
-                   taper='hann',
+                   taper='dpss',
                    nTaper = 11,
                    tapsmofrq=5,
-#                   t_ftimwin=0.5,
+                   keeptapers=True,
                    parallel=False, # try this!!!!!!
                    select={"trials" : [0,1]})

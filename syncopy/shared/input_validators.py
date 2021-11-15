@@ -10,6 +10,7 @@ import numpy as np
 
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYInfo
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
+from syncopy.shared.const_def import availableTapers
 
 
 def validate_foi(foi, foilim, samplerate):
@@ -87,7 +88,8 @@ def validate_taper(taper,
                    keeptapers,
                    foimax,
                    samplerate,
-                   nSamples):
+                   nSamples,
+                   output):
 
     '''
     General taper validation and Slepian/dpss input sanitization.
@@ -115,14 +117,21 @@ def validate_taper(taper,
         the samplerate in Hz
     nSamples : int
         Number of samples
+    output : str, one of {'abs', 'pow', 'fourier'}
+        Fourier transformation output type
 
     Returns
     -------
-    taperopt : dict
+    dpss_opt : dict
         For multi-tapering (`taper='dpss'`) contains the 
         parameters `NW` and `Kmax` for `scipy.signal.windows.dpss`.
         For all other tapers this is an empty dictionary.
     '''
+    
+    # See if taper choice is supported
+    if taper not in availableTapers:
+        lgl = "'" + "or '".join(opt + "' " for opt in availableTapers)
+        raise SPYValueError(legal=lgl, varname="taper", actual=taper)
 
     # Warn user about DPSS only settings
     if taper != "dpss":
@@ -136,9 +145,14 @@ def validate_taper(taper,
             msg = "`keeptapers` is only used if `taper` is `dpss`!"
             SPYWarning(msg)
 
-        # empty taperopt, only Slepians have options
+        # empty dpss_opt, only Slepians have options
         return {}
-        
+
+    # direct mtm estimate (averaging) only valid for spectral power
+    if taper == "dpss" and not keeptapers and output != "pow":
+        lgl = "'pow', the only valid option for taper averaging"
+        raise SPYValueError(legal=lgl, varname="output", actual=output)
+    
     # Set/get `tapsmofrq` if we're working w/Slepian tapers
     elif taper == "dpss":
 
@@ -183,8 +197,8 @@ def validate_taper(taper,
         if nTaper is None:
             msg = f'Using {Kmax} taper(s) for multi-tapering'
             SPYInfo(msg)
-            taperopt = {'NW' : NW, 'Kmax' : Kmax}
-            return taperopt
+            dpss_opt = {'NW' : NW, 'Kmax' : Kmax}
+            return dpss_opt
 
         elif nTaper is not None:
             try:
@@ -202,8 +216,5 @@ def validate_taper(taper,
                 '''
                 SPYWarning(msg)
             
-            taperopt = {'NW' : NW, 'Kmax' : nTaper}
-            return taperopt
-    
-        
-            
+            dpss_opt = {'NW' : NW, 'Kmax' : nTaper}
+            return dpss_opt

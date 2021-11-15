@@ -9,7 +9,7 @@ from scipy import signal
 
 
 def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
-              taperopt={}, boundary='zeros', padded=True, detrend=False):
+              taper_opt={}, boundary='zeros', padded=True, detrend=False):
 
     '''
     (Multi-)tapered short time fast Fourier transform. Returns
@@ -31,7 +31,7 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
     taper : str or None
         Taper function to use, one of scipy.signal.windows
         Set to `None` for no tapering.
-    taperopt : dict
+    taper_opt : dict
         Additional keyword arguments passed to the `taper` function.
         For multi-tapering with `taper='dpss'` set the keys
         `'Kmax'` and `'NW'`.
@@ -84,14 +84,14 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
     # -> normalizes with win.sum() :/
     # see also https://github.com/scipy/scipy/issues/14740
     if taper == 'dpss':
-        taperopt['sym']  = False
+        taper_opt['sym']  = False
 
     # only truly 2d for multi-taper "dpss"
-    windows = np.atleast_2d(taper_func(nperseg, **taperopt))
+    windows = np.atleast_2d(taper_func(nperseg, **taper_opt))
 
     # Slepian normalization
     if taper == 'dpss':
-        windows = windows * np.sqrt(taperopt.get('Kmax', 1)) / np.sqrt(nperseg)
+        windows = windows * np.sqrt(taper_opt.get('Kmax', 1)) / np.sqrt(nperseg)
 
     # number of time points in the output
     if boundary is None:

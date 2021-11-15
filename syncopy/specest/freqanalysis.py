@@ -553,24 +553,15 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             act = "empty frequency selection"
             raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
 
-        # See if taper choice is supported
-        if taper not in availableTapers:
-            lgl = "'" + "or '".join(opt + "' " for opt in availableTapers)
-            raise SPYValueError(legal=lgl, varname="taper", actual=taper)
-
-        # direct mtm estimate (averaging) only valid for spectral power
-        if taper == "dpss" and not keeptapers and output != "pow":
-            lgl = "'pow', the only valid option for taper averaging"
-            raise SPYValueError(legal=lgl, varname="output", actual=output)
-
         # sanitize taper selection and retrieve dpss settings 
-        taperopt = validate_taper(taper,
+        taper_opt = validate_taper(taper,
                                   tapsmofrq,
                                   nTaper,
                                   keeptapers,
                                   foimax=foi.max(),
                                   samplerate=data.samplerate,
-                                  nSamples=minSampleNum)
+                                  nSamples=minSampleNum,
+                                  output=output)
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
@@ -589,7 +580,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         method_kwargs = {
             'samplerate' : data.samplerate,
             'taper' : taper,            
-            'taperopt' : taperopt
+            'taper_opt' : taper_opt
         }
 
         # Set up compute-class
@@ -739,7 +730,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                          "nperseg": nperseg,
                          "noverlap": noverlap,
                          "taper" : taper,
-                         "taperopt" : taperopt}
+                         "taper_opt" : taper_opt}
 
         # Set up compute-class
         specestMethod = MultiTaperFFTConvol(

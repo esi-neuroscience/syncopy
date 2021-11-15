@@ -140,7 +140,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
     freqs = np.fft.rfftfreq(nSamples, 1 / method_kwargs["samplerate"])
     _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
     nFreq = freq_idx.size
-    nTaper = method_kwargs["taperopt"].get('Kmax', 1)
+    nTaper = method_kwargs["taper_opt"].get('Kmax', 1)
     outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
 
     # For initialization of computational routine,
@@ -279,7 +279,7 @@ def mtmconvol_cF(
         Index of running time axis in `trl_dat` (0 or 1)
     taper : callable
         Taper function to use, one of :data:`~syncopy.specest.const_def.availableTapers`
-    taperopt : dict
+    taper_opt : dict
         Additional keyword arguments passed to `taper` (see above). For further
         details, please refer to the
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
@@ -381,18 +381,18 @@ def mtmconvol_cF(
         # every individual soi, so we can use mtmfft!
         samplerate = method_kwargs['samplerate']
         taper = method_kwargs['taper']
-        taperopt = method_kwargs['taperopt']
+        taper_opt = method_kwargs['taper_opt']
 
         # In case tapers aren't preserved allocate `spec` "too big"
         # and average afterwards
         spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
 
-        ftr, freqs = mtmfft(dat[soi[0], :],  samplerate, taper, taperopt)
+        ftr, freqs = mtmfft(dat[soi[0], :],  samplerate, taper, taper_opt)
         _, fIdx = best_match(freqs, foi, squash_duplicates=True)
         spec[0, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
         # loop over remaining soi to center windows on
         for tk in range(1, len(soi)):
-            ftr, freqs = mtmfft(dat[soi[tk], :],  samplerate, taper, taperopt)
+            ftr, freqs = mtmfft(dat[soi[tk], :],  samplerate, taper, taper_opt)
             spec[tk, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
 
     # Average across tapers if wanted
