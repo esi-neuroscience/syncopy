@@ -50,7 +50,7 @@ def normalize_csd_cF(trl_av_dat,
     trl_av_dat : (1, nFreq, N, N) :class:`numpy.ndarray`
         Cross-spectral densities for `N` x `N` channels
         and `nFreq` frequencies averaged over trials.
-    output : {'abs', 'pow', 'fourier', 'corr'}, default: 'abs'
+    output : {'abs', 'pow', 'fourier'}, default: 'abs'
         Also after normalization the coherency is still complex (`'fourier'`), 
         to get the real valued coherence 0 < C_ij(f) < 1 one can either take the
         absolute (`'abs'`) or the absolute squared (`'pow'`) values of the
@@ -69,8 +69,6 @@ def normalize_csd_cF(trl_av_dat,
 
     Notes
     -----
-
-    This function also normalizes cross-covariances to cross-correlations.
 
     This method is intended to be used as
     :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
@@ -103,8 +101,9 @@ def normalize_csd_cF(trl_av_dat,
     # re-shape to (nChannels x nChannels x nFreq)
     CS_ij = trl_av_dat.transpose(0, 2, 3, 1)[0, ...]
     
-    # main diagonal has shape (nChannels x nFreq): the auto spectra
+    # main diagonal has shape (nFreq x nChannels): the auto spectra
     diag = CS_ij.diagonal()
+    
     # get the needed product pairs of the autospectra
     Ciijj = np.sqrt(diag[:, :, None] * diag[:, None, :]).T
     CS_ij = CS_ij / Ciijj
@@ -115,13 +114,12 @@ def normalize_csd_cF(trl_av_dat,
     return CS_ij[None, ...].transpose(0, 3, 1, 2)
 
     
-class Normalize_CrossMeasure(ComputationalRoutine):
+class NormalizeCrossSpectra(ComputationalRoutine):
 
     """
-    Compute class that normalizes trial averaged quantities
+    Compute class that normalizes trial averaged csd's
     of :class:`~syncopy.CrossSpectralData` objects
-    like cross-spectra or cross-covariances to arrive at
-    coherencies or cross-correlations respectively.
+    to arrive at the respective coherencies. 
 
     Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
     see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
@@ -139,10 +137,9 @@ class Normalize_CrossMeasure(ComputationalRoutine):
 
     method = "" # there is no backend
     # 1st argument,the data, gets omitted
-    method_keys = {}
-    cF_keys = list(signature(normalize_csd_cF).parameters.keys())[1:]
+    valid_kws = list(signature(normalize_csd_cF).parameters.keys())[1:]
 
-    def check_input(self):
+    def pre_check(self):
         '''
         Make sure we have a trial average, 
         so the input data only consists of `1 trial`.
@@ -186,3 +183,130 @@ class Normalize_CrossMeasure(ComputationalRoutine):
         out.channel_i = np.array(data.channel_i[chanSec])
         out.channel_j = np.array(data.channel_j[chanSec])
         out.freq = data.freq
+
+
+@unwrap_io
+def normalize_ccov_cF(trl_av_dat,
+                      chunkShape=None,
+                      noCompute=False):
+          
+    """
+    Given the trial averaged cross-covariances,
+    we normalize with the 0-lag auto-covariances
+    (~averaged single trial variances)
+    to arrive at the cross-correlations.
+
+    Parameters
+    ----------
+    trl_av_dat : (nLag, 1, N, N) :class:`numpy.ndarray`
+        Cross-covariances for `N` x `N` channels
+        and `nLag` epochs averaged over trials.
+    noCompute : bool
+        Preprocessing flag. If `True`, do not perform actual calculation but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+
+    Returns
+    -------
+    Corr_ij : (nLag, 1, N, N) :class:`numpy.ndarray`
+        Cross-correlations for all channel combinations i,j.
+        `N` corresponds to number of input channels.
+
+    Notes
+    -----
+
+    This method is intended to be used as
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+
+    See also
+    --------
+    cross_covariance_cF : :func:`~syncopy.connectivity.ST_compRoutines.cross_covariance_cF`
+             Single trial cross covariances.
+
+    """
+    print('AV call, input shape', trl_av_dat.shape)
+    # it's the same as the input shape!
+    outShape = trl_av_dat.shape
+
+    # For initialization of computational routine,
+    # just return output shape and dtype
+    # cross spectra are complex!
+    if noCompute:
+        return outShape, spectralDTypes['abs']
+
+    # re-shape to (nLag x nChannels x nChannels)
+    CCov_ij = trl_av_dat[:, 0, ...]
+    
+    # main diagonal has shape (nChannels x nChannels):
+    # the auto-covariances at 0-lag (~stds)
+    diag = trl_av_dat[0, 0, ...].diagonal()
+
+    # get the needed product pairs 
+    Ciijj = np.sqrt(diag[:, None] * diag[None, :]).T
+    CCov_ij = CCov_ij / Ciijj
+
+    # re-attach dummy freq axis
+    return CCov_ij[:, None, ...]
+
+
+class NormalizeCrossCov(ComputationalRoutine):
+
+    """
+    Compute class that normalizes trial averaged 
+    cross-covariances of :class:`~syncopy.CrossSpectralData` objects
+    to arrive at the respective correlations
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.connectivityanalysis : parent metafunction
+    """
+
+    # the hard wired dimord of the cF
+    dimord = ['time', 'freq', 'channel_i', 'channel_j']
+
+    computeFunction = staticmethod(normalize_ccov_cF)
+
+    method = "" # there is no backend
+    # 1st argument,the data, gets omitted
+    valid_kws = list(signature(normalize_ccov_cF).parameters.keys())[1:]
+
+    def pre_check(self):        
+        '''
+        Make sure we have a trial average, 
+        so the input data only consists of `1 trial`.
+        Can only be performed after initialization!
+        '''
+
+        if self.numTrials is None:
+            lgl = 'Initialize the computational Routine first!'
+            act = 'ComputationalRoutine not initialized!'
+            raise SPYValueError(legal=lgl, varname=self.__class__.__name__, actual=act)
+        
+        if self.numTrials != 1:
+            lgl = "1 trial: normalizations can only be done on averaged quantities!"
+            act = f"DataSet contains {self.numTrials} trials"
+            raise SPYValueError(legal=lgl, varname="data", actual=act)
+    
+    def process_metadata(self, data, out):
+        
+        # Get trialdef array + channels from source
+        if data._selection is not None:
+            chanSec = data._selection.channel
+            trl = data._selection.trialdefinition
+        else:
+            chanSec = slice(None)
+            trl = data.trialdefinition
+
+        out.trialdefinition = trl            
+        # Attach remaining meta-data
+        out.samplerate = data.samplerate
+        out.channel_i = np.array(data.channel_i[chanSec])
+        out.channel_j = np.array(data.channel_j[chanSec])
