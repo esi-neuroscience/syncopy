@@ -18,16 +18,18 @@ from itertools import islice
 from functools import reduce
 import shutil
 import numpy as np
+from numpy.lib.arraysetops import isin
 from numpy.lib.format import open_memmap, read_magic
 import h5py
 import scipy as sp
 
 # Local imports
 import syncopy as spy
+from .methods.selectdata import selectdata
 from syncopy.shared.tools import StructDict
 from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser,
                                     filename_parser, data_parser)
-from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
+from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError
 from syncopy.datatype.methods.definetrial import definetrial as _definetrial
 from syncopy import __version__, __storage__, __acme__, __sessionid__, __storagelimit__
 if __acme__:
@@ -70,6 +72,8 @@ class BaseData(ABC):
 
     # Set caller for `SPYWarning` to not have it show up as '<module>'
     _spwCaller = "BaseData.{}"
+
+    selectdata = selectdata
 
     # Initialize hidden attributes used by all children
     _cfg = {}
@@ -528,16 +532,58 @@ class BaseData(ABC):
     def trialinfo(self, trl):
         raise SPYError("Cannot set trialinfo. Use `BaseData._trialdefinition` or `syncopy.definetrial` instead.")
 
-    # Selector method
-    @abstractmethod
-    def selectdata(self, trials=None, deepcopy=False, **kwargs):
+    # # Selector method
+    # @abstractmethod
+    # def selectdata(self, trials=None, deepcopy=False, **kwargs):
+    #     """
+    #     Docstring mostly pointing to ``selectdata``
+    #     """
+
+    # Show subsets of data
+    def show(self, **kwargs):
         """
-        Docstring mostly pointing to ``selectdata``
+        Coming soon...
         """
+
+        # Account for pathological cases
+        if self.data is None:
+            SPYInfo("Empty object")
+            return
+
+        # Leverage `selectdata` to sanitize input and perform subset picking
+        self.selectdata(inplace=True, **kwargs)
+
+        SPYInfo("Showing{}".format(self._selection.__str__().partition("with")[-1]))
+
+        idxList = []
+        for trlno in self._selection.trials:
+            idxList.append(self._preview_trial(trlno).idx)
+
+        singleIdx = [False] * len(idxList[0])
+        returnIdx = list(idxList[0])
+        for sk, selectors in enumerate(zip(*idxList)):
+            if np.unique(selectors).size == 1:
+                singleIdx[sk] = True
+            else:
+                if all(isinstance(sel, slice) for sel in selectors):
+                    gaps = [selectors[k + 1].start - selectors[k].stop for k in range(len(selectors) - 1)]
+                    if all(gap == 0 for gap in gaps):
+                        singleIdx[sk] = True
+                        returnIdx[sk] = slice(None)
+
+        if all(si == True for si in singleIdx):
+            return self.data[tuple(returnIdx)]
+        else:
+            return [self.data[idx] for idx in idxList]
 
     # Helper function that grabs a single trial
     @abstractmethod
     def _get_trial(self, trialno):
+        pass
+
+    # Helper function that creates a `FauxTrial` object given actual trial information
+    @abstractmethod
+    def _preview_trial(self, trialno):
         pass
 
     # Convenience function, wiping contents of backing device from memory

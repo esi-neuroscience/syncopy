@@ -426,22 +426,43 @@ class AnalogData(ContinuousData):
         """
         return self._hdr
 
-    # Selector method FIXME: use plotting-routine-like patching?
-    def selectdata(self, trials=None, channels=None, toi=None, toilim=None):
-        """
-        Create new `AnalogData` object from selection
+    # # Selector method
+    # def selectdata(self, trials=None, channels=None, toi=None, toilim=None, inplace=False):
+    #     """
+    #     Create new `AnalogData` object from selection
 
-        Please refer to :func:`syncopy.selectdata` for detailed usage information.
+    #     Please refer to :func:`syncopy.selectdata` for detailed usage information.
 
-        Examples
-        --------
-        >>> ang2chan = ang.selectdata(channels=["channel01", "channel02"])
+    #     Examples
+    #     --------
+    #     >>> ang2chan = ang.selectdata(channels=["channel01", "channel02"])
 
-        See also
-        --------
-        syncopy.selectdata : create new objects via deep-copy selections
-        """
-        return selectdata(self, trials=trials, channels=channels, toi=toi, toilim=toilim)
+    #     See also
+    #     --------
+    #     syncopy.selectdata : create new objects via deep-copy selections
+    #     """
+    #     return selectdata(self, trials=trials, channels=channels, toi=toi, toilim=toilim, inplace=inplace)
+
+    # # Show data subsets
+    # def show(self, trials=None, channels=None, toi=None, toilim=None):
+    #     """
+    #     FIXME!!!!!!!!!!!!
+    #     Create new `AnalogData` object from selection
+
+    #     Please refer to :func:`syncopy.selectdata` for detailed usage information.
+
+    #     Examples
+    #     --------
+    #     >>> ang2chan = ang.selectdata(channels=["channel01", "channel02"])
+
+    #     See also
+    #     --------
+    #     syncopy.selectdata : create new objects via deep-copy selections
+    #     """
+
+    #     selectdata(self, trials=trials, channels=channels, toi=toi, toilim=toilim, inplace=True)
+
+
 
     # "Constructor"
     def __init__(self,
