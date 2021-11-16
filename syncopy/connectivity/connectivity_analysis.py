@@ -31,8 +31,8 @@ from syncopy.shared.const_def import (
 from .const_def import (
     availableMethods,
 )
-from .ST_compRoutines import ST_CrossSpectra
-from .AV_compRoutines import Normalize_CrossMeasure
+from .ST_compRoutines import ST_CrossSpectra, ST_CrossCovariance
+from .AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov
 
 __all__ = ["connectivityanalysis"]
 
@@ -172,8 +172,20 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         st_dimord = ST_CrossSpectra.dimord
         
         # final normalization after trial averaging
-        av_compRoutine = Normalize_CrossMeasure(output=output)
+        av_compRoutine = NormalizeCrossSpectra(output=output)
 
+    if method == 'corr':
+
+        # parallel computation over trials
+        st_compRoutine = ST_CrossCovariance(samplerate=data.samplerate,
+                                            padding_opt=padding_opt,
+                                            polyremoval=polyremoval,
+                                            timeAxis=timeAxis)
+        # hard coded as class attribute
+        st_dimord = ST_CrossCovariance.dimord
+        
+        av_compRoutine = NormalizeCrossCov()
+        
     # -------------------------------------------------
     # Call the chosen single trial ComputationalRoutine
     # -------------------------------------------------
@@ -185,9 +197,17 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # Perform the trial-parallelized computation of the matrix quantity
     st_compRoutine.initialize(data,
                               chan_per_worker=None, # no parallelisation over channel possible
-                              keeptrials=False) # we need trial averaging!    
+                              keeptrials=keeptrials) # we need trial averaging!    
     st_compRoutine.compute(data, st_out, parallel=kwargs.get("parallel"), log_dict={})
 
+    # for debugging ccov
+    # print(5*'#',' after st_compRoutine call! ', 5*'#')  
+    # print(st_out)    
+    # print(st_out.trialdefinition)
+    # print(len(st_out.trials))
+    # print(st_out.sampleinfo)
+    # return st_out
+    
     # ----------------------------------------------------------------------------------
     # Sanitize output and call the chosen ComputationalRoutine on the averaged ST output
     # ----------------------------------------------------------------------------------
@@ -207,9 +227,9 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
     # now take the trial average from the single trial CR as input 
     av_compRoutine.initialize(st_out, chan_per_worker=None)
-    av_compRoutine.check_input() # make sure we got a trial_average
+    av_compRoutine.pre_check() # make sure we got a trial_average
     av_compRoutine.compute(st_out, out, parallel=False)
-    
+
     # Either return newly created output object or simply quit
     return out if new_out else None
 

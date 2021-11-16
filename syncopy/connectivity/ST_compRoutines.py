@@ -311,7 +311,7 @@ def cross_covariance_cF(trl_dat,
     under the assumption that all inputs have been externally validated and cross-checked.
 
     """
-
+    print('ST call, input shape:', trl_dat.shape)
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
@@ -354,10 +354,10 @@ def cross_covariance_cF(trl_dat,
     for i in range(nChannels):
         for j in range(i + 1):
             cc12 = fftconvolve(dat[:, i], dat[::-1, j], mode='same')
-            CC[:,0, i, j] = cc12[nSamples // 2:] / norm_overlap
+            CC[:, 0, i, j] = cc12[nSamples // 2:] / norm_overlap
             if i != j:
-                # cross-correlation is NOT symmetric..
-                cc21 = fftconvolve(dat[:, j], dat[::-1, i], mode='same')
+                # cross-correlation is symmetric with C(tau) = C(-tau)^T
+                cc21 = cc12[::-1]
                 CC[:, 0, j, i] = cc21[nSamples // 2:] / norm_overlap
 
     # normalize with products of std
@@ -366,7 +366,58 @@ def cross_covariance_cF(trl_dat,
         N = STDs[:, None] * STDs[None, :]
         CC = CC / N
 
+    print("ST done, output shape:", CC.shape)
     if not fullOutput:
         return CC
     else:
         return CC, lags
+
+
+class ST_CrossCovariance(ComputationalRoutine):
+
+    """
+    Compute class that calculates single-trial cross-covariances
+    of :class:`~syncopy.AnalogData` objects
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.connectivityanalysis : parent metafunction
+    """
+
+    # the hard wired dimord of the cF
+    dimord = ['time', 'freq', 'channel_i', 'channel_j']
+
+    computeFunction = staticmethod(cross_covariance_cF)
+
+    method = "" # there is no backend
+    # 1st argument,the data, gets omitted
+    valid_kws = list(signature(cross_covariance_cF).parameters.keys())[1:]
+
+    def process_metadata(self, data, out):
+
+        # Get trialdef array + channels from source
+        if data._selection is not None:
+            chanSec = data._selection.channel
+            trl = data._selection.trialdefinition
+        else:
+            chanSec = slice(None)
+            trl = data.trialdefinition
+
+        # If trial-averaging was requested, use the first trial as reference
+        # (all trials had to have identical lengths), and average onset timings
+        if not self.keeptrials:
+            t0 = trl[:, 2].mean()
+            trl = trl[[0], :]
+            trl[:, 2] = t0
+
+        out.trialdefinition = trl            
+        # Attach remaining meta-data
+        out.samplerate = data.samplerate
+        out.channel_i = np.array(data.channel[chanSec])
+        out.channel_j = np.array(data.channel[chanSec])
+
+    

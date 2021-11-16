@@ -4,6 +4,7 @@ import scipy.signal as sci
 from syncopy.connectivity.ST_compRoutines import cross_spectra_cF
 from syncopy.connectivity import wilson_sf
 from syncopy.connectivity.ST_compRoutines import cross_covariance_cF
+from syncopy.connectivity.AV_compRoutines import normalize_ccov_cF
 import matplotlib.pyplot as ppl
 
 
@@ -101,12 +102,12 @@ def phase_evo(omega0, eps, fs=1000, N=1000):
     return phase
 
 
-eps = 0.3 * fs
+eps = 0.0003 * fs
 omega = 50 * 2 * np.pi
 p1 = phase_evo(omega, eps, N=nSamples)
 p2 = phase_evo(omega, eps, N=nSamples)
-s1 = np.cos(p1) + np.cos(2 * omega * tvec) + .5 * np.random.randn(nSamples)
-s2 = np.cos(p2) + np.cos(2 * omega * tvec) + .5 * np.random.randn(nSamples)
+s1 = 3 * np.cos(p1) + np.cos(2 * omega * tvec) + .5 * np.random.randn(nSamples)
+s2 = 20 * np.cos(p2) + np.cos(2 * omega * tvec) + .5 * np.random.randn(nSamples)
 data = np.c_[s1, s2]
 
 bw = 10
@@ -119,13 +120,16 @@ CS2, freqs = cross_spectra_cF(data, fs, taper='dpss', taper_opt={'Kmax' : Kmax, 
                               norm=False, fullOutput=True)
 
 
-fig, ax = ppl.subplots(figsize=(6,4), num=1)
-ax.set_xlabel('frequency (Hz)')
-ax.set_ylabel('$|CSD(f)|$')
-ax.set_ylim((-.02,1.25))
+# fig, ax = ppl.subplots(figsize=(6,4), num=1)
+# ax.set_xlabel('frequency (Hz)')
+# ax.set_ylabel('$|CSD(f)|$')
+# ax.set_ylim((-.02,1.25))
 
-ax.plot(freqs, np.abs(CS2[0,:, 0, 0]), label = '$CSD_{00}$', lw = 2, alpha = 0.7)
-ax.plot(freqs, np.abs(CS2[0,:, 1, 1]), label = '$CSD_{11}$', lw = 2, alpha = 0.7)
-ax.plot(freqs, np.abs(CS2[0,:, 0, 1]), label = '$CSD_{01}$', lw = 2, alpha = 0.7)
+# ax.plot(freqs, np.abs(CS2[0,:, 0, 0]), label = '$CSD_{00}$', lw = 2, alpha = 0.7)
+# ax.plot(freqs, np.abs(CS2[0,:, 1, 1]), label = '$CSD_{11}$', lw = 2, alpha = 0.7)
+# ax.plot(freqs, np.abs(CS2[0,:, 0, 1]), label = '$CSD_{01}$', lw = 2, alpha = 0.7)
 
-ax.legend()
+# ax.legend()
+
+CCov, lags = cross_covariance_cF(data, fs, norm=False, fullOutput=True)
+Corr = normalize_ccov_cF(CCov)
