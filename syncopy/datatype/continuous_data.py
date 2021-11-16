@@ -74,7 +74,8 @@ class ContinuousData(BaseData, ABC):
         ppattrs = [attr for attr in ppattrs
                    if not (inspect.ismethod(getattr(self, attr))
                            or isinstance(getattr(self, attr), Iterator))]
-
+        if self.__class__.__name__ == "CrossSpectralData":
+            ppattrs.remove("channel")
         ppattrs.sort()
 
         # Construct string for pretty-printing class attributes
@@ -717,7 +718,7 @@ class CrossSpectralData(ContinuousData):
         else:
             msg = f"CrossSpectralData has no 'channel' to set but dimord: {self._dimord}"
             raise NotImplementedError(msg)
-    
+
     @property
     def channel_i(self):
         """ :class:`numpy.ndarray` : list of recording channel names """
@@ -726,7 +727,7 @@ class CrossSpectralData(ContinuousData):
             nChannel = self.data.shape[self.dimord.index("channel_i")]
             return np.array(["channel_i-" + str(i + 1).zfill(len(str(nChannel)))
                              for i in range(nChannel)])
-        
+
         return self._channel_i
 
     @channel_i.setter
@@ -756,7 +757,7 @@ class CrossSpectralData(ContinuousData):
             nChannel = self.data.shape[self.dimord.index("channel_j")]
             return np.array(["channel_j-" + str(i + 1).zfill(len(str(nChannel)))
                              for i in range(nChannel)])
-        
+
         return self._channel_j
 
     @channel_j.setter
@@ -777,13 +778,13 @@ class CrossSpectralData(ContinuousData):
             raise exc
 
         self._channel_j = np.array(channel_j)
-        
+
     @property
     def freq(self):
         """:class:`numpy.ndarray`: frequency axis in Hz """
         # if data exists but no user-defined frequency axis,
         # create a dummy one on the fly
-        
+
         if self._freq is None and self._data is not None:
             return np.arange(self.data.shape[self.dimord.index("freq")])
         return self._freq
@@ -887,4 +888,4 @@ class CrossSpectralData(ContinuousData):
                          samplerate=samplerate,
                          freq=freq,
                          dimord=dimord)
-        
+
