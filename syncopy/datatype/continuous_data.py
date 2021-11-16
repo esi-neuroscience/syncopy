@@ -15,15 +15,13 @@ import inspect
 import numpy as np
 from abc import ABC
 from collections.abc import Iterator
-from numpy.lib.arraysetops import isin
-from numpy.lib.format import open_memmap
 
 # Local imports
-from .base_data import BaseData, FauxTrial, Selector
+from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
 from .methods.selectdata import selectdata
 from syncopy.shared.parsers import scalar_parser, array_parser
-from syncopy.shared.errors import SPYValueError, SPYWarning
+from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import best_match
 from syncopy.plotting import _plot_analog
 from syncopy.plotting import _plot_spectral

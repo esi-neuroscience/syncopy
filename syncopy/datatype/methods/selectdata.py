@@ -6,6 +6,7 @@
 # Local imports
 from syncopy.shared.parsers import data_parser
 from syncopy.shared.tools import get_defaults
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo
 from syncopy.shared.kwarg_decorators import unwrap_cfg, unwrap_io, detect_parallel_client
 from syncopy.shared.computational_routine import ComputationalRoutine
 
@@ -16,7 +17,7 @@ __all__ = ["selectdata"]
 @detect_parallel_client
 def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None,
                foilim=None, tapers=None, units=None, eventids=None,
-               out=None, **kwargs):
+               out=None, inplace=False, **kwargs):
     """
     Create a new Syncopy object from a selection
 
@@ -168,6 +169,11 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
         can be unsorted and may include repetitions but must match exactly, be
         finite and not NaN. If `eventids` is `None` or ``eventids = "all"``, all
         events are selected.
+    inplace : bool
+        If `inplace` is `True` **no** new object is created. Instead the provided
+        selection is stored in the input object's `_selection` attribute for later
+        use. By default `inplace` is `False` and all calls to `selectdata` create
+        a new Syncopy data object.
 
     Returns
     -------
@@ -242,18 +248,27 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
     except Exception as exc:
         raise exc
 
+    # Vet the only input not checked by `Selector`
+    if not isinstance(inplace, bool):
+        raise SPYTypeError(inplace, varname="inplace", expected="Boolean")
+
     # If provided, make sure output object is appropriate
-    if out is not None:
-        try:
-            data_parser(out, varname="out", writable=True, empty=True,
-                        dataclass=data.__class__.__name__,
-                        dimord=data.dimord)
-        except Exception as exc:
-            raise exc
-        new_out = False
+    if not inplace:
+        if out is not None:
+            try:
+                data_parser(out, varname="out", writable=True, empty=True,
+                            dataclass=data.__class__.__name__,
+                            dimord=data.dimord)
+            except Exception as exc:
+                raise exc
+            new_out = False
+        else:
+            out = data.__class__(dimord=data.dimord)
+            new_out = True
     else:
-        out = data.__class__(dimord=data.dimord)
-        new_out = True
+        if out is not None:
+            lgl = "no output object for in-place selection"
+            raise SPYValueError(lgl, varname="out", actual=out.__class__.__name__)
 
     # Pass provided selections on to `Selector` class which performs error checking
     data._selection = {"trials": trials,
@@ -265,6 +280,11 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
                        "tapers": tapers,
                        "units": units,
                        "eventids": eventids}
+
+    # If an in-place selection was requested we're done
+    if inplace:
+        SPYInfo("In-place selection attached to data object: {}".format(data._selection))
+        return
 
     # Create inventory of all available selectors and actually provided values
     # to create a bookkeeping dict for logging
