@@ -293,7 +293,7 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
 
     # Fire up `ComputationalRoutine`-subclass to do the actual selecting/copying
     selectMethod = DataSelection()
-    selectMethod.initialize(data, chan_per_worker=kwargs.get("chan_per_worker"))
+    selectMethod.initialize(data, out.dimord, chan_per_worker=kwargs.get("chan_per_worker"))
     selectMethod.compute(data, out, parallel=kwargs.get("parallel"),
                          log_dict=actualSelection)
 

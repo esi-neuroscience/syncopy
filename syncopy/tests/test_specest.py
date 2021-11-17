@@ -918,6 +918,7 @@ class TestWavelet():
                        "channels": range(0, int(nChannels / 2)),
                        "toilim": [-20, 60.8]}]
 
+    @skip_low_mem
     def test_wav_solution(self):
 
         # Compute TF specturm across entire time-interval (use integer-valued

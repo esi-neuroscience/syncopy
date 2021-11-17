@@ -32,7 +32,7 @@ from .wavelet import get_optimal_wavelet_scales
 # Local imports
 from .const_def import (
     availableWavelets,
-    availableMethods,    
+    availableMethods,
 )
 
 from .compRoutines import (
@@ -198,7 +198,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         Order of polynomial used for de-trending data in the time domain prior
         to spectral analysis. A value of 0 corresponds to subtracting the mean
         ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
-        least squares fit of a linear polynomial). 
+        least squares fit of a linear polynomial).
         If `polyremoval` is `None`, no de-trending is performed. Note that
         for spectral estimation de-meaning is very advisable and hence also the
         default.
@@ -421,7 +421,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     # Shortcut to data sampling interval
     dt = 1 / data.samplerate
-    
+
     foi, foilim = validate_foi(foi, foilim, data.samplerate)
 
     # see also https://docs.obspy.org/_modules/obspy/signal/detrend.html#polynomial
@@ -553,7 +553,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             act = "empty frequency selection"
             raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
 
-        # sanitize taper selection and retrieve dpss settings 
+        # sanitize taper selection and retrieve dpss settings
         taper_opt = validate_taper(taper,
                                   tapsmofrq,
                                   nTaper,
@@ -579,7 +579,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # method specific parameters
         method_kwargs = {
             'samplerate' : data.samplerate,
-            'taper' : taper,            
+            'taper' : taper,
             'taper_opt' : taper_opt
         }
 
@@ -598,7 +598,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     elif method == "mtmconvol":
 
         _check_effective_parameters(MultiTaperFFTConvol, defaults, lcls)
-        
+
         # Process `toi` for sliding window multi taper fft,
         # we have to account for three scenarios: (1) center sliding
         # windows on all samples in (selected) trials (2) `toi` was provided as
@@ -906,7 +906,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             postSelect,
             toi=toi,
             timeAxis=timeAxis,
-            polyremoval=polyremoval,            
+            polyremoval=polyremoval,
             output_fmt=output,
             method_kwargs=method_kwargs)
 
@@ -929,6 +929,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     # Perform actual computation
     specestMethod.initialize(data,
+                             out.dimord,
                              chan_per_worker=kwargs.get("chan_per_worker"),
                              keeptrials=keeptrials)
     specestMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)
