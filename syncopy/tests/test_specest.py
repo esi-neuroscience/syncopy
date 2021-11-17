@@ -4,13 +4,12 @@
 #
 
 # Builtin/3rd party package imports
-from multiprocessing import Value
 import os
 import tempfile
 import inspect
+import psutil
 import gc
 import pytest
-import time
 import numpy as np
 import scipy.signal as scisig
 from numpy.lib.format import open_memmap
@@ -29,6 +28,10 @@ from syncopy.shared.tools import StructDict, get_defaults
 
 # Decorator to decide whether or not to run dask-related tests
 skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
+
+# Decorator to decide whether or not to run memory-intensive tests
+availMem = psutil.virtual_memory().total
+skip_low_mem = pytest.mark.skipif(availMem < 10 * 1024**3, reason="less than 10GB RAM available")
 
 
 # Local helper for constructing TF testing signals
@@ -824,6 +827,7 @@ class TestMTMConvol():
             assert np.array_equal(origTime, tfSpec.time[tk])
 
     @skip_without_acme
+    @skip_low_mem
     def test_tf_parallel(self, testcluster):
         # collect all tests of current class and repeat them running concurrently
         client = dd.Client(testcluster)
@@ -1114,6 +1118,7 @@ class TestWavelet():
             assert np.array_equal(origTime, tfSpec.time[tk])
 
     @skip_without_acme
+    @skip_low_mem
     def test_wav_parallel(self, testcluster):
         # collect all tests of current class and repeat them running concurrently
         client = dd.Client(testcluster)
