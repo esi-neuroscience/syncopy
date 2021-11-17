@@ -117,12 +117,16 @@ def unwrap_cfg(func):
     """
 
     # Perform a little introspection gymnastics to get the name of the first
-    # positional and keyword argument of `func`
+    # positional and keyword argument of `func` (if we only find anonymous `**kwargs`,
+    # come up with an exemplary keyword - `kwarg0` is only used in the generated docstring)
     funcParams = inspect.signature(func).parameters
     paramList = list(funcParams)
     kwargList = [pName for pName, pVal in funcParams.items() if pVal.default != pVal.empty]
     arg0 = paramList[0]
-    kwarg0 = kwargList[0]
+    if len(kwargList) > 0:
+        kwarg0 = kwargList[0]
+    else:
+        kwarg0 = "some_parameter"
 
     @functools.wraps(func)
     def wrapper_cfg(*args, **kwargs):

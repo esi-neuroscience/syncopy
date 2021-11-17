@@ -426,44 +426,6 @@ class AnalogData(ContinuousData):
         """
         return self._hdr
 
-    # # Selector method
-    # def selectdata(self, trials=None, channels=None, toi=None, toilim=None, inplace=False):
-    #     """
-    #     Create new `AnalogData` object from selection
-
-    #     Please refer to :func:`syncopy.selectdata` for detailed usage information.
-
-    #     Examples
-    #     --------
-    #     >>> ang2chan = ang.selectdata(channels=["channel01", "channel02"])
-
-    #     See also
-    #     --------
-    #     syncopy.selectdata : create new objects via deep-copy selections
-    #     """
-    #     return selectdata(self, trials=trials, channels=channels, toi=toi, toilim=toilim, inplace=inplace)
-
-    # # Show data subsets
-    # def show(self, trials=None, channels=None, toi=None, toilim=None):
-    #     """
-    #     FIXME!!!!!!!!!!!!
-    #     Create new `AnalogData` object from selection
-
-    #     Please refer to :func:`syncopy.selectdata` for detailed usage information.
-
-    #     Examples
-    #     --------
-    #     >>> ang2chan = ang.selectdata(channels=["channel01", "channel02"])
-
-    #     See also
-    #     --------
-    #     syncopy.selectdata : create new objects via deep-copy selections
-    #     """
-
-    #     selectdata(self, trials=trials, channels=channels, toi=toi, toilim=toilim, inplace=True)
-
-
-
     # "Constructor"
     def __init__(self,
                  data=None,
@@ -619,25 +581,6 @@ class SpectralData(ContinuousData):
             raise exc
 
         self._freq = np.array(freq)
-
-    # Selector method
-    def selectdata(self, trials=None, channels=None, toi=None, toilim=None,
-                   foi=None, foilim=None, tapers=None):
-        """
-        Create new `SpectralData` object from selection
-
-        Please refer to :func:`syncopy.selectdata` for detailed usage information.
-
-        Examples
-        --------
-        >>> spcBand = spc.selectdata(foilim=[10, 40])
-
-        See also
-        --------
-        syncopy.selectdata : create new objects via deep-copy selections
-        """
-        return selectdata(self, trials=trials, channels=channels, toi=toi,
-                          toilim=toilim, foi=foi, foilim=foilim, tapers=tapers)
 
     # Helper function that extracts frequency-related indices
     def _get_freq(self, foi=None, foilim=None):

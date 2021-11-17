@@ -26,6 +26,7 @@ import scipy as sp
 # Local imports
 import syncopy as spy
 from .methods.selectdata import selectdata
+from .methods.show import show
 from syncopy.shared.tools import StructDict
 from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser,
                                     filename_parser, data_parser)
@@ -73,7 +74,9 @@ class BaseData(ABC):
     # Set caller for `SPYWarning` to not have it show up as '<module>'
     _spwCaller = "BaseData.{}"
 
+    # Attach data selection and output routines to make them available as class methods
     selectdata = selectdata
+    show = show
 
     # Initialize hidden attributes used by all children
     _cfg = {}
@@ -531,50 +534,6 @@ class BaseData(ABC):
     @trialinfo.setter
     def trialinfo(self, trl):
         raise SPYError("Cannot set trialinfo. Use `BaseData._trialdefinition` or `syncopy.definetrial` instead.")
-
-    # # Selector method
-    # @abstractmethod
-    # def selectdata(self, trials=None, deepcopy=False, **kwargs):
-    #     """
-    #     Docstring mostly pointing to ``selectdata``
-    #     """
-
-    # Show subsets of data
-    def show(self, **kwargs):
-        """
-        Coming soon...
-        """
-
-        # Account for pathological cases
-        if self.data is None:
-            SPYInfo("Empty object")
-            return
-
-        # Leverage `selectdata` to sanitize input and perform subset picking
-        self.selectdata(inplace=True, **kwargs)
-
-        SPYInfo("Showing{}".format(self._selection.__str__().partition("with")[-1]))
-
-        idxList = []
-        for trlno in self._selection.trials:
-            idxList.append(self._preview_trial(trlno).idx)
-
-        singleIdx = [False] * len(idxList[0])
-        returnIdx = list(idxList[0])
-        for sk, selectors in enumerate(zip(*idxList)):
-            if np.unique(selectors).size == 1:
-                singleIdx[sk] = True
-            else:
-                if all(isinstance(sel, slice) for sel in selectors):
-                    gaps = [selectors[k + 1].start - selectors[k].stop for k in range(len(selectors) - 1)]
-                    if all(gap == 0 for gap in gaps):
-                        singleIdx[sk] = True
-                        returnIdx[sk] = slice(None)
-
-        if all(si == True for si in singleIdx):
-            return self.data[tuple(returnIdx)]
-        else:
-            return [self.data[idx] for idx in idxList]
 
     # Helper function that grabs a single trial
     @abstractmethod

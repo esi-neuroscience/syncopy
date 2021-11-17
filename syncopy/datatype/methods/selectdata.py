@@ -236,10 +236,7 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
 
     See also
     --------
-    :meth:`syncopy.AnalogData.selectdata` : corresponding class method
-    :meth:`syncopy.SpectralData.selectdata` : corresponding class method
-    :meth:`syncopy.EventData.selectdata` : corresponding class method
-    :meth:`syncopy.SpikeData.selectdata` : corresponding class method
+    :func:`syncopy.show` : Show (subsets) of Syncopy objects
     """
 
     # Ensure our one mandatory input is usable
@@ -288,7 +285,7 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
 
     # Create inventory of all available selectors and actually provided values
     # to create a bookkeeping dict for logging
-    provided = locals()
+    provided = {**locals(), **kwargs}
     available = get_defaults(data.selectdata)
     actualSelection = {}
     for key in available:
