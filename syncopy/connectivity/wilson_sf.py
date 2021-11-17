@@ -13,7 +13,7 @@
 import numpy as np
 
 
-def wilson_sf(CSD, samplerate, nIter=500, tol=1e-9):
+def wilson_sf(CSD, samplerate, nIter=2, tol=1e-9):
 
     '''
     Wilsons spectral matrix factorization ("analytic method")
@@ -32,12 +32,41 @@ def wilson_sf(CSD, samplerate, nIter=500, tol=1e-9):
 
     '''
 
-    psi0 = _psi0_initial(CSD)
+    nFreq, nChannels = CSD.shape[:2]
 
-    g = np.zeros(CSD.shape)
-
-    g = 0 # :D
+    Ident = np.eye(*CSD.shape[1:])
     
+    # nChannel x nChannel
+    psi0 = _psi0_initial(CSD)
+    
+    # initial choice of psi, constant for all z(~f)
+    psi = np.tile(psi0, (nFreq, 1, 1))    
+    assert psi.shape == CSD.shape
+
+    for i in range(nIter):
+
+        psi_inv = np.linalg.inv(psi)
+        
+        # the bracket of equation 3.1
+        g = psi_inv @ CSD # stacked matrix multiplication: np.matmul
+        g = g @ psi_inv.conj().transpose(0, 2, 1)        
+        gplus, gplus_0 = _plusOperator(g + Ident)
+        
+        # the 'any' matrix
+        S = np.triu(gplus_0)
+        S = S - S.conj().T # S + S* = 0
+
+        # the next step psi_{tau+1}
+        psi = psi @ (gplus + S)
+
+    CSDfac = psi @ psi.conj().transpose(0, 2, 1)
+    err = np.abs(CSD - CSDfac)
+    err = err / np.abs(CSD) # relative error
+    print(err.max())
+
+    return CSDfac, err
+
+
 def _psi0_initial(CSD):
 
     '''
@@ -52,7 +81,7 @@ def _psi0_initial(CSD):
     # perform ifft to obtain gammas.
     gamma = np.fft.ifft(CSD, axis=0)
     gamma0 = gamma[0, ...]
-	
+    
     # Remove any assymetry due to rounding error.
     # This also will zero out any imaginary values
     # on the diagonal - real diagonals are required for cholesky.
@@ -66,7 +95,7 @@ def _psi0_initial(CSD):
     else:
         psi0 = np.ones((nSamples, nSamples))
         
-    return psi0
+    return psi0.T
     
 
 def _plusOperator(g):
@@ -75,21 +104,28 @@ def _plusOperator(g):
     The []+ operator from definition 1.2,
     given by explicit Fourier transformations
 
-    The time x nChannel x nChannel matrix `g` is given 
+    The nFreq x nChannel x nChannel matrix `g` is given 
     in the frequency domain.
     '''
 
     # 'negative lags' from the ifft
     nLag = g.shape[0] // 2
-    # the series expansion in beta_k
+    # the series expansion in beta_k 
     beta = np.fft.ifft(g, axis=0)
 
     # take half of the zero lag
     beta[0, ...] = 0.5 * beta[0, ...]
-    g0 = beta[0, ...]
+    g0 = beta[0, ...].copy()
 
-    # Zero out negative powers.
-    beta[:nLag + 1, ..., ...] = 0
+    # Zero out negative freqs
+    beta[nLag + 1:, ...] = 0
 
     gp = np.fft.fft(beta, axis=0)
     return gp, g0
+
+
+def _mem_size(arr):
+    '''
+    Gives array size in MB
+    '''
+    return f'{arr.size * arr.itemsize / 1e6:.2f} MB'
