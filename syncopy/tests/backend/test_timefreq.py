@@ -153,10 +153,10 @@ def test_mtmconvol():
     # -------------------------
 
     taper = 'dpss'
-    taperopt = {'Kmax' : 10, 'NW' : 2}
+    taper_opt = {'Kmax' : 10, 'NW' : 2}
     # the transforms have shape (nTime, nTaper, nFreq, nChannel)
     ftr2, freqs2 = mtmconvol.mtmconvol(signal,
-                                       samplerate=fs, taper=taper, taperopt=taperopt,
+                                       samplerate=fs, taper=taper, taper_opt=taper_opt,
                                        nperseg=window_size,
                                        noverlap=window_size - 1)
 
@@ -371,8 +371,8 @@ def test_mtmfft():
     # test multi-taper analysis
     # -------------------------
     
-    taperopt = {'Kmax' : 8, 'NW' : 1}
-    ftr, freqs = mtmfft.mtmfft(signal, fs, taper="dpss", taperopt=taperopt)
+    taper_opt = {'Kmax' : 8, 'NW' : 1}
+    ftr, freqs = mtmfft.mtmfft(signal, fs, taper="dpss", taper_opt=taper_opt)
     # average over tapers 
     dpss_spec = np.real(ftr * ftr.conj()).mean(axis=0)
     dpss_amplitudes = np.sqrt(dpss_spec)[:, 0] # only 1 channel
@@ -386,8 +386,8 @@ def test_mtmfft():
     # test kaiser taper (is boxcar for beta -> inf)
     # -----------------
     
-    taperopt = {'beta' : 2}
-    ftr, freqs = mtmfft.mtmfft(signal, fs, taper="kaiser", taperopt=taperopt)
+    taper_opt = {'beta' : 2}
+    ftr, freqs = mtmfft.mtmfft(signal, fs, taper="kaiser", taper_opt=taper_opt)
     # average over tapers (only 1 here)
     kaiser_spec = np.real(ftr * ftr.conj()).mean(axis=0)
     kaiser_amplitudes = np.sqrt(kaiser_spec)[:, 0] # only 1 channel
@@ -399,7 +399,7 @@ def test_mtmfft():
     # -------------------------------
     
     for win in windows.__all__:
-        taperopt = {}
+        taper_opt = {}
         # that guy isn't symmetric
         if win == 'exponential':
             continue
@@ -407,7 +407,7 @@ def test_mtmfft():
         if win == 'hanning':
             continue            
         try:
-            ftr, freqs = mtmfft.mtmfft(signal, fs, taper=win, taperopt=taperopt)
+            ftr, freqs = mtmfft.mtmfft(signal, fs, taper=win, taper_opt=taper_opt)
             # average over tapers (only 1 here)
             spec = np.real(ftr * ftr.conj()).mean(axis=0)
             amplitudes = np.sqrt(spec)[:, 0] # only 1 channel

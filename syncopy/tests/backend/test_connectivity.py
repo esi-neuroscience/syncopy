@@ -102,12 +102,14 @@ def test_csd():
             for ps in phase_shifts] 
     data = np.array(data).T
     data = np.array(data) + np.random.randn(nSamples, len(phase_shifts))
-    
-    Kmax = 8 # multiple tapers for single trial coherence
+
+    bw = 5 #Hz
+    NW = nSamples * bw / (2 * fs)
+    Kmax = int(2 * NW - 1) # multiple tapers for single trial coherence
     CSD, freqs = stCR.cross_spectra_cF(data, fs,
                                        polyremoval=1,
                                        taper='dpss',
-                                       taperopt={'Kmax' : Kmax, 'NW' : 6},
+                                       taper_opt={'Kmax' : Kmax, 'NW' : NW},
                                        norm=True,
                                        fullOutput=True)
 
