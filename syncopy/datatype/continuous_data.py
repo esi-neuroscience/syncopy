@@ -413,6 +413,7 @@ class AnalogData(ContinuousData):
 
     _infoFileProperties = ContinuousData._infoFileProperties + ("_hdr",)
     _defaultDimord = ["time", "channel"]
+    _stackingDimLabel = "time"
 
     # Attach plotting routines to not clutter the core module code
     singlepanelplot = _plot_analog.singlepanelplot
@@ -521,6 +522,7 @@ class SpectralData(ContinuousData):
 
     _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
     _defaultDimord = ["time", "taper", "freq", "channel"]
+    _stackingDimLabel = "time"
 
     # Attach plotting routines to not clutter the core module code
     singlepanelplot = _plot_spectral.singlepanelplot
@@ -663,6 +665,7 @@ class CrossSpectralData(ContinuousData):
 
     _infoFileProperties = ContinuousData._infoFileProperties + ("freq",)
     _defaultDimord = ["time", "freq", "channel_i", "channel_j"]
+    _stackingDimLabel = "time"
     _channel_i = None
     _channel_j = None
     _samplerate = None

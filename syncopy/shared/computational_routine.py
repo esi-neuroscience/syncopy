@@ -226,7 +226,7 @@ class ComputationalRoutine(ABC):
         self._callMax = 10000
         self._callCount = 0
 
-    def initialize(self, data, out_dimord, chan_per_worker=None, keeptrials=True):
+    def initialize(self, data, out_stackingdim, chan_per_worker=None, keeptrials=True):
         """
         Perform dry-run of calculation to determine output shape
 
@@ -235,8 +235,8 @@ class ComputationalRoutine(ABC):
         data : syncopy data object
            Syncopy data object to be processed (has to be the same object
            that is passed to :meth:`compute` for the actual calculation).
-        out_dimord : list
-           Data dimension labels of output object
+        out_stackingdim : int
+           Index of data dimension for stacking trials in output object
         chan_per_worker : None or int
            Number of channels to be processed by each worker (only relevant in
            case of concurrent processing). If `chan_per_worker` is `None` (default)
@@ -294,17 +294,12 @@ class ComputationalRoutine(ABC):
             trials.append(trial)
 
         # Determine trial stacking dimension and compute aggregate shape of output
-        if "time" in out_dimord:        # AnalogData + SpectralData + CrossSpectralData
-            stackingDim = out_dimord.index("time")
-        elif "lag" in out_dimord:       # CrossSpectralData
-            stackingDim = out_dimord.index("lag")
-        elif "sample" in out_dimord:    # SpikeData + EventData
-            stackingDim = out_dimord.index("sample")
-        else:
-            msg = "output object with dimord containing valid stacking dimension"
-            raise SPYTypeError(out_dimord, varname="out_dimord", expected=msg)
+        stackingDim = out_stackingdim
         totalSize = sum(cShape[stackingDim] for cShape in chk_list)
         outputShape = list(chunkShape)
+        if stackingDim < 0 or stackingDim >= len(outputShape):
+            msg = "valid trial stacking dimension"
+            raise SPYTypeError(out_stackingdim, varname="out_stackingdim", expected=msg)
         outputShape[stackingDim] = totalSize
 
         # The aggregate shape is computed as max across all chunks
