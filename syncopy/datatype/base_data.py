@@ -70,6 +70,7 @@ class BaseData(ABC):
 
     # Dummy allocations of class attributes that are actually initialized in subclasses
     _mode = None
+    _stackingDimLabel = None
 
     # Set caller for `SPYWarning` to not have it show up as '<module>'
     _spwCaller = "BaseData.{}"
@@ -107,6 +108,14 @@ class BaseData(ABC):
     @abstractmethod
     def _defaultDimord(cls):
         return NotImplementedError
+
+    @property
+    def _stackingDim(self):
+        if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
+            return 0
+        else:
+            if self._stackingDimLabel is not None and self.dimord is not None:
+                return self.dimord.index(self._stackingDimLabel)
 
     @property
     def cfg(self):
@@ -353,11 +362,11 @@ class BaseData(ABC):
             return
 
         # this enforces the _defaultDimord
-        # if set(dims) != set(self._defaultDimord):
-        #     base = "dimensional labels {}"
-        #     lgl = base.format("'" + "' x '".join(str(dim) for dim in self._defaultDimord) + "'")
-        #     act = base.format("'" + "' x '".join(str(dim) for dim in dims) + "'")
-        #     raise SPYValueError(legal=lgl, varname="dimord", actual=act)
+        if set(dims) != set(self._defaultDimord):
+            base = "dimensional labels {}"
+            lgl = base.format("'" + "' x '".join(str(dim) for dim in self._defaultDimord) + "'")
+            act = base.format("'" + "' x '".join(str(dim) for dim in dims) + "'")
+            raise SPYValueError(legal=lgl, varname="dimord", actual=act)
 
         # this enforces that custom dimords are set for every axis
         if len(dims) != len(self._defaultDimord):

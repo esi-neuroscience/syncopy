@@ -128,10 +128,9 @@ class ContinuousData(BaseData, ABC):
     @property
     def _shapes(self):
         if self.sampleinfo is not None:
-            sid = self.dimord.index("time")
             shp = [list(self.data.shape) for k in range(self.sampleinfo.shape[0])]
             for k, sg in enumerate(self.sampleinfo):
-                shp[k][sid] = sg[1] - sg[0]
+                shp[k][self._stackingDim] = sg[1] - sg[0]
             return [tuple(sp) for sp in shp]
 
     @property
@@ -225,8 +224,7 @@ class ContinuousData(BaseData, ABC):
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
         idx = [slice(None)] * len(self.dimord)
-        sid = self.dimord.index("time")
-        idx[sid] = slice(int(self.sampleinfo[trialno, 0]), int(self.sampleinfo[trialno, 1]))
+        idx[self._stackingDim] = slice(int(self.sampleinfo[trialno, 0]), int(self.sampleinfo[trialno, 1]))
         return self._data[tuple(idx)]
 
     def _is_empty(self):
@@ -257,11 +255,10 @@ class ContinuousData(BaseData, ABC):
         """
         shp = list(self.data.shape)
         idx = [slice(None)] * len(self.dimord)
-        tidx = self.dimord.index("time")
         stop = int(self.sampleinfo[trialno, 1])
         start = int(self.sampleinfo[trialno, 0])
-        shp[tidx] = stop - start
-        idx[tidx] = slice(start, stop)
+        shp[self._stackingDim] = stop - start
+        idx[self._stackingDim] = slice(start, stop)
 
         # process existing data selections
         if self._selection is not None:
@@ -281,16 +278,16 @@ class ContinuousData(BaseData, ABC):
                 # account for trial offsets an compute slicing index + shape
                 start = start + tstart
                 stop = start + (tstop - tstart)
-                idx[tidx] = slice(start, stop)
-                shp[tidx] = stop - start
+                idx[self._stackingDim] = slice(start, stop)
+                shp[self._stackingDim] = stop - start
 
             else:
-                idx[tidx] = [tp + start for tp in tsel]
-                shp[tidx] = len(tsel)
+                idx[self._stackingDim] = [tp + start for tp in tsel]
+                shp[self._stackingDim] = len(tsel)
 
             # process the rest
             dims = list(self.dimord)
-            dims.pop(dims.index("time"))
+            dims.pop(self._stackingDim)
             for dim in dims:
                 sel = getattr(self._selection, dim)
                 if sel:
@@ -413,6 +410,7 @@ class AnalogData(ContinuousData):
 
     _infoFileProperties = ContinuousData._infoFileProperties + ("_hdr",)
     _defaultDimord = ["time", "channel"]
+    _stackingDimLabel = "time"
 
     # Attach plotting routines to not clutter the core module code
     singlepanelplot = _plot_analog.singlepanelplot
@@ -521,6 +519,7 @@ class SpectralData(ContinuousData):
 
     _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
     _defaultDimord = ["time", "taper", "freq", "channel"]
+    _stackingDimLabel = "time"
 
     # Attach plotting routines to not clutter the core module code
     singlepanelplot = _plot_spectral.singlepanelplot
@@ -663,6 +662,7 @@ class CrossSpectralData(ContinuousData):
 
     _infoFileProperties = ContinuousData._infoFileProperties + ("freq",)
     _defaultDimord = ["time", "freq", "channel_i", "channel_j"]
+    _stackingDimLabel = "time"
     _channel_i = None
     _channel_j = None
     _samplerate = None

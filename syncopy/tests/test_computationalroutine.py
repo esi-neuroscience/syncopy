@@ -64,12 +64,12 @@ class LowPassFilter(ComputationalRoutine):
 def filter_manager(data, b=None, a=None,
                    out=None, select=None, chan_per_worker=None, keeptrials=True,
                    parallel=False, parallel_store=None, log_dict=None):
-    myfilter = LowPassFilter(b, a=a)
-    myfilter.initialize(data, chan_per_worker=chan_per_worker, keeptrials=keeptrials)
     newOut = False
     if out is None:
         newOut = True
         out = AnalogData(dimord=AnalogData._defaultDimord)
+    myfilter = LowPassFilter(b, a=a)
+    myfilter.initialize(data, out._stackingDim, chan_per_worker=chan_per_worker, keeptrials=keeptrials)
     myfilter.compute(data, out,
                      parallel=parallel,
                      parallel_store=parallel_store,

@@ -342,6 +342,7 @@ class SpikeData(DiscreteData):
     _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
     _hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel",)
     _defaultDimord = ["sample", "channel", "unit"]
+    _stackingDimLabel = "sample"
 
     @property
     def channel(self):
@@ -521,6 +522,7 @@ class EventData(DiscreteData):
     """
 
     _defaultDimord = ["sample", "eventid"]
+    _stackingDimLabel = "sample"
 
     @property
     def eventid(self):

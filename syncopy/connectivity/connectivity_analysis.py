@@ -43,7 +43,7 @@ __all__ = ["connectivityanalysis"]
 def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                          foi=None, foilim=None, pad_to_length=None,
                          polyremoval=None, taper="hann", tapsmofrq=None,
-                         nTaper=None, toi="all", out=None, 
+                         nTaper=None, toi="all", out=None,
                          **kwargs):
 
     """
@@ -130,15 +130,15 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         nSamples = int(lenTrials.min())
 
     # --- Basic foi sanitization ---
-    
+
     foi, foilim = validate_foi(foi, foilim, data.samplerate)
 
     # only now set foi array for foilim in 1Hz steps
     if foilim:
         foi = np.arange(foilim[0], foilim[1] + 1)
-        
+
     # --- Settingn up specific Methods ---
-    
+
     if method ==  'coh':
 
         if foi is None and foilim is None:
@@ -149,7 +149,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             SPYInfo(msg)
             foi = freqs
 
-        # sanitize taper selection and retrieve dpss settings 
+        # sanitize taper selection and retrieve dpss settings
         taper_opt = validate_taper(taper,
                                    tapsmofrq,
                                    nTaper,
@@ -157,7 +157,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                                    foimax=foi.max(),
                                    samplerate=data.samplerate,
                                    nSamples=nSamples,
-                                   output="pow") # ST_CSD's always have this unit/norm        
+                                   output="pow") # ST_CSD's always have this unit/norm
 
         # parallel computation over trials
         st_compRoutine = ST_CrossSpectra(samplerate=data.samplerate,
@@ -167,10 +167,10 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                                          polyremoval=polyremoval,
                                          timeAxis=timeAxis,
                                          foi=foi)
-        
+
         # hard coded as class attribute
         st_dimord = ST_CrossSpectra.dimord
-        
+
         # final normalization after trial averaging
         av_compRoutine = NormalizeCrossSpectra(output=output)
 
@@ -183,9 +183,9 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                                             timeAxis=timeAxis)
         # hard coded as class attribute
         st_dimord = ST_CrossCovariance.dimord
-        
+
         av_compRoutine = NormalizeCrossCov()
-        
+
     # -------------------------------------------------
     # Call the chosen single trial ComputationalRoutine
     # -------------------------------------------------
@@ -196,23 +196,24 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
     # Perform the trial-parallelized computation of the matrix quantity
     st_compRoutine.initialize(data,
+                              st_out._stackingDim,
                               chan_per_worker=None, # no parallelisation over channel possible
-                              keeptrials=keeptrials) # we need trial averaging!    
+                              keeptrials=keeptrials) # we need trial averaging!
     st_compRoutine.compute(data, st_out, parallel=kwargs.get("parallel"), log_dict={})
 
     # for debugging ccov
-    # print(5*'#',' after st_compRoutine call! ', 5*'#')  
-    # print(st_out)    
+    # print(5*'#',' after st_compRoutine call! ', 5*'#')
+    # print(st_out)
     # print(st_out.trialdefinition)
     # print(len(st_out.trials))
     # print(st_out.sampleinfo)
     # return st_out
-    
+
     # ----------------------------------------------------------------------------------
     # Sanitize output and call the chosen ComputationalRoutine on the averaged ST output
     # ----------------------------------------------------------------------------------
 
-    # If provided, make sure output object is appropriate    
+    # If provided, make sure output object is appropriate
     if out is not None:
         try:
             data_parser(out, varname="out", writable=True, empty=True,
@@ -225,8 +226,8 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         out = CrossSpectralData(dimord=st_dimord)
         new_out = True
 
-    # now take the trial average from the single trial CR as input 
-    av_compRoutine.initialize(st_out, chan_per_worker=None)
+    # now take the trial average from the single trial CR as input
+    av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
     av_compRoutine.pre_check() # make sure we got a trial_average
     av_compRoutine.compute(st_out, out, parallel=False)
 
