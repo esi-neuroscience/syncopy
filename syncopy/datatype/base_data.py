@@ -25,6 +25,7 @@ import scipy as sp
 
 # Local imports
 import syncopy as spy
+from .methods.arithmetic import _add
 from .methods.selectdata import selectdata
 from .methods.show import show
 from syncopy.shared.tools import StructDict
@@ -727,6 +728,9 @@ class BaseData(ABC):
                 os.unlink(self.filename)
                 shutil.rmtree(os.path.splitext(self.filename)[0],
                               ignore_errors=True)
+
+    def __add__(self, other):
+        return _add(self, other)
 
     # Class "constructor"
     def __init__(self, filename=None, dimord=None, mode="r+", **kwargs):
