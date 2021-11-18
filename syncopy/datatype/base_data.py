@@ -111,8 +111,11 @@ class BaseData(ABC):
 
     @property
     def _stackingDim(self):
-        if self._stackingDimLabel is not None and self.dimord is not None:
-            return self.dimord.index(self._stackingDimLabel)
+        if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
+            return 0
+        else:
+            if self._stackingDimLabel is not None and self.dimord is not None:
+                return self.dimord.index(self._stackingDimLabel)
 
     @property
     def cfg(self):
