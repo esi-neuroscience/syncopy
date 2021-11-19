@@ -13,10 +13,48 @@
 import numpy as np
 
 
-def wilson_sf(CSD, samplerate, nIter=2, tol=1e-9):
+def regularize_csd(CSD, cond_max=1e6, reg_max=-3):
+
+    '''
+    Brute force regularize CSD matrix
+    by inspecting the maximal condition number 
+    along the frequency axis.
+    Multiply with different epsilon * I, 
+    starting with eps = 1e-12 until the
+    condition number is smaller than `cond_max`
+    or the maximal regularization factor was reached.
+
+    Inspection/Check of the used regularization constant 
+    epsilon is highly recommended!
+    '''
+
+    reg_factors = np.logspace(-12, reg_max, 100)
+    I = np.eye(CSD.shape[1])
+
+    CondNum = np.linalg.cond(CSD).max()
+
+    # nothing to be done
+    if CondNum < cond_max:
+        return CSD
+    
+    for factor in reg_factors:        
+        CSDreg = CSD + factor * I
+        CondNum = np.linalg.cond(CSDreg).max()
+        print(f'Factor: {factor}, CN: {CondNum}')
+        
+        if CondNum < cond_max:
+            return CSDreg, factor
+        
+    # raise sth..
+
+    
+def wilson_sf(CSD, samplerate, nIter=100, rtol=1e-9):
 
     '''
     Wilsons spectral matrix factorization ("analytic method")
+
+    Converges extremely fast, so the default number of
+    iterations should be enough in practical situations.
 
     This is a pure backend function and hence no input argument
     checking is performed.
@@ -25,7 +63,7 @@ def wilson_sf(CSD, samplerate, nIter=2, tol=1e-9):
     ----------
     CSD : (nFreq, N, N) :class:`numpy.ndarray`
         Complex cross spectra for all channel combinations i,j.
-        `N` corresponds to number of input channels.
+        `N` corresponds to number of input channels. 
 
     Returns
     -------
@@ -43,28 +81,49 @@ def wilson_sf(CSD, samplerate, nIter=2, tol=1e-9):
     psi = np.tile(psi0, (nFreq, 1, 1))    
     assert psi.shape == CSD.shape
 
-    for i in range(nIter):
-
-        psi_inv = np.linalg.inv(psi)
+    errs = []
+    for _ in range(nIter):
         
+        psi_inv = np.linalg.inv(psi)        
         # the bracket of equation 3.1
-        g = psi_inv @ CSD # stacked matrix multiplication: np.matmul
-        g = g @ psi_inv.conj().transpose(0, 2, 1)        
+        g = psi_inv @ CSD @ psi_inv.conj().transpose(0, 2, 1)
         gplus, gplus_0 = _plusOperator(g + Ident)
         
         # the 'any' matrix
         S = np.triu(gplus_0)
         S = S - S.conj().T # S + S* = 0
 
+        psi_old = psi
         # the next step psi_{tau+1}
         psi = psi @ (gplus + S)
 
-    CSDfac = psi @ psi.conj().transpose(0, 2, 1)
-    err = np.abs(CSD - CSDfac)
-    err = err / np.abs(CSD) # relative error
-    print(err.max())
+        rel_err = np.abs((psi - psi_old) / np.abs(psi))
+        # print(rel_err.max())
+        # mean relative error
+        CSDfac = psi @ psi.conj().transpose(0, 2, 1)
+        err = np.abs(CSD - CSDfac)
+        err = err / np.abs(CSD) # relative error
+        
+        print('Cond', np.linalg.cond(psi[0]))        
+        print('Error:', err.max(),'\n')
+        
+        errs.append(err.max())
+        
+    Aks = np.fft.ifft(psi, axis=0)
+    A0 = Aks[0, ...]
+    
+    # Noise Covariance
+    Sigma = A0 * A0.T
+    # strip off remaining imaginary parts
+    Sigma = np.real(Sigma)
 
-    return CSDfac, err
+    # Transfer function
+    A0inv = np.linalg.inv(A0)
+    Hfunc = psi @ A0inv.conj().T
+
+    # print(err.mean())
+    
+    return Hfunc, Sigma, CSDfac, errs
 
 
 def _psi0_initial(CSD):
@@ -97,7 +156,7 @@ def _psi0_initial(CSD):
         
     return psi0.T
     
-
+# from scipy.signal import windows
 def _plusOperator(g):
 
     '''
@@ -117,10 +176,13 @@ def _plusOperator(g):
     beta[0, ...] = 0.5 * beta[0, ...]
     g0 = beta[0, ...].copy()
 
-    # Zero out negative freqs
+    # Zero out negative lags
     beta[nLag + 1:, ...] = 0
 
+    # beta = beta * windows.tukey(len(beta), alpha=0.2)[:, None, None]
+
     gp = np.fft.fft(beta, axis=0)
+
     return gp, g0
 
 

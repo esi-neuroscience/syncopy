@@ -196,7 +196,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
     # Perform the trial-parallelized computation of the matrix quantity
     st_compRoutine.initialize(data,
-                              st_out.dimord,
+                              st_out._stackingDim,
                               chan_per_worker=None, # no parallelisation over channel possible
                               keeptrials=keeptrials) # we need trial averaging!
     st_compRoutine.compute(data, st_out, parallel=kwargs.get("parallel"), log_dict={})
@@ -227,7 +227,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         new_out = True
 
     # now take the trial average from the single trial CR as input
-    av_compRoutine.initialize(st_out, out.dimord, chan_per_worker=None)
+    av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
     av_compRoutine.pre_check() # make sure we got a trial_average
     av_compRoutine.compute(st_out, out, parallel=False)
 

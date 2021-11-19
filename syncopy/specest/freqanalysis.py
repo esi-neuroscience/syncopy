@@ -929,7 +929,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     # Perform actual computation
     specestMethod.initialize(data,
-                             out.dimord,
+                             out._stackingDim,
                              chan_per_worker=kwargs.get("chan_per_worker"),
                              keeptrials=keeptrials)
     specestMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)

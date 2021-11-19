@@ -69,7 +69,7 @@ def filter_manager(data, b=None, a=None,
         newOut = True
         out = AnalogData(dimord=AnalogData._defaultDimord)
     myfilter = LowPassFilter(b, a=a)
-    myfilter.initialize(data, out.dimord, chan_per_worker=chan_per_worker, keeptrials=keeptrials)
+    myfilter.initialize(data, out._stackingDim, chan_per_worker=chan_per_worker, keeptrials=keeptrials)
     myfilter.compute(data, out,
                      parallel=parallel,
                      parallel_store=parallel_store,
