@@ -216,7 +216,12 @@ def _perform_computation(baseObj,
                         out._stackingDim,
                         chan_per_worker=None,
                         keeptrials=True)
+    if __acme__:
+        lock = dd.lock.Lock(name='arithmetic_ops')
+        lock.acquire()
     opMethod.compute(baseObj, out, parallel=parallel, log_dict=log_dct)
+    if __acme__:
+        lock.release()
 
     # Delete any created subset selections
     if hasattr(baseObj._selection, "_cleanup"):
