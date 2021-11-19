@@ -9,19 +9,24 @@ import numpy as np
 import h5py
 
 # Local imports
+from syncopy import __acme__
 from syncopy.shared.parsers import data_parser
-from syncopy.shared.tools import get_defaults
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, SPYWarning
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import unwrap_cfg, unwrap_io, detect_parallel_client
+from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.shared.computational_routine import ComputationalRoutine
+if __acme__:
+    import dask.distributed as dd
 
 __all__ = []
 
-def _add(obj1, obj2):
+def _process_operator(obj1, obj2, operator, **kwargs):
+    """
+    Coming soon...
+    """
+    baseObj, operand, operand_dat, opres_type, operand_idxs = _parse_input(obj1, obj2, operator)
+    return _perform_computation(baseObj, operand, operand_dat, operand_idxs, opres_type, operator)
 
-    operand_dat, opres_type, operand_idxs = _parse_input(obj1, obj2, "+")
-    operation = lambda x, y : x + y
 
 def _parse_input(obj1, obj2, operator):
 
@@ -42,9 +47,10 @@ def _parse_input(obj1, obj2, operator):
         raise exc
 
     # If no active selection is present, create a "fake" all-to-all selection
-    # to harmonize processing down the road
+    # to harmonize processing down the road (and attach `_cleanup` attribute for later removal)
     if baseObj._selection is None:
         baseObj.selectdata(inplace=True)
+        baseObj._selection._cleanup = True
     baseTrialList = baseObj._selection.trials
 
     # Use the `_preview_trial` functionality of Syncopy objects to get each trial's
@@ -165,10 +171,64 @@ def _parse_input(obj1, obj2, operator):
         lgl = "Syncopy object, scalar or array-like"
         raise SPYTypeError(operand, varname="operand", expected=lgl)
 
-    return operand_dat, opres_type, operand_idxs
+    return baseObj, operand, operand_dat, opres_type, operand_idxs
+
+def _perform_computation(baseObj,
+                         operand,
+                         operand_dat,
+                         operand_idxs,
+                         opres_type,
+                         operator):
+    """
+    Coming soon...
+    """
+
+    # Prepare logging info in dictionary: we know that `baseObj` is definitely
+    # a Syncopy data object, operand may or may not be; account for this
+    if "BaseData" in str(operand.__class__.__mro__):
+        opSel = operand._selection
+    else:
+        opSel = None
+    log_dct = {"operator": operator,
+               "base": baseObj.__class__.__name__,
+               "base selection": baseObj._selection,
+               "operand": operand.__class__.__name__,
+               "operand selection": opSel}
+
+    # Create output object
+    out = baseObj.__class__(dimord=baseObj.dimord)
+
+    # Wrap operator in lambda function
+    if operator == "+":
+        operation = lambda x, y : x + y
+
+    if __acme__:
+        try:
+            dd.get_client()
+            parallel = True
+        except ValueError:
+            parallel = False
+
+    # Perform actual computation
+    opMethod = SpyArithmetic(operand_dat, operand_idxs, operation=operation,
+                             opres_type=opres_type)
+    opMethod.initialize(baseObj,
+                        out._stackingDim,
+                        chan_per_worker=None,
+                        keeptrials=True)
+    opMethod.compute(baseObj, out, parallel=parallel, log_dict=log_dct)
+
+    # Delete any created subset selections
+    if hasattr(baseObj._selection, "_cleanup"):
+        baseObj._selection = None
+    if opSel is not None:
+        operand._selection = None
+
+    return out
+
 
 @unwrap_io
-def arithmetic_cF(base_dat, operand_dat, operand_idx, operation=None, opres_type = None,
+def arithmetic_cF(base_dat, operand_dat, operand_idx, operation=None, opres_type=None,
                   noCompute=False, chunkShape=None):
     """
     Coming soon...
@@ -189,17 +249,17 @@ class SpyArithmetic(ComputationalRoutine):
 
     computeFunction = staticmethod(arithmetic_cF)
 
-    def process_metadata(self, data, out):
+    def process_metadata(self, baseObj, out):
 
         # Get/set timing-related selection modifiers
-        out.trialdefinition = data._selection.trialdefinition
-        # if data._selection._timeShuffle: # FIXME: should be implemented done the road
-        #     out.time = data._selection.timepoints
-        if data._selection._samplerate:
-            out.samplerate = data.samplerate
+        out.trialdefinition = baseObj._selection.trialdefinition
+        # if baseObj._selection._timeShuffle: # FIXME: should be implemented done the road
+        #     out.time = baseObj._selection.timepoints
+        if baseObj._selection._samplerate:
+            out.samplerate = baseObj.samplerate
 
         # Get/set dimensional attributes changed by selection
-        for prop in data._selection._dimProps:
-            selection = getattr(data._selection, prop)
+        for prop in baseObj._selection._dimProps:
+            selection = getattr(baseObj._selection, prop)
             if selection is not None:
-                setattr(out, prop, getattr(data, prop)[selection])
+                setattr(out, prop, getattr(baseObj, prop)[selection])

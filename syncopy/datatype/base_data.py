@@ -25,7 +25,7 @@ import scipy as sp
 
 # Local imports
 import syncopy as spy
-from .methods.arithmetic import _add
+from .methods.arithmetic import _process_operator
 from .methods.selectdata import selectdata
 from .methods.show import show
 from syncopy.shared.tools import StructDict
@@ -739,7 +739,7 @@ class BaseData(ABC):
                               ignore_errors=True)
 
     def __add__(self, other):
-        return _add(self, other)
+        return _process_operator(self, other, "+")
 
     # Class "constructor"
     def __init__(self, filename=None, dimord=None, mode="r+", **kwargs):
