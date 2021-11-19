@@ -13,48 +13,13 @@
 import numpy as np
 
 
-def regularize_csd(CSD, cond_max=1e6, reg_max=-3):
-
-    '''
-    Brute force regularize CSD matrix
-    by inspecting the maximal condition number 
-    along the frequency axis.
-    Multiply with different epsilon * I, 
-    starting with eps = 1e-12 until the
-    condition number is smaller than `cond_max`
-    or the maximal regularization factor was reached.
-
-    Inspection/Check of the used regularization constant 
-    epsilon is highly recommended!
-    '''
-
-    reg_factors = np.logspace(-12, reg_max, 100)
-    I = np.eye(CSD.shape[1])
-
-    CondNum = np.linalg.cond(CSD).max()
-
-    # nothing to be done
-    if CondNum < cond_max:
-        return CSD
-    
-    for factor in reg_factors:        
-        CSDreg = CSD + factor * I
-        CondNum = np.linalg.cond(CSDreg).max()
-        print(f'Factor: {factor}, CN: {CondNum}')
-        
-        if CondNum < cond_max:
-            return CSDreg, factor
-        
-    # raise sth..
-
-    
-def wilson_sf(CSD, samplerate, nIter=100, rtol=1e-9):
+def wilson_sf(CSD, nIter=100, rtol=1e-9):
 
     '''
     Wilsons spectral matrix factorization ("analytic method")
 
     Converges extremely fast, so the default number of
-    iterations should be enough in practical situations.
+    iterations should be more than enough in practical situations.
 
     This is a pure backend function and hence no input argument
     checking is performed.
@@ -63,11 +28,25 @@ def wilson_sf(CSD, samplerate, nIter=100, rtol=1e-9):
     ----------
     CSD : (nFreq, N, N) :class:`numpy.ndarray`
         Complex cross spectra for all channel combinations i,j.
-        `N` corresponds to number of input channels. 
+        `N` corresponds to number of input channels. Has to be
+        positive definite and well conditioned.
+    nIter : int
+        Maximum Number of iterations, factorization result
+        is returned also if error tolerance wasn't met.
+    rtol : float
+        Tolerance of the relative maximal 
+        error of the factorization.    
 
     Returns
     -------
-
+    Hfunc : (nFreq, N, N) :class:`numpy.ndarray`
+        The transfer functio
+    Sigma : (N, N) :class:`numpy.ndarray`
+        Noise covariance
+    converged : bool
+        Indicates wether the algorithm converged. 
+        If `False` result was returned after `nIter`
+        iterations.
     '''
 
     nFreq, nChannels = CSD.shape[:2]
@@ -81,49 +60,40 @@ def wilson_sf(CSD, samplerate, nIter=100, rtol=1e-9):
     psi = np.tile(psi0, (nFreq, 1, 1))    
     assert psi.shape == CSD.shape
 
-    errs = []
+    converged = False
     for _ in range(nIter):
         
         psi_inv = np.linalg.inv(psi)        
         # the bracket of equation 3.1
         g = psi_inv @ CSD @ psi_inv.conj().transpose(0, 2, 1)
         gplus, gplus_0 = _plusOperator(g + Ident)
-        
+
         # the 'any' matrix
         S = np.triu(gplus_0)
         S = S - S.conj().T # S + S* = 0
 
-        psi_old = psi
         # the next step psi_{tau+1}
         psi = psi @ (gplus + S)
-
-        rel_err = np.abs((psi - psi_old) / np.abs(psi))
-        # print(rel_err.max())
-        # mean relative error
+        psi0 = psi0 @ (gplus_0 + S)
+        
+        # max relative error
         CSDfac = psi @ psi.conj().transpose(0, 2, 1)
         err = np.abs(CSD - CSDfac)
-        err = err / np.abs(CSD) # relative error
+        err = (err / np.abs(CSD)).max()
         
-        print('Cond', np.linalg.cond(psi[0]))        
-        print('Error:', err.max(),'\n')
-        
-        errs.append(err.max())
-        
-    Aks = np.fft.ifft(psi, axis=0)
-    A0 = Aks[0, ...]
-    
+        # converged
+        if err < rtol:
+            converged = True
+            break
+                        
     # Noise Covariance
-    Sigma = A0 * A0.T
-    # strip off remaining imaginary parts
-    Sigma = np.real(Sigma)
-
-    # Transfer function
-    A0inv = np.linalg.inv(A0)
-    Hfunc = psi @ A0inv.conj().T
-
-    # print(err.mean())
+    Sigma = psi0 @ psi0.conj().T
     
-    return Hfunc, Sigma, CSDfac, errs
+    # Transfer function
+    psi0_inv = np.linalg.inv(psi0)
+    Hfunc = psi @ psi0_inv.conj().T
+
+    return Hfunc, Sigma, converged
 
 
 def _psi0_initial(CSD):
@@ -156,7 +126,7 @@ def _psi0_initial(CSD):
         
     return psi0.T
     
-# from scipy.signal import windows
+
 def _plusOperator(g):
 
     '''
@@ -179,11 +149,69 @@ def _plusOperator(g):
     # Zero out negative lags
     beta[nLag + 1:, ...] = 0
 
-    # beta = beta * windows.tukey(len(beta), alpha=0.2)[:, None, None]
-
     gp = np.fft.fft(beta, axis=0)
 
     return gp, g0
+
+
+# --- End of Wilson's Algorithm ---
+
+
+def regularize_csd(CSD, cond_max=1e6, eps_max=1e-3, Nsteps=50):
+
+    '''
+    Brute force regularize CSD matrix
+    by inspecting the maximal condition number 
+    along the frequency axis.
+    Multiply with different epsilon * I, 
+    starting with epsilon = 1e-10 until the
+    condition number is smaller than `cond_max`.
+    Raises a ValueError if the maximal regularization 
+    factor `epx_max` was reached but `cond_max` still not met.
+
+
+    Parameters
+    ----------
+    CSD : 3D :class:`numpy.ndarray`
+        The cross spectral density matrix
+        with shape (nFreq, nChannel, nChannel)
+    cond_max : float
+        The maximal condition number after regularization
+    eps_max : float
+        The largest regularization factor to be used. If
+        also this value does not regularize the CSD up
+        to `cond_max` a ValueError is raised.
+    nSteps : int
+        Number of steps between 1e-10 and eps_max.
+
+    Returns
+    -------
+    CSDreg : 3D :class:`numpy.ndarray`
+        The regularized CSD matrix with a maximal
+        condition number of `cond_max`
+    eps : float
+        The regularization factor used
+
+    '''
+
+    epsilons = np.logspace(-10, np.log10(eps_max), 25)
+    I = np.eye(CSD.shape[1])
+
+    CondNum = np.linalg.cond(CSD).max()
+
+    # nothing to be done
+    if CondNum < cond_max:
+        return CSD, 0
+
+    for eps in epsilons:        
+        CSDreg = CSD + eps * I
+        CondNum = np.linalg.cond(CSDreg).max()
+
+        if CondNum < cond_max:
+            return CSDreg, eps
+
+    msg = f"CSD matrix not regularizable with a max epsilon of {eps_max}!"
+    raise ValueError(msg)
 
 
 def _mem_size(arr):
