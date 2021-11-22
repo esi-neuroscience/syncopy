@@ -25,6 +25,7 @@ import scipy as sp
 
 # Local imports
 import syncopy as spy
+from .methods.arithmetic import _process_operator
 from .methods.selectdata import selectdata
 from .methods.show import show
 from syncopy.shared.tools import StructDict
@@ -736,6 +737,34 @@ class BaseData(ABC):
                 os.unlink(self.filename)
                 shutil.rmtree(os.path.splitext(self.filename)[0],
                               ignore_errors=True)
+
+    # Support for basic arithmetic operations (no in-place computations supported yet)
+    def __add__(self, other):
+        return _process_operator(self, other, "+")
+
+    def __radd__(self, other):
+        return _process_operator(self, other, "+")
+
+    def __sub__(self, other):
+        return _process_operator(self, other, "-")
+
+    def __rsub__(self, other):
+        return _process_operator(self, other, "-")
+
+    def __mul__(self, other):
+        return _process_operator(self, other, "*")
+
+    def __rmul__(self, other):
+        return _process_operator(self, other, "*")
+
+    def __truediv__(self, other):
+        return _process_operator(self, other, "/")
+
+    def __rtruediv__(self, other):
+        return _process_operator(self, other, "/")
+
+    def __pow__(self, other):
+        return _process_operator(self, other, "**")
 
     # Class "constructor"
     def __init__(self, filename=None, dimord=None, mode="r+", **kwargs):
