@@ -27,6 +27,12 @@ if __acme__:
 skip_without_acme = pytest.mark.skipif(
     not __acme__, reason="acme not available")
 
+arithmetics = [lambda x, y : x + y,
+               lambda x, y : x - y,
+               lambda x, y : x * y,
+               lambda x, y : x / y,
+               lambda x, y : x ** y]
+
 
 class TestAnalogData():
 
@@ -399,14 +405,14 @@ class TestAnalogData():
         ]
         chanSelections = [
             ["channel03", "channel01", "channel01", "channel02"],  # string selection w/repetition + unordered
-            [4, 2, 2, 5, 5],   # repetition + unorderd
+            [4, 2, 2, 5, 5],   # repetition + unordered
             range(5, 8),  # narrow range
             slice(-2, None)  # negative-start slice
             ]
         toiSelections = [
             "all",  # non-type-conform string
             [0.6],  # single inexact match
-            [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
+            [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetitions
             ]
         toilimSelections = [
             [0.5, 1.5],  # regular range
@@ -445,6 +451,128 @@ class TestAnalogData():
                     assert np.array_equal(cfg.out.data, selected.data)
                     time.sleep(0.05)
 
+    # test arithmetic operations
+    def test_ang_arithmetic(self):
+        dummy = AnalogData(data=self.data,
+                           trialdefinition=self.trl,
+                           samplerate=self.samplerate)
+        ymmud = AnalogData(data=self.data.T,
+                           trialdefinition=self.trl,
+                           samplerate=self.samplerate,
+                           dimord=AnalogData._defaultDimord[::-1])
+        dummy2 = AnalogData(data=self.data,
+                            trialdefinition=self.trl,
+                            samplerate=self.samplerate)
+        ymmud2 = AnalogData(data=self.data.T,
+                            trialdefinition=self.trl,
+                            samplerate=self.samplerate,
+                            dimord=AnalogData._defaultDimord[::-1])
+        dummyArr = 2 * np.ones((dummy.trials[0].shape))
+        ymmudArr = 2 * np.ones((ymmud.trials[0].shape))
+        scalarOperands = [2, np.pi]
+        dummyOperands = [dummyArr, dummyArr.tolist()]
+        ymmudOperands = [ymmudArr, ymmudArr.tolist()]
+
+        trialSelections = [
+            "all",  # enforce below selections in all trials of `dummy`
+            [3, 1]  # minimally unordered
+        ]
+        chanSelections = [
+            ["channel03", "channel01", "channel01", "channel02"],  # string selection w/repetition + unordered
+            [4, 2, 2, 5, 5],   # repetition + unorderd
+            range(5, 8),  # narrow range
+            slice(-2, None)  # negative-start slice
+            ]
+        toiSelections = [
+            "all",  # non-type-conform string
+            [0.6],  # single inexact match
+            [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
+            ]
+        toilimSelections = [
+            [0.5, 1.5],  # regular range
+            [1.5, 2.0],  # minimal range (just two-time points)
+            [1.0, np.inf]  # unbounded from above
+            ]
+        timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
+            + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
+
+
+        for operation in arithmetics:
+            for operand in scalarOperands:
+                result = operation(dummy, operand) # perform operation from right
+                for tk, trl in enumerate(result.trials):
+                    assert np.array_equal(trl, operation(dummy.trials[tk], operand))
+                result2 = operation(operand, dummy) # perform operation from left
+                assert np.array_equal(result2.data, result.data)
+
+                # same, but swapped `dimord`
+                result = operation(ymmud, operand)
+                for tk, trl in enumerate(result.trials):
+                    assert np.array_equal(trl, operation(ymmud.trials[tk], operand))
+                result2 = operation(operand, ymmud)
+                assert np.array_equal(result2.data, result.data)
+
+            # Careful: NumPy tries to avoid failure by broadcasting; instead of relying
+            # on an existing `__radd__` method, it performs arithmetic component-wise, i.e.,
+            # ``np.ones((3,3)) + data`` performs ``1 + data`` nine times, so don't
+            # test for left/right arithmetics...
+            for operand in dummyOperands:
+                result = operation(dummy, operand)
+                for tk, trl in enumerate(result.trials):
+                    assert np.array_equal(trl, operation(dummy.trials[tk], operand))
+            for operand in ymmudOperands:
+                result = operation(ymmud, operand)
+                for tk, trl in enumerate(result.trials):
+                    assert np.array_equal(trl, operation(ymmud.trials[tk], operand))
+
+            result = operation(dummy, dummy2)
+            for tk, trl in enumerate(result.trials):
+                assert np.array_equal(trl, operation(dummy.trials[tk], dummy2.trials[tk]))
+
+            result = operation(ymmud, ymmud2)
+            for tk, trl in enumerate(result.trials):
+                assert np.array_equal(trl, operation(ymmud.trials[tk], ymmud2.trials[tk]))
+
+
+            for trialSel in trialSelections:
+                for chanSel in chanSelections:
+                    for timeSel in timeSelections:
+                        kwdict = {}
+                        kwdict["trials"] = trialSel
+                        kwdict["channels"] = chanSel
+                        kwdict[timeSel[0]] = timeSel[1]
+
+                        # perform in-place selection and construct array based on new subset
+                        selected = dummy.selectdata(**kwdict)
+                        dummy.selectdata(inplace=True, **kwdict)
+                        arr = 2 * np.ones((selected.trials[0].shape), dtype=np.intp)
+                        for operand in [np.pi, arr]:
+                            result = operation(dummy, operand)
+                            for tk, trl in enumerate(result.trials):
+                                assert np.array_equal(trl, operation(selected.trials[tk], operand))
+
+
+                        dummy2.selectdata(inplace=True, **kwdict)
+                        try:
+                            result = operation(dummy, dummy2)
+                            cleanSelection = True
+                        except SPYValueError:
+                            cleanSelection = False
+                        except:
+                            import pdb; pdb.set_trace()
+                        if cleanSelection:
+                            for tk, trl in enumerate(result.trials):
+                                assert np.array_equal(trl, operation(selected.trials[tk], selected.trials[tk]))
+
+                            selected = ymmud.selectdata(**kwdict)
+                            ymmud.selectdata(inplace=True, **kwdict)
+                            ymmud2.selectdata(inplace=True, **kwdict)
+                            result = operation(ymmud, ymmud2)
+                            for tk, trl in enumerate(result.trials):
+                                assert np.array_equal(trl, operation(selected.trials[tk], selected.trials[tk]))
+
+
+
     @skip_without_acme
     def test_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
@@ -452,7 +580,8 @@ class TestAnalogData():
         par_tests = ["test_relative_array_padding",
                      "test_absolute_nextpow2_array_padding",
                      "test_object_padding",
-                     "test_dataselection"]
+                     "test_dataselection",
+                     "test_ang_arithmetic"]
         for test in par_tests:
             getattr(self, test)()
             flush_local_cluster(testcluster)
