@@ -150,7 +150,7 @@ def _parse_input(obj1, obj2, operator):
         opres_type = np.result_type(*(trl.dtype for trl in baseTrials),
                                     *(trl.dtype for trl in opndTrials))
 
-        # Finally, ensure shapes align
+        # Ensure shapes align
         if not all(baseTrials[k].shape == opndTrials[k].shape for k in range(len(baseTrials))):
             lgl = "Syncopy object (selection) of compatible shapes {}"
             act = "Syncopy object (selection) with shapes {}"
@@ -158,6 +158,15 @@ def _parse_input(obj1, obj2, operator):
             opndShapes = [trl.shape for trl in opndTrials]
             raise SPYValueError(lgl.format(baseShapes), varname="operand",
                                 actual=act.format(opndShapes))
+
+        # Avoid things becoming too nasty: if operand contains wild selections
+        # (unordered lists or index repetitions), abort
+        for trl in opndTrials:
+            if any(np.diff(sel).min() <= 0 if isinstance(sel, list) and len(sel) > 1 \
+                else False for sel in trl.idx):
+                lgl = "Syncopy object with ordered unreverberated subset selection"
+                act = "Syncopy object with selection {}"
+                raise SPYValueError(lgl, varname="operand", actual=act.format(operand._selection))
 
         # Propagate indices for fetching data from operand
         operand_idxs = [trl.idx for trl in opndTrials]
