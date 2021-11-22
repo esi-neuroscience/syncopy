@@ -157,7 +157,7 @@ def _plusOperator(g):
 # --- End of Wilson's Algorithm ---
 
 
-def regularize_csd(CSD, cond_max=1e6, eps_max=1e-3, Nsteps=50):
+def regularize_csd(CSD, cond_max=1e6, eps_max=1e-3, nSteps=50):
 
     '''
     Brute force regularize CSD matrix

@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as ppl
 from syncopy.connectivity import ST_compRoutines as stCR
 from syncopy.connectivity import AV_compRoutines as avCR
+from syncopy.connectivity.wilson_sf import wilson_sf, regularize_csd
 
 
 def test_coherence():
@@ -162,3 +163,86 @@ def test_cross_cov():
     # cross-correlation (normalized cross-covariance) between
     # cosine and sine analytically equals minus sine    
     assert np.all(CC[:, 0, 0, 1] + sine[:nLags] < 1e-5)
+
+
+def test_wilson():
+
+    '''
+    Test Wilson's spectral matrix factorization.
+
+    As the routine has relative error-checking
+    inbuild, we just need to check for convergence.
+    '''
+
+    # --- create test data ---
+    fs = 1000
+    nChannels = 10
+    nSamples = 1000
+    f1, f2 = [30 , 40] # 30Hz and 60Hz
+    data = np.zeros((nSamples, nChannels))
+    for i in range(nChannels):
+        # more phase diffusion in the 60Hz band    
+        p1 = phase_evo(f1 * 2 * np.pi, eps=0.1, fs=fs, N=nSamples)
+        p2 = phase_evo(f2 * 2 * np.pi, eps=0.35, fs=fs, N=nSamples)
+        
+        data[:, i] = np.cos(p1) + 2 * np.sin(p2) + .5 * np.random.randn(nSamples)
+        
+    # --- get the (single trial) CSD ---
+    
+    bw = 5 # 5Hz smoothing
+    NW = bw * nSamples / (2 * fs)
+    Kmax = int(2 * NW - 1) # optimal number of tapers
+
+    CSD, freqs = stCR.cross_spectra_cF(data, fs,
+                                       taper='dpss',
+                                       taper_opt={'Kmax' : Kmax, 'NW' : NW},
+                                       norm=False,
+                                       fullOutput=True)
+    # strip off singleton time axis
+    CSD = CSD[0]
+
+    # get CSD condition number, which is way too large!
+    CN = np.linalg.cond(CSD).max()
+    assert CN > 1e6
+
+    # --- regularize CSD ---
+    
+    CSDreg, fac = regularize_csd(CSD, cond_max=1e6, nSteps=25)
+    CNreg = np.linalg.cond(CSDreg).max()
+    assert CNreg < 1e6
+    # check that 'small' regularization factor is enough
+    assert fac < 1e-5 
+    
+    # --- factorize CSD with Wilson's algorithm ---
+    
+    H, Sigma, conv = wilson_sf(CSDreg, rtol=1e-9)
+
+    # converged - \Psi \Psi^* \approx CSD,
+    # with relative error <= rtol?
+    assert conv
+
+    # reconstitute
+    CSDfac = H @ Sigma @ H.conj().transpose(0, 2, 1)
+    
+    fig, ax = ppl.subplots(figsize=(6, 4))
+    ax.set_xlabel('frequency (Hz)')
+    ax.set_ylabel(r'$|CSD_{ij}(f)|$')
+    chan = nChannels // 2
+    # show (real) auto-spectra 
+    assert ax.plot(freqs, np.abs(CSD[:, chan, chan]),
+                   '-o', label='original CSD', ms=3)
+    assert ax.plot(freqs, np.abs(CSDreg[:, chan, chan]),
+                   '-o', label='regularized CSD', ms=3)
+    assert ax.plot(freqs, np.abs(CSDfac[:, chan, chan]),
+                   '-o', label='factorized CSD', ms=3)
+    ax.set_xlim((f1 - 5, f2 + 5))
+
+    
+# --- Helper routines ---
+          
+# noisy phase evolution -> phase diffusion
+def phase_evo(omega0, eps, fs=1000, N=1000):
+    wn = np.random.randn(N) 
+    delta_ts = np.ones(N) * 1 / fs
+    phase = np.cumsum(omega0 * delta_ts + eps * wn)
+    return phase
