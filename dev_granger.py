@@ -48,7 +48,6 @@ def make_test_data(nChannels=10, nSamples=1000, bw=5):
         data[:, i] = np.cos(p1) + np.sin(p2) + .5 * np.random.randn(nSamples)
         # data[:, i] = brown_noise(nSamples)
 
-    bw = 5
     NW = bw * nSamples / (2 * fs)
     Kmax = int(2 * NW - 1) # optimal number of tapers
 
@@ -58,8 +57,13 @@ def make_test_data(nChannels=10, nSamples=1000, bw=5):
 
     return CSD
 
-
+    
 def cond_samples(Ns, nChannels=2):
+
+    '''
+    Screens condition number for CSDs
+    with different channel Numbers
+    '''
 
     cns = []
 
@@ -72,5 +76,52 @@ def cond_samples(Ns, nChannels=2):
     ax.set_ylabel('Condition Number')
     ax.plot(Ns, cns, '-o', label=f'nChannels={nChannels}')
     ax.set_ylim((-1, 5000))
+
+    
+def make_AR2_csd(nSamples=1000, coupling=0.2, fs=200, nTrials=10):
+
+    # both processes have same parameters
+    alpha1, alpha2 = 0.55, -0.8
+
+    CSDav = np.zeros((nSamples // 2 + 1, 2, 2), dtype=np.complex64)
+    for _ in range(nTrials):
+        sol = np.zeros((nSamples, 2))
+
+        # pick the 1st values at random
+        xs_ini = np.random.randn(2,2)
+
+        sol[:2,:] = xs_ini
+
+        for i in range(1, nSamples):
+            sol[i, 1] = alpha1 * sol[i - 1, 1] + alpha2 * sol[i - 2, 1] 
+            sol[i, 1] += np.random.randn()
+
+            # X2 drives X1
+            sol[i, 0] = alpha1 * sol[i - 1, 0] + alpha2 * sol[i - 2, 0]
+            sol[i, 0] += sol[i - 1, 1] * coupling 
+            sol[i, 0] += np.random.randn()
+
+        # --- get CSD ---
+        bw = 5
+        NW = bw * nSamples / (2 * 1000)
+        Kmax = int(2 * NW - 1) # optimal number of tapers
+        CS2, freqs = cross_spectra_cF(sol, fs,
+                                      taper='dpss',
+                                      taper_opt={'Kmax' : Kmax, 'NW' : NW},
+                                      norm=False,
+                                      fullOutput=True)
+
+        CSD = CS2[0, ...]
+        CSDav += CSD
+
+    print(Kmax)        
+    CSDav /= nTrials
+    return CSDav, freqs, sol
+                    
+
+# test run
+# CSDav, freqs, data = make_AR2_csd(nSamples=2500, nTrials=250)
+# H, Sigma, conv = wilson_sf(CSDav, nIter=20)
+# G = granger(CSDav, H, Sigma)
 
 
