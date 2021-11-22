@@ -738,8 +738,21 @@ class BaseData(ABC):
                 shutil.rmtree(os.path.splitext(self.filename)[0],
                               ignore_errors=True)
 
+    # Support for basic arithmetic operations (no in-place computations supported yet)
     def __add__(self, other):
         return _process_operator(self, other, "+")
+
+    def __sub__(self, other):
+        return _process_operator(self, other, "-")
+
+    def __mul__(self, other):
+        return _process_operator(self, other, "*")
+
+    def __truediv__(self, other):
+        return _process_operator(self, other, "/")
+
+    def __pow__(self, other):
+        return _process_operator(self, other, "**")
 
     # Class "constructor"
     def __init__(self, filename=None, dimord=None, mode="r+", **kwargs):

@@ -20,7 +20,7 @@ if __acme__:
 
 __all__ = []
 
-def _process_operator(obj1, obj2, operator, **kwargs):
+def _process_operator(obj1, obj2, operator):
     """
     Coming soon...
     """
@@ -198,10 +198,22 @@ def _perform_computation(baseObj,
     # Create output object
     out = baseObj.__class__(dimord=baseObj.dimord)
 
-    # Wrap operator in lambda function
+    # Now create actual functional operations: wrap operator in lambda
     if operator == "+":
         operation = lambda x, y : x + y
+    elif operator == "-":
+        operation = lambda x, y : x - y
+    elif operator == "*":
+        operation = lambda x, y : x * y
+    elif operator == "/":
+        operation = lambda x, y : x / y
+    elif operator == "**":
+        operation = lambda x, y : x ** y
+    else:
+        raise SPYValueError("supported arithmetic operator", actual=operator)
 
+    # If ACME is available, try to attach (already running) parallel computing client
+    parallel = False
     if __acme__:
         try:
             dd.get_client()
@@ -209,18 +221,20 @@ def _perform_computation(baseObj,
         except ValueError:
             parallel = False
 
-    # Perform actual computation
+    # Perform actual computation: in case of parallel execution, use a distributed
+    # lock to prevent ACME from performing chained operations (`x + y + 3``)
+    # simultaneously (thereby wrecking the underlying HDF5 datasets)
     opMethod = SpyArithmetic(operand_dat, operand_idxs, operation=operation,
                              opres_type=opres_type)
     opMethod.initialize(baseObj,
                         out._stackingDim,
                         chan_per_worker=None,
                         keeptrials=True)
-    if __acme__:
+    if parallel:
         lock = dd.lock.Lock(name='arithmetic_ops')
         lock.acquire()
     opMethod.compute(baseObj, out, parallel=parallel, log_dict=log_dct)
-    if __acme__:
+    if parallel:
         lock.release()
 
     # Delete any created subset selections

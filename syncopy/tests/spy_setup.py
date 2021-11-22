@@ -25,6 +25,7 @@ if __name__ == "__main__":
     # Test stuff within here...
     artdata = generate_artificial_data(nTrials=5, nChannels=16,
                                        equidistant=False, inmemory=False)
+
     sys.exit()
     spec = spy.freqanalysis(artdata, method="mtmfft", taper="dpss", output="pow")
 
