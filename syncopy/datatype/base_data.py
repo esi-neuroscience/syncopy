@@ -742,13 +742,25 @@ class BaseData(ABC):
     def __add__(self, other):
         return _process_operator(self, other, "+")
 
+    def __radd__(self, other):
+        return _process_operator(self, other, "+")
+
     def __sub__(self, other):
+        return _process_operator(self, other, "-")
+
+    def __rsub__(self, other):
         return _process_operator(self, other, "-")
 
     def __mul__(self, other):
         return _process_operator(self, other, "*")
 
+    def __rmul__(self, other):
+        return _process_operator(self, other, "*")
+
     def __truediv__(self, other):
+        return _process_operator(self, other, "/")
+
+    def __rtruediv__(self, other):
         return _process_operator(self, other, "/")
 
     def __pow__(self, other):
