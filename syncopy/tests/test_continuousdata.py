@@ -500,6 +500,11 @@ class TestAnalogData():
         # Perform basic arithmetic with +, -, *, / and ** (pow)
         for operation in arithmetics:
 
+            # First, ensure `dimord` is respected
+            with pytest.raises(SPYValueError) as sypval:
+                operation(dummy, ymmud)
+                assert "expected Syncopy 'time' x 'channel' data object"
+
             # Scalar algebra must be commutative (except for pow)
             for operand in scalarOperands:
                 result = operation(dummy, operand) # perform operation from right

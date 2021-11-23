@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Test proper functionality of Syncopy's `BaseData` class + helpers
-# 
+#
 
 # Builtin/3rd party package imports
 import os
@@ -23,6 +23,13 @@ from syncopy.tests.misc import is_win_vm, is_slurm_node
 # Construct decorators for skipping certain tests
 skip_in_vm = pytest.mark.skipif(is_win_vm(), reason="running in Win VM")
 skip_in_slurm = pytest.mark.skipif(is_slurm_node(), reason="running on cluster node")
+
+# Collect all supported binary arithmetic operators
+arithmetics = [lambda x, y : x + y,
+               lambda x, y : x - y,
+               lambda x, y : x * y,
+               lambda x, y : x / y,
+               lambda x, y : x ** y]
 
 
 class TestVirtualData():
@@ -141,6 +148,7 @@ class TestBaseData():
     nSpikes = 50
     data = {}
     trl = {}
+    samplerate = 1.0
 
     # Generate 2D array simulating an AnalogData array
     data["AnalogData"] = np.arange(1, nChannels * nSamples + 1).reshape(nSamples, nChannels)
@@ -176,35 +184,18 @@ class TestBaseData():
             hname = os.path.join(tdir, "dummy.h5")
 
             for dclass in self.classes:
-                # attempt allocation with random file
-                with open(fname, "w") as f:
-                    f.write("dummy")
-                # with pytest.raises(SPYValueError):
-                #     getattr(spd, dclass)(fname)
 
                 # allocation with HDF5 file
                 h5f = h5py.File(hname, mode="w")
                 h5f.create_dataset("dummy", data=self.data[dclass])
                 h5f.close()
-                
-                # dummy = getattr(spd, dclass)(filename=hname)
-                # assert np.array_equal(dummy.data, self.data[dclass])
-                # assert dummy.filename == hname
-                # del dummy
 
                 # allocation using HDF5 dataset directly
                 dset = h5py.File(hname, mode="r+")["dummy"]
                 dummy = getattr(spd, dclass)(data=dset)
                 assert np.array_equal(dummy.data, self.data[dclass])
                 assert dummy.mode == "r+", dummy.data.file.mode
-                del dummy               
-                
-                # # allocation with memmaped npy file
-                # np.save(fname, self.data[dclass])
-                # dummy = getattr(spd, dclass)(filename=fname)
-                # assert np.array_equal(dummy.data, self.data[dclass])
-                # assert dummy.filename == fname
-                # del dummy
+                del dummy
 
                 # allocation using memmap directly
                 np.save(fname, self.data[dclass])
@@ -231,15 +222,10 @@ class TestBaseData():
                 with pytest.raises(SPYValueError):
                     getattr(spd, dclass)(data=dset)
 
-                # # attempt allocation using illegal HDF5 file
+                # allocate with valid dataset of "illegal" file
                 del h5f["dummy"]
                 h5f.create_dataset("dummy1", data=self.data[dclass])
-                # FIXME: unused: h5f.create_dataset("dummy2", data=self.data[dclass])
                 h5f.close()
-                # with pytest.raises(SPYValueError):
-                #     getattr(spd, dclass)(hname)
-
-                # allocate with valid dataset of "illegal" file
                 dset = h5py.File(hname, mode="r")["dummy1"]
                 dummy = getattr(spd, dclass)(data=dset, filename=fname)
 
@@ -256,7 +242,7 @@ class TestBaseData():
                 np.save(fname, np.ones((self.nChannels,)))
                 with pytest.raises(SPYValueError):
                     getattr(spd, dclass)(data=open_memmap(fname))
-                
+
             time.sleep(0.01)
             del dummy
 
@@ -264,7 +250,8 @@ class TestBaseData():
     def test_trialdef(self):
         for dclass in self.classes:
             dummy = getattr(spd, dclass)(self.data[dclass],
-                                         trialdefinition=self.trl[dclass])
+                                         trialdefinition=self.trl[dclass],
+                                         samplerate=self.samplerate)
             assert np.array_equal(dummy.sampleinfo, self.trl[dclass][:, :2])
             assert np.array_equal(dummy._t0, self.trl[dclass][:, 2])
             assert np.array_equal(dummy.trialinfo.flatten(), self.trl[dclass][:, 3])
@@ -296,7 +283,7 @@ class TestBaseData():
     def test_filename(self):
         # ensure we're salting sufficiently to create at least `numf`
         # distinct pseudo-random filenames in `__storage__`
-        numf = 1000
+        numf = 10000
         dummy = AnalogData()
         fnames = []
         for k in range(numf):
@@ -310,13 +297,15 @@ class TestBaseData():
         # shallow copies are views in memory)
         for dclass in self.classes:
             dummy = getattr(spd, dclass)(self.data[dclass],
-                                         trialdefinition=self.trl[dclass])
+                                         trialdefinition=self.trl[dclass],
+                                         samplerate=self.samplerate)
             dummy2 = dummy.copy()
             assert dummy.filename == dummy2.filename
             assert hash(str(dummy.data)) == hash(str(dummy2.data))
             assert hash(str(dummy.sampleinfo)) == hash(str(dummy2.sampleinfo))
             assert hash(str(dummy._t0)) == hash(str(dummy2._t0))
             assert hash(str(dummy.trialinfo)) == hash(str(dummy2.trialinfo))
+            assert hash(str(dummy.samplerate)) == hash(str(dummy2.samplerate))
 
         # test shallow + deep copies of memmaps + HDF5 files
         with tempfile.TemporaryDirectory() as tdir:
@@ -330,13 +319,16 @@ class TestBaseData():
                 mm = open_memmap(fname, mode="r")
 
                 # hash-matching of shallow-copied memmap
-                dummy = getattr(spd, dclass)(data=mm, trialdefinition=self.trl[dclass])
+                dummy = getattr(spd, dclass)(data=mm,
+                                             trialdefinition=self.trl[dclass],
+                                             samplerate=self.samplerate)
                 dummy2 = dummy.copy()
                 assert dummy.filename == dummy2.filename
                 assert hash(str(dummy.data)) == hash(str(dummy2.data))
                 assert hash(str(dummy.sampleinfo)) == hash(str(dummy2.sampleinfo))
                 assert hash(str(dummy._t0)) == hash(str(dummy2._t0))
                 assert hash(str(dummy.trialinfo)) == hash(str(dummy2.trialinfo))
+                assert hash(str(dummy.samplerate)) == hash(str(dummy2.samplerate))
 
                 # test integrity of deep-copy
                 dummy3 = dummy.copy(deep=True)
@@ -346,16 +338,19 @@ class TestBaseData():
                 assert np.array_equal(dummy._t0, dummy3._t0)
                 assert np.array_equal(dummy.trialinfo, dummy3.trialinfo)
                 assert np.array_equal(dummy.sampleinfo, dummy3.sampleinfo)
+                assert dummy.samplerate == dummy3.samplerate
 
                 # hash-matching of shallow-copied HDF5 dataset
                 dummy = getattr(spd, dclass)(data=h5py.File(hname)["dummy"],
-                                             trialdefinition=self.trl[dclass])
+                                             trialdefinition=self.trl[dclass],
+                                             samplerate=self.samplerate)
                 dummy2 = dummy.copy()
                 assert dummy.filename == dummy2.filename
                 assert hash(str(dummy.data)) == hash(str(dummy2.data))
                 assert hash(str(dummy.sampleinfo)) == hash(str(dummy2.sampleinfo))
                 assert hash(str(dummy._t0)) == hash(str(dummy2._t0))
                 assert hash(str(dummy.trialinfo)) == hash(str(dummy2.trialinfo))
+                assert hash(str(dummy.samplerate)) == hash(str(dummy2.samplerate))
 
                 # test integrity of deep-copy
                 dummy3 = dummy.copy(deep=True)
@@ -364,6 +359,7 @@ class TestBaseData():
                 assert np.array_equal(dummy._t0, dummy3._t0)
                 assert np.array_equal(dummy.trialinfo, dummy3.trialinfo)
                 assert np.array_equal(dummy.data, dummy3.data)
+                assert dummy.samplerate == dummy3.samplerate
 
                 # Delete all open references to file objects b4 closing tmp dir
                 del mm, dummy, dummy2, dummy3
@@ -371,3 +367,52 @@ class TestBaseData():
 
                 # remove file for next round
                 os.unlink(hname)
+
+    # Test basic error handling of arithmetic ops
+    def test_arithmetic(self):
+
+        # test shallow copy of data arrays (hashes must match up, since
+        # shallow copies are views in memory)
+        for dclass in self.classes:
+            dummy = getattr(spd, dclass)(self.data[dclass],
+                                         trialdefinition=self.trl[dclass],
+                                         samplerate=self.samplerate)
+            otherClass = list(set(self.classes).difference([dclass]))[0]
+            other = getattr(spd, otherClass)(self.data[otherClass],
+                                             trialdefinition=self.trl[otherClass],
+                                             samplerate=self.samplerate)
+            complexArr = np.complex64(dummy.trials[0])
+
+            # Start w/the one operator that does not handle zeros well...
+            with pytest.raises(SPYValueError) as spyval:
+                dummy / 0
+                assert "expected non-zero scalar for division" in str(spyval.value)
+
+            # Go through all supported operators and try to sabotage them
+            for operation in arithmetics:
+
+                # Completely wrong operand
+                with pytest.raises(SPYTypeError) as spytyp:
+                    operation(dummy, np.sin)
+                    assert "expected Syncopy object, scalar or array-like found ufunc" in str(spytyp.value)
+
+                # Empty object
+                with pytest.raises(SPYValueError) as spyval:
+                    operation(getattr(spd, dclass)(), np.sin)
+                    assert "expected non-empty Syncopy data object" in str(spyval.value)
+
+                # Unbounded scalar
+                with pytest.raises(SPYValueError) as spyval:
+                    operation(dummy, np.inf)
+                    assert "'inf'; expected finite scalar" in str(spyval.value)
+
+                # Array w/wrong numeric type
+                with pytest.raises(SPYTypeError) as spyval:
+                    operation(dummy, complexArr)
+                    assert "array of same numerical type (real/complex) found ndarray" in str(spytyp.value)
+
+                # Syncopy object of different type
+                with pytest.raises(SPYTypeError) as spytyp:
+                    operation(dummy, other)
+                    err = "expected Syncopy {} object found {}"
+                    assert err.format(dclass, otherClass)  in str(spytyp.value)
