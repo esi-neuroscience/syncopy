@@ -256,7 +256,8 @@ def _perform_computation(baseObj,
     # Re-open `operand`'s dataset(s) and release distributed lock
     if parallel:
         if "BaseData" in str(operand.__class__.__mro__):
-            operand.data = operand.filename
+            for dsetName in operand._hdfFileDatasetProperties:
+                setattr(operand, dsetName, operand.filename)
         lock.release()
 
     # Delete any created subset selections
