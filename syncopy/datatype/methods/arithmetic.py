@@ -42,7 +42,7 @@ def _parse_input(obj1, obj2, operator):
 
     # Ensure our base object is not empty
     try:
-        data_parser(baseObj, varname="data", empty=False)
+        data_parser(baseObj, varname="base", empty=False)
     except Exception as exc:
         raise exc
 
@@ -81,7 +81,7 @@ def _parse_input(obj1, obj2, operator):
         operand = np.array(operand)
 
         # Ensure complex and real values are not mashed up
-        if np.all(np.iscomplex(operand)):
+        if np.iscomplexobj(operand):
             sameType = lambda dt : "complex" in dt.name
         else:
             sameType = lambda dt : "complex" not in dt.name
