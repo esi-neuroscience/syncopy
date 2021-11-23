@@ -11,7 +11,7 @@ import h5py
 # Local imports
 from syncopy import __acme__
 from syncopy.shared.parsers import data_parser
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYParallelError
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.shared.computational_routine import ComputationalRoutine
@@ -156,12 +156,18 @@ def _parse_input(obj1, obj2, operator):
             raise SPYValueError(lgl.format(baseShapes), varname="operand",
                                 actual=act.format(opndShapes))
 
-        # Avoid things becoming too nasty: if operand contains wild selections
-        # (unordered lists or index repetitions), abort
+        # Avoid things becoming too nasty: if `operand`` contains wild selections
+        # (unordered lists or index repetitions) or selections requiring advanced
+        # (aka fancy) indexing (multiple slices mixed with lists), abort
         for trl in opndTrials:
             if any(np.diff(sel).min() <= 0 if isinstance(sel, list) and len(sel) > 1 \
                 else False for sel in trl.idx):
                 lgl = "Syncopy object with ordered unreverberated subset selection"
+                act = "Syncopy object with selection {}"
+                raise SPYValueError(lgl, varname="operand", actual=act.format(operand._selection))
+            if sum(isinstance(sel, slice) for sel in trl.idx) > 1 and \
+                sum(isinstance(sel, list) for sel in trl.idx) > 1:
+                lgl = "Syncopy object without selections requiring advanced indexing"
                 act = "Syncopy object with selection {}"
                 raise SPYValueError(lgl, varname="operand", actual=act.format(operand._selection))
 
