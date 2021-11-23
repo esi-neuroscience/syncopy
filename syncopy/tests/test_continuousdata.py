@@ -27,11 +27,54 @@ if __acme__:
 skip_without_acme = pytest.mark.skipif(
     not __acme__, reason="acme not available")
 
+# Collect all supported binary arithmetic operators
 arithmetics = [lambda x, y : x + y,
                lambda x, y : x - y,
                lambda x, y : x * y,
                lambda x, y : x / y,
                lambda x, y : x ** y]
+
+# Module-wide set of testing selections
+trialSelections = [
+    "all",  # enforce below selections in all trials of `dummy`
+    [3, 1, 2]  # minimally unordered
+]
+chanSelections = [
+    ["channel03", "channel01", "channel01", "channel02"],  # string selection w/repetition + unordered
+    [4, 2, 2, 5, 5],   # repetition + unorderd
+    range(5, 8),  # narrow range
+    slice(-2, None)  # negative-start slice
+    ]
+toiSelections = [
+    "all",  # non-type-conform string
+    [0.6],  # single inexact match
+    [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
+    ]
+toilimSelections = [
+    [0.5, 1.5],  # regular range
+    [1.5, 2.0],  # minimal range (just two-time points)
+    [1.0, np.inf]  # unbounded from above
+    ]
+foiSelections = [
+    "all",  # non-type-conform string
+    [2.6],  # single inexact match
+    [1.1, 1.9, 2.1, 3.9, 9.2, 11.8, 12.9, 5.1, 13.8]  # unordered, inexact, repetions
+    ]
+foilimSelections = [
+    [2, 11],  # regular range
+    [1, 2.0],  # minimal range (just two-time points)
+    [1.0, np.inf]  # unbounded from above
+    ]
+taperSelections = [
+    ["TestTaper_03", "TestTaper_01", "TestTaper_01", "TestTaper_02"],  # string selection w/repetition + unordered
+    [0, 1, 1, 2, 3],  # preserve repetition, don't convert to slice
+    range(2, 5),  # narrow range
+    slice(0, 5, 2),  # slice w/non-unitary step-size
+    ]
+timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
+    + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
+freqSelections = list(zip(["foi"] * len(foiSelections), foiSelections)) \
+    + list(zip(["foilim"] * len(foilimSelections), foilimSelections))
 
 
 class TestAnalogData():
@@ -396,32 +439,11 @@ class TestAnalogData():
 
     # test data-selection via class method
     def test_dataselection(self):
+
+        # Create testing object and prepare multi-index
         dummy = AnalogData(data=self.data,
                            trialdefinition=self.trl,
                            samplerate=self.samplerate)
-        trialSelections = [
-            "all",  # enforce below selections in all trials of `dummy`
-            [3, 1]  # minimally unordered
-        ]
-        chanSelections = [
-            ["channel03", "channel01", "channel01", "channel02"],  # string selection w/repetition + unordered
-            [4, 2, 2, 5, 5],   # repetition + unordered
-            range(5, 8),  # narrow range
-            slice(-2, None)  # negative-start slice
-            ]
-        toiSelections = [
-            "all",  # non-type-conform string
-            [0.6],  # single inexact match
-            [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetitions
-            ]
-        toilimSelections = [
-            [0.5, 1.5],  # regular range
-            [1.5, 2.0],  # minimal range (just two-time points)
-            [1.0, np.inf]  # unbounded from above
-            ]
-        timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
-            + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
-
         idx = [slice(None)] * len(dummy.dimord)
         timeIdx = dummy.dimord.index("time")
         chanIdx = dummy.dimord.index("channel")
@@ -453,6 +475,8 @@ class TestAnalogData():
 
     # test arithmetic operations
     def test_ang_arithmetic(self):
+
+        # Create testing objects and corresponding arrays to perform arithmetics with
         dummy = AnalogData(data=self.data,
                            trialdefinition=self.trl,
                            samplerate=self.samplerate)
@@ -473,44 +497,26 @@ class TestAnalogData():
         dummyOperands = [dummyArr, dummyArr.tolist()]
         ymmudOperands = [ymmudArr, ymmudArr.tolist()]
 
-        trialSelections = [
-            "all",  # enforce below selections in all trials of `dummy`
-            [3, 1]  # minimally unordered
-        ]
-        chanSelections = [
-            ["channel03", "channel01", "channel01", "channel02"],  # string selection w/repetition + unordered
-            [4, 2, 2, 5, 5],   # repetition + unorderd
-            range(5, 8),  # narrow range
-            slice(-2, None)  # negative-start slice
-            ]
-        toiSelections = [
-            "all",  # non-type-conform string
-            [0.6],  # single inexact match
-            [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
-            ]
-        toilimSelections = [
-            [0.5, 1.5],  # regular range
-            [1.5, 2.0],  # minimal range (just two-time points)
-            [1.0, np.inf]  # unbounded from above
-            ]
-        timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
-            + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
-
-
+        # Perform basic arithmetic with +, -, *, / and ** (pow)
         for operation in arithmetics:
+
+            # Scalar algebra must be commutative (except for pow)
             for operand in scalarOperands:
                 result = operation(dummy, operand) # perform operation from right
                 for tk, trl in enumerate(result.trials):
                     assert np.array_equal(trl, operation(dummy.trials[tk], operand))
-                result2 = operation(operand, dummy) # perform operation from left
-                assert np.array_equal(result2.data, result.data)
+                # Don't try to compute `2 ** data``
+                if operation(2,3) != 8:
+                    result2 = operation(operand, dummy) # perform operation from left
+                    assert np.array_equal(result2.data, result.data)
 
-                # same, but swapped `dimord`
+                # Same as above, but swapped `dimord`
                 result = operation(ymmud, operand)
                 for tk, trl in enumerate(result.trials):
                     assert np.array_equal(trl, operation(ymmud.trials[tk], operand))
-                result2 = operation(operand, ymmud)
-                assert np.array_equal(result2.data, result.data)
+                if operation(2,3) != 8:
+                    result2 = operation(operand, ymmud)
+                    assert np.array_equal(result2.data, result.data)
 
             # Careful: NumPy tries to avoid failure by broadcasting; instead of relying
             # on an existing `__radd__` method, it performs arithmetic component-wise, i.e.,
@@ -525,15 +531,16 @@ class TestAnalogData():
                 for tk, trl in enumerate(result.trials):
                     assert np.array_equal(trl, operation(ymmud.trials[tk], operand))
 
+            # Most severe safety hazard: throw two objects at each other (with regular and
+            # swapped dimord)
             result = operation(dummy, dummy2)
             for tk, trl in enumerate(result.trials):
                 assert np.array_equal(trl, operation(dummy.trials[tk], dummy2.trials[tk]))
-
             result = operation(ymmud, ymmud2)
             for tk, trl in enumerate(result.trials):
                 assert np.array_equal(trl, operation(ymmud.trials[tk], ymmud2.trials[tk]))
 
-
+            # Now the most complicated case: user-defined subset selections are present
             for trialSel in trialSelections:
                 for chanSel in chanSelections:
                     for timeSel in timeSelections:
@@ -542,7 +549,7 @@ class TestAnalogData():
                         kwdict["channels"] = chanSel
                         kwdict[timeSel[0]] = timeSel[1]
 
-                        # perform in-place selection and construct array based on new subset
+                        # Perform in-place selection and construct array based on new subset
                         selected = dummy.selectdata(**kwdict)
                         dummy.selectdata(inplace=True, **kwdict)
                         arr = 2 * np.ones((selected.trials[0].shape), dtype=np.intp)
@@ -551,37 +558,51 @@ class TestAnalogData():
                             for tk, trl in enumerate(result.trials):
                                 assert np.array_equal(trl, operation(selected.trials[tk], operand))
 
-
+                        # Most most complicated: subset selection present in base object
+                        # and operand thrown at it: only attempt to do this if the selection
+                        # is "well-behaved", i.e., is ordered and does not contain repetitions
+                        # The operator code checks for this, so catch the corresponding
+                        # `SpyValueError` and only attempt to test if coast is clear
                         dummy2.selectdata(inplace=True, **kwdict)
                         try:
                             result = operation(dummy, dummy2)
                             cleanSelection = True
                         except SPYValueError:
                             cleanSelection = False
-                        except:
-                            import pdb; pdb.set_trace()
                         if cleanSelection:
                             for tk, trl in enumerate(result.trials):
-                                assert np.array_equal(trl, operation(selected.trials[tk], selected.trials[tk]))
-
+                                assert np.array_equal(trl, operation(selected.trials[tk],
+                                                                     selected.trials[tk]))
                             selected = ymmud.selectdata(**kwdict)
                             ymmud.selectdata(inplace=True, **kwdict)
                             ymmud2.selectdata(inplace=True, **kwdict)
                             result = operation(ymmud, ymmud2)
                             for tk, trl in enumerate(result.trials):
-                                assert np.array_equal(trl, operation(selected.trials[tk], selected.trials[tk]))
+                                assert np.array_equal(trl, operation(selected.trials[tk],
+                                                                     selected.trials[tk]))
 
+                        # Very important: clear manually set selections for next iteration
+                        dummy._selection = None
+                        dummy2._selection = None
+                        ymmud._selection = None
+                        ymmud2._selection = None
 
+        # Finally, perform a representative chained operation to ensure chaining works
+        result = (dummy + dummy2) / dummy ** 3
+        for tk, trl in enumerate(result.trials):
+            assert np.array_equal(trl,
+                                  (dummy.trials[tk] + dummy2.trials[tk]) / dummy.trials[tk] ** 3)
 
     @skip_without_acme
     def test_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
-        par_tests = ["test_relative_array_padding",
-                     "test_absolute_nextpow2_array_padding",
-                     "test_object_padding",
-                     "test_dataselection",
-                     "test_ang_arithmetic"]
+        par_tests = ["test_ang_arithmetic"]
+        # par_tests = ["test_relative_array_padding",
+        #              "test_absolute_nextpow2_array_padding",
+        #              "test_object_padding",
+        #              "test_dataselection",
+        #              "test_ang_arithmetic"]
         for test in par_tests:
             getattr(self, test)()
             flush_local_cluster(testcluster)
@@ -706,51 +727,12 @@ class TestSpectralData():
 
     # test data-selection via class method
     def test_sd_dataselection(self):
+
+        # Create testing object and prepare multi-index
         dummy = SpectralData(data=self.data,
                              trialdefinition=self.trl,
                              samplerate=self.samplerate,
                              taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)])
-        trialSelections = [
-            "all",  # enforce below selections in all trials of `dummy`
-            [3, 1]  # minimally unordered
-        ]
-        chanSelections = [
-            ["channel03", "channel01", "channel01", "channel02"],  # string selection w/repetition + unordered
-            [4, 2, 2, 5, 5],   # repetition + unorderd
-            range(5, 8),  # narrow range
-            slice(-2, None)  # negative-start slice
-            ]
-        toiSelections = [
-            "all",  # non-type-conform string
-            [0.6],  # single inexact match
-            [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
-            ]
-        toilimSelections = [
-            [0.5, 1.5],  # regular range
-            [1.5, 2.0],  # minimal range (just two-time points)
-            [1.0, np.inf]  # unbounded from above
-            ]
-        foiSelections = [
-            "all",  # non-type-conform string
-            [2.6],  # single inexact match
-            [1.1, 1.9, 2.1, 3.9, 9.2, 11.8, 12.9, 5.1, 13.8]  # unordered, inexact, repetions
-            ]
-        foilimSelections = [
-            [2, 11],  # regular range
-            [1, 2.0],  # minimal range (just two-time points)
-            [1.0, np.inf]  # unbounded from above
-            ]
-        taperSelections = [
-            ["TestTaper_03", "TestTaper_01", "TestTaper_01", "TestTaper_02"],  # string selection w/repetition + unordered
-            [0, 1, 1, 2, 3],  # preserve repetition, don't convert to slice
-            range(2, 5),  # narrow range
-            slice(0, 5, 2),  # slice w/non-unitary step-size
-            ]
-        timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
-            + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
-        freqSelections = list(zip(["foi"] * len(foiSelections), foiSelections)) \
-            + list(zip(["foilim"] * len(foilimSelections), foilimSelections))
-
         idx = [slice(None)] * len(dummy.dimord)
         timeIdx = dummy.dimord.index("time")
         chanIdx = dummy.dimord.index("channel")
