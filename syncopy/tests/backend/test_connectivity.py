@@ -5,6 +5,7 @@ import matplotlib.pyplot as ppl
 from syncopy.connectivity import ST_compRoutines as stCR
 from syncopy.connectivity import AV_compRoutines as avCR
 from syncopy.connectivity.wilson_sf import wilson_sf, regularize_csd
+from syncopy.connectivity.granger import granger
 
 
 def test_coherence():
@@ -21,7 +22,7 @@ def test_coherence():
     harm_freq = 40
     phase_shifts = np.array([0, np.pi / 2, np.pi])
 
-    nTrials = 50
+    nTrials = 100
 
     # shape is (1, nFreq, nChannel, nChannel)
     nFreq = nSamples // 2 + 1
@@ -46,7 +47,7 @@ def test_coherence():
         assert avCSD.shape == CSD.shape
         avCSD += CSD
 
-    # this is the result of the 
+    # this is the trial average
     avCSD /= nTrials
     
     # perform the normalisation on the trial averaged csd's
@@ -67,7 +68,7 @@ def test_coherence():
     assert ax.plot(freqs, coh, lw=1.5, alpha=0.8, c='cornflowerblue')
 
     # we test for the highest peak sitting at
-    # the vicinity (± 5Hz) of one the harmonic
+    # the vicinity (± 5Hz) of the harmonic
     peak_val = np.max(coh)
     peak_idx = np.argmax(coh)
     peak_freq = freqs[peak_idx]
@@ -237,9 +238,84 @@ def test_wilson():
                    '-o', label='factorized CSD', ms=3)
     ax.set_xlim((f1 - 5, f2 + 5))
 
+
+def test_granger():
+
+    '''
+    Test the granger causality measure
+    with uni-directionally coupled AR(2)
+    processes akin to the source publication:
+
+    Dhamala, Mukeshwar, Govindan Rangarajan, and Mingzhou Ding. 
+       "Estimating Granger causality from Fourier and wavelet transforms 
+        of time series data." Physical review letters 100.1 (2008): 018701.
+    '''
+
+    fs = 200 # Hz
+    nSamples = 2500
+    nTrials = 50
     
+    # both AR(2) processes have same parameters
+    # and yield a spectral peak at 40Hz
+    alpha1, alpha2 = 0.55, -0.8
+    coupling = 0.25
+
+    CSDav = np.zeros((nSamples // 2 + 1, 2, 2), dtype=np.complex64)
+    for _ in range(nTrials):
+
+        # -- simulate 2 AR(2) processes --
+        
+        sol = np.zeros((nSamples, 2))
+        # pick the 1st values at random
+        xs_ini = np.random.randn(2, 2)
+        sol[:2, :] = xs_ini
+        for i in range(1, nSamples):
+            sol[i, 1] = alpha1 * sol[i - 1, 1] + alpha2 * sol[i - 2, 1] 
+            sol[i, 1] += np.random.randn()
+            # X2 drives X1
+            sol[i, 0] = alpha1 * sol[i - 1, 0] + alpha2 * sol[i - 2, 0]
+            sol[i, 0] += sol[i - 1, 1] * coupling 
+            sol[i, 0] += np.random.randn()
+
+        # --- get CSD ---
+        bw = 5
+        NW = bw * nSamples / (2 * 1000)
+        Kmax = int(2 * NW - 1) # optimal number of tapers
+        CS2, freqs = stCR.cross_spectra_cF(sol, fs,
+                                           taper='dpss',
+                                           taper_opt={'Kmax' : Kmax, 'NW' : NW},
+                                           fullOutput=True)
+
+        CSD = CS2[0, ...]
+        CSDav += CSD
+            
+    CSDav /= nTrials
+    # with only 2 channels this CSD is well conditioned
+    assert np.linalg.cond(CSDav).max() < 1e2
+    H, Sigma, conv = wilson_sf(CSDav)
+    
+    G = granger(CSDav, H, Sigma)
+    assert G.shape == CSDav.shape
+
+    # check for directional causality at 40Hz
+    freq_idx = np.argmin(freqs < 40)
+    assert 39 < freqs[freq_idx] < 41
+
+    # check low to no causality for 1->2
+    assert G[freq_idx, 0, 1] < 0.1
+    # check high causality for 2->1
+    assert G[freq_idx, 1, 0] > 0.8
+    
+    fig, ax = ppl.subplots(figsize=(6, 4))
+    ax.set_xlabel('frequency (Hz)')
+    ax.set_ylabel(r'Granger causality(f)')
+    assert ax.plot(freqs, G[:, 0, 1], label=r'Granger $1\rightarrow2$')
+    assert ax.plot(freqs, G[:, 1, 0], label=r'Granger $2\rightarrow1$')
+    ax.legend()
+
 # --- Helper routines ---
-          
+
+
 # noisy phase evolution -> phase diffusion
 def phase_evo(omega0, eps, fs=1000, N=1000):
     wn = np.random.randn(N) 
