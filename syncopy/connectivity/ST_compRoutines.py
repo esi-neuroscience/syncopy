@@ -13,7 +13,7 @@ from inspect import signature
 # syncopy imports
 from syncopy.specest.mtmfft import mtmfft
 from syncopy.shared.const_def import spectralDTypes
-from syncopy.shared.errors import SPYWarning
+from syncopy.shared.errors import SPYWarning, SPYValueError
 from syncopy.datatype import padding
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
@@ -175,7 +175,9 @@ def cross_spectra_cF(trl_dat,
 
     if norm:
         # only meaningful for multi-tapering
-        assert taper == 'dpss'
+        if taper != 'dpss':
+            msg = "Normalization of single trial csd only possible with taper='dpss'"
+            raise SPYValueError(legal=msg, varname="taper", actual=taper)
         # main diagonal has shape (nChannels x nFreq): the auto spectra
         diag = CS_ij.diagonal()
         # get the needed product pairs of the autospectra

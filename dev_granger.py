@@ -2,6 +2,7 @@ import numpy as np
 from scipy.signal import csd as sci_csd
 import scipy.signal as sci
 from syncopy.connectivity.wilson_sf import wilson_sf, regularize_csd
+from syncopy.connectivity.granger import granger
 from syncopy.connectivity.ST_compRoutines import cross_spectra_cF
 #from syncopy.connectivity import wilson_sf
 import matplotlib.pyplot as ppl
@@ -120,8 +121,8 @@ def make_AR2_csd(nSamples=1000, coupling=0.2, fs=200, nTrials=10):
                     
 
 # test run
-# CSDav, freqs, data = make_AR2_csd(nSamples=2500, nTrials=250)
-# H, Sigma, conv = wilson_sf(CSDav, nIter=20)
-# G = granger(CSDav, H, Sigma)
+CSDav, freqs, data = make_AR2_csd(nSamples=2500, nTrials=500, coupling=0.25)
+H, Sigma, conv = wilson_sf(CSDav, nIter=20)
+G = granger(CSDav, H, Sigma)
 
 

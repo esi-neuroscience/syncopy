@@ -10,9 +10,9 @@ import numpy as np
 def granger(CSD, Hfunc, Sigma):
 
     '''
-    Computes the pairwise Granger causalities
+    Computes the pairwise Granger-Geweke causalities
     for all (non-symmetric!) channel combinations
-    accoeding to equation 8 in [1]_.
+    according to equation 8 in [1]_.
 
     The transfer functions `Hfunc` and noise covariance 
     `Sigma` are expected to have been already computed.
@@ -20,13 +20,20 @@ def granger(CSD, Hfunc, Sigma):
     Parameters
     ----------
     CSD : (nFreq, N, N) :class:`numpy.ndarray`
-        Complex cross spectra for all channel combinations i,j.
+        Complex cross spectra for all channel combinations i,j
         `N` corresponds to number of input channels. 
     Hfunc : (nFreq, N, N) :class:`numpy.ndarray`
-        Spectral transfer functions for all channel combinations i,j.
+        Spectral transfer functions for all channel combinations i,j
     Sigma :  (N, N) :class:`numpy.ndarray` 
-        The noise covariances, should be multiplied by the samplerate
-        beforehand.
+        The noise covariances
+
+    Returns
+    -------
+    Granger : (nFreq, N, N) :class:`numpy.ndarray`
+        Spectral Granger-Geweke causality between all channel
+        combinations. Directionality follows array
+        notation: causality from i->j is Granger[:,i,j],
+        causality from j->i is Granger[:,j,i]
 
     See also
     --------
@@ -52,7 +59,6 @@ def granger(CSD, Hfunc, Sigma):
     # Smat(f) = S_11 S_22 S_33 
     #           S_11 S_22 S_33
     Smat = auto_spectra[:, None, :] * np.ones(nChannels)[:, None]
-    assert CSD.shape == Smat.shape
 
     # Granger i->j needs H_ji entry 
     Hmat = np.abs(Hfunc.transpose(0, 2, 1))**2
@@ -71,9 +77,4 @@ def granger(CSD, Hfunc, Sigma):
     # linear causality i -> j
     Granger = np.log(Smat / denom)
 
-    return Granger
-    
-
-
-    
-    
+    return Granger    
