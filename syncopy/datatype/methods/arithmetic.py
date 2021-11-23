@@ -67,7 +67,10 @@ def _parse_input(obj1, obj2, operator):
         if operator == "/" and operand == 0:
             raise SPYValueError("non-zero scalar for division", varname="operand", actual=str(operand))
 
-        # Determine numeric type of operation's result
+        # Ensure complex and real values are not mashed up
+        _check_complex_operand(baseTrials, operand, "scalar")
+
+        # Determine exact numeric type of operation's result
         opres_type = np.result_type(*(trl.dtype for trl in baseTrials), operand)
 
         # That's it set output vars
@@ -81,15 +84,9 @@ def _parse_input(obj1, obj2, operator):
         operand = np.array(operand)
 
         # Ensure complex and real values are not mashed up
-        if np.iscomplexobj(operand):
-            sameType = lambda dt : "complex" in dt.name
-        else:
-            sameType = lambda dt : "complex" not in dt.name
-        if not all(sameType(trl.dtype) for trl in baseTrials):
-            lgl = "array of same numerical type (real/complex)"
-            raise SPYTypeError(operand, varname="operand", expected=lgl)
+        _check_complex_operand(baseTrials, operand, "array")
 
-        # Determine the numeric type of the operation's result
+        # Determine exact numeric type of the operation's result
         opres_type = np.result_type(*(trl.dtype for trl in baseTrials), operand.dtype)
 
         # Ensure shapes match up
@@ -181,6 +178,23 @@ def _parse_input(obj1, obj2, operator):
         raise SPYTypeError(operand, varname="operand", expected=lgl)
 
     return baseObj, operand, operand_dat, opres_type, operand_idxs
+
+def _check_complex_operand(baseTrials, operand, opDimType):
+    """
+    Coming soon...
+    """
+
+    # Ensure complex and real values are not mashed up
+    if np.iscomplexobj(operand):
+        sameType = lambda dt : "complex" in dt.name
+    else:
+        sameType = lambda dt : "complex" not in dt.name
+    if not all(sameType(trl.dtype) for trl in baseTrials):
+        lgl = "{} of same mathematical type (real/complex)"
+        raise SPYTypeError(operand, varname="operand", expected=lgl.format(opDimType))
+
+    return
+
 
 def _perform_computation(baseObj,
                          operand,

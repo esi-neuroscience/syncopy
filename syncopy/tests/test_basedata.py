@@ -382,6 +382,7 @@ class TestBaseData():
                                              trialdefinition=self.trl[otherClass],
                                              samplerate=self.samplerate)
             complexArr = np.complex64(dummy.trials[0])
+            complexNum = 3+4j
 
             # Start w/the one operator that does not handle zeros well...
             with pytest.raises(SPYValueError) as spyval:
@@ -406,8 +407,13 @@ class TestBaseData():
                     operation(dummy, np.inf)
                     assert "'inf'; expected finite scalar" in str(spyval.value)
 
+                # Complex scalar (all test data are real)
+                with pytest.raises(SPYTypeError) as spytyp:
+                    operation(dummy, complexNum)
+                    assert "expected scalar of same mathematical type (real/complex)" in str(spytyp.value)
+
                 # Array w/wrong numeric type
-                with pytest.raises(SPYTypeError) as spyval:
+                with pytest.raises(SPYTypeError) as spytyp:
                     operation(dummy, complexArr)
                     assert "array of same numerical type (real/complex) found ndarray" in str(spytyp.value)
 
