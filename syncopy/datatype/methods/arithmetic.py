@@ -230,27 +230,38 @@ def _perform_computation(baseObj,
         except ValueError:
             parallel = False
 
-    # Perform actual computation: in case of parallel execution, use a distributed
-    # lock to prevent ACME from performing chained operations (`x + y + 3``)
-    # simultaneously (thereby wrecking the underlying HDF5 datasets)
+    # Perform actual computation: instantiate `ComputationalRoutine` w/extracted info
     opMethod = SpyArithmetic(operand_dat, operand_idxs, operation=operation,
                              opres_type=opres_type)
     opMethod.initialize(baseObj,
                         out._stackingDim,
                         chan_per_worker=None,
                         keeptrials=True)
+
+    # In case of parallel execution, be careful: use a distributed lock to prevent
+    # ACME from performing chained operations (`x + y + 3``) simultaneously (thereby
+    # wrecking the underlying HDF5 datasets). Similarly, if `operand` is a Syncopy
+    # object, close its corresponding dataset(s) before starting to concurrently read
+    # from them (triggering locking errors)
     if parallel:
         lock = dd.lock.Lock(name='arithmetic_ops')
         lock.acquire()
+        if "BaseData" in str(operand.__class__.__mro__):
+            for dsetName in operand._hdfFileDatasetProperties:
+                dset = getattr(operand, dsetName)
+                dset.file.close()
+
     opMethod.compute(baseObj, out, parallel=parallel, log_dict=log_dct)
+
+    # Re-open `operand`'s dataset(s) and release distributed lock
     if parallel:
+        if "BaseData" in str(operand.__class__.__mro__):
+            operand.data = operand.filename
         lock.release()
 
     # Delete any created subset selections
     if hasattr(baseObj._selection, "_cleanup"):
         baseObj._selection = None
-    if opSel is not None:
-        operand._selection = None
 
     return out
 
