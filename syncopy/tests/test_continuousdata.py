@@ -501,9 +501,16 @@ class TestAnalogData():
         for operation in arithmetics:
 
             # First, ensure `dimord` is respected
-            with pytest.raises(SPYValueError) as sypval:
+            with pytest.raises(SPYValueError) as spyval:
                 operation(dummy, ymmud)
-                assert "expected Syncopy 'time' x 'channel' data object"
+                assert "expected Syncopy 'time' x 'channel' data object" in str (spyval.value)
+
+            # Next, ensure trial counts are properly vetted
+            dummy2.selectdata(trials=[0], inplace=True)
+            with pytest.raises(SPYValueError) as spyval:
+                operation(dummy, dummy2)
+                assert "Syncopy object with same number of trials (selected)" in str (spyval.value)
+            dummy2._selection = None
 
             # Scalar algebra must be commutative (except for pow)
             for operand in scalarOperands:
@@ -777,6 +784,157 @@ class TestSpectralData():
                             assert np.array_equal(cfg.out.taper, selected.taper)
                             assert np.array_equal(cfg.out.data, selected.data)
                             time.sleep(0.05)
+
+    # test arithmetic operations
+    def test_sd_arithmetic(self):
+
+        # Create testing objects and corresponding arrays to perform arithmetics with
+        dummy = SpectralData(data=self.data,
+                             trialdefinition=self.trl,
+                             samplerate=self.samplerate,
+                             taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)])
+        dummyC = SpectralData(data=np.complex64(self.data),
+                              trialdefinition=self.trl,
+                              samplerate=self.samplerate,
+                              taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)])
+        ymmud = SpectralData(data=np.transpose(self.data, [3, 2, 1, 0]),
+                             trialdefinition=self.trl,
+                             samplerate=self.samplerate,
+                             taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)],
+                             dimord=SpectralData._defaultDimord[::-1])
+        dummy2 = SpectralData(data=self.data,
+                              trialdefinition=self.trl,
+                              samplerate=self.samplerate,
+                              taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)])
+        ymmud2 = SpectralData(data=np.transpose(self.data, [3, 2, 1, 0]),
+                              trialdefinition=self.trl,
+                              samplerate=self.samplerate,
+                              taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)],
+                              dimord=SpectralData._defaultDimord[::-1])
+        dummyArr = 2 * np.ones((dummy.trials[0].shape))
+        ymmudArr = 2 * np.ones((ymmud.trials[0].shape))
+        scalarOperands = [2, np.pi]
+        dummyOperands = [dummyArr, dummyArr.tolist()]
+        ymmudOperands = [ymmudArr, ymmudArr.tolist()]
+
+        # Perform basic arithmetic with +, -, *, / and ** (pow)
+        for operation in arithmetics:
+
+            # First, ensure `dimord` is respected
+            with pytest.raises(SPYValueError) as spyval:
+                operation(dummy, ymmud)
+                assert "expected Syncopy 'time' x 'channel' data object" in str(spyval.value)
+
+            # Next, ensure trial counts are properly vetted
+            dummy2.selectdata(trials=[0], inplace=True)
+            with pytest.raises(SPYValueError) as spyval:
+                operation(dummy, dummy2)
+                assert "Syncopy object with same number of trials (selected)" in str (spyval.value)
+            dummy2._selection = None
+
+            # Scalar algebra must be commutative (except for pow)
+            for operand in scalarOperands:
+                result = operation(dummy, operand) # perform operation from right
+                for tk, trl in enumerate(result.trials):
+                    assert np.array_equal(trl, operation(dummy.trials[tk], operand))
+                # Don't try to compute `2 ** data``
+                if operation(2,3) != 8:
+                    result2 = operation(operand, dummy) # perform operation from left
+                    assert np.array_equal(result2.data, result.data)
+
+                # Same as above, but swapped `dimord`
+                result = operation(ymmud, operand)
+                for tk, trl in enumerate(result.trials):
+                    assert np.array_equal(trl, operation(ymmud.trials[tk], operand))
+                if operation(2,3) != 8:
+                    result2 = operation(operand, ymmud)
+                    assert np.array_equal(result2.data, result.data)
+
+            # Careful: NumPy tries to avoid failure by broadcasting; instead of relying
+            # on an existing `__radd__` method, it performs arithmetic component-wise, i.e.,
+            # ``np.ones((3,3)) + data`` performs ``1 + data`` nine times, so don't
+            # test for left/right arithmetics...
+            for operand in dummyOperands:
+                result = operation(dummy, operand)
+                for tk, trl in enumerate(result.trials):
+                    assert np.array_equal(trl, operation(dummy.trials[tk], operand))
+            for operand in ymmudOperands:
+                result = operation(ymmud, operand)
+                for tk, trl in enumerate(result.trials):
+                    assert np.array_equal(trl, operation(ymmud.trials[tk], operand))
+
+            # Ensure erroneous object type-casting is prevented
+            with pytest.raises(SPYTypeError) as spytyp:
+                operation(dummy, dummyC)
+                assert "Syncopy data object of same numerical type (real/complex)" in str(spytyp.value)
+
+            # Most severe safety hazard: throw two objects at each other (with regular and
+            # swapped dimord)
+            result = operation(dummy, dummy2)
+            for tk, trl in enumerate(result.trials):
+                assert np.array_equal(trl, operation(dummy.trials[tk], dummy2.trials[tk]))
+            result = operation(ymmud, ymmud2)
+            for tk, trl in enumerate(result.trials):
+                assert np.array_equal(trl, operation(ymmud.trials[tk], ymmud2.trials[tk]))
+
+            # Now the most complicated case: user-defined subset selections are present
+            for trialSel in trialSelections:
+                for chanSel in chanSelections:
+                    for timeSel in timeSelections:
+                        for freqSel in freqSelections:
+                            for taperSel in taperSelections:
+                                kwdict = {}
+                                kwdict["trials"] = trialSel
+                                kwdict["channels"] = chanSel
+                                kwdict[timeSel[0]] = timeSel[1]
+                                kwdict[freqSel[0]] = freqSel[1]
+                                kwdict["tapers"] = taperSel
+
+                                # Perform in-place selection and construct array based on new subset
+                                selected = dummy.selectdata(**kwdict)
+                                dummy.selectdata(inplace=True, **kwdict)
+                                arr = 2 * np.ones((selected.trials[0].shape), dtype=np.intp)
+                                for operand in [np.pi, arr]:
+                                    result = operation(dummy, operand)
+                                    for tk, trl in enumerate(result.trials):
+                                        assert np.array_equal(trl, operation(selected.trials[tk], operand))
+
+                                # Most most complicated: subset selection present in base object
+                                # and operand thrown at it: only attempt to do this if the selection
+                                # is "well-behaved", i.e., is ordered and does not contain repetitions
+                                # The operator code checks for this, so catch the corresponding
+                                # `SpyValueError` and only attempt to test if coast is clear
+                                dummy2.selectdata(inplace=True, **kwdict)
+                                try:
+                                    result = operation(dummy, dummy2)
+                                    cleanSelection = True
+                                except SPYValueError:
+                                    cleanSelection = False
+                                # except:
+                                #     import pdb; pdb.set_trace()
+                                if cleanSelection:
+                                    for tk, trl in enumerate(result.trials):
+                                        assert np.array_equal(trl, operation(selected.trials[tk],
+                                                                            selected.trials[tk]))
+                                    selected = ymmud.selectdata(**kwdict)
+                                    ymmud.selectdata(inplace=True, **kwdict)
+                                    ymmud2.selectdata(inplace=True, **kwdict)
+                                    result = operation(ymmud, ymmud2)
+                                    for tk, trl in enumerate(result.trials):
+                                        assert np.array_equal(trl, operation(selected.trials[tk],
+                                                                            selected.trials[tk]))
+
+                                # Very important: clear manually set selections for next iteration
+                                dummy._selection = None
+                                dummy2._selection = None
+                                ymmud._selection = None
+                                ymmud2._selection = None
+
+        # Finally, perform a representative chained operation to ensure chaining works
+        result = (dummy + dummy2) / dummy ** 3
+        for tk, trl in enumerate(result.trials):
+            assert np.array_equal(trl,
+                                  (dummy.trials[tk] + dummy2.trials[tk]) / dummy.trials[tk] ** 3)
 
     @skip_without_acme
     def test_sd_parallel(self, testcluster):

@@ -403,6 +403,7 @@ class TestMTMFFT():
             gc.collect()  # force-garbage-collect object so that tempdir can be closed
 
     @skip_without_acme
+    @skip_low_mem
     def test_parallel(self, testcluster):
         # collect all tests of current class and repeat them using dask
         # (skip VirtualData tests since ``wrapper_io`` expects valid headers)
