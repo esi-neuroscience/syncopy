@@ -77,6 +77,109 @@ freqSelections = list(zip(["foi"] * len(foiSelections), foiSelections)) \
     + list(zip(["foilim"] * len(foilimSelections), foilimSelections))
 
 
+# Local helper function for performing basic arithmetic tests
+def _base_op_tests(dummy, ymmud, dummy2, ymmud2, dummyC, operation):
+
+    dummyArr = 2 * np.ones((dummy.trials[0].shape))
+    ymmudArr = 2 * np.ones((ymmud.trials[0].shape))
+    scalarOperands = [2, np.pi]
+    dummyOperands = [dummyArr, dummyArr.tolist()]
+    ymmudOperands = [ymmudArr, ymmudArr.tolist()]
+
+    # Ensure trial counts are properly vetted
+    dummy2.selectdata(trials=[0], inplace=True)
+    with pytest.raises(SPYValueError) as spyval:
+        operation(dummy, dummy2)
+        assert "Syncopy object with same number of trials (selected)" in str (spyval.value)
+    dummy2._selection = None
+
+    # Scalar algebra must be commutative (except for pow)
+    for operand in scalarOperands:
+        result = operation(dummy, operand) # perform operation from right
+        for tk, trl in enumerate(result.trials):
+            assert np.array_equal(trl, operation(dummy.trials[tk], operand))
+        # Don't try to compute `2 ** data``
+        if operation(2,3) != 8:
+            result2 = operation(operand, dummy) # perform operation from left
+            assert np.array_equal(result2.data, result.data)
+
+        # Same as above, but swapped `dimord`
+        result = operation(ymmud, operand)
+        for tk, trl in enumerate(result.trials):
+            assert np.array_equal(trl, operation(ymmud.trials[tk], operand))
+        if operation(2,3) != 8:
+            result2 = operation(operand, ymmud)
+            assert np.array_equal(result2.data, result.data)
+
+    # Careful: NumPy tries to avoid failure by broadcasting; instead of relying
+    # on an existing `__radd__` method, it performs arithmetic component-wise, i.e.,
+    # ``np.ones((3,3)) + data`` performs ``1 + data`` nine times, so don't
+    # test for left/right arithmetics...
+    for operand in dummyOperands:
+        result = operation(dummy, operand)
+        for tk, trl in enumerate(result.trials):
+            assert np.array_equal(trl, operation(dummy.trials[tk], operand))
+    for operand in ymmudOperands:
+        result = operation(ymmud, operand)
+        for tk, trl in enumerate(result.trials):
+            assert np.array_equal(trl, operation(ymmud.trials[tk], operand))
+
+    # Ensure erroneous object type-casting is prevented
+    if dummyC is not None:
+        with pytest.raises(SPYTypeError) as spytyp:
+            operation(dummy, dummyC)
+            assert "Syncopy data object of same numerical type (real/complex)" in str(spytyp.value)
+
+    # Most severe safety hazard: throw two objects at each other (with regular and
+    # swapped dimord)
+    result = operation(dummy, dummy2)
+    for tk, trl in enumerate(result.trials):
+        assert np.array_equal(trl, operation(dummy.trials[tk], dummy2.trials[tk]))
+    result = operation(ymmud, ymmud2)
+    for tk, trl in enumerate(result.trials):
+        assert np.array_equal(trl, operation(ymmud.trials[tk], ymmud2.trials[tk]))
+
+def _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation):
+
+    # Perform in-place selection and construct array based on new subset
+    selected = dummy.selectdata(**kwdict)
+    dummy.selectdata(inplace=True, **kwdict)
+    arr = 2 * np.ones((selected.trials[0].shape), dtype=np.intp)
+    for operand in [np.pi, arr]:
+        result = operation(dummy, operand)
+        for tk, trl in enumerate(result.trials):
+            assert np.array_equal(trl, operation(selected.trials[tk], operand))
+
+    # Most most complicated: subset selection present in base object
+    # and operand thrown at it: only attempt to do this if the selection
+    # is "well-behaved", i.e., is ordered and does not contain repetitions
+    # The operator code checks for this, so catch the corresponding
+    # `SpyValueError` and only attempt to test if coast is clear
+    dummy2.selectdata(inplace=True, **kwdict)
+    try:
+        result = operation(dummy, dummy2)
+        cleanSelection = True
+    except SPYValueError:
+        cleanSelection = False
+    if cleanSelection:
+        for tk, trl in enumerate(result.trials):
+            assert np.array_equal(trl, operation(selected.trials[tk],
+                                                selected.trials[tk]))
+        selected = ymmud.selectdata(**kwdict)
+        ymmud.selectdata(inplace=True, **kwdict)
+        ymmud2.selectdata(inplace=True, **kwdict)
+        result = operation(ymmud, ymmud2)
+        for tk, trl in enumerate(result.trials):
+            assert np.array_equal(trl, operation(selected.trials[tk],
+                                                selected.trials[tk]))
+
+    # Very important: clear manually set selections for next iteration
+    dummy._selection = None
+    dummy2._selection = None
+    ymmud._selection = None
+    ymmud2._selection = None
+
+
 class TestAnalogData():
 
     # Allocate test-dataset
@@ -440,38 +543,43 @@ class TestAnalogData():
     # test data-selection via class method
     def test_dataselection(self):
 
-        # Create testing object and prepare multi-index
+        # Create testing objects (regular and swapped dimords)
         dummy = AnalogData(data=self.data,
                            trialdefinition=self.trl,
                            samplerate=self.samplerate)
-        idx = [slice(None)] * len(dummy.dimord)
-        timeIdx = dummy.dimord.index("time")
-        chanIdx = dummy.dimord.index("channel")
+        ymmud = AnalogData(data=self.data.T,
+                           trialdefinition=self.trl,
+                           samplerate=self.samplerate,
+                           dimord=AnalogData._defaultDimord[::-1])
 
-        for trialSel in trialSelections:
-            for chanSel in chanSelections:
-                for timeSel in timeSelections:
-                    kwdict = {}
-                    kwdict["trials"] = trialSel
-                    kwdict["channels"] = chanSel
-                    kwdict[timeSel[0]] = timeSel[1]
-                    cfg = StructDict(kwdict)
-                    # data selection via class-method + `Selector` instance for indexing
-                    selected = dummy.selectdata(**kwdict)
-                    time.sleep(0.05)
-                    selector = Selector(dummy, kwdict)
-                    idx[chanIdx] = selector.channel
-                    for tk, trialno in enumerate(selector.trials):
-                        idx[timeIdx] = selector.time[tk]
-                        assert np.array_equal(selected.trials[tk].squeeze(),
-                                              dummy.trials[trialno][idx[0], :][:, idx[1]].squeeze())
-                    cfg.data = dummy
-                    cfg.out = AnalogData(dimord=AnalogData._defaultDimord)
-                    # data selection via package function and `cfg`: ensure equality
-                    selectdata(cfg)
-                    assert np.array_equal(cfg.out.channel, selected.channel)
-                    assert np.array_equal(cfg.out.data, selected.data)
-                    time.sleep(0.05)
+        for obj in [dummy, ymmud]:
+            idx = [slice(None)] * len(obj.dimord)
+            timeIdx = obj.dimord.index("time")
+            chanIdx = obj.dimord.index("channel")
+            for trialSel in trialSelections:
+                for chanSel in chanSelections:
+                    for timeSel in timeSelections:
+                        kwdict = {}
+                        kwdict["trials"] = trialSel
+                        kwdict["channels"] = chanSel
+                        kwdict[timeSel[0]] = timeSel[1]
+                        cfg = StructDict(kwdict)
+                        # data selection via class-method + `Selector` instance for indexing
+                        selected = obj.selectdata(**kwdict)
+                        time.sleep(0.05)
+                        selector = Selector(obj, kwdict)
+                        idx[chanIdx] = selector.channel
+                        for tk, trialno in enumerate(selector.trials):
+                            idx[timeIdx] = selector.time[tk]
+                            assert np.array_equal(selected.trials[tk].squeeze(),
+                                                  obj.trials[trialno][idx[0], :][:, idx[1]].squeeze())
+                        cfg.data = obj
+                        cfg.out = AnalogData(dimord=obj.dimord)
+                        # data selection via package function and `cfg`: ensure equality
+                        selectdata(cfg)
+                        assert np.array_equal(cfg.out.channel, selected.channel)
+                        assert np.array_equal(cfg.out.data, selected.data)
+                        time.sleep(0.05)
 
     # test arithmetic operations
     def test_ang_arithmetic(self):
@@ -491,11 +599,6 @@ class TestAnalogData():
                             trialdefinition=self.trl,
                             samplerate=self.samplerate,
                             dimord=AnalogData._defaultDimord[::-1])
-        dummyArr = 2 * np.ones((dummy.trials[0].shape))
-        ymmudArr = 2 * np.ones((ymmud.trials[0].shape))
-        scalarOperands = [2, np.pi]
-        dummyOperands = [dummyArr, dummyArr.tolist()]
-        ymmudOperands = [ymmudArr, ymmudArr.tolist()]
 
         # Perform basic arithmetic with +, -, *, / and ** (pow)
         for operation in arithmetics:
@@ -505,52 +608,7 @@ class TestAnalogData():
                 operation(dummy, ymmud)
                 assert "expected Syncopy 'time' x 'channel' data object" in str (spyval.value)
 
-            # Next, ensure trial counts are properly vetted
-            dummy2.selectdata(trials=[0], inplace=True)
-            with pytest.raises(SPYValueError) as spyval:
-                operation(dummy, dummy2)
-                assert "Syncopy object with same number of trials (selected)" in str (spyval.value)
-            dummy2._selection = None
-
-            # Scalar algebra must be commutative (except for pow)
-            for operand in scalarOperands:
-                result = operation(dummy, operand) # perform operation from right
-                for tk, trl in enumerate(result.trials):
-                    assert np.array_equal(trl, operation(dummy.trials[tk], operand))
-                # Don't try to compute `2 ** data``
-                if operation(2,3) != 8:
-                    result2 = operation(operand, dummy) # perform operation from left
-                    assert np.array_equal(result2.data, result.data)
-
-                # Same as above, but swapped `dimord`
-                result = operation(ymmud, operand)
-                for tk, trl in enumerate(result.trials):
-                    assert np.array_equal(trl, operation(ymmud.trials[tk], operand))
-                if operation(2,3) != 8:
-                    result2 = operation(operand, ymmud)
-                    assert np.array_equal(result2.data, result.data)
-
-            # Careful: NumPy tries to avoid failure by broadcasting; instead of relying
-            # on an existing `__radd__` method, it performs arithmetic component-wise, i.e.,
-            # ``np.ones((3,3)) + data`` performs ``1 + data`` nine times, so don't
-            # test for left/right arithmetics...
-            for operand in dummyOperands:
-                result = operation(dummy, operand)
-                for tk, trl in enumerate(result.trials):
-                    assert np.array_equal(trl, operation(dummy.trials[tk], operand))
-            for operand in ymmudOperands:
-                result = operation(ymmud, operand)
-                for tk, trl in enumerate(result.trials):
-                    assert np.array_equal(trl, operation(ymmud.trials[tk], operand))
-
-            # Most severe safety hazard: throw two objects at each other (with regular and
-            # swapped dimord)
-            result = operation(dummy, dummy2)
-            for tk, trl in enumerate(result.trials):
-                assert np.array_equal(trl, operation(dummy.trials[tk], dummy2.trials[tk]))
-            result = operation(ymmud, ymmud2)
-            for tk, trl in enumerate(result.trials):
-                assert np.array_equal(trl, operation(ymmud.trials[tk], ymmud2.trials[tk]))
+            _base_op_tests(dummy, ymmud, dummy2, ymmud2, None, operation)
 
             # Now the most complicated case: user-defined subset selections are present
             for trialSel in trialSelections:
@@ -561,43 +619,7 @@ class TestAnalogData():
                         kwdict["channels"] = chanSel
                         kwdict[timeSel[0]] = timeSel[1]
 
-                        # Perform in-place selection and construct array based on new subset
-                        selected = dummy.selectdata(**kwdict)
-                        dummy.selectdata(inplace=True, **kwdict)
-                        arr = 2 * np.ones((selected.trials[0].shape), dtype=np.intp)
-                        for operand in [np.pi, arr]:
-                            result = operation(dummy, operand)
-                            for tk, trl in enumerate(result.trials):
-                                assert np.array_equal(trl, operation(selected.trials[tk], operand))
-
-                        # Most most complicated: subset selection present in base object
-                        # and operand thrown at it: only attempt to do this if the selection
-                        # is "well-behaved", i.e., is ordered and does not contain repetitions
-                        # The operator code checks for this, so catch the corresponding
-                        # `SpyValueError` and only attempt to test if coast is clear
-                        dummy2.selectdata(inplace=True, **kwdict)
-                        try:
-                            result = operation(dummy, dummy2)
-                            cleanSelection = True
-                        except SPYValueError:
-                            cleanSelection = False
-                        if cleanSelection:
-                            for tk, trl in enumerate(result.trials):
-                                assert np.array_equal(trl, operation(selected.trials[tk],
-                                                                     selected.trials[tk]))
-                            selected = ymmud.selectdata(**kwdict)
-                            ymmud.selectdata(inplace=True, **kwdict)
-                            ymmud2.selectdata(inplace=True, **kwdict)
-                            result = operation(ymmud, ymmud2)
-                            for tk, trl in enumerate(result.trials):
-                                assert np.array_equal(trl, operation(selected.trials[tk],
-                                                                     selected.trials[tk]))
-
-                        # Very important: clear manually set selections for next iteration
-                        dummy._selection = None
-                        dummy2._selection = None
-                        ymmud._selection = None
-                        ymmud2._selection = None
+                        _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
         result = (dummy + dummy2) / dummy ** 3
@@ -628,7 +650,7 @@ class TestSpectralData():
     ns = 30
     nt = 5
     nf = 15
-    data = np.arange(1, nc * ns * nt * nf + 1).reshape(ns, nt, nf, nc)
+    data = np.arange(1, nc * ns * nt * nf + 1, dtype="float").reshape(ns, nt, nf, nc)
     trl = np.vstack([np.arange(0, ns, 5),
                      np.arange(5, ns + 5, 5),
                      np.ones((int(ns / 5), )),
@@ -673,21 +695,6 @@ class TestSpectralData():
             trl_ref = self.data2[..., start:start + 5]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
-        # # test ``_copy_trial`` with memmap'ed data
-        # with tempfile.TemporaryDirectory() as tdir:
-        #     fname = os.path.join(tdir, "dummy.npy")
-        #     np.save(fname, self.data)
-        #     mm = open_memmap(fname, mode="r")
-        #     dummy = SpectralData(mm, trialdefinition=self.trl)
-        #     for trlno, start in enumerate(range(0, self.ns, 5)):
-        #         trl_ref = self.data[start:start + 5, ...]
-        #         trl_tmp = dummy._copy_trial(trlno,
-        #                                     dummy.filename,
-        #                                     dummy.dimord,
-        #                                     dummy.sampleinfo,
-        #                                     None)
-        #         assert np.array_equal(trl_tmp, trl_ref)
-        #     del mm, dummy
         del dummy
 
     def test_sd_saveload(self):
@@ -740,50 +747,56 @@ class TestSpectralData():
     # test data-selection via class method
     def test_sd_dataselection(self):
 
-        # Create testing object and prepare multi-index
+        # Create testing objects (regular and swapped dimords)
         dummy = SpectralData(data=self.data,
                              trialdefinition=self.trl,
                              samplerate=self.samplerate,
                              taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)])
-        idx = [slice(None)] * len(dummy.dimord)
-        timeIdx = dummy.dimord.index("time")
-        chanIdx = dummy.dimord.index("channel")
-        freqIdx = dummy.dimord.index("freq")
-        taperIdx = dummy.dimord.index("taper")
+        ymmud = SpectralData(data=np.transpose(self.data, [3, 2, 1, 0]),
+                             trialdefinition=self.trl,
+                             samplerate=self.samplerate,
+                             taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)],
+                             dimord=SpectralData._defaultDimord[::-1])
 
-        for trialSel in trialSelections:
-            for chanSel in chanSelections:
-                for timeSel in timeSelections:
-                    for freqSel in freqSelections:
-                        for taperSel in taperSelections:
-                            kwdict = {}
-                            kwdict["trials"] = trialSel
-                            kwdict["channels"] = chanSel
-                            kwdict[timeSel[0]] = timeSel[1]
-                            kwdict[freqSel[0]] = freqSel[1]
-                            kwdict["tapers"] = taperSel
-                            cfg = StructDict(kwdict)
-                            # data selection via class-method + `Selector` instance for indexing
-                            selected = dummy.selectdata(**kwdict)
-                            time.sleep(0.05)
-                            selector = Selector(dummy, kwdict)
-                            idx[chanIdx] = selector.channel
-                            idx[freqIdx] = selector.freq
-                            idx[taperIdx] = selector.taper
-                            for tk, trialno in enumerate(selector.trials):
-                                idx[timeIdx] = selector.time[tk]
-                                indexed = dummy.trials[trialno][idx[0], ...][:, idx[1], ...][:, :, idx[2], :][..., idx[3]]
-                                assert np.array_equal(selected.trials[tk].squeeze(),
-                                                      indexed.squeeze())
-                            cfg.data = dummy
-                            cfg.out = SpectralData(dimord=SpectralData._defaultDimord)
-                            # data selection via package function and `cfg`: ensure equality
-                            selectdata(cfg)
-                            assert np.array_equal(cfg.out.channel, selected.channel)
-                            assert np.array_equal(cfg.out.freq, selected.freq)
-                            assert np.array_equal(cfg.out.taper, selected.taper)
-                            assert np.array_equal(cfg.out.data, selected.data)
-                            time.sleep(0.05)
+        for obj in [dummy, ymmud]:
+            idx = [slice(None)] * len(obj.dimord)
+            timeIdx = obj.dimord.index("time")
+            chanIdx = obj.dimord.index("channel")
+            freqIdx = obj.dimord.index("freq")
+            taperIdx = obj.dimord.index("taper")
+            for trialSel in trialSelections:
+                for chanSel in chanSelections:
+                    for timeSel in timeSelections:
+                        for freqSel in freqSelections:
+                            for taperSel in taperSelections:
+                                kwdict = {}
+                                kwdict["trials"] = trialSel
+                                kwdict["channels"] = chanSel
+                                kwdict[timeSel[0]] = timeSel[1]
+                                kwdict[freqSel[0]] = freqSel[1]
+                                kwdict["tapers"] = taperSel
+                                cfg = StructDict(kwdict)
+                                # data selection via class-method + `Selector` instance for indexing
+                                selected = obj.selectdata(**kwdict)
+                                time.sleep(0.05)
+                                selector = Selector(obj, kwdict)
+                                idx[chanIdx] = selector.channel
+                                idx[freqIdx] = selector.freq
+                                idx[taperIdx] = selector.taper
+                                for tk, trialno in enumerate(selector.trials):
+                                    idx[timeIdx] = selector.time[tk]
+                                    indexed = obj.trials[trialno][idx[0], ...][:, idx[1], ...][:, :, idx[2], :][..., idx[3]]
+                                    assert np.array_equal(selected.trials[tk].squeeze(),
+                                                        indexed.squeeze())
+                                cfg.data = obj
+                                cfg.out = SpectralData(dimord=obj.dimord)
+                                # data selection via package function and `cfg`: ensure equality
+                                selectdata(cfg)
+                                assert np.array_equal(cfg.out.channel, selected.channel)
+                                assert np.array_equal(cfg.out.freq, selected.freq)
+                                assert np.array_equal(cfg.out.taper, selected.taper)
+                                assert np.array_equal(cfg.out.data, selected.data)
+                                time.sleep(0.05)
 
     # test arithmetic operations
     def test_sd_arithmetic(self):
@@ -811,11 +824,6 @@ class TestSpectralData():
                               samplerate=self.samplerate,
                               taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)],
                               dimord=SpectralData._defaultDimord[::-1])
-        dummyArr = 2 * np.ones((dummy.trials[0].shape))
-        ymmudArr = 2 * np.ones((ymmud.trials[0].shape))
-        scalarOperands = [2, np.pi]
-        dummyOperands = [dummyArr, dummyArr.tolist()]
-        ymmudOperands = [ymmudArr, ymmudArr.tolist()]
 
         # Perform basic arithmetic with +, -, *, / and ** (pow)
         for operation in arithmetics:
@@ -825,57 +833,7 @@ class TestSpectralData():
                 operation(dummy, ymmud)
                 assert "expected Syncopy 'time' x 'channel' data object" in str(spyval.value)
 
-            # Next, ensure trial counts are properly vetted
-            dummy2.selectdata(trials=[0], inplace=True)
-            with pytest.raises(SPYValueError) as spyval:
-                operation(dummy, dummy2)
-                assert "Syncopy object with same number of trials (selected)" in str (spyval.value)
-            dummy2._selection = None
-
-            # Scalar algebra must be commutative (except for pow)
-            for operand in scalarOperands:
-                result = operation(dummy, operand) # perform operation from right
-                for tk, trl in enumerate(result.trials):
-                    assert np.array_equal(trl, operation(dummy.trials[tk], operand))
-                # Don't try to compute `2 ** data``
-                if operation(2,3) != 8:
-                    result2 = operation(operand, dummy) # perform operation from left
-                    assert np.array_equal(result2.data, result.data)
-
-                # Same as above, but swapped `dimord`
-                result = operation(ymmud, operand)
-                for tk, trl in enumerate(result.trials):
-                    assert np.array_equal(trl, operation(ymmud.trials[tk], operand))
-                if operation(2,3) != 8:
-                    result2 = operation(operand, ymmud)
-                    assert np.array_equal(result2.data, result.data)
-
-            # Careful: NumPy tries to avoid failure by broadcasting; instead of relying
-            # on an existing `__radd__` method, it performs arithmetic component-wise, i.e.,
-            # ``np.ones((3,3)) + data`` performs ``1 + data`` nine times, so don't
-            # test for left/right arithmetics...
-            for operand in dummyOperands:
-                result = operation(dummy, operand)
-                for tk, trl in enumerate(result.trials):
-                    assert np.array_equal(trl, operation(dummy.trials[tk], operand))
-            for operand in ymmudOperands:
-                result = operation(ymmud, operand)
-                for tk, trl in enumerate(result.trials):
-                    assert np.array_equal(trl, operation(ymmud.trials[tk], operand))
-
-            # Ensure erroneous object type-casting is prevented
-            with pytest.raises(SPYTypeError) as spytyp:
-                operation(dummy, dummyC)
-                assert "Syncopy data object of same numerical type (real/complex)" in str(spytyp.value)
-
-            # Most severe safety hazard: throw two objects at each other (with regular and
-            # swapped dimord)
-            result = operation(dummy, dummy2)
-            for tk, trl in enumerate(result.trials):
-                assert np.array_equal(trl, operation(dummy.trials[tk], dummy2.trials[tk]))
-            result = operation(ymmud, ymmud2)
-            for tk, trl in enumerate(result.trials):
-                assert np.array_equal(trl, operation(ymmud.trials[tk], ymmud2.trials[tk]))
+            _base_op_tests(dummy, ymmud, dummy2, ymmud2, dummyC, operation)
 
             # Now the most complicated case: user-defined subset selections are present
             for trialSel in trialSelections:
@@ -890,45 +848,7 @@ class TestSpectralData():
                                 kwdict[freqSel[0]] = freqSel[1]
                                 kwdict["tapers"] = taperSel
 
-                                # Perform in-place selection and construct array based on new subset
-                                selected = dummy.selectdata(**kwdict)
-                                dummy.selectdata(inplace=True, **kwdict)
-                                arr = 2 * np.ones((selected.trials[0].shape), dtype=np.intp)
-                                for operand in [np.pi, arr]:
-                                    result = operation(dummy, operand)
-                                    for tk, trl in enumerate(result.trials):
-                                        assert np.array_equal(trl, operation(selected.trials[tk], operand))
-
-                                # Most most complicated: subset selection present in base object
-                                # and operand thrown at it: only attempt to do this if the selection
-                                # is "well-behaved", i.e., is ordered and does not contain repetitions
-                                # The operator code checks for this, so catch the corresponding
-                                # `SpyValueError` and only attempt to test if coast is clear
-                                dummy2.selectdata(inplace=True, **kwdict)
-                                try:
-                                    result = operation(dummy, dummy2)
-                                    cleanSelection = True
-                                except SPYValueError:
-                                    cleanSelection = False
-                                # except:
-                                #     import pdb; pdb.set_trace()
-                                if cleanSelection:
-                                    for tk, trl in enumerate(result.trials):
-                                        assert np.array_equal(trl, operation(selected.trials[tk],
-                                                                            selected.trials[tk]))
-                                    selected = ymmud.selectdata(**kwdict)
-                                    ymmud.selectdata(inplace=True, **kwdict)
-                                    ymmud2.selectdata(inplace=True, **kwdict)
-                                    result = operation(ymmud, ymmud2)
-                                    for tk, trl in enumerate(result.trials):
-                                        assert np.array_equal(trl, operation(selected.trials[tk],
-                                                                            selected.trials[tk]))
-
-                                # Very important: clear manually set selections for next iteration
-                                dummy._selection = None
-                                dummy2._selection = None
-                                ymmud._selection = None
-                                ymmud2._selection = None
+                                _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
         result = (dummy + dummy2) / dummy ** 3

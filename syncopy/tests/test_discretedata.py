@@ -149,9 +149,16 @@ class TestSpikeData():
 
     # test data-selection via class method
     def test_dataselection(self):
+
+        # Create testing objects (regular and swapped dimords)
         dummy = SpikeData(data=self.data,
                           trialdefinition=self.trl,
                           samplerate=2.0)
+        ymmud = SpikeData(data=self.data[:, ::-1],
+                          trialdefinition=self.trl,
+                          samplerate=2.0,
+                          dimord=dummy.dimord[::-1])
+
         # selections are chosen so that result is not empty
         trialSelections = [
             "all",  # enforce below selections in all trials of `dummy`
@@ -180,40 +187,40 @@ class TestSpikeData():
         timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
             + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
 
-        chanIdx = dummy.dimord.index("channel")
-        unitIdx = dummy.dimord.index("unit")
-        chanArr = np.arange(dummy.channel.size)
-
-        for trialSel in trialSelections:
-            for chanSel in chanSelections:
-                for unitSel in unitSelections:
-                    for timeSel in timeSelections:
-                        kwdict = {}
-                        kwdict["trials"] = trialSel
-                        kwdict["channels"] = chanSel
-                        kwdict["units"] = unitSel
-                        kwdict[timeSel[0]] = timeSel[1]
-                        cfg = StructDict(kwdict)
-                        # data selection via class-method + `Selector` instance for indexing
-                        selected = dummy.selectdata(**kwdict)
-                        selector = Selector(dummy, kwdict)
-                        tk = 0
-                        for trialno in selector.trials:
-                            if selector.time[tk]:
-                                assert np.array_equal(dummy.trials[trialno][selector.time[tk], :],
-                                                      selected.trials[tk])
-                                tk += 1
-                        assert set(selected.data[:, chanIdx]).issubset(chanArr[selector.channel])
-                        assert set(selected.channel) == set(dummy.channel[selector.channel])
-                        assert np.array_equal(selected.unit,
-                                              dummy.unit[np.unique(selected.data[:, unitIdx])])
-                        cfg.data = dummy
-                        cfg.out = SpikeData(dimord=SpikeData._defaultDimord)
-                        # data selection via package function and `cfg`: ensure equality
-                        selectdata(cfg)
-                        assert np.array_equal(cfg.out.channel, selected.channel)
-                        assert np.array_equal(cfg.out.unit, selected.unit)
-                        assert np.array_equal(cfg.out.data, selected.data)
+        for obj in [dummy, ymmud]:
+            chanIdx = obj.dimord.index("channel")
+            unitIdx = obj.dimord.index("unit")
+            chanArr = np.arange(obj.channel.size)
+            for trialSel in trialSelections:
+                for chanSel in chanSelections:
+                    for unitSel in unitSelections:
+                        for timeSel in timeSelections:
+                            kwdict = {}
+                            kwdict["trials"] = trialSel
+                            kwdict["channels"] = chanSel
+                            kwdict["units"] = unitSel
+                            kwdict[timeSel[0]] = timeSel[1]
+                            cfg = StructDict(kwdict)
+                            # data selection via class-method + `Selector` instance for indexing
+                            selected = obj.selectdata(**kwdict)
+                            selector = Selector(obj, kwdict)
+                            tk = 0
+                            for trialno in selector.trials:
+                                if selector.time[tk]:
+                                    assert np.array_equal(obj.trials[trialno][selector.time[tk], :],
+                                                        selected.trials[tk])
+                                    tk += 1
+                            assert set(selected.data[:, chanIdx]).issubset(chanArr[selector.channel])
+                            assert set(selected.channel) == set(obj.channel[selector.channel])
+                            assert np.array_equal(selected.unit,
+                                                obj.unit[np.unique(selected.data[:, unitIdx])])
+                            cfg.data = obj
+                            cfg.out = SpikeData(dimord=obj.dimord)
+                            # data selection via package function and `cfg`: ensure equality
+                            selectdata(cfg)
+                            assert np.array_equal(cfg.out.channel, selected.channel)
+                            assert np.array_equal(cfg.out.unit, selected.unit)
+                            assert np.array_equal(cfg.out.data, selected.data)
 
     @skip_without_acme
     def test_parallel(self, testcluster):
@@ -473,9 +480,16 @@ class TestEventData():
 
     # test data-selection via class method
     def test_ed_dataselection(self):
+
+        # Create testing objects (regular and swapped dimords)
         dummy = EventData(data=self.data,
                           trialdefinition=self.trl,
                           samplerate=2.0)
+        ymmud = EventData(data=self.data[:, ::-1],
+                          trialdefinition=self.trl,
+                          samplerate=2.0,
+                          dimord=dummy.dimord[::-1])
+
         # selections are chosen so that result is not empty
         trialSelections = [
             "all",  # enforce below selections in all trials of `dummy`
@@ -497,33 +511,33 @@ class TestEventData():
         timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
             + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
 
-        eventidIdx = dummy.dimord.index("eventid")
-
-        for trialSel in trialSelections:
-            for eventidSel in eventidSelections:
-                for timeSel in timeSelections:
-                    kwdict = {}
-                    kwdict["trials"] = trialSel
-                    kwdict["eventids"] = eventidSel
-                    kwdict[timeSel[0]] = timeSel[1]
-                    cfg = StructDict(kwdict)
-                    # data selection via class-method + `Selector` instance for indexing
-                    selected = dummy.selectdata(**kwdict)
-                    selector = Selector(dummy, kwdict)
-                    tk = 0
-                    for trialno in selector.trials:
-                        if selector.time[tk]:
-                            assert np.array_equal(dummy.trials[trialno][selector.time[tk], :],
-                                                  selected.trials[tk])
-                            tk += 1
-                    assert np.array_equal(selected.eventid,
-                                          dummy.eventid[np.unique(selected.data[:, eventidIdx]).astype(np.intp)])
-                    cfg.data = dummy
-                    cfg.out = EventData(dimord=EventData._defaultDimord)
-                    # data selection via package function and `cfg`: ensure equality
-                    selectdata(cfg)
-                    assert np.array_equal(cfg.out.eventid, selected.eventid)
-                    assert np.array_equal(cfg.out.data, selected.data)
+        for obj in [dummy, ymmud]:
+            eventidIdx = obj.dimord.index("eventid")
+            for trialSel in trialSelections:
+                for eventidSel in eventidSelections:
+                    for timeSel in timeSelections:
+                        kwdict = {}
+                        kwdict["trials"] = trialSel
+                        kwdict["eventids"] = eventidSel
+                        kwdict[timeSel[0]] = timeSel[1]
+                        cfg = StructDict(kwdict)
+                        # data selection via class-method + `Selector` instance for indexing
+                        selected = obj.selectdata(**kwdict)
+                        selector = Selector(obj, kwdict)
+                        tk = 0
+                        for trialno in selector.trials:
+                            if selector.time[tk]:
+                                assert np.array_equal(obj.trials[trialno][selector.time[tk], :],
+                                                    selected.trials[tk])
+                                tk += 1
+                        assert np.array_equal(selected.eventid,
+                                            obj.eventid[np.unique(selected.data[:, eventidIdx]).astype(np.intp)])
+                        cfg.data = obj
+                        cfg.out = EventData(dimord=obj.dimord)
+                        # data selection via package function and `cfg`: ensure equality
+                        selectdata(cfg)
+                        assert np.array_equal(cfg.out.eventid, selected.eventid)
+                        assert np.array_equal(cfg.out.data, selected.data)
 
     @skip_without_acme
     def test_ed_parallel(self, testcluster):
