@@ -631,12 +631,11 @@ class TestAnalogData():
     def test_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
-        par_tests = ["test_ang_arithmetic"]
-        # par_tests = ["test_relative_array_padding",
-        #              "test_absolute_nextpow2_array_padding",
-        #              "test_object_padding",
-        #              "test_dataselection",
-        #              "test_ang_arithmetic"]
+        par_tests = ["test_relative_array_padding",
+                     "test_absolute_nextpow2_array_padding",
+                     "test_object_padding",
+                     "test_dataselection",
+                     "test_ang_arithmetic"]
         for test in par_tests:
             getattr(self, test)()
             flush_local_cluster(testcluster)
@@ -860,7 +859,7 @@ class TestSpectralData():
     def test_sd_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
-        par_tests = ["test_sd_dataselection"]
+        par_tests = ["test_sd_dataselection", "test_sd_arithmetic"]
         for test in par_tests:
             getattr(self, test)()
             flush_local_cluster(testcluster)

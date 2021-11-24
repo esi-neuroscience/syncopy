@@ -7,6 +7,9 @@
 import numpy as np
 
 # Local imports
+from syncopy.datatype.continuous_data import AnalogData
+from syncopy.shared.computational_routine import ComputationalRoutine
+from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.shared.parsers import data_parser, array_parser, scalar_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYWarning
 
@@ -285,11 +288,14 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         timeAxis = 0
         spydata = False
 
-    # FIXME: Creation of new spy-object currently not supported
+    # Any existing in-place selections will be ignored
+    if data._selection is not None:
+        wrng = "Existing in-place selection{} will be ignored for padding."
+        SPYWarning(wrng.format(data._selection.__str__().partition("with")[-1]))
+
+    # Ensure `create_new` is not weird
     if not isinstance(create_new, bool):
         raise SPYTypeError(create_new, varname="create_new", expected="bool")
-    if spydata and create_new:
-        raise NotImplementedError("Creation of padded spy objects currently not supported. ")
 
     # Use FT-compatible options (sans FT option 'remove')
     if not isinstance(padtype, str):
@@ -441,7 +447,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
            "edge": {"mode": "edge"},
            "mirror": {"mode": "reflect"}}
 
-    # If in put was syncopy data object, padding is done on a per-trial basis
+    # If input was syncopy data object, padding is done on a per-trial basis
     if spydata:
 
         # A list of input keywords for ``np.pad`` is constructed, no matter if
@@ -464,6 +470,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
                 pad_opts[-1]["stat_length"] = pw[timeAxis, :]
 
         if create_new:
+            out = AnalogData(dimord=data.dimord)
             pass
         else:
             return pad_opts
@@ -516,3 +523,41 @@ def _nextpow2(number):
     while n < number:
         n *= 2
     return n
+
+
+@unwrap_io
+def padding_cF(trl_dat, timeAxis=0, pad_opt, noCompute=False, chunkShape=None):
+    """
+    Coming Soon
+    """
+
+    # Re-arrange array if necessary and get dimensional information
+    if timeAxis != 0:
+        dat = trl_dat.T       # does not copy but creates view of `trl_dat`
+    else:
+        dat = trl_dat
+
+    if noCompute:
+        return base_dat.shape, opres_type
+
+    # Symmetric Padding (updates no. of samples)
+    return np.pad(dat, **pad_opt)
+
+class PaddingRoutine(ComputationalRoutine):
+
+    computeFunction = staticmethod(padding_cF)
+
+    def process_metadata(self, baseObj, out):
+
+        # Get/set timing-related selection modifiers
+        out.trialdefinition = baseObj._selection.trialdefinition
+        # if baseObj._selection._timeShuffle: # FIXME: should be implemented done the road
+        #     out.time = baseObj._selection.timepoints
+        if baseObj._selection._samplerate:
+            out.samplerate = baseObj.samplerate
+
+        # Get/set dimensional attributes changed by selection
+        for prop in baseObj._selection._dimProps:
+            selection = getattr(baseObj._selection, prop)
+            if selection is not None:
+                setattr(out, prop, getattr(baseObj, prop)[selection])
