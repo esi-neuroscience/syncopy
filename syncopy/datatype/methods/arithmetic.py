@@ -11,7 +11,7 @@ import h5py
 # Local imports
 from syncopy import __acme__
 from syncopy.shared.parsers import data_parser
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYParallelError
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.shared.computational_routine import ComputationalRoutine
@@ -20,15 +20,99 @@ if __acme__:
 
 __all__ = []
 
+
+# Main entry point for overloaded operators
 def _process_operator(obj1, obj2, operator):
     """
-    Coming soon...
+    Perform binary arithmetic operation on Syncopy data object
+
+    Parameters
+    ----------
+    obj1 : Syncopy data class or Python object
+        Depending on left/right application of arithmetic operator, `obj1` may be
+        either a Syncopy class or any Python object
+    obj2 : Syncopy data class or Python object
+        Depending on left/right application of arithmetic operator, `obj2` may be
+        either a Syncopy class or any Python object
+    operator : str
+        Operation to be performed encoded as string. Currently supported operators
+        are `'+'`, `'-'`, `'*'`, `'/'` and `'**'` (i.e., `'pow'`).
+
+    Returns
+    -------
+    res : Syncopy object
+        Result of arithmetic operation
+
+    Notes
+    -----
+    All arithmetic operations are performed on a per-trial basis. This means,
+    any data not covered by a Syncopy object's `trialdefinition` will not be
+    affected by the arithmetic operation.
+    Note further, that error checking is only performed on a very basic level, i.e.,
+    the code ensures that instances of different classes are not mashed together
+    (e.g., ``AnalogData + SpectralData``) and that objects have compatible trial
+    counts and dtypes (no mixing of complex/real data). However, as long as trial
+    shapes align, it is possible to process objects w/diverging `samplerate`,
+    `channels`, `freqs` etc. The reason for this object parsing leniency is that
+    it might be interesting/necessary to manipulate objects arising from different
+    configurations (e.g., subtract channel `x` in `obj1` from channel `y` in `obj2`).
+
+    See also
+    --------
+    _parse_input : prepare objects for arithmetic operations
+    _perform_computation : execute arithmetic operation
     """
     baseObj, operand, operand_dat, opres_type, operand_idxs = _parse_input(obj1, obj2, operator)
     return _perform_computation(baseObj, operand, operand_dat, operand_idxs, opres_type, operator)
 
 
+# Error checking and input preparation
 def _parse_input(obj1, obj2, operator):
+    """
+    Prepare objects for performing binary arithmetics
+
+    Parameters
+    ----------
+    obj1 : Syncopy data class or Python object
+        See :func:`_process_operator` for details.
+    obj2 : Syncopy data class or Python object
+        See :func:`_process_operator` for details.
+    operator : str
+        See :func:`_process_operator` for details.
+
+    Returns
+    -------
+    baseObj : Syncopy data object
+        The "base" object to perform arithmetics on. By default, the left object
+        is considered as base (if possible), i.e., in the expression ``data1 + data2``,
+        `data1` is defined as base object
+    operand : Syncopy data object, scalar or array-like
+        Term to perform arithmetic operation with.
+    operand_dat : dict or scalar or array-like
+        If `operand` is a scalar, list or NumPy ndarray then ``operand_dat == operand``.
+        If `operand` is a Syncopy object, then `operand_dat` is a dictionary with
+        keys `"filename"` (pointing to the HDF5 backing device of `operand`) and
+        `"dsetname"`(name of the corresponding dataset(s) of `operand`).
+    opres_type : dtype
+        Numerical type of the Syncopy object resulting from applying the arithmetic
+        operation.
+    operand_idxs : None or list
+        If `operand` is a scalar, list or NumPy ndarray then `operand_idxs` is
+        `None`. If `operand` is a Syncopy object, then `operand_idxs` is a list
+        containing the array indices of `operands` data(subset) for each (selected)
+        trial.
+
+    Note
+    ----
+    The distinction between `baseObj` and `operand` is not only syntactic sugar
+    but has consequences if both `baseObj` and `operand` are Syncopy objects:
+    the `baseObj` is allowed to come with any valid subset selection (may require
+    advanced indexing involving multiple slice/list combinations, might include
+    repetitions and be unordered). Conversely, the `operand` object can only
+    contain `simple` selections (no fancy indexing allowed, no repetitions or
+    unordered selections). This restriction simplifies the required HDF dataset
+    indexing considerably.
+    """
 
     # Determine which input is a Syncopy object (depending on lef/right application of
     # operator, i.e., `data + 1` or `1 + data`). Can be both as well, but we just need
@@ -39,6 +123,11 @@ def _parse_input(obj1, obj2, operator):
     elif "BaseData" in str(obj2.__class__.__mro__):
         baseObj = obj2
         operand = obj1
+
+    # Ensure base object is not discrete
+    if "DiscreteData" in str(baseObj.__class__.__mro__):
+        lgl = "`AnalogData`, `SpectralData` or `CrossSpectralData`"
+        raise SPYTypeError(baseObj, varname="base", expected=lgl)
 
     # Ensure our base object is not empty
     try:
@@ -185,9 +274,10 @@ def _parse_input(obj1, obj2, operator):
 
     return baseObj, operand, operand_dat, opres_type, operand_idxs
 
+# Check for complexity in `operand` vs. `baseObj`
 def _check_complex_operand(baseTrials, operand, opDimType):
     """
-    Coming soon...
+    Local helper to determine if provided scalar/array and `baseObj` are both real/complex
     """
 
     # Ensure complex and real values are not mashed up
@@ -202,6 +292,7 @@ def _check_complex_operand(baseTrials, operand, opDimType):
     return
 
 
+# Invoke `ComputationalRoutine` to compute arithmetic operation
 def _perform_computation(baseObj,
                          operand,
                          operand_dat,
@@ -209,7 +300,41 @@ def _perform_computation(baseObj,
                          opres_type,
                          operator):
     """
-    Coming soon...
+    Leverage `ComputationalRoutine` to process arithmetic operation
+
+    Parameters
+    ----------
+    baseObj : Syncopy data object
+        See :func:`_parse_input` for details.
+    operand : Syncopy data object, scalar or array-like
+        See :func:`_parse_input` for details.
+    operand_dat : dict or scalar or array-like
+        See :func:`_parse_input` for details.
+    opres_type : dtype
+        See :func:`_parse_input` for details.
+    operator : str
+        See :func:`_process_operator` for details.
+
+    Returns
+    -------
+    out : Syncopy data object
+        Result of performing arithmetic operation on `baseObj` and `operand`
+
+    Note
+    ----
+    This method instantiates a subclass of
+    :class:`~syncopy.shared.computational_routine.ComputationalRoutine`
+    to perform arithmetic operations on Syncopy objects either sequentially or
+    in parallel. Note that due to this code being only invoked via operator
+    overloading the `@detect_parallel_client` decorator is *not* invoked, since
+    the user cannot supply any keyword arguments. Instead, the code scans for
+    running dask distributed computing clients (if ACME is available) and uses
+    concurrent processing if a client is found.
+
+    See also
+    --------
+    arithmetic_cF : `computeFunction` performing arithmetics
+    SpyArithmetic : :class:`~syncopy.shared.computational_routine.ComputationalRoutine` subclass
     """
 
     # Prepare logging info in dictionary: we know that `baseObj` is definitely
@@ -291,7 +416,49 @@ def _perform_computation(baseObj,
 def arithmetic_cF(base_dat, operand_dat, operand_idx, operation=None, opres_type=None,
                   noCompute=False, chunkShape=None):
     """
-    Coming soon...
+    Perform arithmetic operation
+
+    Parameters
+    ----------
+    base_dat : :class:`numpy.ndarray`
+        Trial data
+    operand_dat : dict or scalar or array-like
+        If two Syncopy objects are processed, then `operand_dat` is a dictionary
+        containing information about the operand's HDF5 backing device (see
+        :func:`_parse_input` for details). Otherwise, `operand_dat` is either a
+        scalar or array-like quantity.
+    operand_idx : tuple
+        If `operand` is a scalar, list or NumPy ndarray then `operand_idx` is
+        `None`. If `operand` is a Syncopy object, then `operand_idx` is an indexing
+        tuple.
+    operation : lambda object
+        A lambda expression encapsulating the requested arithmetic operation.
+    opres_type : dtype
+        Numerical type of applying ``operation(base_dat, operand)``
+    noCompute : bool
+        Preprocessing flag. If `True`, do not perform actual calculation but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+    chunkShape : None or tuple
+        If not `None`, represents shape of output
+
+    Returns
+    -------
+    res : :class:`numpy.ndarray`
+        Result of ``operation(base_dat, operand)``
+
+    Notes
+    -----
+    This method is intended to be used as :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+
+    See also
+    --------
+    _perform_computation : execute arithmetic operation
+    SpyArithmetic : :class:`~syncopy.shared.computational_routine.ComputationalRoutine` subclass
     """
 
     if noCompute:
@@ -306,6 +473,17 @@ def arithmetic_cF(base_dat, operand_dat, operand_idx, operation=None, opres_type
     return operation(base_dat, operand)
 
 class SpyArithmetic(ComputationalRoutine):
+    """
+    Compute class for performing arithmetic operations with Syncopy objects
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    _perform_computation : execute arithmetic operation
+    """
 
     computeFunction = staticmethod(arithmetic_cF)
 

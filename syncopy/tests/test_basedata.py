@@ -371,9 +371,24 @@ class TestBaseData():
     # Test basic error handling of arithmetic ops
     def test_arithmetic(self):
 
-        # test shallow copy of data arrays (hashes must match up, since
-        # shallow copies are views in memory)
-        for dclass in self.classes:
+        # Define list of classes arithmetic ops should and should not work with
+        # FIXME: include `CrossSpectralData` here!
+        # continuousClasses = ["AnalogData", "SpectralData", "CrossSpectralData"]
+        continuousClasses = ["AnalogData", "SpectralData"]
+        discreteClasses = ["SpikeData", "EventData"]
+
+        # Illegal classes for arithmetics
+        for dclass in discreteClasses:
+            dummy = getattr(spd, dclass)(self.data[dclass],
+                                         trialdefinition=self.trl[dclass],
+                                         samplerate=self.samplerate)
+            for operation in arithmetics:
+                with pytest.raises(SPYTypeError) as spytyp:
+                    operation(dummy, 2)
+                    assert "Wrong type of base: expected `AnalogData`, `SpectralData`" in str(spytyp.value)
+
+        # Now, test basic error handling for allowed classes
+        for dclass in continuousClasses:
             dummy = getattr(spd, dclass)(self.data[dclass],
                                          trialdefinition=self.trl[dclass],
                                          samplerate=self.samplerate)
