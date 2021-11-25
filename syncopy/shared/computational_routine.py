@@ -8,13 +8,10 @@ import os
 import sys
 import psutil
 import h5py
-import time
 import numpy as np
 from itertools import chain
 from abc import ABC, abstractmethod
-from collections.abc import Sized
 from copy import copy
-from glob import glob
 from numpy.lib.format import open_memmap
 from tqdm.auto import tqdm
 if sys.platform == "win32":
@@ -284,7 +281,7 @@ class ComputationalRoutine(ABC):
         trials = []
         for tk, trialno in enumerate(self.trialList):
             trial = data._preview_trial(trialno)
-            trlArg = tuple(arg[tk] if isinstance(arg, Sized) and len(arg) == self.numTrials \
+            trlArg = tuple(arg[tk] if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials \
                 else arg for arg in self.argv)
             chunkShape, dtype = self.computeFunction(trial,
                                                      *trlArg,
@@ -306,7 +303,6 @@ class ComputationalRoutine(ABC):
         chk_arr = np.array(chk_list)
         chunkShape = tuple(chk_arr.max(axis=0))
         if np.unique(chk_arr[:, stackingDim]).size > 1 and not self.keeptrials:
-            import pdb; pdb.set_trace()
             err = "Averaging trials of unequal lengths in output currently not supported!"
             raise NotImplementedError(err)
         if np.any([dtp_list[0] != dtp for dtp in dtp_list]):
@@ -337,7 +333,7 @@ class ComputationalRoutine(ABC):
 
         # Allocate control variables
         trial = trials[0]
-        trlArg0 = tuple(arg[0] if isinstance(arg, Sized) and len(arg) == self.numTrials \
+        trlArg0 = tuple(arg[0] if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials \
             else arg for arg in self.argv)
         chunkShape0 = chk_arr[0, :]
         lyt = [slice(0, stop) for stop in chunkShape0]
@@ -400,7 +396,7 @@ class ComputationalRoutine(ABC):
         stacking = targetLayout[0][stackingDim].stop
         for tk in range(1, self.numTrials):
             trial = trials[tk]
-            trlArg = tuple(arg[tk] if isinstance(arg, Sized) and len(arg) == self.numTrials \
+            trlArg = tuple(arg[tk] if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials \
                 else arg for arg in self.argv)
             chkshp = chk_list[tk]
             lyt = [slice(0, stop) for stop in chkshp]
@@ -878,7 +874,7 @@ class ComputationalRoutine(ABC):
                 sigrid = self.sourceSelectors[nblock]
                 outgrid = self.targetLayout[nblock]
                 argv = tuple(arg[nblock] \
-                    if isinstance(arg, Sized) and len(arg) == self.numTrials \
+                    if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials \
                         else arg for arg in self.argv)
 
                 # Catch empty source-array selections; this workaround is not
