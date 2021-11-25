@@ -212,11 +212,13 @@ class ST_CrossSpectra(ComputationalRoutine):
 
     computeFunction = staticmethod(cross_spectra_cF)
 
-    method = "cross_spectra"
-    # 1st argument,the data, gets omitted
-    method_keys = list(signature(cross_spectra_cF).parameters.keys())[1:]
-    cF_keys = list(signature(cross_spectra_cF).parameters.keys())[1:]
-
+    backends = [mtmfft]
+    # 1st argument,the data, gets omitted    
+    valid_kws = list(signature(mtmfft).parameters.keys())[1:]
+    valid_kws += list(signature(cross_spectra_cF).parameters.keys())[1:]
+    # hardcode some parameter names which got digested from the frontend
+    valid_kws += ['tapsmofrq', 'nTaper']    
+    
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
@@ -395,7 +397,6 @@ class ST_CrossCovariance(ComputationalRoutine):
 
     computeFunction = staticmethod(cross_covariance_cF)
 
-    method = "" # there is no backend
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(cross_covariance_cF).parameters.keys())[1:]
 

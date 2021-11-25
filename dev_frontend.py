@@ -4,7 +4,7 @@ import scipy.signal as sci
 from syncopy.datatype import CrossSpectralData, padding, SpectralData, AnalogData
 from syncopy.connectivity.ST_compRoutines import cross_spectra_cF, ST_CrossSpectra
 from syncopy.connectivity.ST_compRoutines import cross_covariance_cF
-from syncopy.connectivity import connectivityanalysis
+from syncopy.connectivity import connectivity
 from syncopy.specest import freqanalysis
 import matplotlib.pyplot as ppl
 
@@ -20,29 +20,29 @@ foilim = [1, 30]
 sdict1 = {"trials": [0], 'channels' : ['channel1'], 'toi': np.arange(-1, 1, 0.001)}
 
 # no problems here..
-coherence = connectivityanalysis(data=tdat,
-                                 foilim=None,
-                                 output='pow',
-                                 taper='dpss',
-                                 tapsmofrq=5,                                 
-                                 keeptrials=False)
+coherence = connectivity(data=tdat,
+                         foilim=None,
+                         output='pow',
+                         taper='dpss',
+                         tapsmofrq=5,
+                         foo = 3, # non-sensical 
+                         keeptrials=False)
 
-granger = connectivityanalysis(data=tdat,
-                               method='granger',
-                               foilim=[0, 50],
-                               output='pow',
-                               taper='dpss',
-                               tapsmofrq=5,                                 
-                               keeptrials=False)
+granger = connectivity(data=tdat,
+                       method='granger',
+                       foilim=[0, 50],
+                       output='pow',
+                       taper='dpss',
+                       tapsmofrq=5,                                 
+                       keeptrials=False)
 
 # D = SpectralData(dimord=['freq','test1','test2','taper'])
 # D2 = AnalogData(dimord=['freq','test1'])
 
 # a lot of problems here..
-# correlation = connectivityanalysis(data=tdat, method='corr', keeptrials=False)
+# correlation = connectivity(data=tdat, method='corr', keeptrials=False, taper='df')
 
 # the hard wired dimord of the cF
-dimord = ['None', 'freq', 'channel_i', 'channel_j']
 
 res = freqanalysis(data=tdat,
                    method='mtmfft',
@@ -55,7 +55,7 @@ res = freqanalysis(data=tdat,
                    t_ftimwin=0.5,
                    keeptrials=True,
                    taper='dpss',
-                   nTaper = 11,
+                   nTaper = 19,
                    tapsmofrq=5,
                    keeptapers=True,
                    parallel=False, # try this!!!!!!

@@ -25,5 +25,5 @@ all_windows.remove("hanning") # deprecated
 availableTapers = all_windows
 
 #: general, method agnostic, parameters of :func:`~syncopy.freqanalysis`
-generalParameters = ("method", "output", "keeptrials",
+generalParameters = ("method", "output", "keeptrials","samplerate",
                      "foi", "foilim", "polyremoval", "out")

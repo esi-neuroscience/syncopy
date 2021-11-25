@@ -20,28 +20,28 @@ from syncopy.shared.errors import (
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.tools import best_match
-from syncopy.shared.input_validators import validate_taper, validate_foi
-from syncopy.shared.const_def import (
-    spectralConversions,
-    availableTapers,
-    generalParameters
+from syncopy.shared.input_validators import (
+    validate_taper,
+    validate_foi,
+    check_effective_parameters,
+    check_passed_kwargs
 )
 
 from .ST_compRoutines import ST_CrossSpectra, ST_CrossCovariance
 from .AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov, GrangerCausality
 
-__all__ = ["connectivityanalysis"]
+__all__ = ["connectivity"]
 availableMethods = ("coh", "corr", "granger")
 
 
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
-def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
-                         foi=None, foilim=None, pad_to_length=None,
-                         polyremoval=None, taper="hann", tapsmofrq=None,
-                         nTaper=None, toi="all", rtol=1e-7, nIter=100, cond_max=1e6,
-                         out=None, **kwargs):
+def connectivity(data, method="coh", keeptrials=False, output="abs",
+                 foi=None, foilim=None, pad_to_length=None,
+                 polyremoval=None, taper="hann", tapsmofrq=None,
+                 nTaper=None, toi="all", 
+                 out=None, **kwargs):
 
     """
     coming soon..
@@ -56,9 +56,10 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     timeAxis = data.dimord.index("time")
 
     # Get everything of interest in local namespace
-    defaults = get_defaults(connectivityanalysis)
+    defaults = get_defaults(connectivity)
     lcls = locals()
-
+    check_passed_kwargs(lcls, defaults, "connectivity")
+    
     # Ensure a valid computational method was selected
     if method not in availableMethods:
         lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
@@ -163,6 +164,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                                    nSamples=nSamples,
                                    output="pow") # ST_CSD's always have this unit/norm
 
+        check_effective_parameters(ST_CrossSpectra, defaults, lcls)
         # parallel computation over trials
         st_compRoutine = ST_CrossSpectra(samplerate=data.samplerate,
                                          padding_opt=padding_opt,
@@ -180,13 +182,14 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
     if method == 'granger':
         # after trial averaging
-        av_compRoutine = GrangerCausality(rtol=rtol,
-                                          nIter=nIter,
-                                          cond_max=cond_max
+        # hardcoded numerical parameters
+        av_compRoutine = GrangerCausality(rtol=1e-8,
+                                          nIter=100,
+                                          cond_max=1e5
                                           )
         
     if method == 'corr':
-
+        check_effective_parameters(ST_CrossCovariance, defaults, lcls)
         # parallel computation over trials
         st_compRoutine = ST_CrossCovariance(samplerate=data.samplerate,
                                             padding_opt=padding_opt,
