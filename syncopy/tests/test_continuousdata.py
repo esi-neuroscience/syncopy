@@ -489,6 +489,11 @@ class TestAnalogData():
         total_time = 30
         pad_list = padding(adata, "zero", pad="absolute", padlength=total_time,
                            unit="time", create_new=False)
+
+        res = padding(adata, "zero", pad="absolute", padlength=total_time,unit="time", create_new=True)
+
+        import pdb; pdb.set_trace()
+
         for tk, trl in enumerate(adata.trials):
             assert "pad_width" in pad_list[tk].keys()
             assert "constant_values" in pad_list[tk].keys()

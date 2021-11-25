@@ -12,12 +12,16 @@ from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.shared.parsers import data_parser, array_parser, scalar_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYWarning
+from syncopy.shared.kwarg_decorators import unwrap_cfg, unwrap_select, detect_parallel_client
 
 __all__ = ["padding"]
 
 
+@unwrap_cfg
+@unwrap_select
+@detect_parallel_client
 def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
-            postpadlength=None, unit="samples", create_new=True):
+            postpadlength=None, unit="samples", create_new=True, **kwargs):
     """
     Perform data padding on Syncopy object or :class:`numpy.ndarray`
 
@@ -288,10 +292,20 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         timeAxis = 0
         spydata = False
 
-    # Any existing in-place selections will be ignored
-    if data._selection is not None:
-        wrng = "Existing in-place selection{} will be ignored for padding."
-        SPYWarning(wrng.format(data._selection.__str__().partition("with")[-1]))
+    if spydata:
+        if data._selection is not None:
+            trialList = data._selection.trials
+            data._pad_sinfo = np.zeros((len(trialList), 2))
+            for tk, trlno in enumerate(trialList):
+                trl = data._preview_trial(trlno)
+                tsel = trl.idx[timeAxis]
+                if isinstance(tsel, list):
+                    data._pad_sinfo[tk, :] = [0, len(tsel)]
+                else:
+                    data._pad_sinfo[tk, :] = [trl.idx[timeAxis].start, trl.idx[timeAxis].stop]
+        else:
+            trialList = list(range(len(data.trials)))
+            data._pad_sinfo = data.sampleinfo
 
     # Ensure `create_new` is not weird
     if not isinstance(create_new, bool):
@@ -335,7 +349,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     # trials, compute lower bound for padding (in samples or seconds)
     if pad in ["absolute", "maxlen"]:
         if spydata:
-            maxTrialLen = np.diff(data.sampleinfo).max()
+            maxTrialLen = np.diff(data._pad_sinfo).max()
         else:
             maxTrialLen = data.shape[timeAxis] # if `pad="absolute" and data is array
     else:
@@ -453,8 +467,8 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         # A list of input keywords for ``np.pad`` is constructed, no matter if
         # we actually want to build a new object or not
         pad_opts = []
-        for trl in data.trials:
-            nSamples = trl.shape[timeAxis]
+        for tk in trialList:
+            nSamples = data._preview_trial(tk).shape[timeAxis]
             if pad == "absolute":
                 padding = (padlength - nSamples)/(prepadlength + postpadlength)
             elif pad == "relative":
@@ -471,7 +485,21 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
 
         if create_new:
             out = AnalogData(dimord=data.dimord)
-            pass
+            log_dct = {"padtype": padtype,
+                       "pad": pad,
+                       "padlength": padlength,
+                       "prepadlength": prepadlength,
+                       "postpadlength": postpadlength,
+                       "unit": unit}
+
+            chanAxis = list(set([0, 1]).difference([timeAxis]))[0]
+            padMethod = PaddingRoutine(timeAxis, chanAxis, pad_opts)
+            padMethod.initialize(data,
+                                 out._stackingDim,
+                                 chan_per_worker=kwargs.get("chan_per_worker"),
+                                 keeptrials=True)
+            padMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)
+            return out
         else:
             return pad_opts
 
@@ -526,38 +554,48 @@ def _nextpow2(number):
 
 
 @unwrap_io
-def padding_cF(trl_dat, timeAxis=0, pad_opt, noCompute=False, chunkShape=None):
+def padding_cF(trl_dat, timeAxis, chanAxis, pad_opt, noCompute=False, chunkShape=None):
     """
     Coming Soon
     """
 
-    # Re-arrange array if necessary and get dimensional information
-    if timeAxis != 0:
-        dat = trl_dat.T       # does not copy but creates view of `trl_dat`
-    else:
-        dat = trl_dat
+    nSamples = trl_dat.shape[timeAxis]
+    nChannels = trl_dat.shape[chanAxis]
 
     if noCompute:
-        return base_dat.shape, opres_type
+        outShape = [None] * 2
+        outShape[timeAxis] = pad_opt['pad_width'].sum() + nSamples
+        outShape[chanAxis] = nChannels
+        return outShape, trl_dat.dtype
 
     # Symmetric Padding (updates no. of samples)
-    return np.pad(dat, **pad_opt)
+    return np.pad(trl_dat, **pad_opt)
 
 class PaddingRoutine(ComputationalRoutine):
 
     computeFunction = staticmethod(padding_cF)
 
-    def process_metadata(self, baseObj, out):
+    def process_metadata(self, data, out):
 
-        # Get/set timing-related selection modifiers
-        out.trialdefinition = baseObj._selection.trialdefinition
-        # if baseObj._selection._timeShuffle: # FIXME: should be implemented done the road
-        #     out.time = baseObj._selection.timepoints
-        if baseObj._selection._samplerate:
-            out.samplerate = baseObj.samplerate
 
-        # Get/set dimensional attributes changed by selection
-        for prop in baseObj._selection._dimProps:
-            selection = getattr(baseObj._selection, prop)
-            if selection is not None:
-                setattr(out, prop, getattr(baseObj, prop)[selection])
+        pad_opts = self.argv[2]
+        import pdb; pdb.set_trace()
+
+        ss = [pad_opt["pad_width"].sum() for pad_opt in pad_opts]
+        np.diff(sinfo).squeeze() + ss
+        t0 = ss - t0
+
+        delattr(data, "_pad_sinfo")
+
+        # # Get/set timing-related selection modifiers
+        # out.trialdefinition = baseObj._selection.trialdefinition
+        # # if baseObj._selection._timeShuffle: # FIXME: should be implemented done the road
+        # #     out.time = baseObj._selection.timepoints
+        # if baseObj._selection._samplerate:
+        #     out.samplerate = baseObj.samplerate
+
+        # # Get/set dimensional attributes changed by selection
+        # for prop in baseObj._selection._dimProps:
+        #     selection = getattr(baseObj._selection, prop)
+        #     if selection is not None:
+        #         setattr(out, prop, getattr(baseObj, prop)[selection])
