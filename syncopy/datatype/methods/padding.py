@@ -292,20 +292,29 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         timeAxis = 0
         spydata = False
 
+    # If input is a syncopy object, fetch trial list and `sampleinfo` (thereby
+    # accounting for in-place selections); to not repeat this later, save relevant
+    # quantities in tmp attributes (all prefixed by `'_pad'`)
     if spydata:
         if data._selection is not None:
             trialList = data._selection.trials
             data._pad_sinfo = np.zeros((len(trialList), 2))
+            data._pad_t0 = np.zeros((len(trialList),))
             for tk, trlno in enumerate(trialList):
                 trl = data._preview_trial(trlno)
                 tsel = trl.idx[timeAxis]
                 if isinstance(tsel, list):
-                    data._pad_sinfo[tk, :] = [0, len(tsel)]
+                    lgl = "Syncopy AnalogData object with no or channe/trial selection"
+                    raise SPYValueError(lgl, varname="data", actual=data._selection)
                 else:
                     data._pad_sinfo[tk, :] = [trl.idx[timeAxis].start, trl.idx[timeAxis].stop]
+            data._pad_t0[tk] = data._t0[trlno]
+            data._pad_channel = data.channel[data._selection.channel]
         else:
             trialList = list(range(len(data.trials)))
             data._pad_sinfo = data.sampleinfo
+            data._pad_t0 = data._t0
+            data._pad_channel = data.channel
 
     # Ensure `create_new` is not weird
     if not isinstance(create_new, bool):
@@ -483,6 +492,8 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
             if padtype == "localmean":
                 pad_opts[-1]["stat_length"] = pw[timeAxis, :]
 
+        # If a new object is requested, use the legwork performed above to fire
+        # up the corresponding ComputationalRoutine
         if create_new:
             out = AnalogData(dimord=data.dimord)
             log_dct = {"padtype": padtype,
@@ -531,7 +542,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         if create_new:
             if isinstance(data, np.ndarray):
                 return np.pad(data, **pad_opts)
-            else: # FIXME: currently only supports FauxTrial
+            else:
                 shp = list(data.shape)
                 shp[timeAxis] += pw[timeAxis, :].sum()
                 idx = list(data.idx)
@@ -556,7 +567,43 @@ def _nextpow2(number):
 @unwrap_io
 def padding_cF(trl_dat, timeAxis, chanAxis, pad_opt, noCompute=False, chunkShape=None):
     """
-    Coming Soon
+    Perform trial data padding
+
+    Parameters
+    ----------
+    trl_dat : :class:`numpy.ndarray`
+        Trial data
+    timeAxis : int
+        Index of running time axis in `trl_dat` (0 or 1)
+    chanAxis : int
+        Index of channel axis in `trl_dat` (0 or 1)
+    pad_opt : dict
+        Dictionary of options for :func:`numpy.pad`
+    noCompute : bool
+        Preprocessing flag. If `True`, do not perform actual padding but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+    chunkShape : None or tuple
+        If not `None`, represents shape of output
+
+    Returns
+    -------
+    res : :class:`numpy.ndarray`
+        Padded array
+
+    Notes
+    -----
+    This method is intended to be used as
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+
+    See also
+    --------
+    syncopy.padding : pad :class:`syncopy.AnalogData` objects
+    PaddingRoutine : :class:`~syncopy.shared.computational_routine.ComputationalRoutine` subclass
     """
 
     nSamples = trl_dat.shape[timeAxis]
@@ -572,30 +619,42 @@ def padding_cF(trl_dat, timeAxis, chanAxis, pad_opt, noCompute=False, chunkShape
     return np.pad(trl_dat, **pad_opt)
 
 class PaddingRoutine(ComputationalRoutine):
+    """
+    Compute class for performing data padding on Syncopy AnalogData objects
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.padding : pad :class:`syncopy.AnalogData` objects
+    """
 
     computeFunction = staticmethod(padding_cF)
 
     def process_metadata(self, data, out):
 
-
+        # Fetch index of running time and used padding options from provided
+        # positional args and use them to compute new start/stop/trigger onset samples
+        timeAxis = self.argv[0]
         pad_opts = self.argv[2]
-        import pdb; pdb.set_trace()
+        prePadded = [pad_opt["pad_width"][timeAxis, 0] for pad_opt in pad_opts]
+        totalPadded = [pad_opt["pad_width"].sum() for pad_opt in pad_opts]
+        accumSamples = np.cumsum(np.diff(data._pad_sinfo).squeeze() + totalPadded)
 
-        ss = [pad_opt["pad_width"].sum() for pad_opt in pad_opts]
-        np.diff(sinfo).squeeze() + ss
-        t0 = ss - t0
+        # Construct trialdefinition array (columns: start/stop/t0/etc)
+        trialdefinition = np.zeros((len(totalPadded), data.trialdefinition.shape[1]))
+        trialdefinition[1:, 0] = accumSamples[:-1]
+        trialdefinition[:, 1] = accumSamples
+        trialdefinition[:, 2] = data._pad_t0 - prePadded
 
+        # Set relevant properties in output object
+        out.samplerate = data.samplerate
+        out.trialdefinition = trialdefinition
+        out.channel = data._pad_channel
+
+        # Remove inpromptu attributes generated above
         delattr(data, "_pad_sinfo")
-
-        # # Get/set timing-related selection modifiers
-        # out.trialdefinition = baseObj._selection.trialdefinition
-        # # if baseObj._selection._timeShuffle: # FIXME: should be implemented done the road
-        # #     out.time = baseObj._selection.timepoints
-        # if baseObj._selection._samplerate:
-        #     out.samplerate = baseObj.samplerate
-
-        # # Get/set dimensional attributes changed by selection
-        # for prop in baseObj._selection._dimProps:
-        #     selection = getattr(baseObj._selection, prop)
-        #     if selection is not None:
-        #         setattr(out, prop, getattr(baseObj, prop)[selection])
+        delattr(data, "_pad_t0")
+        delattr(data, "_pad_channel")
