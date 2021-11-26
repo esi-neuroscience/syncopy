@@ -395,7 +395,10 @@ class TestAnalogData():
             for ptype in ["zero", "mean", "localmean", "edge", "mirror"]:
                 arr = padding(self.data, ptype, pad="relative", **kws)
                 for k, idx in enumerate(expected_idx[loc]):
-                    assert np.all(arr[idx, :] == expected_vals[loc][ptype][k])
+                    try:
+                        assert np.all(arr[idx, :] == expected_vals[loc][ptype][k])
+                    except:
+                        import pdb; pdb.set_trace()
                 assert arr.shape[0] == expected_shape[loc]
             arr = padding(self.data, "nan", pad="relative", **kws)
             for idx in expected_idx[loc]:
@@ -547,10 +550,7 @@ class TestAnalogData():
         for tk, trl in enumerate(res2.trials):
             adataTrl = adata2.trials[trialSel[tk]]
             nSamples = pad_list2[trialSel[tk]]["pad_width"][timeAxis2, :].sum() + adataTrl.shape[timeAxis2]
-            try:
-                assert trl.shape[timeAxis2] == nSamples
-            except:
-                import pdb; pdb.set_trace()
+            assert trl.shape[timeAxis2] == nSamples
             assert trl.shape[chanAxis2] == len(list(chanSel))
 
         # symmetric `maxlen` padding: 1 sample tolerance
@@ -671,15 +671,21 @@ class TestAnalogData():
             _base_op_tests(dummy, ymmud, dummy2, ymmud2, None, operation)
 
             # Now the most complicated case: user-defined subset selections are present
-            for trialSel in trialSelections:
-                for chanSel in chanSelections:
-                    for timeSel in timeSelections:
-                        kwdict = {}
-                        kwdict["trials"] = trialSel
-                        kwdict["channels"] = chanSel
-                        kwdict[timeSel[0]] = timeSel[1]
+            kwdict = {}
+            kwdict["trials"] = trialSelections[1]
+            kwdict["channels"] = chanSelections[3]
+            kwdict[timeSelections[4][0]] = timeSelections[4][1]
+            _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
-                        _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
+            # # Go through full selection stack - WARNING: this takes > 15 minutes
+            # for trialSel in trialSelections:
+            #     for chanSel in chanSelections:
+            #         for timeSel in timeSelections:
+            #             kwdict = {}
+            #             kwdict["trials"] = trialSel
+            #             kwdict["channels"] = chanSel
+            #             kwdict[timeSel[0]] = timeSel[1]
+            #             _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
         result = (dummy + dummy2) / dummy ** 3
@@ -895,19 +901,27 @@ class TestSpectralData():
             _base_op_tests(dummy, ymmud, dummy2, ymmud2, dummyC, operation)
 
             # Now the most complicated case: user-defined subset selections are present
-            for trialSel in trialSelections:
-                for chanSel in chanSelections:
-                    for timeSel in timeSelections:
-                        for freqSel in freqSelections:
-                            for taperSel in taperSelections:
-                                kwdict = {}
-                                kwdict["trials"] = trialSel
-                                kwdict["channels"] = chanSel
-                                kwdict[timeSel[0]] = timeSel[1]
-                                kwdict[freqSel[0]] = freqSel[1]
-                                kwdict["tapers"] = taperSel
+            kwdict = {}
+            kwdict["trials"] = trialSelections[1]
+            kwdict["channels"] = chanSelections[3]
+            kwdict[timeSelections[4][0]] = timeSelections[4][1]
+            kwdict[freqSelections[4][0]] = freqSelections[4][1]
+            kwdict["tapers"] = taperSelections[2]
+            _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
-                                _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
+            # # Go through full selection stack - WARNING: this takes > 1 hour
+            # for trialSel in trialSelections:
+            #     for chanSel in chanSelections:
+            #         for timeSel in timeSelections:
+            #             for freqSel in freqSelections:
+            #                 for taperSel in taperSelections:
+            #                     kwdict = {}
+            #                     kwdict["trials"] = trialSel
+            #                     kwdict["channels"] = chanSel
+            #                     kwdict[timeSel[0]] = timeSel[1]
+            #                     kwdict[freqSel[0]] = freqSel[1]
+            #                     kwdict["tapers"] = taperSel
+            #                     _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
         result = (dummy + dummy2) / dummy ** 3
