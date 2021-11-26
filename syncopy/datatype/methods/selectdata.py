@@ -17,7 +17,7 @@ __all__ = ["selectdata"]
 @detect_parallel_client
 def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None,
                foilim=None, tapers=None, units=None, eventids=None,
-               out=None, inplace=False, **kwargs):
+               out=None, inplace=False, clear=False, **kwargs):
     """
     Create a new Syncopy object from a selection
 
@@ -245,9 +245,11 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
     except Exception as exc:
         raise exc
 
-    # Vet the only input not checked by `Selector`
+    # Vet the only inputs not checked by `Selector`
     if not isinstance(inplace, bool):
         raise SPYTypeError(inplace, varname="inplace", expected="Boolean")
+    if not isinstance(inplace, bool):
+        raise SPYTypeError(clear, varname="clear", expected="Boolean")
 
     # If provided, make sure output object is appropriate
     if not inplace:
@@ -267,16 +269,31 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
             lgl = "no output object for in-place selection"
             raise SPYValueError(lgl, varname="out", actual=out.__class__.__name__)
 
+    # Collect provided keywords in dict
+    selectDict = {"trials": trials,
+                  "channels": channels,
+                  "toi": toi,
+                  "toilim": toilim,
+                  "foi": foi,
+                  "foilim": foilim,
+                  "tapers": tapers,
+                  "units": units,
+                  "eventids": eventids}
+
+    # First simplest case: determine whether we just need to clear an existing selection
+    if clear:
+        if any(value is not None for value in selectDict.values()):
+            lgl = "no data selectors if `clear = True`"
+            raise SPYValueError(lgl, varname="select", actual=selectDict)
+        if data._selection is None:
+            SPYInfo("No in-place selection found. ")
+        else:
+            data._selection = None
+            SPYInfo("In-place selection cleared")
+        return
+
     # Pass provided selections on to `Selector` class which performs error checking
-    data._selection = {"trials": trials,
-                       "channels": channels,
-                       "toi": toi,
-                       "toilim": toilim,
-                       "foi": foi,
-                       "foilim": foilim,
-                       "tapers": tapers,
-                       "units": units,
-                       "eventids": eventids}
+    data._selection = selectDict
 
     # If an in-place selection was requested we're done
     if inplace:
@@ -285,17 +302,15 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
 
     # Create inventory of all available selectors and actually provided values
     # to create a bookkeeping dict for logging
-    provided = {**locals(), **kwargs}
-    available = get_defaults(data.selectdata)
-    actualSelection = {}
-    for key in available:
-        actualSelection[key] = provided[key]
+    log_dct = {"inplace": inplace, "clear": clear}
+    log_dct.update(selectDict)
+    log_dct.update(**kwargs)
 
     # Fire up `ComputationalRoutine`-subclass to do the actual selecting/copying
     selectMethod = DataSelection()
     selectMethod.initialize(data, out._stackingDim, chan_per_worker=kwargs.get("chan_per_worker"))
     selectMethod.compute(data, out, parallel=kwargs.get("parallel"),
-                         log_dict=actualSelection)
+                         log_dict=log_dct)
 
     # Wipe data-selection slot to not alter input object
     data._selection = None
