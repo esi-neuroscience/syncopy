@@ -241,12 +241,6 @@ def unwrap_cfg(func):
                 else:
                     posargs.append(arg)
 
-        # At this point, `data` is a list: if it's empty, not a single Syncopy data object
-        # was provided (neither via `cfg`, `kwargs`, or `args`) and the call is invalid
-        if len(data) == 0:
-            err = "{0} missing mandatory argument: `{1}`"
-            raise SPYError(err.format(func.__name__, arg0))
-
         # Call function with unfolded `data` + modified positional/keyword args
         return func(*data, *posargs, **cfg)
 
@@ -481,7 +475,7 @@ def detect_parallel_client(func):
         kwargs["parallel"] = parallel
 
         # Process provided object(s)
-        if nObs == 1:
+        if nObs <= 1:
             results = func(*args, **kwargs)
         else:
             results = []
