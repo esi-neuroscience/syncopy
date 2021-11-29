@@ -788,7 +788,7 @@ class BaseData(ABC):
         # Start cheap: check if samplerates are identical (if present)
         baseSr = getattr(self, "samplerate")
         opndSr = getattr(other, "samplerate")
-        if baseSr  != opndSr:
+        if baseSr != opndSr:
             SPYInfo("Mismatch in samplerates")
             return False
 
@@ -797,22 +797,18 @@ class BaseData(ABC):
             err = "Cannot perform object comparison with existing in-place selection"
             raise SPYError(err)
 
-        # Use in-place selections to query class-specific dimensional properties
-        # (i.e., channels, freq, taper etc.)
-        # FIXME: don't do this; loop over `_infoFileProperties` instead and kick
-        # out `dimord`, `cfg` and all underscore attrs
-        try:
-            self.selectdata(inplace=True)
-        except:
-            import ipdb; ipdb.set_trace()
-        other.selectdata(inplace=True)
+        # Use `_infoFileProperties` to fetch dimensional object props: remove `dimord`
+        # (has already been checked by `data_parser` above) and remove `cfg` (two
+        # objects might be identical even if their history deviates)
         isEqual = True
-        for prop in self._selection._dimProps:
-            if getattr(self._selection, prop) != getattr(other._selection, prop):
-                SPYInfo("Mismatch in {}".format(prop))
-                isEqual = False
-        self.selectdata(clear=True)
-        other.selectdata(clear=True)
+        dimProps = [prop for prop in self._infoFileProperties if not prop.startswith("_")]
+        dimProps = list(set(dimProps).difference(["dimord", "cfg"]))
+        for prop in dimProps:
+            val = getattr(self, prop)
+            if isinstance(val, np.ndarray):
+                isEqual = val.tolist() == getattr(other, prop).tolist()
+            else:
+                isEqual = val == getattr(other, prop)
         if not isEqual:
             return False
 
