@@ -1314,8 +1314,8 @@ class Selector():
                                     varname="select", actual=select)
         if not isinstance(select, dict):
             raise SPYTypeError(select, "select", expected="dict")
-        supported = ["trials", "channels", "toi", "toilim", "foi", "foilim",
-                     "tapers", "units", "eventids"]
+        supported = ["trials", "channels", "channels_i", "channels_j", "toi",
+                     "toilim", "foi", "foilim", "tapers", "units", "eventids"]
         if not set(select.keys()).issubset(supported):
             lgl = "dict with one or all of the following keys: '" +\
                   "'".join(opt + "', " for opt in supported)[:-2]
@@ -1328,7 +1328,7 @@ class Selector():
 
         # Set up lists of (a) all selectable properties (b) trial-dependent ones
         # and (c) selectors independent from trials
-        self._allProps = ["channel", "time", "freq", "taper", "unit", "eventid"]
+        self._allProps = ["channel", "channel_i", "channel_j", "time", "freq", "taper", "unit", "eventid"]
         self._byTrialProps = ["time", "unit", "eventid"]
         self._dimProps = list(self._allProps)
         for prop in self._byTrialProps:
@@ -1399,7 +1399,34 @@ class Selector():
     @channel.setter
     def channel(self, dataselect):
         data, select = dataselect
+        chanSpec = select.get("channels")
+        if self._dataClass == "CrossSpectralData":
+            if chanSpec is not None:
+                lgl = "`channel_i` and/or `channel_j` selectors for `CrossSpectralData`"
+                raise SPYValueError(legal=lgl, varname="select: channels", actual=data.__class__.__name__)
+            else:
+                return
         self._selection_setter(data, select, "channel", "channels")
+
+    @property
+    def channel_i(self):
+        """List or slice encoding principal channel-pair selection"""
+        return self._channel_i
+
+    @channel_i.setter
+    def channel_i(self, dataselect):
+        data, select = dataselect
+        self._selection_setter(data, select, "channel_i", "channels_i")
+
+    @property
+    def channel_j(self):
+        """List or slice encoding principal channel-pair selection"""
+        return self._channel_j
+
+    @channel_j.setter
+    def channel_j(self, dataselect):
+        data, select = dataselect
+        self._selection_setter(data, select, "channel_j", "channels_j")
 
     @property
     def time(self):

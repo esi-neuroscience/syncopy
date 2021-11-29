@@ -473,41 +473,6 @@ class AnalogData(ContinuousData):
                          channel=channel,
                          dimord=dimord)
 
-    # # Overload ``copy`` method to account for `VirtualData` memmaps
-    # def copy(self, deep=False):
-    #     """Create a copy of the data object in memory.
-
-    #     Parameters
-    #     ----------
-    #         deep : bool
-    #             If `True`, a copy of the underlying data file is created in the temporary Syncopy folder
-
-
-    #     Returns
-    #     -------
-    #         AnalogData
-    #             in-memory copy of AnalogData object
-
-    #     See also
-    #     --------
-    #     save_spy
-
-    #     """
-
-    #     cpy = copy(self)
-
-    #     if deep:
-    #         if isinstance(self.data, VirtualData):
-    #             print("SyNCoPy core - copy: Deep copy not possible for " +
-    #                   "VirtualData objects. Please use `save_spy` instead. ")
-    #             return
-    #         elif isinstance(self.data, (np.memmap, h5py.Dataset)):
-    #             self.data.flush()
-    #             filename = self._gen_filename()
-    #             shutil.copyfile(self._filename, filename)
-    #             cpy.data = filename
-    #     return cpy
-
 
 class SpectralData(ContinuousData):
     """
@@ -660,6 +625,7 @@ class CrossSpectralData(ContinuousData):
     frequency and optionally time or lag. The datatype can be complex or float.
     """
 
+    # Adapt `infoFileProperties` and `hdfFileAttributeProperties` from `ContinuousData`
     _infoFileProperties = BaseData._infoFileProperties + ("samplerate", "channel_i", "channel_j",)
     _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate", "channel_i", "channel_j",)
     _defaultDimord = ["time", "freq", "channel_i", "channel_j"]
@@ -668,6 +634,10 @@ class CrossSpectralData(ContinuousData):
     _channel_j = None
     _samplerate = None
     _data = None
+
+    # Steal frequency-related stuff from `SpectralData`
+    _get_freq = SpectralData._get_freq
+    freq = SpectralData.freq
 
     # override channel property to avoid accidental access
     @property
@@ -741,59 +711,6 @@ class CrossSpectralData(ContinuousData):
             raise exc
 
         self._channel_j = np.array(channel_j)
-
-    @property
-    def freq(self):
-        """:class:`numpy.ndarray`: frequency axis in Hz """
-        # if data exists but no user-defined frequency axis,
-        # create a dummy one on the fly
-
-        if self._freq is None and self._data is not None:
-            return np.arange(self.data.shape[self.dimord.index("freq")])
-        return self._freq
-
-    @freq.setter
-    def freq(self, freq):
-
-        if freq is None:
-            self._freq = None
-            return
-
-        if self.data is None:
-            print("Syncopy core - freq: Cannot assign `freq` without data. "+\
-                  "Please assing data first")
-            return
-        try:
-
-            array_parser(freq, varname="freq", hasnan=False, hasinf=False,
-                         dims=(self.data.shape[self.dimord.index("freq")],))
-        except Exception as exc:
-            raise exc
-
-        self._freq = np.array(freq)
-
-    # Override selector method
-    def selectdata(self, trials=None, channels1=None, channels2=None, toi=None, toilim=None,
-                   foi=None, foilim=None):
-        """
-        Create new `CrossSpectralData` object from selection
-
-        Please refer to :func:`syncopy.selectdata` for detailed usage information.
-
-        Examples
-        --------
-        >>> Coming soon
-
-        See also
-        --------
-        syncopy.selectdata : create new objects via deep-copy selections
-        """
-
-        if channels1 is not None or channels2 is not None:
-            raise NotImplementedError("Channel selection not yet supported for CrossSpectralData")
-
-        return selectdata(self, trials=trials, toi=toi,
-                          toilim=toilim, foi=foi, foilim=foilim)
 
     # # Local 2d -> 1d channel index converter
     # def _ind2sub(self, channel1, channel2):
