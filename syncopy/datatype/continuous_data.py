@@ -9,8 +9,6 @@ This module holds classes to represent data with a uniformly sampled time axis.
 
 """
 # Builtin/3rd party package imports
-import h5py
-import os
 import inspect
 import numpy as np
 from abc import ABC
@@ -19,7 +17,6 @@ from collections.abc import Iterator
 # Local imports
 from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
-from .methods.selectdata import selectdata
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import best_match
@@ -626,8 +623,10 @@ class CrossSpectralData(ContinuousData):
     """
 
     # Adapt `infoFileProperties` and `hdfFileAttributeProperties` from `ContinuousData`
-    _infoFileProperties = BaseData._infoFileProperties + ("samplerate", "channel_i", "channel_j",)
-    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate", "channel_i", "channel_j",)
+    _infoFileProperties = BaseData._infoFileProperties +\
+        ("samplerate", "channel_i", "channel_j", "freq", )
+    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties +\
+        ("samplerate", "channel_i", "channel_j", "freq", )
     _defaultDimord = ["time", "freq", "channel_i", "channel_j"]
     _stackingDimLabel = "time"
     _channel_i = None

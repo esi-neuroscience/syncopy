@@ -766,6 +766,84 @@ class BaseData(ABC):
     def __pow__(self, other):
         return _process_operator(self, other, "**")
 
+    def __eq__(self, other):
+
+        # If other object is not a Syncopy data-class, get out
+        if not "BaseData" in str(other.__class__.__mro__):
+            SPYInfo("Not a Syncopy object")
+            return False
+
+        # Check if two Syncopy objects of same type/dimord are present
+        try:
+            data_parser(other, dimord=self.dimord, dataclass=self.__class__.__name__)
+        except Exception as exc:
+            SPYInfo("Syncopy object of different type/dimord")
+            return False
+
+        # First, ensure we have something to compare here
+        if self._is_empty() and not other._is_empty():
+            SPYInfo("Empty and non-empty Syncopy object")
+            return False
+
+        # Start cheap: check if samplerates are identical (if present)
+        baseSr = getattr(self, "samplerate")
+        opndSr = getattr(other, "samplerate")
+        if baseSr  != opndSr:
+            SPYInfo("Mismatch in samplerates")
+            return False
+
+        # If in-place selections are present, abort
+        if self._selection is not None or other._selection is not None:
+            err = "Cannot perform object comparison with existing in-place selection"
+            raise SPYError(err)
+
+        # Use in-place selections to query class-specific dimensional properties
+        # (i.e., channels, freq, taper etc.)
+        # FIXME: don't do this; loop over `_infoFileProperties` instead and kick
+        # out `dimord`, `cfg` and all underscore attrs
+        try:
+            self.selectdata(inplace=True)
+        except:
+            import ipdb; ipdb.set_trace()
+        other.selectdata(inplace=True)
+        isEqual = True
+        for prop in self._selection._dimProps:
+            if getattr(self._selection, prop) != getattr(other._selection, prop):
+                SPYInfo("Mismatch in {}".format(prop))
+                isEqual = False
+        self.selectdata(clear=True)
+        other.selectdata(clear=True)
+        if not isEqual:
+            return False
+
+        # Check if trial setup is identical
+        if not np.array_equal(self.trialdefinition, other.trialdefinition):
+            SPYInfo("Mismatch in trial layouts")
+            return False
+
+        # If an object is compared to itself (or its shallow copy), don't bother
+        # juggling NumPy arrays but simply perform a quick dataset/filename comparison
+        if self.filename == other.filename:
+            for dsetName in self._hdfFileDatasetProperties:
+                if not getattr(self, dsetName) == getattr(other, dsetName):
+                    isEqual = False
+            if not isEqual:
+                SPYInfo("HDF dataset mismatch")
+                return False
+            return True
+
+        # The other object really is a standalone Syncopy class instance and
+        # everything but the data itself aligns; now the most expensive part:
+        # trial by trial data comparison
+        for tk in range(len(self.trials)):
+            if not np.allclose(self.trials[tk], other.trials[tk]):
+                SPYInfo("Mismatch in trial #{}".format(tk))
+                return False
+
+        # If we made it this far, `self` and `other` really seem to be identical
+        return True
+
+
     # Class "constructor"
     def __init__(self, filename=None, dimord=None, mode="r+", **kwargs):
         """
