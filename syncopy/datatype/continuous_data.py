@@ -660,7 +660,8 @@ class CrossSpectralData(ContinuousData):
     frequency and optionally time or lag. The datatype can be complex or float.
     """
 
-    _infoFileProperties = ContinuousData._infoFileProperties + ("freq",)
+    _infoFileProperties = BaseData._infoFileProperties + ("samplerate", "channel_i", "channel_j",)
+    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate", "channel_i", "channel_j",)
     _defaultDimord = ["time", "freq", "channel_i", "channel_j"]
     _stackingDimLabel = "time"
     _channel_i = None
