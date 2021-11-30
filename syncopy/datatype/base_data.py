@@ -162,6 +162,7 @@ class BaseData(ABC):
             ndim = len(self._defaultDimord)
 
         supportedSetters = {
+            list : self._set_dataset_property_with_list,
             str : self._set_dataset_property_with_str,
             np.ndarray : self._set_dataset_property_with_ndarray,
             np.core.memmap : self._set_dataset_property_with_memmap,
@@ -334,6 +335,18 @@ class BaseData(ABC):
             raise SPYValueError(legal=lgl, varname="data", actual=act)
 
         setattr(self, "_" + propertyName, inData)
+
+    def _set_dataset_property_with_list(self, inData, propertyName, ndim):
+        """
+        Coming soon...
+        """
+
+        if any(not isinstance(val, np.ndarray) for val in inData):
+            lgl = "list of NumPy arrays"
+            act = "mixed element list"
+            raise SPYValueError(legal=lgl, varname="data", actual=act)
+
+        pass
 
     def _is_empty(self):
         return all([getattr(self, attr) is None
