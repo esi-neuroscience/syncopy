@@ -7,7 +7,7 @@ dependencies:
   - python >= 3.8, < 3.9
   - pip
   - numpy >= 1.10, < 2.0
-  - scipy >= 1.5, < 1.6
+  - scipy >= 1.5
   - h5py >= 2.9, < 3
   - matplotlib >= 3.3, < 3.5
   - tqdm >= 4.31
@@ -18,7 +18,7 @@ dependencies:
   - memory_profiler
   - numpydoc
   - sphinx_bootstrap_theme
-  - pytest
+  - pytest-cov
   - pylint
   - ipdb
   - tox

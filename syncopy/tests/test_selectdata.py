@@ -387,6 +387,16 @@ class TestSelector():
         with pytest.raises(SPYValueError):
             Selector(ang, {"wrongkey": [1]})
 
+        # set/clear in-place data selection (both setting and clearing are idempotent,
+        # i.e., repeated execution must work, hence the double whammy)
+        ang.selectdata(trials=[3, 1])
+        ang.selectdata(trials=[3, 1])
+        ang.selectdata(clear=True)
+        ang.selectdata(clear=True)
+        with pytest.raises(SPYValueError) as spyval:
+            ang.selectdata(trials=[3, 1], clear=True)
+            assert "no data selectors if `clear = True`" in str(spyval.value)
+
         # go through all data-classes defined above
         for dclass in self.classes:
             dummy = getattr(spd, dclass)(data=self.data[dclass],

@@ -395,7 +395,10 @@ class TestAnalogData():
             for ptype in ["zero", "mean", "localmean", "edge", "mirror"]:
                 arr = padding(self.data, ptype, pad="relative", **kws)
                 for k, idx in enumerate(expected_idx[loc]):
-                    assert np.all(arr[idx, :] == expected_vals[loc][ptype][k])
+                    try:
+                        assert np.all(arr[idx, :] == expected_vals[loc][ptype][k])
+                    except:
+                        import pdb; pdb.set_trace()
                 assert arr.shape[0] == expected_shape[loc]
             arr = padding(self.data, "nan", pad="relative", **kws)
             for idx in expected_idx[loc]:
@@ -483,6 +486,11 @@ class TestAnalogData():
         adata = generate_artificial_data(nTrials=7, nChannels=16,
                                         equidistant=False, inmemory=False)
         timeAxis = adata.dimord.index("time")
+        chanAxis = adata.dimord.index("channel")
+
+        # Define trial/channel selections for tests
+        trialSel = [0, 2, 1]
+        chanSel = range(4)
 
         # test dictionary generation for `create_new = False`: ensure all trials
         # have padded length of `total_time` seconds (1 sample tolerance)
@@ -493,16 +501,57 @@ class TestAnalogData():
             assert "pad_width" in pad_list[tk].keys()
             assert "constant_values" in pad_list[tk].keys()
             trl_time = (pad_list[tk]["pad_width"][timeAxis, :].sum() + trl.shape[timeAxis]) / adata.samplerate
-            assert trl_time - total_time < 1/adata.samplerate
+            assert trl_time - total_time < 1 / adata.samplerate
+
+        # real thing: pad object with standing channel selection
+        res = padding(adata, "zero", pad="absolute", padlength=total_time,unit="time",
+                      create_new=True, select={"trials": trialSel, "channels": chanSel})
+        for tk, trl in enumerate(res.trials):
+            adataTrl = adata.trials[trialSel[tk]]
+            nSamples = pad_list[trialSel[tk]]["pad_width"][timeAxis, :].sum() + adataTrl.shape[timeAxis]
+            assert trl.shape[timeAxis] == nSamples
+            assert trl.shape[chanAxis] == len(list(chanSel))
+
+        # test correct update of trigger onset w/pre-padding
+        adataTimes = adata.time
+        prepadTime = 5
+        res = padding(adata, "zero", pad="relative", prepadlength=prepadTime,
+                      unit="time", create_new=True)
+        resTimes = res.time
+        adataTimes = adata.time
+        for tk, timeArr in enumerate(resTimes):
+            assert timeArr[0] == adataTimes[tk][0] - prepadTime
+            assert np.array_equal(timeArr[timeArr >= 0], adataTimes[tk][adataTimes[tk] >= 0])
+
+        # postpadding must not change trigger onset timing
+        postpadTime = 5
+        res = padding(adata, "zero", pad="relative", postpadlength=postpadTime,
+                      unit="time", create_new=True)
+        resTimes = res.time
+        for tk, timeArr in enumerate(resTimes):
+            assert timeArr[0] == adataTimes[tk][0]
+            assert np.array_equal(timeArr[timeArr <= 0], adataTimes[tk][adataTimes[tk] <= 0])
 
         # jumble axes of `AnalogData` object and compute max. trial length
         adata2 = generate_artificial_data(nTrials=7, nChannels=16,
-                                         equidistant=False, inmemory=False,
-                                         dimord=adata.dimord[::-1])
+                                          equidistant=False, inmemory=False,
+                                          dimord=adata.dimord[::-1])
         timeAxis2 = adata2.dimord.index("time")
+        chanAxis2 = adata2.dimord.index("channel")
         maxtrllen = 0
         for trl in adata2.trials:
             maxtrllen = max(maxtrllen, trl.shape[timeAxis2])
+
+        # same as above, but this time w/swapped dimensions
+        res2 = padding(adata2, "zero", pad="absolute", padlength=total_time, unit="time",
+                       create_new=True, select={"trials": trialSel, "channels": chanSel})
+        pad_list2 = padding(adata2, "zero", pad="absolute", padlength=total_time,
+                            unit="time", create_new=False)
+        for tk, trl in enumerate(res2.trials):
+            adataTrl = adata2.trials[trialSel[tk]]
+            nSamples = pad_list2[trialSel[tk]]["pad_width"][timeAxis2, :].sum() + adataTrl.shape[timeAxis2]
+            assert trl.shape[timeAxis2] == nSamples
+            assert trl.shape[chanAxis2] == len(list(chanSel))
 
         # symmetric `maxlen` padding: 1 sample tolerance
         pad_list2 = padding(adata2, "zero", pad="maxlen", create_new=False)
@@ -527,6 +576,21 @@ class TestAnalogData():
             trl_len = pad_list2[tk]["pad_width"][timeAxis2, :].sum() + trl.shape[timeAxis2]
             assert trl_len == maxtrllen
 
+        # make things maximally intersting: relative + time + non-equidistant +
+        # overlapping + selection + nonstandard dimord
+        adata3 = generate_artificial_data(nTrials=7, nChannels=16,
+                                          equidistant=False, overlapping=True,
+                                          inmemory=False, dimord=adata2.dimord)
+        res3 = padding(adata3, "zero", pad="absolute", padlength=total_time, unit="time",
+                       create_new=True, select={"trials": trialSel, "channels": chanSel})
+        pad_list3 = padding(adata3, "zero", pad="absolute", padlength=total_time,
+                            unit="time", create_new=False)
+        for tk, trl in enumerate(res3.trials):
+            adataTrl = adata3.trials[trialSel[tk]]
+            nSamples = pad_list3[trialSel[tk]]["pad_width"][timeAxis2, :].sum() + adataTrl.shape[timeAxis2]
+            assert trl.shape[timeAxis2] == nSamples
+            assert trl.shape[chanAxis2] == len(list(chanSel))
+
         # `maxlen'-specific errors: `padlength` wrong type, wrong combo with `prepadlength`
         with pytest.raises(SPYTypeError):
             padding(adata, "zero", pad="maxlen", padlength=self.ns, create_new=False)
@@ -535,10 +599,6 @@ class TestAnalogData():
         with pytest.raises(SPYTypeError):
             padding(adata, "zero", pad="maxlen", padlength=self.ns, prepadlength=True,
                     create_new=False)
-
-        # FIXME: implement as soon as object padding is supported:
-        # test absolute + time + non-equidistant!
-        # test relative + time + non-equidistant + overlapping!
 
     # test data-selection via class method
     def test_dataselection(self):
@@ -611,15 +671,21 @@ class TestAnalogData():
             _base_op_tests(dummy, ymmud, dummy2, ymmud2, None, operation)
 
             # Now the most complicated case: user-defined subset selections are present
-            for trialSel in trialSelections:
-                for chanSel in chanSelections:
-                    for timeSel in timeSelections:
-                        kwdict = {}
-                        kwdict["trials"] = trialSel
-                        kwdict["channels"] = chanSel
-                        kwdict[timeSel[0]] = timeSel[1]
+            kwdict = {}
+            kwdict["trials"] = trialSelections[1]
+            kwdict["channels"] = chanSelections[3]
+            kwdict[timeSelections[4][0]] = timeSelections[4][1]
+            _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
-                        _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
+            # # Go through full selection stack - WARNING: this takes > 15 minutes
+            # for trialSel in trialSelections:
+            #     for chanSel in chanSelections:
+            #         for timeSel in timeSelections:
+            #             kwdict = {}
+            #             kwdict["trials"] = trialSel
+            #             kwdict["channels"] = chanSel
+            #             kwdict[timeSel[0]] = timeSel[1]
+            #             _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
         result = (dummy + dummy2) / dummy ** 3
@@ -631,12 +697,11 @@ class TestAnalogData():
     def test_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
-        par_tests = ["test_ang_arithmetic"]
-        # par_tests = ["test_relative_array_padding",
-        #              "test_absolute_nextpow2_array_padding",
-        #              "test_object_padding",
-        #              "test_dataselection",
-        #              "test_ang_arithmetic"]
+        par_tests = ["test_relative_array_padding",
+                     "test_absolute_nextpow2_array_padding",
+                     "test_object_padding",
+                     "test_dataselection",
+                     "test_ang_arithmetic"]
         for test in par_tests:
             getattr(self, test)()
             flush_local_cluster(testcluster)
@@ -836,19 +901,27 @@ class TestSpectralData():
             _base_op_tests(dummy, ymmud, dummy2, ymmud2, dummyC, operation)
 
             # Now the most complicated case: user-defined subset selections are present
-            for trialSel in trialSelections:
-                for chanSel in chanSelections:
-                    for timeSel in timeSelections:
-                        for freqSel in freqSelections:
-                            for taperSel in taperSelections:
-                                kwdict = {}
-                                kwdict["trials"] = trialSel
-                                kwdict["channels"] = chanSel
-                                kwdict[timeSel[0]] = timeSel[1]
-                                kwdict[freqSel[0]] = freqSel[1]
-                                kwdict["tapers"] = taperSel
+            kwdict = {}
+            kwdict["trials"] = trialSelections[1]
+            kwdict["channels"] = chanSelections[3]
+            kwdict[timeSelections[4][0]] = timeSelections[4][1]
+            kwdict[freqSelections[4][0]] = freqSelections[4][1]
+            kwdict["tapers"] = taperSelections[2]
+            _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
-                                _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
+            # # Go through full selection stack - WARNING: this takes > 1 hour
+            # for trialSel in trialSelections:
+            #     for chanSel in chanSelections:
+            #         for timeSel in timeSelections:
+            #             for freqSel in freqSelections:
+            #                 for taperSel in taperSelections:
+            #                     kwdict = {}
+            #                     kwdict["trials"] = trialSel
+            #                     kwdict["channels"] = chanSel
+            #                     kwdict[timeSel[0]] = timeSel[1]
+            #                     kwdict[freqSel[0]] = freqSel[1]
+            #                     kwdict["tapers"] = taperSel
+            #                     _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
         result = (dummy + dummy2) / dummy ** 3
@@ -860,7 +933,7 @@ class TestSpectralData():
     def test_sd_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
-        par_tests = ["test_sd_dataselection"]
+        par_tests = ["test_sd_dataselection", "test_sd_arithmetic"]
         for test in par_tests:
             getattr(self, test)()
             flush_local_cluster(testcluster)

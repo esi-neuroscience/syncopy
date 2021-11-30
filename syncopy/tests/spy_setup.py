@@ -25,6 +25,8 @@ if __name__ == "__main__":
     # Test stuff within here...
     data1 = generate_artificial_data(nTrials=5, nChannels=16, equidistant=False, inmemory=False)
     data2 = generate_artificial_data(nTrials=5, nChannels=16, equidistant=True, inmemory=False)
+
+
     # client = spy.esi_cluster_setup(interactive=False)
     # data1 + data2
 
