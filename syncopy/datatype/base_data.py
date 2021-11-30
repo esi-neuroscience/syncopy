@@ -781,16 +781,11 @@ class BaseData(ABC):
             return False
 
         # First, ensure we have something to compare here
-        if self._is_empty() and not other._is_empty():
-            SPYInfo("Empty and non-empty Syncopy object")
-            return False
-
-        # Start cheap: check if samplerates are identical (if present)
-        baseSr = getattr(self, "samplerate")
-        opndSr = getattr(other, "samplerate")
-        if baseSr != opndSr:
-            SPYInfo("Mismatch in samplerates")
-            return False
+        if self._is_empty():
+            if not other._is_empty():
+                SPYInfo("Empty and non-empty Syncopy object")
+                return False
+            return True
 
         # If in-place selections are present, abort
         if self._selection is not None or other._selection is not None:
@@ -800,7 +795,6 @@ class BaseData(ABC):
         # Use `_infoFileProperties` to fetch dimensional object props: remove `dimord`
         # (has already been checked by `data_parser` above) and remove `cfg` (two
         # objects might be identical even if their history deviates)
-        isEqual = True
         dimProps = [prop for prop in self._infoFileProperties if not prop.startswith("_")]
         dimProps = list(set(dimProps).difference(["dimord", "cfg"]))
         for prop in dimProps:
@@ -809,8 +803,9 @@ class BaseData(ABC):
                 isEqual = val.tolist() == getattr(other, prop).tolist()
             else:
                 isEqual = val == getattr(other, prop)
-        if not isEqual:
-            return False
+            if not isEqual:
+                SPYInfo("Mismatch in {}".format(prop))
+                return False
 
         # Check if trial setup is identical
         if not np.array_equal(self.trialdefinition, other.trialdefinition):
@@ -819,10 +814,14 @@ class BaseData(ABC):
 
         # If an object is compared to itself (or its shallow copy), don't bother
         # juggling NumPy arrays but simply perform a quick dataset/filename comparison
+        isEqual = True
         if self.filename == other.filename:
             for dsetName in self._hdfFileDatasetProperties:
-                if not getattr(self, dsetName) == getattr(other, dsetName):
-                    isEqual = False
+                val = getattr(self, dsetName)
+                if isinstance(val, h5py.Dataset):
+                    isEqual = val == getattr(other, dsetName)
+                else:
+                    isEqual = np.allclose(val, getattr(other, dsetName))
             if not isEqual:
                 SPYInfo("HDF dataset mismatch")
                 return False

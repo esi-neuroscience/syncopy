@@ -371,7 +371,7 @@ class SpikeData(DiscreteData):
         # Remove duplicate entries from channel array but preserve original order
         # (e.g., `[2, 0, 0, 1]` -> `[2, 0, 1`); allows for complex subset-selections
         _, idx = np.unique(chan, return_index=True)
-        chan = np.array(chan)[idx]
+        chan = np.array(chan)[np.sort(idx)]
         nchan = np.unique(self.data[:, self.dimord.index("channel")]).size
         if chan.size != nchan:
             lgl = "channel label array of length {0:d}".format(nchan)
