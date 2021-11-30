@@ -19,13 +19,13 @@ foilim = [1, 30]
 # this still gives type(tsel) = slice :)
 sdict1 = {"trials": [0], 'channels' : ['channel1'], 'toi': np.arange(-1, 1, 0.001)}
 
-# no problems here..
-coherence = connectivityanalysis(data=tdat,
-                                foilim=None,
-                                output='pow')
+# # no problems here..
+# coherence = connectivityanalysis(data=tdat, method=
+#                                 foilim=None,
+#                                 output='pow')
 
 # a lot of problems here..
-# correlation = connectivityanalysis(data=tdat, method='corr', keeptrials=False)
+correlation = connectivityanalysis(data=tdat, method='corr', keeptrials=False)
 
 
 # the hard wired dimord of the cF

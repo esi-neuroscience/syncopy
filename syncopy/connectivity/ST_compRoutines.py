@@ -189,7 +189,7 @@ def cross_spectra_cF(trl_dat,
     else:
         return CS_ij[None, ..., freq_idx].transpose(0, 3, 1, 2), freqs[freq_idx]
 
-    
+
 class ST_CrossSpectra(ComputationalRoutine):
 
     """
@@ -236,7 +236,7 @@ class ST_CrossSpectra(ComputationalRoutine):
             out.trialdefinition = trl
         else:
             out.trialdefinition = np.array([[0, 1, 0]])
-            
+
         # Attach remaining meta-data
         out.samplerate = data.samplerate
         out.channel_i = np.array(data.channel[chanSec])
@@ -399,13 +399,15 @@ class ST_CrossCovariance(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Get trialdef array + channels from source
+        # Get trialdef array + channels from source: note, since lags are encoded
+        # in time-axis, trial offsets etc. are bogus anyway: simply take max-sample
+        # counts / 2 to fit lags
         if data._selection is not None:
             chanSec = data._selection.channel
-            trl = data._selection.trialdefinition
+            trl = np.ceil(data._selection.trialdefinition / 2)
         else:
             chanSec = slice(None)
-            trl = data.trialdefinition
+            trl = np.ceil(data.trialdefinition / 2)
 
         # If trial-averaging was requested, use the first trial as reference
         # (all trials had to have identical lengths), and average onset timings
@@ -414,10 +416,10 @@ class ST_CrossCovariance(ComputationalRoutine):
             trl = trl[[0], :]
             trl[:, 2] = t0
 
-        out.trialdefinition = trl            
+        out.trialdefinition = trl
         # Attach remaining meta-data
         out.samplerate = data.samplerate
         out.channel_i = np.array(data.channel[chanSec])
         out.channel_j = np.array(data.channel[chanSec])
 
-    
+

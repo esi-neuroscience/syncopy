@@ -31,12 +31,12 @@ def normalize_csd_cF(trl_av_dat,
                      output='abs',
                      chunkShape=None,
                      noCompute=False):
-          
+
     """
     Given the trial averaged cross spectral densities,
-    calculates the normalizations to arrive at the 
+    calculates the normalizations to arrive at the
     channel x channel coherencies. If S_ij(f) is the
-    averaged cross-spectrum between channel i and j, the 
+    averaged cross-spectrum between channel i and j, the
     coherency [1]_ is defined as:
 
           C_ij = S_ij(f) / (|S_ii| |S_jj|)
@@ -51,11 +51,11 @@ def normalize_csd_cF(trl_av_dat,
         Cross-spectral densities for `N` x `N` channels
         and `nFreq` frequencies averaged over trials.
     output : {'abs', 'pow', 'fourier'}, default: 'abs'
-        Also after normalization the coherency is still complex (`'fourier'`), 
+        Also after normalization the coherency is still complex (`'fourier'`),
         to get the real valued coherence 0 < C_ij(f) < 1 one can either take the
         absolute (`'abs'`) or the absolute squared (`'pow'`) values of the
-        coherencies. The definitions are not uniform in the literature, 
-        hence multiple output types are supported. 
+        coherencies. The definitions are not uniform in the literature,
+        hence multiple output types are supported.
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
@@ -77,8 +77,8 @@ def normalize_csd_cF(trl_av_dat,
     Consequently, this function does **not** perform any error checking and operates
     under the assumption that all inputs have been externally validated and cross-checked.
 
-    .. [1] Nolte, Guido, et al. "Identifying true brain interaction from EEG 
-          data using the imaginary part of coherency." 
+    .. [1] Nolte, Guido, et al. "Identifying true brain interaction from EEG
+          data using the imaginary part of coherency."
           Clinical neurophysiology 115.10 (2004): 2292-2307.
 
 
@@ -100,10 +100,10 @@ def normalize_csd_cF(trl_av_dat,
 
     # re-shape to (nChannels x nChannels x nFreq)
     CS_ij = trl_av_dat.transpose(0, 2, 3, 1)[0, ...]
-    
+
     # main diagonal has shape (nFreq x nChannels): the auto spectra
     diag = CS_ij.diagonal()
-    
+
     # get the needed product pairs of the autospectra
     Ciijj = np.sqrt(diag[:, :, None] * diag[:, None, :]).T
     CS_ij = CS_ij / Ciijj
@@ -113,13 +113,13 @@ def normalize_csd_cF(trl_av_dat,
     # re-shape to original form and re-attach dummy time axis
     return CS_ij[None, ...].transpose(0, 3, 1, 2)
 
-    
+
 class NormalizeCrossSpectra(ComputationalRoutine):
 
     """
     Compute class that normalizes trial averaged csd's
     of :class:`~syncopy.CrossSpectralData` objects
-    to arrive at the respective coherencies. 
+    to arrive at the respective coherencies.
 
     Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
     see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
@@ -141,7 +141,7 @@ class NormalizeCrossSpectra(ComputationalRoutine):
 
     def pre_check(self):
         '''
-        Make sure we have a trial average, 
+        Make sure we have a trial average,
         so the input data only consists of `1 trial`.
         Can only be performed after initialization!
         '''
@@ -150,12 +150,12 @@ class NormalizeCrossSpectra(ComputationalRoutine):
             lgl = 'Initialize the computational Routine first!'
             act = 'ComputationalRoutine not initialized!'
             raise SPYValueError(legal=lgl, varname=self.__class__.__name__, actual=act)
-        
+
         if self.numTrials != 1:
             lgl = "1 trial: normalizations can only be done on averaged quantities!"
             act = f"DataSet contains {self.numTrials} trials"
             raise SPYValueError(legal=lgl, varname="data", actual=act)
-    
+
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
@@ -177,7 +177,7 @@ class NormalizeCrossSpectra(ComputationalRoutine):
             out.trialdefinition = trl
         else:
             out.trialdefinition = np.array([[0, 1, 0]])
-            
+
         # Attach remaining meta-data
         out.samplerate = data.samplerate
         out.channel_i = np.array(data.channel_i[chanSec])
@@ -189,7 +189,7 @@ class NormalizeCrossSpectra(ComputationalRoutine):
 def normalize_ccov_cF(trl_av_dat,
                       chunkShape=None,
                       noCompute=False):
-          
+
     """
     Given the trial averaged cross-covariances,
     we normalize with the 0-lag auto-covariances
@@ -240,12 +240,12 @@ def normalize_ccov_cF(trl_av_dat,
 
     # re-shape to (nLag x nChannels x nChannels)
     CCov_ij = trl_av_dat[:, 0, ...]
-    
+
     # main diagonal has shape (nChannels x nChannels):
     # the auto-covariances at 0-lag (~stds)
     diag = trl_av_dat[0, 0, ...].diagonal()
 
-    # get the needed product pairs 
+    # get the needed product pairs
     Ciijj = np.sqrt(diag[:, None] * diag[None, :]).T
     CCov_ij = CCov_ij / Ciijj
 
@@ -256,7 +256,7 @@ def normalize_ccov_cF(trl_av_dat,
 class NormalizeCrossCov(ComputationalRoutine):
 
     """
-    Compute class that normalizes trial averaged 
+    Compute class that normalizes trial averaged
     cross-covariances of :class:`~syncopy.CrossSpectralData` objects
     to arrive at the respective correlations
 
@@ -278,9 +278,9 @@ class NormalizeCrossCov(ComputationalRoutine):
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(normalize_ccov_cF).parameters.keys())[1:]
 
-    def pre_check(self):        
+    def pre_check(self):
         '''
-        Make sure we have a trial average, 
+        Make sure we have a trial average,
         so the input data only consists of `1 trial`.
         Can only be performed after initialization!
         '''
@@ -289,14 +289,14 @@ class NormalizeCrossCov(ComputationalRoutine):
             lgl = 'Initialize the computational Routine first!'
             act = 'ComputationalRoutine not initialized!'
             raise SPYValueError(legal=lgl, varname=self.__class__.__name__, actual=act)
-        
+
         if self.numTrials != 1:
             lgl = "1 trial: normalizations can only be done on averaged quantities!"
             act = f"DataSet contains {self.numTrials} trials"
             raise SPYValueError(legal=lgl, varname="data", actual=act)
-    
+
     def process_metadata(self, data, out):
-        
+
         # Get trialdef array + channels from source
         if data._selection is not None:
             chanSec = data._selection.channel
@@ -305,7 +305,7 @@ class NormalizeCrossCov(ComputationalRoutine):
             chanSec = slice(None)
             trl = data.trialdefinition
 
-        out.trialdefinition = trl            
+        out.trialdefinition = trl
         # Attach remaining meta-data
         out.samplerate = data.samplerate
         out.channel_i = np.array(data.channel_i[chanSec])
