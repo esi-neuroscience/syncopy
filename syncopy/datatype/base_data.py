@@ -341,12 +341,34 @@ class BaseData(ABC):
         Coming soon...
         """
 
-        if any(not isinstance(val, np.ndarray) for val in inData):
-            lgl = "list of NumPy arrays"
-            act = "mixed element list"
+        # Check list entries: must be numeric, finite NumPy arrays
+        for val in inData:
+            try:
+                array_parser(val, varname="data", hasinf=False, dims=ndim)
+            except Exception as exc:
+                raise exc
+
+        # Ensure we don't have a mix of real/complex arrays
+        if np.unique([np.iscomplexobj(val) for val in inData]).size > 1:
+            lgl = "list of numeric NumPy arrays of same numeric type (real/complex)"
+            act = "real and complex NumPy arrays"
             raise SPYValueError(legal=lgl, varname="data", actual=act)
 
-        pass
+        # Ensure shapes match up
+        if any(val.shape != inData[0].shape for val in inData):
+            lgl = "NumPy arrays of identical shape"
+            act = "NumPy arrays with differing shapes"
+            raise SPYValueError(legal=lgl, varname="data", actual=act)
+
+        import ipdb; ipdb.set_trace()
+
+        # use stackingdim to build data-array!
+        if self.__class__.__name__ == "AnalogData":
+            pass # use np.h/vstack here
+        else:
+            pass # allocate ndarray
+
+
 
     def _is_empty(self):
         return all([getattr(self, attr) is None
