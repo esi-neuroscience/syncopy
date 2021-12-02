@@ -31,7 +31,7 @@ from .methods.show import show
 from syncopy.shared.tools import StructDict
 from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser,
                                     filename_parser, data_parser)
-from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError
+from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError, SPYWarning
 from syncopy.datatype.methods.definetrial import definetrial as _definetrial
 from syncopy import __version__, __storage__, __acme__, __sessionid__, __storagelimit__
 if __acme__:
@@ -354,21 +354,48 @@ class BaseData(ABC):
             act = "real and complex NumPy arrays"
             raise SPYValueError(legal=lgl, varname="data", actual=act)
 
-        # Ensure shapes match up
-        if any(val.shape != inData[0].shape for val in inData):
-            lgl = "NumPy arrays of identical shape"
-            act = "NumPy arrays with differing shapes"
-            raise SPYValueError(legal=lgl, varname="data", actual=act)
+        # Requirements for input arrays differ wrt data-class (`DiscreteData` always 2D)
+        if any(["ContinuousData" in str(base) for base in self.__class__.__mro__]):
 
-        import ipdb; ipdb.set_trace()
+            # Ensure shapes match up
+            if any(val.shape != inData[0].shape for val in inData):
+                lgl = "NumPy arrays of identical shape"
+                act = "NumPy arrays with differing shapes"
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
+            trialLens = [val.shape[self.dimord.index("time")] for val in inData]
 
-        # use stackingdim to build data-array!
-        if self.__class__.__name__ == "AnalogData":
-            pass # use np.h/vstack here
         else:
-            pass # allocate ndarray
 
+            # Ensure all arrays have shape `(N, 3)``
+            if any(val.shape[1] != 3 for val in inData):
+                lgl = "NumPy 2d-arrays with 3 columns"
+                act = "NumPy arrays of different shape"
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
+            trialLens = [np.nanmax(val[:, self.dimord.index("sample")]) for val in inData]
 
+        # Now the shaky stuff: use determined trial lengths to cook up a (completely
+        # fictional) samplerate: we aim for `smax` Hz and round down to `sround` Hz
+        nTrials = len(trialLens)
+        sround = 50
+        smax = 1000
+        srate = min(max(min(smax, tlen / 2) // sround * sround, 1) for tlen in trialLens)
+        t0 = -srate
+        msg = "Artificially generated trial-layout: trigger offset = {t0} sec, " +\
+            "samplerate = {srate} Hz (rounded to {sround} Hz with max of {smax} Hz)"
+        SPYWarning(msg.format(t0=t0/srate, srate=srate, sround=sround, smax=smax), caller="data")
+
+        # Use constructed quantities to set up trial layout matrix
+        accumSamples = np.cumsum(trialLens)
+        trialdefinition = np.zeros((nTrials, 3))
+        trialdefinition[1:, 0] = accumSamples[:-1]
+        trialdefinition[:, 1] = accumSamples
+        trialdefinition[:, 2] = t0
+
+        # Finally, concatenate provided arrays and let corresponding setting method
+        # perform the actual HDF magic
+        data = np.concatenate(inData, axis=self._stackingDim)
+        self._set_dataset_property_with_ndarray(data, propertyName, ndim)
+        self.trialdefinition = trialdefinition
 
     def _is_empty(self):
         return all([getattr(self, attr) is None
