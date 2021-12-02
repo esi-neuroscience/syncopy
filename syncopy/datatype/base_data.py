@@ -337,8 +337,17 @@ class BaseData(ABC):
         setattr(self, "_" + propertyName, inData)
 
     def _set_dataset_property_with_list(self, inData, propertyName, ndim):
-        """
-        Coming soon...
+        """Set a dataset property with list of NumPy arrays
+
+        Parameters
+        ----------
+            inData : list
+                list of :class:`numpy.ndarray`s. Each array corresponds to
+                a trial. Arrays are stacked together to fill dataset.
+            propertyName : str
+                Name of the property to be filled with the concatenated array
+            ndim : int
+                Number of expected array dimensions.
         """
 
         # Check list entries: must be numeric, finite NumPy arrays

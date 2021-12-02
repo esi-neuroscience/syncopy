@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     trl_dat = [my_noise, 5 * my_noise + 10, np.random.randn(nSamples, nChannels)]
 
-    spy.AnalogData(trl_dat)
+    aa = spy.AnalogData(trl_dat)
 
 
     # client = spy.esi_cluster_setup(interactive=False)

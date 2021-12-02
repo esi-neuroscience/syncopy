@@ -244,6 +244,33 @@ class TestBaseData():
                 with pytest.raises(SPYValueError):
                     getattr(spd, dclass)(data=open_memmap(fname))
 
+                # ensure synthetic data allocation via list of arrays works
+                dummy = getattr(spd, dclass)(data=[self.data[dclass], self.data[dclass]])
+                assert len(dummy.trials) == 2
+
+                dummy = getattr(spd, dclass)(data=[self.data[dclass], self.data[dclass]],
+                                samplerate=10.0)
+                assert len(dummy.trials) == 2
+                assert dummy.samplerate == 10
+
+                if any(["ContinuousData" in str(base) for base in self.__class__.__mro__]):
+                    nChan = self.data[dclass].shape[dummy.dimord.index("channel")]
+                    dummy = getattr(spd, dclass)(data=[self.data[dclass], self.data[dclass]],
+                                    channel=['label']*nChan)
+                    assert len(dummy.trials) == 2
+                    assert np.array_equal(dummy.channel, np.array(['label']*nChan))
+
+                # the most egregious input errors are caught by `array_parser`; only
+                # test list-routine-specific stuff: complex/real mismatch
+                with pytest.raises(SPYValueError) as spyval:
+                    getattr(spd, dclass)(data=[self.data[dclass], np.complex64(self.data[dclass])])
+                    assert "same numeric type (real/complex)" in str(spyval.value)
+
+                # shape mismatch
+                with pytest.raises(SPYValueError):
+                    getattr(spd, dclass)(data=[self.data[dclass], self.data[dclass].T])
+
+
             time.sleep(0.01)
             del dummy
 
@@ -373,8 +400,8 @@ class TestBaseData():
     def test_arithmetic(self):
 
         # Define list of classes arithmetic ops should and should not work with
-        # FIXME: include `CrossSpectralData` here!
-        # continuousClasses = ["AnalogData", "SpectralData", "CrossSpectralData"]
+        # FIXME: include `CrossSpectralData` here and use something like
+        # if any(["ContinuousData" in str(base) for base in self.__class__.__mro__])
         continuousClasses = ["AnalogData", "SpectralData"]
         discreteClasses = ["SpikeData", "EventData"]
 
@@ -527,7 +554,7 @@ class TestBaseData():
                                          samplerate=self.samplerate)
             assert dummy != ymmud
 
-        # Same objects but different dimords: `DiscreteData`` children
+        # Same objects but different dimords: `DiscreteData` children
         for dclass in discreteClasses:
             dummy = getattr(spd, dclass)(self.data[dclass],
                                          trialdefinition=self.trl[dclass],
