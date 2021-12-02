@@ -81,8 +81,6 @@ class ContinuousData(BaseData, ABC):
         printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
         for attr in ppattrs:
             value = getattr(self, attr)
-            if attr == "dimord" and value is not None:
-                valueString = dsep.join(dim for dim in self.dimord)
             if hasattr(value, 'shape') and attr == "data" and self.sampleinfo is not None:
                 tlen = np.unique([sinfo[1] - sinfo[0] for sinfo in self.sampleinfo])
                 if tlen.size == 1:
@@ -379,7 +377,6 @@ class ContinuousData(BaseData, ABC):
 
         self.channel = channel
         self.samplerate = samplerate     # use setter for error-checking
-        self.data = data
 
         if self.data is not None:
 

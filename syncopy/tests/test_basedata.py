@@ -383,7 +383,6 @@ class TestBaseData():
             dummy = getattr(spd, dclass)(self.data[dclass],
                                          trialdefinition=self.trl[dclass],
                                          samplerate=self.samplerate)
-
             for operation in arithmetics:
                 with pytest.raises(SPYTypeError) as spytyp:
                     operation(dummy, 2)
