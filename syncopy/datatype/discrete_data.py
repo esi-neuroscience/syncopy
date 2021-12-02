@@ -74,8 +74,6 @@ class DiscreteData(BaseData, ABC):
         printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
         for attr in ppattrs:
             value = getattr(self, attr)
-            # if attr == "dimord" and value is not None:
-            #     valueString = dsep.join(dim for dim in self.dimord)
             if hasattr(value, 'shape') and attr == "data" and self.sampleinfo is not None:
                 tlen = np.unique([sinfo[1] - sinfo[0] for sinfo in self.sampleinfo])
                 if tlen.size == 1:
@@ -311,17 +309,17 @@ class DiscreteData(BaseData, ABC):
         self._hdr = None
         self._data = None
 
-        # Call initializer
-        super().__init__(data=data, **kwargs)
-
         self.samplerate = samplerate
         self.trialid = trialid
+
+        # Call initializer
+        super().__init__(data=data, **kwargs)
 
         if self.data is not None:
 
             # In case of manual data allocation (reading routine would leave a
             # mark in `cfg`), fill in missing info
-            if len(self.cfg) == 0:
+            if self.sampleinfo is None:
 
                 # Fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))

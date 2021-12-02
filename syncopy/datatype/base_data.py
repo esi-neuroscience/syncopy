@@ -366,23 +366,32 @@ class BaseData(ABC):
 
         else:
 
-            # Ensure all arrays have shape `(N, 3)``
-            if any(val.shape[1] != 3 for val in inData):
+            # Ensure all arrays have shape `(N, nCol)``
+            if self.__class__.__name__ == "SpikeData":
+                nCol = 3
+            else: # EventData
+                nCol = 2
+            if any(val.shape[1] != nCol for val in inData):
                 lgl = "NumPy 2d-arrays with 3 columns"
                 act = "NumPy arrays of different shape"
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             trialLens = [np.nanmax(val[:, self.dimord.index("sample")]) for val in inData]
 
-        # Now the shaky stuff: use determined trial lengths to cook up a (completely
-        # fictional) samplerate: we aim for `smax` Hz and round down to `sround` Hz
+        # Now the shaky stuff: if not provided, use determined trial lengths to
+        # cook up a (completely fictional) samplerate: we aim for `smax` Hz and
+        # round down to `sround` Hz
         nTrials = len(trialLens)
-        sround = 50
-        smax = 1000
-        srate = min(max(min(smax, tlen / 2) // sround * sround, 1) for tlen in trialLens)
-        t0 = -srate
-        msg = "Artificially generated trial-layout: trigger offset = {t0} sec, " +\
-            "samplerate = {srate} Hz (rounded to {sround} Hz with max of {smax} Hz)"
-        SPYWarning(msg.format(t0=t0/srate, srate=srate, sround=sround, smax=smax), caller="data")
+        msg2 = ""
+        if self.samplerate is None:
+            sround = 50
+            smax = 1000
+            srate = min(max(min(smax, tlen / 2) // sround * sround, 1) for tlen in trialLens)
+            self.samplerate = srate
+            msg2 = ", samplerate = {srate} Hz (rounded to {sround} Hz with max of {smax} Hz)"
+            msg2 = msg2.format(srate=srate, sround=sround, smax=smax)
+        t0 = -self.samplerate
+        msg = "Artificially generated trial-layout: trigger offset = {t0} sec" + msg2
+        SPYWarning(msg.format(t0=t0/self.samplerate), caller="data")
 
         # Use constructed quantities to set up trial layout matrix
         accumSamples = np.cumsum(trialLens)

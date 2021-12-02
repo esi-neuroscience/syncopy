@@ -372,17 +372,18 @@ class ContinuousData(BaseData, ABC):
         self._samplerate = None
         self._data = None
 
+        self.samplerate = samplerate     # use setter for error-checking
+
         # Call initializer
         super().__init__(data=data, **kwargs)
 
         self.channel = channel
-        self.samplerate = samplerate     # use setter for error-checking
 
         if self.data is not None:
 
             # In case of manual data allocation (reading routine would leave a
             # mark in `cfg`), fill in missing info
-            if len(self.cfg) == 0:
+            if self.sampleinfo is None:
 
                 # First, fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
