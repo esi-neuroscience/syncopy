@@ -18,12 +18,12 @@ spectralConversions = {"pow": lambda x: (x * np.conj(x)).real.astype(np.float32)
                        "abs": lambda x: (np.absolute(x)).real.astype(np.float32)}
 
 
-#: available tapers of :func:`~syncopy.freqanalysis`
+#: available tapers of :func:`~syncopy.freqanalysis` and  :func:`~syncopy.connectivity`
 all_windows = windows.__all__
 all_windows.remove("exponential") # not symmetric
 all_windows.remove("hanning") # deprecated
 availableTapers = all_windows
 
-#: general, method agnostic, parameters of :func:`~syncopy.freqanalysis`
+#: general, method agnostic, parameters for our CRs
 generalParameters = ("method", "output", "keeptrials","samplerate",
                      "foi", "foilim", "polyremoval", "out")

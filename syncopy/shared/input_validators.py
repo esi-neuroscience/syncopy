@@ -225,8 +225,8 @@ def check_effective_parameters(CR, defaults, lcls):
 
     '''
     For a given ComputationalRoutine, compare set parameters
-    (*lcls*) with the accepted parameters and the *defaults*
-    to warn if any ineffective parameters are set.
+    (*lcls*) with the accepted parameters and the frontend 
+    meta function *defaults* to warn if any ineffective parameters are set.
 
     Parameters
     ----------
