@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as ppl
 from syncopy.connectivity import ST_compRoutines as stCR
 from syncopy.connectivity import AV_compRoutines as avCR
+from syncopy.connectivity.wilson_sf import wilson_sf, regularize_csd
+from syncopy.connectivity.granger import granger
 
 
 def test_coherence():
@@ -20,7 +22,7 @@ def test_coherence():
     harm_freq = 40
     phase_shifts = np.array([0, np.pi / 2, np.pi])
 
-    nTrials = 50
+    nTrials = 100
 
     # shape is (1, nFreq, nChannel, nChannel)
     nFreq = nSamples // 2 + 1
@@ -45,7 +47,7 @@ def test_coherence():
         assert avCSD.shape == CSD.shape
         avCSD += CSD
 
-    # this is the result of the 
+    # this is the trial average
     avCSD /= nTrials
     
     # perform the normalisation on the trial averaged csd's
@@ -66,7 +68,7 @@ def test_coherence():
     assert ax.plot(freqs, coh, lw=1.5, alpha=0.8, c='cornflowerblue')
 
     # we test for the highest peak sitting at
-    # the vicinity (± 5Hz) of one the harmonic
+    # the vicinity (± 5Hz) of the harmonic
     peak_val = np.max(coh)
     peak_idx = np.argmax(coh)
     peak_freq = freqs[peak_idx]
@@ -162,3 +164,161 @@ def test_cross_cov():
     # cross-correlation (normalized cross-covariance) between
     # cosine and sine analytically equals minus sine    
     assert np.all(CC[:, 0, 0, 1] + sine[:nLags] < 1e-5)
+
+
+def test_wilson():
+
+    '''
+    Test Wilson's spectral matrix factorization.
+
+    As the routine has relative error-checking
+    inbuild, we just need to check for convergence.
+    '''
+
+    # --- create test data ---
+    fs = 1000
+    nChannels = 10
+    nSamples = 1000
+    f1, f2 = [30 , 40] # 30Hz and 60Hz
+    data = np.zeros((nSamples, nChannels))
+    for i in range(nChannels):
+        # more phase diffusion in the 60Hz band    
+        p1 = phase_evo(f1 * 2 * np.pi, eps=0.1, fs=fs, N=nSamples)
+        p2 = phase_evo(f2 * 2 * np.pi, eps=0.35, fs=fs, N=nSamples)
+        
+        data[:, i] = np.cos(p1) + 2 * np.sin(p2) + .5 * np.random.randn(nSamples)
+        
+    # --- get the (single trial) CSD ---
+    
+    bw = 5 # 5Hz smoothing
+    NW = bw * nSamples / (2 * fs)
+    Kmax = int(2 * NW - 1) # optimal number of tapers
+
+    CSD, freqs = stCR.cross_spectra_cF(data, fs,
+                                       taper='dpss',
+                                       taper_opt={'Kmax' : Kmax, 'NW' : NW},
+                                       norm=False,
+                                       fullOutput=True)
+    # strip off singleton time axis
+    CSD = CSD[0]
+
+    # get CSD condition number, which is way too large!
+    CN = np.linalg.cond(CSD).max()
+    assert CN > 1e6
+
+    # --- regularize CSD ---
+    
+    CSDreg, fac = regularize_csd(CSD, cond_max=1e6, nSteps=25)
+    CNreg = np.linalg.cond(CSDreg).max()
+    assert CNreg < 1e6
+    # check that 'small' regularization factor is enough
+    assert fac < 1e-5 
+    
+    # --- factorize CSD with Wilson's algorithm ---
+    
+    H, Sigma, conv = wilson_sf(CSDreg, rtol=1e-9)
+
+    # converged - \Psi \Psi^* \approx CSD,
+    # with relative error <= rtol?
+    assert conv
+
+    # reconstitute
+    CSDfac = H @ Sigma @ H.conj().transpose(0, 2, 1)
+    
+    fig, ax = ppl.subplots(figsize=(6, 4))
+    ax.set_xlabel('frequency (Hz)')
+    ax.set_ylabel(r'$|CSD_{ij}(f)|$')
+    chan = nChannels // 2
+    # show (real) auto-spectra 
+    assert ax.plot(freqs, np.abs(CSD[:, chan, chan]),
+                   '-o', label='original CSD', ms=3)
+    assert ax.plot(freqs, np.abs(CSDreg[:, chan, chan]),
+                   '-o', label='regularized CSD', ms=3)
+    assert ax.plot(freqs, np.abs(CSDfac[:, chan, chan]),
+                   '-o', label='factorized CSD', ms=3)
+    ax.set_xlim((f1 - 5, f2 + 5))
+
+
+def test_granger():
+
+    '''
+    Test the granger causality measure
+    with uni-directionally coupled AR(2)
+    processes akin to the source publication:
+
+    Dhamala, Mukeshwar, Govindan Rangarajan, and Mingzhou Ding. 
+       "Estimating Granger causality from Fourier and wavelet transforms 
+        of time series data." Physical review letters 100.1 (2008): 018701.
+    '''
+
+    fs = 200 # Hz
+    nSamples = 2500
+    nTrials = 50
+    
+    # both AR(2) processes have same parameters
+    # and yield a spectral peak at 40Hz
+    alpha1, alpha2 = 0.55, -0.8
+    coupling = 0.25
+
+    CSDav = np.zeros((nSamples // 2 + 1, 2, 2), dtype=np.complex64)
+    for _ in range(nTrials):
+
+        # -- simulate 2 AR(2) processes --
+        
+        sol = np.zeros((nSamples, 2))
+        # pick the 1st values at random
+        xs_ini = np.random.randn(2, 2)
+        sol[:2, :] = xs_ini
+        for i in range(1, nSamples):
+            sol[i, 1] = alpha1 * sol[i - 1, 1] + alpha2 * sol[i - 2, 1] 
+            sol[i, 1] += np.random.randn()
+            # X2 drives X1
+            sol[i, 0] = alpha1 * sol[i - 1, 0] + alpha2 * sol[i - 2, 0]
+            sol[i, 0] += sol[i - 1, 1] * coupling 
+            sol[i, 0] += np.random.randn()
+
+        # --- get CSD ---
+        bw = 5
+        NW = bw * nSamples / (2 * 1000)
+        Kmax = int(2 * NW - 1) # optimal number of tapers
+        CS2, freqs = stCR.cross_spectra_cF(sol, fs,
+                                           taper='dpss',
+                                           taper_opt={'Kmax' : Kmax, 'NW' : NW},
+                                           fullOutput=True)
+
+        CSD = CS2[0, ...]
+        CSDav += CSD
+            
+    CSDav /= nTrials
+    # with only 2 channels this CSD is well conditioned
+    assert np.linalg.cond(CSDav).max() < 1e2
+    H, Sigma, conv = wilson_sf(CSDav)
+    
+    G = granger(CSDav, H, Sigma)
+    assert G.shape == CSDav.shape
+
+    # check for directional causality at 40Hz
+    freq_idx = np.argmin(freqs < 40)
+    assert 39 < freqs[freq_idx] < 41
+
+    # check low to no causality for 1->2
+    assert G[freq_idx, 0, 1] < 0.1
+    # check high causality for 2->1
+    assert G[freq_idx, 1, 0] > 0.8
+    
+    fig, ax = ppl.subplots(figsize=(6, 4))
+    ax.set_xlabel('frequency (Hz)')
+    ax.set_ylabel(r'Granger causality(f)')
+    assert ax.plot(freqs, G[:, 0, 1], label=r'Granger $1\rightarrow2$')
+    assert ax.plot(freqs, G[:, 1, 0], label=r'Granger $2\rightarrow1$')
+    ax.legend()
+
+# --- Helper routines ---
+
+
+# noisy phase evolution -> phase diffusion
+def phase_evo(omega0, eps, fs=1000, N=1000):
+    wn = np.random.randn(N) 
+    delta_ts = np.ones(N) * 1 / fs
+    phase = np.cumsum(omega0 * delta_ts + eps * wn)
+    return phase

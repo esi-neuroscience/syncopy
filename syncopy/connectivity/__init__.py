@@ -4,7 +4,7 @@
 # connectivity methods
 # 
 
-from .connectivity_analysis import connectivityanalysis
+from .connectivity_analysis import connectivity
 from .connectivity_analysis import __all__ as _all_
 
 # Populate local __all__ namespace

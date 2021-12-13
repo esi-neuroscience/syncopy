@@ -183,10 +183,9 @@ class MultiTaperFFT(ComputationalRoutine):
 
     computeFunction = staticmethod(mtmfft_cF)
 
-    method = "mtmfft"
     # 1st argument,the data, gets omitted
-    valid_kws = list(signature(mtmfft_cF).parameters.keys())[1:]
-    valid_kws += list(signature(mtmfft).parameters.keys())[1:]    
+    valid_kws = list(signature(mtmfft).parameters.keys())[1:]        
+    valid_kws += list(signature(mtmfft_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ['tapsmofrq', 'nTaper']
 
@@ -416,9 +415,10 @@ class MultiTaperFFTConvol(ComputationalRoutine):
     """
 
     computeFunction = staticmethod(mtmconvol_cF)
+
     # 1st argument,the data, gets omitted
-    valid_kws = list(signature(mtmconvol_cF).parameters.keys())[1:]
-    valid_kws += list(signature(mtmconvol).parameters.keys())[1:]    
+    valid_kws = list(signature(mtmconvol).parameters.keys())[1:]        
+    valid_kws += list(signature(mtmconvol_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ['tapsmofrq', 't_ftimwin', 'nTaper']
 
@@ -586,7 +586,6 @@ class WaveletTransform(ComputationalRoutine):
 
     computeFunction = staticmethod(wavelet_cF)
 
-    method = "wavelet"
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(wavelet).parameters.keys())[1:]
     # here also last argument, the method_kwargs, are omitted
@@ -752,9 +751,7 @@ class SuperletTransform(ComputationalRoutine):
 
     computeFunction = staticmethod(superlet_cF)
 
-    method = "superlet"
-    # 1st argument,the data, gets omitted
-    
+    # 1st argument,the data, gets omitted    
     valid_kws = list(signature(superlet).parameters.keys())[1:]
     valid_kws += list(signature(superlet_cF).parameters.keys())[1:-1]
 

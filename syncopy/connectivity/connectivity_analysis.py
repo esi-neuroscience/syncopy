@@ -20,31 +20,28 @@ from syncopy.shared.errors import (
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.tools import best_match
-from syncopy.shared.input_validators import validate_taper, validate_foi
-from syncopy.shared.const_def import (
-    spectralConversions,
-    availableTapers,
-    generalParameters
+from syncopy.shared.input_validators import (
+    validate_taper,
+    validate_foi,
+    check_effective_parameters,
+    check_passed_kwargs
 )
 
-# Local imports
-from .const_def import (
-    availableMethods,
-)
 from .ST_compRoutines import ST_CrossSpectra, ST_CrossCovariance
-from .AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov
+from .AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov, GrangerCausality
 
-__all__ = ["connectivityanalysis"]
+__all__ = ["connectivity"]
+availableMethods = ("coh", "corr", "granger")
 
 
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
-def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
-                         foi=None, foilim=None, pad_to_length=None,
-                         polyremoval=None, taper="hann", tapsmofrq=None,
-                         nTaper=None, toi="all", out=None,
-                         **kwargs):
+def connectivity(data, method="coh", keeptrials=False, output="abs",
+                 foi=None, foilim=None, pad_to_length=None,
+                 polyremoval=None, taper="hann", tapsmofrq=None,
+                 nTaper=None, toi="all", 
+                 out=None, **kwargs):
 
     """
     coming soon..
@@ -59,9 +56,10 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     timeAxis = data.dimord.index("time")
 
     # Get everything of interest in local namespace
-    defaults = get_defaults(connectivityanalysis)
+    defaults = get_defaults(connectivity)
     lcls = locals()
-
+    check_passed_kwargs(lcls, defaults, "connectivity")
+    
     # Ensure a valid computational method was selected
     if method not in availableMethods:
         lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
@@ -137,10 +135,17 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     if foilim:
         foi = np.arange(foilim[0], foilim[1] + 1)
 
-    # --- Settingn up specific Methods ---
+    # --- Setting up specific Methods ---
 
-    if method ==  'coh':
+    if method in ['coh', 'granger']:
 
+        # --- set up computation of the single trial CSDs ---
+        
+        if keeptrials is not False:
+            lgl = "False, trial averaging needed!"
+            act = keeptrials
+            raise SPYValueError(lgl, varname="keeptrials", actual=act)
+        
         if foi is None and foilim is None:
             # Construct array of maximally attainable frequencies
             freqs = np.fft.rfftfreq(nSamples, 1 / data.samplerate)
@@ -159,6 +164,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                                    nSamples=nSamples,
                                    output="pow") # ST_CSD's always have this unit/norm
 
+        check_effective_parameters(ST_CrossSpectra, defaults, lcls)
         # parallel computation over trials
         st_compRoutine = ST_CrossSpectra(samplerate=data.samplerate,
                                          padding_opt=padding_opt,
@@ -167,15 +173,23 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                                          polyremoval=polyremoval,
                                          timeAxis=timeAxis,
                                          foi=foi)
-
         # hard coded as class attribute
         st_dimord = ST_CrossSpectra.dimord
 
+    if method == 'coh':    
         # final normalization after trial averaging
         av_compRoutine = NormalizeCrossSpectra(output=output)
 
+    if method == 'granger':
+        # after trial averaging
+        # hardcoded numerical parameters
+        av_compRoutine = GrangerCausality(rtol=1e-8,
+                                          nIter=100,
+                                          cond_max=1e5
+                                          )
+        
     if method == 'corr':
-
+        check_effective_parameters(ST_CrossCovariance, defaults, lcls)
         # parallel computation over trials
         st_compRoutine = ST_CrossCovariance(samplerate=data.samplerate,
                                             padding_opt=padding_opt,
@@ -193,12 +207,11 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # the single trial results need a new DataSet
     st_out = CrossSpectralData(dimord=st_dimord)
 
-
     # Perform the trial-parallelized computation of the matrix quantity
     st_compRoutine.initialize(data,
                               st_out._stackingDim,
                               chan_per_worker=None, # no parallelisation over channel possible
-                              keeptrials=keeptrials) # we need trial averaging!
+                              keeptrials=keeptrials) # we most likely need trial averaging!
     st_compRoutine.compute(data, st_out, parallel=kwargs.get("parallel"), log_dict={})
 
     # for debugging ccov
@@ -233,4 +246,3 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
     # Either return newly created output object or simply quit
     return out if new_out else None
-

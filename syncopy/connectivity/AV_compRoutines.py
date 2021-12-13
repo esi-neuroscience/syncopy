@@ -24,10 +24,12 @@ from syncopy.shared.errors import (
     SPYTypeError,
     SPYWarning,
     SPYInfo)
+from syncopy.connectivity.wilson_sf import wilson_sf, regularize_csd
+from syncopy.connectivity.granger import granger
 
 
 @unwrap_io
-def normalize_csd_cF(trl_av_dat,
+def normalize_csd_cF(csd_av_dat,
                      output='abs',
                      chunkShape=None,
                      noCompute=False):
@@ -47,7 +49,7 @@ def normalize_csd_cF(trl_av_dat,
 
     Parameters
     ----------
-    trl_av_dat : (1, nFreq, N, N) :class:`numpy.ndarray`
+    csd_av_dat : (1, nFreq, N, N) :class:`numpy.ndarray`
         Cross-spectral densities for `N` x `N` channels
         and `nFreq` frequencies averaged over trials.
     output : {'abs', 'pow', 'fourier'}, default: 'abs'
@@ -90,7 +92,7 @@ def normalize_csd_cF(trl_av_dat,
     """
 
     # it's the same as the input shape!
-    outShape = trl_av_dat.shape
+    outShape = csd_av_dat.shape
 
     # For initialization of computational routine,
     # just return output shape and dtype
@@ -99,8 +101,9 @@ def normalize_csd_cF(trl_av_dat,
         return outShape, spectralDTypes[output]
 
     # re-shape to (nChannels x nChannels x nFreq)
-    CS_ij = trl_av_dat.transpose(0, 2, 3, 1)[0, ...]
 
+    CS_ij = csd_av_dat.transpose(0, 2, 3, 1)[0, ...]
+    
     # main diagonal has shape (nFreq x nChannels): the auto spectra
     diag = CS_ij.diagonal()
 
@@ -310,3 +313,193 @@ class NormalizeCrossCov(ComputationalRoutine):
         out.samplerate = data.samplerate
         out.channel_i = np.array(data.channel_i[chanSec])
         out.channel_j = np.array(data.channel_j[chanSec])
+
+
+@unwrap_io
+def granger_cF(csd_av_dat,
+               rtol=1e-8,
+               nIter=100,
+               cond_max=1e6,
+               chunkShape=None,
+               noCompute=False):
+          
+    """
+    Given the trial averaged cross spectral densities,
+    calculates the pairwise Granger-Geweke causalities
+    for all (non-symmetric!) channel combinations
+    following the algorithm proposed in [1]_.
+
+    First the CSD matrix is factorized using Wilson's
+    algorithm, the resulting transfer functions and
+    noise covariance matrix is then used to calculate
+    Granger causality according to Eq. 8 in [1]_.
+
+    Selection of channels and frequencies of interest
+    can and should be done beforehand when calculating the CSDs.
+
+    Critical numerical parameters for Wilson's algorithm
+    (`rtol`, `nIter`, `cond_max`) have sensitive defaults,
+    which were tested for datasets with up to 
+    5000 samples and 256 channels. Changing them is 
+    recommended for expert users only.
+
+    Parameters
+    ----------
+    csd_av_dat : (1, nFreq, N, N) :class:`numpy.ndarray`
+        Cross-spectral densities for `N` x `N` channels
+        and `nFreq` frequencies averaged over trials.
+    rtol : float
+        Relative error tolerance for Wilson's algorithm
+        for spectral matrix factorization. Default should 
+        be fine for most cases, handle with care!
+    nIter : int
+        Maximum Number of iterations for CSD factorization. A result
+        is returned if exhausted also if error tolerance was not met.
+    cond_max : float
+        The maximal condition number of the spectral matrix.
+        The CSD matrix can be almost singular in cases of many channels and
+        low sample number. In these cases Wilson's factorization fails
+        to converge, as it relies on positive definiteness of the CSD matrix.
+        If the condition number is above `cond_max`, a brute force 
+        regularization is performed until the regularized CSD matrix has a 
+        condition number below `cond_max`.
+    noCompute : bool
+        Preprocessing flag. If `True`, do not perform actual calculation but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+
+    Returns
+    -------
+    Granger : (1, nFreq, N, N) :class:`numpy.ndarray`
+        Spectral Granger-Geweke causality between all channel
+        combinations. Directionality follows array
+        notation: causality from i->j is Granger[0,:,i,j],
+        causality from j->i is Granger[0,:,j,i]
+
+    Notes
+    -----
+
+    This method is intended to be used as
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+
+    .. [1] Dhamala, Mukeshwar, Govindan Rangarajan, and Mingzhou Ding. 
+       "Estimating Granger causality from Fourier and wavelet transforms 
+        of time series data." Physical review letters 100.1 (2008): 018701.
+
+    See also
+    --------
+    cross_spectra_cF : :func:`~syncopy.connectivity.ST_compRoutines.cross_spectra_cF`
+             Single trial (Multi-)tapered cross spectral densities. Trial averages
+             can be obtained by calling the respective computational routine
+             with `keeptrials=False`.
+    wilson_sf : :func:`~syncopy.connectivity.wilson_sf.wilson_sf
+             Spectral matrix factorization that yields the 
+             transfer functions and noise covariances
+             from a cross spectral density.
+    regularize_csd : :func:`~syncopy.connectivity.wilson_sf.regularize_csd
+             Brute force regularization scheme for the CSD matrix
+    granger : :func:`~syncopy.connectivity.granger.granger
+            Given the results of the spectral matrix 
+            factorization, calculates the granger causalities
+    """
+        
+    # it's the same as the input shape!
+    outShape = csd_av_dat.shape
+
+    # For initialization of computational routine,
+    # just return output shape and dtype
+    # Granger causalities are real
+    if noCompute:
+        return outShape, spectralDTypes['abs']
+
+    # strip off singleton time dimension
+    # for the backend calls
+    CSD = csd_av_dat[0]
+
+    # auto-regularize to `cond_max` condition number
+    # maximal regularization factor is 1e-3, raises a ValueError
+    # if this is not enough!
+    CSDreg, factor = regularize_csd(CSD, cond_max=cond_max, eps_max=1e-3)
+    # call Wilson
+    
+    H, Sigma, conv = wilson_sf(CSDreg, nIter=nIter, rtol=rtol)
+    
+    # calculate G-causality    
+    Granger = granger(CSDreg, H, Sigma)
+
+    # reattach dummy time axis
+    return Granger[None, ...]
+
+
+class GrangerCausality(ComputationalRoutine):
+
+    """
+    Compute class that computes pairwise Granger causalities
+    of :class:`~syncopy.CrossSpectralData` objects.
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.connectivityanalysis : parent metafunction
+    """
+
+    # the hard wired dimord of the cF
+    dimord = ['time', 'freq', 'channel_i', 'channel_j']
+
+    computeFunction = staticmethod(granger_cF)
+
+    method = "" # there is no backend
+    # 1st argument,the data, gets omitted
+    valid_kws = list(signature(granger_cF).parameters.keys())[1:]
+
+    def pre_check(self):
+        '''
+        Make sure we have a trial average, 
+        so the input data only consists of `1 trial`.
+        Can only be performed after initialization!
+        '''
+
+        if self.numTrials is None:
+            lgl = 'Initialize the computational Routine first!'
+            act = 'ComputationalRoutine not initialized!'
+            raise SPYValueError(legal=lgl, varname=self.__class__.__name__, actual=act)
+        
+        if self.numTrials != 1:
+            lgl = "1 trial: Granger causality can only be computed on trial averages!"
+            act = f"DataSet contains {self.numTrials} trials"
+            raise SPYValueError(legal=lgl, varname="data", actual=act)
+    
+    def process_metadata(self, data, out):
+
+        # Some index gymnastics to get trial begin/end "samples"
+        if data._selection is not None:
+            chanSec = data._selection.channel
+            trl = data._selection.trialdefinition
+            for row in range(trl.shape[0]):
+                trl[row, :2] = [row, row + 1]
+        else:
+            chanSec = slice(None)
+            time = np.arange(len(data.trials))
+            time = time.reshape((time.size, 1))
+            trl = np.hstack((time, time + 1,
+                             np.zeros((len(data.trials), 1)),
+                             np.array(data.trialinfo)))
+
+        # Attach constructed trialdef-array (if even necessary)
+        if self.keeptrials:
+            out.trialdefinition = trl
+        else:
+            out.trialdefinition = np.array([[0, 1, 0]])
+            
+        # Attach remaining meta-data
+        out.samplerate = data.samplerate
+        out.channel_i = np.array(data.channel_i[chanSec])
+        out.channel_j = np.array(data.channel_j[chanSec])
+        out.freq = data.freq

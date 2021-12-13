@@ -16,13 +16,14 @@ from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYIn
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.tools import best_match
-from syncopy.shared.const_def import (
-    spectralConversions,
-    availableTapers,
-    generalParameters
-)
+from syncopy.shared.const_def import spectralConversions
 
-from syncopy.shared.input_validators import validate_taper, validate_foi
+from syncopy.shared.input_validators import (
+    validate_taper,
+    validate_foi,
+    check_effective_parameters,
+    check_passed_kwargs
+)
 
 # method specific imports - they should go!
 import syncopy.specest.wavelets as spywave
@@ -325,6 +326,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # Get everything of interest in local namespace
     defaults = get_defaults(freqanalysis)
     lcls = locals()
+    check_passed_kwargs(lcls, defaults, "freqanalysis")
 
     # Ensure a valid computational method was selected
     if method not in availableMethods:
@@ -574,7 +576,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     if method == "mtmfft":
 
-        _check_effective_parameters(MultiTaperFFT, defaults, lcls)
+        check_effective_parameters(MultiTaperFFT, defaults, lcls)
 
         # method specific parameters
         method_kwargs = {
@@ -597,7 +599,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     elif method == "mtmconvol":
 
-        _check_effective_parameters(MultiTaperFFTConvol, defaults, lcls)
+        check_effective_parameters(MultiTaperFFTConvol, defaults, lcls)
 
         # Process `toi` for sliding window multi taper fft,
         # we have to account for three scenarios: (1) center sliding
@@ -749,7 +751,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     elif method == "wavelet":
 
-        _check_effective_parameters(WaveletTransform, defaults, lcls)
+        check_effective_parameters(WaveletTransform, defaults, lcls)
 
         # Check wavelet selection
         if wavelet not in availableWavelets:
@@ -834,7 +836,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     elif method == "superlet":
 
-        _check_effective_parameters(SuperletTransform, defaults, lcls)
+        check_effective_parameters(SuperletTransform, defaults, lcls)
 
         # check and parse superlet specific arguments
         if order_max is None:
@@ -936,33 +938,3 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     # Either return newly created output object or simply quit
     return out if new_out else None
-
-
-def _check_effective_parameters(CR, defaults, lcls):
-
-    '''
-    For a given ComputationalRoutine, compare set parameters
-    (*lcls*) with the accepted parameters and the *defaults*
-    to warn if any ineffective parameters are set.
-
-    #FIXME: If general structure of this function proofs
-    useful for all CRs/syncopy in general,
-    probably best to move this to syncopy.shared.tools
-
-    Parameters
-    ----------
-
-    CR : :class:`~syncopy.shared.computational_routine.ComputationalRoutine
-    defaults : dict
-        Result of :func:`~syncopy.shared.tools.get_defaults`, the function
-        parameter names plus values with default values
-    lcls : dict
-        Result of `locals()`, all names and values of the local name space
-    '''
-    # list of possible parameter names of the CR
-    expected = CR.valid_kws + ["parallel", "select"]
-    relevant = [name for name in defaults if name not in generalParameters]
-    for name in relevant:
-        if name not in expected and (lcls[name] != defaults[name]):
-            msg = f"option `{name}` has no effect in method `{CR.method}`!"
-            SPYWarning(msg, caller=__name__.split('.')[-1])

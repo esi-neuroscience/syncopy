@@ -13,7 +13,7 @@ from inspect import signature
 # syncopy imports
 from syncopy.specest.mtmfft import mtmfft
 from syncopy.shared.const_def import spectralDTypes
-from syncopy.shared.errors import SPYWarning
+from syncopy.shared.errors import SPYWarning, SPYValueError
 from syncopy.datatype import padding
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
@@ -175,7 +175,9 @@ def cross_spectra_cF(trl_dat,
 
     if norm:
         # only meaningful for multi-tapering
-        assert taper == 'dpss'
+        if taper != 'dpss':
+            msg = "Normalization of single trial csd only possible with taper='dpss'"
+            raise SPYValueError(legal=msg, varname="taper", actual=taper)
         # main diagonal has shape (nChannels x nFreq): the auto spectra
         diag = CS_ij.diagonal()
         # get the needed product pairs of the autospectra
@@ -210,11 +212,13 @@ class ST_CrossSpectra(ComputationalRoutine):
 
     computeFunction = staticmethod(cross_spectra_cF)
 
-    method = "cross_spectra"
-    # 1st argument,the data, gets omitted
-    method_keys = list(signature(cross_spectra_cF).parameters.keys())[1:]
-    cF_keys = list(signature(cross_spectra_cF).parameters.keys())[1:]
-
+    backends = [mtmfft]
+    # 1st argument,the data, gets omitted    
+    valid_kws = list(signature(mtmfft).parameters.keys())[1:]
+    valid_kws += list(signature(cross_spectra_cF).parameters.keys())[1:]
+    # hardcode some parameter names which got digested from the frontend
+    valid_kws += ['tapsmofrq', 'nTaper']    
+    
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
@@ -393,7 +397,6 @@ class ST_CrossCovariance(ComputationalRoutine):
 
     computeFunction = staticmethod(cross_covariance_cF)
 
-    method = "" # there is no backend
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(cross_covariance_cF).parameters.keys())[1:]
 

@@ -10,7 +10,7 @@ import numpy as np
 
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYInfo
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
-from syncopy.shared.const_def import availableTapers
+from syncopy.shared.const_def import availableTapers, generalParameters
 
 
 def validate_foi(foi, foilim, samplerate):
@@ -156,9 +156,10 @@ def validate_taper(taper,
     # Set/get `tapsmofrq` if we're working w/Slepian tapers
     elif taper == "dpss":
 
-        # minimal smoothing bandwidth in Hz
-        # if sampling rate is given in Hz
+        # --- minimal smoothing bandwidth ---
+        # --- such that Kmax/nTaper is at least 1
         minBw = 2 * samplerate / nSamples
+        # -----------------------------------
         
         # Try to derive "sane" settings by using 3/4 octave
         # smoothing of highest `foi`
@@ -218,3 +219,55 @@ def validate_taper(taper,
             
             dpss_opt = {'NW' : NW, 'Kmax' : nTaper}
             return dpss_opt
+
+
+def check_effective_parameters(CR, defaults, lcls):
+
+    '''
+    For a given ComputationalRoutine, compare set parameters
+    (*lcls*) with the accepted parameters and the *defaults*
+    to warn if any ineffective parameters are set.
+
+    Parameters
+    ----------
+
+    CR : :class:`~syncopy.shared.computational_routine.ComputationalRoutine
+        Needs to have a `valid_kws` attribute
+    defaults : dict
+        Result of :func:`~syncopy.shared.tools.get_defaults`, the frontend
+        parameter names plus values with default values
+    lcls : dict
+        Result of `locals()`, all names and values of the local name space
+    '''
+    # list of possible parameter names of the CR
+    expected = CR.valid_kws + ["parallel", "select"]
+    relevant = [name for name in defaults if name not in generalParameters]
+    for name in relevant:
+        if name not in expected and (lcls[name] != defaults[name]):
+            msg = f"option `{name}` has no effect in method `{CR.__name__}`!"
+            SPYWarning(msg, caller=__name__.split('.')[-1])
+
+
+def check_passed_kwargs(lcls, defaults, frontend_name):
+
+    '''
+    Catch additional kwargs passed to the frontends
+    which have no effect
+    '''
+
+    # unpack **kwargs of frontend call which
+    # might contain arbitrary kws passed from the user    
+    kw_dict = lcls.get("kwargs")
+    
+    # nothing to do..
+    if not kw_dict:
+        return
+    
+    relevant = list(kw_dict.keys())
+    expected = [name for name in defaults]
+
+    for name in relevant:
+        if name not in expected:
+            msg = f"option `{name}` has no effect in `{frontend_name}`!"
+            SPYWarning(msg, caller=__name__.split('.')[-1])
+            
