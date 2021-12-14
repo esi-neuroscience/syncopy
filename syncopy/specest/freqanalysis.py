@@ -326,7 +326,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # Get everything of interest in local namespace
     defaults = get_defaults(freqanalysis)
     lcls = locals()
-    check_passed_kwargs(lcls, defaults, "freqanalysis")
+    # check for ineffective additional kwargs        
+    check_passed_kwargs(lcls, defaults, frontend_name="freqanalysis")
 
     # Ensure a valid computational method was selected
     if method not in availableMethods:
@@ -442,8 +443,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                "polyremoval": polyremoval,
                "pad": lcls["pad"],
                "padtype": lcls["padtype"],
-               "padlength": lcls["padlength"],
-               "foi": lcls["foi"]}
+               "padlength": lcls["padlength"]}
 
     # --------------------------------
     # 1st: Check time-frequency inputs
@@ -548,7 +548,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                    f"{freqs[-1]:.1f}Hz")
             SPYInfo(msg)
             foi = freqs
-
+        log_dct["foi"] = foi
+        
         # Abort if desired frequency selection is empty
         if foi.size == 0:
             lgl = "non-empty frequency specification"
@@ -557,18 +558,20 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         # sanitize taper selection and retrieve dpss settings
         taper_opt = validate_taper(taper,
-                                  tapsmofrq,
-                                  nTaper,
-                                  keeptapers,
-                                  foimax=foi.max(),
-                                  samplerate=data.samplerate,
-                                  nSamples=minSampleNum,
-                                  output=output)
+                                   tapsmofrq,
+                                   nTaper,
+                                   keeptapers,
+                                   foimax=foi.max(),
+                                   samplerate=data.samplerate,
+                                   nSamples=minSampleNum,
+                                   output=output)
 
-        # Update `log_dct` w/method-specific options (use `lcls` to get actually
-        # provided keyword values, not defaults set in here)
-        log_dct["taper"] = lcls["taper"]
-        log_dct["tapsmofrq"] = lcls["tapsmofrq"]
+        # Update `log_dct` w/method-specific options
+        log_dct["taper"] = taper
+        # only dpss returns non-empty taper_opt dict
+        if taper_opt:
+            log_dct["nTaper"] = taper_opt["Kmax"]
+            log_dct["tapsmofrq"] = tapsmofrq        
 
     # -------------------------------------------------------
     # Now, prepare explicit compute-classes for chosen method
@@ -813,6 +816,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
+        log_dct["foi"] = foi        
         log_dct["wavelet"] = lcls["wavelet"]
         log_dct["width"] = lcls["width"]
         log_dct["order"] = lcls["order"]
@@ -888,6 +892,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 SPYWarning(msg)
                 scales = np.sort(scales)[::-1]
 
+        log_dct["foi"] = foi                        
         log_dct["c_1"] = lcls["c_1"]
         log_dct["order_max"] = lcls["order_max"]
         log_dct["order_min"] = lcls["order_min"]

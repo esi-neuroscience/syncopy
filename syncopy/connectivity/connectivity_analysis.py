@@ -8,7 +8,7 @@ import numpy as np
 from numbers import Number
 
 # Syncopy imports
-from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
+from syncopy.shared.parsers import data_parser, scalar_parser
 from syncopy.shared.tools import get_defaults
 from syncopy.datatype import CrossSpectralData
 from syncopy.datatype.methods.padding import _nextpow2
@@ -19,7 +19,6 @@ from syncopy.shared.errors import (
     SPYInfo)
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
-from syncopy.shared.tools import best_match
 from syncopy.shared.input_validators import (
     validate_taper,
     validate_foi,
@@ -40,8 +39,7 @@ availableMethods = ("coh", "corr", "granger")
 def connectivity(data, method="coh", keeptrials=False, output="abs",
                  foi=None, foilim=None, pad_to_length=None,
                  polyremoval=None, taper="hann", tapsmofrq=None,
-                 nTaper=None, toi="all", 
-                 out=None, **kwargs):
+                 nTaper=None, out=None, **kwargs):
 
     """
     coming soon..
@@ -58,13 +56,14 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     # Get everything of interest in local namespace
     defaults = get_defaults(connectivity)
     lcls = locals()
-    check_passed_kwargs(lcls, defaults, "connectivity")
+    # check for ineffective additional kwargs
+    check_passed_kwargs(lcls, defaults, frontend_name="connectivity")
     
     # Ensure a valid computational method was selected
     if method not in availableMethods:
         lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
         raise SPYValueError(legal=lgl, varname="method", actual=method)
-
+    
     # If only a subset of `data` is to be processed,
     # make some necessary adjustments
     # and compute minimal sample-count across (selected) trials
@@ -135,6 +134,14 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     if foilim:
         foi = np.arange(foilim[0], foilim[1] + 1)
 
+    # Prepare keyword dict for logging (use `lcls` to get actually provided
+    # keyword values, not defaults set above)
+    log_dict = {"method": method,
+                "output": output,
+                "keeptrials": keeptrials,
+                "polyremoval": polyremoval,
+                "pad_to_length": pad_to_length}
+        
     # --- Setting up specific Methods ---
 
     if method in ['coh', 'granger']:
@@ -163,6 +170,13 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
                                    samplerate=data.samplerate,
                                    nSamples=nSamples,
                                    output="pow") # ST_CSD's always have this unit/norm
+        
+        log_dict["foi"] = foi
+        log_dict["taper"] = taper
+        # only dpss returns non-empty taper_opt dict
+        if taper_opt:
+            log_dict["nTaper"] = taper_opt["Kmax"]
+            log_dict["tapsmofrq"] = tapsmofrq
 
         check_effective_parameters(ST_CrossSpectra, defaults, lcls)
         # parallel computation over trials
@@ -212,15 +226,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
                               st_out._stackingDim,
                               chan_per_worker=None, # no parallelisation over channel possible
                               keeptrials=keeptrials) # we most likely need trial averaging!
-    st_compRoutine.compute(data, st_out, parallel=kwargs.get("parallel"), log_dict={})
-
-    # for debugging ccov
-    # print(5*'#',' after st_compRoutine call! ', 5*'#')
-    # print(st_out)
-    # print(st_out.trialdefinition)
-    # print(len(st_out.trials))
-    # print(st_out.sampleinfo)
-    # return st_out
+    st_compRoutine.compute(data, st_out, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
     # ----------------------------------------------------------------------------------
     # Sanitize output and call the chosen ComputationalRoutine on the averaged ST output
@@ -242,7 +248,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     # now take the trial average from the single trial CR as input
     av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
     av_compRoutine.pre_check() # make sure we got a trial_average
-    av_compRoutine.compute(st_out, out, parallel=False)
+    av_compRoutine.compute(st_out, out, parallel=False, log_dict=log_dict)
 
     # Either return newly created output object or simply quit
     return out if new_out else None
