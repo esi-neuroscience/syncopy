@@ -103,7 +103,7 @@ def normalize_csd_cF(csd_av_dat,
     # re-shape to (nChannels x nChannels x nFreq)
 
     CS_ij = csd_av_dat.transpose(0, 2, 3, 1)[0, ...]
-    
+
     # main diagonal has shape (nFreq x nChannels): the auto spectra
     diag = CS_ij.diagonal()
 
@@ -163,12 +163,14 @@ class NormalizeCrossSpectra(ComputationalRoutine):
 
         # Some index gymnastics to get trial begin/end "samples"
         if data._selection is not None:
-            chanSec = data._selection.channel
+            chanSec_i = data._selection.channel_i
+            chanSec_j = data._selection.channel_j
             trl = data._selection.trialdefinition
             for row in range(trl.shape[0]):
                 trl[row, :2] = [row, row + 1]
         else:
-            chanSec = slice(None)
+            chanSec_i = slice(None)
+            chanSec_j = slice(None)
             time = np.arange(len(data.trials))
             time = time.reshape((time.size, 1))
             trl = np.hstack((time, time + 1,
@@ -183,8 +185,8 @@ class NormalizeCrossSpectra(ComputationalRoutine):
 
         # Attach remaining meta-data
         out.samplerate = data.samplerate
-        out.channel_i = np.array(data.channel_i[chanSec])
-        out.channel_j = np.array(data.channel_j[chanSec])
+        out.channel_i = np.array(data.channel_i[chanSec_i])
+        out.channel_j = np.array(data.channel_j[chanSec_j])
         out.freq = data.freq
 
 
@@ -302,17 +304,19 @@ class NormalizeCrossCov(ComputationalRoutine):
 
         # Get trialdef array + channels from source
         if data._selection is not None:
-            chanSec = data._selection.channel
+            chanSec_i = data._selection.channel_i
+            chanSec_j = data._selection.channel_j
             trl = data._selection.trialdefinition
         else:
-            chanSec = slice(None)
+            chanSec_i = slice(None)
+            chanSec_j = slice(None)
             trl = data.trialdefinition
 
         out.trialdefinition = trl
         # Attach remaining meta-data
         out.samplerate = data.samplerate
-        out.channel_i = np.array(data.channel_i[chanSec])
-        out.channel_j = np.array(data.channel_j[chanSec])
+        out.channel_i = np.array(data.channel_i[chanSec_i])
+        out.channel_j = np.array(data.channel_j[chanSec_j])
 
 
 @unwrap_io
@@ -322,7 +326,7 @@ def granger_cF(csd_av_dat,
                cond_max=1e6,
                chunkShape=None,
                noCompute=False):
-          
+
     """
     Given the trial averaged cross spectral densities,
     calculates the pairwise Granger-Geweke causalities
@@ -339,8 +343,8 @@ def granger_cF(csd_av_dat,
 
     Critical numerical parameters for Wilson's algorithm
     (`rtol`, `nIter`, `cond_max`) have sensitive defaults,
-    which were tested for datasets with up to 
-    5000 samples and 256 channels. Changing them is 
+    which were tested for datasets with up to
+    5000 samples and 256 channels. Changing them is
     recommended for expert users only.
 
     Parameters
@@ -350,7 +354,7 @@ def granger_cF(csd_av_dat,
         and `nFreq` frequencies averaged over trials.
     rtol : float
         Relative error tolerance for Wilson's algorithm
-        for spectral matrix factorization. Default should 
+        for spectral matrix factorization. Default should
         be fine for most cases, handle with care!
     nIter : int
         Maximum Number of iterations for CSD factorization. A result
@@ -360,8 +364,8 @@ def granger_cF(csd_av_dat,
         The CSD matrix can be almost singular in cases of many channels and
         low sample number. In these cases Wilson's factorization fails
         to converge, as it relies on positive definiteness of the CSD matrix.
-        If the condition number is above `cond_max`, a brute force 
-        regularization is performed until the regularized CSD matrix has a 
+        If the condition number is above `cond_max`, a brute force
+        regularization is performed until the regularized CSD matrix has a
         condition number below `cond_max`.
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
@@ -386,8 +390,8 @@ def granger_cF(csd_av_dat,
     Consequently, this function does **not** perform any error checking and operates
     under the assumption that all inputs have been externally validated and cross-checked.
 
-    .. [1] Dhamala, Mukeshwar, Govindan Rangarajan, and Mingzhou Ding. 
-       "Estimating Granger causality from Fourier and wavelet transforms 
+    .. [1] Dhamala, Mukeshwar, Govindan Rangarajan, and Mingzhou Ding.
+       "Estimating Granger causality from Fourier and wavelet transforms
         of time series data." Physical review letters 100.1 (2008): 018701.
 
     See also
@@ -397,16 +401,16 @@ def granger_cF(csd_av_dat,
              can be obtained by calling the respective computational routine
              with `keeptrials=False`.
     wilson_sf : :func:`~syncopy.connectivity.wilson_sf.wilson_sf
-             Spectral matrix factorization that yields the 
+             Spectral matrix factorization that yields the
              transfer functions and noise covariances
              from a cross spectral density.
     regularize_csd : :func:`~syncopy.connectivity.wilson_sf.regularize_csd
              Brute force regularization scheme for the CSD matrix
     granger : :func:`~syncopy.connectivity.granger.granger
-            Given the results of the spectral matrix 
+            Given the results of the spectral matrix
             factorization, calculates the granger causalities
     """
-        
+
     # it's the same as the input shape!
     outShape = csd_av_dat.shape
 
@@ -425,10 +429,10 @@ def granger_cF(csd_av_dat,
     # if this is not enough!
     CSDreg, factor = regularize_csd(CSD, cond_max=cond_max, eps_max=1e-3)
     # call Wilson
-    
+
     H, Sigma, conv = wilson_sf(CSDreg, nIter=nIter, rtol=rtol)
-    
-    # calculate G-causality    
+
+    # calculate G-causality
     Granger = granger(CSDreg, H, Sigma)
 
     # reattach dummy time axis
@@ -461,7 +465,7 @@ class GrangerCausality(ComputationalRoutine):
 
     def pre_check(self):
         '''
-        Make sure we have a trial average, 
+        Make sure we have a trial average,
         so the input data only consists of `1 trial`.
         Can only be performed after initialization!
         '''
@@ -470,22 +474,24 @@ class GrangerCausality(ComputationalRoutine):
             lgl = 'Initialize the computational Routine first!'
             act = 'ComputationalRoutine not initialized!'
             raise SPYValueError(legal=lgl, varname=self.__class__.__name__, actual=act)
-        
+
         if self.numTrials != 1:
             lgl = "1 trial: Granger causality can only be computed on trial averages!"
             act = f"DataSet contains {self.numTrials} trials"
             raise SPYValueError(legal=lgl, varname="data", actual=act)
-    
+
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
         if data._selection is not None:
-            chanSec = data._selection.channel
+            chanSec_i = data._selection.channel_i
+            chanSec_j = data._selection.channel_j
             trl = data._selection.trialdefinition
             for row in range(trl.shape[0]):
                 trl[row, :2] = [row, row + 1]
         else:
-            chanSec = slice(None)
+            chanSec_i = slice(None)
+            chanSec_j = slice(None)
             time = np.arange(len(data.trials))
             time = time.reshape((time.size, 1))
             trl = np.hstack((time, time + 1,
@@ -497,9 +503,9 @@ class GrangerCausality(ComputationalRoutine):
             out.trialdefinition = trl
         else:
             out.trialdefinition = np.array([[0, 1, 0]])
-            
+
         # Attach remaining meta-data
         out.samplerate = data.samplerate
-        out.channel_i = np.array(data.channel_i[chanSec])
-        out.channel_j = np.array(data.channel_j[chanSec])
+        out.channel_i = np.array(data.channel_i[chanSec_i])
+        out.channel_j = np.array(data.channel_j[chanSec_j])
         out.freq = data.freq
