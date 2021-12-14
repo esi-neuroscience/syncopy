@@ -6,6 +6,7 @@
 # Builtin/3rd party package imports
 import os
 import tempfile
+from attr import has
 import h5py
 import time
 import pytest
@@ -17,7 +18,7 @@ from memory_profiler import memory_usage
 from syncopy.datatype import AnalogData
 import syncopy.datatype as spd
 from syncopy.datatype.base_data import VirtualData
-from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYError
 from syncopy.tests.misc import is_win_vm, is_slurm_node
 
 # Construct decorators for skipping certain tests
@@ -243,6 +244,33 @@ class TestBaseData():
                 with pytest.raises(SPYValueError):
                     getattr(spd, dclass)(data=open_memmap(fname))
 
+                # ensure synthetic data allocation via list of arrays works
+                dummy = getattr(spd, dclass)(data=[self.data[dclass], self.data[dclass]])
+                assert len(dummy.trials) == 2
+
+                dummy = getattr(spd, dclass)(data=[self.data[dclass], self.data[dclass]],
+                                samplerate=10.0)
+                assert len(dummy.trials) == 2
+                assert dummy.samplerate == 10
+
+                if any(["ContinuousData" in str(base) for base in self.__class__.__mro__]):
+                    nChan = self.data[dclass].shape[dummy.dimord.index("channel")]
+                    dummy = getattr(spd, dclass)(data=[self.data[dclass], self.data[dclass]],
+                                    channel=['label']*nChan)
+                    assert len(dummy.trials) == 2
+                    assert np.array_equal(dummy.channel, np.array(['label']*nChan))
+
+                # the most egregious input errors are caught by `array_parser`; only
+                # test list-routine-specific stuff: complex/real mismatch
+                with pytest.raises(SPYValueError) as spyval:
+                    getattr(spd, dclass)(data=[self.data[dclass], np.complex64(self.data[dclass])])
+                    assert "same numeric type (real/complex)" in str(spyval.value)
+
+                # shape mismatch
+                with pytest.raises(SPYValueError):
+                    getattr(spd, dclass)(data=[self.data[dclass], self.data[dclass].T])
+
+
             time.sleep(0.01)
             del dummy
 
@@ -372,8 +400,8 @@ class TestBaseData():
     def test_arithmetic(self):
 
         # Define list of classes arithmetic ops should and should not work with
-        # FIXME: include `CrossSpectralData` here!
-        # continuousClasses = ["AnalogData", "SpectralData", "CrossSpectralData"]
+        # FIXME: include `CrossSpectralData` here and use something like
+        # if any(["ContinuousData" in str(base) for base in self.__class__.__mro__])
         continuousClasses = ["AnalogData", "SpectralData"]
         discreteClasses = ["SpikeData", "EventData"]
 
@@ -437,3 +465,105 @@ class TestBaseData():
                     operation(dummy, other)
                     err = "expected Syncopy {} object found {}"
                     assert err.format(dclass, otherClass)  in str(spytyp.value)
+
+        # Next, validate proper functionality of `==` operator for Syncopy objects
+        for dclass in self.classes:
+
+            # Start simple compare obj to itself, to empty object and compare two empties
+            dummy = getattr(spd, dclass)(self.data[dclass],
+                                         trialdefinition=self.trl[dclass],
+                                         samplerate=self.samplerate)
+            assert dummy == dummy
+            assert dummy != getattr(spd, dclass)()
+            assert getattr(spd, dclass)() == getattr(spd, dclass)()
+
+            # Basic type mismatch
+            assert dummy != complexArr
+            assert dummy != complexNum
+
+            # Two differing Syncopy object classes
+            otherClass = list(set(self.classes).difference([dclass]))[0]
+            other = getattr(spd, otherClass)(self.data[otherClass],
+                                             trialdefinition=self.trl[otherClass],
+                                             samplerate=self.samplerate)
+            assert dummy != other
+
+            # Ensure shallow and deep copies are "==" to their origin
+            dummy2 = dummy.copy()
+            assert dummy2 == dummy
+            dummy3 = dummy.copy(deep=True)
+            assert dummy3 == dummy
+
+            # Ensure differing samplerate evaluates to `False`
+            dummy3.samplerate = 2*dummy.samplerate
+            assert dummy3 != dummy
+            dummy3.samplerate = dummy.samplerate
+
+            # In-place selections are invalid for `==` comparisons
+            dummy3.selectdata(inplace=True)
+            with pytest.raises(SPYError) as spe:
+                dummy3 == dummy
+                assert "Cannot perform object comparison" in str(spe.value)
+
+            # Abuse existing in-place selection to alter dimensional props of dummy3
+            # and ensure inequality
+            dimProps = dummy3._selector._dimProps
+            dummy3.selectdata(clear=True)
+            for prop in dimProps:
+                if hasattr(dummy3, prop):
+                    setattr(dummy3, prop, getattr(dummy, prop)[::-1])
+                    assert dummy3 != dummy
+                    setattr(dummy3, prop, getattr(dummy, prop))
+
+            # Different trials
+            dummy3 = dummy.selectdata(trials=list(range(len(dummy.trials) - 1)))
+            assert dummy3 != dummy
+
+            # Different trial offsets
+            trl = self.trl[dclass]
+            trl[:, 1] -= 1
+            dummy3 = getattr(spd, dclass)(self.data[dclass],
+                                          trialdefinition=trl,
+                                          samplerate=self.samplerate)
+            assert dummy3 != dummy
+
+            # Different trial annotations
+            trl = self.trl[dclass]
+            trl[:, -1] = np.sqrt(2)
+            dummy3 = getattr(spd, dclass)(self.data[dclass],
+                                          trialdefinition=trl,
+                                          samplerate=self.samplerate)
+            assert dummy3 != dummy
+
+            # Difference in actual numerical data
+            dummy3 = dummy.copy(deep=True)
+            for dsetName in dummy3._hdfFileDatasetProperties:
+                getattr(dummy3, dsetName)[0] = np.pi
+            assert dummy3 != dummy
+
+            del dummy, dummy2, dummy3, other
+
+        # Same objects but different dimords: `ContinuousData`` children
+        for dclass in continuousClasses:
+            dummy = getattr(spd, dclass)(self.data[dclass],
+                                         trialdefinition=self.trl[dclass],
+                                         samplerate=self.samplerate)
+            ymmud = getattr(spd, dclass)(self.data[dclass].T,
+                                         dimord=dummy.dimord[::-1],
+                                         trialdefinition=self.trl[dclass],
+                                         samplerate=self.samplerate)
+            assert dummy != ymmud
+
+        # Same objects but different dimords: `DiscreteData` children
+        for dclass in discreteClasses:
+            dummy = getattr(spd, dclass)(self.data[dclass],
+                                         trialdefinition=self.trl[dclass],
+                                         samplerate=self.samplerate)
+            ymmud = getattr(spd, dclass)(self.data[dclass],
+                                         dimord=dummy.dimord[::-1],
+                                         trialdefinition=self.trl[dclass],
+                                         samplerate=self.samplerate)
+            assert dummy != ymmud
+
+
+

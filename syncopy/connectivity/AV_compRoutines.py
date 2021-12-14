@@ -33,12 +33,12 @@ def normalize_csd_cF(csd_av_dat,
                      output='abs',
                      chunkShape=None,
                      noCompute=False):
-          
+
     """
     Given the trial averaged cross spectral densities,
-    calculates the normalizations to arrive at the 
+    calculates the normalizations to arrive at the
     channel x channel coherencies. If S_ij(f) is the
-    averaged cross-spectrum between channel i and j, the 
+    averaged cross-spectrum between channel i and j, the
     coherency [1]_ is defined as:
 
           C_ij = S_ij(f) / (|S_ii| |S_jj|)
@@ -53,11 +53,11 @@ def normalize_csd_cF(csd_av_dat,
         Cross-spectral densities for `N` x `N` channels
         and `nFreq` frequencies averaged over trials.
     output : {'abs', 'pow', 'fourier'}, default: 'abs'
-        Also after normalization the coherency is still complex (`'fourier'`), 
+        Also after normalization the coherency is still complex (`'fourier'`),
         to get the real valued coherence 0 < C_ij(f) < 1 one can either take the
         absolute (`'abs'`) or the absolute squared (`'pow'`) values of the
-        coherencies. The definitions are not uniform in the literature, 
-        hence multiple output types are supported. 
+        coherencies. The definitions are not uniform in the literature,
+        hence multiple output types are supported.
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
@@ -79,8 +79,8 @@ def normalize_csd_cF(csd_av_dat,
     Consequently, this function does **not** perform any error checking and operates
     under the assumption that all inputs have been externally validated and cross-checked.
 
-    .. [1] Nolte, Guido, et al. "Identifying true brain interaction from EEG 
-          data using the imaginary part of coherency." 
+    .. [1] Nolte, Guido, et al. "Identifying true brain interaction from EEG
+          data using the imaginary part of coherency."
           Clinical neurophysiology 115.10 (2004): 2292-2307.
 
 
@@ -101,11 +101,12 @@ def normalize_csd_cF(csd_av_dat,
         return outShape, spectralDTypes[output]
 
     # re-shape to (nChannels x nChannels x nFreq)
+
     CS_ij = csd_av_dat.transpose(0, 2, 3, 1)[0, ...]
-    
+
     # main diagonal has shape (nFreq x nChannels): the auto spectra
     diag = CS_ij.diagonal()
-    
+
     # get the needed product pairs of the autospectra
     Ciijj = np.sqrt(diag[:, :, None] * diag[:, None, :]).T
     CS_ij = CS_ij / Ciijj
@@ -115,13 +116,13 @@ def normalize_csd_cF(csd_av_dat,
     # re-shape to original form and re-attach dummy time axis
     return CS_ij[None, ...].transpose(0, 3, 1, 2)
 
-    
+
 class NormalizeCrossSpectra(ComputationalRoutine):
 
     """
     Compute class that normalizes trial averaged csd's
     of :class:`~syncopy.CrossSpectralData` objects
-    to arrive at the respective coherencies. 
+    to arrive at the respective coherencies.
 
     Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
     see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
@@ -143,7 +144,7 @@ class NormalizeCrossSpectra(ComputationalRoutine):
 
     def pre_check(self):
         '''
-        Make sure we have a trial average, 
+        Make sure we have a trial average,
         so the input data only consists of `1 trial`.
         Can only be performed after initialization!
         '''
@@ -152,22 +153,24 @@ class NormalizeCrossSpectra(ComputationalRoutine):
             lgl = 'Initialize the computational Routine first!'
             act = 'ComputationalRoutine not initialized!'
             raise SPYValueError(legal=lgl, varname=self.__class__.__name__, actual=act)
-        
+
         if self.numTrials != 1:
             lgl = "1 trial: normalizations can only be done on averaged quantities!"
             act = f"DataSet contains {self.numTrials} trials"
             raise SPYValueError(legal=lgl, varname="data", actual=act)
-    
+
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
         if data._selection is not None:
-            chanSec = data._selection.channel
+            chanSec_i = data._selection.channel_i
+            chanSec_j = data._selection.channel_j
             trl = data._selection.trialdefinition
             for row in range(trl.shape[0]):
                 trl[row, :2] = [row, row + 1]
         else:
-            chanSec = slice(None)
+            chanSec_i = slice(None)
+            chanSec_j = slice(None)
             time = np.arange(len(data.trials))
             time = time.reshape((time.size, 1))
             trl = np.hstack((time, time + 1,
@@ -179,11 +182,11 @@ class NormalizeCrossSpectra(ComputationalRoutine):
             out.trialdefinition = trl
         else:
             out.trialdefinition = np.array([[0, 1, 0]])
-            
+
         # Attach remaining meta-data
         out.samplerate = data.samplerate
-        out.channel_i = np.array(data.channel_i[chanSec])
-        out.channel_j = np.array(data.channel_j[chanSec])
+        out.channel_i = np.array(data.channel_i[chanSec_i])
+        out.channel_j = np.array(data.channel_j[chanSec_j])
         out.freq = data.freq
 
 
@@ -191,7 +194,7 @@ class NormalizeCrossSpectra(ComputationalRoutine):
 def normalize_ccov_cF(trl_av_dat,
                       chunkShape=None,
                       noCompute=False):
-          
+
     """
     Given the trial averaged cross-covariances,
     we normalize with the 0-lag auto-covariances
@@ -242,12 +245,12 @@ def normalize_ccov_cF(trl_av_dat,
 
     # re-shape to (nLag x nChannels x nChannels)
     CCov_ij = trl_av_dat[:, 0, ...]
-    
+
     # main diagonal has shape (nChannels x nChannels):
     # the auto-covariances at 0-lag (~stds)
     diag = trl_av_dat[0, 0, ...].diagonal()
 
-    # get the needed product pairs 
+    # get the needed product pairs
     Ciijj = np.sqrt(diag[:, None] * diag[None, :]).T
     CCov_ij = CCov_ij / Ciijj
 
@@ -258,7 +261,7 @@ def normalize_ccov_cF(trl_av_dat,
 class NormalizeCrossCov(ComputationalRoutine):
 
     """
-    Compute class that normalizes trial averaged 
+    Compute class that normalizes trial averaged
     cross-covariances of :class:`~syncopy.CrossSpectralData` objects
     to arrive at the respective correlations
 
@@ -280,9 +283,9 @@ class NormalizeCrossCov(ComputationalRoutine):
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(normalize_ccov_cF).parameters.keys())[1:]
 
-    def pre_check(self):        
+    def pre_check(self):
         '''
-        Make sure we have a trial average, 
+        Make sure we have a trial average,
         so the input data only consists of `1 trial`.
         Can only be performed after initialization!
         '''
@@ -291,27 +294,29 @@ class NormalizeCrossCov(ComputationalRoutine):
             lgl = 'Initialize the computational Routine first!'
             act = 'ComputationalRoutine not initialized!'
             raise SPYValueError(legal=lgl, varname=self.__class__.__name__, actual=act)
-        
+
         if self.numTrials != 1:
             lgl = "1 trial: normalizations can only be done on averaged quantities!"
             act = f"DataSet contains {self.numTrials} trials"
             raise SPYValueError(legal=lgl, varname="data", actual=act)
-    
+
     def process_metadata(self, data, out):
-        
+
         # Get trialdef array + channels from source
         if data._selection is not None:
-            chanSec = data._selection.channel
+            chanSec_i = data._selection.channel_i
+            chanSec_j = data._selection.channel_j
             trl = data._selection.trialdefinition
         else:
-            chanSec = slice(None)
+            chanSec_i = slice(None)
+            chanSec_j = slice(None)
             trl = data.trialdefinition
 
-        out.trialdefinition = trl            
+        out.trialdefinition = trl
         # Attach remaining meta-data
         out.samplerate = data.samplerate
-        out.channel_i = np.array(data.channel_i[chanSec])
-        out.channel_j = np.array(data.channel_j[chanSec])
+        out.channel_i = np.array(data.channel_i[chanSec_i])
+        out.channel_j = np.array(data.channel_j[chanSec_j])
 
 
 @unwrap_io
@@ -321,7 +326,7 @@ def granger_cF(csd_av_dat,
                cond_max=1e6,
                chunkShape=None,
                noCompute=False):
-          
+
     """
     Given the trial averaged cross spectral densities,
     calculates the pairwise Granger-Geweke causalities
@@ -338,8 +343,8 @@ def granger_cF(csd_av_dat,
 
     Critical numerical parameters for Wilson's algorithm
     (`rtol`, `nIter`, `cond_max`) have sensitive defaults,
-    which were tested for datasets with up to 
-    5000 samples and 256 channels. Changing them is 
+    which were tested for datasets with up to
+    5000 samples and 256 channels. Changing them is
     recommended for expert users only.
 
     Parameters
@@ -349,7 +354,7 @@ def granger_cF(csd_av_dat,
         and `nFreq` frequencies averaged over trials.
     rtol : float
         Relative error tolerance for Wilson's algorithm
-        for spectral matrix factorization. Default should 
+        for spectral matrix factorization. Default should
         be fine for most cases, handle with care!
     nIter : int
         Maximum Number of iterations for CSD factorization. A result
@@ -359,8 +364,8 @@ def granger_cF(csd_av_dat,
         The CSD matrix can be almost singular in cases of many channels and
         low sample number. In these cases Wilson's factorization fails
         to converge, as it relies on positive definiteness of the CSD matrix.
-        If the condition number is above `cond_max`, a brute force 
-        regularization is performed until the regularized CSD matrix has a 
+        If the condition number is above `cond_max`, a brute force
+        regularization is performed until the regularized CSD matrix has a
         condition number below `cond_max`.
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
@@ -385,8 +390,8 @@ def granger_cF(csd_av_dat,
     Consequently, this function does **not** perform any error checking and operates
     under the assumption that all inputs have been externally validated and cross-checked.
 
-    .. [1] Dhamala, Mukeshwar, Govindan Rangarajan, and Mingzhou Ding. 
-       "Estimating Granger causality from Fourier and wavelet transforms 
+    .. [1] Dhamala, Mukeshwar, Govindan Rangarajan, and Mingzhou Ding.
+       "Estimating Granger causality from Fourier and wavelet transforms
         of time series data." Physical review letters 100.1 (2008): 018701.
 
     See also
@@ -396,16 +401,16 @@ def granger_cF(csd_av_dat,
              can be obtained by calling the respective computational routine
              with `keeptrials=False`.
     wilson_sf : :func:`~syncopy.connectivity.wilson_sf.wilson_sf
-             Spectral matrix factorization that yields the 
+             Spectral matrix factorization that yields the
              transfer functions and noise covariances
              from a cross spectral density.
     regularize_csd : :func:`~syncopy.connectivity.wilson_sf.regularize_csd
              Brute force regularization scheme for the CSD matrix
     granger : :func:`~syncopy.connectivity.granger.granger
-            Given the results of the spectral matrix 
+            Given the results of the spectral matrix
             factorization, calculates the granger causalities
     """
-        
+
     # it's the same as the input shape!
     outShape = csd_av_dat.shape
 
@@ -424,10 +429,10 @@ def granger_cF(csd_av_dat,
     # if this is not enough!
     CSDreg, factor = regularize_csd(CSD, cond_max=cond_max, eps_max=1e-3)
     # call Wilson
-    
+
     H, Sigma, conv = wilson_sf(CSDreg, nIter=nIter, rtol=rtol)
-    
-    # calculate G-causality    
+
+    # calculate G-causality
     Granger = granger(CSDreg, H, Sigma)
 
     # reattach dummy time axis
@@ -460,7 +465,7 @@ class GrangerCausality(ComputationalRoutine):
 
     def pre_check(self):
         '''
-        Make sure we have a trial average, 
+        Make sure we have a trial average,
         so the input data only consists of `1 trial`.
         Can only be performed after initialization!
         '''
@@ -469,22 +474,24 @@ class GrangerCausality(ComputationalRoutine):
             lgl = 'Initialize the computational Routine first!'
             act = 'ComputationalRoutine not initialized!'
             raise SPYValueError(legal=lgl, varname=self.__class__.__name__, actual=act)
-        
+
         if self.numTrials != 1:
             lgl = "1 trial: Granger causality can only be computed on trial averages!"
             act = f"DataSet contains {self.numTrials} trials"
             raise SPYValueError(legal=lgl, varname="data", actual=act)
-    
+
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
         if data._selection is not None:
-            chanSec = data._selection.channel
+            chanSec_i = data._selection.channel_i
+            chanSec_j = data._selection.channel_j
             trl = data._selection.trialdefinition
             for row in range(trl.shape[0]):
                 trl[row, :2] = [row, row + 1]
         else:
-            chanSec = slice(None)
+            chanSec_i = slice(None)
+            chanSec_j = slice(None)
             time = np.arange(len(data.trials))
             time = time.reshape((time.size, 1))
             trl = np.hstack((time, time + 1,
@@ -496,9 +503,9 @@ class GrangerCausality(ComputationalRoutine):
             out.trialdefinition = trl
         else:
             out.trialdefinition = np.array([[0, 1, 0]])
-            
+
         # Attach remaining meta-data
         out.samplerate = data.samplerate
-        out.channel_i = np.array(data.channel_i[chanSec])
-        out.channel_j = np.array(data.channel_j[chanSec])
+        out.channel_i = np.array(data.channel_i[chanSec_i])
+        out.channel_j = np.array(data.channel_j[chanSec_j])
         out.freq = data.freq

@@ -395,10 +395,7 @@ class TestAnalogData():
             for ptype in ["zero", "mean", "localmean", "edge", "mirror"]:
                 arr = padding(self.data, ptype, pad="relative", **kws)
                 for k, idx in enumerate(expected_idx[loc]):
-                    try:
-                        assert np.all(arr[idx, :] == expected_vals[loc][ptype][k])
-                    except:
-                        import pdb; pdb.set_trace()
+                    assert np.all(arr[idx, :] == expected_vals[loc][ptype][k])
                 assert arr.shape[0] == expected_shape[loc]
             arr = padding(self.data, "nan", pad="relative", **kws)
             for idx in expected_idx[loc]:

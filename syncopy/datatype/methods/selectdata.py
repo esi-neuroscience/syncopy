@@ -5,8 +5,7 @@
 
 # Local imports
 from syncopy.shared.parsers import data_parser
-from syncopy.shared.tools import get_defaults
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, SPYWarning
 from syncopy.shared.kwarg_decorators import unwrap_cfg, unwrap_io, detect_parallel_client
 from syncopy.shared.computational_routine import ComputationalRoutine
 
@@ -15,9 +14,9 @@ __all__ = ["selectdata"]
 
 @unwrap_cfg
 @detect_parallel_client
-def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None,
-               foilim=None, tapers=None, units=None, eventids=None,
-               out=None, inplace=False, clear=False, **kwargs):
+def selectdata(data, trials=None, channels=None, channels_i=None, channels_j=None,
+               toi=None, toilim=None, foi=None, foilim=None, tapers=None, units=None,
+               eventids=None, out=None, inplace=False, clear=False, **kwargs):
     """
     Create a new Syncopy object from a selection
 
@@ -269,9 +268,15 @@ def selectdata(data, trials=None, channels=None, toi=None, toilim=None, foi=None
             lgl = "no output object for in-place selection"
             raise SPYValueError(lgl, varname="out", actual=out.__class__.__name__)
 
+    # FIXME: remove once tests are in place (cf #165)
+    if channels_i is not None or channels_j is not None:
+        SPYWarning("CrossSpectralData channel selection currently untested and experimental!")
+
     # Collect provided keywords in dict
     selectDict = {"trials": trials,
                   "channels": channels,
+                  "channels_i": channels_i,
+                  "channels_j": channels_j,
                   "toi": toi,
                   "toilim": toilim,
                   "foi": foi,

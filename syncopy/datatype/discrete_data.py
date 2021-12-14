@@ -67,13 +67,9 @@ class DiscreteData(BaseData, ABC):
         ppattrs.sort()
 
         # Construct string for pretty-printing class attributes
-        dinfo = " '" + self._classname_to_extension()[1:] + "' x "
-        dsep = "'-'"
-
+        dsep = " by "
         hdstr = "Syncopy {clname:s} object with fields\n\n"
-        ppstr = hdstr.format(diminfo=dinfo + "'"  + \
-                             dsep.join(dim for dim in self.dimord) + "' " if self.dimord is not None else "Empty ",
-                             clname=self.__class__.__name__)
+        ppstr = hdstr.format(clname=self.__class__.__name__)
         maxKeyLength = max([len(k) for k in ppattrs])
         printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
         for attr in ppattrs:
@@ -101,7 +97,10 @@ class DiscreteData(BaseData, ABC):
                 valueString = "[" + " x ".join([str(numel) for numel in value.shape]) \
                               + "] element " + str(type(value))
             elif isinstance(value, list):
-                valueString = "{0} element list".format(len(value))
+                if attr == "dimord" and value is not None:
+                    valueString = dsep.join(dim for dim in self.dimord)
+                else:
+                    valueString = "{0} element list".format(len(value))
             elif isinstance(value, dict):
                 msg = "dictionary with {nk:s}keys{ks:s}"
                 keylist = value.keys()
@@ -310,18 +309,17 @@ class DiscreteData(BaseData, ABC):
         self._hdr = None
         self._data = None
 
-        # Call initializer
-        super().__init__(data=data, **kwargs)
-
         self.samplerate = samplerate
         self.trialid = trialid
-        self.data = data
+
+        # Call initializer
+        super().__init__(data=data, **kwargs)
 
         if self.data is not None:
 
             # In case of manual data allocation (reading routine would leave a
             # mark in `cfg`), fill in missing info
-            if len(self.cfg) == 0:
+            if self.sampleinfo is None:
 
                 # Fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
@@ -371,7 +369,7 @@ class SpikeData(DiscreteData):
         # Remove duplicate entries from channel array but preserve original order
         # (e.g., `[2, 0, 0, 1]` -> `[2, 0, 1`); allows for complex subset-selections
         _, idx = np.unique(chan, return_index=True)
-        chan = np.array(chan)[idx]
+        chan = np.array(chan)[np.sort(idx)]
         nchan = np.unique(self.data[:, self.dimord.index("channel")]).size
         if chan.size != nchan:
             lgl = "channel label array of length {0:d}".format(nchan)

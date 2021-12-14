@@ -19,7 +19,6 @@ foilim = [1, 30]
 # this still gives type(tsel) = slice :)
 sdict1 = {"trials": [0], 'channels' : ['channel1'], 'toi': np.arange(-1, 1, 0.001)}
 
-# no problems here..
 coherence = connectivity(data=tdat,
                          foilim=None,
                          output='pow',
@@ -41,6 +40,7 @@ granger = connectivity(data=tdat,
 
 # a lot of problems here..
 # correlation = connectivity(data=tdat, method='corr', keeptrials=False, taper='df')
+
 
 # the hard wired dimord of the cF
 

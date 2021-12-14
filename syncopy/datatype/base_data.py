@@ -31,7 +31,7 @@ from .methods.show import show
 from syncopy.shared.tools import StructDict
 from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser,
                                     filename_parser, data_parser)
-from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError
+from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError, SPYWarning
 from syncopy.datatype.methods.definetrial import definetrial as _definetrial
 from syncopy import __version__, __storage__, __acme__, __sessionid__, __storagelimit__
 if __acme__:
@@ -162,6 +162,7 @@ class BaseData(ABC):
             ndim = len(self._defaultDimord)
 
         supportedSetters = {
+            list : self._set_dataset_property_with_list,
             str : self._set_dataset_property_with_str,
             np.ndarray : self._set_dataset_property_with_ndarray,
             np.core.memmap : self._set_dataset_property_with_memmap,
@@ -334,6 +335,85 @@ class BaseData(ABC):
             raise SPYValueError(legal=lgl, varname="data", actual=act)
 
         setattr(self, "_" + propertyName, inData)
+
+    def _set_dataset_property_with_list(self, inData, propertyName, ndim):
+        """Set a dataset property with list of NumPy arrays
+
+        Parameters
+        ----------
+            inData : list
+                list of :class:`numpy.ndarray`s. Each array corresponds to
+                a trial. Arrays are stacked together to fill dataset.
+            propertyName : str
+                Name of the property to be filled with the concatenated array
+            ndim : int
+                Number of expected array dimensions.
+        """
+
+        # Check list entries: must be numeric, finite NumPy arrays
+        for val in inData:
+            try:
+                array_parser(val, varname="data", hasinf=False, dims=ndim)
+            except Exception as exc:
+                raise exc
+
+        # Ensure we don't have a mix of real/complex arrays
+        if np.unique([np.iscomplexobj(val) for val in inData]).size > 1:
+            lgl = "list of numeric NumPy arrays of same numeric type (real/complex)"
+            act = "real and complex NumPy arrays"
+            raise SPYValueError(legal=lgl, varname="data", actual=act)
+
+        # Requirements for input arrays differ wrt data-class (`DiscreteData` always 2D)
+        if any(["ContinuousData" in str(base) for base in self.__class__.__mro__]):
+
+            # Ensure shapes match up
+            if any(val.shape != inData[0].shape for val in inData):
+                lgl = "NumPy arrays of identical shape"
+                act = "NumPy arrays with differing shapes"
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
+            trialLens = [val.shape[self.dimord.index("time")] for val in inData]
+
+        else:
+
+            # Ensure all arrays have shape `(N, nCol)``
+            if self.__class__.__name__ == "SpikeData":
+                nCol = 3
+            else: # EventData
+                nCol = 2
+            if any(val.shape[1] != nCol for val in inData):
+                lgl = "NumPy 2d-arrays with 3 columns"
+                act = "NumPy arrays of different shape"
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
+            trialLens = [np.nanmax(val[:, self.dimord.index("sample")]) for val in inData]
+
+        # Now the shaky stuff: if not provided, use determined trial lengths to
+        # cook up a (completely fictional) samplerate: we aim for `smax` Hz and
+        # round down to `sround` Hz
+        nTrials = len(trialLens)
+        msg2 = ""
+        if self.samplerate is None:
+            sround = 50
+            smax = 1000
+            srate = min(max(min(smax, tlen / 2) // sround * sround, 1) for tlen in trialLens)
+            self.samplerate = srate
+            msg2 = ", samplerate = {srate} Hz (rounded to {sround} Hz with max of {smax} Hz)"
+            msg2 = msg2.format(srate=srate, sround=sround, smax=smax)
+        t0 = -self.samplerate
+        msg = "Artificially generated trial-layout: trigger offset = {t0} sec" + msg2
+        SPYWarning(msg.format(t0=t0/self.samplerate), caller="data")
+
+        # Use constructed quantities to set up trial layout matrix
+        accumSamples = np.cumsum(trialLens)
+        trialdefinition = np.zeros((nTrials, 3))
+        trialdefinition[1:, 0] = accumSamples[:-1]
+        trialdefinition[:, 1] = accumSamples
+        trialdefinition[:, 2] = t0
+
+        # Finally, concatenate provided arrays and let corresponding setting method
+        # perform the actual HDF magic
+        data = np.concatenate(inData, axis=self._stackingDim)
+        self._set_dataset_property_with_ndarray(data, propertyName, ndim)
+        self.trialdefinition = trialdefinition
 
     def _is_empty(self):
         return all([getattr(self, attr) is None
@@ -765,6 +845,79 @@ class BaseData(ABC):
 
     def __pow__(self, other):
         return _process_operator(self, other, "**")
+
+    def __eq__(self, other):
+
+        # If other object is not a Syncopy data-class, get out
+        if not "BaseData" in str(other.__class__.__mro__):
+            SPYInfo("Not a Syncopy object")
+            return False
+
+        # Check if two Syncopy objects of same type/dimord are present
+        try:
+            data_parser(other, dimord=self.dimord, dataclass=self.__class__.__name__)
+        except Exception as exc:
+            SPYInfo("Syncopy object of different type/dimord")
+            return False
+
+        # First, ensure we have something to compare here
+        if self._is_empty():
+            if not other._is_empty():
+                SPYInfo("Empty and non-empty Syncopy object")
+                return False
+            return True
+
+        # If in-place selections are present, abort
+        if self._selection is not None or other._selection is not None:
+            err = "Cannot perform object comparison with existing in-place selection"
+            raise SPYError(err)
+
+        # Use `_infoFileProperties` to fetch dimensional object props: remove `dimord`
+        # (has already been checked by `data_parser` above) and remove `cfg` (two
+        # objects might be identical even if their history deviates)
+        dimProps = [prop for prop in self._infoFileProperties if not prop.startswith("_")]
+        dimProps = list(set(dimProps).difference(["dimord", "cfg"]))
+        for prop in dimProps:
+            val = getattr(self, prop)
+            if isinstance(val, np.ndarray):
+                isEqual = val.tolist() == getattr(other, prop).tolist()
+            else:
+                isEqual = val == getattr(other, prop)
+            if not isEqual:
+                SPYInfo("Mismatch in {}".format(prop))
+                return False
+
+        # Check if trial setup is identical
+        if not np.array_equal(self.trialdefinition, other.trialdefinition):
+            SPYInfo("Mismatch in trial layouts")
+            return False
+
+        # If an object is compared to itself (or its shallow copy), don't bother
+        # juggling NumPy arrays but simply perform a quick dataset/filename comparison
+        isEqual = True
+        if self.filename == other.filename:
+            for dsetName in self._hdfFileDatasetProperties:
+                val = getattr(self, dsetName)
+                if isinstance(val, h5py.Dataset):
+                    isEqual = val == getattr(other, dsetName)
+                else:
+                    isEqual = np.allclose(val, getattr(other, dsetName))
+            if not isEqual:
+                SPYInfo("HDF dataset mismatch")
+                return False
+            return True
+
+        # The other object really is a standalone Syncopy class instance and
+        # everything but the data itself aligns; now the most expensive part:
+        # trial by trial data comparison
+        for tk in range(len(self.trials)):
+            if not np.allclose(self.trials[tk], other.trials[tk]):
+                SPYInfo("Mismatch in trial #{}".format(tk))
+                return False
+
+        # If we made it this far, `self` and `other` really seem to be identical
+        return True
+
 
     # Class "constructor"
     def __init__(self, filename=None, dimord=None, mode="r+", **kwargs):
@@ -1314,8 +1467,8 @@ class Selector():
                                     varname="select", actual=select)
         if not isinstance(select, dict):
             raise SPYTypeError(select, "select", expected="dict")
-        supported = ["trials", "channels", "toi", "toilim", "foi", "foilim",
-                     "tapers", "units", "eventids"]
+        supported = ["trials", "channels", "channels_i", "channels_j", "toi",
+                     "toilim", "foi", "foilim", "tapers", "units", "eventids"]
         if not set(select.keys()).issubset(supported):
             lgl = "dict with one or all of the following keys: '" +\
                   "'".join(opt + "', " for opt in supported)[:-2]
@@ -1328,7 +1481,7 @@ class Selector():
 
         # Set up lists of (a) all selectable properties (b) trial-dependent ones
         # and (c) selectors independent from trials
-        self._allProps = ["channel", "time", "freq", "taper", "unit", "eventid"]
+        self._allProps = ["channel", "channel_i", "channel_j", "time", "freq", "taper", "unit", "eventid"]
         self._byTrialProps = ["time", "unit", "eventid"]
         self._dimProps = list(self._allProps)
         for prop in self._byTrialProps:
@@ -1399,7 +1552,34 @@ class Selector():
     @channel.setter
     def channel(self, dataselect):
         data, select = dataselect
+        chanSpec = select.get("channels")
+        if self._dataClass == "CrossSpectralData":
+            if chanSpec is not None:
+                lgl = "`channel_i` and/or `channel_j` selectors for `CrossSpectralData`"
+                raise SPYValueError(legal=lgl, varname="select: channels", actual=data.__class__.__name__)
+            else:
+                return
         self._selection_setter(data, select, "channel", "channels")
+
+    @property
+    def channel_i(self):
+        """List or slice encoding principal channel-pair selection"""
+        return self._channel_i
+
+    @channel_i.setter
+    def channel_i(self, dataselect):
+        data, select = dataselect
+        self._selection_setter(data, select, "channel_i", "channels_i")
+
+    @property
+    def channel_j(self):
+        """List or slice encoding principal channel-pair selection"""
+        return self._channel_j
+
+    @channel_j.setter
+    def channel_j(self, dataselect):
+        data, select = dataselect
+        self._selection_setter(data, select, "channel_j", "channels_j")
 
     @property
     def time(self):
