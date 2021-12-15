@@ -51,6 +51,37 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     * **foi**/**foilim** : frequencies of interest; either array of frequencies or
       frequency window (not both)
     * **polyremoval** : de-trending method to use (0 = mean, 1 = linear)
+
+    List of available analysis methods and respective distinct options:
+    
+    "coh" : (Multi-) tapered coherency estimate
+        Compute the normalized cross spectral densities
+        between all channel combinations
+
+        * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
+        * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
+        * **nTaper** : (optional) number of orthogonal tapers for slepian tapers
+        * **pad_to_length**: either pad to an absolute length or set to `'nextpow2'`
+
+    "corr" : Cross-correlations 
+        Computes the one sided (positive lags) cross-correlations
+        between all channel combinations. The maximal lag is half
+        the trial lenghts.
+
+        * **keeptrials** : set to `True` for single trial cross-correlations
+
+    "granger" : Spectral Granger-Geweke causality
+        Computes linear causality estimates between
+        all channel combinations. The needed cross-spectral
+        densities can be computed via multi-tapering.
+
+        * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
+        * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
+        * **nTaper** : (optional) number of orthogonal tapers for slepian tapers
+        * **pad_to_length**: either pad to an absolute length or set to `'nextpow2'`
+    
+    **Full documentation below**
+
     """
 
     # Make sure our one mandatory input object can be processed
@@ -107,6 +138,11 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
 
     # --- Padding ---
 
+    if method == "corr" and pad_to_length:
+        lgl = "`None`, no padding for cross-correlations"
+        actual = f"{pad_to_length}"
+        raise SPYValueError(legal=lgl, varname="pad_to_length", actual=actual)
+    
     # manual symmetric zero padding of ALL trials the same way
     if isinstance(pad_to_length, Number):
 

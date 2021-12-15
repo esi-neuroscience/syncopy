@@ -72,13 +72,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     List of available analysis methods and respective distinct options:
 
-    :func:`~syncopy.specest.mtmfft.mtmfft` : (Multi-)tapered Fourier transform
+    "mtmfft" : (Multi-)tapered Fourier transform
         Perform frequency analysis on time-series trial data using either a single
         taper window (Hanning) or many tapers based on the discrete prolate
         spheroidal sequence (DPSS) that maximize energy concentration in the main
         lobe.
 
-        * **taper** : one of :data:`~syncopy.specest.const_def.availableTapers`
+        * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : number of orthogonal tapers for slepian tapers
         * **keeptapers** : return individual tapers or average
@@ -91,7 +91,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         * **prepadlength** : number of samples to pre-pend to each trial
         * **postpadlength** : number of samples to append to each trial
 
-    :func:`~syncopy.specest.mtmconvol.mtmconvol` : (Multi-)tapered sliding window Fourier transform
+    "mtmconvol" : (Multi-)tapered sliding window Fourier transform
         Perform time-frequency analysis on time-series trial data based on a sliding
         window short-time Fourier transform using either a single Hanning taper or
         multiple DPSS tapers.
@@ -109,7 +109,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
           a window on every sample in the data.
         * **t_ftimwin** : sliding window length (in sec)
 
-    :func:`~syncopy.specest.wavelet.wavelet` : (Continuous non-orthogonal) wavelet transform
+    "wavelet" : (Continuous non-orthogonal) wavelet transform
         Perform time-frequency analysis on time-series trial data using a non-orthogonal
         continuous wavelet transform.
 
@@ -122,7 +122,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         * **order** : Order of Paul wavelet function (>= 4) or derivative order
           of real-valued DOG wavelets (2 = mexican hat)
 
-    :func:`~syncopy.specest.superlet.superlet` : Superlet transform
+    "superlet" : Superlet transform
         Perform time-frequency analysis on time-series trial data using
         the super-resolution superlet transform (SLT) from [Moca2021]_.
 
