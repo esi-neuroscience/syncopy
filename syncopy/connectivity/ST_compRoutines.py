@@ -35,7 +35,7 @@ def cross_spectra_cF(trl_dat,
                      fullOutput=False):
 
     """
-    Single trial Fourier cross spectra estimates between all channels
+    Single trial Fourier cross spectral estimates between all channels
     of the input data. First all the individual Fourier transforms
     are calculated via a (multi-)tapered FFT, then the pairwise
     cross-spectra are computed.
@@ -315,7 +315,7 @@ def cross_covariance_cF(trl_dat,
     under the assumption that all inputs have been externally validated and cross-checked.
 
     """
-    print('ST call, input shape:', trl_dat.shape)
+
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
@@ -370,7 +370,6 @@ def cross_covariance_cF(trl_dat,
         N = STDs[:, None] * STDs[None, :]
         CC = CC / N
 
-    print("ST done, output shape:", CC.shape)
     if not fullOutput:
         return CC
     else:

@@ -235,7 +235,7 @@ def normalize_ccov_cF(trl_av_dat,
              Single trial cross covariances.
 
     """
-    print('AV call, input shape', trl_av_dat.shape)
+
     # it's the same as the input shape!
     outShape = trl_av_dat.shape
 
