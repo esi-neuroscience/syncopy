@@ -42,7 +42,15 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
                  nTaper=None, out=None, **kwargs):
 
     """
-    coming soon..
+    Perform connectivity analysis of Syncopy :class:`~syncopy.AnalogData` objects
+
+    **Usage Summary**
+
+    Options available in all analysis methods:
+
+    * **foi**/**foilim** : frequencies of interest; either array of frequencies or
+      frequency window (not both)
+    * **polyremoval** : de-trending method to use (0 = mean, 1 = linear)
     """
 
     # Make sure our one mandatory input object can be processed
@@ -204,15 +212,23 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         
     if method == 'corr':
         check_effective_parameters(ST_CrossCovariance, defaults, lcls)
+
+        # single trial cross-correlations
+        if keeptrials:
+            av_compRoutine = None # no trial average
+            norm = True # normalize individual trials within the ST CR
+        else:
+            av_compRoutine = NormalizeCrossCov()
+            norm = False
+        
         # parallel computation over trials
         st_compRoutine = ST_CrossCovariance(samplerate=data.samplerate,
                                             padding_opt=padding_opt,
                                             polyremoval=polyremoval,
-                                            timeAxis=timeAxis)
+                                            timeAxis=timeAxis,
+                                            norm=norm)
         # hard coded as class attribute
         st_dimord = ST_CrossCovariance.dimord
-
-        av_compRoutine = NormalizeCrossCov()
 
     # -------------------------------------------------
     # Call the chosen single trial ComputationalRoutine
@@ -224,10 +240,18 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     # Perform the trial-parallelized computation of the matrix quantity
     st_compRoutine.initialize(data,
                               st_out._stackingDim,
-                              chan_per_worker=None, # no parallelisation over channel possible
+                              chan_per_worker=None, # no parallelisation over channels possible
                               keeptrials=keeptrials) # we most likely need trial averaging!
     st_compRoutine.compute(data, st_out, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
+    # if ever needed..
+    # for single trial cross-corr results <-> keeptrials is True
+    if keeptrials and av_compRoutine is None:
+        if out is not None:
+            msg = "Single trial processing does not support `out` argument but directly returns the results"
+            SPYWarning(msg)
+        return st_out 
+    
     # ----------------------------------------------------------------------------------
     # Sanitize output and call the chosen ComputationalRoutine on the averaged ST output
     # ----------------------------------------------------------------------------------
@@ -244,7 +268,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     else:
         out = CrossSpectralData(dimord=st_dimord)
         new_out = True
-
+        
     # now take the trial average from the single trial CR as input
     av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
     av_compRoutine.pre_check() # make sure we got a trial_average
