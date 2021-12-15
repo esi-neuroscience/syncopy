@@ -15,7 +15,7 @@
 # method_keys : list of names of the backend method parameters
 # cF_keys : list of names of the parameters of the middleware computeFunctions
 #
-# the backend method name als gets explictly attached as a class constant:
+# the backend method name als gets explicitly attached as a class constant:
 # method: backend method name
 
 # Builtin/3rd party package imports
@@ -47,7 +47,7 @@ from syncopy.shared.const_def import (
 # -----------------------
 
 @unwrap_io
-def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True, 
+def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
               pad="nextpow2", padtype="zero", padlength=None,
               polyremoval=None, output_fmt="pow",
               noCompute=False, chunkShape=None, method_kwargs=None):
@@ -105,7 +105,8 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
 
     Notes
     -----
-    This method is intended to be used as :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    This method is intended to be used as
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
     Thus, input parameters are presumed to be forwarded from a parent metafunction.
     Consequently, this function does **not** perform any error checking and operates
@@ -153,7 +154,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
         dat = signal.detrend(dat, type='constant', axis=0, overwrite_data=True)
     elif polyremoval == 1:
         dat = signal.detrend(dat, type='linear', axis=0, overwrite_data=True)
-    
+
     # call actual specest method
     res, _ = mtmfft(dat, **method_kwargs)
 
@@ -184,7 +185,7 @@ class MultiTaperFFT(ComputationalRoutine):
     computeFunction = staticmethod(mtmfft_cF)
 
     # 1st argument,the data, gets omitted
-    valid_kws = list(signature(mtmfft).parameters.keys())[1:]        
+    valid_kws = list(signature(mtmfft).parameters.keys())[1:]
     valid_kws += list(signature(mtmfft_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ['tapsmofrq', 'nTaper']
@@ -335,7 +336,7 @@ def mtmconvol_cF(
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
-        
+
     # Pad input array if necessary
     if padbegin > 0 or padend > 0:
         dat = padding(dat, "zero", pad="relative", padlength=None,
@@ -363,7 +364,7 @@ def mtmconvol_cF(
         detrend = 'linear'
     else:
         detrend = False
-        
+
     # additional keyword args for `stft` in dictionary
     method_kwargs.update({"boundary": stftBdry,
                           "padded": stftPad,
@@ -417,7 +418,7 @@ class MultiTaperFFTConvol(ComputationalRoutine):
     computeFunction = staticmethod(mtmconvol_cF)
 
     # 1st argument,the data, gets omitted
-    valid_kws = list(signature(mtmconvol).parameters.keys())[1:]        
+    valid_kws = list(signature(mtmconvol).parameters.keys())[1:]
     valid_kws += list(signature(mtmconvol_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ['tapsmofrq', 't_ftimwin', 'nTaper']
@@ -542,7 +543,7 @@ def wavelet_cF(
         dat = trl_dat.T  # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
-        
+
     # Get shape of output for dry-run phase
     nChannels = dat.shape[1]
     if isinstance(toi, np.ndarray):  # `toi` is an array of time-points
@@ -559,7 +560,7 @@ def wavelet_cF(
         dat = signal.detrend(dat, type='constant', axis=0, overwrite_data=True)
     elif polyremoval == 1:
         dat = signal.detrend(dat, type='linear', axis=0, overwrite_data=True)
-    
+
     # ------------------
     # actual method call
     # ------------------
@@ -683,7 +684,7 @@ def superlet_cF(
     -------
     gmean_spec : :class:`numpy.ndarray`
         Complex time-frequency representation of the input data.
-        Shape is (nTime, 1, nScales, nChannels).
+        Shape is ``(nTime, 1, nScales, nChannels)``.
 
     Notes
     -----
@@ -698,8 +699,8 @@ def superlet_cF(
     --------
     syncopy.freqanalysis : parent metafunction
     SuperletTransform : :class:`~syncopy.shared.computational_routine.ComputationalRoutine`
-                       instance that calls this method as
-                       :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+                        instance that calls this method as
+                        :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
 
     """
 
@@ -708,7 +709,7 @@ def superlet_cF(
         dat = trl_dat.T  # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
-        
+
     # Get shape of output for dry-run phase
     nChannels = trl_dat.shape[1]
     if isinstance(toi, np.ndarray):  # `toi` is an array of time-points
@@ -725,7 +726,7 @@ def superlet_cF(
         dat = signal.detrend(dat, type='constant', axis=0, overwrite_data=True)
     elif polyremoval == 1:
         dat = signal.detrend(dat, type='linear', axis=0, overwrite_data=True)
-    
+
     # ------------------
     # actual method call
     # ------------------
@@ -751,7 +752,7 @@ class SuperletTransform(ComputationalRoutine):
 
     computeFunction = staticmethod(superlet_cF)
 
-    # 1st argument,the data, gets omitted    
+    # 1st argument,the data, gets omitted
     valid_kws = list(signature(superlet).parameters.keys())[1:]
     valid_kws += list(signature(superlet_cF).parameters.keys())[1:-1]
 
@@ -764,9 +765,6 @@ class SuperletTransform(ComputationalRoutine):
         else:
             chanSec = slice(None)
             trl = data.trialdefinition
-
-        # Construct trialdef array and compute new sampling rate
-        trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)
 
         # Construct trialdef array and compute new sampling rate
         trl, srate = _make_trialdef(self.cfg, trl, data.samplerate)

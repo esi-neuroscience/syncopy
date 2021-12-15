@@ -4,7 +4,7 @@
 # the parallel single trial computations to be found in ST_compRoutines.py
 # The standard use case involves computations on the
 # trial average, meaning that the SyNCoPy input to these routines
-# consists of only '1 trial` and parallelising over channels
+# consists of only '1 trial' and parallelising over channels
 # is non trivial and atm also not supported. Pre-processing
 # like padding or detrending already happened in the single trial
 # compute functions.
@@ -37,14 +37,16 @@ def normalize_csd_cF(csd_av_dat,
     """
     Given the trial averaged cross spectral densities,
     calculates the normalizations to arrive at the
-    channel x channel coherencies. If S_ij(f) is the
-    averaged cross-spectrum between channel i and j, the
+    channel x channel coherencies. If ``S_ij(f)`` is the
+    averaged cross-spectrum between channel `i` and `j`, the
     coherency [1]_ is defined as:
 
-          C_ij = S_ij(f) / (|S_ii| |S_jj|)
+    .. math::
 
-    The coherence is now defined as either |C_ij|
-    or |C_ij|^2, this can be controlled with the `output`
+          C_{ij} = S_{ij}(f) / (|S_{ii}| |S_{jj}|)
+
+    The coherence is now defined as either ``|C_ij|``
+    or ``|C_ij|^2``, this can be controlled with the `output`
     parameter.
 
     Parameters
@@ -54,7 +56,7 @@ def normalize_csd_cF(csd_av_dat,
         and `nFreq` frequencies averaged over trials.
     output : {'abs', 'pow', 'fourier'}, default: 'abs'
         Also after normalization the coherency is still complex (`'fourier'`),
-        to get the real valued coherence 0 < C_ij(f) < 1 one can either take the
+        to get the real valued coherence ``0 < C_ij(f) < 1`` one can either take the
         absolute (`'abs'`) or the absolute squared (`'pow'`) values of the
         coherencies. The definitions are not uniform in the literature,
         hence multiple output types are supported.
@@ -66,7 +68,7 @@ def normalize_csd_cF(csd_av_dat,
     Returns
     -------
     CS_ij : (1, nFreq, N, N) :class:`numpy.ndarray`
-        Coherence for all channel combinations i,j.
+        Coherence for all channel combinations ``i,j``.
         `N` corresponds to number of input channels.
 
     Notes
@@ -214,7 +216,7 @@ def normalize_ccov_cF(trl_av_dat,
     Returns
     -------
     Corr_ij : (nLag, 1, N, N) :class:`numpy.ndarray`
-        Cross-correlations for all channel combinations i,j.
+        Cross-correlations for all channel combinations ``i,j``.
         `N` corresponds to number of input channels.
 
     Notes
@@ -357,7 +359,7 @@ def granger_cF(csd_av_dat,
         for spectral matrix factorization. Default should
         be fine for most cases, handle with care!
     nIter : int
-        Maximum Number of iterations for CSD factorization. A result
+        Maximum number of iterations for CSD factorization. A result
         is returned if exhausted also if error tolerance was not met.
     cond_max : float
         The maximal condition number of the spectral matrix.
@@ -377,8 +379,8 @@ def granger_cF(csd_av_dat,
     Granger : (1, nFreq, N, N) :class:`numpy.ndarray`
         Spectral Granger-Geweke causality between all channel
         combinations. Directionality follows array
-        notation: causality from i->j is Granger[0,:,i,j],
-        causality from j->i is Granger[0,:,j,i]
+        notation: causality from ``i -> j`` is ``Granger[0,:,i,j]``,
+        causality from ``j -> i`` is ``Granger[0,:,j,i]``
 
     Notes
     -----
@@ -429,7 +431,6 @@ def granger_cF(csd_av_dat,
     # if this is not enough!
     CSDreg, factor = regularize_csd(CSD, cond_max=cond_max, eps_max=1e-3)
     # call Wilson
-
     H, Sigma, conv = wilson_sf(CSDreg, nIter=nIter, rtol=rtol)
 
     # calculate G-causality

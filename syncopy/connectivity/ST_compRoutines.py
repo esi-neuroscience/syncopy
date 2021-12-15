@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
-# computeFunctions and -Routines to parallel calculate
-# single trial measures needed for the averaged
+# computeFunctions and -Routines for parallel calculation
+# of single trial measures needed for the averaged
 # measures like cross spectral densities
 #
 
@@ -44,8 +44,8 @@ def cross_spectra_cF(trl_dat,
     for multi-taper analysis with `taper="dpss"`.
 
     Output consists of all (nChannels x nChannels+1)/2 different complex
-    estimates aranged in a symmetric fashion (CS_ij == CS_ji*). The
-    elements on the main diagonal (CS_ii) are the (real) auto-spectra.
+    estimates arranged in a symmetric fashion (``CS_ij == CS_ji*``). The
+    elements on the main diagonal (`CS_ii`) are the (real) auto-spectra.
 
     This is NOT the same as what is commonly referred to as
     "cross spectral density" as there is no (time) averaging!!
@@ -60,7 +60,7 @@ def cross_spectra_cF(trl_dat,
         Uniformly sampled multi-channel time-series data
         The 1st dimension is interpreted as the time axis,
         columns represent individual channels.
-        Dimensions can be transposed to (N, K) with the `timeAxis` parameter.
+        Dimensions can be transposed to `(N, K)` with the `timeAxis` parameter.
     samplerate : float
         Samplerate in Hz
     foi : 1D :class:`numpy.ndarray` or None, optional
@@ -102,7 +102,7 @@ def cross_spectra_cF(trl_dat,
     Returns
     -------
     CS_ij : (1, nFreq, N, N) :class:`numpy.ndarray`
-        Complex cross spectra for all channel combinations i,j.
+        Complex cross spectra for all channel combinations ``i,j``.
         `N` corresponds to number of input channels.
 
     freqs : (nFreq,) :class:`numpy.ndarray`
@@ -213,12 +213,12 @@ class ST_CrossSpectra(ComputationalRoutine):
     computeFunction = staticmethod(cross_spectra_cF)
 
     backends = [mtmfft]
-    # 1st argument,the data, gets omitted    
+    # 1st argument,the data, gets omitted
     valid_kws = list(signature(mtmfft).parameters.keys())[1:]
     valid_kws += list(signature(cross_spectra_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
-    valid_kws += ['tapsmofrq', 'nTaper']    
-    
+    valid_kws += ['tapsmofrq', 'nTaper']
+
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
@@ -261,10 +261,10 @@ def cross_covariance_cF(trl_dat,
 
     """
     Single trial covariance estimates between all channels
-    of the input data. Output consists of all (nChannels x nChannels+1)/2
-    different estimates aranged in a symmetric fashion
-    (COV_ij == COV_ji). The elements on the
-    main diagonal (CS_ii) are the channel variances.
+    of the input data. Output consists of all ``(nChannels x nChannels+1)/2``
+    different estimates arranged in a symmetric fashion
+    (``COV_ij == COV_ji``). The elements on the
+    main diagonal (`CS_ii`) are the channel variances.
 
     Parameters
     ----------
@@ -272,7 +272,7 @@ def cross_covariance_cF(trl_dat,
         Uniformly sampled multi-channel time-series data
         The 1st dimension is interpreted as the time axis,
         columns represent individual channels.
-        Dimensions can be transposed to (N, K) with the `timeAxis` parameter.
+        Dimensions can be transposed to `(N, K)` with the `timeAxis` parameter.
     samplerate : float
         Samplerate in Hz
     padding_opt : dict
@@ -299,7 +299,7 @@ def cross_covariance_cF(trl_dat,
     Returns
     -------
     CC_ij : (K, 1, N, N) :class:`numpy.ndarray`
-        Cross covariance for all channel combinations i,j.
+        Cross covariance for all channel combinations ``i,j``.
         `N` corresponds to number of input channels.
 
     lags : (M,) :class:`numpy.ndarray`
