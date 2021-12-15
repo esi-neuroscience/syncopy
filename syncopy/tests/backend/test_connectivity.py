@@ -10,15 +10,15 @@ from syncopy.connectivity.granger import granger
 
 def test_coherence():
 
-    '''
-    Tests the normalization cF to 
+    """
+    Tests the normalization cF to
     arrive at the coherence given
     a trial averaged csd
-    '''
+    """
 
     nSamples = 1001
     fs = 1000
-    tvec = np.arange(nSamples) / fs    
+    tvec = np.arange(nSamples) / fs
     harm_freq = 40
     phase_shifts = np.array([0, np.pi / 2, np.pi])
 
@@ -28,12 +28,12 @@ def test_coherence():
     nFreq = nSamples // 2 + 1
     nChannel = len(phase_shifts)
     avCSD = np.zeros((1, nFreq, nChannel, nChannel), dtype=np.complex64)
-    
+
     for i in range(nTrials):
-    
+
         # 1 phase phase shifted harmonics + white noise + constant, SNR = 1
         trl_dat = [10 + np.cos(harm_freq * 2 * np. pi * tvec + ps)
-                   for ps in phase_shifts] 
+                   for ps in phase_shifts]
         trl_dat = np.array(trl_dat).T
         trl_dat = np.array(trl_dat) + np.random.randn(nSamples, len(phase_shifts))
 
@@ -49,7 +49,7 @@ def test_coherence():
 
     # this is the trial average
     avCSD /= nTrials
-    
+
     # perform the normalisation on the trial averaged csd's
     Cij = avCR.normalize_csd_cF(avCSD)
 
@@ -85,23 +85,23 @@ def test_coherence():
     assert np.all(coh[:peak_idx - 2] < level)
     assert np.all(coh[peak_idx + 2:] < level)
 
-    
+
 def test_csd():
 
-    '''
+    """
     Tests multi-tapered single trial cross spectral
     densities
-    '''
+    """
 
     nSamples = 1001
     fs = 1000
-    tvec = np.arange(nSamples) / fs    
+    tvec = np.arange(nSamples) / fs
     harm_freq = 40
     phase_shifts = np.array([0, np.pi / 2, np.pi])
 
     # 1 phase phase shifted harmonics + white noise + constant, SNR = 1
     data = [10 + np.cos(harm_freq * 2 * np. pi * tvec + ps)
-            for ps in phase_shifts] 
+            for ps in phase_shifts]
     data = np.array(data).T
     data = np.array(data) + np.random.randn(nSamples, len(phase_shifts))
 
@@ -145,9 +145,9 @@ def test_csd():
 def test_cross_cov():
 
     nSamples = 1001
-    fs = 1000        
+    fs = 1000
     tvec = np.arange(nSamples) / fs
-    
+
     cosine = np.cos(2 * np.pi * 30 * tvec)
     sine = np.sin(2 * np.pi * 30 * tvec)
     data = np.c_[cosine, sine]
@@ -157,23 +157,22 @@ def test_cross_cov():
 
     # test for result is returned in the [0, np.ceil(nSamples / 2)] lag interval
     nLags = int(np.ceil(nSamples / 2))
-    
+
     # output has shape (nLags, 1, nChannels, nChannels)
     assert CC.shape == (nLags, 1, data.shape[1], data.shape[1])
-    
+
     # cross-correlation (normalized cross-covariance) between
-    # cosine and sine analytically equals minus sine    
+    # cosine and sine analytically equals minus sine
     assert np.all(CC[:, 0, 0, 1] + sine[:nLags] < 1e-5)
 
 
 def test_wilson():
-
-    '''
+    """
     Test Wilson's spectral matrix factorization.
 
     As the routine has relative error-checking
     inbuild, we just need to check for convergence.
-    '''
+    """
 
     # --- create test data ---
     fs = 1000
@@ -182,14 +181,14 @@ def test_wilson():
     f1, f2 = [30 , 40] # 30Hz and 60Hz
     data = np.zeros((nSamples, nChannels))
     for i in range(nChannels):
-        # more phase diffusion in the 60Hz band    
+        # more phase diffusion in the 60Hz band
         p1 = phase_evo(f1 * 2 * np.pi, eps=0.1, fs=fs, N=nSamples)
         p2 = phase_evo(f2 * 2 * np.pi, eps=0.35, fs=fs, N=nSamples)
-        
+
         data[:, i] = np.cos(p1) + 2 * np.sin(p2) + .5 * np.random.randn(nSamples)
-        
+
     # --- get the (single trial) CSD ---
-    
+
     bw = 5 # 5Hz smoothing
     NW = bw * nSamples / (2 * fs)
     Kmax = int(2 * NW - 1) # optimal number of tapers
@@ -207,15 +206,15 @@ def test_wilson():
     assert CN > 1e6
 
     # --- regularize CSD ---
-    
+
     CSDreg, fac = regularize_csd(CSD, cond_max=1e6, nSteps=25)
     CNreg = np.linalg.cond(CSDreg).max()
     assert CNreg < 1e6
     # check that 'small' regularization factor is enough
-    assert fac < 1e-5 
-    
+    assert fac < 1e-5
+
     # --- factorize CSD with Wilson's algorithm ---
-    
+
     H, Sigma, conv = wilson_sf(CSDreg, rtol=1e-9)
 
     # converged - \Psi \Psi^* \approx CSD,
@@ -224,12 +223,12 @@ def test_wilson():
 
     # reconstitute
     CSDfac = H @ Sigma @ H.conj().transpose(0, 2, 1)
-    
+
     fig, ax = ppl.subplots(figsize=(6, 4))
     ax.set_xlabel('frequency (Hz)')
     ax.set_ylabel(r'$|CSD_{ij}(f)|$')
     chan = nChannels // 2
-    # show (real) auto-spectra 
+    # show (real) auto-spectra
     assert ax.plot(freqs, np.abs(CSD[:, chan, chan]),
                    '-o', label='original CSD', ms=3)
     assert ax.plot(freqs, np.abs(CSDreg[:, chan, chan]),
@@ -241,20 +240,20 @@ def test_wilson():
 
 def test_granger():
 
-    '''
+    """
     Test the granger causality measure
     with uni-directionally coupled AR(2)
     processes akin to the source publication:
 
-    Dhamala, Mukeshwar, Govindan Rangarajan, and Mingzhou Ding. 
-       "Estimating Granger causality from Fourier and wavelet transforms 
+    Dhamala, Mukeshwar, Govindan Rangarajan, and Mingzhou Ding.
+       "Estimating Granger causality from Fourier and wavelet transforms
         of time series data." Physical review letters 100.1 (2008): 018701.
-    '''
+    """
 
     fs = 200 # Hz
     nSamples = 2500
     nTrials = 50
-    
+
     # both AR(2) processes have same parameters
     # and yield a spectral peak at 40Hz
     alpha1, alpha2 = 0.55, -0.8
@@ -264,17 +263,17 @@ def test_granger():
     for _ in range(nTrials):
 
         # -- simulate 2 AR(2) processes --
-        
+
         sol = np.zeros((nSamples, 2))
         # pick the 1st values at random
         xs_ini = np.random.randn(2, 2)
         sol[:2, :] = xs_ini
         for i in range(1, nSamples):
-            sol[i, 1] = alpha1 * sol[i - 1, 1] + alpha2 * sol[i - 2, 1] 
+            sol[i, 1] = alpha1 * sol[i - 1, 1] + alpha2 * sol[i - 2, 1]
             sol[i, 1] += np.random.randn()
             # X2 drives X1
             sol[i, 0] = alpha1 * sol[i - 1, 0] + alpha2 * sol[i - 2, 0]
-            sol[i, 0] += sol[i - 1, 1] * coupling 
+            sol[i, 0] += sol[i - 1, 1] * coupling
             sol[i, 0] += np.random.randn()
 
         # --- get CSD ---
@@ -288,12 +287,12 @@ def test_granger():
 
         CSD = CS2[0, ...]
         CSDav += CSD
-            
+
     CSDav /= nTrials
     # with only 2 channels this CSD is well conditioned
     assert np.linalg.cond(CSDav).max() < 1e2
     H, Sigma, conv = wilson_sf(CSDav)
-    
+
     G = granger(CSDav, H, Sigma)
     assert G.shape == CSDav.shape
 
@@ -305,7 +304,7 @@ def test_granger():
     assert G[freq_idx, 0, 1] < 0.1
     # check high causality for 2->1
     assert G[freq_idx, 1, 0] > 0.8
-    
+
     fig, ax = ppl.subplots(figsize=(6, 4))
     ax.set_xlabel('frequency (Hz)')
     ax.set_ylabel(r'Granger causality(f)')
@@ -318,7 +317,7 @@ def test_granger():
 
 # noisy phase evolution -> phase diffusion
 def phase_evo(omega0, eps, fs=1000, N=1000):
-    wn = np.random.randn(N) 
+    wn = np.random.randn(N)
     delta_ts = np.ones(N) * 1 / fs
     phase = np.cumsum(omega0 * delta_ts + eps * wn)
     return phase

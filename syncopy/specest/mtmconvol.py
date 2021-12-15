@@ -11,7 +11,7 @@ from scipy import signal
 def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
               taper_opt={}, boundary='zeros', padded=True, detrend=False):
 
-    '''
+    """
     (Multi-)tapered short time fast Fourier transform. Returns
     full complex Fourier transform for each taper.
     Multi-tapering only supported with Slepian windwows (`taper="dpss"`).
@@ -26,14 +26,14 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
     nperseg : int
         Sliding window size in sample units
     noverlap : int
-        Overlap between consecutive windows, set to nperseg -1
+        Overlap between consecutive windows, set to ``nperseg - 1``
         to cover the whole signal
     taper : str or None
-        Taper function to use, one of scipy.signal.windows
+        Taper function to use, one of `scipy.signal.windows`
         Set to `None` for no tapering.
     taper_opt : dict
         Additional keyword arguments passed to the `taper` function.
-        For multi-tapering with `taper='dpss'` set the keys
+        For multi-tapering with ``taper='dpss'`` set the keys
         `'Kmax'` and `'NW'`.
         For further details, please refer to the
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
@@ -42,28 +42,27 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
         sample. If set to `False` half the window size (`nperseg`) will be lost
         on each side of the signal.
     padded : bool
-        Additional padding in case `noverlap != nperseg - 1` to fit an integer number
+        Additional padding in case ``noverlap != nperseg - 1`` to fit an integer number
         of windows.
 
     Returns
     -------
     ftr : 4D :class:`numpy.ndarray`
          The Fourier transforms, complex output has shape:
-         (nTime, nTapers x nFreq x nChannels)
+         ``(nTime, nTapers x nFreq x nChannels)``
     freqs : 1D :class:`numpy.ndarray`
          Array of Fourier frequencies
 
     Notes
     -----
-
     For a (MTM) power spectral estimate average the absolute squared
     transforms across tapers:
 
-    Sxx = np.real(ftr * ftr.conj()).mean(axis=0)
+    ``Sxx = np.real(ftr * ftr.conj()).mean(axis=0)``
 
     The short time FFT result is normalized such that
     this yields the squared harmonic amplitudes.
-    '''
+    """
 
     # attach dummy channel axis in case only a
     # single signal/channel is the input
@@ -119,8 +118,3 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
         ftr[:, taperIdx, ...] =  2 * pxx.transpose(2, 0, 1)[:nTime, ...]
 
     return ftr, freqs
-
-
-
-
-

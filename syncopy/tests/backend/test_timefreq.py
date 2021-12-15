@@ -12,42 +12,42 @@ def gen_testdata(freqs=[20, 40, 60],
                  cycles=11, fs=1000,
                  eps = 0):
 
-    '''
+    """
     Harmonic superposition of multiple
     few-cycle oscillations akin to the
     example of Figure 3 in Moca et al. 2021 NatComm
 
     Each harmonic has a frequency neighbor with +10Hz
     and a time neighbor after 2 cycles(periods).
-    '''
+    """
 
     signal = []
     for freq in freqs:
-        
+
         # 10 cycles of f1
         tvec = np.arange(cycles / freq, step=1 / fs)
 
         harmonic = np.cos(2 * np.pi * freq * tvec)
         # frequency neighbor
-        f_neighbor = np.cos(2 * np.pi * (freq + 10) * tvec) 
+        f_neighbor = np.cos(2 * np.pi * (freq + 10) * tvec)
         packet = harmonic +  f_neighbor
 
         # 2 cycles time neighbor
         delta_t = np.zeros(int(2 / freq * fs))
-        
+
         # 5 cycles break
         pad = np.zeros(int(5 / freq * fs))
 
         signal.extend([pad, packet, delta_t, harmonic])
 
-    # stack the packets together with some padding        
+    # stack the packets together with some padding
     signal.append(pad)
     signal = np.concatenate(signal)
 
     # additive white noise
     if eps > 0:
         signal = np.random.randn(len(signal)) * eps + signal
-    
+
     return signal
 
 
@@ -60,7 +60,7 @@ signal_freqs = np.array([20, 50, 80])
 # signal_freqs = np.array([20, 70])
 cycles = 12
 A = 5 # signal amplitude
-signal = A * gen_testdata(freqs=signal_freqs, cycles=cycles, fs=fs, eps=0.) 
+signal = A * gen_testdata(freqs=signal_freqs, cycles=cycles, fs=fs, eps=0.)
 
 # define frequencies of interest for wavelet methods
 foi = np.arange(1, 101, step=1)
@@ -69,18 +69,18 @@ foi = np.arange(1, 101, step=1)
 freq_idx = []
 for frequency in signal_freqs:
     freq_idx.append(np.argmax(foi >= frequency))
-    
+
 
 def test_mtmconvol():
 
-    # 10 cycles of 40Hz are 250 samples 
+    # 10 cycles of 40Hz are 250 samples
     window_size = 750
 
     # default - stft pads with 0's to make windows fit
     # we choose N-1 overlap to retrieve a time-freq estimate
     # for each epoch in the signal
 
-    # the transforms have shape (nTime, nTaper, nFreq, nChannel)    
+    # the transforms have shape (nTime, nTaper, nFreq, nChannel)
     ftr, freqs = mtmconvol.mtmconvol(signal,
                                      samplerate=fs, taper='cosine',
                                      nperseg=window_size,
@@ -96,11 +96,11 @@ def test_mtmconvol():
                                    gridspec_kw={"height_ratios": [1, 3]},
                                    figsize=(6, 6))
 
-    ax1.set_title("Short Time Fourier Transform")        
+    ax1.set_title("Short Time Fourier Transform")
     ax1.plot(np.arange(signal.size) / fs, signal, c='cornflowerblue')
     ax1.set_ylabel('signal (a.u.)')
 
-    ax2.set_xlabel("time (s)")    
+    ax2.set_xlabel("time (s)")
     ax2.set_ylabel("frequency (Hz)")
 
     df = freqs[1] - freqs[0]
@@ -129,7 +129,7 @@ def test_mtmconvol():
     for frequency in signal_freqs:
         freq_idx.append(np.argmax(freqs >= frequency))
 
-    # test amplitude normalization        
+    # test amplitude normalization
     for idx, frequency in zip(freq_idx, signal_freqs):
 
         ax2.plot([0, len(signal) / fs],
@@ -145,7 +145,7 @@ def test_mtmconvol():
         # assert cycle_num > 2 * cycles
         # power should decay fast, so we don't detect more cycles
         # assert cycle_num < 3 * cycles
-        
+
     fig.tight_layout()
 
     # -------------------------
@@ -169,11 +169,11 @@ def test_mtmconvol():
                                    gridspec_kw={"height_ratios": [1, 3]},
                                    figsize=(6, 6))
 
-    ax1.set_title("Multi-Taper STFT")        
+    ax1.set_title("Multi-Taper STFT")
     ax1.plot(np.arange(signal.size) / fs, signal, c='cornflowerblue')
     ax1.set_ylabel('signal (a.u.)')
 
-    ax2.set_xlabel("time (s)")    
+    ax2.set_xlabel("time (s)")
     ax2.set_ylabel("frequency (Hz)")
 
     # test also the plotting
@@ -213,10 +213,10 @@ def test_mtmconvol():
 
 
 def test_superlet():
-    
+
     scalesSL = superlet.scale_from_period(1 / foi)
 
-    # spec shape is nScales x nTime (x nChannels)    
+    # spec shape is nScales x nTime (x nChannels)
     spec = superlet.superlet(signal,
                              samplerate=fs,
                              scales=scalesSL,
@@ -231,13 +231,13 @@ def test_superlet():
                                    sharex=True,
                                    gridspec_kw={"height_ratios": [1, 3]},
                                    figsize=(6, 6))
-    
-    ax1.set_title("Superlet Transform")        
+
+    ax1.set_title("Superlet Transform")
     ax1.plot(np.arange(signal.size) / fs, signal, c='cornflowerblue')
     ax1.set_ylabel('signal (a.u.)')
-    
-    ax2.set_xlabel("time (s)")    
-    ax2.set_ylabel("frequency (Hz)")        
+
+    ax2.set_xlabel("time (s)")
+    ax2.set_ylabel("frequency (Hz)")
     extent = [0, len(signal) / fs, foi[0], foi[-1]]
     # test also the plotting
     # scale with amplitude
@@ -248,7 +248,7 @@ def test_superlet():
                       origin='lower',
                       vmin=0,
                       vmax=1.2 * A)
-    
+
     # get the 'mappable'
     im = ax2.images[0]
     fig.colorbar(im, ax = ax2, orientation='horizontal',
@@ -272,7 +272,7 @@ def test_superlet():
 
     fig.tight_layout()
 
-    
+
 def test_wavelet():
 
     # get a wavelet function
@@ -294,8 +294,8 @@ def test_wavelet():
     ax1.set_title("Wavelet Transform")
     ax1.plot(np.arange(signal.size) / fs, signal, c='cornflowerblue')
     ax1.set_ylabel('signal (a.u.)')
-    
-    ax2.set_xlabel("time (s)")    
+
+    ax2.set_xlabel("time (s)")
     ax2.set_ylabel("frequency (Hz)")
     extent = [0, len(signal) / fs, foi[0], foi[-1]]
 
@@ -332,7 +332,7 @@ def test_wavelet():
 
     fig.tight_layout()
 
-    
+
 def test_mtmfft():
 
     # superposition 40Hz and 100Hz oscillations A1:A2 for 1s
@@ -346,8 +346,8 @@ def test_mtmfft():
     # --------------------
     # -- test untapered --
     # --------------------
-    
-    # the transforms have shape (nTaper, nFreq, nChannel)    
+
+    # the transforms have shape (nTaper, nFreq, nChannel)
     ftr, freqs = mtmfft.mtmfft(signal, fs, taper=None)
 
     # with 1000Hz sampling frequency and 1000 samples this gives
@@ -359,7 +359,7 @@ def test_mtmfft():
     spec = np.real(ftr * ftr.conj()).mean(axis=0)
     amplitudes = np.sqrt(spec)[:, 0] # only 1 channel
     # our FFT normalisation recovers the signal amplitudes:
-    assert np.allclose([A1, A2], amplitudes[[f1, f2]]) 
+    assert np.allclose([A1, A2], amplitudes[[f1, f2]])
 
     fig, ax = ppl.subplots()
     ax.set_title(f"Amplitude spectrum {A1} x 40Hz + {A2} x 100Hz")
@@ -370,10 +370,10 @@ def test_mtmfft():
     # -------------------------
     # test multi-taper analysis
     # -------------------------
-    
+
     taper_opt = {'Kmax' : 8, 'NW' : 1}
     ftr, freqs = mtmfft.mtmfft(signal, fs, taper="dpss", taper_opt=taper_opt)
-    # average over tapers 
+    # average over tapers
     dpss_spec = np.real(ftr * ftr.conj()).mean(axis=0)
     dpss_amplitudes = np.sqrt(dpss_spec)[:, 0] # only 1 channel
     # check for amplitudes (and taper normalisation)
@@ -385,19 +385,19 @@ def test_mtmfft():
     # -----------------
     # test kaiser taper (is boxcar for beta -> inf)
     # -----------------
-    
+
     taper_opt = {'beta' : 2}
     ftr, freqs = mtmfft.mtmfft(signal, fs, taper="kaiser", taper_opt=taper_opt)
     # average over tapers (only 1 here)
     kaiser_spec = np.real(ftr * ftr.conj()).mean(axis=0)
     kaiser_amplitudes = np.sqrt(kaiser_spec)[:, 0] # only 1 channel
     # check for amplitudes (and taper normalisation)
-    assert np.allclose(kaiser_amplitudes[[f1, f2]], [A1, A2], atol=1e-2) 
+    assert np.allclose(kaiser_amplitudes[[f1, f2]], [A1, A2], atol=1e-2)
 
     # -------------------------------
     # test all other window functions (which don't need a parameter)
     # -------------------------------
-    
+
     for win in windows.__all__:
         taper_opt = {}
         # that guy isn't symmetric
@@ -405,14 +405,14 @@ def test_mtmfft():
             continue
         # that guy is deprecated
         if win == 'hanning':
-            continue            
+            continue
         try:
             ftr, freqs = mtmfft.mtmfft(signal, fs, taper=win, taper_opt=taper_opt)
             # average over tapers (only 1 here)
             spec = np.real(ftr * ftr.conj()).mean(axis=0)
             amplitudes = np.sqrt(spec)[:, 0] # only 1 channel
-            # print(win, amplitudes[[f1, f2]])        
-            assert np.allclose(amplitudes[[f1, f2]], [A1, A2], atol=1e-3)         
+            # print(win, amplitudes[[f1, f2]])
+            assert np.allclose(amplitudes[[f1, f2]], [A1, A2], atol=1e-3)
         except TypeError:
             # we didn't provide default parameters..
             pass

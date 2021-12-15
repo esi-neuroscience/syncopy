@@ -22,30 +22,28 @@ def mtmfft(data_arr, samplerate, taper="hann", taper_opt=None):
     samplerate : float
         Samplerate in Hz
     taper : str or None
-        Taper function to use, one of scipy.signal.windows
+        Taper function to use, one of `scipy.signal.windows`
         Set to `None` for no tapering.
     taper_opt : dict or None
         Additional keyword arguments passed to the `taper` function.
-        For multi-tapering with `taper='dpss'` set the keys
+        For multi-tapering with ``taper='dpss'`` set the keys
         `'Kmax'` and `'NW'`.
         For further details, please refer to the
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
 
     Returns
     -------
-
     ftr : 3D :class:`numpy.ndarray`
-         Complex output has shape (nTapers x nFreq x nChannels).
+         Complex output has shape ``(nTapers x nFreq x nChannels)``.
     freqs : 1D :class:`numpy.ndarray`
          Array of Fourier frequencies
 
     Notes
     -----
-
     For a (MTM) power spectral estimate average the absolute squared
     transforms across tapers:
 
-    Sxx = np.real(ftr * ftr.conj()).mean(axis=0)
+    ``Sxx = np.real(ftr * ftr.conj()).mean(axis=0)``
 
     The FFT result is normalized such that this yields the squared amplitudes.
     """
@@ -93,4 +91,3 @@ def mtmfft(data_arr, samplerate, taper="hann", taper_opt=None):
         ftr[taperIdx] /= np.sqrt(nSamples)
 
     return ftr, freqs
-
