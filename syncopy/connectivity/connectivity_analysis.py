@@ -14,7 +14,6 @@ from syncopy.datatype import CrossSpectralData
 from syncopy.datatype.methods.padding import _nextpow2
 from syncopy.shared.errors import (
     SPYValueError,
-    SPYTypeError,
     SPYWarning,
     SPYInfo)
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
@@ -102,48 +101,39 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     if method not in availableMethods:
         lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
         raise SPYValueError(legal=lgl, varname="method", actual=method)
-    
-    # If only a subset of `data` is to be processed,
-    # make some necessary adjustments
-    # and compute minimal sample-count across (selected) trials
+
+    # if a subset selection is present
+    # get sampleinfo and check for equidistancy
     if data._selection is not None:
+        sinfo = data._selection.trialdefinition[:, :2]
         trialList = data._selection.trials
-        sinfo = np.zeros((len(trialList), 2))
-        for tk, trlno in enumerate(trialList):
-            trl = data._preview_trial(trlno)
-            tsel = trl.idx[timeAxis]
-
-            # user picked discrete set of time points
-            if isinstance(tsel, list):
-                lgl = "equidistant time points (toi) or time slice (toilim)"
-                actual = "non-equidistant set of time points"
-                raise SPYValueError(legal=lgl, varname="select", actual=actual)
-
-            sinfo[tk, :] = [trl.idx[timeAxis].start, trl.idx[timeAxis].stop]
+        # user picked discrete set of time points
+        if isinstance(data._selection.time[0], list):
+            lgl = "equidistant time points (toi) or time slice (toilim)"
+            actual = "non-equidistant set of time points"
+            raise SPYValueError(legal=lgl, varname="select", actual=actual)
     else:
         trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo).squeeze()
-
-    # here we enforce equal lengths trials as is required for
-    # sensical trial averaging - user is responsible for trial
-    # specific padding and time axis alignments
-    # OR we do a brute force 'maxlen' padding if there is unequal lengths?!
-    if not lenTrials.min() == lenTrials.max():
-        lgl = "trials of same lengths"
-        actual = "trials of different lengths - please pre-pad!"
-        raise SPYValueError(legal=lgl, varname="lenTrials", actual=actual)
-
     numTrials = len(trialList)
 
     # --- Padding ---
 
     if method == "corr" and pad_to_length:
-        lgl = "`None`, no padding for cross-correlations"
+        lgl = "`None`, no padding needed/allowed for cross-correlations"
         actual = f"{pad_to_length}"
         raise SPYValueError(legal=lgl, varname="pad_to_length", actual=actual)
-    
-    # manual symmetric zero padding of ALL trials the same way
+
+    # here we check for equal lengths trials as is required for
+    # trial averaging, in case of no user specified absolute padding length
+    # we do a rough 'maxlen' padding, nextpow2 will be overruled in this case
+    if lenTrials.min() != lenTrials.max() and not isinstance(pad_to_length, Number):
+        pad_to_length = int(lenTrials.max()) 
+        msg = f"Unequal trial lengths present, automatic padding to {pad_to_length} samples"
+        SPYWarning(msg)
+        
+    # symmetric zero padding of ALL trials the same way
     if isinstance(pad_to_length, Number):
 
         scalar_parser(pad_to_length,
@@ -157,7 +147,9 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         }
         # after padding!
         nSamples = pad_to_length
+        
     # or pad to optimal FFT lengths
+    # (not possible for unequal lengths trials)
     elif pad_to_length == 'nextpow2':
         padding_opt = {
             'padtype' : 'zero',
