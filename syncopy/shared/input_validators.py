@@ -9,7 +9,7 @@
 import numpy as np
 
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYInfo
-from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
+from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.const_def import availableTapers, generalParameters
 
 
@@ -17,15 +17,15 @@ def validate_foi(foi, foilim, samplerate):
 
     '''
 
-    Parameters to check
-    -------------------    
+    Parameters
+    ----------
     foi : 'all' or array like or None
         frequencies of interest
     foilim : 2-element sequence or None
         foi limits
 
-    Auxiliary arguments
-    -------------------
+    Other Parameters
+    ----------------
     samplerate : float
         the samplerate in Hz
 
@@ -99,17 +99,17 @@ def validate_taper(taper,
     "The Effective Bandwidth of a Multitaper Spectral Estimator, 
     A. T. Walden, E. J. McCoy and D. B. Percival"
 
-    Parameters to check
-    -------------------    
+    Parameters
+    ----------
     taper : str
         Windowing function, one of :data:`~syncopy.shared.const_def.availableTapers`
     tapsmofrq : float or None
         Taper smoothing bandwidth for `taper='dpss'`
     nTaper : int_like or None
-        Number of tapers to user for multi-tapering (not recommended)
+        Number of tapers to use for multi-tapering (not recommended)
 
-    Auxiliary arguments
-    -------------------
+    Other Parameters
+    ----------------
     keeptapers : bool
     foimax : float
         Maximum frequency for the analysis
@@ -155,27 +155,15 @@ def validate_taper(taper,
     
     # Set/get `tapsmofrq` if we're working w/Slepian tapers
     elif taper == "dpss":
+        
 
         # --- minimal smoothing bandwidth ---
         # --- such that Kmax/nTaper is at least 1
         minBw = 2 * samplerate / nSamples
         # -----------------------------------
-        
-        # Try to derive "sane" settings by using 3/4 octave
-        # smoothing of highest `foi`
-        # following Hill et al. "Oscillatory Synchronization in Large-Scale
-        # Cortical Networks Predicts Perception", Neuron, 2011
-        # FIX ME: This "sane setting" seems quite excessive (huuuge bwidths)
-        
-        if tapsmofrq is None:
-            tapsmofrq = (foimax * 2**(3 / 4 / 2) - foimax * 2**(-3 / 4 / 2)) / 2
-            if tapsmofrq < minBw: # *should* not happen but just in case
-                tapsmofrq = minBw
-            msg = f'Automatic setting of `tapsmofrq` to {tapsmofrq:.2f}'
-            SPYInfo(msg)
 
         # user set tapsmofrq directly
-        elif tapsmofrq is not None:
+        if tapsmofrq is not None:
             try:
                 scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[0, np.inf])
             except Exception as exc:
@@ -185,6 +173,21 @@ def validate_taper(taper,
                 msg = f'Setting tapsmofrq to the minimal attainable bandwidth of {minBw:.2f}Hz'
                 SPYInfo(msg)
                 tapsmofrq = minBw
+        
+        # we now enforce a user submitted smoothing bw
+        else:
+            lgl = "smoothing bandwidth in Hz, typical values are in the range 1-10Hz"            
+            raise SPYValueError(legal=lgl, varname="tapsmofrq", actual=tapsmofrq)
+
+            # Try to derive "sane" settings by using 3/4 octave
+            # smoothing of highest `foi`
+            # following Hill et al. "Oscillatory Synchronization in Large-Scale
+            # Cortical Networks Predicts Perception", Neuron, 2011
+            # FIX ME: This "sane setting" seems quite excessive (huuuge bwidths)
+            
+            # tapsmofrq = (foimax * 2**(3 / 4 / 2) - foimax * 2**(-3 / 4 / 2)) / 2
+            # msg = f'Automatic setting of `tapsmofrq` to {tapsmofrq:.2f}'
+            # SPYInfo(msg)
 
         # --------------------------------------------
         # set parameters for scipy.signal.windows.dpss
@@ -192,9 +195,9 @@ def validate_taper(taper,
         # from the minBw setting NW always is at least 1         
         Kmax = int(2 * NW - 1) # optimal number of tapers
         # --------------------------------------------
-        
+
         # the recommended way:
-        # set nTaper automatically to maximize effective smoothing bandwidth
+        # set nTaper automatically to achieve exact effective smoothing bandwidth
         if nTaper is None:
             msg = f'Using {Kmax} taper(s) for multi-tapering'
             SPYInfo(msg)
@@ -212,7 +215,7 @@ def validate_taper(taper,
             if nTaper != Kmax:                
                 msg = f''' 
                 Manually setting the number of tapers is not recommended 
-                and may (strongly) distort the spectral estimation!\n
+                and may (strongly) distort the effective smoothing bandwidth!\n
                 The optimal number of tapers is {Kmax}, you have chosen to use {nTaper}.
                 '''
                 SPYWarning(msg)
@@ -230,14 +233,13 @@ def check_effective_parameters(CR, defaults, lcls):
 
     Parameters
     ----------
-
     CR : :class:`~syncopy.shared.computational_routine.ComputationalRoutine
         Needs to have a `valid_kws` attribute
     defaults : dict
         Result of :func:`~syncopy.shared.tools.get_defaults`, the frontend
         parameter names plus values with default values
     lcls : dict
-        Result of `locals()`, all names and values of the local name space
+        Result of `locals()`, all names and values of the local (frontend-)name space
     '''
     # list of possible parameter names of the CR
     expected = CR.valid_kws + ["parallel", "select"]
