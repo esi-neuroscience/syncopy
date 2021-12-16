@@ -266,8 +266,6 @@ class TestMTMFFT():
             # specify tapers
             spec = freqanalysis(self.adata, method="mtmfft", taper="dpss",
                                 tapsmofrq=7, keeptapers=True, select=select)
-            # automatic nTaper settings, can be removed?!
-            # assert spec.taper.size == 7
             assert spec.channel.size == len(chanList)
 
         # non-equidistant data w/multiple tapers
@@ -729,9 +727,8 @@ class TestMTMConvol():
         cfg.toi = "all"
         cfg.t_ftimwin = 0.05
         tfSpec = freqanalysis(cfg, self.tfData)
-        print(self.tfData)
         assert tfSpec.taper.size >= 1
-        dt = 1/self.tfData.samplerate
+        dt = 1 / self.tfData.samplerate
         timeArr = np.arange(cfg.select["toilim"][0], cfg.select["toilim"][1] + dt, dt)
         assert np.allclose(tfSpec.time[0], timeArr)
         cfg.toi = 1.0

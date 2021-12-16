@@ -16,14 +16,11 @@ from inspect import signature
 
 # syncopy imports
 from syncopy.shared.const_def import spectralDTypes, spectralConversions
-from syncopy.shared.errors import SPYWarning
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.shared.errors import (
     SPYValueError,
-    SPYTypeError,
-    SPYWarning,
-    SPYInfo)
+)
 from syncopy.connectivity.wilson_sf import wilson_sf, regularize_csd
 from syncopy.connectivity.granger import granger
 
@@ -98,12 +95,10 @@ def normalize_csd_cF(csd_av_dat,
 
     # For initialization of computational routine,
     # just return output shape and dtype
-    # cross spectra are complex!
     if noCompute:
         return outShape, spectralDTypes[output]
 
     # re-shape to (nChannels x nChannels x nFreq)
-
     CS_ij = csd_av_dat.transpose(0, 2, 3, 1)[0, ...]
 
     # main diagonal has shape (nFreq x nChannels): the auto spectra

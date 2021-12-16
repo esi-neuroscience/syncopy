@@ -13,7 +13,7 @@ from inspect import signature
 # syncopy imports
 from syncopy.specest.mtmfft import mtmfft
 from syncopy.shared.const_def import spectralDTypes
-from syncopy.shared.errors import SPYWarning, SPYValueError
+from syncopy.shared.errors import SPYValueError
 from syncopy.datatype import padding
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine

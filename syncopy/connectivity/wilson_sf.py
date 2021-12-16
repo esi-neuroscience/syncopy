@@ -48,7 +48,7 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9):
         iterations.
     """
 
-    nFreq, nChannels = CSD.shape[:2]
+    nFreq = CSD.shape[0]
 
     Ident = np.eye(*CSD.shape[1:])
 
@@ -156,7 +156,7 @@ def _plusOperator(g):
 # --- End of Wilson's Algorithm ---
 
 
-def regularize_csd(CSD, cond_max=1e6, eps_max=1e-3, nSteps=50):
+def regularize_csd(CSD, cond_max=1e6, eps_max=1e-3, nSteps=15):
 
     """
     Brute force regularization of CSD matrix
@@ -193,7 +193,7 @@ def regularize_csd(CSD, cond_max=1e6, eps_max=1e-3, nSteps=50):
 
     """
 
-    epsilons = np.logspace(-10, np.log10(eps_max), 25)
+    epsilons = np.logspace(-10, np.log10(eps_max), nSteps)
     I = np.eye(CSD.shape[1])
 
     CondNum = np.linalg.cond(CSD).max()
@@ -211,10 +211,3 @@ def regularize_csd(CSD, cond_max=1e6, eps_max=1e-3, nSteps=50):
 
     msg = f"CSD matrix not regularizable with a max epsilon of {eps_max}!"
     raise ValueError(msg)
-
-
-def _mem_size(arr):
-    '''
-    Gives array size in MB
-    '''
-    return f'{arr.size * arr.itemsize / 1e6:.2f} MB'

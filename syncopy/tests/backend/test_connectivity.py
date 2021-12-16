@@ -65,14 +65,14 @@ def test_coherence():
     ax.set_ylim((-.02,1.05))
     ax.set_title('Trial average coherence,  SNR=1')
 
-    assert ax.plot(freqs, coh, lw=1.5, alpha=0.8, c='cornflowerblue')
+    ax.plot(freqs, coh, lw=1.5, alpha=0.8, c='cornflowerblue')
 
     # we test for the highest peak sitting at
     # the vicinity (± 5Hz) of the harmonic
     peak_val = np.max(coh)
     peak_idx = np.argmax(coh)
     peak_freq = freqs[peak_idx]
-    print(peak_freq, peak_val)
+
     assert harm_freq - 5 < peak_freq < harm_freq + 5
 
     # we test that the peak value
@@ -127,14 +127,13 @@ def test_csd():
     ax.set_ylim((-.02,1.05))
     ax.set_title(f'MTM coherence, {Kmax} tapers, SNR=1')
 
-    assert ax.plot(freqs, coh, lw=1.5, alpha=0.8, c='cornflowerblue')
+    ax.plot(freqs, coh, lw=1.5, alpha=0.8, c='cornflowerblue')
 
     # we test for the highest peak sitting at
     # the vicinity (± 5Hz) of one the harmonic
     peak_val = np.max(coh)
     peak_idx = np.argmax(coh)
     peak_freq = freqs[peak_idx]
-    print(peak_freq, peak_val)
     assert harm_freq - 5 < peak_freq < harm_freq + 5
 
     # we test that the peak value
@@ -229,15 +228,16 @@ def test_wilson():
     ax.set_ylabel(r'$|CSD_{ij}(f)|$')
     chan = nChannels // 2
     # show (real) auto-spectra
-    assert ax.plot(freqs, np.abs(CSD[:, chan, chan]),
-                   '-o', label='original CSD', ms=3)
-    assert ax.plot(freqs, np.abs(CSDreg[:, chan, chan]),
-                   '-o', label='regularized CSD', ms=3)
-    assert ax.plot(freqs, np.abs(CSDfac[:, chan, chan]),
-                   '-o', label='factorized CSD', ms=3)
+    ax.plot(freqs, np.abs(CSD[:, chan, chan]),
+            '-o', label='original CSD', ms=3)
+    ax.plot(freqs, np.abs(CSDreg[:, chan, chan]),
+            '-o', label='regularized CSD', ms=3)
+    ax.plot(freqs, np.abs(CSDfac[:, chan, chan]),
+            '-o', label='factorized CSD', ms=3)
     ax.set_xlim((f1 - 5, f2 + 5))
+    ax.legend()
 
-
+    
 def test_granger():
 
     """
@@ -308,8 +308,8 @@ def test_granger():
     fig, ax = ppl.subplots(figsize=(6, 4))
     ax.set_xlabel('frequency (Hz)')
     ax.set_ylabel(r'Granger causality(f)')
-    assert ax.plot(freqs, G[:, 0, 1], label=r'Granger $1\rightarrow2$')
-    assert ax.plot(freqs, G[:, 1, 0], label=r'Granger $2\rightarrow1$')
+    ax.plot(freqs, G[:, 0, 1], label=r'Granger $1\rightarrow2$')
+    ax.plot(freqs, G[:, 1, 0], label=r'Granger $2\rightarrow1$')
     ax.legend()
 
 # --- Helper routines ---

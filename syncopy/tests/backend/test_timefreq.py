@@ -108,13 +108,13 @@ def test_mtmconvol():
     extent = [0, len(signal) / fs, freqs[0] - df / 2, freqs[-1] - df / 2]
     # test also the plotting
     # scale with amplitude
-    assert ax2.imshow(ampls.T,
-                      cmap='magma',
-                      aspect='auto',
-                      origin='lower',
-                      extent=extent,
-                      vmin=0,
-                      vmax=1.2 * A)
+    ax2.imshow(ampls.T,
+               cmap='magma',
+               aspect='auto',
+               origin='lower',
+               extent=extent,
+               vmin=0,
+               vmax=1.2 * A)
 
     # zoom into foi region
     ax2.set_ylim((foi[0], foi[-1]))
@@ -142,9 +142,9 @@ def test_mtmconvol():
         cycle_num = (ampls[:, idx] > A / np.e).sum() / fs * frequency
         print(f'{cycle_num} cycles for the {frequency} band')
         # we have 2 times the cycles for each frequency (temporal neighbor)
-        # assert cycle_num > 2 * cycles
+        assert cycle_num > 2 * cycles
         # power should decay fast, so we don't detect more cycles
-        # assert cycle_num < 3 * cycles
+        assert cycle_num < 3 * cycles
 
     fig.tight_layout()
 
@@ -178,13 +178,13 @@ def test_mtmconvol():
 
     # test also the plotting
     # scale with amplitude
-    assert ax2.imshow(ampls2.T,
-                      cmap='magma',
-                      aspect='auto',
-                      origin='lower',
-                      extent=extent,
-                      vmin=0,
-                      vmax=1.2 * A)
+    ax2.imshow(ampls2.T,
+               cmap='magma',
+               aspect='auto',
+               origin='lower',
+               extent=extent,
+               vmin=0,
+               vmax=1.2 * A)
 
     # zoom into foi region
     ax2.set_ylim((foi[0], foi[-1]))
@@ -205,7 +205,7 @@ def test_mtmconvol():
 
     # for multi-taper stft we can't
     # check for the whole time domain
-    # due to too much spectral broadening
+    # due to too much spectral broadening/smearing
     # so we just check that the maximum estimated
     # amplitude is within 10% boundsof the real amplitude
 
@@ -241,13 +241,13 @@ def test_superlet():
     extent = [0, len(signal) / fs, foi[0], foi[-1]]
     # test also the plotting
     # scale with amplitude
-    assert ax2.imshow(ampls,
-                      cmap='magma',
-                      aspect='auto',
-                      extent=extent,
-                      origin='lower',
-                      vmin=0,
-                      vmax=1.2 * A)
+    ax2.imshow(ampls,
+               cmap='magma',
+               aspect='auto',
+               extent=extent,
+               origin='lower',
+               vmin=0,
+               vmax=1.2 * A)
 
     # get the 'mappable'
     im = ax2.images[0]
@@ -301,13 +301,13 @@ def test_wavelet():
 
     # test also the plotting
     # scale with amplitude
-    assert ax2.imshow(ampls,
-                      cmap='magma',
-                      aspect='auto',
-                      extent=extent,
-                      origin='lower',
-                      vmin=0,
-                      vmax=1.2 * A)
+    ax2.imshow(ampls,
+               cmap='magma',
+               aspect='auto',
+               extent=extent,
+               origin='lower',
+               vmin=0,
+               vmax=1.2 * A)
 
     # get the 'mappable'
     im = ax2.images[0]
