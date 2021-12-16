@@ -191,7 +191,7 @@ class TestMTMFFT():
         # keep trials but throw away tapers
         out = SpectralData(dimord=SpectralData._defaultDimord)
         freqanalysis(self.adata, method="mtmfft", taper="dpss",
-                     keeptapers=False, output="pow", out=out)
+                     tapsmofrq=3, keeptapers=False, output="pow", out=out)
         assert out.sampleinfo.shape == (self.nTrials, 2)
         assert out.taper.size == 1
 
@@ -199,6 +199,7 @@ class TestMTMFFT():
         cfg.dataset = self.adata
         cfg.out = SpectralData(dimord=SpectralData._defaultDimord)
         cfg.taper = "dpss"
+        cfg.tapsmofrq = 3
         cfg.output = "pow"
         cfg.keeptapers = False
         freqanalysis(cfg)
@@ -258,7 +259,7 @@ class TestMTMFFT():
 
             # ensure default setting results in single taper
             spec = freqanalysis(self.adata, method="mtmfft",
-                                taper="dpss", output="pow", select=select)
+                                taper="dpss", tapsmofrq=3,  output="pow", select=select)
             assert spec.taper.size == 1
             assert spec.channel.size == len(chanList)
 
@@ -396,7 +397,7 @@ class TestMTMFFT():
             avdata = AnalogData(vdata, samplerate=self.fs,
                                 trialdefinition=self.trialdefinition)
             spec = freqanalysis(avdata, method="mtmfft", taper="dpss",
-                                keeptapers=False, output="abs", pad="relative",
+                                tapsmofrq=3, keeptapers=False, output="abs", pad="relative",
                                 padlength=npad)
             assert (np.diff(avdata.sampleinfo)[0][0] + npad) / 2 + 1 == spec.freq.size
             del avdata, vdata, dmap, spec
@@ -560,7 +561,7 @@ class TestMTMConvol():
 
         # keep trials but throw away tapers
         out = SpectralData(dimord=SpectralData._defaultDimord)
-        freqanalysis(self.tfData, method="mtmconvol", taper="dpss",
+        freqanalysis(self.tfData, method="mtmconvol", taper="dpss", tapsmofrq=3,
                      keeptapers=False, output="pow", toi=0.0, t_ftimwin=1.0,
                      out=out)
         assert out.sampleinfo.shape == (self.nTrials, 2)
@@ -570,6 +571,7 @@ class TestMTMConvol():
         cfg.dataset = self.tfData
         cfg.out = SpectralData(dimord=SpectralData._defaultDimord)
         cfg.taper = "dpss"
+        cfg.tapsmofrq = 3
         cfg.keeptapers = False
         cfg.output = "pow"
         freqanalysis(cfg)

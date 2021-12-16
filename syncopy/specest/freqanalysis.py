@@ -345,17 +345,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             raise SPYTypeError(lcls[vname], varname=vname, expected="Bool")
 
     # If only a subset of `data` is to be processed, make some necessary adjustments
-    # and compute minimal sample-count across (selected) trials
+    # of the sampleinfo and trial lengths
     if data._selection is not None:
+        sinfo = data._selection.trialdefinition[:, :2]
         trialList = data._selection.trials
-        sinfo = np.zeros((len(trialList), 2))
-        for tk, trlno in enumerate(trialList):
-            trl = data._preview_trial(trlno)
-            tsel = trl.idx[timeAxis]
-            if isinstance(tsel, list):
-                sinfo[tk, :] = [0, len(tsel)]
-            else:
-                sinfo[tk, :] = [trl.idx[timeAxis].start, trl.idx[timeAxis].stop]
     else:
         trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
