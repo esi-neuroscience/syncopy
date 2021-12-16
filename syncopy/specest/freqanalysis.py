@@ -357,6 +357,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         lenTrials = lenTrials[None]
     numTrials = len(trialList)
 
+    # check polyremoval
+    if polyremoval is not None:
+        scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])
+                  
     # Sliding window FFT does not support "fancy" padding
     if method == "mtmconvol" and isinstance(pad, str):
         msg = "method 'mtmconvol' only supports in-place padding for windows " +\

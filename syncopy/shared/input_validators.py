@@ -15,8 +15,7 @@ from syncopy.shared.const_def import availableTapers, generalParameters
 
 def validate_foi(foi, foilim, samplerate):
 
-    '''
-
+    """
     Parameters
     ----------
     foi : 'all' or array like or None
@@ -32,13 +31,15 @@ def validate_foi(foi, foilim, samplerate):
     Returns
     -------
     foi, foilim : tuple
+        Either both are `None` or the 
+        user submitted one is parsed and returned
     
     Notes
     -----    
     Setting both `foi` and `foilim` to `None` is valid, the 
     subsequent analysis methods should all have a default way to 
     select a standard set of frequencies (e.g. np.fft.fftfreq).
-    '''
+    """
         
     if foi is not None and foilim is not None:
         lgl = "either `foi` or `foilim` specification"
@@ -91,7 +92,7 @@ def validate_taper(taper,
                    nSamples,
                    output):
 
-    '''
+    """
     General taper validation and Slepian/dpss input sanitization.
     The default is to max out `nTaper` to achieve the desired frequency
     smoothing bandwidth. For details about the Slepion settings see 
@@ -126,7 +127,7 @@ def validate_taper(taper,
         For multi-tapering (`taper='dpss'`) contains the 
         parameters `NW` and `Kmax` for `scipy.signal.windows.dpss`.
         For all other tapers this is an empty dictionary.
-    '''
+    """
     
     # See if taper choice is supported
     if taper not in availableTapers:
@@ -156,7 +157,6 @@ def validate_taper(taper,
     # Set/get `tapsmofrq` if we're working w/Slepian tapers
     elif taper == "dpss":
         
-
         # --- minimal smoothing bandwidth ---
         # --- such that Kmax/nTaper is at least 1
         minBw = 2 * samplerate / nSamples
@@ -226,7 +226,7 @@ def validate_taper(taper,
 
 def check_effective_parameters(CR, defaults, lcls):
 
-    '''
+    """
     For a given ComputationalRoutine, compare set parameters
     (*lcls*) with the accepted parameters and the frontend 
     meta function *defaults* to warn if any ineffective parameters are set.
@@ -240,7 +240,7 @@ def check_effective_parameters(CR, defaults, lcls):
         parameter names plus values with default values
     lcls : dict
         Result of `locals()`, all names and values of the local (frontend-)name space
-    '''
+    """
     # list of possible parameter names of the CR
     expected = CR.valid_kws + ["parallel", "select"]
     relevant = [name for name in defaults if name not in generalParameters]

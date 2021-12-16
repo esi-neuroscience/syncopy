@@ -118,6 +118,10 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     lenTrials = np.diff(sinfo).squeeze()
     numTrials = len(trialList)
 
+    # check polyremoval
+    if polyremoval is not None:
+        scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])    
+    
     # --- Padding ---
 
     if method == "corr" and pad_to_length:
