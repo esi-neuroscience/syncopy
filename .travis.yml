@@ -4,7 +4,6 @@ python:
 
 cache: pip
 
-# safelist
 branches:
   only:
   - master
@@ -16,6 +15,9 @@ install:
   - pip install -r requirements.txt
   - pip install -r requirements-test.txt
   - python setup.py -q install
-# command to run tests
+
 script:
-  - pytest -v
+  - pytest -v --cov=./
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"

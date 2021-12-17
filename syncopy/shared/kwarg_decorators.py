@@ -117,12 +117,16 @@ def unwrap_cfg(func):
     """
 
     # Perform a little introspection gymnastics to get the name of the first
-    # positional and keyword argument of `func`
+    # positional and keyword argument of `func` (if we only find anonymous `**kwargs`,
+    # come up with an exemplary keyword - `kwarg0` is only used in the generated docstring)
     funcParams = inspect.signature(func).parameters
     paramList = list(funcParams)
     kwargList = [pName for pName, pVal in funcParams.items() if pVal.default != pVal.empty]
     arg0 = paramList[0]
-    kwarg0 = kwargList[0]
+    if len(kwargList) > 0:
+        kwarg0 = kwargList[0]
+    else:
+        kwarg0 = "some_parameter"
 
     @functools.wraps(func)
     def wrapper_cfg(*args, **kwargs):
@@ -236,12 +240,6 @@ def unwrap_cfg(func):
                     data.append(arg)
                 else:
                     posargs.append(arg)
-
-        # At this point, `data` is a list: if it's empty, not a single Syncopy data object
-        # was provided (neither via `cfg`, `kwargs`, or `args`) and the call is invalid
-        if len(data) == 0:
-            err = "{0} missing mandatory argument: `{1}`"
-            raise SPYError(err.format(func.__name__, arg0))
 
         # Call function with unfolded `data` + modified positional/keyword args
         return func(*data, *posargs, **cfg)
@@ -477,7 +475,7 @@ def detect_parallel_client(func):
         kwargs["parallel"] = parallel
 
         # Process provided object(s)
-        if nObs == 1:
+        if nObs <= 1:
             results = func(*args, **kwargs)
         else:
             results = []

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Set/update trial settings of Syncopy data objects
-# 
+#
 
 # Builtin/3rd party package imports
 import numbers
@@ -18,7 +18,7 @@ __all__ = ["definetrial"]
 def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                   trigger=None, stop=None, clip_edges=False):
     """(Re-)define trials of a Syncopy data object
-    
+
     Data can be structured into trials based on timestamps of a start, trigger
     and end events::
 
@@ -29,46 +29,46 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
     Parameters
     ----------
         obj : Syncopy data object (:class:`BaseData`-like)
-        trialdefinition : :class:`EventData` object or Mx3 array 
+        trialdefinition : :class:`EventData` object or Mx3 array
             [start, stop, trigger_offset] sample indices for `M` trials
         pre : float
             offset time (s) before start event
-        post : float 
+        post : float
             offset time (s) after end event
         start : int
             event code (id) to be used for start of trial
         stop : int
             event code (id) to be used for end of trial
-        trigger : 
-            event code (id) to be used center (t=0) of trial        
+        trigger :
+            event code (id) to be used center (t=0) of trial
         clip_edges : bool
-            trim trials to actual data-boundaries. 
+            trim trials to actual data-boundaries.
 
 
     Returns
     -------
         Syncopy data object (:class:`BaseData`-like))
-    
-    
+
+
     Notes
     -----
     :func:`definetrial` supports the following argument combinations:
-    
+
     >>> # define M trials based on [start, end, offset] indices
-    >>> definetrial(obj, trialdefinition=[M x 3] array) 
+    >>> definetrial(obj, trialdefinition=[M x 3] array)
 
     >>> # define trials based on event codes stored in <:class:`EventData` object>
-    >>> definetrial(obj, trialdefinition=<EventData object>, 
-                    pre=0, post=0, start=startCode, stop=stopCode, 
+    >>> definetrial(obj, trialdefinition=<EventData object>,
+                    pre=0, post=0, start=startCode, stop=stopCode,
                     trigger=triggerCode)
 
     >>> # apply same trial definition as defined in <:class:`EventData` object>
-    >>> definetrial(<AnalogData object>, 
+    >>> definetrial(<AnalogData object>,
                     trialdefinition=<EventData object w/sampleinfo/t0/trialinfo>)
 
-    >>> # define whole recording as single trial    
+    >>> # define whole recording as single trial
     >>> definetrial(obj, trialdefinition=None)
-    
+
     """
 
     # Start by vetting input object
@@ -95,17 +95,17 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                 array_parser(trialdefinition, varname="trialdefinition", dims=2)
             except Exception as exc:
                 raise exc
-            
+
             if any(["ContinuousData" in str(base) for base in obj.__class__.__mro__]):
                 scount = obj.data.shape[obj.dimord.index("time")]
             else:
                 scount = np.inf
             try:
-                array_parser(trialdefinition[:, :2], varname="sampleinfo", dims=(None, 2), hasnan=False, 
+                array_parser(trialdefinition[:, :2], varname="sampleinfo", dims=(None, 2), hasnan=False,
                          hasinf=False, ntype="int_like", lims=[0, scount])
             except Exception as exc:
-                raise exc            
-            
+                raise exc
+
             trl = np.array(trialdefinition, dtype="float")
             ref = obj
             tgt = obj
@@ -139,7 +139,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
     if any([kw is not None for kw in [pre, post, start, trigger, stop]]):
 
         # Make sure we actually have valid data objects to work with
-        if obj.__class__.__name__ == "EventData" and evt is False: 
+        if obj.__class__.__name__ == "EventData" and evt is False:
             ref = obj
             tgt = obj
         elif obj.__class__.__name__ == "AnalogData" and evt is True:
@@ -191,7 +191,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
         kwrds = {}
         vdict = {"pre": {"var": pre, "hasnan": False, "ntype": None, "fillvalue": 0},
                  "post": {"var": post, "hasnan": False, "ntype": None, "fillvalue": 0},
-                 "start": {"var": start, "hasnan": None, "ntype": "int_like", "fillvalue": np.nan}, 
+                 "start": {"var": start, "hasnan": None, "ntype": "int_like", "fillvalue": np.nan},
                  "trigger": {"var": trigger, "hasnan": None, "ntype": "int_like", "fillvalue": np.nan},
                  "stop": {"var": stop, "hasnan": None, "ntype": "int_like", "fillvalue": np.nan}}
         for vname, opts in vdict.items():
@@ -244,7 +244,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                 begin = evtsp[sidx]/ref.samplerate
                 evtid[sidx] = -np.pi
                 idxl.append(sidx)
-                
+
             if not np.isnan(kwrds["trigger"][trialno]):
                 try:
                     idx = evtid.index(kwrds["trigger"][trialno])
@@ -285,7 +285,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                 lgl = "non-overlapping trial begin-/end-samples"
                 act = "trial-begin at {}, trial-end at {}".format(str(begin), str(end))
                 raise SPYValueError(legal=lgl, actual=act)
-            
+
             # Finally, write line of `trl`
             trl.append([begin, end, t0])
 
@@ -317,7 +317,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
             lgl = "non-overlapping trials"
             act = "some trials are overlapping after clipping to AnalogData object range"
             raise SPYValueError(legal=lgl, actual=act)
-                
+
     # The triplet `sampleinfo`, `t0` and `trialinfo` works identically for
     # all data genres
     if trl.shape[1] < 3:
@@ -355,5 +355,5 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
         tgt.cfg = {"method" : sys._getframe().f_code.co_name,
                    "EventData object": ref.cfg}
         ref.log = "updated trial-defnition of {} object".format(tgt.__class__.__name__)
-    
+
     return

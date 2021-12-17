@@ -1,0 +1,16 @@
+[run]
+branch = True
+source = syncopy
+
+[report]
+exclude_lines =
+    if self.debug:
+    if debug:
+    raise NotImplementedError
+    if __name__ == .__main__.:
+ignore_errors = True
+omit =
+    syncopy/tests/*
+    *conda2pip.py
+    *setup.py
+    test_*

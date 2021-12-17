@@ -23,4 +23,22 @@ from syncopy.tests.misc import generate_artificial_data
 if __name__ == "__main__":
 
     # Test stuff within here...
-    pass
+    data1 = generate_artificial_data(nTrials=5, nChannels=16, equidistant=False, inmemory=False)
+    data2 = generate_artificial_data(nTrials=5, nChannels=16, equidistant=True, inmemory=False)
+
+
+    nSamples = 1000
+    nChannels = 50
+    my_noise = np.random.randn(nSamples, nChannels)
+
+    trl_dat = [my_noise, 5 * my_noise + 10, np.random.randn(nSamples, nChannels)]
+
+    aa = spy.AnalogData(trl_dat)
+
+
+    # client = spy.esi_cluster_setup(interactive=False)
+    # data1 + data2
+
+    sys.exit()
+    spec = spy.freqanalysis(artdata, method="mtmfft", taper="dpss", output="pow")
+

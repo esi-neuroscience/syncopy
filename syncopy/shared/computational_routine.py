@@ -8,13 +8,10 @@ import os
 import sys
 import psutil
 import h5py
-import time
 import numpy as np
 from itertools import chain
 from abc import ABC, abstractmethod
-from collections.abc import Sized
 from copy import copy
-from glob import glob
 from numpy.lib.format import open_memmap
 from tqdm.auto import tqdm
 if sys.platform == "win32":
@@ -26,7 +23,7 @@ if sys.platform == "win32":
 # Local imports
 from .tools import get_defaults
 from syncopy import __storage__, __acme__, __path__
-from syncopy.shared.errors import SPYValueError, SPYWarning, SPYParallelError
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYParallelError, SPYWarning
 if __acme__:
     from acme import ParallelMap
     import dask.distributed as dd
@@ -226,7 +223,7 @@ class ComputationalRoutine(ABC):
         self._callMax = 10000
         self._callCount = 0
 
-    def initialize(self, data, chan_per_worker=None, keeptrials=True):
+    def initialize(self, data, out_stackingdim, chan_per_worker=None, keeptrials=True):
         """
         Perform dry-run of calculation to determine output shape
 
@@ -235,6 +232,8 @@ class ComputationalRoutine(ABC):
         data : syncopy data object
            Syncopy data object to be processed (has to be the same object
            that is passed to :meth:`compute` for the actual calculation).
+        out_stackingdim : int
+           Index of data dimension for stacking trials in output object
         chan_per_worker : None or int
            Number of channels to be processed by each worker (only relevant in
            case of concurrent processing). If `chan_per_worker` is `None` (default)
@@ -282,7 +281,7 @@ class ComputationalRoutine(ABC):
         trials = []
         for tk, trialno in enumerate(self.trialList):
             trial = data._preview_trial(trialno)
-            trlArg = tuple(arg[tk] if isinstance(arg, Sized) and len(arg) == self.numTrials \
+            trlArg = tuple(arg[tk] if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials \
                 else arg for arg in self.argv)
             chunkShape, dtype = self.computeFunction(trial,
                                                      *trlArg,
@@ -291,17 +290,28 @@ class ComputationalRoutine(ABC):
             dtp_list.append(dtype)
             trials.append(trial)
 
+        # Determine trial stacking dimension and compute aggregate shape of output
+        stackingDim = out_stackingdim
+        totalSize = sum(cShape[stackingDim] for cShape in chk_list)
+        outputShape = list(chunkShape)
+        if stackingDim < 0 or stackingDim >= len(outputShape):
+            msg = "valid trial stacking dimension"
+            raise SPYTypeError(out_stackingdim, varname="out_stackingdim", expected=msg)
+        outputShape[stackingDim] = totalSize
+
         # The aggregate shape is computed as max across all chunks
         chk_arr = np.array(chk_list)
-        if np.unique(chk_arr[:, 0]).size > 1 and not self.keeptrials:
+        chunkShape = tuple(chk_arr.max(axis=0))
+        if np.unique(chk_arr[:, stackingDim]).size > 1 and not self.keeptrials:
             err = "Averaging trials of unequal lengths in output currently not supported!"
             raise NotImplementedError(err)
         if np.any([dtp_list[0] != dtp for dtp in dtp_list]):
             lgl = "unique output dtype"
             act = "{} different output dtypes".format(np.unique(dtp_list).size)
             raise SPYValueError(legal=lgl, varname="dtype", actual=act)
-        chunkShape = tuple(chk_arr.max(axis=0))
-        self.outputShape = (chk_arr[:, 0].sum(),) + chunkShape[1:]
+
+        # Save determined shapes and data type
+        self.outputShape = tuple(outputShape)
         self.cfg["chunkShape"] = chunkShape
         self.dtype = np.dtype(dtp_list[0])
 
@@ -323,7 +333,7 @@ class ComputationalRoutine(ABC):
 
         # Allocate control variables
         trial = trials[0]
-        trlArg0 = tuple(arg[0] if isinstance(arg, Sized) and len(arg) == self.numTrials \
+        trlArg0 = tuple(arg[0] if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials \
             else arg for arg in self.argv)
         chunkShape0 = chk_arr[0, :]
         lyt = [slice(0, stop) for stop in chunkShape0]
@@ -383,18 +393,15 @@ class ComputationalRoutine(ABC):
             sourceLayout.append(trial.idx)
 
         # Construct dimensional layout of output
-        # FIXME: should be targetLayout[0][stackingDim].stop
-        # FIXME: should be lyt[stackingDim] = slice(stacking, stacking + chkshp[stackingDim])
-        # FIXME: should be stacking += chkshp[stackingDim]
-        stacking = targetLayout[0][0].stop
+        stacking = targetLayout[0][stackingDim].stop
         for tk in range(1, self.numTrials):
             trial = trials[tk]
-            trlArg = tuple(arg[tk] if isinstance(arg, Sized) and len(arg) == self.numTrials \
+            trlArg = tuple(arg[tk] if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials \
                 else arg for arg in self.argv)
             chkshp = chk_list[tk]
             lyt = [slice(0, stop) for stop in chkshp]
-            lyt[0] = slice(stacking, stacking + chkshp[0])
-            stacking += chkshp[0]
+            lyt[stackingDim] = slice(stacking, stacking + chkshp[stackingDim])
+            stacking += chkshp[stackingDim]
             if chan_per_worker is None:
                 targetLayout.append(tuple(lyt))
                 targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
@@ -751,7 +758,9 @@ class ComputationalRoutine(ABC):
             layout = h5py.VirtualLayout(shape=self.outputShape, dtype=self.dtype)
             for k, idx in enumerate(self.targetLayout):
                 fname = os.path.join(self.virtualDatasetDir, "{0:d}.h5".format(k))
-                layout[idx] = h5py.VirtualSource(fname, self.virtualDatasetNames, shape=self.targetShapes[k])
+                # Catch empty selections: don't map empty sources into the layout of the VDS
+                if all([sel for sel in self.sourceLayout[k]]):
+                    layout[idx] = h5py.VirtualSource(fname, self.virtualDatasetNames, shape=self.targetShapes[k])
             self.VirtualDatasetLayout = layout
             self.outFileName = os.path.join(self.virtualDatasetDir, "{0:d}.h5")
             self.tmpDsetName = self.virtualDatasetNames
@@ -865,7 +874,7 @@ class ComputationalRoutine(ABC):
                 sigrid = self.sourceSelectors[nblock]
                 outgrid = self.targetLayout[nblock]
                 argv = tuple(arg[nblock] \
-                    if isinstance(arg, Sized) and len(arg) == self.numTrials \
+                    if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials \
                         else arg for arg in self.argv)
 
                 # Catch empty source-array selections; this workaround is not

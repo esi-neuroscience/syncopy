@@ -1,0 +1,14 @@
+coverage:
+  status:
+    project:
+      default:
+        # Allow coverage to drop `threshold` percent in PRs to master/dev
+        target: auto
+        threshold: 5%
+        base: auto
+        branches:
+          - master
+          - dev
+        if_ci_failed: error #success, failure, error, ignore
+        informational: false
+        only_pulls: true

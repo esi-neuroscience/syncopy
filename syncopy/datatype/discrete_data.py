@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Syncopy's abstract base class for discrete data + regular children
-# 
+#
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -36,7 +36,7 @@ class DiscreteData(BaseData, ABC):
     @property
     def data(self):
         """array-like object representing data without trials
-        
+
         Trials are concatenated along the time axis.
         """
 
@@ -47,7 +47,7 @@ class DiscreteData(BaseData, ABC):
                 raise SPYValueError(legal=lgl, actual=act.format(self.filename),
                                     varname="data")
         return self._data
-    
+
     @data.setter
     def data(self, inData):
 
@@ -56,24 +56,20 @@ class DiscreteData(BaseData, ABC):
         if inData is None:
             return
 
-    def __str__(self):        
+    def __str__(self):
         # Get list of print-worthy attributes
         ppattrs = [attr for attr in self.__dir__()
                    if not (attr.startswith("_") or attr in ["log", "trialdefinition", "hdr"])]
         ppattrs = [attr for attr in ppattrs
                    if not (inspect.ismethod(getattr(self, attr))
                            or isinstance(getattr(self, attr), Iterator))]
-        
+
         ppattrs.sort()
 
         # Construct string for pretty-printing class attributes
-        dinfo = " '" + self._classname_to_extension()[1:] + "' x "
-        dsep = "'-'"
-        
+        dsep = " by "
         hdstr = "Syncopy {clname:s} object with fields\n\n"
-        ppstr = hdstr.format(diminfo=dinfo + "'"  + \
-                             dsep.join(dim for dim in self.dimord) + "' " if self.dimord is not None else "Empty ",
-                             clname=self.__class__.__name__)
+        ppstr = hdstr.format(clname=self.__class__.__name__)
         maxKeyLength = max([len(k) for k in ppattrs])
         printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
         for attr in ppattrs:
@@ -101,7 +97,10 @@ class DiscreteData(BaseData, ABC):
                 valueString = "[" + " x ".join([str(numel) for numel in value.shape]) \
                               + "] element " + str(type(value))
             elif isinstance(value, list):
-                valueString = "{0} element list".format(len(value))
+                if attr == "dimord" and value is not None:
+                    valueString = dsep.join(dim for dim in self.dimord)
+                else:
+                    valueString = "{0} element list".format(len(value))
             elif isinstance(value, dict):
                 msg = "dictionary with {nk:s}keys{ks:s}"
                 keylist = value.keys()
@@ -112,7 +111,7 @@ class DiscreteData(BaseData, ABC):
                 valueString = str(value)
             ppstr += printString.format(attr, valueString)
         ppstr += "\nUse `.log` to see object history"
-        return ppstr        
+        return ppstr
 
     @property
     def hdr(self):
@@ -139,7 +138,7 @@ class DiscreteData(BaseData, ABC):
         if sr is None:
             self._samplerate = None
             return
-        
+
         try:
             scalar_parser(sr, varname="samplerate", lims=[1, np.inf])
         except Exception as exc:
@@ -156,7 +155,7 @@ class DiscreteData(BaseData, ABC):
         if trlid is None:
             self._trialid = None
             return
-        
+
         if self.data is None:
             print("SyNCoPy core - trialid: Cannot assign `trialid` without data. " +
                   "Please assing data first")
@@ -190,69 +189,69 @@ class DiscreteData(BaseData, ABC):
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
         return self._data[self.trialid == trialno, :]
-    
-    # Helper function that spawns a `FauxTrial` object given actual trial information    
+
+    # Helper function that spawns a `FauxTrial` object given actual trial information
     def _preview_trial(self, trialno):
         """
         Generate a `FauxTrial` instance of a trial
-        
+
         Parameters
         ----------
         trialno : int
             Number of trial the `FauxTrial` object is intended to mimic
-            
+
         Returns
         -------
         faux_trl : :class:`syncopy.datatype.base_data.FauxTrial`
             An instance of :class:`syncopy.datatype.base_data.FauxTrial` mainly
-            intended to be used in `noCompute` runs of 
+            intended to be used in `noCompute` runs of
             :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-            to avoid loading actual trial-data into memory. 
-            
+            to avoid loading actual trial-data into memory.
+
         See also
         --------
         syncopy.datatype.base_data.FauxTrial : class definition and further details
         syncopy.shared.computational_routine.ComputationalRoutine : Syncopy compute engine
         """
-        
+
         trialIdx = np.where(self.trialid == trialno)[0]
         nCol = len(self.dimord)
         idx = [trialIdx.tolist(), slice(0, nCol)]
         if self._selection is not None: # selections are harmonized, just take `.time`
             idx[0] = trialIdx[self._selection.time[self._selection.trials.index(trialno)]].tolist()
         shp = [len(idx[0]), nCol]
-                        
+
         return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
-    
+
     # Helper function that extracts by-trial timing-related indices
     def _get_time(self, trials, toi=None, toilim=None):
         """
         Get relative by-trial indices of time-selections
-        
+
         Parameters
         ----------
         trials : list
             List of trial-indices to perform selection on
         toi : None or list
-            Time-points to be selected (in seconds) on a by-trial scale. 
+            Time-points to be selected (in seconds) on a by-trial scale.
         toilim : None or list
             Time-window to be selected (in seconds) on a by-trial scale
-            
+
         Returns
         -------
         timing : list of lists
-            List of by-trial sample-indices corresponding to provided 
+            List of by-trial sample-indices corresponding to provided
             time-selection. If both `toi` and `toilim` are `None`, `timing`
-            is a list of universal (i.e., ``slice(None)``) selectors. 
-            
+            is a list of universal (i.e., ``slice(None)``) selectors.
+
         Notes
         -----
-        This class method is intended to be solely used by 
-        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely 
+        This class method is intended to be solely used by
+        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely
         auxiliary character. Therefore, all input sanitization and error checking
-        is left to :class:`syncopy.datatype.base_data.Selector` and not 
-        performed here. 
-        
+        is left to :class:`syncopy.datatype.base_data.Selector` and not
+        performed here.
+
         See also
         --------
         syncopy.datatype.base_data.Selector : Syncopy data selectors
@@ -275,7 +274,7 @@ class DiscreteData(BaseData, ABC):
                     if sampSteps.min() == sampSteps.max() == 1:
                         idxList = slice(idxList[0], idxList[-1] + 1, 1)
                 timing.append(idxList)
-                
+
         elif toi is not None:
             allTrials = self.trialtime
             for trlno in trials:
@@ -296,32 +295,31 @@ class DiscreteData(BaseData, ABC):
                     if sampSteps.min() == sampSteps.max() == 1:
                         idxList = slice(idxList[0], idxList[-1] + 1, 1)
                 timing.append(idxList)
-                
+
         else:
             timing = [slice(None)] * len(trials)
-            
+
         return timing
 
     def __init__(self, data=None, samplerate=None, trialid=None, **kwargs):
 
         # Assign (default) values
         self._trialid = None
-        self._samplerate = None                           
+        self._samplerate = None
         self._hdr = None
         self._data = None
+
+        self.samplerate = samplerate
+        self.trialid = trialid
 
         # Call initializer
         super().__init__(data=data, **kwargs)
 
-        self.samplerate = samplerate
-        self.trialid = trialid
-        self.data = data
-        
         if self.data is not None:
 
             # In case of manual data allocation (reading routine would leave a
             # mark in `cfg`), fill in missing info
-            if len(self.cfg) == 0:
+            if self.sampleinfo is None:
 
                 # Fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
@@ -332,7 +330,7 @@ class SpikeData(DiscreteData):
 
     This class can be used for representing spike trains. The data is always
     stored as a two-dimensional [nSpikes x 3] array on disk with the columns
-    being ``["sample", "channel", "unit"]``. 
+    being ``["sample", "channel", "unit"]``.
 
     Data is only read from disk on demand, similar to memory maps and HDF5
     files.
@@ -342,16 +340,17 @@ class SpikeData(DiscreteData):
     _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
     _hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel",)
     _defaultDimord = ["sample", "channel", "unit"]
-    
+    _stackingDimLabel = "sample"
+
     @property
     def channel(self):
-        """ :class:`numpy.ndarray` : list of original channel names for each unit"""        
+        """ :class:`numpy.ndarray` : list of original channel names for each unit"""
         # if data exists but no user-defined channel labels, create them on the fly
         if self._channel is None and self._data is not None:
             channelNumbers = np.unique(self.data[:, self.dimord.index("channel")])
             return np.array(["channel" + str(int(i + 1)).zfill(len(str(channelNumbers.max() + 1)))
                              for i in channelNumbers])
-            
+
         return self._channel
 
     @channel.setter
@@ -361,22 +360,22 @@ class SpikeData(DiscreteData):
             return
         if self.data is None:
             raise SPYValueError("Syncopy: Cannot assign `channels` without data. " +
-                  "Please assign data first")    
+                  "Please assign data first")
         try:
             array_parser(chan, varname="channel", ntype="str")
         except Exception as exc:
             raise exc
-        
+
         # Remove duplicate entries from channel array but preserve original order
         # (e.g., `[2, 0, 0, 1]` -> `[2, 0, 1`); allows for complex subset-selections
         _, idx = np.unique(chan, return_index=True)
-        chan = np.array(chan)[idx]
+        chan = np.array(chan)[np.sort(idx)]
         nchan = np.unique(self.data[:, self.dimord.index("channel")]).size
         if chan.size != nchan:
             lgl = "channel label array of length {0:d}".format(nchan)
             act = "array of length {0:d}".format(chan.size)
             raise SPYValueError(legal=lgl, varname="channel", actual=act)
-        
+
         self._channel = chan
 
     @property
@@ -393,11 +392,11 @@ class SpikeData(DiscreteData):
         if unit is None:
             self._unit = None
             return
-        
+
         if self.data is None:
             raise SPYValueError("Syncopy - SpikeData - unit: Cannot assign `unit` without data. " +
                   "Please assign data first")
-                        
+
         nunit = np.unique(self.data[:, self.dimord.index("unit")]).size
         try:
             array_parser(unit, varname="unit", ntype="str", dims=(nunit,))
@@ -405,51 +404,33 @@ class SpikeData(DiscreteData):
             raise exc
         self._unit = np.array(unit)
 
-    # Selector method
-    def selectdata(self, trials=None, toi=None, toilim=None, units=None, channels=None):
-        """
-        Create new `SpikeData` object from selection
-        
-        Please refer to :func:`syncopy.selectdata` for detailed usage information. 
-        
-        Examples
-        --------
-        >>> spkUnit01 = spk.selectdata(units=[0, 1])
-        
-        See also
-        --------
-        syncopy.selectdata : create new objects via deep-copy selections
-        """
-        return selectdata(self, trials=trials, channels=channels, toi=toi, 
-                          toilim=toilim, units=units)
-        
     # Helper function that extracts by-trial unit-indices
     def _get_unit(self, trials, units=None):
         """
         Get relative by-trial indices of unit selections
-        
+
         Parameters
         ----------
         trials : list
             List of trial-indices to perform selection on
         units : None or list
             List of unit-indices to be selected
-            
+
         Returns
         -------
         indices : list of lists
-            List of by-trial sample-indices corresponding to provided 
-            unit-selection. If `units` is `None`, `indices` is a list of universal 
-            (i.e., ``slice(None)``) selectors. 
-            
+            List of by-trial sample-indices corresponding to provided
+            unit-selection. If `units` is `None`, `indices` is a list of universal
+            (i.e., ``slice(None)``) selectors.
+
         Notes
         -----
-        This class method is intended to be solely used by 
-        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely 
+        This class method is intended to be solely used by
+        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely
         auxiliary character. Therefore, all input sanitization and error checking
-        is left to :class:`syncopy.datatype.base_data.Selector` and not 
-        performed here. 
-        
+        is left to :class:`syncopy.datatype.base_data.Selector` and not
+        performed here.
+
         See also
         --------
         syncopy.datatype.base_data.Selector : Syncopy data selectors
@@ -469,7 +450,7 @@ class SpikeData(DiscreteData):
                 indices.append(trialUnits)
         else:
             indices = [slice(None)] * len(trials)
-            
+
         return indices
 
     # "Constructor"
@@ -489,13 +470,13 @@ class SpikeData(DiscreteData):
 
             filename : str
                 path to filename or folder (spy container)
-            trialdefinition : :class:`EventData` object or nTrials x 3 array 
+            trialdefinition : :class:`EventData` object or nTrials x 3 array
                 [start, stop, trigger_offset] sample indices for `M` trials
             samplerate : float
                 sampling rate in Hz
             channel : str or list/array(str)
                 original channel names
-            unit : str or list/array(str)                
+            unit : str or list/array(str)
                 names of all units
             dimord : list(str)
                 ordered list of dimension labels
@@ -514,7 +495,7 @@ class SpikeData(DiscreteData):
 
         self._unit = None
         self._channel = None
-        
+
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
@@ -536,61 +517,45 @@ class EventData(DiscreteData):
     Data is only read from disk on demand, similar to memory maps and HDF5
     files.
 
-    """        
-    
+    """
+
     _defaultDimord = ["sample", "eventid"]
-    
+    _stackingDimLabel = "sample"
+
     @property
     def eventid(self):
         """numpy.ndarray(int): integer event code assocated with each event"""
         if self.data is None:
             return None
         return np.unique(self.data[:, self.dimord.index("eventid")])
-        
-    # Selector method
-    def selectdata(self, trials=None, toi=None, toilim=None, eventids=None):
-        """
-        Create new `EventData` object from selection
-        
-        Please refer to :func:`syncopy.selectdata` for detailed usage information. 
-        
-        Examples
-        --------
-        >>> evtStimOn = evt.selectdata(eventids=[1])
-        
-        See also
-        --------
-        syncopy.selectdata : create new objects via deep-copy selections
-        """
-        return selectdata(self, trials=trials, toi=toi, toilim=toilim, eventids=eventids)
 
     # Helper function that extracts by-trial eventid-indices
     def _get_eventid(self, trials, eventids=None):
         """
         Get relative by-trial indices of event-id selections
-        
+
         Parameters
         ----------
         trials : list
             List of trial-indices to perform selection on
         eventids : None or list
             List of event-id-indices to be selected
-            
+
         Returns
         -------
         indices : list of lists
-            List of by-trial sample-indices corresponding to provided 
-            event-id-selection. If `eventids` is `None`, `indices` is a list of 
-            universal (i.e., ``slice(None)``) selectors. 
-            
+            List of by-trial sample-indices corresponding to provided
+            event-id-selection. If `eventids` is `None`, `indices` is a list of
+            universal (i.e., ``slice(None)``) selectors.
+
         Notes
         -----
-        This class method is intended to be solely used by 
-        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely 
+        This class method is intended to be solely used by
+        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely
         auxiliary character. Therefore, all input sanitization and error checking
-        is left to :class:`syncopy.datatype.base_data.Selector` and not 
-        performed here. 
-        
+        is left to :class:`syncopy.datatype.base_data.Selector` and not
+        performed here.
+
         See also
         --------
         syncopy.datatype.base_data.Selector : Syncopy data selectors
@@ -610,9 +575,9 @@ class EventData(DiscreteData):
                 indices.append(trialEvents)
         else:
             indices = [slice(None)] * len(trials)
-            
+
         return indices
-    
+
     # "Constructor"
     def __init__(self,
                  data=None,
@@ -628,10 +593,10 @@ class EventData(DiscreteData):
 
             filename : str
                 path to filename or folder (spy container)
-            trialdefinition : :class:`EventData` object or nTrials x 3 array 
+            trialdefinition : :class:`EventData` object or nTrials x 3 array
                 [start, stop, trigger_offset] sample indices for `M` trials
             samplerate : float
-                sampling rate in Hz        
+                sampling rate in Hz
             dimord : list(str)
                 ordered list of dimension labels
 
