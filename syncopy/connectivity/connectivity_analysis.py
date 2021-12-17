@@ -57,6 +57,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         Compute the normalized cross spectral densities
         between all channel combinations
 
+        * **output** : one of ('abs', 'pow', 'fourier')
         * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : (optional) number of orthogonal tapers for slepian tapers
@@ -65,7 +66,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     "corr" : Cross-correlations 
         Computes the one sided (positive lags) cross-correlations
         between all channel combinations. The maximal lag is half
-        the trial lenghts.
+        the trial lengths.
 
         * **keeptrials** : set to `True` for single trial cross-correlations
 
@@ -76,11 +77,58 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
 
         * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
-        * **nTaper** : (optional) number of orthogonal tapers for slepian tapers
+        * **nTaper** : (optional, not recommended) number of slepian tapers
         * **pad_to_length**: either pad to an absolute length or set to `'nextpow2'`
     
-    **Full documentation below**
+    Parameters
+    ----------
+    data : `~syncopy.AnalogData`
+        A non-empty Syncopy :class:`~syncopy.datatype.AnalogData` object
+    method : str
+        Connectivity estimation method, one of 'coh', 'corr', 'granger'
+    output : str
+        Relevant for cross-spectral density estimation (`method='coh'`)
+        Use `'pow'` for absolute squared coherence, `'abs'` for absolute value of coherence 
+        and`'fourier'` for the complex valued coherency.
+    keeptrials : bool
+        Relevant for cross-correlations (`method='corr'`)
+        If `True` single-trial cross-correlations are returned.
+    foi : array-like or None
+        Frequencies of interest (Hz) for output. If desired frequencies cannot be
+        matched exactly, the closest possible frequencies are used. If `foi` is `None`
+        or ``foi = "all"``, all attainable frequencies (i.e., zero to Nyquist / 2)
+        are selected.
+    foilim : array-like (floats [fmin, fmax]) or None or "all"
+        Frequency-window ``[fmin, fmax]`` (in Hz) of interest. The 
+        `foi` array will be constructed in 1Hz steps from `fmin` to
+        `fmax` (inclusive).
+    pad_to_length : int, None or 'nextpow2' 
+        Padding of the input data, if set to a number pads all trials
+        to this absolute length. E.g. `pad_to_length=2000` pads all
+        trials to 2000 samples, if and only if the longest trial is
+        at maximum 2000 samples.
+        Alternatively if all trials have the same initial lengths
+        setting `pad_to_length='nextpow2'` pads all trials to 
+        the next power of two.
+        If `None` and trials have unequal lengths all trials get padded
+        such that all have the absolute lengths of the longest trial.
+    taper : str
+        Only valid if `method` is `'coh'` or `'granger'`. Windowing function,
+        one of :data:`~syncopy.specest.const_def.availableTapers` 
+    tapsmofrq : float
+        Only valid if `method` is `'coh'` or `'granger'` and `taper` is `'dpss'`.
+        The amount of spectral smoothing through  multi-tapering (Hz).
+        Note that smoothing frequency specifications are one-sided,
+        i.e., 4 Hz smoothing means plus-minus 4 Hz, i.e., a 8 Hz smoothing box.
+    nTaper : int or None
+        Only valid if `method` is `'coh'` or `'granger'` and `taper='dpss'`.
+        Number of orthogonal tapers to use. It is not recommended to set the number
+        of tapers manually! Leave at `None` for the optimal number to be set automatically.
 
+    Examples
+    --------
+
+    ...
     """
 
     # Make sure our one mandatory input object can be processed

@@ -211,9 +211,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         The amount of spectral smoothing through  multi-tapering (Hz).
         Note that smoothing frequency specifications are one-sided,
         i.e., 4 Hz smoothing means plus-minus 4 Hz, i.e., a 8 Hz smoothing box.
-    nTaper : int
+    nTaper : int or None
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and `taper='dpss'`.
-        Number of orthogonal tapers to use.
+        Number of orthogonal tapers to use. It is not recommended to set the number
+        of tapers manually! Leave at `None` for the optimal number to be set automatically.
     keeptapers : bool
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'`.
         If `True`, return spectral estimates for each taper.
