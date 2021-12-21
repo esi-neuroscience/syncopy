@@ -2,6 +2,8 @@
 
 import numpy as np
 import matplotlib.pyplot as ppl
+
+from syncopy.tests import synth_data
 from syncopy.connectivity import csd
 from syncopy.connectivity import ST_compRoutines as stCR
 from syncopy.connectivity.wilson_sf import wilson_sf, regularize_csd
@@ -98,7 +100,7 @@ def test_csd():
     harm_freq = 40
     phase_shifts = np.array([0, np.pi / 2, np.pi])
 
-    # 1 phase phase shifted harmonics + white noise + constant, SNR = 1
+    # 1 phase phase shifted harmonics + white noise, SNR = 1
     data = [np.cos(harm_freq * 2 * np. pi * tvec + ps)
             for ps in phase_shifts]
     data = np.array(data).T
@@ -179,8 +181,8 @@ def test_wilson():
     data = np.zeros((nSamples, nChannels))
     for i in range(nChannels):
         # more phase diffusion in the 60Hz band
-        p1 = phase_diffusion(f1 * 2 * np.pi, eps=0.1, fs=fs, N=nSamples)
-        p2 = phase_diffusion(f2 * 2 * np.pi, eps=0.35, fs=fs, N=nSamples)
+        p1 = synth_data.phase_evo(f1, eps=3, fs=fs, nSamples=nSamples)
+        p2 = synth_data.phase_evo(f2, eps=10, fs=fs, nSamples=nSamples)
 
         data[:, i] = np.cos(p1) + 2 * np.sin(p2) + .5 * np.random.randn(nSamples)
 
@@ -250,27 +252,11 @@ def test_granger():
     nSamples = 2500
     nTrials = 50
 
-    # both AR(2) processes have same parameters
-    # and yield a spectral peak at 40Hz
-    alpha1, alpha2 = 0.55, -0.8
-    coupling = 0.25
-
     CSDav = np.zeros((nSamples // 2 + 1, 2, 2), dtype=np.complex64)
     for _ in range(nTrials):
 
         # -- simulate 2 AR(2) processes --
-
-        sol = np.zeros((nSamples, 2))
-        # pick the 1st values at random
-        xs_ini = np.random.randn(2, 2)
-        sol[:2, :] = xs_ini
-        for i in range(1, nSamples):
-            sol[i, 1] = alpha1 * sol[i - 1, 1] + alpha2 * sol[i - 2, 1]
-            sol[i, 1] += np.random.randn()
-            # X2 drives X1
-            sol[i, 0] = alpha1 * sol[i - 1, 0] + alpha2 * sol[i - 2, 0]
-            sol[i, 0] += sol[i - 1, 1] * coupling
-            sol[i, 0] += np.random.randn()
+        sol = synth_data.AR2_process(nSamples=nSamples, coupling=0.25, fs=fs)
 
         # --- get CSD ---
         bw = 5
@@ -310,9 +296,3 @@ def test_granger():
 # --- Helper routines ---
 
 
-# noisy phase evolution -> phase diffusion
-def phase_diffusion(omega0, eps, fs=1000, N=1000):
-    wn = np.random.randn(N)
-    delta_ts = np.ones(N) * 1 / fs
-    phase = np.cumsum(omega0 * delta_ts + eps * wn)
-    return phase
