@@ -2,8 +2,8 @@
 
 import numpy as np
 import matplotlib.pyplot as ppl
+from syncopy.connectivity import csd
 from syncopy.connectivity import ST_compRoutines as stCR
-from syncopy.connectivity import AV_compRoutines as avCR
 from syncopy.connectivity.wilson_sf import wilson_sf, regularize_csd
 from syncopy.connectivity.granger import granger
 
@@ -27,22 +27,21 @@ def test_coherence():
     # shape is (1, nFreq, nChannel, nChannel)
     nFreq = nSamples // 2 + 1
     nChannel = len(phase_shifts)
-    avCSD = np.zeros((1, nFreq, nChannel, nChannel), dtype=np.complex64)
+    avCSD = np.zeros((nFreq, nChannel, nChannel), dtype=np.complex64)
 
     for i in range(nTrials):
 
         # 1 phase phase shifted harmonics + white noise + constant, SNR = 1
-        trl_dat = [10 + np.cos(harm_freq * 2 * np. pi * tvec + ps)
+        trl_dat = [np.cos(harm_freq * 2 * np. pi * tvec + ps)
                    for ps in phase_shifts]
         trl_dat = np.array(trl_dat).T
         trl_dat = np.array(trl_dat) + np.random.randn(nSamples, len(phase_shifts))
 
         # process every trial individually
-        CSD, freqs = stCR.cross_spectra_cF(trl_dat, fs,
-                                           polyremoval=1,
-                                           taper='hann',
-                                           norm=False, # this is important!
-                                           fullOutput=True)
+        CSD, freqs = csd.csd(trl_dat, fs,
+                             taper='hann',
+                             norm=False, # this is important!
+                             fullOutput=True)
 
         assert avCSD.shape == CSD.shape
         avCSD += CSD
@@ -51,19 +50,19 @@ def test_coherence():
     avCSD /= nTrials
 
     # perform the normalisation on the trial averaged csd's
-    Cij = avCR.normalize_csd_cF(avCSD)
+    Cij = csd.normalize_csd(avCSD)
 
     # output has shape (1, nFreq, nChannels, nChannels)
     assert Cij.shape == avCSD.shape
 
     # coherence between channel 0 and 1
-    coh = Cij[0, :, 0, 1]
+    coh = Cij[:, 0, 1]
 
-    fig, ax = ppl.subplots(figsize=(6,4), num=None)
+    fig, ax = ppl.subplots(figsize=(6, 4), num=None)
     ax.set_xlabel('frequency (Hz)')
     ax.set_ylabel('coherence')
     ax.set_ylim((-.02,1.05))
-    ax.set_title('Trial average coherence,  SNR=1')
+    ax.set_title(f'{nTrials} trials averaged coherence,  SNR=1')
 
     ax.plot(freqs, coh, lw=1.5, alpha=0.8, c='cornflowerblue')
 
@@ -100,26 +99,25 @@ def test_csd():
     phase_shifts = np.array([0, np.pi / 2, np.pi])
 
     # 1 phase phase shifted harmonics + white noise + constant, SNR = 1
-    data = [10 + np.cos(harm_freq * 2 * np. pi * tvec + ps)
+    data = [np.cos(harm_freq * 2 * np. pi * tvec + ps)
             for ps in phase_shifts]
     data = np.array(data).T
     data = np.array(data) + np.random.randn(nSamples, len(phase_shifts))
 
-    bw = 5 #Hz
+    bw = 8 #Hz
     NW = nSamples * bw / (2 * fs)
     Kmax = int(2 * NW - 1) # multiple tapers for single trial coherence
-    CSD, freqs = stCR.cross_spectra_cF(data, fs,
-                                       polyremoval=1,
-                                       taper='dpss',
-                                       taper_opt={'Kmax' : Kmax, 'NW' : NW},
-                                       norm=True,
-                                       fullOutput=True)
+    CSD, freqs = csd.csd(data, fs,
+                         taper='dpss',
+                         taper_opt={'Kmax' : Kmax, 'NW' : NW},
+                         norm=True,
+                         fullOutput=True)
 
     # output has shape (1, nFreq, nChannels, nChannels)
-    assert CSD.shape == (1, len(freqs), data.shape[1], data.shape[1])
+    assert CSD.shape == (len(freqs), data.shape[1], data.shape[1])
 
     # single trial coherence between channel 0 and 1
-    coh = np.abs(CSD[0, :, 0, 1])
+    coh = np.abs(CSD[:, 0, 1])
 
     fig, ax = ppl.subplots(figsize=(6,4), num=None)
     ax.set_xlabel('frequency (Hz)')
@@ -181,8 +179,8 @@ def test_wilson():
     data = np.zeros((nSamples, nChannels))
     for i in range(nChannels):
         # more phase diffusion in the 60Hz band
-        p1 = phase_evo(f1 * 2 * np.pi, eps=0.1, fs=fs, N=nSamples)
-        p2 = phase_evo(f2 * 2 * np.pi, eps=0.35, fs=fs, N=nSamples)
+        p1 = phase_diffusion(f1 * 2 * np.pi, eps=0.1, fs=fs, N=nSamples)
+        p2 = phase_diffusion(f2 * 2 * np.pi, eps=0.35, fs=fs, N=nSamples)
 
         data[:, i] = np.cos(p1) + 2 * np.sin(p2) + .5 * np.random.randn(nSamples)
 
@@ -192,14 +190,12 @@ def test_wilson():
     NW = bw * nSamples / (2 * fs)
     Kmax = int(2 * NW - 1) # optimal number of tapers
 
-    CSD, freqs = stCR.cross_spectra_cF(data, fs,
-                                       taper='dpss',
-                                       taper_opt={'Kmax' : Kmax, 'NW' : NW},
-                                       norm=False,
-                                       fullOutput=True)
-    # strip off singleton time axis
-    CSD = CSD[0]
-
+    CSD, freqs = csd.csd(data, fs,
+                         taper='dpss',
+                         taper_opt={'Kmax' : Kmax, 'NW' : NW},
+                         norm=False,
+                         fullOutput=True)
+    
     # get CSD condition number, which is way too large!
     CN = np.linalg.cond(CSD).max()
     assert CN > 1e6
@@ -280,12 +276,11 @@ def test_granger():
         bw = 5
         NW = bw * nSamples / (2 * 1000)
         Kmax = int(2 * NW - 1) # optimal number of tapers
-        CS2, freqs = stCR.cross_spectra_cF(sol, fs,
-                                           taper='dpss',
-                                           taper_opt={'Kmax' : Kmax, 'NW' : NW},
-                                           fullOutput=True)
+        CSD, freqs = csd.csd(sol, fs,
+                             taper='dpss',
+                             taper_opt={'Kmax' : Kmax, 'NW' : NW},
+                             fullOutput=True)
 
-        CSD = CS2[0, ...]
         CSDav += CSD
 
     CSDav /= nTrials
@@ -316,7 +311,7 @@ def test_granger():
 
 
 # noisy phase evolution -> phase diffusion
-def phase_evo(omega0, eps, fs=1000, N=1000):
+def phase_diffusion(omega0, eps, fs=1000, N=1000):
     wn = np.random.randn(N)
     delta_ts = np.ones(N) * 1 / fs
     phase = np.cumsum(omega0 * delta_ts + eps * wn)

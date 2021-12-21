@@ -14,6 +14,11 @@
 import numpy as np
 from inspect import signature
 
+# backend method imports
+from .csd import normalize_csd
+from .wilson_sf import wilson_sf, regularize_csd
+from .granger import granger
+
 # syncopy imports
 from syncopy.shared.const_def import spectralDTypes, spectralConversions
 from syncopy.shared.computational_routine import ComputationalRoutine
@@ -21,8 +26,6 @@ from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.shared.errors import (
     SPYValueError,
 )
-from syncopy.connectivity.wilson_sf import wilson_sf, regularize_csd
-from syncopy.connectivity.granger import granger
 
 
 @unwrap_io
@@ -98,20 +101,10 @@ def normalize_csd_cF(csd_av_dat,
     if noCompute:
         return outShape, spectralDTypes[output]
 
-    # re-shape to (nChannels x nChannels x nFreq)
-    CS_ij = csd_av_dat.transpose(0, 2, 3, 1)[0, ...]
-
-    # main diagonal has shape (nFreq x nChannels): the auto spectra
-    diag = CS_ij.diagonal()
-
-    # get the needed product pairs of the autospectra
-    Ciijj = np.sqrt(diag[:, :, None] * diag[:, None, :]).T
-    CS_ij = CS_ij / Ciijj
-
-    CS_ij = spectralConversions[output](CS_ij)
-
-    # re-shape to original form and re-attach dummy time axis
-    return CS_ij[None, ...].transpose(0, 3, 1, 2)
+    CS_ij = normalize_csd(csd_av_dat[0], output)
+    
+    # re-attach dummy time axis
+    return CS_ij[None, ...]
 
 
 class NormalizeCrossSpectra(ComputationalRoutine):

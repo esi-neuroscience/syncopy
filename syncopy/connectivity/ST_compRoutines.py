@@ -10,8 +10,10 @@ import numpy as np
 from scipy.signal import fftconvolve, detrend
 from inspect import signature
 
+# backend method imports
+from .csd import csd
+
 # syncopy imports
-from syncopy.specest.mtmfft import mtmfft
 from syncopy.shared.const_def import spectralDTypes
 from syncopy.shared.errors import SPYValueError
 from syncopy.datatype import padding
@@ -29,10 +31,8 @@ def cross_spectra_cF(trl_dat,
                      taper_opt=None,
                      polyremoval=False,
                      timeAxis=0,
-                     norm=False,
                      chunkShape=None,
-                     noCompute=False,
-                     fullOutput=False):
+                     noCompute=False):
 
     """
     Single trial Fourier cross spectral estimates between all channels
@@ -87,26 +87,16 @@ def cross_spectra_cF(trl_dat,
         If `polyremoval` is `None`, no de-trending is performed.
     timeAxis : int, optional
         Index of running time axis in `trl_dat` (0 or 1)
-    norm : bool, optional
-        Set to `True` to normalize for a single-trial coherence measure.
-        Only meaningful in a multi-taper (`taper="dpss"`) setup and if no
-        additional (trial-)averaging is perfomed afterwards.
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
         array.
-    fullOutput : bool
-        For backend testing or stand-alone applications, set to `True`
-        to return also the `freqs` array.
 
     Returns
     -------
     CS_ij : (1, nFreq, N, N) :class:`numpy.ndarray`
         Complex cross spectra for all channel combinations ``i,j``.
         `N` corresponds to number of input channels.
-
-    freqs : (nFreq,) :class:`numpy.ndarray`
-        The Fourier frequencies if `fullOutput=True`
 
     Notes
     -----
@@ -119,6 +109,10 @@ def cross_spectra_cF(trl_dat,
 
     See also
     --------
+    csd : :func:`~syncopy.connectivity.csd.csd`
+             Cross-spectra backend function
+    normalize_csd : :func:`~syncopy.connectivity.csd.normalize_csd`
+             Coherence from trial averages
     mtmfft : :func:`~syncopy.specest.mtmfft.mtmfft`
              (Multi-)tapered Fourier analysis
 
@@ -161,35 +155,11 @@ def cross_spectra_cF(trl_dat,
     elif polyremoval == 1:
         dat = detrend(dat, type='linear', axis=0, overwrite_data=True)
 
-    # compute the individual spectra
-    # specs have shape (nTapers x nFreq x nChannels)
-    specs, freqs = mtmfft(dat, samplerate, taper, taper_opt)
-
-    # outer product along channel axes
-    # has shape (nTapers x nFreq x nChannels x nChannels)
-    CS_ij = specs[:, :, np.newaxis, :] * specs[:, :, :, np.newaxis].conj()
-
-    # average tapers and transpose:
-    # now has shape (nChannels x nChannels x nFreq)
-    CS_ij = CS_ij.mean(axis=0).T
-
-    if norm:
-        # only meaningful for multi-tapering
-        if taper != 'dpss':
-            msg = "Normalization of single trial csd only possible with taper='dpss'"
-            raise SPYValueError(legal=msg, varname="taper", actual=taper)
-        # main diagonal has shape (nChannels x nFreq): the auto spectra
-        diag = CS_ij.diagonal()
-        # get the needed product pairs of the autospectra
-        Ciijj = np.sqrt(diag[:, :, None] * diag[:, None, :]).T
-        CS_ij = CS_ij / Ciijj
-
+    CS_ij = csd(dat, samplerate, taper=taper, taper_opt=taper_opt)
+    
     # where does freqs go/come from -
-    # we will eventually allow tuples as return values yeah!
-    if not fullOutput:
-        return CS_ij[None, ..., freq_idx].transpose(0, 3, 1, 2)
-    else:
-        return CS_ij[None, ..., freq_idx].transpose(0, 3, 1, 2), freqs[freq_idx]
+    # we will eventually solve this issue..
+    return CS_ij[None, freq_idx, ...]
 
 
 class ST_CrossSpectra(ComputationalRoutine):
@@ -212,10 +182,9 @@ class ST_CrossSpectra(ComputationalRoutine):
 
     computeFunction = staticmethod(cross_spectra_cF)
 
-    backends = [mtmfft]
+    backends = [csd]
     # 1st argument,the data, gets omitted
-    valid_kws = list(signature(mtmfft).parameters.keys())[1:]
-    valid_kws += list(signature(cross_spectra_cF).parameters.keys())[1:]
+    valid_kws = list(signature(cross_spectra_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ['tapsmofrq', 'nTaper', 'pad_to_length']
 
