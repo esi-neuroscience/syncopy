@@ -256,7 +256,7 @@ def test_granger():
     for _ in range(nTrials):
 
         # -- simulate 2 AR(2) processes --
-        sol = synth_data.AR2_process(nSamples=nSamples, coupling=0.25, fs=fs)
+        sol = synth_data.AR2_process(nSamples=nSamples, coupling=0.25)
 
         # --- get CSD ---
         bw = 5
