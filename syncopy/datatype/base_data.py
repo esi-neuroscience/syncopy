@@ -400,7 +400,7 @@ class BaseData(ABC):
             msg2 = msg2.format(srate=srate, sround=sround, smax=smax)
         t0 = -self.samplerate
         msg = "Artificially generated trial-layout: trigger offset = {t0} sec" + msg2
-        SPYWarning(msg.format(t0=t0/self.samplerate), caller="data")
+        SPYInfo(msg.format(t0=t0/self.samplerate), caller="data")
 
         # Use constructed quantities to set up trial layout matrix
         accumSamples = np.cumsum(trialLens)

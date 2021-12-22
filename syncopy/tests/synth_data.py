@@ -5,9 +5,6 @@
 
 import numpy as np
 
-# local imports
-from syncopy.datatype import AnalogData
-
 
 # noisy phase evolution <-> phase diffusion
 def phase_evo(freq, eps=10, fs=1000, nSamples=1000):
