@@ -38,7 +38,7 @@ def phase_evo(freq, eps=10, fs=1000, nSamples=1000):
     return phase
 
 
-def AR2_process(AdjMat=None, nSamples=2500, coupling=0.25, alphas=[0.55, -0.8]):
+def AR2_process(AdjMat=None, nSamples=2500, alphas=[0.55, -0.8]):
     
     """
     Coupled AR(2) processes, with the default parameters 
@@ -54,8 +54,6 @@ def AR2_process(AdjMat=None, nSamples=2500, coupling=0.25, alphas=[0.55, -0.8]):
         with unidirectional 2->1 coupling is generated.
     nSamples : int, optional
         Number of samples in time
-    coupling : float, optional
-        Uniform coupling strengths
     alphas : 2-element sequence, optional
        The AR(2) parameters for lag1 and lag2
     """
@@ -64,19 +62,18 @@ def AR2_process(AdjMat=None, nSamples=2500, coupling=0.25, alphas=[0.55, -0.8]):
     # unidirectional (2->1) coupling
     if AdjMat is None:
         AdjMat = np.identity(2)
-        AdjMat[0, 1] = 1 #
+        AdjMat[0, 1] = .25 
 
     nChannels = AdjMat.shape[0]
     alpha1, alpha2 = alphas
-    # off diagonal coupling,
-    # diagonal 'self-interaction' with lag 1
-    AdjMat = coupling * AdjMat
+    # diagonal 'self-interaction' with lag 1    
     np.fill_diagonal(AdjMat, alpha1)
     
     sol = np.zeros((nSamples, nChannels))
     # pick the 1st values at random
     xs_ini = np.random.randn(2, nChannels)
     sol[:2, :] = xs_ini
+
     for i in range(2, nSamples):
         
         sol[i, :] = AdjMat @ sol[i - 1, :] + alpha2 * sol[i - 2, :]
@@ -84,3 +81,33 @@ def AR2_process(AdjMat=None, nSamples=2500, coupling=0.25, alphas=[0.55, -0.8]):
         # X2 drives X1
 
     return sol
+
+
+def mk_AdjMat(nChannels, coupling=0.25, conn_thresh=0.75):
+    """
+    Create a random
+    network for the AR(2) processes
+    where entry (i,j) is the coupling
+    strength from channel j -> i
+
+    Parameters
+    ---------
+    coupling : float < 1, optional
+        Total input into single channel 
+        normalized by number of couplings
+        (for stability), 
+
+    """
+        
+    # random numbers in [0,1)
+    AdjMat = np.random.random_sample((nChannels, nChannels))
+    # all larger elements get set to 1 (coupled)
+    AdjMat = (AdjMat > conn_thresh).astype(int)
+    # set diagonal to 0 to easier identify coupling
+    np.fill_diagonal(AdjMat, 0)
+    # normalize such that total input
+    # does not exceed max. coupling
+    norm = AdjMat.sum(axis=1)
+    norm[norm==0] = 1
+    AdjMat = AdjMat / norm[:, None] * coupling
+    return AdjMat

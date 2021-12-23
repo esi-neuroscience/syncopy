@@ -19,23 +19,19 @@ import syncopy.tests.synth_data as synth_data
 class TestGranger:
 
     nTrials = 50
-    nChannels = 5
-    nSamples = 2500
+    nChannels = 2
+    nSamples = 5000
     fs = 200
 
     # -- Create a somewhat intricated
     # -- network of AR(2) processes   
-        
-    # random numbers in [0,1)
-    AdjMat = np.random.random_sample((nChannels, nChannels))
-    conn_thresh = 0.75
-    # all larger elements get set to 1 (coupled)
-    AdjMat = (AdjMat > conn_thresh).astype(int)
-    # set diagonal to 0 to easier identify coupling
-    np.fill_diagonal(AdjMat, 0)
+
+    AdjMat = synth_data.mk_AdjMat(nChannels, conn_thresh=0.45)
+    print(AdjMat)
     # channel indices of coupling
-    cpl_idx = np.where(AdjMat)
-    nocpl_idx = np.where(AdjMat == 0)
+    # a 1 at AdjMat(i,j) means coupling from j->i
+    cpl_idx = np.where(AdjMat.T)
+    nocpl_idx = np.where(AdjMat.T == 0)
     
     trls = []
     for _ in range(nTrials):
@@ -52,7 +48,13 @@ class TestGranger:
         for i,j in zip(*self.cpl_idx):
             peak = Gcaus.data[0, :, i, j].max()
             peak_frq = Gcaus.freq[Gcaus.data[0, :, i, j].argmax()]
-            print(peak, peak_frq, i, j)
+            cval = self.AdjMat[j, i]
+            print(peak, peak_frq, i, j, self.AdjMat[j, i])            
+            # test for directional coupling
+            # assert peak > 3 * cval
+            # assert 35 < peak_frq < 45
+
+            
         return Gcaus, self.cpl_idx
 
 T = TestGranger()

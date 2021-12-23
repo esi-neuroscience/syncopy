@@ -250,13 +250,13 @@ def test_granger():
 
     fs = 200 # Hz
     nSamples = 2500
-    nTrials = 50
+    nTrials = 25
 
     CSDav = np.zeros((nSamples // 2 + 1, 2, 2), dtype=np.complex64)
     for _ in range(nTrials):
 
-        # -- simulate 2 AR(2) processes --
-        sol = synth_data.AR2_process(nSamples=nSamples, coupling=0.25)
+        # -- simulate 2 AR(2) processes with 2->1 coupling --
+        sol = synth_data.AR2_process(nSamples=nSamples)
 
         # --- get CSD ---
         bw = 5
