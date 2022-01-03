@@ -72,7 +72,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
 
     "granger" : Spectral Granger-Geweke causality
         Computes linear causality estimates between
-        all channel combinations. The needed cross-spectral
+        all channel combinations. The intermediate cross-spectral
         densities can be computed via multi-tapering.
 
         * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
