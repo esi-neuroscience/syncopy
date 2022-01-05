@@ -712,7 +712,7 @@ def superlet_cF(
         dat = trl_dat
 
     # Get shape of output for dry-run phase
-    nChannels = trl_dat.shape[1]
+    nChannels = dat.shape[1]
     if isinstance(toi, np.ndarray):  # `toi` is an array of time-points
         nTime = toi.size
     else:  # `toi` is 'all'
@@ -731,7 +731,7 @@ def superlet_cF(
     # ------------------
     # actual method call
     # ------------------
-    gmean_spec = superlet(trl_dat[preselect, :], **method_kwargs)
+    gmean_spec = superlet(dat[preselect, :], **method_kwargs)
     # the cwtSL stacks the scales on the 1st axis
     gmean_spec = gmean_spec.transpose(1, 0, 2)[postselect, :, :]
 
