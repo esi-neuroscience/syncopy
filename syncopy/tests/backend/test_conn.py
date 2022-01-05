@@ -229,7 +229,7 @@ def test_wilson():
     ax.plot(freqs, np.abs(CSD[:, chan, chan]),
             '-o', label='original CSD', ms=3)
     ax.plot(freqs, np.abs(CSDreg[:, chan, chan]),
-            '-o', label='regularized CSD', ms=3)
+            '--', label='regularized CSD', ms=3)
     ax.plot(freqs, np.abs(CSDfac[:, chan, chan]),
             '-o', label='factorized CSD', ms=3)
     ax.set_xlim((f1 - 5, f2 + 5))
@@ -259,8 +259,8 @@ def test_granger():
         sol = synth_data.AR2_network(nSamples=nSamples)
 
         # --- get CSD ---
-        bw = 5
-        NW = bw * nSamples / (2 * 1000)
+        bw = 2
+        NW = bw * nSamples / (2 * fs)
         Kmax = int(2 * NW - 1) # optimal number of tapers
         CSD, freqs = csd.csd(sol, fs,
                              taper='dpss',
@@ -277,6 +277,13 @@ def test_granger():
     G = granger(CSDav, H, Sigma)
     assert G.shape == CSDav.shape
 
+    fig, ax = ppl.subplots(figsize=(6, 4))
+    ax.set_xlabel('frequency (Hz)')
+    ax.set_ylabel(r'Granger causality(f)')
+    ax.plot(freqs, G[:, 0, 1], label=r'Granger $1\rightarrow2$')
+    ax.plot(freqs, G[:, 1, 0], label=r'Granger $2\rightarrow1$')
+    ax.legend()
+    
     # check for directional causality at 40Hz
     freq_idx = np.argmin(freqs < 40)
     assert 39 < freqs[freq_idx] < 41
@@ -286,12 +293,6 @@ def test_granger():
     # check high causality for 2->1
     assert G[freq_idx, 1, 0] > 0.8
 
-    fig, ax = ppl.subplots(figsize=(6, 4))
-    ax.set_xlabel('frequency (Hz)')
-    ax.set_ylabel(r'Granger causality(f)')
-    ax.plot(freqs, G[:, 0, 1], label=r'Granger $1\rightarrow2$')
-    ax.plot(freqs, G[:, 1, 0], label=r'Granger $2\rightarrow1$')
-    ax.legend()
 
 # --- Helper routines ---
 

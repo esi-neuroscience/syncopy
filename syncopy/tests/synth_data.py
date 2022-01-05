@@ -7,7 +7,7 @@ import numpy as np
 
 
 # noisy phase evolution <-> phase diffusion
-def phase_evo(freq, eps=10, fs=1000, nSamples=1000):
+def phase_evo(freq, eps=1, fs=1000, nSamples=1000):
     
     """
     Linear (harmonic) phase evolution + a brownian noise term
@@ -70,7 +70,7 @@ def AR2_network(AdjMat=None, nSamples=2500, alphas=[0.55, -0.8]):
     # default systen layout as in Dhamala 2008:
     # unidirectional (2->1) coupling
     if AdjMat is None:
-        AdjMat = np.identity(2)
+        AdjMat = np.zeros((2, 2))
         AdjMat[1, 0] = .25 
 
     nChannels = AdjMat.shape[0]
@@ -123,6 +123,6 @@ def mk_RandomAdjMat(nChannels=3, conn_thresh=0.25, max_coupling=0.25):
     # does not exceed max. coupling
     norm = AdjMat.sum(axis=0)
     norm[norm == 0] = 1
-    AdjMat = AdjMat / norm[:, None] * max_coupling
+    AdjMat = AdjMat / norm[None, :] * max_coupling
     
     return AdjMat
