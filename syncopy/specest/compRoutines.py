@@ -353,6 +353,9 @@ def mtmconvol_cF(
         stftBdry = "zeros"
         stftPad = True
     nFreq = foi.size
+    taper_opt = method_kwargs['taper_opt']
+    if taper_opt:
+        nTaper = taper_opt["Kmax"]
     outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
@@ -381,7 +384,6 @@ def mtmconvol_cF(
         # every individual soi, so we can use mtmfft!
         samplerate = method_kwargs['samplerate']
         taper = method_kwargs['taper']
-        taper_opt = method_kwargs['taper_opt']
 
         # In case tapers aren't preserved allocate `spec` "too big"
         # and average afterwards
