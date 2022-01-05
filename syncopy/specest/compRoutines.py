@@ -591,6 +591,7 @@ class WaveletTransform(ComputationalRoutine):
     valid_kws = list(signature(wavelet).parameters.keys())[1:]
     # here also last argument, the method_kwargs, are omitted
     valid_kws += list(signature(wavelet_cF).parameters.keys())[1:-1]
+    valid_kws += ["width"]
 
     def process_metadata(self, data, out):
 
