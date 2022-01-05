@@ -114,8 +114,10 @@ def mk_RandomAdjMat(nChannels=3, conn_thresh=0.25, max_coupling=0.25):
         
     # random numbers in [0,1)
     AdjMat = np.random.random_sample((nChannels, nChannels))
+    
     # all smaller than threshold elements get set to 1 (coupled)
     AdjMat = (AdjMat < conn_thresh).astype(int)
+    
     # set diagonal to 0 to easier identify coupling
     np.fill_diagonal(AdjMat, 0)
     
