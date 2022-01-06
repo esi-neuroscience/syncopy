@@ -353,6 +353,9 @@ def mtmconvol_cF(
         stftBdry = "zeros"
         stftPad = True
     nFreq = foi.size
+    taper_opt = method_kwargs['taper_opt']
+    if taper_opt:
+        nTaper = taper_opt["Kmax"]
     outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
@@ -381,7 +384,6 @@ def mtmconvol_cF(
         # every individual soi, so we can use mtmfft!
         samplerate = method_kwargs['samplerate']
         taper = method_kwargs['taper']
-        taper_opt = method_kwargs['taper_opt']
 
         # In case tapers aren't preserved allocate `spec` "too big"
         # and average afterwards
@@ -591,6 +593,7 @@ class WaveletTransform(ComputationalRoutine):
     valid_kws = list(signature(wavelet).parameters.keys())[1:]
     # here also last argument, the method_kwargs, are omitted
     valid_kws += list(signature(wavelet_cF).parameters.keys())[1:-1]
+    valid_kws += ["width"]
 
     def process_metadata(self, data, out):
 
@@ -711,7 +714,7 @@ def superlet_cF(
         dat = trl_dat
 
     # Get shape of output for dry-run phase
-    nChannels = trl_dat.shape[1]
+    nChannels = dat.shape[1]
     if isinstance(toi, np.ndarray):  # `toi` is an array of time-points
         nTime = toi.size
     else:  # `toi` is 'all'
@@ -730,7 +733,7 @@ def superlet_cF(
     # ------------------
     # actual method call
     # ------------------
-    gmean_spec = superlet(trl_dat[preselect, :], **method_kwargs)
+    gmean_spec = superlet(dat[preselect, :], **method_kwargs)
     # the cwtSL stacks the scales on the 1st axis
     gmean_spec = gmean_spec.transpose(1, 0, 2)[postselect, :, :]
 

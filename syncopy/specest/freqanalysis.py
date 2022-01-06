@@ -113,11 +113,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         Perform time-frequency analysis on time-series trial data using a non-orthogonal
         continuous wavelet transform.
 
-        * **wav** : one of :data:`~syncopy.specest.const_def.availableWavelets`
+        * **wavelet** : one of :data:`~syncopy.specest.const_def.availableWavelets`
         * **toi** : time-points of interest; can be either an array representing
-          time points (in sec) to center wavelets on or "all" to center a wavelet
-          on every sample in the data. #FIXME: not correct: toi only affects pre-trimming
-          and subsampling of results!
+          time points (in sec) or "all"(pre-trimming and subsampling of results)
         * **width** : Nondimensional frequency constant of Morlet wavelet function (>= 6)
         * **order** : Order of Paul wavelet function (>= 4) or derivative order
           of real-valued DOG wavelets (2 = mexican hat)
@@ -127,11 +125,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         the super-resolution superlet transform (SLT) from [Moca2021]_.
 
         * **order_max** : Maximal order of the superlet
-
         * **order_min** : Minimal order of the superlet
-
         * **c_1** : Number of cycles of the base Morlet wavelet
-
         * **adaptive** : If set to `True` perform fractional adaptive SLT,
           otherwise perform multiplicative SLT
 
@@ -232,25 +227,25 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         equidistant array of time points or "all".
     t_ftimwin : positive float
         Only valid if `method` is `'mtmconvol'`. Sliding window length (in seconds).
-    wav : str
+    wavelet : str
         Only valid if `method` is `'wavelet'`. Wavelet function to use, one of
         :data:`~syncopy.specest.const_def.availableWavelets` (see below).
     width : positive float
-        Only valid if `method` is `'wavelet'` and `wav` is `'Morlet'`. Nondimensional
+        Only valid if `method` is `'wavelet'` and `wavelet` is `'Morlet'`. Nondimensional
         frequency constant of Morlet wavelet function. This number should be >= 6,
         which corresponds to 6 cycles within the analysis window to ensure sufficient
         spectral sampling.
     order : positive int
-        Only valid if `method` is `'wavelet'` and `wav` is `'Paul'` or `'DOG'`. Order
-        of the wavelet function. If `wav` is `'Paul'`, `order` should be chosen
+        Only valid if `method` is `'wavelet'` and `wavelet` is `'Paul'` or `'DOG'`. Order
+        of the wavelet function. If `wavelet` is `'Paul'`, `order` should be chosen
         >= 4 to ensure that the analysis window contains at least a single oscillation.
         At an order of 40, the Paul wavelet  exhibits about the same number of cycles
         as the Morlet wavelet with a `width` of 6.
         All other supported wavelets functions are *real-valued* derivatives of
-        Gaussians (DOGs). Hence, if `wav` is `'DOG'`, `order` represents the derivative order.
+        Gaussians (DOGs). Hence, if `wavelet` is `'DOG'`, `order` represents the derivative order.
         The special case of a second order DOG yields a function known as "Mexican Hat",
         "Marr" or "Ricker" wavelet, which can be selected alternatively by setting
-        `wav` to `'Mexican_hat'`, `'Marr'` or `'Ricker'`. **Note**: A real-valued
+        `wavelet` to `'Mexican_hat'`, `'Marr'` or `'Ricker'`. **Note**: A real-valued
         wavelet function encodes *only* information about peaks and discontinuities
         in the signal and does *not* provide any information about amplitude or phase.
     order_max : int
@@ -326,7 +321,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # Get everything of interest in local namespace
     defaults = get_defaults(freqanalysis)
     lcls = locals()
-    # check for ineffective additional kwargs        
+    # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="freqanalysis")
 
     # Ensure a valid computational method was selected
@@ -360,7 +355,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # check polyremoval
     if polyremoval is not None:
         scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])
-                  
+
     # Sliding window FFT does not support "fancy" padding
     if method == "mtmconvol" and isinstance(pad, str):
         msg = "method 'mtmconvol' only supports in-place padding for windows " +\
@@ -546,7 +541,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             SPYInfo(msg)
             foi = freqs
         log_dct["foi"] = foi
-        
+
         # Abort if desired frequency selection is empty
         if foi.size == 0:
             lgl = "non-empty frequency specification"
@@ -568,7 +563,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # only dpss returns non-empty taper_opt dict
         if taper_opt:
             log_dct["nTaper"] = taper_opt["Kmax"]
-            log_dct["tapsmofrq"] = tapsmofrq        
+            log_dct["tapsmofrq"] = tapsmofrq
 
     # -------------------------------------------------------
     # Now, prepare explicit compute-classes for chosen method
@@ -813,7 +808,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
-        log_dct["foi"] = foi        
+        log_dct["foi"] = foi
         log_dct["wavelet"] = lcls["wavelet"]
         log_dct["width"] = lcls["width"]
         log_dct["order"] = lcls["order"]
@@ -889,7 +884,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 SPYWarning(msg)
                 scales = np.sort(scales)[::-1]
 
-        log_dct["foi"] = foi                        
+        log_dct["foi"] = foi
         log_dct["c_1"] = lcls["c_1"]
         log_dct["order_max"] = lcls["order_max"]
         log_dct["order_min"] = lcls["order_min"]
