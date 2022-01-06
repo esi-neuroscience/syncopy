@@ -15,6 +15,7 @@ if __acme__:
 from syncopy.datatype import AnalogData    
 from syncopy.connectivity import connectivity
 import syncopy.tests.synth_data as synth_data
+from syncopy.shared.errors import SPYValueError
 
 
 class TestGranger:
@@ -77,61 +78,77 @@ class TestGranger:
         trials, channels = [], []
         for _ in range(3):
 
-            sizeTr =  np.random.randint(self.nTrials + 1) 
-            trials.append(np.random.choice(self.nTrials, size=sizeTr))
+            sizeTr =  np.random.randint(1, self.nTrials + 1) 
+            trials.append(list(np.random.choice(self.nTrials, size=sizeTr)))
             
-            sizeCh = np.random.randint(self.nChannels + 1)        
+            sizeCh = np.random.randint(1, self.nChannels + 1)        
             channels.append(['channel' + str(i + 1)
                              for i in np.random.choice(self.nChannels, size=sizeCh, replace=False)])
             
         # create toi selections, signal length is 5s at 200Hz
         # with -1s as offset (from synthetic data instantiation)
-        # subsampling
-        toi1 = np.arange(-.4, 2, 0.05)
-        toi2 = 'all'
-        tois = [toi1, toi2]
+        # subsampling does NOT WORK due to precision issues :/
+        # toi1 = np.linspace(-.4, 2, 100)
+        # toi2 = 'all'
+        tois = [None, 'all']
 
         # 2 random toilims
-        toilims = [np.sort(np.random.rand(2) * 6 - 1) for _ in range(2)]
+        toilims = [np.sort(np.random.rand(2) * 5 - 1) for _ in range(2)]
+        
+        
+        # combinatorics of all selection options
+        # order matters to assign the selection dict keys!
+        toilim_combinations = itertools.product(trials,
+                                                channels,
+                                                toilims)
 
+        # create selections and run frontend
+        for comb in toilim_combinations:
+
+            sel_dct = {}
+            sel_dct['trials'] = comb[0]
+            sel_dct['channels'] = comb[1]
+            sel_dct['toilim'] = comb[2]
+            
+            Gcaus = connectivity(self.data, method='granger', select=sel_dct)
+
+            # check here just for finiteness and positivity
+            assert np.all(np.isfinite(Gcaus.data))
+            assert np.all(Gcaus.data[0, ...] >= -1e-10)
+            
+    def test_foi(self):
         # fois
         foi1 = np.arange(10, 60) # 1Hz steps
         foi2 = np.arange(20, 50, 0.5) # 0.5Hz steps
         foi3 = 'all'
         fois = [foi1, foi2, foi3]
 
-        # 2 random foilims
-        foilims = [np.sort(np.random.rand(2) * 60) for _ in range(2)]
-        
-        # combinatorics of all selection options
-        # order matters to assign the selection dict keys!
-        combinations = itertools.product(trials,
-                                         channels,
-                                         tois,
-                                         toilims)
-
-        # create selections and run frontend
-        for comb in combinations:
-
-            sel_dct = {}
-            sel_dct['trials'] = comb[0]
-            sel_dct['channels'] = comb[1]
-            sel_dct['tois'] = comb[2]
-            sel_dct['toilims'] = comb[3]
-            
-            print(sel_dct)
-            print('\n\n')
-
-            Gcaus = connectivity(self.data, method='granger')
-            
-            # check here just for finiteness
+        for foi in fois:
+            Gcaus = connectivity(self.data, method='granger', foi=foi)
+            # check here just for finiteness and positivity
             assert np.all(np.isfinite(Gcaus.data))
-            
+            assert np.all(Gcaus.data[0, ...] >= -1e-10)
+
+        # 3 random foilims
+        foilims = [np.sort(np.random.rand(2) * 60) for _ in range(2)]
+        for foil in foilims:
+            Gcaus = connectivity(self.data, method='granger', foilim=foil)
+            # check here just for finiteness and positivity
+            assert np.all(np.isfinite(Gcaus.data))
+            assert np.all(Gcaus.data[0, ...] >= -1e-10)
+
+        # make sure specification of both foi and foilim triggers a
+        # Syncopy ValueError
+        try:
+            Gcaus = connectivity(self.data, method='granger', foi=foi, foilim=foil)
+        except SPYValueError as err:
+            assert 'foi/foilim' in str(err)
             
 
 T = TestGranger()
 T.test_solution()
-comb = T.test_selections()
+# T.test_selections()
+T.test_foi()
 
 l1 = [1,2,3]
 l2 = ['a', 'b']

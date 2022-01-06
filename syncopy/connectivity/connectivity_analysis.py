@@ -155,6 +155,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     if data._selection is not None:
         sinfo = data._selection.trialdefinition[:, :2]
         trialList = data._selection.trials
+        print(data._selection.time[0])
         # user picked discrete set of time points
         if isinstance(data._selection.time[0], list):
             lgl = "equidistant time points (toi) or time slice (toilim)"
@@ -219,7 +220,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     foi, foilim = validate_foi(foi, foilim, data.samplerate)
 
     # only now set foi array for foilim in 1Hz steps
-    if foilim:
+    if foilim is not None:
         foi = np.arange(foilim[0], foilim[1] + 1)
 
     # Prepare keyword dict for logging (use `lcls` to get actually provided
