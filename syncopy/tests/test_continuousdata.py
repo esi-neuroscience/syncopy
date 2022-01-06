@@ -12,7 +12,7 @@ import numpy as np
 from numpy.lib.format import open_memmap
 
 # Local imports
-from syncopy.datatype import AnalogData, SpectralData, padding
+from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, padding
 from syncopy.io import save, load
 from syncopy.datatype.base_data import VirtualData, Selector
 from syncopy.datatype.methods.selectdata import selectdata
@@ -280,18 +280,6 @@ class TestAnalogData():
             for attr in checkAttr:
                 assert np.array_equal(getattr(dummy4, attr), getattr(dummy, attr))
             del dummy, dummy3, dummy4  # avoid PermissionError in Windows
-
-            # # FIXME: either remove or repair this
-            # # save object hosting VirtualData
-            # np.save(fname + ".npy", self.data)
-            # dmap = open_memmap(fname + ".npy", mode="r")
-            # vdata = VirtualData([dmap, dmap])
-            # dummy = AnalogData(vdata, samplerate=1000)
-            # dummy.save(fname, overwrite=True)
-            # dummy2 = AnalogData(filename)
-            # assert dummy2.mode == "r+"
-            # assert np.array_equal(dummy2.data, vdata[:, :])
-            # del dummy, dummy2  # avoid PermissionError in Windows
 
             # ensure trialdefinition is saved and loaded correctly
             dummy = AnalogData(data=self.data, trialdefinition=self.trl, samplerate=1000)
@@ -931,6 +919,222 @@ class TestSpectralData():
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
         par_tests = ["test_sd_dataselection", "test_sd_arithmetic"]
+        for test in par_tests:
+            getattr(self, test)()
+            flush_local_cluster(testcluster)
+        client.close()
+
+
+class TestCrossSpectralData():
+
+    # Allocate test-dataset
+    nci = 10
+    ncj = 12
+    nl = 3
+    nt = 6
+    ns = nt * nl
+    nf = 15
+    data = np.arange(1, nci * ncj * ns * nf + 1, dtype="float").reshape(ns, nf, nci, ncj)
+    trl = np.vstack([np.arange(0, ns, nl),
+                     np.arange(nl, ns + nl, nl),
+                     np.ones((int(ns / nl), )),
+                     np.ones((int(ns / nl), )) * np.pi]).T
+    data2 = np.moveaxis(data, 0, -1)
+    samplerate = 2.0
+
+    def test_csd_empty(self):
+        dummy = CrossSpectralData()
+        assert len(dummy.cfg) == 0
+        assert dummy.dimord == None
+        for attr in ["channel_i", "channel_j", "data", "freq", "sampleinfo", "trialinfo"]:
+            assert getattr(dummy, attr) is None
+        with pytest.raises(SPYTypeError):
+            CrossSpectralData({})
+
+    def test_csd_nparray(self):
+        dummy = CrossSpectralData(self.data)
+        assert dummy.dimord == CrossSpectralData._defaultDimord
+        assert dummy.channel_i.size == self.nci
+        assert dummy.channel_j.size == self.ncj
+        assert dummy.freq.size == self.nf
+        assert (dummy.sampleinfo == [0, self.ns]).min()
+        assert dummy.trialinfo.shape == (1, 0)
+        assert np.array_equal(dummy.data, self.data)
+
+        # wrong shape for data-type
+        with pytest.raises(SPYValueError):
+            CrossSpectralData(data=np.ones((3,)))
+
+    def test_csd_trialretrieval(self):
+        # test ``_get_trial`` with NumPy array: regular order
+        dummy = CrossSpectralData(self.data)
+        dummy.trialdefinition = self.trl
+        for trlno, start in enumerate(range(0, self.ns, self.nl)):
+            trl_ref = self.data[start:start + self.nl, ...]
+            assert np.array_equal(dummy.trials[trlno], trl_ref)
+
+        # test ``_get_trial`` with NumPy array: swapped dimensions
+        dummy = CrossSpectralData(self.data2, dimord=["freq", "channel_i", "channel_j", "time"])
+        dummy.trialdefinition = self.trl
+        for trlno, start in enumerate(range(0, self.ns, self.nl)):
+            trl_ref = self.data2[..., start:start + self.nl]
+            assert np.array_equal(dummy.trials[trlno], trl_ref)
+
+        del dummy
+
+    def test_csd_saveload(self):
+        with tempfile.TemporaryDirectory() as tdir:
+            fname = os.path.join(tdir, "dummy")
+
+            # basic but most important: ensure object integrity is preserved
+            checkAttr = ["channel_i", "channel_i", "data", "dimord", "freq", "sampleinfo",
+                         "samplerate", "trialinfo"]
+            dummy = CrossSpectralData(self.data, samplerate=1000)
+            dummy.save(fname)
+            filename = construct_spy_filename(fname, dummy)
+            dummy3 = load(fname)
+            for attr in checkAttr:
+                assert np.array_equal(getattr(dummy3, attr), getattr(dummy, attr))
+            save(dummy3, container=os.path.join(tdir, "ymmud"))
+            dummy4 = load(os.path.join(tdir, "ymmud"))
+            for attr in checkAttr:
+                assert np.array_equal(getattr(dummy4, attr), getattr(dummy, attr))
+            del dummy, dummy3, dummy4  # avoid PermissionError in Windows
+
+            # ensure trialdefinition is saved and loaded correctly
+            dummy = CrossSpectralData(self.data, samplerate=1000)
+            dummy.trialdefinition = self.trl
+            dummy.save(fname, overwrite=True)
+            dummy2 = load(filename)
+            assert np.array_equal(dummy.trialdefinition, dummy2.trialdefinition)
+
+            # test getters
+            assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
+            assert np.array_equal(dummy._t0, dummy2._t0)
+            assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
+
+            # swap dimensions and ensure `dimord` is preserved
+            dummy = CrossSpectralData(self.data, dimord=["freq", "channel_j", "channel_i", "time"],
+                                      samplerate=1000)
+            dummy.save(fname + "_dimswap")
+            filename = construct_spy_filename(fname + "_dimswap", dummy)
+            dummy2 = load(filename)
+            assert dummy2.dimord == dummy.dimord
+            assert dummy2.channel_i.size == self.nci # swapped
+            assert dummy2.channel_j.size == self.nf # swapped
+            assert dummy2.freq.size == self.ns  # swapped
+            assert dummy2.data.shape == dummy.data.shape
+
+            # Delete all open references to file objects b4 closing tmp dir
+            del dummy, dummy2
+
+    # test data-selection via class method
+    def test_csd_dataselection(self):
+
+        # Create testing objects (regular and swapped dimords)
+        dummy = CrossSpectralData(data=self.data,
+                                  samplerate=self.samplerate)
+        dummy.trialdefinition = self.trl
+        ymmud = CrossSpectralData(data=np.transpose(self.data, [3, 2, 1, 0]),
+                                  samplerate=self.samplerate,
+                                  dimord=CrossSpectralData._defaultDimord[::-1])
+        ymmud.trialdefinition = self.trl
+
+        for obj in [dummy, ymmud]:
+            idx = [slice(None)] * len(obj.dimord)
+            timeIdx = obj.dimord.index("time")
+            chanIdx = obj.dimord.index("channel_i")
+            chanJdx = obj.dimord.index("channel_j")
+            freqIdx = obj.dimord.index("freq")
+            for trialSel in trialSelections:
+                for chaniSel in chanSelections:
+                    for chanjSel in chanSelections:
+                        for timeSel in timeSelections:
+                            for freqSel in freqSelections:
+                                kwdict = {}
+                                kwdict["trials"] = trialSel
+                                kwdict["channels_i"] = chaniSel
+                                kwdict["channels_j"] = chanjSel
+                                kwdict[timeSel[0]] = timeSel[1]
+                                kwdict[freqSel[0]] = freqSel[1]
+                                cfg = StructDict(kwdict)
+                                # data selection via class-method + `Selector` instance for indexing
+                                try:
+                                    selected = obj.selectdata(**kwdict)
+                                except:
+                                    import pdb; pdb.set_trace()
+                                time.sleep(0.05)
+                                selector = Selector(obj, kwdict)
+                                idx[chanIdx] = selector.channel_i
+                                idx[chanJdx] = selector.channel_j
+                                idx[freqIdx] = selector.freq
+                                for tk, trialno in enumerate(selector.trials):
+                                    idx[timeIdx] = selector.time[tk]
+                                    indexed = obj.trials[trialno][idx[0], ...][:, idx[1], ...][:, :, idx[2], :][..., idx[3]]
+                                    assert np.array_equal(selected.trials[tk].squeeze(),
+                                                        indexed.squeeze())
+                                cfg.data = obj
+                                cfg.out = CrossSpectralData(dimord=obj.dimord)
+                                # data selection via package function and `cfg`: ensure equality
+                                selectdata(cfg)
+                                assert np.array_equal(cfg.out.channel_i, selected.channel_i)
+                                assert np.array_equal(cfg.out.channel_j, selected.channel_j)
+                                assert np.array_equal(cfg.out.freq, selected.freq)
+                                assert np.array_equal(cfg.out.data, selected.data)
+                                time.sleep(0.05)
+
+    # test arithmetic operations
+    def test_csd_arithmetic(self):
+
+        # Create testing objects and corresponding arrays to perform arithmetics with
+        dummy = CrossSpectralData(data=self.data,
+                                  samplerate=self.samplerate)
+        dummy.trialdefinition = self.trl
+        dummyC = CrossSpectralData(data=np.complex64(self.data),
+                                   samplerate=self.samplerate)
+        dummyC.trialdefinition = self.trl
+        ymmud = CrossSpectralData(data=np.transpose(self.data, [3, 2, 1, 0]),
+                                  samplerate=self.samplerate,
+                                  dimord=CrossSpectralData._defaultDimord[::-1])
+        ymmud.trialdefinition = self.trl
+        dummy2 = CrossSpectralData(data=self.data,
+                                   samplerate=self.samplerate)
+        dummy2.trialdefinition = self.trl
+        ymmud2 = CrossSpectralData(data=np.transpose(self.data, [3, 2, 1, 0]),
+                                   samplerate=self.samplerate,
+                                   dimord=CrossSpectralData._defaultDimord[::-1])
+        ymmud2.trialdefinition = self.trl
+
+        # Perform basic arithmetic with +, -, *, / and ** (pow)
+        for operation in arithmetics:
+
+            # First, ensure `dimord` is respected
+            with pytest.raises(SPYValueError) as spyval:
+                operation(dummy, ymmud)
+                assert "expected Syncopy 'time' x 'freq' x 'channel_i' x 'channel_j' data object" in str(spyval.value)
+
+            _base_op_tests(dummy, ymmud, dummy2, ymmud2, dummyC, operation)
+
+            # Now the most complicated case: user-defined subset selections are present
+            kwdict = {}
+            kwdict["trials"] = trialSelections[1]
+            kwdict["channels_i"] = chanSelections[3]
+            kwdict["channels_j"] = chanSelections[2]
+            kwdict[timeSelections[4][0]] = timeSelections[4][1]
+            kwdict[freqSelections[4][0]] = freqSelections[4][1]
+            _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
+
+        # Finally, perform a representative chained operation to ensure chaining works
+        result = (dummy + dummy2) / dummy ** 3
+        for tk, trl in enumerate(result.trials):
+            assert np.array_equal(trl,
+                                  (dummy.trials[tk] + dummy2.trials[tk]) / dummy.trials[tk] ** 3)
+
+    @skip_without_acme
+    def test_csd_parallel(self, testcluster):
+        # repeat selected test w/parallel processing engine
+        client = dd.Client(testcluster)
+        par_tests = ["test_csd_dataselection", "test_csd_arithmetic"]
         for test in par_tests:
             getattr(self, test)()
             flush_local_cluster(testcluster)
