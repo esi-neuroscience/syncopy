@@ -1059,10 +1059,7 @@ class TestCrossSpectralData():
                                 kwdict[freqSel[0]] = freqSel[1]
                                 cfg = StructDict(kwdict)
                                 # data selection via class-method + `Selector` instance for indexing
-                                try:
-                                    selected = obj.selectdata(**kwdict)
-                                except:
-                                    import pdb; pdb.set_trace()
+                                selected = obj.selectdata(**kwdict)
                                 time.sleep(0.05)
                                 selector = Selector(obj, kwdict)
                                 idx[chanIdx] = selector.channel_i

@@ -589,8 +589,6 @@ class TestSelector():
                     assert np.array_equal(selected.trials[trialno],
                                           ang.trials[trialno][tuple(angIdx)])
 
-        # FIXME: test time-frequency data selection as soon as we support this object type
-
     # test `toi`/`toilim` selection w/`SpikeData` and `EventData`
     def test_discrete_toitoilim(self):
 
