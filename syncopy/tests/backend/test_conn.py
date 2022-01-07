@@ -179,12 +179,14 @@ def test_wilson():
     nSamples = 1000
     f1, f2 = [30 , 40] # 30Hz and 60Hz
     data = np.zeros((nSamples, nChannels))
-    for i in range(nChannels):
-        # more phase diffusion in the 60Hz band
-        p1 = synth_data.phase_evo(f1, eps=3, fs=fs, nSamples=nSamples)
-        p2 = synth_data.phase_evo(f2, eps=10, fs=fs, nSamples=nSamples)
 
-        data[:, i] = np.cos(p1) + 2 * np.sin(p2) + .5 * np.random.randn(nSamples)
+    # more phase diffusion in the 60Hz band
+    p1 = synth_data.phase_evo(f1, eps=.3, fs=fs,
+                              nSamples=nSamples, nChannels=nChannels)
+    p2 = synth_data.phase_evo(f2, eps=1, fs=fs,
+                              nSamples=nSamples, nChannels=nChannels)
+
+    data = np.cos(p1) + 2 * np.sin(p2) + .5 * np.random.randn(nSamples, nChannels)
 
     # --- get the (single trial) CSD ---
 

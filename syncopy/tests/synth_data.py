@@ -7,7 +7,7 @@ import numpy as np
 
 
 # noisy phase evolution <-> phase diffusion
-def phase_evo(freq, eps=1, fs=1000, nSamples=1000):
+def phase_evo(freq, eps=.1, fs=1000, nChannels=2, nSamples=1000):
     
     """
     Linear (harmonic) phase evolution + a brownian noise term
@@ -24,18 +24,26 @@ def phase_evo(freq, eps=1, fs=1000, nSamples=1000):
         Harmonic frequency in Hz
     eps : float
         Scaled brownian increments
+        `1` means the single Wiener step
+        has on average the size of the 
+        harmonic increments
     fs : float
         Sampling rate in Hz
     nSamples : int
     """
 
     # white noise
-    wn = np.random.randn(nSamples)
+    wn = np.random.randn(nSamples, nChannels)
+    
     delta_ts = np.ones(nSamples) * 1 / fs
     omega0 = 2 * np.pi * freq
-    rel_eps = omega0 / fs * eps
-    phase = np.cumsum(omega0 * delta_ts + rel_eps * wn)
-    return phase
+    lin_incr = np.tile(omega0 * delta_ts, (nChannels, 1)).T
+    
+    # relative brownian increments
+    rel_eps = np.sqrt(omega0 / fs * eps)
+    brown_incr = rel_eps * wn
+    phases = np.cumsum(lin_incr + brown_incr, axis=0)
+    return phases
 
 
 def AR2_network(AdjMat=None, nSamples=2500, alphas=[0.55, -0.8]):

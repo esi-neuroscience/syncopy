@@ -70,6 +70,9 @@ class TestGranger:
             # at the right frequency range
             assert peak >= cval
             assert 35 < peak_frq < 45
+
+            plot_Granger(Gcaus, i, j, None)
+            ppl.legend()
             
     def test_selections(self):
 
@@ -143,24 +146,101 @@ class TestGranger:
                                  foi=foi, foilim=foil)
         except SPYValueError as err:
             assert 'foi/foilim' in str(err)
+
+        # make sure out-of-range foi selections are detected
+        try:
+            Gcaus = connectivity(self.data, method='granger',
+                                 foilim=[-5, 70])
+        except SPYValueError as err:
+            assert 'foilim' in str(err)
+            assert 'bounded by' in str(err)
             
+        try:
+            Gcaus = connectivity(self.data, method='granger',
+                                 foi=np.arange(50, self.nSamples))
+        except SPYValueError as err:
+            assert 'foi' in str(err)
+            assert 'bounded by' in str(err)
+        
 
-T = TestGranger()
-# T.test_solution()
-T.test_selections()
-# T.test_foi()
+class TestCoherence:
 
-l1 = [1,2,3]
-l2 = ['a', 'b']
-l3 = ['ccc', 'xyx']
+    nSamples = 1500
+    nChannels = 3
+    nTrials = 100
+    fs = 1000
+
+    # -- two harmonics with individual phase diffusion --
+
+    f1, f2 = 20, 40
+    trls = []
+    for _ in range(nTrials):
+        # a lot of phase diffusion (1% per step) in the 20Hz band
+        p1 = synth_data.phase_evo(f1, eps=.01, nChannels=nChannels, nSamples=nSamples)
+        # little diffusion in the 40Hz band
+        p2 = synth_data.phase_evo(f2, eps=0.001, nChannels=nChannels, nSamples=nSamples)
+        # superposition 
+        signals = np.cos(p1) + np.cos(p2)
+        # noise stabilizes the result(!!)
+        signals += np.random.randn(nSamples, nChannels)
+        trls.append(signals)
+
+    data = AnalogData(trls, samplerate=fs)
+
+    def test_solution(self):
+        
+        res = connectivity(data=self.data,
+                           method='coh',
+                           foilim=[5, 60],
+                           output='pow',
+                           taper='dpss',
+                           tapsmofrq=1)
+
+        # coherence at the harmonic frequencies
+        idx_f1 = np.argmin(res.freq < self.f1)
+        peak_f1 = res.data[0, idx_f1, 0, 1]
+        
+        idx_f2 = np.argmin(res.freq < self.f2)
+        peak_f2 = res.data[0, idx_f2, 0, 1]
+        
+        # check low phase diffusion has high coherence
+        assert peak_f2 > 0.7
+        # check that with higher phase diffusion the
+        # coherence is lower
+        assert peak_f1 < peak_f2
+
+        # check that 5Hz away from the harmonics there
+        # is low coherence
+        null_idx = (res.freq < T.f1 - 5) | (res.freq > T.f1 + 5)
+        null_idx *= (res.freq < T.f2 - 5) | (res.freq > T.f2 + 5)
+        assert np.all(res.data[0, null_idx, 0, 1] < 0.1)
+        
+        return res, null_idx
+
+        
+
 
 # -- helper functions --
 
-def plot_G(G, i, j, nTr, color='cornflowerblue'):
+def plot_Granger(G, i, j, color='cornflowerblue'):
 
     ax = ppl.gca()
     ax.set_xlabel('frequency (Hz)')
     ax.set_ylabel(r'Granger causality(f)')
     ax.plot(G.freq, G.data[0, :, i, j], label=f'Granger {i}-{j}',
-            alpha=0.7, lw=1.2, c=color)
+            alpha=0.7, lw=1.3, c=color)
     ax.set_ylim((-.1, 1.3))
+
+def plot_coh(res, i, j, label=''):
+
+    ax = ppl.gca()
+    ax.set_xlabel('frequency (Hz)')
+    ax.set_ylabel('coherence $|CSD|^2$')
+    ax.plot(res.freq, res.data[0, :, i, j], label=label)
+
+# T = TestGranger()
+# T.test_solution()
+# T.test_selections()
+# T.test_foi()
+T = TestCoherence()
+res,n = T.test_solution()
