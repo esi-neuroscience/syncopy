@@ -801,15 +801,14 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 int(minTrialLength * data.samplerate),
                 dt)
             foi = 1 / wfun.fourier_period(scales)
-            msg = (f"Automatic wavelet frequency selection from {foi[0]:.1f}Hz to "
+            msg = (f"Setting frequencies of interest to {foi[0]:.1f}-"
                    f"{foi[-1]:.1f}Hz")
             SPYInfo(msg)
-        elif foilim is not None:
-            foi = np.arange(foilim[0], foilim[1] + 1)
-            foi[foi < 0.01] = 0.01
-            scales = wfun.scale_from_period(1 / foi)
-        # foi is given as array
         else:
+            if foilim is not None:
+                foi = np.arange(foilim[0], foilim[1] + 1, dtype=float)
+            # 0 frequency is not valid 
+            foi[foi < 0.01] = 0.01
             scales = wfun.scale_from_period(1 / foi)
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
@@ -867,16 +866,16 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 int(minTrialLength * data.samplerate),
                 dt)
             foi = 1 / superlet.fourier_period(scales)
-            msg = (f"Automatic superlet frequency selection from {foi[0]:.1f}Hz to "
+            msg = (f"Setting frequencies of interest to {foi[0]:.1f}-"
                    f"{foi[-1]:.1f}Hz")
             SPYInfo(msg)
-        # frequency range in 1Hz steps
-        elif foilim is not None:
-            foi = np.arange(foilim[0], foilim[1] + 1)
-            scales = superlet.scale_from_period(1 / foi)
-        # foi is given as array
         else:
-            scales = superlet.scale_from_period(1 / foi)
+            if foilim is not None:
+                # frequency range in 1Hz steps
+                foi = np.arange(foilim[0], foilim[1] + 1, dtype=float)
+            # 0 frequency is not valid
+            foi[foi < 0.01] = 0.01
+            scales = wfun.scale_from_period(1 / foi)
 
         # FASLT needs ordered frequencies low - high
         # meaning the scales have to go high - low
