@@ -1490,6 +1490,11 @@ class Selector():
         for prop in self._byTrialProps:
             self._dimProps.remove(prop)
 
+        # Special adjustment for `CrossSpectralData`: remove (invalid) `channel` property
+        # from `_dimProps` (avoid pitfalls in code-blocks iterating over `_dimProps`)
+        if self._dataClass == "CrossSpectralData":
+            self._dimProps.remove("channel")
+
         # Assign defaults (trials are not a "real" property, handle it separately,
         # same goes for `trialdefinition`)
         self._trials = None
