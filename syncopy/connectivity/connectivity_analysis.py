@@ -155,7 +155,6 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     if data._selection is not None:
         sinfo = data._selection.trialdefinition[:, :2]
         trialList = data._selection.trials
-        print(data._selection.time[0])
         # user picked discrete set of time points
         if isinstance(data._selection.time[0], list):
             lgl = "equidistant time points (toi) or time slice (toilim)"

@@ -54,14 +54,13 @@ class TestGranger:
     def test_solution(self):
 
         Gcaus = connectivity(self.data, method='granger',
-                             taper='dpss', tapsmofrq=3)
+                             taper='dpss', tapsmofrq=3, foi=self.foi)
         
         # print("peak \t Aij \t peak-frq \t ij")                
-        # check all channel combinations with
-        # and w/o coupling
+        # check all channel combinations with coupling
         for i, j in zip(*self.cpl_idx):
             peak = Gcaus.data[0, :, i, j].max()
-            peak_frq = Gcaus.freq[Gcaus.data[0, 5:-5, i, j].argmax()]
+            peak_frq = Gcaus.freq[Gcaus.data[0, :, i, j].argmax()]
             cval = self.AdjMat[i, j]
 
             dbg_str = f"{peak:.2f}\t{self.AdjMat[i,j]:.2f}\t {peak_frq:.2f}\t"
@@ -78,10 +77,10 @@ class TestGranger:
         trials, channels = [], []
         for _ in range(3):
 
-            sizeTr =  np.random.randint(1, self.nTrials + 1) 
+            sizeTr =  np.random.randint(10, self.nTrials + 1) 
             trials.append(list(np.random.choice(self.nTrials, size=sizeTr)))
             
-            sizeCh = np.random.randint(1, self.nChannels + 1)        
+            sizeCh = np.random.randint(2, self.nChannels + 1)        
             channels.append(['channel' + str(i + 1)
                              for i in np.random.choice(self.nChannels, size=sizeCh, replace=False)])
             
@@ -109,7 +108,7 @@ class TestGranger:
             sel_dct['trials'] = comb[0]
             sel_dct['channels'] = comb[1]
             sel_dct['toilim'] = comb[2]
-            
+
             Gcaus = connectivity(self.data, method='granger', select=sel_dct)
 
             # check here just for finiteness and positivity
@@ -121,7 +120,7 @@ class TestGranger:
         foi1 = np.arange(10, 60) # 1Hz steps
         foi2 = np.arange(20, 50, 0.5) # 0.5Hz steps
         foi3 = 'all'
-        fois = [foi1, foi2, foi3]
+        fois = [foi1, foi2, foi3, None]
 
         for foi in fois:
             Gcaus = connectivity(self.data, method='granger', foi=foi)
@@ -129,8 +128,8 @@ class TestGranger:
             assert np.all(np.isfinite(Gcaus.data))
             assert np.all(Gcaus.data[0, ...] >= -1e-10)
 
-        # 3 random foilims
-        foilims = [np.sort(np.random.rand(2) * 60) for _ in range(2)]
+        # 2 foilims
+        foilims = [[2, 60], [7.65, 45.1234], None]
         for foil in foilims:
             Gcaus = connectivity(self.data, method='granger', foilim=foil)
             # check here just for finiteness and positivity
@@ -140,15 +139,16 @@ class TestGranger:
         # make sure specification of both foi and foilim triggers a
         # Syncopy ValueError
         try:
-            Gcaus = connectivity(self.data, method='granger', foi=foi, foilim=foil)
+            Gcaus = connectivity(self.data, method='granger',
+                                 foi=foi, foilim=foil)
         except SPYValueError as err:
             assert 'foi/foilim' in str(err)
             
 
 T = TestGranger()
-T.test_solution()
-# T.test_selections()
-T.test_foi()
+# T.test_solution()
+T.test_selections()
+# T.test_foi()
 
 l1 = [1,2,3]
 l2 = ['a', 'b']
