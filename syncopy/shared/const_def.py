@@ -22,6 +22,9 @@ spectralConversions = {"pow": lambda x: (x * np.conj(x)).real.astype(np.float32)
 all_windows = windows.__all__
 all_windows.remove("exponential") # not symmetric
 all_windows.remove("hanning") # deprecated
+all_windows.remove("gaussian") # we don't support taper with args
+all_windows.remove("kaiser") # we don't support taper with args
+
 availableTapers = all_windows
 
 #: general, method agnostic, parameters for our CRs
