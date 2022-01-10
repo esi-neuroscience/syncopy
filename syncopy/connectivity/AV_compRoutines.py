@@ -313,7 +313,7 @@ class NormalizeCrossCov(ComputationalRoutine):
 def granger_cF(csd_av_dat,
                rtol=1e-8,
                nIter=100,
-               cond_max=1e6,
+               cond_max=1e4,
                chunkShape=None,
                noCompute=False):
 

@@ -287,7 +287,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         # hardcoded numerical parameters
         av_compRoutine = GrangerCausality(rtol=1e-8,
                                           nIter=100,
-                                          cond_max=1e5
+                                          cond_max=1e4
                                           )
         
     if method == 'corr':
