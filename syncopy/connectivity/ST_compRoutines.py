@@ -387,10 +387,11 @@ class ST_CrossCovariance(ComputationalRoutine):
             trl = trl[[0], :]
             trl[:, 2] = t0
 
+        # set 1st entry of time axis to the 0-lag
+        trl[:, 2] = 0
         out.trialdefinition = trl
+
         # Attach remaining meta-data
         out.samplerate = data.samplerate
         out.channel_i = np.array(data.channel[chanSec])
         out.channel_j = np.array(data.channel[chanSec])
-
-
