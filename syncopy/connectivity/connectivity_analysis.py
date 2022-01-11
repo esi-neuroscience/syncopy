@@ -9,7 +9,7 @@ from numbers import Number
 
 # Syncopy imports
 from syncopy.shared.parsers import data_parser, scalar_parser
-from syncopy.shared.tools import get_defaults
+from syncopy.shared.tools import get_defaults, best_match
 from syncopy.datatype import CrossSpectralData
 from syncopy.datatype.methods.padding import _nextpow2
 from syncopy.shared.errors import (
@@ -52,7 +52,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     * **polyremoval** : de-trending method to use (0 = mean, 1 = linear)
 
     List of available analysis methods and respective distinct options:
-    
+
     "coh" : (Multi-) tapered coherency estimate
         Compute the normalized cross spectral densities
         between all channel combinations
@@ -79,7 +79,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : (optional, not recommended) number of slepian tapers
         * **pad_to_length**: either pad to an absolute length or set to `'nextpow2'`
-    
+
     Parameters
     ----------
     data : `~syncopy.AnalogData`
@@ -144,8 +144,8 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     lcls = locals()
     # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="connectivity")
-    
     # Ensure a valid computational method was selected
+
     if method not in availableMethods:
         lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
         raise SPYValueError(legal=lgl, varname="method", actual=method)
@@ -169,7 +169,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     # check polyremoval
     if polyremoval is not None:
         scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])    
-    
+
     # --- Padding ---
 
     if method == "corr" and pad_to_length:
@@ -181,10 +181,10 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     # trial averaging, in case of no user specified absolute padding length
     # we do a rough 'maxlen' padding, nextpow2 will be overruled in this case
     if lenTrials.min() != lenTrials.max() and not isinstance(pad_to_length, Number):
-        pad_to_length = int(lenTrials.max()) 
+        pad_to_length = int(lenTrials.max())
         msg = f"Unequal trial lengths present, automatic padding to {pad_to_length} samples"
         SPYWarning(msg)
-        
+
     # symmetric zero padding of ALL trials the same way
     if isinstance(pad_to_length, Number):
 
@@ -199,7 +199,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         }
         # after padding!
         nSamples = pad_to_length
-        
+
     # or pad to optimal FFT lengths
     # (not possible for unequal lengths trials)
     elif pad_to_length == 'nextpow2':
@@ -229,22 +229,31 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
                 "keeptrials": keeptrials,
                 "polyremoval": polyremoval,
                 "pad_to_length": pad_to_length}
-        
+
     # --- Setting up specific Methods ---
 
     if method in ['coh', 'granger']:
 
         # --- set up computation of the single trial CSDs ---
-        
+
         if keeptrials is not False:
             lgl = "False, trial averaging needed!"
             act = keeptrials
             raise SPYValueError(lgl, varname="keeptrials", actual=act)
-        
-        if foi is None and foilim is None:
+
+        # Construct array of maximally attainable frequencies
+        freqs = np.fft.rfftfreq(nSamples, 1 / data.samplerate)
+
+        # Match desired frequencies as close as possible to
+        # actually attainable freqs
+        # these are the frequencies attached to the SpectralData by the CR!
+        if foi is not None:
+            foi, _ = best_match(freqs, foi, squash_duplicates=True)
+        elif foilim is not None:
+            foi, _ = best_match(freqs, foilim, span=True, squash_duplicates=True)
+        elif foi is None and foilim is None:
             # Construct array of maximally attainable frequencies
-            freqs = np.fft.rfftfreq(nSamples, 1 / data.samplerate)
-            msg = (f"Automatic FFT frequency selection from {freqs[0]:.1f}Hz to "
+            msg = (f"Setting frequencies of interest to {freqs[0]:.1f}-"
                    f"{freqs[-1]:.1f}Hz")
             SPYInfo(msg)
             foi = freqs
@@ -258,7 +267,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
                                    samplerate=data.samplerate,
                                    nSamples=nSamples,
                                    output="pow") # ST_CSD's always have this unit/norm
-        
+
         log_dict["foi"] = foi
         log_dict["taper"] = taper
         # only dpss returns non-empty taper_opt dict
@@ -278,7 +287,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         # hard coded as class attribute
         st_dimord = ST_CrossSpectra.dimord
 
-    if method == 'coh':    
+    if method == 'coh':
         # final normalization after trial averaging
         av_compRoutine = NormalizeCrossSpectra(output=output)
 
@@ -289,7 +298,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
                                           nIter=100,
                                           cond_max=1e4
                                           )
-        
+
     if method == 'corr':
         check_effective_parameters(ST_CrossCovariance, defaults, lcls)
 
@@ -300,7 +309,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         else:
             av_compRoutine = NormalizeCrossCov()
             norm = False
-        
+
         # parallel computation over trials
         st_compRoutine = ST_CrossCovariance(samplerate=data.samplerate,
                                             padding_opt=padding_opt,
@@ -330,8 +339,8 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         if out is not None:
             msg = "Single trial processing does not support `out` argument but directly returns the results"
             SPYWarning(msg)
-        return st_out 
-    
+        return st_out
+
     # ----------------------------------------------------------------------------------
     # Sanitize output and call the chosen ComputationalRoutine on the averaged ST output
     # ----------------------------------------------------------------------------------
@@ -348,7 +357,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     else:
         out = CrossSpectralData(dimord=st_dimord)
         new_out = True
-        
+
     # now take the trial average from the single trial CR as input
     av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
     av_compRoutine.pre_check() # make sure we got a trial_average
