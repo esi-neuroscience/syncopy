@@ -48,7 +48,8 @@ class TestGranger:
 
     print(AdjMat)
     # channel indices of coupling
-    # a 1 at AdjMat(i,j) means coupling from i->j
+    # a number other than 0 at AdjMat(i,j)
+    # means coupling from i->j
     cpl_idx = np.where(AdjMat)
     nocpl_idx = np.where(AdjMat == 0)
 
@@ -87,6 +88,7 @@ class TestGranger:
 
     def test_gr_selections(self):
 
+        # trial, channel and toi selections
         selections = mk_selection_comb(self.nTrials,
                                        self.nChannels,
                                        *self.time_span)
@@ -100,7 +102,7 @@ class TestGranger:
             assert np.all(Gcaus.data[0, ...] >= -1e-10)
 
     def test_gr_foi(self):
-
+        
         call = lambda foi, foilim: connectivity(self.data,
                                                 method='granger',
                                                 foi=foi,
@@ -223,6 +225,87 @@ class TestCoherence:
             test_method()
         client.close()
         ppl.ion()
+
+
+class TestCorrelation:
+
+
+    nChannels = 10
+    nTrials = 5
+    fs = 1000
+    nSamples = 2000 # 2s long signals
+
+    # -- a single harmonic with phase shifts between channels
+
+    f1 = 10 # period is 0.1s
+    trls = []
+    for _ in range(nTrials):
+
+        # no phase diffusion
+        p1 = synth_data.phase_evo(f1, eps=0, nChannels=nChannels, nSamples=nSamples)
+        # same frequency but more diffusion
+        p2 = synth_data.phase_evo(f1, eps=0.1, nChannels=1, nSamples=nSamples)
+        # set 2nd channel to higher phase diffusion
+        p1[:, 1] = p2[:, 0]
+        # add a pi/2 phase shift for the even channels
+        p1[:, 2::2] += np.pi / 2
+
+        trls.append(np.cos(p1))
+
+    data = AnalogData(trls, samplerate=fs)
+    time_span = [-1, nSamples / fs - 1] # -1s offset
+
+    def test_corr_solution(self):
+
+        corr = connectivity(data=self.data, method='corr')
+
+        # test 0-lag autocorr is 1 for all channels
+        assert np.all(corr.data[0, 0].diagonal() > .99)
+
+        # test that at exactly the period-lag
+        # correlations remain high w/o phase diffusion
+        period_idx = int(1 / self.f1 * self.fs)
+        # 100 samples is one period
+        assert np.allclose(100, period_idx)
+        auto_00 = corr.data[:, 0, 0, 0]
+        assert np.all(auto_00[::period_idx] > .99)
+
+        # test for auto-corr minima at half the period
+        assert auto_00[period_idx // 2] < -.99
+        assert auto_00[period_idx // 2 + period_idx] < -.99
+
+        # test signal with phase diffusion (2nd channel) has
+        # decaying correlations (diffusion may lead to later
+        # increases of auto-correlation again, hence we check
+        # only the first 5 periods)
+        auto_11 = corr.data[:, 0, 1, 1]
+        assert np.all(np.diff(auto_11[::period_idx])[:5] < 0)
+
+        # test that a pi/2 phase shift moves the 1st
+        # crosscorr maximum to 1/4 of the period
+        cross_02 = corr.data[:, 0, 0, 2]
+        lag_idx = int(1 / self.f1 * self.fs * 0.25)
+        # 25 samples is 1/4th period
+        assert np.allclose(25, lag_idx)
+        assert cross_02[lag_idx] > 0.99
+        # same for a period multiple
+        assert cross_02[lag_idx + period_idx] > .99
+        # at half the period a minimum occurs
+        assert cross_02[lag_idx + period_idx // 2] < -.99
+
+        # test for (anti-)symmetry
+        cross_20 = corr.data[:, 0, 2, 0]
+        assert cross_20[-lag_idx] > 0.99
+        assert cross_20[-lag_idx - period_idx] > 0.99
+
+        plot_corr(corr, 0, 0, label='corr 0-0')
+        plot_corr(corr, 1, 1, label='corr 1-1')
+        plot_corr(corr, 0, 2, label='corr 0-2')
+        ppl.xlim((-.01, 0.5))
+        ppl.ylim((-1.1, 1.3))
+        ppl.legend(ncol=3)
+
+
 
 # -- helper functions --
 
@@ -383,6 +466,14 @@ def plot_coh(res, i, j, label=''):
     ax.plot(res.freq, res.data[0, :, i, j], label=label)
 
 
+def plot_corr(res, i, j, label=''):
+
+    ax = ppl.gca()
+    ax.set_xlabel('lag (s)')
+    ax.set_ylabel('Correlation')
+    ax.plot(res.time[0], res.data[:, 0, i, j], label=label)
+
 if __name__ == '__main__':
     T1 = TestGranger()
     T2 = TestCoherence()
+    T3 = TestCorrelation()
