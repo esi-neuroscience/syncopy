@@ -143,7 +143,7 @@ class TestGranger:
 class TestCoherence:
 
     nSamples = 1500
-    nChannels = 3
+    nChannels = 6
     nTrials = 100
     fs = 1000
 
@@ -172,7 +172,7 @@ class TestCoherence:
                            foilim=[5, 60],
                            output='pow',
                            taper='dpss',
-                           tapsmofrq=2)
+                           tapsmofrq=1.5)
 
         # coherence at the harmonic frequencies
         idx_f1 = np.argmin(res.freq < self.f1)
