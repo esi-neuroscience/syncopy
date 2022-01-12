@@ -655,7 +655,7 @@ class CrossSpectralData(ContinuousData):
         # if data exists but no user-defined channel labels, create them on the fly
         if self._channel_i is None and self._data is not None:
             nChannel = self.data.shape[self.dimord.index("channel_i")]
-            return np.array(["channel_i-" + str(i + 1).zfill(len(str(nChannel)))
+            return np.array(["channel" + str(i + 1).zfill(len(str(nChannel)))
                              for i in range(nChannel)])
 
         return self._channel_i
@@ -685,7 +685,7 @@ class CrossSpectralData(ContinuousData):
         # if data exists but no user-defined channel labels, create them on the fly
         if self._channel_j is None and self._data is not None:
             nChannel = self.data.shape[self.dimord.index("channel_j")]
-            return np.array(["channel_j-" + str(i + 1).zfill(len(str(nChannel)))
+            return np.array(["channel" + str(i + 1).zfill(len(str(nChannel)))
                              for i in range(nChannel)])
 
         return self._channel_j
