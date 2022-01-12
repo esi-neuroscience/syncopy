@@ -172,6 +172,12 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
 
     # --- Padding ---
 
+    # supported padding options
+    if not (pad_to_length in [None, 'nextpow2'] or isinstance(pad_to_length, Number)):
+        lgl = "`None`, 'nextpow2' or an integer like number"
+        actual = f"{pad_to_length}"
+        raise SPYValueError(legal=lgl, varname="pad_to_length", actual=actual)
+
     if method == "corr" and pad_to_length:
         lgl = "`None`, no padding needed/allowed for cross-correlations"
         actual = f"{pad_to_length}"
@@ -300,12 +306,15 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
                                           )
 
     if method == 'corr':
+        if lcls['foi'] is not None:
+            msg = 'Parameter `foi` has no effect for `corr`'
+            SPYWarning(msg)
         check_effective_parameters(ST_CrossCovariance, defaults, lcls)
 
         # single trial cross-correlations
         if keeptrials:
-            av_compRoutine = None # no trial average
-            norm = True # normalize individual trials within the ST CR
+            av_compRoutine = None   # no trial average
+            norm = True   # normalize individual trials within the ST CR
         else:
             av_compRoutine = NormalizeCrossCov()
             norm = False

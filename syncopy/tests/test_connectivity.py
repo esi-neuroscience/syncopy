@@ -25,7 +25,8 @@ from syncopy.shared.tools import get_defaults
 skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 # Decorator to decide whether or not to run memory-intensive tests
 availMem = psutil.virtual_memory().total
-skip_low_mem = pytest.mark.skipif(availMem < 5 * 1024**3, reason="less than 10GB RAM available")
+minRAM = 5
+skip_low_mem = pytest.mark.skipif(availMem < minRAM * 1024**3, reason=f"less than {minRAM}GB RAM available")
 
 
 class TestGranger:
@@ -60,13 +61,13 @@ class TestGranger:
 
     # create syncopy data instance
     data = AnalogData(trls, samplerate=fs)
-    time_span = [-1, nSamples / fs - 1] # -1s offset
-    foi = np.arange(5, 75) # in Hz
+    time_span = [-1, nSamples / fs - 1]   # -1s offset
+    foi = np.arange(5, 75)   # in Hz
 
-    def test_gr_solution(self):
+    def test_gr_solution(self, **kwargs):
 
-        Gcaus = connectivity(self.data, method='granger',
-                             taper='dpss', tapsmofrq=3, foi=self.foi)
+        Gcaus = connectivity(self.data, method='granger', taper='dpss',
+                             tapsmofrq=3, foi=self.foi, **kwargs)
 
         # print("peak \t Aij \t peak-frq \t ij")
         # check all channel combinations with coupling
@@ -76,15 +77,17 @@ class TestGranger:
             cval = self.AdjMat[i, j]
 
             dbg_str = f"{peak:.2f}\t{self.AdjMat[i,j]:.2f}\t {peak_frq:.2f}\t"
-            print(dbg_str,f'\t {i}', f' {j}')
+            print(dbg_str, f'\t {i}', f' {j}')
 
             # test for directional coupling
             # at the right frequency range
             assert peak >= cval
             assert 35 < peak_frq < 45
 
-            plot_Granger(Gcaus, i, j, None)
-            ppl.legend()
+            # only plot with defaults
+            if len(kwargs) == 0:
+                plot_Granger(Gcaus, i, j)
+                ppl.legend()
 
     def test_gr_selections(self):
 
@@ -102,7 +105,7 @@ class TestGranger:
             assert np.all(Gcaus.data[0, ...] >= -1e-10)
 
     def test_gr_foi(self):
-        
+
         call = lambda foi, foilim: connectivity(self.data,
                                                 method='granger',
                                                 foi=foi,
@@ -130,6 +133,12 @@ class TestGranger:
         client.close()
         ppl.ion()
 
+    def test_gr_padding(self):
+
+        pad_length = int(1.7 * self.nSamples)
+        call = lambda pad_to_length: self.test_gr_solution(pad_to_length=pad_to_length)
+        run_padding_test(call, pad_length)
+
 
 class TestCoherence:
 
@@ -154,16 +163,16 @@ class TestCoherence:
         trls.append(signals)
 
     data = AnalogData(trls, samplerate=fs)
-    time_span = [-1, nSamples / fs - 1] # -1s offset
+    time_span = [-1, nSamples / fs - 1]   # -1s offset
 
-    def test_coh_solution(self):
+    def test_coh_solution(self, **kwargs):
 
         res = connectivity(data=self.data,
                            method='coh',
                            foilim=[5, 60],
                            output='pow',
                            taper='dpss',
-                           tapsmofrq=1)
+                           tapsmofrq=2)
 
         # coherence at the harmonic frequencies
         idx_f1 = np.argmin(res.freq < self.f1)
@@ -226,12 +235,17 @@ class TestCoherence:
         client.close()
         ppl.ion()
 
+    def test_coh_padding(self):
 
+        pad_length = int(1.7 * self.nSamples)
+        call = lambda pad_to_length: self.test_coh_solution(pad_to_length=pad_to_length)
+        run_padding_test(call, pad_length)
+
+        
 class TestCorrelation:
 
-
-    nChannels = 10
-    nTrials = 5
+    nChannels = 5
+    nTrials = 10
     fs = 1000
     nSamples = 2000 # 2s long signals
 
@@ -254,10 +268,10 @@ class TestCorrelation:
 
     data = AnalogData(trls, samplerate=fs)
     time_span = [-1, nSamples / fs - 1] # -1s offset
+    
+    def test_corr_solution(self, **kwargs):
 
-    def test_corr_solution(self):
-
-        corr = connectivity(data=self.data, method='corr')
+        corr = connectivity(data=self.data, method='corr', **kwargs)
 
         # test 0-lag autocorr is 1 for all channels
         assert np.all(corr.data[0, 0].diagonal() > .99)
@@ -290,7 +304,7 @@ class TestCorrelation:
         assert cross_02[lag_idx] > 0.99
         # same for a period multiple
         assert cross_02[lag_idx + period_idx] > .99
-        # at half the period a minimum occurs
+        # plus half the period a minimum occurs
         assert cross_02[lag_idx + period_idx // 2] < -.99
 
         # test for (anti-)symmetry
@@ -298,19 +312,106 @@ class TestCorrelation:
         assert cross_20[-lag_idx] > 0.99
         assert cross_20[-lag_idx - period_idx] > 0.99
 
-        plot_corr(corr, 0, 0, label='corr 0-0')
-        plot_corr(corr, 1, 1, label='corr 1-1')
-        plot_corr(corr, 0, 2, label='corr 0-2')
-        ppl.xlim((-.01, 0.5))
-        ppl.ylim((-1.1, 1.3))
-        ppl.legend(ncol=3)
+        # only plot for simple solution test
+        if len(kwargs) == 0:
+            plot_corr(corr, 0, 0, label='corr 0-0')
+            plot_corr(corr, 1, 1, label='corr 1-1')
+            plot_corr(corr, 0, 2, label='corr 0-2')
+            ppl.xlim((-.01, 0.5))
+            ppl.ylim((-1.1, 1.3))
+            ppl.legend(ncol=3)
 
+    def test_corr_padding(self):
+
+        self.test_corr_solution(pad_to_length=None)
+        # no padding is allowed for
+        # this method        
+        try:
+            self.test_corr_solution(pad_to_length=1000)
+        except SPYValueError as err:
+            assert 'pad_to_length' in str(err)
+            assert 'no padding needed/allowed' in str(err)
+            
+        try:
+            self.test_corr_solution(pad_to_length='nextpow2')
+        except SPYValueError as err:
+            assert 'pad_to_length' in str(err)
+            assert 'no padding needed/allowed' in str(err)
+
+        try:
+            self.test_corr_solution(pad_to_length='IamNoPad')
+        except SPYValueError as err:
+            assert 'Invalid value of `pad_to_length`' in str(err)
+            assert 'nextpow2' in str(err)
+
+    def test_corr_selections(self):
+
+        selections = mk_selection_comb(self.nTrials,
+                                       self.nChannels,
+                                       *self.time_span)
+
+        for sel_dct in selections:
+
+            result = connectivity(self.data, method='corr', select=sel_dct)
+
+            # check here just for finiteness and positivity
+            assert np.all(np.isfinite(result.data))
+
+    def test_corr_cfg(self):
+
+        call = lambda cfg: connectivity(self.data, cfg)
+        run_cfg_test(call, method='corr', positivity=False)
+
+    @skip_without_acme
+    @skip_low_mem
+    def test_corr_parallel(self, testcluster=None):
+
+        ppl.ioff()
+        client = dd.Client(testcluster)
+        all_tests = [attr for attr in self.__dir__()
+                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
+
+        for test in all_tests:
+            test_method = getattr(self, test)
+            test_method()
+        client.close()
+        ppl.ion()
 
 
 # -- helper functions --
 
 
-def run_cfg_test(call, method):
+def run_padding_test(call, pad_length):
+    """
+    The callable should test a solution and support
+    a single keyword argument `pad_to_length`
+    """
+
+    pad_options = [pad_length, 'nextpow2', None]
+    for pad in pad_options:
+        call(pad_to_length=pad)
+
+    # test invalid pads
+    try:
+        call(pad_to_length=2)
+    except SPYValueError as err:
+        assert 'pad_to_length' in str(err)
+        assert 'expected value to be greater' in str(err)
+
+    try:
+        call(pad_to_length='IamNoPad')
+    except SPYValueError as err:
+        assert 'Invalid value of `pad_to_length`' in str(err)
+        assert 'nextpow2' in str(err)
+
+    try:
+        call(pad_to_length=np.array([1000]))
+    except SPYValueError as err:
+        assert 'Invalid value of `pad_to_length`' in str(err)
+        assert 'nextpow2' in str(err)
+
+
+def run_cfg_test(call, method, positivity=True):
 
     cfg = get_defaults(connectivity)
 
@@ -323,10 +424,11 @@ def run_cfg_test(call, method):
 
     # check here just for finiteness and positivity
     assert np.all(np.isfinite(result.data))
-    assert np.all(result.data[0, ...] >= -1e-10)
+    if positivity:
+        assert np.all(result.data[0, ...] >= -1e-10)
 
 
-def run_foi_test(call, foilim):
+def run_foi_test(call, foilim, positivity=True):
 
     # only positive frequencies
     assert np.min(foilim) >= 0
@@ -340,11 +442,12 @@ def run_foi_test(call, foilim):
 
     for foi in fois:
         # FIXME: this works for method='granger' but not method='coh' 0.0
-        print(foi)
+
         result = call(foi=foi, foilim=None)
         # check here just for finiteness and positivity
         assert np.all(np.isfinite(result.data))
-        assert np.all(result.data[0, ...] >= -1e-10)
+        if positivity:
+            assert np.all(result.data[0, ...] >= -1e-10)
 
     # 2 foilims
     foilims = [[2, 60], [7.65, 45.1234], None]
@@ -352,7 +455,8 @@ def run_foi_test(call, foilim):
         result = call(foilim=foil, foi=None)
         # check here just for finiteness and positivity
         assert np.all(np.isfinite(result.data))
-        assert np.all(result.data[0, ...] >= -1e-10)
+        if positivity:        
+            assert np.all(result.data[0, ...] >= -1e-10)
 
     # make sure specification of both foi and foilim triggers a
     # Syncopy ValueError
@@ -388,7 +492,7 @@ def mk_selection_comb(nTrials, nChannels, toi_min, toi_max):
     trials, channels = [], []
     for _ in range(3):
 
-        sizeTr =  np.random.randint(10, nTrials + 1)
+        sizeTr = np.random.randint(10, nTrials + 1)
         trials.append(list(np.random.choice(
             nTrials, size=sizeTr
         )
@@ -448,13 +552,13 @@ def mk_selection_comb(nTrials, nChannels, toi_min, toi_max):
     return selections
 
 
-def plot_Granger(G, i, j, color='cornflowerblue'):
+def plot_Granger(G, i, j):
 
     ax = ppl.gca()
     ax.set_xlabel('frequency (Hz)')
     ax.set_ylabel(r'Granger causality(f)')
     ax.plot(G.freq, G.data[0, :, i, j], label=f'Granger {i}-{j}',
-            alpha=0.7, lw=1.3, c=color)
+            alpha=0.7, lw=1.3)
     ax.set_ylim((-.1, 1.3))
 
 
@@ -472,6 +576,7 @@ def plot_corr(res, i, j, label=''):
     ax.set_xlabel('lag (s)')
     ax.set_ylabel('Correlation')
     ax.plot(res.time[0], res.data[:, 0, i, j], label=label)
+
 
 if __name__ == '__main__':
     T1 = TestGranger()
