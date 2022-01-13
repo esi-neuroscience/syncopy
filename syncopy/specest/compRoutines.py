@@ -48,7 +48,6 @@ from syncopy.shared.const_def import (
 
 @unwrap_io
 def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
-              pad="nextpow2", padtype="zero", padlength=None,
               polyremoval=None, output_fmt="pow",
               noCompute=False, chunkShape=None, method_kwargs=None):
 
@@ -123,17 +122,17 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
     numpy.fft.rfft : NumPy's FFT implementation
     """
 
-
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
 
-    # Symmetric Padding (updates no. of samples)
-    if pad:
-        dat = padding(dat, padtype, pad=pad, padlength=padlength)
-    nSamples = dat.shape[0]
+    if method_kwargs['nSamples'] is None:
+        nSamples = dat.shape[0]
+    else:
+        nSamples = method_kwargs['nSamples']
+
     nChannels = dat.shape[1]
 
     # Determine frequency band and shape of output
@@ -230,8 +229,6 @@ def mtmconvol_cF(
         trl_dat,
         soi,
         postselect,
-        padbegin,
-        padend,
         equidistant=True,
         toi=None,
         foi=None,
@@ -250,10 +247,6 @@ def mtmconvol_cF(
         to perform analysis on (if sliding window centroids are equidistant)
         or list of slices with each slice corresponding to coverage of a single
         analysis window (if spacing between windows is not constant)
-    padbegin : int
-        Number of samples to pre-pend to `trl_dat`, max is half window size
-    padend : int
-        Number of samples to append to `trl_dat`, max is half window size
     samplerate : float
         Samplerate of `trl_dat` in Hz
     noverlap : int
@@ -336,11 +329,6 @@ def mtmconvol_cF(
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
-
-    # Pad input array if necessary
-    if padbegin > 0 or padend > 0:
-        dat = padding(dat, "zero", pad="relative", padlength=None,
-                      prepadlength=padbegin, postpadlength=padend)
 
     # Get shape of output for dry-run phase
     nChannels = dat.shape[1]

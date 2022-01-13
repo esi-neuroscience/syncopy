@@ -8,7 +8,7 @@ import numpy as np
 from scipy import signal
 
 
-def mtmfft(data_arr, samplerate, nSamples, taper="hann", taper_opt=None):
+def mtmfft(data_arr, samplerate, nSamples=None, taper="hann", taper_opt=None):
     """
     (Multi-)tapered fast Fourier transform. Returns
     full complex Fourier transform for each taper.

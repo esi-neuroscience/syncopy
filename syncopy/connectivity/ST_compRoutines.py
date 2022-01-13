@@ -61,8 +61,9 @@ def cross_spectra_cF(trl_dat,
         Dimensions can be transposed to `(N, K)` with the `timeAxis` parameter.
     samplerate : float
         Samplerate in Hz
-    nSamples : int
-        Absolute length of the (potentially to be padded) signal
+    nSamples : int or None
+        Absolute length of the (potentially to be padded) signal or
+        `None` for no padding
     foi : 1D :class:`numpy.ndarray` or None, optional
         Frequencies of interest  (Hz) for output. If desired frequencies
         cannot be matched exactly the closest possible frequencies (respecting
@@ -120,6 +121,9 @@ def cross_spectra_cF(trl_dat,
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
+
+    if nSamples is None:
+        nSamples = dat.shape[0]
 
     nChannels = dat.shape[1]
 
