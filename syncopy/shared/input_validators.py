@@ -7,10 +7,58 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+from numbers import Number
 
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYInfo
 from syncopy.shared.parsers import scalar_parser, array_parser
-from syncopy.shared.const_def import availableTapers, generalParameters
+from syncopy.shared.const_def import availableTapers, generalParameters, availablePaddingOpt
+from syncopy.datatype.methods.padding import _nextpow2
+
+
+def validate_padding(pad_to_length, lenTrials):
+
+    """
+    Simplified padding
+    """
+    # supported padding options
+    not_valid = False
+    if not isinstance(pad_to_length, (Number, str, type(None))):
+        not_valid = True
+    elif isinstance(pad_to_length, str) and pad_to_length not in availablePaddingOpt:
+        not_valid = True
+    if not_valid:
+        lgl = "`None`, 'nextpow2' or an integer like number"
+        actual = f"{pad_to_length}"
+        raise SPYValueError(legal=lgl, varname="pad_to_length", actual=actual)
+
+    # here we check for equal lengths trials in case of no user specified absolute padding length
+    # we do a rough 'maxlen' padding, nextpow2 will be overruled in this case
+    if lenTrials.min() != lenTrials.max() and not isinstance(pad_to_length, Number):
+        abs_pad = int(lenTrials.max())
+        msg = f"Unequal trial lengths present, automatic padding to {abs_pad} samples"
+        SPYWarning(msg)
+
+    # zero padding of ALL trials the same way
+    if isinstance(pad_to_length, Number):
+
+        scalar_parser(pad_to_length,
+                      varname='pad_to_length',
+                      ntype='int_like',
+                      lims=[lenTrials.max(), np.inf])
+        abs_pad = pad_to_length
+
+    # or pad to optimal FFT lengths
+    # (not possible for unequal lengths trials)
+    elif pad_to_length == 'nextpow2':
+        # after padding
+        abs_pad = _nextpow2(int(lenTrials.min()))
+    # no padding, equal lengths trials
+    elif pad_to_length is None:
+        abs_pad = int(lenTrials.max())
+
+    # `abs_pad` is now the (soon to be padded) signal length in samples
+
+    return abs_pad
 
 
 def validate_foi(foi, foilim, samplerate):

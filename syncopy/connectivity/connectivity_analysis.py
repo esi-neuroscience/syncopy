@@ -5,13 +5,11 @@
 
 # Builtin/3rd party package imports
 import numpy as np
-from numbers import Number
 
 # Syncopy imports
 from syncopy.shared.parsers import data_parser, scalar_parser
 from syncopy.shared.tools import get_defaults, best_match
 from syncopy.datatype import CrossSpectralData
-from syncopy.datatype.methods.padding import _nextpow2
 from syncopy.shared.errors import (
     SPYValueError,
     SPYWarning,
@@ -21,6 +19,7 @@ from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
 from syncopy.shared.input_validators import (
     validate_taper,
     validate_foi,
+    validate_padding,
     check_effective_parameters,
     check_passed_kwargs
 )
@@ -99,22 +98,22 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         or ``foi = "all"``, all attainable frequencies (i.e., zero to Nyquist / 2)
         are selected.
     foilim : array-like (floats [fmin, fmax]) or None or "all"
-        Frequency-window ``[fmin, fmax]`` (in Hz) of interest. The 
+        Frequency-window ``[fmin, fmax]`` (in Hz) of interest. The
         `foi` array will be constructed in 1Hz steps from `fmin` to
         `fmax` (inclusive).
-    pad_to_length : int, None or 'nextpow2' 
-        Padding of the input data, if set to a number pads all trials
+    pad_to_length : int, None or 'nextpow2'
+        Padding of the (tapered) signal, if set to a number pads all trials
         to this absolute length. E.g. `pad_to_length=2000` pads all
         trials to 2000 samples, if and only if the longest trial is
         at maximum 2000 samples.
         Alternatively if all trials have the same initial lengths
-        setting `pad_to_length='nextpow2'` pads all trials to 
+        setting `pad_to_length='nextpow2'` pads all trials to
         the next power of two.
         If `None` and trials have unequal lengths all trials get padded
         such that all have the absolute lengths of the longest trial.
     taper : str
         Only valid if `method` is `'coh'` or `'granger'`. Windowing function,
-        one of :data:`~syncopy.specest.const_def.availableTapers` 
+        one of :data:`~syncopy.specest.const_def.availableTapers`
     tapsmofrq : float
         Only valid if `method` is `'coh'` or `'granger'` and `taper` is `'dpss'`.
         The amount of spectral smoothing through  multi-tapering (Hz).
@@ -168,57 +167,17 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
 
     # check polyremoval
     if polyremoval is not None:
-        scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])    
+        scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])
 
     # --- Padding ---
-
-    # supported padding options
-    if not (pad_to_length in [None, 'nextpow2'] or isinstance(pad_to_length, Number)):
-        lgl = "`None`, 'nextpow2' or an integer like number"
-        actual = f"{pad_to_length}"
-        raise SPYValueError(legal=lgl, varname="pad_to_length", actual=actual)
 
     if method == "corr" and pad_to_length:
         lgl = "`None`, no padding needed/allowed for cross-correlations"
         actual = f"{pad_to_length}"
         raise SPYValueError(legal=lgl, varname="pad_to_length", actual=actual)
 
-    # here we check for equal lengths trials as is required for
-    # trial averaging, in case of no user specified absolute padding length
-    # we do a rough 'maxlen' padding, nextpow2 will be overruled in this case
-    if lenTrials.min() != lenTrials.max() and not isinstance(pad_to_length, Number):
-        pad_to_length = int(lenTrials.max())
-        msg = f"Unequal trial lengths present, automatic padding to {pad_to_length} samples"
-        SPYWarning(msg)
-
-    # symmetric zero padding of ALL trials the same way
-    if isinstance(pad_to_length, Number):
-
-        scalar_parser(pad_to_length,
-                      varname='pad_to_length',
-                      ntype='int_like',
-                      lims=[lenTrials.max(), np.inf])
-        padding_opt = {
-            'padtype' : 'zero',
-            'pad' : 'absolute',
-            'padlength' : pad_to_length
-        }
-        # after padding!
-        nSamples = pad_to_length
-
-    # or pad to optimal FFT lengths
-    # (not possible for unequal lengths trials)
-    elif pad_to_length == 'nextpow2':
-        padding_opt = {
-            'padtype' : 'zero',
-            'pad' : 'nextpow2'
-        }
-        # after padding
-        nSamples = _nextpow2(int(lenTrials.min()))
-    # no padding
-    else:
-        padding_opt = None
-        nSamples = int(lenTrials.min())
+    # the actual number of samples in case of later padding
+    nSamples = validate_padding(pad_to_length, lenTrials)
 
     # --- Basic foi sanitization ---
 
@@ -268,11 +227,11 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         taper_opt = validate_taper(taper,
                                    tapsmofrq,
                                    nTaper,
-                                   keeptapers=False, # ST_CSD's always average tapers
+                                   keeptapers=False,   # ST_CSD's always average tapers
                                    foimax=foi.max(),
                                    samplerate=data.samplerate,
                                    nSamples=nSamples,
-                                   output="pow") # ST_CSD's always have this unit/norm
+                                   output="pow")   # ST_CSD's always have this unit/norm
 
         log_dict["foi"] = foi
         log_dict["taper"] = taper
@@ -284,7 +243,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         check_effective_parameters(ST_CrossSpectra, defaults, lcls)
         # parallel computation over trials
         st_compRoutine = ST_CrossSpectra(samplerate=data.samplerate,
-                                         padding_opt=padding_opt,
+                                         nSamples=nSamples,
                                          taper=taper,
                                          taper_opt=taper_opt,
                                          polyremoval=polyremoval,
@@ -321,7 +280,6 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
 
         # parallel computation over trials
         st_compRoutine = ST_CrossCovariance(samplerate=data.samplerate,
-                                            padding_opt=padding_opt,
                                             polyremoval=polyremoval,
                                             timeAxis=timeAxis,
                                             norm=norm)

@@ -50,8 +50,8 @@ __all__ = ["freqanalysis"]
 @unwrap_select
 @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
-                 keeptrials=True, foi=None, foilim=None, pad=None, padtype='zero',
-                 padlength=None, polyremoval=0,
+                 keeptrials=True, foi=None, foilim=None,
+                 pad_to_length=None, polyremoval=0,
                  taper="hann", tapsmofrq=None, nTaper=None, keeptapers=False,
                  toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
@@ -82,14 +82,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : number of orthogonal tapers for slepian tapers
         * **keeptapers** : return individual tapers or average
-        * **pad** : padding method to use (`None`, `True`, `False`, `'absolute'`,
-          `'relative'`, `'maxlen'` or `'nextpow2'`). If `None`, then `'nextpow2'`
-          is selected by default.
-        * **padtype** : values to pad data with (`'zero'`, `'nan'`, `'mean'`, `'localmean'`,
-          `'edge'` or `'mirror'`)
-        * **padlength** : number of samples to pre-pend and/or append to each trial
-        * **prepadlength** : number of samples to pre-pend to each trial
-        * **postpadlength** : number of samples to append to each trial
+        * **pad_to_length**: either pad to an absolute length or set to `'nextpow2'`
 
     "mtmconvol" : (Multi-)tapered sliding window Fourier transform
         Perform time-frequency analysis on time-series trial data based on a sliding
@@ -163,38 +156,16 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         but may be unbounded (e.g., ``[-np.inf, 60.5]`` is valid). Edges `fmin`
         and `fmax` are included in the selection. If `foilim` is `None` or
         ``foilim = "all"``, all frequencies are selected.
-    pad : str or None or bool
-        One of `None`, `True`, `False`, `'absolute'`, `'relative'`, `'maxlen'` or
-        `'nextpow2'`.
-        If `pad` is `None` or ``pad = True``, then method-specific defaults are
-        chosen. Specifically, if `method` is `'mtmfft'` then `pad` is set to
-        `'nextpow2'` so that all trials in `data` are padded to the next power of
-        two higher than the sample-count of the longest (selected) trial in `data`. Conversely,
-        the sliding window time-frequency analysis method (`'mtmconvol'`), only performs
-        padding if necessary, i.e., if time-window centroids are chosen too close
-        to trial boundaries for the entire window to cover available data-points.
-        If `pad` is `False`, then no padding is performed. Then in case of
-        ``method = 'mtmfft'`` all trials have to have approximately the same
-        length (up to the next even sample-count), if ``method = 'mtmconvol'``,
-        window-centroids have to keep sufficient
-        distance from trial boundaries. For more details on the padding methods
-        `'absolute'`, `'relative'`, `'maxlen'` and `'nextpow2'` see :func:`syncopy.padding`.
-    padtype : str
-        Values to be used for padding. Can be `'zero'`, `'nan'`, `'mean'`,
-        `'localmean'`, `'edge'` or `'mirror'`. See :func:`syncopy.padding` for
-        more information. Only valid for method `'mtmfft'`.
-    padlength : None, bool or positive int
-        Only valid if `method` is `'mtmfft'` and `pad` is `'absolute'` or `'relative'`.
-        Number of samples to pad data with. See :func:`syncopy.padding` for more
-        information.
-    prepadlength : None or bool or int
-        Only valid if `method` is `'mtmfft'` and `pad` is `'relative'`. Number of
-        samples to pre-pend to each trial. See :func:`syncopy.padding` for more
-        information.
-    postpadlength : None or bool or int
-        Only valid if `method` is `'mtmfft'` and `pad` is `'relative'`. Number of
-        samples to append to each trial. See :func:`syncopy.padding` for more
-        information.
+    pad_to_length : int, None or 'nextpow2'
+        Padding of the (tapered) signal, if set to a number pads all trials
+        to this absolute length. E.g. `pad_to_length=2000` pads all
+        trials to 2000 samples, if and only if the longest trial is
+        at maximum 2000 samples.
+        Alternatively if all trials have the same initial lengths
+        setting `pad_to_length='nextpow2'` pads all trials to
+        the next power of two.
+        If `None` and trials have unequal lengths all trials get padded
+        such that all have the absolute lengths of the longest trial.
     polyremoval : int or None
         Order of polynomial used for de-trending data in the time domain prior
         to spectral analysis. A value of 0 corresponds to subtracting the mean

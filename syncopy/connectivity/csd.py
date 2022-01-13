@@ -16,6 +16,7 @@ from syncopy.shared.const_def import spectralConversions
 
 def csd(trl_dat,
         samplerate=1,
+        nSamples=None,
         taper="hann",
         taper_opt=None,
         norm=False,
@@ -43,12 +44,15 @@ def csd(trl_dat,
 
     Parameters
     ----------
-    trl_dat : (K, N) :class:`numpy.ndarray`
+    trl_dat : (N, K) :class:`numpy.ndarray`
         Uniformly sampled multi-channel time-series data
         The 1st dimension is interpreted as the time axis,
         columns represent individual channels.
     samplerate : float
         Samplerate in Hz
+    nSamples : int or None
+        Absolute length of the (potentially to be padded) signals
+        or `None` for no padding (`N` is the number of samples)
     taper : str or None
         Taper function to use, one of scipy.signal.windows
         Set to `None` for no tapering.
@@ -68,9 +72,9 @@ def csd(trl_dat,
 
     Returns
     -------
-    CS_ij : (nFreq, N, N) :class:`numpy.ndarray`
+    CS_ij : (nFreq, K, K) :class:`numpy.ndarray`
         Complex cross spectra for all channel combinations ``i,j``.
-        `N` corresponds to number of input channels.
+        `K` corresponds to number of input channels.
 
     freqs : (nFreq,) :class:`numpy.ndarray`
         The Fourier frequencies if `fullOutput=True`
@@ -87,7 +91,7 @@ def csd(trl_dat,
 
     # compute the individual spectra
     # specs have shape (nTapers x nFreq x nChannels)
-    specs, freqs = mtmfft(trl_dat, samplerate, taper, taper_opt)
+    specs, freqs = mtmfft(trl_dat, samplerate, nSamples, taper, taper_opt)
 
     # outer product along channel axes
     # has shape (nTapers x nFreq x nChannels x nChannels)

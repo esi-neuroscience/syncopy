@@ -342,7 +342,7 @@ class TestCorrelation:
             self.test_corr_solution(pad_to_length='IamNoPad')
         except SPYValueError as err:
             assert 'Invalid value of `pad_to_length`' in str(err)
-            assert 'nextpow2' in str(err)
+            assert 'no padding needed/allowed' in str(err)
 
     def test_corr_selections(self):
 
