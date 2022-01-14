@@ -290,13 +290,6 @@ def cross_covariance_cF(trl_dat,
     else:
         dat = trl_dat
 
-    # detrend
-    if polyremoval == 0:
-        # SciPy's overwrite_data not working for type='constant' :/
-        dat = detrend(dat, type='constant', axis=0, overwrite_data=True)
-    elif polyremoval == 1:
-        detrend(dat, type='linear', axis=0, overwrite_data=True)
-
     # Symmetric Padding (updates no. of samples)
     if padding_opt:
         dat = padding(dat, **padding_opt)
@@ -319,6 +312,13 @@ def cross_covariance_cF(trl_dat,
     if noCompute:
         return outShape, spectralDTypes["abs"]
 
+    # detrend, has to be done after noCompute!
+    if polyremoval == 0:
+        # SciPy's overwrite_data not working for type='constant' :/
+        dat = detrend(dat, type='constant', axis=0, overwrite_data=True)
+    elif polyremoval == 1:
+        detrend(dat, type='linear', axis=0, overwrite_data=True)
+    
     # re-normalize output for different effective overlaps
     norm_overlap = np.arange(nSamples, nSamples // 2, step = -1)
 
@@ -381,11 +381,10 @@ class ST_CrossCovariance(ComputationalRoutine):
 
         # If trial-averaging was requested, use the first trial as reference
         # (all trials had to have identical lengths), and average onset timings
-        if not self.keeptrials:
-            t0 = trl[:, 2].mean()
-            trl = trl[[0], :]
-            trl[:, 2] = t0
 
+        if not self.keeptrials:
+            trl = trl[[0], :]
+            
         # set 1st entry of time axis to the 0-lag
         trl[:, 2] = 0
         out.trialdefinition = trl

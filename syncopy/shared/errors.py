@@ -46,7 +46,7 @@ class SPYTypeError(SPYError):
 
     def __str__(self):
         msg = "Wrong type{vn:s}{ex:s}{fd:s}"
-        return msg.format(vn=" of " + self.varname + ":" if len(self.varname) else ":",
+        return msg.format(vn=" of `" + self.varname + "`:" if len(self.varname) else ":",
                           ex=" expected " + self.expected if len(self.expected) else "",
                           fd=" found " + self.found)
 
