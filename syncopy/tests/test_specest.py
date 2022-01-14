@@ -210,7 +210,7 @@ class TestMTMFFT():
         for sk, select in enumerate(self.sigdataSelections):
             sel = Selector(self.adata, select)
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
-                                output="pow", select=select)
+                                pad_to_length="nextpow2", output="pow", select=select)
 
             chanList = np.arange(self.nChannels)[sel.channel]
             amps = np.empty((len(sel.trials) * len(chanList),))
@@ -220,7 +220,7 @@ class TestMTMFFT():
                     amps[k] = spec.data[ntrial, :, :, nchan].max() / \
                         self.t.size
                     assert np.argmax(
-                        spec.data[ntrial, :, :, nchan]) == self.freqs[chan]
+                            spec.data[ntrial, :, :, nchan]) == self.freqs[chan]
                     k += 1
 
             # ensure amplitude is consistent across all channels/trials
@@ -242,18 +242,18 @@ class TestMTMFFT():
             # offset `foi` by 0.1 Hz - resulting freqs must be unaffected
             ftmp = foi + 0.1
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
-                                foi=ftmp, select=select)
+                                pad_to_length="nextpow2", foi=ftmp, select=select)
             assert np.all(spec.freq == foi)
 
             # unsorted, duplicate entries in `foi` - result must stay the same
             ftmp = np.hstack([foi, np.full(20, foi[0])])
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
-                                foi=ftmp, select=select)
+                                pad_to_length="nextpow2", foi=ftmp, select=select)
             assert np.all(spec.freq == foi)
 
     def test_dpss(self):
 
-        for sk, select in enumerate(self.sigdataSelections):
+        for select in self.sigdataSelections:
             sel = Selector(self.adata, select)
             chanList = np.arange(self.nChannels)[sel.channel]
 
@@ -277,36 +277,39 @@ class TestMTMFFT():
         cfg.taper = "dpss"
         cfg.tapsmofrq = 9.3
         cfg.output = "pow"
+        cfg.pad_to_length = "nextpow2"
 
-        # trigger error for non-equidistant trials w/o padding
-        cfg.pad = False
-        with pytest.raises(SPYValueError):
-            spec = freqanalysis(cfg, artdata)
-
-        for sk, select in enumerate(self.artdataSelections):
+        for select in self.artdataSelections:
 
             # unsorted, w/repetitions, do not pad
-            cfg.pop("pad", None)
+            # cfg.pop("pad_to_length", None)
             if select is not None and "toi" in select.keys():
                 select["toi"] = self.seed.choice(artdata.time[0], int(artdata.time[0].size))
-                cfg.pad = False
+                cfg.pad_to_length = False
             sel = Selector(artdata, select)
             cfg.select = select
             spec = freqanalysis(cfg, artdata)
 
+            # import pdb; pdb.set_trace()
+
             # ensure correctness of padding (respecting min. trial length + time-selection)
             if select is None:
                 maxtrlno = np.diff(artdata.sampleinfo).argmax()
-                tmp = padding(artdata.trials[maxtrlno], "zero", spec.cfg.pad,
-                              spec.cfg.padlength, prepadlength=True)
+                tmp = padding(artdata.trials[maxtrlno], "zero", cfg.pad_to_length,
+                              prepadlength=True)
                 nSamples = tmp.shape[timeAxis]
+                nSamples = artdata.trials[maxtrlno].shape[timeAxis]
             elif "toi" in select:
                 nSamples = len(select["toi"])
             else:
                 tsel = artdata.time[sel.trials[0]][sel.time[0]]
                 nSamples = _nextpow2(tsel.size)
             freqs = np.arange(0, np.floor(nSamples / 2) + 1) * artdata.samplerate / nSamples
-            assert spec.freq.size == freqs.size
+            # FIMXE: use rfft for this
+            try:
+                assert spec.freq.size == freqs.size
+            except:
+                import pdb; pdb.set_trace()
             assert np.max(spec.freq - freqs) < self.ftol
 
         # same + reversed dimensional order in input object
