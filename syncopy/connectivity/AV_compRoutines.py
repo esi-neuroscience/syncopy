@@ -20,7 +20,7 @@ from .wilson_sf import wilson_sf, regularize_csd
 from .granger import granger
 
 # syncopy imports
-from syncopy.shared.const_def import spectralDTypes, spectralConversions
+from syncopy.shared.const_def import spectralDTypes
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.shared.errors import (
@@ -102,7 +102,7 @@ def normalize_csd_cF(csd_av_dat,
         return outShape, spectralDTypes[output]
 
     CS_ij = normalize_csd(csd_av_dat[0], output)
-    
+
     # re-attach dummy time axis
     return CS_ij[None, ...]
 

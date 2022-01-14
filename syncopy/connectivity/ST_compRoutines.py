@@ -15,7 +15,6 @@ from .csd import csd
 
 # syncopy imports
 from syncopy.shared.const_def import spectralDTypes
-from syncopy.shared.errors import SPYValueError
 from syncopy.datatype import padding
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
@@ -156,7 +155,7 @@ def cross_spectra_cF(trl_dat,
         dat = detrend(dat, type='linear', axis=0, overwrite_data=True)
 
     CS_ij = csd(dat, samplerate, taper=taper, taper_opt=taper_opt)
-    
+
     # where does freqs go/come from -
     # we will eventually solve this issue..
     return CS_ij[None, freq_idx, ...]

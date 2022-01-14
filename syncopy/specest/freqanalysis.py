@@ -68,7 +68,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     * **foi**/**foilim** : frequencies of interest; either array of frequencies or
       frequency window (not both)
     * **keeptrials** : return individual trials or grand average
-    * **polyremoval** : de-trending method to use (0 = mean, 1 = linear)
+    * **polyremoval** : de-trending method to use (0 = mean, 1 = linear or `None`)
 
     List of available analysis methods and respective distinct options:
 
@@ -327,7 +327,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # Get everything of interest in local namespace
     defaults = get_defaults(freqanalysis)
     lcls = locals()
-    # check for ineffective additional kwargs        
+    # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="freqanalysis")
 
     # Ensure a valid computational method was selected
@@ -361,7 +361,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # check polyremoval
     if polyremoval is not None:
         scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])
-                  
+
     # Sliding window FFT does not support "fancy" padding
     if method == "mtmconvol" and isinstance(pad, str):
         msg = "method 'mtmconvol' only supports in-place padding for windows " +\
@@ -547,7 +547,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             SPYInfo(msg)
             foi = freqs
         log_dct["foi"] = foi
-        
+
         # Abort if desired frequency selection is empty
         if foi.size == 0:
             lgl = "non-empty frequency specification"
@@ -569,7 +569,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # only dpss returns non-empty taper_opt dict
         if taper_opt:
             log_dct["nTaper"] = taper_opt["Kmax"]
-            log_dct["tapsmofrq"] = tapsmofrq        
+            log_dct["tapsmofrq"] = tapsmofrq
 
     # -------------------------------------------------------
     # Now, prepare explicit compute-classes for chosen method
@@ -807,13 +807,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         else:
             if foilim is not None:
                 foi = np.arange(foilim[0], foilim[1] + 1, dtype=float)
-            # 0 frequency is not valid 
+            # 0 frequency is not valid
             foi[foi < 0.01] = 0.01
             scales = wfun.scale_from_period(1 / foi)
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
-        log_dct["foi"] = foi        
+        log_dct["foi"] = foi
         log_dct["wavelet"] = lcls["wavelet"]
         log_dct["width"] = lcls["width"]
         log_dct["order"] = lcls["order"]
@@ -889,7 +889,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 SPYWarning(msg)
                 scales = np.sort(scales)[::-1]
 
-        log_dct["foi"] = foi                        
+        log_dct["foi"] = foi
         log_dct["c_1"] = lcls["c_1"]
         log_dct["order_max"] = lcls["order_max"]
         log_dct["order_min"] = lcls["order_min"]

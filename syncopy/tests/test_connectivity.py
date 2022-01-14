@@ -47,7 +47,6 @@ class TestGranger:
     AdjMat[3, 2] = 0.25
     AdjMat[1, 0] = 0.25
 
-    print(AdjMat)
     # channel indices of coupling
     # a number other than 0 at AdjMat(i,j)
     # means coupling from i->j
@@ -69,7 +68,6 @@ class TestGranger:
         Gcaus = connectivity(self.data, method='granger', taper='dpss',
                              tapsmofrq=3, foi=self.foi, **kwargs)
 
-        # print("peak \t Aij \t peak-frq \t ij")
         # check all channel combinations with coupling
         for i, j in zip(*self.cpl_idx):
             peak = Gcaus.data[0, :, i, j].max()
@@ -241,7 +239,7 @@ class TestCoherence:
         call = lambda pad_to_length: self.test_coh_solution(pad_to_length=pad_to_length)
         run_padding_test(call, pad_length)
 
-        
+
 class TestCorrelation:
 
     nChannels = 5
@@ -268,7 +266,7 @@ class TestCorrelation:
 
     data = AnalogData(trls, samplerate=fs)
     time_span = [-1, nSamples / fs - 1] # -1s offset
-    
+
     def test_corr_solution(self, **kwargs):
 
         corr = connectivity(data=self.data, method='corr', **kwargs)
@@ -325,13 +323,13 @@ class TestCorrelation:
 
         self.test_corr_solution(pad_to_length=None)
         # no padding is allowed for
-        # this method        
+        # this method
         try:
             self.test_corr_solution(pad_to_length=1000)
         except SPYValueError as err:
             assert 'pad_to_length' in str(err)
             assert 'no padding needed/allowed' in str(err)
-            
+
         try:
             self.test_corr_solution(pad_to_length='nextpow2')
         except SPYValueError as err:
@@ -455,7 +453,7 @@ def run_foi_test(call, foilim, positivity=True):
         result = call(foilim=foil, foi=None)
         # check here just for finiteness and positivity
         assert np.all(np.isfinite(result.data))
-        if positivity:        
+        if positivity:
             assert np.all(result.data[0, ...] >= -1e-10)
 
     # make sure specification of both foi and foilim triggers a
