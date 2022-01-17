@@ -163,7 +163,6 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo).squeeze()
-    numTrials = len(trialList)
 
     # check polyremoval
     if polyremoval is not None:
@@ -225,7 +224,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
 
     # only now set foi array for foilim in 1Hz steps
     if foilim is not None:
-        foi = np.arange(foilim[0], foilim[1] + 1)
+        foi = np.arange(foilim[0], foilim[1] + 1, dtype=float)
 
     # Prepare keyword dict for logging (use `lcls` to get actually provided
     # keyword values, not defaults set above)
