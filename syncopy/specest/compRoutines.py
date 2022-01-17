@@ -375,12 +375,12 @@ def mtmconvol_cF(
         # and average afterwards
         spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
 
-        ftr, freqs = mtmfft(dat[soi[0], :],  samplerate, taper, taper_opt)
+        ftr, freqs = mtmfft(dat[soi[0], :],  samplerate, taper=taper, taper_opt=taper_opt)
         _, fIdx = best_match(freqs, foi, squash_duplicates=True)
         spec[0, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
         # loop over remaining soi to center windows on
         for tk in range(1, len(soi)):
-            ftr, freqs = mtmfft(dat[soi[tk], :],  samplerate, taper, taper_opt)
+            ftr, freqs = mtmfft(dat[soi[tk], :],  samplerate, taper=taper, taper_opt=taper_opt)
             spec[tk, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
 
     # Average across tapers if wanted

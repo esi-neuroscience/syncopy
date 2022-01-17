@@ -51,7 +51,7 @@ __all__ = ["freqanalysis"]
 @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='fourier',
                  keeptrials=True, foi=None, foilim=None,
-                 pad_to_length=None, polyremoval=0,
+                 pad_to_length=None, polyremoval=None,
                  taper="hann", tapsmofrq=None, nTaper=None, keeptapers=False,
                  toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
@@ -618,12 +618,13 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 # postSelect then subsamples the spectral esimate to the user given toi
                 postSelect = []
                 for tk in range(numTrials):
-                    start = int(round(data.samplerate * (toi[0] - tStart[tk]) - halfWin))
+                    start = max(0, int(round(data.samplerate * (toi[0] - tStart[tk]) - halfWin)))
                     stop = int(round(data.samplerate * (toi[-1] - tStart[tk]) + halfWin + 1))
-                    soi.append(slice(max(0, start), max(stop, stop - start)))
+                    soi.append(slice(start, max(stop, stop - start)))
 
-                # chosen toi subsampling interval in sample units, min. is 1
-                delta_idx =  int(tSteps[0] * data.samplerate)
+                # chosen toi subsampling interval in sample units, min. is 1;
+                # compute `delta_idx` s.t. stop - start / delta_idx == toi.size
+                delta_idx = int(round((soi[0].stop - soi[0].start) / toi.size))
                 delta_idx = delta_idx if delta_idx > 1 else 1
                 postSelect = slice(None, None, delta_idx)
 

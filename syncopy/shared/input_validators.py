@@ -16,7 +16,6 @@ from syncopy.datatype.methods.padding import _nextpow2
 
 
 def validate_padding(pad_to_length, lenTrials):
-
     """
     Simplified padding
     """
@@ -25,6 +24,8 @@ def validate_padding(pad_to_length, lenTrials):
     if not isinstance(pad_to_length, (Number, str, type(None))):
         not_valid = True
     elif isinstance(pad_to_length, str) and pad_to_length not in availablePaddingOpt:
+        not_valid = True
+    if isinstance(pad_to_length, bool): # bool is an int subclass, check for it separately...
         not_valid = True
     if not_valid:
         lgl = "`None`, 'nextpow2' or an integer like number"
@@ -79,21 +80,21 @@ def validate_foi(foi, foilim, samplerate):
     Returns
     -------
     foi, foilim : tuple
-        Either both are `None` or the 
+        Either both are `None` or the
         user submitted one is parsed and returned
-    
+
     Notes
-    -----    
-    Setting both `foi` and `foilim` to `None` is valid, the 
-    subsequent analysis methods should all have a default way to 
+    -----
+    Setting both `foi` and `foilim` to `None` is valid, the
+    subsequent analysis methods should all have a default way to
     select a standard set of frequencies (e.g. np.fft.fftfreq).
     """
-        
+
     if foi is not None and foilim is not None:
         lgl = "either `foi` or `foilim` specification"
         act = "both"
         raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
-    
+
     if foi is not None:
         if isinstance(foi, str):
             if foi == "all":
@@ -108,7 +109,7 @@ def validate_foi(foi, foilim, samplerate):
             except Exception as exc:
                 raise exc
             foi = np.array(foi, dtype="float")
-            
+
     if foilim is not None:
         if isinstance(foilim, str):
             if foilim == "all":
@@ -143,9 +144,9 @@ def validate_taper(taper,
     """
     General taper validation and Slepian/dpss input sanitization.
     The default is to max out `nTaper` to achieve the desired frequency
-    smoothing bandwidth. For details about the Slepion settings see 
+    smoothing bandwidth. For details about the Slepion settings see
 
-    "The Effective Bandwidth of a Multitaper Spectral Estimator, 
+    "The Effective Bandwidth of a Multitaper Spectral Estimator,
     A. T. Walden, E. J. McCoy and D. B. Percival"
 
     Parameters
@@ -172,11 +173,11 @@ def validate_taper(taper,
     Returns
     -------
     dpss_opt : dict
-        For multi-tapering (`taper='dpss'`) contains the 
+        For multi-tapering (`taper='dpss'`) contains the
         parameters `NW` and `Kmax` for `scipy.signal.windows.dpss`.
         For all other tapers this is an empty dictionary.
     """
-    
+
     # See if taper choice is supported
     if taper not in availableTapers:
         lgl = "'" + "or '".join(opt + "' " for opt in availableTapers)
@@ -201,10 +202,10 @@ def validate_taper(taper,
     if taper == "dpss" and not keeptapers and output != "pow":
         lgl = "'pow', the only valid option for taper averaging"
         raise SPYValueError(legal=lgl, varname="output", actual=output)
-    
+
     # Set/get `tapsmofrq` if we're working w/Slepian tapers
     elif taper == "dpss":
-        
+
         # --- minimal smoothing bandwidth ---
         # --- such that Kmax/nTaper is at least 1
         minBw = 2 * samplerate / nSamples
@@ -221,10 +222,10 @@ def validate_taper(taper,
                 msg = f'Setting tapsmofrq to the minimal attainable bandwidth of {minBw:.2f}Hz'
                 SPYInfo(msg)
                 tapsmofrq = minBw
-        
+
         # we now enforce a user submitted smoothing bw
         else:
-            lgl = "smoothing bandwidth in Hz, typical values are in the range 1-10Hz"            
+            lgl = "smoothing bandwidth in Hz, typical values are in the range 1-10Hz"
             raise SPYValueError(legal=lgl, varname="tapsmofrq", actual=tapsmofrq)
 
             # Try to derive "sane" settings by using 3/4 octave
@@ -232,7 +233,7 @@ def validate_taper(taper,
             # following Hill et al. "Oscillatory Synchronization in Large-Scale
             # Cortical Networks Predicts Perception", Neuron, 2011
             # FIX ME: This "sane setting" seems quite excessive (huuuge bwidths)
-            
+
             # tapsmofrq = (foimax * 2**(3 / 4 / 2) - foimax * 2**(-3 / 4 / 2)) / 2
             # msg = f'Automatic setting of `tapsmofrq` to {tapsmofrq:.2f}'
             # SPYInfo(msg)
@@ -240,7 +241,7 @@ def validate_taper(taper,
         # --------------------------------------------
         # set parameters for scipy.signal.windows.dpss
         NW = tapsmofrq * nSamples / (2 * samplerate)
-        # from the minBw setting NW always is at least 1         
+        # from the minBw setting NW always is at least 1
         Kmax = int(2 * NW - 1) # optimal number of tapers
         # --------------------------------------------
 
@@ -260,14 +261,14 @@ def validate_taper(taper,
             except Exception as exc:
                 raise exc
 
-            if nTaper != Kmax:                
-                msg = f''' 
-                Manually setting the number of tapers is not recommended 
+            if nTaper != Kmax:
+                msg = f'''
+                Manually setting the number of tapers is not recommended
                 and may (strongly) distort the effective smoothing bandwidth!\n
                 The optimal number of tapers is {Kmax}, you have chosen to use {nTaper}.
                 '''
                 SPYWarning(msg)
-            
+
             dpss_opt = {'NW' : NW, 'Kmax' : nTaper}
             return dpss_opt
 
@@ -276,7 +277,7 @@ def check_effective_parameters(CR, defaults, lcls):
 
     """
     For a given ComputationalRoutine, compare set parameters
-    (*lcls*) with the accepted parameters and the frontend 
+    (*lcls*) with the accepted parameters and the frontend
     meta function *defaults* to warn if any ineffective parameters are set.
 
     Parameters
@@ -306,13 +307,13 @@ def check_passed_kwargs(lcls, defaults, frontend_name):
     '''
 
     # unpack **kwargs of frontend call which
-    # might contain arbitrary kws passed from the user    
+    # might contain arbitrary kws passed from the user
     kw_dict = lcls.get("kwargs")
-    
+
     # nothing to do..
     if not kw_dict:
         return
-    
+
     relevant = list(kw_dict.keys())
     expected = [name for name in defaults]
 
@@ -320,4 +321,4 @@ def check_passed_kwargs(lcls, defaults, frontend_name):
         if name not in expected:
             msg = f"option `{name}` has no effect in `{frontend_name}`!"
             SPYWarning(msg, caller=__name__.split('.')[-1])
-            
+
