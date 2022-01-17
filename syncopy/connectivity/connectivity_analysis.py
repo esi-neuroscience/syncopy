@@ -48,7 +48,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
 
     * **foi**/**foilim** : frequencies of interest; either array of frequencies or
       frequency window (not both)
-    * **polyremoval** : de-trending method to use (0 = mean, 1 = linear)
+    * **polyremoval** : de-trending method to use (0 = mean, 1 = linear or `None`)
 
     List of available analysis methods and respective distinct options:
 
@@ -62,7 +62,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         * **nTaper** : (optional) number of orthogonal tapers for slepian tapers
         * **pad_to_length**: either pad to an absolute length or set to `'nextpow2'`
 
-    "corr" : Cross-correlations 
+    "corr" : Cross-correlations
         Computes the one sided (positive lags) cross-correlations
         between all channel combinations. The maximal lag is half
         the trial lengths.
@@ -87,10 +87,10 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         Connectivity estimation method, one of 'coh', 'corr', 'granger'
     output : str
         Relevant for cross-spectral density estimation (`method='coh'`)
-        Use `'pow'` for absolute squared coherence, `'abs'` for absolute value of coherence 
+        Use `'pow'` for absolute squared coherence, `'abs'` for absolute value of coherence
         and`'fourier'` for the complex valued coherency.
     keeptrials : bool
-        Relevant for cross-correlations (`method='corr'`)
+        Relevant for cross-correlations (`method='corr'`).
         If `True` single-trial cross-correlations are returned.
     foi : array-like or None
         Frequencies of interest (Hz) for output. If desired frequencies cannot be
@@ -106,11 +106,12 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         to this absolute length. E.g. `pad_to_length=2000` pads all
         trials to 2000 samples, if and only if the longest trial is
         at maximum 2000 samples.
+
         Alternatively if all trials have the same initial lengths
         setting `pad_to_length='nextpow2'` pads all trials to
         the next power of two.
-        If `None` and trials have unequal lengths all trials get padded
-        such that all have the absolute lengths of the longest trial.
+        If `None` and trials have unequal lengths all trials are padded to match
+        the longest trial.
     taper : str
         Only valid if `method` is `'coh'` or `'granger'`. Windowing function,
         one of :data:`~syncopy.specest.const_def.availableTapers`
@@ -120,14 +121,13 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         Note that smoothing frequency specifications are one-sided,
         i.e., 4 Hz smoothing means plus-minus 4 Hz, i.e., a 8 Hz smoothing box.
     nTaper : int or None
-        Only valid if `method` is `'coh'` or `'granger'` and `taper='dpss'`.
+        Only valid if `method` is `'coh'` or `'granger'` and ``taper = 'dpss'``.
         Number of orthogonal tapers to use. It is not recommended to set the number
         of tapers manually! Leave at `None` for the optimal number to be set automatically.
 
     Examples
     --------
-
-    ...
+    Coming soon...
     """
 
     # Make sure our one mandatory input object can be processed
@@ -163,7 +163,6 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
         trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo).squeeze()
-    numTrials = len(trialList)
 
     # check polyremoval
     if polyremoval is not None:
@@ -185,7 +184,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
 
     # only now set foi array for foilim in 1Hz steps
     if foilim is not None:
-        foi = np.arange(foilim[0], foilim[1] + 1)
+        foi = np.arange(foilim[0], foilim[1] + 1, dtype=float)
 
     # Prepare keyword dict for logging (use `lcls` to get actually provided
     # keyword values, not defaults set above)

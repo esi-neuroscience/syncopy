@@ -158,9 +158,13 @@ class TestBaseData():
                                    np.ones((int(nSamples / 5), )),
                                    np.ones((int(nSamples / 5), )) * np.pi]).T
 
-    # Generate a 4D array simulating a SpectralData array
+    # Generate a 4D array simulating a SpectralData array (`nTrials` stands in for tapers)
     data["SpectralData"] = np.arange(1, nChannels * nSamples * nTrials * nFreqs + 1).reshape(nSamples, nTrials, nFreqs, nChannels)
     trl["SpectralData"] = trl["AnalogData"]
+
+    # Generate a 4D array simulating a CorssSpectralData array
+    data["CrossSpectralData"] = np.arange(1, nChannels * nChannels * nSamples * nFreqs + 1).reshape(nSamples, nFreqs, nChannels, nChannels)
+    trl["CrossSpectralData"] = trl["AnalogData"]
 
     # Use a fixed random number generator seed to simulate a 2D SpikeData array
     seed = np.random.RandomState(13)
@@ -176,7 +180,7 @@ class TestBaseData():
     trl["EventData"] = trl["AnalogData"]
 
     # Define data classes to be used in tests below
-    classes = ["AnalogData", "SpectralData", "SpikeData", "EventData"]
+    classes = ["AnalogData", "SpectralData", "CrossSpectralData", "SpikeData", "EventData"]
 
     # Allocation to `data` property is tested with all members of `classes`
     def test_data_alloc(self):
@@ -278,8 +282,8 @@ class TestBaseData():
     def test_trialdef(self):
         for dclass in self.classes:
             dummy = getattr(spd, dclass)(self.data[dclass],
-                                         trialdefinition=self.trl[dclass],
                                          samplerate=self.samplerate)
+            dummy.trialdefinition = self.trl[dclass]
             assert np.array_equal(dummy.sampleinfo, self.trl[dclass][:, :2])
             assert np.array_equal(dummy._t0, self.trl[dclass][:, 2])
             assert np.array_equal(dummy.trialinfo.flatten(), self.trl[dclass][:, 3])
@@ -325,8 +329,8 @@ class TestBaseData():
         # shallow copies are views in memory)
         for dclass in self.classes:
             dummy = getattr(spd, dclass)(self.data[dclass],
-                                         trialdefinition=self.trl[dclass],
                                          samplerate=self.samplerate)
+            dummy.trialdefinition = self.trl[dclass]
             dummy2 = dummy.copy()
             assert dummy.filename == dummy2.filename
             assert hash(str(dummy.data)) == hash(str(dummy2.data))
@@ -348,8 +352,8 @@ class TestBaseData():
 
                 # hash-matching of shallow-copied memmap
                 dummy = getattr(spd, dclass)(data=mm,
-                                             trialdefinition=self.trl[dclass],
                                              samplerate=self.samplerate)
+                dummy.trialdefinition = self.trl[dclass]
                 dummy2 = dummy.copy()
                 assert dummy.filename == dummy2.filename
                 assert hash(str(dummy.data)) == hash(str(dummy2.data))
@@ -370,8 +374,8 @@ class TestBaseData():
 
                 # hash-matching of shallow-copied HDF5 dataset
                 dummy = getattr(spd, dclass)(data=h5py.File(hname)["dummy"],
-                                             trialdefinition=self.trl[dclass],
                                              samplerate=self.samplerate)
+                dummy.trialdefinition = self.trl[dclass]
                 dummy2 = dummy.copy()
                 assert dummy.filename == dummy2.filename
                 assert hash(str(dummy.data)) == hash(str(dummy2.data))
@@ -400,9 +404,7 @@ class TestBaseData():
     def test_arithmetic(self):
 
         # Define list of classes arithmetic ops should and should not work with
-        # FIXME: include `CrossSpectralData` here and use something like
-        # if any(["ContinuousData" in str(base) for base in self.__class__.__mro__])
-        continuousClasses = ["AnalogData", "SpectralData"]
+        continuousClasses = ["AnalogData", "SpectralData", "CrossSpectralData"]
         discreteClasses = ["SpikeData", "EventData"]
 
         # Illegal classes for arithmetics
@@ -413,17 +415,17 @@ class TestBaseData():
             for operation in arithmetics:
                 with pytest.raises(SPYTypeError) as spytyp:
                     operation(dummy, 2)
-                    assert "Wrong type of base: expected `AnalogData`, `SpectralData`" in str(spytyp.value)
+                    assert "Wrong type of base: expected `AnalogData`, `SpectralData` or `CrossSpectralData`" in str(spytyp.value)
 
         # Now, test basic error handling for allowed classes
         for dclass in continuousClasses:
             dummy = getattr(spd, dclass)(self.data[dclass],
-                                         trialdefinition=self.trl[dclass],
                                          samplerate=self.samplerate)
+            dummy.trialdefinition = self.trl[dclass]
             otherClass = list(set(self.classes).difference([dclass]))[0]
             other = getattr(spd, otherClass)(self.data[otherClass],
-                                             trialdefinition=self.trl[otherClass],
                                              samplerate=self.samplerate)
+            other.trialdefinition = self.trl[dclass]
             complexArr = np.complex64(dummy.trials[0])
             complexNum = 3+4j
 
@@ -471,8 +473,8 @@ class TestBaseData():
 
             # Start simple compare obj to itself, to empty object and compare two empties
             dummy = getattr(spd, dclass)(self.data[dclass],
-                                         trialdefinition=self.trl[dclass],
                                          samplerate=self.samplerate)
+            dummy.trialdefinition = self.trl[dclass]
             assert dummy == dummy
             assert dummy != getattr(spd, dclass)()
             assert getattr(spd, dclass)() == getattr(spd, dclass)()
@@ -484,8 +486,8 @@ class TestBaseData():
             # Two differing Syncopy object classes
             otherClass = list(set(self.classes).difference([dclass]))[0]
             other = getattr(spd, otherClass)(self.data[otherClass],
-                                             trialdefinition=self.trl[otherClass],
                                              samplerate=self.samplerate)
+            other.trialdefinition = self.trl[otherClass]
             assert dummy != other
 
             # Ensure shallow and deep copies are "==" to their origin
@@ -523,22 +525,22 @@ class TestBaseData():
             trl = self.trl[dclass]
             trl[:, 1] -= 1
             dummy3 = getattr(spd, dclass)(self.data[dclass],
-                                          trialdefinition=trl,
                                           samplerate=self.samplerate)
+            dummy3.trialdefinition = trl
             assert dummy3 != dummy
 
             # Different trial annotations
             trl = self.trl[dclass]
             trl[:, -1] = np.sqrt(2)
             dummy3 = getattr(spd, dclass)(self.data[dclass],
-                                          trialdefinition=trl,
                                           samplerate=self.samplerate)
+            dummy3.trialdefinition = trl
             assert dummy3 != dummy
 
             # Difference in actual numerical data
             dummy3 = dummy.copy(deep=True)
             for dsetName in dummy3._hdfFileDatasetProperties:
-                getattr(dummy3, dsetName)[0] = np.pi
+                getattr(dummy3, dsetName)[0] = 2 * np.pi
             assert dummy3 != dummy
 
             del dummy, dummy2, dummy3, other
@@ -546,12 +548,12 @@ class TestBaseData():
         # Same objects but different dimords: `ContinuousData`` children
         for dclass in continuousClasses:
             dummy = getattr(spd, dclass)(self.data[dclass],
-                                         trialdefinition=self.trl[dclass],
                                          samplerate=self.samplerate)
+            dummy.trialdefinition = self.trl[dclass]
             ymmud = getattr(spd, dclass)(self.data[dclass].T,
                                          dimord=dummy.dimord[::-1],
-                                         trialdefinition=self.trl[dclass],
                                          samplerate=self.samplerate)
+            ymmud.trialdefinition = self.trl[dclass]
             assert dummy != ymmud
 
         # Same objects but different dimords: `DiscreteData` children
