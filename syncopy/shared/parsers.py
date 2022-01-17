@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Module for all kinds of parsing/input sanitization gymnastics
-# 
+#
 
 # Builtin/3rd party package imports
 import os
@@ -131,7 +131,7 @@ def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
         else:
             return fs_loc.split(file_name)[0], file_name
 
-        
+
 def scalar_parser(var, varname="", ntype=None, lims=None):
     """
     Parse scalars
@@ -170,7 +170,7 @@ def scalar_parser(var, varname="", ntype=None, lims=None):
     >>> scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
     >>> freq = 440.0
     >>> scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
-        
+
     Conversely, these values of `freq` yield errors
 
     >>> freq = 440.5    # not integer-like
@@ -235,56 +235,56 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
     ntype : None or str
         Expected data type of `var`. Possible options are any valid
         builtin type, all NumPy dtypes as as well as `"numeric"` (a catch-all
-        to ensure `var` only contains numeric elements) and "int_like"` 
-        (all elements of `var` are expected to have no significant digits 
-        after the decimal point, e.g., 3.0, -12.0 etc.). 
-        If `ntype` is `None` the data type of `var` is not checked. 
+        to ensure `var` only contains numeric elements) and "int_like"`
+        (all elements of `var` are expected to have no significant digits
+        after the decimal point, e.g., 3.0, -12.0 etc.).
+        If `ntype` is `None` the data type of `var` is not checked.
     hasinf : None or bool
-        If `hasinf` is `False` the input array `var` is considered invalid 
+        If `hasinf` is `False` the input array `var` is considered invalid
         if it contains non-finite elements (`np.inf`), vice-versa if `hasinf`
-        is `True`. If `hasinf` is `None` elements of `var` are not probed 
-        for finiteness. 
+        is `True`. If `hasinf` is `None` elements of `var` are not probed
+        for finiteness.
     hasnan : None or bool
-        If `hasnan` is `False` the input array `var` is considered invalid 
+        If `hasnan` is `False` the input array `var` is considered invalid
         if it contains undefined elements (`np.nan`), vice-versa if `hasnan`
-        is `True`. If `hasnan` is `None` elements of `var` are not probed 
-        for well-posedness. 
+        is `True`. If `hasnan` is `None` elements of `var` are not probed
+        for well-posedness.
     lims : None or two-element list_like
-        Lower (`lims[0]`) and upper (`lims[1]`) bounds for legal values of `var`'s 
-        elements. Note that the code checks for non-strict inequality, 
-        i.e., `var[i] = lims[0]` or `var[i] = lims[1]` are both considered 
-        to be valid elements of `var`. 
-        For complex arrays bounds-checking is performed on both real and 
-        imaginary parts of each component of `var`. That is, all elements of 
-        `var` have to satisfy `lims[0] <= var[i].real <= lims[1]` as well as 
-        `lims[0] <= var[i].imag <= lims[1]` (see Examples for details). 
+        Lower (`lims[0]`) and upper (`lims[1]`) bounds for legal values of `var`'s
+        elements. Note that the code checks for non-strict inequality,
+        i.e., `var[i] = lims[0]` or `var[i] = lims[1]` are both considered
+        to be valid elements of `var`.
+        For complex arrays bounds-checking is performed on both real and
+        imaginary parts of each component of `var`. That is, all elements of
+        `var` have to satisfy `lims[0] <= var[i].real <= lims[1]` as well as
+        `lims[0] <= var[i].imag <= lims[1]` (see Examples for details).
         Note that `np.inf` and `np.nan` entries are ignored during bounds-
-        checking. Use the keywords `hasinf` and `hasnan` to probe an array 
-        for infinite and non-numeric entries, respectively. 
-        If `lims` is `None` bounds-checking is not performed. 
+        checking. Use the keywords `hasinf` and `hasnan` to probe an array
+        for infinite and non-numeric entries, respectively.
+        If `lims` is `None` bounds-checking is not performed.
     dims : None or int or tuple
-        Expected number of dimensions (if `dims` is an integer) or shape 
-        (if `dims` is a tuple) of `var`. By default, singleton dimensions 
-        of `var` are ignored if `dims` is a tuple, i.e., for `dims = (10, )` 
-        an array `var` with `var.shape = (10, 1)` is considered valid. However, 
+        Expected number of dimensions (if `dims` is an integer) or shape
+        (if `dims` is a tuple) of `var`. By default, singleton dimensions
+        of `var` are ignored if `dims` is a tuple, i.e., for `dims = (10, )`
+        an array `var` with `var.shape = (10, 1)` is considered valid. However,
         if singleton dimensions are explicitly queried by setting `dims = (10, 1)`
-        any array `var` with `var.shape = (10, )` or `var.shape = (1, 10)` is 
-        considered invalid. 
-        Unknown dimensions can be represented as `None`, i.e., for 
-        `dims = (10, None)` arrays with shape `(10, 1)`, `(10, 100)` or 
-        `(10, 0)` are all considered valid, however, any 1d-array (e.g., 
-        `var.shape = (10,)`) is invalid. 
+        any array `var` with `var.shape = (10, )` or `var.shape = (1, 10)` is
+        considered invalid.
+        Unknown dimensions can be represented as `None`, i.e., for
+        `dims = (10, None)` arrays with shape `(10, 1)`, `(10, 100)` or
+        `(10, 0)` are all considered valid, however, any 1d-array (e.g.,
+        `var.shape = (10,)`) is invalid.
         If `dims` is an integer, `var.ndim` has to match `dims` exactly, i.e.,
-        any array `var` with `var.shape = (10, )` is considered invalid if 
-        `dims = 2` and conversely, `dims = 1` and `var.shape = (10,  1)` 
-        triggers an exception. 
+        any array `var` with `var.shape = (10, )` is considered invalid if
+        `dims = 2` and conversely, `dims = 1` and `var.shape = (10,  1)`
+        triggers an exception.
     issorted : None or bool
-        If `issorted` is `True`, `var` is expected to be a 1d-array (or 2d-array 
-        with a single singleton-dimension, i.e., a row- or column-vector) with 
-        elements in ascending order. Conversely, if `issorted` is `False`, `var` 
-        is considered invalid if its elements are ordered by magnitude. If 
-        `issorted` is `None`, order of array elements is not inspected. 
-    
+        If `issorted` is `True`, `var` is expected to be a 1d-array (or 2d-array
+        with a single singleton-dimension, i.e., a row- or column-vector) with
+        elements in ascending order. Conversely, if `issorted` is `False`, `var`
+        is considered invalid if its elements are ordered by magnitude. If
+        `issorted` is `None`, order of array elements is not inspected.
+
     Returns
     -------
     Nothing : None
@@ -299,7 +299,7 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
     >>> array_parser(time, varname="time", lims=[0, 10], dims=(100,))
 
     Ensure additionally that all elements of `time` are ordered by magnitude
-    
+
     >>> array_parser(time, varname="time", lims=[0, 10], dims=(100,), issorted=True)
 
     Artificially appending a singleton dimension to `time` does not affect
@@ -325,9 +325,9 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
 
     >>> array_parser(spec, varname="spec", lims=[-3, 5])    # valid
     >>> array_parser(spec, varname="spec", lims=[-1, 5])    # invalid since spec[1].imag < lims[0]
-    
+
     However, complex numbers do not admit an order relationship:
-    
+
     >>> array_parser(spec, varname="spec", lims=[-3, 5], issorted=True)  # invalid
 
     Character lists can be parsed as well:
@@ -335,7 +335,7 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
     >>> channels = ["channel1", "channel2", "channel3"]
     >>> array_parser(channels, varname="channels", dims=1)
     >>> array_parser(channels, varname="channels", dims=(3,))
-    
+
     See also
     --------
     scalar_parser : similar functionality for parsing numeric scalars
@@ -440,7 +440,7 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
                 raise SPYValueError(str(dims) + "d-array", varname=varname,
                                     actual=str(ndim) + "d-array")
 
-    # If required check if array elements are orderd by magnitude                
+    # If required check if array elements are orderd by magnitude
     if issorted is not None:
         if not np.all(np.isreal(arr)):
             lgl = "real-valued array"
@@ -450,7 +450,7 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
             lgl = "array with at least two elements"
             act = "array containing (fewer than) one element"
             raise SPYValueError(legal=lgl, varname=varname, actual=act)
-        ascending = np.diff(arr.flatten()).min() > 0  
+        ascending = np.diff(arr.flatten()).min() > 0
         if issorted and not ascending:
             lgl = "array with elements in ascending order"
             act = "unsorted array"
@@ -465,10 +465,46 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
 
 def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dimord=None):
     """
-    Docstring
+    Parse syncopy data objects
 
-    writable = True/False/None
-    empty=True/False (False: ensure we're working with some contents)
+    Parameters
+    ----------
+    data : syncopy data object
+        Syncopy data object to verify
+    varname : str
+        Local variable name used in caller, see Examples for details.
+    dataclass : None or str
+        Expected class of `data`. If `None` the type of `data` is not inspected.
+    writeable : None or bool
+        If `True` a :class:`~syncopy.shared.errors.SPYValueError` is raised if
+        `data` is read-only, vice versa if `writeable` is `False`. If `None`
+        then `data` is not checked for read/write access.
+    empty : None or bool
+        If `True` a :class:`~syncopy.shared.errors.SPYValueError` is raised if
+        `data` already has contents, if `False` then `data` is checked
+        for non-emptiness. If `None` then `data` is not inspected for contents.
+    dimord : None or list
+        If provided, then `data.dimord` is matched with `dimord` (raising
+        a :class:`~syncopy.shared.errors.SPYValueError` in case of discrepancies).
+        If `None` then `data.dimord` is not inspected.
+
+    Returns
+    -------
+    Nothing : None
+
+    Examples
+    --------
+    Ensure `adata` is a :class:`~syncopy.datatype.continuous_data.AnalogData` object:
+
+    >>> data_parser(adata, varname="adata", dataclass="AnalogData")
+
+    Query adata for write-access and emptiness (e.g., before writing results):
+
+    >>> data_parser(adata, varname="adata", writeable=True, empty=True)
+
+    See also
+    --------
+    array_parser : similar functionality for parsing array-like objects
     """
 
     # Make sure `data` is (derived from) `BaseData`
@@ -477,7 +513,7 @@ def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dim
 
     # If requested, check specific data-class of object
     if dataclass is not None:
-        if data.__class__.__name__ not in str(dataclass):
+        if data.__class__.__name__ != str(dataclass):
             msg = "Syncopy {} object".format(dataclass)
             raise SPYTypeError(data, varname=varname, expected=msg)
 
@@ -524,28 +560,28 @@ def filename_parser(filename, is_in_valid_container=None):
     Parameters
     ----------
         filename: str
-            Syncopy data file (\*.<dataclass>.info), Syncopy info 
+            Syncopy data file (\*.<dataclass>.info), Syncopy info
             file (\*.<dataclass>) or Syncopy container folder (\*.spy)
-        is_in_valid_container: bool            
-            If `True`, the `filename` must be inside a folder with a .spy 
-            extension. 
+        is_in_valid_container: bool
+            If `True`, the `filename` must be inside a folder with a .spy
+            extension.
             If `False`, `filename` must not be inside a .spy folder.
             If `None`, the extension of the parent folder is not checked.
 
     Returns
     -------
-        fileinfo : dict 
+        fileinfo : dict
             Information extracted from filename and foldername with keys
-            ['filename', 'container', 'folder', 'tag', 'basename', 'extension'].           
+            ['filename', 'container', 'folder', 'tag', 'basename', 'extension'].
 
     Examples
     --------
-    >>> filename_parser('/home/user/monkeyB_20190709_rfmapping_1_amua-stimon.analog')  
-    {'filename': 'monkeyB_20190709_rfmapping_1_amua-stimon.analog', 
-     'container': None, 
-     'folder': '/home/schmiedtj_it/Projects/SyNCoPy', 
+    >>> filename_parser('/home/user/monkeyB_20190709_rfmapping_1_amua-stimon.analog')
+    {'filename': 'monkeyB_20190709_rfmapping_1_amua-stimon.analog',
+     'container': None,
+     'folder': '/home/schmiedtj_it/Projects/SyNCoPy',
      'tag': None,
-     'basename': 'monkeyB_20190709_rfmapping_1_amua-stimon', 
+     'basename': 'monkeyB_20190709_rfmapping_1_amua-stimon',
      'extension': '.analog'}
 
     >>> filename_parser('/home/user/monkeyB_20190709_rfmapping_1_amua-stimon.analog.info')
@@ -554,9 +590,9 @@ def filename_parser(filename, is_in_valid_container=None):
     'folder': '/home/user',
     'tag': None,
     'basename': 'monkeyB_20190709_rfmapping_1_amua-stimon',
-    'extension': '.analog'}  
+    'extension': '.analog'}
 
-    >>> filename_parser('session_1.spy/session_1_amua-stimon.analog')  
+    >>> filename_parser('session_1.spy/session_1_amua-stimon.analog')
     {'filename': 'session_1_amua-stimon.analog',
      'container': 'session_1.spy',
      'folder': '/home/user/session_1.spy',
@@ -577,7 +613,7 @@ def filename_parser(filename, is_in_valid_container=None):
     --------
     io_parser : check file and folder names for existence
 
-    """      
+    """
     if filename is None:
         return {
         "filename": None,
@@ -592,15 +628,15 @@ def filename_parser(filename, is_in_valid_container=None):
 
     folder, filename = os.path.split(filename)
     container = folder.split(os.path.sep)[-1]
-    basename, ext = os.path.splitext(filename)    
-    
+    basename, ext = os.path.splitext(filename)
+
     if filename.count(".") > 2:
-        raise SPYValueError(legal="single extension, found {}".format(filename.count(".")), 
+        raise SPYValueError(legal="single extension, found {}".format(filename.count(".")),
                             actual=filename, varname="filename")
     if ext == FILE_EXT["dir"] and basename.count(".") > 0:
-        raise SPYValueError(legal="no extension, found {}".format(basename.count(".")), 
+        raise SPYValueError(legal="no extension, found {}".format(basename.count(".")),
                             actual=basename, varname="container")
-        
+
     if ext == FILE_EXT["info"]:
         filename = basename
         basename, ext = os.path.splitext(filename)
@@ -613,35 +649,35 @@ def filename_parser(filename, is_in_valid_container=None):
         "basename": basename,
         "extension": ext
         }
-    
+
     if ext not in FILE_EXT["data"] + (FILE_EXT["dir"],):
-        raise SPYValueError(legal=FILE_EXT["data"], 
+        raise SPYValueError(legal=FILE_EXT["data"],
                             actual=ext, varname="filename extension")
 
     folderExtIsSpy = os.path.splitext(container)[1] == FILE_EXT["dir"]
     if is_in_valid_container is not None:
         if not folderExtIsSpy and is_in_valid_container:
-            raise SPYValueError(legal=FILE_EXT["dir"], 
-                                actual=os.path.splitext(container)[1], 
+            raise SPYValueError(legal=FILE_EXT["dir"],
+                                actual=os.path.splitext(container)[1],
                                 varname="folder extension")
         elif folderExtIsSpy and not is_in_valid_container:
-            raise SPYValueError(legal='not ' + FILE_EXT["dir"], 
-                                actual=os.path.splitext(container)[1], 
+            raise SPYValueError(legal='not ' + FILE_EXT["dir"],
+                                actual=os.path.splitext(container)[1],
                                 varname="folder extension")
 
-    
+
     if folderExtIsSpy:
         containerBasename = os.path.splitext(container)[0]
         if not basename.startswith(containerBasename):
-            raise SPYValueError(legal=containerBasename, 
-                                actual=filename, 
+            raise SPYValueError(legal=containerBasename,
+                                actual=filename,
                                 varname='start of filename')
         tag = basename.partition(containerBasename)[-1]
         if tag == "":
             tag = None
-        else:    
+        else:
             if tag[0] == '_': tag = tag[1:]
-        basename = containerBasename       
+        basename = containerBasename
     else:
         container = None
         tag = None

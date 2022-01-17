@@ -18,7 +18,7 @@ if __acme__:
 from syncopy.datatype import AnalogData
 from syncopy.connectivity import connectivity
 import syncopy.tests.synth_data as synth_data
-from syncopy.shared.errors import SPYValueError
+from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.tools import get_defaults
 
 # Decorator to decide whether or not to run dask-related tests
@@ -47,7 +47,6 @@ class TestGranger:
     AdjMat[3, 2] = 0.25
     AdjMat[1, 0] = 0.25
 
-    print(AdjMat)
     # channel indices of coupling
     # a number other than 0 at AdjMat(i,j)
     # means coupling from i->j
@@ -69,7 +68,6 @@ class TestGranger:
         Gcaus = connectivity(self.data, method='granger', taper='dpss',
                              tapsmofrq=3, foi=self.foi, **kwargs)
 
-        # print("peak \t Aij \t peak-frq \t ij")
         # check all channel combinations with coupling
         for i, j in zip(*self.cpl_idx):
             peak = Gcaus.data[0, :, i, j].max()
@@ -92,9 +90,9 @@ class TestGranger:
     def test_gr_selections(self):
 
         # trial, channel and toi selections
-        selections = mk_selection_comb(self.nTrials,
-                                       self.nChannels,
-                                       *self.time_span)
+        selections = mk_selection_dicts(self.nTrials,
+                                        self.nChannels,
+                                        *self.time_span)
 
         for sel_dct in selections:
 
@@ -139,6 +137,16 @@ class TestGranger:
         call = lambda pad_to_length: self.test_gr_solution(pad_to_length=pad_to_length)
         run_padding_test(call, pad_length)
 
+    def test_gr_polyremoval(self):
+
+        # add a constant to the signals
+        self.data = self.data + 10
+
+        call = lambda polyremoval: self.test_gr_solution(polyremoval=polyremoval)
+        run_polyremoval_test(call)
+
+        # remove the constant again
+        self.data = self.data - 10
 
 class TestCoherence:
 
@@ -172,7 +180,8 @@ class TestCoherence:
                            foilim=[5, 60],
                            output='pow',
                            taper='dpss',
-                           tapsmofrq=1.5)
+                           tapsmofrq=1.5,
+                           **kwargs)
 
         # coherence at the harmonic frequencies
         idx_f1 = np.argmin(res.freq < self.f1)
@@ -194,12 +203,12 @@ class TestCoherence:
 
     def test_coh_selections(self):
 
-        selections = mk_selection_comb(self.nTrials,
-                                       self.nChannels,
-                                       *self.time_span)
+        selections = mk_selection_dicts(self.nTrials,
+                                        self.nChannels,
+                                        *self.time_span)
 
         for sel_dct in selections:
-            print(sel_dct)
+
             result = connectivity(self.data, method='coh', select=sel_dct)
 
             # check here just for finiteness and positivity
@@ -237,11 +246,16 @@ class TestCoherence:
 
     def test_coh_padding(self):
 
-        pad_length = int(1.7 * self.nSamples)
+        pad_length = int(1.2 * self.nSamples)
         call = lambda pad_to_length: self.test_coh_solution(pad_to_length=pad_to_length)
         run_padding_test(call, pad_length)
 
-        
+    def test_coh_polyremoval(self):
+
+        call = lambda polyremoval: self.test_coh_solution(polyremoval=polyremoval)
+        run_polyremoval_test(call)
+
+
 class TestCorrelation:
 
     nChannels = 5
@@ -251,7 +265,7 @@ class TestCorrelation:
 
     # -- a single harmonic with phase shifts between channels
 
-    f1 = 10 # period is 0.1s
+    f1 = 10   # period is 0.1s
     trls = []
     for _ in range(nTrials):
 
@@ -268,7 +282,7 @@ class TestCorrelation:
 
     data = AnalogData(trls, samplerate=fs)
     time_span = [-1, nSamples / fs - 1] # -1s offset
-    
+
     def test_corr_solution(self, **kwargs):
 
         corr = connectivity(data=self.data, method='corr', **kwargs)
@@ -325,13 +339,13 @@ class TestCorrelation:
 
         self.test_corr_solution(pad_to_length=None)
         # no padding is allowed for
-        # this method        
+        # this method
         try:
             self.test_corr_solution(pad_to_length=1000)
         except SPYValueError as err:
             assert 'pad_to_length' in str(err)
             assert 'no padding needed/allowed' in str(err)
-            
+
         try:
             self.test_corr_solution(pad_to_length='nextpow2')
         except SPYValueError as err:
@@ -346,7 +360,7 @@ class TestCorrelation:
 
     def test_corr_selections(self):
 
-        selections = mk_selection_comb(self.nTrials,
+        selections = mk_selection_dicts(self.nTrials,
                                        self.nChannels,
                                        *self.time_span)
 
@@ -377,6 +391,10 @@ class TestCorrelation:
         client.close()
         ppl.ion()
 
+    def test_corr_polyremoval(self):
+
+        call = lambda polyremoval: self.test_corr_solution(polyremoval=polyremoval)
+        run_polyremoval_test(call)
 
 # -- helper functions --
 
@@ -409,6 +427,34 @@ def run_padding_test(call, pad_length):
     except SPYValueError as err:
         assert 'Invalid value of `pad_to_length`' in str(err)
         assert 'nextpow2' in str(err)
+
+
+def run_polyremoval_test(call):
+    """
+    The callable should test a solution and support
+    a single keyword argument `polyremoval`
+    """
+
+    poly_options = [0, 1]
+    for poly in poly_options:
+        call(polyremoval=poly)
+
+    # test invalid polyremoval options
+    try:
+        call(polyremoval=2)
+    except SPYValueError as err:
+        assert 'polyremoval' in str(err)
+        assert 'expected value to be greater' in str(err)
+
+    try:
+        call(polyremoval='IamNoPad')
+    except SPYTypeError as err:
+        assert 'Wrong type of `polyremoval`' in str(err)
+
+    try:
+        call(polyremoval=np.array([1000]))
+    except SPYTypeError as err:
+        assert 'Wrong type of `polyremoval`' in str(err)
 
 
 def run_cfg_test(call, method, positivity=True):
@@ -455,7 +501,7 @@ def run_foi_test(call, foilim, positivity=True):
         result = call(foilim=foil, foi=None)
         # check here just for finiteness and positivity
         assert np.all(np.isfinite(result.data))
-        if positivity:        
+        if positivity:
             assert np.all(result.data[0, ...] >= -1e-10)
 
     # make sure specification of both foi and foilim triggers a
@@ -479,7 +525,7 @@ def run_foi_test(call, foilim, positivity=True):
         assert 'bounded by' in str(err)
 
 
-def mk_selection_comb(nTrials, nChannels, toi_min, toi_max):
+def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max):
 
     # at least 10 trials
     assert nTrials > 9

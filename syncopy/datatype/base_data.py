@@ -17,6 +17,7 @@ from hashlib import blake2b
 from itertools import islice
 from functools import reduce
 import shutil
+from typing import Type
 import numpy as np
 from numpy.lib.format import open_memmap, read_magic
 import h5py
@@ -802,16 +803,18 @@ class BaseData(ABC):
         if self.filename is not None:
             for propertyName in self._hdfFileDatasetProperties:
                 prop = getattr(self, propertyName)
-                if isinstance(prop, h5py.Dataset):
-                    try:
-                        prop.file.close()
-                    except (IOError, ValueError, TypeError, ImportError):
-                        pass
-                    except Exception as exc:
-                        raise exc
-                else:
+                try:
+                    if isinstance(prop, h5py.Dataset):
+                        try:
+                            prop.file.close()
+                        except (IOError, ValueError, TypeError, ImportError):
+                            pass
+                        except Exception as exc:
+                            raise exc
+                    else:
+                        del prop
+                except TypeError:
                     del prop
-
             if __storage__ in self.filename and os.path.exists(self.filename):
                 os.unlink(self.filename)
                 shutil.rmtree(os.path.splitext(self.filename)[0],
@@ -1485,6 +1488,11 @@ class Selector():
         self._dimProps = list(self._allProps)
         for prop in self._byTrialProps:
             self._dimProps.remove(prop)
+
+        # Special adjustment for `CrossSpectralData`: remove (invalid) `channel` property
+        # from `_dimProps` (avoid pitfalls in code-blocks iterating over `_dimProps`)
+        if self._dataClass == "CrossSpectralData":
+            self._dimProps.remove("channel")
 
         # Assign defaults (trials are not a "real" property, handle it separately,
         # same goes for `trialdefinition`)

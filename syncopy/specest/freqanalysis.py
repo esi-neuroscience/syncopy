@@ -68,7 +68,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     * **foi**/**foilim** : frequencies of interest; either array of frequencies or
       frequency window (not both)
     * **keeptrials** : return individual trials or grand average
-    * **polyremoval** : de-trending method to use (0 = mean, 1 = linear)
+    * **polyremoval** : de-trending method to use (0 = mean, 1 = linear or `None`)
 
     List of available analysis methods and respective distinct options:
 
@@ -103,11 +103,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         Perform time-frequency analysis on time-series trial data using a non-orthogonal
         continuous wavelet transform.
 
-        * **wav** : one of :data:`~syncopy.specest.const_def.availableWavelets`
+        * **wavelet** : one of :data:`~syncopy.specest.const_def.availableWavelets`
         * **toi** : time-points of interest; can be either an array representing
-          time points (in sec) to center wavelets on or "all" to center a wavelet
-          on every sample in the data. #FIXME: not correct: toi only affects pre-trimming
-          and subsampling of results!
+          time points (in sec) or "all"(pre-trimming and subsampling of results)
         * **width** : Nondimensional frequency constant of Morlet wavelet function (>= 6)
         * **order** : Order of Paul wavelet function (>= 4) or derivative order
           of real-valued DOG wavelets (2 = mexican hat)
@@ -117,11 +115,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         the super-resolution superlet transform (SLT) from [Moca2021]_.
 
         * **order_max** : Maximal order of the superlet
-
         * **order_min** : Minimal order of the superlet
-
         * **c_1** : Number of cycles of the base Morlet wavelet
-
         * **adaptive** : If set to `True` perform fractional adaptive SLT,
           otherwise perform multiplicative SLT
 
@@ -201,25 +196,25 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         equidistant array of time points or "all".
     t_ftimwin : positive float
         Only valid if `method` is `'mtmconvol'`. Sliding window length (in seconds).
-    wav : str
+    wavelet : str
         Only valid if `method` is `'wavelet'`. Wavelet function to use, one of
         :data:`~syncopy.specest.const_def.availableWavelets` (see below).
     width : positive float
-        Only valid if `method` is `'wavelet'` and `wav` is `'Morlet'`. Nondimensional
+        Only valid if `method` is `'wavelet'` and `wavelet` is `'Morlet'`. Nondimensional
         frequency constant of Morlet wavelet function. This number should be >= 6,
         which corresponds to 6 cycles within the analysis window to ensure sufficient
         spectral sampling.
     order : positive int
-        Only valid if `method` is `'wavelet'` and `wav` is `'Paul'` or `'DOG'`. Order
-        of the wavelet function. If `wav` is `'Paul'`, `order` should be chosen
+        Only valid if `method` is `'wavelet'` and `wavelet` is `'Paul'` or `'DOG'`. Order
+        of the wavelet function. If `wavelet` is `'Paul'`, `order` should be chosen
         >= 4 to ensure that the analysis window contains at least a single oscillation.
         At an order of 40, the Paul wavelet  exhibits about the same number of cycles
         as the Morlet wavelet with a `width` of 6.
         All other supported wavelets functions are *real-valued* derivatives of
-        Gaussians (DOGs). Hence, if `wav` is `'DOG'`, `order` represents the derivative order.
+        Gaussians (DOGs). Hence, if `wavelet` is `'DOG'`, `order` represents the derivative order.
         The special case of a second order DOG yields a function known as "Mexican Hat",
         "Marr" or "Ricker" wavelet, which can be selected alternatively by setting
-        `wav` to `'Mexican_hat'`, `'Marr'` or `'Ricker'`. **Note**: A real-valued
+        `wavelet` to `'Mexican_hat'`, `'Marr'` or `'Ricker'`. **Note**: A real-valued
         wavelet function encodes *only* information about peaks and discontinuities
         in the signal and does *not* provide any information about amplitude or phase.
     order_max : int
@@ -329,6 +324,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # check polyremoval
     if polyremoval is not None:
         scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])
+
 
     # --- Padding ---
 

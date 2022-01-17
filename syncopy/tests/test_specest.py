@@ -902,7 +902,7 @@ class TestWavelet():
         # time-points as wavelet centroids)
         cfg = get_defaults(freqanalysis)
         cfg.method = "wavelet"
-        cfg.wav = "Morlet"
+        cfg.wavelet = "Morlet"
         cfg.width = 1
         cfg.output = "pow"
 
@@ -985,7 +985,6 @@ class TestWavelet():
                     peakVals, peakCounts = np.unique(freqPeaks, return_counts=True)
                     freqPeak = peakVals[peakCounts.argmax()]
                     modCount = np.ceil(sum(modCounts) / 2)
-                    # modCount = sum(modCounts)
                     peakProfile = Zxx[:, freqPeak - 1 : freqPeak + 2].mean(axis=1)
                     peaks, _ = scisig.find_peaks(peakProfile, height=2*ZxxThresh, distance=5)
                     if np.abs(peaks.size - modCount) > 2:
@@ -1015,7 +1014,7 @@ class TestWavelet():
         # Don't keep trials to speed things up a bit
         cfg = get_defaults(freqanalysis)
         cfg.method = "wavelet"
-        cfg.wav = "Morlet"
+        cfg.wavelet = "Morlet"
         cfg.output = "pow"
         cfg.keeptrials = False
 
@@ -1060,7 +1059,7 @@ class TestWavelet():
         # Set up wavelet to compute "full" TF spectrum for all time-points
         cfg = get_defaults(freqanalysis)
         cfg.method = "wavelet"
-        cfg.wav = "Morlet"
+        cfg.wavelet = "Morlet"
         cfg.output = "pow"
         cfg.toi = "all"
 
@@ -1109,7 +1108,290 @@ class TestWavelet():
         # now create uniform `cfg` for remaining SLURM tests
         cfg = StructDict()
         cfg.method = "wavelet"
-        cfg.wav = "Morlet"
+        cfg.wavelet = "Morlet"
+        cfg.output = "pow"
+        cfg.toi = "all"
+
+        # no. of HDF5 files that will make up virtual data-set in case of channel-chunking
+        chanPerWrkr = 2
+        nFiles = self.nTrials * (int(self.nChannels/chanPerWrkr)
+                                 + int(self.nChannels % chanPerWrkr > 0))
+
+        # simplest case: equidistant trial spacing, all in memory
+        fileCount = [self.nTrials, nFiles]
+        artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                           inmemory=True)
+        for k, chan_per_worker in enumerate([None, chanPerWrkr]):
+            cfg.chan_per_worker = chan_per_worker
+            tfSpec = freqanalysis(artdata, cfg)
+            assert tfSpec.data.is_virtual
+            assert len(tfSpec.data.virtual_sources()) == fileCount[k]
+
+        # non-equidistant trial spacing
+        cfg.keeptapers = False
+        artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                           inmemory=True, equidistant=False)
+        for chan_per_worker in enumerate([None, chanPerWrkr]):
+            tfSpec = freqanalysis(artdata, cfg)
+            assert 1 > tfSpec.freq.min() > 0
+            assert tfSpec.freq.max() == (self.tfData.samplerate / 2)
+
+        # equidistant trial spacing
+        cfg.output = "abs"
+        artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                           inmemory=False)
+        for chan_per_worker in enumerate([None, chanPerWrkr]):
+            tfSpec = freqanalysis(artdata, cfg)
+            for tk, origTime in enumerate(artdata.time):
+                assert np.array_equal(origTime, tfSpec.time[tk])
+
+        # overlapping trial spacing, throw away trials
+        cfg.keeptrials = "no"
+        cfg.foilim = [1, 250]
+        expectedFreqs = np.arange(1, cfg.foilim[1] + 1)
+        artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
+                                           inmemory=False, equidistant=True,
+                                           overlapping=True)
+        tfSpec = freqanalysis(artdata, cfg)
+        assert np.allclose(tfSpec.freq, expectedFreqs)
+        assert tfSpec.data.shape == (tfSpec.time[0].size, 1, expectedFreqs.size, self.nChannels)
+
+        client.close()
+
+
+class TestSuperlet():
+
+    # Prepare testing signal: ensure `fadeIn` and `fadeOut` are compatible w/`toilim`
+    # selection below
+    nChannels = 4
+    nTrials = 3
+    seed = 151120
+    fadeIn = -9.5
+    fadeOut = 50.5
+    tfData, modulators, even, odd, fader = _make_tf_signal(nChannels, nTrials, seed,
+                                                           fadeIn=fadeIn, fadeOut=fadeOut)
+
+    # Set up in-place data-selection dicts for the constructed object
+    dataSelections = [None,
+                      {"trials": [1, 2, 0],
+                       "channels": ["channel" + str(i) for i in range(2, 4)][::-1]},
+                      {"trials": [0, 2],
+                       "channels": range(0, int(nChannels / 2)),
+                       "toilim": [-20, 60.8]}]
+
+    @skip_low_mem
+    def test_slet_solution(self):
+
+        # Compute TF specturm across entire time-interval (use integer-valued
+        # time-points as wavelet centroids)
+        cfg = get_defaults(freqanalysis)
+        cfg.method = "superlet"
+        cfg.order_max = 2
+        cfg.output = "pow"
+
+        # Set up index tuple for slicing computed TF spectra and collect values
+        # of expected frequency peaks (for validation of `foi`/`foilim` selections below)
+        chanIdx = SpectralData._defaultDimord.index("channel")
+        tfIdx = [slice(None)] * len(SpectralData._defaultDimord)
+        modFreqs = [330, 360]
+        maxFreqs = np.hstack([np.arange(modFreqs[0] - 5, modFreqs[0] + 6),
+                              np.arange(modFreqs[1] - 5, modFreqs[1] + 6)])
+        foilimFreqs = np.arange(maxFreqs.min(), maxFreqs.max() + 1)
+
+        for select in self.dataSelections:
+
+            # Timing of `tfData` is identical for all trials, so to speed things up,
+            # set up `timeArr` here - if `tfData` is modified, these computations have
+            # to be moved inside the `enumerate(tfSpec.trials)`-loop!
+            timeArr = np.arange(self.tfData.time[0][0], self.tfData.time[0][-1])
+            if select:
+                if "toilim" in select.keys():
+                    timeArr = np.arange(*select["toilim"])
+                    timeStart = int(select['toilim'][0] * self.tfData.samplerate - self.tfData._t0[0])
+                    timeStop = int(select['toilim'][1] * self.tfData.samplerate - self.tfData._t0[0])
+                    timeSelection = slice(timeStart, timeStop)
+            else:
+                timeSelection = np.where(self.fader == 1.0)[0]
+            cfg.toi = timeArr
+
+            # Compute TF objects w\w/o`foi`/`foilim`
+            cfg.select = select
+            tfSpec = freqanalysis(cfg, self.tfData)
+            cfg.foi = maxFreqs
+            tfSpecFoi = freqanalysis(cfg, self.tfData)
+            cfg.foi = None
+            cfg.foilim = [maxFreqs.min(), maxFreqs.max()]
+            tfSpecFoiLim = freqanalysis(cfg, self.tfData)
+            cfg.foilim = None
+
+            # Ensure TF objects contain expected/requested frequencies
+            assert 0.02 > tfSpec.freq.min() > 0
+            assert tfSpec.freq.max() == (self.tfData.samplerate / 2)
+            assert tfSpec.freq.size > 60
+            assert np.allclose(tfSpecFoi.freq, maxFreqs)
+            assert np.allclose(tfSpecFoiLim.freq, foilimFreqs)
+
+            for tk, trlArr in enumerate(tfSpec.trials):
+
+                # Get reference trial-number in input object
+                trlNo = tk
+                if select:
+                    trlNo = select["trials"][tk]
+
+                # Ensure timing array was computed correctly and independent of `foi`/`foilim`
+                assert np.array_equal(timeArr, tfSpec.time[tk])
+                assert np.array_equal(tfSpec.time[tk], tfSpecFoi.time[tk])
+                assert np.array_equal(tfSpecFoi.time[tk], tfSpecFoiLim.time[tk])
+
+                for chan in range(tfSpec.channel.size):
+
+                    # Get reference channel in input object to determine underlying modulator
+                    chanNo = chan
+                    if select:
+                        if "toilim" not in select.keys():
+                            chanNo = np.where(self.tfData.channel == select["channels"][chan])[0][0]
+                    if chanNo % 2:
+                        modIdx = self.odd[(-1)**trlNo]
+                    else:
+                        modIdx = self.even[(-1)**trlNo]
+                    tfIdx[chanIdx] = chan
+                    modulator = self.modulators[timeSelection, modIdx]
+                    modCounts = [sum(modulator == modulator.min()), sum(modulator == modulator.max())]
+
+                    # Be more lenient w/`tfSpec`: don't scan for min/max freq, but all peaks at once
+                    # (auto-scale resolution potentially too coarse to differentiate b/w min/max);
+                    # consider peak-count equal up to 2 misses
+                    Zxx = trlArr[tuple(tfIdx)].squeeze()
+                    ZxxMax = Zxx.max()
+                    ZxxThresh = 0.2 * ZxxMax
+                    _, freqPeaks = np.where(Zxx >= (ZxxMax - ZxxThresh))
+                    peakVals, peakCounts = np.unique(freqPeaks, return_counts=True)
+                    freqPeak = peakVals[peakCounts.argmax()]
+                    modCount = np.ceil(sum(modCounts) / 2)
+                    peakProfile = Zxx[:, freqPeak - 1 : freqPeak + 2].mean(axis=1)
+                    peaks, _ = scisig.find_peaks(peakProfile, height=2*ZxxThresh, distance=5)
+                    if np.abs(peaks.size - modCount) > 2:
+                        modCount = sum(modCounts)
+                    assert np.abs(peaks.size - modCount) <= 2
+
+                    # Now for `tfSpecFoi`/`tfSpecFoiLim` on the other side be more
+                    # stringent and really count maxima/minima (frequency values have
+                    # been explicitly queried, must not be too coarse); that said,
+                    # the peak-profile is quite rugged, so adjust `height` if necessary
+                    for tfObj in [tfSpecFoi, tfSpecFoiLim]:
+                        Zxx = tfObj.trials[tk][tuple(tfIdx)].squeeze()
+                        ZxxMax = Zxx.max()
+                        ZxxThresh = ZxxMax - 0.1 * ZxxMax
+                        for fk, mFreq in enumerate(modFreqs):
+                            freqPeak = np.where(np.abs(tfObj.freq - mFreq) < 1)[0][0]
+                            peakProfile = Zxx[:, freqPeak - 1 : freqPeak + 2].mean(axis=1)
+                            height = (1 - fk * 0.25) * ZxxThresh
+                            peaks, _ = scisig.find_peaks(peakProfile, prominence=0.75*height, height=height, distance=5)
+                            # if it doesn't fit, use a bigger hammer...
+                            if np.abs(peaks.size - modCounts[fk]) > 2:
+                                height = 0.9 * ZxxThresh
+                                peaks, _ = scisig.find_peaks(peakProfile, prominence=0.75*height, height=height, distance=5)
+                            assert np.abs(peaks.size - modCounts[fk]) <= 2
+
+    def test_slet_toi(self):
+        # Don't keep trials to speed things up a bit
+        cfg = get_defaults(freqanalysis)
+        cfg.method = "superlet"
+        cfg.order_max = 2
+        cfg.output = "pow"
+        cfg.keeptrials = False
+
+        # Test time-point arrays comprising onset, purely pre-onset, purely after
+        # onset and non-unit spacing
+        toiArrs = [np.arange(-10, 15.1),
+                   np.arange(-15, -10, 1/self.tfData.samplerate),
+                   np.arange(1, 20, 2)]
+
+        # Combine `toi`-testing w/in-place data-pre-selection
+        for select in self.dataSelections:
+            cfg.select = select
+            for toi in toiArrs:
+                cfg.toi = toi
+                tfSpec = freqanalysis(cfg, self.tfData)
+                assert np.allclose(cfg.toi, tfSpec.time[0])
+                assert tfSpec.samplerate == 1/(toi[1] - toi[0])
+
+        # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
+        # to not overflow memory here)
+        cfg.select = {"trials": [0], "channels": [0], "toilim": [-0.5, 0.5]}
+        cfg.toi = "all"
+        tfSpec = freqanalysis(cfg, self.tfData)
+        dt = 1/self.tfData.samplerate
+        timeArr = np.arange(cfg.select["toilim"][0], cfg.select["toilim"][1] + dt, dt)
+        assert np.allclose(tfSpec.time[0], timeArr)
+
+        # Use `toi` array outside trial boundaries
+        cfg.toi = self.tfData.time[0][:10]
+        with pytest.raises(SPYValueError) as spyval:
+            freqanalysis(cfg, self.tfData)
+            errmsg = "Invalid value of `toi`: expected all array elements to be bounded by {} and {}"
+            assert errmsg.format(*cfg.select["toilim"]) in str(spyval.value)
+
+        # Unsorted `toi` array
+        cfg.toi = [0.3, -0.1, 0.2]
+        with pytest.raises(SPYValueError) as spyval:
+            freqanalysis(cfg, self.tfData)
+            assert "Invalid value of `toi`: 'unsorted list/array'" in str(spyval.value)
+
+    def test_slet_irregular_trials(self):
+        # Set up wavelet to compute "full" TF spectrum for all time-points
+        cfg = get_defaults(freqanalysis)
+        cfg.method = "superlet"
+        cfg.order_max = 2
+        cfg.output = "pow"
+        cfg.toi = "all"
+
+        # start harmless: equidistant trials w/multiple tapers
+        artdata = generate_artificial_data(nTrials=5, nChannels=16,
+                                           equidistant=True, inmemory=False)
+        tfSpec = freqanalysis(artdata, **cfg)
+        for tk, origTime in enumerate(artdata.time):
+            assert np.array_equal(origTime, tfSpec.time[tk])
+
+        # non-equidistant trials w/multiple tapers
+        artdata = generate_artificial_data(nTrials=5, nChannels=16,
+                                           equidistant=False, inmemory=False)
+        tfSpec = freqanalysis(artdata, **cfg)
+        for tk, origTime in enumerate(artdata.time):
+            assert np.array_equal(origTime, tfSpec.time[tk])
+
+        # same + reversed dimensional order in input object
+        cfg.data = generate_artificial_data(nTrials=5, nChannels=16,
+                                            equidistant=False, inmemory=False,
+                                            dimord=AnalogData._defaultDimord[::-1])
+        tfSpec = freqanalysis(cfg)
+        for tk, origTime in enumerate(cfg.data.time):
+            assert np.array_equal(origTime, tfSpec.time[tk])
+
+        # same + overlapping trials
+        cfg.data = generate_artificial_data(nTrials=5, nChannels=16,
+                                           equidistant=False, inmemory=False,
+                                           dimord=AnalogData._defaultDimord[::-1],
+                                           overlapping=True)
+        tfSpec = freqanalysis(cfg)
+        for tk, origTime in enumerate(cfg.data.time):
+            assert np.array_equal(origTime, tfSpec.time[tk])
+
+    @skip_without_acme
+    @skip_low_mem
+    def test_slet_parallel(self, testcluster):
+        # collect all tests of current class and repeat them running concurrently
+        client = dd.Client(testcluster)
+        all_tests = [attr for attr in self.__dir__()
+                     if (inspect.ismethod(getattr(self, attr)) and attr != "test_slet_parallel")]
+        for test in all_tests:
+            getattr(self, test)()
+            flush_local_cluster(testcluster)
+
+        # now create uniform `cfg` for remaining SLURM tests
+        cfg = StructDict()
+        cfg.method = "superlet"
+        cfg.order_max = 2
         cfg.output = "pow"
         cfg.toi = "all"
 

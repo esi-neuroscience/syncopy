@@ -31,7 +31,7 @@ def csd(trl_dat,
     Averaging over tapers is done implicitly
     for multi-taper analysis with `taper="dpss"`.
 
-    Output consists of all (nChannels x nChannels+1)/2 different complex
+    Output consists of all (``nChannels x nChannels + 1) / 2`` different complex
     estimates arranged in a symmetric fashion (``CS_ij == CS_ji*``). The
     elements on the main diagonal (`CS_ii`) are the (real) auto-spectra.
 
@@ -39,8 +39,8 @@ def csd(trl_dat,
     "cross spectral density" as there is no (time) averaging!!
     Multi-tapering alone is not necessarily sufficient to get enough
     statitstical power for a robust csd estimate. Yet for completeness
-    and testing the option `norm=True` will output a single-trial
-    coherence estimate for `taper="dpss"`..
+    and testing the option ``norm = True`` returns a single-trial
+    coherence estimate for ``taper = "dpss"``.
 
     Parameters
     ----------
@@ -54,18 +54,18 @@ def csd(trl_dat,
         Absolute length of the (potentially to be padded) signals
         or `None` for no padding (`N` is the number of samples)
     taper : str or None
-        Taper function to use, one of scipy.signal.windows
+        Taper function to use, one of :module:`scipy.signal.windows`
         Set to `None` for no tapering.
     taper_opt : dict, optional
         Additional keyword arguments passed to the `taper` function.
-        For multi-tapering with `taper='dpss'` set the keys
+        For multi-tapering with ``taper = 'dpss'`` set the keys
         `'Kmax'` and `'NW'`.
         For further details, please refer to the
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
     norm : bool, optional
         Set to `True` to normalize for a single-trial coherence measure.
-        Only meaningful in a multi-taper (`taper="dpss"`) setup and if no
-        additional (trial-)averaging is perfomed afterwards.
+        Only meaningful in a multi-taper (``taper = "dpss"``) setup and if no
+        additional (trial-)averaging is performed afterwards.
     fullOutput : bool
         For backend testing or stand-alone applications, set to `True`
         to return also the `freqs` array.
@@ -77,7 +77,7 @@ def csd(trl_dat,
         `K` corresponds to number of input channels.
 
     freqs : (nFreq,) :class:`numpy.ndarray`
-        The Fourier frequencies if `fullOutput=True`
+        The Fourier frequencies if ``fullOutput = True``
 
     See also
     --------
@@ -117,7 +117,7 @@ def csd(trl_dat,
     else:
         return CS_ij.transpose(2, 0, 1)
 
-        
+
 def normalize_csd(csd_av_dat,
                   output='abs'):
 
@@ -142,7 +142,7 @@ def normalize_csd(csd_av_dat,
         Averaged cross-spectral densities for `N` x `N` channels
         and `nFreq` frequencies averaged over trials.
     output : {'abs', 'pow', 'fourier'}, default: 'abs'
-        Also after normalization the coherency is still complex (`'fourier'`),
+        After normalization the coherency is still complex (`'fourier'`);
         to get the real valued coherence ``0 < C_ij(f) < 1`` one can either take the
         absolute (`'abs'`) or the absolute squared (`'pow'`) values of the
         coherencies. The definitions are not uniform in the literature,
@@ -172,5 +172,5 @@ def normalize_csd(csd_av_dat,
 
     CS_ij = spectralConversions[output](CS_ij)
 
-    # re-shape to original form 
+    # re-shape to original form
     return CS_ij.transpose(2, 0, 1)
