@@ -2,8 +2,10 @@
 
 import numpy as np
 import matplotlib.pyplot as ppl
+
+from syncopy.tests import synth_data
+from syncopy.connectivity import csd
 from syncopy.connectivity import ST_compRoutines as stCR
-from syncopy.connectivity import AV_compRoutines as avCR
 from syncopy.connectivity.wilson_sf import wilson_sf, regularize_csd
 from syncopy.connectivity.granger import granger
 
@@ -27,22 +29,21 @@ def test_coherence():
     # shape is (1, nFreq, nChannel, nChannel)
     nFreq = nSamples // 2 + 1
     nChannel = len(phase_shifts)
-    avCSD = np.zeros((1, nFreq, nChannel, nChannel), dtype=np.complex64)
+    avCSD = np.zeros((nFreq, nChannel, nChannel), dtype=np.complex64)
 
     for i in range(nTrials):
 
         # 1 phase phase shifted harmonics + white noise + constant, SNR = 1
-        trl_dat = [10 + np.cos(harm_freq * 2 * np. pi * tvec + ps)
+        trl_dat = [np.cos(harm_freq * 2 * np. pi * tvec + ps)
                    for ps in phase_shifts]
         trl_dat = np.array(trl_dat).T
         trl_dat = np.array(trl_dat) + np.random.randn(nSamples, len(phase_shifts))
 
         # process every trial individually
-        CSD, freqs = stCR.cross_spectra_cF(trl_dat, fs,
-                                           polyremoval=1,
-                                           taper='hann',
-                                           norm=False, # this is important!
-                                           fullOutput=True)
+        CSD, freqs = csd.csd(trl_dat, fs,
+                             taper='hann',
+                             norm=False, # this is important!
+                             fullOutput=True)
 
         assert avCSD.shape == CSD.shape
         avCSD += CSD
@@ -51,19 +52,19 @@ def test_coherence():
     avCSD /= nTrials
 
     # perform the normalisation on the trial averaged csd's
-    Cij = avCR.normalize_csd_cF(avCSD)
+    Cij = csd.normalize_csd(avCSD)
 
     # output has shape (1, nFreq, nChannels, nChannels)
     assert Cij.shape == avCSD.shape
 
     # coherence between channel 0 and 1
-    coh = Cij[0, :, 0, 1]
+    coh = Cij[:, 0, 1]
 
-    fig, ax = ppl.subplots(figsize=(6,4), num=None)
+    fig, ax = ppl.subplots(figsize=(6, 4), num=None)
     ax.set_xlabel('frequency (Hz)')
     ax.set_ylabel('coherence')
     ax.set_ylim((-.02,1.05))
-    ax.set_title('Trial average coherence,  SNR=1')
+    ax.set_title(f'{nTrials} trials averaged coherence,  SNR=1')
 
     ax.plot(freqs, coh, lw=1.5, alpha=0.8, c='cornflowerblue')
 
@@ -99,27 +100,26 @@ def test_csd():
     harm_freq = 40
     phase_shifts = np.array([0, np.pi / 2, np.pi])
 
-    # 1 phase phase shifted harmonics + white noise + constant, SNR = 1
-    data = [10 + np.cos(harm_freq * 2 * np. pi * tvec + ps)
+    # 1 phase phase shifted harmonics + white noise, SNR = 1
+    data = [np.cos(harm_freq * 2 * np. pi * tvec + ps)
             for ps in phase_shifts]
     data = np.array(data).T
     data = np.array(data) + np.random.randn(nSamples, len(phase_shifts))
 
-    bw = 5 #Hz
+    bw = 8 #Hz
     NW = nSamples * bw / (2 * fs)
     Kmax = int(2 * NW - 1) # multiple tapers for single trial coherence
-    CSD, freqs = stCR.cross_spectra_cF(data, fs,
-                                       polyremoval=1,
-                                       taper='dpss',
-                                       taper_opt={'Kmax' : Kmax, 'NW' : NW},
-                                       norm=True,
-                                       fullOutput=True)
+    CSD, freqs = csd.csd(data, fs,
+                         taper='dpss',
+                         taper_opt={'Kmax' : Kmax, 'NW' : NW},
+                         norm=True,
+                         fullOutput=True)
 
     # output has shape (1, nFreq, nChannels, nChannels)
-    assert CSD.shape == (1, len(freqs), data.shape[1], data.shape[1])
+    assert CSD.shape == (len(freqs), data.shape[1], data.shape[1])
 
     # single trial coherence between channel 0 and 1
-    coh = np.abs(CSD[0, :, 0, 1])
+    coh = np.abs(CSD[:, 0, 1])
 
     fig, ax = ppl.subplots(figsize=(6,4), num=None)
     ax.set_xlabel('frequency (Hz)')
@@ -179,12 +179,14 @@ def test_wilson():
     nSamples = 1000
     f1, f2 = [30 , 40] # 30Hz and 60Hz
     data = np.zeros((nSamples, nChannels))
-    for i in range(nChannels):
-        # more phase diffusion in the 60Hz band
-        p1 = phase_evo(f1 * 2 * np.pi, eps=0.1, fs=fs, N=nSamples)
-        p2 = phase_evo(f2 * 2 * np.pi, eps=0.35, fs=fs, N=nSamples)
 
-        data[:, i] = np.cos(p1) + 2 * np.sin(p2) + .5 * np.random.randn(nSamples)
+    # more phase diffusion in the 60Hz band
+    p1 = synth_data.phase_evo(f1, eps=.3, fs=fs,
+                              nSamples=nSamples, nChannels=nChannels)
+    p2 = synth_data.phase_evo(f2, eps=1, fs=fs,
+                              nSamples=nSamples, nChannels=nChannels)
+
+    data = np.cos(p1) + 2 * np.sin(p2) + .5 * np.random.randn(nSamples, nChannels)
 
     # --- get the (single trial) CSD ---
 
@@ -192,14 +194,12 @@ def test_wilson():
     NW = bw * nSamples / (2 * fs)
     Kmax = int(2 * NW - 1) # optimal number of tapers
 
-    CSD, freqs = stCR.cross_spectra_cF(data, fs,
-                                       taper='dpss',
-                                       taper_opt={'Kmax' : Kmax, 'NW' : NW},
-                                       norm=False,
-                                       fullOutput=True)
-    # strip off singleton time axis
-    CSD = CSD[0]
-
+    CSD, freqs = csd.csd(data, fs,
+                         taper='dpss',
+                         taper_opt={'Kmax' : Kmax, 'NW' : NW},
+                         norm=False,
+                         fullOutput=True)
+    
     # get CSD condition number, which is way too large!
     CN = np.linalg.cond(CSD).max()
     assert CN > 1e6
@@ -231,7 +231,7 @@ def test_wilson():
     ax.plot(freqs, np.abs(CSD[:, chan, chan]),
             '-o', label='original CSD', ms=3)
     ax.plot(freqs, np.abs(CSDreg[:, chan, chan]),
-            '-o', label='regularized CSD', ms=3)
+            '--', label='regularized CSD', ms=3)
     ax.plot(freqs, np.abs(CSDfac[:, chan, chan]),
             '-o', label='factorized CSD', ms=3)
     ax.set_xlim((f1 - 5, f2 + 5))
@@ -252,40 +252,23 @@ def test_granger():
 
     fs = 200 # Hz
     nSamples = 2500
-    nTrials = 50
-
-    # both AR(2) processes have same parameters
-    # and yield a spectral peak at 40Hz
-    alpha1, alpha2 = 0.55, -0.8
-    coupling = 0.25
+    nTrials = 25
 
     CSDav = np.zeros((nSamples // 2 + 1, 2, 2), dtype=np.complex64)
     for _ in range(nTrials):
 
-        # -- simulate 2 AR(2) processes --
-
-        sol = np.zeros((nSamples, 2))
-        # pick the 1st values at random
-        xs_ini = np.random.randn(2, 2)
-        sol[:2, :] = xs_ini
-        for i in range(1, nSamples):
-            sol[i, 1] = alpha1 * sol[i - 1, 1] + alpha2 * sol[i - 2, 1]
-            sol[i, 1] += np.random.randn()
-            # X2 drives X1
-            sol[i, 0] = alpha1 * sol[i - 1, 0] + alpha2 * sol[i - 2, 0]
-            sol[i, 0] += sol[i - 1, 1] * coupling
-            sol[i, 0] += np.random.randn()
+        # -- simulate 2 AR(2) processes with 2->1 coupling --
+        sol = synth_data.AR2_network(nSamples=nSamples)
 
         # --- get CSD ---
-        bw = 5
-        NW = bw * nSamples / (2 * 1000)
+        bw = 2
+        NW = bw * nSamples / (2 * fs)
         Kmax = int(2 * NW - 1) # optimal number of tapers
-        CS2, freqs = stCR.cross_spectra_cF(sol, fs,
-                                           taper='dpss',
-                                           taper_opt={'Kmax' : Kmax, 'NW' : NW},
-                                           fullOutput=True)
+        CSD, freqs = csd.csd(sol, fs,
+                             taper='dpss',
+                             taper_opt={'Kmax' : Kmax, 'NW' : NW},
+                             fullOutput=True)
 
-        CSD = CS2[0, ...]
         CSDav += CSD
 
     CSDav /= nTrials
@@ -296,6 +279,13 @@ def test_granger():
     G = granger(CSDav, H, Sigma)
     assert G.shape == CSDav.shape
 
+    fig, ax = ppl.subplots(figsize=(6, 4))
+    ax.set_xlabel('frequency (Hz)')
+    ax.set_ylabel(r'Granger causality(f)')
+    ax.plot(freqs, G[:, 0, 1], label=r'Granger $1\rightarrow2$')
+    ax.plot(freqs, G[:, 1, 0], label=r'Granger $2\rightarrow1$')
+    ax.legend()
+    
     # check for directional causality at 40Hz
     freq_idx = np.argmin(freqs < 40)
     assert 39 < freqs[freq_idx] < 41
@@ -305,19 +295,7 @@ def test_granger():
     # check high causality for 2->1
     assert G[freq_idx, 1, 0] > 0.8
 
-    fig, ax = ppl.subplots(figsize=(6, 4))
-    ax.set_xlabel('frequency (Hz)')
-    ax.set_ylabel(r'Granger causality(f)')
-    ax.plot(freqs, G[:, 0, 1], label=r'Granger $1\rightarrow2$')
-    ax.plot(freqs, G[:, 1, 0], label=r'Granger $2\rightarrow1$')
-    ax.legend()
 
 # --- Helper routines ---
 
 
-# noisy phase evolution -> phase diffusion
-def phase_evo(omega0, eps, fs=1000, N=1000):
-    wn = np.random.randn(N)
-    delta_ts = np.ones(N) * 1 / fs
-    phase = np.cumsum(omega0 * delta_ts + eps * wn)
-    return phase

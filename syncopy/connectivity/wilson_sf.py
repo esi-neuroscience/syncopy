@@ -86,11 +86,11 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9):
             break
 
     # Noise Covariance
-    Sigma = psi0 @ psi0.conj().T
+    Sigma = psi0 @ psi0.T
 
     # Transfer function
     psi0_inv = np.linalg.inv(psi0)
-    Hfunc = psi @ psi0_inv.conj().T
+    Hfunc = psi @ psi0_inv.T
 
     return Hfunc, Sigma, converged
 

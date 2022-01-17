@@ -68,7 +68,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     * **foi**/**foilim** : frequencies of interest; either array of frequencies or
       frequency window (not both)
     * **keeptrials** : return individual trials or grand average
-    * **polyremoval** : de-trending method to use (0 = mean, 1 = linear)
+    * **polyremoval** : de-trending method to use (0 = mean, 1 = linear or `None`)
 
     List of available analysis methods and respective distinct options:
 
@@ -206,9 +206,10 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         The amount of spectral smoothing through  multi-tapering (Hz).
         Note that smoothing frequency specifications are one-sided,
         i.e., 4 Hz smoothing means plus-minus 4 Hz, i.e., a 8 Hz smoothing box.
-    nTaper : int
+    nTaper : int or None
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and `taper='dpss'`.
-        Number of orthogonal tapers to use.
+        Number of orthogonal tapers to use. It is not recommended to set the number
+        of tapers manually! Leave at `None` for the optimal number to be set automatically.
     keeptapers : bool
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'`.
         If `True`, return spectral estimates for each taper.
@@ -795,15 +796,14 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 int(minTrialLength * data.samplerate),
                 dt)
             foi = 1 / wfun.fourier_period(scales)
-            msg = (f"Automatic wavelet frequency selection from {foi[0]:.1f}Hz to "
+            msg = (f"Setting frequencies of interest to {foi[0]:.1f}-"
                    f"{foi[-1]:.1f}Hz")
             SPYInfo(msg)
-        elif foilim is not None:
-            foi = np.arange(foilim[0], foilim[1] + 1)
-            foi[foi < 0.01] = 0.01
-            scales = wfun.scale_from_period(1 / foi)
-        # foi is given as array
         else:
+            if foilim is not None:
+                foi = np.arange(foilim[0], foilim[1] + 1, dtype=float)
+            # 0 frequency is not valid
+            foi[foi < 0.01] = 0.01
             scales = wfun.scale_from_period(1 / foi)
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
@@ -861,16 +861,16 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 int(minTrialLength * data.samplerate),
                 dt)
             foi = 1 / superlet.fourier_period(scales)
-            msg = (f"Automatic superlet frequency selection from {foi[0]:.1f}Hz to "
+            msg = (f"Setting frequencies of interest to {foi[0]:.1f}-"
                    f"{foi[-1]:.1f}Hz")
             SPYInfo(msg)
-        # frequency range in 1Hz steps
-        elif foilim is not None:
-            foi = np.arange(foilim[0], foilim[1] + 1)
-            scales = superlet.scale_from_period(1 / foi)
-        # foi is given as array
         else:
-            scales = superlet.scale_from_period(1 / foi)
+            if foilim is not None:
+                # frequency range in 1Hz steps
+                foi = np.arange(foilim[0], foilim[1] + 1, dtype=float)
+            # 0 frequency is not valid
+            foi[foi < 0.01] = 0.01
+            scales = wfun.scale_from_period(1 / foi)
 
         # FASLT needs ordered frequencies low - high
         # meaning the scales have to go high - low

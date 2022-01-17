@@ -62,15 +62,15 @@ def granger(CSD, Hfunc, Sigma):
     # Granger i->j needs H_ji entry
     Hmat = np.abs(Hfunc.transpose(0, 2, 1))**2
     # Granger i->j needs Sigma_ji entry
-    SigmaIJ = np.abs(Sigma.T)**2
+    SigmaJI = np.abs(Sigma.T)
 
     # imag part should be 0
     auto_cov = np.abs(Sigma.diagonal())
     # same stacking as for the auto spectra (without freq axis)
-    SigmaII = auto_cov[:, None] * np.ones(nChannels)[:, None]
+    SigmaII = auto_cov[None, :] * np.ones(nChannels)[:, None]
 
     # the denominator
-    denom = SigmaII.transpose() - SigmaIJ / SigmaII
+    denom = SigmaII.T - SigmaJI**2 / SigmaII
     denom = Smat - denom * Hmat
 
     # linear causality i -> j

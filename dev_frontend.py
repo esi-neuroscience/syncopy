@@ -13,50 +13,74 @@ from syncopy.shared.tools import get_defaults
 from syncopy.datatype import SpectralData, padding
 
 from syncopy.tests.misc import generate_artificial_data
-tdat = generate_artificial_data(inmemory=True, seed=1230, nTrials=50, nChannels=5)
+from syncopy.tests import synth_data
 
-foilim = [1, 30]
+foilim = [5, 80]
+foi = np.arange(5, 80, 1)
+foi2 = np.arange(5, 180, .2)
 # this still gives type(tsel) = slice :)
-sdict1 = {"trials": [0], 'channels' : ['channel1'], 'toi': np.arange(-1, 1, 0.001)}
+sdict1 = {'channels' : ['channel01', 'channel03'], 'toilim' : [-.221, 1.12]}
 
-coherence = connectivity(data=tdat,
-                         foilim=None,
-                         output='pow',
-                         taper='dpss',
-                         tapsmofrq=5,
-                         foo = 3, # non-sensical 
-                         keeptrials=False)
+nSamples = 2500
+nChannels = 4
+nTrials = 10
+fs = 200
 
-granger = connectivity(data=tdat,
-                       method='granger',
-                       foilim=[0, 50],
-                       output='pow',
-                       taper='dpss',
-                       tapsmofrq=5,                                 
-                       keeptrials=False)
+f1, f2 = 10, 40
+trls = []
+for _ in range(nTrials):
 
-# D = SpectralData(dimord=['freq','test1','test2','taper'])
-# D2 = AnalogData(dimord=['freq','test1'])
+    # little phase diffusion
+    p1 = synth_data.phase_evo(f1, eps=.01, nChannels=nChannels, nSamples=nSamples)
+    # same frequency but more diffusion
+    p2 = synth_data.phase_evo(f2, eps=0.001, nChannels=nChannels, nSamples=nSamples)
+    # set 2nd channel to higher phase diffusion
+    #p1[:, 1] = p2[:, 1]
+    # add a pi/2 phase shift for the even channels
+    #p1[:, 2::2] += np.pi / 2
+    # add a pi phase shift for the odd channels
+    #p1[:, 3::2] += np.pi
 
-# a lot of problems here..
-# correlation = connectivity(data=tdat, method='corr', keeptrials=False, taper='df')
+    trls.append(1 * np.cos(p1) + 1 * np.cos(p2) + 0.6 * np.random.randn(nSamples, nChannels))
+    
+tdat2 = AnalogData(trls, samplerate=1000)
+
+AdjMat = synth_data.mk_RandomAdjMat(nChannels)
+trls = [100 * synth_data.AR2_network(AdjMat) for _ in range(nTrials)]
+tdat1 = AnalogData(trls, samplerate=fs)
 
 
-# the hard wired dimord of the cF
+def call_con(data, method, **kwargs):
 
-res = freqanalysis(data=tdat,
-                   method='mtmfft',
-                   samplerate=tdat.samplerate,
-#                   order_max=20,
-#                   foilim=foilim,
-#                   foi=np.arange(502),
-                   output='pow',
-#                   polyremoval=1,
-                   t_ftimwin=0.5,
-                   keeptrials=True,
-                   taper='dpss',
-                   nTaper = 19,
-                   tapsmofrq=5,
-                   keeptapers=True,
-                   parallel=False, # try this!!!!!!
-                   select={"trials" : [0,1]})
+    res = connectivity(data=data,
+                       method=method,
+                       **kwargs)
+    return res
+
+
+def call_freq(data, method, **kwargs):
+    res = freqanalysis(data=data, method=method, **kwargs)
+
+    return res
+
+# ampl = np.abs(res2.show())
+
+
+def plot_coh(res, i, j, label=''):
+
+    dim = res.dimord.index('freq')
+    
+    ax = ppl.gca()
+    ax.set_xlabel('frequency (Hz)')
+    ax.set_ylabel('coherence $|CSD|^2$')
+    ax.plot(res.freq, res.data[0, :, i, j], label=label)
+
+
+def plot_corr(res, i, j, label=''):
+
+    ax = ppl.gca()
+    ax.set_xlabel('lag (s)')
+    ax.set_ylabel('Correlation')
+    ax.plot(res.time[0], res.data[:, 0, i, j], label=label)
+    
+# ppl.xlabel('frequency (Hz)')
