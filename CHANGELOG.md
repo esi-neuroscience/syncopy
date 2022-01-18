@@ -4,14 +4,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.2] - 2022-01-18
+Major Release
+
 ### NEW
+- Added Connectivity submodule with `csd`, `granger` and `coh` measures
+- Added new `CrossSpectralData` class for connectivity data
+- Added Superlet spectral estimation method to `freqanalysis`
+- Added arithmetic operator overloading for SyNCoPy objects: it is now possible
+  to perform simple arithmetic operations directly, e.g.,``data1 + data2``.
+- Added equality operator for SyNCoPy objects: two objects can be parsed for
+  identical contents using the "==" operator
+- Added full object padding functionality
+- Added support for user-controlled in-place selections
+- Added `show` class method for easy data access in all SyNCoPy objects
+- Added de-trending suppport in `freqanalysis` via the `polyremoval` keyword
+- New interface for synthetic data generation: using a list of NumPy arrays for
+  instantiation interprets each array as `nChannels` x `nSamples` trial data
+  which are combined to generate a `AnalogData` object
 - Made SyNCoPy PEP 517 compliant: added pyproject.toml and modified setup.py
   accordingly
 - Added IBM POWER testing pipeline (via dedicated GitLab Runner)
-- Added Superlet spectral estimation method
 
 ### CHANGED
+- Multi-tapering now works with smoothing frequencies in Hz
+- Streamlined padding interface
 
 ### REMOVED
 - Retired tox in `slurmtest` CI pipeline in favor of a "simple" pytest testing
@@ -23,6 +40,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   dependency of SyNCoPy
 
 ### FIXED
+- Non-standard `dimord` objects are now parsed and processed by `ComputationalRoutine`
+- Impromptu padding performed by `freqanalysis` is done in a more robust way
 - Stream-lined GitLab Runner setup: use cluster-wide conda instead of local
   installations (that differ slightly across runners) and leverage `tox-conda`
   to fetch pre-built dependencies
