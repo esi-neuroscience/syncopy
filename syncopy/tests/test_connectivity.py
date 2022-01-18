@@ -190,7 +190,7 @@ class TestCoherence:
         peak_f2 = res.data[0, idx_f2, 0, 1]
 
         # check low phase diffusion has high coherence
-        assert peak_f2 > 0.7
+        assert peak_f2 > 0.5
         # check that with higher phase diffusion the
         # coherence is lower
         assert peak_f1 < peak_f2
