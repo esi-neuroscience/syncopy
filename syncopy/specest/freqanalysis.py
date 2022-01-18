@@ -599,13 +599,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             offEnd = ((tEnd - toi[-1]) * data.samplerate).astype(np.intp)
             padEnd = halfWin - offEnd
             padEnd = ((padEnd > 0) * padEnd).astype(np.intp)
-            # Abort if padding was explicitly forbidden
-            # if pad is False and (np.any(padBegin) or np.any(padBegin)):
-            #     lgl = "windows within trial bounds"
-            #     act = "windows exceeding trials no. " +\
-            #         "".join(str(trlno) + ", "\
-            #                 for trlno in np.array(trialList)[(padBegin + padEnd) > 0])[:-2]
-            #     raise SPYValueError(legal=lgl, varname="pad", actual=act)
 
             # Compute sample-indices (one slice/list per trial) from time-selections
             soi = []
@@ -637,8 +630,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
         # `toi` is percentage or "all"
         else:
-            padBegin = np.zeros((numTrials,))
-            padEnd = np.zeros((numTrials,))
             soi = [slice(None)] * numTrials
 
 
@@ -653,8 +644,6 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         specestMethod = MultiTaperFFTConvol(
             soi,
             postSelect,
-            # list(padBegin), # they should be obsolete
-            # list(padEnd),
             equidistant=equidistant,
             toi=toi,
             foi=foi,

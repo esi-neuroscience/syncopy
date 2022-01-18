@@ -8,7 +8,7 @@ intellinux:
     stage: tox
     allow_failure: true
     tags:
-    - slurm
+    - deploy
     only:
     - master
     - dev
@@ -17,7 +17,7 @@ intellinux:
         GIT_FETCH_EXTRA_FLAGS: --tags
         NO_SLURM: "true"
     script:
-    - source /opt/conda/etc/profile.d/conda.sh
+    - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - tox
@@ -55,6 +55,23 @@ intelwin:
     - conda.bat activate syncopy
     - tox
 
+m1macos:
+    stage: tox
+    allow_failure: true
+    tags:
+    - macos
+    only:
+    - master
+    - dev
+    variables:
+        PYTEST_ADDOPTS: "--color=yes --tb=short --verbose"
+        GIT_FETCH_EXTRA_FLAGS: --tags
+    script:
+    - source /opt/conda/etc/profile.d/conda.sh
+    - conda env update -f syncopy.yml --prune
+    - conda activate syncopy
+    - tox -p 0
+
 slurmtest:
     stage: slurm
     allow_failure: true
@@ -89,10 +106,12 @@ pypitest:
     - conda activate syncopy
     - conda install --yes twine keyring rfc3986
     - conda update --yes twine keyring rfc3986
+    - rm -rf dist/ build/ esi_syncopy.egg-info/
     - python setup.py sdist bdist_wheel
     - tarname="$(basename -- $(ls dist/*.tar.gz) .tar.gz)"
     - version=$(sed -e 's/esi-syncopy-\(.*\)/\1/' <<< "$tarname")
     - twine upload --repository testpypi --config-file=~/.esipypirc dist/*
+    - sleep 300
     - conda create --yes --name piptest python=3.8
     - conda activate piptest
     - conda install --yes pip
@@ -117,5 +136,6 @@ pypideploy:
     - conda activate syncopy
     - conda install --yes twine keyring rfc3986
     - conda update --yes twine keyring rfc3986
+    - rm -rf dist/ build/ esi_syncopy.egg-info/
     - python setup.py sdist bdist_wheel
     - twine upload --config-file=~/.esipypirc dist/*

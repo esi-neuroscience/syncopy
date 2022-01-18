@@ -17,7 +17,6 @@ from hashlib import blake2b
 from itertools import islice
 from functools import reduce
 import shutil
-from typing import Type
 import numpy as np
 from numpy.lib.format import open_memmap, read_magic
 import h5py

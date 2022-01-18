@@ -9,7 +9,6 @@ import platform
 import tempfile
 import pytest
 import numpy as np
-from collections import OrderedDict
 
 # Local imports
 from syncopy.shared.parsers import (io_parser, scalar_parser, array_parser,

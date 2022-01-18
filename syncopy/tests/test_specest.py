@@ -21,9 +21,8 @@ if __acme__:
 from syncopy.tests.misc import generate_artificial_data, flush_local_cluster
 from syncopy.specest.freqanalysis import freqanalysis
 from syncopy.shared.errors import SPYValueError
-from syncopy.datatype.methods.padding import _nextpow2
 from syncopy.datatype.base_data import VirtualData, Selector
-from syncopy.datatype import AnalogData, SpectralData, padding
+from syncopy.datatype import AnalogData, SpectralData
 from syncopy.shared.tools import StructDict, get_defaults
 
 # Decorator to decide whether or not to run dask-related tests

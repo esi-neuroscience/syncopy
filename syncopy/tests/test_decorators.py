@@ -161,7 +161,7 @@ class TestSpyCalls():
         # cfg is not dict/StructDict
         with pytest.raises(SPYTypeError)as exc:
             group_objects(cfg="invalid")
-        assert "Wrong type of cfg: expected dictionary-like" in str(exc.value)
+        assert "Wrong type of `cfg`: expected dictionary-like" in str(exc.value)
 
     def test_varargin(self):
 
