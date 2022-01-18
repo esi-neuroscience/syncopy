@@ -11,19 +11,20 @@ import sys
 sys.path.insert(0, ".")
 from conda2pip import conda2pip
 
+# Set release version by hand
+releaseVersion = "0.2"
+
 # Get necessary and optional package dependencies
 required, dev = conda2pip(return_lists=True)
 
 # Get package version for citationFile (for dev-builds this might differ from
 # test-PyPI versions, which are ordered by recency)
-spyVersion = get_version(root='.', relative_to=__file__, local_scheme="no-local-version")
+version = get_version(root='.', relative_to=__file__, local_scheme="no-local-version")
 
-# For release-versions, remove local versioning suffix "dev0"; for TestPyPI uploads,
-# keep the local `tag.devx` scheme
-versionParts = spyVersion.split(".dev")
-if versionParts[-1] == "0":
-    spyVersion = "v0.1b1"
-    versionKws = {"use_scm_version" : False, "version" : spyVersion}
+# Release versions (commits at tag) have suffix "dev0": use `releaseVersion` as
+# fixed version. for TestPyPI uploads, keep the local `tag.devx` scheme
+if version.split(".dev")[-1] == "0":
+    versionKws = {"use_scm_version" : False, "version" : releaseVersion}
 else:
     versionKws = {"use_scm_version" : {"local_scheme": "no-local-version"}}
 
@@ -32,7 +33,7 @@ citationFile = "CITATION.cff"
 yaml = ruamel.yaml.YAML()
 with open(citationFile) as fl:
     ymlObj = yaml.load(fl)
-ymlObj["version"] = spyVersion
+ymlObj["version"] = version
 ymlObj["date-released"] = datetime.datetime.now().strftime("%Y-%m-%d")
 with open(citationFile, "w") as fl:
     yaml.dump(ymlObj, fl)
