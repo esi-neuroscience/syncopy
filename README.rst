@@ -40,11 +40,19 @@ Syncopy is available on pip
 
    pip install esi-syncopy
 
+For using SynCoPy's parallel processing capabilities, `ACME <https://github.com/esi-neuroscience/acme>`_ is required
+
+.. code-block:: bash
+
+   conda install -c conda-forge esi-acme
+
 To get the latest development version, please clone our GitHub repository:
 
 .. code-block:: bash
 
-   git clone --recurse-submodules https://github.com/esi-neuroscience/syncopy.git
+   git clone https://github.com/esi-neuroscience/syncopy.git
+   cd syncopy/
+   pip install -e .
 
 Getting Started
 ===============

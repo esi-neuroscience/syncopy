@@ -14,9 +14,9 @@ from syncopy.shared.errors import (SPYIOError, SPYTypeError, SPYValueError,
                                    SPYError, SPYWarning)
 from syncopy.shared.tools import StructDict, get_defaults
 import syncopy as spy
-if spy.__dask__:
+if spy.__acme__:
     import dask.distributed as dd
-    from syncopy.acme.acme.dask_helpers import esi_cluster_setup, cluster_cleanup
+    from acme.dask_helpers import esi_cluster_setup, cluster_cleanup
 
 __all__ = []
 
@@ -117,12 +117,16 @@ def unwrap_cfg(func):
     """
 
     # Perform a little introspection gymnastics to get the name of the first
-    # positional and keyword argument of `func`
+    # positional and keyword argument of `func` (if we only find anonymous `**kwargs`,
+    # come up with an exemplary keyword - `kwarg0` is only used in the generated docstring)
     funcParams = inspect.signature(func).parameters
     paramList = list(funcParams)
     kwargList = [pName for pName, pVal in funcParams.items() if pVal.default != pVal.empty]
     arg0 = paramList[0]
-    kwarg0 = kwargList[0]
+    if len(kwargList) > 0:
+        kwarg0 = kwargList[0]
+    else:
+        kwarg0 = "some_parameter"
 
     @functools.wraps(func)
     def wrapper_cfg(*args, **kwargs):
@@ -236,12 +240,6 @@ def unwrap_cfg(func):
                     data.append(arg)
                 else:
                     posargs.append(arg)
-
-        # At this point, `data` is a list: if it's empty, not a single Syncopy data object
-        # was provided (neither via `cfg`, `kwargs`, or `args`) and the call is invalid
-        if len(data) == 0:
-            err = "{0} missing mandatory argument: `{1}`"
-            raise SPYError(err.format(func.__name__, arg0))
 
         # Call function with unfolded `data` + modified positional/keyword args
         return func(*data, *posargs, **cfg)
@@ -431,47 +429,60 @@ def detect_parallel_client(func):
         # Extract `parallel` keyword: if `parallel` is `False`, nothing happens
         parallel = kwargs.get("parallel")
 
-        # Detect if dask client is running and set `parallel` keyword accordingly
-        results = []
-        cleanup = False
-        if parallel is None or parallel is True:
-            if spy.__dask__:
-                try:
-                    dd.get_client()
-                    parallel = True
-                except ValueError:
-                    if parallel is True:
-                        objList = []
-                        argList = list(args)
-                        nTrials = 0
-                        for arg in args:
-                            if hasattr(arg, "trials"):
-                                objList.append(arg)
-                                nTrials = max(nTrials, len(arg.trials))
-                                argList.remove(arg)
-                        nObs = len(objList)
-                        msg = "Syncopy <{fname:s}> Launching parallel computing client " +\
-                            "to process {no:d} objects..."
-                        print(msg.format(fname=func.__name__, no=nObs))
-                        client = esi_cluster_setup(n_jobs=nTrials, interactive=False)
-                        cleanup = True
-                        if len(objList) > 1:
-                            for obj in objList:
-                                results.append(func(obj, *argList, **kwargs))
-                    else:
-                        parallel = False
-            else:
-                wrng = \
-                "dask seems not to be installed on this system. " +\
-                "Parallel processing capabilities cannot be used. "
-                SPYWarning(wrng)
+        # Determine if multiple or a single object was supplied for processing
+        objList = []
+        argList = list(args)
+        nTrials = 0
+        for arg in args:
+            if hasattr(arg, "trials"):
+                objList.append(arg)
+                nTrials = max(nTrials, len(arg.trials))
+                argList.remove(arg)
+        nObs = len(objList)
+
+        # If parallel processing was requested but ACME is not installed, show
+        # warning but keep going
+        if parallel is True and not spy.__acme__:
+            wrng = "ACME seems not to be installed on this system. " +\
+                   "Parallel processing capabilities cannot be used. "
+            SPYWarning(wrng)
+            parallel = False
+
+        # If ACME is available but `parallel` was not set *and* no active
+        # dask client is found, set `parallel` to`False` (i.e., sequential
+        # processing as default)
+        clientRunning = False
+        if parallel is None and spy.__acme__:
+            try:
+                dd.get_client()
+                parallel = True
+                clientRunning = True
+            except ValueError:
                 parallel = False
+
+        # If only one object was supplied, a dask client is set up in `ComputationalRoutine`;
+        # for multiple objects, count the total number of trials and start a "global"
+        # computing client with `n_jobs = nTrials` in here (unless a client is already running)
+        cleanup = False
+        if parallel and not clientRunning and nObs > 1:
+            msg = "Syncopy <{fname:s}> Launching parallel computing client " +\
+                    "to process {no:d} objects..."
+            print(msg.format(fname=func.__name__, no=nObs))
+            client = esi_cluster_setup(n_jobs=nTrials, interactive=False)
+            cleanup = True
 
         # Add/update `parallel` to/in keyword args
         kwargs["parallel"] = parallel
 
-        if len(results) == 0:
+        # Process provided object(s)
+        if nObs <= 1:
             results = func(*args, **kwargs)
+        else:
+            results = []
+            for obj in objList:
+                results.append(func(obj, *argList, **kwargs))
+
+        # Kill "global" cluster started in here
         if cleanup:
             cluster_cleanup(client=client)
 

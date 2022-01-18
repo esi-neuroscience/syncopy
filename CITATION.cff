@@ -9,6 +9,11 @@ message: 'If you use this software, please cite it based on metadata found in th
 authors:
 - affiliation: Ernst Strüngmann Institute for Neuroscience in Cooperation with Max
     Planck Society
+  family-names: Mönke
+  given-names: Gregor
+  orcid: https://orcid.org/0000-0002-3521-715X
+- affiliation: Ernst Strüngmann Institute for Neuroscience in Cooperation with Max
+    Planck Society
   family-names: Fuertinger
   given-names: Stefan
   orcid: https://orcid.org/0000-0002-8118-036X
@@ -17,6 +22,11 @@ authors:
   family-names: Schmiedt
   given-names: Joscha
   orcid: https://orcid.org/0000-0001-6233-1866
+- affiliation: Ernst Strüngmann Institute for Neuroscience in Cooperation with Max
+    Planck Society
+  family-names: Fries
+  given-names: Pascal
+  orcid:  https://orcid.org/0000-0002-4270-1468
 license: BSD-3-Clause
 keywords:
 - large-scale electrophysiology

@@ -98,9 +98,12 @@ def cwt_time(data, wavelet, widths, dt, axis):
         M = 10 * width / dt
         # times to use, centred at zero
         t = np.arange((-M + 1) / 2., (M + 1) / 2.) * dt
-        # sample wavelet and normalise
-        norm = (dt / width) ** .5
+        # sample wavelet and normalise to harmonic amplitude
+        norm = dt ** .5  / (width * 8 * np.pi)
         wavelet_data = norm * wavelet(t, width)
+
+        # support might be longer than data, but fftconvolve
+        # returns result of 1st input argument lengths!
         output[ind, :] = scipy.signal.fftconvolve(data,
                                                   wavelet_data[slices],
                                                   mode='same')

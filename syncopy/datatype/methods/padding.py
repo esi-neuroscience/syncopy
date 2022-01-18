@@ -1,28 +1,35 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Pad Syncopy data objects
-# 
+#
 
 # Builtin/3rd party package imports
 import numpy as np
 
 # Local imports
+from syncopy.datatype.continuous_data import AnalogData
+from syncopy.shared.computational_routine import ComputationalRoutine
+from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.shared.parsers import data_parser, array_parser, scalar_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYWarning
+from syncopy.shared.kwarg_decorators import unwrap_cfg, unwrap_select, detect_parallel_client
 
 __all__ = ["padding"]
 
 
+@unwrap_cfg
+@unwrap_select
+@detect_parallel_client
 def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
-            postpadlength=None, unit="samples", create_new=True):
+            postpadlength=None, unit="samples", create_new=True, **kwargs):
     """
     Perform data padding on Syncopy object or :class:`numpy.ndarray`
-    
+
     **Usage Summary**
-    
+
     Depending on the value of `pad` the following padding length specifications
     are supported:
-    
+
     +------------+----------------------+---------------+----------------------+----------------------+
     | `pad`      | `data`               | `padlength`   | `prepadlength`       | `postpadlength`      |
     +============+======================+===============+======================+======================+
@@ -34,7 +41,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     +------------+----------------------+---------------+----------------------+----------------------+
     | 'nextpow2' | Syncopy object/array | `None`/`bool` | `None`/`bool`        | `None`/`bool`        |
     +------------+----------------------+---------------+----------------------+----------------------+
-    
+
     * `data` can be either a Syncopy object containing multiple trials or a
       :class:`numpy.ndarray` representing a single trial
     * (pre/post)padlength: can be either `None`, `True`/`False` or a positive
@@ -51,7 +58,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
       symmetrically around (before and after) each trial. Use ``padlength = 20``
       and ``prepadlength = True`` **or** directly ``prepadlength = 20`` to pad
       before each trial. Here, at least one of `padlength`, `prepadlength` or
-      `postpadlength` **has** to be provided. 
+      `postpadlength` **has** to be provided.
     * ``pad = 'maxlen'``: (only valid for **Syncopy objects**) pad up to maximal
       trial length found in `data`. All lengths have to be either Boolean
       indicating padding location or `None` (if all are `None`, symmetric
@@ -59,10 +66,10 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     * ``pad = 'nextpow2'``: pad each trial up to closest power of two. All
       lengths have to be either Boolean indicating padding location or `None`
       (if all are `None`, symmetric padding is performed)
-    
-    Full documentation below. 
-    
-    Parameters 
+
+    Full documentation below.
+
+    Parameters
     ----------
     data : Syncopy object or :class:`numpy.ndarray`
         Non-empty Syncopy data object or array representing numeric data to be
@@ -72,7 +79,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         'time'-by-'channel' array such that its rows reflect samples and its
         columns represent channels. If `data` is a Syncopy object, trial
         information and dimensional order are fetched from `data.trials` and
-        `data.dimord`, respectively. 
+        `data.dimord`, respectively.
     padtype : str
         Padding value(s) to be used. Available options are:
 
@@ -83,37 +90,37 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
           `prepadlength`/`postpadlength` number of boundary-entries for averaging
         * 'edge' : pad with trial-boundary values
         * 'mirror' : pad with reflections of trial-boundary values
-        
+
     pad : str
         Padding mode to be used. Available options are:
-        
+
         * 'absolute' : pad each trial to achieve a desired absolute length such
           that all trials have identical length post padding. If `pad` is `absolute`
           a `padlength` **has** to be provided, `prepadlength` and `postpadlength`
           may be `True` or `False`, respectively (see Examples for details).
         * 'relative' : pad each trial by provided `padlength` such that all trials
           are extended by the same amount regardless of their original lengths.
-          If `pad` is `relative`, `prepadlength` and `postpadlength` can either 
+          If `pad` is `relative`, `prepadlength` and `postpadlength` can either
           be specified directly (using numerical values) or implicitly by only
           providing `padlength` and setting `prepadlength` and `postpadlength`
           to `True` or `False`, respectively (see Examples for details). If `pad`
           is `relative` at least one of `padlength`, `prepadlength` or `postpadlength`
-          **has** to be provided. 
+          **has** to be provided.
         * 'maxlen' : only usable if `data` is a Syncopy object. If `pad` is
           'maxlen' all trials are padded to achieve the length of the longest
-          trial in `data`, i.e., post padding, all trials have the same length, 
-          which equals the size of the longest trial pre-padding. For 
-          ``pad = 'maxlen'``, `padlength`, `prepadlength` as well as `postpadlength` 
-          have to be either Boolean or `None` indicating the preferred padding 
-          location (pre-trial, post-trial or symmetrically pre- and post-trial). 
-          If all are `None`, symmetric padding is performed (see Examples for 
-          details). 
+          trial in `data`, i.e., post padding, all trials have the same length,
+          which equals the size of the longest trial pre-padding. For
+          ``pad = 'maxlen'``, `padlength`, `prepadlength` as well as `postpadlength`
+          have to be either Boolean or `None` indicating the preferred padding
+          location (pre-trial, post-trial or symmetrically pre- and post-trial).
+          If all are `None`, symmetric padding is performed (see Examples for
+          details).
         * 'nextpow2' : pad each trial to achieve a length equals the closest power
-          of two of its original length. For ``pad = 'nextpow2'``, `padlength`, 
+          of two of its original length. For ``pad = 'nextpow2'``, `padlength`,
           `prepadlength` as well as `postpadlength` have to be either Boolean
-          or `None` indicating the preferred padding location (pre-trial, post-trial 
-          or symmetrically pre- and post-trial). If all are `None`, symmetric 
-          padding is performed (see Examples for details). 
+          or `None` indicating the preferred padding location (pre-trial, post-trial
+          or symmetrically pre- and post-trial). If all are `None`, symmetric
+          padding is performed (see Examples for details).
 
     padlength : None, bool or positive scalar
         Length to be padded to `data` (if `padlength` is scalar-valued) or
@@ -124,10 +131,10 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         `prepadlength` nor `postpadlength` are specified (i.e, both are `None`),
         symmetric pre- and post-trial padding is performed (i.e., ``0.5 * padlength``
         before and after each trial - note that odd sample counts are rounded downward
-        to the nearest even integer). If ``unit = 'time'``, `padlength` is assumed 
-        to be given in seconds, otherwise (``unit = 'samples'``), `padlength` is 
-        interpreted as sample-count. Note that only ``pad = 'relative'`` and 
-        ``pad = 'absolute'`` support numeric values of `padlength`. 
+        to the nearest even integer). If ``unit = 'time'``, `padlength` is assumed
+        to be given in seconds, otherwise (``unit = 'samples'``), `padlength` is
+        interpreted as sample-count. Note that only ``pad = 'relative'`` and
+        ``pad = 'absolute'`` support numeric values of `padlength`.
     prepadlength : None, bool or positive scalar
         Length to be pre-pended before each trial (if `prepadlength` is
         scalar-valued) or pre-padding flag (if `prepadlength` is `True`). If
@@ -136,7 +143,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         by `pad`. If ``unit = 'time'``, `prepadlength` is assumed to be given in
         seconds, otherwise (``unit = 'samples'``), `prepadlength` is interpreted
         as sample-count. Note that only ``pad = 'relative'`` supports numeric
-        values of `prepadlength`. 
+        values of `prepadlength`.
     postpadlength : None, bool or positive scalar
         Length to be appended after each trial (if `postpadlength` is
         scalar-valued) or post-padding flag (if `postpadlength` is `True`). If
@@ -145,7 +152,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         by `pad`. If ``unit = 'time'``, `postpadlength` is assumed to be given in
         seconds, otherwise (``unit = 'samples'``), `postpadlength` is interpreted
         as sample-count. Note that only ``pad = 'relative'`` supports numeric
-        values of `postpadlength`. 
+        values of `postpadlength`.
     unit : str
         Unit of numerical values given by `padlength` and/or `prepadlength`
         and/or `postpadlength`. If ``unit = 'time'``, `padlength`,
@@ -153,44 +160,44 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         otherwise (``unit = 'samples'``), `padlength`, `prepadlength`, and
         `postpadlength` are interpreted as sample-counts. **Note** Providing
         padding lengths in seconds (i.e., ``unit = 'time'``) is only supported
-        if `data` is a Syncopy object. 
+        if `data` is a Syncopy object.
     create_new : bool
         If `True`, a padded copy of the same type as `data` is returned (a
         :class:`numpy.ndarray` or Syncopy object). If `create_new` is `False`,
         either a single dictionary (if `data` is a :class:`numpy.ndarray`) or a
         ``len(data.trials)``-long list of dictionaries (if `data` is a Syncopy
         object) with all necessary options for performing the actual padding
-        operation with :func:`numpy.pad` is returned.  
-        
+        operation with :func:`numpy.pad` is returned.
+
     Returns
     -------
     pad_dict : dict, if `data` is a :class:`numpy.ndarray` and ``create_new = False``
         Dictionary whose items contain all necessary parameters for calling
-        :func:`numpy.pad` to perform the desired padding operation on `data`. 
+        :func:`numpy.pad` to perform the desired padding operation on `data`.
     pad_dicts : list, if `data` is a Syncopy object and ``create_new = False``
         List of dictionaries for calling :func:`numpy.pad` to perform the
-        desired padding operation on all trials found in `data`. 
+        desired padding operation on all trials found in `data`.
     out : :class:`numpy.ndarray`, if `data` is a :class:`numpy.ndarray` and ``create_new = True``
         Padded version (deep copy) of `data`
     out : Syncopy object, if `data` is a Syncopy object and ``create_new = True``
         Padded version (deep copy) of `data`
-        
+
     Notes
     -----
     This method emulates (and extends) FieldTrip's `ft_preproc_padding` by
     providing a convenience wrapper for NumPy's :func:`numpy.pad` that performs
-    the actual heavy lifting. 
-    
+    the actual heavy lifting.
+
     Examples
     --------
-    Consider the following small array representing a toy-problem-trial of `ns` 
+    Consider the following small array representing a toy-problem-trial of `ns`
     samples across `nc` channels:
-    
+
     >>> nc = 7; ns = 30
     >>> trl = np.random.randn(ns, nc)
-    
+
     We start by padding a total of 10 zeros symmetrically to `trl`
-    
+
     >>> padded = spy.padding(trl, 'zero', pad='relative', padlength=10)
     >>> padded[:6, :]
     array([[ 0.    ,  0.    ,  0.    ,  0.    ,  0.    ,  0.    ,  0.    ],
@@ -208,53 +215,53 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
        [ 0.    ,  0.    ,  0.    ,  0.    ,  0.    ,  0.    ,  0.    ]])
     >>> padded.shape
     (40, 7)
-    
+
     Note that the above call is equivalent to
-    
+
     >>> padded_ident = spy.padding(trl, 'zero', pad='relative', padlength=10, prepadlength=True, postpadlength=True)
     >>> np.array_equal(padded_ident, padded)
     True
     >>> padded_ident = spy.padding(trl, 'zero', pad='relative', prepadlength=5, postpadlength=5)
     >>> np.array_equal(padded_ident, padded)
     True
-    
-    Similarly, 
-    
+
+    Similarly,
+
     >>> prepad = spy.padding(trl, 'nan', pad='relative', prepadlength=10)
-    
+
     is the same as
-    
+
     >>> prepad_ident = spy.padding(trl, 'nan', pad='relative', padlength=10, prepadlength=True)
     >>> np.allclose(prepad, prepad_ident, equal_nan=True)
     True
-    
+
     Define bogus trials on `trl` and create a dummy object with unit samplerate
-    
+
     >>> tdf = np.vstack([np.arange(0, ns, 5),
                          np.arange(5, ns + 5, 5),
                          np.ones((int(ns / 5), )),
                          np.ones((int(ns / 5), )) * np.pi]).T
     >>> adata = spy.AnalogData(trl, trialdefinition=tdf, samplerate=1)
 
-    Pad each trial to the closest power of two by appending by-trial channel 
+    Pad each trial to the closest power of two by appending by-trial channel
     averages. However, do not perform actual padding, but only prepare dictionaries
     of parameters to be passed on to :func:`numpy.pad`
-    
+
     >>> pad_dicts = spy.padding(adata, 'mean', pad='nextpow2', postpadlength=True, create_new=False)
-    >>> len(pad_dicts) == len(adata.trials) 
+    >>> len(pad_dicts) == len(adata.trials)
     True
     >>> pad_dicts[0]
     {'pad_width': array([[0, 3],
         [0, 0]]), 'mode': 'mean'}
-        
-    Similarly, the following call generates a list of dictionaries preparing 
+
+    Similarly, the following call generates a list of dictionaries preparing
     absolute padding by prepending zeros with :func:`numpy.pad`
-    
+
     >>> pad_dicts = spy.padding(adata, 'zero', pad='absolute', padlength=10, prepadlength=True, create_new=False)
     >>> pad_dicts[0]
     {'pad_width': array([[5, 0],
         [0, 0]]), 'mode': 'constant', 'constant_values': 0}
-            
+
     See also
     --------
     numpy.pad : fast array padding in NumPy
@@ -273,7 +280,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         if len(data.shape) != 2:
             lgl = "two-dimensional AnalogData trial segment"
             act = "{}-dimensional trial segment"
-            raise SPYValueError(legal=lgl, varname="data", 
+            raise SPYValueError(legal=lgl, varname="data",
                                 actual=act.format(len(data.shape)))
         timeAxis = data.dimord.index("time")
         spydata = False
@@ -285,11 +292,33 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         timeAxis = 0
         spydata = False
 
-    # FIXME: Creation of new spy-object currently not supported
+    # If input is a syncopy object, fetch trial list and `sampleinfo` (thereby
+    # accounting for in-place selections); to not repeat this later, save relevant
+    # quantities in tmp attributes (all prefixed by `'_pad'`)
+    if spydata:
+        if data._selection is not None:
+            trialList = data._selection.trials
+            data._pad_sinfo = np.zeros((len(trialList), 2))
+            data._pad_t0 = np.zeros((len(trialList),))
+            for tk, trlno in enumerate(trialList):
+                trl = data._preview_trial(trlno)
+                tsel = trl.idx[timeAxis]
+                if isinstance(tsel, list):
+                    lgl = "Syncopy AnalogData object with no or channe/trial selection"
+                    raise SPYValueError(lgl, varname="data", actual=data._selection)
+                else:
+                    data._pad_sinfo[tk, :] = [trl.idx[timeAxis].start, trl.idx[timeAxis].stop]
+            data._pad_t0[tk] = data._t0[trlno]
+            data._pad_channel = data.channel[data._selection.channel]
+        else:
+            trialList = list(range(len(data.trials)))
+            data._pad_sinfo = data.sampleinfo
+            data._pad_t0 = data._t0
+            data._pad_channel = data.channel
+
+    # Ensure `create_new` is not weird
     if not isinstance(create_new, bool):
         raise SPYTypeError(create_new, varname="create_new", expected="bool")
-    if spydata and create_new:
-        raise NotImplementedError("Creation of padded spy objects currently not supported. ")
 
     # Use FT-compatible options (sans FT option 'remove')
     if not isinstance(padtype, str):
@@ -329,7 +358,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     # trials, compute lower bound for padding (in samples or seconds)
     if pad in ["absolute", "maxlen"]:
         if spydata:
-            maxTrialLen = np.diff(data.sampleinfo).max()
+            maxTrialLen = np.diff(data._pad_sinfo).max()
         else:
             maxTrialLen = data.shape[timeAxis] # if `pad="absolute" and data is array
     else:
@@ -375,14 +404,14 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
             else:
                 prepadlength = prepadlength is not None
                 postpadlength = postpadlength is not None
-                
+
             if prepadlength and postpadlength:
                 plengths["prepadlength"] = padlength/2
                 plengths["postpadlength"] = padlength/2
             else:
                 plengths["prepadlength"] = prepadlength*padlength
                 plengths["postpadlength"] = postpadlength*padlength
-                
+
         # Under-determined: abort if requested padding length is 0
         if all(value == 0 for value in plengths.values() if value is not None):
             lgl = "either non-zero value of `padlength` or `prepadlength` " + \
@@ -441,14 +470,14 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
            "edge": {"mode": "edge"},
            "mirror": {"mode": "reflect"}}
 
-    # If in put was syncopy data object, padding is done on a per-trial basis
+    # If input was syncopy data object, padding is done on a per-trial basis
     if spydata:
 
         # A list of input keywords for ``np.pad`` is constructed, no matter if
         # we actually want to build a new object or not
         pad_opts = []
-        for trl in data.trials:
-            nSamples = trl.shape[timeAxis]
+        for tk in trialList:
+            nSamples = data._preview_trial(tk).shape[timeAxis]
             if pad == "absolute":
                 padding = (padlength - nSamples)/(prepadlength + postpadlength)
             elif pad == "relative":
@@ -463,8 +492,25 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
             if padtype == "localmean":
                 pad_opts[-1]["stat_length"] = pw[timeAxis, :]
 
+        # If a new object is requested, use the legwork performed above to fire
+        # up the corresponding ComputationalRoutine
         if create_new:
-            pass
+            out = AnalogData(dimord=data.dimord)
+            log_dct = {"padtype": padtype,
+                       "pad": pad,
+                       "padlength": padlength,
+                       "prepadlength": prepadlength,
+                       "postpadlength": postpadlength,
+                       "unit": unit}
+
+            chanAxis = list(set([0, 1]).difference([timeAxis]))[0]
+            padMethod = PaddingRoutine(timeAxis, chanAxis, pad_opts)
+            padMethod.initialize(data,
+                                 out._stackingDim,
+                                 chan_per_worker=kwargs.get("chan_per_worker"),
+                                 keeptrials=True)
+            padMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)
+            return out
         else:
             return pad_opts
 
@@ -473,13 +519,22 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
 
         nSamples = data.shape[timeAxis]
         if pad == "absolute":
-            padding = (padlength - nSamples)/(prepadlength + postpadlength)
+            prepadding = (padlength - nSamples)/(prepadlength + postpadlength)
+            postpadding = prepadding
+            if int(prepadding) != prepadding:
+                prepadding = int(prepadding)
+                postpadding = prepadding + 1
         elif pad == "relative":
-            padding = True
+            prepadding = True
+            postpadding = prepadding
         elif pad == "nextpow2":
-            padding = (_nextpow2(nSamples) - nSamples)/(prepadlength + postpadlength)
+            prepadding = (_nextpow2(nSamples) - nSamples)/(prepadlength + postpadlength)
+            postpadding = prepadding
+            if int(prepadding) != prepadding:
+                prepadding = int(prepadding)
+                postpadding = prepadding + 1
         pw = np.zeros((2, 2), dtype=int)
-        pw[timeAxis, :] = [prepadlength * padding, postpadlength * padding]
+        pw[timeAxis, :] = [prepadlength * prepadding, postpadlength * postpadding]
         pad_opts = dict({"pad_width": pw}, **kws[padtype])
         if padtype == "localmean":
             pad_opts["stat_length"] = pw[timeAxis, :]
@@ -487,12 +542,12 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         if create_new:
             if isinstance(data, np.ndarray):
                 return np.pad(data, **pad_opts)
-            else: # FIXME: currently only supports FauxTrial
+            else:
                 shp = list(data.shape)
                 shp[timeAxis] += pw[timeAxis, :].sum()
                 idx = list(data.idx)
                 if isinstance(idx[timeAxis], slice):
-                    idx[timeAxis] = slice(idx[timeAxis].start, 
+                    idx[timeAxis] = slice(idx[timeAxis].start,
                                           idx[timeAxis].start + shp[timeAxis])
                 else:
                     idx[timeAxis] = pw[timeAxis, 0] * [idx[timeAxis][0]] + idx[timeAxis] \
@@ -507,3 +562,99 @@ def _nextpow2(number):
     while n < number:
         n *= 2
     return n
+
+
+@unwrap_io
+def padding_cF(trl_dat, timeAxis, chanAxis, pad_opt, noCompute=False, chunkShape=None):
+    """
+    Perform trial data padding
+
+    Parameters
+    ----------
+    trl_dat : :class:`numpy.ndarray`
+        Trial data
+    timeAxis : int
+        Index of running time axis in `trl_dat` (0 or 1)
+    chanAxis : int
+        Index of channel axis in `trl_dat` (0 or 1)
+    pad_opt : dict
+        Dictionary of options for :func:`numpy.pad`
+    noCompute : bool
+        Preprocessing flag. If `True`, do not perform actual padding but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+    chunkShape : None or tuple
+        If not `None`, represents shape of output
+
+    Returns
+    -------
+    res : :class:`numpy.ndarray`
+        Padded array
+
+    Notes
+    -----
+    This method is intended to be used as
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+
+    See also
+    --------
+    syncopy.padding : pad :class:`syncopy.AnalogData` objects
+    PaddingRoutine : :class:`~syncopy.shared.computational_routine.ComputationalRoutine` subclass
+    """
+
+    nSamples = trl_dat.shape[timeAxis]
+    nChannels = trl_dat.shape[chanAxis]
+
+    if noCompute:
+        outShape = [None] * 2
+        outShape[timeAxis] = pad_opt['pad_width'].sum() + nSamples
+        outShape[chanAxis] = nChannels
+        return outShape, trl_dat.dtype
+
+    # Symmetric Padding (updates no. of samples)
+    return np.pad(trl_dat, **pad_opt)
+
+class PaddingRoutine(ComputationalRoutine):
+    """
+    Compute class for performing data padding on Syncopy AnalogData objects
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.padding : pad :class:`syncopy.AnalogData` objects
+    """
+
+    computeFunction = staticmethod(padding_cF)
+
+    def process_metadata(self, data, out):
+
+        # Fetch index of running time and used padding options from provided
+        # positional args and use them to compute new start/stop/trigger onset samples
+        timeAxis = self.argv[0]
+        pad_opts = self.argv[2]
+        prePadded = [pad_opt["pad_width"][timeAxis, 0] for pad_opt in pad_opts]
+        totalPadded = [pad_opt["pad_width"].sum() for pad_opt in pad_opts]
+        accumSamples = np.cumsum(np.diff(data._pad_sinfo).squeeze() + totalPadded)
+
+        # Construct trialdefinition array (columns: start/stop/t0/etc)
+        trialdefinition = np.zeros((len(totalPadded), data.trialdefinition.shape[1]))
+        trialdefinition[1:, 0] = accumSamples[:-1]
+        trialdefinition[:, 1] = accumSamples
+        trialdefinition[:, 2] = data._pad_t0 - prePadded
+
+        # Set relevant properties in output object
+        out.samplerate = data.samplerate
+        out.trialdefinition = trialdefinition
+        out.channel = data._pad_channel
+
+        # Remove inpromptu attributes generated above
+        delattr(data, "_pad_sinfo")
+        delattr(data, "_pad_t0")
+        delattr(data, "_pad_channel")

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Collection of utility classes/functions for Syncopy
-# 
+#
 
 # Builtin/3rd party package imports
 import sys
@@ -37,19 +37,19 @@ class SPYTypeError(SPYError):
     expected : type or str
         Expected type of `var`
     """
-    
+
     def __init__(self, var, varname="", expected=""):
         self.found = str(type(var).__name__)
         self.varname = str(varname)
         self.expected = str(expected)
-        
+
     def __str__(self):
         msg = "Wrong type{vn:s}{ex:s}{fd:s}"
-        return msg.format(vn=" of " + self.varname + ":" if len(self.varname) else ":",
+        return msg.format(vn=" of `" + self.varname + "`:" if len(self.varname) else ":",
                           ex=" expected " + self.expected if len(self.expected) else "",
                           fd=" found " + self.found)
 
-    
+
 class SPYValueError(SPYError):
     """
     SynCoPy-specific version of a ValueError
@@ -63,19 +63,19 @@ class SPYValueError(SPYError):
     actual : str
         Actual value of object
     """
-    
+
     def __init__(self, legal, varname="", actual=""):
         self.legal = str(legal)
         self.varname = str(varname)
         self.actual = str(actual)
-        
+
     def __str__(self):
         msg = "Invalid value{vn:s}{fd:s} expected {ex:s}"
         return msg.format(vn=" of `" + self.varname + "`:" if len(self.varname) else ":",
                           fd=" '" + self.actual + "';" if len(self.actual) else "",
                           ex=self.legal)
 
-    
+
 class SPYIOError(SPYError):
     """
     SynCoPy-specific version of an IO/OSError
@@ -85,14 +85,14 @@ class SPYIOError(SPYError):
     fs_loc : str
         File-system location (file/directory) that caused the exception
     exists : bool
-        If `exists = True`, `fs_loc` already exists and cannot be overwritten, 
-        otherwise `fs_loc` does not exist and hence cannot be read. 
+        If `exists = True`, `fs_loc` already exists and cannot be overwritten,
+        otherwise `fs_loc` does not exist and hence cannot be read.
     """
-    
+
     def __init__(self, fs_loc, exists=None):
         self.fs_loc = str(fs_loc)
         self.exists = exists
-        
+
     def __str__(self):
         msg = "Cannot {op:s} {fs_loc:s}{ex:s}"
         return msg.format(op="access" if self.exists is None else "write" if self.exists else "read",
@@ -100,11 +100,11 @@ class SPYIOError(SPYError):
                           ex=": object already exists" if self.exists is True \
                           else ": object does not exist" if self.exists is False else "")
 
-        
+
 class SPYParallelError(SPYError):
     """
     Syncopy-specific error intended for concurrent processing routines
-    
+
     Attributes
     ----------
     msg : str
@@ -116,7 +116,7 @@ class SPYParallelError(SPYError):
     def __init__(self, msg, client=None):
         self.client = client
         self.msg = str(msg)
-        
+
     def __str__(self):
         if self.client is not None:
             preamble = "Error in distributed computing cluster hosted on {}: "
@@ -126,7 +126,7 @@ class SPYParallelError(SPYError):
         err = "{preamble:s}{msg:s}"
         return err.format(preamble=preamble, msg=self.msg)
 
-    
+
 def SPYExceptionHandler(*excargs, **exckwargs):
     """
     Docstring coming soon(ish)...
@@ -162,7 +162,7 @@ def SPYExceptionHandler(*excargs, **exckwargs):
 
     # If we're dealing with a `SyntaxError`, show it and getta outta here
     if issubclass(etype, SyntaxError):
-    
+
         # Just format exception, don't mess around w/ traceback
         exc_fmt = traceback.format_exception_only(etype, evalue)
         for eline in exc_fmt:
@@ -187,14 +187,14 @@ def SPYExceptionHandler(*excargs, **exckwargs):
                 emsg += "{}{}{}".format(cols.line if isipy else "",
                                         eline,
                                         cols.Normal if isipy else "")
-    
+
         # Show generated message and leave (or kick-off debugging in Jupyer/iPython if %pdb is on)
         print(emsg)
         if isipy:
             if ipy.call_pdb:
                 ipy.InteractiveTB.debugger()
         return
-        
+
     # Build an ordered(!) dictionary that encodes separators for traceback components
     sep = OrderedDict({"filename": ", line ",
                        "lineno": " in ",
@@ -217,7 +217,7 @@ def SPYExceptionHandler(*excargs, **exckwargs):
                                               sep.get(attr))
             emsg += tb_entry
             keepgoing = False
-    
+
     # Format the exception-part of the traceback - the resulting list usually
     # contains only a single string - if we find more just use everything
     exc_fmt = traceback.format_exception_only(etype, evalue)
@@ -280,20 +280,20 @@ def SPYExceptionHandler(*excargs, **exckwargs):
 def SPYWarning(msg, caller=None):
     """
     Standardized Syncopy warning message
-    
+
     Parameters
     ----------
     msg : str
         Warning message to be printed
     caller : None or str
-        Issuer of warning message. If `None`, name of calling method is 
-        automatically fetched and pre-pended to `msg`. 
-    
+        Issuer of warning message. If `None`, name of calling method is
+        automatically fetched and pre-pended to `msg`.
+
     Returns
     -------
     Nothing : None
     """
-            
+
     # If Syncopy's running in Jupyter/iPython colorize warning message
     # Use the following chart (enter FG color twice b/w ';') to change:
     # https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
@@ -313,6 +313,48 @@ def SPYWarning(msg, caller=None):
     PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} WARNING: {msg:s}{coloroff:s}"
     print(PrintMsg.format(coloron=warnCol,
                           bold=boldEm,
-                          caller=" <" + caller +">" if len(caller) else caller, 
+                          caller=" <" + caller + ">" if len(caller) else caller,
                           msg=msg,
                           coloroff=normCol))
+
+
+def SPYInfo(msg, caller=None):
+    """
+    Standardized Syncopy info message
+
+    Parameters
+    ----------
+    msg : str
+        Info message to be printed
+    caller : None or str
+        Issuer of info message. If `None`, name of calling method is
+        automatically fetched and pre-pended to `msg`.
+
+    Returns
+    -------
+    Nothing : None
+    """
+
+    # If Syncopy's running in Jupyter/iPython colorize warning message
+    # Use the following chart (enter FG color twice b/w ';') to change:
+    # https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
+    try:
+        cols = get_ipython().InteractiveTB.Colors
+        infoCol = cols.Normal # infos are fine with just bold text
+        normCol = cols.Normal
+        boldEm = ansiBold
+    except NameError:
+        infoCol = ""
+        normCol = ""
+        boldEm = ""
+
+    # Plug together message string and print it
+    if caller is None:
+        caller = sys._getframe().f_back.f_code.co_name
+    PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} INFO: {msg:s}{coloroff:s}"
+    print(PrintMsg.format(coloron=infoCol,
+                          bold=boldEm,
+                          caller=" <" + caller + ">" if len(caller) else caller,
+                          msg=msg,
+                          coloroff=normCol))
+

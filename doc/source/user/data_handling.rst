@@ -22,19 +22,20 @@ Reading and writing data with Syncopy
     syncopy.load
     syncopy.save
 
-Functions for Editing Syncopy Data Objects
--------------------------------------------
-Defining trials, data selection and padding. 
+Functions for Inspecting/Editing Syncopy Data Objects
+-----------------------------------------------------
+Defining trials, data selection and padding.
 
 .. autosummary::
 
     syncopy.definetrial
+    syncopy.show
     syncopy.selectdata
     syncopy.padding
 
 Advanced Topics
 ---------------
-More information about Syncopy's data class structure and file format. 
+More information about Syncopy's data class structure and file format.
 
 .. toctree::
 

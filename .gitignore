@@ -60,8 +60,15 @@ dask-worker-space
 requirements.txt
 requirements-test.txt
 
+# Code coverage reports
+.coverage
+.coverage.*
+
 # spy containers
 *.spy
 
 # Editor-related stuff
 .vscode
+
+# Mac OS related stuff
+.DS_Store

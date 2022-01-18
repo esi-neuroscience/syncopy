@@ -4,29 +4,25 @@ channels:
   - conda-forge
 dependencies:
   # SyNCoPy runtime requirements
-  - python==3.8.3
+  - python >= 3.8, < 3.9
   - pip
-  - numpy >= 1.0, < 2.0
-  - scipy >= 1.5, < 1.6
-  - dask >= 2.25, < 2.26
-  - distributed >= 2.25, < 2.26
-  - dask-jobqueue >= 0.7.1, < 0.8
-  - fsspec >= 0.3.3
-  - bokeh
+  - numpy >= 1.10, < 2.0
+  - scipy >= 1.5
   - h5py >= 2.9, < 3
   - matplotlib >= 3.3, < 3.5
   - tqdm >= 4.31
   - natsort
   # Optional packages required for running the test-suite and building the HTML docs
+  - esi-acme
   - python-graphviz
   - memory_profiler
   - numpydoc
   - sphinx_bootstrap_theme
-  - pytest
+  - pytest-cov
   - pylint
   - ipdb
   - tox
-  - ruamel.yaml
+  - ruamel.yaml >=0.16, < 0.17
   - setuptools_scm
   - pip:
     # Optional: only necessary when building the HTML documentation

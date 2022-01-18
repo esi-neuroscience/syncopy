@@ -34,8 +34,8 @@ if [ "$1" == "" ]; then
     usage
 fi
 
-# Set up "global" pytest options for running test-suite
-export PYTEST_ADDOPTS="--color=yes --tb=short --verbose --ignore=syncopy/acme"
+# Set up "global" pytest options for running test-suite (coverage is only done in local pytest runs)
+export PYTEST_ADDOPTS="--color=yes --tb=short --verbose"
 
 # The while construction allows parsing of multiple positional/optional args (future-proofing...)
 while [ "$1" != "" ]; do
@@ -46,15 +46,17 @@ while [ "$1" != "" ]; do
             if [ $_useSLURM ]; then
                 srun -p DEV --mem=8000m -c 4 pytest
             else
+                PYTEST_ADDOPTS="$PYTEST_ADDOPTS --cov=../../syncopy --cov-config=../../.coveragerc"
+                export PYTEST_ADDOPTS
                 pytest
             fi
             ;;
         tox)
             shift
             if [ $_useSLURM ]; then
-                srun -p DEV --mem=8000m -c 4 tox -r
+                srun -p DEV --mem=8000m -c 4 tox
             else
-                tox -r
+                tox
             fi
             ;;
         -h | --help)

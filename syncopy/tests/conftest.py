@@ -4,21 +4,29 @@
 #
 
 # Builtin/3rd party package imports
+import os
+import importlib
 import pytest
-from syncopy import __dask__
+import syncopy
+from syncopy import __acme__
 import syncopy.tests.test_packagesetup as setupTestModule
 
 # If dask is available, either launch a SLURM cluster on a cluster node or
 # create a `LocalCluster` object if tests are run on a single machine. If dask
 # is not installed, return a dummy None-valued cluster object (tests will be
 # skipped anyway)
-if __dask__:
+if __acme__:
     import dask.distributed as dd
-    from syncopy.acme.acme.dask_helpers import esi_cluster_setup
+    import resource
+    from acme.dask_helpers import esi_cluster_setup
     from syncopy.tests.misc import is_slurm_node
+    if max(resource.getrlimit(resource.RLIMIT_NOFILE)) < 1024:
+        msg = "Not enough open file descriptors allowed. Consider increasing " +\
+            "the limit using, e.g., `ulimit -Sn 1024`"
+        raise ValueError(msg)
     if is_slurm_node():
-        cluster = esi_cluster_setup(partition="DEV", n_jobs=10, mem_per_job="8GB",
-                                    timeout=600, interactive=False,
+        cluster = esi_cluster_setup(partition="8GBS", n_jobs=10,
+                                    timeout=360, interactive=False,
                                     start_client=False)
     else:
         cluster = dd.LocalCluster(n_workers=2)

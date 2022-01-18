@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Syncopy's main abstract base class + helpers
-# 
+#
 
 # Builtin/3rd party package imports
 import getpass
@@ -24,13 +24,17 @@ import scipy as sp
 
 # Local imports
 import syncopy as spy
+from .methods.arithmetic import _process_operator
+from .methods.selectdata import selectdata
+from .methods.show import show
 from syncopy.shared.tools import StructDict
-from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser, 
+from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser,
                                     filename_parser, data_parser)
-from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError, SPYWarning
+from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError
 from syncopy.datatype.methods.definetrial import definetrial as _definetrial
-from syncopy import __version__, __storage__, __dask__, __sessionid__
-if __dask__:
+from syncopy import __version__, __storage__, __acme__, __sessionid__, __storagelimit__
+if __acme__:
+    import acme
     import dask
 
 
@@ -38,12 +42,13 @@ __all__ = []
 
 
 class BaseData(ABC):
-    """Abstract base class for all data classes
+    """
+    Abstract base class for all data classes
 
     Data classes in Syncopy manage storing array data and metadata in HDF5 and
     JSON files, respectively. This base class contains the fundamental
     functionality shared across all data classes, that is,
-    
+
     * properties for arrays that have a corresponding HDF5 datasets ('dataset
       properties') and the associated I/O
     * properties for data history (`BaseData.log` and `BaseData.cfg`)
@@ -51,31 +56,67 @@ class BaseData(ABC):
 
     Further properties and methods are defined in subclasses, e.g.
     `syncopy.AnalogData`.
-
     """
-    
+
     #: properties that are written into the JSON file and HDF5 attributes upon save
     _infoFileProperties = ("dimord", "_version", "_log", "cfg",)
     _hdfFileAttributeProperties = ("dimord", "_version", "_log",)
-    
+
     #: properties that are mapped onto HDF5 datasets
     _hdfFileDatasetProperties = ()
 
     # Checksum algorithm
     _checksum_algorithm = spy.__checksum_algorithm__.__name__
-    
+
     # Dummy allocations of class attributes that are actually initialized in subclasses
     _mode = None
-    
-    # Set caller for `SPYWarning` to not have it show up as '<module>' 
+    _stackingDimLabel = None
+
+    # Set caller for `SPYWarning` to not have it show up as '<module>'
     _spwCaller = "BaseData.{}"
-    
+
+    # Attach data selection and output routines to make them available as class methods
+    selectdata = selectdata
+    show = show
+
+    # Initialize hidden attributes used by all children
+    _cfg = {}
+    _filename = None
+    _trialdefinition = None
+    _dimord = None
+    _mode = None
+    _lhd = "\n\t\t>>> SyNCopy v. {ver:s} <<< \n\n" +\
+           "Created: {timestamp:s} \n\n" +\
+           "System Profile: \n" +\
+           "{sysver:s} \n" +\
+           "ACME:  {acver:s}\n" +\
+           "Dask:  {daver:s}\n" +\
+           "NumPy: {npver:s}\n" +\
+           "SciPy: {spver:s}\n\n" +\
+           "--- LOG ---"
+    _log_header = _lhd.format(ver=__version__,
+                              timestamp=time.asctime(),
+                              sysver=sys.version,
+                              acver=acme.__version__ if __acme__ else "--",
+                              daver=dask.__version__ if __acme__ else "--",
+                              npver=np.__version__,
+                              spver=sp.__version__)
+    _log = ""
+
     @property
     @classmethod
     @abstractmethod
     def _defaultDimord(cls):
         return NotImplementedError
-    
+
+    @property
+    def _stackingDim(self):
+        if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
+            return 0
+        else:
+            if self._stackingDimLabel is not None and self.dimord is not None:
+                return self.dimord.index(self._stackingDimLabel)
+
     @property
     def cfg(self):
         """Dictionary of previous operations on data"""
@@ -86,7 +127,7 @@ class BaseData(ABC):
         if not isinstance(dct, dict):
             raise SPYTypeError(dct, varname="cfg", expected="dictionary-like object")
         self._cfg = self._set_cfg(self._cfg, dct)
-        
+
     @property
     def container(self):
         try:
@@ -95,8 +136,8 @@ class BaseData(ABC):
             return None
         except Exception as exc:
             raise exc
-            
-    
+
+
     def _set_dataset_property(self, dataIn, propertyName, ndim=None):
         """Set property that is streamed from HDF dataset ('dataset property')
 
@@ -111,7 +152,7 @@ class BaseData(ABC):
                 Name of the property. The actual data must reside in the attribute
                 `"_" + propertyName`
             ndim : int
-                Number of expected array dimensions. 
+                Number of expected array dimensions.
 
         """
         if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
@@ -120,11 +161,12 @@ class BaseData(ABC):
             ndim = len(self._defaultDimord)
 
         supportedSetters = {
+            list : self._set_dataset_property_with_list,
             str : self._set_dataset_property_with_str,
             np.ndarray : self._set_dataset_property_with_ndarray,
             np.core.memmap : self._set_dataset_property_with_memmap,
             h5py.Dataset : self._set_dataset_property_with_dataset,
-            type(None): self._set_dataset_property_with_none          
+            type(None): self._set_dataset_property_with_none
         }
         try:
             supportedSetters[type(dataIn)](dataIn, propertyName, ndim=ndim)
@@ -133,23 +175,23 @@ class BaseData(ABC):
             raise SPYTypeError(dataIn, varname="data", expected=msg)
         except Exception as exc:
             raise exc
-    
+
     def _set_dataset_property_with_none(self, dataIn, propertyName, ndim):
         """Set a dataset property to None"""
         setattr(self, "_" + propertyName, None)
-    
+
     def _set_dataset_property_with_str(self, filename, propertyName, ndim):
         """Set a dataset property with a filename str
-        
+
         Parameters
         ----------
             filename : str
-                A filename pointing to a HDF5 file containing the dataset 
+                A filename pointing to a HDF5 file containing the dataset
                 `propertyName` or a NPY file. NPY files are loaded as memmaps.
             propertyName : str
                 Name of the property to be filled with the dataset/memmap
             ndim : int
-                Number of expected array dimensions. 
+                Number of expected array dimensions.
         """
         try:
             fpath, fname = io_parser(filename, varname="filename", isfile=True, exists=True)
@@ -177,41 +219,41 @@ class BaseData(ABC):
         if not isNpy and not isHdf:
             raise SPYValueError("accessible HDF5 file or memory-mapped npy-file",
                                 actual=err, varname="data")
-        
+
         if isHdf:
             h5keys = list(h5f.keys())
-            if propertyName not in h5keys and len(h5keys) != 1:                    
+            if propertyName not in h5keys and len(h5keys) != 1:
                 lgl = "HDF5 file with only one 'data' dataset or single dataset of arbitrary name"
                 act = "HDF5 file holding {} data-objects"
                 raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname=propertyName)
-            if len(h5keys) == 1:                
+            if len(h5keys) == 1:
                 setattr(self, propertyName, h5f[h5keys[0]])
             else:
                 setattr(self, propertyName, h5f[propertyName])
         if isNpy:
             setattr(self, propertyName, open_memmap(filename, mode=md))
         self.filename = filename
-    
+
     def _set_dataset_property_with_ndarray(self, inData, propertyName, ndim):
         """Set a dataset property with a NumPy array
-        
+
         If no data exists, a backing HDF5 dataset will be created.
-        
+
         Parameters
         ----------
             inData : numpy.ndarray
                 NumPy array to be stored in property of name `propertyName`
             propertyName : str
-                Name of the property to be filled with `inData`                              
+                Name of the property to be filled with `inData`
             ndim : int
-                Number of expected array dimensions. 
+                Number of expected array dimensions.
         """
 
         try:
             array_parser(inData, varname="data", dims=ndim)
         except Exception as exc:
             raise exc
-        
+
         # If there is existing data, replace values if shape and type match
         if isinstance(getattr(self, "_" + propertyName), (np.memmap, h5py.Dataset)):
             prop = getattr(self, "_" + propertyName)
@@ -228,34 +270,34 @@ class BaseData(ABC):
                 act = "data of type {}".format(inData.dtype.name)
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             prop[...] = inData
-            
-        # or create backing file on disk 
+
+        # or create backing file on disk
         else:
             if self.filename is None:
-                self.filename = self._gen_filename()            
+                self.filename = self._gen_filename()
             with h5py.File(self.filename, "w") as h5f:
                 h5f.create_dataset(propertyName, data=inData)
             md = self.mode
             if md == "w":
                 md = "r+"
             setattr(self, "_" + propertyName, h5py.File(self.filename, md)[propertyName])
-    
+
     def _set_dataset_property_with_memmap(self, inData, propertyName, ndim):
         """Set a dataset property with a memory map
-         
+
         The memory map is directly stored in the attribute. No backing HDF5
         dataset is created. This feature may be removed in future versions.
-         
+
         Parameters
         ----------
             inData : numpy.memmap
                 NumPy memory-map to be stored in property of name `propertyName`
             propertyName : str
-                Name of the property to be filled with the memory map.    
+                Name of the property to be filled with the memory map.
             ndim : int
-                Number of expected array dimensions. 
+                Number of expected array dimensions.
         """
-        
+
         if inData.ndim != ndim:
             lgl = "{}-dimensional data".format(ndim)
             act = "{}-dimensional memmap".format(inData.ndim)
@@ -264,10 +306,10 @@ class BaseData(ABC):
         self.mode = inData.mode
         self.filename = inData.filename
         setattr(self, "_" + propertyName, inData)
-    
+
     def _set_dataset_property_with_dataset(self, inData, propertyName, ndim):
         """Set a dataset property with an already loaded HDF5 dataset
-        
+
         Parameters
         ----------
             inData : h5py.Dataset
@@ -275,33 +317,112 @@ class BaseData(ABC):
             propertyName : str
                 Name of the property to be filled with the dataset
             ndim : int
-                Number of expected array dimensions. 
+                Number of expected array dimensions.
         """
-                 
+
         if inData.id.valid == 0:
             lgl = "open HDF5 file"
             act = "backing HDF5 file is closed"
             raise SPYValueError(legal=lgl, actual=act, varname="data")
-        
+
         self._mode = inData.file.mode
         self.filename = inData.file.filename
-        
+
         if inData.ndim != ndim:
             lgl = "{}-dimensional data".format(ndim)
             act = "{}-dimensional HDF5 dataset or memmap".format(inData.ndim)
             raise SPYValueError(legal=lgl, varname="data", actual=act)
-                      
-        setattr(self, "_" + propertyName, inData)        
-        
+
+        setattr(self, "_" + propertyName, inData)
+
+    def _set_dataset_property_with_list(self, inData, propertyName, ndim):
+        """Set a dataset property with list of NumPy arrays
+
+        Parameters
+        ----------
+            inData : list
+                list of :class:`numpy.ndarray`s. Each array corresponds to
+                a trial. Arrays are stacked together to fill dataset.
+            propertyName : str
+                Name of the property to be filled with the concatenated array
+            ndim : int
+                Number of expected array dimensions.
+        """
+
+        # Check list entries: must be numeric, finite NumPy arrays
+        for val in inData:
+            try:
+                array_parser(val, varname="data", hasinf=False, dims=ndim)
+            except Exception as exc:
+                raise exc
+
+        # Ensure we don't have a mix of real/complex arrays
+        if np.unique([np.iscomplexobj(val) for val in inData]).size > 1:
+            lgl = "list of numeric NumPy arrays of same numeric type (real/complex)"
+            act = "real and complex NumPy arrays"
+            raise SPYValueError(legal=lgl, varname="data", actual=act)
+
+        # Requirements for input arrays differ wrt data-class (`DiscreteData` always 2D)
+        if any(["ContinuousData" in str(base) for base in self.__class__.__mro__]):
+
+            # Ensure shapes match up
+            if any(val.shape != inData[0].shape for val in inData):
+                lgl = "NumPy arrays of identical shape"
+                act = "NumPy arrays with differing shapes"
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
+            trialLens = [val.shape[self.dimord.index("time")] for val in inData]
+
+        else:
+
+            # Ensure all arrays have shape `(N, nCol)``
+            if self.__class__.__name__ == "SpikeData":
+                nCol = 3
+            else: # EventData
+                nCol = 2
+            if any(val.shape[1] != nCol for val in inData):
+                lgl = "NumPy 2d-arrays with 3 columns"
+                act = "NumPy arrays of different shape"
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
+            trialLens = [np.nanmax(val[:, self.dimord.index("sample")]) for val in inData]
+
+        # Now the shaky stuff: if not provided, use determined trial lengths to
+        # cook up a (completely fictional) samplerate: we aim for `smax` Hz and
+        # round down to `sround` Hz
+        nTrials = len(trialLens)
+        msg2 = ""
+        if self.samplerate is None:
+            sround = 50
+            smax = 1000
+            srate = min(max(min(smax, tlen / 2) // sround * sround, 1) for tlen in trialLens)
+            self.samplerate = srate
+            msg2 = ", samplerate = {srate} Hz (rounded to {sround} Hz with max of {smax} Hz)"
+            msg2 = msg2.format(srate=srate, sround=sround, smax=smax)
+        t0 = -self.samplerate
+        msg = "Artificially generated trial-layout: trigger offset = {t0} sec" + msg2
+        SPYInfo(msg.format(t0=t0/self.samplerate), caller="data")
+
+        # Use constructed quantities to set up trial layout matrix
+        accumSamples = np.cumsum(trialLens)
+        trialdefinition = np.zeros((nTrials, 3))
+        trialdefinition[1:, 0] = accumSamples[:-1]
+        trialdefinition[:, 1] = accumSamples
+        trialdefinition[:, 2] = t0
+
+        # Finally, concatenate provided arrays and let corresponding setting method
+        # perform the actual HDF magic
+        data = np.concatenate(inData, axis=self._stackingDim)
+        self._set_dataset_property_with_ndarray(data, propertyName, ndim)
+        self.trialdefinition = trialdefinition
+
     def _is_empty(self):
-        return all([getattr(self, attr) is None 
-                    for attr in self._hdfFileDatasetProperties])         
+        return all([getattr(self, attr) is None
+                    for attr in self._hdfFileDatasetProperties])
 
     @property
     def dimord(self):
         """list(str): ordered list of data dimension labels"""
         return self._dimord
-    
+
     @dimord.setter
     def dimord(self, dims):
 
@@ -315,23 +436,30 @@ class BaseData(ABC):
         if self._dimord is not None and not dims == self._dimord:
             print("Syncopy core - dimord: Cannot change `dimord` of object. " +\
                   "Functionality currently not supported")
-            
+
         if dims is None:
-            self._dimord = None        
+            self._dimord = None
             return
-                
+
+        # this enforces the _defaultDimord
         if set(dims) != set(self._defaultDimord):
             base = "dimensional labels {}"
             lgl = base.format("'" + "' x '".join(str(dim) for dim in self._defaultDimord) + "'")
             act = base.format("'" + "' x '".join(str(dim) for dim in dims) + "'")
             raise SPYValueError(legal=lgl, varname="dimord", actual=act)
-        
-        # Canonical way to perform initial allocation of dimensional properties 
-        # (`self._channel = None`, `self._freq = None` etc.)            
+
+        # this enforces that custom dimords are set for every axis
+        if len(dims) != len(self._defaultDimord):
+            lgl = f"Custom dimord has length {len(self._defaultDimord)}"
+            act = f"Custom dimord has length {len(dims)}"
+            raise SPYValueError(legal=lgl, varname="dimord", actual=act)
+
+        # Canonical way to perform initial allocation of dimensional properties
+        # (`self._channel = None`, `self._freq = None` etc.)
         self._dimord = list(dims)
         for dim in [dlabel for dlabel in dims if dlabel != "time"]:
             setattr(self, "_" + dim, None)
-            
+
     @property
     def filename(self):
         # implicit support for multiple backing filenames: convert list to str
@@ -340,7 +468,7 @@ class BaseData(ABC):
         else:
             outname = self._filename
         return outname
-    
+
     @filename.setter
     def filename(self, fname):
         if not isinstance(fname, str):
@@ -373,7 +501,7 @@ class BaseData(ABC):
         FIXME: append/replace with HDF5?
         """
         return self._mode
-    
+
     @property
     def tag(self):
         try:
@@ -398,7 +526,7 @@ class BaseData(ABC):
         if md not in options:
             lgl = "'" + "or '".join(opt + "' " for opt in options)
             raise SPYValueError(lgl, varname="mode", actual=md)
-        
+
         # prevent accidental data loss by not allowing mode = "w" in h5py
         if md == "w":
             md = "r+"
@@ -408,33 +536,33 @@ class BaseData(ABC):
         # different mode.
         for propertyName in self._hdfFileDatasetProperties:
             prop = getattr(self, propertyName)
-            
+
             # flush data to disk and from memory
             if prop is not None:
-                prop.flush()                        
+                prop.flush()
                 if isinstance(prop, np.memmap):
                     setattr(self, propertyName, None)
                 else:
                     prop.file.close()
 
-        
+
         # Re-attach memory maps/datasets
-        for propertyName in self._hdfFileDatasetProperties:            
-            if prop is not None:                
-                if isinstance(prop, np.memmap): 
-                    setattr(self, propertyName, 
+        for propertyName in self._hdfFileDatasetProperties:
+            if prop is not None:
+                if isinstance(prop, np.memmap):
+                    setattr(self, propertyName,
                             open_memmap(self.filename, mode=md))
-                else:                    
+                else:
                     setattr(self, propertyName,
                             h5py.File(self.filename, mode=md)[propertyName])
-        
+
         self._mode = md
-        
+
     @property
     def _selection(self):
         """Data selection specified by :class:`Selector`"""
         return self._selector
-    
+
     @_selection.setter
     def _selection(self, select):
         if select is None:
@@ -446,15 +574,15 @@ class BaseData(ABC):
     def trialdefinition(self):
         """nTrials x >=3 :class:`numpy.ndarray` of [start, end, offset, trialinfo[:]]"""
         return np.array(self._trialdefinition)
-    
+
     @trialdefinition.setter
     def trialdefinition(self, trl):
-        _definetrial(self, trialdefinition=trl)        
+        _definetrial(self, trialdefinition=trl)
 
     @property
     def sampleinfo(self):
         """nTrials x 2 :class:`numpy.ndarray` of [start, end] sample indices"""
-        if self._trialdefinition is not None: 
+        if self._trialdefinition is not None:
             return self._trialdefinition[:, :2]
         else:
             return None
@@ -465,11 +593,11 @@ class BaseData(ABC):
 
     @property
     def _t0(self):
-        if self._trialdefinition is not None: 
+        if self._trialdefinition is not None:
             return self._trialdefinition[:, 2]
         else:
             return None
-    
+
     @property
     def trials(self):
         """list-like array of trials"""
@@ -479,7 +607,7 @@ class BaseData(ABC):
     def trialinfo(self):
         """nTrials x M :class:`numpy.ndarray` with numeric information about each trial
 
-        Each trial can have M properties (condition, original trial no., ...) coded by 
+        Each trial can have M properties (condition, original trial no., ...) coded by
         numbers. This property are the fourth and onward columns of `BaseData._trialdefinition`.
         """
         if self._trialdefinition is not None:
@@ -489,23 +617,21 @@ class BaseData(ABC):
                 # If trials are defined but no trialinfo return empty array with
                 # nTrial rows, but 0 columns. This works well with np.hstack.
                 return np.empty(shape=(len(self.trials), 0))
-        else: 
+        else:
             return None
 
     @trialinfo.setter
     def trialinfo(self, trl):
         raise SPYError("Cannot set trialinfo. Use `BaseData._trialdefinition` or `syncopy.definetrial` instead.")
 
-    # Selector method
-    @abstractmethod
-    def selectdata(self, trials=None, deepcopy=False, **kwargs):
-        """
-        Docstring mostly pointing to ``selectdata``
-        """        
-
     # Helper function that grabs a single trial
     @abstractmethod
     def _get_trial(self, trialno):
+        pass
+
+    # Helper function that creates a `FauxTrial` object given actual trial information
+    @abstractmethod
+    def _preview_trial(self, trialno):
         pass
 
     # Convenience function, wiping contents of backing device from memory
@@ -513,7 +639,7 @@ class BaseData(ABC):
         """Clear loaded data from memory
 
         Calls `flush` method of HDF5 dataset or memory map. Memory maps are
-        deleted and re-instantiated.        
+        deleted and re-instantiated.
 
         """
         for propName in self._hdfFileDatasetProperties:
@@ -521,8 +647,8 @@ class BaseData(ABC):
             if dsetProp is not None:
                 dsetProp.flush()
                 if isinstance(dsetProp, np.memmap):
-                    filename, mode = dsetProp.filename, dsetProp.mode                    
-                    setattr(self, propName, None)                    
+                    filename, mode = dsetProp.filename, dsetProp.mode
+                    setattr(self, propName, None)
                     setattr(self, propName, open_memmap(filename, mode=mode))
         return
 
@@ -551,20 +677,20 @@ class BaseData(ABC):
             self.clear()
             filename = self._gen_filename()
             shutil.copyfile(self.filename, filename)
-                        
+
             for propertyName in self._hdfFileDatasetProperties:
                 prop = getattr(self, propertyName)
                 if isinstance(prop, h5py.Dataset):
                     sourceName = getattr(self, propertyName).name
-                    setattr(cpy, propertyName, 
+                    setattr(cpy, propertyName,
                             h5py.File(filename, mode=cpy.mode)[sourceName])
                 elif isinstance(prop, np.memmap):
-                    setattr(cpy, propertyName, 
+                    setattr(cpy, propertyName,
                             open_memmap(filename, mode=cpy.mode))
                 else:
                     setattr(cpy, propertyName, prop)
                     cpy.filename = filename
-                            
+
         return cpy
 
     # Attach trial-definition routine to not re-invent the wheel here
@@ -573,29 +699,29 @@ class BaseData(ABC):
     # Wrapper that makes saving routine usable as class method
     def save(self, container=None, tag=None, filename=None, overwrite=False, memuse=100):
         r"""Save data object as new ``spy`` container to disk (:func:`syncopy.save_data`)
-        
+
         FIXME: update docu
-        
+
         Parameters
-        ----------                    
+        ----------
             container : str
-                Path to Syncopy container folder (\*.spy) to be used for saving. If 
+                Path to Syncopy container folder (\*.spy) to be used for saving. If
                 omitted, a .spy extension will be added to the folder name.
             tag : str
                 Tag to be appended to container basename
             filename :  str
                 Explicit path to data file. This is only necessary if the data should
                 not be part of a container folder. An extension (\*.<dataclass>) will
-                be added if omitted. The `tag` argument is ignored.      
+                be added if omitted. The `tag` argument is ignored.
             overwrite : bool
-                If `True` an existing HDF5 file and its accompanying JSON file is 
-                overwritten (without prompt). 
-            memuse : scalar 
+                If `True` an existing HDF5 file and its accompanying JSON file is
+                overwritten (without prompt).
+            memuse : scalar
                  Approximate in-memory cache size (in MB) for writing data to disk
                  (only relevant for :class:`VirtualData` or memory map data sources)
 
         Examples
-        --------    
+        --------
         >>> save_spy(obj, filename="session1")
         >>> # --> os.getcwd()/session1.<dataclass>
         >>> # --> os.getcwd()/session1.<dataclass>.info
@@ -617,7 +743,7 @@ class BaseData(ABC):
         >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>.info
 
         """
-        
+
         # Ensure `obj.save()` simply overwrites on-disk representation of object
         if container is None and tag is None and filename is None:
             if self.container is None:
@@ -625,20 +751,20 @@ class BaseData(ABC):
                                "storage {} - please provide explicit path. ".format(__storage__))
             overwrite = True
             filename = self.filename
-            
-        # Support `obj.save(tag="newtag")`            
+
+        # Support `obj.save(tag="newtag")`
         if container is None and filename is None:
             if self.container is None:
                 raise SPYError("Object is not associated to an existing spy container - " +\
                                "please save object first using an explicit path. ")
             container = filename_parser(self.filename)["folder"]
-            
-        spy.save(self, filename=filename, container=container, tag=tag, 
+
+        spy.save(self, filename=filename, container=container, tag=tag,
                  overwrite=overwrite, memuse=memuse)
 
-    # Helper function generating pseudo-random temp file-names    
+    # Helper function generating pseudo-random temp file-names
     def _gen_filename(self):
-        fname_hsh = blake2b(digest_size=4, 
+        fname_hsh = blake2b(digest_size=4,
                             salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
         return os.path.join(__storage__,
                             "spy_{sess:s}_{hash:s}{ext:s}".format(
@@ -676,20 +802,123 @@ class BaseData(ABC):
         if self.filename is not None:
             for propertyName in self._hdfFileDatasetProperties:
                 prop = getattr(self, propertyName)
-                if isinstance(prop, h5py.Dataset):
-                    try:
-                        prop.file.close()
-                    except (IOError, ValueError, TypeError, ImportError):
-                        pass
-                    except Exception as exc:
-                        raise exc
-                else:
+                try:
+                    if isinstance(prop, h5py.Dataset):
+                        try:
+                            prop.file.close()
+                        except (IOError, ValueError, TypeError, ImportError):
+                            pass
+                        except Exception as exc:
+                            raise exc
+                    else:
+                        del prop
+                except TypeError:
                     del prop
-                                    
             if __storage__ in self.filename and os.path.exists(self.filename):
                 os.unlink(self.filename)
                 shutil.rmtree(os.path.splitext(self.filename)[0],
                               ignore_errors=True)
+
+    # Support for basic arithmetic operations (no in-place computations supported yet)
+    def __add__(self, other):
+        return _process_operator(self, other, "+")
+
+    def __radd__(self, other):
+        return _process_operator(self, other, "+")
+
+    def __sub__(self, other):
+        return _process_operator(self, other, "-")
+
+    def __rsub__(self, other):
+        return _process_operator(self, other, "-")
+
+    def __mul__(self, other):
+        return _process_operator(self, other, "*")
+
+    def __rmul__(self, other):
+        return _process_operator(self, other, "*")
+
+    def __truediv__(self, other):
+        return _process_operator(self, other, "/")
+
+    def __rtruediv__(self, other):
+        return _process_operator(self, other, "/")
+
+    def __pow__(self, other):
+        return _process_operator(self, other, "**")
+
+    def __eq__(self, other):
+
+        # If other object is not a Syncopy data-class, get out
+        if not "BaseData" in str(other.__class__.__mro__):
+            SPYInfo("Not a Syncopy object")
+            return False
+
+        # Check if two Syncopy objects of same type/dimord are present
+        try:
+            data_parser(other, dimord=self.dimord, dataclass=self.__class__.__name__)
+        except Exception as exc:
+            SPYInfo("Syncopy object of different type/dimord")
+            return False
+
+        # First, ensure we have something to compare here
+        if self._is_empty():
+            if not other._is_empty():
+                SPYInfo("Empty and non-empty Syncopy object")
+                return False
+            return True
+
+        # If in-place selections are present, abort
+        if self._selection is not None or other._selection is not None:
+            err = "Cannot perform object comparison with existing in-place selection"
+            raise SPYError(err)
+
+        # Use `_infoFileProperties` to fetch dimensional object props: remove `dimord`
+        # (has already been checked by `data_parser` above) and remove `cfg` (two
+        # objects might be identical even if their history deviates)
+        dimProps = [prop for prop in self._infoFileProperties if not prop.startswith("_")]
+        dimProps = list(set(dimProps).difference(["dimord", "cfg"]))
+        for prop in dimProps:
+            val = getattr(self, prop)
+            if isinstance(val, np.ndarray):
+                isEqual = val.tolist() == getattr(other, prop).tolist()
+            else:
+                isEqual = val == getattr(other, prop)
+            if not isEqual:
+                SPYInfo("Mismatch in {}".format(prop))
+                return False
+
+        # Check if trial setup is identical
+        if not np.array_equal(self.trialdefinition, other.trialdefinition):
+            SPYInfo("Mismatch in trial layouts")
+            return False
+
+        # If an object is compared to itself (or its shallow copy), don't bother
+        # juggling NumPy arrays but simply perform a quick dataset/filename comparison
+        isEqual = True
+        if self.filename == other.filename:
+            for dsetName in self._hdfFileDatasetProperties:
+                val = getattr(self, dsetName)
+                if isinstance(val, h5py.Dataset):
+                    isEqual = val == getattr(other, dsetName)
+                else:
+                    isEqual = np.allclose(val, getattr(other, dsetName))
+            if not isEqual:
+                SPYInfo("HDF dataset mismatch")
+                return False
+            return True
+
+        # The other object really is a standalone Syncopy class instance and
+        # everything but the data itself aligns; now the most expensive part:
+        # trial by trial data comparison
+        for tk in range(len(self.trials)):
+            if not np.allclose(self.trials[tk], other.trials[tk]):
+                SPYInfo("Mismatch in trial #{}".format(tk))
+                return False
+
+        # If we made it this far, `self` and `other` really seem to be identical
+        return True
+
 
     # Class "constructor"
     def __init__(self, filename=None, dimord=None, mode="r+", **kwargs):
@@ -697,30 +926,25 @@ class BaseData(ABC):
         Docstring
 
         1. filename + data = create HDF5 file at filename with data in it
-        2. data only 
-        
+        2. data only
+
         """
 
         # Initialize hidden attributes
-        self._cfg = {}                
-        self._filename = None
-        self._trialdefinition = None
-        self._dimord = None
-        self._mode = None               
         for propertyName in self._hdfFileDatasetProperties:
             setattr(self, "_" + propertyName, None)
-        
+
         self._selector = None
 
         # Make instantiation persistent in all subclasses
         super().__init__()
 
-        # Set mode            
-        self.mode = mode                        
-        
-        # If any dataset property contains data and no dimord is set, use the 
-        # default dimord        
-        if any([key in self._hdfFileDatasetProperties and value is not None 
+        # Set mode
+        self.mode = mode
+
+        # If any dataset property contains data and no dimord is set, use the
+        # default dimord
+        if any([key in self._hdfFileDatasetProperties and value is not None
                 for key, value in kwargs.items()]) and dimord is None:
             self.dimord = self._defaultDimord
         else:
@@ -729,42 +953,27 @@ class BaseData(ABC):
         # If a target filename is provided use it, otherwise generate random
         # filename in `syncopy.__storage__`
         if filename is not None:
-            self.filename = filename                        
+            self.filename = filename
         else:
             self.filename = self._gen_filename()
-            
+
         # Attach dataset properties and let set methods do error checking
         for propertyName in self._hdfFileDatasetProperties:
             setattr(self, propertyName, kwargs[propertyName])
-                    
-        # Prepare log + header and write first entry
-        lhd = "\n\t\t>>> SyNCopy v. {ver:s} <<< \n\n" +\
-              "Created: {timestamp:s} \n\n" +\
-              "System Profile: \n" +\
-              "{sysver:s} \n" +\
-              "NumPy: {npver:s}\n" +\
-              "SciPy: {spver:s}\n" +\
-              "Dask:  {daver:s}\n\n" +\
-              "--- LOG ---"
-        self._log_header = lhd.format(ver=__version__,
-                                      timestamp=time.asctime(),
-                                      sysver=sys.version,
-                                      npver=np.__version__,
-                                      spver=sp.__version__,
-                                      daver=dask.__version__ if __dask__ else "--")
-        self._log = ""
+
+        # Write initial log entry
         self.log = "created {clname:s} object".format(clname=self.__class__.__name__)
 
         # Write version
         self._version = __version__
-        
 
 
-        
+
+
 class VirtualData():
     """Class for handling 2D-data spread across multiple files
 
-    Arrays from individual files (chunks) are concatenated along 
+    Arrays from individual files (chunks) are concatenated along
     the 2nd dimension (dim=1).
 
     """
@@ -1005,21 +1214,48 @@ class Indexer():
     def __str__(self):
         return "{} element iterable".format(self._iterlen)
 
-    
+
 class SessionLogger():
 
     __slots__ = ["sessionfile", "_rm"]
 
     def __init__(self):
+
+        # Create package-wide tmp directory if not already present
+        if not os.path.exists(__storage__):
+            try:
+                os.mkdir(__storage__)
+            except Exception as exc:
+                err = "Syncopy core: cannot create temporary storage directory {}. " +\
+                    "Original error message below\n{}"
+                raise IOError(err.format( __storage__, str(exc)))
+
+        # Check for upper bound of temp directory size
+        with os.scandir(__storage__) as scan:
+            st_fles = [fle.stat().st_size/1024**3 for fle in scan]
+            st_size = sum(st_fles)
+            if st_size > __storagelimit__:
+                msg = "\nSyncopy <core> WARNING: Temporary storage folder {tmpdir:s} " +\
+                    "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n" +\
+                    "Consider running `spy.cleanup()` to free up disk space."
+                print(msg.format(tmpdir=__storage__, nfs=len(st_fles), sze=st_size))
+
+        # If we made it to this point, (attempt to) write the session file
         sess_log = "{user:s}@{host:s}: <{time:s}> started session {sess:s}"
         self.sessionfile = os.path.join(__storage__,
                                         "session_{}_log.id".format(__sessionid__))
-        with open(self.sessionfile, "w") as fid:
-            fid.write(sess_log.format(user=getpass.getuser(),
-                                      host=socket.gethostname(),
-                                      time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                      sess=__sessionid__))
-        self._rm = os.unlink # workaround to prevent Python from garbage-collectiing ``os.unlink``
+        try:
+            with open(self.sessionfile, "w") as fid:
+                fid.write(sess_log.format(user=getpass.getuser(),
+                                        host=socket.gethostname(),
+                                        time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                        sess=__sessionid__))
+        except Exception as exc:
+            err = "Syncopy core: cannot access {}. Original error message below\n{}"
+            raise IOError(err.format(self.sessionfile, str(exc)))
+
+        # Workaround to prevent Python from garbage-collecting ``os.unlink``
+        self._rm = os.unlink
 
     def __repr__(self):
         return self.__str__()
@@ -1037,41 +1273,41 @@ class SessionLogger():
 class FauxTrial():
     """
     Stand-in mockup of NumPy arrays representing trial data
-    
+
     Parameters
     ----------
     shape : tuple
-        Shape of source trial array 
+        Shape of source trial array
     idx : tuple
         Tuple of slices for extracting trial-data from source object's `data`
-        dataset. The provided tuple **has** to be a proper indexing sequence, 
+        dataset. The provided tuple **has** to be a proper indexing sequence,
         i.e., if `idx` refers to the `k`-th trial in `obj`, then ``obj.data[idx]``
         must slice `data` correctly so that ``obj.data[idx] == obj.trials[k]``
     dtype : :class:`numpy.dtype`
         Datatype of source trial array
     dimord : list
         Dimensional order of source trial array
-        
+
     Returns
     -------
     faux_trl : FauxTrial object
         An instance of `FauxTrial` that essentially parrots :class:`numpy.ndarray`
-        objects and can, thus, be used to feed "fake" trials into a 
+        objects and can, thus, be used to feed "fake" trials into a
         :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
-        to get the `noCompute` runs out of the way w/o actually loading trials 
-        into memory. 
-        
+        to get the `noCompute` runs out of the way w/o actually loading trials
+        into memory.
+
     See also
     --------
     syncopy.continuous_data.ContinuousData._preview_trial : makes use of this class
     """
-    
+
     def __init__(self, shape, idx, dtype, dimord):
         self.shape = tuple(shape)
         self.idx = tuple(idx)
         self.dtype = dtype
         self.dimord = dimord
-        
+
     def __str__(self):
         msg = "Trial placeholder of shape {} and datatype {}"
         return msg.format(str(self.shape), str(self.dtype))
@@ -1081,7 +1317,7 @@ class FauxTrial():
 
     def squeeze(self):
         """
-        Remove 1's from shape and return a new `FauxTrial` instance 
+        Remove 1's from shape and return a new `FauxTrial` instance
         (parroting the NumPy original :func:`numpy.squeeze`)
         """
         shp = list(self.shape)
@@ -1109,10 +1345,10 @@ class Selector():
     select : dict or :class:`~syncopy.shared.tools.StructDict` or None or str
         Dictionary or :class:`~syncopy.shared.tools.StructDict` with keys
         specifying data selectors. **Note**: some keys are only valid for certain types
-        of Syncopy objects, e.g., "freqs" is not a valid selector for an 
-        :class:`~syncopy.AnalogData` object. Supported keys are (please see 
+        of Syncopy objects, e.g., "freqs" is not a valid selector for an
+        :class:`~syncopy.AnalogData` object. Supported keys are (please see
         :func:`~syncopy.selectdata` for a detailed description of each selector)
-    
+
         * 'trials' : list (integers)
         * 'channels' : list (integers or strings), slice or range
         * 'toi' : list (floats)
@@ -1128,47 +1364,47 @@ class Selector():
         selects the entire contents of trials no. 2 and 3, while
         ``select = {'channels': range(0, 50)}`` selects the first 50 channels
         of `data` across all defined trials. Consequently, if `select` is
-        `None` or if ``select = "all"`` the entire contents of `data` is selected. 
-    
+        `None` or if ``select = "all"`` the entire contents of `data` is selected.
+
     Returns
     -------
     selection : Syncopy :class:`Selector` object
         An instance of this class whose main properties are either lists or slices
-        to be used as (fancy) indexing tuples. Note that the properties `time`, 
-        `unit` and `eventid` are **by-trial** selections, i.e., list of lists 
-        and/or slices encoding per-trial sample-indices, e.g., ``selection.time[0]`` 
-        is intended to be used with ``data.trials[selection.trials[0]]``. 
+        to be used as (fancy) indexing tuples. Note that the properties `time`,
+        `unit` and `eventid` are **by-trial** selections, i.e., list of lists
+        and/or slices encoding per-trial sample-indices, e.g., ``selection.time[0]``
+        is intended to be used with ``data.trials[selection.trials[0]]``.
         Addditional class attributes of note:
-        
+
         * `_useFancy` : bool
-        
+
           If `True`, selection requires "fancy" (or "advanced") array indexing
 
         * `_dataClass` : str
-        
+
           Class name of `data`
-        
+
         * `_samplerate` : float
-        
+
           Samplerate of `data` (only relevant for objects supporting time-selections)
-          
+
         * `_timeShuffle` : bool
-        
-          If `True`, time-selection contains unordered/repeated time-points. 
+
+          If `True`, time-selection contains unordered/repeated time-points.
 
         * `_allProps` : list
-        
+
           List of all selection properties in class
 
         * `_byTrialProps` : list
-        
+
           List off by-trial selection properties (see above)
 
         * `_dimProps` : list
-        
-          List off trial-independent selection properties (computed as 
+
+          List off trial-independent selection properties (computed as
           `self._allProps` minus `self._byTrialProps`)
-                    
+
     Notes
     -----
     Whenever possible, this class performs extensive input parsing to ensure
@@ -1204,7 +1440,7 @@ class Selector():
     indexing) and the :class:`Selector` marks such indexers by setting the
     hidden `self._useFancy` attribute to `True`. Note that :func:`numpy.ix_`
     always creates copies of the indexed reference array, hence, the attempt
-    to use slice-based indexing whenever possible. 
+    to use slice-based indexing whenever possible.
 
     Examples
     --------
@@ -1214,9 +1450,9 @@ class Selector():
     --------
     syncopy.selectdata : extract data selections from Syncopy objects
     """
-    
+
     def __init__(self, data, select):
-        
+
         # Ensure input makes sense
         try:
             data_parser(data, varname="data", empty=False)
@@ -1228,31 +1464,36 @@ class Selector():
             if select == "all":
                 select = {}
             else:
-                raise SPYValueError(legal="'all' or `None` or dict", 
+                raise SPYValueError(legal="'all' or `None` or dict",
                                     varname="select", actual=select)
         if not isinstance(select, dict):
             raise SPYTypeError(select, "select", expected="dict")
-        supported = ["trials", "channels", "toi", "toilim", "foi", "foilim",
-                     "tapers", "units", "eventids"]
+        supported = ["trials", "channels", "channels_i", "channels_j", "toi",
+                     "toilim", "foi", "foilim", "tapers", "units", "eventids"]
         if not set(select.keys()).issubset(supported):
             lgl = "dict with one or all of the following keys: '" +\
                   "'".join(opt + "', " for opt in supported)[:-2]
             act = "dict with keys '" +\
                   "'".join(key + "', " for key in select.keys())[:-2]
             raise SPYValueError(legal=lgl, varname="select", actual=act)
-        
+
         # Save class of input object for posterity
         self._dataClass = data.__class__.__name__
-        
-        # Set up lists of (a) all selectable properties (b) trial-dependent ones 
+
+        # Set up lists of (a) all selectable properties (b) trial-dependent ones
         # and (c) selectors independent from trials
-        self._allProps = ["channel", "time", "freq", "taper", "unit", "eventid"]
+        self._allProps = ["channel", "channel_i", "channel_j", "time", "freq", "taper", "unit", "eventid"]
         self._byTrialProps = ["time", "unit", "eventid"]
         self._dimProps = list(self._allProps)
         for prop in self._byTrialProps:
             self._dimProps.remove(prop)
-        
-        # Assign defaults (trials are not a "real" property, handle it separately, 
+
+        # Special adjustment for `CrossSpectralData`: remove (invalid) `channel` property
+        # from `_dimProps` (avoid pitfalls in code-blocks iterating over `_dimProps`)
+        if self._dataClass == "CrossSpectralData":
+            self._dimProps.remove("channel")
+
+        # Assign defaults (trials are not a "real" property, handle it separately,
         # same goes for `trialdefinition`)
         self._trials = None
         self._trialdefinition = None
@@ -1261,41 +1502,41 @@ class Selector():
         self._useFancy = False  # flag indicating whether fancy indexing is necessary
         self._samplerate = None  # for objects supporting time-selections
         self._timeShuffle = False  # flag indicating whether time-points are repeated/unordered
-        
-        # We first need to know which trials are of interest here (assuming 
+
+        # We first need to know which trials are of interest here (assuming
         # that any valid input object *must* have a `trials` attribute)
         self.trials = (data, select)
 
         # Now set any possible selection attribute (depending on type of `data`)
-        # Note: `trialdefinition` is set *after* harmonizing indexing selections 
+        # Note: `trialdefinition` is set *after* harmonizing indexing selections
         # in `_make_consistent`
         for prop in self._allProps:
             setattr(self, prop, (data, select))
-        
+
         # Ensure correct indexing: harmonize selections for `DiscreteData`-children
-        # or convert everything to lists for use w/`np.ix_` if we ended up w/more 
+        # or convert everything to lists for use w/`np.ix_` if we ended up w/more
         # than 2 list selectors for `ContinuousData`-offspring
         self._make_consistent(data)
-        
+
     @property
     def trials(self):
         """Index list of selected trials"""
         return self._trials
-    
+
     @trials.setter
     def trials(self, dataselect):
         data, select = dataselect
         trlList = list(range(len(data.trials)))
         trials = select.get("trials", None)
         vname = "select: trials"
-        
+
         if isinstance(trials, str):
             if trials == "all":
                 trials = None
             else:
-                raise SPYValueError(legal="'all' or `None` or list/array", 
+                raise SPYValueError(legal="'all' or `None` or list/array",
                                     varname=vname, actual=trials)
-        if trials is not None:        
+        if trials is not None:
             try:
                 array_parser(trials, varname=vname, ntype="int_like", hasinf=False,
                             hasnan=False, lims=[0, len(data.trials)], dims=1)
@@ -1308,25 +1549,52 @@ class Selector():
         else:
             trials = trlList
         self._trials = trials
-        
+
     @property
     def channel(self):
         """List or slice encoding channel-selection"""
         return self._channel
-    
+
     @channel.setter
     def channel(self, dataselect):
         data, select = dataselect
+        chanSpec = select.get("channels")
+        if self._dataClass == "CrossSpectralData":
+            if chanSpec is not None:
+                lgl = "`channel_i` and/or `channel_j` selectors for `CrossSpectralData`"
+                raise SPYValueError(legal=lgl, varname="select: channels", actual=data.__class__.__name__)
+            else:
+                return
         self._selection_setter(data, select, "channel", "channels")
-        
+
+    @property
+    def channel_i(self):
+        """List or slice encoding principal channel-pair selection"""
+        return self._channel_i
+
+    @channel_i.setter
+    def channel_i(self, dataselect):
+        data, select = dataselect
+        self._selection_setter(data, select, "channel_i", "channels_i")
+
+    @property
+    def channel_j(self):
+        """List or slice encoding principal channel-pair selection"""
+        return self._channel_j
+
+    @channel_j.setter
+    def channel_j(self, dataselect):
+        data, select = dataselect
+        self._selection_setter(data, select, "channel_j", "channels_j")
+
     @property
     def time(self):
         """len(self.trials) list of lists/slices of by-trial time-selections"""
         return self._time
-    
+
     @time.setter
     def time(self, dataselect):
-        
+
         # Unpack input and perform error-checking
         data, select = dataselect
         timeSpec = select.get("toi", None)
@@ -1355,7 +1623,7 @@ class Selector():
                     select["toi"] = None
                     select["toilim"] = None
                 else:
-                    raise SPYValueError(legal="'all' or `None` or list/array", 
+                    raise SPYValueError(legal="'all' or `None` or list/array",
                                         varname=vname, actual=timeSpec)
             if timeSpec is not None:
                 try:
@@ -1372,7 +1640,7 @@ class Selector():
                         act = "selection range from {} to {}".format(timeSpec[0], timeSpec[1])
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
             timing = data._get_time(self.trials, toi=select.get("toi"), toilim=select.get("toilim"))
-            
+
             # Determine, whether time-selection is unordered/contains repetitions
             # and set `self._timeShuffle` accordingly
             if timeSpec is not None:  # saves time for `timeSpec = None` "selections"
@@ -1380,12 +1648,12 @@ class Selector():
                     if isinstance(tsel, list) and len(tsel) > 1:
                             if np.diff(tsel).min() <= 0:
                                 self._timeShuffle = True
-                                break 
+                                break
 
             # Assign timing selection and copy over samplerate from source object
             self._time = timing
             self._samplerate = data.samplerate
-            
+
         else:
             return
 
@@ -1396,11 +1664,11 @@ class Selector():
 
     @trialdefinition.setter
     def trialdefinition(self, data):
-        
+
         # Get original `trialdefinition` array for reference
         trl = data.trialdefinition
 
-        # `DiscreteData`: simply copy relevant sample-count -> trial assignments, 
+        # `DiscreteData`: simply copy relevant sample-count -> trial assignments,
         # for other classes build new trialdefinition array using `t0`-offsets
         if self._dataClass in ["SpikeData", "EventData"]:
             trlDef = trl[self.trials, :]
@@ -1434,23 +1702,23 @@ class Selector():
                 trlDef[tk, 3:] = trl[trlno, 3:]
                 counter += nSamples
         self._trialdefinition = trlDef
-        
+
     @property
     def timepoints(self):
-        """len(self.trials) list of lists encoding actual (not sample indices!) 
+        """len(self.trials) list of lists encoding actual (not sample indices!)
         timing information of unordered `toi` selections"""
         if self._timeShuffle:
-            return [[(tvec[tp] + self.trialdefinition[tk, 2]) / self._samplerate 
+            return [[(tvec[tp] + self.trialdefinition[tk, 2]) / self._samplerate
                      for tp in range(len(tvec))] for tk, tvec in enumerate(self.time)]
 
     @property
     def freq(self):
         """List or slice encoding frequency-selection"""
         return self._freq
-    
+
     @freq.setter
     def freq(self, dataselect):
-        
+
         # Unpack input and perform error-checking
         data, select = dataselect
         freqSpec = select.get("foi")
@@ -1470,7 +1738,7 @@ class Selector():
         if freqSpec is not None and hasFreq is False:
             lgl = "Syncopy data object with freq-dimension"
             raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
-        
+
         # If `data` has a `freq` property, fill up `self.freq`
         if hasFreq:
             if isinstance(freqSpec, str):
@@ -1479,11 +1747,11 @@ class Selector():
                     select["foi"] = None
                     select["foilim"] = None
                 else:
-                    raise SPYValueError(legal="'all' or `None` or list/array", 
+                    raise SPYValueError(legal="'all' or `None` or list/array",
                                         varname=vname, actual=freqSpec)
             if freqSpec is not None:
                 try:
-                    array_parser(freqSpec, varname=vname, hasinf=checkInf, hasnan=False, 
+                    array_parser(freqSpec, varname=vname, hasinf=checkInf, hasnan=False,
                                 lims=[data.freq.min(), data.freq.max()], dims=1)
                 except Exception as exc:
                     raise exc
@@ -1530,7 +1798,7 @@ class Selector():
         data, select = dataselect
         self._selection_setter(data, select, "eventid", "eventids")
 
-    # Helper function to process provided selections        
+    # Helper function to process provided selections
     def _selection_setter(self, data, select, dataprop, selectkey):
         """
         Converts user-provided selection key-words to indexing lists/slices
@@ -1558,7 +1826,7 @@ class Selector():
         selections. Valid selectors are slices, ranges, lists or arrays. If
         possible, all selections are converted to contiguous slices, otherwise
         regular Python lists are used. Selections can be unsorted and may
-        include repetitions but must match exactly, be finite and not NaN. 
+        include repetitions but must match exactly, be finite and not NaN.
         Converted selections are stored in the respective (hidden) class
         attributes (e.g., ``self._channel``, ``self._unit`` etc.).
 
@@ -1566,7 +1834,7 @@ class Selector():
         --------
         syncopy.selectdata : extract data selections from Syncopy objects
         """
-        
+
         # Unpack input and perform error-checking
         selection = select.get(selectkey)
         target = getattr(data, dataprop, None)
@@ -1575,7 +1843,7 @@ class Selector():
         if selection is not None and target is None:
             lgl = "Syncopy data object with {}".format(selectkey)
             raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
-        
+
         if target is not None:
 
             if np.issubdtype(target.dtype, np.dtype("str").type):
@@ -1588,20 +1856,20 @@ class Selector():
                 arrLims = [target[0], target[-1]]
                 hasnan = False
                 hasinf = False
-                
+
             if isinstance(selection, str):
                 if selection == "all":
                     selection = None
                 else:
                     raise SPYValueError(legal="'all'", varname=vname, actual=selection)
-                
+
             # Take entire inventory sitting in `dataprop`
             if selection is None:
                 if dataprop in ["unit", "eventid"]:
                     setattr(self, selector, [slice(None, None, 1)] * len(self.trials))
                 else:
                     setattr(self, selector, slice(None, None, 1))
-                
+
             # Check consistency of slice-selections and convert ranges to slices
             elif isinstance(selection, (slice, range)):
                 selLims = [-np.inf, np.inf]
@@ -1645,11 +1913,11 @@ class Selector():
                         else:
                             step = selection.step
                         setattr(self, selector, slice(selection.start, selection.stop, step))
-                
+
             # Selection is either a valid list/array or bust
             else:
                 try:
-                    array_parser(selection, varname=vname, hasinf=hasinf, 
+                    array_parser(selection, varname=vname, hasinf=hasinf,
                                  hasnan=hasnan, lims=arrLims, dims=1)
                 except Exception as exc:
                     raise exc
@@ -1661,30 +1929,30 @@ class Selector():
                 if not set(selection).issubset(targetArr):
                     lgl = "list/array of {} existing names or indices".format(dataprop)
                     raise SPYValueError(legal=lgl, varname=vname)
-                
+
                 # Preserve order and duplicates of selection - don't use `np.isin` here!
                 idxList = []
                 for sel in selection:
                     idxList += list(np.where(targetArr == sel)[0])
-                    
+
                 if dataprop in ["unit", "eventid"]:
                     setattr(self, selector, getattr(data, "_get_" + dataprop)(self.trials, idxList))
-                else:                
+                else:
                     # if possible, convert range-arrays (`[0, 1, 2, 3]`) to slices for better performance
                     if len(idxList) > 1:
                         steps = np.diff(idxList)
                         if steps.min() == steps.max() == 1:
                             idxList = slice(idxList[0], idxList[-1] + 1, 1)
                     setattr(self, selector, idxList)
-                    
+
         else:
             return
 
-    # Local helper that converts slice selectors to lists (if necessary)        
+    # Local helper that converts slice selectors to lists (if necessary)
     def _make_consistent(self, data):
         """
-        Consolidate multi-selections 
-        
+        Consolidate multi-selections
+
         Parameters
         ----------
         data : Syncopy data object
@@ -1698,17 +1966,17 @@ class Selector():
         -----
         This class method is called after all user-provided selections have
         been (successfully) processed and (if necessary) converted to
-        lists/slices. 
-        For instances of :class:`~syncopy.datatype.continuous_data.ContinuousData` 
+        lists/slices.
+        For instances of :class:`~syncopy.datatype.continuous_data.ContinuousData`
         child classes (i.e., :class:`~syncopy.AnalogData` and :class:`~syncopy.SpectralData`
         objects) the integrity of conjoint multi-dimensional selections
-        is ensured. 
-        For instances of :class:`~syncopy.datatype.discrete_data.DiscreteData` 
+        is ensured.
+        For instances of :class:`~syncopy.datatype.discrete_data.DiscreteData`
         child classes (i.e., :class:`~syncopy.SpikeData` and :class:`~syncopy.EventData`
-        objects), any selection (`unit`, `eventid`, `time` and `channel`) operates 
+        objects), any selection (`unit`, `eventid`, `time` and `channel`) operates
         on the rows of the object's underlying `data` array. Thus, multi-selections
         need to be synchronized (e.g., a `unit` selection pointing to rows `[0, 1, 2]`
-        and a `time` selection filtering rows `[1, 2, 3]` are combined to `[1, 2]`). 
+        and a `time` selection filtering rows `[1, 2, 3]` are combined to `[1, 2]`).
 
         See also
         --------
@@ -1718,49 +1986,49 @@ class Selector():
         # Harmonize selections for `DiscreteData`-children: all selectors are row-
         # indices, go through each trial and combine them
         if self._dataClass in ["SpikeData", "EventData"]:
-            
+
             # Get relevant selectors (e.g., `self.unit` is `None` for `EventData`)
             actualSelections = []
             for selection in ["time", "eventid", "unit"]:
                 if getattr(self, selection) is not None:
                     actualSelections.append(selection)
-                
-            # Compute intersection of "time" x "{eventid|unit|channel}" row-indices 
-            # per trial. BONUS: in `SpikeData` objects, `channels` are **not** 
-            # the same in all trials - ensure that channel selection propagates 
+
+            # Compute intersection of "time" x "{eventid|unit|channel}" row-indices
+            # per trial. BONUS: in `SpikeData` objects, `channels` are **not**
+            # the same in all trials - ensure that channel selection propagates
             # correctly. After this step, `self.time` == `self.{unit|eventid}`
             if self._dataClass == "SpikeData":
                 chanIdx = data.dimord.index("channel")
                 wantedChannels = np.unique(data.data[:, chanIdx])[self.channel]
                 chanPerTrial = []
-                
+
             for tk, trialno in enumerate(self.trials):
                 trialArr = np.arange(np.sum(data.trialid == trialno))
                 byTrialSelections = []
                 for selection in actualSelections:
                     byTrialSelections.append(trialArr[getattr(self, selection)[tk]])
-                    
+
                 # (try to) preserve unordered selections by processing them first
                 areShuffled = [(np.diff(sel) <= 0).any() for sel in byTrialSelections]
                 combiOrder = np.argsort(areShuffled)[::-1]
                 combinedSelect = byTrialSelections[combiOrder[0]]
                 for combIdx in combiOrder:
-                    combinedSelect = [elem for elem in combinedSelect 
+                    combinedSelect = [elem for elem in combinedSelect
                                       if elem in byTrialSelections[combIdx]]
-                    
+
                 # Keep record of channels present in trials vs. selected channels
                 if self._dataClass == "SpikeData":
                     rawChanInTrial = data.data[data.trialid == trialno, chanIdx]
                     chanTrlIdx = [ck for ck, chan in enumerate(rawChanInTrial) if chan in wantedChannels]
                     combinedSelect = [elem for elem in combinedSelect if elem in chanTrlIdx]
                     chanPerTrial.append(rawChanInTrial[combinedSelect])
-                    
+
                 # The usual list -> slice conversion (if possible)
                 if len(combinedSelect) > 1:
                     selSteps = np.diff(combinedSelect)
                     if selSteps.min() == selSteps.max() == 1:
                         combinedSelect = slice(combinedSelect[0], combinedSelect[-1] + 1, 1)
-                        
+
                 # Update selector properties
                 for selection in actualSelections:
                     getattr(self, "_{}".format(selection))[tk] = combinedSelect
@@ -1775,10 +2043,10 @@ class Selector():
                     if selSteps.min() == selSteps.max() == 1:
                         chanSelection = slice(chanSelection[0], chanSelection[-1] + 1, 1)
                 self._channel = chanSelection
-                
+
             # Finally, prepare new `trialdefinition` array
             self.trialdefinition = data
-            
+
             return
 
         # Count how many lists we got
@@ -1795,7 +2063,7 @@ class Selector():
                     if isinstance(tsel, list):
                         listCount += 1
                         break
-                
+
         # If (on a by-trial basis) we have two or more lists, we need fancy indexing
         if listCount >= 2:
             self._useFancy = True
@@ -1803,20 +2071,20 @@ class Selector():
         # Finally, prepare new `trialdefinition` array for objects with `time` dimensions
         if self.time is not None:
             self.trialdefinition = data
-        
+
         return
-        
+
     # Legacy support
     def __repr__(self):
         return self.__str__()
 
     # Make selection readable from the command line
     def __str__(self):
-        
+
         # Get list of print-worthy attributes
         ppattrs = [attr for attr in self.__dir__() if not attr.startswith("_")]
         ppattrs.sort()
-        
+
         # Construct dict of pretty-printable property info
         ppdict = {}
         for attr in ppattrs:
@@ -1825,7 +2093,7 @@ class Selector():
                 val = val[0]
             if isinstance(val, slice):
                 if val.start is val.stop is None:
-                    ppdict[attr] = "all {}{}, ".format(attr, 
+                    ppdict[attr] = "all {}{}, ".format(attr,
                                                        "s" if not attr.endswith("s") else "")
                 elif val.start is None or val.stop is None:
                     ppdict[attr] = "{}-range, ".format(attr)
@@ -1834,15 +2102,15 @@ class Selector():
                                                                attr,
                                                                "s" if not attr.endswith("s") else "")
             elif isinstance(val, list):
-                ppdict[attr] = "{0:d} {1:s}{2:s}, ".format(len(val), 
-                                                           attr, 
+                ppdict[attr] = "{0:d} {1:s}{2:s}, ".format(len(val),
+                                                           attr,
                                                            "s" if not attr.endswith("s") else "")
             else:
                 ppdict[attr] = ""
-    
+
         # Construct string for printing
         msg = "Syncopy {} selector with ".format(self._dataClass)
         for pout in ppdict.values():
             msg += pout
-                
+
         return msg[:-2]

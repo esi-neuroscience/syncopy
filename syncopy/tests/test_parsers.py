@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Test Syncopy's parsers for consistency
-# 
+#
 
 # Builtin/3rd party package imports
 import os
@@ -9,10 +9,9 @@ import platform
 import tempfile
 import pytest
 import numpy as np
-from collections import OrderedDict
 
 # Local imports
-from syncopy.shared.parsers import (io_parser, scalar_parser, array_parser, 
+from syncopy.shared.parsers import (io_parser, scalar_parser, array_parser,
                                     filename_parser, data_parser)
 from syncopy.shared.tools import get_defaults
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError
@@ -120,7 +119,7 @@ class TestArrayParser():
 
         # valid shape, unkown size
         array_parser(self.time, varname="time", dims=(None,))
-        
+
         # invalid shape
         with pytest.raises(SPYValueError):
             array_parser(self.time, varname="time", dims=(100, 1))
@@ -181,7 +180,7 @@ class TestArrayParser():
         array_parser(channels, varname="channels", dims=(None,))
         with pytest.raises(SPYValueError):
             array_parser(channels, varname="channels", dims=(4,))
-            
+
     def test_sorted_arrays(self):
         ladder = np.arange(10)
         array_parser(ladder, issorted=True)
@@ -231,7 +230,7 @@ class TestFilenameParser():
         assert all([value is None for value in filename_parser(None).values()])
 
     def test_fname_only(self):
-        fname = "sessionName_testTag.analog"         
+        fname = "sessionName_testTag.analog"
         assert filename_parser(fname) == {
             "filename" : fname,
             "container": None,
@@ -240,18 +239,18 @@ class TestFilenameParser():
             "basename": "sessionName_testTag",
             "extension": ".analog"
         }
-    
+
     def test_invalid_ext(self):
         # wrong extension
         with pytest.raises(SPYValueError):
             filename_parser("test.wrongExtension")
-        
+
         # no extension
         with pytest.raises(SPYValueError):
             filename_parser("test")
 
     def test_with_info_ext(self):
-        fname = "sessionName_testTag.analog.info" 
+        fname = "sessionName_testTag.analog.info"
         assert filename_parser(fname) == {
             "filename" : fname.replace(".info", ""),
             "container": None,
@@ -262,7 +261,7 @@ class TestFilenameParser():
         }
 
     def test_valid_spy_container(self):
-        fname = "sessionName.spy/sessionName_testTag.analog"         
+        fname = "sessionName.spy/sessionName_testTag.analog"
         assert filename_parser(fname, is_in_valid_container=True) == {
             "filename" : "sessionName_testTag.analog",
             "container": "sessionName.spy",
@@ -272,12 +271,12 @@ class TestFilenameParser():
             "extension": ".analog"
         }
     def test_invalid_spy_container(self):
-        fname = "sessionName/sessionName_testTag.analog"   
-        with  pytest.raises(SPYValueError):   
+        fname = "sessionName/sessionName_testTag.analog"
+        with  pytest.raises(SPYValueError):
             filename_parser(fname, is_in_valid_container=True)
-        
-        fname = "wrongContainer.spy/sessionName_testTag.analog"   
-        with  pytest.raises(SPYValueError):   
+
+        fname = "wrongContainer.spy/sessionName_testTag.analog"
+        with  pytest.raises(SPYValueError):
             filename_parser(fname, is_in_valid_container=True)
 
     def test_with_full_path(self):
@@ -291,7 +290,7 @@ class TestFilenameParser():
             "basename": "sessionName",
             "extension": ".analog"
             }
-    
+
     def test_folder_only(self):
         assert filename_parser("container.spy") == {
             'filename': None,
@@ -321,11 +320,11 @@ class TestDataParser():
 
     def test_dataclass(self):
         # valid
-        data_parser(self.data, dataclass=AnalogData)
+        data_parser(self.data, dataclass=AnalogData.__name__)
 
         # invalid
         with pytest.raises(SPYTypeError):
-            data_parser(self.data, dataclass=SpectralData)
+            data_parser(self.data, dataclass=SpectralData.__name__)
 
     def test_empty(self):
         with pytest.raises(SPYValueError):
