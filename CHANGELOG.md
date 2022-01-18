@@ -4,14 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.2] - 2022-01-18
+Major Release
+
 ### NEW
+- Added Connectivity submodule with csd, granger and coh measures
+- Added Superlet spectral estimation method
 - Made SyNCoPy PEP 517 compliant: added pyproject.toml and modified setup.py
   accordingly
 - Added IBM POWER testing pipeline (via dedicated GitLab Runner)
-- Added Superlet spectral estimation method
 
 ### CHANGED
+- Multi-tapering now works with smoothing frequencies in Hz
+- streamlined padding interface
 
 ### REMOVED
 - Retired tox in `slurmtest` CI pipeline in favor of a "simple" pytest testing
