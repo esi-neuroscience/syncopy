@@ -778,7 +778,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
                 foi = np.arange(foilim[0], foilim[1] + 1, dtype=float)
             # 0 frequency is not valid
             foi[foi < 0.01] = 0.01
-            scales = wfun.scale_from_period(1 / foi)
+            scales = superlet.scale_from_period(1. / foi)
 
         # FASLT needs ordered frequencies low - high
         # meaning the scales have to go high - low
