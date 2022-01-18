@@ -16,13 +16,12 @@ from glob import glob
 from memory_profiler import memory_usage
 
 # Local imports
-from syncopy.datatype import AnalogData, SpectralData
-from syncopy.datatype.base_data import VirtualData
+from syncopy.datatype import AnalogData
 from syncopy.io import save, load
 from syncopy.shared.filetypes import FILE_EXT
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError, SPYError
+from syncopy.shared.errors import SPYValueError, SPYIOError, SPYError
 import syncopy.datatype as swd
-from syncopy.tests.misc import generate_artificial_data, construct_spy_filename
+from syncopy.tests.misc import generate_artificial_data
 
 class TestSpyIO():
 

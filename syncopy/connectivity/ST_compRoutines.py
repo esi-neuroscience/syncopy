@@ -15,7 +15,6 @@ from .csd import csd
 
 # syncopy imports
 from syncopy.shared.const_def import spectralDTypes
-from syncopy.datatype import padding
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
@@ -24,8 +23,8 @@ from syncopy.shared.kwarg_decorators import unwrap_io
 @unwrap_io
 def cross_spectra_cF(trl_dat,
                      samplerate=1,
+                     nSamples=None,
                      foi=None,
-                     padding_opt={},
                      taper="hann",
                      taper_opt=None,
                      polyremoval=False,
@@ -62,13 +61,13 @@ def cross_spectra_cF(trl_dat,
         Dimensions can be transposed to `(N, K)` with the `timeAxis` parameter.
     samplerate : float
         Samplerate in Hz
+    nSamples : int or None
+        Absolute length of the (potentially to be padded) signal or
+        `None` for no padding
     foi : 1D :class:`numpy.ndarray` or None, optional
         Frequencies of interest  (Hz) for output. If desired frequencies
         cannot be matched exactly the closest possible frequencies (respecting
         data length and padding) are used.
-    padding_opt : dict
-        Parameters to be used for padding. See :func:`syncopy.padding` for
-        more details.
     taper : str or None
         Taper function to use, one of scipy.signal.windows
         Set to `None` for no tapering.
@@ -123,13 +122,12 @@ def cross_spectra_cF(trl_dat,
     else:
         dat = trl_dat
 
-    # Symmetric Padding (updates no. of samples)
-    if padding_opt:
-        dat = padding(dat, **padding_opt)
+    if nSamples is None:
+        nSamples = dat.shape[0]
 
     nChannels = dat.shape[1]
 
-    freqs = np.fft.rfftfreq(dat.shape[0], 1 / samplerate)
+    freqs = np.fft.rfftfreq(nSamples, 1 / samplerate)
 
     if foi is not None:
         _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
@@ -154,8 +152,8 @@ def cross_spectra_cF(trl_dat,
     elif polyremoval == 1:
         dat = detrend(dat, type='linear', axis=0, overwrite_data=True)
 
-    CS_ij = csd(dat, samplerate, taper=taper, taper_opt=taper_opt)
-
+    CS_ij = csd(dat, samplerate, nSamples, taper=taper, taper_opt=taper_opt)
+    
     # where does freqs go/come from -
     # we will eventually solve this issue..
     return CS_ij[None, freq_idx, ...]
@@ -219,7 +217,6 @@ class ST_CrossSpectra(ComputationalRoutine):
 @unwrap_io
 def cross_covariance_cF(trl_dat,
                         samplerate=1,
-                        padding_opt={},
                         polyremoval=0,
                         timeAxis=0,
                         norm=False,
@@ -243,9 +240,6 @@ def cross_covariance_cF(trl_dat,
         Dimensions can be transposed to `(N, K)` with the `timeAxis` parameter.
     samplerate : float
         Samplerate in Hz
-    padding_opt : dict
-        Parameters to be used for padding. See :func:`syncopy.padding` for
-        more details.
     polyremoval : int or None
         Order of polynomial used for de-trending data in the time domain prior
         to spectral analysis. A value of 0 corresponds to subtracting the mean
@@ -289,10 +283,6 @@ def cross_covariance_cF(trl_dat,
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
-
-    # Symmetric Padding (updates no. of samples)
-    if padding_opt:
-        dat = padding(dat, **padding_opt)
 
     nSamples = dat.shape[0]
     nChannels = dat.shape[1]

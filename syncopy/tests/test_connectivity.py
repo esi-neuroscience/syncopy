@@ -190,7 +190,7 @@ class TestCoherence:
         peak_f2 = res.data[0, idx_f2, 0, 1]
 
         # check low phase diffusion has high coherence
-        assert peak_f2 > 0.7
+        assert peak_f2 > 0.5
         # check that with higher phase diffusion the
         # coherence is lower
         assert peak_f1 < peak_f2
@@ -356,7 +356,7 @@ class TestCorrelation:
             self.test_corr_solution(pad_to_length='IamNoPad')
         except SPYValueError as err:
             assert 'Invalid value of `pad_to_length`' in str(err)
-            assert 'nextpow2' in str(err)
+            assert 'no padding needed/allowed' in str(err)
 
     def test_corr_selections(self):
 

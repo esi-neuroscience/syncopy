@@ -32,7 +32,6 @@ from .wavelet import wavelet
 
 # Local imports
 from syncopy.shared.errors import SPYWarning
-from syncopy.datatype import padding
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
@@ -48,7 +47,6 @@ from syncopy.shared.const_def import (
 
 @unwrap_io
 def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
-              pad="nextpow2", padtype="zero", padlength=None,
               polyremoval=None, output_fmt="pow",
               noCompute=False, chunkShape=None, method_kwargs=None):
 
@@ -123,17 +121,17 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
     numpy.fft.rfft : NumPy's FFT implementation
     """
 
-
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
 
-    # Symmetric Padding (updates no. of samples)
-    if pad:
-        dat = padding(dat, padtype, pad=pad, padlength=padlength)
-    nSamples = dat.shape[0]
+    if method_kwargs['nSamples'] is None:
+        nSamples = dat.shape[0]
+    else:
+        nSamples = method_kwargs['nSamples']
+
     nChannels = dat.shape[1]
 
     # Determine frequency band and shape of output
@@ -230,8 +228,6 @@ def mtmconvol_cF(
         trl_dat,
         soi,
         postselect,
-        padbegin,
-        padend,
         equidistant=True,
         toi=None,
         foi=None,
@@ -250,10 +246,6 @@ def mtmconvol_cF(
         to perform analysis on (if sliding window centroids are equidistant)
         or list of slices with each slice corresponding to coverage of a single
         analysis window (if spacing between windows is not constant)
-    padbegin : int
-        Number of samples to pre-pend to `trl_dat`, max is half window size
-    padend : int
-        Number of samples to append to `trl_dat`, max is half window size
     samplerate : float
         Samplerate of `trl_dat` in Hz
     noverlap : int
@@ -337,11 +329,6 @@ def mtmconvol_cF(
     else:
         dat = trl_dat
 
-    # Pad input array if necessary
-    if padbegin > 0 or padend > 0:
-        dat = padding(dat, "zero", pad="relative", padlength=None,
-                      prepadlength=padbegin, postpadlength=padend)
-
     # Get shape of output for dry-run phase
     nChannels = dat.shape[1]
     if isinstance(toi, np.ndarray):     # `toi` is an array of time-points
@@ -389,12 +376,12 @@ def mtmconvol_cF(
         # and average afterwards
         spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
 
-        ftr, freqs = mtmfft(dat[soi[0], :],  samplerate, taper, taper_opt)
+        ftr, freqs = mtmfft(dat[soi[0], :],  samplerate, taper=taper, taper_opt=taper_opt)
         _, fIdx = best_match(freqs, foi, squash_duplicates=True)
         spec[0, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
         # loop over remaining soi to center windows on
         for tk in range(1, len(soi)):
-            ftr, freqs = mtmfft(dat[soi[tk], :],  samplerate, taper, taper_opt)
+            ftr, freqs = mtmfft(dat[soi[tk], :],  samplerate, taper=taper, taper_opt=taper_opt)
             spec[tk, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
 
     # Average across tapers if wanted

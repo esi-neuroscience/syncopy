@@ -26,7 +26,8 @@ all_windows.remove("gaussian") # we don't support taper with args
 all_windows.remove("kaiser") # we don't support taper with args
 
 availableTapers = all_windows
+availablePaddingOpt = [None, 'nextpow2']
 
 #: general, method agnostic, parameters for our CRs
-generalParameters = ("method", "output", "keeptrials","samplerate",
-                     "foi", "foilim", "polyremoval", "out")
+generalParameters = ("method", "output", "keeptrials", "samplerate",
+                     "foi", "foilim", "polyremoval", "out", "pad_to_length")

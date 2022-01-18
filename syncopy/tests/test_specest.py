@@ -21,9 +21,8 @@ if __acme__:
 from syncopy.tests.misc import generate_artificial_data, flush_local_cluster
 from syncopy.specest.freqanalysis import freqanalysis
 from syncopy.shared.errors import SPYValueError
-from syncopy.datatype.methods.padding import _nextpow2
 from syncopy.datatype.base_data import VirtualData, Selector
-from syncopy.datatype import AnalogData, SpectralData, padding
+from syncopy.datatype import AnalogData, SpectralData
 from syncopy.shared.tools import StructDict, get_defaults
 
 # Decorator to decide whether or not to run dask-related tests
@@ -210,7 +209,7 @@ class TestMTMFFT():
         for sk, select in enumerate(self.sigdataSelections):
             sel = Selector(self.adata, select)
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
-                                output="pow", select=select)
+                                pad_to_length="nextpow2", output="pow", select=select)
 
             chanList = np.arange(self.nChannels)[sel.channel]
             amps = np.empty((len(sel.trials) * len(chanList),))
@@ -220,7 +219,7 @@ class TestMTMFFT():
                     amps[k] = spec.data[ntrial, :, :, nchan].max() / \
                         self.t.size
                     assert np.argmax(
-                        spec.data[ntrial, :, :, nchan]) == self.freqs[chan]
+                            spec.data[ntrial, :, :, nchan]) == self.freqs[chan]
                     k += 1
 
             # ensure amplitude is consistent across all channels/trials
@@ -242,18 +241,18 @@ class TestMTMFFT():
             # offset `foi` by 0.1 Hz - resulting freqs must be unaffected
             ftmp = foi + 0.1
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
-                                foi=ftmp, select=select)
+                                pad_to_length="nextpow2", foi=ftmp, select=select)
             assert np.all(spec.freq == foi)
 
             # unsorted, duplicate entries in `foi` - result must stay the same
             ftmp = np.hstack([foi, np.full(20, foi[0])])
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
-                                foi=ftmp, select=select)
+                                pad_to_length="nextpow2", foi=ftmp, select=select)
             assert np.all(spec.freq == foi)
 
     def test_dpss(self):
 
-        for sk, select in enumerate(self.sigdataSelections):
+        for select in self.sigdataSelections:
             sel = Selector(self.adata, select)
             chanList = np.arange(self.nChannels)[sel.channel]
 
@@ -278,18 +277,11 @@ class TestMTMFFT():
         cfg.tapsmofrq = 9.3
         cfg.output = "pow"
 
-        # trigger error for non-equidistant trials w/o padding
-        cfg.pad = False
-        with pytest.raises(SPYValueError):
-            spec = freqanalysis(cfg, artdata)
-
-        for sk, select in enumerate(self.artdataSelections):
+        for select in self.artdataSelections:
 
             # unsorted, w/repetitions, do not pad
-            cfg.pop("pad", None)
             if select is not None and "toi" in select.keys():
                 select["toi"] = self.seed.choice(artdata.time[0], int(artdata.time[0].size))
-                cfg.pad = False
             sel = Selector(artdata, select)
             cfg.select = select
             spec = freqanalysis(cfg, artdata)
@@ -297,22 +289,19 @@ class TestMTMFFT():
             # ensure correctness of padding (respecting min. trial length + time-selection)
             if select is None:
                 maxtrlno = np.diff(artdata.sampleinfo).argmax()
-                tmp = padding(artdata.trials[maxtrlno], "zero", spec.cfg.pad,
-                              spec.cfg.padlength, prepadlength=True)
-                nSamples = tmp.shape[timeAxis]
+                nSamples = artdata.trials[maxtrlno].shape[timeAxis]
             elif "toi" in select:
                 nSamples = len(select["toi"])
             else:
-                tsel = artdata.time[sel.trials[0]][sel.time[0]]
-                nSamples = _nextpow2(tsel.size)
-            freqs = np.arange(0, np.floor(nSamples / 2) + 1) * artdata.samplerate / nSamples
+                nSamples = artdata.time[sel.trials[0]][sel.time[0]].size
+            freqs = np.fft.rfftfreq(nSamples, 1 / artdata.samplerate)
             assert spec.freq.size == freqs.size
             assert np.max(spec.freq - freqs) < self.ftol
 
         # same + reversed dimensional order in input object
         cfg.data = generate_artificial_data(nTrials=5, nChannels=16,
-                                           equidistant=False, inmemory=False,
-                                           dimord=AnalogData._defaultDimord[::-1])
+                                            equidistant=False, inmemory=False,
+                                            dimord=AnalogData._defaultDimord[::-1])
         timeAxis = cfg.data.dimord.index("time")
         cfg.output = "abs"
         cfg.keeptapers = True
@@ -320,10 +309,8 @@ class TestMTMFFT():
         for select in self.artdataSelections:
 
             # unsorted, w/repetitions, do not pad
-            cfg.pop("pad", None)
             if select is not None and "toi" in select.keys():
                 select["toi"] = self.seed.choice(cfg.data.time[0], int(cfg.data.time[0].size))
-                cfg.pad = False
             sel = Selector(cfg.data, select)
             cfg.select = select
 
@@ -332,24 +319,21 @@ class TestMTMFFT():
             # ensure correctness of padding (respecting min. trial length + time-selection)
             if select is None:
                 maxtrlno = np.diff(cfg.data.sampleinfo).argmax()
-                tmp = padding(cfg.data.trials[maxtrlno].T, "zero", spec.cfg.pad,
-                              spec.cfg.padlength, prepadlength=True)
-                nSamples = tmp.shape[not timeAxis]
+                nSamples = cfg.data.trials[maxtrlno].shape[timeAxis]
             elif "toi" in select:
                 nSamples = len(select["toi"])
             else:
-                tsel = cfg.data.time[sel.trials[0]][sel.time[0]]
-                nSamples = _nextpow2(tsel.size)
-            freqs = np.arange(0, np.floor(nSamples / 2) + 1) * cfg.data.samplerate / nSamples
+                nSamples = cfg.data.time[sel.trials[0]][sel.time[0]].size
+            freqs = np.fft.rfftfreq(nSamples, 1 / cfg.data.samplerate)
             assert spec.freq.size == freqs.size
             assert np.max(spec.freq - freqs) < self.ftol
             assert spec.taper.size > 1
 
         # same + overlapping trials
         cfg.data = generate_artificial_data(nTrials=5, nChannels=16,
-                                           equidistant=False, inmemory=False,
-                                           dimord=AnalogData._defaultDimord[::-1],
-                                           overlapping=True)
+                                            equidistant=False, inmemory=False,
+                                            dimord=AnalogData._defaultDimord[::-1],
+                                            overlapping=True)
         timeAxis = cfg.data.dimord.index("time")
         cfg.keeptapers = False
         cfg.output = "pow"
@@ -357,10 +341,9 @@ class TestMTMFFT():
         for select in self.artdataSelections:
 
             # unsorted, w/repetitions, do not pad
-            cfg.pop("pad", None)
+            # cfg.pop("pad", None)
             if select is not None and "toi" in select.keys():
                 select["toi"] = self.seed.choice(cfg.data.time[0], int(cfg.data.time[0].size))
-                cfg.pad = False
             sel = Selector(cfg.data, select)
             cfg.select = select
 
@@ -369,15 +352,12 @@ class TestMTMFFT():
             # ensure correctness of padding (respecting min. trial length + time-selection)
             if select is None:
                 maxtrlno = np.diff(cfg.data.sampleinfo).argmax()
-                tmp = padding(cfg.data.trials[maxtrlno].T, "zero", spec.cfg.pad,
-                              spec.cfg.padlength, prepadlength=True)
-                nSamples = tmp.shape[not timeAxis]
+                nSamples = cfg.data.trials[maxtrlno].shape[timeAxis]
             elif "toi" in select:
                 nSamples = len(select["toi"])
             else:
-                tsel = cfg.data.time[sel.trials[0]][sel.time[0]]
-                nSamples = _nextpow2(tsel.size)
-            freqs = np.arange(0, np.floor(nSamples / 2) + 1) * cfg.data.samplerate / nSamples
+                nSamples = cfg.data.time[sel.trials[0]][sel.time[0]].size
+            freqs = np.fft.rfftfreq(nSamples, 1 / cfg.data.samplerate)
             assert spec.freq.size == freqs.size
             assert np.max(spec.freq - freqs) < self.ftol
             assert spec.taper.size == 1
@@ -439,13 +419,11 @@ class TestMTMFFT():
         # non-equidistant trial spacing
         cfg.keeptapers = False
         artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                          inmemory=True, equidistant=False)
+                                           inmemory=True, equidistant=False)
         timeAxis = artdata.dimord.index("time")
         maxtrlno = np.diff(artdata.sampleinfo).argmax()
-        tmp = padding(artdata.trials[maxtrlno], "zero", spec.cfg.pad,
-                      spec.cfg.padlength, prepadlength=True)
-        nSamples = tmp.shape[timeAxis]
-        freqs = np.arange(0, np.floor(nSamples / 2) + 1) * artdata.samplerate / nSamples
+        nSamples = artdata.trials[maxtrlno].shape[timeAxis]
+        freqs = np.fft.rfftfreq(nSamples, 1 / artdata.samplerate)
         for k, chan_per_worker in enumerate([None, chanPerWrkr]):
             spec = freqanalysis(artdata, cfg)
             assert spec.freq.size == freqs.size
@@ -471,10 +449,8 @@ class TestMTMFFT():
         spec = freqanalysis(artdata, cfg)
         timeAxis = artdata.dimord.index("time")
         maxtrlno = np.diff(artdata.sampleinfo).argmax()
-        tmp = padding(artdata.trials[maxtrlno], "zero", spec.cfg.pad,
-                      spec.cfg.padlength, prepadlength=True)
-        nSamples = tmp.shape[timeAxis]
-        freqs = np.arange(0, np.floor(nSamples / 2) + 1) * artdata.samplerate / nSamples
+        nSamples = artdata.trials[maxtrlno].shape[timeAxis]
+        freqs = np.fft.rfftfreq(nSamples, 1 / artdata.samplerate)
         assert spec.freq.size == freqs.size
         assert np.allclose(spec.freq, freqs)
         assert spec.taper.size == 1

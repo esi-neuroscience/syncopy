@@ -17,9 +17,7 @@ from hashlib import blake2b
 from itertools import islice
 from functools import reduce
 import shutil
-from typing import Type
 import numpy as np
-from numpy.lib.arraysetops import isin
 from numpy.lib.format import open_memmap, read_magic
 import h5py
 import scipy as sp
@@ -32,7 +30,7 @@ from .methods.show import show
 from syncopy.shared.tools import StructDict
 from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser,
                                     filename_parser, data_parser)
-from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError, SPYWarning
+from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError
 from syncopy.datatype.methods.definetrial import definetrial as _definetrial
 from syncopy import __version__, __storage__, __acme__, __sessionid__, __storagelimit__
 if __acme__:
