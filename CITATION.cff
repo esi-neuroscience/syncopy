@@ -26,7 +26,7 @@ authors:
     Planck Society
   family-names: Fries
   given-names: Pascal
-  orcid:  https://orcid.org/0000-0002-4270-1468
+  orcid: https://orcid.org/0000-0002-4270-1468
 license: BSD-3-Clause
 keywords:
 - large-scale electrophysiology
@@ -37,5 +37,5 @@ keywords:
 - spectral-methods
 - brain
 repository-code: https://github.com/esi-neuroscience/syncopy
-version: 0.1b3.dev1+g7bd5bf1.d20210118
-date-released: '2021-01-18'
+version: 0.1b3.dev287
+date-released: '2022-01-19'

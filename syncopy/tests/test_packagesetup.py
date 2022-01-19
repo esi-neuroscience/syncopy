@@ -82,6 +82,7 @@ def test_cleanup():
 
     # now kill 2nd instance and wipe `tmpDir`
     process2.kill()
+    time.sleep(1)
     shutil.rmtree(tmpDir)
     del os.environ["SPYTMPDIR"]
     time.sleep(1)
