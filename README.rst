@@ -5,14 +5,14 @@ Systems Neuroscience Computing in Python
 ========================================
 
 
-|Conda Version| master: |masterbuild| dev: |devbuild|
+|Conda Version| master: |masterbuild| dev: |devbuild| |License|
 
 .. |Conda Version| image:: https://img.shields.io/conda/vn/conda-forge/esi-syncopy.svg
    :target: https://anaconda.org/conda-forge/esi-syncopy 
 .. |masterbuild| image:: https://travis-ci.com/esi-neuroscience/syncopy.svg?token=CyD2hzqVziTxH1wbqky6&branch=master
 
 .. |devbuild| image:: https://travis-ci.com/esi-neuroscience/syncopy.svg?token=CyD2hzqVziTxH1wbqky6&branch=dev
-
+.. |License| image:: https://img.shields.io/github/license/esi-neuroscience/syncopy
 
 Syncopy aims to be a user-friendly toolkit for *large-scale*
 electrophysiology data-analysis in Python. We strive to achieve the following goals:
