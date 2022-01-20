@@ -17,10 +17,11 @@ intellinux:
         GIT_FETCH_EXTRA_FLAGS: --tags
         NO_SLURM: "true"
     script:
+    - rm -rf ~/.spy
     - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
-    - tox
+    - tox -p 0
 
 powerlinux:
     stage: tox
@@ -34,6 +35,7 @@ powerlinux:
         PYTEST_ADDOPTS: "--color=yes --tb=short --verbose"
         GIT_FETCH_EXTRA_FLAGS: --tags
     script:
+    - rm -rf ~/.spy
     - source /opt/conda/etc/profile.d/conda.sh
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
@@ -67,6 +69,8 @@ m1macos:
         PYTEST_ADDOPTS: "--color=yes --tb=short --verbose"
         GIT_FETCH_EXTRA_FLAGS: --tags
     script:
+    - ulimit -n 25000
+    - rm -rf ~/.spy
     - source /opt/conda/etc/profile.d/conda.sh
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
