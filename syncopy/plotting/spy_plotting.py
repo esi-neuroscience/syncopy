@@ -64,7 +64,7 @@ pltConfig = {"singleTitleSize": 12,
 
 # Global consistent error message if matplotlib is missing
 pltErrMsg = "\nSyncopy <core> WARNING: Could not import 'matplotlib'. \n" +\
-          "{}} requires a working matplotlib installation. \n" +\
+          "{} requires a working matplotlib installation. \n" +\
           "Please consider installing 'matplotlib', e.g., via conda: \n" +\
           "\tconda install matplotlib\n" +\
           "or using pip:\n" +\
