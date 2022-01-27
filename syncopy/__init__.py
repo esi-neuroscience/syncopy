@@ -83,11 +83,16 @@ __tbcount__ = 5
 __checksum_algorithm__ = sha1
 
 # Fill up namespace
-from . import shared, io, datatype, specest, statistics, plotting
+from . import (
+    shared,
+    io,
+    datatype)
+
 from .shared import *
 from .io import *
 from .datatype import *
 from .specest import *
+from .nwanalysis import *
 from .statistics import *
 from .plotting import *
 
@@ -111,5 +116,6 @@ __all__.extend(datatype.__all__)
 __all__.extend(io.__all__)
 __all__.extend(shared.__all__)
 __all__.extend(specest.__all__)
+__all__.extend(nwanalysis.__all__)
 __all__.extend(statistics.__all__)
 __all__.extend(plotting.__all__)

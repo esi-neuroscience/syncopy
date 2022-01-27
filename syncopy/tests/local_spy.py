@@ -21,19 +21,6 @@ from syncopy.tests.misc import generate_artificial_data
 from syncopy.tests import synth_data
 
 
-def call_con(data, method, **kwargs):
-
-    res = spy.connectivity(data=data,
-                           method=method,
-                           **kwargs)
-    return res
-
-
-def call_freq(data, method, **kwargs):
-    res = spy.freqanalysis(data=data, method=method, **kwargs)
-
-    return res
-
 
 # Prepare code to be executed using, e.g., iPython's `%run` magic command
 if __name__ == "__main__":
