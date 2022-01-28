@@ -82,7 +82,7 @@ Sitemap
 .. toctree::
    :maxdepth: 2
 
-   quickstart
+   quickstart/quickstart.rst
    user/users.rst
    developer/developers.rst
 

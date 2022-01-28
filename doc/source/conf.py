@@ -21,8 +21,8 @@ import syncopy
 # -- Project information -----------------------------------------------------
 
 project = 'Syncopy'
-copyright = '2020, Joscha Schmiedt and Stefan Fuertinger'
-author = 'Joscha Schmiedt and Stefan Fuertinger'
+copyright = '2020, Joscha Schmied and Stefan Fuertinger'
+author = 'Joscha Schmiedt, Stefan Fuertinger and Gregor Mönke'
 
 # The short X.Y version
 version = syncopy.__version__
@@ -195,7 +195,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'Syncopy.tex', 'Syncopy Documentation',
-     'Gregor Moenke, Joscha Schmiedt and Stefan Fuertinger', 'manual'),
+     'Gregor Mönke, Joscha Schmiedt and Stefan Fuertinger', 'manual'),
 ]
 
 
