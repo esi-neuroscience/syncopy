@@ -4,40 +4,38 @@ Getting started with Syncopy
 Installing Syncopy
 ------------------
 
-Syncopy can be installed using `Pip <https://pypi.org/project/pip/>`_:
+Syncopy can be installed using `conda <https://anaconda.org>`_:
+
+.. code-block:: bash
+
+    conda install esi-syncopy
+
+Alternatively it is also available on `Pip <https://pypi.org/project/pip/>`_:
 
 .. code-block:: bash
 
     pip install esi-syncopy
 
-Syncopy will soon be hosted on `conda-forge <https://conda-forge.org/>`_ as well.
 If you're working on the ESI cluster installing Syncopy is only necessary if
 you create your own Conda environment.
 
-Setting Up Your Python Environment
-----------------------------------
+Installing parallel processing engine ACME
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-On the ESI cluster, ``/opt/conda/envs/syncopy`` provides a
-pre-configured and tested Conda environment with the most recent Syncopy
-version. This environment can be easily started using the `ESI JupyterHub
-<https://jupyterhub.esi.local>`_
+To harness the parallel processing capabilities of Syncopy
+it is necessary to install `ACME <https://github.com/esi-neuroscience/acme>`_.
 
-Syncopy makes heavy use of temporary files, which may become large (> 100 GB).
-The storage location can be set using the `environmental variable
-<https://linuxhint.com/bash-environment-variables/>`_ :envvar:`SPYTMPDIR`, which
-by default points to your home directory:
+Again either via conda
 
 .. code-block:: bash
 
-    SPYTMPDIR=~/.spy
+    conda install esi-acme
 
-The performance of Syncopy strongly depends on the read and write speed in
-this folder. On the `ESI JupyterHub <https://jupyterhub.esi.local>`_, the
-variable is set to use the high performance storage:
+or pip
 
 .. code-block:: bash
 
-    SPYTMPDIR=/cs/home/$USER/.spy
+    pip install esi-acme
 
 
 Importing Syncopy
@@ -72,3 +70,33 @@ This will allocate a parallel worker for each trial defined in `data`. If your c
 is running on the ESI cluster, Syncopy will automatically use the existing SLURM
 scheduler, in a single-machine setup, any available local multi-processing resources
 will be utilized. More details can be found in the :doc:`Data Analysis Guide <user/processing>`
+
+
+Setting Up Your Python Environment
+----------------------------------
+
+On the ESI cluster, ``/opt/conda/envs/syncopy`` provides a
+pre-configured and tested Conda environment with the most recent Syncopy
+version. This environment can be easily started using the `ESI JupyterHub
+<https://jupyterhub.esi.local>`_
+
+Syncopy makes heavy use of temporary files, which may become large (> 100 GB).
+The storage location can be set using the `environmental variable
+<https://linuxhint.com/bash-environment-variables/>`_ :envvar:`SPYTMPDIR`, which
+by default points to your home directory:
+
+.. code-block:: bash
+
+    SPYTMPDIR=~/.spy
+
+The performance of Syncopy strongly depends on the read and write speed in
+this folder. On the `ESI JupyterHub <https://jupyterhub.esi.local>`_, the
+variable is set to use the high performance storage:
+
+.. code-block:: bash
+
+    SPYTMPDIR=/cs/home/$USER/.spy
+
+
+
+

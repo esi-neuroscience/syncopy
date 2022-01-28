@@ -27,11 +27,12 @@ Getting Started
 Our :doc:`Quickstart Guide <quickstart>` covers installation and basic usage. 
 More in-depth information relevant to Syncopy users can be found in our 
 :doc:`User Guide <user/users>`. Want to contribute or just curious how the sausage 
-is made? Take a look at our :doc:`Developer Guide <developer/developers>`. Once again
-in order of brevity:
+is made? Take a look at our :doc:`Developer Guide <developer/developers>`. 
 
-* :doc:`Quickstart Guide <quickstart>`
-* :doc:`User Guide <user/users>`
+
+Guides and Tutorials
+--------------------
+* :doc:`General User Guide <user/users>`
 * :doc:`Developer Guide <developer/developers>`
 
 Navigation
