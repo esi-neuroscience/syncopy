@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### NEW
+### CHANGED
+- Repaired top-level imports: renamed `connectivity` to `connectivityanalysis`
+  and the "connectivity" module is now called "nwanalysis"
+- include `conda clean` in CD pipeline to avoid disk fillup by unused conda
+  packages/cache
+
+### REMOVED
+- Do not parse scalars using `numbers.Number`, use `numpy.number` instead to
+  catch Boolean values
+
+### DEPRECATED
+### FIXED
+
 ## [v0.2] - 2022-01-18
 Major Release
 

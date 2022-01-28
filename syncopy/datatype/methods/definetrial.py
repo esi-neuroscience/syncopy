@@ -4,7 +4,6 @@
 #
 
 # Builtin/3rd party package imports
-import numbers
 import sys
 import numpy as np
 
@@ -196,7 +195,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                  "stop": {"var": stop, "hasnan": None, "ntype": "int_like", "fillvalue": np.nan}}
         for vname, opts in vdict.items():
             if opts["var"] is not None:
-                if isinstance(opts["var"], numbers.Number):
+                if isinstance(opts["var"], np.number):
                     try:
                         scalar_parser(opts["var"], varname=vname, ntype=opts["ntype"],
                                       lims=[-np.inf, np.inf])

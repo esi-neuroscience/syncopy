@@ -4,7 +4,6 @@
 #
 
 # Builtin/3rd party package imports
-import numbers
 import numpy as np
 import h5py
 
@@ -148,7 +147,7 @@ def _parse_input(obj1, obj2, operator):
 
     # Depending on the what is thrown at `baseObj` perform more or less extensive parsing
     # First up: operand is a scalar
-    if isinstance(operand, numbers.Number):
+    if isinstance(operand, np.number):
 
         # Don't allow `np.inf` manipulations and catch zero-divisions
         if np.isinf(operand):
