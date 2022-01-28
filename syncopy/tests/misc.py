@@ -280,8 +280,8 @@ def figs_equal(fig1, fig2, tol=None):
     True
     """
     plt.draw_all(force=True)
-    with tempfile.NamedTemporaryFile(suffix='.png') as img1:
-        with tempfile.NamedTemporaryFile(suffix='.png') as img2:
+    with tempfile.NamedTemporaryFile(suffix=".png", mode="w") as img1:
+        with tempfile.NamedTemporaryFile(suffix=".png", mode="w") as img2:
             fig1.savefig(img1.name)
             fig2.savefig(img2.name)
             if tol is None:

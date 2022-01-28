@@ -25,7 +25,7 @@ if __acme__:
             "the limit using, e.g., `ulimit -Sn 1024`"
         raise ValueError(msg)
     if is_slurm_node():
-        cluster = esi_cluster_setup(partition="8GBS", n_jobs=10,
+        cluster = esi_cluster_setup(partition="8GB", n_jobs=10,
                                     timeout=360, interactive=False,
                                     start_client=False)
     else:

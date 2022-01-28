@@ -26,6 +26,7 @@ skip_with_acme = pytest.mark.skipif(__acme__, reason="do not run with acme")
 
 @skip_without_plt
 @skip_with_acme
+@pytest.mark.xfail(reason="figure comparison breaks sometimes", strict=False)
 class TestAnalogDataPlotting():
 
     nChannels = 16
@@ -61,7 +62,6 @@ class TestAnalogDataPlotting():
     channels = ["all", [14, 13, 12, 12, 15]]
     toilim = [None, [1.9, 2.5], [2.1, np.inf]]
 
-    # trlToilim = lambda self, trl, tlim: None if trl is None else tlim
 
     def test_singlepanelplot(self):
 

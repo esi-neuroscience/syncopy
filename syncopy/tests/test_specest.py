@@ -19,7 +19,7 @@ if __acme__:
 
 # Local imports
 from syncopy.tests.misc import generate_artificial_data, flush_local_cluster
-from syncopy.specest.freqanalysis import freqanalysis
+from syncopy import freqanalysis
 from syncopy.shared.errors import SPYValueError
 from syncopy.datatype.base_data import VirtualData, Selector
 from syncopy.datatype import AnalogData, SpectralData

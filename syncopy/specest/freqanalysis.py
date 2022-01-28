@@ -43,8 +43,6 @@ from .compRoutines import (
     MultiTaperFFTConvol
 )
 
-__all__ = ["freqanalysis"]
-
 
 @unwrap_cfg
 @unwrap_select

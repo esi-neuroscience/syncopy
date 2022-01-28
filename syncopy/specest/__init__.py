@@ -4,10 +4,8 @@
 # 
 
 # Import __all__ routines from local modules
-from .freqanalysis import *
-from .freqanalysis import __all__ as _all_
+from .freqanalysis import freqanalysis
 
 # Populate local __all__ namespace
-__all__ = []
-__all__.extend(_all_)
-
+# with the user-exposed frontend
+__all__ = ['freqanalysis']
