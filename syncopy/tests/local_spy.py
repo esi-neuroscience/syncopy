@@ -45,8 +45,8 @@ if __name__ == "__main__":
     trls = []
     for _ in range(nTrials):
 
-        p1 = synth_data.phase_evo(f1, eps=.01, nChannels=nChannels, nSamples=nSamples)
-        p2 = synth_data.phase_evo(f2, eps=0.001, nChannels=nChannels, nSamples=nSamples)
+        p1 = synth_data.phase_diffusion(f1, eps=.01, nChannels=nChannels, nSamples=nSamples)
+        p2 = synth_data.phase_diffusion(f2, eps=0.001, nChannels=nChannels, nSamples=nSamples)
         trls.append(
             1 * np.cos(p1) + 1 * np.cos(p2) + 0.6 * np.random.randn(
                 nSamples, nChannels))

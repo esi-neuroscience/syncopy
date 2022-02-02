@@ -87,7 +87,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         window short-time Fourier transform using either a single Hanning taper or
         multiple DPSS tapers.
 
-        * **taper** : one of :data:`~syncopy.specest.const_def.availableTapers`
+        * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : number of orthogonal tapers for slepian tapers
         * **keeptapers** : return individual tapers or average
@@ -166,7 +166,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         default.
     taper : str
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. Windowing function,
-        one of :data:`~syncopy.specest.const_def.availableTapers` (see below).
+        one of :data:`~syncopy.shared.const_def.availableTapers` (see below).
     tapsmofrq : float
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and `taper` is `'dpss'`.
         The amount of spectral smoothing through  multi-tapering (Hz).
@@ -258,7 +258,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     .. autodata:: syncopy.specest.const_def.availableOutputs
 
-    .. autodata:: syncopy.specest.const_def.availableTapers
+    .. autodata:: syncopy.shared.const_def.availableTapers
 
     .. autodata:: syncopy.specest.const_def.availableWavelets
 

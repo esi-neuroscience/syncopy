@@ -36,7 +36,6 @@ In depth Guides and Tutorials
 -----------------------------
 * :doc:`General User Guide <user/users>`
 
-
 Navigation
 ----------
 * :doc:`Sitemap <sitemap>`
@@ -55,5 +54,6 @@ For general inquiries please contact syncopy (at) esi-frankfurt.de.
 
    quickstart/quickstart.rst
    setup
-   user/users.rst    
+   user/users.rst
+   user/user_api.rst
    developer/developers.rst   
