@@ -76,7 +76,7 @@ __all__ = ["singlepanelplot", "multipanelplot"]
 @unwrap_cfg
 def singlepanelplot(*data,
                     trials="all", channels="all", tapers="all",
-                    toilim=None, foilim=None, avg_channels=True, avg_tapers=True,
+                    toilim=None, foilim=None, avg_channels=False, avg_tapers=True,
                     interp="spline36", cmap="plasma", vmin=None, vmax=None,
                     title=None, grid=None, overlay=True, fig=None, **kwargs):
     """

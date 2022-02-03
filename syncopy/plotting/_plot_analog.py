@@ -132,13 +132,13 @@ def singlepanelplot(self, trials="all", channels="all", toilim=None, avg_channel
             if fig.objCount == 0:
                 if title is None:
                     title = chanTitle
-                ax.set_title(title, size=pltConfig["singleTitleSize"])
+                # ax.set_title(title, size=pltConfig["singleTitleSize"])
             else:
                 handles, labels = ax.get_legend_handles_labels()
                 ax.legend(handles, labels)
                 if title is None:
                     title = overlayTitle.format(len(handles))
-                ax.set_title(title, size=pltConfig["singleTitleSize"])
+                # ax.set_title(title, size=pltConfig["singleTitleSize"])
                 
         # Average across trials
         else:
