@@ -12,7 +12,16 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### REMOVED
 ### DEPRECATED
 - Removed loading code for ESI binary format that is no longer supported
+- Repaired top-level imports: renamed `connectivity` to `connectivityanalysis`
+  and the "connectivity" module is now called "nwanalysis"
+- include `conda clean` in CD pipeline to avoid disk fillup by unused conda
+  packages/cache
 
+### REMOVED
+- Do not parse scalars using `numbers.Number`, use `numpy.number` instead to
+  catch Boolean values
+
+### DEPRECATED
 ### FIXED
 
 ## [v0.2] - 2022-01-18

@@ -15,8 +15,9 @@ import matplotlib.pyplot as ppl
 from syncopy import __acme__
 if __acme__:
     import dask.distributed as dd
-from syncopy.datatype import AnalogData
-from syncopy.connectivity import connectivity
+
+from syncopy import AnalogData
+from syncopy import connectivityanalysis as ca
 import syncopy.tests.synth_data as synth_data
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.tools import get_defaults
@@ -65,8 +66,8 @@ class TestGranger:
 
     def test_gr_solution(self, **kwargs):
 
-        Gcaus = connectivity(self.data, method='granger', taper='dpss',
-                             tapsmofrq=3, foi=self.foi, **kwargs)
+        Gcaus = ca(self.data, method='granger', taper='dpss',
+                   tapsmofrq=3, foi=self.foi, **kwargs)
 
         # check all channel combinations with coupling
         for i, j in zip(*self.cpl_idx):
@@ -96,7 +97,7 @@ class TestGranger:
 
         for sel_dct in selections:
 
-            Gcaus = connectivity(self.data, method='granger', select=sel_dct)
+            Gcaus = ca(self.data, method='granger', select=sel_dct)
 
             # check here just for finiteness and positivity
             assert np.all(np.isfinite(Gcaus.data))
@@ -104,16 +105,16 @@ class TestGranger:
 
     def test_gr_foi(self):
 
-        call = lambda foi, foilim: connectivity(self.data,
-                                                method='granger',
-                                                foi=foi,
-                                                foilim=foilim)
+        call = lambda foi, foilim: ca(self.data,
+                                      method='granger',
+                                      foi=foi,
+                                      foilim=foilim)
 
         run_foi_test(call, foilim=[0, 70])
 
     def test_gr_cfg(self):
 
-        call = lambda cfg: connectivity(self.data, cfg)
+        call = lambda cfg: ca(self.data, cfg)
         run_cfg_test(call, method='granger')
 
     @skip_without_acme
@@ -175,13 +176,13 @@ class TestCoherence:
 
     def test_coh_solution(self, **kwargs):
 
-        res = connectivity(data=self.data,
-                           method='coh',
-                           foilim=[5, 60],
-                           output='pow',
-                           taper='dpss',
-                           tapsmofrq=1.5,
-                           **kwargs)
+        res = ca(data=self.data,
+                 method='coh',
+                 foilim=[5, 60],
+                 output='pow',
+                 taper='dpss',
+                 tapsmofrq=1.5,
+                 **kwargs)
 
         # coherence at the harmonic frequencies
         idx_f1 = np.argmin(res.freq < self.f1)
@@ -209,7 +210,7 @@ class TestCoherence:
 
         for sel_dct in selections:
 
-            result = connectivity(self.data, method='coh', select=sel_dct)
+            result = ca(self.data, method='coh', select=sel_dct)
 
             # check here just for finiteness and positivity
             assert np.all(np.isfinite(result.data))
@@ -217,16 +218,16 @@ class TestCoherence:
 
     def test_coh_foi(self):
 
-        call = lambda foi, foilim: connectivity(self.data,
-                                                method='coh',
-                                                foi=foi,
-                                                foilim=foilim)
+        call = lambda foi, foilim: ca(self.data,
+                                      method='coh',
+                                      foi=foi,
+                                      foilim=foilim)
 
         run_foi_test(call, foilim=[0, 70])
 
     def test_coh_cfg(self):
 
-        call = lambda cfg: connectivity(self.data, cfg)
+        call = lambda cfg: ca(self.data, cfg)
         run_cfg_test(call, method='coh')
 
     @skip_without_acme
@@ -285,7 +286,7 @@ class TestCorrelation:
 
     def test_corr_solution(self, **kwargs):
 
-        corr = connectivity(data=self.data, method='corr', **kwargs)
+        corr = ca(data=self.data, method='corr', **kwargs)
 
         # test 0-lag autocorr is 1 for all channels
         assert np.all(corr.data[0, 0].diagonal() > .99)
@@ -366,14 +367,14 @@ class TestCorrelation:
 
         for sel_dct in selections:
 
-            result = connectivity(self.data, method='corr', select=sel_dct)
+            result = ca(self.data, method='corr', select=sel_dct)
 
             # check here just for finiteness and positivity
             assert np.all(np.isfinite(result.data))
 
     def test_corr_cfg(self):
 
-        call = lambda cfg: connectivity(self.data, cfg)
+        call = lambda cfg: ca(self.data, cfg)
         run_cfg_test(call, method='corr', positivity=False)
 
     @skip_without_acme
@@ -459,7 +460,7 @@ def run_polyremoval_test(call):
 
 def run_cfg_test(call, method, positivity=True):
 
-    cfg = get_defaults(connectivity)
+    cfg = get_defaults(ca)
 
     cfg.method = method
     cfg.foilim = [0, 70]

@@ -6,7 +6,6 @@
 # Builtin/3rd party package imports
 import os
 import numpy as np
-import numbers
 
 # Local imports
 from syncopy.shared.filetypes import FILE_EXT
@@ -192,7 +191,7 @@ def scalar_parser(var, varname="", ntype=None, lims=None):
     """
 
     # Make sure `var` is a scalar-like number
-    if not isinstance(var, numbers.Number):
+    if not isinstance(var, np.number):
         raise SPYTypeError(var, varname=varname, expected="scalar")
 
     # If required, parse type ("int_like" is a bit of a special case here...)

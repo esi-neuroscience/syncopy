@@ -27,17 +27,17 @@ from syncopy.shared.input_validators import (
 from .ST_compRoutines import ST_CrossSpectra, ST_CrossCovariance
 from .AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov, GrangerCausality
 
-__all__ = ["connectivity"]
+
 availableMethods = ("coh", "corr", "granger")
 
 
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
-def connectivity(data, method="coh", keeptrials=False, output="abs",
-                 foi=None, foilim=None, pad_to_length=None,
-                 polyremoval=None, taper="hann", tapsmofrq=None,
-                 nTaper=None, out=None, **kwargs):
+def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
+                         foi=None, foilim=None, pad_to_length=None,
+                         polyremoval=None, taper="hann", tapsmofrq=None,
+                         nTaper=None, out=None, **kwargs):
 
     """
     Perform connectivity analysis of Syncopy :class:`~syncopy.AnalogData` objects
@@ -139,7 +139,7 @@ def connectivity(data, method="coh", keeptrials=False, output="abs",
     timeAxis = data.dimord.index("time")
 
     # Get everything of interest in local namespace
-    defaults = get_defaults(connectivity)
+    defaults = get_defaults(connectivityanalysis)
     lcls = locals()
     # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="connectivity")
