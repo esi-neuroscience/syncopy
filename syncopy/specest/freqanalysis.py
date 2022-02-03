@@ -47,7 +47,7 @@ from .compRoutines import (
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
-def freqanalysis(data, method='mtmfft', output='fourier',
+def freqanalysis(data, method='mtmfft', output='pow',
                  keeptrials=True, foi=None, foilim=None,
                  pad_to_length=None, polyremoval=None,
                  taper="hann", tapsmofrq=None, nTaper=None, keeptapers=False,
