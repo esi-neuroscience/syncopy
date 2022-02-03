@@ -71,6 +71,7 @@ is running on the ESI cluster, Syncopy will automatically use the existing SLURM
 scheduler, in a single-machine setup, any available local multi-processing resources
 will be utilized. More details can be found in the :doc:`Data Analysis Guide <user/processing>`
 
+.. _setup_env:
 
 Setting Up Your Python Environment
 ----------------------------------

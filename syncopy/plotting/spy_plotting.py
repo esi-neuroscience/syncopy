@@ -52,8 +52,8 @@ if __plt__:
 
 # Global style settings for single-/multi-plots
 pltConfig = {"singleTitleSize": 12,
-             "singleLabelSize": 10,
-             "singleTickSize": 8,
+             "singleLabelSize": 14,
+             "singleTickSize": 12,
              "singleLegendSize": 10,
              "singleFigSize": (6.4, 4.8),
              "multiTitleSize": 10,

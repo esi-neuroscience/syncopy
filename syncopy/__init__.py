@@ -95,7 +95,6 @@ from .specest import *
 from .nwanalysis import *
 from .statistics import *
 from .plotting import *
-from .tests import synth_data
 
 # Register session
 __session__ = datatype.base_data.SessionLogger()
