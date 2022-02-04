@@ -26,7 +26,8 @@ from pynwb import NWBHDF5IO
 # Prepare code to be executed using, e.g., iPython's `%run` magic command
 if __name__ == "__main__":
 
-    nwbFilePath = "/home/fuertingers/Documents/job/SyNCoPy/Data/test.nwb"
+    nwbFilePath = "/home/fuertingers/Documents/job/SyNCoPy/Data/tt.nwb"
+    # nwbFilePath = "/home/fuertingers/Documents/job/SyNCoPy/Data/test.nwb"
 
     nwbio = NWBHDF5IO(nwbFilePath, "r", load_namespaces=True)
     nwbfile = nwbio.read()
