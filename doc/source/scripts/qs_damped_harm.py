@@ -15,6 +15,7 @@ harm = np.cos(2 * np.pi * 30 * tvec)
 dampening = np.linspace(1, 0.1, nSamples)
 signal = dampening * harm
 
+# collect trials
 trials = []
 for _ in range(nTrials):
 

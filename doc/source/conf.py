@@ -129,7 +129,9 @@ html_theme_options = {
     # Global TOC depth for "site" navbar tab. (Default: 1)
     # Switching to -1 shows all levels.
     'globaltoc_depth': 2,
-    'bootswatch_theme': "lumen",
+    # Currently, the supported themes are:
+    # - Bootstrap 3: https://bootswatch.com/3
+    'bootswatch_theme': "simplex",
     'navbar_links': [
         ("GitHub", "https://www.github.com/esi-neuroscience/syncopy", True),
     ],

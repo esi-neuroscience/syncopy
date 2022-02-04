@@ -24,9 +24,8 @@ We strive to achieve the following goals:
 
 Getting Started
 ---------------
-Our :doc:`Basic Setup Guide <setup>` covers installation and basic usage.
-
-After this you might find useful examples in our :doc:`Quickstart Guide <quickstart/quickstart>`.
+- Prerequisites: :doc:`Install Syncopy </setup>`
+- Jumping right in: :doc:`Quickstart Guide <quickstart/quickstart>`
 
 Want to contribute or just curious how the sausage 
 is made? Take a look at our :doc:`Developer Guide <developer/developers>`. 

@@ -1,8 +1,5 @@
-Getting started with Syncopy
-============================
-
-Installing Syncopy
-------------------
+Install Syncopy 
+===============
 
 Syncopy can be installed using `conda <https://anaconda.org>`_:
 
@@ -20,7 +17,7 @@ If you're working on the ESI cluster installing Syncopy is only necessary if
 you create your own Conda environment.
 
 Installing parallel processing engine ACME
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------------------
 
 To harness the parallel processing capabilities of Syncopy
 it is necessary to install `ACME <https://github.com/esi-neuroscience/acme>`_.
@@ -54,7 +51,8 @@ accessed with the ``spy.`` prefix, e.g.
 
     spy.load("~/testdata.spy")
 
-
+.. _start_parallel:
+    
 Starting Up Parallel Workers
 ----------------------------
 
