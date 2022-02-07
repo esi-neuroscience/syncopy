@@ -12,6 +12,7 @@ import numpy as np
 # Local imports
 from syncopy import __nwb__
 from syncopy.datatype.continuous_data import AnalogData
+from syncopy.datatype.discrete_data import EventData
 from syncopy.shared.errors import SPYError, SPYValueError, SPYWarning
 from syncopy.shared.parsers import io_parser, scalar_parser
 
@@ -46,11 +47,11 @@ def read_nwb(filename, memuse=3000):
     nwbPath, nwbBaseName = io_parser(filename, varname="filename", isfile=True, exists=True)
     nwbFullName = os.path.join(nwbPath, nwbBaseName)
 
-    # # Ensure `memuse` makes sense`
-    # try:
-    #     scalar_parser(memuse, varname="memuse", lims=[0, np.inf])
-    # except Exception as exc:
-    #     raise exc
+    # Ensure `memuse` makes sense`
+    try:
+        scalar_parser(memuse, varname="memuse", lims=[0, np.inf])
+    except Exception as exc:
+        raise exc
 
     # First, perform some basal validation w/NWB
     try:
@@ -63,9 +64,6 @@ def read_nwb(filename, memuse=3000):
     nwbio = pynwb.NWBHDF5IO(nwbFullName, "r", load_namespaces=True)
     nwbfile = nwbio.read()
 
-    # Electrodes: nwbfile.acquisition['ElectricalSeries_1'].electrodes[:]
-
-
     # Allocate lists for storing temporary NWB info: IMPORTANT use lists to preserve
     # order of data chunks/channels
     nSamples = 0
@@ -77,6 +75,7 @@ def read_nwb(filename, memuse=3000):
     angSeries = []
     ttlVals = []
     ttlChans = []
+    ttlDtypes = []
 
     # If the file contains `epochs`, use it to infer trial information
     hasTrials = "epochs" in nwbfile.fields.keys()
@@ -115,6 +114,9 @@ def read_nwb(filename, memuse=3000):
                 act = "unformatted TTL data '{}'"
                 raise SPYValueError(lgl, varname=acqName, actual=act.format(acqValue.description))
 
+            ttlDtypes.append(acqValue.data.dtype)
+            ttlDtypes.append(acqValue.timestamps.dtype)
+
         # Unsupported
         else:
             lgl = "supported NWB data class"
@@ -148,8 +150,19 @@ def read_nwb(filename, memuse=3000):
         act = "{} TTL data sets".format(len(ttlVals))
         raise SPYValueError(lgl, varname=ttlVals[0].name, actual=act)
 
-    if len(ttlVals) > 0 and hasTrials:
-        import ipdb; ipdb.set_trace()
+    # Use provided TTL data to initialize `EventData` object
+    if len(ttlVals) > 0:
+        evtData = EventData(dimord=EventData._defaultDimord)
+        h5evt = h5py.File(evtData.filename, mode="w")
+        evtDset = h5evt.create_dataset("data", dtype=np.result_type(*ttlDtypes),
+                                       shape=(ttlVals[0].data.size, 3))
+        evtDset[:, 0] = ((ttlChans[0].timestamps[()] - tStarts[0]) / ttlChans[0].timestamps__resolution).astype(np.intp)
+        evtDset[:, 1] = ttlVals[0].data[()]
+        evtDset[:, 2] = ttlChans[0].data[()]
+        evtData.data = evtDset
+        evtData.samplerate = 1 / ttlChans[0].timestamps__resolution
+        if hasTrials:
+            evtData.trialdefinition = trl
 
     # Allocate `AnalogData` object and use generated HDF5 file-name to manually
     # allocate a target dataset for reading the NWB data
@@ -165,6 +178,7 @@ def read_nwb(filename, memuse=3000):
     chanCounter = 0
 
     # Process analog time series data and save stuff block by block (if necessary)
+    # FIXME: >>>>>>>>>>>>>>>> Use tqdm here
     for acqValue in angSeries:
 
         # Given memory cap, compute how many data blocks can be grabbed per swipe
