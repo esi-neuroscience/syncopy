@@ -19,9 +19,11 @@ signal = dampening * harm
 trials = []
 for _ in range(nTrials):
 
-    white_noise = np.random.randn(nSamples, nChannels)    
-    trial = np.tile(signal, (2, 1)).T + white_noise
+    # start with the noise
+    trial = np.random.randn(nSamples, nChannels)
+    # now add the damped harmonic on the 1st channel
+    trial[:, 0] += signal
     trials.append(trial)
 
 # instantiate Syncopy data object
-synth_data = spy.AnalogData(trials, samplerate=samplerate)
+data = spy.AnalogData(trials, samplerate=samplerate)

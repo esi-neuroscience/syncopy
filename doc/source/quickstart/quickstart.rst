@@ -18,7 +18,9 @@ Preparations
 
 To start with a clean slate, let's construct a synthetic signal consisting of a damped harmonic and additive white noise:
 
-.. literalinclude:: /scripts/qs_damped_harm.py
+.. literalinclude:: /quickstart/damped_harm.py
+
+With this we have white noise on both channels, and only channel 1 additionally got the damped harmonic signal.
 
 .. hint::
    Further details about artifical data generatation can be found at the :ref:`synth_data` section.
@@ -30,7 +32,7 @@ We can get some basic information about any Syncopy dataset by just typing its n
 
 .. code-block:: python
 		
-   synth_data
+   data
 
 which gives nicely formatted output:
 
@@ -57,7 +59,7 @@ which gives nicely formatted output:
 So we see that we indeed got 50 trials with 2 channels and 1000 samples each. Note that Syncopy per default **stores and writes all data on disc**, as this allows for seamless processing of larger than RAM datasets. The exact location and filename of a dataset in question is listed at the ``filename`` field. The standard location is the ``.spy`` directory created automatically in the users home directory. To change this and for more details please see :ref:`setup_env`.
 
 .. hint::
-   You can access each of the shown meta-information fields separately using standard Python attribute access, e.g. ``synth_data.filename`` or ``synth_data.samplerate``.
+   You can access each of the shown meta-information fields separately using standard Python attribute access, e.g. ``data.filename`` or ``data.samplerate``.
 
       
 Time-Frequency Analysis
@@ -74,7 +76,7 @@ Multitapered Fourier Analysis
 
 .. code-block::
 
-   spectra = spy.freqanalsysis(synth_data, method='mtmfft', foilim=[0, 50], taper='dpss', tapsmofrq=3)
+   spectra = spy.freqanalsysis(data, method='mtmfft', foilim=[0, 50], taper='dpss', tapsmofrq=3)
 
 The parameter ``foilim`` controls the *frequencies of interest  limits*, so in this case we are interested in the range 0-50Hz. Starting the computation interactively will show additional information::
 
@@ -83,7 +85,7 @@ The parameter ``foilim`` controls the *frequencies of interest  limits*, so in t
 informing us, that for this dataset a spectral smoothing of 3Hz required 5 Slepian tapers.
 
 .. hint::
-   Try typing ``spectra.log`` into your intepreter and have a look at :doc:`Trace Your Steps: History </user/logging>` so learn more about Syncopy's logging features
+   Try typing ``spectra.log`` into your intepreter and have a look at :doc:`Trace Your Steps: Data Logs </user/logging>` to learn more about Syncopy's logging features
    
 To quickly have something for the eye we can plot the power spectrum using the generic :func:`syncopy.singlepanelplot`::
 
@@ -92,5 +94,28 @@ To quickly have something for the eye we can plot the power spectrum using the g
 .. image:: mtmfft_spec.png
    :height: 250px
 
-The originally very sharp harmonic peak around 30Hz got widened to about 3Hz, for all other frequencies we have the expected flat white noise floor.
+The originally very sharp harmonic peak around 30Hz for channel 1 got widened to about 3Hz, channel 2 just has the flat white noise floor.
 
+The related short time Fourier transform can be computed via ``method='mtmconvol'``, see :func:`~syncopy.freqanalysis` for more details and examples.
+
+
+Wavelet Analysis
+----------------
+
+`Wavelet Analysis <https://en.wikipedia.org/wiki/Continuous_wavelet_transform>`_, especially with `Morlet Wavelets <https://en.wikipedia.org/wiki/Morlet_wavelet>`_, is a well established method for time-frequency analysis. For each frequency of interest (``foi``), a Wavelet function gets convolved with the signal yielding a time dependent cross-correlation. By (densely) scanning a range of frequencies, a continuous time-frequency representation of the original signal can be generated.
+
+In Syncopy we can compute the Wavelet transform by calling :func:`~syncopy.freqanalysis` with the ``method='wavelet'` argument::
+
+  # define frequencies to scan
+  fois = np.arange(10, 50, step=2) # 2Hz stepping 
+  wav_spectra = spy.freqanalysis(data, method='wavelet', foi=fois)
+
+To quickly inspect the results for each channel we can use::
+
+  wav_spectra.multipanelplot()
+
+  
+.. image:: wavelet_spec.png
+   :height: 250px
+
+Again, we see a strong 30Hz signal in the 1st channel, and channel 2 is devoid of any rhythms. However now we also get information along the time axis, the dampening of the harmonic in channel 1 is clearly visible.

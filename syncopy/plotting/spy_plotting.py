@@ -54,12 +54,12 @@ if __plt__:
 pltConfig = {"singleTitleSize": 12,
              "singleLabelSize": 14,
              "singleTickSize": 12,
-             "singleLegendSize": 10,
+             "singleLegendSize": 12,
              "singleFigSize": (6.4, 4.8),
-             "multiTitleSize": 10,
-             "multiLabelSize": 8,
-             "multiTickSize": 6,
-             "multiLegendSize": 8,
+             "multiTitleSize": 14,
+             "multiLabelSize": 14,
+             "multiTickSize": 10,
+             "multiLegendSize": 12,
              "multiFigSize": (10, 6.8)}
 
 # Global consistent error message if matplotlib is missing

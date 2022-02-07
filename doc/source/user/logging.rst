@@ -1,11 +1,11 @@
 .. _logging:
 
-Trace Your Steps: Logging
-==========================
+Trace Your Steps: Data Logs
+===========================
 
-An important feature of Syncopy fostering reproducibility is a ``log`` which gets attached to and propagated between datasets. Typing::
+An important feature of Syncopy fostering reproducibility is a ``log`` which gets attached to and propagated between all datasets. Suppose we have some :class:`~syncopy.SpectralData` and we want to know how we did arrive at these results, typing::
 
-  spectra.log
+  spectral_data.log
 
 Gives a output like this::
 
@@ -36,4 +36,4 @@ Gives a output like this::
 	tapsmofrq = 3
 
 
-We see that from the creation of the original :class:`~syncopy.AnalogData` all steps needed to compute our new :class:`~syncopy.SpectralData` got recorded.
+We see that from the creation of the original :class:`~syncopy.AnalogData` all steps needed to compute the new :class:`~syncopy.SpectralData` got recorded. In this example the specta were computed via the multitapered FFT, with a spectral smoothing box (``tapsmofrq``) of 3Hz which required 5 Slepian tapers. The frequencies of interest (``foi``) range from 0Hz to 50Hz with 0.5Hz stepping and ``keeptrials`` was set to ``True``, meaning that this dataset contains the results for all trials separately.

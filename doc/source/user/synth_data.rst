@@ -52,7 +52,7 @@ These generators return single-trial NumPy arrays, so to import them into Syncop
 .. autofunction:: AR2_network
 
 
-Synthetic Data from Scratch
+Example: Noisy Harmonics
 ---------------------------
 
 We can easily create custom synthetic datasets using basic `NumPy <https://numpy.org>`_ functionality and Syncopy's :class:`~syncopy.AnalogData`.
