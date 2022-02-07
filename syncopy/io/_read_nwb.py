@@ -4,6 +4,7 @@
 #
 
 # Builtin/3rd party package imports
+import os
 import h5py
 import subprocess
 import numpy as np
@@ -12,7 +13,7 @@ import numpy as np
 from syncopy import __nwb__
 from syncopy.datatype.continuous_data import AnalogData
 from syncopy.shared.errors import SPYError, SPYValueError, SPYWarning
-from syncopy.shared.parsers import io_parser
+from syncopy.shared.parsers import io_parser, scalar_parser
 
 # Conditional imports
 if __nwb__:
@@ -42,30 +43,48 @@ def read_nwb(filename, memuse=3000):
         raise SPYError(nwbErrMsg.format("read_nwb"))
 
     # Check if file exists
-    nwbFullName, nwbBaseName = io_parser(filename, varname="filename", isfile=True, exists=True)
+    nwbPath, nwbBaseName = io_parser(filename, varname="filename", isfile=True, exists=True)
+    nwbFullName = os.path.join(nwbPath, nwbBaseName)
+
+    # # Ensure `memuse` makes sense`
+    # try:
+    #     scalar_parser(memuse, varname="memuse", lims=[0, np.inf])
+    # except Exception as exc:
+    #     raise exc
 
     # First, perform some basal validation w/NWB
-    subprocess.run(["python", "-m", "pynwb.validate", nwbFullName], check=True)
+    try:
+        subprocess.run(["python", "-m", "pynwb.validate", nwbFullName], check=True)
+    except subprocess.CalledProcessError as exc:
+        err = "NWB file validation failed. Original error message: {}"
+        raise SPYError(err.format(str(exc)))
 
+    # Load NWB meta data from disk
     nwbio = pynwb.NWBHDF5IO(nwbFullName, "r", load_namespaces=True)
     nwbfile = nwbio.read()
 
     # Electrodes: nwbfile.acquisition['ElectricalSeries_1'].electrodes[:]
 
-    # Trials: if "epochs" in nwbfile.fields.keys()
 
+    # Allocate lists for storing temporary NWB info: IMPORTANT use lists to preserve
+    # order of data chunks/channels
     nSamples = 0
     nChannels = 0
     chanNames = []
     tStarts = []
     sRates = []
     dTypes = []
+    angSeries = []
+    ttlVals = []
+    ttlChans = []
 
+    # If the file contains `epochs`, use it to infer trial information
     hasTrials = "epochs" in nwbfile.fields.keys()
 
-
+    # Access all (supported) `acquisition` fields in the file
     for acqName, acqValue in nwbfile.acquisition.items():
 
+        # Actual extracellular analog time-series data
         if isinstance(acqValue, pynwb.ecephys.ElectricalSeries):
 
             channels = acqValue.electrodes[:].location
@@ -82,15 +101,27 @@ def read_nwb(filename, memuse=3000):
             sRates.append(acqValue.rate)
             nChannels += acqValue.data.shape[1]
             nSamples = max(nSamples, acqValue.data.shape[0])
+            angSeries.append(acqValue)
 
-        elif str(acqValue.__class__) == "TTLs":
-            pass
+        # TTL event pulse data
+        elif "abc.TTLs" in str(acqValue.__class__):
 
+            if acqValue.name == "TTL_PulseValues":
+                ttlVals.append(acqValue)
+            elif acqValue.name == "TTL_ChannelStates":
+                ttlChans.append(acqValue)
+            else:
+                lgl = "TTL data exported via `esi-oephys2nwb`"
+                act = "unformatted TTL data '{}'"
+                raise SPYValueError(lgl, varname=acqName, actual=act.format(acqValue.description))
+
+        # Unsupported
         else:
             lgl = "supported NWB data class"
             raise SPYValueError(lgl, varname=acqName, actual=str(acqValue.__class__))
 
-
+    # If the NWB data is split up in "trials" (i.e., epochs), ensure things don't
+    # get too wild (uniform sampling rates and timing offsets)
     if hasTrials:
         if all(tStarts) is None or all(sRates) is None:
             lgl = "acquisition timings defined by `starting_time` and `rate`"
@@ -102,39 +133,73 @@ def read_nwb(filename, memuse=3000):
             raise SPYValueError(lgl, varname="starting_time/rate", actual=act)
         epochs = nwbfile.epochs[:]
         trl = np.zeros((epochs.shape[0], 3), dtype=np.intp)
-        trl[:, :2] = epochs * sRates[0]
+        trl[:, :2] = (epochs - tStarts[0]) * sRates[0]
     else:
         trl = np.array([[0, nSamples, 0]])
 
-    angData = AnalogData()
+    # If TTL data was found, ensure we have exactly one set of values and associated
+    # channel markers
+    if max(len(ttlVals), len(ttlChans)) > min(len(ttlVals), len(ttlChans)):
+        lgl = "TTL pulse values and channel markers"
+        act = "pulses: {}, channels: {}".format(str(ttlVals), str(ttlChans))
+        raise SPYValueError(lgl, varname=ttlVals[0].name, actual=act)
+    if len(ttlVals) > 1:
+        lgl = "one set of TTL pulses"
+        act = "{} TTL data sets".format(len(ttlVals))
+        raise SPYValueError(lgl, varname=ttlVals[0].name, actual=act)
+
+    if len(ttlVals) > 0 and hasTrials:
+        import ipdb; ipdb.set_trace()
+
+    # Allocate `AnalogData` object and use generated HDF5 file-name to manually
+    # allocate a target dataset for reading the NWB data
+    angData = AnalogData(dimord=AnalogData._defaultDimord)
     angShape = [None, None]
     angShape[angData._defaultDimord.index("time")] = nSamples
     angShape[angData._defaultDimord.index("channel")] = nChannels
-
     h5ang = h5py.File(angData.filename, mode="w")
     angDset = h5ang.create_dataset("data", dtype=np.result_type(*dTypes), shape=angShape)
 
     # Compute actually available memory (divide by 2 since we're working with an add'l tmp array)
     memuse *= 1024**2 / 2
+    chanCounter = 0
 
-    for acqName, acqValue in nwbfile.acquisition.items():
+    # Process analog time series data and save stuff block by block (if necessary)
+    for acqValue in angSeries:
 
-        if isinstance(acqValue, pynwb.ecephys.ElectricalSeries):
+        # Given memory cap, compute how many data blocks can be grabbed per swipe
+        nSamp = int(memuse / (np.prod(angDset.shape[1:]) * angDset.dtype.itemsize))
+        rem = int(angDset.shape[0] % nSamp)
+        nBlocks = [nSamp] * int(angDset.shape[0] // nSamp) + [rem] * int(rem > 0)
 
-            # Given memory cap, compute how many data blocks can be grabbed per swipe
-            nSamp = int(memuse / (np.prod(angDset.shape[1:]) * angDset.dtype.itemsize))
-            rem = int(angDset.shape[0] % nSamp)
-            nBlocks = [nSamp] * int(angDset.shape[0] // nSamp) + [rem] * int(rem > 0)
+        # If channel-specific gains are set, load them now
+        if acqValue.channel_conversion is not None:
+            gains = acqValue.channel_conversion[()]
 
-            # If channel-specific gains are set, load them now
+        # Write data block-wise to `angDset` (use `del` to wipe blocks from memory)
+        # Use 'unsafe' casting to allow `tmp` array conversion int -> float
+        endChan = chanCounter + acqValue.data.shape[1]
+        for m, M in enumerate(nBlocks):
+            tmp = acqValue.data[m * nSamp: m * nSamp + M, :]
             if acqValue.channel_conversion is not None:
-                gains = acqValue.channel_conversion.data[()]
+                np.multiply(tmp, gains, out=tmp, casting="unsafe")
+            angDset[m * nSamp: m * nSamp + M, chanCounter : endChan] = tmp
+            del tmp
 
-            # Write data block-wise to `angDset` (use `del` to wipe blocks from memory)
-            for m, M in enumerate(nBlocks):
-                tmp = acqValue.data[m * nSamp: m * nSamp + M, :]
-                if acqValue.channel_conversion is not None:
-                    tmp *= gains
-                angDset[m * nSamp: m * nSamp + M, :] = tmp
-                del tmp
+        # Update channel counter for next `acqValue``
+        chanCounter += acqValue.data.shape[1]
+
+    # Finalize angData
+    angData.data = angDset
+    angData.channel = chanNames
+    angData.samplerate = sRates[0]
+    angData.trialdefinition = trl
+
+    # # Write log-entry
+    # msg = "Read files v. {ver:s} ".format(ver=jsonDict["_version"])
+    # msg += "{hdf:s}\n\t" + (len(msg) + len(thisMethod) + 2) * " " + "{json:s}"
+    # out.log = msg.format(hdf=hdfFile, json=jsonFile)
+
+
+    import ipdb; ipdb.set_trace()
 
