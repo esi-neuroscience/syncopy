@@ -7,6 +7,7 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+import numbers
 
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYInfo
 from syncopy.shared.parsers import scalar_parser, array_parser
@@ -20,9 +21,11 @@ def validate_padding(pad_to_length, lenTrials):
     """
     # supported padding options
     not_valid = False
-    if not isinstance(pad_to_length, (np.number, str, type(None))):
+    if not isinstance(pad_to_length, (numbers.Number, str, type(None))):
         not_valid = True
     elif isinstance(pad_to_length, str) and pad_to_length not in availablePaddingOpt:
+        not_valid = True
+    if isinstance(pad_to_length, bool): # bool is an int subclass, check for it separately...
         not_valid = True
     if not_valid:
         lgl = "`None`, 'nextpow2' or an integer like number"
@@ -31,13 +34,13 @@ def validate_padding(pad_to_length, lenTrials):
 
     # here we check for equal lengths trials in case of no user specified absolute padding length
     # we do a rough 'maxlen' padding, nextpow2 will be overruled in this case
-    if lenTrials.min() != lenTrials.max() and not isinstance(pad_to_length, np.number):
+    if lenTrials.min() != lenTrials.max() and not isinstance(pad_to_length, numbers.Number):
         abs_pad = int(lenTrials.max())
         msg = f"Unequal trial lengths present, automatic padding to {abs_pad} samples"
         SPYWarning(msg)
 
     # zero padding of ALL trials the same way
-    if isinstance(pad_to_length, np.number):
+    if isinstance(pad_to_length, numbers.Number):
 
         scalar_parser(pad_to_length,
                       varname='pad_to_length',

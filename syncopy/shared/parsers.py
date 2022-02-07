@@ -191,7 +191,7 @@ def scalar_parser(var, varname="", ntype=None, lims=None):
     """
 
     # Make sure `var` is a scalar-like number
-    if not isinstance(var, np.number):
+    if not np.issubdtype(type(var), np.number):
         raise SPYTypeError(var, varname=varname, expected="scalar")
 
     # If required, parse type ("int_like" is a bit of a special case here...)

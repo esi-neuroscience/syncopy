@@ -841,7 +841,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
 
     # If `toi` was a percentage, some cumsum/winSize algebra is required
     # Note: if `toi` was "all", simply use provided `trialdefinition` and `samplerate`
-    elif isinstance(toi, np.number):
+    elif np.issubdtype(type(toi), np.number):
         mKw = cfg['method_kwargs']
         winSize = mKw["nperseg"] - mKw["noverlap"]
         trialdefinitionLens = np.ceil(np.diff(trialdefinition[:, :2]) / winSize)

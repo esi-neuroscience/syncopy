@@ -147,7 +147,7 @@ def _parse_input(obj1, obj2, operator):
 
     # Depending on the what is thrown at `baseObj` perform more or less extensive parsing
     # First up: operand is a scalar
-    if isinstance(operand, np.number):
+    if np.issubdtype(type(operand), np.number):
 
         # Don't allow `np.inf` manipulations and catch zero-divisions
         if np.isinf(operand):
