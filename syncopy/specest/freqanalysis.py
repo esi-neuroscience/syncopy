@@ -382,7 +382,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     if method in ["wavelet", "superlet"]:
 
         valid = True
-        if isinstance(toi, np.number):
+        if np.issubdtype(type(toi), np.number):
             valid = False
 
         elif isinstance(toi, str):
@@ -534,7 +534,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             equidistant = True
             overlap = np.inf
 
-        elif isinstance(toi, np.number):
+        elif np.issubdtype(type(toi), np.number):
             try:
                 scalar_parser(toi, varname="toi", lims=[0, 1])
             except Exception as exc:
