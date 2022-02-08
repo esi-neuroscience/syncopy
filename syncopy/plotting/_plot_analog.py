@@ -132,14 +132,14 @@ def singlepanelplot(self, trials="all", channels="all", toilim=None, avg_channel
             if fig.objCount == 0:
                 if title is None:
                     title = chanTitle
-                ax.set_title(title, size=pltConfig["singleTitleSize"])
+                # ax.set_title(title, size=pltConfig["singleTitleSize"])
             else:
                 handles, labels = ax.get_legend_handles_labels()
                 ax.legend(handles, labels)
                 if title is None:
                     title = overlayTitle.format(len(handles))
-                ax.set_title(title, size=pltConfig["singleTitleSize"])
-                
+                # ax.set_title(title, size=pltConfig["singleTitleSize"])
+
         # Average across trials
         else:
         
@@ -165,13 +165,13 @@ def singlepanelplot(self, trials="all", channels="all", toilim=None, avg_channel
                     else:
                         trTitle = "Trial #{}".format(trList[0])
                     title = "{}, {}".format(chanTitle, trTitle)
-                ax.set_title(title, size=pltConfig["singleTitleSize"])
+                # ax.set_title(title, size=pltConfig["singleTitleSize"])
             else:
                 handles, labels = ax.get_legend_handles_labels()
                 ax.legend(handles, labels)
                 if title is None:
                     title = overlayTitle.format(len(handles))
-                ax.set_title(title, size=pltConfig["singleTitleSize"])
+                # ax.set_title(title, size=pltConfig["singleTitleSize"])
     
     # Multi-channel panel
     else:
@@ -210,14 +210,14 @@ def singlepanelplot(self, trials="all", channels="all", toilim=None, avg_channel
                         title = "Entire Data Timecourse of {}".format(chArr[0])
                 ax.set_yticks(fig.tickOffsets)
                 ax.set_yticklabels(chArr)
-                ax.set_title(title, size=pltConfig["singleTitleSize"])
+                # ax.set_title(title, size=pltConfig["singleTitleSize"])
             else:
                 handles, labels = ax.get_legend_handles_labels()
                 ax.legend(handles[ : : (nChan + 1)], 
                           labels[ : : (nChan + 1)])
                 if title is None:
                     title = overlayTitle.format(len(handles))
-                ax.set_title(title, size=pltConfig["singleTitleSize"])
+                # ax.set_title(title, size=pltConfig["singleTitleSize"])
 
         # Average across trial(s)
         else:
@@ -249,14 +249,14 @@ def singlepanelplot(self, trials="all", channels="all", toilim=None, avg_channel
                     title = "{0} channels {1}across {2} trials".format(nChan, 
                                                                        "averaged " if nTrials > 1 else "",
                                                                        nTrials)
-                ax.set_title(title, size=pltConfig["singleTitleSize"])
+                # ax.set_title(title, size=pltConfig["singleTitleSize"])
             else:
                 handles, labels = ax.get_legend_handles_labels()
                 ax.legend(handles[ : : (nChan + 1)], 
                           labels[ : : (nChan + 1)])
                 if title is None:
                     title = overlayTitle.format(len(handles))
-                ax.set_title(title, size=pltConfig["singleTitleSize"])
+                # ax.set_title(title, size=pltConfig["singleTitleSize"])
     
     # Increment overlay-counter and draw figure
     fig.objCount += 1
