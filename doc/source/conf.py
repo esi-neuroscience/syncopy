@@ -21,7 +21,7 @@ import syncopy
 # -- Project information -----------------------------------------------------
 
 project = 'Syncopy'
-copyright = '2020, Joscha Schmied and Stefan Fuertinger'
+copyright = '2020, Joscha Schmiedt and Stefan Fuertinger'
 author = 'Joscha Schmiedt, Stefan Fuertinger and Gregor Mönke'
 
 # The short X.Y version

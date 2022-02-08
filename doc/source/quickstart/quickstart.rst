@@ -10,9 +10,9 @@ Here we want to quickly explore some standard analyses for analog data (e.g. MUA
    :local:
 
 .. note::
-   Installation of Syncopy itself is covered in :doc:`here </setup>`. 
+   Installation of Syncopy itself is covered in :doc:`here </setup>`.
 
-      
+
 Preparations
 ============
 
@@ -23,7 +23,7 @@ To start with a clean slate, let's construct a synthetic signal consisting of a 
 With this we have white noise on both channels, and only channel 1 additionally got the damped harmonic signal.
 
 .. hint::
-   Further details about artifical data generatation can be found at the :ref:`synth_data` section.
+   Further details about artificial data generation can be found at the :ref:`synth_data` section.
 
 Data Object Inspection
 ======================
@@ -31,7 +31,7 @@ Data Object Inspection
 We can get some basic information about any Syncopy dataset by just typing its name in an interpreter:
 
 .. code-block:: python
-		
+
    data
 
 which gives nicely formatted output:
@@ -56,12 +56,12 @@ which gives nicely formatted output:
 
    Use `.log` to see object history
 
-So we see that we indeed got 50 trials with 2 channels and 1000 samples each. Note that Syncopy per default **stores and writes all data on disc**, as this allows for seamless processing of larger than RAM datasets. The exact location and filename of a dataset in question is listed at the ``filename`` field. The standard location is the ``.spy`` directory created automatically in the users home directory. To change this and for more details please see :ref:`setup_env`.
+So we see that we indeed got 50 trials with 2 channels and 1000 samples each. Note that Syncopy per default **stores and writes all data on disk**, as this allows for seamless processing of larger than RAM datasets. The exact location and filename of a dataset in question is listed at the ``filename`` field. The standard location is the ``.spy`` directory created automatically in the user's home directory. To change this and for more details please see :ref:`setup_env`.
 
 .. hint::
    You can access each of the shown meta-information fields separately using standard Python attribute access, e.g. ``data.filename`` or ``data.samplerate``.
 
-      
+
 Time-Frequency Analysis
 =======================
 
@@ -85,8 +85,8 @@ The parameter ``foilim`` controls the *frequencies of interest  limits*, so in t
 informing us, that for this dataset a spectral smoothing of 3Hz required 5 Slepian tapers.
 
 .. hint::
-   Try typing ``fft_spectra.log`` into your intepreter and have a look at :doc:`Trace Your Steps: Data Logs </user/logging>` to learn more about Syncopy's logging features
-   
+   Try typing ``fft_spectra.log`` into your interpreter and have a look at :doc:`Trace Your Steps: Data Logs </user/logging>` to learn more about Syncopy's logging features
+
 To quickly have something for the eye we can plot the power spectrum using the generic :func:`syncopy.singlepanelplot`::
 
   fft_spectra.singlepanelplot()
@@ -107,7 +107,7 @@ Wavelet Analysis
 In Syncopy we can compute the Wavelet transform by calling :func:`~syncopy.freqanalysis` with the ``method='wavelet'`` argument::
 
   # define frequencies to scan
-  fois = np.arange(10, 50, step=2) # 2Hz stepping 
+  fois = np.arange(10, 50, step=2) # 2Hz stepping
   wav_spectra = spy.freqanalysis(data,
                                  method='wavelet',
 				 foi=fois,
@@ -122,11 +122,11 @@ Here we used two additional parameters supported by every Syncopy analysis metho
 .. hint::
 
    If parallel processing is unavailable, have a look at :ref:`install_acme`
-   
+
 To quickly inspect the results for each channel we can use::
 
   wav_spectra.multipanelplot()
-  
+
 .. image:: wavelet_spec.png
    :height: 250px
 

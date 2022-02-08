@@ -1,11 +1,11 @@
-Install Syncopy 
+Install Syncopy
 ===============
 
 Syncopy can be installed using `conda <https://anaconda.org>`_:
 
 .. code-block:: bash
 
-    conda install esi-syncopy
+    conda install -c conda-forge esi-syncopy
 
 Alternatively it is also available on `Pip <https://pypi.org/project/pip/>`_:
 
@@ -28,7 +28,7 @@ Again either via conda
 
 .. code-block:: bash
 
-    conda install esi-acme
+    conda install -c conda-forge esi-acme
 
 or pip
 
@@ -54,7 +54,7 @@ accessed with the ``spy.`` prefix, e.g.
     spy.load("~/testdata.spy")
 
 .. _start_parallel:
-    
+
 Starting Up Parallel Workers
 ----------------------------
 
@@ -91,13 +91,9 @@ by default points to your home directory:
     SPYTMPDIR=~/.spy
 
 The performance of Syncopy strongly depends on the read and write speed in
-this folder. On the `ESI JupyterHub <https://jupyterhub.esi.local>`_, the
-variable is set to use the high performance storage:
+this folder. On the ESI cluster, the variable is set to use the high performance
+storage:
 
 .. code-block:: bash
 
     SPYTMPDIR=/cs/home/$USER/.spy
-
-
-
-

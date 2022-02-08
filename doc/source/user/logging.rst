@@ -36,4 +36,4 @@ Gives a output like this::
 	tapsmofrq = 3
 
 
-We see that from the creation of the original :class:`~syncopy.AnalogData` all steps needed to compute the new :class:`~syncopy.SpectralData` got recorded. In this example the specta were computed via the multitapered FFT, with a spectral smoothing box (``tapsmofrq``) of 3Hz which required 5 Slepian tapers. The frequencies of interest (``foi``) range from 0Hz to 50Hz with 0.5Hz stepping and ``keeptrials`` was set to ``True``, meaning that this dataset contains the results for all trials separately.
+We see that from the creation of the original :class:`~syncopy.AnalogData` all steps needed to compute the new :class:`~syncopy.SpectralData` got recorded. In this example the spectra were computed via the multitapered FFT, with a spectral smoothing box (``tapsmofrq``) of 3Hz which required 5 Slepian tapers. The frequencies of interest (``foi``) range from 0Hz to 50Hz with 0.5Hz stepping and ``keeptrials`` was set to ``True``, meaning that this dataset contains the results for all trials separately.
