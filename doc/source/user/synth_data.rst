@@ -13,7 +13,7 @@ For testing and demonstrational purposes it is always good to work with syntheti
 General Recipe
 --------------
 
-To create a synthetic data set follow the following steps:
+To create a synthetic data set follow these steps:
 
 - write a function which returns a single trial with desired shape ``(nSamples, nChannels)``, such that each trial is a 2d-:class:`~numpy.ndarray`
 - collect all the trials into a Python ``list``, for example with a list comprehension or simply a for loop

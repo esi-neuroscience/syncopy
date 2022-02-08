@@ -1,6 +1,6 @@
-****************************
-A Quick Tour with  Syncopy
-****************************
+************************
+Quickstart with Syncopy
+************************
 
 .. currentmodule:: syncopy
 
@@ -94,7 +94,7 @@ To quickly have something for the eye we can plot the power spectrum using the g
 .. image:: mtmfft_spec.png
    :height: 250px
 
-The originally very sharp harmonic peak around 30Hz for channel 1 got widened to about 3Hz, channel 2 just has the flat white noise floor.
+The originally very sharp harmonic peak around 30Hz for channel 1 got widened to about 3Hz, channel 2 just contains the flat white noise floor.
 
 The related short time Fourier transform can be computed via ``method='mtmconvol'``, see :func:`~syncopy.freqanalysis` for more details and examples.
 
