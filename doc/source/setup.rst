@@ -16,6 +16,8 @@ Alternatively it is also available on `Pip <https://pypi.org/project/pip/>`_:
 If you're working on the ESI cluster installing Syncopy is only necessary if
 you create your own Conda environment.
 
+.. _install_acme:
+
 Installing parallel processing engine ACME
 --------------------------------------------
 

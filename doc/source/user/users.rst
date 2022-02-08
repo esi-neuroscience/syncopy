@@ -12,7 +12,8 @@ files.
 
     fieldtrip
     data_handling
-    synth_data    
+    synth_data
+    logging
     processing
     user_api
 

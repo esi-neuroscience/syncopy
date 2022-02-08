@@ -76,7 +76,7 @@ Multitapered Fourier Analysis
 
 .. code-block::
 
-   spectra = spy.freqanalsysis(data, method='mtmfft', foilim=[0, 50], taper='dpss', tapsmofrq=3)
+   fft_spectra = spy.freqanalsysis(data, method='mtmfft', foilim=[0, 50], taper='dpss', tapsmofrq=3)
 
 The parameter ``foilim`` controls the *frequencies of interest  limits*, so in this case we are interested in the range 0-50Hz. Starting the computation interactively will show additional information::
 
@@ -85,11 +85,11 @@ The parameter ``foilim`` controls the *frequencies of interest  limits*, so in t
 informing us, that for this dataset a spectral smoothing of 3Hz required 5 Slepian tapers.
 
 .. hint::
-   Try typing ``spectra.log`` into your intepreter and have a look at :doc:`Trace Your Steps: Data Logs </user/logging>` to learn more about Syncopy's logging features
+   Try typing ``fft_spectra.log`` into your intepreter and have a look at :doc:`Trace Your Steps: Data Logs </user/logging>` to learn more about Syncopy's logging features
    
 To quickly have something for the eye we can plot the power spectrum using the generic :func:`syncopy.singlepanelplot`::
 
-  spectra.singlepanelplot()
+  fft_spectra.singlepanelplot()
 
 .. image:: mtmfft_spec.png
    :height: 250px
@@ -104,18 +104,32 @@ Wavelet Analysis
 
 `Wavelet Analysis <https://en.wikipedia.org/wiki/Continuous_wavelet_transform>`_, especially with `Morlet Wavelets <https://en.wikipedia.org/wiki/Morlet_wavelet>`_, is a well established method for time-frequency analysis. For each frequency of interest (``foi``), a Wavelet function gets convolved with the signal yielding a time dependent cross-correlation. By (densely) scanning a range of frequencies, a continuous time-frequency representation of the original signal can be generated.
 
-In Syncopy we can compute the Wavelet transform by calling :func:`~syncopy.freqanalysis` with the ``method='wavelet'` argument::
+In Syncopy we can compute the Wavelet transform by calling :func:`~syncopy.freqanalysis` with the ``method='wavelet'`` argument::
 
   # define frequencies to scan
   fois = np.arange(10, 50, step=2) # 2Hz stepping 
-  wav_spectra = spy.freqanalysis(data, method='wavelet', foi=fois)
+  wav_spectra = spy.freqanalysis(data,
+                                 method='wavelet',
+				 foi=fois,
+				 parallel=True,
+				 keeptrials=False)
 
+Here we used two additional parameters supported by every Syncopy analysis method:
+
+- ``parallel=True`` invokes Syncopy's parallel processing engine
+- ``keeptrials=False`` triggers trial averaging
+
+.. hint::
+
+   If parallel processing is unavailable, have a look at :ref:`install_acme`
+   
 To quickly inspect the results for each channel we can use::
 
   wav_spectra.multipanelplot()
-
   
 .. image:: wavelet_spec.png
    :height: 250px
 
-Again, we see a strong 30Hz signal in the 1st channel, and channel 2 is devoid of any rhythms. However now we also get information along the time axis, the dampening of the harmonic in channel 1 is clearly visible.
+Again, we see a strong 30Hz signal in the 1st channel, and channel 2 is devoid of any rhythms. However now we also get information along the time axis, the dampening of the harmonic in channel 1 is clearly visible for later time points.
+
+An improved method, the superlet transform, providing super-resolution time-frequency representations can be computed via ``method='superlet'``, see :func:`~syncopy.freqanalysis` for more details and examples.
