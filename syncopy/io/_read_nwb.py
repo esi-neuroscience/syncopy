@@ -8,12 +8,13 @@ import os
 import h5py
 import subprocess
 import numpy as np
+from tqdm import tqdm
 
 # Local imports
 from syncopy import __nwb__
 from syncopy.datatype.continuous_data import AnalogData
 from syncopy.datatype.discrete_data import EventData
-from syncopy.shared.errors import SPYError, SPYValueError, SPYWarning
+from syncopy.shared.errors import SPYError, SPYValueError, SPYWarning, SPYInfo
 from syncopy.shared.parsers import io_parser, scalar_parser
 
 # Conditional imports
@@ -136,8 +137,14 @@ def read_nwb(filename, memuse=3000):
         epochs = nwbfile.epochs[:]
         trl = np.zeros((epochs.shape[0], 3), dtype=np.intp)
         trl[:, :2] = (epochs - tStarts[0]) * sRates[0]
+        msg = "Found {} trials".format(trl.shape[0])
     else:
         trl = np.array([[0, nSamples, 0]])
+        msg = "No trial information found. Proceeding with single all-encompassing trial"
+
+    # Print status update to inform user
+    SPYInfo(msg)
+    SPYInfo("Creating AnalogData object...")
 
     # If TTL data was found, ensure we have exactly one set of values and associated
     # channel markers
@@ -151,7 +158,10 @@ def read_nwb(filename, memuse=3000):
         raise SPYValueError(lgl, varname=ttlVals[0].name, actual=act)
 
     # Use provided TTL data to initialize `EventData` object
+    evtData = None
     if len(ttlVals) > 0:
+        msg = "Creating separate EventData object for embedded TTL pulse data..."
+        SPYInfo(msg)
         evtData = EventData(dimord=EventData._defaultDimord)
         h5evt = h5py.File(evtData.filename, mode="w")
         evtDset = h5evt.create_dataset("data", dtype=np.result_type(*ttlDtypes),
@@ -160,7 +170,7 @@ def read_nwb(filename, memuse=3000):
         evtDset[:, 1] = ttlVals[0].data[()]
         evtDset[:, 2] = ttlChans[0].data[()]
         evtData.data = evtDset
-        evtData.samplerate = 1 / ttlChans[0].timestamps__resolution
+        evtData.samplerate = float(1 / ttlChans[0].timestamps__resolution)
         if hasTrials:
             evtData.trialdefinition = trl
 
@@ -174,12 +184,16 @@ def read_nwb(filename, memuse=3000):
     angDset = h5ang.create_dataset("data", dtype=np.result_type(*dTypes), shape=angShape)
 
     # Compute actually available memory (divide by 2 since we're working with an add'l tmp array)
+    pbarDesc = "Reading data in blocks of {} GB".format(round(memuse / 1000, 2))
     memuse *= 1024**2 / 2
     chanCounter = 0
 
     # Process analog time series data and save stuff block by block (if necessary)
-    # FIXME: >>>>>>>>>>>>>>>> Use tqdm here
-    for acqValue in angSeries:
+    pbar = tqdm(angSeries, position=0)
+    for acqValue in pbar:
+
+        # Show dataset name in progress bar label
+        pbar.set_description("Loading {} from disk".format(acqValue.name))
 
         # Given memory cap, compute how many data blocks can be grabbed per swipe
         nSamp = int(memuse / (np.prod(angDset.shape[1:]) * angDset.dtype.itemsize))
@@ -193,7 +207,7 @@ def read_nwb(filename, memuse=3000):
         # Write data block-wise to `angDset` (use `del` to wipe blocks from memory)
         # Use 'unsafe' casting to allow `tmp` array conversion int -> float
         endChan = chanCounter + acqValue.data.shape[1]
-        for m, M in enumerate(nBlocks):
+        for m, M in enumerate(tqdm(nBlocks, desc=pbarDesc, position=1, leave=False)):
             tmp = acqValue.data[m * nSamp: m * nSamp + M, :]
             if acqValue.channel_conversion is not None:
                 np.multiply(tmp, gains, out=tmp, casting="unsafe")
@@ -209,11 +223,10 @@ def read_nwb(filename, memuse=3000):
     angData.samplerate = sRates[0]
     angData.trialdefinition = trl
 
-    # # Write log-entry
-    # msg = "Read files v. {ver:s} ".format(ver=jsonDict["_version"])
-    # msg += "{hdf:s}\n\t" + (len(msg) + len(thisMethod) + 2) * " " + "{json:s}"
-    # out.log = msg.format(hdf=hdfFile, json=jsonFile)
+    # Write logs
+    msg = "Read data from NWB file {}".format(nwbFullName)
+    angData.log = msg
+    if evtData is not None:
+        evtData.log = msg
 
-
-    import ipdb; ipdb.set_trace()
-
+    return angData, evtData
