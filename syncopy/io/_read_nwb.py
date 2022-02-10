@@ -34,10 +34,23 @@ __all__ = ["read_nwb"]
 
 def read_nwb(filename, memuse=3000):
     """
-    Coming soon...
+    Read contents of NWB files
 
+    Parameters
+    ----------
+    filename : str
+        Name of (may include full path to) NWB file (e.g., `"/path/to/mydata.nwb"`).
     memuse : scalar
-        Approximate in-memory cache size (in MB) for writing data to disk
+        Approximate in-memory cache size (in MB) for reading data from disk
+
+    Returns
+    -------
+    angData : syncopy.AnalogData
+        Any NWB `TimeSeries`-like data is imported into an :class:`~syncopy.AnalogData`
+        object
+    evtData : syncopy.EventData
+        If the NWB file contains TTL pulse data, an additional :class:`~syncopy.EventData`
+        object is instantiated
     """
 
     # Abort if NWB is not installed
