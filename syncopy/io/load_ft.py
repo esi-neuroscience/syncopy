@@ -5,7 +5,7 @@
 
 # Builtin/3rd party package imports
 import numpy as np
-from scipy import io as sci_io
+from scipy import io as sio
 import re
 
 # Local imports
@@ -43,10 +43,10 @@ def load_ft_signals(filename, select_structures=None, **lm_kwargs):
     This is still experimental code, use with caution!!
     '''
 
-    raw_dict = sci_io.loadmat(filename,
-                              mat_dtype=True,
-                              simplify_cells=True,
-                              **lm_kwargs)
+    raw_dict = sio.loadmat(filename,
+                           mat_dtype=True,
+                           simplify_cells=True,
+                           **lm_kwargs)
                                 
     bytes_ = raw_dict['__header__']
     header = bytes_.decode()
@@ -141,11 +141,12 @@ def _read_mat_structure(structure):
 
     # update trialdefinition
     times_array = np.vstack(structure["time"])
+    
     # nTrials x nSamples
-    offsets = times_array[:, 0]
+    offsets = times_array[:, 0] * data.samplerate
 
-    # does not do anything :/
-    data.trialdefinition[:, 2] = offsets
+    trl_def = np.hstack([data.sampleinfo, offsets[:, None]])
+    data.trialdefinition = trl_def
 
     return data
         
