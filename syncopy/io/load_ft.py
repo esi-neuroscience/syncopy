@@ -12,7 +12,10 @@ import re
 from syncopy.shared.errors import (SPYTypeError, SPYValueError, SPYIOError, SPYInfo, 
                                    SPYError, SPYWarning)
 
-from syncopy import AnalogData
+from syncopy.datatype import AnalogData
+
+
+__all__ = ["load_ft_signals"]
 
 
 def load_ft_signals(filename, select_structures=None, **lm_kwargs):
