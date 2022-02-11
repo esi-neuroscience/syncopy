@@ -18,7 +18,10 @@ from syncopy.datatype import AnalogData
 __all__ = ["load_ft_signals"]
 
 
-def load_ft_signals(filename, select_structures=None, **lm_kwargs):
+def load_ft_signals(filename,
+                    select_structures=None,
+                    add_fields=None,
+                    **lm_kwargs):
 
     '''
     Imports time-series data from Field Trip
@@ -76,7 +79,7 @@ def load_ft_signals(filename, select_structures=None, **lm_kwargs):
         for key in struct_keys:
             
             structure = raw_dict[key]
-            data = _read_mat_structure(structure)
+            data = _read_mat_structure(structure, add_fields=add_fields)
             out_dict[key] = data
                     
     # load only a subset
@@ -95,7 +98,7 @@ def load_ft_signals(filename, select_structures=None, **lm_kwargs):
     return out_dict
 
 
-def _read_mat_structure(structure):
+def _read_mat_structure(structure, add_fields=None):
 
     '''
     Local helper to parse a single FT structure
@@ -111,7 +114,7 @@ def _read_mat_structure(structure):
     trial - trial
     time  - time
     fsample - samplerate
-    cfg - ?
+    cfg - X 
 
     Each trial in FT has nChannels x nSamples ordering,
     Syncopy has nSamples x nChannels
@@ -135,23 +138,28 @@ def _read_mat_structure(structure):
         trials.append(trl.T.astype(np.float32))
 
     # initialize AnalogData    
-    data = AnalogData(trials, samplerate=structure['fsample'])
-
+    adata = AnalogData(trials, samplerate=structure['fsample'])
+    adata.add_info = {}
     # get the channel ids
     channels = structure["label"]
     # set the channel ids 
-    data.channel =list(channels.astype(str))
+    adata.channel =list(channels.astype(str))
 
     # update trialdefinition
     times_array = np.vstack(structure["time"])
     
     # nTrials x nSamples
-    offsets = times_array[:, 0] * data.samplerate
+    offsets = times_array[:, 0] * adata.samplerate
 
-    trl_def = np.hstack([data.sampleinfo, offsets[:, None]])
-    data.trialdefinition = trl_def
+    trl_def = np.hstack([adata.sampleinfo, offsets[:, None]])
+    adata.trialdefinition = trl_def
 
-    return data
+    # write additional fields(non standard FT-format)
+    # into Syncopy config
+    afields =  add_fields if add_fields is not None else range(0)
+    for field in afields:
+        adata.add_info[field] = structure[field]
+    return adata
         
 
 def _get_Matlab_version(header):
