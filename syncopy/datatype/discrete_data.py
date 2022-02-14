@@ -208,6 +208,12 @@ class DiscreteData(BaseData, ABC):
             :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
             to avoid loading actual trial-data into memory.
 
+        Notes
+        -----
+        If an active in-place selection is found, the generated `FauxTrial` object
+        respects it (e.g., if only 2 of 10 channels are selected in-place, `faux_trl`
+        reports to only contain 2 channels)
+
         See also
         --------
         syncopy.datatype.base_data.FauxTrial : class definition and further details
