@@ -156,7 +156,7 @@ def _parse_input(obj1, obj2, operator):
             raise SPYValueError("non-zero scalar for division", varname="operand", actual=str(operand))
 
         # Ensure complex and real values are not mashed up
-        _check_complex_operand(baseTrials, operand, "scalar")
+        _check_complex_operand(baseTrials, operand, "scalar", operator)
 
         # Determine exact numeric type of operation's result
         opres_type = np.result_type(*(trl.dtype for trl in baseTrials), operand)
@@ -172,7 +172,7 @@ def _parse_input(obj1, obj2, operator):
         operand = np.array(operand)
 
         # Ensure complex and real values are not mashed up
-        _check_complex_operand(baseTrials, operand, "array")
+        _check_complex_operand(baseTrials, operand, "array", operator)
 
         # Determine exact numeric type of the operation's result
         opres_type = np.result_type(*(trl.dtype for trl in baseTrials), operand.dtype)
@@ -274,7 +274,7 @@ def _parse_input(obj1, obj2, operator):
     return baseObj, operand, operand_dat, opres_type, operand_idxs
 
 # Check for complexity in `operand` vs. `baseObj`
-def _check_complex_operand(baseTrials, operand, opDimType):
+def _check_complex_operand(baseTrials, operand, opDimType, operator):
     """
     Local helper to determine if provided scalar/array and `baseObj` are both real/complex
     """
@@ -285,8 +285,8 @@ def _check_complex_operand(baseTrials, operand, opDimType):
     else:
         sameType = lambda dt : "complex" not in dt.name
     if not all(sameType(trl.dtype) for trl in baseTrials):
-        lgl = "{} of same mathematical type (real/complex)"
-        raise SPYTypeError(operand, varname="operand", expected=lgl.format(opDimType))
+        wrng = "Operand is {} of different mathematical type (real/complex)"
+        SPYWarning(wrng.format(opDimType), caller=operator)
 
     return
 
