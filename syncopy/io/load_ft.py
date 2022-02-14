@@ -17,7 +17,6 @@ from syncopy.shared.errors import (SPYTypeError, SPYValueError, SPYIOError, SPYI
 from syncopy.datatype import AnalogData
 
 
-
 __all__ = ["load_ft_raw"]
 
 
@@ -178,17 +177,10 @@ def _read_hdf_structure(h5Group, h5File, mem_use, add_fields=None):
     trl_size = itemsize * nSamples * nChannels / 1e6
 
     # assumption: single trial fits into RAM
-    if trl_size > mem_use:
-        msg = f"\nSingle trial is bigger than requested chache size of {mem_use}MB\n"
+    if trl_size > 0.4 * mem_use:
+        msg = f"\nSingle trial is at least 40% of the requested chache size of {mem_use}MB\n"
         msg += f"Still trying to load {trl_size:.1f}MB trials.."
         SPYWarning(msg)
-        maxLoadTrials = 1
-    else:
-        maxLoadTrials = int(mem_use / trl_size)
-
-    # chunks of the trial reference object array
-    nChunks = np.ceil(nTrials / maxLoadTrials).astype(int)
-    trl_chunks = np.array_split(trl_refs, nChunks)
 
     # -- IO process --
 
@@ -199,14 +191,13 @@ def _read_hdf_structure(h5Group, h5File, mem_use, add_fields=None):
                                      dtype=np.float32,
                                      shape=[nTotalSamples, nChannels])
 
-    pbar = tqdm(total=nTrials, desc=f"loading {nTrials} trials")
+    pbar = tqdm(trl_refs, desc=f"loading {nTrials} trials")
     SampleCounter = 0   # trial stacking
-    for ref_chunk in trl_chunks:
-        # one swipe
-        for tr in ref_chunk:
-            ADset[SampleCounter:nSamples, :] = h5File[tr]
-            SampleCounter += nSamples
-            pbar.update(1)
+
+    # one swipe per trial
+    for tr in pbar:
+        ADset[SampleCounter:nSamples, :] = h5File[tr]
+        SampleCounter += nSamples
     pbar.close()
 
     AData.data = ADset
