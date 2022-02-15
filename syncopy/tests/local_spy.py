@@ -31,6 +31,39 @@ if __name__ == "__main__":
 
     xx = spy.load_nwb(nwbFilePath)
 
+
     # nwbio = NWBHDF5IO(nwbFilePath, "r", load_namespaces=True)
     # nwbfile = nwbio.read()
+
+    # AR(2) Network test data
+    AdjMat = synth_data.mk_RandomAdjMat(nChannels)
+    trls = [100 * synth_data.AR2_network(AdjMat) for _ in range(nTrials)]
+    tdat1 = spy.AnalogData(trls, samplerate=fs)
+
+    # phase difusion test data
+    f1, f2 = 10, 40
+    trls = []
+    for _ in range(nTrials):
+
+        p1 = synth_data.phase_diffusion(f1, eps=.01, nChannels=nChannels, nSamples=nSamples)
+        p2 = synth_data.phase_diffusion(f2, eps=0.001, nChannels=nChannels, nSamples=nSamples)
+        trls.append(
+            1 * np.cos(p1) + 1 * np.cos(p2) + 0.6 * np.random.randn(
+                nSamples, nChannels))
+
+    tdat2 = spy.AnalogData(trls, samplerate=1000)
+
+
+    # Test stuff within here...
+    data1 = generate_artificial_data(nTrials=5, nChannels=16, equidistant=False, inmemory=False)
+    data2 = generate_artificial_data(nTrials=5, nChannels=16, equidistant=True, inmemory=False)
+
+
+
+    # client = spy.esi_cluster_setup(interactive=False)
+    # data1 + data2
+
+    # sys.exit()
+    # spec = spy.freqanalysis(artdata, method="mtmfft", taper="dpss", output="pow")
+
 

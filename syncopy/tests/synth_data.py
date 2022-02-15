@@ -7,7 +7,7 @@ import numpy as np
 
 
 # noisy phase evolution <-> phase diffusion
-def phase_evo(freq, eps=.1, fs=1000, nChannels=2, nSamples=1000):
+def phase_diffusion(freq, eps=.1, fs=1000, nChannels=2, nSamples=1000):
 
     """
     Linear (harmonic) phase evolution + a Brownian noise term
@@ -79,7 +79,7 @@ def AR2_network(AdjMat=None, nSamples=2500, alphas=[0.55, -0.8]):
 
     Returns
     -------
-    sol : np.ndarray
+    sol : numpy.ndarray
         The `nSamples` x `nChannel`
         solution of the network dynamics
     """
@@ -131,7 +131,7 @@ def mk_RandomAdjMat(nChannels=3, conn_thresh=0.25, max_coupling=0.25):
 
     Returns
     -------
-    AdjMat : np.ndarray or None
+    AdjMat : numpy.ndarray
         `nChannels` x `nChannels` adjacency matrix where
     """
 

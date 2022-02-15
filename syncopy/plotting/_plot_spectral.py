@@ -25,7 +25,7 @@ __all__ = []
 
 
 def singlepanelplot(self, trials="all", channels="all", tapers="all", 
-                    toilim=None, foilim=None, avg_channels=True, avg_tapers=True,  
+                    toilim=None, foilim=None, avg_channels=False, avg_tapers=True,  
                     interp="spline36", cmap="plasma", vmin=None, vmax=None, 
                     title=None, grid=None, fig=None, **kwargs):
     """
@@ -127,13 +127,13 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all",
         if fig.objCount == 0:
             if title is None:
                 title = panelTitle
-            ax.set_title(title, size=pltConfig["singleTitleSize"])
+            # ax.set_title(title, size=pltConfig["singleTitleSize"])
         else:
             handles, labels = ax.get_legend_handles_labels()
             ax.legend(handles, labels)
             if title is None:
                 title = overlayTitle.format(len(handles))
-            ax.set_title(title, size=pltConfig["singleTitleSize"])
+            # ax.set_title(title, size=pltConfig["singleTitleSize"])
         
     else:
         
@@ -164,7 +164,7 @@ def singlepanelplot(self, trials="all", channels="all", tapers="all",
         cbar = _setup_colorbar(fig, ax, cax, label=dataLbl.replace(" (dB)", ""))
         if title is None:
             title = panelTitle
-        ax.set_title(title, size=pltConfig["singleTitleSize"])
+        # ax.set_title(title, size=pltConfig["singleTitleSize"])
 
     # Increment overlay-counter and draw figure
     fig.objCount += 1

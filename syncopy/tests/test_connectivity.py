@@ -162,9 +162,9 @@ class TestCoherence:
     trls = []
     for _ in range(nTrials):
         # a lot of phase diffusion (1% per step) in the 20Hz band
-        p1 = synth_data.phase_evo(f1, eps=.01, nChannels=nChannels, nSamples=nSamples)
+        p1 = synth_data.phase_diffusion(f1, eps=.01, nChannels=nChannels, nSamples=nSamples)
         # little diffusion in the 40Hz band
-        p2 = synth_data.phase_evo(f2, eps=0.001, nChannels=nChannels, nSamples=nSamples)
+        p2 = synth_data.phase_diffusion(f2, eps=0.001, nChannels=nChannels, nSamples=nSamples)
         # superposition
         signals = np.cos(p1) + np.cos(p2)
         # noise stabilizes the result(!!)
@@ -271,9 +271,9 @@ class TestCorrelation:
     for _ in range(nTrials):
 
         # no phase diffusion
-        p1 = synth_data.phase_evo(f1, eps=0, nChannels=nChannels, nSamples=nSamples)
+        p1 = synth_data.phase_diffusion(f1, eps=0, nChannels=nChannels, nSamples=nSamples)
         # same frequency but more diffusion
-        p2 = synth_data.phase_evo(f1, eps=0.1, nChannels=1, nSamples=nSamples)
+        p2 = synth_data.phase_diffusion(f1, eps=0.1, nChannels=1, nSamples=nSamples)
         # set 2nd channel to higher phase diffusion
         p1[:, 1] = p2[:, 0]
         # add a pi/2 phase shift for the even channels
