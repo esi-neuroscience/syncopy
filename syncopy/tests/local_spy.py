@@ -29,8 +29,8 @@ if __name__ == "__main__":
     nwbFilePath = "/home/fuertingers/Documents/job/SyNCoPy/Data/tt2.nwb"
     # nwbFilePath = "/home/fuertingers/Documents/job/SyNCoPy/Data/test.nwb"
 
-    xx = spy.read(nwbFilePath, format="xyz")
+    xx = spy.load_nwb(nwbFilePath)
 
-    nwbio = NWBHDF5IO(nwbFilePath, "r", load_namespaces=True)
-    nwbfile = nwbio.read()
+    # nwbio = NWBHDF5IO(nwbFilePath, "r", load_namespaces=True)
+    # nwbfile = nwbio.read()
 

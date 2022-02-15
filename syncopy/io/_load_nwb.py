@@ -29,10 +29,10 @@ nwbErrMsg = "\nSyncopy <core> WARNING: Could not import 'pynwb'. \n" +\
           "or using pip:\n" +\
           "\tpip install pynwb"
 
-__all__ = ["read_nwb"]
+__all__ = ["load_nwb"]
 
 
-def read_nwb(filename, memuse=3000):
+def load_nwb(filename, memuse=3000):
     """
     Read contents of NWB files
 
@@ -191,8 +191,8 @@ def read_nwb(filename, memuse=3000):
     # allocate a target dataset for reading the NWB data
     angData = AnalogData(dimord=AnalogData._defaultDimord)
     angShape = [None, None]
-    angShape[angData._defaultDimord.index("time")] = nSamples
-    angShape[angData._defaultDimord.index("channel")] = nChannels
+    angShape[angData.dimord.index("time")] = nSamples
+    angShape[angData.dimord.index("channel")] = nChannels
     h5ang = h5py.File(angData.filename, mode="w")
     angDset = h5ang.create_dataset("data", dtype=np.result_type(*dTypes), shape=angShape)
 
@@ -208,10 +208,13 @@ def read_nwb(filename, memuse=3000):
         # Show dataset name in progress bar label
         pbar.set_description("Loading {} from disk".format(acqValue.name))
 
-        # Given memory cap, compute how many data blocks can be grabbed per swipe
+        # Given memory cap, compute how many data blocks can be grabbed per swipe:
+        # `nSamp` is the no. of samples that can be loaded into memory without exceeding `memuse`
+        # `rem` is the no. of remaining samples, s. t. ``nSamp + rem = angDset.shape[0]`
+        # `blockList` is a list of samples to load per swipe, i.e., `[nSamp, nSamp, ..., rem]`
         nSamp = int(memuse / (np.prod(angDset.shape[1:]) * angDset.dtype.itemsize))
         rem = int(angDset.shape[0] % nSamp)
-        nBlocks = [nSamp] * int(angDset.shape[0] // nSamp) + [rem] * int(rem > 0)
+        blockList = [nSamp] * int(angDset.shape[0] // nSamp) + [rem] * int(rem > 0)
 
         # If channel-specific gains are set, load them now
         if acqValue.channel_conversion is not None:
@@ -220,7 +223,7 @@ def read_nwb(filename, memuse=3000):
         # Write data block-wise to `angDset` (use `del` to wipe blocks from memory)
         # Use 'unsafe' casting to allow `tmp` array conversion int -> float
         endChan = chanCounter + acqValue.data.shape[1]
-        for m, M in enumerate(tqdm(nBlocks, desc=pbarDesc, position=1, leave=False)):
+        for m, M in enumerate(tqdm(blockList, desc=pbarDesc, position=1, leave=False)):
             tmp = acqValue.data[m * nSamp: m * nSamp + M, :]
             if acqValue.channel_conversion is not None:
                 np.multiply(tmp, gains, out=tmp, casting="unsafe")

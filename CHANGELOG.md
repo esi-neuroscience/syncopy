@@ -6,6 +6,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 ### NEW
+- Added loading functionality for NWB 2.0 files
+
 ### CHANGED
 - Made plotting routines matplotlib 3.5 compatible
 
