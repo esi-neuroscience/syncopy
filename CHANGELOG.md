@@ -6,7 +6,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 ### NEW
+- Added loading functionality for NWB 2.0 files
+
 ### CHANGED
+- Made plotting routines matplotlib 3.5 compatible
+
+### REMOVED
+### DEPRECATED
+- Removed loading code for ESI binary format that is no longer supported
 - Repaired top-level imports: renamed `connectivity` to `connectivityanalysis`
   and the "connectivity" module is now called "nwanalysis"
 - include `conda clean` in CD pipeline to avoid disk fillup by unused conda
