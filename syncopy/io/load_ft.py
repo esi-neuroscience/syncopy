@@ -30,14 +30,10 @@ def load_ft_raw(filename,
     into potentially multiple `~syncopy.AnalogData` objects,
     one for each structure found within the MAT-file.
 
-    Intended for both older MAT-file versions and
-    the newer 7.3, more info here:
-
-    https://de.mathworks.com/help/matlab/import_export/mat-file-versions.html
-
-    For <7.3 the MAT-file gets loaded completely
-    into RAM, but its size is capped at 2GB. The 7.3 version is
-    in hdf5 format and can be read block-wise.
+    For MAT-File < v7.3 the MAT-file gets loaded completely
+    into RAM, but its size should be capped at 2GB.
+    The v7.3 is in hdf5 format and will be read in trial-by-trial,
+    this should be the default for MAT-Files exceeding 2GB.
 
     The aim is to parse each FT data structure, which
     have the following fields (Syncopy analogon on the right):
@@ -47,24 +43,62 @@ def load_ft_raw(filename,
     label - channel
     trial - trial
     time  - time
+
+    optional:
     fsample - samplerate
+
     cfg - ?
 
     The FT `cfg` contains a lot of meta data which at the
     moment we don't import into Syncopy.
 
     This is still experimental code, use with caution!!
+
+    Parameters
+    ----------
+    filename: str
+        Path to the MAT-File
+    select_structures: sequence or None, optional
+        Sequence of strings, one for each structure,
+        the default `None` will load all structures found
+    add_fields: sequence, optional
+        Additional MAT-File fields within each structure to
+        be imported. They can be accessed via the `AnalogData.info` attribute.
+    mem_use: int
+        The amount of RAM requested for the import process in MB. Note that < v7.3 MAT-File formats can only be loaded at once. For MAT-File v7.3 this should be at least twice the size of a single trial.
+
+    Returns
+    -------
+    out_dict: dict
+        Dictionary with keys being the names of the structures loaded from the MAT-File,
+        and as values the `~syncopy.AnalogData` datasets
+
+    See also
+    --------
+    MAT-File formats: https://de.mathworks.com/help/matlab/import_export/mat-file-versions.html
+    Field Trip datastructures: https://www.fieldtriptoolbox.org/development/datastructure/
+
+    Examples
+    --------
+    Load the two structures from a MAT-File `example.mat`:
+
+    dct = load_ft_raw('example.mat', select_structures=('Data_K', Data_KB'))
+
+    Access the individual `~syncopy.AnalogData` datasets:
+
+    data_kb = dct['Data_KB']
+    data_k = dct['Data_K']
+
     '''
 
     # Required fields for the ft_datatype_raw
-    # see also https://www.fieldtriptoolbox.org/development/datastructure/
-    req_fields_raw = ('time', 'trial', 'label', 'fsample')
+    req_fields_raw = ('time', 'trial', 'label')
 
     version = _get_Matlab_version(filename)
     msg = f"Reading MAT-File version {version} "
     SPYInfo(msg)
 
-    # new hdf container format
+    # new hdf container format, use h5py
     if version >= 7.3:
 
         h5File = h5py.File(filename, 'r')
@@ -119,7 +153,6 @@ def load_ft_raw(filename,
             continue
 
         structure = struct_container[skey]
-        # check that required fields are there
         _check_req_fields(req_fields_raw, structure)
         data = struct_reader(structure)
         out_dict[skey] = data
@@ -127,7 +160,10 @@ def load_ft_raw(filename,
     return out_dict
 
 
-def _read_hdf_structure(h5Group, h5File, mem_use, add_fields=None):
+def _read_hdf_structure(h5Group,
+                        h5File,
+                        mem_use,
+                        add_fields=None):
 
     '''
     Each Matlab structure contained in
@@ -143,17 +179,19 @@ def _read_hdf_structure(h5Group, h5File, mem_use, add_fields=None):
     label - channel
     trial - trial
     time  - time
+
+    optional:
     fsample - samplerate
+
     cfg - X
 
     '''
+    # for user info
+    struct_name = h5Group.name[1:]
 
     # this should be fixed upstream such that
     # the `defaultDimord` is indeed the default :)
     AData = AnalogData(dimord=AnalogData._defaultDimord)
-
-    # the only straightforward thing:
-    AData.samplerate = h5Group['fsample'][0, 0]
 
     # probably better to define an abstract mapping
     # if we want to support more FT formats in the future
@@ -163,6 +201,11 @@ def _read_hdf_structure(h5Group, h5File, mem_use, add_fields=None):
     trl_refs = h5Group['trial'][:, 0]
     time_refs = h5Group['time'][:, 0]
     chan_refs = h5Group['label'][0, :]
+
+    if 'fsample' in h5Group:
+        AData.samplerate = h5Group['fsample'][0, 0]
+    else:
+        AData.samplerate = _infer_fsample(h5File[time_refs[0]])
 
     # -- retrieve shape information --
     nTrials = trl_refs.size
@@ -191,7 +234,7 @@ def _read_hdf_structure(h5Group, h5File, mem_use, add_fields=None):
                                      dtype=np.float32,
                                      shape=[nTotalSamples, nChannels])
 
-    pbar = tqdm(trl_refs, desc=f"loading {nTrials} trials")
+    pbar = tqdm(trl_refs, desc=f"{struct_name} - loading {nTrials} trials")
     SampleCounter = 0   # trial stacking
 
     # one swipe per trial
@@ -204,7 +247,8 @@ def _read_hdf_structure(h5Group, h5File, mem_use, add_fields=None):
 
     # -- trialdefinition --
 
-    sampleinfo = np.vstack([np.arange(nTrials), np.arange(1, nTrials + 1)]).T * nSamples
+    nTr_rng = np.arange(nTrials)
+    sampleinfo = np.vstack([nTr_rng, nTr_rng + 1]).T * nSamples
 
     offsets = []
     # we need to look into the time vectors for each trial
@@ -219,6 +263,26 @@ def _read_hdf_structure(h5Group, h5File, mem_use, add_fields=None):
     # where `X` is the number of ascii encoded characters
     channels = [''.join(map(chr, h5File[cr][:, 0])) for cr in chan_refs]
     AData.channel = channels
+
+    # -- additional fields --
+
+    # this is the most experimental part
+    AData.info = {}
+    for field in add_fields:
+        if field not in h5Group:
+            msg = f"Could not find additional field {field} in {struct_name}"
+            SPYWarning(msg)
+            continue
+
+        # again an array of hdf5 object references
+        af_refs = h5Group[field][:, 0]
+
+        AData.info[field] = []
+        for af_ref in af_refs:
+            # here would be more parsing needed
+            # if we want to generally (strings, numbers, ..)
+            # support this
+            AData.info[field] = h5File[af_ref]
 
     return AData
 
@@ -239,7 +303,10 @@ def _read_dict_structure(structure, add_fields=None):
     label - channel
     trial - trial
     time  - time
+
+    optional:
     fsample - samplerate
+
     cfg - X
 
     Each trial in FT has nChannels x nSamples ordering,
@@ -264,8 +331,14 @@ def _read_dict_structure(structure, add_fields=None):
         trials.append(trl.T.astype(np.float32))
 
     # initialize AnalogData
-    AData = AnalogData(trials, samplerate=structure['fsample'])
-    AData.add_info = {}
+    if 'fsample' in structure:
+        samplerate = structure['fsample']
+    else:
+        samplerate = _infer_fsample(structure['time'][0])
+
+    AData = AnalogData(trials, samplerate=samplerate)
+
+    AData.info = {}
     # get the channel ids
     channels = structure['label']
     # set the channel ids
@@ -284,7 +357,7 @@ def _read_dict_structure(structure, add_fields=None):
     # into Syncopy config
     afields = add_fields if add_fields is not None else range(0)
     for field in afields:
-        AData.add_info[field] = structure[field]
+        AData.info[field] = structure[field]
     return AData
 
 
@@ -333,3 +406,14 @@ def _check_req_fields(req_fields, structure):
             lgl = f"{key} present in MAT structure"
             actual = f"{key} missing"
             raise SPYValueError(lgl, 'MAT structure', actual)
+
+
+def _infer_fsample(time_vector):
+
+    '''
+    Akin to `ft_datatype_raw` determine
+    the sampling frequency from the sampling
+    times
+    '''
+
+    return np.mean(np.diff(time_vector))
