@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Load data Field Trip .mat files
+# Load data from Field Trip .mat files
 #
 
 # Builtin/3rd party package imports
@@ -11,11 +11,8 @@ import h5py
 from tqdm import tqdm
 
 # Local imports
-from syncopy.shared.errors import (SPYTypeError, SPYValueError, SPYIOError, SPYInfo, 
-                                   SPYError, SPYWarning)
-
+from syncopy.shared.errors import SPYValueError, SPYInfo, SPYWarning
 from syncopy.datatype import AnalogData
-
 
 __all__ = ["load_ft_raw"]
 
@@ -25,9 +22,9 @@ def load_ft_raw(filename,
                 add_fields=None,
                 mem_use=2000):
 
-    '''
+    """
     Imports raw time-series data from Field Trip
-    into potentially multiple `~syncopy.AnalogData` objects,
+    into potentially multiple :class:`~syncopy.AnalogData` objects,
     one for each structure found within the MAT-file.
 
     For MAT-File < v7.3 the MAT-file gets loaded completely
@@ -38,16 +35,15 @@ def load_ft_raw(filename,
     The aim is to parse each FT data structure, which
     have the following fields (Syncopy analogon on the right):
 
-    FT     Syncopy
-
-    label - channel
-    trial - trial
-    time  - time
-
-    optional:
-    fsample - samplerate
-
-    cfg - ?
+    +--------------------+------------+
+    |FT                  | Syncopy    |
+    +--------------------+------------+
+    | label              | channel    |
+    | trial              | trial      |
+    | time               | time       |
+    | fsample (optional) | samplerate |
+    | cfg                | ?          |
+    +--------------------+------------+
 
     The FT `cfg` contains a lot of meta data which at the
     moment we don't import into Syncopy.
@@ -57,7 +53,7 @@ def load_ft_raw(filename,
     Parameters
     ----------
     filename: str
-        Path to the MAT-File
+        Path to the MAT-file
     select_structures: sequence or None, optional
         Sequence of strings, one for each structure,
         the default `None` will load all structures found
@@ -65,13 +61,15 @@ def load_ft_raw(filename,
         Additional MAT-File fields within each structure to
         be imported. They can be accessed via the `AnalogData.info` attribute.
     mem_use: int
-        The amount of RAM requested for the import process in MB. Note that < v7.3 MAT-File formats can only be loaded at once. For MAT-File v7.3 this should be at least twice the size of a single trial.
+        The amount of RAM requested for the import process in MB. Note that < v7.3
+        MAT-File formats can only be loaded at once. For MAT-File v7.3 this should
+        be at least twice the size of a single trial.
 
     Returns
     -------
     out_dict: dict
         Dictionary with keys being the names of the structures loaded from the MAT-File,
-        and as values the `~syncopy.AnalogData` datasets
+        and its values being the :class:`~syncopy.AnalogData` datasets
 
     See also
     --------
@@ -80,16 +78,15 @@ def load_ft_raw(filename,
 
     Examples
     --------
-    Load the two structures from a MAT-File `example.mat`:
+    Load two structures `'Data_K'` and `'Data_KB'` from a MAT-File `example.mat`:
 
-    dct = load_ft_raw('example.mat', select_structures=('Data_K', Data_KB'))
+    >>> dct = load_ft_raw('example.mat', select_structures=('Data_K', Data_KB'))
 
-    Access the individual `~syncopy.AnalogData` datasets:
+    Access the individual :class:`~syncopy.AnalogData` datasets:
 
-    data_kb = dct['Data_KB']
-    data_k = dct['Data_K']
-
-    '''
+    >>> data_kb = dct['Data_KB']
+    >>> data_k = dct['Data_K']
+    """
 
     # Required fields for the ft_datatype_raw
     req_fields_raw = ('time', 'trial', 'label')
@@ -117,7 +114,7 @@ def load_ft_raw(filename,
             msg = "MAT-File version < 7.3 does not support lazy loading"
             msg += f"\nReading {filename} might take up to 2GB of RAM, you requested only {mem_use / 1000}GB"
             SPYWarning(msg)
-            
+
         raw_dict = sio.loadmat(filename,
                                mat_dtype=True,
                                simplify_cells=True)
@@ -165,7 +162,7 @@ def _read_hdf_structure(h5Group,
                         mem_use,
                         add_fields=None):
 
-    '''
+    """
     Each Matlab structure contained in
     a hdf5 MAT-File is a h5py Group object.
 
@@ -174,18 +171,17 @@ def _read_hdf_structure(h5Group,
 
     This is the translation from FT to Syncopy:
 
-    FT     Syncopy
+    +--------------------+------------+
+    | FT                 | Syncopy    |
+    +--------------------+------------+
+    | label              | channel    |
+    | trial              | trial      |
+    | time               | time       |
+    | fsample (optional) | samplerate |
+    | cfg                | X          |
+    +--------------------+------------+
 
-    label - channel
-    trial - trial
-    time  - time
-
-    optional:
-    fsample - samplerate
-
-    cfg - X
-
-    '''
+    """
     # for user info
     struct_name = h5Group.name[1:]
 
@@ -197,7 +193,7 @@ def _read_hdf_structure(h5Group,
     # if we want to support more FT formats in the future
 
     # these are numpy arrays holding hdf5 object references
-    # e.i. one per trial, channel, time (per trial)
+    # i.e. one per trial, channel, time (per trial)
     trl_refs = h5Group['trial'][:, 0]
     time_refs = h5Group['time'][:, 0]
     chan_refs = h5Group['label'][0, :]
@@ -289,33 +285,32 @@ def _read_hdf_structure(h5Group,
 
 def _read_dict_structure(structure, add_fields=None):
 
-    '''
+    """
     Local helper to parse a single FT structure
-    and return an `~syncopy.AnalogData` object
+    and return an :class:`~syncopy.AnalogData` object
 
     Only for for Matlab data format version < 7.3
     which was opened via scipy.io.loadmat!
 
     This is the translation from FT to Syncopy:
 
-    FT     Syncopy
-
-    label - channel
-    trial - trial
-    time  - time
-
-    optional:
-    fsample - samplerate
-
-    cfg - X
+    +--------------------+------------+
+    | FT                 | Syncopy    |
+    +--------------------+------------+
+    | label              | channel    |
+    | trial              | trial      |
+    | time               | time       |
+    | fsample (optional) | samplerate |
+    | cfg                | X          |
+    +--------------------+------------+
 
     Each trial in FT has nChannels x nSamples ordering,
     Syncopy has nSamples x nChannels
-    '''
-    
+    """
+
     # nTrials = structure["trial"].shape[0]
     trials = []
-        
+
     # 1st trial as reference
     nChannels, nSamples = structure['trial'][0].shape
 
@@ -363,11 +358,11 @@ def _read_dict_structure(structure, add_fields=None):
 
 def _get_Matlab_version(filename):
 
-    '''
+    """
     Peeks into the 1st line of a .mat file
     and extracts the version information.
     Works for both < 7.3 and newer MAT-files.
-    '''
+    """
 
     with open(filename, 'rb') as matfile:
         line1 = next(matfile)
@@ -376,7 +371,6 @@ def _get_Matlab_version(filename):
 
     # matches for example 'MATLAB 5.01'
     # with the version as only capture group
-
     pattern = re.compile("^MATLAB\s(\d*\.\d*)")
     match = pattern.match(header)
 
@@ -392,14 +386,14 @@ def _get_Matlab_version(filename):
 
 def _check_req_fields(req_fields, structure):
 
-    '''
+    """
     Just check the the minimal required fields
     (aka keys in Python) are present in a
     Matlab structure
 
     Works for both old-style (dict) and
     new-style (hdf5 Group) MAT-file structures.
-    '''
+    """
 
     for key in req_fields:
         if key not in structure:
@@ -410,10 +404,10 @@ def _check_req_fields(req_fields, structure):
 
 def _infer_fsample(time_vector):
 
-    '''
+    """
     Akin to `ft_datatype_raw` determine
     the sampling frequency from the sampling
     times
-    '''
+    """
 
     return np.mean(np.diff(time_vector))
