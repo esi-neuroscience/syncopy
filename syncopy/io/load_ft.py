@@ -38,7 +38,7 @@ def load_ft_raw(filename,
     have the following fields (Syncopy analogon on the right):
 
     +--------------------+------------+
-    |FT                  | Syncopy    |
+    | FT                 | Syncopy    |
     +--------------------+------------+
     | label              | channel    |
     | trial              | trial      |
@@ -61,7 +61,8 @@ def load_ft_raw(filename,
         the default `None` will load all structures found
     include_fields: sequence, optional
         Additional MAT-File fields within each structure to
-        be imported. They can be accessed via the `AnalogData.info` attribute.
+        be imported. They can be accessed via a purpose-generated `AnalogData.info`
+        attribute.
     mem_use: int
         The amount of RAM requested for the import process in MB. Note that < v7.3
         MAT-File formats can only be loaded at once. For MAT-File v7.3 this should
@@ -92,7 +93,7 @@ def load_ft_raw(filename,
     Load all structures from `example.mat` plus additional field `'chV1'`:
 
     >>> dct = load_ft_raw('example.mat', include_fields=('chV1',))
-    
+
     """
 
     # -- Input validation --
@@ -308,7 +309,7 @@ def _read_hdf_structure(h5Group,
             continue
 
         dset = h5Group[field]
-        # we only support fields pointing to
+        # we only support fields pointing
         # directly to a dataset containing actual data
         # and not references to larger objects
         if isinstance(dset[0], h5py.Reference):
@@ -336,7 +337,6 @@ def _read_hdf_structure(h5Group,
 
 
 def _read_dict_structure(structure, include_fields=None):
-
     """
     Local helper to parse a single FT structure
     and return an :class:`~syncopy.AnalogData` object
@@ -467,7 +467,7 @@ def _infer_fsample(time_vector):
 
 def _parse_MAT_hdf_strings(dataset):
 
-    '''
+    """
     Expects a hdf5 dataset of shape (X, N),
     where X is the number of characters in
     a single string, and N is the number of strings.
@@ -477,7 +477,7 @@ def _parse_MAT_hdf_strings(dataset):
 
     Intended for small(!!) string datasets containing
     for example some labels
-    '''
+    """
 
     str_seq = []
     for i, ascii_arr in enumerate(dataset[...].T):
