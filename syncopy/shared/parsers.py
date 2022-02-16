@@ -688,4 +688,66 @@ def filename_parser(filename, is_in_valid_container=None):
         "tag": tag,
         "basename": basename,
         "extension": ext
-        }
+    }
+
+
+def sequence_parser(sequence, content_type=None, varname=""):
+
+    '''
+    Check if input is of sequence (list, tuple, array..)
+    type. Intended for function arguments like
+    `add_fields = ['fieldA', 'fieldB']`. For numeric
+    sequences (aka arrays) better to use the `array_parser`.
+
+    Parameters
+    ----------
+    sequence: sequence type
+        The sequence to check
+    content_type: type
+        The type of the sequence contents, e.g. `str`
+    varname : str
+        Local variable name used in caller
+
+    See also
+    --------
+    array_parser : similar functionality for parsing array-like objects
+
+    Examples
+    --------
+
+    seq1 = ['one', 'two', 'three']
+
+    This will be parsed, as we check only if
+    `seq1` is any sequence:
+
+    sequence_parser(seq1)
+
+    This will raise a `SPYTypeError` as the
+    actual content type is `str`
+
+    sequence_parser(seq1, content_type=int)
+
+    '''
+
+    # this does NOT capture str and dict
+    try:
+        iter(sequence)
+    except TypeError:
+        expected = 'sequence'
+        raise SPYTypeError(sequence,
+                           varname=varname,
+                           expected=expected)
+
+    if isinstance(sequence, str) or isinstance(sequence, dict):
+        expected = 'sequence'
+        raise SPYTypeError(sequence,
+                           varname=varname,
+                           expected=expected)
+
+    if content_type is not None:
+        for element in sequence:
+            if not isinstance(element, content_type):
+                expected = content_type.__name__
+                raise SPYTypeError(element,
+                                   varname=f"element of {varname}",
+                                   expected=expected)

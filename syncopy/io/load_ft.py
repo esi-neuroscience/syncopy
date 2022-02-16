@@ -4,14 +4,16 @@
 #
 
 # Builtin/3rd party package imports
-import numpy as np
-from scipy import io as sio
 import re
 import h5py
+import os
+import numpy as np
+from scipy import io as sio
 from tqdm import tqdm
 
 # Local imports
-from syncopy.shared.errors import SPYValueError, SPYInfo, SPYWarning
+from syncopy.shared.errors import SPYValueError, SPYInfo, SPYWarning, SPYTypeError
+from syncopy.shared.parsers import io_parser, sequence_parser, scalar_parser
 from syncopy.datatype import AnalogData
 
 __all__ = ["load_ft_raw"]
@@ -19,7 +21,7 @@ __all__ = ["load_ft_raw"]
 
 def load_ft_raw(filename,
                 select_structures=None,
-                add_fields=None,
+                include_fields=None,
                 mem_use=2000):
 
     """
@@ -28,9 +30,9 @@ def load_ft_raw(filename,
     one for each structure found within the MAT-file.
 
     For MAT-File < v7.3 the MAT-file gets loaded completely
-    into RAM, but its size should be capped at 2GB.
+    into RAM, but its size should be capped by Matlab at 2GB.
     The v7.3 is in hdf5 format and will be read in trial-by-trial,
-    this should be the default for MAT-Files exceeding 2GB.
+    this should be the Matlab default for MAT-Files exceeding 2GB.
 
     The aim is to parse each FT data structure, which
     have the following fields (Syncopy analogon on the right):
@@ -57,7 +59,7 @@ def load_ft_raw(filename,
     select_structures: sequence or None, optional
         Sequence of strings, one for each structure,
         the default `None` will load all structures found
-    add_fields: sequence, optional
+    include_fields: sequence, optional
         Additional MAT-File fields within each structure to
         be imported. They can be accessed via the `AnalogData.info` attribute.
     mem_use: int
@@ -86,7 +88,29 @@ def load_ft_raw(filename,
 
     >>> data_kb = dct['Data_KB']
     >>> data_k = dct['Data_K']
+
+    Load all structures from `example.mat` plus additional field `'chV1'`:
+
+    >>> dct = load_ft_raw('example.mat', include_fields=('chV1',))
+    
     """
+
+    # -- Input validation --
+
+    io_parser(filename, isfile=True)
+
+    if select_structures is not None:
+        sequence_parser(select_structures,
+                        varname='select_structures',
+                        content_type=str)
+    if include_fields is not None:
+        sequence_parser(include_fields,
+                        varname='include_fields',
+                        content_type=str)
+
+    scalar_parser(mem_use, varname='mem_use', ntype="int_like", lims=[1, np.inf])
+
+    # -- MAT-File Format --
 
     # Required fields for the ft_datatype_raw
     req_fields_raw = ('time', 'trial', 'label')
@@ -105,7 +129,7 @@ def load_ft_raw(filename,
         struct_reader = lambda struct: _read_hdf_structure(struct,
                                                            h5File=h5File,
                                                            mem_use=mem_use,
-                                                           add_fields=add_fields)
+                                                           include_fields=include_fields)
 
     # old format <2GB, use scipy's MAT reader
     else:
@@ -114,6 +138,9 @@ def load_ft_raw(filename,
             msg = "MAT-File version < 7.3 does not support lazy loading"
             msg += f"\nReading {filename} might take up to 2GB of RAM, you requested only {mem_use / 1000}GB"
             SPYWarning(msg)
+            lgl = '2000 or more MB'
+            actual = f"{mem_use}"
+            raise SPYValueError(lgl, varname='mem_use', actual=actual)
 
         raw_dict = sio.loadmat(filename,
                                mat_dtype=True,
@@ -123,7 +150,7 @@ def load_ft_raw(filename,
 
         struct_container = raw_dict
         struct_reader = lambda struct: _read_dict_structure(struct,
-                                                            add_fields=add_fields)
+                                                            include_fields=include_fields)
 
     if len(struct_keys) == 0:
         SPYValueError(legal="At least one structure",
@@ -133,6 +160,8 @@ def load_ft_raw(filename,
 
     msg = f"Found {len(struct_keys)} structure(s): {struct_keys}"
     SPYInfo(msg)
+
+    # -- IO Operations --
 
     out_dict = {}
 
@@ -160,7 +189,7 @@ def load_ft_raw(filename,
 def _read_hdf_structure(h5Group,
                         h5File,
                         mem_use,
-                        add_fields=None):
+                        include_fields=None):
 
     """
     Each Matlab structure contained in
@@ -216,10 +245,13 @@ def _read_hdf_structure(h5Group,
     trl_size = itemsize * nSamples * nChannels / 1e6
 
     # assumption: single trial fits into RAM
-    if trl_size > 0.4 * mem_use:
+    if trl_size >= 0.4 * mem_use:
         msg = f"\nSingle trial is at least 40% of the requested chache size of {mem_use}MB\n"
         msg += f"Still trying to load {trl_size:.1f}MB trials.."
         SPYWarning(msg)
+        lgl = f'{2.5 * trl_size} or more MB'
+        actual = f"{mem_use}"
+        raise SPYValueError(lgl, varname='mem_use', actual=actual)
 
     # -- IO process --
 
@@ -260,30 +292,45 @@ def _read_hdf_structure(h5Group,
     channels = [''.join(map(chr, h5File[cr][:, 0])) for cr in chan_refs]
     AData.channel = channels
 
-    # -- additional fields --
+    # -- Additional Fields --
 
-    # this is the most experimental part
     AData.info = {}
-    for field in add_fields:
+    afields = include_fields if include_fields is not None else range(0)
+    for field in afields:
         if field not in h5Group:
             msg = f"Could not find additional field {field} in {struct_name}"
             SPYWarning(msg)
             continue
 
-        # again an array of hdf5 object references
-        af_refs = h5Group[field][:, 0]
+        dset = h5Group[field]
+        # we only support fields pointing to
+        # directly to a dataset containing actual data
+        # and not references to larger objects
+        if isinstance(dset[0], h5py.Reference):
+            msg = f"Could not read additional field {field}\n"
+            msg += "Only simple fields holding str labels or 1D arrays are supported atm"
+            SPYWarning(msg)
+            continue
 
-        AData.info[field] = []
-        for af_ref in af_refs:
-            # here would be more parsing needed
-            # if we want to generally (strings, numbers, ..)
-            # support this
-            AData.info[field] = h5File[af_ref]
+        # ASCII encoding via uint16
+        if dset.dtype == np.uint16 and len(dset.shape) == 2:
+            AData.info[field] = _parse_MAT_hdf_strings(dset)
+
+        # numerical data can be written
+        # directly as np.array into info dict
+        elif dset.dtype == np.float64:
+            AData.info[field] = dset[...]
+
+        else:
+            msg = f"Could not read additional field {field}\n"
+            msg += "Unknown data type, only 1D numerical or string arrays/fields supported"
+            SPYWarning(msg)
+            continue
 
     return AData
 
 
-def _read_dict_structure(structure, add_fields=None):
+def _read_dict_structure(structure, include_fields=None):
 
     """
     Local helper to parse a single FT structure
@@ -350,7 +397,7 @@ def _read_dict_structure(structure, add_fields=None):
 
     # write additional fields(non standard FT-format)
     # into Syncopy config
-    afields = add_fields if add_fields is not None else range(0)
+    afields = include_fields if include_fields is not None else range(0)
     for field in afields:
         AData.info[field] = structure[field]
     return AData
@@ -411,3 +458,25 @@ def _infer_fsample(time_vector):
     """
 
     return np.mean(np.diff(time_vector))
+
+
+def _parse_MAT_hdf_strings(dataset):
+
+    '''
+    Expects a hdf5 dataset of shape (X, N),
+    where X is the number of characters in
+    a single string, and N is the number of strings.
+
+    The entries themselves are are of integer type,
+    the ASCII encoding of strings in Matlab v7.3.
+
+    Intended for small(!!) string datasets containing
+    for example some labels
+    '''
+
+    str_seq = []
+    for i, ascii_arr in enumerate(dataset[...].T):
+        string = ''.join(map(chr, ascii_arr))
+        str_seq.append(string)
+
+    return np.array(str_seq)
