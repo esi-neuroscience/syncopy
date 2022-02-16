@@ -267,7 +267,12 @@ def _read_hdf_structure(h5Group,
 
     # one swipe per trial
     for tr in pbar:
-        ADset[SampleCounter:nSamples, :] = h5File[tr]
+        trl_array = h5File[tr]
+        if trl_array.shape != (nSamples, nChannels):
+            lgl = 'trials of equal lenghts'
+            actual = 'trials of unequal lengths'
+            raise SPYValueError(lgl, actual=actual)
+        ADset[SampleCounter:nSamples, :] = trl_array
         SampleCounter += nSamples
     pbar.close()
 
