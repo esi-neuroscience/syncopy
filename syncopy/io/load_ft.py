@@ -6,7 +6,6 @@
 # Builtin/3rd party package imports
 import re
 import h5py
-import os
 import numpy as np
 from scipy import io as sio
 from tqdm import tqdm
@@ -376,6 +375,7 @@ def _read_dict_structure(structure, include_fields=None):
             raise SPYValueError(lgl, varname="load .mat", actual=actual)
 
         # channel x sample ordering in FT
+        # default data type np.float32 -> implicit casting!
         trials.append(trl.T.astype(np.float32))
 
     # initialize AnalogData
@@ -403,6 +403,7 @@ def _read_dict_structure(structure, include_fields=None):
 
     # write additional fields(non standard FT-format)
     # into Syncopy config
+    # FIXME: does this require similar error checking as in the hdf case?
     afields = include_fields if include_fields is not None else range(0)
     for field in afields:
         AData.info[field] = structure[field]
@@ -480,6 +481,8 @@ def _parse_MAT_hdf_strings(dataset):
     for example some labels
     """
 
+    # FIXME: a simple `for in ascii_arr in dataset` might do the trick as well
+    # (no need to enumerate)?
     str_seq = []
     for i, ascii_arr in enumerate(dataset[...].T):
         string = ''.join(map(chr, ascii_arr))
