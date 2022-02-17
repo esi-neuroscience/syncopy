@@ -141,7 +141,7 @@ def load_ft_raw(filename,
         if mem_use < 2000:
             msg = "MAT-File version < 7.3 does not support lazy loading"
             msg += f"\nReading {filename} might take up to 2GB of RAM, you requested only {mem_use / 1000}GB"
-            SPYWarning(msg)
+            SPYInfo(msg)
             lgl = '2000 or more MB'
             actual = f"{mem_use}"
             raise SPYValueError(lgl, varname='mem_use', actual=actual)
@@ -250,9 +250,6 @@ def _read_hdf_structure(h5Group,
 
     # assumption: single trial fits into RAM
     if trl_size >= 0.4 * mem_use:
-        msg = f"\nSingle trial is at least 40% of the requested chache size of {mem_use}MB\n"
-        msg += f"Still trying to load {trl_size:.1f}MB trials.."
-        SPYWarning(msg)
         lgl = f'{2.5 * trl_size} or more MB'
         actual = f"{mem_use}"
         raise SPYValueError(lgl, varname='mem_use', actual=actual)
@@ -261,6 +258,7 @@ def _read_hdf_structure(h5Group,
 
     # create new hdf5 dataset for our AnalogData
     # with the default dimord ['time', 'channel']
+    # and our default data type np.float32 -> implicit casting!
     h5FileOut = h5py.File(AData.filename, mode="w")
     ADset = h5FileOut.create_dataset("data",
                                      dtype=np.float32,
