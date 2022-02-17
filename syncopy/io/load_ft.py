@@ -94,6 +94,9 @@ def load_ft_raw(filename,
 
     >>> dct = load_ft_raw('example.mat', include_fields=('chV1',))
 
+    Access the additionally loaded field:
+
+    >>> dct['Data_K'].info['chV1']
     """
 
     # -- Input validation --
