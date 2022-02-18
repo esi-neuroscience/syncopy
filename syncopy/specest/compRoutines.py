@@ -21,7 +21,6 @@
 # Builtin/3rd party package imports
 from inspect import signature
 import numpy as np
-from numbers import Number
 from scipy import signal
 
 # backend method imports
@@ -842,8 +841,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
 
     # If `toi` was a percentage, some cumsum/winSize algebra is required
     # Note: if `toi` was "all", simply use provided `trialdefinition` and `samplerate`
-
-    elif isinstance(toi, Number):
+    elif np.issubdtype(type(toi), np.number):
         mKw = cfg['method_kwargs']
         winSize = mKw["nperseg"] - mKw["noverlap"]
         trialdefinitionLens = np.ceil(np.diff(trialdefinition[:, :2]) / winSize)

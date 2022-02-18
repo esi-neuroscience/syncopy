@@ -4,7 +4,6 @@
 #
 
 # Builtin/3rd party package imports
-from numbers import Number
 import numpy as np
 
 # Syncopy imports
@@ -383,7 +382,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     if method in ["wavelet", "superlet"]:
 
         valid = True
-        if isinstance(toi, Number):
+        if np.issubdtype(type(toi), np.number):
             valid = False
 
         elif isinstance(toi, str):
@@ -535,7 +534,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
             equidistant = True
             overlap = np.inf
 
-        elif isinstance(toi, Number):
+        elif np.issubdtype(type(toi), np.number):
             try:
                 scalar_parser(toi, varname="toi", lims=[0, 1])
             except Exception as exc:

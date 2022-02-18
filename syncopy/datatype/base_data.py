@@ -1176,7 +1176,7 @@ class Indexer():
         return self._iterobj
 
     def __getitem__(self, idx):
-        if isinstance(idx, numbers.Number):
+        if np.issubdtype(type(idx), np.number):
             try:
                 scalar_parser(idx, varname="idx", ntype="int_like",
                               lims=[0, self._iterlen - 1])

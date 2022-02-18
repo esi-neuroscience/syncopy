@@ -19,6 +19,7 @@ intellinux:
     script:
     - rm -rf ~/.spy
     - source $HOME/miniconda/etc/profile.d/conda.sh
+    - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - tox -p 0
@@ -37,6 +38,7 @@ powerlinux:
     script:
     - rm -rf ~/.spy
     - source /opt/conda/etc/profile.d/conda.sh
+    - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - tox -p 0
@@ -53,6 +55,7 @@ intelwin:
         PYTEST_ADDOPTS: "--color=yes --tb=short --verbose"
         GIT_FETCH_EXTRA_FLAGS: --tags
     script:
+    - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda.bat activate syncopy
     - tox
@@ -72,6 +75,7 @@ m1macos:
     - ulimit -n 25000
     - rm -rf ~/.spy
     - source /opt/conda/etc/profile.d/conda.sh
+    - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - tox -p 0
@@ -89,6 +93,7 @@ slurmtest:
         GIT_FETCH_EXTRA_FLAGS: --tags
     script:
     - source /opt/conda/etc/profile.d/conda.sh
+    - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - export PYTHONPATH=$CI_PROJECT_DIR
@@ -106,6 +111,7 @@ pypitest:
     script:
     - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda update --yes conda
+    - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - conda install --yes twine keyring rfc3986
@@ -136,6 +142,7 @@ pypideploy:
     script:
     - source $HOME/miniconda/etc/profile.d/conda.sh
     - conda update --yes conda
+    - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - conda install --yes twine keyring rfc3986
