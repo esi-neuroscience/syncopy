@@ -16,11 +16,13 @@ Here we want to quickly explore some standard analyses for analog data (e.g. MUA
 Preparations
 ============
 
-To start with a clean slate, let's construct a synthetic signal consisting of a damped harmonic and additive white noise:
+To start with a clean slate, let's construct a synthetic dataset consisting of a damped harmonic and additive white noise:
 
 .. literalinclude:: /quickstart/damped_harm.py
 
-With this we have white noise on both channels, and only channel 1 additionally got the damped harmonic signal.
+With this we have a dataset of type :class:`~syncopy.AnalogData`, which is intended for holding time-series data like electrophys. measurements.
+
+To recap: we have generated a synthetic dataset white noise on both channels, and ``channel1`` additionally carries the damped harmonic signal.
 
 .. hint::
    Further details about artificial data generation can be found at the :ref:`synth_data` section.
@@ -84,6 +86,8 @@ The parameter ``foilim`` controls the *frequencies of interest  limits*, so in t
 
 informing us, that for this dataset a spectral smoothing of 3Hz required 5 Slepian tapers.
 
+The resulting new dataset ``fft_spectra`` is of type :class:`syncopy.SpectralData`, which is the general datatype storing the results of a time-frequency analysis.
+
 .. hint::
    Try typing ``fft_spectra.log`` into your interpreter and have a look at :doc:`Trace Your Steps: Data Logs </user/logging>` to learn more about Syncopy's logging features
 
@@ -130,6 +134,6 @@ To quickly inspect the results for each channel we can use::
 .. image:: wavelet_spec.png
    :height: 250px
 
-Again, we see a strong 30Hz signal in the 1st channel, and channel 2 is devoid of any rhythms. However now we also get information along the time axis, the dampening of the harmonic in channel 1 is clearly visible for later time points.
+Again, we see a strong 30Hz signal in the 1st channel, and channel 2 is devoid of any rhythms. However, in contrast to the ``method=mtmfft`` call,  now we also get information along the time axis. The dampening of the harmonic over time in channel 1 is clearly visible.
 
-An improved method, the superlet transform, providing super-resolution time-frequency representations can be computed via ``method='superlet'``, see :func:`~syncopy.freqanalysis` for more details and examples.
+An improved method, the superlet transform, providing super-resolution time-frequency representations can be computed via ``method='superlet'``, see :func:`~syncopy.freqanalysis` for more details.
