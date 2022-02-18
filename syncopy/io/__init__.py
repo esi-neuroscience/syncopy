@@ -8,7 +8,7 @@ from . import (
     utils,
     load_spy_container,
     save_spy_container,
-    load_ft
+    load_ft,
     _load_nwb
 )
 from .utils import *

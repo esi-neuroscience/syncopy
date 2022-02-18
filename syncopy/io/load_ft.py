@@ -38,11 +38,15 @@ def load_ft_raw(filename,
 
     +--------------------+------------+
     | FT                 | Syncopy    |
-    +--------------------+------------+
+    +====================+============+
     | label              | channel    |
+    +--------------------+------------+
     | trial              | trial      |
+    +--------------------+------------+
     | time               | time       |
+    +--------------------+------------+
     | fsample (optional) | samplerate |
+    +--------------------+------------+
     | cfg                | ?          |
     +--------------------+------------+
 
@@ -75,8 +79,8 @@ def load_ft_raw(filename,
 
     See also
     --------
-    MAT-File formats: https://de.mathworks.com/help/matlab/import_export/mat-file-versions.html
-    Field Trip datastructures: https://www.fieldtriptoolbox.org/development/datastructure/
+    `MAT-File formats <https://de.mathworks.com/help/matlab/import_export/mat-file-versions.html>`_
+    `Field Trip datastructures <https://www.fieldtriptoolbox.org/development/datastructure/>`_
 
     Examples
     --------
