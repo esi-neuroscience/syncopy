@@ -20,20 +20,20 @@ import syncopy as spy
 from syncopy.tests.misc import generate_artificial_data
 from syncopy.tests import synth_data
 
+from pynwb import NWBHDF5IO
 
 
 # Prepare code to be executed using, e.g., iPython's `%run` magic command
 if __name__ == "__main__":
 
-    nSamples = 2500
-    nChannels = 4
-    nTrials = 10
-    fs = 200
+    nwbFilePath = "/home/fuertingers/Documents/job/SyNCoPy/Data/tt2.nwb"
+    # nwbFilePath = "/home/fuertingers/Documents/job/SyNCoPy/Data/test.nwb"
 
-    foilim = [5, 80]
-    foi = np.arange(5, 80, 1)
-    # this still gives type(tsel) = slice :)
-    sdict1 = {'channels' : ['channel01', 'channel03'], 'toilim' : [-.221, 1.12]}
+    xx = spy.load_nwb(nwbFilePath)
+
+
+    # nwbio = NWBHDF5IO(nwbFilePath, "r", load_namespaces=True)
+    # nwbfile = nwbio.read()
 
     # AR(2) Network test data
     AdjMat = synth_data.mk_RandomAdjMat(nChannels)
@@ -65,4 +65,5 @@ if __name__ == "__main__":
 
     # sys.exit()
     # spec = spy.freqanalysis(artdata, method="mtmfft", taper="dpss", output="pow")
+
 
