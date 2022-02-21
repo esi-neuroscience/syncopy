@@ -308,9 +308,7 @@ def selectdata(data, trials=None, channels=None, channels_i=None, channels_j=Non
         return
 
     # Inform the user what's about to happen
-    fauxTrials = [data._preview_trial(trlno) for trlno in data._selection.trials]
-    fauxSizes = [np.prod(ftrl.shape)*ftrl.dtype.itemsize for ftrl in fauxTrials]
-    selectionSize = sum(fauxSizes) / 1024**2
+    selectionSize = _get_selection_size(data)
     sUnit = "MB"
     if selectionSize > 1000:
         selectionSize /= 1024
@@ -336,6 +334,15 @@ def selectdata(data, trials=None, channels=None, channels_i=None, channels_j=Non
 
     # Either return newly created output object or simply quit
     return out if new_out else None
+
+
+def _get_selection_size(data):
+    """
+    Local helper routine for computing the on-disk size of an active data-selection
+    """
+    fauxTrials = [data._preview_trial(trlno) for trlno in data._selection.trials]
+    fauxSizes = [np.prod(ftrl.shape)*ftrl.dtype.itemsize for ftrl in fauxTrials]
+    return sum(fauxSizes) / 1024**2
 
 
 @unwrap_io
