@@ -8,7 +8,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 Bugfix release
 
 ### NEW
-- Added loading functionality for NWB 2.0 files
+- Added experimental loading functionality for NWB 2.0 files
+- Added experimental loading functionality for Matlab mat files
 
 ### CHANGED
 - Made plotting routines matplotlib 3.5 compatible
@@ -34,6 +35,7 @@ Bugfix release
 - The `trialdefinition` arrays constructed by the `Selector` class were incorrect
   for `SpectralData` objects without time-axis, resulting in "empty" trials. This
   has been fixed (closes #207)
+- Repaired `array_parser` to adequately complain about mixed-type arrays (closes #211)
 
 ## [v0.20] - 2022-01-18
 Major Release
