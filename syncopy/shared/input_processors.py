@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 #
-# Validators for user submitted frontend arguments like foi, taper, etc.
+# Processing of user submitted frontend arguments like foi, taper, etc.
+# The processors return values needed directly for the
+# downstream method calls.
 # Input args are the parameters to check for validity + auxiliary parameters
-# needed for the checks.
+# needed for the checks, raise exceptions in case of invalid input.
 #
 
 # Builtin/3rd party package imports
@@ -15,9 +17,27 @@ from syncopy.shared.const_def import availableTapers, generalParameters, availab
 from syncopy.datatype.methods.padding import _nextpow2
 
 
-def validate_padding(pad_to_length, lenTrials):
+def process_padding(pad_to_length, lenTrials):
+    
     """
-    Simplified padding
+    Simplified padding interface, for all taper based methods
+    padding has to be done **before** tapering!
+
+    Parameters
+    ----------    
+    pad_to_length : int, None or 'nextpow2'
+        Either an integer indicating the absolute length of 
+        the trials after padding or `'nextpow2'` to pad all trials
+        to the nearest power of two. If `None`, no padding is to 
+        be performed
+    lenTrials : sequence of int_like
+        Sequence holding all individual trial lengths
+
+    Returns
+    -------    
+    abs_pad : int
+        Absolute length of all trials after padding
+    
     """
     # supported padding options
     not_valid = False
@@ -25,19 +45,13 @@ def validate_padding(pad_to_length, lenTrials):
         not_valid = True
     elif isinstance(pad_to_length, str) and pad_to_length not in availablePaddingOpt:
         not_valid = True
-    if isinstance(pad_to_length, bool): # bool is an int subclass, check for it separately...
+        # bool is an int subclass, have to check for it separately...        
+    if isinstance(pad_to_length, bool): 
         not_valid = True
     if not_valid:
         lgl = "`None`, 'nextpow2' or an integer like number"
         actual = f"{pad_to_length}"
         raise SPYValueError(legal=lgl, varname="pad_to_length", actual=actual)
-
-    # here we check for equal lengths trials in case of no user specified absolute padding length
-    # we do a rough 'maxlen' padding, nextpow2 will be overruled in this case
-    if lenTrials.min() != lenTrials.max() and not isinstance(pad_to_length, numbers.Number):
-        abs_pad = int(lenTrials.max())
-        msg = f"Unequal trial lengths present, automatic padding to {abs_pad} samples"
-        SPYWarning(msg)
 
     # zero padding of ALL trials the same way
     if isinstance(pad_to_length, numbers.Number):
@@ -49,20 +63,22 @@ def validate_padding(pad_to_length, lenTrials):
         abs_pad = pad_to_length
 
     # or pad to optimal FFT lengths
-    # (not possible for unequal lengths trials)
     elif pad_to_length == 'nextpow2':
-        # after padding
-        abs_pad = _nextpow2(int(lenTrials.min()))
-    # no padding, equal lengths trials
-    elif pad_to_length is None:
+        abs_pad = _nextpow2(int(lenTrials.max()))
+        
+    # no padding in case of equal length trials
+    elif pad_to_length is None:        
         abs_pad = int(lenTrials.max())
-
+        if lenTrials.min() != lenTrials.max():            
+            msg = f"Unequal trial lengths present, padding all trials to {abs_pad} samples"
+            SPYWarning(msg)
+                
     # `abs_pad` is now the (soon to be padded) signal length in samples
 
     return abs_pad
 
 
-def validate_foi(foi, foilim, samplerate):
+def process_foi(foi, foilim, samplerate):
 
     """
     Parameters
@@ -132,14 +148,14 @@ def validate_foi(foi, foilim, samplerate):
     return foi, foilim
 
 
-def validate_taper(taper,
-                   tapsmofrq,
-                   nTaper,
-                   keeptapers,
-                   foimax,
-                   samplerate,
+def process_taper(taper,
+                  tapsmofrq,
+                  nTaper,
+                  keeptapers,
+                  foimax,
+                  samplerate,
                    nSamples,
-                   output):
+                  output):
 
     """
     General taper validation and Slepian/dpss input sanitization.

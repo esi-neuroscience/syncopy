@@ -16,10 +16,10 @@ from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
 from syncopy.shared.tools import best_match
 from syncopy.shared.const_def import spectralConversions
 
-from syncopy.shared.input_validators import (
-    validate_taper,
-    validate_foi,
-    validate_padding,
+from syncopy.shared.input_processors import (
+    process_taper,
+    process_foi,
+    process_padding,
     check_effective_parameters,
     check_passed_kwargs
 )
@@ -150,9 +150,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
         to this absolute length. For instance ``pad_to_length = 2000`` pads all
         trials to an absolute length of 2000 samples, if and only if the longest
         trial contains at maximum 2000 samples.
-        Alternatively if all trials have the same initial lengths
-        setting `pad_to_length='nextpow2'` pads all trials to
-        the next power of two.
+        Alternatively `pad_to_length='nextpow2'` pads all trials to
+        the next power of two of the longest trial.
         If `None` and trials have unequal lengths all trials are padded to match
         the longest trial.
     polyremoval : int or None
@@ -333,7 +332,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     if method == 'mtmfft':
         # the actual number of samples in case of later padding
-        minSampleNum = validate_padding(pad_to_length, lenTrials)
+        minSampleNum = process_padding(pad_to_length, lenTrials)
     else:
         minSampleNum = lenTrials.min()
 
@@ -343,7 +342,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # Shortcut to data sampling interval
     dt = 1 / data.samplerate
 
-    foi, foilim = validate_foi(foi, foilim, data.samplerate)
+    foi, foilim = process_foi(foi, foilim, data.samplerate)
 
     # see also https://docs.obspy.org/_modules/obspy/signal/detrend.html#polynomial
     if polyremoval is not None:
@@ -473,14 +472,14 @@ def freqanalysis(data, method='mtmfft', output='pow',
             raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
 
         # sanitize taper selection and retrieve dpss settings
-        taper_opt = validate_taper(taper,
-                                   tapsmofrq,
-                                   nTaper,
-                                   keeptapers,
-                                   foimax=foi.max(),
-                                   samplerate=data.samplerate,
-                                   nSamples=minSampleNum,
-                                   output=output)
+        taper_opt = process_taper(taper,
+                                  tapsmofrq,
+                                  nTaper,
+                                  keeptapers,
+                                  foimax=foi.max(),
+                                  samplerate=data.samplerate,
+                                  nSamples=minSampleNum,
+                                  output=output)
 
         # Update `log_dct` w/method-specific options
         log_dct["taper"] = taper

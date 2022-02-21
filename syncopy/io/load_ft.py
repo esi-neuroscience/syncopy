@@ -86,7 +86,7 @@ def load_ft_raw(filename,
     --------
     Load two structures `'Data_K'` and `'Data_KB'` from a MAT-File `example.mat`:
 
-    >>> dct = load_ft_raw('example.mat', select_structures=('Data_K', Data_KB'))
+    >>> dct = load_ft_raw('example.mat', select_structures=('Data_K', 'Data_KB'))
 
     Access the individual :class:`~syncopy.AnalogData` datasets:
 

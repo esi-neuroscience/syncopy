@@ -16,10 +16,10 @@ from syncopy.shared.errors import (
     SPYInfo)
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
-from syncopy.shared.input_validators import (
-    validate_taper,
-    validate_foi,
-    validate_padding,
+from syncopy.shared.input_processors import (
+    process_taper,
+    process_foi,
+    process_padding,
     check_effective_parameters,
     check_passed_kwargs
 )
@@ -176,11 +176,11 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         raise SPYValueError(legal=lgl, varname="pad_to_length", actual=actual)
 
     # the actual number of samples in case of later padding
-    nSamples = validate_padding(pad_to_length, lenTrials)
+    nSamples = process_padding(pad_to_length, lenTrials)
 
     # --- Basic foi sanitization ---
 
-    foi, foilim = validate_foi(foi, foilim, data.samplerate)
+    foi, foilim = process_foi(foi, foilim, data.samplerate)
 
     # only now set foi array for foilim in 1Hz steps
     if foilim is not None:
@@ -223,14 +223,14 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             foi = freqs
 
         # sanitize taper selection and retrieve dpss settings
-        taper_opt = validate_taper(taper,
-                                   tapsmofrq,
-                                   nTaper,
-                                   keeptapers=False,   # ST_CSD's always average tapers
-                                   foimax=foi.max(),
-                                   samplerate=data.samplerate,
-                                   nSamples=nSamples,
-                                   output="pow")   # ST_CSD's always have this unit/norm
+        taper_opt = process_taper(taper,
+                                  tapsmofrq,
+                                  nTaper,
+                                  keeptapers=False,   # ST_CSD's always average tapers
+                                  foimax=foi.max(),
+                                  samplerate=data.samplerate,
+                                  nSamples=nSamples,
+                                  output="pow")   # ST_CSD's always have this unit/norm
 
         log_dict["foi"] = foi
         log_dict["taper"] = taper
