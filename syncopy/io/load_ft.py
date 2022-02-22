@@ -277,7 +277,7 @@ def _read_hdf_structure(h5Group,
             lgl = 'trials of equal lenghts'
             actual = 'trials of unequal lengths'
             raise SPYValueError(lgl, actual=actual)
-        ADset[SampleCounter:nSamples, :] = trl_array
+        ADset[SampleCounter:SampleCounter + nSamples, :] = trl_array
         SampleCounter += nSamples
     pbar.close()
 
