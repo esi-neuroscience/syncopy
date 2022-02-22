@@ -3,6 +3,9 @@
 # Syncopy data selection methods
 #
 
+# Builtin/3rd party package imports
+import numpy as np
+
 # Local imports
 from syncopy.shared.parsers import data_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, SPYWarning
@@ -302,8 +305,17 @@ def selectdata(data, trials=None, channels=None, channels_i=None, channels_j=Non
 
     # If an in-place selection was requested we're done
     if inplace:
-        SPYInfo("In-place selection attached to data object: {}".format(data._selection))
         return
+
+    # Inform the user what's about to happen
+    selectionSize = _get_selection_size(data)
+    sUnit = "MB"
+    if selectionSize > 1000:
+        selectionSize /= 1024
+        sUnit = "GB"
+    msg = "Copying {dsize:3.2f} {dunit:s} of data based on selection " +\
+        "to create new {objkind:s} object on disk"
+    SPYInfo(msg.format(dsize=selectionSize, dunit=sUnit, objkind=data.__class__.__name__))
 
     # Create inventory of all available selectors and actually provided values
     # to create a bookkeeping dict for logging
@@ -322,6 +334,15 @@ def selectdata(data, trials=None, channels=None, channels_i=None, channels_j=Non
 
     # Either return newly created output object or simply quit
     return out if new_out else None
+
+
+def _get_selection_size(data):
+    """
+    Local helper routine for computing the on-disk size of an active data-selection
+    """
+    fauxTrials = [data._preview_trial(trlno) for trlno in data._selection.trials]
+    fauxSizes = [np.prod(ftrl.shape)*ftrl.dtype.itemsize for ftrl in fauxTrials]
+    return sum(fauxSizes) / 1024**2
 
 
 @unwrap_io

@@ -5,8 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+Bugfix release
+
 ### NEW
-- Added loading functionality for NWB 2.0 files
+- Added experimental loading functionality for NWB 2.0 files
+- Added experimental loading functionality for Matlab mat files
 
 ### CHANGED
 - Made plotting routines matplotlib 3.5 compatible
@@ -16,17 +19,25 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Removed loading code for ESI binary format that is no longer supported
 - Repaired top-level imports: renamed `connectivity` to `connectivityanalysis`
   and the "connectivity" module is now called "nwanalysis"
-- include `conda clean` in CD pipeline to avoid disk fillup by unused conda
+- Included `conda clean` in CD pipeline to avoid disk fillup by unused conda
   packages/cache
+- Inverted `selectdata` messaging policy: only actual on-disk copy operations
+  trigger a `SPYInfo` message (closes #197)
 
 ### REMOVED
 - Do not parse scalars using `numbers.Number`, use `numpy.number` instead to
   catch Boolean values
+- Do not raise a `SPYTypeError` if an arithmetic operation is performed using
+  objects of different numerical types (real/complex; closes #199)
 
 ### DEPRECATED
 ### FIXED
+- The `trialdefinition` arrays constructed by the `Selector` class were incorrect
+  for `SpectralData` objects without time-axis, resulting in "empty" trials. This
+  has been fixed (closes #207)
+- Repaired `array_parser` to adequately complain about mixed-type arrays (closes #211)
 
-## [v0.2] - 2022-01-18
+## [v0.20] - 2022-01-18
 Major Release
 
 ### NEW

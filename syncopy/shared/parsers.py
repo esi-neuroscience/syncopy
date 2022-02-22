@@ -340,9 +340,17 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
     scalar_parser : similar functionality for parsing numeric scalars
     """
 
-    # Make sure `var` is array-like and convert it to ndarray to simplify parsing
+    # Make sure `var` is array-like
     if not isinstance(var, (np.ndarray, list)):
         raise SPYTypeError(var, varname=varname, expected="array_like")
+
+    # "Exotic" arrays (str et al.) must contain only elements of the same type
+    # (however, don't be too stingy with numeric arrays - `[2, 2.0, 3]`` is okay)
+    if ntype not in [None, "numeric", "int_like"]:
+        if np.unique([str(type(a)) for a in var]).size > 1:
+            raise SPYTypeError(var, varname=varname, expected="array elements of identical type")
+
+    # Convert input to ndarray to simplify parsing
     arr = np.array(var)
 
     # If bounds-checking is requested but `ntype` is not set, use the
@@ -366,7 +374,7 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
                 raise SPYValueError(msg.format(dt="numeric"), varname=varname,
                                     actual=msg.format(dt=str(arr.dtype)))
             if ntype == "int_like":
-                if not np.all([np.round(a) == a for a in arr]):
+                if not np.array_equal(arr, np.round(arr)):
                     raise SPYValueError(msg.format(dt=ntype), varname=varname)
         else:
             if not np.issubdtype(arr.dtype, np.dtype(ntype).type):

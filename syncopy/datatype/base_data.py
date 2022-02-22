@@ -1685,6 +1685,9 @@ class Selector():
                         trlTime = data._get_time([trlno], toilim=[-np.inf, np.inf])[0]
                         if isinstance(trlTime, list):
                             stop = np.max(trlTime)
+                            # Avoid creating empty arrays for "static" `SpectralData` objects
+                            if stop == start == 0:
+                                stop += 1
                         else:
                             stop = trlTime.stop
                     if step is None:
