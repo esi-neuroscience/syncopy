@@ -115,6 +115,10 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     taper : str
         Only valid if `method` is `'coh'` or `'granger'`. Windowing function,
         one of :data:`~syncopy.specest.const_def.availableTapers`
+    taper_opt : dict or None
+        Dictionary with keys for additional taper parameters.
+        For example :func:`~scipy.signal.windows.kaiser` has
+        the additional parameter 'beta'.
     tapsmofrq : float
         Only valid if `method` is `'coh'` or `'granger'` and `taper` is `'dpss'`.
         The amount of spectral smoothing through  multi-tapering (Hz).

@@ -165,6 +165,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
     taper : str
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. Windowing function,
         one of :data:`~syncopy.shared.const_def.availableTapers` (see below).
+    taper_opt : dict or None
+        Dictionary with keys for additional taper parameters.
+        For example :func:`~scipy.signal.windows.kaiser` has
+        the additional parameter 'beta'.
     tapsmofrq : float
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and `taper` is `'dpss'`.
         The amount of spectral smoothing through  multi-tapering (Hz).
