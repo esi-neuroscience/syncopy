@@ -593,6 +593,7 @@ class BaseData(ABC):
 
     @property
     def _t0(self):
+        """ These are the trigger offsets """
         if self._trialdefinition is not None:
             return self._trialdefinition[:, 2]
         else:
