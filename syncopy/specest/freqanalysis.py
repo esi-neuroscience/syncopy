@@ -48,8 +48,8 @@ from .compRoutines import (
 @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='pow',
                  keeptrials=True, foi=None, foilim=None,
-                 pad_to_length=None, polyremoval=None,
-                 taper="hann", tapsmofrq=None, nTaper=None, keeptapers=False,
+                 pad_to_length=None, polyremoval=None, taper="hann",
+                 taper_opt=None, tapsmofrq=None, nTaper=None, keeptapers=False,
                  toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
                  out=None, **kwargs):
@@ -471,8 +471,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
             act = "empty frequency selection"
             raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
 
-        # sanitize taper selection and retrieve dpss settings
+        # sanitize taper selection and/or retrieve dpss settings
         taper_opt = process_taper(taper,
+                                  taper_opt,
                                   tapsmofrq,
                                   nTaper,
                                   keeptapers,
@@ -483,10 +484,11 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
         # Update `log_dct` w/method-specific options
         log_dct["taper"] = taper
-        # only dpss returns non-empty taper_opt dict
-        if taper_opt:
+        if taper_opt and taper == 'dpss':
             log_dct["nTaper"] = taper_opt["Kmax"]
             log_dct["tapsmofrq"] = tapsmofrq
+        elif taper_opt:
+            log_dct["taper_opt"] = taper_opt
 
     # -------------------------------------------------------
     # Now, prepare explicit compute-classes for chosen method
@@ -628,13 +630,12 @@ def freqanalysis(data, method='mtmfft', output='pow',
         else:
             soi = [slice(None)] * numTrials
 
-
         # Collect keyword args for `mtmconvol` in dictionary
         method_kwargs = {"samplerate": data.samplerate,
                          "nperseg": nperseg,
                          "noverlap": noverlap,
-                         "taper" : taper,
-                         "taper_opt" : taper_opt}
+                         "taper": taper,
+                         "taper_opt": taper_opt}
 
         # Set up compute-class
         specestMethod = MultiTaperFFTConvol(

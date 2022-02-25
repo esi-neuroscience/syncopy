@@ -36,7 +36,7 @@ availableMethods = ("coh", "corr", "granger")
 @detect_parallel_client
 def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                          foi=None, foilim=None, pad_to_length=None,
-                         polyremoval=None, taper="hann", tapsmofrq=None,
+                         polyremoval=None, taper="hann", taper_opt=None, tapsmofrq=None,
                          nTaper=None, out=None, **kwargs):
 
     """
@@ -224,6 +224,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
         # sanitize taper selection and retrieve dpss settings
         taper_opt = process_taper(taper,
+                                  taper_opt,
                                   tapsmofrq,
                                   nTaper,
                                   keeptapers=False,   # ST_CSD's always average tapers
@@ -234,10 +235,11 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
         log_dict["foi"] = foi
         log_dict["taper"] = taper
-        # only dpss returns non-empty taper_opt dict
-        if taper_opt:
+        if taper_opt and taper == 'dpss':
             log_dict["nTaper"] = taper_opt["Kmax"]
             log_dict["tapsmofrq"] = tapsmofrq
+        elif taper_opt:
+            log_dict["taper_opt"] = taper_opt
 
         check_effective_parameters(ST_CrossSpectra, defaults, lcls)
         # parallel computation over trials
