@@ -476,7 +476,8 @@ def run_cfg_test(call, method, positivity=True):
     cfg = get_defaults(ca)
 
     cfg.method = method
-    cfg.foilim = [0, 70]
+    if method != 'granger':
+        cfg.foilim = [0, 70]
     # test general tapers with
     # additional parameters
     cfg.taper = 'kaiser'
