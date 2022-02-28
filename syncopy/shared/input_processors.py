@@ -163,8 +163,8 @@ def process_taper(taper,
     """
     General taper validation and Slepian/dpss input sanitization.
 
-    For `taper='dpss'` the default is to max out `nTaper` to achieve
-    the desired frequency smoothing bandwidth.
+    For multi-tapering with slepian tapers the default is to max out
+    `nTaper` to achieve the desired frequency smoothing bandwidth.
     For details about the Slepion settings see
 
     "The Effective Bandwidth of a Multitaper Spectral Estimator,
@@ -178,9 +178,9 @@ def process_taper(taper,
         Dictionary holding additional keywords for tapers which have additional
         parameters like for example :func:`~scipy.signal.windows.kaiser`
     tapsmofrq : float or None
-        Taper smoothing bandwidth for `taper='dpss'`
+        Taper smoothing bandwidth for multi-tapering with 'dpss' window
     nTaper : int_like or None
-        Number of tapers to use for multi-tapering with `taper='dpss'` (not recommended)
+        Number of tapers to use for multi-tapering (not recommended)
 
     Other Parameters
     ----------------
@@ -196,13 +196,23 @@ def process_taper(taper,
 
     Returns
     -------
+    taper : str or None
+        The user supplied taper
     taper_opt : dict
-        For multi-tapering (`taper='dpss'`) contains the
-        parameters `NW` and `Kmax` for `scipy.signal.windows.dpss`.
+        For multi-tapering contains the
+        keys `NW` and `Kmax` for `scipy.signal.windows.dpss`.
         For other tapers these are the additional parameters or
-        an empty dictionary.
+        an empty dictionary in case selected taper has no further args.
     """
 
+    if taper == 'dpss':
+        lgl = "set `tapsmofrq` parameter directly for multi-tapering"
+        raise SPYValueError(legal=lgl, varname='taper', actual=taper)
+
+    # no tapering at all
+    if taper is None and tapsmofrq is None:
+        return None, {}
+    
     # See if taper choice is supported
     if taper not in availableTapers:
         lgl = "'" + "or '".join(opt + "' " for opt in availableTapers)
@@ -213,75 +223,83 @@ def process_taper(taper,
         actual = type(taper_opt)
         raise SPYValueError(lgl, "taper_opt", actual)
 
-    if taper != "dpss":
-        # Warn user about DPSS only settings
-        if tapsmofrq is not None:
-            msg = "`tapsmofrq` is only used if `taper` is `dpss`!"
-            SPYWarning(msg)
+    # -- no multi-tapering --
+    if tapsmofrq is None:
         if nTaper is not None:
-            msg = "`nTaper` is only used if `taper` is `dpss`!"
+            msg = "`nTaper` is only used for multi-tapering!"
             SPYWarning(msg)
         if keeptapers:
-            msg = "`keeptapers` is only used if `taper` is `dpss`!"
+            msg = "`keeptapers` is only used for multi-tapering!"
             SPYWarning(msg)
 
+        # availableTapers are given by windows.__all__
+        parameters = signature(getattr(windows, taper)).parameters
+        supported_kws = list(parameters.keys())
+        # 'M' is the kw for the window length
+        # for all of scipy's windows
+        supported_kws.remove('M')
+        supported_kws.remove('sym')
+
         if taper_opt is not None:
-            # availableTapers are given by windows.__all__
-            parameters = signature(getattr(windows, taper)).parameters
-            supported_kws = list(parameters.keys())
-            # 'M' is the kw for the window length
-            # for all of scipy's windows
-            supported_kws.remove('M')
+
+            if len(supported_kws) == 0:
+                lgl = f"`None`, taper '{taper}' has no additional parameters"
+                raise SPYValueError(lgl, varname='taper_opt', actual=taper_opt)
 
             for key in taper_opt:
                 if key not in supported_kws:
                     lgl = f"one of {supported_kws} for `taper='{taper}'`"
                     raise SPYValueError(lgl, "taper_opt key", key)
+            for key in supported_kws:
+                if key not in taper_opt:
+                    lgl = f"additional parameter '{key}' for `taper='{taper}'`"
+                    raise SPYValueError(lgl, "taper_opt", None)
             # all supplied keys are fine
-            return taper_opt
+            return taper, taper_opt
+
+        elif len(supported_kws) > 0:
+            lgl = f"additional parameters for taper '{taper}': {supported_kws}"
+            raise SPYValueError(lgl, varname='taper_opt', actual=taper_opt)
         else:
-            # taper_opt was None
-            return {}
+            # taper_opt was None and taper needs no additional parameters
+            return taper, {}
 
-    if taper == "dpss" and taper_opt is not None:
-        msg = "For multi-tapering with `taper='dpss'` use `tapsmofrq` and `nTaper` to control frequency smoothing, `taper_opt` has no effect"
-        SPYWarning(msg)
+    # -- multi-tapering --
+    else:
+        if taper != 'hann':
+            lgl = "`None` for multi-tapering, just set `tapsmofrq`"
+            raise SPYValueError(lgl, varname='taper', actual=taper)
 
-    # direct mtm estimate (averaging) only valid for spectral power
-    if taper == "dpss" and not keeptapers and output != "pow":
-        lgl = "'pow', the only valid option for taper averaging"
-        raise SPYValueError(legal=lgl, varname="output", actual=output)
+        if taper_opt is not None:
+            msg = "For multi-tapering use `tapsmofrq` and `nTaper` to control frequency smoothing, `taper_opt` has no effect"
+            SPYWarning(msg)
 
-    # Set/get `tapsmofrq` if we're working w/Slepian tapers
-    elif taper == "dpss":
+        # direct mtm estimate (averaging) only valid for spectral power
+        if not keeptapers and output != "pow":
+            lgl = "'pow', the only valid option for taper averaging"
+            raise SPYValueError(legal=lgl, varname="output", actual=output)
 
         # --- minimal smoothing bandwidth ---
         # --- such that Kmax/nTaper is at least 1
         minBw = 2 * samplerate / nSamples
         # -----------------------------------
 
-        # user set tapsmofrq directly
-        if tapsmofrq is not None:
-            try:
-                scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[0, np.inf])
-            except Exception as exc:
-                raise exc
-
-            if tapsmofrq < minBw:
-                msg = f'Setting tapsmofrq to the minimal attainable bandwidth of {minBw:.2f}Hz'
-                SPYInfo(msg)
-                tapsmofrq = minBw
-
-        # we now enforce a user submitted smoothing bw
-        else:
+        try:
+            scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[0, np.inf])
+        except Exception as exc:
             lgl = "smoothing bandwidth in Hz, typical values are in the range 1-10Hz"
             raise SPYValueError(legal=lgl, varname="tapsmofrq", actual=tapsmofrq)
+
+        if tapsmofrq < minBw:
+            msg = f'Setting tapsmofrq to the minimal attainable bandwidth of {minBw:.2f}Hz'
+            SPYInfo(msg)
+            tapsmofrq = minBw
 
         # --------------------------------------------
         # set parameters for scipy.signal.windows.dpss
         NW = tapsmofrq * nSamples / (2 * samplerate)
         # from the minBw setting NW always is at least 1
-        Kmax = int(2 * NW - 1) # optimal number of tapers
+        Kmax = int(2 * NW - 1)  # optimal number of tapers
         # --------------------------------------------
 
         # the recommended way:
@@ -290,7 +308,7 @@ def process_taper(taper,
             msg = f'Using {Kmax} taper(s) for multi-tapering'
             SPYInfo(msg)
             dpss_opt = {'NW': NW, 'Kmax': Kmax}
-            return dpss_opt
+            return 'dpss', dpss_opt
 
         elif nTaper is not None:
             try:
@@ -309,7 +327,7 @@ def process_taper(taper,
                 SPYWarning(msg)
 
             dpss_opt = {'NW': NW, 'Kmax': nTaper}
-            return dpss_opt
+            return 'dpss', dpss_opt
 
 
 def check_effective_parameters(CR, defaults, lcls):

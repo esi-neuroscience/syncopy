@@ -22,6 +22,7 @@ spectralConversions = {"pow": lambda x: (x * np.conj(x)).real.astype(np.float32)
 all_windows = windows.__all__
 all_windows.remove("exponential")  # not symmetric
 all_windows.remove("hanning")  # deprecated
+all_windows.remove("dpss")  # activated via `tapsmofrq`
 
 availableTapers = all_windows
 availablePaddingOpt = [None, 'nextpow2']
