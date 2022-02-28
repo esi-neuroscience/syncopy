@@ -475,7 +475,7 @@ class Test_FT_Importer:
     def test_read_hdf(self):
         """Test MAT-File v73 reader, uses h5py"""
 
-        mat_name = 'Mohsen-v73.mat'
+        mat_name = 'matdata-v73.mat'
         fname = os.path.join(self.mat_file_dir, mat_name)
 
         dct = load_ft_raw(fname)
@@ -519,7 +519,7 @@ class Test_FT_Importer:
     def test_read_dict(self):
         """Test MAT-File v7 reader, based on scipy.io.loadmat"""
 
-        mat_name = 'MohsenK-v7.mat'
+        mat_name = 'matdataK-v7.mat'
         fname = os.path.join(self.mat_file_dir, mat_name)
 
         dct = load_ft_raw(fname)
