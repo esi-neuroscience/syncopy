@@ -36,8 +36,8 @@ availableMethods = ("coh", "corr", "granger")
 @detect_parallel_client
 def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                          foi=None, foilim=None, pad_to_length=None,
-                         polyremoval=None, taper="hann", tapsmofrq=None,
-                         nTaper=None, out=None, **kwargs):
+                         polyremoval=None, tapsmofrq=None, nTaper=None,
+                         taper="hann", taper_opt=None, out=None, **kwargs):
 
     """
     Perform connectivity analysis of Syncopy :class:`~syncopy.AnalogData` objects
@@ -112,18 +112,22 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         the next power of two.
         If `None` and trials have unequal lengths all trials are padded to match
         the longest trial.
-    taper : str
+    tapsmofrq : float or None
+        Only valid if `method` is `'coh'` or `'granger'`.
+        Enables multi-tapering and sets the amount of spectral
+        smoothing with slepian tapers in Hz.
+    nTaper : int or None
+        Only valid if `method` is `'coh'` or `'granger'` and `tapsmofrq` is set.
+        Number of orthogonal tapers to use for multi-tapering. It is not recommended to set the number
+        of tapers manually! Leave at `None` for the optimal number to be set automatically.
+    taper : str or None, optional
         Only valid if `method` is `'coh'` or `'granger'`. Windowing function,
         one of :data:`~syncopy.specest.const_def.availableTapers`
-    tapsmofrq : float
-        Only valid if `method` is `'coh'` or `'granger'` and `taper` is `'dpss'`.
-        The amount of spectral smoothing through  multi-tapering (Hz).
-        Note that smoothing frequency specifications are one-sided,
-        i.e., 4 Hz smoothing means plus-minus 4 Hz, i.e., a 8 Hz smoothing box.
-    nTaper : int or None
-        Only valid if `method` is `'coh'` or `'granger'` and ``taper = 'dpss'``.
-        Number of orthogonal tapers to use. It is not recommended to set the number
-        of tapers manually! Leave at `None` for the optimal number to be set automatically.
+        For multi-tapering with slepian tapers use `tapsmofrq` directly.
+    taper_opt : dict or None
+        Dictionary with keys for additional taper parameters.
+        For example :func:`~scipy.signal.windows.kaiser` has
+        the additional parameter 'beta'. For multi-tapering use `tapsmofrq` directly.
 
     Examples
     --------
@@ -236,21 +240,23 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             foi = freqs
 
         # sanitize taper selection and retrieve dpss settings
-        taper_opt = process_taper(taper,
-                                  tapsmofrq,
-                                  nTaper,
-                                  keeptapers=False,   # ST_CSD's always average tapers
-                                  foimax=foi.max(),
-                                  samplerate=data.samplerate,
-                                  nSamples=nSamples,
-                                  output="pow")   # ST_CSD's always have this unit/norm
+        taper, taper_opt = process_taper(taper,
+                                         taper_opt,
+                                         tapsmofrq,
+                                         nTaper,
+                                         keeptapers=False,   # ST_CSD's always average tapers
+                                         foimax=foi.max(),
+                                         samplerate=data.samplerate,
+                                         nSamples=nSamples,
+                                         output="pow")   # ST_CSD's always have this unit/norm
 
         log_dict["foi"] = foi
         log_dict["taper"] = taper
-        # only dpss returns non-empty taper_opt dict
-        if taper_opt:
+        if taper_opt and taper == 'dpss':
             log_dict["nTaper"] = taper_opt["Kmax"]
             log_dict["tapsmofrq"] = tapsmofrq
+        elif taper_opt:
+            log_dict["taper_opt"] = taper_opt
 
         check_effective_parameters(ST_CrossSpectra, defaults, lcls)
 

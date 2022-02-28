@@ -66,8 +66,10 @@ class TestGranger:
 
     def test_gr_solution(self, **kwargs):
 
+
         Gcaus = ca(self.data, method='granger', taper='dpss',
                    tapsmofrq=3, foi=None, **kwargs)
+
 
         # check all channel combinations with coupling
         for i, j in zip(*self.cpl_idx):
@@ -190,7 +192,6 @@ class TestCoherence:
                  method='coh',
                  foilim=[5, 60],
                  output='pow',
-                 taper='dpss',
                  tapsmofrq=1.5,
                  **kwargs)
 
@@ -475,7 +476,13 @@ def run_cfg_test(call, method, positivity=True):
     cfg = get_defaults(ca)
 
     cfg.method = method
-    cfg.taper = 'parzen'
+    if method != 'granger':
+        cfg.foilim = [0, 70]
+    # test general tapers with
+    # additional parameters
+    cfg.taper = 'kaiser'
+    cfg.taper_opt = {'beta': 2}
+
     cfg.output = 'abs'
 
     result = call(cfg)
