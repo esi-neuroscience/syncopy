@@ -254,17 +254,12 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
         check_effective_parameters(ST_CrossSpectra, defaults, lcls)
 
-        if method == 'granger':
-            demean_taper = True
-        else:
-            demean_taper = False
-
         # parallel computation over trials
         st_compRoutine = ST_CrossSpectra(samplerate=data.samplerate,
                                          nSamples=nSamples,
                                          taper=taper,
                                          taper_opt=taper_opt,
-                                         demean_taper=demean_taper,
+                                         demean_taper=(method == 'granger'),
                                          polyremoval=polyremoval,
                                          timeAxis=timeAxis,
                                          foi=foi)

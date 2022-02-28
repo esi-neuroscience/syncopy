@@ -98,13 +98,13 @@ def mtmfft(data_arr,
 
     for taperIdx, win in enumerate(windows):
         win = np.tile(win, (nChannels, 1)).T
-        tapered = data_arr * win
+        win *= data_arr
         # de-mean again after tapering - needed for Granger!
         if demean_taper:
-            tapered = tapered - tapered.mean(axis=0)
+            win -= win.mean(axis=0)
         # real fft takes only 'half the energy'/positive frequencies,
         # multiply by 2 to correct for this
-        ftr[taperIdx] = 2 * np.fft.rfft(tapered, n=nSamples, axis=0)
+        ftr[taperIdx] = 2 * np.fft.rfft(win, n=nSamples, axis=0)
         # normalization
         ftr[taperIdx] /= np.sqrt(nSamples)
 
