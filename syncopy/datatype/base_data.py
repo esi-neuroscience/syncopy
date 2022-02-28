@@ -1861,11 +1861,15 @@ class Selector():
                 hasnan = False
                 hasinf = False
 
+            # Convert 'all' selections to take-all `None` (see next if below) and
+            # put single-string selections into a list; same for single-scalar selections
             if isinstance(selection, str):
                 if selection == "all":
                     selection = None
                 else:
-                    raise SPYValueError(legal="'all'", varname=vname, actual=selection)
+                    selection = [selection]
+            elif np.issubdtype(type(selection), np.number):
+                selection = [selection]
 
             # Take entire inventory sitting in `dataprop`
             if selection is None:
@@ -1942,11 +1946,18 @@ class Selector():
                 if dataprop in ["unit", "eventid"]:
                     setattr(self, selector, getattr(data, "_get_" + dataprop)(self.trials, idxList))
                 else:
+                    # be careful w/pairwise channel selections in `CrossSpectralData` objects
+                    if dataprop in ["channel_i", "channel_j"]:
+                        if len(idxList) > 1:
+                            err = "Multi-channel-pair selections not supported"
+                            raise NotImplementedError(err)
+                        idxList = idxList[0]
                     # if possible, convert range-arrays (`[0, 1, 2, 3]`) to slices for better performance
-                    if len(idxList) > 1:
+                    elif len(idxList) > 1:
                         steps = np.diff(idxList)
                         if steps.min() == steps.max() == 1:
                             idxList = slice(idxList[0], idxList[-1] + 1, 1)
+
                     setattr(self, selector, idxList)
 
         else:
@@ -2109,6 +2120,8 @@ class Selector():
                 ppdict[attr] = "{0:d} {1:s}{2:s}, ".format(len(val),
                                                            attr,
                                                            "s" if not attr.endswith("s") else "")
+            elif np.issubdtype(type(val), np.number):
+                ppdict[attr] = "one {0:s}, ".format(attr)
             else:
                 ppdict[attr] = ""
 

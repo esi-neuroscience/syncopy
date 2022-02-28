@@ -291,7 +291,7 @@ class ContinuousData(BaseData, ABC):
             dims.pop(self._stackingDim)
             for dim in dims:
                 sel = getattr(self._selection, dim)
-                if sel:
+                if sel is not None:
                     dimIdx = self.dimord.index(dim)
                     idx[dimIdx] = sel
                     if isinstance(sel, slice):
@@ -308,8 +308,10 @@ class ContinuousData(BaseData, ABC):
                             delta = 1
                         shp[dimIdx] = int(np.ceil((end - begin) / delta))
                         idx[dimIdx] = slice(begin, end, delta)
-                    else:
+                    elif isinstance(sel, list):
                         shp[dimIdx] = len(sel)
+                    else:
+                        shp[dimIdx] = 1
 
         return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
 

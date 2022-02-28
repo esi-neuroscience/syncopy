@@ -26,6 +26,15 @@ from pynwb import NWBHDF5IO
 # Prepare code to be executed using, e.g., iPython's `%run` magic command
 if __name__ == "__main__":
 
+    mock_up = np.ones((10, 2))
+    ad1 = spy.AnalogData([2 * mock_up, mock_up])
+
+    cs1 = spy.connectivityanalysis(ad1)
+
+    cs1.show(channels_i = 0, channels_j = 1).shape
+    # cs1.show(channels_i = [0], channels_j = [1]).shape
+
+
     sys.exit()
 
     nwbFilePath = "/home/fuertingers/Documents/job/SyNCoPy/Data/tt2.nwb"
