@@ -195,6 +195,19 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                 "pad_to_length": pad_to_length}
 
     # --- Setting up specific Methods ---
+    if method == 'granger':
+
+        if foi is not None or foilim is not None:
+            lgl = "no foi specification for Granger analysis"
+            actual = "foi or foilim specification"
+            raise SPYValueError(lgl, 'foi/foilim', actual)
+
+        nChannels = len(data.channel)
+        nTrials = len(lenTrials)
+        # warn user if this ratio is not small
+        if nChannels / nTrials > 0.1:
+            msg = "Multi-channel Granger analysis can be numerically unstable, it is recommended to have at least 10 times the number of trials compared to the number of channels. Try calculating in sub-groups of fewer channels!"
+            SPYWarning(msg)
 
     if method in ['coh', 'granger']:
 
@@ -240,11 +253,13 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             log_dict["tapsmofrq"] = tapsmofrq
 
         check_effective_parameters(ST_CrossSpectra, defaults, lcls)
+
         # parallel computation over trials
         st_compRoutine = ST_CrossSpectra(samplerate=data.samplerate,
                                          nSamples=nSamples,
                                          taper=taper,
                                          taper_opt=taper_opt,
+                                         demean_taper=(method == 'granger'),
                                          polyremoval=polyremoval,
                                          timeAxis=timeAxis,
                                          foi=foi)
