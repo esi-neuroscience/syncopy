@@ -22,6 +22,7 @@ req_fields_raw = ('time', 'trial', 'label')
 
 
 def load_ft_raw(filename,
+                list_only=False,
                 select_structures=None,
                 include_fields=None,
                 mem_use=2000):
@@ -62,6 +63,9 @@ def load_ft_raw(filename,
     ----------
     filename: str
         Path to the MAT-file
+    list_only: bool, optional
+        Set to `True` to return only a list containing the names
+        of the structures found
     select_structures: sequence or None, optional
         Sequence of strings, one for each structure,
         the default `None` will load all structures found
@@ -103,6 +107,11 @@ def load_ft_raw(filename,
     Access the additionally loaded field:
 
     >>> dct['Data_K'].info['chV1']
+
+    Just peek into the MAT-File and get a list of the contained structures:
+
+    >>> load_ft_raw('example.mat', list_only=True)
+    >>> ['Data_K', 'Data_KB']
     """
 
     # -- Input validation --
@@ -159,14 +168,17 @@ def load_ft_raw(filename,
         struct_reader = lambda struct: _read_dict_structure(struct,
                                                             include_fields=include_fields)
 
+    msg = f"Found {len(struct_keys)} structure(s): {struct_keys} in {filename}"
+    SPYInfo(msg)
+
+    if list_only:
+        return struct_keys
+
     if len(struct_keys) == 0:
         SPYValueError(legal="At least one structure",
                       varname=filename,
                       actual="No structure found"
                       )
-
-    msg = f"Found {len(struct_keys)} structure(s): {struct_keys} in {filename}"
-    SPYInfo(msg)
 
     # -- IO Operations --
 
@@ -320,7 +332,7 @@ def _read_hdf_structure(h5Group,
             # directly to a dataset containing actual data
             # and not references to larger objects
             if isinstance(dset[0], h5py.Reference):
-                msg = f"Could not read additional field {field}\n"
+                msg = f"Could not read additional field '{field}'\n"
                 msg += "Only simple fields holding str labels or 1D arrays are supported atm"
                 SPYWarning(msg)
                 continue
@@ -335,7 +347,7 @@ def _read_hdf_structure(h5Group,
                 AData.info[field] = dset[...]
 
             else:
-                msg = f"Could not read additional field {field}\n"
+                msg = f"Could not read additional field '{field}'\n"
                 msg += "Unknown data type, only 1D numerical or string arrays/fields supported"
                 SPYWarning(msg)
                 continue
