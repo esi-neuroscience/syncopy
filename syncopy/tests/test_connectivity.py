@@ -66,8 +66,10 @@ class TestGranger:
 
     def test_gr_solution(self, **kwargs):
 
-        Gcaus = ca(self.data, method='granger',
-                   tapsmofrq=3, foi=self.foi, **kwargs)
+
+        Gcaus = ca(self.data, method='granger', taper='dpss',
+                   tapsmofrq=3, foi=None, **kwargs)
+
 
         # check all channel combinations with coupling
         for i, j in zip(*self.cpl_idx):
@@ -105,12 +107,21 @@ class TestGranger:
 
     def test_gr_foi(self):
 
-        call = lambda foi, foilim: ca(self.data,
-                                      method='granger',
-                                      foi=foi,
-                                      foilim=foilim)
+        try:
+            ca(self.data,
+               method='granger',
+               foi=np.arange(0, 70)
+               )
+        except SPYValueError as err:
+            assert 'no foi specification' in str(err)
 
-        run_foi_test(call, foilim=[0, 70])
+        try:
+            ca(self.data,
+               method='granger',
+               foilim=[0, 70]
+               )
+        except SPYValueError as err:
+            assert 'no foi specification' in str(err)
 
     def test_gr_cfg(self):
 
@@ -148,6 +159,7 @@ class TestGranger:
 
         # remove the constant again
         self.data = self.data - 10
+
 
 class TestCoherence:
 
@@ -201,6 +213,8 @@ class TestCoherence:
         null_idx *= (res.freq < self.f2 - 5) | (res.freq > self.f2 + 5)
         assert np.all(res.data[0, null_idx, 0, 1] < 0.1)
 
+        plot_coh(res, 0, 1, label="channel 0-1")
+        
     def test_coh_selections(self):
 
         selections = mk_selection_dicts(self.nTrials,
@@ -467,6 +481,7 @@ def run_cfg_test(call, method, positivity=True):
     # additional parameters
     cfg.taper = 'kaiser'
     cfg.taper_opt = {'beta': 2}
+
     cfg.output = 'abs'
 
     result = call(cfg)
@@ -617,6 +632,7 @@ def plot_coh(res, i, j, label=''):
     ax.set_xlabel('frequency (Hz)')
     ax.set_ylabel('coherence $|CSD|^2$')
     ax.plot(res.freq, res.data[0, :, i, j], label=label)
+    ax.legend()
 
 
 def plot_corr(res, i, j, label=''):
@@ -625,6 +641,7 @@ def plot_corr(res, i, j, label=''):
     ax.set_xlabel('lag (s)')
     ax.set_ylabel('Correlation')
     ax.plot(res.time[0], res.data[:, 0, i, j], label=label)
+    ax.legend()
 
 
 if __name__ == '__main__':

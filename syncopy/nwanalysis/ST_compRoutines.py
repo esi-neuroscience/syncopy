@@ -27,6 +27,7 @@ def cross_spectra_cF(trl_dat,
                      foi=None,
                      taper="hann",
                      taper_opt=None,
+                     demean_taper=False,
                      polyremoval=False,
                      timeAxis=0,
                      chunkShape=None,
@@ -77,6 +78,8 @@ def cross_spectra_cF(trl_dat,
         `'Kmax'` and `'NW'`.
         For further details, please refer to the
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
+    demean_taper : bool
+        Set to `True` to perform de-meaning after tapering
     polyremoval : int or None
         Order of polynomial used for de-trending data in the time domain prior
         to spectral analysis. A value of 0 corresponds to subtracting the mean
@@ -153,7 +156,7 @@ def cross_spectra_cF(trl_dat,
         dat = detrend(dat, type='linear', axis=0, overwrite_data=True)
 
     CS_ij = csd(dat, samplerate, nSamples, taper=taper, taper_opt=taper_opt)
-    
+
     # where does freqs go/come from -
     # we will eventually solve this issue..
     return CS_ij[None, freq_idx, ...]
