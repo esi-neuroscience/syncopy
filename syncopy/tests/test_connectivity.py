@@ -584,7 +584,7 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max):
 
         sel_dct = {}
         sel_dct['trials'] = comb[0]
-        sel_dct['channels'] = comb[1]
+        sel_dct['channel'] = comb[1]
         sel_dct['toi'] = comb[2]
         selections.append(sel_dct)
 
@@ -592,7 +592,7 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max):
 
         sel_dct = {}
         sel_dct['trials'] = comb[0]
-        sel_dct['channels'] = comb[1]
+        sel_dct['channel'] = comb[1]
         sel_dct['toilim'] = comb[2]
         selections.append(sel_dct)
 

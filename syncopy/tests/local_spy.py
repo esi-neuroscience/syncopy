@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
     cs1 = spy.connectivityanalysis(ad1)
 
-    cs1.show(channels_i = 0, channels_j = 1).shape
+    cs1.show(channel_i = 0, channel_j = 1).shape
     # cs1.show(channels_i = [0], channels_j = [1]).shape
 
 

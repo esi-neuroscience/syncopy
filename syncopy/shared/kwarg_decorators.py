@@ -625,6 +625,11 @@ def unwrap_io(func):
             # Now, actually call wrapped function
             res = func(arr, *wrkargs, **kwargs)
 
+            # In case scalar selections have been performed, explicitly assign
+            # desired output shape to re-create "lost" singleton dimensions
+            # (use an explicit `shape` assignment here to avoid copies)
+            res.shape = outshape
+
         # === STEP 3 === write result to disk
         # Write result to multiple stand-alone HDF files or use a mutex to write to a
         # common single file (sequentially)

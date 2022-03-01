@@ -116,9 +116,9 @@ class TestComputationalRoutine():
     # Data selections to be tested w/`sigdata`
     sigdataSelections = [None,
                          {"trials": [3, 1, 0],
-                          "channels": ["channel" + str(i) for i in range(12, 28)][::-1]},
+                          "channel": ["channel" + str(i) for i in range(12, 28)][::-1]},
                          {"trials": [0, 1, 2],
-                          "channels": range(0, int(nChannels / 2)),
+                          "channel": range(0, int(nChannels / 2)),
                           "toilim": [-0.25, 0.25]}]
 
     # Data selections to be tested w/`artdata` generated below (use fixed but arbitrary
@@ -126,10 +126,10 @@ class TestComputationalRoutine():
     seed = np.random.RandomState(13)
     artdataSelections = [None,
                          {"trials": [3, 1, 0],
-                          "channels": ["channel" + str(i) for i in range(12, 28)][::-1],
+                          "channel": ["channel" + str(i) for i in range(12, 28)][::-1],
                           "toi": None},
                          {"trials": [0, 1, 2],
-                          "channels": range(0, int(nChannels / 2)),
+                          "channel": range(0, int(nChannels / 2)),
                           "toilim": [-0.5, 0.6]}]
 
     # Error tolerances and respective quality metrics (depend on data selection!)
@@ -193,10 +193,10 @@ class TestComputationalRoutine():
     def test_sequential_nonequidistant(self):
         for overlapping in [False, True]:
             nonequidata = generate_artificial_data(nTrials=self.nTrials,
-                                                  nChannels=self.nChannels,
-                                                  equidistant=False,
-                                                  overlapping=overlapping,
-                                                  inmemory=False)
+                                                   nChannels=self.nChannels,
+                                                   equidistant=False,
+                                                   overlapping=overlapping,
+                                                   inmemory=False)
 
             # unsorted, w/repetitions
             toi = self.seed.choice(nonequidata.time[0], int(nonequidata.time[0].size))

@@ -41,13 +41,15 @@ trialSelections = [
 ]
 chanSelections = [
     ["channel03", "channel01", "channel01", "channel02"],  # string selection w/repetition + unordered
-    [4, 2, 2, 5, 5],   # repetition + unorderd
+    [4, 2, 2, 5, 5],   # repetition + unordered
     range(5, 8),  # narrow range
-    slice(-2, None)  # negative-start slice
+    slice(-2, None),  # negative-start slice
+    "channel02", # str selection
+    1  # scalar selection
     ]
 toiSelections = [
     "all",  # non-type-conform string
-    [0.6],  # single inexact match
+    0.6,  # single inexact match
     [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
     ]
 toilimSelections = [
@@ -57,7 +59,7 @@ toilimSelections = [
     ]
 foiSelections = [
     "all",  # non-type-conform string
-    [2.6],  # single inexact match
+    2.6,  # single inexact match
     [1.1, 1.9, 2.1, 3.9, 9.2, 11.8, 12.9, 5.1, 13.8]  # unordered, inexact, repetions
     ]
 foilimSelections = [
@@ -67,6 +69,8 @@ foilimSelections = [
     ]
 taperSelections = [
     ["TestTaper_03", "TestTaper_01", "TestTaper_01", "TestTaper_02"],  # string selection w/repetition + unordered
+    "TestTaper_03",  # singe str
+    0,  # scalar selection
     [0, 1, 1, 2, 3],  # preserve repetition, don't convert to slice
     range(2, 5),  # narrow range
     slice(0, 5, 2),  # slice w/non-unitary step-size
@@ -490,7 +494,7 @@ class TestAnalogData():
 
         # real thing: pad object with standing channel selection
         res = padding(adata, "zero", pad="absolute", padlength=total_time,unit="time",
-                      create_new=True, select={"trials": trialSel, "channels": chanSel})
+                      create_new=True, select={"trials": trialSel, "channel": chanSel})
         for tk, trl in enumerate(res.trials):
             adataTrl = adata.trials[trialSel[tk]]
             nSamples = pad_list[trialSel[tk]]["pad_width"][timeAxis, :].sum() + adataTrl.shape[timeAxis]
@@ -529,7 +533,7 @@ class TestAnalogData():
 
         # same as above, but this time w/swapped dimensions
         res2 = padding(adata2, "zero", pad="absolute", padlength=total_time, unit="time",
-                       create_new=True, select={"trials": trialSel, "channels": chanSel})
+                       create_new=True, select={"trials": trialSel, "channel": chanSel})
         pad_list2 = padding(adata2, "zero", pad="absolute", padlength=total_time,
                             unit="time", create_new=False)
         for tk, trl in enumerate(res2.trials):
@@ -567,7 +571,7 @@ class TestAnalogData():
                                           equidistant=False, overlapping=True,
                                           inmemory=False, dimord=adata2.dimord)
         res3 = padding(adata3, "zero", pad="absolute", padlength=total_time, unit="time",
-                       create_new=True, select={"trials": trialSel, "channels": chanSel})
+                       create_new=True, select={"trials": trialSel, "channel": chanSel})
         pad_list3 = padding(adata3, "zero", pad="absolute", padlength=total_time,
                             unit="time", create_new=False)
         for tk, trl in enumerate(res3.trials):
@@ -606,7 +610,7 @@ class TestAnalogData():
                     for timeSel in timeSelections:
                         kwdict = {}
                         kwdict["trials"] = trialSel
-                        kwdict["channels"] = chanSel
+                        kwdict["channel"] = chanSel
                         kwdict[timeSel[0]] = timeSel[1]
                         cfg = StructDict(kwdict)
                         # data selection via class-method + `Selector` instance for indexing
@@ -658,7 +662,7 @@ class TestAnalogData():
             # Now the most complicated case: user-defined subset selections are present
             kwdict = {}
             kwdict["trials"] = trialSelections[1]
-            kwdict["channels"] = chanSelections[3]
+            kwdict["channel"] = chanSelections[3]
             kwdict[timeSelections[4][0]] = timeSelections[4][1]
             _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
@@ -821,10 +825,10 @@ class TestSpectralData():
                             for taperSel in taperSelections:
                                 kwdict = {}
                                 kwdict["trials"] = trialSel
-                                kwdict["channels"] = chanSel
+                                kwdict["channel"] = chanSel
                                 kwdict[timeSel[0]] = timeSel[1]
                                 kwdict[freqSel[0]] = freqSel[1]
-                                kwdict["tapers"] = taperSel
+                                kwdict["taper"] = taperSel
                                 cfg = StructDict(kwdict)
                                 # data selection via class-method + `Selector` instance for indexing
                                 selected = obj.selectdata(**kwdict)
@@ -888,10 +892,10 @@ class TestSpectralData():
             # Now the most complicated case: user-defined subset selections are present
             kwdict = {}
             kwdict["trials"] = trialSelections[1]
-            kwdict["channels"] = chanSelections[3]
+            kwdict["channel"] = chanSelections[3]
             kwdict[timeSelections[4][0]] = timeSelections[4][1]
             kwdict[freqSelections[4][0]] = freqSelections[4][1]
-            kwdict["tapers"] = taperSelections[2]
+            kwdict["taper"] = taperSelections[2]
             _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
             # # Go through full selection stack - WARNING: this takes > 1 hour
@@ -1047,14 +1051,14 @@ class TestCrossSpectralData():
             chanJdx = obj.dimord.index("channel_j")
             freqIdx = obj.dimord.index("freq")
             for trialSel in trialSelections:
-                for chaniSel in chanSelections:
-                    for chanjSel in chanSelections:
+                for chaniSel in chanSelections[2:]:
+                    for chanjSel in chanSelections[2:]:
                         for timeSel in timeSelections:
                             for freqSel in freqSelections:
                                 kwdict = {}
                                 kwdict["trials"] = trialSel
-                                kwdict["channels_i"] = chaniSel
-                                kwdict["channels_j"] = chanjSel
+                                kwdict["channel_i"] = chaniSel
+                                kwdict["channel_j"] = chanjSel
                                 kwdict[timeSel[0]] = timeSel[1]
                                 kwdict[freqSel[0]] = freqSel[1]
                                 cfg = StructDict(kwdict)
@@ -1065,11 +1069,13 @@ class TestCrossSpectralData():
                                 idx[chanIdx] = selector.channel_i
                                 idx[chanJdx] = selector.channel_j
                                 idx[freqIdx] = selector.freq
+                                jdx = [[elem] if np.issubdtype(type(elem), np.number) else elem for elem in idx]
+                                idx = jdx
                                 for tk, trialno in enumerate(selector.trials):
                                     idx[timeIdx] = selector.time[tk]
                                     indexed = obj.trials[trialno][idx[0], ...][:, idx[1], ...][:, :, idx[2], :][..., idx[3]]
                                     assert np.array_equal(selected.trials[tk].squeeze(),
-                                                        indexed.squeeze())
+                                                          indexed.squeeze())
                                 cfg.data = obj
                                 cfg.out = CrossSpectralData(dimord=obj.dimord)
                                 # data selection via package function and `cfg`: ensure equality
@@ -1115,8 +1121,8 @@ class TestCrossSpectralData():
             # Now the most complicated case: user-defined subset selections are present
             kwdict = {}
             kwdict["trials"] = trialSelections[1]
-            kwdict["channels_i"] = chanSelections[3]
-            kwdict["channels_j"] = chanSelections[2]
+            kwdict["channel_i"] = chanSelections[3]
+            kwdict["channel_j"] = chanSelections[4]
             kwdict[timeSelections[4][0]] = timeSelections[4][1]
             kwdict[freqSelections[4][0]] = freqSelections[4][1]
             _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)

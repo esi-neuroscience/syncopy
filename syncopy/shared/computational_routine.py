@@ -449,6 +449,8 @@ class ComputationalRoutine(ABC):
                 ingrid = list(grd)
                 sigrid = []
                 for sk, sel in enumerate(grd):
+                    if np.issubdtype(type(sel), np.number):
+                        sel = [sel]
                     if isinstance(sel, list):
                         selarr = np.array(sel, dtype=np.intp)
                     else: # sel is a slice
@@ -908,6 +910,11 @@ class ComputationalRoutine(ABC):
 
                     # Perform computation
                     res = self.computeFunction(arr, *argv, **self.cfg)
+
+                    # In case scalar selections have been performed, explicitly assign
+                    # desired output shape to re-create "lost" singleton dimensions
+                    # (use an explicit `shape` assignment here to avoid copies)
+                    res.shape = self.targetShapes[nblock]
 
                 # Either write result to `outgrid` location in `target` or add it up
                 if self.keeptrials:

@@ -50,6 +50,8 @@ class TestSelector():
     selectDict["channel"] = {"valid": (["channel03", "channel01"],
                                        ["channel03", "channel01", "channel01", "channel02"],  # repetition
                                        ["channel01", "channel01", "channel02", "channel03"],  # preserve repetition
+                                       "channel03",     # string -> scalar
+                                       0,               # scalar
                                        [4, 2, 5],
                                        [4, 2, 2, 5, 5],   # repetition
                                        [0, 0, 1, 2, 3],  # preserve repetition, don't convert to slice
@@ -68,6 +70,8 @@ class TestSelector():
                              "result": ([2, 0],
                                         [2, 0, 0, 1],
                                         [0, 0, 1, 2],
+                                        [2],
+                                        [0],
                                         [4, 2, 5],
                                         [4, 2, 2, 5, 5],
                                         [0, 0, 1, 2, 3],
@@ -112,6 +116,7 @@ class TestSelector():
                                      slice(None),
                                      None,
                                      "all",
+                                     0,               # scalar
                                      slice(0, 5),
                                      slice(3, None),
                                      slice(2, 4),
@@ -127,6 +132,7 @@ class TestSelector():
                                       slice(None, None, 1),
                                       slice(None, None, 1),
                                       slice(None, None, 1),
+                                      [0],
                                       slice(0, 5, 1),
                                       slice(3, None, 1),
                                       slice(2, 4, 1),
@@ -165,6 +171,8 @@ class TestSelector():
                                     slice(None),
                                     None,
                                     "all",
+                                    "unit3",       # string -> scalar
+                                    4,             # scalar
                                     slice(0, 5),
                                     slice(3, None),
                                     slice(2, 4),
@@ -200,6 +208,7 @@ class TestSelector():
                                        slice(None),
                                        None,
                                        "all",
+                                       1,             # scalar
                                        slice(0, 2),
                                        slice(1, None),
                                        slice(0, 1),
