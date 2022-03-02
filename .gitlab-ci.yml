@@ -6,6 +6,7 @@ stages:
 
 variables:
     TEST_DIR: "$CI_PROJECT_DIR/syncopy/tests"
+
 intellinux:
     stage: tox
     allow_failure: true
