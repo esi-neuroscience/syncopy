@@ -4,6 +4,8 @@ stages:
     - upload
     - deploy
 
+variables:
+    TEST_DIR: "$CI_PROJECT_DIR/syncopy/tests"
 intellinux:
     stage: tox
     allow_failure: true
@@ -96,8 +98,8 @@ slurmtest:
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - export PYTHONPATH=$CI_PROJECT_DIR
-    - srun -p DEV --mem=8000m -c 4 pytest -v test_specest.py
-    - srun -p DEV --mem=8000m -c 4 pytest -v test_connectivity.py
+    - srun -p DEV --mem=8000m -c 4 pytest -v $TEST_DIR/test_specest.py
+    - srun -p DEV --mem=8000m -c 4 pytest -v $TEST_DIR/test_connectivity.py
     - srun -p DEV --mem=8000m -c 4 pytest --ignore=test_specest.py --ignore=test_connectivity.py
 
 pypitest:
