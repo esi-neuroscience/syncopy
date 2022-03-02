@@ -67,7 +67,7 @@ class TestGranger:
     def test_gr_solution(self, **kwargs):
 
 
-        Gcaus = ca(self.data, method='granger', taper='dpss',
+        Gcaus = ca(self.data, method='granger',
                    tapsmofrq=3, foi=None, **kwargs)
 
 
