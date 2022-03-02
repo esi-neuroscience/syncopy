@@ -101,7 +101,7 @@ slurmtest:
     - export PYTHONPATH=$CI_PROJECT_DIR
     - srun -p DEV --mem=8000m -c 4 pytest -v $TEST_DIR/test_specest.py
     - srun -p DEV --mem=8000m -c 4 pytest -v $TEST_DIR/test_connectivity.py
-    - srun -p DEV --mem=8000m -c 4 pytest --ignore=test_specest.py --ignore=test_connectivity.py
+    - srun -p DEV --mem=8000m -c 4 pytest --ignore=$TEST_DIR/test_specest.py --ignore=$TEST_DIR/test_connectivity.py
 
 pypitest:
     stage: upload
