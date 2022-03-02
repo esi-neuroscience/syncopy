@@ -335,9 +335,10 @@ class ComputationalRoutine(ABC):
         trial = trials[0]
         trlArg0 = tuple(arg[0] if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials \
             else arg for arg in self.argv)
-        chunkShape0 = chk_arr[0, :]
+        chunkShape0 = tuple(chk_arr[0, :])
         lyt = [slice(0, stop) for stop in chunkShape0]
         sourceLayout = []
+        sourceShapes = []
         targetLayout = []
         targetShapes = []
         c_blocks = [1]
@@ -383,6 +384,7 @@ class ComputationalRoutine(ABC):
                 targetLayout.append(tuple(lyt))
                 targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
                 sourceLayout.append(trial.idx)
+                sourceShapes.append(trial.shape)
                 chanstack += res[outchanidx]
                 blockstack += block
 
@@ -391,6 +393,10 @@ class ComputationalRoutine(ABC):
             targetLayout.append(tuple(lyt))
             targetShapes.append(chunkShape0)
             sourceLayout.append(trial.idx)
+            sourceShapes.append(trial.shape)
+
+        # if data._selection.channel_i == slice(-2, None, 1):
+        #     import pdb; pdb.set_trace()
 
         # Construct dimensional layout of output
         stacking = targetLayout[0][stackingDim].stop
@@ -406,6 +412,7 @@ class ComputationalRoutine(ABC):
                 targetLayout.append(tuple(lyt))
                 targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
                 sourceLayout.append(trial.idx)
+                sourceShapes.append(trial.shape)
             else:
                 chanstack = 0
                 blockstack = 0
@@ -421,6 +428,7 @@ class ComputationalRoutine(ABC):
                     targetLayout.append(tuple(lyt))
                     targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
                     sourceLayout.append(trial.idx)
+                    sourceShapes.append(trial.shape)
                     chanstack += res[outchanidx]
                     blockstack += block
 
@@ -471,6 +479,7 @@ class ComputationalRoutine(ABC):
 
         # Store determined shapes and grid layout
         self.sourceLayout = sourceLayout
+        self.sourceShapes = sourceShapes
         self.sourceSelectors = sourceSelectors
         self.targetLayout = targetLayout
         self.targetShapes = targetShapes
@@ -909,12 +918,19 @@ class ComputationalRoutine(ABC):
                         arr = np.vstack(stacks)[ingrid]
 
                     # Perform computation
+                    try:
+                        arr.shape = self.sourceShapes[nblock]
+                    except:
+                        import pdb; pdb.set_trace()
                     res = self.computeFunction(arr, *argv, **self.cfg)
 
                     # In case scalar selections have been performed, explicitly assign
                     # desired output shape to re-create "lost" singleton dimensions
                     # (use an explicit `shape` assignment here to avoid copies)
-                    res.shape = self.targetShapes[nblock]
+                    try:
+                        res.shape = self.targetShapes[nblock]
+                    except:
+                        import pdb; pdb.set_trace()
 
                 # Either write result to `outgrid` location in `target` or add it up
                 if self.keeptrials:

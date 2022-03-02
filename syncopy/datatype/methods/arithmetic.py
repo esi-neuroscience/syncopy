@@ -480,6 +480,9 @@ def arithmetic_cF(base_dat, operand_dat, operand_idx, operation=None, opres_type
     if isinstance(operand_dat, dict):
         with h5py.File(operand_dat["filename"], "r") as h5f:
             operand = h5f[operand_dat["dsetname"]][operand_idx]
+            # enforce original shape in case `operand_idx` contained scalar
+            # selections that squeezed the array
+            operand.shape = chunkShape
     else:
         operand = operand_dat
 
@@ -513,4 +516,6 @@ class SpyArithmetic(ComputationalRoutine):
         for prop in baseObj._selection._dimProps:
             selection = getattr(baseObj._selection, prop)
             if selection is not None:
+                if np.issubdtype(type(selection), np.number):
+                    selection = [selection]
                 setattr(out, prop, getattr(baseObj, prop)[selection])
