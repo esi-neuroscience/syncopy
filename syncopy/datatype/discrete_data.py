@@ -182,10 +182,9 @@ class DiscreteData(BaseData, ABC):
     def trialtime(self):
         """list(:class:`numpy.ndarray`): trigger-relative sample times in s"""
         if self.samplerate is not None and self.sampleinfo is not None:
-            return [
-                (trl[:, 0] - self._t0[tk] - self.sampleinfo[tk, 0]) / self.samplerate
-                for tk, trl in enumerate(self.trials)
-            ]
+            return [((t + self._t0[tk]) / self.samplerate \
+                    for t in range(0, int(self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0]))) \
+                    for tk in np.unique(self.trialid)]
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
@@ -269,7 +268,8 @@ class DiscreteData(BaseData, ABC):
             for trlno in trials:
                 thisTrial = self.data[self.trialid == trlno, self.dimord.index("sample")]
                 trlSample = np.arange(*self.sampleinfo[trlno, :])
-                trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
+                trlTime = np.array(list(allTrials[trlno]))
+                # trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
                 minSample = trlSample[np.where(trlTime >= toilim[0])[0][0]]
                 maxSample = trlSample[np.where(trlTime <= toilim[1])[0][-1]]
                 selSample, _ = best_match(trlSample, [minSample, maxSample], span=True)
@@ -287,7 +287,7 @@ class DiscreteData(BaseData, ABC):
             for trlno in trials:
                 thisTrial = self.data[self.trialid == trlno, self.dimord.index("sample")]
                 trlSample = np.arange(*self.sampleinfo[trlno, :])
-                trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
+                trlTime = np.array(list(allTrials[trlno]))
                 _, selSample = best_match(trlTime, toi)
                 for k, idx in enumerate(selSample):
                     if np.abs(trlTime[idx - 1] - toi[k]) < np.abs(trlTime[idx] - toi[k]):
