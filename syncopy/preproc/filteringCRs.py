@@ -20,7 +20,7 @@ def but_filtering_cF(dat,
                      samplerate=1,
                      filter_type='lp',
                      freq=None,
-                     order=None,
+                     order=6,
                      direction='twopass',
                      polyremoval=None,
                      timeAxis=0,
@@ -42,9 +42,10 @@ def but_filtering_cF(dat,
     freq : float or array_like
         Cut-off frequency for low- and high-pass filters or sequence
         of two frequencies for band-stop and band-pass filter.
-    order : int
-        Order of the filter. Higher orders yield a sharper transition width
-        or 'roll off' of the filter.
+    order : int, optional
+        Order of the filter, default is 6.
+        Higher orders yield a sharper transition width
+        or less 'roll off' of the filter, but are more computationally expensive.
     direction : {'twopass', 'onepass'}
        Filter direction:
        `'twopass'` - zero-phase forward and reverse filter
