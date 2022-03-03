@@ -354,9 +354,18 @@ class TestSelector():
                         selects = list(range(getattr(discrete, prop).size))[selection]
                 elif isinstance(selection, range):
                     selects = list(selection)
-                elif isinstance(selection, str) or selection is None:
-                    selects = [None]
-                else: # selection is list/ndarray
+                elif isinstance(selection, str):
+                    if selection == "all":
+                        selects = [None]
+                    else:
+                        selection = [selection]
+                elif np.issubdtype(type(selection), np.number):
+                    selection = [selection]
+
+                # elif isinstance(selection, str) or selection is None:
+                #     selects = [None]
+                if isinstance(selection, (list, np.ndarray)):
+                # else: # selection is list/ndarray
                     if isinstance(selection[0], str):
                         avail = getattr(discrete, prop)
                     else:
@@ -456,9 +465,9 @@ class TestSelector():
                                     solution = slice(start, stop, step)
 
                         # once we're sure `Selector` works, actually select data
-                        selection = Selector(dummy, {prop + "s": sel})
+                        selection = Selector(dummy, {prop : sel})
                         assert getattr(selection, prop) == solution
-                        selected = selectdata(dummy, {prop + "s": sel})
+                        selected = selectdata(dummy, {prop : sel})
 
                         # process `unit` and `enventid`
                         if prop in selection._byTrialProps:
@@ -491,12 +500,12 @@ class TestSelector():
                     # ensure invalid selection trigger expected errors
                     for ik, isel in enumerate(self.selectDict[prop]["invalid"]):
                         with pytest.raises(self.selectDict[prop]["errors"][ik]):
-                            Selector(dummy, {prop + "s": isel})
+                            Selector(dummy, {prop : isel})
                 else:
 
                     # ensure objects that don't have a `prop` attribute complain
                     with pytest.raises(SPYValueError):
-                        Selector(dummy, {prop + "s": [0]})
+                        Selector(dummy, {prop : [0]})
 
             # ensure invalid `toi` + `toilim` specifications trigger expected errors
             if hasattr(dummy, "time") or hasattr(dummy, "trialtime"):

@@ -162,6 +162,10 @@ class ComputationalRoutine(ABC):
         # indices are ABSOLUTE, i.e., wrt entire dataset, not just current trial!
         self.sourceLayout = None
 
+        # list of shape-tuples of input trial-chunks (necessary to restore shape of
+        # arrays that got inflated by scalar selection tuples))
+        self.sourceShapes = None
+
         # list of index-tuples for re-ordering NumPy arrays extracted w/`self.sourceLayout`
         # >>> can be unordered w/repetitions <<<
         # indices are RELATIVE, i.e., wrt current trial!
@@ -395,9 +399,6 @@ class ComputationalRoutine(ABC):
             sourceLayout.append(trial.idx)
             sourceShapes.append(trial.shape)
 
-        # if data._selection.channel_i == slice(-2, None, 1):
-        #     import pdb; pdb.set_trace()
-
         # Construct dimensional layout of output
         stacking = targetLayout[0][stackingDim].stop
         for tk in range(1, self.numTrials):
@@ -612,6 +613,7 @@ class ComputationalRoutine(ABC):
                             "infile": data.filename,
                             "indset": data.data.name,
                             "ingrid": self.sourceLayout[chk],
+                            "inshape": self.sourceShapes[chk],
                             "sigrid": self.sourceSelectors[chk],
                             "fancy": self.useFancyIdx,
                             "vdsdir": self.virtualDatasetDir,
@@ -917,20 +919,18 @@ class ComputationalRoutine(ABC):
                                                     shape=(self.hdr[fk]["M"], self.hdr[fk]["N"]))[idx])
                         arr = np.vstack(stacks)[ingrid]
 
+                    # Ensure input array shape was not inflated by scalar selection
+                    # tuple, e.g., ``e=np.ones((2,2)); e[0,:].shape = (2,)`` not ``(1,2)``
+                    # (use an explicit `shape` assignment here to avoid copies)
+                    arr.shape = self.sourceShapes[nblock]
+
                     # Perform computation
-                    try:
-                        arr.shape = self.sourceShapes[nblock]
-                    except:
-                        import pdb; pdb.set_trace()
                     res = self.computeFunction(arr, *argv, **self.cfg)
 
                     # In case scalar selections have been performed, explicitly assign
                     # desired output shape to re-create "lost" singleton dimensions
                     # (use an explicit `shape` assignment here to avoid copies)
-                    try:
-                        res.shape = self.targetShapes[nblock]
-                    except:
-                        import pdb; pdb.set_trace()
+                    res.shape = self.targetShapes[nblock]
 
                 # Either write result to `outgrid` location in `target` or add it up
                 if self.keeptrials:

@@ -212,8 +212,12 @@ def _parse_input(obj1, obj2, operator):
             raise SPYValueError(lgl, varname="operand",
                                 actual=act.format(baseSr, opndSr))
 
-        # If only a subset of `operand` is selected, adjust for this
+        # If only a subset of `operand` is selected, adjust for this (and warn
+        # that arbitrarily ugly things might happen with mis-matched selections)
         if operand._selection is not None:
+            wrng = "Found existing in-place selection in operand. " +\
+                "Shapes and trial counts of base and operand objects have to match up!"
+            SPYWarning(wrng, caller=operator)
             opndTrialList = operand._selection.trials
         else:
             opndTrialList = list(range(len(operand.trials)))

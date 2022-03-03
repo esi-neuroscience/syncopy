@@ -575,6 +575,7 @@ def unwrap_io(func):
         infilename = trl_dat["infile"]
         indset = trl_dat["indset"]
         ingrid = trl_dat["ingrid"]
+        inshape = trl_dat["inshape"]
         sigrid = trl_dat["sigrid"]
         fancy = trl_dat["fancy"]
         vdsdir = trl_dat["vdsdir"]
@@ -622,6 +623,11 @@ def unwrap_io(func):
                 arr = np.vstack(dsets)
 
             # === STEP 2 === perform computation
+            # Ensure input array shape was not inflated by scalar selection
+            # tuple, e.g., ``e=np.ones((2,2)); e[0,:].shape = (2,)`` not ``(1,2)``
+            # (use an explicit `shape` assignment here to avoid copies)
+            arr.shape = inshape
+
             # Now, actually call wrapped function
             res = func(arr, *wrkargs, **kwargs)
 
