@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # computeFunctions and -Routines for parallel calculation
-# of common preprocessing steps like IIR filtering
+# of IIR Filter operations with the Butterworth filter
 #
 
 # Builtin/3rd party package imports
@@ -10,7 +10,6 @@ import scipy.signal as sci
 from inspect import signature
 
 # syncopy imports
-from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
 
@@ -24,7 +23,8 @@ def but_filtering_cF(dat,
                      direction='twopass',
                      polyremoval=None,
                      timeAxis=0,
-                     noCompute=False
+                     noCompute=False,
+                     chunkShape=None
                      ):
     """
     Provides basic filtering of signals with IIR (Butterworth)
@@ -78,11 +78,6 @@ def but_filtering_cF(dat,
 
     """
 
-    # attach dummy channel axis in case only a
-    # single signal/channel is the input
-    if dat.ndim < 2:
-        dat = dat[:, np.newaxis]
-
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
         dat = dat.T       # does not copy but creates view of `dat`
@@ -112,3 +107,41 @@ def but_filtering_cF(dat,
     elif direction == 'onepass':
         filtered = sci.sosfilt(sos, dat, axis=0)
         return filtered
+
+
+class But_Filtering(ComputationalRoutine):
+
+    """
+    Compute class that performs filtering with butterworth filters 
+    of :class:`~syncopy.AnalogData` objects
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.preprocessing : parent metafunction
+    """
+
+    computeFunction = staticmethod(but_filtering_cF)
+
+    # 1st argument,the data, gets omitted
+    valid_kws = list(signature(but_filtering_cF).parameters.keys())[1:]
+
+    def process_metadata(self, data, out):
+        
+        # Some index gymnastics to get trial begin/end "samples"
+        if data._selection is not None:
+            chanSec = data._selection.channel
+            trl = data._selection.trialdefinition
+            for row in range(trl.shape[0]):
+                trl[row, :2] = [row, row + 1]
+        else:
+            chanSec = slice(None)
+            trl = data.trialdefinition
+
+        out.trialdefinition = trl
+            
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel[chanSec])

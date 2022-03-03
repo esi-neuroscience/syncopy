@@ -182,7 +182,6 @@ class ST_CrossSpectra(ComputationalRoutine):
 
     computeFunction = staticmethod(cross_spectra_cF)
 
-    backends = [csd]
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(cross_spectra_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend

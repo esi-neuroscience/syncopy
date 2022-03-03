@@ -29,11 +29,15 @@ if __name__ == "__main__":
     ad1 = spy.AnalogData([mock_up] * 5)
 
     nTrials = 50
-    nSamples = 200
+    nSamples = 500
+    fs = 500
+    f1, f2 = 20, 40
+    A1, A2 = 2, 3
     trls = []
     for _ in range(nTrials):
-        # defaults AR(2) parameters yield 40Hz peak
-        trls.append(synth_data.AR2_network(None, nSamples=nSamples))
-    ad1 = spy.AnalogData(trls, samplerate=200)
-    gr = spy.connectivityanalysis(ad1, method='granger', taper='dpss', tapsmofrq=3,
-                                  foilim=[0, 100])
+        sig1 = A1 * np.cos(f1 * 2 * np.pi * np.arange(nSamples) / fs)
+        sig1 += A2 * np.cos(f2 * 2 * np.pi * np.arange(nSamples) / fs)
+        sig2 = np.random.randn(nSamples)
+        trls.append(np.vstack([sig1, sig2]).T)
+    ad1 = spy.AnalogData(trls, samplerate=500)
+    #spy.preprocessing(ad1, filter_class='d')
