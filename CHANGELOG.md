@@ -10,11 +10,21 @@ Bugfix release
 ### NEW
 - Added experimental loading functionality for NWB 2.0 files
 - Added experimental loading functionality for Matlab mat files
+- Added support for "scalar" selections, i.e., things like `selectdata(trials=0)`
+  or `data.selectdata(channels='mychannel')`
 
 ### CHANGED
+- Renamed `_selection` class property to `selection`
 - Made plotting routines matplotlib 3.5 compatible
+- The output of `show` is now automatically squeezed (i.e., singleton dimensions
+  are removed from the returned array).
 
 ### REMOVED
+- Do not parse scalars using `numbers.Number`, use `numpy.number` instead to
+  catch Boolean values
+- Do not raise a `SPYTypeError` if an arithmetic operation is performed using
+  objects of different numerical types (real/complex; closes #199)
+
 ### DEPRECATED
 - Removed loading code for ESI binary format that is no longer supported
 - Repaired top-level imports: renamed `connectivity` to `connectivityanalysis`
@@ -24,13 +34,6 @@ Bugfix release
 - Inverted `selectdata` messaging policy: only actual on-disk copy operations
   trigger a `SPYInfo` message (closes #197)
 
-### REMOVED
-- Do not parse scalars using `numbers.Number`, use `numpy.number` instead to
-  catch Boolean values
-- Do not raise a `SPYTypeError` if an arithmetic operation is performed using
-  objects of different numerical types (real/complex; closes #199)
-
-### DEPRECATED
 ### FIXED
 - The `trialdefinition` arrays constructed by the `Selector` class were incorrect
   for `SpectralData` objects without time-axis, resulting in "empty" trials. This
