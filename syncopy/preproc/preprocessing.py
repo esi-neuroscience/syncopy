@@ -13,35 +13,35 @@ from syncopy.shared.tools import get_defaults
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
-
 from syncopy.shared.input_processors import (
     check_effective_parameters,
-    check_passed_kwargs,
-    process_padding
+    check_passed_kwargs
 )
 
-from .butterworthCR import But_Filtering
+from .compRoutines import But_Filtering, Sinc_Filtering
 
 availableFilters = ('but', 'firws')
 availableFilterTypes = ('lp', 'hp', 'bp', 'bs')
-availableDirections = ('twopass', 'onepass')
+availableDirections = ('twopass', 'onepass', 'onepass-zerophase')
+availableWindows = ("hamming", "hann", "blackmann")
 
 
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
 def preprocessing(data,
-                  filter_class = 'but',
+                  filter_class='but',
                   filter_type='lp',
                   freq=None,
-                  order=6,
-                  direction='twopass',
+                  order=None,
+                  direction=None,
+                  window="hamming",
                   polyremoval=None,
                   **kwargs
                   ):
     """
     Filtering of time continuous raw data with IIR and FIR filters
-    
+
     data : `~syncopy.AnalogData`
         A non-empty Syncopy :class:`~syncopy.AnalogData` object
     filter_class : {'but', 'firws'}
@@ -60,6 +60,9 @@ def preprocessing(data,
        Filter direction:
        `'twopass'` - zero-phase forward and reverse filter
        `'onepass'` - forward filter, introduces group delays
+       `'onepass-zerophase' - forward filter with zerophase correction, default for 'firws'
+    window : {"hamming", "hann", "blackmann"}, optional
+        The type of window to use for the FIR filter
     polyremoval : int or None, optional
         Order of polynomial used for de-trending data in the time domain prior
         to filtering. A value of 0 corresponds to subtracting the mean
@@ -73,21 +76,20 @@ def preprocessing(data,
     """
 
     # -- Basic input parsing --
-    
+
     # Make sure our one mandatory input object can be processed
     try:
         data_parser(data, varname="data", dataclass="AnalogData",
                     writable=None, empty=False)
     except Exception as exc:
         raise exc
-    timeAxis = data.dimord.index("time")    
+    timeAxis = data.dimord.index("time")
 
     # Get everything of interest in local namespace
     defaults = get_defaults(preprocessing)
     lcls = locals()
     # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="preprocessing")
-    # Ensure a valid computational method was selected    
 
     if filter_class not in availableFilters:
         lgl = "'" + "or '".join(opt + "' " for opt in availableFilters)
@@ -104,20 +106,20 @@ def preprocessing(data,
     elif filter_type in ('bp', 'bs'):
         array_parser(freq, varname='freq', hasinf=False, hasnan=False,
                      lims=[0, data.samplerate / 2], dims=(2,))
-    # filter order
-    scalar_parser(order, varname='order', lims=[0, 100], ntype='int_like')
+        freq = np.sort(freq)
 
-    # filter direction
-    if not isinstance(direction, str) or direction not in availableDirections:
-        lgl = "'" + "or '".join(opt + "' " for opt in availableDirections)
-        raise SPYValueError(legal=lgl, varname="direction", actual=direction)
+    # -- here the defaults are filter specific and get set later --
+
+    # filter order
+    if order is not None:
+        scalar_parser(order, varname='order', lims=[0, np.inf], ntype='int_like')
 
     # check polyremoval
     if polyremoval is not None:
         scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])
 
-    # -- get trial info 
-        
+    # -- get trial info
+
     # if a subset selection is present
     # get sampleinfo and check for equidistancy
     if data._selection is not None:
@@ -132,7 +134,7 @@ def preprocessing(data,
         trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo).squeeze()
-    
+
     # check for equidistant sampling as needed for filtering
     if not all([np.allclose(np.diff(time), 1 / data.samplerate) for time in data.time]):
         lgl = "equidistant sampling in time"
@@ -146,12 +148,33 @@ def preprocessing(data,
     log_dict = {"filter_class": filter_class,
                 "filter_type": filter_type,
                 "freq": freq,
-                "order": order,
-                "direction": direction,
                 "polyremoval": polyremoval,
                 }
 
     if filter_class == 'but':
+
+        if window != defaults['window'] and window is not None:
+            lgl = "no `window` setting for IIR filtering"
+            act = window
+            raise SPYValueError(lgl, 'window', act)
+
+        # set filter specific defaults here
+        if direction is None:
+            direction = 'twopass'
+            msg = f"Setting default direction for IIR filter to '{direction}'"
+            SPYInfo(msg)
+        elif not isinstance(direction, str) or direction not in ('onepass', 'twopass'):
+            lgl = "'" + "or '".join(opt + "' " for opt in ('onepass', 'twopass'))
+            raise SPYValueError(legal=lgl, varname="direction", actual=direction)
+
+        if order is None:
+            order = 4
+            msg = f"Setting default order for IIR filter to {order}"
+            SPYInfo(msg)
+
+        log_dict["order"] = order
+        log_dict["direction"] = direction
+
         check_effective_parameters(But_Filtering, defaults, lcls)
 
         filterMethod = But_Filtering(samplerate=data.samplerate,
@@ -161,16 +184,48 @@ def preprocessing(data,
                                      direction=direction,
                                      polyremoval=polyremoval,
                                      timeAxis=timeAxis)
-        
+
     if filter_class == 'firws':
-        raise NotImplementedError('FIR coming soon..')
+
+        if window not in availableWindows:
+            lgl = "'" + "or '".join(opt + "' " for opt in availableWindows)
+            raise SPYValueError(legal=lgl, varname="window", actual=window)          
+
+        # set filter specific defaults here
+        if direction is None:
+            direction = 'onepass-zerophase'
+            msg = f"Setting default direction for FIR filter to '{direction}'"
+            SPYInfo(msg)
+        elif not isinstance(direction, str) or direction not in availableDirections:
+            lgl = "'" + "or '".join(opt + "' " for opt in availableDirections)
+            raise SPYValueError(legal=lgl, varname="direction", actual=direction)
+
+        if order is None:
+            order = int(lenTrials.min())
+            msg = f"Setting order for FIR filter to {order}"
+            SPYInfo(msg)
+
+        log_dict["order"] = order
+        log_dict["direction"] = direction
+
+        check_effective_parameters(Sinc_Filtering, defaults, lcls,
+                                   besides=['filter_class'])
+
+        filterMethod = Sinc_Filtering(samplerate=data.samplerate,
+                                      filter_type=filter_type,
+                                      freq=freq,
+                                      order=order,
+                                      window=window,
+                                      direction=direction,
+                                      polyremoval=polyremoval,
+                                      timeAxis=timeAxis)
 
     # ------------------------------------
     # Call the chosen ComputationalRoutine
     # ------------------------------------
 
     out = AnalogData(dimord=data.dimord)
-        # Perform actual computation
+    # Perform actual computation
     filterMethod.initialize(data,
                             out._stackingDim,
                             chan_per_worker=kwargs.get("chan_per_worker"),
