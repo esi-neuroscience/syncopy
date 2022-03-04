@@ -430,6 +430,24 @@ class TestSelector():
             assert selected.trialdefinition.shape == (2, 4)
             assert np.array_equal(selected.trialdefinition[:, -1], dummy.trialdefinition[[3, 1], -1])
 
+            # scalar selection
+            selection = Selector(dummy, {"trials": 2})
+            assert selection.trials == [2]
+            selected = selectdata(dummy, trials=2)
+            assert np.array_equal(selected.trials[0], dummy.trials[2])
+            assert selected.trialdefinition.shape == (1, 4)
+            assert np.array_equal(selected.trialdefinition[:, -1], dummy.trialdefinition[[2], -1])
+
+            # array selection
+            selection = Selector(dummy, {"trials": np.array([3, 1])})
+            assert selection.trials == [3, 1]
+            selected = selectdata(dummy, trials=[3, 1])
+            assert np.array_equal(selected.trials[0], dummy.trials[3])
+            assert np.array_equal(selected.trials[1], dummy.trials[1])
+            assert selected.trialdefinition.shape == (2, 4)
+            assert np.array_equal(selected.trialdefinition[:, -1], dummy.trialdefinition[[3, 1], -1])
+
+            # select all
             for trlSec in [None, "all"]:
                 selection = Selector(dummy, {"trials": trlSec})
                 assert selection.trials == list(range(len(dummy.trials)))
@@ -438,11 +456,11 @@ class TestSelector():
                     assert np.array_equal(trl, dummy.trials[tk])
                 assert np.array_equal(selected.trialdefinition, dummy.trialdefinition)
 
+            # invalid trials
             with pytest.raises(SPYValueError):
                 Selector(dummy, {"trials": [-1, 9]})
 
             # test "simple" property setters handled by `_selection_setter`
-            # for prop in ["eventid"]:
             for prop in ["channel", "taper", "unit", "eventid"]:
                 if hasattr(dummy, prop):
                     expected = self.selectDict[prop]["result"]
@@ -463,6 +481,11 @@ class TestSelector():
                                     solution = list(range(start, stop))[solution]
                                 else:
                                     solution = slice(start, stop, step)
+
+                        # ensure typos in selectino keywords are caught
+                        with pytest.raises(SPYValueError) as spv:
+                            Selector(dummy, {prop + "x": sel})
+                            assert "expected dict with one or all of the following keys:" in str(spv.value)
 
                         # once we're sure `Selector` works, actually select data
                         selection = Selector(dummy, {prop : sel})

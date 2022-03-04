@@ -91,7 +91,7 @@ def _base_op_tests(dummy, ymmud, dummy2, ymmud2, dummyC, operation):
     ymmudOperands = [ymmudArr, ymmudArr.tolist()]
 
     # Ensure trial counts are properly vetted
-    dummy2.selectdata(trials=[0], inplace=True)
+    dummy2.selectdata(trials=0, inplace=True)
     with pytest.raises(SPYValueError) as spyval:
         operation(dummy, dummy2)
         assert "Syncopy object with same number of trials (selected)" in str (spyval.value)
