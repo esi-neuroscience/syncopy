@@ -189,7 +189,7 @@ class TestMTMFFT():
 
         # keep trials but throw away tapers
         out = SpectralData(dimord=SpectralData._defaultDimord)
-        freqanalysis(self.adata, method="mtmfft", taper="dpss",
+        freqanalysis(self.adata, method="mtmfft",
                      tapsmofrq=3, keeptapers=False, output="pow", out=out)
         assert out.sampleinfo.shape == (self.nTrials, 2)
         assert out.taper.size == 1
@@ -197,7 +197,6 @@ class TestMTMFFT():
         # re-use `cfg` from above and additionally throw away `tapers`
         cfg.dataset = self.adata
         cfg.out = SpectralData(dimord=SpectralData._defaultDimord)
-        cfg.taper = "dpss"
         cfg.tapsmofrq = 3
         cfg.output = "pow"
         cfg.keeptapers = False
@@ -258,12 +257,12 @@ class TestMTMFFT():
 
             # ensure default setting results in single taper
             spec = freqanalysis(self.adata, method="mtmfft",
-                                taper="dpss", tapsmofrq=3,  output="pow", select=select)
+                                tapsmofrq=3, output="pow", select=select)
             assert spec.taper.size == 1
             assert spec.channel.size == len(chanList)
 
             # specify tapers
-            spec = freqanalysis(self.adata, method="mtmfft", taper="dpss",
+            spec = freqanalysis(self.adata, method="mtmfft",
                                 tapsmofrq=7, keeptapers=True, select=select)
             assert spec.channel.size == len(chanList)
 
@@ -273,7 +272,6 @@ class TestMTMFFT():
         timeAxis = artdata.dimord.index("time")
         cfg = StructDict()
         cfg.method = "mtmfft"
-        cfg.taper = "dpss"
         cfg.tapsmofrq = 9.3
         cfg.output = "pow"
 
@@ -374,7 +372,7 @@ class TestMTMFFT():
             vdata = VirtualData([dmap, dmap])
             avdata = AnalogData(vdata, samplerate=self.fs,
                                 trialdefinition=self.trialdefinition)
-            spec = freqanalysis(avdata, method="mtmfft", taper="dpss",
+            spec = freqanalysis(avdata, method="mtmfft",
                                 tapsmofrq=3, keeptapers=False, output="abs", pad="relative",
                                 padlength=npad)
             assert (np.diff(avdata.sampleinfo)[0][0] + npad) / 2 + 1 == spec.freq.size
@@ -397,7 +395,6 @@ class TestMTMFFT():
         # now create uniform `cfg` for remaining SLURM tests
         cfg = StructDict()
         cfg.method = "mtmfft"
-        cfg.taper = "dpss"
         cfg.tapsmofrq = 9.3
         cfg.output = "pow"
 
@@ -535,7 +532,7 @@ class TestMTMConvol():
 
         # keep trials but throw away tapers
         out = SpectralData(dimord=SpectralData._defaultDimord)
-        freqanalysis(self.tfData, method="mtmconvol", taper="dpss", tapsmofrq=3,
+        freqanalysis(self.tfData, method="mtmconvol", tapsmofrq=3,
                      keeptapers=False, output="pow", toi=0.0, t_ftimwin=1.0,
                      out=out)
         assert out.sampleinfo.shape == (self.nTrials, 2)
@@ -544,7 +541,6 @@ class TestMTMConvol():
         # re-use `cfg` from above and additionally throw away `tapers`
         cfg.dataset = self.tfData
         cfg.out = SpectralData(dimord=SpectralData._defaultDimord)
-        cfg.taper = "dpss"
         cfg.tapsmofrq = 3
         cfg.keeptapers = False
         cfg.output = "pow"
@@ -696,7 +692,6 @@ class TestMTMConvol():
 
         # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
         # to not overflow memory here); same for ``toi = 1.0```
-        cfg.taper = "dpss"
         cfg.tapsmofrq = 10
         cfg.keeptapers = True
         cfg.select = {"trials": [0], "channel": [0], "toilim": [-0.5, 0.5]}
@@ -737,7 +732,6 @@ class TestMTMConvol():
         # also make sure ``toi = "all"`` works under any circumstance
         cfg = get_defaults(freqanalysis)
         cfg.method = "mtmconvol"
-        cfg.taper = "dpss"
         cfg.tapsmofrq = 10
         cfg.t_ftimwin = 1.0
         cfg.output = "pow"
@@ -848,7 +842,6 @@ class TestMTMConvol():
 
         # equidistant trial spacing, keep tapers
         cfg.output = "abs"
-        cfg.taper = "dpss"
         cfg.tapsmofrq = 10
         cfg.keeptapers = True
         artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,

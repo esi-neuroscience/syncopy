@@ -8,7 +8,12 @@ import numpy as np
 from scipy import signal
 
 
-def mtmfft(data_arr, samplerate, nSamples=None, taper="hann", taper_opt=None):
+def mtmfft(data_arr,
+           samplerate,
+           nSamples=None,
+           taper="hann",
+           taper_opt=None,
+           demean_taper=False):
     """
     (Multi-)tapered fast Fourier transform. Returns
     full complex Fourier transform for each taper.
@@ -33,12 +38,8 @@ def mtmfft(data_arr, samplerate, nSamples=None, taper="hann", taper_opt=None):
         `'Kmax'` and `'NW'`.
         For further details, please refer to the
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
-    n : int or None
-        Number of points along transformation axis in the input to use.
-        If `n` is smaller than the length of the input, the input is cropped.
-        If it is larger, the input is padded with zeros. If `n` is not given,
-        the length of the input along the axis specified by `axis` is used.
-
+    demean_taper : bool
+        Set to `True` to perform de-meaning after tapering
 
     Returns
     -------
@@ -97,9 +98,13 @@ def mtmfft(data_arr, samplerate, nSamples=None, taper="hann", taper_opt=None):
 
     for taperIdx, win in enumerate(windows):
         win = np.tile(win, (nChannels, 1)).T
+        win *= data_arr
+        # de-mean again after tapering - needed for Granger!
+        if demean_taper:
+            win -= win.mean(axis=0)
         # real fft takes only 'half the energy'/positive frequencies,
         # multiply by 2 to correct for this
-        ftr[taperIdx] = 2 * np.fft.rfft(data_arr * win, n=nSamples, axis=0)
+        ftr[taperIdx] = 2 * np.fft.rfft(win, n=nSamples, axis=0)
         # normalization
         ftr[taperIdx] /= np.sqrt(nSamples)
 

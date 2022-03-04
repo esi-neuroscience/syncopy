@@ -48,8 +48,8 @@ from .compRoutines import (
 @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='pow',
                  keeptrials=True, foi=None, foilim=None,
-                 pad_to_length=None, polyremoval=None,
-                 taper="hann", tapsmofrq=None, nTaper=None, keeptapers=False,
+                 pad_to_length=None, polyremoval=None, taper="hann",
+                 taper_opt=None, tapsmofrq=None, nTaper=None, keeptapers=False,
                  toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
                  out=None, **kwargs):
@@ -162,20 +162,25 @@ def freqanalysis(data, method='mtmfft', output='pow',
         If `polyremoval` is `None`, no de-trending is performed. Note that
         for spectral estimation de-meaning is very advisable and hence also the
         default.
-    taper : str
-        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. Windowing function,
-        one of :data:`~syncopy.shared.const_def.availableTapers` (see below).
-    tapsmofrq : float
-        Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and `taper` is `'dpss'`.
-        The amount of spectral smoothing through  multi-tapering (Hz).
-        Note that smoothing frequency specifications are one-sided,
-        i.e., 4 Hz smoothing means plus-minus 4 Hz, i.e., a 8 Hz smoothing box.
+    tapsmofrq : float or None
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`
+        Enables multi-tapering and sets the amount of spectral
+        smoothing with slepian tapers in Hz.
     nTaper : int or None
-        Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and `taper='dpss'`.
-        Number of orthogonal tapers to use. It is not recommended to set the number
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and `tapsmofrq` is set.
+        Number of orthogonal tapers to use for multi-tapering. It is not recommended to set the number
         of tapers manually! Leave at `None` for the optimal number to be set automatically.
+    taper : str or None, optional
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. Windowing function,
+        one of :data:`~syncopy.specest.const_def.availableTapers`
+        For multi-tapering with slepian tapers use `tapsmofrq` directly.
+    taper_opt : dict or None
+        Dictionary with keys for additional taper parameters.
+        For example :func:`~scipy.signal.windows.kaiser` has
+        the additional parameter 'beta'. For multi-tapering use `tapsmofrq` directly.
     keeptapers : bool
-        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`.
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and multi-tapering enabled
+        via  setting `tapsmofrq`.
         If `True`, return spectral estimates for each taper.
         Otherwise power spectrum is averaged across tapers,
         if and only if `output` is `pow`.
@@ -471,22 +476,24 @@ def freqanalysis(data, method='mtmfft', output='pow',
             act = "empty frequency selection"
             raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
 
-        # sanitize taper selection and retrieve dpss settings
-        taper_opt = process_taper(taper,
-                                  tapsmofrq,
-                                  nTaper,
-                                  keeptapers,
-                                  foimax=foi.max(),
-                                  samplerate=data.samplerate,
-                                  nSamples=minSampleNum,
-                                  output=output)
+        # sanitize taper selection and/or retrieve dpss settings
+        taper, taper_opt = process_taper(taper,
+                                         taper_opt,
+                                         tapsmofrq,
+                                         nTaper,
+                                         keeptapers,
+                                         foimax=foi.max(),
+                                         samplerate=data.samplerate,
+                                         nSamples=minSampleNum,
+                                         output=output)
 
         # Update `log_dct` w/method-specific options
         log_dct["taper"] = taper
-        # only dpss returns non-empty taper_opt dict
-        if taper_opt:
+        if taper_opt and taper == 'dpss':
             log_dct["nTaper"] = taper_opt["Kmax"]
             log_dct["tapsmofrq"] = tapsmofrq
+        elif taper_opt:
+            log_dct["taper_opt"] = taper_opt
 
     # -------------------------------------------------------
     # Now, prepare explicit compute-classes for chosen method
@@ -628,13 +635,12 @@ def freqanalysis(data, method='mtmfft', output='pow',
         else:
             soi = [slice(None)] * numTrials
 
-
         # Collect keyword args for `mtmconvol` in dictionary
         method_kwargs = {"samplerate": data.samplerate,
                          "nperseg": nperseg,
                          "noverlap": noverlap,
-                         "taper" : taper,
-                         "taper_opt" : taper_opt}
+                         "taper": taper,
+                         "taper_opt": taper_opt}
 
         # Set up compute-class
         specestMethod = MultiTaperFFTConvol(
