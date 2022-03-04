@@ -362,10 +362,7 @@ class TestSelector():
                 elif np.issubdtype(type(selection), np.number):
                     selection = [selection]
 
-                # elif isinstance(selection, str) or selection is None:
-                #     selects = [None]
                 if isinstance(selection, (list, np.ndarray)):
-                # else: # selection is list/ndarray
                     if isinstance(selection[0], str):
                         avail = getattr(discrete, prop)
                     else:
@@ -414,6 +411,10 @@ class TestSelector():
         with pytest.raises(SPYValueError) as spyval:
             ang.selectdata(trials=[3, 1], clear=True)
             assert "no data selectors if `clear = True`" in str(spyval.value)
+
+        # show full/squeezed arrays
+        assert len(ang.show(channel=0).shape) == 1
+        assert len(ang.show(channel=0, squeeze=False).shape) == 2
 
         # go through all data-classes defined above
         for dclass in self.classes:

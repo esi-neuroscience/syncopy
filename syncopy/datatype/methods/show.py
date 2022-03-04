@@ -7,14 +7,14 @@
 import numpy as np
 
 # Local imports
-from syncopy.shared.errors import SPYInfo
+from syncopy.shared.errors import SPYInfo, SPYTypeError
 from syncopy.shared.kwarg_decorators import unwrap_cfg
 
 __all__ = ["show"]
 
 
 @unwrap_cfg
-def show(data, **kwargs):
+def show(data, squeeze=True, **kwargs):
     """
     Show (partial) contents of Syncopy object
 
@@ -40,6 +40,10 @@ def show(data, **kwargs):
         determines which keywords can be used.  Some keywords are only valid for
         certain types of Syncopy objects, e.g., "freqs" is not a valid selector
         for an :class:`~syncopy.AnalogData` object.
+    squeeze : bool
+        If `True` (default) any singleton dimensions are removed from the output
+        array, i.e., the shape of the returned array does not contain ones (e.g.,
+        ``arr.shape = (2,)`` not ``arr.shape = (1,2,1,1)``).
     **kwargs : keywords
         Valid data selectors (e.g., `trials`, `channels`, `toi` etc.). Please
         refer to :func:`~syncopy.selectdata` for a full list of available data
@@ -70,21 +74,26 @@ def show(data, **kwargs):
 
     Show the contents of `'channel02'` across all trials:
 
-    >>> spy.show(adata, channels=['channel02'])
-    Syncopy <selectdata> INFO: In-place selection attached to data object: Syncopy AnalogData selector with 1 channels, all times, 10 trials
-    Syncopy <show> INFO: Showing 1 channels, all times, 10 trials
-    Out[11]:
-    array([[1.627 ],
-        [1.7906],
-        [1.1757],
-        ...,
-        [1.1498],
-        [0.7753],
-        [1.0457]], dtype=float32)
+    >>> spy.show(adata, channel='channel02')
+    Syncopy <show> INFO: Showing all times 10 trials
+    Out[2]: array([1.0871, 0.7267, 0.2816, ..., 1.0273, 0.893 , 0.7226], dtype=float32)
 
     Note that this is equivalent to
 
-    >>> adata.show(channels=['channel02'])
+    >>> adata.show(channel='channel02')
+
+    To preserve singleton dimensions use ``squeeze=False``:
+
+    >>> adata.show(channel='channel02', squeeze=False)
+    Out[3]:
+    array([[1.0871],
+           [0.7267],
+           [0.2816],
+           ...,
+           [1.0273],
+           [0.893 ],
+           [0.7226]], dtype=float32)
+
 
     See also
     --------
@@ -96,11 +105,26 @@ def show(data, **kwargs):
         SPYInfo("Empty object, nothing to show")
         return
 
+    # Parse single method-specific keyword
+    if not isinstance(squeeze, bool):
+        raise SPYTypeError(squeeze, varname="squeeze", expected="True or False")
+
     # Leverage `selectdata` to sanitize input and perform subset picking
     data.selectdata(inplace=True, **kwargs)
 
+    # Truncate info message by removing any squeezed dimensions (if necessary)
+    msg = data._selection.__str__().partition("with")[-1]
+    if squeeze:
+        removeKeys = ["one", "1 "]
+        selectionTxt = np.array(msg.split(","))
+        txtMask = [all(qualifier not in selTxt for qualifier in removeKeys) for selTxt in selectionTxt]
+        msg = "".join(selectionTxt[txtMask])
+        transform_out = np.squeeze
+    else:
+        transform_out = lambda x : x
+    SPYInfo("Showing{}".format(msg))
+
     # Use an object's `_preview_trial` method fetch required indexing tuples
-    SPYInfo("Showing{}".format(data._selection.__str__().partition("with")[-1]))
     idxList = []
     for trlno in data._selection.trials:
         idxList.append(data._preview_trial(trlno).idx)
@@ -126,6 +150,6 @@ def show(data, **kwargs):
     # If possible slice underlying dataset only once, otherwise return a list
     # of arrays corresponding to selected trials
     if all(si == True for si in singleIdx):
-        return data.data[tuple(returnIdx)]
+        return transform_out(data.data[tuple(returnIdx)])
     else:
-        return [data.data[idx] for idx in idxList]
+        return [transform_out(data.data[idx]) for idx in idxList]
