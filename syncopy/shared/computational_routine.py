@@ -142,7 +142,7 @@ class ComputationalRoutine(ABC):
         # list of dicts encoding header info of raw binary input files (experimental!)
         self.hdr = None
 
-        # list of trial numbers to process (either `data.trials` or `data._selection.trials`)
+        # list of trial numbers to process (either `data.trials` or `data.selection.trials`)
         self.trialList = None
 
         # number of trials to process (shortcut for `len(self.trialList)`)
@@ -269,9 +269,9 @@ class ComputationalRoutine(ABC):
 
         # Determine if data-selection was provided; if so, extract trials and check
         # whether selection requires fancy array indexing
-        if data._selection is not None:
-            self.trialList = data._selection.trials
-            self.useFancyIdx = data._selection._useFancy
+        if data.selection is not None:
+            self.trialList = data.selection.trials
+            self.useFancyIdx = data.selection._useFancy
         else:
             self.trialList = list(range(len(data.trials)))
             self.useFancyIdx = False
@@ -328,8 +328,8 @@ class ComputationalRoutine(ABC):
             msg = "trial-averaging does not support channel-block parallelization!"
             SPYWarning(msg)
             chan_per_worker = None
-        if data._selection is not None:
-            if chan_per_worker is not None and data._selection.channel != slice(None, None, 1):
+        if data.selection is not None:
+            if chan_per_worker is not None and data.selection.channel != slice(None, None, 1):
                 msg = "channel selection and simultaneous channel-block " +\
                     "parallelization not yet supported!"
                 SPYWarning(msg)

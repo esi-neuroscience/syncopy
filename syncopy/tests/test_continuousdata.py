@@ -95,7 +95,7 @@ def _base_op_tests(dummy, ymmud, dummy2, ymmud2, dummyC, operation):
     with pytest.raises(SPYValueError) as spyval:
         operation(dummy, dummy2)
         assert "Syncopy object with same number of trials (selected)" in str (spyval.value)
-    dummy2._selection = None
+    dummy2.selection = None
 
     # Scalar algebra must be commutative (except for pow)
     for operand in scalarOperands:
@@ -178,10 +178,10 @@ def _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation):
                                                 selected.trials[tk]))
 
     # Very important: clear manually set selections for next iteration
-    dummy._selection = None
-    dummy2._selection = None
-    ymmud._selection = None
-    ymmud2._selection = None
+    dummy.selection = None
+    dummy2.selection = None
+    ymmud.selection = None
+    ymmud2.selection = None
 
 
 class TestAnalogData():

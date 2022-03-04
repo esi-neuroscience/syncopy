@@ -113,7 +113,7 @@ def show(data, squeeze=True, **kwargs):
     data.selectdata(inplace=True, **kwargs)
 
     # Truncate info message by removing any squeezed dimensions (if necessary)
-    msg = data._selection.__str__().partition("with")[-1]
+    msg = data.selection.__str__().partition("with")[-1]
     if squeeze:
         removeKeys = ["one", "1 "]
         selectionTxt = np.array(msg.split(","))
@@ -126,7 +126,7 @@ def show(data, squeeze=True, **kwargs):
 
     # Use an object's `_preview_trial` method fetch required indexing tuples
     idxList = []
-    for trlno in data._selection.trials:
+    for trlno in data.selection.trials:
         idxList.append(data._preview_trial(trlno).idx)
 
     # Perform some slicing/list-selection gymnastics: ensure that selections
@@ -145,7 +145,7 @@ def show(data, squeeze=True, **kwargs):
                     returnIdx[sk] = slice(selectors[0].start, selectors[-1].stop)
 
     # Reset in-place subset selection
-    data._selection = None
+    data.selection = None
 
     # If possible slice underlying dataset only once, otherwise return a list
     # of arrays corresponding to selected trials

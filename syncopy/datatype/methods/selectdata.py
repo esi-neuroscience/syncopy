@@ -186,9 +186,14 @@ def selectdata(data,
         events are selected.
     inplace : bool
         If `inplace` is `True` **no** new object is created. Instead the provided
-        selection is stored in the input object's `_selection` attribute for later
+        selection is stored in the input object's `selection` attribute for later
         use. By default `inplace` is `False` and all calls to `selectdata` create
         a new Syncopy data object.
+    clear : bool
+        If `True` remove any active in-place selection. Note that in-place
+        selections can also be removed manually by assinging `None` to the
+        `selection` property, i.e., ``mydata.selection = None`` is equivalent
+        to ``spy.selectdata(mydata, clear=True)`` or ``mydata.selectdata(clear=True)``
 
     Returns
     -------
@@ -317,15 +322,15 @@ def selectdata(data,
         if any(value is not None for value in selectDict.values()):
             lgl = "no data selectors if `clear = True`"
             raise SPYValueError(lgl, varname="select", actual=selectDict)
-        if data._selection is None:
+        if data.selection is None:
             SPYInfo("No in-place selection found. ")
         else:
-            data._selection = None
+            data.selection = None
             SPYInfo("In-place selection cleared")
         return
 
     # Pass provided selections on to `Selector` class which performs error checking
-    data._selection = selectDict
+    data.selection = selectDict
 
     # If an in-place selection was requested we're done
     if inplace:
@@ -354,7 +359,7 @@ def selectdata(data,
                          log_dict=log_dct)
 
     # Wipe data-selection slot to not alter input object
-    data._selection = None
+    data.selection = None
 
     # Either return newly created output object or simply quit
     return out if new_out else None
@@ -364,7 +369,7 @@ def _get_selection_size(data):
     """
     Local helper routine for computing the on-disk size of an active data-selection
     """
-    fauxTrials = [data._preview_trial(trlno) for trlno in data._selection.trials]
+    fauxTrials = [data._preview_trial(trlno) for trlno in data.selection.trials]
     fauxSizes = [np.prod(ftrl.shape)*ftrl.dtype.itemsize for ftrl in fauxTrials]
     return sum(fauxSizes) / 1024**2
 
@@ -383,15 +388,15 @@ class DataSelection(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Get/set timing-related selection modifiers
-        out.trialdefinition = data._selection.trialdefinition
-        # if data._selection._timeShuffle: # FIXME: should be implemented down the road
-        #     out.time = data._selection.timepoints
-        if data._selection._samplerate:
+        out.trialdefinition = data.selection.trialdefinition
+        # if data.selection._timeShuffle: # FIXME: should be implemented down the road
+        #     out.time = data.selection.timepoints
+        if data.selection._samplerate:
             out.samplerate = data.samplerate
 
         # Get/set dimensional attributes changed by selection
-        for prop in data._selection._dimProps:
-            selection = getattr(data._selection, prop)
+        for prop in data.selection._dimProps:
+            selection = getattr(data.selection, prop)
             if selection is not None:
                 if np.issubdtype(type(selection), np.number):
                     selection = [selection]

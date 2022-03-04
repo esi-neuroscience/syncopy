@@ -559,12 +559,12 @@ class BaseData(ABC):
         self._mode = md
 
     @property
-    def _selection(self):
+    def selection(self):
         """Data selection specified by :class:`Selector`"""
         return self._selector
 
-    @_selection.setter
-    def _selection(self, select):
+    @selection.setter
+    def selection(self, select):
         if select is None:
             self._selector = None
         else:
@@ -870,7 +870,7 @@ class BaseData(ABC):
             return True
 
         # If in-place selections are present, abort
-        if self._selection is not None or other._selection is not None:
+        if self.selection is not None or other.selection is not None:
             err = "Cannot perform object comparison with existing in-place selection"
             raise SPYError(err)
 
@@ -1710,6 +1710,18 @@ class Selector():
                 trlDef[tk, 3:] = trl[trlno, 3:]
                 counter += nSamples
         self._trialdefinition = trlDef
+
+    @property
+    def sampleinfo(self):
+        """nTrials x 2 :class:`numpy.ndarray` of [start, end] sample indices"""
+        if self._trialdefinition is not None:
+            return self._trialdefinition[:, :2]
+        else:
+            return None
+
+    @sampleinfo.setter
+    def sampleinfo(self, sinfo):
+        raise SPYError("Cannot set sampleinfo. Use `Selector.trialdefinition` instead.")
 
     @property
     def timepoints(self):

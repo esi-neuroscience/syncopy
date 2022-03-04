@@ -137,10 +137,10 @@ def _parse_input(obj1, obj2, operator):
 
     # If no active selection is present, create a "fake" all-to-all selection
     # to harmonize processing down the road (and attach `_cleanup` attribute for later removal)
-    if baseObj._selection is None:
+    if baseObj.selection is None:
         baseObj.selectdata(inplace=True)
-        baseObj._selection._cleanup = True
-    baseTrialList = baseObj._selection.trials
+        baseObj.selection._cleanup = True
+    baseTrialList = baseObj.selection.trials
 
     # Use the `_preview_trial` functionality of Syncopy objects to get each trial's
     # shape and dtype (existing selections are taken care of automatically)
@@ -214,11 +214,11 @@ def _parse_input(obj1, obj2, operator):
 
         # If only a subset of `operand` is selected, adjust for this (and warn
         # that arbitrarily ugly things might happen with mis-matched selections)
-        if operand._selection is not None:
+        if operand.selection is not None:
             wrng = "Found existing in-place selection in operand. " +\
                 "Shapes and trial counts of base and operand objects have to match up!"
             SPYWarning(wrng, caller=operator)
-            opndTrialList = operand._selection.trials
+            opndTrialList = operand.selection.trials
         else:
             opndTrialList = list(range(len(operand.trials)))
 
@@ -257,12 +257,12 @@ def _parse_input(obj1, obj2, operator):
                 else False for sel in trl.idx):
                 lgl = "Syncopy object with ordered unreverberated subset selection"
                 act = "Syncopy object with selection {}"
-                raise SPYValueError(lgl, varname="operand", actual=act.format(operand._selection))
+                raise SPYValueError(lgl, varname="operand", actual=act.format(operand.selection))
             if sum(isinstance(sel, slice) for sel in trl.idx) > 1 and \
                 sum(isinstance(sel, list) for sel in trl.idx) > 1:
                 lgl = "Syncopy object without selections requiring advanced indexing"
                 act = "Syncopy object with selection {}"
-                raise SPYValueError(lgl, varname="operand", actual=act.format(operand._selection))
+                raise SPYValueError(lgl, varname="operand", actual=act.format(operand.selection))
 
         # Propagate indices for fetching data from operand
         operand_idxs = [trl.idx for trl in opndTrials]
@@ -344,12 +344,12 @@ def _perform_computation(baseObj,
     # Prepare logging info in dictionary: we know that `baseObj` is definitely
     # a Syncopy data object, operand may or may not be; account for this
     if "BaseData" in str(operand.__class__.__mro__):
-        opSel = operand._selection
+        opSel = operand.selection
     else:
         opSel = None
     log_dct = {"operator": operator,
                "base": baseObj.__class__.__name__,
-               "base selection": baseObj._selection,
+               "base selection": baseObj.selection,
                "operand": operand.__class__.__name__,
                "operand selection": opSel}
 
@@ -423,8 +423,8 @@ def _perform_computation(baseObj,
         lock.release()
 
     # Delete any created subset selections
-    if hasattr(baseObj._selection, "_cleanup"):
-        baseObj._selection = None
+    if hasattr(baseObj.selection, "_cleanup"):
+        baseObj.selection = None
 
     return out
 
@@ -510,15 +510,15 @@ class SpyArithmetic(ComputationalRoutine):
     def process_metadata(self, baseObj, out):
 
         # Get/set timing-related selection modifiers
-        out.trialdefinition = baseObj._selection.trialdefinition
-        # if baseObj._selection._timeShuffle: # FIXME: should be implemented done the road
-        #     out.time = baseObj._selection.timepoints
-        if baseObj._selection._samplerate:
+        out.trialdefinition = baseObj.selection.trialdefinition
+        # if baseObj.selection._timeShuffle: # FIXME: should be implemented done the road
+        #     out.time = baseObj.selection.timepoints
+        if baseObj.selection._samplerate:
             out.samplerate = baseObj.samplerate
 
         # Get/set dimensional attributes changed by selection
-        for prop in baseObj._selection._dimProps:
-            selection = getattr(baseObj._selection, prop)
+        for prop in baseObj.selection._dimProps:
+            selection = getattr(baseObj.selection, prop)
             if selection is not None:
                 if np.issubdtype(type(selection), np.number):
                     selection = [selection]

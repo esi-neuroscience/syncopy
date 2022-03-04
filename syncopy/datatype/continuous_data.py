@@ -262,10 +262,10 @@ class ContinuousData(BaseData, ABC):
         idx[self._stackingDim] = slice(start, stop)
 
         # process existing data selections
-        if self._selection is not None:
+        if self.selection is not None:
 
             # time-selection is most delicate due to trial-offset
-            tsel = self._selection.time[self._selection.trials.index(trialno)]
+            tsel = self.selection.time[self.selection.trials.index(trialno)]
             if isinstance(tsel, slice):
                 if tsel.start is not None:
                     tstart = tsel.start
@@ -290,7 +290,7 @@ class ContinuousData(BaseData, ABC):
             dims = list(self.dimord)
             dims.pop(self._stackingDim)
             for dim in dims:
-                sel = getattr(self._selection, dim)
+                sel = getattr(self.selection, dim)
                 if sel is not None:
                     dimIdx = self.dimord.index(dim)
                     idx[dimIdx] = sel

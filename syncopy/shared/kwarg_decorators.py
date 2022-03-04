@@ -352,19 +352,19 @@ def unwrap_select(func):
 
         # Either extract `select` from input kws and cycle through positional
         # argument to apply in-place selection to all Syncopy objects, or clean
-        # any unintended leftovers in `_selection` if no `select` keyword was provided
+        # any unintended leftovers in `selection` if no `select` keyword was provided
         select = kwargs.get("select", None)
         for obj in args:
-            if hasattr(obj, "_selection"):
-                obj._selection = select
+            if hasattr(obj, "selection"):
+                obj.selection = select
 
         # Call function with modified data object(s)
         res = func(*args, **kwargs)
 
         # Wipe data-selection slot to not alter user objects
         for obj in args:
-            if hasattr(obj, "_selection"):
-                obj._selection = None
+            if hasattr(obj, "selection"):
+                obj.selection = None
 
         return res
 

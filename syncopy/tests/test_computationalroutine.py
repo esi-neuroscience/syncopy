@@ -39,9 +39,9 @@ class LowPassFilter(ComputationalRoutine):
     computeFunction = staticmethod(lowpass)
 
     def process_metadata(self, data, out):
-        if data._selection is not None:
-            chanSec = data._selection.channel
-            trl = data._selection.trialdefinition
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
         else:
             chanSec = slice(None)
             trl = np.zeros((len(self.trialList), 3), dtype=int)

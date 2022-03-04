@@ -296,8 +296,8 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     # accounting for in-place selections); to not repeat this later, save relevant
     # quantities in tmp attributes (all prefixed by `'_pad'`)
     if spydata:
-        if data._selection is not None:
-            trialList = data._selection.trials
+        if data.selection is not None:
+            trialList = data.selection.trials
             data._pad_sinfo = np.zeros((len(trialList), 2))
             data._pad_t0 = np.zeros((len(trialList),))
             for tk, trlno in enumerate(trialList):
@@ -305,11 +305,11 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
                 tsel = trl.idx[timeAxis]
                 if isinstance(tsel, list):
                     lgl = "Syncopy AnalogData object with no or channe/trial selection"
-                    raise SPYValueError(lgl, varname="data", actual=data._selection)
+                    raise SPYValueError(lgl, varname="data", actual=data.selection)
                 else:
                     data._pad_sinfo[tk, :] = [trl.idx[timeAxis].start, trl.idx[timeAxis].stop]
             data._pad_t0[tk] = data._t0[trlno]
-            data._pad_channel = data.channel[data._selection.channel]
+            data._pad_channel = data.channel[data.selection.channel]
         else:
             trialList = list(range(len(data.trials)))
             data._pad_sinfo = data.sampleinfo
