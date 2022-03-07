@@ -71,6 +71,8 @@ def mtmfft(data_arr,
 
     freqs = np.fft.rfftfreq(nSamples, 1 / samplerate)
     nFreq = freqs.size
+    # frequency bins
+    dFreq = freqs[1] - freqs[0]
 
     # no taper is boxcar
     if taper is None:
@@ -85,13 +87,19 @@ def mtmfft(data_arr,
     windows = np.atleast_2d(taper_func(signal_length, **taper_opt))
 
     # only(!!) slepian windows are already normalized
-    # still have to normalize by number of tapers
-    # such that taper-averaging yields correct amplitudes
-    if taper == 'dpss':
-        windows = windows * np.sqrt(taper_opt.get('Kmax', 1))
     # per pedes L2 normalisation for all other tapers
+
+    if taper == 'dpss':
+        windows = np.sqrt(2 / dFreq) * windows
+    # weird 3 point normalization,
+    # scipy's hann is NOT [.25, .5, .25] in Fourier space
+    elif taper in ('hann', 'hamming'):
+        windows = np.sqrt(8 / 3) * windows / np.sqrt(windows.sum() * dFreq)
+    # boxcar has full length integral
+    elif taper == 'boxcar':
+        windows = windows / np.sqrt(signal_length / 2 * dFreq)
     else:
-        windows = windows * np.sqrt(signal_length) / np.sum(windows)
+        windows = np.sqrt(2) * windows / np.sqrt(windows.sum() * dFreq)
 
     # Fourier transforms (nTapers x nFreq x nChannels)
     ftr = np.zeros((windows.shape[0], nFreq, nChannels), dtype='complex64')
@@ -103,8 +111,8 @@ def mtmfft(data_arr,
         if demean_taper:
             win -= win.mean(axis=0)
         # real fft takes only 'half the energy'/positive frequencies,
-        # multiply by 2 to correct for this
-        ftr[taperIdx] = 2 * np.fft.rfft(win, n=nSamples, axis=0)
+        # multiply by sqrt of 2 to correct for this
+        ftr[taperIdx] = np.sqrt(2) * np.fft.rfft(win, n=nSamples, axis=0)
         # normalization
         ftr[taperIdx] /= np.sqrt(nSamples)
 

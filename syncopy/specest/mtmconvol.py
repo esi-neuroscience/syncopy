@@ -76,21 +76,25 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
     freqs = np.fft.rfftfreq(nperseg, 1 / samplerate)
     nFreq = freqs.size
 
-    taper_func = getattr(signal.windows,  taper)
+    if taper is None:
+        taper = 'boxcar'
+
+    taper_func = getattr(signal.windows, taper)
 
     # this parameter mitigates the sum-to-zero problem for the odd slepians
     # as signal.stft has hardcoded scaling='spectrum'
     # -> normalizes with win.sum() :/
     # see also https://github.com/scipy/scipy/issues/14740
     if taper == 'dpss':
-        taper_opt['sym']  = False
+        taper_opt['sym'] = False
 
     # only truly 2d for multi-taper "dpss"
     windows = np.atleast_2d(taper_func(nperseg, **taper_opt))
 
     # Slepian normalization
     if taper == 'dpss':
-        windows = windows * np.sqrt(taper_opt.get('Kmax', 1)) / np.sqrt(nperseg)
+        # windows = windows * np.sqrt(taper_opt.get('Kmax', 1) / 2) / np.sqrt(nperseg)
+        windows = windows / np.sqrt(nperseg)
 
     # number of time points in the output
     if boundary is None:
@@ -106,15 +110,20 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
 
     for taperIdx, win in enumerate(windows):
         # pxx has shape (nFreq, nChannels, nTime)
+        # stft has inbuild normalization of tapered signal
         _, _, pxx = signal.stft(data_arr, samplerate, win,
                                 nperseg, noverlap, boundary=boundary,
                                 padded=padded, axis=0, detrend=detrend)
 
         if taper == 'dpss':
             # reverse scipy window normalization
-            pxx = win.sum() * pxx
+            pxx = win.sum() * pxx * np.sqrt(2)
+
+        # only tapers which have len(signal) norm
+        elif taper == 'boxcar':
+            pxx = np.sqrt(2) * pxx
 
         # normalization for half the spectrum/power
-        ftr[:, taperIdx, ...] =  2 * pxx.transpose(2, 0, 1)[:nTime, ...]
+        ftr[:, taperIdx, ...] = np.sqrt(2) * pxx.transpose(2, 0, 1)[:nTime, ...]
 
     return ftr, freqs
