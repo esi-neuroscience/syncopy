@@ -22,7 +22,7 @@ from .compRoutines import But_Filtering, Sinc_Filtering
 
 availableFilters = ('but', 'firws')
 availableFilterTypes = ('lp', 'hp', 'bp', 'bs')
-availableDirections = ('twopass', 'onepass', 'onepass-zerophase')
+availableDirections = ('twopass', 'onepass', 'onepass-minphase')
 availableWindows = ("hamming", "hann", "blackmann")
 
 
@@ -56,11 +56,11 @@ def preprocessing(data,
         Order of the filter, default is 6.
         Higher orders yield a sharper transition width
         or less 'roll off' of the filter, but are more computationally expensive.
-    direction : {'twopass', 'onepass'}
+    direction : {'twopass', 'onepass', 'onepasse-minphase'}
        Filter direction:
-       `'twopass'` - zero-phase forward and reverse filter
-       `'onepass'` - forward filter, introduces group delays
-       `'onepass-zerophase' - forward filter with zerophase correction, default for 'firws'
+       `'twopass'` - zero-phase forward and reverse filter, IIR and FIR
+       `'onepass'` - forward filter, introduces group delays for IIR, zerophase for FIR
+       `'onepass-minphase' - forward causal/minumum phase filter, FIR only
     window : {"hamming", "hann", "blackmann"}, optional
         The type of window to use for the FIR filter
     polyremoval : int or None, optional
@@ -193,7 +193,7 @@ def preprocessing(data,
 
         # set filter specific defaults here
         if direction is None:
-            direction = 'onepass-zerophase'
+            direction = 'onepass'
             msg = f"Setting default direction for FIR filter to '{direction}'"
             SPYInfo(msg)
         elif not isinstance(direction, str) or direction not in availableDirections:

@@ -24,7 +24,7 @@ def sinc_filtering_cF(dat,
                       freq=None,
                       order=None,
                       window="hamming",
-                      direction='onepass-zerophase',
+                      direction='onepass',
                       polyremoval=None,
                       timeAxis=0,
                       noCompute=False,
@@ -56,11 +56,11 @@ def sinc_filtering_cF(dat,
         or less 'roll off' of the filter, but are more computationally expensive.
     window : {"hamming", "hann", "blackmann", "kaiser"}
         The type of taper to use for the sinc function
-    direction : {'twopass', 'onepass', 'onepass-zerophase'}
-       Filter direction:
-       `'twopass'` - zero-phase forward and reverse filter, default for 'but'
-       `'onepass'` - forward filter, introduces group delays
-       `'onepass-zerophase' - forward filter with zerophase correction, default for 'firws'
+    direction : {'twopass', 'onepass', 'onepass-minphase'}
+        Filter direction:
+       `'twopass'` - zero-phase forward and reverse filter, IIR and FIR
+       `'onepass'` - forward filter, introduces group delays for IIR, zerophase for FIR
+       `'onepass-minphase' - forward causal/minumum phase filter, FIR only
     polyremoval : int or None
         Order of polynomial used for de-trending data in the time domain prior
         to filtering. A value of 0 corresponds to subtracting the mean
@@ -124,7 +124,7 @@ def sinc_filtering_cF(dat,
         filtered = apply_fir(dat, fkernel)
         filtered = apply_fir(filtered, fkernel)
 
-    elif direction == 'onepass-zerophase':
+    elif direction == 'onepass-minphase':
         # 0-phase transform
         fkernel = minphaserceps(fkernel)
         filtered = apply_fir(dat, fkernel)

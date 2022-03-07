@@ -161,7 +161,7 @@ def invert_sinc(kernel):
 def minphaserceps(fkernel):
 
     """
-    Tranform FIR filter to zero-phase filter
+    Tranform FIR filter to minmum phase (causal) filter
 
     The original Matlab function was written for FieldTrip in 2013 by
     Andreas Widmann, University of Leipzig, widmann@uni-leipzig.de
