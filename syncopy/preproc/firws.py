@@ -44,14 +44,16 @@ def apply_fir(data, fkernel):
 def design_wsinc(window, order, f_c, filter_type='lp'):
 
     """
-    Construct the filter kernel in the time domain
+    Construct the windowed sinc filter kernel in the time domain
 
     Parameters
     ----------
     window : str
-        One of `scipy.signal.windows`
+        One of `scipy.signal.windows`, good choices are
+        "blackmann", "hamming" and "hann"
     order : int
-       The order of the filter, if not even gets incremented by one
+       The order, or simply length, of the filter
+       If not even gets incremented by one
     f_c : float or array_like
        Cut-off frequenc(ies) in sampling units,
        maximum is Nyquist `f_c=0.5`. For band-pass
