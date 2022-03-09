@@ -36,6 +36,8 @@ Bugfix release
 - Matched selector keywords and class attribute names, i.e., selecting channels
   is now done by using a `select` dictionary with key `'channel'` (not `'channels'`
   as before). See the documentation of `selectdata` for details.
+- Retired travis CI tests since free test runs are exhausted. Migrated to GitHub
+  actions (and re-included codecov)
 
 ### FIXED
 - The `trialdefinition` arrays constructed by the `Selector` class were incorrect
