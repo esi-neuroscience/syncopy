@@ -599,14 +599,6 @@ def unwrap_io(func):
                             arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
                         else:
                             arr = np.array(h5fin[indset][ingrid])
-                except OSError:
-                    try:
-                        if fancy:
-                            arr = open_memmap(infilename, mode="c")[np.ix_(*ingrid)]
-                        else:
-                            arr = np.array(open_memmap(infilename, mode="c")[ingrid])
-                    except:
-                        raise SPYIOError(infilename)
                 except Exception as exc:
                     raise exc
 
