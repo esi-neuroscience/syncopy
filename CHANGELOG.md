@@ -33,6 +33,9 @@ Bugfix release
   packages/cache
 - Inverted `selectdata` messaging policy: only actual on-disk copy operations
   trigger a `SPYInfo` message (closes #197)
+- Matched selector keywords and class attribute names, i.e., selecting channels
+  is now done by using a `select` dictionary with key `'channel'` (not `'channels'`
+  as before). See the documentation of `selectdata` for details.
 
 ### FIXED
 - The `trialdefinition` arrays constructed by the `Selector` class were incorrect
