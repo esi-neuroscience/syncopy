@@ -97,10 +97,10 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
     # only truly 2d for multi-taper "dpss"
     windows = np.atleast_2d(taper_func(nperseg, **taper_opt))
 
-    # normalize
+    # normalize window(s)
     windows = _norm_taper(taper, windows, nperseg)
 
-    # NUMBER of time points in the output
+    # number of time points in the output
     if boundary is None:
         # no padding: we loose half the window on each side
         nTime = int(np.ceil(nSamples / (nperseg - noverlap))) - nperseg
@@ -114,10 +114,10 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
 
     for taperIdx, win in enumerate(windows):
         # ftr has shape (nFreq, nChannels, nTime)
-        pxx, _ = stft(data_arr, samplerate, window=win,
-                      nperseg=nperseg, noverlap=noverlap,
-                      boundary=boundary, padded=padded,
-                      axis=0, detrend=detrend)
+        pxx, _, _ = stft(data_arr, samplerate, window=win,
+                         nperseg=nperseg, noverlap=noverlap,
+                         boundary=boundary, padded=padded,
+                         axis=0, detrend=detrend)
 
         ftr[:, taperIdx, ...] = pxx.transpose(2, 0, 1)[:nTime, ...]
 
