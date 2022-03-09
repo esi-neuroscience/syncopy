@@ -64,8 +64,10 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
 
     ``Sxx = np.real(ftr * ftr.conj()).mean(axis=0)``
 
-    The short time FFT result is normalized such that
-    this yields the squared harmonic amplitudes.
+    The STFT result is normalized such that this yields the power
+    spectral density. For a clean harmonic and a frequency bin
+    width of `dF` this will give a peak power of `A**2 * dF`,
+    with `A` as harmonic ampltiude.
     """
 
     # attach dummy channel axis in case only a

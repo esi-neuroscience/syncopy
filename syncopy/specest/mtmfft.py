@@ -58,7 +58,10 @@ def mtmfft(data_arr,
 
     ``Sxx = np.real(ftr * ftr.conj()).mean(axis=0)``
 
-    The FFT result is normalized such that this yields the squared amplitudes.
+    The FFT result is normalized such that this yields the power
+    spectral density. For a clean harmonic and a Fourier frequency bin
+    width of `dF` this will give a peak power of `A**2 * dF`,
+    with `A` as harmonic ampltiude.
     """
 
     # attach dummy channel axis in case only a

@@ -212,7 +212,7 @@ def process_taper(taper,
     # no tapering at all
     if taper is None and tapsmofrq is None:
         return None, {}
-    
+
     # See if taper choice is supported
     if taper not in availableTapers:
         lgl = "'" + "or '".join(opt + "' " for opt in availableTapers)
@@ -286,7 +286,7 @@ def process_taper(taper,
 
         try:
             scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[0, np.inf])
-        except Exception as exc:
+        except Exception:
             lgl = "smoothing bandwidth in Hz, typical values are in the range 1-10Hz"
             raise SPYValueError(legal=lgl, varname="tapsmofrq", actual=tapsmofrq)
 
