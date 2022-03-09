@@ -126,9 +126,9 @@ class TestMTMFFT():
     # Data selections to be tested w/data generated based on `sig`
     sigdataSelections = [None,
                          {"trials": [3, 1, 0],
-                          "channels": ["channel" + str(i) for i in range(12, 28)][::-1]},
+                          "channel": ["channel" + str(i) for i in range(12, 28)][::-1]},
                          {"trials": [0, 1, 2],
-                          "channels": range(0, int(nChannels / 2)),
+                          "channel": range(0, int(nChannels / 2)),
                           "toilim": [0.25, 0.75]}]
 
     # Data selections to be tested w/`artdata` generated below (use fixed but arbitrary
@@ -136,10 +136,10 @@ class TestMTMFFT():
     seed = np.random.RandomState(13)
     artdataSelections = [None,
                          {"trials": [3, 1, 0],
-                          "channels": ["channel" + str(i) for i in range(10, 15)][::-1],
+                          "channel": ["channel" + str(i) for i in range(10, 15)][::-1],
                           "toi": None},
                          {"trials": [0, 1, 2],
-                          "channels": range(0, 8),
+                          "channel": range(0, 8),
                           "toilim": [-0.5, 0.6]}]
 
     # Error tolerances for target amplitudes (depend on data selection!)
@@ -476,9 +476,9 @@ class TestMTMConvol():
     # Data selection dict for the above object
     dataSelections = [None,
                       {"trials": [1, 2, 0],
-                       "channels": ["channel" + str(i) for i in range(2, 6)][::-1]},
+                       "channel": ["channel" + str(i) for i in range(2, 6)][::-1]},
                       {"trials": [0, 2],
-                       "channels": range(0, nChan2),
+                       "channel": range(0, nChan2),
                        "toilim": [-20, 60.8]}]
 
     def test_tf_output(self):
@@ -608,7 +608,7 @@ class TestMTMConvol():
                     chanNo = chan
                     if select:
                         if "toilim" not in select.keys():
-                            chanNo = np.where(self.tfData.channel == select["channels"][chan])[0][0]
+                            chanNo = np.where(self.tfData.channel == select["channel"][chan])[0][0]
                     if chanNo % 2:
                         modIdx = self.odd[(-1)**trlNo]
                     else:
@@ -694,7 +694,7 @@ class TestMTMConvol():
         # to not overflow memory here); same for ``toi = 1.0```
         cfg.tapsmofrq = 10
         cfg.keeptapers = True
-        cfg.select = {"trials": [0], "channels": [0], "toilim": [-0.5, 0.5]}
+        cfg.select = {"trials": [0], "channel": [0], "toilim": [-0.5, 0.5]}
         cfg.toi = "all"
         cfg.t_ftimwin = 0.05
         tfSpec = freqanalysis(cfg, self.tfData)
@@ -882,9 +882,9 @@ class TestWavelet():
     # Set up in-place data-selection dicts for the constructed object
     dataSelections = [None,
                       {"trials": [1, 2, 0],
-                       "channels": ["channel" + str(i) for i in range(2, 4)][::-1]},
+                       "channel": ["channel" + str(i) for i in range(2, 4)][::-1]},
                       {"trials": [0, 2],
-                       "channels": range(0, int(nChannels / 2)),
+                       "channel": range(0, int(nChannels / 2)),
                        "toilim": [-20, 60.8]}]
 
     @skip_low_mem
@@ -958,7 +958,7 @@ class TestWavelet():
                     chanNo = chan
                     if select:
                         if "toilim" not in select.keys():
-                            chanNo = np.where(self.tfData.channel == select["channels"][chan])[0][0]
+                            chanNo = np.where(self.tfData.channel == select["channel"][chan])[0][0]
                     if chanNo % 2:
                         modIdx = self.odd[(-1)**trlNo]
                     else:
@@ -1027,7 +1027,7 @@ class TestWavelet():
 
         # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
         # to not overflow memory here)
-        cfg.select = {"trials": [0], "channels": [0], "toilim": [-0.5, 0.5]}
+        cfg.select = {"trials": [0], "channel": [0], "toilim": [-0.5, 0.5]}
         cfg.toi = "all"
         tfSpec = freqanalysis(cfg, self.tfData)
         dt = 1/self.tfData.samplerate
@@ -1166,9 +1166,9 @@ class TestSuperlet():
     # Set up in-place data-selection dicts for the constructed object
     dataSelections = [None,
                       {"trials": [1, 2, 0],
-                       "channels": ["channel" + str(i) for i in range(2, 4)][::-1]},
+                       "channel": ["channel" + str(i) for i in range(2, 4)][::-1]},
                       {"trials": [0, 2],
-                       "channels": range(0, int(nChannels / 2)),
+                       "channel": range(0, int(nChannels / 2)),
                        "toilim": [-20, 60.8]}]
 
     @skip_low_mem
@@ -1241,7 +1241,7 @@ class TestSuperlet():
                     chanNo = chan
                     if select:
                         if "toilim" not in select.keys():
-                            chanNo = np.where(self.tfData.channel == select["channels"][chan])[0][0]
+                            chanNo = np.where(self.tfData.channel == select["channel"][chan])[0][0]
                     if chanNo % 2:
                         modIdx = self.odd[(-1)**trlNo]
                     else:
@@ -1310,7 +1310,7 @@ class TestSuperlet():
 
         # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
         # to not overflow memory here)
-        cfg.select = {"trials": [0], "channels": [0], "toilim": [-0.5, 0.5]}
+        cfg.select = {"trials": [0], "channel": [0], "toilim": [-0.5, 0.5]}
         cfg.toi = "all"
         tfSpec = freqanalysis(cfg, self.tfData)
         dt = 1/self.tfData.samplerate

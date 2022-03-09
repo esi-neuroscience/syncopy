@@ -197,8 +197,8 @@ class TestSpikeData():
                         for timeSel in timeSelections:
                             kwdict = {}
                             kwdict["trials"] = trialSel
-                            kwdict["channels"] = chanSel
-                            kwdict["units"] = unitSel
+                            kwdict["channel"] = chanSel
+                            kwdict["unit"] = unitSel
                             kwdict[timeSel[0]] = timeSel[1]
                             cfg = StructDict(kwdict)
                             # data selection via class-method + `Selector` instance for indexing
@@ -518,7 +518,7 @@ class TestEventData():
                     for timeSel in timeSelections:
                         kwdict = {}
                         kwdict["trials"] = trialSel
-                        kwdict["eventids"] = eventidSel
+                        kwdict["eventid"] = eventidSel
                         kwdict[timeSel[0]] = timeSel[1]
                         cfg = StructDict(kwdict)
                         # data selection via class-method + `Selector` instance for indexing

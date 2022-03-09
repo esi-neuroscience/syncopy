@@ -152,10 +152,10 @@ class NormalizeCrossSpectra(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
-        if data._selection is not None:
-            chanSec_i = data._selection.channel_i
-            chanSec_j = data._selection.channel_j
-            trl = data._selection.trialdefinition
+        if data.selection is not None:
+            chanSec_i = data.selection.channel_i
+            chanSec_j = data.selection.channel_j
+            trl = data.selection.trialdefinition
             for row in range(trl.shape[0]):
                 trl[row, :2] = [row, row + 1]
         else:
@@ -293,10 +293,10 @@ class NormalizeCrossCov(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Get trialdef array + channels from source
-        if data._selection is not None:
-            chanSec_i = data._selection.channel_i
-            chanSec_j = data._selection.channel_j
-            trl = data._selection.trialdefinition
+        if data.selection is not None:
+            chanSec_i = data.selection.channel_i
+            chanSec_j = data.selection.channel_j
+            trl = data.selection.trialdefinition
         else:
             chanSec_i = slice(None)
             chanSec_j = slice(None)
@@ -472,10 +472,10 @@ class GrangerCausality(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
-        if data._selection is not None:
-            chanSec_i = data._selection.channel_i
-            chanSec_j = data._selection.channel_j
-            trl = data._selection.trialdefinition
+        if data.selection is not None:
+            chanSec_i = data.selection.channel_i
+            chanSec_j = data.selection.channel_j
+            trl = data.selection.trialdefinition
             for row in range(trl.shape[0]):
                 trl[row, :2] = [row, row + 1]
         else:
