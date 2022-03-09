@@ -16,6 +16,7 @@ from datetime import datetime
 from hashlib import blake2b
 from itertools import islice
 from functools import reduce
+from inspect import signature
 import shutil
 import numpy as np
 from numpy.lib.format import open_memmap, read_magic
@@ -1469,8 +1470,13 @@ class Selector():
                                     varname="select", actual=select)
         if not isinstance(select, dict):
             raise SPYTypeError(select, "select", expected="dict")
-        supported = ["trials", "channel", "channel_i", "channel_j", "toi",
-                     "toilim", "foi", "foilim", "taper", "unit", "eventid"]
+
+        # Keep list of supported selectors in sync w/supported keywords of `selectdata`
+        supported = list(signature(selectdata).parameters.keys())
+        for key in ["data", "out", "inplace", "clear", "parallel", "kwargs"]:
+            supported.remove(key)
+        # supported = ["trials", "channel", "channel_i", "channel_j", "toi",
+        #              "toilim", "foi", "foilim", "taper", "unit", "eventid"]
         if not set(select.keys()).issubset(supported):
             lgl = "dict with one or all of the following keys: '" +\
                   "'".join(opt + "', " for opt in supported)[:-2]
