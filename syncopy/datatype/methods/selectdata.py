@@ -313,10 +313,6 @@ def selectdata(data,
                   "'".join(key + "', " for key in kwargs.keys())[:-2]
             raise SPYValueError(legal=lgl, varname="kwargs", actual=act)
 
-    # FIXME: remove once tests are in place (cf #165)
-    if channel_i is not None or channel_j is not None:
-        SPYWarning("CrossSpectralData channel selection currently experimental!")
-
     # First simplest case: determine whether we just need to clear an existing selection
     if clear:
         if any(value is not None for value in selectDict.values()):

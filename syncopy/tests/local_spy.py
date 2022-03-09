@@ -21,7 +21,6 @@ from syncopy.tests.misc import generate_artificial_data
 from syncopy.tests import synth_data
 
 
-
 # Prepare code to be executed using, e.g., iPython's `%run` magic command
 if __name__ == "__main__":
 
@@ -35,5 +34,7 @@ if __name__ == "__main__":
         # defaults AR(2) parameters yield 40Hz peak
         trls.append(synth_data.AR2_network(None, nSamples=nSamples))
     ad1 = spy.AnalogData(trls, samplerate=200)
-    gr = spy.connectivityanalysis(ad1, method='granger', taper='dpss', tapsmofrq=3,
-                                  foilim=[0, 100])
+
+    spec = spy.freqanalysis(ad1, tapsmofrq=2)
+
+    gr = spy.connectivityanalysis(ad1, method='granger', tapsmofrq=5)
