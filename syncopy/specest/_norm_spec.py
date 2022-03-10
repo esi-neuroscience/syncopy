@@ -15,7 +15,7 @@ def _norm_spec(ftr, nSamples, freqs):
 
     # frequency bins
     delta_f = freqs[1] - freqs[0]
-    ftr = ftr / (nSamples / 2 * np.sqrt(delta_f))
+    ftr /= (nSamples / 2 * np.sqrt(delta_f))
 
     return ftr
 
@@ -33,6 +33,6 @@ def _norm_taper(taper, windows, nSamples):
     # weird 3 point normalization,
     # checks out exactly for 'hann' though
     elif taper != 'boxcar':
-        windows = np.sqrt(4 / 3) * windows * np.sqrt(nSamples / windows.sum())
+        windows *= np.sqrt(4 / 3) * np.sqrt(nSamples / windows.sum())
 
     return windows
