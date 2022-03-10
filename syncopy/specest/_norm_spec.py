@@ -29,7 +29,7 @@ def _norm_taper(taper, windows, nSamples):
     """
 
     if taper == 'dpss':
-        windows = np.sqrt(nSamples) * windows
+        windows *= np.sqrt(nSamples)
     # weird 3 point normalization,
     # checks out exactly for 'hann' though
     elif taper != 'boxcar':
