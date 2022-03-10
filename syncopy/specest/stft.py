@@ -54,21 +54,21 @@ def stft(dat,
         acceptable are either `'constant'` or `'linear'`.
         Defaults to  `False` such that no detrending is done.
     padded : bool, optional
-         Specifies whether the input signal is zero-padded at the end to
-         make the signal fit exactly into an integer number of window
-         segments, so that all of the signal is included in the output.
-         Defaults to `True`. Padding occurs after boundary extension, if
-         `boundary` is not `None`, and `padded` is `True`, as is the
-         default.
+        Specifies whether the input signal is zero-padded at the end to
+        make the signal fit exactly into an integer number of window
+        segments, so that all of the signal is included in the output.
+        Defaults to `True`. Padding occurs after boundary extension, if
+        `boundary` is not `None`, and `padded` is `True`, as is the
+        default.
     axis : int, optional
-         Axis along which the STFT is computed; the default is over the
-         first axis (i.e. `axis=0`)
+        Axis along which the STFT is computed; the default is over the
+        first axis (i.e. `axis=0`)
 
     Returns
     -------
     ftr : :class:`numpy.ndarray`
-         Short-time fourier transform of the input `dat`
-         Per default the first axis corresponds to the segment times
+        Short-time fourier transform of the input `dat`
+        Per default the first axis corresponds to the segment times
     freqs : :class:`numpy.ndarray`
         Array of sampling frequencies
     times : :class:`numpy.ndarray`
