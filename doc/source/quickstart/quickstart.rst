@@ -58,7 +58,7 @@ which gives nicely formatted output:
 
    Use `.log` to see object history
 
-So we see that we indeed got 50 trials with 2 channels and 1000 samples each. Note that Syncopy per default **stores and writes all data on disk**, as this allows for seamless processing of larger than RAM datasets. The exact location and filename of a dataset in question is listed at the ``filename`` field. The standard location is the ``.spy`` directory created automatically in the user's home directory. To change this and for more details please see :ref:`setup_env`.
+So we see that we indeed got 50 trials with 2 channels and 1000 samples each. Note that Syncopy per default **stores and writes all data on disk**, as this allows for seamless processing of **larger than memory** datasets. The exact location and filename of a dataset in question is listed at the ``filename`` field. The standard location is the ``.spy`` directory created automatically in the user's home directory. To change this and for more details please see :ref:`setup_env`.
 
 .. hint::
    You can access each of the shown meta-information fields separately using standard Python attribute access, e.g. ``data.filename`` or ``data.samplerate``.
@@ -78,7 +78,7 @@ Multitapered Fourier Analysis
 
 .. code-block::
 
-   fft_spectra = spy.freqanalsysis(data, method='mtmfft', foilim=[0, 50], taper='dpss', tapsmofrq=3)
+   fft_spectra = spy.freqanalsysis(data, method='mtmfft', foilim=[0, 50], tapsmofrq=3)
 
 The parameter ``foilim`` controls the *frequencies of interest  limits*, so in this case we are interested in the range 0-50Hz. Starting the computation interactively will show additional information::
 
@@ -137,3 +137,18 @@ To quickly inspect the results for each channel we can use::
 Again, we see a strong 30Hz signal in the 1st channel, and channel 2 is devoid of any rhythms. However, in contrast to the ``method=mtmfft`` call,  now we also get information along the time axis. The dampening of the harmonic over time in channel 1 is clearly visible.
 
 An improved method, the superlet transform, providing super-resolution time-frequency representations can be computed via ``method='superlet'``, see :func:`~syncopy.freqanalysis` for more details.
+
+Connectivity Analysis
+=====================
+
+Having time-frequency results for individual channels is useful, however we hardly learn anything about functional relationships between these different units. Even if two channels have a spectral peak at say 30Hz, we don't know if these signals are actually connected. Syncopy offers various distinct methods to elucidate such putative connections: coherence, cross-correlation and Granger-Geweke causality.
+
+Setup
+-----
+
+To have a synthetic albeit meaningful dataset to illustrate the different methodologies
+
+Coherence
+---------
+
+

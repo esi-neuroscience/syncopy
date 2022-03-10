@@ -155,7 +155,12 @@ def cross_spectra_cF(trl_dat,
     elif polyremoval == 1:
         dat = detrend(dat, type='linear', axis=0, overwrite_data=True)
 
-    CS_ij = csd(dat, samplerate, nSamples, taper=taper, taper_opt=taper_opt)
+    CS_ij = csd(dat,
+                samplerate,
+                nSamples,
+                taper=taper,
+                taper_opt=taper_opt,
+                demean_taper=demean_taper)
 
     # where does freqs go/come from -
     # we will eventually solve this issue..

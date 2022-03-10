@@ -28,13 +28,25 @@ if __name__ == "__main__":
     ad1 = spy.AnalogData([mock_up] * 5)
 
     nTrials = 50
-    nSamples = 200
+    nSamples = 2000
     trls = []
+    AdjMat = np.zeros((2, 2))
+    AdjMat[0, 1] = .25
+
     for _ in range(nTrials):
         # defaults AR(2) parameters yield 40Hz peak
-        trls.append(synth_data.AR2_network(None, nSamples=nSamples))
-    ad1 = spy.AnalogData(trls, samplerate=200)
+        alphas = [.74, -.46]  # broad peak at 60Hz
+        alphas = [0.24, -.46]
+        alphas = [.55, -.8]
+        trl = synth_data.AR2_network(AdjMat, nSamples=nSamples,
+                                     alphas=alphas)
+        #trl = synth_data.AR2_network(None, nSamples=nSamples,
+        #                             alphas=alphas)
 
-    spec = spy.freqanalysis(ad1, tapsmofrq=2)
+        trls.append(trl)
+    print(trl.mean())
+    ad1 = spy.AnalogData(trls, samplerate=2000)
 
-    gr = spy.connectivityanalysis(ad1, method='granger', tapsmofrq=5)
+    spec = spy.freqanalysis(ad1, tapsmofrq=5, keeptrials=False)
+    coh = spy.connectivityanalysis(ad1, method='coh', tapsmofrq=5)
+    gr = spy.connectivityanalysis(ad1, method='granger', tapsmofrq=10, polyremoval=0)
