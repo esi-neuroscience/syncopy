@@ -16,6 +16,7 @@ from datetime import datetime
 from hashlib import blake2b
 from itertools import islice
 from functools import reduce
+from inspect import signature
 import shutil
 import numpy as np
 from numpy.lib.format import open_memmap, read_magic
@@ -559,12 +560,12 @@ class BaseData(ABC):
         self._mode = md
 
     @property
-    def _selection(self):
+    def selection(self):
         """Data selection specified by :class:`Selector`"""
         return self._selector
 
-    @_selection.setter
-    def _selection(self, select):
+    @selection.setter
+    def selection(self, select):
         if select is None:
             self._selector = None
         else:
@@ -593,6 +594,7 @@ class BaseData(ABC):
 
     @property
     def _t0(self):
+        """ These are the trigger offsets """
         if self._trialdefinition is not None:
             return self._trialdefinition[:, 2]
         else:
@@ -869,7 +871,7 @@ class BaseData(ABC):
             return True
 
         # If in-place selections are present, abort
-        if self._selection is not None or other._selection is not None:
+        if self.selection is not None or other.selection is not None:
             err = "Cannot perform object comparison with existing in-place selection"
             raise SPYError(err)
 
@@ -1345,24 +1347,24 @@ class Selector():
     select : dict or :class:`~syncopy.shared.tools.StructDict` or None or str
         Dictionary or :class:`~syncopy.shared.tools.StructDict` with keys
         specifying data selectors. **Note**: some keys are only valid for certain types
-        of Syncopy objects, e.g., "freqs" is not a valid selector for an
+        of Syncopy objects, e.g., "freq" is not a valid selector for an
         :class:`~syncopy.AnalogData` object. Supported keys are (please see
         :func:`~syncopy.selectdata` for a detailed description of each selector)
 
         * 'trials' : list (integers)
-        * 'channels' : list (integers or strings), slice or range
+        * 'channel' : list (integers or strings), slice or range
         * 'toi' : list (floats)
         * 'toilim' : list (floats [tmin, tmax])
         * 'foi' : list (floats)
         * 'foilim' : list (floats [fmin, fmax])
-        * 'tapers' : list (integers or strings), slice or range
-        * 'units' : list (integers or strings), slice or range
-        * 'eventids' : list (integers), slice or range
+        * 'taper' : list (integers or strings), slice or range
+        * 'unit' : list (integers or strings), slice or range
+        * 'eventid' : list (integers), slice or range
 
         Any property of `data` that is not specifically accessed via one of
         the above keys is taken as is, e.g., ``select = {'trials': [1, 2]}``
         selects the entire contents of trials no. 2 and 3, while
-        ``select = {'channels': range(0, 50)}`` selects the first 50 channels
+        ``select = {'channel': range(0, 50)}`` selects the first 50 channels
         of `data` across all defined trials. Consequently, if `select` is
         `None` or if ``select = "all"`` the entire contents of `data` is selected.
 
@@ -1410,7 +1412,7 @@ class Selector():
     Whenever possible, this class performs extensive input parsing to ensure
     consistency of provided selectors. Some exceptions to this rule include
     `toi` and `toilim`: depending on the size of `data` and the number of
-    defined trials, `data.time` might be a list of arrays of substantial
+    defined trials, `data.time` might generate a list of arrays of substantial
     size. To not overflow memory and slow down computations, neither `toi`
     nor `toilim` is checked for consistency with respect to `data.time`, i.e.,
     the code does not verify that min/max of `toi`/`toilim` are within the
@@ -1468,8 +1470,13 @@ class Selector():
                                     varname="select", actual=select)
         if not isinstance(select, dict):
             raise SPYTypeError(select, "select", expected="dict")
-        supported = ["trials", "channels", "channels_i", "channels_j", "toi",
-                     "toilim", "foi", "foilim", "tapers", "units", "eventids"]
+
+        # Keep list of supported selectors in sync w/supported keywords of `selectdata`
+        supported = list(signature(selectdata).parameters.keys())
+        for key in ["data", "out", "inplace", "clear", "parallel", "kwargs"]:
+            supported.remove(key)
+        # supported = ["trials", "channel", "channel_i", "channel_j", "toi",
+        #              "toilim", "foi", "foilim", "taper", "unit", "eventid"]
         if not set(select.keys()).issubset(supported):
             lgl = "dict with one or all of the following keys: '" +\
                   "'".join(opt + "', " for opt in supported)[:-2]
@@ -1537,6 +1544,8 @@ class Selector():
                 raise SPYValueError(legal="'all' or `None` or list/array",
                                     varname=vname, actual=trials)
         if trials is not None:
+            if np.issubdtype(type(trials), np.number):
+                trials = [trials]
             try:
                 array_parser(trials, varname=vname, ntype="int_like", hasinf=False,
                             hasnan=False, lims=[0, len(data.trials)], dims=1)
@@ -1548,7 +1557,7 @@ class Selector():
                 raise SPYValueError(legal=lgl, varname=vname, actual=act)
         else:
             trials = trlList
-        self._trials = trials
+        self._trials = list(trials) # ensure `trials` is a list cf. #180
 
     @property
     def channel(self):
@@ -1558,14 +1567,14 @@ class Selector():
     @channel.setter
     def channel(self, dataselect):
         data, select = dataselect
-        chanSpec = select.get("channels")
+        chanSpec = select.get("channel")
         if self._dataClass == "CrossSpectralData":
             if chanSpec is not None:
                 lgl = "`channel_i` and/or `channel_j` selectors for `CrossSpectralData`"
-                raise SPYValueError(legal=lgl, varname="select: channels", actual=data.__class__.__name__)
+                raise SPYValueError(legal=lgl, varname="select: channel", actual=data.__class__.__name__)
             else:
                 return
-        self._selection_setter(data, select, "channel", "channels")
+        self._selection_setter(data, select, "channel")
 
     @property
     def channel_i(self):
@@ -1575,7 +1584,7 @@ class Selector():
     @channel_i.setter
     def channel_i(self, dataselect):
         data, select = dataselect
-        self._selection_setter(data, select, "channel_i", "channels_i")
+        self._selection_setter(data, select, "channel_i")
 
     @property
     def channel_j(self):
@@ -1585,7 +1594,7 @@ class Selector():
     @channel_j.setter
     def channel_j(self, dataselect):
         data, select = dataselect
-        self._selection_setter(data, select, "channel_j", "channels_j")
+        self._selection_setter(data, select, "channel_j")
 
     @property
     def time(self):
@@ -1626,6 +1635,8 @@ class Selector():
                     raise SPYValueError(legal="'all' or `None` or list/array",
                                         varname=vname, actual=timeSpec)
             if timeSpec is not None:
+                if np.issubdtype(type(timeSpec), np.number):
+                    timeSpec = [timeSpec]
                 try:
                     array_parser(timeSpec, varname=vname, hasinf=checkInf, hasnan=False, dims=1)
                 except Exception as exc:
@@ -1685,6 +1696,9 @@ class Selector():
                         trlTime = data._get_time([trlno], toilim=[-np.inf, np.inf])[0]
                         if isinstance(trlTime, list):
                             stop = np.max(trlTime)
+                            # Avoid creating empty arrays for "static" `SpectralData` objects
+                            if stop == start == 0:
+                                stop += 1
                         else:
                             stop = trlTime.stop
                     if step is None:
@@ -1702,6 +1716,18 @@ class Selector():
                 trlDef[tk, 3:] = trl[trlno, 3:]
                 counter += nSamples
         self._trialdefinition = trlDef
+
+    @property
+    def sampleinfo(self):
+        """nTrials x 2 :class:`numpy.ndarray` of [start, end] sample indices"""
+        if self._trialdefinition is not None:
+            return self._trialdefinition[:, :2]
+        else:
+            return None
+
+    @sampleinfo.setter
+    def sampleinfo(self, sinfo):
+        raise SPYError("Cannot set sampleinfo. Use `Selector.trialdefinition` instead.")
 
     @property
     def timepoints(self):
@@ -1750,6 +1776,8 @@ class Selector():
                     raise SPYValueError(legal="'all' or `None` or list/array",
                                         varname=vname, actual=freqSpec)
             if freqSpec is not None:
+                if np.issubdtype(type(freqSpec), np.number):
+                    freqSpec = [freqSpec]
                 try:
                     array_parser(freqSpec, varname=vname, hasinf=checkInf, hasnan=False,
                                 lims=[data.freq.min(), data.freq.max()], dims=1)
@@ -1776,7 +1804,7 @@ class Selector():
     @taper.setter
     def taper(self, dataselect):
         data, select = dataselect
-        self._selection_setter(data, select, "taper", "tapers")
+        self._selection_setter(data, select, "taper")
 
     @property
     def unit(self):
@@ -1786,7 +1814,7 @@ class Selector():
     @unit.setter
     def unit(self, dataselect):
         data, select = dataselect
-        self._selection_setter(data, select, "unit", "units")
+        self._selection_setter(data, select, "unit")
 
     @property
     def eventid(self):
@@ -1796,10 +1824,10 @@ class Selector():
     @eventid.setter
     def eventid(self, dataselect):
         data, select = dataselect
-        self._selection_setter(data, select, "eventid", "eventids")
+        self._selection_setter(data, select, "eventid")
 
     # Helper function to process provided selections
-    def _selection_setter(self, data, select, dataprop, selectkey):
+    def _selection_setter(self, data, select, selectkey):
         """
         Converts user-provided selection key-words to indexing lists/slices
 
@@ -1811,10 +1839,9 @@ class Selector():
             Python dictionary or Syncopy :class:`StructDict` formatted for
             data selection. See :class:`Selector` for a list of valid
             key-value pairs.
-        dataprop : str
-            Name of property in `data` to select from
         selectkey : str
-            Name of key in `select` holding selection pertinent to `dataprop`
+            Name of key in `select` holding selection pertinent to identically
+            named property in `data`
 
         Returns
         -------
@@ -1837,8 +1864,8 @@ class Selector():
 
         # Unpack input and perform error-checking
         selection = select.get(selectkey)
-        target = getattr(data, dataprop, None)
-        selector = "_{}".format(dataprop)
+        target = getattr(data, selectkey, None)
+        selector = "_{}".format(selectkey)
         vname = "select: {}".format(selectkey)
         if selection is not None and target is None:
             lgl = "Syncopy data object with {}".format(selectkey)
@@ -1857,15 +1884,19 @@ class Selector():
                 hasnan = False
                 hasinf = False
 
+            # Convert 'all' selections to take-all `None` (see next if below) and
+            # put single-string selections into a list; same for single-scalar selections
             if isinstance(selection, str):
                 if selection == "all":
                     selection = None
                 else:
-                    raise SPYValueError(legal="'all'", varname=vname, actual=selection)
+                    selection = [selection]
+            elif np.issubdtype(type(selection), np.number):
+                selection = [selection]
 
-            # Take entire inventory sitting in `dataprop`
+            # Take entire inventory sitting in `selectkey`
             if selection is None:
-                if dataprop in ["unit", "eventid"]:
+                if selectkey in ["unit", "eventid"]:
                     setattr(self, selector, [slice(None, None, 1)] * len(self.trials))
                 else:
                     setattr(self, selector, slice(None, None, 1))
@@ -1893,7 +1924,7 @@ class Selector():
 
                 # The 2d-arrays in `DiscreteData` objects require some additional hand-holding
                 # performed by the respective `_get_unit` and `_get_eventid` class methods
-                if dataprop in ["unit", "eventid"]:
+                if selectkey in ["unit", "eventid"]:
                     if selection.start is selection.stop is None:
                         setattr(self, selector, [slice(None, None, 1)] * len(self.trials))
                     else:
@@ -1903,7 +1934,7 @@ class Selector():
                             selection = list(target[selection])
                         else:
                             selection = list(selection)
-                        setattr(self, selector, getattr(data, "_get_" + dataprop)(self.trials, selection))
+                        setattr(self, selector, getattr(data, "_get_" + selectkey)(self.trials, selection))
                 else:
                     if selection.start is selection.stop is None:
                         setattr(self, selector, slice(None, None, 1))
@@ -1927,7 +1958,7 @@ class Selector():
                 else:
                     targetArr = np.arange(target.size)
                 if not set(selection).issubset(targetArr):
-                    lgl = "list/array of {} existing names or indices".format(dataprop)
+                    lgl = "list/array of {} existing names or indices".format(selectkey)
                     raise SPYValueError(legal=lgl, varname=vname)
 
                 # Preserve order and duplicates of selection - don't use `np.isin` here!
@@ -1935,14 +1966,23 @@ class Selector():
                 for sel in selection:
                     idxList += list(np.where(targetArr == sel)[0])
 
-                if dataprop in ["unit", "eventid"]:
-                    setattr(self, selector, getattr(data, "_get_" + dataprop)(self.trials, idxList))
+                if selectkey in ["unit", "eventid"]:
+                    setattr(self, selector, getattr(data, "_get_" + selectkey)(self.trials, idxList))
                 else:
                     # if possible, convert range-arrays (`[0, 1, 2, 3]`) to slices for better performance
                     if len(idxList) > 1:
                         steps = np.diff(idxList)
                         if steps.min() == steps.max() == 1:
                             idxList = slice(idxList[0], idxList[-1] + 1, 1)
+
+                    # be careful w/pairwise list-channel selections in `CrossSpectralData` objects
+                    # (that could not be converted to slices above)
+                    if isinstance(idxList, list) and selectkey in ["channel_i", "channel_j"]:
+                        if len(idxList) > 1:
+                            err = "Multi-channel-pair selections not supported"
+                            raise NotImplementedError(err)
+                        idxList = idxList[0]
+
                     setattr(self, selector, idxList)
 
         else:
@@ -2105,6 +2145,8 @@ class Selector():
                 ppdict[attr] = "{0:d} {1:s}{2:s}, ".format(len(val),
                                                            attr,
                                                            "s" if not attr.endswith("s") else "")
+            elif np.issubdtype(type(val), np.number):
+                ppdict[attr] = "one {0:s}, ".format(attr)
             else:
                 ppdict[attr] = ""
 

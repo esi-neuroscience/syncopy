@@ -4,12 +4,28 @@
 Systems Neuroscience Computing in Python
 ========================================
 
-master: |masterbuild| dev: |devbuild|
 
-.. |masterbuild| image:: https://travis-ci.com/esi-neuroscience/syncopy.svg?token=CyD2hzqVziTxH1wbqky6&branch=master
+|Conda Version| |PyPi Version| |License|
 
-.. |devbuild| image:: https://travis-ci.com/esi-neuroscience/syncopy.svg?token=CyD2hzqVziTxH1wbqky6&branch=dev
+.. |Conda Version| image:: https://img.shields.io/conda/vn/conda-forge/esi-syncopy.svg
+   :target: https://anaconda.org/conda-forge/esi-syncopy
+.. |PyPI version| image:: https://badge.fury.io/py/esi-syncopy.svg
+   :target: https://badge.fury.io/py/esi-syncopy
+.. |License| image:: https://img.shields.io/github/license/esi-neuroscience/syncopy
 
+master branch status: |Master Tests| |Master Coverage|
+
+.. |Master Tests| image:: https://github.com/esi-neuroscience/syncopy/actions/workflows/cov_test_workflow.yml/badge.svg?branch=master
+   :target: https://github.com/esi-neuroscience/syncopy/actions/workflows/cov_test_workflow.yml
+.. |Master Coverage| image:: https://codecov.io/gh/esi-neuroscience/syncopy/branch/master/graph/badge.svg?token=JEI3QQGNBQ
+   :target: https://codecov.io/gh/esi-neuroscience/syncopy
+
+dev branch status: |Dev Tests| |Dev Coverage|
+
+.. |Dev Tests| image:: https://github.com/esi-neuroscience/syncopy/actions/workflows/cov_test_workflow.yml/badge.svg?branch=dev
+   :target: https://github.com/esi-neuroscience/syncopy/actions/workflows/cov_test_workflow.yml
+.. |Dev Coverage| image:: https://codecov.io/gh/esi-neuroscience/syncopy/branch/dev/graph/badge.svg?token=JEI3QQGNBQ
+   :target: https://codecov.io/gh/esi-neuroscience/syncopy
 
 Syncopy aims to be a user-friendly toolkit for *large-scale*
 electrophysiology data-analysis in Python. We strive to achieve the following goals:

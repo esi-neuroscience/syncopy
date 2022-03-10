@@ -243,6 +243,12 @@ class ContinuousData(BaseData, ABC):
             :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
             to avoid loading actual trial-data into memory.
 
+        Notes
+        -----
+        If an active in-place selection is found, the generated `FauxTrial` object
+        respects it (e.g., if only 2 of 10 channels are selected in-place, `faux_trl`
+        reports to only contain 2 channels)
+
         See also
         --------
         syncopy.datatype.base_data.FauxTrial : class definition and further details
@@ -256,10 +262,10 @@ class ContinuousData(BaseData, ABC):
         idx[self._stackingDim] = slice(start, stop)
 
         # process existing data selections
-        if self._selection is not None:
+        if self.selection is not None:
 
             # time-selection is most delicate due to trial-offset
-            tsel = self._selection.time[self._selection.trials.index(trialno)]
+            tsel = self.selection.time[self.selection.trials.index(trialno)]
             if isinstance(tsel, slice):
                 if tsel.start is not None:
                     tstart = tsel.start
@@ -284,8 +290,8 @@ class ContinuousData(BaseData, ABC):
             dims = list(self.dimord)
             dims.pop(self._stackingDim)
             for dim in dims:
-                sel = getattr(self._selection, dim)
-                if sel:
+                sel = getattr(self.selection, dim)
+                if sel is not None:
                     dimIdx = self.dimord.index(dim)
                     idx[dimIdx] = sel
                     if isinstance(sel, slice):
@@ -302,8 +308,10 @@ class ContinuousData(BaseData, ABC):
                             delta = 1
                         shp[dimIdx] = int(np.ceil((end - begin) / delta))
                         idx[dimIdx] = slice(begin, end, delta)
-                    else:
+                    elif isinstance(sel, list):
                         shp[dimIdx] = len(sel)
+                    else:
+                        shp[dimIdx] = 1
 
         return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
 

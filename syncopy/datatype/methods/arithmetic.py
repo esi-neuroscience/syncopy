@@ -9,8 +9,9 @@ import h5py
 
 # Local imports
 from syncopy import __acme__
+from .selectdata import _get_selection_size
 from syncopy.shared.parsers import data_parser
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.shared.computational_routine import ComputationalRoutine
@@ -136,10 +137,10 @@ def _parse_input(obj1, obj2, operator):
 
     # If no active selection is present, create a "fake" all-to-all selection
     # to harmonize processing down the road (and attach `_cleanup` attribute for later removal)
-    if baseObj._selection is None:
+    if baseObj.selection is None:
         baseObj.selectdata(inplace=True)
-        baseObj._selection._cleanup = True
-    baseTrialList = baseObj._selection.trials
+        baseObj.selection._cleanup = True
+    baseTrialList = baseObj.selection.trials
 
     # Use the `_preview_trial` functionality of Syncopy objects to get each trial's
     # shape and dtype (existing selections are taken care of automatically)
@@ -156,7 +157,7 @@ def _parse_input(obj1, obj2, operator):
             raise SPYValueError("non-zero scalar for division", varname="operand", actual=str(operand))
 
         # Ensure complex and real values are not mashed up
-        _check_complex_operand(baseTrials, operand, "scalar")
+        _check_complex_operand(baseTrials, operand, "scalar", operator)
 
         # Determine exact numeric type of operation's result
         opres_type = np.result_type(*(trl.dtype for trl in baseTrials), operand)
@@ -172,7 +173,7 @@ def _parse_input(obj1, obj2, operator):
         operand = np.array(operand)
 
         # Ensure complex and real values are not mashed up
-        _check_complex_operand(baseTrials, operand, "array")
+        _check_complex_operand(baseTrials, operand, "array", operator)
 
         # Determine exact numeric type of the operation's result
         opres_type = np.result_type(*(trl.dtype for trl in baseTrials), operand.dtype)
@@ -211,9 +212,13 @@ def _parse_input(obj1, obj2, operator):
             raise SPYValueError(lgl, varname="operand",
                                 actual=act.format(baseSr, opndSr))
 
-        # If only a subset of `operand` is selected, adjust for this
-        if operand._selection is not None:
-            opndTrialList = operand._selection.trials
+        # If only a subset of `operand` is selected, adjust for this (and warn
+        # that arbitrarily ugly things might happen with mis-matched selections)
+        if operand.selection is not None:
+            wrng = "Found existing in-place selection in operand. " +\
+                "Shapes and trial counts of base and operand objects have to match up!"
+            SPYWarning(wrng, caller=operator)
+            opndTrialList = operand.selection.trials
         else:
             opndTrialList = list(range(len(operand.trials)))
 
@@ -252,12 +257,12 @@ def _parse_input(obj1, obj2, operator):
                 else False for sel in trl.idx):
                 lgl = "Syncopy object with ordered unreverberated subset selection"
                 act = "Syncopy object with selection {}"
-                raise SPYValueError(lgl, varname="operand", actual=act.format(operand._selection))
+                raise SPYValueError(lgl, varname="operand", actual=act.format(operand.selection))
             if sum(isinstance(sel, slice) for sel in trl.idx) > 1 and \
                 sum(isinstance(sel, list) for sel in trl.idx) > 1:
                 lgl = "Syncopy object without selections requiring advanced indexing"
                 act = "Syncopy object with selection {}"
-                raise SPYValueError(lgl, varname="operand", actual=act.format(operand._selection))
+                raise SPYValueError(lgl, varname="operand", actual=act.format(operand.selection))
 
         # Propagate indices for fetching data from operand
         operand_idxs = [trl.idx for trl in opndTrials]
@@ -274,7 +279,7 @@ def _parse_input(obj1, obj2, operator):
     return baseObj, operand, operand_dat, opres_type, operand_idxs
 
 # Check for complexity in `operand` vs. `baseObj`
-def _check_complex_operand(baseTrials, operand, opDimType):
+def _check_complex_operand(baseTrials, operand, opDimType, operator):
     """
     Local helper to determine if provided scalar/array and `baseObj` are both real/complex
     """
@@ -285,8 +290,8 @@ def _check_complex_operand(baseTrials, operand, opDimType):
     else:
         sameType = lambda dt : "complex" not in dt.name
     if not all(sameType(trl.dtype) for trl in baseTrials):
-        lgl = "{} of same mathematical type (real/complex)"
-        raise SPYTypeError(operand, varname="operand", expected=lgl.format(opDimType))
+        wrng = "Operand is {} of different mathematical type (real/complex)"
+        SPYWarning(wrng.format(opDimType), caller=operator)
 
     return
 
@@ -339,12 +344,12 @@ def _perform_computation(baseObj,
     # Prepare logging info in dictionary: we know that `baseObj` is definitely
     # a Syncopy data object, operand may or may not be; account for this
     if "BaseData" in str(operand.__class__.__mro__):
-        opSel = operand._selection
+        opSel = operand.selection
     else:
         opSel = None
     log_dct = {"operator": operator,
                "base": baseObj.__class__.__name__,
-               "base selection": baseObj._selection,
+               "base selection": baseObj.selection,
                "operand": operand.__class__.__name__,
                "operand selection": opSel}
 
@@ -364,6 +369,19 @@ def _perform_computation(baseObj,
         operation = lambda x, y : x ** y
     else:
         raise SPYValueError("supported arithmetic operator", actual=operator)
+
+    # Inform about the amount of data is about to be moved around
+    operandSize = _get_selection_size(baseObj)
+    sUnit = "MB"
+    if operandSize > 1000:
+        operandSize /= 1024
+        sUnit = "GB"
+    msg = "Allocating {dsize:3.2f} {dunit:s} {objkind:s} object on disk for " +\
+        "result of {op:s} operation"
+    SPYInfo(msg.format(dsize=operandSize,
+                       dunit=sUnit,
+                       objkind=out.__class__.__name__,
+                       op=operator), caller=operator)
 
     # If ACME is available, try to attach (already running) parallel computing client
     parallel = False
@@ -405,8 +423,8 @@ def _perform_computation(baseObj,
         lock.release()
 
     # Delete any created subset selections
-    if hasattr(baseObj._selection, "_cleanup"):
-        baseObj._selection = None
+    if hasattr(baseObj.selection, "_cleanup"):
+        baseObj.selection = None
 
     return out
 
@@ -466,6 +484,9 @@ def arithmetic_cF(base_dat, operand_dat, operand_idx, operation=None, opres_type
     if isinstance(operand_dat, dict):
         with h5py.File(operand_dat["filename"], "r") as h5f:
             operand = h5f[operand_dat["dsetname"]][operand_idx]
+            # enforce original shape in case `operand_idx` contained scalar
+            # selections that squeezed the array
+            operand.shape = chunkShape
     else:
         operand = operand_dat
 
@@ -489,14 +510,16 @@ class SpyArithmetic(ComputationalRoutine):
     def process_metadata(self, baseObj, out):
 
         # Get/set timing-related selection modifiers
-        out.trialdefinition = baseObj._selection.trialdefinition
-        # if baseObj._selection._timeShuffle: # FIXME: should be implemented done the road
-        #     out.time = baseObj._selection.timepoints
-        if baseObj._selection._samplerate:
+        out.trialdefinition = baseObj.selection.trialdefinition
+        # if baseObj.selection._timeShuffle: # FIXME: should be implemented done the road
+        #     out.time = baseObj.selection.timepoints
+        if baseObj.selection._samplerate:
             out.samplerate = baseObj.samplerate
 
         # Get/set dimensional attributes changed by selection
-        for prop in baseObj._selection._dimProps:
-            selection = getattr(baseObj._selection, prop)
+        for prop in baseObj.selection._dimProps:
+            selection = getattr(baseObj.selection, prop)
             if selection is not None:
+                if np.issubdtype(type(selection), np.number):
+                    selection = [selection]
                 setattr(out, prop, getattr(baseObj, prop)[selection])

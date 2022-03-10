@@ -17,8 +17,12 @@ from syncopy.datatype import AnalogData
 
 __all__ = ["load_ft_raw"]
 
+# Required fields for the ft_datatype_raw
+req_fields_raw = ('time', 'trial', 'label')
+
 
 def load_ft_raw(filename,
+                list_only=False,
                 select_structures=None,
                 include_fields=None,
                 mem_use=2000):
@@ -59,6 +63,9 @@ def load_ft_raw(filename,
     ----------
     filename: str
         Path to the MAT-file
+    list_only: bool, optional
+        Set to `True` to return only a list containing the names
+        of the structures found
     select_structures: sequence or None, optional
         Sequence of strings, one for each structure,
         the default `None` will load all structures found
@@ -86,7 +93,7 @@ def load_ft_raw(filename,
     --------
     Load two structures `'Data_K'` and `'Data_KB'` from a MAT-File `example.mat`:
 
-    >>> dct = load_ft_raw('example.mat', select_structures=('Data_K', Data_KB'))
+    >>> dct = load_ft_raw('example.mat', select_structures=('Data_K', 'Data_KB'))
 
     Access the individual :class:`~syncopy.AnalogData` datasets:
 
@@ -100,6 +107,11 @@ def load_ft_raw(filename,
     Access the additionally loaded field:
 
     >>> dct['Data_K'].info['chV1']
+
+    Just peek into the MAT-File and get a list of the contained structures:
+
+    >>> load_ft_raw('example.mat', list_only=True)
+    >>> ['Data_K', 'Data_KB']
     """
 
     # -- Input validation --
@@ -118,9 +130,6 @@ def load_ft_raw(filename,
     scalar_parser(mem_use, varname='mem_use', ntype="int_like", lims=[1, np.inf])
 
     # -- MAT-File Format --
-
-    # Required fields for the ft_datatype_raw
-    req_fields_raw = ('time', 'trial', 'label')
 
     version = _get_Matlab_version(filename)
     msg = f"Reading MAT-File version {version} "
@@ -159,14 +168,17 @@ def load_ft_raw(filename,
         struct_reader = lambda struct: _read_dict_structure(struct,
                                                             include_fields=include_fields)
 
+    msg = f"Found {len(struct_keys)} structure(s): {struct_keys} in {filename}"
+    SPYInfo(msg)
+
+    if list_only:
+        return struct_keys
+
     if len(struct_keys) == 0:
         SPYValueError(legal="At least one structure",
                       varname=filename,
                       actual="No structure found"
                       )
-
-    msg = f"Found {len(struct_keys)} structure(s): {struct_keys}"
-    SPYInfo(msg)
 
     # -- IO Operations --
 
@@ -277,7 +289,7 @@ def _read_hdf_structure(h5Group,
             lgl = 'trials of equal lenghts'
             actual = 'trials of unequal lengths'
             raise SPYValueError(lgl, actual=actual)
-        ADset[SampleCounter:nSamples, :] = trl_array
+        ADset[SampleCounter:SampleCounter + nSamples, :] = trl_array
         SampleCounter += nSamples
     pbar.close()
 
@@ -303,39 +315,42 @@ def _read_hdf_structure(h5Group,
     AData.channel = channels
 
     # -- Additional Fields --
+    if include_fields is not None:
+        AData.info = {}
+        # additional fields in MAT-File
+        afields = [k for k in h5Group.keys() if k not in req_fields_raw]
+        msg = f"Found following additional fields: {afields}"
+        SPYInfo(msg, caller='load_ft_raw')
+        for field in include_fields:
+            if field not in h5Group:
+                msg = f"Could not find additional field {field} in {struct_name}"
+                SPYWarning(msg, caller='load_ft_raw')
+                continue
 
-    AData.info = {}
-    afields = include_fields if include_fields is not None else range(0)
-    for field in afields:
-        if field not in h5Group:
-            msg = f"Could not find additional field {field} in {struct_name}"
-            SPYWarning(msg)
-            continue
+            dset = h5Group[field]
+            # we only support fields pointing
+            # directly to a dataset containing actual data
+            # and not references to larger objects
+            if isinstance(dset[0], h5py.Reference):
+                msg = f"Could not read additional field '{field}'\n"
+                msg += "Only simple fields holding str labels or 1D arrays are supported atm"
+                SPYWarning(msg)
+                continue
 
-        dset = h5Group[field]
-        # we only support fields pointing
-        # directly to a dataset containing actual data
-        # and not references to larger objects
-        if isinstance(dset[0], h5py.Reference):
-            msg = f"Could not read additional field {field}\n"
-            msg += "Only simple fields holding str labels or 1D arrays are supported atm"
-            SPYWarning(msg)
-            continue
+            # ASCII encoding via uint16
+            if dset.dtype == np.uint16 and len(dset.shape) == 2:
+                AData.info[field] = _parse_MAT_hdf_strings(dset)
 
-        # ASCII encoding via uint16
-        if dset.dtype == np.uint16 and len(dset.shape) == 2:
-            AData.info[field] = _parse_MAT_hdf_strings(dset)
+            # numerical data can be written
+            # directly as np.array into info dict
+            elif dset.dtype == np.float64:
+                AData.info[field] = dset[...]
 
-        # numerical data can be written
-        # directly as np.array into info dict
-        elif dset.dtype == np.float64:
-            AData.info[field] = dset[...]
-
-        else:
-            msg = f"Could not read additional field {field}\n"
-            msg += "Unknown data type, only 1D numerical or string arrays/fields supported"
-            SPYWarning(msg)
-            continue
+            else:
+                msg = f"Could not read additional field '{field}'\n"
+                msg += "Unknown data type, only 1D numerical or string arrays/fields supported"
+                SPYWarning(msg)
+                continue
 
     return AData
 
@@ -390,7 +405,6 @@ def _read_dict_structure(structure, include_fields=None):
 
     AData = AnalogData(trials, samplerate=samplerate)
 
-    AData.info = {}
     # get the channel ids
     channels = structure['label']
     # set the channel ids
@@ -405,12 +419,23 @@ def _read_dict_structure(structure, include_fields=None):
     trl_def = np.hstack([AData.sampleinfo, offsets[:, None]])
     AData.trialdefinition = trl_def
 
-    # write additional fields(non standard FT-format)
-    # into Syncopy config
-    # FIXME: does this require similar error checking as in the hdf case?
-    afields = include_fields if include_fields is not None else range(0)
-    for field in afields:
-        AData.info[field] = structure[field]
+    # -- Additional Fields --
+
+    if include_fields is not None:
+        AData.info = {}
+        # additional fields in MAT-File
+        afields = [k for k in structure.keys() if k not in req_fields_raw]
+        msg = f"Found following additional fields: {afields}"
+        SPYInfo(msg, caller='load_ft_raw')
+
+        for field in include_fields:
+            if field not in structure:
+                msg = f"Could not find additional field {field}"
+                SPYWarning(msg, caller='load_ft_raw')
+                continue
+            
+            AData.info[field] = structure[field]
+
     return AData
 
 

@@ -27,6 +27,7 @@ def cross_spectra_cF(trl_dat,
                      foi=None,
                      taper="hann",
                      taper_opt=None,
+                     demean_taper=False,
                      polyremoval=False,
                      timeAxis=0,
                      chunkShape=None,
@@ -77,6 +78,8 @@ def cross_spectra_cF(trl_dat,
         `'Kmax'` and `'NW'`.
         For further details, please refer to the
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
+    demean_taper : bool
+        Set to `True` to perform de-meaning after tapering
     polyremoval : int or None
         Order of polynomial used for de-trending data in the time domain prior
         to spectral analysis. A value of 0 corresponds to subtracting the mean
@@ -153,7 +156,7 @@ def cross_spectra_cF(trl_dat,
         dat = detrend(dat, type='linear', axis=0, overwrite_data=True)
 
     CS_ij = csd(dat, samplerate, nSamples, taper=taper, taper_opt=taper_opt)
-    
+
     # where does freqs go/come from -
     # we will eventually solve this issue..
     return CS_ij[None, freq_idx, ...]
@@ -188,9 +191,9 @@ class ST_CrossSpectra(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
-        if data._selection is not None:
-            chanSec = data._selection.channel
-            trl = data._selection.trialdefinition
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
             for row in range(trl.shape[0]):
                 trl[row, :2] = [row, row + 1]
         else:
@@ -308,7 +311,7 @@ def cross_covariance_cF(trl_dat,
         dat = detrend(dat, type='constant', axis=0, overwrite_data=True)
     elif polyremoval == 1:
         detrend(dat, type='linear', axis=0, overwrite_data=True)
-    
+
     # re-normalize output for different effective overlaps
     norm_overlap = np.arange(nSamples, nSamples // 2, step = -1)
 
@@ -362,9 +365,9 @@ class ST_CrossCovariance(ComputationalRoutine):
         # Get trialdef array + channels from source: note, since lags are encoded
         # in time-axis, trial offsets etc. are bogus anyway: simply take max-sample
         # counts / 2 to fit lags
-        if data._selection is not None:
-            chanSec = data._selection.channel
-            trl = np.ceil(data._selection.trialdefinition / 2)
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = np.ceil(data.selection.trialdefinition / 2)
         else:
             chanSec = slice(None)
             trl = np.ceil(data.trialdefinition / 2)
@@ -374,7 +377,7 @@ class ST_CrossCovariance(ComputationalRoutine):
 
         if not self.keeptrials:
             trl = trl[[0], :]
-            
+
         # set 1st entry of time axis to the 0-lag
         trl[:, 2] = 0
         out.trialdefinition = trl

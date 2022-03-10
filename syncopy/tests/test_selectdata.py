@@ -50,6 +50,8 @@ class TestSelector():
     selectDict["channel"] = {"valid": (["channel03", "channel01"],
                                        ["channel03", "channel01", "channel01", "channel02"],  # repetition
                                        ["channel01", "channel01", "channel02", "channel03"],  # preserve repetition
+                                       "channel03",     # string -> scalar
+                                       0,               # scalar
                                        [4, 2, 5],
                                        [4, 2, 2, 5, 5],   # repetition
                                        [0, 0, 1, 2, 3],  # preserve repetition, don't convert to slice
@@ -68,6 +70,8 @@ class TestSelector():
                              "result": ([2, 0],
                                         [2, 0, 0, 1],
                                         [0, 0, 1, 2],
+                                        [2],
+                                        [0],
                                         [4, 2, 5],
                                         [4, 2, 2, 5, 5],
                                         [0, 0, 1, 2, 3],
@@ -112,6 +116,7 @@ class TestSelector():
                                      slice(None),
                                      None,
                                      "all",
+                                     0,               # scalar
                                      slice(0, 5),
                                      slice(3, None),
                                      slice(2, 4),
@@ -127,6 +132,7 @@ class TestSelector():
                                       slice(None, None, 1),
                                       slice(None, None, 1),
                                       slice(None, None, 1),
+                                      [0],
                                       slice(0, 5, 1),
                                       slice(3, None, 1),
                                       slice(2, 4, 1),
@@ -165,6 +171,8 @@ class TestSelector():
                                     slice(None),
                                     None,
                                     "all",
+                                    "unit3",       # string -> scalar
+                                    4,             # scalar
                                     slice(0, 5),
                                     slice(3, None),
                                     slice(2, 4),
@@ -200,6 +208,7 @@ class TestSelector():
                                        slice(None),
                                        None,
                                        "all",
+                                       1,             # scalar
                                        slice(0, 2),
                                        slice(1, None),
                                        slice(0, 1),
@@ -345,9 +354,15 @@ class TestSelector():
                         selects = list(range(getattr(discrete, prop).size))[selection]
                 elif isinstance(selection, range):
                     selects = list(selection)
-                elif isinstance(selection, str) or selection is None:
-                    selects = [None]
-                else: # selection is list/ndarray
+                elif isinstance(selection, str):
+                    if selection == "all":
+                        selects = [None]
+                    else:
+                        selection = [selection]
+                elif np.issubdtype(type(selection), np.number):
+                    selection = [selection]
+
+                if isinstance(selection, (list, np.ndarray)):
                     if isinstance(selection[0], str):
                         avail = getattr(discrete, prop)
                     else:
@@ -397,6 +412,10 @@ class TestSelector():
             ang.selectdata(trials=[3, 1], clear=True)
             assert "no data selectors if `clear = True`" in str(spyval.value)
 
+        # show full/squeezed arrays
+        assert len(ang.show(channel=0).shape) == 1
+        assert len(ang.show(channel=0, squeeze=False).shape) == 2
+
         # go through all data-classes defined above
         for dclass in self.classes:
             dummy = getattr(spd, dclass)(data=self.data[dclass],
@@ -412,6 +431,24 @@ class TestSelector():
             assert selected.trialdefinition.shape == (2, 4)
             assert np.array_equal(selected.trialdefinition[:, -1], dummy.trialdefinition[[3, 1], -1])
 
+            # scalar selection
+            selection = Selector(dummy, {"trials": 2})
+            assert selection.trials == [2]
+            selected = selectdata(dummy, trials=2)
+            assert np.array_equal(selected.trials[0], dummy.trials[2])
+            assert selected.trialdefinition.shape == (1, 4)
+            assert np.array_equal(selected.trialdefinition[:, -1], dummy.trialdefinition[[2], -1])
+
+            # array selection
+            selection = Selector(dummy, {"trials": np.array([3, 1])})
+            assert selection.trials == [3, 1]
+            selected = selectdata(dummy, trials=[3, 1])
+            assert np.array_equal(selected.trials[0], dummy.trials[3])
+            assert np.array_equal(selected.trials[1], dummy.trials[1])
+            assert selected.trialdefinition.shape == (2, 4)
+            assert np.array_equal(selected.trialdefinition[:, -1], dummy.trialdefinition[[3, 1], -1])
+
+            # select all
             for trlSec in [None, "all"]:
                 selection = Selector(dummy, {"trials": trlSec})
                 assert selection.trials == list(range(len(dummy.trials)))
@@ -420,11 +457,11 @@ class TestSelector():
                     assert np.array_equal(trl, dummy.trials[tk])
                 assert np.array_equal(selected.trialdefinition, dummy.trialdefinition)
 
+            # invalid trials
             with pytest.raises(SPYValueError):
                 Selector(dummy, {"trials": [-1, 9]})
 
             # test "simple" property setters handled by `_selection_setter`
-            # for prop in ["eventid"]:
             for prop in ["channel", "taper", "unit", "eventid"]:
                 if hasattr(dummy, prop):
                     expected = self.selectDict[prop]["result"]
@@ -446,10 +483,15 @@ class TestSelector():
                                 else:
                                     solution = slice(start, stop, step)
 
+                        # ensure typos in selectino keywords are caught
+                        with pytest.raises(SPYValueError) as spv:
+                            Selector(dummy, {prop + "x": sel})
+                            assert "expected dict with one or all of the following keys:" in str(spv.value)
+
                         # once we're sure `Selector` works, actually select data
-                        selection = Selector(dummy, {prop + "s": sel})
+                        selection = Selector(dummy, {prop : sel})
                         assert getattr(selection, prop) == solution
-                        selected = selectdata(dummy, {prop + "s": sel})
+                        selected = selectdata(dummy, {prop : sel})
 
                         # process `unit` and `enventid`
                         if prop in selection._byTrialProps:
@@ -482,12 +524,12 @@ class TestSelector():
                     # ensure invalid selection trigger expected errors
                     for ik, isel in enumerate(self.selectDict[prop]["invalid"]):
                         with pytest.raises(self.selectDict[prop]["errors"][ik]):
-                            Selector(dummy, {prop + "s": isel})
+                            Selector(dummy, {prop : isel})
                 else:
 
                     # ensure objects that don't have a `prop` attribute complain
                     with pytest.raises(SPYValueError):
-                        Selector(dummy, {prop + "s": [0]})
+                        Selector(dummy, {prop : [0]})
 
             # ensure invalid `toi` + `toilim` specifications trigger expected errors
             if hasattr(dummy, "time") or hasattr(dummy, "trialtime"):

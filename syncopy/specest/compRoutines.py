@@ -190,9 +190,9 @@ class MultiTaperFFT(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
-        if data._selection is not None:
-            chanSec = data._selection.channel
-            trl = data._selection.trialdefinition
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
             for row in range(trl.shape[0]):
                 trl[row, :2] = [row, row + 1]
         else:
@@ -414,9 +414,9 @@ class MultiTaperFFTConvol(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Get trialdef array + channels from source
-        if data._selection is not None:
-            chanSec = data._selection.channel
-            trl = data._selection.trialdefinition
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
         else:
             chanSec = slice(None)
             trl = data.trialdefinition
@@ -584,9 +584,9 @@ class WaveletTransform(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Get trialdef array + channels from source
-        if data._selection is not None:
-            chanSec = data._selection.channel
-            trl = data._selection.trialdefinition
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
         else:
             chanSec = slice(None)
             trl = data.trialdefinition
@@ -748,9 +748,9 @@ class SuperletTransform(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Get trialdef array + channels from source
-        if data._selection is not None:
-            chanSec = data._selection.channel
-            trl = data._selection.trialdefinition
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
         else:
             chanSec = slice(None)
             trl = data.trialdefinition

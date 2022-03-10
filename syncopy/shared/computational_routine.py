@@ -142,7 +142,7 @@ class ComputationalRoutine(ABC):
         # list of dicts encoding header info of raw binary input files (experimental!)
         self.hdr = None
 
-        # list of trial numbers to process (either `data.trials` or `data._selection.trials`)
+        # list of trial numbers to process (either `data.trials` or `data.selection.trials`)
         self.trialList = None
 
         # number of trials to process (shortcut for `len(self.trialList)`)
@@ -161,6 +161,10 @@ class ComputationalRoutine(ABC):
         # >>> MUST be ordered, no repetitions! <<<
         # indices are ABSOLUTE, i.e., wrt entire dataset, not just current trial!
         self.sourceLayout = None
+
+        # list of shape-tuples of input trial-chunks (necessary to restore shape of
+        # arrays that got inflated by scalar selection tuples))
+        self.sourceShapes = None
 
         # list of index-tuples for re-ordering NumPy arrays extracted w/`self.sourceLayout`
         # >>> can be unordered w/repetitions <<<
@@ -265,9 +269,9 @@ class ComputationalRoutine(ABC):
 
         # Determine if data-selection was provided; if so, extract trials and check
         # whether selection requires fancy array indexing
-        if data._selection is not None:
-            self.trialList = data._selection.trials
-            self.useFancyIdx = data._selection._useFancy
+        if data.selection is not None:
+            self.trialList = data.selection.trials
+            self.useFancyIdx = data.selection._useFancy
         else:
             self.trialList = list(range(len(data.trials)))
             self.useFancyIdx = False
@@ -324,8 +328,8 @@ class ComputationalRoutine(ABC):
             msg = "trial-averaging does not support channel-block parallelization!"
             SPYWarning(msg)
             chan_per_worker = None
-        if data._selection is not None:
-            if chan_per_worker is not None and data._selection.channel != slice(None, None, 1):
+        if data.selection is not None:
+            if chan_per_worker is not None and data.selection.channel != slice(None, None, 1):
                 msg = "channel selection and simultaneous channel-block " +\
                     "parallelization not yet supported!"
                 SPYWarning(msg)
@@ -335,9 +339,10 @@ class ComputationalRoutine(ABC):
         trial = trials[0]
         trlArg0 = tuple(arg[0] if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials \
             else arg for arg in self.argv)
-        chunkShape0 = chk_arr[0, :]
+        chunkShape0 = tuple(chk_arr[0, :])
         lyt = [slice(0, stop) for stop in chunkShape0]
         sourceLayout = []
+        sourceShapes = []
         targetLayout = []
         targetShapes = []
         c_blocks = [1]
@@ -383,6 +388,7 @@ class ComputationalRoutine(ABC):
                 targetLayout.append(tuple(lyt))
                 targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
                 sourceLayout.append(trial.idx)
+                sourceShapes.append(trial.shape)
                 chanstack += res[outchanidx]
                 blockstack += block
 
@@ -391,6 +397,7 @@ class ComputationalRoutine(ABC):
             targetLayout.append(tuple(lyt))
             targetShapes.append(chunkShape0)
             sourceLayout.append(trial.idx)
+            sourceShapes.append(trial.shape)
 
         # Construct dimensional layout of output
         stacking = targetLayout[0][stackingDim].stop
@@ -406,6 +413,7 @@ class ComputationalRoutine(ABC):
                 targetLayout.append(tuple(lyt))
                 targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
                 sourceLayout.append(trial.idx)
+                sourceShapes.append(trial.shape)
             else:
                 chanstack = 0
                 blockstack = 0
@@ -421,6 +429,7 @@ class ComputationalRoutine(ABC):
                     targetLayout.append(tuple(lyt))
                     targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
                     sourceLayout.append(trial.idx)
+                    sourceShapes.append(trial.shape)
                     chanstack += res[outchanidx]
                     blockstack += block
 
@@ -449,6 +458,8 @@ class ComputationalRoutine(ABC):
                 ingrid = list(grd)
                 sigrid = []
                 for sk, sel in enumerate(grd):
+                    if np.issubdtype(type(sel), np.number):
+                        sel = [sel]
                     if isinstance(sel, list):
                         selarr = np.array(sel, dtype=np.intp)
                     else: # sel is a slice
@@ -469,6 +480,7 @@ class ComputationalRoutine(ABC):
 
         # Store determined shapes and grid layout
         self.sourceLayout = sourceLayout
+        self.sourceShapes = sourceShapes
         self.sourceSelectors = sourceSelectors
         self.targetLayout = targetLayout
         self.targetShapes = targetShapes
@@ -601,6 +613,7 @@ class ComputationalRoutine(ABC):
                             "infile": data.filename,
                             "indset": data.data.name,
                             "ingrid": self.sourceLayout[chk],
+                            "inshape": self.sourceShapes[chk],
                             "sigrid": self.sourceSelectors[chk],
                             "fancy": self.useFancyIdx,
                             "vdsdir": self.virtualDatasetDir,
@@ -906,8 +919,18 @@ class ComputationalRoutine(ABC):
                                                     shape=(self.hdr[fk]["M"], self.hdr[fk]["N"]))[idx])
                         arr = np.vstack(stacks)[ingrid]
 
+                    # Ensure input array shape was not inflated by scalar selection
+                    # tuple, e.g., ``e=np.ones((2,2)); e[0,:].shape = (2,)`` not ``(1,2)``
+                    # (use an explicit `shape` assignment here to avoid copies)
+                    arr.shape = self.sourceShapes[nblock]
+
                     # Perform computation
                     res = self.computeFunction(arr, *argv, **self.cfg)
+
+                    # In case scalar selections have been performed, explicitly assign
+                    # desired output shape to re-create "lost" singleton dimensions
+                    # (use an explicit `shape` assignment here to avoid copies)
+                    res.shape = self.targetShapes[nblock]
 
                 # Either write result to `outgrid` location in `target` or add it up
                 if self.keeptrials:

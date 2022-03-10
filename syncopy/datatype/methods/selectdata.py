@@ -3,6 +3,9 @@
 # Syncopy data selection methods
 #
 
+# Builtin/3rd party package imports
+import numpy as np
+
 # Local imports
 from syncopy.shared.parsers import data_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, SPYWarning
@@ -14,9 +17,22 @@ __all__ = ["selectdata"]
 
 @unwrap_cfg
 @detect_parallel_client
-def selectdata(data, trials=None, channels=None, channels_i=None, channels_j=None,
-               toi=None, toilim=None, foi=None, foilim=None, tapers=None, units=None,
-               eventids=None, out=None, inplace=False, clear=False, **kwargs):
+def selectdata(data,
+               trials=None,
+               channel=None,
+               channel_i=None,
+               channel_j=None,
+               toi=None,
+               toilim=None,
+               foi=None,
+               foilim=None,
+               taper=None,
+               unit=None,
+               eventid=None,
+               out=None,
+               inplace=False,
+               clear=False,
+               **kwargs):
     """
     Create a new Syncopy object from a selection
 
@@ -47,34 +63,34 @@ def selectdata(data, trials=None, channels=None, channels_i=None, channels_j=Non
 
     List of Syncopy data objects and respective valid data selectors:
 
-    :class:`~syncopy.AnalogData` : trials, channels, toi/toilim
+    :class:`~syncopy.AnalogData` : trials, channel, toi/toilim
         Examples
 
-        >>> spy.selectdata(data, trials=[0, 3, 5], channels=["channel01", "channel02"])
+        >>> spy.selectdata(data, trials=[0, 3, 5], channel=["channel01", "channel02"])
         >>> cfg = spy.StructDict()
         >>> cfg.trials = [5, 3, 0]; cfg.toilim = [0.25, 0.5]
         >>> spy.selectdata(cfg, data)
 
-    :class:`~syncopy.SpectralData` : trials, channels, toi/toilim, foi/foilim, tapers
+    :class:`~syncopy.SpectralData` : trials, channel, toi/toilim, foi/foilim, taper
         Examples
 
-        >>> spy.selectdata(data, trials=[0, 3, 5], channels=["channel01", "channel02"])
+        >>> spy.selectdata(data, trials=[0, 3, 5], channel=["channel01", "channel02"])
         >>> cfg = spy.StructDict()
-        >>> cfg.foi = [30, 40, 50]; cfg.tapers = slice(2, 4)
+        >>> cfg.foi = [30, 40, 50]; cfg.taper = slice(2, 4)
         >>> spy.selectdata(cfg, data)
 
-    :class:`~syncopy.EventData` : trials, toi/toilim, eventids
+    :class:`~syncopy.EventData` : trials, toi/toilim, eventid
         Examples
 
-        >>> spy.selectdata(data, toilim=[-1, 2.5], eventids=[0, 1])
+        >>> spy.selectdata(data, toilim=[-1, 2.5], eventid=[0, 1])
         >>> cfg = spy.StructDict()
-        >>> cfg.trials = [0, 0, 1, 0]; cfg.eventids = slice(2, None)
+        >>> cfg.trials = [0, 0, 1, 0]; cfg.eventid = slice(2, None)
         >>> spy.selectdata(cfg, data)
 
-    :class:`~syncopy.SpikeData` : trials, toi/toilim, units, channels
+    :class:`~syncopy.SpikeData` : trials, toi/toilim, unit, channel
         Examples
 
-        >>> spy.selectdata(data, toilim=[-1, 2.5], units=range(0, 10))
+        >>> spy.selectdata(data, toilim=[-1, 2.5], unit=range(0, 10))
         >>> cfg = spy.StructDict()
         >>> cfg.toi = [1.25, 3.2]; cfg.trials = [0, 1, 2, 3]
         >>> spy.selectdata(cfg, data)
@@ -82,7 +98,7 @@ def selectdata(data, trials=None, channels=None, channels_i=None, channels_j=Non
     **Note** Any property that is not specifically accessed via one of the provided
     selectors is taken as is, e.g., ``spy.selectdata(data, trials=[1, 2])``
     selects the entire contents of trials no. 2 and 3, while
-    ``spy.selectdata(data, channels=range(0, 50))`` selects the first 50 channels
+    ``spy.selectdata(data, channel=range(0, 50))`` selects the first 50 channels
     of `data` across all defined trials. Consequently, if no keywords are specified,
     the entire contents of `data` is selected.
 
@@ -100,18 +116,18 @@ def selectdata(data, trials=None, channels=None, channels_i=None, channels_j=Non
         repetitions and need not be sorted (e.g., ``trials = [0, 1, 0, 0, 2]``
         is valid) but must be finite and not NaN. If `trials` is `None`, or
         ``trials = "all"`` all trials are selected.
-    channels : list (integers or strings), slice, range or None or "all"
+    channel : list (integers or strings), slice, range, str, int, None or "all"
         Channel-selection; can be a list of channel names (``['channel3', 'channel1']``),
         a list of channel indices (``[3, 5]``), a slice (``slice(3, 10)``) or
         range (``range(3, 10)``). Note that following Python conventions, channels
         are counted starting at zero, and range and slice selections are half-open
         intervals of the form `[low, high)`, i.e., low is included , high is
-        excluded. Thus, ``channels = [0, 1, 2]`` or ``channels = slice(0, 3)``
+        excluded. Thus, ``channel = [0, 1, 2]`` or ``channel = slice(0, 3)``
         selects the first up to (and including) the third channel. Selections can
         be unsorted and may include repetitions but must match exactly, be finite
-        and not NaN. If `channels` is `None`, or ``channels = "all"`` all channels
+        and not NaN. If `channel` is `None`, or ``channel = "all"`` all channels
         are selected.
-    toi : list (floats) or None or "all"
+    toi : list (floats), float, None or "all"
         Time-points to be selected (in seconds) in each trial. Timing is expected
         to be on a by-trial basis (e.g., relative to trigger onsets). Selections
         can be approximate, unsorted and may include repetitions but must be
@@ -127,7 +143,7 @@ def selectdata(data, trials=None, channels=None, channels_i=None, channels_j=Non
         `tmin` and `tmax` are included in the selection.
         If `toilim` is `None` or ``toilim = "all"``, the entire time-span in each
         trial is selected.
-    foi : list (floats) or None or "all"
+    foi : list (floats), float, None or "all"
         Frequencies to be selected (in Hz). Selections can be approximate, unsorted
         and may include repetitions but must be finite and not NaN. Fuzzy matching
         is performed for approximate selections (i.e., selected frequencies are
@@ -140,39 +156,44 @@ def selectdata(data, trials=None, channels=None, channels_i=None, channels_j=Non
         but may be unbounded (e.g., ``[-np.inf, 60.5]`` is valid). Edges `fmin`
         and `fmax` are included in the selection. If `foilim` is `None` or
         ``foilim = "all"``, all frequencies are selected.
-    tapers : list (integers or strings), slice, range or None or "all"
+    taper : list (integers or strings), slice, range, str, int, None or "all"
         Taper-selection; can be a list of taper names (``['dpss-win-1', 'dpss-win-3']``),
         a list of taper indices (``[3, 5]``), a slice (``slice(3, 10)``) or range
         (``range(3, 10)``). Note that following Python conventions, tapers are
         counted starting at zero, and range and slice selections are half-open
         intervals of the form `[low, high)`, i.e., low is included , high is
-        excluded. Thus, ``tapers = [0, 1, 2]`` or ``tapers = slice(0, 3)`` selects
+        excluded. Thus, ``taper = [0, 1, 2]`` or ``taper = slice(0, 3)`` selects
         the first up to (and including) the third taper. Selections can be unsorted
         and may include repetitions but must match exactly, be finite and not NaN.
-        If `tapers` is `None` or ``tapers = "all"``, all tapers are selected.
-    units : list (integers or strings), slice, range or None or "all"
+        If `taper` is `None` or ``taper = "all"``, all tapers are selected.
+    unit : list (integers or strings), slice, range, str, int, None or "all"
         Unit-selection; can be a list of unit names (``['unit10', 'unit3']``), a
         list of unit indices (``[3, 5]``), a slice (``slice(3, 10)``) or range
         (``range(3, 10)``). Note that following Python conventions, units are
         counted starting at zero, and range and slice selections are half-open
         intervals of the form `[low, high)`, i.e., low is included , high is
-        excluded. Thus, ``units = [0, 1, 2]`` or ``units = slice(0, 3)`` selects
+        excluded. Thus, ``unit = [0, 1, 2]`` or ``unit = slice(0, 3)`` selects
         the first up to (and including) the third unit. Selections can be unsorted
         and may include repetitions but must match exactly, be finite and not NaN.
-        If `units` is `None` or ``units = "all"``, all units are selected.
-    eventids : list (integers), slice, range or None or "all"
+        If `unit` is `None` or ``unit = "all"``, all units are selected.
+    eventid : list (integers), slice, range, int, None or "all"
         Event-ID-selection; can be a list of event-id codes (``[2, 0, 1]``), slice
         (``slice(0, 2)``) or range (``range(0, 2)``). Note that following Python
         conventions, range and slice selections are half-open intervals of the
         form `[low, high)`, i.e., low is included , high is excluded. Selections
         can be unsorted and may include repetitions but must match exactly, be
-        finite and not NaN. If `eventids` is `None` or ``eventids = "all"``, all
+        finite and not NaN. If `eventid` is `None` or ``eventid = "all"``, all
         events are selected.
     inplace : bool
         If `inplace` is `True` **no** new object is created. Instead the provided
-        selection is stored in the input object's `_selection` attribute for later
+        selection is stored in the input object's `selection` attribute for later
         use. By default `inplace` is `False` and all calls to `selectdata` create
         a new Syncopy data object.
+    clear : bool
+        If `True` remove any active in-place selection. Note that in-place
+        selections can also be removed manually by assinging `None` to the
+        `selection` property, i.e., ``mydata.selection = None`` is equivalent
+        to ``spy.selectdata(mydata, clear=True)`` or ``mydata.selectdata(clear=True)``
 
     Returns
     -------
@@ -268,42 +289,58 @@ def selectdata(data, trials=None, channels=None, channels_i=None, channels_j=Non
             lgl = "no output object for in-place selection"
             raise SPYValueError(lgl, varname="out", actual=out.__class__.__name__)
 
-    # FIXME: remove once tests are in place (cf #165)
-    if channels_i is not None or channels_j is not None:
-        SPYWarning("CrossSpectralData channel selection currently untested and experimental!")
-
-    # Collect provided keywords in dict
+    # Collect provided selection keywords in dict
     selectDict = {"trials": trials,
-                  "channels": channels,
-                  "channels_i": channels_i,
-                  "channels_j": channels_j,
+                  "channel": channel,
+                  "channel_i": channel_i,
+                  "channel_j": channel_j,
                   "toi": toi,
                   "toilim": toilim,
                   "foi": foi,
                   "foilim": foilim,
-                  "tapers": tapers,
-                  "units": units,
-                  "eventids": eventids}
+                  "taper": taper,
+                  "unit": unit,
+                  "eventid": eventid}
+
+    # The only valid anonymous kw is "parallel" (i.e., filter out typos like 'trails' etc.)
+    if len(kwargs) > 0:
+        if list(kwargs.keys()) != ["parallel"]:
+            kwargs.pop("parallel", None)
+            expected = list(selectDict.keys()) + ["out", "inplace", "clear", "parallel"]
+            lgl = "dict with one or all of the following keys: '" +\
+                  "'".join(opt + "', " for opt in expected)[:-2]
+            act = "dict with keys '" +\
+                  "'".join(key + "', " for key in kwargs.keys())[:-2]
+            raise SPYValueError(legal=lgl, varname="kwargs", actual=act)
 
     # First simplest case: determine whether we just need to clear an existing selection
     if clear:
         if any(value is not None for value in selectDict.values()):
             lgl = "no data selectors if `clear = True`"
             raise SPYValueError(lgl, varname="select", actual=selectDict)
-        if data._selection is None:
+        if data.selection is None:
             SPYInfo("No in-place selection found. ")
         else:
-            data._selection = None
+            data.selection = None
             SPYInfo("In-place selection cleared")
         return
 
     # Pass provided selections on to `Selector` class which performs error checking
-    data._selection = selectDict
+    data.selection = selectDict
 
     # If an in-place selection was requested we're done
     if inplace:
-        SPYInfo("In-place selection attached to data object: {}".format(data._selection))
         return
+
+    # Inform the user what's about to happen
+    selectionSize = _get_selection_size(data)
+    sUnit = "MB"
+    if selectionSize > 1000:
+        selectionSize /= 1024
+        sUnit = "GB"
+    msg = "Copying {dsize:3.2f} {dunit:s} of data based on selection " +\
+        "to create new {objkind:s} object on disk"
+    SPYInfo(msg.format(dsize=selectionSize, dunit=sUnit, objkind=data.__class__.__name__))
 
     # Create inventory of all available selectors and actually provided values
     # to create a bookkeeping dict for logging
@@ -318,10 +355,19 @@ def selectdata(data, trials=None, channels=None, channels_i=None, channels_j=Non
                          log_dict=log_dct)
 
     # Wipe data-selection slot to not alter input object
-    data._selection = None
+    data.selection = None
 
     # Either return newly created output object or simply quit
     return out if new_out else None
+
+
+def _get_selection_size(data):
+    """
+    Local helper routine for computing the on-disk size of an active data-selection
+    """
+    fauxTrials = [data._preview_trial(trlno) for trlno in data.selection.trials]
+    fauxSizes = [np.prod(ftrl.shape)*ftrl.dtype.itemsize for ftrl in fauxTrials]
+    return sum(fauxSizes) / 1024**2
 
 
 @unwrap_io
@@ -338,14 +384,16 @@ class DataSelection(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Get/set timing-related selection modifiers
-        out.trialdefinition = data._selection.trialdefinition
-        # if data._selection._timeShuffle: # FIXME: should be implemented done the road
-        #     out.time = data._selection.timepoints
-        if data._selection._samplerate:
+        out.trialdefinition = data.selection.trialdefinition
+        # if data.selection._timeShuffle: # FIXME: should be implemented down the road
+        #     out.time = data.selection.timepoints
+        if data.selection._samplerate:
             out.samplerate = data.samplerate
 
         # Get/set dimensional attributes changed by selection
-        for prop in data._selection._dimProps:
-            selection = getattr(data._selection, prop)
+        for prop in data.selection._dimProps:
+            selection = getattr(data.selection, prop)
             if selection is not None:
+                if np.issubdtype(type(selection), np.number):
+                    selection = [selection]
                 setattr(out, prop, getattr(data, prop)[selection])
