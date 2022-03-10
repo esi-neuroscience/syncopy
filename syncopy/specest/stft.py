@@ -118,7 +118,7 @@ def stft(dat,
 
     if window is not None:
         # Apply window by multiplication
-        dat = window * dat
+        dat *= window
 
     times = np.arange(nperseg / 2, dat.shape[-1] - nperseg / 2 + 1,
                       nperseg - noverlap) / fs
