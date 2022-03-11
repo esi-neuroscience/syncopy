@@ -7,6 +7,9 @@
 import numpy as np
 from scipy import signal
 
+# local imports
+from ._norm_spec import _norm_spec, _norm_taper
+
 
 def mtmfft(data_arr,
            samplerate,
@@ -55,7 +58,10 @@ def mtmfft(data_arr,
 
     ``Sxx = np.real(ftr * ftr.conj()).mean(axis=0)``
 
-    The FFT result is normalized such that this yields the squared amplitudes.
+    The FFT result is normalized such that this yields the power
+    spectral density. For a clean harmonic and a Fourier frequency bin
+    width of `dF` this will give a peak power of `A**2 * dF`,
+    with `A` as harmonic ampltiude.
     """
 
     # attach dummy channel axis in case only a
@@ -83,15 +89,8 @@ def mtmfft(data_arr,
     # only really 2d if taper='dpss' with Kmax > 1
     # here we take the actual signal lengths!
     windows = np.atleast_2d(taper_func(signal_length, **taper_opt))
-
-    # only(!!) slepian windows are already normalized
-    # still have to normalize by number of tapers
-    # such that taper-averaging yields correct amplitudes
-    if taper == 'dpss':
-        windows = windows * np.sqrt(taper_opt.get('Kmax', 1))
-    # per pedes L2 normalisation for all other tapers
-    else:
-        windows = windows * np.sqrt(signal_length) / np.sum(windows)
+    # normalize window
+    windows = _norm_taper(taper, windows, nSamples)
 
     # Fourier transforms (nTapers x nFreq x nChannels)
     ftr = np.zeros((windows.shape[0], nFreq, nChannels), dtype='complex64')
@@ -102,10 +101,7 @@ def mtmfft(data_arr,
         # de-mean again after tapering - needed for Granger!
         if demean_taper:
             win -= win.mean(axis=0)
-        # real fft takes only 'half the energy'/positive frequencies,
-        # multiply by 2 to correct for this
-        ftr[taperIdx] = 2 * np.fft.rfft(win, n=nSamples, axis=0)
-        # normalization
-        ftr[taperIdx] /= np.sqrt(nSamples)
+        ftr[taperIdx] = np.fft.rfft(win, n=nSamples, axis=0)
+        ftr[taperIdx] = _norm_spec(ftr[taperIdx], nSamples, freqs)
 
     return ftr, freqs
