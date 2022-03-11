@@ -212,7 +212,10 @@ class MultiTaperFFT(ComputationalRoutine):
         # Attach remaining meta-data
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel[chanSec])
-        out.taper = np.array([self.cfg["method_kwargs"]["taper"]] * self.outputShape[out.dimord.index("taper")])
+        if self.cfg["method_kwargs"]["taper"] is None:
+            out.taper = np.array(['None'])
+        else:
+            out.taper = np.array([self.cfg["method_kwargs"]["taper"]] * self.outputShape[out.dimord.index("taper")])
         out.freq = self.cfg["foi"]
 
 
@@ -341,7 +344,7 @@ def mtmconvol_cF(
     nFreq = foi.size
     taper_opt = method_kwargs['taper_opt']
     if taper_opt:
-        nTaper = taper_opt["Kmax"]
+        nTaper = taper_opt.get("Kmax", 1)
     outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
@@ -435,7 +438,10 @@ class MultiTaperFFTConvol(ComputationalRoutine):
         out.trialdefinition = trl
         out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
-        out.taper = np.array([self.cfg["method_kwargs"]["taper"]] * self.outputShape[out.dimord.index("taper")])
+        if self.cfg["method_kwargs"]["taper"] is None:
+            out.taper = np.array(['None'])
+        else:
+            out.taper = np.array([self.cfg["method_kwargs"]["taper"]] * self.outputShape[out.dimord.index("taper")])
         out.freq = self.cfg["foi"]
 
 
