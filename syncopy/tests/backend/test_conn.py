@@ -308,5 +308,3 @@ def test_granger():
     ax.plot(freqs, G2[:, 0, 1], label=r'Granger (LS) $1\rightarrow2$')
     ax.plot(freqs, G2[:, 1, 0], label=r'Granger (LS) $2\rightarrow1$')
     ax.legend()
-
-    return G, G2
