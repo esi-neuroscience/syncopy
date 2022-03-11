@@ -238,7 +238,7 @@ def test_wilson():
     ax.legend()
 
 
-def test_granger(direct_inversion=True):
+def test_granger():
 
     """
     Test the granger causality measure
@@ -275,7 +275,7 @@ def test_granger(direct_inversion=True):
     CSDav /= nTrials
     # with only 2 channels this CSD is well conditioned
     assert np.linalg.cond(CSDav).max() < 1e2
-    H, Sigma, conv = wilson_sf(CSDav, direct_inversion=direct_inversion)
+    H, Sigma, conv = wilson_sf(CSDav, direct_inversion=True)
 
     G = granger(CSDav, H, Sigma)
     assert G.shape == CSDav.shape
@@ -286,7 +286,7 @@ def test_granger(direct_inversion=True):
     ax.plot(freqs, G[:, 0, 1], label=r'Granger $1\rightarrow2$')
     ax.plot(freqs, G[:, 1, 0], label=r'Granger $2\rightarrow1$')
     ax.legend()
-    
+
     # check for directional causality at 40Hz
     freq_idx = np.argmin(freqs < 40)
     assert 39 < freqs[freq_idx] < 41
@@ -295,3 +295,18 @@ def test_granger(direct_inversion=True):
     assert G[freq_idx, 0, 1] < 0.1
     # check high causality for 2->1
     assert G[freq_idx, 1, 0] > 0.8
+
+    # repeat test with least-square solution
+    H, Sigma, conv = wilson_sf(CSDav, direct_inversion=False)
+    G2 = granger(CSDav, H, Sigma)
+
+    # check low to no causality for 1->2
+    assert G2[freq_idx, 0, 1] < 0.1
+    # check high causality for 2->1
+    assert G2[freq_idx, 1, 0] > 0.8
+
+    ax.plot(freqs, G2[:, 0, 1], label=r'Granger (LS) $1\rightarrow2$')
+    ax.plot(freqs, G2[:, 1, 0], label=r'Granger (LS) $2\rightarrow1$')
+    ax.legend()
+
+    return G, G2
