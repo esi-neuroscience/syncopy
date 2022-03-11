@@ -141,14 +141,78 @@ An improved method, the superlet transform, providing super-resolution time-freq
 Connectivity Analysis
 =====================
 
-Having time-frequency results for individual channels is useful, however we hardly learn anything about functional relationships between these different units. Even if two channels have a spectral peak at say 30Hz, we don't know if these signals are actually connected. Syncopy offers various distinct methods to elucidate such putative connections: coherence, cross-correlation and Granger-Geweke causality.
+Having time-frequency results for individual channels is useful, however we hardly learn anything about functional relationships between these different units. Even if two channels have a spectral peak at say 100Hz, we don't know if these signals are actually connected. Syncopy offers various distinct methods to elucidate such putative connections via the :func:`~spy.connectivityanalysis` meta-function: coherence, cross-correlation and Granger-Geweke causality.
 
 Setup
 -----
 
-To have a synthetic albeit meaningful dataset to illustrate the different methodologies
+To have a synthetic albeit meaningful dataset to illustrate the different methodologies we start by simulating two (for now) uncoupled autoregressive processes of order 2:
+
+.. literalinclude:: /quickstart/ar2_nw.py
+
+We also right away calculated the respective power spectra ``spec_uc``.
+We can quickly have a look at the generated signals, to do this we will use Syncopy's :func:`~syncopy.show` function. This allows us to make manual selections on Syncopy datasets, here we will use it to select 0.5 seconds of one trial for each channel separately::
+
+  chan1 = data_uc.show(channel=0, trials=0, toilim=[0,0.5])
+  chan2 = data_uc.show(channel=1, trials=0, toilim=[0,0.5])
+
+Note that ``.show()`` returns NumPy arrays! With these we can now manually plot the signals using `matplotlib <https://matplotlib.org>`_::
+
+  import matplotlib.pyplot as ppl
+  fig, ax = ppl.subplots()
+  ax.plot(chan1, label='channel 1')
+  ax.plot(chan2 + 8, label='channel 2')
+  ax.set_xlabel('samples')
+  ax.set_title('Uncoupled AR(2) signals')
+  ax.legend(ncol=2)
+
+We shifted the 2nd channel up by 8 units on the y-axis for better visibility. Both channels show visible oscillations:
+
+.. image:: ar2_signals.png
+   :height: 340px
+
+
+as is confirmed by looking at the power spectra::
+
+  spec_uc.singlepanelplot()
+
+.. image:: ar2_specs.png
+   :height: 300px
+
+As expected for the stochastic AR(2) model, we have a fairly broad spectral peak at around 100Hz.
+
+.. note::
+   Careful when using :func:`~syncopy.show` on large datasets, as the output is loaded directly into memory. It is advisable to make sufficiently small selections (e.g. 1 channel, 1 trial) to avoid out-of-memory problems on your machine!
 
 Coherence
 ---------
+One way to check for relationships between different oscillating channels is to calculate the pairwise `coherence <https://en.wikipedia.org/wiki/Coherence_(signal_processing)>`_ measure. It can be roughly understood as a frequency dependent correlation. Let's do this for our uncoupled AR(2) signals::
+  
+  coherence = spy.connectivityanalysis(data_uc, method='coh', tapsmofrq=3)
 
+The result is of type :class:`spy.CrossSpectralData`, the standard datatype for all connectivity measures. It contains the results for all ``nChannels x nChannels`` possible combinations. Let's pick the two available channel combinations and plot the results::
+
+  coh12 = coherence.show(channel_i='channel1', channel_j='channel2')
+  coh21 = coherence.show(channel_i='channel2', channel_j='channel1')
+
+  # plotting
+  fig, ax = ppl.subplots()
+  ax.plot(coherence.freq, coh12, label='1-2')
+  ax.plot(coherence.freq, coh21, label='2-1')
+  ax.set_xlabel('frequency (Hz)')
+  ax.set_ylabel('coherence')
+  ax.set_ylim((0,1.2))
+  ax.legend(ncol=2)
+
+.. image:: ar2_coh1.png
+   :height: 300px
+
+This shows us the following properties of the coherence:
+
+* **symmetry**: the coherence of channel pair 1-2 is the same as 2-1
+* **range**: like correlations, coherence measure lives on the [0,1] interval
+* **sensitivity**: even though both channels have a lot of power around 100Hz, coherence is as low as for all other frequencies as there is no coupling
+  
+.. hint::
+   To inspect the available dimensions of any Syncopy dataset, access the ``.dimord`` property.
 
