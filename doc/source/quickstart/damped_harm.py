@@ -3,7 +3,7 @@ import syncopy as spy
 
 
 nTrials = 50
-nSamples = 1000 
+nSamples = 1000
 nChannels = 2
 samplerate = 500   # in Hz
 
@@ -11,7 +11,7 @@ samplerate = 500   # in Hz
 tvec = np.arange(nSamples) * 1 / samplerate
 # the 30Hz harmonic
 harm = np.cos(2 * np.pi * 30 * tvec)
-# the damped amplitudes
+# dampening down to 10% of the original amplitude
 dampening = np.linspace(1, 0.1, nSamples)
 signal = dampening * harm
 

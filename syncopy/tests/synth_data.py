@@ -5,6 +5,8 @@
 
 import numpy as np
 
+_2pi = np.pi * 2
+
 
 # noisy phase evolution <-> phase diffusion
 def phase_diffusion(freq, eps=.1, fs=1000, nChannels=2, nSamples=1000):
@@ -103,9 +105,20 @@ def AR2_network(AdjMat=None, nSamples=2500, alphas=[0.55, -0.8]):
 
         sol[i, :] = (DiagMat + AdjMat.T) @ sol[i - 1, :] + alpha2 * sol[i - 2, :]
         sol[i, :] += np.random.randn(nChannels)
-        # X2 drives X1
 
     return sol
+
+
+def AR2_peak_freq(a1, a2, fs=1):
+
+    """
+    Helper function to tune spectral peak of AR(2) process
+    """
+
+    if np.any((a1**2 + 4 * a2) > 0):
+        raise ValueError("No complex roots!")
+
+    return np.arccos(a1 * (a2 - 1) / (4 * a2)) * 1 / _2pi * fs
 
 
 def mk_RandomAdjMat(nChannels=3, conn_thresh=0.25, max_coupling=0.25):
