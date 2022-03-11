@@ -32,7 +32,9 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest and get coverage
       run: |
-        pytest --cov=./ --cov-report=xml
+        cd syncopy/tests
+        pytest --color=yes --tb=short --verbose --cov=../../syncopy --cov-config=../../.coveragerc --cov-report=xml
+        # pytest --cov=./ --cov-report=xml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
       with:
