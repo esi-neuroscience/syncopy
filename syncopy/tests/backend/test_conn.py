@@ -237,8 +237,8 @@ def test_wilson():
     ax.set_xlim((f1 - 5, f2 + 5))
     ax.legend()
 
-    
-def test_granger():
+
+def test_granger(direct_inversion=True):
 
     """
     Test the granger causality measure
@@ -250,7 +250,7 @@ def test_granger():
         of time series data." Physical review letters 100.1 (2008): 018701.
     """
 
-    fs = 200 # Hz
+    fs = 200  # Hz
     nSamples = 2500
     nTrials = 25
 
@@ -263,18 +263,19 @@ def test_granger():
         # --- get CSD ---
         bw = 2
         NW = bw * nSamples / (2 * fs)
-        Kmax = int(2 * NW - 1) # optimal number of tapers
+        Kmax = int(2 * NW - 1)  # optimal number of tapers
         CSD, freqs = csd.csd(sol, fs,
                              taper='dpss',
-                             taper_opt={'Kmax' : Kmax, 'NW' : NW},
-                             fullOutput=True)
+                             taper_opt={'Kmax': Kmax, 'NW': NW},
+                             fullOutput=True,
+                             demean_taper=True)
 
         CSDav += CSD
 
     CSDav /= nTrials
     # with only 2 channels this CSD is well conditioned
     assert np.linalg.cond(CSDav).max() < 1e2
-    H, Sigma, conv = wilson_sf(CSDav)
+    H, Sigma, conv = wilson_sf(CSDav, direct_inversion=direct_inversion)
 
     G = granger(CSDav, H, Sigma)
     assert G.shape == CSDav.shape
@@ -294,8 +295,3 @@ def test_granger():
     assert G[freq_idx, 0, 1] < 0.1
     # check high causality for 2->1
     assert G[freq_idx, 1, 0] > 0.8
-
-
-# --- Helper routines ---
-
-

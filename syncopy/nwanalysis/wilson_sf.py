@@ -13,7 +13,7 @@
 import numpy as np
 
 
-def wilson_sf(CSD, nIter=100, rtol=1e-9):
+def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
     """
     Wilsons spectral matrix factorization ("analytic method")
 
@@ -35,6 +35,10 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9):
     rtol : float
         Tolerance of the relative maximal
         error of the factorization.
+    direct_inversion : bool
+        With `True` a direct matrix inversion is
+        performed, `False` solves the associated
+        least-square problems.
 
     Returns
     -------
@@ -59,17 +63,25 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9):
     psi = np.tile(psi0, (nFreq, 1, 1))
     assert psi.shape == CSD.shape
 
+    g = np.zeros(CSD.shape, dtype=np.complex64)
     converged = False
     for _ in range(nIter):
 
-        psi_inv = np.linalg.inv(psi)
-        # the bracket of equation 3.1
-        g = psi_inv @ CSD @ psi_inv.conj().transpose(0, 2, 1)
+        if direct_inversion:
+            psi_inv = np.linalg.inv(psi)
+            # the bracket of equation 3.1
+            g = psi_inv @ CSD @ psi_inv.conj().transpose(0, 2, 1)
+        else:
+            for i in range(nFreq):
+                C = np.linalg.lstsq(psi[i], CSD[i], rcond=None)[0]
+                g[i] = np.linalg.lstsq(
+                    psi[i], C.conj().T, rcond=None)[0].conj().T
+
         gplus, gplus_0 = _plusOperator(g + Ident)
 
         # the 'any' matrix
         S = np.triu(gplus_0)
-        S = S - S.conj().T # S + S* = 0
+        S = S - S.conj().T   # S + S* = 0
 
         # the next step psi_{tau+1}
         psi = psi @ (gplus + S)
