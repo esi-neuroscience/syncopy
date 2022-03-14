@@ -37,9 +37,6 @@ if __name__ == "__main__":
     nSamples = 2000
 
     trls = []
-    AdjMat = np.zeros((2, 2))
-    AdjMat[0, 1] = .25
-
     for _ in range(nTrials):
 
         sig1 = A1 * np.cos(f1 * 2 * np.pi * np.arange(nSamples) / fs)
@@ -48,6 +45,11 @@ if __name__ == "__main__":
         trls.append(np.vstack([sig1, sig2]).T)
     ad1 = spy.AnalogData(trls, samplerate=500)
     #spy.preprocessing(ad1, filter_class='d')
+
+    trls = []
+    AdjMat = np.zeros((2, 2))
+    AdjMat[0, 1] = .25
+    for _ in range(nTrials):
 
         # defaults AR(2) parameters yield 40Hz peak
         alphas = [.74, -.46]  # broad peak at 60Hz
@@ -60,9 +62,8 @@ if __name__ == "__main__":
 
         trls.append(trl)
     print(trl.mean())
-    ad1 = spy.AnalogData(trls, samplerate=2000)
+    ad2 = spy.AnalogData(trls, samplerate=2000)
 
-    spec = spy.freqanalysis(ad1, tapsmofrq=5, keeptrials=False)
-    coh = spy.connectivityanalysis(ad1, method='coh', tapsmofrq=5)
-    gr = spy.connectivityanalysis(ad1, method='granger', tapsmofrq=10, polyremoval=0)
-
+    spec = spy.freqanalysis(ad2, tapsmofrq=5, keeptrials=False)
+    coh = spy.connectivityanalysis(ad2, method='coh', tapsmofrq=5)
+    gr = spy.connectivityanalysis(ad2, method='granger', tapsmofrq=10, polyremoval=0)
