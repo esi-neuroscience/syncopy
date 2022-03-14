@@ -129,6 +129,11 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         For example :func:`~scipy.signal.windows.kaiser` has
         the additional parameter 'beta'. For multi-tapering use `tapsmofrq` directly.
 
+    Returns
+    -------
+    out : `~syncopy.CrossSpectralData`
+        The analyis result with dims ['time', 'freq', 'channel_i', channel_j']
+
     Examples
     --------
     Coming soon...

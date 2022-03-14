@@ -330,7 +330,7 @@ def process_taper(taper,
             return 'dpss', dpss_opt
 
 
-def check_effective_parameters(CR, defaults, lcls):
+def check_effective_parameters(CR, defaults, lcls, besides=None):
 
     """
     For a given ComputationalRoutine, compare set parameters
@@ -346,10 +346,16 @@ def check_effective_parameters(CR, defaults, lcls):
         parameter names plus values with default values
     lcls : dict
         Result of `locals()`, all names and values of the local (frontend-)name space
+    besides : list or None
+        List of kws which don't get checked
     """
     # list of possible parameter names of the CR
     expected = CR.valid_kws + ["parallel", "select"]
+    if besides is not None:
+        expected += besides
+
     relevant = [name for name in defaults if name not in generalParameters]
+
     for name in relevant:
         if name not in expected and (lcls[name] != defaults[name]):
             msg = f"option `{name}` has no effect in method `{CR.__name__}`!"

@@ -503,16 +503,17 @@ class TestMTMConvol():
         outputDict = {"fourier" : "complex", "abs" : "float", "pow" : "float"}
 
         for select in self.dataSelections:
-            select = self.dataSelections[-1]
-            cfg.select = select
             if fulltests:
+                cfg.select = select
                 for key, value in outputDict.items():
                     cfg.output = key
                     tfSpec = freqanalysis(cfg, self.tfData)
                     assert value in tfSpec.data.dtype.name
-            else: # randomly pick from 'fourier', 'abs' and 'pow'
+            else: # randomly pick from 'fourier', 'abs' and 'pow' and work w/smaller signal
+                cfg.select = {"trials" : 0, "channel" : 1}
                 cfg.output = random.choice(list(outputDict.keys()))
-                tfSpec = freqanalysis(cfg, self.tfData)
+                cfg.toi = np.linspace(-20, 60, 5)
+                tfSpec = freqanalysis(cfg, _make_tf_signal(2, 2, self.seed, fadeIn=self.fadeIn, fadeOut=self.fadeOut)[0])
                 assert outputDict[cfg.output] in tfSpec.data.dtype.name
 
     def test_tf_allocout(self):
