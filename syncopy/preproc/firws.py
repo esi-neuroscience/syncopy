@@ -50,7 +50,7 @@ def design_wsinc(window, order, f_c, filter_type='lp'):
     ----------
     window : str
         One of `scipy.signal.windows`, good choices are
-        "blackmann", "hamming" and "hann"
+        "blackman", "hamming" and "hann"
     order : int
        The order, or simply length, of the filter
        If not even gets incremented by one

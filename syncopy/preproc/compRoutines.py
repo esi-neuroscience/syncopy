@@ -54,13 +54,13 @@ def sinc_filtering_cF(dat,
         samples in the trial.
         Higher orders yield a sharper transition width
         or less 'roll off' of the filter, but are more computationally expensive.
-    window : {"hamming", "hann", "blackmann", "kaiser"}
+    window : {"hamming", "hann", "blackman", "kaiser"}
         The type of taper to use for the sinc function
     direction : {'twopass', 'onepass', 'onepass-minphase'}
         Filter direction:
        `'twopass'` - zero-phase forward and reverse filter, IIR and FIR
        `'onepass'` - forward filter, introduces group delays for IIR, zerophase for FIR
-       `'onepass-minphase' - forward causal/minumum phase filter, FIR only
+       `'onepass-minphase' - forward causal/minimum phase filter, FIR only
     polyremoval : int or None
         Order of polynomial used for de-trending data in the time domain prior
         to filtering. A value of 0 corresponds to subtracting the mean
@@ -102,7 +102,6 @@ def sinc_filtering_cF(dat,
 
     # detrend
     if polyremoval == 0:
-        # SciPy's overwrite_data not working for type='constant' :/
         dat = sci.detrend(dat, type='constant', axis=0, overwrite_data=True)
     elif polyremoval == 1:
         dat = sci.detrend(dat, type='linear', axis=0, overwrite_data=True)
@@ -251,7 +250,6 @@ def but_filtering_cF(dat,
 
     # detrend
     if polyremoval == 0:
-        # SciPy's overwrite_data not working for type='constant' :/
         dat = sci.detrend(dat, type='constant', axis=0, overwrite_data=True)
     elif polyremoval == 1:
         dat = sci.detrend(dat, type='linear', axis=0, overwrite_data=True)

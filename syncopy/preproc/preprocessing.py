@@ -23,7 +23,7 @@ from .compRoutines import But_Filtering, Sinc_Filtering
 availableFilters = ('but', 'firws')
 availableFilterTypes = ('lp', 'hp', 'bp', 'bs')
 availableDirections = ('twopass', 'onepass', 'onepass-minphase')
-availableWindows = ("hamming", "hann", "blackmann")
+availableWindows = ("hamming", "hann", "blackman")
 
 
 @unwrap_cfg
@@ -56,12 +56,12 @@ def preprocessing(data,
         Order of the filter, default is 6.
         Higher orders yield a sharper transition width
         or less 'roll off' of the filter, but are more computationally expensive.
-    direction : {'twopass', 'onepass', 'onepasse-minphase'}
+    direction : {'twopass', 'onepass', 'onepass-minphase'}
        Filter direction:
        `'twopass'` - zero-phase forward and reverse filter, IIR and FIR
        `'onepass'` - forward filter, introduces group delays for IIR, zerophase for FIR
        `'onepass-minphase' - forward causal/minumum phase filter, FIR only
-    window : {"hamming", "hann", "blackmann"}, optional
+    window : {"hamming", "hann", "blackman"}, optional
         The type of window to use for the FIR filter
     polyremoval : int or None, optional
         Order of polynomial used for de-trending data in the time domain prior
@@ -201,7 +201,7 @@ def preprocessing(data,
             raise SPYValueError(legal=lgl, varname="direction", actual=direction)
 
         if order is None:
-            order = int(lenTrials.min())
+            order = int(lenTrials.min()) if lenTrials.min() < 1000 else 1000
             msg = f"Setting order for FIR filter to {order}"
             SPYInfo(msg)
 
