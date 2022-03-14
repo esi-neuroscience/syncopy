@@ -207,25 +207,25 @@ class TestSpyCalls():
 
             # data positional + select keyword
             fnameList = group_objects(*self.dataObjs[:letterIdx + 1],
-                                       select={"channels": [letter]})
+                                       select={"channel": [letter]})
             assert groupList == fnameList
 
             # data positional + cfg w/select
             cfg = StructDict()
-            cfg.select = {"channels": [letter]}
+            cfg.select = {"channel": [letter]}
             fnameList = group_objects(*self.dataObjs[:letterIdx + 1], cfg)
             assert groupList == fnameList
 
             # cfg w/data + select
             cfg = StructDict()
             cfg.data = self.dataObjs[:letterIdx + 1]
-            cfg.select = {"channels": [letter]}
+            cfg.select = {"channel": [letter]}
             fnameList = group_objects(cfg)
             assert groupList == fnameList
 
         # invalid selection
         with pytest.raises(SPYValueError) as exc:
-            group_objects(*self.dataObjs, select={"channels": ["Z"]})
+            group_objects(*self.dataObjs, select={"channel": ["Z"]})
         assert "expected list/array of channel existing names or indices" in str(exc.value)
 
         # data does not only contain Syncopy objects

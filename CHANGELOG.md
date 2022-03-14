@@ -10,19 +10,18 @@ Bugfix release
 ### NEW
 - Added experimental loading functionality for NWB 2.0 files
 - Added experimental loading functionality for Matlab mat files
+- Added support for "scalar" selections, i.e., things like `selectdata(trials=0)`
+  or `data.selectdata(channels='mychannel')`
+- Added command line argument "--full" for more granular testing: the new default
+  for running the testing pipeline is to execute a trimmed-down testing suite that
+  does not probe all possible input permutations but focuses on the core functionality
+  without sacrificing coverage.
 
 ### CHANGED
+- Renamed `_selection` class property to `selection`
 - Made plotting routines matplotlib 3.5 compatible
-
-### REMOVED
-### DEPRECATED
-- Removed loading code for ESI binary format that is no longer supported
-- Repaired top-level imports: renamed `connectivity` to `connectivityanalysis`
-  and the "connectivity" module is now called "nwanalysis"
-- Included `conda clean` in CD pipeline to avoid disk fillup by unused conda
-  packages/cache
-- Inverted `selectdata` messaging policy: only actual on-disk copy operations
-  trigger a `SPYInfo` message (closes #197)
+- The output of `show` is now automatically squeezed (i.e., singleton dimensions
+  are removed from the returned array).
 
 ### REMOVED
 - Do not parse scalars using `numbers.Number`, use `numpy.number` instead to
@@ -31,6 +30,19 @@ Bugfix release
   objects of different numerical types (real/complex; closes #199)
 
 ### DEPRECATED
+- Removed loading code for ESI binary format that is no longer supported
+- Repaired top-level imports: renamed `connectivity` to `connectivityanalysis`
+  and the "connectivity" module is now called "nwanalysis"
+- Included `conda clean` in CD pipeline to avoid disk fillup by unused conda
+  packages/cache
+- Inverted `selectdata` messaging policy: only actual on-disk copy operations
+  trigger a `SPYInfo` message (closes #197)
+- Matched selector keywords and class attribute names, i.e., selecting channels
+  is now done by using a `select` dictionary with key `'channel'` (not `'channels'`
+  as before). See the documentation of `selectdata` for details.
+- Retired travis CI tests since free test runs are exhausted. Migrated to GitHub
+  actions (and re-included codecov)
+
 ### FIXED
 - The `trialdefinition` arrays constructed by the `Selector` class were incorrect
   for `SpectralData` objects without time-axis, resulting in "empty" trials. This

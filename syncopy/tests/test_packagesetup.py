@@ -11,10 +11,15 @@ import time
 import tempfile
 import importlib
 import subprocess
+import pytest
 from glob import glob
 
 # Local imports
 import syncopy
+
+# Decorator to decide whether or not to run dask-related tests
+skip_in_ghactions = pytest.mark.skipif(
+    "GITHUB_ACTIONS" in os.environ.keys(), reason="Do not execute by GitHub Actions")
 
 
 # check if folder creation in `__storage__` works as expected
@@ -38,6 +43,7 @@ def test_spytmpdir():
 
 
 # check if `cleanup` does what it's supposed to do
+@skip_in_ghactions
 def test_cleanup():
     # spawn new Python instance, which creates and saves an `AnalogData` object
     # in custom $SPYTMPDIR; force-kill the process after a few seconds preventing

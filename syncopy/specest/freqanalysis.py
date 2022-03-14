@@ -311,9 +311,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     # If only a subset of `data` is to be processed, make some necessary adjustments
     # of the sampleinfo and trial lengths
-    if data._selection is not None:
-        sinfo = data._selection.trialdefinition[:, :2]
-        trialList = data._selection.trials
+    if data.selection is not None:
+        sinfo = data.selection.trialdefinition[:, :2]
+        trialList = data.selection.trials
     else:
         trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
@@ -375,8 +375,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
         # Get start/end timing info respecting potential in-place selection
         if toi is None:
             raise SPYTypeError(toi, varname="toi", expected="scalar or array-like or 'all'")
-        if data._selection is not None:
-            tStart = data._selection.trialdefinition[:, 2] / data.samplerate
+        if data.selection is not None:
+            tStart = data.selection.trialdefinition[:, 2] / data.samplerate
         else:
             tStart = data._t0 / data.samplerate
         tEnd = tStart + lenTrials / data.samplerate

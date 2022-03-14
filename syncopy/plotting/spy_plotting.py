@@ -561,8 +561,8 @@ def _prep_toilim_avg(self):
     :func:`~syncopy.multipanelplot` : visualize Syncopy objects using multi-panel figure(s)
     """
 
-    tLengths = np.zeros((len(self._selection.trials),), dtype=np.intp)
-    for k, tsel in enumerate(self._selection.time):
+    tLengths = np.zeros((len(self.selection.trials),), dtype=np.intp)
+    for k, tsel in enumerate(self.selection.time):
         if not isinstance(tsel, slice):
             msg = "Cannot average `toilim` selection. Please check `.time` property for consistency. "
             raise SPYError(msg)
@@ -570,7 +570,7 @@ def _prep_toilim_avg(self):
         if start is None:
             start = 0
         if stop is None:
-            stop = self._get_time([self._selection.trials[k]],
+            stop = self._get_time([self.selection.trials[k]],
                                     toilim=[-np.inf, np.inf])[0].stop
         tLengths[k] = stop - start
 

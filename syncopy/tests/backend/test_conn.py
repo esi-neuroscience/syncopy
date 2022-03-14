@@ -237,7 +237,7 @@ def test_wilson():
     ax.set_xlim((f1 - 5, f2 + 5))
     ax.legend()
 
-    
+
 def test_granger():
 
     """
@@ -250,7 +250,7 @@ def test_granger():
         of time series data." Physical review letters 100.1 (2008): 018701.
     """
 
-    fs = 200 # Hz
+    fs = 200  # Hz
     nSamples = 2500
     nTrials = 25
 
@@ -263,18 +263,19 @@ def test_granger():
         # --- get CSD ---
         bw = 2
         NW = bw * nSamples / (2 * fs)
-        Kmax = int(2 * NW - 1) # optimal number of tapers
+        Kmax = int(2 * NW - 1)  # optimal number of tapers
         CSD, freqs = csd.csd(sol, fs,
                              taper='dpss',
-                             taper_opt={'Kmax' : Kmax, 'NW' : NW},
-                             fullOutput=True)
+                             taper_opt={'Kmax': Kmax, 'NW': NW},
+                             fullOutput=True,
+                             demean_taper=True)
 
         CSDav += CSD
 
     CSDav /= nTrials
     # with only 2 channels this CSD is well conditioned
     assert np.linalg.cond(CSDav).max() < 1e2
-    H, Sigma, conv = wilson_sf(CSDav)
+    H, Sigma, conv = wilson_sf(CSDav, direct_inversion=True)
 
     G = granger(CSDav, H, Sigma)
     assert G.shape == CSDav.shape
@@ -285,7 +286,7 @@ def test_granger():
     ax.plot(freqs, G[:, 0, 1], label=r'Granger $1\rightarrow2$')
     ax.plot(freqs, G[:, 1, 0], label=r'Granger $2\rightarrow1$')
     ax.legend()
-    
+
     # check for directional causality at 40Hz
     freq_idx = np.argmin(freqs < 40)
     assert 39 < freqs[freq_idx] < 41
@@ -295,7 +296,15 @@ def test_granger():
     # check high causality for 2->1
     assert G[freq_idx, 1, 0] > 0.8
 
+    # repeat test with least-square solution
+    H, Sigma, conv = wilson_sf(CSDav, direct_inversion=False)
+    G2 = granger(CSDav, H, Sigma)
 
-# --- Helper routines ---
+    # check low to no causality for 1->2
+    assert G2[freq_idx, 0, 1] < 0.1
+    # check high causality for 2->1
+    assert G2[freq_idx, 1, 0] > 0.8
 
-
+    ax.plot(freqs, G2[:, 0, 1], label=r'Granger (LS) $1\rightarrow2$')
+    ax.plot(freqs, G2[:, 1, 0], label=r'Granger (LS) $2\rightarrow1$')
+    ax.legend()

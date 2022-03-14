@@ -190,9 +190,9 @@ class MultiTaperFFT(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
-        if data._selection is not None:
-            chanSec = data._selection.channel
-            trl = data._selection.trialdefinition
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
             for row in range(trl.shape[0]):
                 trl[row, :2] = [row, row + 1]
         else:
@@ -212,7 +212,10 @@ class MultiTaperFFT(ComputationalRoutine):
         # Attach remaining meta-data
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel[chanSec])
-        out.taper = np.array([self.cfg["method_kwargs"]["taper"]] * self.outputShape[out.dimord.index("taper")])
+        if self.cfg["method_kwargs"]["taper"] is None:
+            out.taper = np.array(['None'])
+        else:
+            out.taper = np.array([self.cfg["method_kwargs"]["taper"]] * self.outputShape[out.dimord.index("taper")])
         out.freq = self.cfg["foi"]
 
 
@@ -341,7 +344,7 @@ def mtmconvol_cF(
     nFreq = foi.size
     taper_opt = method_kwargs['taper_opt']
     if taper_opt:
-        nTaper = taper_opt["Kmax"]
+        nTaper = taper_opt.get("Kmax", 1)
     outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
     if noCompute:
         return outShape, spectralDTypes[output_fmt]
@@ -414,9 +417,9 @@ class MultiTaperFFTConvol(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Get trialdef array + channels from source
-        if data._selection is not None:
-            chanSec = data._selection.channel
-            trl = data._selection.trialdefinition
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
         else:
             chanSec = slice(None)
             trl = data.trialdefinition
@@ -435,7 +438,10 @@ class MultiTaperFFTConvol(ComputationalRoutine):
         out.trialdefinition = trl
         out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
-        out.taper = np.array([self.cfg["method_kwargs"]["taper"]] * self.outputShape[out.dimord.index("taper")])
+        if self.cfg["method_kwargs"]["taper"] is None:
+            out.taper = np.array(['None'])
+        else:
+            out.taper = np.array([self.cfg["method_kwargs"]["taper"]] * self.outputShape[out.dimord.index("taper")])
         out.freq = self.cfg["foi"]
 
 
@@ -584,9 +590,9 @@ class WaveletTransform(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Get trialdef array + channels from source
-        if data._selection is not None:
-            chanSec = data._selection.channel
-            trl = data._selection.trialdefinition
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
         else:
             chanSec = slice(None)
             trl = data.trialdefinition
@@ -748,9 +754,9 @@ class SuperletTransform(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Get trialdef array + channels from source
-        if data._selection is not None:
-            chanSec = data._selection.channel
-            trl = data._selection.trialdefinition
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
         else:
             chanSec = slice(None)
             trl = data.trialdefinition
