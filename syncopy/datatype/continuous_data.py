@@ -20,8 +20,8 @@ from .methods.definetrial import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import best_match
-from syncopy.plotting import _plot_analog
-from syncopy.plotting import _plot_spectral
+from syncopy.plotting import _singlepanelplot as sp_plot
+from syncopy.plotting import _helpers as plot_helpers
 
 __all__ = ["AnalogData", "SpectralData", "CrossSpectralData"]
 
@@ -396,6 +396,10 @@ class ContinuousData(BaseData, ABC):
                 # First, fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
 
+    # plotting, only virtual in the abc
+    def singlepanelplot(self):
+        raise NotImplementedError
+
 
 class AnalogData(ContinuousData):
     """Multi-channel, uniformly-sampled, analog (real float) data
@@ -414,10 +418,6 @@ class AnalogData(ContinuousData):
     _infoFileProperties = ContinuousData._infoFileProperties + ("_hdr",)
     _defaultDimord = ["time", "channel"]
     _stackingDimLabel = "time"
-
-    # Attach plotting routines to not clutter the core module code
-    singlepanelplot = _plot_analog.singlepanelplot
-    multipanelplot = _plot_analog.multipanelplot
 
     @property
     def hdr(self):
@@ -476,6 +476,34 @@ class AnalogData(ContinuousData):
                          channel=channel,
                          dimord=dimord)
 
+    # implement plotting
+    def singlepanelplot(self, shifted=True, **show_kwargs):
+
+        """
+        The probably simplest plot, a 2d-line
+        plot of selected channels
+
+        Parameters
+        ----------
+        show_kwargs : :func:`~syncopy.datatype.methods.show.show` arguments
+        """
+
+        # get the data to plot
+        data_x = plot_helpers.parse_toi(self, show_kwargs)
+        data_y = self.show(**show_kwargs)
+
+        # multiple channels?
+        labels = plot_helpers.parse_channel(self, show_kwargs)
+
+        # plot multiple channels with offsets for
+        # better visibility
+        if shifted:
+            data_y = plot_helpers.shift_multichan(data_y)
+
+        # create the axes and figure
+        fig, ax = sp_plot.mk_line_figax()
+        sp_plot.plot_lines(ax, data_x, data_y, label=labels)
+
 
 class SpectralData(ContinuousData):
     """
@@ -488,10 +516,6 @@ class SpectralData(ContinuousData):
     _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
     _defaultDimord = ["time", "taper", "freq", "channel"]
     _stackingDimLabel = "time"
-
-    # Attach plotting routines to not clutter the core module code
-    singlepanelplot = _plot_spectral.singlepanelplot
-    multipanelplot = _plot_spectral.multipanelplot
 
     @property
     def taper(self):
@@ -618,7 +642,7 @@ class SpectralData(ContinuousData):
                 self.freq = [1]
             if taper is not None:
                 self.taper = ['taper']
-
+    
 
 class CrossSpectralData(ContinuousData):
     """

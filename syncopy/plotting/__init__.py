@@ -4,9 +4,8 @@
 # 
 
 # Importlocal modules, but only import routines from spy_plotting.py
-from . import (spy_plotting, _plot_analog)
-from .spy_plotting import *
+from . import (_singlepanelplot,)
 
 # Populate local __all__ namespace
 __all__ = []
-__all__.extend(spy_plotting.__all__)
+# __all__.extend(spy_plotting.__all__)

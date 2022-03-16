@@ -24,15 +24,12 @@ from syncopy.tests import synth_data
 # Prepare code to be executed using, e.g., iPython's `%run` magic command
 if __name__ == "__main__":
 
-    mock_up = np.arange(24).reshape((8, 3))
-    ad1 = spy.AnalogData([mock_up] * 5)
-
     nTrials = 50
 
     nSamples = 500
     fs = 500
     f1, f2 = 20, 40
-    A1, A2 = 2, 3
+    A1, A2 = 0.3, 1
 
     nSamples = 2000
 
@@ -64,6 +61,6 @@ if __name__ == "__main__":
     print(trl.mean())
     ad2 = spy.AnalogData(trls, samplerate=2000)
 
-    spec = spy.freqanalysis(ad2, tapsmofrq=5, keeptrials=False)
-    coh = spy.connectivityanalysis(ad2, method='coh', tapsmofrq=5)
-    gr = spy.connectivityanalysis(ad2, method='granger', tapsmofrq=10, polyremoval=0)
+    #spec = spy.freqanalysis(ad2, tapsmofrq=5, keeptrials=False)
+    #coh = spy.connectivityanalysis(ad2, method='coh', tapsmofrq=5)
+    #gr = spy.connectivityanalysis(ad2, method='granger', tapsmofrq=10, polyremoval=0)
