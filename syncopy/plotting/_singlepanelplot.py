@@ -43,6 +43,9 @@ def plot_lines(ax, data_x, data_y, **pkwargs):
     if 'label' in pkwargs:
         ax.legend(ncol=2, loc='upper right',
                   fontsize=pltConfig['sLegendSize'])
+        # make room for the legend
+        mn, mx = ax.get_ylim()        
+        ax.set_ylim((mn, 1.1 * mx))
 
 
 # -- image plots --

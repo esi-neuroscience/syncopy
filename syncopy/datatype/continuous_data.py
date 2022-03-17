@@ -510,8 +510,8 @@ class AnalogData(ContinuousData):
         if shifted:
             data_y = plot_helpers.shift_multichan(data_y)
 
-        # create the axes and figure
         fig, ax = sp_plot.mk_line_figax()
+
         sp_plot.plot_lines(ax, data_x, data_y, label=labels)
 
 
@@ -683,6 +683,7 @@ class SpectralData(ContinuousData):
             if not isinstance(label, str):
                 SPYWarning("Please select a single channel for plotting!")
                 return
+            # here we always need a new axes
             fig, ax = sp_plot.mk_img_figax(title=f'{label}')
 
             time = plot_helpers.parse_toi(self, trl, show_kwargs)
@@ -699,9 +700,9 @@ class SpectralData(ContinuousData):
             # multiple channels?
             labels = plot_helpers.parse_channel(self, show_kwargs)
 
-            # create the axes and figure
             fig, ax = sp_plot.mk_line_figax(xlabel='frequency (Hz)',
                                             ylabel='power (dB)')
+
             sp_plot.plot_lines(ax, data_x, data_y, label=labels)
 
 
@@ -859,3 +860,61 @@ class CrossSpectralData(ContinuousData):
                          freq=freq,
                          dimord=dimord)
 
+    # implement plotting
+    def singlepanelplot(self, **show_kwargs):
+
+        """
+        Plot either a 2d-line plot in case of
+        singleton time axis or an image plot
+        for time-frequency spectra.
+
+        Parameters
+        ----------
+        show_kwargs : :func:`~syncopy.datatype.methods.show.show` arguments
+        """
+
+        # right now we have to enforce
+        # single trial selection only
+        trl = show_kwargs.get('trials', None)
+        if not isinstance(trl, int) and len(self.trials) > 1:
+            SPYWarning("Please select a single trial for plotting!")
+            return
+        elif len(self.trials) == 1:
+            trl = 0
+
+        # what channel combination
+        if 'channel_i' not in show_kwargs or 'channel_j' not in show_kwargs:
+            SPYWarning("Please select a channel combination for plotting!")
+            return
+        chi, chj = show_kwargs['channel_i'], show_kwargs['channel_j']
+
+        # what data do we have?
+        method = plot_helpers.get_method(self)
+        if method == 'granger':
+            xlabel = 'frequency (Hz)'
+            ylabel = 'Granger causality'
+            label = rf"channel{chi} $\rightarrow$ channel{chj}"
+            data_x = plot_helpers.parse_foi(self, show_kwargs)
+        elif method == 'coh':
+            xlabel = 'frequency (Hz)'
+            ylabel = 'coherence'
+            label = rf"channel{chi} - channel{chj}"
+            data_x = plot_helpers.parse_foi(self, show_kwargs)
+        elif method == 'corr':
+            xlabel = 'lag'
+            ylabel = 'correlation'
+            label = rf"channel{chi} - channel{chj}"
+            data_x = plot_helpers.parse_toi(self, show_kwargs)
+        # that's all the methods we got so far
+        else:
+            raise NotImplementedError
+
+        # get the data to plot
+        data_y = self.show(**show_kwargs)
+
+        # create the axes and figure if needed
+        # persisten axes allows for plotting different
+        # channel combinations into the same figure
+        if not hasattr(self, 'ax'):
+            fig, self.ax = sp_plot.mk_line_figax(xlabel, ylabel)
+        sp_plot.plot_lines(self.ax, data_x, data_y, label=label)
