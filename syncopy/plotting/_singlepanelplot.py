@@ -8,11 +8,9 @@ from syncopy import __plt__
 
 if __plt__:
     import matplotlib.pyplot as ppl
-else:
-    print(pltErrMsg.format("singlepanelplot"))
+
 
 # -- 2d-line plots --
-
 
 def mk_line_figax(xlabel='time (s)', ylabel='signal (a.u.)'):
 

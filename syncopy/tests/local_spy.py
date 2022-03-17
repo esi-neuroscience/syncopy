@@ -61,3 +61,6 @@ if __name__ == "__main__":
 
     gr.singlepanelplot(channel_i=0, channel_j=1, foilim=[40, 160])
     gr.singlepanelplot(channel_i=1, channel_j=0, foilim=[40, 160])
+
+    # test top-level interface
+    spy.singlepanelplot(ad2, trials=2, toilim=[-.2, .2])

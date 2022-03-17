@@ -10,7 +10,6 @@ import re
 
 # Syncopy imports
 from syncopy.shared.tools import best_match
-from syncopy.shared.errors import SPYWarning
 
 
 def parse_foi(dataobject, show_kwargs):
