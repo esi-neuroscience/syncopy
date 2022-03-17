@@ -18,7 +18,7 @@ from collections.abc import Iterator
 from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
-from syncopy.shared.errors import SPYValueError
+from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.tools import best_match
 from syncopy.plotting import _singlepanelplot as sp_plot
 from syncopy.plotting import _helpers as plot_helpers
@@ -488,8 +488,18 @@ class AnalogData(ContinuousData):
         show_kwargs : :func:`~syncopy.datatype.methods.show.show` arguments
         """
 
+        # right now we have to enforce
+        # single trial selection only
+        trl = show_kwargs.get('trials', None)
+        if not isinstance(trl, int) and len(self.trials) > 1:
+            SPYWarning("Please select a single trial for plotting!")
+            return
+        # only 1 trial so no explicit selection needed
+        elif len(self.trials) == 1:
+            trl = 0
+
         # get the data to plot
-        data_x = plot_helpers.parse_toi(self, show_kwargs)
+        data_x = plot_helpers.parse_toi(self, trl, show_kwargs)
         data_y = self.show(**show_kwargs)
 
         # multiple channels?
@@ -642,7 +652,58 @@ class SpectralData(ContinuousData):
                 self.freq = [1]
             if taper is not None:
                 self.taper = ['taper']
-    
+
+    # implement plotting
+    def singlepanelplot(self, **show_kwargs):
+
+        """
+        Plot either a 2d-line plot in case of
+        singleton time axis or an image plot
+        for time-frequency spectra.
+
+        Parameters
+        ----------
+        show_kwargs : :func:`~syncopy.datatype.methods.show.show` arguments
+        """
+
+        # right now we have to enforce
+        # single trial selection only
+        trl = show_kwargs.get('trials', None)
+        if not isinstance(trl, int) and len(self.trials) > 1:
+            SPYWarning("Please select a single trial for plotting!")
+            return
+        elif len(self.trials) == 1:
+            trl = 0
+
+        # how got the spectrum computed
+        method = plot_helpers.get_method(self)
+        if method in ('wavelet', 'superlet', 'mtmconvol'):
+            # multiple channels?
+            label = plot_helpers.parse_channel(self, show_kwargs)
+            if not isinstance(label, str):
+                SPYWarning("Please select a single channel for plotting!")
+                return
+            fig, ax = sp_plot.mk_img_figax(title=f'{label}')
+
+            time = plot_helpers.parse_toi(self, trl, show_kwargs)
+            # dimord is time x taper x freq x channel
+            # need freq x time for plotting
+            data_yx = self.show(**show_kwargs).T
+            sp_plot.plot_tfreq(ax, data_yx, time, self.freq)
+        # just a line plot
+        else:
+            # get the data to plot
+            data_x = plot_helpers.parse_foi(self, show_kwargs)
+            data_y = np.log10(self.show(**show_kwargs))
+
+            # multiple channels?
+            labels = plot_helpers.parse_channel(self, show_kwargs)
+
+            # create the axes and figure
+            fig, ax = sp_plot.mk_line_figax(xlabel='frequency (Hz)',
+                                            ylabel='power (dB)')
+            sp_plot.plot_lines(ax, data_x, data_y, label=labels)
+
 
 class CrossSpectralData(ContinuousData):
     """

@@ -14,8 +14,8 @@ if __plt__:
     mpl.rcParams['axes.facecolor'] = '#f5faf6'
 
 # Global style settings for single-/multi-plots
-pltConfig = {"sTitleSize": 12,
-             "sLabelSize": 14,
+pltConfig = {"sTitleSize": 15,
+             "sLabelSize": 16,
              "sTickSize": 12,
              "sLegendSize": 12,
              "sFigSize": (6.4, 4.8),
@@ -23,7 +23,8 @@ pltConfig = {"sTitleSize": 12,
              "mLabelSize": 14,
              "mTickSize": 10,
              "mLegendSize": 12,
-             "mFigSize": (10, 6.8)}
+             "mFigSize": (10, 6.8),
+             "cmap": "magma"}
 
 # Global consistent error message if matplotlib is missing
 pltErrMsg = "\nSyncopy <core> WARNING: Could not import 'matplotlib'. \n" +\
