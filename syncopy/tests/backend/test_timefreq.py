@@ -10,7 +10,7 @@ from syncopy.specest import wavelets as spywave
 
 def gen_testdata(freqs=[20, 40, 60],
                  cycles=11, fs=1000,
-                 eps = 0):
+                 eps=0):
 
     """
     Harmonic superposition of multiple
@@ -113,7 +113,7 @@ def test_mtmconvol():
                origin='lower',
                extent=extent,
                vmin=0,
-               vmax=1. * A**2 / df)
+               vmax=.5 * A**2 / df)
 
     # zoom into foi region
     ax2.set_ylim((foi[0], foi[-1]))
@@ -137,7 +137,7 @@ def test_mtmconvol():
                  c='0.5')
 
         # integrated power at the respective frquency
-        cycle_num = (spec[:, idx] * df > A**2 / np.e**2).sum() / fs * frequency
+        cycle_num = (spec[:, idx] * df > .5 * A**2 / np.e**2).sum() / fs * frequency
         print(f'{cycle_num} cycles for the {frequency} Hz band')
         # we have 2 times the cycles for each frequency (temporal neighbor)
         assert cycle_num > 2 * cycles
@@ -186,7 +186,7 @@ def test_mtmconvol():
                origin='lower',
                extent=extent,
                vmin=0,
-               vmax=1. * A**2 / df)
+               vmax=.5 * A**2 / df)
 
     # zoom into foi region
     ax2.set_ylim((foi[0], foi[-1]))
@@ -211,7 +211,7 @@ def test_mtmconvol():
     # so we just check that the maximum estimated
     # power within one bin is within 15% bounds of the real power
     nBins = tapsmofrq / df
-    assert 0.85 * A**2 / df < spec2.max() * nBins < 1.15 * A**2 / df
+    assert 0.4 * A**2 / df < spec2.max() * nBins < .65 * A**2 / df
 
 
 def test_superlet():
@@ -253,7 +253,7 @@ def test_superlet():
 
     # get the 'mappable'
     im = ax2.images[0]
-    fig.colorbar(im, ax = ax2, orientation='horizontal',
+    fig.colorbar(im, ax=ax2, orientation='horizontal',
                  shrink=0.7, pad=0.2, label='amplitude (a.u.)')
 
     for idx, frequency in zip(freq_idx, signal_freqs):
@@ -363,10 +363,10 @@ def test_mtmfft():
     powers = spec[:, 0]   # only 1 channel
     # our FFT normalisation recovers the integrated squared signal amplitudes
     # as frequency bin width is 1Hz, one bin 'integral' is enough
-    assert np.allclose([A1**2, A2**2], powers[[f1, f2]])
+    assert np.allclose([0.5 * A1**2, 0.5 * A2**2], powers[[f1, f2]])
 
     fig, ax = ppl.subplots()
-    ax.set_title(f"Amplitude spectrum {A1} x 40Hz + {A2} x 100Hz")
+    ax.set_title(f"Power spectrum {A1} x 40Hz + {A2} x 100Hz")
     ax.plot(freqs[:150], powers[:150], label="No taper", lw=2)
     ax.set_xlabel('frequency (Hz)')
     ax.set_ylabel('power-density')
@@ -388,7 +388,7 @@ def test_mtmfft():
     # check for integrated power (and taper normalisation)
     # summing up all dpss powers should give total power of the
     # test signal which is A1**2 + A2**2
-    assert np.allclose(np.sum(dpss_powers), A1**2 + A2**2, atol=1e-2)
+    assert np.allclose(np.sum(dpss_powers) * 2, A1**2 + A2**2, atol=1e-2)
 
     ax.plot(freqs[:150], dpss_powers[:150], label="Slepian", lw=2)
     ax.legend()
@@ -404,7 +404,7 @@ def test_mtmfft():
     kaiser_powers = kaiser_spec[:, 0]  # only 1 channel
     # check for amplitudes (and taper normalisation)
     # normalization less exact for arbitraty windows
-    assert np.allclose(np.sum(kaiser_powers), A1**2 + A2**2, atol=1.5)
+    assert np.allclose(np.sum(kaiser_powers) * 2, A1**2 + A2**2, atol=1.5)
     ax.plot(freqs[:150], kaiser_powers[:150], label="Kaiser", lw=2)
     ax.legend()
 
@@ -427,10 +427,10 @@ def test_mtmfft():
             powers = spec[:, 0]  # only 1 channel
             print(np.sum(powers), win)
             if win != 'tukey':
-                assert np.allclose(np.sum(powers), A1**2 + A2**2, atol=4)
+                assert np.allclose(np.sum(powers) * 2, A1**2 + A2**2, atol=4)
             # not sure why tukey and triang are so off..
             else:
-                assert np.allclose(np.sum(powers), A1**2 + A2**2, atol=8)
+                assert np.allclose(np.sum(powers) * 2, A1**2 + A2**2, atol=8)
 
         except TypeError:
             # we didn't provide default parameters..

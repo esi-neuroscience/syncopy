@@ -6,7 +6,7 @@
 import numpy as np
 
 
-def _norm_spec(ftr, nSamples, freqs):
+def _norm_spec(ftr, nSamples, fs):
 
     """
     Normalizes the complex Fourier transform to
@@ -14,8 +14,8 @@ def _norm_spec(ftr, nSamples, freqs):
     """
 
     # frequency bins
-    delta_f = freqs[1] - freqs[0]
-    ftr /= (nSamples / 2 * np.sqrt(delta_f))
+    delta_f = fs / nSamples
+    ftr *= np.sqrt(2) / (nSamples * np.sqrt(delta_f))
 
     return ftr
 
