@@ -7,7 +7,6 @@
 import psutil
 import pytest
 import inspect
-import itertools
 import numpy as np
 import matplotlib.pyplot as ppl
 
@@ -19,9 +18,10 @@ if __acme__:
 from syncopy import preprocessing as pp
 from syncopy import AnalogData, freqanalysis
 import syncopy.preproc as preproc  # submodule
-import syncopy.tests.synth_data as synth_data
+import syncopy.tests.helpers as helpers
+
 from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.shared.tools import get_defaults
+from syncopy.shared.tools import get_defaults, best_match
 
 # Decorator to decide whether or not to run dask-related tests
 skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
@@ -52,75 +52,155 @@ class TestButterworth:
 
     data = AnalogData(trls, samplerate=fs)
     # for toi tests, -1s offset
-    time_span = [-.5, .1]
+    time_span = [-.5, 3.1]
     flow, fhigh = 0.3 * fNy, 0.4 * fNy
     freq_kw = {'lp': fhigh, 'hp': flow,
                'bp': [flow, fhigh], 'bs': [flow, fhigh]}
 
-    def test_filter(self):
+    def test_but_filter(self, **kwargs):
 
-        fig, ax = mk_spec_ax()
+        """
+        We test for remaining power after filtering
+        for all available filter types.
+        Minimum order is 4 to safely pass..
+        """
+        # check if we run the default test
+        def_test = not len(kwargs)
+
+        # write default parameters dict
+        if def_test:
+            kwargs = {'direction': 'twopass',
+                      'order': 4}
+
+        # the unfiltered data
+        spec = freqanalysis(self.data, tapsmofrq=3, keeptrials=False)
+        # total power in arbitrary units (for now)
+        pow_tot = spec.show(channel=0).sum()
+        nFreq = spec.freq.size
+
+        if def_test:
+            fig, ax = mk_spec_ax()
+
         for ftype in preproc.availableFilterTypes:
             filtered = pp(self.data,
                           filter_class='but',
                           filter_type=ftype,
                           freq=self.freq_kw[ftype],
-                          direction='twopass')
+                          **kwargs)
+
             # check in frequency space
-            spec = freqanalysis(filtered, tapsmofrq=3, keeptrials=False)
+            spec_f = freqanalysis(filtered, tapsmofrq=3, keeptrials=False)
+
+            # get relevant frequency ranges
+            # for integrated powers
             if ftype == 'lp':
                 foilim = [0, self.freq_kw[ftype]]
             elif ftype == 'hp':
-                foilim = [self.freq_kw[ftype], self.fNy]
+                # toilim selections can screw up the
+                # frequency axis of freqanalysis/np.fft.rfftfreq :/                
+                foilim = [self.freq_kw[ftype], spec_f.freq[-1]]
             else:
                 foilim = self.freq_kw[ftype]
 
-            plot_spec(ax, spec, label=ftype, lw=1.5)
+            # remaining power after filtering
+            pow_fil = spec_f.show(channel=0, foilim=foilim).sum()
+            _, idx = best_match(spec_f.freq, foilim, span=True)
+            # ratio of pass-band to total freqency band
+            ratio = len(idx) / nFreq
 
-        # finally the unfiltered data
-        spec = freqanalysis(self.data, tapsmofrq=3, keeptrials=False)
-        print('unfi', spec.show(channel=1).sum())
+            # at least 80% of the ideal filter power
+            # should be still around
+            if ftype in ('lp', 'hp'):
+                assert 0.8 * ratio < pow_fil / pow_tot
+            # here we have two roll-offs, one at each side
+            elif ftype == 'bp':
+                assert 0.7 * ratio < pow_fil / pow_tot
+            # as well as here
+            elif ftype == 'bs':
+                assert 0.7 * ratio < (pow_tot - pow_fil) / pow_tot
+            if def_test:
+                plot_spec(ax, spec_f, label=ftype)
+
         # plotting
-        plot_spec(ax, spec, c='0.3', label='unfiltered')
-        annotate_foilims(ax, *self.freq_kw['bp'])
-        ax.set_title("Twopass Butterworth, order = 4")
+        if def_test:
+            plot_spec(ax, spec, c='0.3', label='unfiltered')
+            annotate_foilims(ax, *self.freq_kw['bp'])
+            ax.set_title(f"Twopass Butterworth, order = {kwargs['order']}")
 
-        print(spec.show(channel=1, foilim=foilim).sum(), ftype)
+    def test_but_kwargs(self):
 
-    def test_filter_comb(self):
+        """
+        Test order and direction parameter
+        """
 
-        call = lambda ftype, direction, order: pp(self.data,
-                                                  filter_class='but',
-                                                  filter_type=ftype,
-                                                  freq=self.freq_kw[ftype],
-                                                  direction=direction,
-                                                  order=order)
-        fig, ax = mk_spec_ax()
-        for ftype in preproc.availableFilterTypes:
-            for direction in preproc.availableDirections:
-                for order in [2, 20]:
-                    # only for firws
-                    if 'minphase' in direction:
-                        try:
-                            call(ftype, direction, order)
-                        except SPYValueError as err:
-                            assert "expected 'onepass'" in str(err)
-                            continue
+        for direction in preproc.availableDirections:
+            kwargs = {'direction': direction,
+                      'order': 4}
+            # only for firws
+            if 'minphase' in direction:
+                try:
+                    self.test_but_filter(**kwargs)
+                except SPYValueError as err:
+                    assert "expected 'onepass'" in str(err)
 
-                    filtered = call(ftype, direction, order)
-                    # check in frequency space
-                    spec = freqanalysis(filtered, tapsmofrq=3, keeptrials=False)
-                    if ftype == 'lp':
-                        foilim = [0, self.freq_kw[ftype]]
-                    elif ftype == 'hp':
-                        foilim = [self.freq_kw[ftype], self.fNy]
-                    else:
-                        foilim = self.freq_kw[ftype]
-                    if direction == 'twopass' and ftype == 'bs':
-                        plot_spec(ax, spec, label=f"order {order}", lw=1.5)
-                        ax.set_title("Twopass Butterworth bandstop")
+        for order in [-2, 10, 5.6]:
+            kwargs = {'direction': 'twopass',
+                      'order': order}
 
-        print(spec.show(channel=1, foilim=foilim).sum(), ftype)
+            if order < 1 and isinstance(order, int):
+                try:
+                    self.test_but_filter(**kwargs)
+                except SPYValueError as err:
+                    assert "value to be greater" in str(err)
+
+            else:
+                try:
+                    self.test_but_filter(**kwargs)
+                except SPYValueError as err:
+                    assert "expected int_like" in str(err)
+
+    def test_but_selections(self):
+
+        sel_dicts = helpers.mk_selection_dicts(nTrials=20,
+                                               nChannels=2,
+                                               toi_min=self.time_span[0],
+                                               toi_max=self.time_span[1],
+                                               min_len=2)
+        for sd in sel_dicts:
+            self.test_but_filter(select=sd)
+
+    def test_but_polyremoval(self):
+
+        helpers.run_polyremoval_test(self.test_but_filter)
+
+    def test_but_cfg(self):
+
+        cfg = get_defaults(pp)
+
+        cfg.filter_class = 'but'
+        cfg.order = 6
+        cfg.direction = 'twopass'
+        cfg.freq = 30
+        cfg.filter_type = 'hp'
+
+        result = pp(self.data, cfg)
+
+        # check here just for finiteness
+        assert np.all(np.isfinite(result.data))
+
+    @skip_without_acme
+    def test_but_parallel(self, testcluster=None):
+
+        ppl.ioff()
+        client = dd.Client(testcluster)
+        all_tests = [attr for attr in self.__dir__()
+                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
+
+        for test in all_tests:
+            test_method = getattr(self, test)
+            test_method()
+        client.close()
+        ppl.ion()
 
 
 def mk_spec_ax():

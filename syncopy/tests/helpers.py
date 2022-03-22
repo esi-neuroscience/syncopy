@@ -140,7 +140,7 @@ def run_foi_test(method_call, foilim, positivity=True):
         assert 'bounded by' in str(err)
 
 
-def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max):
+def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
 
     """
     Takes 4 numbers, the last two descibing a time-interval
@@ -189,8 +189,8 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max):
     while len(toilims) < 2:
 
         toil = np.sort(np.random.rand(2)) * (toi_max - toi_min) + toi_min
-        # at least 250ms
-        if np.diff(toil) < 0.25:
+        # at least min_len (250ms)
+        if np.diff(toil) < min_len:
             continue
         else:
             toilims.append(toil)
