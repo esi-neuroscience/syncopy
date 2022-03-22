@@ -18,10 +18,10 @@ from collections.abc import Iterator
 from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
-from syncopy.shared.errors import SPYValueError
+from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.tools import best_match
-from syncopy.plotting import _plot_analog
-from syncopy.plotting import _plot_spectral
+from syncopy.plotting import sp_plotting
+
 
 __all__ = ["AnalogData", "SpectralData", "CrossSpectralData"]
 
@@ -396,6 +396,10 @@ class ContinuousData(BaseData, ABC):
                 # First, fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
 
+    # plotting, only virtual in the abc
+    def singlepanelplot(self):
+        raise NotImplementedError
+
 
 class AnalogData(ContinuousData):
     """Multi-channel, uniformly-sampled, analog (real float) data
@@ -414,10 +418,6 @@ class AnalogData(ContinuousData):
     _infoFileProperties = ContinuousData._infoFileProperties + ("_hdr",)
     _defaultDimord = ["time", "channel"]
     _stackingDimLabel = "time"
-
-    # Attach plotting routines to not clutter the core module code
-    singlepanelplot = _plot_analog.singlepanelplot
-    multipanelplot = _plot_analog.multipanelplot
 
     @property
     def hdr(self):
@@ -476,6 +476,11 @@ class AnalogData(ContinuousData):
                          channel=channel,
                          dimord=dimord)
 
+    # implement plotting
+    def singlepanelplot(self, shifted=True, **show_kwargs):
+
+        sp_plotting.plot_AnalogData(self, shifted, **show_kwargs)
+
 
 class SpectralData(ContinuousData):
     """
@@ -488,10 +493,6 @@ class SpectralData(ContinuousData):
     _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
     _defaultDimord = ["time", "taper", "freq", "channel"]
     _stackingDimLabel = "time"
-
-    # Attach plotting routines to not clutter the core module code
-    singlepanelplot = _plot_spectral.singlepanelplot
-    multipanelplot = _plot_spectral.multipanelplot
 
     @property
     def taper(self):
@@ -618,6 +619,11 @@ class SpectralData(ContinuousData):
                 self.freq = [1]
             if taper is not None:
                 self.taper = ['taper']
+
+    # implement plotting
+    def singlepanelplot(self, **show_kwargs):
+
+        sp_plotting.plot_SpectralData(self, **show_kwargs)
 
 
 class CrossSpectralData(ContinuousData):
@@ -774,3 +780,6 @@ class CrossSpectralData(ContinuousData):
                          freq=freq,
                          dimord=dimord)
 
+    def singlepanelplot(self, **show_kwargs):
+
+        sp_plotting.plot_CrossSpectralData(self, **show_kwargs)

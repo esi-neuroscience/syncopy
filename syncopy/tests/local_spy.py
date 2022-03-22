@@ -24,46 +24,43 @@ from syncopy.tests import synth_data
 # Prepare code to be executed using, e.g., iPython's `%run` magic command
 if __name__ == "__main__":
 
-    mock_up = np.arange(24).reshape((8, 3))
-    ad1 = spy.AnalogData([mock_up] * 5)
+    nTrials = 20
 
-    nTrials = 50
-
-    nSamples = 500
+    nSamples = 1000
     fs = 500
-    f1, f2 = 20, 40
-    A1, A2 = 2, 3
-
-    nSamples = 2000
-
-    trls = []
-    for _ in range(nTrials):
-
-        sig1 = A1 * np.cos(f1 * 2 * np.pi * np.arange(nSamples) / fs)
-        sig1 += A2 * np.cos(f2 * 2 * np.pi * np.arange(nSamples) / fs)
-        sig2 = np.random.randn(nSamples)
-        trls.append(np.vstack([sig1, sig2]).T)
-    ad1 = spy.AnalogData(trls, samplerate=500)
-    #spy.preprocessing(ad1, filter_class='d')
 
     trls = []
     AdjMat = np.zeros((2, 2))
-    AdjMat[0, 1] = .25
+    # coupling from 0 to 1
+    AdjMat[0, 1] = .15
     for _ in range(nTrials):
 
         # defaults AR(2) parameters yield 40Hz peak
-        alphas = [.74, -.46]  # broad peak at 60Hz
-        alphas = [0.24, -.46]
         alphas = [.55, -.8]
         trl = synth_data.AR2_network(AdjMat, nSamples=nSamples,
                                      alphas=alphas)
-        #trl = synth_data.AR2_network(None, nSamples=nSamples,
-        #                             alphas=alphas)
 
         trls.append(trl)
-    print(trl.mean())
-    ad2 = spy.AnalogData(trls, samplerate=2000)
 
-    spec = spy.freqanalysis(ad2, tapsmofrq=5, keeptrials=False)
+    ad2 = spy.AnalogData(trls, samplerate=fs)
+    spec = spy.freqanalysis(ad2, tapsmofrq=2, keeptrials=False)
+    foi = np.linspace(40, 160, 25)
+    spec2 = spy.freqanalysis(ad2, method='wavelet', keeptrials=False, foi=foi)
     coh = spy.connectivityanalysis(ad2, method='coh', tapsmofrq=5)
     gr = spy.connectivityanalysis(ad2, method='granger', tapsmofrq=10, polyremoval=0)
+
+    # show new plotting
+    ad2.singlepanelplot(trials=12, toilim=[0, 0.35])
+
+    # mtmfft spectrum
+    spec.singlepanelplot()
+    # time freq singlepanel needs single channel
+    spec2.singlepanelplot(channel=0, toilim=[0, 0.35])
+
+    coh.singlepanelplot(channel_i=0, channel_j=1)
+
+    gr.singlepanelplot(channel_i=0, channel_j=1, foilim=[40, 160])
+    gr.singlepanelplot(channel_i=1, channel_j=0, foilim=[40, 160])
+
+    # test top-level interface
+    spy.singlepanelplot(ad2, trials=2, toilim=[-.2, .2])
