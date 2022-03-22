@@ -293,8 +293,6 @@ class But_Filtering(ComputationalRoutine):
         if data.selection is not None:
             chanSec = data.selection.channel
             trl = data.selection.trialdefinition
-            for row in range(trl.shape[0]):
-                trl[row, :2] = [row, row + 1]
         else:
             chanSec = slice(None)
             trl = data.trialdefinition
