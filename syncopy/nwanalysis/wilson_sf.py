@@ -56,12 +56,16 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
 
     Ident = np.eye(*CSD.shape[1:])
 
+    # attach negative frequencies
+    CSD = np.r_[CSD, CSD[nFreq:1:-1]]
+
     # nChannel x nChannel
     psi0 = _psi0_initial(CSD)
 
     # initial choice of psi, constant for all z(~f)
     psi = np.tile(psi0, (nFreq, 1, 1))
-    assert psi.shape == CSD.shape
+    # attach negative frequencies
+    psi = np.r_[psi, psi[nFreq:1:-1]]
 
     g = np.zeros(CSD.shape, dtype=np.complex64)
     converged = False
@@ -72,7 +76,7 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
             # the bracket of equation 3.1
             g = psi_inv @ CSD @ psi_inv.conj().transpose(0, 2, 1)
         else:
-            for i in range(nFreq):
+            for i in range(g.shape[0]):
                 C = np.linalg.lstsq(psi[i], CSD[i], rcond=None)[0]
                 g[i] = np.linalg.lstsq(
                     psi[i], C.conj().T, rcond=None)[0].conj().T
@@ -91,7 +95,6 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
         CSDfac = psi @ psi.conj().transpose(0, 2, 1)
         err = np.abs(CSD - CSDfac)
         err = (err / np.abs(CSD)).max()
-
         # converged
         if err < rtol:
             converged = True
@@ -102,9 +105,9 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
 
     # Transfer function
     psi0_inv = np.linalg.inv(psi0)
-    Hfunc = psi @ psi0_inv.T
+    Hfunc = psi @ psi0_inv
 
-    return Hfunc, Sigma, converged
+    return Hfunc[:nFreq], Sigma, converged
 
 
 def _psi0_initial(CSD):
@@ -125,7 +128,7 @@ def _psi0_initial(CSD):
     # Remove any asymmetry due to rounding error.
     # This also will zero out any imaginary values
     # on the diagonal - real diagonals are required for cholesky.
-    gamma0 = np.real((gamma0 + gamma0.conj()) / 2)
+    gamma0 = np.real((gamma0 + gamma0.T.conj()) / 2)
 
     # check for positive definiteness
     eivals = np.linalg.eigvals(gamma0)
@@ -155,7 +158,10 @@ def _plusOperator(g):
 
     # take half of the zero lag
     beta[0, ...] = 0.5 * beta[0, ...]
-    g0 = beta[0, ...].copy()
+    g0 = np.real(beta[0, ...].copy())
+    # take half of Nyquist bin
+    # Dhamala "NewEdits" 28.01.22
+    beta[nLag, ...] = 0.5 * beta[nLag, ...]
 
     # Zero out negative lags
     beta[nLag + 1:, ...] = 0

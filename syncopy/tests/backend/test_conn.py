@@ -174,47 +174,27 @@ def test_wilson():
     """
 
     # --- create test data ---
-    fs = 1000
-    nChannels = 10
-    nSamples = 1000
-    f1, f2 = [30 , 40] # 30Hz and 60Hz
-    data = np.zeros((nSamples, nChannels))
+    fs = 5000
+    nChannels = 2
+    nSamples = 5000
+    nTrials = 50
 
-    # more phase diffusion in the 60Hz band
-    p1 = synth_data.phase_diffusion(f1, eps=.3, fs=fs,
-                              nSamples=nSamples, nChannels=nChannels)
-    p2 = synth_data.phase_diffusion(f2, eps=1, fs=fs,
-                              nSamples=nSamples, nChannels=nChannels)
+    CSDav = np.zeros((nSamples // 2 + 1, nChannels, nChannels), dtype=np.complex64)
+    for _ in range(nTrials):
 
-    data = np.cos(p1) + 2 * np.sin(p2) + .5 * np.random.randn(nSamples, nChannels)
+        sol = synth_data.AR2_network(nSamples=nSamples)
+        # --- get the (single trial) CSD ---
 
-    # --- get the (single trial) CSD ---
+        CSD, freqs = csd.csd(sol, fs,
+                             norm=False,
+                             fullOutput=True)
+        CSDav += CSD
 
-    bw = 5 # 5Hz smoothing
-    NW = bw * nSamples / (2 * fs)
-    Kmax = int(2 * NW - 1) # optimal number of tapers
-
-    CSD, freqs = csd.csd(data, fs,
-                         taper='dpss',
-                         taper_opt={'Kmax' : Kmax, 'NW' : NW},
-                         norm=False,
-                         fullOutput=True)
-    
-    # get CSD condition number, which is way too large!
-    CN = np.linalg.cond(CSD).max()
-    assert CN > 1e6
-
-    # --- regularize CSD ---
-
-    CSDreg, fac = regularize_csd(CSD, cond_max=1e6, nSteps=25)
-    CNreg = np.linalg.cond(CSDreg).max()
-    assert CNreg < 1e6
-    # check that 'small' regularization factor is enough
-    assert fac < 1e-5
+    CSDav /= nTrials
 
     # --- factorize CSD with Wilson's algorithm ---
 
-    H, Sigma, conv = wilson_sf(CSDreg, rtol=1e-9)
+    H, Sigma, conv = wilson_sf(CSDav, rtol=1e-9)
 
     # converged - \Psi \Psi^* \approx CSD,
     # with relative error <= rtol?
@@ -228,14 +208,36 @@ def test_wilson():
     ax.set_ylabel(r'$|CSD_{ij}(f)|$')
     chan = nChannels // 2
     # show (real) auto-spectra
-    ax.plot(freqs, np.abs(CSD[:, chan, chan]),
+    ax.plot(freqs, np.abs(CSDav[:, chan, chan]),
             '-o', label='original CSD', ms=3)
-    ax.plot(freqs, np.abs(CSDreg[:, chan, chan]),
-            '--', label='regularized CSD', ms=3)
     ax.plot(freqs, np.abs(CSDfac[:, chan, chan]),
             '-o', label='factorized CSD', ms=3)
-    ax.set_xlim((f1 - 5, f2 + 5))
+    # ax.set_xlim((350, 450))
     ax.legend()
+
+
+def test_regularization():
+
+    # dyadic product of random matrices has rank 1
+    CSD = np.zeros((50, 50))
+    for _ in range(40):
+        A = np.random.randn(50)
+        CSD += np.outer(A, A)
+
+    # get CSD condition number, which is way too large!
+    CN = np.linalg.cond(CSD).max()
+    print(CN)
+    cmax = 1e6
+    assert CN > cmax
+
+    # --- regularize CSD ---
+
+    CSDreg, fac = regularize_csd(CSD, cond_max=cmax, nSteps=25)
+
+    CNreg = np.linalg.cond(CSDreg).max()
+    assert CNreg < 1e6
+    # check that 'small' regularization factor is enough
+    assert fac < 1e-3
 
 
 def test_granger():
@@ -294,7 +296,7 @@ def test_granger():
     # check low to no causality for 1->2
     assert G[freq_idx, 0, 1] < 0.1
     # check high causality for 2->1
-    assert G[freq_idx, 1, 0] > 0.8
+    assert G[freq_idx, 1, 0] > 0.7
 
     # repeat test with least-square solution
     H, Sigma, conv = wilson_sf(CSDav, direct_inversion=False)
@@ -303,7 +305,7 @@ def test_granger():
     # check low to no causality for 1->2
     assert G2[freq_idx, 0, 1] < 0.1
     # check high causality for 2->1
-    assert G2[freq_idx, 1, 0] > 0.8
+    assert G2[freq_idx, 1, 0] > 0.7
 
     ax.plot(freqs, G2[:, 0, 1], label=r'Granger (LS) $1\rightarrow2$')
     ax.plot(freqs, G2[:, 1, 0], label=r'Granger (LS) $2\rightarrow1$')
