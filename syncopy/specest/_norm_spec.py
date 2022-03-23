@@ -6,17 +6,17 @@
 import numpy as np
 
 
-def _norm_spec(ftr, nSamples, fs, mode='amplitude'):
+def _norm_spec(ftr, nSamples, fs, mode='bins'):
 
     """
     Normalizes the complex Fourier transform to
-    power spectral density of amplitude squaredunits.
+    power spectral density or dimensionless bin units.
     """
 
     # frequency bins
     if mode == 'density':
         delta_f = fs / nSamples
-    elif mode == 'amplitude':
+    elif mode == 'bins':
         delta_f = 1
 
     ftr *= np.sqrt(2) / (nSamples * np.sqrt(delta_f))

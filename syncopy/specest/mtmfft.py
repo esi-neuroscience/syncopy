@@ -102,6 +102,8 @@ def mtmfft(data_arr,
         if demean_taper:
             win -= win.mean(axis=0)
         ftr[taperIdx] = np.fft.rfft(win, n=nSamples, axis=0)
-        ftr[taperIdx] = _norm_spec(ftr[taperIdx], nSamples, samplerate)
+        # FT uses original length
+        ftr[taperIdx] = _norm_spec(ftr[taperIdx], signal_length, samplerate)
+        # ftr[taperIdx] = _norm_spec(ftr[taperIdx], nSamples, samplerate)
 
     return ftr, freqs
