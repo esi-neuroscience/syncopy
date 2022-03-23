@@ -158,7 +158,7 @@ def _plusOperator(g):
 
     # take half of the zero lag
     beta[0, ...] = 0.5 * beta[0, ...]
-    g0 = beta[0, ...].copy()
+    g0 = np.real(beta[0, ...].copy())
     # take half of Nyquist bin
     # Dhamala "NewEdits" 28.01.22
     beta[nLag, ...] = 0.5 * beta[nLag, ...]
