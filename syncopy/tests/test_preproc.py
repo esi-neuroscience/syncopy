@@ -30,9 +30,9 @@ availMem = psutil.virtual_memory().total
 minRAM = 5
 skip_low_mem = pytest.mark.skipif(availMem < minRAM * 1024**3, reason=f"less than {minRAM}GB RAM available")
 
-#availableFilterTypes = ('lp', 'hp', 'bp', 'bs')
-#availableDirections = ('twopass', 'onepass', 'onepass-minphase')
-#availableWindows = ("hamming", "hann", "blackman")
+# availableFilterTypes = ('lp', 'hp', 'bp', 'bs')
+# availableDirections = ('twopass', 'onepass', 'onepass-minphase')
+# availableWindows = ("hamming", "hann", "blackman")
 
 
 class TestButterworth:
@@ -227,7 +227,7 @@ def annotate_foilims(ax, flow, fhigh):
     ax.plot([flow, flow], [0, 1], 'k--')
     ax.plot([fhigh, fhigh], [0, 1], 'k--')
     ax.set_ylim(ylim)
-    
+
 
 if __name__ == '__main__':
     T1 = TestButterworth()
