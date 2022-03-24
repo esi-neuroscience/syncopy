@@ -38,7 +38,7 @@ skip_low_mem = pytest.mark.skipif(availMem < minRAM * 1024**3, reason=f"less tha
 class TestButterworth:
 
     nSamples = 1000
-    nChannels = 2
+    nChannels = 4
     nTrials = 100
     fs = 200
     fNy = fs / 2
@@ -196,9 +196,13 @@ class TestButterworth:
         all_tests = [attr for attr in self.__dir__()
                      if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
 
-        for test in all_tests:
-            test_method = getattr(self, test)
-            test_method()
+        for test_name in all_tests:
+            test_method = getattr(self, test_name)
+            if 'but_filter' in test_name:
+                # test parallelisation along channels
+                test_method(chan_per_worker=2)
+            else:
+                test_method()
         client.close()
         ppl.ion()
 

@@ -378,7 +378,7 @@ def check_passed_kwargs(lcls, defaults, frontend_name):
         return
 
     relevant = list(kw_dict.keys())
-    expected = [name for name in defaults]
+    expected = [name for name in defaults] + ['chan_per_worker']
 
     for name in relevant:
         if name not in expected:
