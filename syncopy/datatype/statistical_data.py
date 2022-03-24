@@ -117,7 +117,7 @@ class TimelockData(StatisticalData):
         ppstr += "\nUse `.log` to see object history"
         return ppstr
     
-    def __init__(self, 
+    def __init__(self,
                  time=None,
                  avg=None, 
                  var=None, 
