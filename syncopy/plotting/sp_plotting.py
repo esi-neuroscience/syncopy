@@ -56,6 +56,7 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
     fig, ax = sp_plot.mk_line_figax()
 
     sp_plot.plot_lines(ax, data_x, data_y, label=labels)
+    fig.tight_layout()
 
 
 def plot_SpectralData(data, **show_kwargs):
@@ -113,6 +114,7 @@ def plot_SpectralData(data, **show_kwargs):
                                         ylabel='power (dB)')
 
         sp_plot.plot_lines(ax, data_x, data_y, label=labels)
+        fig.tight_layout()
 
 
 def plot_CrossSpectralData(data, **show_kwargs):
@@ -157,7 +159,7 @@ def plot_CrossSpectralData(data, **show_kwargs):
         label = rf"channel{chi} - channel{chj}"
         data_x = plot_helpers.parse_foi(data, show_kwargs)
     elif method == 'corr':
-        xlabel = 'lag'
+        xlabel = 'lag (s)'
         ylabel = 'correlation'
         label = rf"channel{chi} - channel{chj}"
         data_x = plot_helpers.parse_toi(data, trl, show_kwargs)
@@ -172,5 +174,6 @@ def plot_CrossSpectralData(data, **show_kwargs):
     # persisten axes allows for plotting different
     # channel combinations into the same figure
     if not hasattr(data, 'ax'):
-        fig, data.ax = sp_plot.mk_line_figax(xlabel, ylabel)
+        data.fig, data.ax = sp_plot.mk_line_figax(xlabel, ylabel)
     sp_plot.plot_lines(data.ax, data_x, data_y, label=label)
+    data.fig.tight_layout()

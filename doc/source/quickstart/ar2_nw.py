@@ -5,7 +5,7 @@ from syncopy.tests import synth_data
 nTrials = 50
 nSamples = 1500
 trls = []
-# 3x3 Adjacency matrix to define coupling
+# 2x2 Adjacency matrix to define coupling
 AdjMat = np.zeros((2, 2))
 # coupling 0 -> 1
 AdjMat[0, 1] = 0.2
