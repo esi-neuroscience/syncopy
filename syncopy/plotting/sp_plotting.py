@@ -160,7 +160,7 @@ def plot_CrossSpectralData(data, **show_kwargs):
         xlabel = 'lag'
         ylabel = 'correlation'
         label = rf"channel{chi} - channel{chj}"
-        data_x = plot_helpers.parse_toi(data, show_kwargs)
+        data_x = plot_helpers.parse_toi(data, trl, show_kwargs)
     # that's all the methods we got so far
     else:
         raise NotImplementedError

@@ -188,6 +188,27 @@ The result is of type :class:`spy.CrossSpectralData`, the standard datatype for 
 
 As coherence is a *symmetric measure*, we have the same graph for both channel combinations, showing high coherence around 100Hz.
 
+.. note::
+   The plotting for ``CrossSpectralData`` object works a bit differently, as  the user here has to provide one channel combination with the keywords ``channel_i`` and ``channel_j``.
+
+Cross-Correlation
+-----------------
+Coherence is a spectral measure for correlation, the corresponding time-domain measure is the well known cross-correlation. In Syncopy we can get the cross-correlation between all channel pairs with::
+
+  corr = spy.connectivityanalysis(data, method='corr', keeptrials=True)
+
+As this also is a symmetric measure, let's just look at the only channel combination however this time for two different trials::
+
+  corr.singlepanelplot(channel_i=0, channel_j=1, trials=0)
+  corr.singlepanelplot(channel_i=0, channel_j=1, trials=1)
+
+.. image:: ar2_corr.png
+   :height: 300px
+
+We see that there are persistent correlations also for longer lags.
+
 Granger Causality
 -----------------
+
+
    
