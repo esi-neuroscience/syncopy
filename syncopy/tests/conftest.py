@@ -56,3 +56,16 @@ def pytest_collection_modifyitems(items):
 
     # Save potentially re-ordered test sequence
     items[:] = [items[idx] for idx in newOrder]
+
+# Define custom command-line argument `--full`
+def pytest_addoption(parser):
+    parser.addoption(
+        "--full",
+        action="store_true",
+        help="run exhaustive test suite",
+    )
+
+# Build corresponding fixture for `--full`
+@pytest.fixture
+def fulltests(request):
+    return request.config.getoption("--full")

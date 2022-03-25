@@ -102,6 +102,7 @@ from .specest import *
 from .nwanalysis import *
 from .statistics import *
 from .plotting import *
+from .preproc import *
 
 # Register session
 __session__ = datatype.base_data.SessionLogger()
@@ -126,3 +127,4 @@ __all__.extend(specest.__all__)
 __all__.extend(nwanalysis.__all__)
 __all__.extend(statistics.__all__)
 __all__.extend(plotting.__all__)
+__all__.extend(preproc.__all__)

@@ -21,11 +21,14 @@ Arguments:
   COMMAND
     pytest        perform testing using pytest in current user environment
                   (if SLURM is available, tests are executed via `srun`)
+            full  (OPTIONAL) if provided, an exhaustive test-run is conducted
+                  including, e.g., all selection permutations etc. Default: off
     tox           use tox to set up a new virtual environment (as defined in tox.ini)
                   and run tests within this newly created env
     -h or --help  show this help message and exit
 Example:
   $_selfie pytest
+  $_selfie pytest full
 "
 }
 
@@ -41,23 +44,36 @@ export PYTEST_ADDOPTS="--color=yes --tb=short --verbose"
 while [ "$1" != "" ]; do
     case "$1" in
         pytest)
+            if [ "$2" == "full" ]; then
+                fulltests="--full"
+            else
+                fulltests=""
+            fi
             shift
             export PYTHONPATH=$(cd ../../ && pwd)
             if [ $_useSLURM ]; then
-                srun -p DEV --mem=8000m -c 4 pytest
+                CMD="srun -p DEV --mem=8000m -c 4 pytest $fulltests"
             else
                 PYTEST_ADDOPTS="$PYTEST_ADDOPTS --cov=../../syncopy --cov-config=../../.coveragerc"
                 export PYTEST_ADDOPTS
-                pytest
+                CMD="pytest $fulltests"
             fi
+            echo ">>>"
+            echo ">>> Running $CMD $PYTEST_ADDOPTS"
+            echo ">>>"
+            ${CMD}
             ;;
         tox)
             shift
             if [ $_useSLURM ]; then
-                srun -p DEV --mem=8000m -c 4 tox
+                CMD="srun -p DEV --mem=8000m -c 4 tox"
             else
-                tox
+                CMD="tox"
             fi
+            echo ">>>"
+            echo ">>> Running $CMD "
+            echo ">>>"
+            ${CMD}
             ;;
         -h | --help)
             shift

@@ -212,7 +212,7 @@ def process_taper(taper,
     # no tapering at all
     if taper is None and tapsmofrq is None:
         return None, {}
-    
+
     # See if taper choice is supported
     if taper not in availableTapers:
         lgl = "'" + "or '".join(opt + "' " for opt in availableTapers)
@@ -286,7 +286,7 @@ def process_taper(taper,
 
         try:
             scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[0, np.inf])
-        except Exception as exc:
+        except Exception:
             lgl = "smoothing bandwidth in Hz, typical values are in the range 1-10Hz"
             raise SPYValueError(legal=lgl, varname="tapsmofrq", actual=tapsmofrq)
 
@@ -330,7 +330,7 @@ def process_taper(taper,
             return 'dpss', dpss_opt
 
 
-def check_effective_parameters(CR, defaults, lcls):
+def check_effective_parameters(CR, defaults, lcls, besides=None):
 
     """
     For a given ComputationalRoutine, compare set parameters
@@ -346,10 +346,16 @@ def check_effective_parameters(CR, defaults, lcls):
         parameter names plus values with default values
     lcls : dict
         Result of `locals()`, all names and values of the local (frontend-)name space
+    besides : list or None
+        List of kws which don't get checked
     """
     # list of possible parameter names of the CR
     expected = CR.valid_kws + ["parallel", "select"]
+    if besides is not None:
+        expected += besides
+
     relevant = [name for name in defaults if name not in generalParameters]
+
     for name in relevant:
         if name not in expected and (lcls[name] != defaults[name]):
             msg = f"option `{name}` has no effect in method `{CR.__name__}`!"

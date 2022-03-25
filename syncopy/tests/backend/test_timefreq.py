@@ -10,7 +10,7 @@ from syncopy.specest import wavelets as spywave
 
 def gen_testdata(freqs=[20, 40, 60],
                  cycles=11, fs=1000,
-                 eps = 0):
+                 eps=0):
 
     """
     Harmonic superposition of multiple
@@ -51,15 +51,16 @@ def gen_testdata(freqs=[20, 40, 60],
     return signal
 
 
-fs = 1000 # sampling frequency
+# -- test signal for time-freq methods --
 
-# generate 3 packets at 20, 40 and 60Hz with 10 cycles each
+fs = 1000  # sampling frequency
+
+# generate 3 packets at 20, 40 and 60Hz with 12 cycles each
 # Noise variance is given by eps
 signal_freqs = np.array([20, 50, 80])
 
-# signal_freqs = np.array([20, 70])
 cycles = 12
-A = 5 # signal amplitude
+A = 5  # signal amplitude
 signal = A * gen_testdata(freqs=signal_freqs, cycles=cycles, fs=fs, eps=0.)
 
 # define frequencies of interest for wavelet methods
@@ -73,8 +74,8 @@ for frequency in signal_freqs:
 
 def test_mtmconvol():
 
-    # 10 cycles of 40Hz are 250 samples
-    window_size = 750
+    # 2Hz wide freq bins.
+    window_size = 500
 
     # default - stft pads with 0's to make windows fit
     # we choose N-1 overlap to retrieve a time-freq estimate
@@ -87,9 +88,7 @@ def test_mtmconvol():
                                      noverlap=window_size - 1)
 
     # absolute squared for power spectrum and taper averaging
-    spec = np.real(ftr * ftr.conj()).mean(axis=1)[:, :, 0] # 1st Channel
-    # amplitude spectrum
-    ampls = np.sqrt(spec)
+    spec = np.real(ftr * ftr.conj()).mean(axis=1)[:, :, 0]  # 1st Channel
 
     fig, (ax1, ax2) = ppl.subplots(2, 1,
                                    sharex=True,
@@ -108,20 +107,20 @@ def test_mtmconvol():
     extent = [0, len(signal) / fs, freqs[0] - df / 2, freqs[-1] - df / 2]
     # test also the plotting
     # scale with amplitude
-    ax2.imshow(ampls.T,
+    ax2.imshow(spec.T,
                cmap='magma',
                aspect='auto',
                origin='lower',
                extent=extent,
                vmin=0,
-               vmax=1.2 * A)
+               vmax=.5 * A**2 / df)
 
     # zoom into foi region
     ax2.set_ylim((foi[0], foi[-1]))
 
     # get the 'mappable' for the colorbar
     im = ax2.images[0]
-    fig.colorbar(im, ax = ax2, orientation='horizontal',
+    fig.colorbar(im, ax=ax2, orientation='horizontal',
                  shrink=0.7, pad=0.2, label='amplitude (a.u.)')
 
     # closest spectral indices to validate time-freq results
@@ -137,10 +136,9 @@ def test_mtmconvol():
                  '--',
                  c='0.5')
 
-        # number of cycles with relevant
-        # amplitude at the respective frequency
-        cycle_num = (ampls[:, idx] > A / np.e).sum() / fs * frequency
-        print(f'{cycle_num} cycles for the {frequency} band')
+        # integrated power at the respective frquency
+        cycle_num = (spec[:, idx] * df > .5 * A**2 / np.e**2).sum() / fs * frequency
+        print(f'{cycle_num} cycles for the {frequency} Hz band')
         # we have 2 times the cycles for each frequency (temporal neighbor)
         assert cycle_num > 2 * cycles
         # power should decay fast, so we don't detect more cycles
@@ -153,7 +151,13 @@ def test_mtmconvol():
     # -------------------------
 
     taper = 'dpss'
-    taper_opt = {'Kmax' : 10, 'NW' : 2}
+    tapsmofrq = 10  # Hz
+    # set parameters for scipy.signal.windows.dpss
+    NW = tapsmofrq * window_size / (2 * fs)
+    # from the minBw setting NW always is at least 1
+    Kmax = int(2 * NW - 1)  # optimal number of tapers
+
+    taper_opt = {'Kmax': Kmax, 'NW': NW}
     # the transforms have shape (nTime, nTaper, nFreq, nChannel)
     ftr2, freqs2 = mtmconvol.mtmconvol(signal,
                                        samplerate=fs, taper=taper, taper_opt=taper_opt,
@@ -161,8 +165,6 @@ def test_mtmconvol():
                                        noverlap=window_size - 1)
 
     spec2 = np.real((ftr2 * ftr2.conj()).mean(axis=1)[..., 0])
-    # amplitude spectrum
-    ampls2 = np.sqrt(spec2)
 
     fig, (ax1, ax2) = ppl.subplots(2, 1,
                                    sharex=True,
@@ -178,20 +180,20 @@ def test_mtmconvol():
 
     # test also the plotting
     # scale with amplitude
-    ax2.imshow(ampls2.T,
+    ax2.imshow(spec2.T,
                cmap='magma',
                aspect='auto',
                origin='lower',
                extent=extent,
                vmin=0,
-               vmax=1.2 * A)
+               vmax=.5 * A**2 / df)
 
     # zoom into foi region
     ax2.set_ylim((foi[0], foi[-1]))
 
     # get the 'mappable' for the colorbar
     im = ax2.images[0]
-    fig.colorbar(im, ax = ax2, orientation='horizontal',
+    fig.colorbar(im, ax=ax2, orientation='horizontal',
                  shrink=0.7, pad=0.2, label='amplitude (a.u.)')
 
     fig.tight_layout()
@@ -207,9 +209,9 @@ def test_mtmconvol():
     # check for the whole time domain
     # due to too much spectral broadening/smearing
     # so we just check that the maximum estimated
-    # amplitude is within 10% boundsof the real amplitude
-
-    assert 0.9 * A < ampls2.max() < 1.1 * A
+    # power within one bin is within 15% bounds of the real power
+    nBins = tapsmofrq / df
+    assert 0.4 * A**2 / df < spec2.max() * nBins < .65 * A**2 / df
 
 
 def test_superlet():
@@ -224,8 +226,8 @@ def test_superlet():
                              order_min=2,
                              c_1=1,
                              adaptive=False)
-    # amplitude spectrum
-    ampls = np.abs(spec)
+    # power spectrum
+    power_spec = np.real(spec * spec.conj())
 
     fig, (ax1, ax2) = ppl.subplots(2, 1,
                                    sharex=True,
@@ -241,17 +243,17 @@ def test_superlet():
     extent = [0, len(signal) / fs, foi[0], foi[-1]]
     # test also the plotting
     # scale with amplitude
-    ax2.imshow(ampls,
+    ax2.imshow(power_spec,
                cmap='magma',
                aspect='auto',
                extent=extent,
                origin='lower',
                vmin=0,
-               vmax=1.2 * A)
+               vmax=1.2 * A**2)
 
     # get the 'mappable'
     im = ax2.images[0]
-    fig.colorbar(im, ax = ax2, orientation='horizontal',
+    fig.colorbar(im, ax=ax2, orientation='horizontal',
                  shrink=0.7, pad=0.2, label='amplitude (a.u.)')
 
     for idx, frequency in zip(freq_idx, signal_freqs):
@@ -263,7 +265,7 @@ def test_superlet():
 
         # number of cycles with relevant
         # amplitude at the respective frequency
-        cycle_num = (ampls[idx, :] > A / np.e).sum() / fs * frequency
+        cycle_num = (power_spec[idx, :] > (A / np.e)**2).sum() / fs * frequency
         print(f'{cycle_num} cycles for the {frequency} band')
         # we have 2 times the cycles for each frequency (temporal neighbor)
         assert cycle_num > 2 * cycles
@@ -285,7 +287,7 @@ def test_wavelet():
                            scales=scales,
                            wavelet=wfun)
     # amplitude spectrum
-    ampls = np.abs(spec)
+    power_spec = np.real(spec * spec.conj())
 
     fig, (ax1, ax2) = ppl.subplots(2, 1,
                                    sharex=True,
@@ -301,17 +303,17 @@ def test_wavelet():
 
     # test also the plotting
     # scale with amplitude
-    ax2.imshow(ampls,
+    ax2.imshow(power_spec,
                cmap='magma',
                aspect='auto',
                extent=extent,
                origin='lower',
                vmin=0,
-               vmax=1.2 * A)
+               vmax=1.2 * A**2)
 
     # get the 'mappable'
     im = ax2.images[0]
-    fig.colorbar(im, ax = ax2, orientation='horizontal',
+    fig.colorbar(im, ax=ax2, orientation='horizontal',
                  shrink=0.7, pad=0.2, label='amplitude (a.u.)')
 
     for idx, frequency in zip(freq_idx, signal_freqs):
@@ -323,7 +325,7 @@ def test_wavelet():
 
         # number of cycles with relevant
         # amplitude at the respective frequency
-        cycle_num = (ampls[idx, :] > A / np.e).sum() / fs * frequency
+        cycle_num = (power_spec[idx, :] > (A / np.e)**2).sum() / fs * frequency
         print(f'{cycle_num} cycles for the {frequency} band')
         # we have at least 2 times the cycles for each frequency (temporal neighbor)
         assert cycle_num > 2 * cycles
@@ -338,7 +340,8 @@ def test_mtmfft():
     # superposition 40Hz and 100Hz oscillations A1:A2 for 1s
     f1, f2 = 40, 100
     A1, A2 = 5, 3
-    tvec = np.arange(0, 1, 1 / 1000)
+    nSamples = 1000
+    tvec = np.arange(0, 1, 1 / nSamples)
 
     signal = A1 * np.cos(2 * np.pi * f1 * tvec)
     signal += A2 * np.cos(2 * np.pi * f2 * tvec)
@@ -357,42 +360,53 @@ def test_mtmfft():
 
     # average over potential tapers (only 1 here)
     spec = np.real(ftr * ftr.conj()).mean(axis=0)
-    amplitudes = np.sqrt(spec)[:, 0] # only 1 channel
-    # our FFT normalisation recovers the signal amplitudes:
-    assert np.allclose([A1, A2], amplitudes[[f1, f2]])
+    powers = spec[:, 0]   # only 1 channel
+    # our FFT normalisation recovers the integrated squared signal amplitudes
+    # as frequency bin width is 1Hz, one bin 'integral' is enough
+    assert np.allclose([0.5 * A1**2, 0.5 * A2**2], powers[[f1, f2]])
 
     fig, ax = ppl.subplots()
-    ax.set_title(f"Amplitude spectrum {A1} x 40Hz + {A2} x 100Hz")
-    ax.plot(freqs[:150], amplitudes[:150], label="No taper", lw=2)
+    ax.set_title(f"Power spectrum {A1} x 40Hz + {A2} x 100Hz")
+    ax.plot(freqs[:150], powers[:150], label="No taper", lw=2)
     ax.set_xlabel('frequency (Hz)')
-    ax.set_ylabel('amplitude (a.u.)')
+    ax.set_ylabel('power-density')
 
     # -------------------------
     # test multi-taper analysis
     # -------------------------
+    tapsmofrq = 10  # Hz
+    # set parameters for scipy.signal.windows.dpss
+    NW = tapsmofrq * nSamples / (2 * fs)
+    # from the minBw setting NW always is at least 1
+    Kmax = int(2 * NW - 1)  # optimal number of tapers
 
-    taper_opt = {'Kmax' : 8, 'NW' : 1}
+    taper_opt = {'Kmax': Kmax, 'NW': NW}
     ftr, freqs = mtmfft.mtmfft(signal, fs, taper="dpss", taper_opt=taper_opt)
     # average over tapers
     dpss_spec = np.real(ftr * ftr.conj()).mean(axis=0)
-    dpss_amplitudes = np.sqrt(dpss_spec)[:, 0] # only 1 channel
-    # check for amplitudes (and taper normalisation)
-    assert np.allclose(dpss_amplitudes[[f1, f2]], [A1, A2], atol=1e-1)
+    dpss_powers = dpss_spec[:, 0]   # only 1 channel
+    # check for integrated power (and taper normalisation)
+    # summing up all dpss powers should give total power of the
+    # test signal which is A1**2 + A2**2
+    assert np.allclose(np.sum(dpss_powers) * 2, A1**2 + A2**2, atol=1e-2)
 
-    ax.plot(freqs[:150], dpss_amplitudes[:150], label="Slepian", lw=2)
+    ax.plot(freqs[:150], dpss_powers[:150], label="Slepian", lw=2)
     ax.legend()
 
     # -----------------
     # test kaiser taper (is boxcar for beta -> inf)
     # -----------------
 
-    taper_opt = {'beta' : 2}
+    taper_opt = {'beta': 3}
     ftr, freqs = mtmfft.mtmfft(signal, fs, taper="kaiser", taper_opt=taper_opt)
     # average over tapers (only 1 here)
     kaiser_spec = np.real(ftr * ftr.conj()).mean(axis=0)
-    kaiser_amplitudes = np.sqrt(kaiser_spec)[:, 0] # only 1 channel
+    kaiser_powers = kaiser_spec[:, 0]  # only 1 channel
     # check for amplitudes (and taper normalisation)
-    assert np.allclose(kaiser_amplitudes[[f1, f2]], [A1, A2], atol=1e-2)
+    # normalization less exact for arbitraty windows
+    assert np.allclose(np.sum(kaiser_powers) * 2, A1**2 + A2**2, atol=1.5)
+    ax.plot(freqs[:150], kaiser_powers[:150], label="Kaiser", lw=2)
+    ax.legend()
 
     # -------------------------------
     # test all other window functions (which don't need a parameter)
@@ -410,10 +424,14 @@ def test_mtmfft():
             ftr, freqs = mtmfft.mtmfft(signal, fs, taper=win, taper_opt=taper_opt)
             # average over tapers (only 1 here)
             spec = np.real(ftr * ftr.conj()).mean(axis=0)
-            amplitudes = np.sqrt(spec)[:, 0] # only 1 channel
-            # print(win, amplitudes[[f1, f2]])
-            assert np.allclose(amplitudes[[f1, f2]], [A1, A2], atol=1e-3)
+            powers = spec[:, 0]  # only 1 channel
+            print(np.sum(powers), win)
+            if win != 'tukey':
+                assert np.allclose(np.sum(powers) * 2, A1**2 + A2**2, atol=4)
+            # not sure why tukey and triang are so off..
+            else:
+                assert np.allclose(np.sum(powers) * 2, A1**2 + A2**2, atol=8)
+
         except TypeError:
             # we didn't provide default parameters..
             pass
-

@@ -12,6 +12,10 @@ Bugfix release
 - Added experimental loading functionality for Matlab mat files
 - Added support for "scalar" selections, i.e., things like `selectdata(trials=0)`
   or `data.selectdata(channels='mychannel')`
+- Added command line argument "--full" for more granular testing: the new default
+  for running the testing pipeline is to execute a trimmed-down testing suite that
+  does not probe all possible input permutations but focuses on the core functionality
+  without sacrificing coverage.
 
 ### CHANGED
 - Renamed `_selection` class property to `selection`
