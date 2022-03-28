@@ -418,6 +418,13 @@ class TestSelector():
         # multiple trials get returned in a list
         assert [len(trl.shape) == 2 for trl in ang.show(channel=0, squeeze=False)]
 
+        # test toi/toilim returns arrays for single trial and
+        # lists for multiple trial selections
+        assert isinstance(ang.show(trials=0, toi=[0, 1]), np.ndarray)
+        assert isinstance(ang.show(trials=0, toilim=[0, 1]), np.ndarray)
+        assert isinstance(ang.show(trials=[0, 1], toi=[0, 1]), list)
+        assert isinstance(ang.show(trials=[0, 1], toilim=[0, 1]), list)
+        
         # go through all data-classes defined above
         for dclass in self.classes:
             dummy = getattr(spd, dclass)(data=self.data[dclass],
