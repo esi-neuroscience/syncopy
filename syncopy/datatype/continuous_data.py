@@ -400,6 +400,9 @@ class ContinuousData(BaseData, ABC):
     def singlepanelplot(self):
         raise NotImplementedError
 
+    def multipanelplot(self):
+        raise NotImplementedError
+
 
 class AnalogData(ContinuousData):
     """Multi-channel, uniformly-sampled, analog (real float) data
