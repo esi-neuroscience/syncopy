@@ -18,8 +18,8 @@ from syncopy.plotting.config import pltErrMsg, pltConfig
 def plot_AnalogData(data, shifted=True, **show_kwargs):
 
     """
-    The probably simplest plot, a 2d-line
-    plot of selected channels
+    The probably simplest plot, 2d-line
+    plots of selected channels, one axis for each channel
 
     Parameters
     ----------
@@ -47,23 +47,37 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
 
     # multiple channels?
     labels = plot_helpers.parse_channel(data, show_kwargs)
+    nAx = 1 if isinstance(labels, str) else len(labels)
 
-    # plot multiple channels with offsets for
-    # better visibility
-    if shifted:
-        data_y = plot_helpers.shift_multichan(data_y)
+    if nAx < 2:
+        SPYWarning("Please select at least two channels for a multipanelplot!")
+        return
+    elif nAx > pltConfig['mMaxAxes']:
+        SPYWarning("Please select max. {pltConfig['mMaxAxes']} channels for a multipanelplot!")
+        return
+    else:
+        # determine axes layout, prefer columns over rows due to display aspect ratio
+        nrows, ncols = plot_helpers.calc_multi_layout(nAx)
 
-    fig, ax = _plotting.mk_line_figax()
+    fig, axs = _plotting.mk_multi_line_figax(nrows, ncols)
 
-    _plotting.plot_lines(ax, data_x, data_y, label=labels)
+    for chan_dat, ax, label in zip(data_y.T, axs.flatten(), labels):
+        _plotting.plot_lines(ax, data_x, chan_dat, label=label, leg_fontsize=pltConfig['mLegendSize'])
+
+    # delete empty plot due to grid extension
+    # because of prime nAx -> can be maximally 1 plot
+    if ncols * nrows > nAx:
+        axs.flatten()[-1].remove()
+
+    fig.tight_layout()
 
 
 def plot_SpectralData(data, **show_kwargs):
 
     """
-    Plot either a 2d-line plot in case of
-    singleton time axis or an image plot
-    for time-frequency spectra.
+    Plot either 2d-line plots in case of
+    singleton time axis or image plots
+    for time-frequency spectra, one for each channel.
 
     Parameters
     ----------
@@ -84,36 +98,51 @@ def plot_SpectralData(data, **show_kwargs):
     elif len(data.trials) == 1:
         trl = 0
 
+    labels = plot_helpers.parse_channel(data, show_kwargs)
+    nAx = 1 if isinstance(labels, str) else len(labels)
+
+    if nAx < 2:
+        SPYWarning("Please select at least two channels for a multipanelplot!")
+        return
+    elif nAx > pltConfig['mMaxAxes']:
+        SPYWarning("Please select max. {pltConfig['mMaxAxes']} channels for a multipanelplot!")
+        return
+    else:
+        # determine axes layout, prefer columns over rows due to display aspect ratio
+        nrows, ncols = plot_helpers.calc_multi_layout(nAx)
+
     # how got the spectrum computed
     method = plot_helpers.get_method(data)
-    if method in ('wavelet', 'superlet', 'mtmconvol'):
-        # multiple channels?
-        label = plot_helpers.parse_channel(data, show_kwargs)
-        if not isinstance(label, str):
-            SPYWarning("Please select a single channel for plotting!")
-            return
-        # here we always need a new axes
-        fig, ax = _plotting.mk_img_figax()
+    if method in ('wavelet', 'superlet', 'mtmconvol'):        
+        fig, axs = _plotting.mk_multi_img_figax(nrows, ncols)
 
         time = plot_helpers.parse_toi(data, trl, show_kwargs)
-        # dimord is time x taper x freq x channel
-        # need freq x time for plotting
-        data_yx = data.show(**show_kwargs).T
-        _plotting.plot_tfreq(ax, data_yx, time, data.freq)
+        # dimord is time x freq x channel
+        # need freq x time each for plotting
+        data_cyx = data.show(**show_kwargs).T
+        for data_yx, ax, label in zip(data_cyx, axs.flatten(), labels):
+            _plotting.plot_tfreq(ax, data_yx, time, data.freq)
+            ax.set_title(label, fontsize=pltConfig['mTitleSize'])
+        fig.tight_layout()
+        fig.subplots_adjust(wspace=0.05)
+
     # just a line plot
     else:
         # get the data to plot
         data_x = plot_helpers.parse_foi(data, show_kwargs)
         data_y = np.log10(data.show(**show_kwargs))
 
-        # multiple channels?
-        labels = plot_helpers.parse_channel(data, show_kwargs)
+        fig, axs = _plotting.mk_multi_line_figax(nrows, ncols, xlabel='frequency (Hz)',
+                                                 ylabel='power (dB)')
 
-        fig, ax = _plotting.mk_line_figax(xlabel='frequency (Hz)',
-                                          ylabel='power (dB)')
+        for chan_dat, ax, label in zip(data_y.T, axs.flatten(), labels):
+            _plotting.plot_lines(ax, data_x, chan_dat, label=label, leg_fontsize=pltConfig['mLegendSize'])
 
-        _plotting.plot_lines(ax, data_x, data_y, label=labels)
-        ax.set_title(label, fontsize=pltConfig['sTitleSize'])
+        # delete empty plot due to grid extension
+        # because of prime nAx -> can be maximally 1 plot
+        if ncols * nrows > nAx:
+            axs.flatten()[-1].remove()
+        fig.tight_layout()
 
 
 def plot_CrossSpectralData(data, **show_kwargs):
