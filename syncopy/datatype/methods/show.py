@@ -121,7 +121,7 @@ def show(data, squeeze=True, **kwargs):
         msg = "".join(selectionTxt[txtMask])
         transform_out = np.squeeze
     else:
-        transform_out = lambda x : x
+        transform_out = lambda x: x
     SPYInfo("Showing{}".format(msg))
 
     # Use an object's `_preview_trial` method fetch required indexing tuples
@@ -132,24 +132,43 @@ def show(data, squeeze=True, **kwargs):
     # Perform some slicing/list-selection gymnastics: ensure that selections
     # that result in contiguous slices are actually returned as such (e.g.,
     # `idxList = [(slice(1,2), [2]), (slice(2,3), [2])` -> `returnIdx = [slice(1,3), [2]]`)
-    singleIdx = [False] * len(idxList[0])
-    returnIdx = list(idxList[0])
-    for sk, selectors in enumerate(zip(*idxList)):
-        if np.unique(selectors).size == 1:
-            singleIdx[sk] = True
-        else:
-            if all(isinstance(sel, slice) for sel in selectors):
-                gaps = [selectors[k + 1].start - selectors[k].stop for k in range(len(selectors) - 1)]
-                if all(gap == 0 for gap in gaps):
-                    singleIdx[sk] = True
-                    returnIdx[sk] = slice(selectors[0].start, selectors[-1].stop)
+
+    # COMMENT: Do we really need this?
+    # We still want a list returned with one trial per list item, also for consecutive (or
+    # the default 'all') trials! toi selections without gap only happen in those cases..
+    # another mental burden of mixing time and trial indexing?!
+    # If not selecting consecutive trials, these gymnastics seem unnecessary as well?!
+
+    # FIXME: remove this part if vetted in review to be really unnecessary
+    # singleIdx = [False] * len(idxList[0])
+    # returnIdx = list(idxList[0])
+    # for sk, selectors in enumerate(zip(*idxList)):
+    #     print(selectors, np.unique(selectors), np.unique(selectors).size, len(selectors))
+    #     # toi and foi are lists/arrays and not slices like toilim/foilim
+    #     # so they get implicitly concatenated by np.unique
+    #     if np.unique(selectors).size == 1 or len(selectors) == 1:
+    #         singleIdx[sk] = True
+    #     else:
+    #         if all(isinstance(sel, slice) for sel in selectors):
+    #             gaps = [selectors[k + 1].start - selectors[k].stop for k in range(len(selectors) - 1)]
+    #             if all(gap == 0 for gap in gaps):
+    #                 singleIdx[sk] = True
+    #                 returnIdx[sk] = slice(selectors[0].start, selectors[-1].stop)
 
     # Reset in-place subset selection
     data.selection = None
 
-    # If possible slice underlying dataset only once, otherwise return a list
-    # of arrays corresponding to selected trials
-    if all(si == True for si in singleIdx):
-        return transform_out(data.data[tuple(returnIdx)])
+    # single trial selected
+    if len(idxList) == 1:
+        return transform_out(data.data[idxList[0]])
+    # return multiple trials as list
     else:
         return [transform_out(data.data[idx]) for idx in idxList]
+
+    # FIXME: remove for the same reason as above
+    # If possible slice underlying dataset only once, otherwise return a list
+    # of arrays corresponding to selected trials
+    # if all(si == True for si in singleIdx):
+    #     return transform_out(data.data[tuple(returnIdx)])
+    # else:
+    #     return [transform_out(data.data[idx]) for idx in idxList]

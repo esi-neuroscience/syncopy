@@ -413,8 +413,10 @@ class TestSelector():
             assert "no data selectors if `clear = True`" in str(spyval.value)
 
         # show full/squeezed arrays
-        assert len(ang.show(channel=0).shape) == 1
-        assert len(ang.show(channel=0, squeeze=False).shape) == 2
+        # for a single trial an array is returned directly
+        assert len(ang.show(channel=0, trials=0).shape) == 1
+        # multiple trials get returned in a list
+        assert [len(trl.shape) == 2 for trl in ang.show(channel=0, squeeze=False)]
 
         # go through all data-classes defined above
         for dclass in self.classes:
