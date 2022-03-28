@@ -60,7 +60,7 @@ def mtmfft(data_arr,
 
     The FFT result is normalized such that this yields the power
     spectral density. For a clean harmonic and a Fourier frequency bin
-    width of `dF` this will give a peak power of `A**2 * dF`,
+    width of `dF` this will give a peak power of `A**2 / 2 * dF`,
     with `A` as harmonic ampltiude.
     """
 
@@ -102,6 +102,6 @@ def mtmfft(data_arr,
         if demean_taper:
             win -= win.mean(axis=0)
         ftr[taperIdx] = np.fft.rfft(win, n=nSamples, axis=0)
-        ftr[taperIdx] = _norm_spec(ftr[taperIdx], nSamples, freqs)
+        ftr[taperIdx] = _norm_spec(ftr[taperIdx], nSamples, samplerate)
 
     return ftr, freqs

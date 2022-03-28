@@ -66,7 +66,7 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
 
     The STFT result is normalized such that this yields the power
     spectral density. For a clean harmonic and a frequency bin
-    width of `dF` this will give a peak power of `A**2 * dF`,
+    width of `dF` this will give a peak power of `A**2 / 2 * dF`,
     with `A` as harmonic ampltiude.
     """
 

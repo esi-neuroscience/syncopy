@@ -73,6 +73,18 @@ def stft(dat,
         Array of sampling frequencies
     times : :class:`numpy.ndarray`
         Array of segment times
+
+    Notes
+    -----
+    For a power spectral estimate compute:
+
+    ``Sxx = np.real(ftr * ftr.conj())``
+
+    The STFT result is normalized such that this yields the power
+    spectral density. For a clean harmonic and a frequency bin
+    width of `dF` this will give a peak power of `A**2 / 2 * dF`,
+    with `A` as harmonic ampltiude.
+
     """
     # needed for stride tricks
     # from here on axis=-1 is the data axis!
@@ -131,7 +143,7 @@ def stft(dat,
     ftr = np.fft.rfft(dat, axis=-1)
 
     # normalization to squared amplitude density
-    ftr = _norm_spec(ftr, nperseg, freqs)
+    ftr = _norm_spec(ftr, nperseg, fs)
 
     # Roll frequency axis back to axis where the data came from
     ftr = np.moveaxis(ftr, -1, 0)

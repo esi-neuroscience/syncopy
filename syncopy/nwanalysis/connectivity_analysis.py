@@ -270,7 +270,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                                          nSamples=nSamples,
                                          taper=taper,
                                          taper_opt=taper_opt,
-                                         demean_taper=(method == 'granger'),
+                                         demean_taper=False,
                                          polyremoval=polyremoval,
                                          timeAxis=timeAxis,
                                          foi=foi)
