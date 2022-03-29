@@ -174,6 +174,13 @@ def _plusOperator(g):
 # --- End of Wilson's Algorithm ---
 
 
+def max_rel_err(A, B):
+
+    err = np.abs(A - B)
+    err = (err / np.abs(A)).max()
+    return err
+
+
 def regularize_csd(CSD, cond_max=1e6, eps_max=1e-3, nSteps=15):
 
     """

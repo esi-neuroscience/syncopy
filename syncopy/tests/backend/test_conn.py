@@ -6,7 +6,11 @@ import matplotlib.pyplot as ppl
 from syncopy.tests import synth_data
 from syncopy.nwanalysis import csd
 from syncopy.nwanalysis import ST_compRoutines as stCR
-from syncopy.nwanalysis.wilson_sf import wilson_sf, regularize_csd
+from syncopy.nwanalysis.wilson_sf import (
+    wilson_sf,
+    regularize_csd,
+    max_rel_err
+)
 from syncopy.nwanalysis.granger import granger
 
 
@@ -173,6 +177,12 @@ def test_wilson():
     inbuild, we just need to check for convergence.
     """
 
+    # -- test error testing routine
+
+    A = np.random.randn(10, 10) + 1j * np.random.randn(10, 10)
+
+    assert max_rel_err(A, A + A * 1e-16) < 1e-15
+
     # --- create test data ---
     fs = 5000
     nChannels = 2
@@ -194,7 +204,7 @@ def test_wilson():
 
     # --- factorize CSD with Wilson's algorithm ---
 
-    H, Sigma, conv = wilson_sf(CSDav, rtol=1e-9)
+    H, Sigma, conv = wilson_sf(CSDav, rtol=1e-12)
 
     # converged - \Psi \Psi^* \approx CSD,
     # with relative error <= rtol?
@@ -202,6 +212,8 @@ def test_wilson():
 
     # reconstitute
     CSDfac = H @ Sigma @ H.conj().transpose(0, 2, 1)
+    err = max_rel_err(CSDav, CSDfac)
+    assert err < 1e-12
 
     fig, ax = ppl.subplots(figsize=(6, 4))
     ax.set_xlabel('frequency (Hz)')
