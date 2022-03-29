@@ -86,7 +86,7 @@ def plot_lines(ax, data_x, data_y, leg_fontsize=pltConfig['sLegendSize'], **pkwa
 
 # -- image plots --
 
-def mk_img_figax(xlabel='time (s)', ylabel='frequency (Hz)', title=''):
+def mk_img_figax(xlabel='time (s)', ylabel='frequency (Hz)'):
 
     """
     Create the figure and axes for an
@@ -134,7 +134,7 @@ def mk_multi_img_figax(nrows, ncols, xlabel='time (s)', ylabel='frequency (Hz)')
     return fig, axs
 
 
-def plot_tfreq(ax, data_yx, times, freqs, title=''):
+def plot_tfreq(ax, data_yx, times, freqs, **pkwargs):
 
     """
     Plot time frequency data on a 2d grid, expects standard
@@ -150,4 +150,4 @@ def plot_tfreq(ax, data_yx, times, freqs, title=''):
               freqs[0] - df / 2, freqs[-1] - df / 2]
 
     ax.imshow(data_yx[::-1], aspect='auto', cmap=pltConfig['cmap'],
-              extent=extent)
+              extent=extent, **pkwargs)

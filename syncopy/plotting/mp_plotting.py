@@ -120,8 +120,9 @@ def plot_SpectralData(data, **show_kwargs):
         # dimord is time x freq x channel
         # need freq x time each for plotting
         data_cyx = data.show(**show_kwargs).T
+        maxP = data_cyx.max()
         for data_yx, ax, label in zip(data_cyx, axs.flatten(), labels):
-            _plotting.plot_tfreq(ax, data_yx, time, data.freq)
+            _plotting.plot_tfreq(ax, data_yx, time, data.freq, vmax=maxP)
             ax.set_title(label, fontsize=pltConfig['mTitleSize'])
         fig.tight_layout()
         fig.subplots_adjust(wspace=0.05)
