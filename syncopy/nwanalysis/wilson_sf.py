@@ -57,7 +57,7 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
     Ident = np.eye(*CSD.shape[1:])
 
     # attach negative frequencies
-    CSD = np.r_[CSD, CSD[nFreq:1:-1]]
+    CSD = np.r_[CSD, CSD[nFreq:1:-1].conj()]
 
     # nChannel x nChannel
     psi0 = _psi0_initial(CSD)
@@ -65,7 +65,7 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
     # initial choice of psi, constant for all z(~f)
     psi = np.tile(psi0, (nFreq, 1, 1))
     # attach negative frequencies
-    psi = np.r_[psi, psi[nFreq:1:-1]]
+    psi = np.r_[psi, psi[nFreq:1:-1].conj()]
 
     g = np.zeros(CSD.shape, dtype=np.complex64)
     converged = False
