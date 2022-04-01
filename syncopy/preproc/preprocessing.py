@@ -18,7 +18,7 @@ from syncopy.shared.input_processors import (
     check_passed_kwargs
 )
 
-from .compRoutines import But_Filtering, Sinc_Filtering
+from .compRoutines import But_Filtering, Sinc_Filtering, Rectify
 
 availableFilters = ('but', 'firws')
 availableFilterTypes = ('lp', 'hp', 'bp', 'bs')
@@ -37,10 +37,11 @@ def preprocessing(data,
                   direction=None,
                   window="hamming",
                   polyremoval=None,
+                  rectify=False,
                   **kwargs
                   ):
     """
-    Filtering of time continuous raw data with IIR and FIR filters
+    Preprocessing of time continuous raw data with IIR and FIR filters
 
     data : `~syncopy.AnalogData`
         A non-empty Syncopy :class:`~syncopy.AnalogData` object
@@ -68,6 +69,8 @@ def preprocessing(data,
         to filtering. A value of 0 corresponds to subtracting the mean
         ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
         least squares fit of a linear polynomial).
+    rectify : bool, optional
+        Set to `True` to rectify (after filtering)
 
     Returns
     -------
@@ -117,6 +120,9 @@ def preprocessing(data,
     # check polyremoval
     if polyremoval is not None:
         scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])
+
+    if not isinstance(rectify, bool):
+        SPYValueError("either `True` or `False`", varname='rectify', actual=rectify)
 
     # -- get trial info
 
@@ -220,16 +226,30 @@ def preprocessing(data,
                                       polyremoval=polyremoval,
                                       timeAxis=timeAxis)
 
-    # ------------------------------------
-    # Call the chosen ComputationalRoutine
-    # ------------------------------------
+    # -------------------------------------------
+    # Call the chosen filter ComputationalRoutine
+    # -------------------------------------------
 
-    out = AnalogData(dimord=data.dimord)
+    filtered = AnalogData(dimord=data.dimord)
     # Perform actual computation
     filterMethod.initialize(data,
-                            out._stackingDim,
+                            data._stackingDim,
                             chan_per_worker=kwargs.get("chan_per_worker"),
                             keeptrials=True)
-    filterMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
+    filterMethod.compute(data, filtered, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
+    # -- check for post processing flags --
+
+    if rectify:
+
+        rectified = AnalogData(dimord=data.dimord)
+        rectCR = Rectify()
+        rectCR.initialize(filtered,
+                          data._stackingDim,
+                          chan_per_worker=kwargs.get("chan_per_worker"),
+                          keeptrials=True)
+        rectCR.compute(filtered, rectified,
+                       parallel=kwargs.get("parallel"),
+                       log_dict=log_dict)
+        
     return out

@@ -303,3 +303,80 @@ class But_Filtering(ComputationalRoutine):
 
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel[chanSec])
+
+
+@unwrap_io
+def rectify_cF(dat, noCompute=False):
+
+    """
+    Provides straightforward rectification via `np.abs`.
+
+    dat : (N, K) :class:`numpy.ndarray`
+        Uniformly sampled multi-channel time-series data
+    noCompute : bool
+        If `True`, do not perform actual calculation but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+
+    Returns
+    -------
+    rectified : (N, K) :class:`~numpy.ndarray`
+        The rectified signals
+
+    Notes
+    -----
+    This method is intended to be used as
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+
+    See also
+    --------
+    `Scipy butterworth documentation <https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.butter.html>`_
+
+    """
+
+    # operation does not change the shape
+    outShape = dat.shape
+    if noCompute:
+        return outShape, np.float32
+
+    return np.abs(dat)
+
+
+class Rectify(ComputationalRoutine):
+
+    """
+    Compute class that performs rectification
+    of :class:`~syncopy.AnalogData` objects
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.preprocessing : parent metafunction
+    """
+
+    computeFunction = staticmethod(rectify_cF)
+
+    # 1st argument,the data, gets omitted
+    valid_kws = list(signature(but_filtering_cF).parameters.keys())[1:]
+
+    def process_metadata(self, data, out):
+
+        # Some index gymnastics to get trial begin/end "samples"
+        if data._selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
+        else:
+            chanSec = slice(None)
+            trl = data.trialdefinition
+
+        out.trialdefinition = trl
+
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel[chanSec])
