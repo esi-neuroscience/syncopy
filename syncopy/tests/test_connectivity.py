@@ -211,10 +211,10 @@ class TestCoherence:
         # is low coherence
         null_idx = (res.freq < self.f1 - 5) | (res.freq > self.f1 + 5)
         null_idx *= (res.freq < self.f2 - 5) | (res.freq > self.f2 + 5)
-        assert np.all(res.data[0, null_idx, 0, 1] < 0.1)
+        assert np.all(res.data[0, null_idx, 0, 1] < 0.15)
 
         plot_coh(res, 0, 1, label="channel 0-1")
-        
+
     def test_coh_selections(self):
 
         selections = mk_selection_dicts(self.nTrials,
