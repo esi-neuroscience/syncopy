@@ -304,12 +304,13 @@ class But_Filtering(ComputationalRoutine):
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel[chanSec])
 
-@unwrap_io        
-def downsample(dat, 
-               samplerate=1, 
-               new_samplerate=1, 
-               noCompute=False
-               ):
+
+@unwrap_io
+def downsample_cF(dat,
+                  samplerate=1,
+                  new_samplerate=1,
+                  noCompute=False
+                  ):
     """
     Provides basic downsampling of signals.
 
@@ -321,7 +322,7 @@ def downsample(dat,
         Sample rate of the input data
     new_samplerate : float
         Sample rate of the output data
-        
+
     Returns
     -------
     filtered : (X, K) :class:`~numpy.ndarray`
@@ -338,9 +339,6 @@ def downsample(dat,
 
     """
 
-    if samplerate % new_samplerate != 0:
-        raise ValueError('Complex downsampling of %0.2f to %0.2f not supported'%(samplerate, new_samplerate))
-
     skipped = samplerate // new_samplerate
 
     outShape = list(dat.shape)
@@ -350,3 +348,39 @@ def downsample(dat,
         return tuple(outShape), dat.dtype
 
     return dat[::skipped]
+
+
+class Downsample(ComputationalRoutine):
+
+    """
+    Compute class that performs straightforward downsampling
+    of :class:`~syncopy.AnalogData` objects
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.preprocessing : parent metafunction
+    """
+
+    computeFunction = staticmethod(downsample_cF)
+
+    # 1st argument,the data, gets omitted
+    valid_kws = list(signature(downsample_cF).parameters.keys())[1:]
+
+    def process_metadata(self, data, out):
+
+        # Some index gymnastics to get trial begin/end "samples"
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
+        else:
+            chanSec = slice(None)
+            trl = data.trialdefinition
+
+        out.trialdefinition = trl
+
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel[chanSec])
