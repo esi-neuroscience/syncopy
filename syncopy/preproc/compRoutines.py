@@ -303,3 +303,50 @@ class But_Filtering(ComputationalRoutine):
 
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel[chanSec])
+
+@unwrap_io        
+def downsample(dat, 
+               samplerate=1, 
+               new_samplerate=1, 
+               noCompute=False
+               ):
+    """
+    Provides basic downsampling of signals.
+
+    dat : (N, K) :class:`numpy.ndarray`
+        Uniformly sampled multi-channel time-series data
+        The 1st dimension is interpreted as the time axis,
+        columns represent individual channels.
+    samplerate : float
+        Sample rate of the input data
+    new_samplerate : float
+        Sample rate of the output data
+        
+    Returns
+    -------
+    filtered : (X, K) :class:`~numpy.ndarray`
+        The downsampled data
+
+    Notes
+    -----
+    This method is intended to be used as
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+
+    """
+
+    if samplerate % new_samplerate != 0:
+        raise ValueError('Complex downsampling of %0.2f to %0.2f not supported'%(samplerate, freq))
+
+    skipped = samplerate // new_samplerate
+
+    outShape = list(dat.shape)
+    outShape[0] = int(np.ceil(dat.shape[0] / skipped))
+
+    if noCompute:
+        return tuple(outShape), dat.dtype
+
+    return dat[::skipped]
