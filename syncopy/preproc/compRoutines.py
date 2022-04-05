@@ -339,7 +339,7 @@ def downsample(dat,
     """
 
     if samplerate % new_samplerate != 0:
-        raise ValueError('Complex downsampling of %0.2f to %0.2f not supported'%(samplerate, freq))
+        raise ValueError('Complex downsampling of %0.2f to %0.2f not supported'%(samplerate, new_samplerate))
 
     skipped = samplerate // new_samplerate
 
