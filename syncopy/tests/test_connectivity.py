@@ -7,11 +7,11 @@
 import psutil
 import pytest
 import inspect
-import itertools
 import numpy as np
 import matplotlib.pyplot as ppl
 
 # Local imports
+
 from syncopy import __acme__
 if __acme__:
     import dask.distributed as dd
@@ -19,6 +19,7 @@ if __acme__:
 from syncopy import AnalogData
 from syncopy import connectivityanalysis as ca
 import syncopy.tests.synth_data as synth_data
+import syncopy.tests.helpers as helpers
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.tools import get_defaults
 
@@ -93,9 +94,9 @@ class TestGranger:
     def test_gr_selections(self):
 
         # trial, channel and toi selections
-        selections = mk_selection_dicts(self.nTrials,
-                                        self.nChannels,
-                                        *self.time_span)
+        selections = helpers.mk_selection_dicts(self.nTrials,
+                                                self.nChannels,
+                                                *self.time_span)
 
         for sel_dct in selections:
 
@@ -126,7 +127,7 @@ class TestGranger:
     def test_gr_cfg(self):
 
         call = lambda cfg: ca(self.data, cfg)
-        run_cfg_test(call, method='granger')
+        helpers.run_cfg_test(call, method='granger', cfg=get_defaults(ca))
 
     @skip_without_acme
     @skip_low_mem
@@ -147,7 +148,7 @@ class TestGranger:
 
         pad_length = int(1.7 * self.nSamples)
         call = lambda pad_to_length: self.test_gr_solution(pad_to_length=pad_to_length)
-        run_padding_test(call, pad_length)
+        helpers.run_padding_test(call, pad_length)
 
     def test_gr_polyremoval(self):
 
@@ -155,7 +156,7 @@ class TestGranger:
         self.data = self.data + 10
 
         call = lambda polyremoval: self.test_gr_solution(polyremoval=polyremoval)
-        run_polyremoval_test(call)
+        helpers.run_polyremoval_test(call)
 
         # remove the constant again
         self.data = self.data - 10
@@ -217,9 +218,9 @@ class TestCoherence:
 
     def test_coh_selections(self):
 
-        selections = mk_selection_dicts(self.nTrials,
-                                        self.nChannels,
-                                        *self.time_span)
+        selections = helpers.mk_selection_dicts(self.nTrials,
+                                                self.nChannels,
+                                                *self.time_span)
 
         for sel_dct in selections:
 
@@ -236,12 +237,12 @@ class TestCoherence:
                                       foi=foi,
                                       foilim=foilim)
 
-        run_foi_test(call, foilim=[0, 70])
+        helpers.run_foi_test(call, foilim=[0, 70])
 
     def test_coh_cfg(self):
 
         call = lambda cfg: ca(self.data, cfg)
-        run_cfg_test(call, method='coh')
+        helpers.run_cfg_test(call, method='coh', cfg=get_defaults(ca))
 
     @skip_without_acme
     @skip_low_mem
@@ -262,12 +263,12 @@ class TestCoherence:
 
         pad_length = int(1.2 * self.nSamples)
         call = lambda pad_to_length: self.test_coh_solution(pad_to_length=pad_to_length)
-        run_padding_test(call, pad_length)
+        helpers.run_padding_test(call, pad_length)
 
     def test_coh_polyremoval(self):
 
         call = lambda polyremoval: self.test_coh_solution(polyremoval=polyremoval)
-        run_polyremoval_test(call)
+        helpers.run_polyremoval_test(call)
 
 
 class TestCorrelation:
@@ -374,9 +375,9 @@ class TestCorrelation:
 
     def test_corr_selections(self):
 
-        selections = mk_selection_dicts(self.nTrials,
-                                       self.nChannels,
-                                       *self.time_span)
+        selections = helpers.mk_selection_dicts(self.nTrials,
+                                                self.nChannels,
+                                                *self.time_span)
 
         for sel_dct in selections:
 
@@ -388,7 +389,7 @@ class TestCorrelation:
     def test_corr_cfg(self):
 
         call = lambda cfg: ca(self.data, cfg)
-        run_cfg_test(call, method='corr', positivity=False)
+        helpers.run_cfg_test(call, method='corr', positivity=False, cfg=get_defaults(ca))
 
     @skip_without_acme
     @skip_low_mem
@@ -408,213 +409,7 @@ class TestCorrelation:
     def test_corr_polyremoval(self):
 
         call = lambda polyremoval: self.test_corr_solution(polyremoval=polyremoval)
-        run_polyremoval_test(call)
-
-# -- helper functions --
-
-
-def run_padding_test(call, pad_length):
-    """
-    The callable should test a solution and support
-    a single keyword argument `pad_to_length`
-    """
-
-    pad_options = [pad_length, 'nextpow2', None]
-    for pad in pad_options:
-        call(pad_to_length=pad)
-
-    # test invalid pads
-    try:
-        call(pad_to_length=2)
-    except SPYValueError as err:
-        assert 'pad_to_length' in str(err)
-        assert 'expected value to be greater' in str(err)
-
-    try:
-        call(pad_to_length='IamNoPad')
-    except SPYValueError as err:
-        assert 'Invalid value of `pad_to_length`' in str(err)
-        assert 'nextpow2' in str(err)
-
-    try:
-        call(pad_to_length=np.array([1000]))
-    except SPYValueError as err:
-        assert 'Invalid value of `pad_to_length`' in str(err)
-        assert 'nextpow2' in str(err)
-
-
-def run_polyremoval_test(call):
-    """
-    The callable should test a solution and support
-    a single keyword argument `polyremoval`
-    """
-
-    poly_options = [0, 1]
-    for poly in poly_options:
-        call(polyremoval=poly)
-
-    # test invalid polyremoval options
-    try:
-        call(polyremoval=2)
-    except SPYValueError as err:
-        assert 'polyremoval' in str(err)
-        assert 'expected value to be greater' in str(err)
-
-    try:
-        call(polyremoval='IamNoPad')
-    except SPYTypeError as err:
-        assert 'Wrong type of `polyremoval`' in str(err)
-
-    try:
-        call(polyremoval=np.array([1000]))
-    except SPYTypeError as err:
-        assert 'Wrong type of `polyremoval`' in str(err)
-
-
-def run_cfg_test(call, method, positivity=True):
-
-    cfg = get_defaults(ca)
-
-    cfg.method = method
-    if method != 'granger':
-        cfg.foilim = [0, 70]
-    # test general tapers with
-    # additional parameters
-    cfg.taper = 'kaiser'
-    cfg.taper_opt = {'beta': 2}
-
-    cfg.output = 'abs'
-
-    result = call(cfg)
-
-    # check here just for finiteness and positivity
-    assert np.all(np.isfinite(result.data))
-    if positivity:
-        assert np.all(result.data[0, ...] >= -1e-10)
-
-
-def run_foi_test(call, foilim, positivity=True):
-
-    # only positive frequencies
-    assert np.min(foilim) >= 0
-    assert np.max(foilim) <= 500
-
-    # fois
-    foi1 = np.arange(foilim[0], foilim[1]) # 1Hz steps
-    foi2 = np.arange(foilim[0], foilim[1], 0.25) # 0.5Hz steps
-    foi3 = 'all'
-    fois = [foi1, foi2, foi3, None]
-
-    for foi in fois:
-        # FIXME: this works for method='granger' but not method='coh' 0.0
-
-        result = call(foi=foi, foilim=None)
-        # check here just for finiteness and positivity
-        assert np.all(np.isfinite(result.data))
-        if positivity:
-            assert np.all(result.data[0, ...] >= -1e-10)
-
-    # 2 foilims
-    foilims = [[2, 60], [7.65, 45.1234], None]
-    for foil in foilims:
-        result = call(foilim=foil, foi=None)
-        # check here just for finiteness and positivity
-        assert np.all(np.isfinite(result.data))
-        if positivity:
-            assert np.all(result.data[0, ...] >= -1e-10)
-
-    # make sure specification of both foi and foilim triggers a
-    # Syncopy ValueError
-    try:
-        result = call(foi=foi, foilim=foil)
-    except SPYValueError as err:
-        assert 'foi/foilim' in str(err)
-
-    # make sure out-of-range foi selections are detected
-    try:
-        result = call(foilim=[-1, 70], foi=None)
-    except SPYValueError as err:
-        assert 'foilim' in str(err)
-        assert 'bounded by' in str(err)
-
-    try:
-        result = call(foi=np.arange(550, 700), foilim=None)
-    except SPYValueError as err:
-        assert 'foi' in str(err)
-        assert 'bounded by' in str(err)
-
-
-def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max):
-
-    # at least 10 trials
-    assert nTrials > 9
-    # at least 2 channels
-    assert nChannels > 1
-    # at least 250ms
-    assert (toi_max - toi_min) > 0.25
-
-    # create 3 random trial and channel selections
-    trials, channels = [], []
-    for _ in range(3):
-
-        sizeTr = np.random.randint(10, nTrials + 1)
-        trials.append(list(np.random.choice(
-            nTrials, size=sizeTr
-        )
-        ))
-
-        sizeCh = np.random.randint(2, nChannels + 1)
-        channels.append(['channel' + str(i + 1)
-                         for i in
-                         np.random.choice(
-                             nChannels, size=sizeCh, replace=False
-                         )])
-
-    # create toi selections, signal length is toi_max
-    # with -1s as offset (from synthetic data instantiation)
-    # subsampling does NOT WORK due to precision issues :/
-    # toi1 = np.linspace(-.4, 2, 100)
-    tois = [None, 'all']
-    toi_combinations = itertools.product(trials,
-                                         channels,
-                                         tois)
-
-    # 2 random toilims
-    toilims = []
-    while len(toilims) < 2:
-
-        toil = np.sort(np.random.rand(2)) * (toi_max - toi_min) + toi_min
-        # at least 250ms
-        if np.diff(toil) < 0.25:
-            continue
-        else:
-            toilims.append(toil)
-
-    # combinatorics of all selection options
-    # order matters to assign the selection dict keys!
-    toilim_combinations = itertools.product(trials,
-                                            channels,
-                                            toilims)
-
-    selections = []
-    # digest generators to create all selection dictionaries
-    for comb in toi_combinations:
-
-        sel_dct = {}
-        sel_dct['trials'] = comb[0]
-        sel_dct['channel'] = comb[1]
-        sel_dct['toi'] = comb[2]
-        selections.append(sel_dct)
-
-    for comb in toilim_combinations:
-
-        sel_dct = {}
-        sel_dct['trials'] = comb[0]
-        sel_dct['channel'] = comb[1]
-        sel_dct['toilim'] = comb[2]
-        selections.append(sel_dct)
-
-    return selections
+        helpers.run_polyremoval_test(call)
 
 
 def plot_Granger(G, i, j):
