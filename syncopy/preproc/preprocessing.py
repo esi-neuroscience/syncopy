@@ -38,6 +38,7 @@ def preprocessing(data,
                   window="hamming",
                   polyremoval=None,
                   rectify=False,
+                  hilbert=False,
                   **kwargs
                   ):
     """
@@ -251,9 +252,11 @@ def preprocessing(data,
         rectCR.compute(filtered, rectified,
                        parallel=kwargs.get("parallel"),
                        log_dict=log_dict)
-        # not sure if this is the best way,
-        # `rectified` then keep dangling in
-        # temporary syncopy files (./spy) folder
-        filtered.data = rectified.data
+        return rectified
 
-    return filtered
+    elif hilbert:
+        pass
+
+    # no post-processing
+    else:
+        return filtered

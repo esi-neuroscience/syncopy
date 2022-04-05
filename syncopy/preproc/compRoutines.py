@@ -304,7 +304,7 @@ class But_Filtering(ComputationalRoutine):
 
 
 @unwrap_io
-def rectify_cF(dat, noCompute=False):
+def rectify_cF(dat, noCompute=False, chunkShape=None):
 
     """
     Provides straightforward rectification via `np.abs`.
@@ -367,7 +367,7 @@ class Rectify(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
-        if data._selection is not None:
+        if data.selection is not None:
             chanSec = data.selection.channel
             trl = data.selection.trialdefinition
         else:
