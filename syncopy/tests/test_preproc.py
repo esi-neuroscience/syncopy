@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Test preprocessing 
+# Test preprocessing
 #
 
 # 3rd party imports
@@ -20,7 +20,7 @@ from syncopy import AnalogData, freqanalysis
 import syncopy.preproc as preproc  # submodule
 import syncopy.tests.helpers as helpers
 
-from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults, best_match
 
 # Decorator to decide whether or not to run dask-related tests
@@ -97,7 +97,7 @@ class TestButterworth:
                 foilim = [0, self.freq_kw[ftype]]
             elif ftype == 'hp':
                 # toilim selections can screw up the
-                # frequency axis of freqanalysis/np.fft.rfftfreq :/                
+                # frequency axis of freqanalysis/np.fft.rfftfreq :/
                 foilim = [self.freq_kw[ftype], spec_f.freq[-1]]
             else:
                 foilim = self.freq_kw[ftype]

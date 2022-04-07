@@ -20,7 +20,7 @@ from syncopy import AnalogData
 from syncopy import connectivityanalysis as ca
 import syncopy.tests.synth_data as synth_data
 import syncopy.tests.helpers as helpers
-from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults
 
 # Decorator to decide whether or not to run dask-related tests

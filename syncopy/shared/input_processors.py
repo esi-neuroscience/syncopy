@@ -69,9 +69,9 @@ def process_padding(pad_to_length, lenTrials):
         abs_pad = _nextpow2(int(lenTrials.max()))
 
     # no padding in case of equal length trials
-    elif pad_to_length is None:        
+    elif pad_to_length is None:
         abs_pad = int(lenTrials.max())
-        if lenTrials.min() != lenTrials.max():            
+        if lenTrials.min() != lenTrials.max():
             msg = f"Unequal trial lengths present, padding all trials to {abs_pad} samples"
             SPYWarning(msg)
 
@@ -363,11 +363,10 @@ def check_effective_parameters(CR, defaults, lcls, besides=None):
 
 
 def check_passed_kwargs(lcls, defaults, frontend_name):
-
-    '''
+    """
     Catch additional kwargs passed to the frontends
     which have no effect
-    '''
+    """
 
     # unpack **kwargs of frontend call which
     # might contain arbitrary kws passed from the user

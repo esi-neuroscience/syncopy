@@ -71,7 +71,7 @@ def run_polyremoval_test(method_call):
         assert 'Wrong type of `polyremoval`' in str(err)
 
 
-def run_cfg_test(method_call, method, cfg, positivity=True):
+def test_gr_polyremovalrun_cfg_test(method_call, method, cfg, positivity=True):
 
     cfg.method = method
     if method != 'granger':
