@@ -18,12 +18,14 @@ from syncopy.shared.input_processors import (
     check_passed_kwargs
 )
 
-from .compRoutines import But_Filtering, Sinc_Filtering, Rectify
+from .compRoutines import But_Filtering, Sinc_Filtering, Rectify, Hilbert
 
 availableFilters = ('but', 'firws')
 availableFilterTypes = ('lp', 'hp', 'bp', 'bs')
 availableDirections = ('twopass', 'onepass', 'onepass-minphase')
 availableWindows = ("hamming", "hann", "blackman")
+
+hilbert_outputs = {'abs', 'complex', 'real', 'imag', 'absreal', 'absimag', 'angle'}
 
 
 @unwrap_cfg
@@ -72,6 +74,9 @@ def preprocessing(data,
         least squares fit of a linear polynomial).
     rectify : bool, optional
         Set to `True` to rectify (after filtering)
+    hilbert : None or one of {'abs', 'complex', 'real', 'imag', 'absreal', 'absimag', 'angle'}
+        Choose one of the supported output types to perform
+        hilbert transformation after filtering. Set to `'angle'` to return the phase.
 
     Returns
     -------
@@ -147,6 +152,17 @@ def preprocessing(data,
         lgl = "equidistant sampling in time"
         act = "non-equidistant sampling"
         raise SPYValueError(lgl, varname="data", actual=act)
+
+    # -- post processing
+    if rectify and hilbert:
+        lgl = "either rectification or hilbert transform"
+        raise SPYValueError(lgl, varname="rectify/hilbert", actual=(rectify, hilbert))
+
+    # `hilbert` acts both as a switch and a parameter to set the output (like in FT)
+    if hilbert:
+        if hilbert not in hilbert_outputs:
+            lgl = f"one of {hilbert_outputs}"
+            raise SPYValueError(lgl, varname="hilbert", actual=hilbert)
 
     # -- Method calls
 
@@ -255,7 +271,17 @@ def preprocessing(data,
         return rectified
 
     elif hilbert:
-        pass
+
+        htrafo = AnalogData(dimord=data.dimord)
+        hilbertCR = Hilbert(output=hilbert,
+                            timeAxis=timeAxis)
+        hilbertCR.initialize(filtered, data._stackingDim,
+                             chan_per_worker=kwargs.get("chan_per_worker"),
+                             keeptrials=True)
+        hilbertCR.compute(filtered, htrafo,
+                          parallel=kwargs.get("parallel"),
+                          log_dict=log_dict)
+        return htrafo
 
     # no post-processing
     else:

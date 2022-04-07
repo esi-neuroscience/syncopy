@@ -330,10 +330,6 @@ def rectify_cF(dat, noCompute=False, chunkShape=None):
     Consequently, this function does **not** perform any error checking and operates
     under the assumption that all inputs have been externally validated and cross-checked.
 
-    See also
-    --------
-    `Scipy butterworth documentation <https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.butter.html>`_
-
     """
 
     # operation does not change the shape
@@ -362,7 +358,106 @@ class Rectify(ComputationalRoutine):
     computeFunction = staticmethod(rectify_cF)
 
     # 1st argument,the data, gets omitted
-    valid_kws = list(signature(but_filtering_cF).parameters.keys())[1:]
+    valid_kws = list(signature(rectify_cF).parameters.keys())[1:]
+
+    def process_metadata(self, data, out):
+
+        # Some index gymnastics to get trial begin/end "samples"
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
+        else:
+            chanSec = slice(None)
+            trl = data.trialdefinition
+
+        out.trialdefinition = trl
+
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel[chanSec])
+
+
+@unwrap_io
+def hilbert_cF(dat, output='abs', timeAxis=0, noCompute=False, chunkShape=None):
+
+    """
+    Provides hilbert transformation with various outputs, band-pass filtering
+    beforehand highly recommended.
+
+    dat : (N, K) :class:`numpy.ndarray`
+        Uniformly sampled multi-channel time-series data
+    output : {'abs', 'complex', 'real', 'imag', 'absreal', 'absimag', 'angle'}
+        The transformation after performing the complex hilbert transform. Choose
+        `'angle'` to get the phase.
+    timeAxis : int, optional
+        Index of running time axis in `dat` (0 or 1)
+    noCompute : bool
+        If `True`, do not perform actual calculation but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+
+    Returns
+    -------
+    rectified : (N, K) :class:`~numpy.ndarray`
+        The rectified signals
+
+    Notes
+    -----
+    This method is intended to be used as
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+
+    """
+
+    out_trafo = {
+        'abs': lambda x: np.abs(x),
+        'complex': lambda x: x,
+        'real': lambda x: np.real(x),
+        'imag': lambda x: np.imag(x),
+        'absreal': lambda x: np.abs(np.real(x)),
+        'absimag': lambda x: np.abs(np.imag(x)),
+        'angle': lambda x: np.angle(x)
+    }
+
+    # Re-arrange array if necessary and get dimensional information
+    if timeAxis != 0:
+        dat = dat.T       # does not copy but creates view of `dat`
+    else:
+        dat = dat
+
+    # operation does not change the shape
+    # but may change the number format
+    outShape = dat.shape
+    fmt = np.complex64 if output == 'complex' else np.float32
+    if noCompute:
+        return outShape, fmt
+
+    trafo = sci.hilbert(dat, axis=0)
+
+    return out_trafo[output](trafo)
+
+
+class Hilbert(ComputationalRoutine):
+
+    """
+    Compute class that performs Hilbert transforms
+    of :class:`~syncopy.AnalogData` objects
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.preprocessing : parent metafunction
+    """
+
+    computeFunction = staticmethod(hilbert_cF)
+
+    # 1st argument,the data, gets omitted
+    valid_kws = list(signature(hilbert_cF).parameters.keys())[1:]
 
     def process_metadata(self, data, out):
 
