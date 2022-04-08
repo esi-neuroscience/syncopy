@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # @Author: Diljit Singh Kajal
-# @Date:   2022-03-21 14:45:08
+# @Date:   2022-04-08 15:00:00
 #
-# DJ_LoadTdtData.py Merge separate TDT SEV files into one HDF5 file
+# load_tdt.py Merge separate TDT SEV files into one HDF5 file
 
 import os
 from datetime import datetime
@@ -15,77 +15,7 @@ from getpass import getuser
 from tqdm.auto import tqdm
 import h5py
 import json
-
-
-# class DJ_StructureTemplate(dict):
-#     def __init__(self, *args, **kwargs):
-#         self.update(*args, **kwargs)
-
-#     def __repr__(self):
-#         if len(self.__dict__.items()) < 1:
-#             return '{}'
-
-#         parts = []
-#         for k in self.__dict__.keys():
-#             if isinstance(self.__dict__[k], DJ_StructureTemplate):
-#                 rrr = repr(self.__dict__[k])
-#                 parts.append(k + "\t[struct]")
-#             else:
-#                 parts.append(k + ":\t" + repr(self.__dict__[k]))
-#         result = '\n'.join(parts)
-#         return result
-
-#     def __bool__(self):
-#         return len(self.__dict__.keys()) > 0
-
-#     def __getitem__(self, key):
-#         val = getattr(self, key)
-#         return val
-
-#     def __setitem__(self, key, val):
-#         return setattr(self, key, val)
-
-#     def keys(self):
-#         return self.__dict__.keys()
-
-#     def items(self):
-#         return self.__dict__.items()
-
-#     def update(self, *args, **kwargs):
-#         for k, v in dict(*args, **kwargs).items():
-#             self[k] = v
-
-
-class DJ_StructureTemplate(dict):
-    """Child-class of dict for emulating MATLAB structs
-    Examples
-    --------
-    cfg = StructDict()
-    cfg.a = [0, 25]
-    """
-
-    def __init__(self, *args, **kwargs):
-        """
-        Create a child-class of dict whose attributes are its keys
-        (thus ensuring that attributes and items are always in sync)
-        """
-        super().__init__(*args, **kwargs)
-        self.__dict__ = self
-
-    def __repr__(self):
-        return self.__str__()
-
-    def __str__(self):
-        if self.keys():
-            ppStr = "Syncopy StructDict\n\n"
-            maxKeyLength = max([len(val) for val in self.keys()])
-            printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
-            for key, value in self.items():
-                ppStr += printString.format(key, str(value))
-            ppStr += "\nUse `dict(cfg)` for copy-paste-friendly format"
-        else:
-            ppStr = "{}"
-        return ppStr
+from syncopy.shared.tools import StructDict
 
 
 class ESI_TDTinfo():
@@ -181,14 +111,14 @@ class ESI_TDTinfo():
         return f_names
 
     def load_tdt_info(self):
-        header = DJ_StructureTemplate()
-        data = DJ_StructureTemplate()
-        data.epocs = DJ_StructureTemplate()
-        data.streams = DJ_StructureTemplate()
-        data.scalars = DJ_StructureTemplate()
-        data.info = DJ_StructureTemplate()
+        header = StructDict()
+        data = StructDict()
+        data.epocs = StructDict()
+        data.streams = StructDict()
+        data.scalars = StructDict()
+        data.info = StructDict()
 
-        epocs = DJ_StructureTemplate()
+        epocs = StructDict()
         epocs.name = []
         epocs.buddies = []
         epocs.ts = []
@@ -242,7 +172,7 @@ class ESI_TDTinfo():
         tsq.seek(40, os.SEEK_SET)
 
         read_size = 10000000 if self.t2 > 0 else 50000000
-        header.stores = DJ_StructureTemplate()
+        header.stores = StructDict()
         code_ct = 0
         while True:
             heads = np.frombuffer(tsq.read(read_size * 4), dtype=np.uint32)
@@ -282,7 +212,7 @@ class ESI_TDTinfo():
 
             # Looking for only Mark, PDi\ and PDio
             looking_for = ["Mark", "PDio", 'LFPs']  #
-            targets = DJ_StructureTemplate()
+            targets = StructDict()
             for chk, content in enumerate(store_codes):
                 if self.code_to_name(content['code']) in looking_for:
                     targets[self.code_to_name(content['code'])] = chk
@@ -321,11 +251,11 @@ class ESI_TDTinfo():
 
                 if not var_name in header.stores.keys():
                     if store_code['type_str'] != 'epocs':
-                        header.stores[var_name] = DJ_StructureTemplate(name=store_code['name'],
-                                                                       code=store_code['code'],
-                                                                       size=store_code['size'],
-                                                                       type=store_code['type'],
-                                                                       type_str=store_code['type_str'])
+                        header.stores[var_name] = StructDict(name=store_code['name'],
+                                                             code=store_code['code'],
+                                                             size=store_code['size'],
+                                                             type=store_code['type'],
+                                                             type_str=store_code['type_str'])
                         if header.stores[var_name].type_str == 'streams':
                             header.stores[var_name].ucf = store_code['ucf']
                         if header.stores[var_name].type_str != 'scalars':
@@ -370,7 +300,7 @@ class ESI_TDTinfo():
             # find all non-buddies first
             if epocs.type[ii] == 'onset':
                 var_name = epocs.name[ii]
-                header.stores[var_name] = DJ_StructureTemplate()
+                header.stores[var_name] = StructDict()
                 header.stores[var_name].name = epocs.name[ii]
                 ts = epocs.ts[ii]
                 header.stores[var_name].onset = ts
@@ -603,7 +533,7 @@ class ESI_TDTinfo():
         tsq.close()
         del epocs
         del header
-        Data = DJ_StructureTemplate()
+        Data = StructDict()
         Data.PDio = data.epocs.PDio
         Data.LFPs = data.streams.LFPs
         Data.Mark = data.scalars.Mark
@@ -623,7 +553,7 @@ class ESI_TDTdata():
         self.chan_in_chunks = 16
 
     def arrange_header(self, DataInfo_loaded, Files):
-        header = DJ_StructureTemplate()
+        header = StructDict()
         header['fs'] = DataInfo_loaded.LFPs.fs
         header['total_num_channel'] = len(Files)
         return header
@@ -680,18 +610,18 @@ class ESI_TDTdata():
                 # if args.remove_median:
                 #     data -= np.median(data, keepdims=True).astype(data.dtype)
                 target[:, start:stop] = data
-            info = DJ_StructureTemplate(filename=self.outputdir + self.combined_data_filename + '.hdf5',
-                                        dataclass="AnalogData",
-                                        data_dtype='single',
-                                        data_shape=target.shape,
-                                        data_offset=target.id.get_offset(),
-                                        order="C",
-                                        dimord=["time", "channel"],
-                                        samplerate=DataInfo_loaded.LFPs.fs,
-                                        channel=["channel_{:03d}".format(iChannel)for iChannel in range(1, len(Files))],
-                                        _version="",
-                                        _log="",
-                                        cfg=DJ_StructureTemplate())
+            info = StructDict(filename=self.outputdir + self.combined_data_filename + '.hdf5',
+                              dataclass="AnalogData",
+                              data_dtype='single',
+                              data_shape=target.shape,
+                              data_offset=target.id.get_offset(),
+                              order="C",
+                              dimord=["time", "channel"],
+                              samplerate=DataInfo_loaded.LFPs.fs,
+                              channel=["channel_{:03d}".format(iChannel)for iChannel in range(1, len(Files))],
+                              _version="",
+                              _log="",
+                              cfg=StructDict())
             combined_data_file.attrs["_log"] = info._log
             combined_data_file.attrs["_version"] = info._version
             combined_data_file.attrs["channel"] = info.channel
