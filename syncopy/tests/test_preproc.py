@@ -158,7 +158,7 @@ class TestButterworth:
                 except SPYValueError as err:
                     assert "value to be greater" in str(err)
                 assert failed
-            else:
+            elif not isinstance(order, int):
                 failed = True
                 try:
                     self.test_but_filter(**kwargs)
@@ -166,6 +166,9 @@ class TestButterworth:
                 except SPYValueError as err:
                     assert "expected int_like" in str(err)
                 assert failed
+            # valid order
+            else:
+                self.test_but_filter(**kwargs)
 
     def test_but_selections(self):
 
