@@ -17,43 +17,75 @@ import h5py
 import json
 
 
+# class DJ_StructureTemplate(dict):
+#     def __init__(self, *args, **kwargs):
+#         self.update(*args, **kwargs)
+
+#     def __repr__(self):
+#         if len(self.__dict__.items()) < 1:
+#             return '{}'
+
+#         parts = []
+#         for k in self.__dict__.keys():
+#             if isinstance(self.__dict__[k], DJ_StructureTemplate):
+#                 rrr = repr(self.__dict__[k])
+#                 parts.append(k + "\t[struct]")
+#             else:
+#                 parts.append(k + ":\t" + repr(self.__dict__[k]))
+#         result = '\n'.join(parts)
+#         return result
+
+#     def __bool__(self):
+#         return len(self.__dict__.keys()) > 0
+
+#     def __getitem__(self, key):
+#         val = getattr(self, key)
+#         return val
+
+#     def __setitem__(self, key, val):
+#         return setattr(self, key, val)
+
+#     def keys(self):
+#         return self.__dict__.keys()
+
+#     def items(self):
+#         return self.__dict__.items()
+
+#     def update(self, *args, **kwargs):
+#         for k, v in dict(*args, **kwargs).items():
+#             self[k] = v
+
+
 class DJ_StructureTemplate(dict):
+    """Child-class of dict for emulating MATLAB structs
+    Examples
+    --------
+    cfg = StructDict()
+    cfg.a = [0, 25]
+    """
+
     def __init__(self, *args, **kwargs):
-        self.update(*args, **kwargs)
+        """
+        Create a child-class of dict whose attributes are its keys
+        (thus ensuring that attributes and items are always in sync)
+        """
+        super().__init__(*args, **kwargs)
+        self.__dict__ = self
 
     def __repr__(self):
-        if len(self.__dict__.items()) < 1:
-            return '{}'
+        return self.__str__()
 
-        parts = []
-        for k in self.__dict__.keys():
-            if isinstance(self.__dict__[k], DJ_StructureTemplate):
-                rrr = repr(self.__dict__[k])
-                parts.append(k + "\t[struct]")
-            else:
-                parts.append(k + ":\t" + repr(self.__dict__[k]))
-        result = '\n'.join(parts)
-        return result
-
-    def __bool__(self):
-        return len(self.__dict__.keys()) > 0
-
-    def __getitem__(self, key):
-        val = getattr(self, key)
-        return val
-
-    def __setitem__(self, key, val):
-        return setattr(self, key, val)
-
-    def keys(self):
-        return self.__dict__.keys()
-
-    def items(self):
-        return self.__dict__.items()
-
-    def update(self, *args, **kwargs):
-        for k, v in dict(*args, **kwargs).items():
-            self[k] = v
+    def __str__(self):
+        if self.keys():
+            ppStr = "Syncopy StructDict\n\n"
+            maxKeyLength = max([len(val) for val in self.keys()])
+            printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
+            for key, value in self.items():
+                ppStr += printString.format(key, str(value))
+            ppStr += "\nUse `dict(cfg)` for copy-paste-friendly format"
+        else:
+            ppStr = "{}"
+        return ppStr
 
 
 class ESI_TDTinfo():
