@@ -17,7 +17,7 @@ if __acme__:
     import dask.distributed as dd
 
 from syncopy import AnalogData
-from syncopy import connectivityanalysis as ca
+from syncopy import connectivityanalysis as cafunc
 import syncopy.tests.synth_data as synth_data
 import syncopy.tests.helpers as helpers
 from syncopy.shared.errors import SPYValueError, SPYTypeError
@@ -68,8 +68,8 @@ class TestGranger:
     def test_gr_solution(self, **kwargs):
 
 
-        Gcaus = ca(self.data, method='granger',
-                   tapsmofrq=3, foi=None, **kwargs)
+        Gcaus = cafunc(self.data, method='granger',
+                       tapsmofrq=3, foi=None, **kwargs)
 
 
         # check all channel combinations with coupling
@@ -100,7 +100,7 @@ class TestGranger:
 
         for sel_dct in selections:
 
-            Gcaus = ca(self.data, method='granger', select=sel_dct)
+            Gcaus = cafunc(self.data, method='granger', select=sel_dct)
 
             # check here just for finiteness and positivity
             assert np.all(np.isfinite(Gcaus.data))
@@ -109,25 +109,26 @@ class TestGranger:
     def test_gr_foi(self):
 
         try:
-            ca(self.data,
-               method='granger',
-               foi=np.arange(0, 70)
-               )
+            cafunc(self.data,
+                   method='granger',
+                   foi=np.arange(0, 70)
+                   )
         except SPYValueError as err:
             assert 'no foi specification' in str(err)
 
         try:
-            ca(self.data,
-               method='granger',
-               foilim=[0, 70]
-               )
+            cafunc(self.data,
+                   method='granger',
+                   foilim=[0, 70]
+                   )
         except SPYValueError as err:
             assert 'no foi specification' in str(err)
 
     def test_gr_cfg(self):
 
-        call = lambda cfg: ca(self.data, cfg)
-        helpers.run_cfg_test(call, method='granger', cfg=get_defaults(ca))
+        call = lambda cfg: cafunc(self.data, cfg)
+        helpers.run_cfg_test(call, method='granger',
+                             cfg=get_defaults(cafunc))
 
     @skip_without_acme
     @skip_low_mem
@@ -189,12 +190,12 @@ class TestCoherence:
 
     def test_coh_solution(self, **kwargs):
 
-        res = ca(data=self.data,
-                 method='coh',
-                 foilim=[5, 60],
-                 output='pow',
-                 tapsmofrq=1.5,
-                 **kwargs)
+        res = cafunc(data=self.data,
+                     method='coh',
+                     foilim=[5, 60],
+                     output='pow',
+                     tapsmofrq=1.5,
+                     **kwargs)
 
         # coherence at the harmonic frequencies
         idx_f1 = np.argmin(res.freq < self.f1)
@@ -224,7 +225,7 @@ class TestCoherence:
 
         for sel_dct in selections:
 
-            result = ca(self.data, method='coh', select=sel_dct)
+            result = cafunc(self.data, method='coh', select=sel_dct)
 
             # check here just for finiteness and positivity
             assert np.all(np.isfinite(result.data))
@@ -232,17 +233,18 @@ class TestCoherence:
 
     def test_coh_foi(self):
 
-        call = lambda foi, foilim: ca(self.data,
-                                      method='coh',
-                                      foi=foi,
-                                      foilim=foilim)
+        call = lambda foi, foilim: cafunc(self.data,
+                                          method='coh',
+                                          foi=foi,
+                                          foilim=foilim)
 
         helpers.run_foi_test(call, foilim=[0, 70])
 
     def test_coh_cfg(self):
 
-        call = lambda cfg: ca(self.data, cfg)
-        helpers.run_cfg_test(call, method='coh', cfg=get_defaults(ca))
+        call = lambda cfg: cafunc(self.data, cfg)
+        helpers.run_cfg_test(call, method='coh',
+                             cfg=get_defaults(cafunc))
 
     @skip_without_acme
     @skip_low_mem
@@ -300,7 +302,7 @@ class TestCorrelation:
 
     def test_corr_solution(self, **kwargs):
 
-        corr = ca(data=self.data, method='corr', **kwargs)
+        corr = cafunc(data=self.data, method='corr', **kwargs)
 
         # test 0-lag autocorr is 1 for all channels
         assert np.all(corr.data[0, 0].diagonal() > .99)
@@ -381,15 +383,17 @@ class TestCorrelation:
 
         for sel_dct in selections:
 
-            result = ca(self.data, method='corr', select=sel_dct)
+            result = cafunc(self.data, method='corr', select=sel_dct)
 
             # check here just for finiteness and positivity
             assert np.all(np.isfinite(result.data))
 
     def test_corr_cfg(self):
 
-        call = lambda cfg: ca(self.data, cfg)
-        helpers.run_cfg_test(call, method='corr', positivity=False, cfg=get_defaults(ca))
+        call = lambda cfg: cafunc(self.data, cfg)
+        helpers.run_cfg_test(call, method='corr',
+                             positivity=False,
+                             cfg=get_defaults(cafunc))
 
     @skip_without_acme
     @skip_low_mem
