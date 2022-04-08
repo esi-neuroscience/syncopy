@@ -52,7 +52,7 @@ class TestButterworth:
 
     data = AnalogData(trls, samplerate=fs)
     # for toi tests, -1s offset
-    time_span = [-.5, 3.1]
+    time_span = [-.5, 3.2]
     flow, fhigh = 0.3 * fNy, 0.4 * fNy
     freq_kw = {'lp': fhigh, 'hp': flow,
                'bp': [flow, fhigh], 'bs': [flow, fhigh]}
