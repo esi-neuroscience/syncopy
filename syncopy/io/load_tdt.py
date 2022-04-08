@@ -15,6 +15,7 @@ from getpass import getuser
 from tqdm.auto import tqdm
 import h5py
 import json
+import syncopy as snp
 
 
 class DJ_StructureTemplate(dict):
