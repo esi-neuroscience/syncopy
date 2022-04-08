@@ -198,7 +198,8 @@ def preprocessing(data,
         log_dict["order"] = order
         log_dict["direction"] = direction
 
-        check_effective_parameters(But_Filtering, defaults, lcls)
+        check_effective_parameters(But_Filtering, defaults, lcls,
+                                   besides=('hilbert', 'rectify'))
 
         filterMethod = But_Filtering(samplerate=data.samplerate,
                                      filter_type=filter_type,
@@ -232,7 +233,7 @@ def preprocessing(data,
         log_dict["direction"] = direction
 
         check_effective_parameters(Sinc_Filtering, defaults, lcls,
-                                   besides=['filter_class'])
+                                   besides=['filter_class', 'hilbert', 'rectify'])
 
         filterMethod = Sinc_Filtering(samplerate=data.samplerate,
                                       filter_type=filter_type,
