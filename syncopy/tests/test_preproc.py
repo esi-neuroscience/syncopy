@@ -206,6 +206,43 @@ class TestButterworth:
         client.close()
         ppl.ion()
 
+    def test_but_hilbert_rect(self):
+
+        call = lambda **kwargs: ppfunc(self.data,
+                                       freq=20,
+                                       filter_class='but',
+                                       filter_type='lp',
+                                       order=5,
+                                       direction='onepass',
+                                       **kwargs)
+
+        # test rectification
+        filtered = call(rectify=False)
+        assert not np.all(filtered.trials[0] > 0)
+        rectified = call(rectify=True)
+        assert np.all(rectified.trials[0] > 0)
+
+        # test simultaneous call to hilbert and rectification
+        try:
+            call(rectify=True, hilbert='abs')
+        except SPYValueError as err:
+            assert "either rectifi" in str(err)
+            assert "or hilbert" in str(err)
+
+        # test hilbert outputs
+        for output in preproc.hilbert_outputs:
+            htrafo = call(hilbert=output)
+            if output == 'complex':
+                assert np.all(np.imag(htrafo.trials[0]) != 0)
+            else:
+                assert np.all(np.imag(htrafo.trials[0]) == 0)
+
+        # test wrong hilbert parameter
+        try:
+            call(hilbert='absnot')
+        except SPYValueError as err:
+            assert "one of {'" in str(err)
+
 
 def mk_spec_ax():
 

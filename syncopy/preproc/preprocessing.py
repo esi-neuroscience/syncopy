@@ -215,7 +215,7 @@ def preprocessing(data,
 
         if window not in availableWindows:
             lgl = "'" + "or '".join(opt + "' " for opt in availableWindows)
-            raise SPYValueError(legal=lgl, varname="window", actual=window)          
+            raise SPYValueError(legal=lgl, varname="window", actual=window)
 
         # set filter specific defaults here
         if direction is None:
