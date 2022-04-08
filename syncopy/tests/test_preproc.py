@@ -138,26 +138,34 @@ class TestButterworth:
                       'order': 4}
             # only for firws
             if 'minphase' in direction:
+                failed = True
                 try:
                     self.test_but_filter(**kwargs)
+                    failed = False
                 except SPYValueError as err:
                     assert "expected 'onepass'" in str(err)
+                assert failed
 
         for order in [-2, 10, 5.6]:
             kwargs = {'direction': 'twopass',
                       'order': order}
 
             if order < 1 and isinstance(order, int):
+                failed = True
                 try:
                     self.test_but_filter(**kwargs)
+                    failed = False
                 except SPYValueError as err:
                     assert "value to be greater" in str(err)
-
+                assert failed
             else:
+                failed = True
                 try:
                     self.test_but_filter(**kwargs)
+                    failed = False
                 except SPYValueError as err:
                     assert "expected int_like" in str(err)
+                assert failed
 
     def test_but_selections(self):
 
@@ -223,11 +231,14 @@ class TestButterworth:
         assert np.all(rectified.trials[0] > 0)
 
         # test simultaneous call to hilbert and rectification
+        failed = True
         try:
             call(rectify=True, hilbert='abs')
+            failed = False
         except SPYValueError as err:
             assert "either rectifi" in str(err)
             assert "or hilbert" in str(err)
+        assert failed
 
         # test hilbert outputs
         for output in preproc.hilbert_outputs:
@@ -238,10 +249,13 @@ class TestButterworth:
                 assert np.all(np.imag(htrafo.trials[0]) == 0)
 
         # test wrong hilbert parameter
+        failed = True
         try:
             call(hilbert='absnot')
+            failed = False
         except SPYValueError as err:
             assert "one of {'" in str(err)
+        assert failed
 
 
 def mk_spec_ax():
