@@ -213,7 +213,7 @@ def test_wilson():
     # reconstitute
     CSDfac = H @ Sigma @ H.conj().transpose(0, 2, 1)
     err = max_rel_err(CSDav, CSDfac)
-    assert err < 1e-12
+    assert err < 1e-9
 
     fig, ax = ppl.subplots(figsize=(6, 4))
     ax.set_xlabel('frequency (Hz)')
