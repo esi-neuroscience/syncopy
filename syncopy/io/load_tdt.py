@@ -542,7 +542,7 @@ class ESI_TDTinfo():
 
 
 class ESI_TDTdata():
-    def __init__(self, inputdir, outputdir, combined_data_filename):
+    def __init__(self, inputdir, outputdir, combined_data_filename, subtract_median):
         if not os.path.isdir(inputdir):
             raise Exception('Input directory path {0} not found'.format(inputdir))
         self.inputdir = inputdir
@@ -551,6 +551,7 @@ class ESI_TDTdata():
         self.outputdir = outputdir
         self.combined_data_filename = combined_data_filename
         self.chan_in_chunks = 16
+        self.subtract_median = subtract_median
 
     def arrange_header(self, DataInfo_loaded, Files):
         header = StructDict()
@@ -576,7 +577,7 @@ class ESI_TDTdata():
 
     def data_aranging(self, Files, DataInfo_loaded):
         with h5py.File(self.outputdir + self.combined_data_filename + '.hdf5', 'w') as combined_data_file:
-            # combined_data_file = h5py.File(combined_data_filename, 'w')
+            #combined_data_file = h5py.File(combined_data_filename, 'w')
             idxStartStop = [np.clip(np.array((jj, jj + self.chan_in_chunks)),
                                     a_min=None, a_max=len(Files))
                             for jj in range(0, len(Files), self.chan_in_chunks)]
@@ -607,8 +608,8 @@ class ESI_TDTdata():
                     Trigger_code = combined_data_file.create_dataset("Trigger_code", shape=(DataInfo_loaded.Mark.data.shape[1], 1))
                     Trigger_code[:, 0] = DataInfo_loaded.Mark.data[0]
 
-                # if args.remove_median:
-                #     data -= np.median(data, keepdims=True).astype(data.dtype)
+                if self.subtract_median:
+                    data -= np.median(data, keepdims=True).astype(data.dtype)
                 target[:, start:stop] = data
             info = StructDict(filename=self.outputdir + self.combined_data_filename + '.hdf5',
                               dataclass="AnalogData",
@@ -618,13 +619,13 @@ class ESI_TDTdata():
                               order="C",
                               dimord=["time", "channel"],
                               samplerate=DataInfo_loaded.LFPs.fs,
-                              channel=["channel_{:03d}".format(iChannel)for iChannel in range(1, len(Files))],
+                              channel=["channel{:03d}".format(iChannel)for iChannel in range(1, len(Files))],
                               _version="",
                               _log="",
                               cfg=StructDict())
             combined_data_file.attrs["_log"] = info._log
             combined_data_file.attrs["_version"] = info._version
-            combined_data_file.attrs["channel"] = info.channel
+            # combined_data_file.attrs["channel"] = info.channel
             combined_data_file.attrs["samplerate"] = info.samplerate
             combined_data_file.attrs["tank_path"] = DataInfo_loaded.info.tankpath
             combined_data_file.attrs["blockname"] = DataInfo_loaded.info.blockname
@@ -643,8 +644,9 @@ class ESI_TDTdata():
         info["cfg"].mergedBy = getuser()
         info["cfg"].mergeTime = str(datetime.now())
         info["cfg"].md5sum = self.md5sum(self.outputdir + self.combined_data_filename + '.hdf5')
-        info["cfg"].channelMedianSubtracted = "No"
+        info["cfg"].channelMedianSubtracted = self.subtract_median
         jsonFile = os.path.join(self.outputdir, self.combined_data_filename + '.info')
         print('Writing info file to {0}...'.format(jsonFile))
         with open(jsonFile, 'w') as fid:
             json.dump(info, fid, indent=4)
+        return info
