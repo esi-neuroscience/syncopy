@@ -74,26 +74,6 @@ def run_polyremoval_test(method_call):
         assert 'Wrong type of `polyremoval`' in str(err)
 
 
-def test_gr_polyremovalrun_cfg_test(method_call, method, cfg, positivity=True):
-
-    cfg.method = method
-    if method != 'granger':
-        cfg.foilim = [0, 70]
-    # test general tapers with
-    # additional parameters
-    cfg.taper = 'kaiser'
-    cfg.taper_opt = {'beta': 2}
-
-    cfg.output = 'abs'
-
-    result = method_call(cfg)
-
-    # check here just for finiteness and positivity
-    assert np.all(np.isfinite(result.data))
-    if positivity:
-        assert np.all(result.data[0, ...] >= -1e-10)
-
-
 def run_foi_test(method_call, foilim, positivity=True):
 
     # only positive frequencies
