@@ -121,7 +121,7 @@ def show(data, squeeze=True, **kwargs):
         msg = "".join(selectionTxt[txtMask])
         transform_out = np.squeeze
     else:
-        transform_out = lambda x : x
+        transform_out = lambda x: x
     SPYInfo("Showing{}".format(msg))
 
     # Use an object's `_preview_trial` method fetch required indexing tuples
@@ -129,27 +129,13 @@ def show(data, squeeze=True, **kwargs):
     for trlno in data.selection.trials:
         idxList.append(data._preview_trial(trlno).idx)
 
-    # Perform some slicing/list-selection gymnastics: ensure that selections
-    # that result in contiguous slices are actually returned as such (e.g.,
-    # `idxList = [(slice(1,2), [2]), (slice(2,3), [2])` -> `returnIdx = [slice(1,3), [2]]`)
-    singleIdx = [False] * len(idxList[0])
-    returnIdx = list(idxList[0])
-    for sk, selectors in enumerate(zip(*idxList)):
-        if np.unique(selectors).size == 1:
-            singleIdx[sk] = True
-        else:
-            if all(isinstance(sel, slice) for sel in selectors):
-                gaps = [selectors[k + 1].start - selectors[k].stop for k in range(len(selectors) - 1)]
-                if all(gap == 0 for gap in gaps):
-                    singleIdx[sk] = True
-                    returnIdx[sk] = slice(selectors[0].start, selectors[-1].stop)
 
     # Reset in-place subset selection
     data.selection = None
 
-    # If possible slice underlying dataset only once, otherwise return a list
-    # of arrays corresponding to selected trials
-    if all(si == True for si in singleIdx):
-        return transform_out(data.data[tuple(returnIdx)])
+    # single trial selected
+    if len(idxList) == 1:
+        return transform_out(data.data[idxList[0]])
+    # return multiple trials as list
     else:
         return [transform_out(data.data[idx]) for idx in idxList]
