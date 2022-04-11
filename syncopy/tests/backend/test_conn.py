@@ -204,7 +204,7 @@ def test_wilson():
 
     # --- factorize CSD with Wilson's algorithm ---
 
-    H, Sigma, conv = wilson_sf(CSDav, rtol=1e-12)
+    H, Sigma, conv = wilson_sf(CSDav, rtol=1e-9)
 
     # converged - \Psi \Psi^* \approx CSD,
     # with relative error <= rtol?
