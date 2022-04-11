@@ -139,14 +139,9 @@ class TestButterworth:
                       'order': 4}
             # only for firws
             if 'minphase' in direction:
-
-                failed = True
-                try:
+                with pytest.raises(SPYValueError) as err:
                     self.test_but_filter(**kwargs)
-                    failed = False
-                except SPYValueError as err:
                     assert "expected 'onepass'" in str(err)
-                assert failed
             else:
                 self.test_but_filter(**kwargs)
                
@@ -155,21 +150,13 @@ class TestButterworth:
                       'order': order}
 
             if order < 1 and isinstance(order, int):
-                failed = True
-                try:
+                with pytest.raises(SPYValueError) as err:                
                     self.test_but_filter(**kwargs)
-                    failed = False
-                except SPYValueError as err:
                     assert "value to be greater" in str(err)
-                assert failed
             elif not isinstance(order, int):
-                failed = True
-                try:
+                with pytest.raises(SPYValueError) as err:                
                     self.test_but_filter(**kwargs)
-                    failed = False
-                except SPYValueError as err:
                     assert "expected int_like" in str(err)
-                assert failed
             # valid order
             else:
                 self.test_but_filter(**kwargs)
@@ -238,14 +225,10 @@ class TestButterworth:
         assert np.all(rectified.trials[0] > 0)
 
         # test simultaneous call to hilbert and rectification
-        failed = True
-        try:
+        with pytest.raises(SPYValueError) as err:        
             call(rectify=True, hilbert='abs')
-            failed = False
-        except SPYValueError as err:
             assert "either rectifi" in str(err)
             assert "or hilbert" in str(err)
-        assert failed
 
         # test hilbert outputs
         for output in preproc.hilbert_outputs:
@@ -256,13 +239,9 @@ class TestButterworth:
                 assert np.all(np.imag(htrafo.trials[0]) == 0)
 
         # test wrong hilbert parameter
-        failed = True
-        try:
+        with pytest.raises(SPYValueError) as err:                
             call(hilbert='absnot')
-            failed = False
-        except SPYValueError as err:
             assert "one of {'" in str(err)
-        assert failed
 
 
 class TestFIRWS:
@@ -372,21 +351,15 @@ class TestFIRWS:
                       'order': order}
 
             if order < 1 and isinstance(order, int):
-                failed = True
-                try:
+                with pytest.raises(SPYValueError) as err:        
                     self.test_firws_filter(**kwargs)
-                    failed = False
-                except SPYValueError as err:
                     assert "value to be greater" in str(err)
-                assert failed
+
             elif not isinstance(order, int):
-                failed = True
-                try:
+                with pytest.raises(SPYValueError) as err:                    
                     self.test_firws_filter(**kwargs)
-                    failed = False
-                except SPYValueError as err:
                     assert "expected int_like" in str(err)
-                assert failed
+
             # valid order
             else:
                 self.test_firws_filter(**kwargs)
@@ -456,14 +429,10 @@ class TestFIRWS:
         assert np.all(rectified.trials[0] > 0)
 
         # test simultaneous call to hilbert and rectification
-        failed = True
-        try:
+        with pytest.raises(SPYValueError) as err:        
             call(rectify=True, hilbert='abs')
-            failed = False
-        except SPYValueError as err:
             assert "either rectifi" in str(err)
             assert "or hilbert" in str(err)
-        assert failed
 
         # test hilbert outputs
         for output in preproc.hilbert_outputs:
@@ -474,13 +443,9 @@ class TestFIRWS:
                 assert np.all(np.imag(htrafo.trials[0]) == 0)
 
         # test wrong hilbert parameter
-        failed = True
-        try:
+        with pytest.raises(SPYValueError) as err:        
             call(hilbert='absnot')
-            failed = False
-        except SPYValueError as err:
             assert "one of {'" in str(err)
-        assert failed
 
 
 def mk_spec_ax():

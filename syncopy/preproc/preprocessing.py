@@ -261,7 +261,7 @@ def preprocessing(data,
     # -- check for post processing flags --
 
     if rectify:
-
+        log_dict['rectify'] = rectify
         rectified = AnalogData(dimord=data.dimord)
         rectCR = Rectify()
         rectCR.initialize(filtered,
@@ -271,10 +271,11 @@ def preprocessing(data,
         rectCR.compute(filtered, rectified,
                        parallel=kwargs.get("parallel"),
                        log_dict=log_dict)
+        del filtered
         return rectified
 
     elif hilbert:
-
+        log_dict['hilbert'] = hilbert
         htrafo = AnalogData(dimord=data.dimord)
         hilbertCR = Hilbert(output=hilbert,
                             timeAxis=timeAxis)
@@ -284,6 +285,7 @@ def preprocessing(data,
         hilbertCR.compute(filtered, htrafo,
                           parallel=kwargs.get("parallel"),
                           log_dict=log_dict)
+        del filtered
         return htrafo
 
     # no post-processing
