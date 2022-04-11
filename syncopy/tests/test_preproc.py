@@ -15,7 +15,7 @@ from syncopy import __acme__
 if __acme__:
     import dask.distributed as dd
 
-from syncopy import preprocessing as pp
+from syncopy import preprocessing as ppfunc
 from syncopy import AnalogData, freqanalysis
 import syncopy.preproc as preproc  # submodule
 import syncopy.tests.helpers as helpers
@@ -52,7 +52,7 @@ class TestButterworth:
 
     data = AnalogData(trls, samplerate=fs)
     # for toi tests, -1s offset
-    time_span = [-.5, 3.1]
+    time_span = [-.5, 3.2]
     flow, fhigh = 0.3 * fNy, 0.4 * fNy
     freq_kw = {'lp': fhigh, 'hp': flow,
                'bp': [flow, fhigh], 'bs': [flow, fhigh]}
@@ -82,11 +82,11 @@ class TestButterworth:
             fig, ax = mk_spec_ax()
 
         for ftype in preproc.availableFilterTypes:
-            filtered = pp(self.data,
-                          filter_class='but',
-                          filter_type=ftype,
-                          freq=self.freq_kw[ftype],
-                          **kwargs)
+            filtered = ppfunc(self.data,
+                              filter_class='but',
+                              filter_type=ftype,
+                              freq=self.freq_kw[ftype],
+                              **kwargs)
 
             # check in frequency space
             spec_f = freqanalysis(filtered, tapsmofrq=3, keeptrials=False)
@@ -175,7 +175,7 @@ class TestButterworth:
 
     def test_but_cfg(self):
 
-        cfg = get_defaults(pp)
+        cfg = get_defaults(ppfunc)
 
         cfg.filter_class = 'but'
         cfg.order = 6
@@ -183,7 +183,7 @@ class TestButterworth:
         cfg.freq = 30
         cfg.filter_type = 'hp'
 
-        result = pp(self.data, cfg)
+        result = ppfunc(self.data, cfg)
 
         # check here just for finiteness
         assert np.all(np.isfinite(result.data))
@@ -231,5 +231,3 @@ def annotate_foilims(ax, flow, fhigh):
 
 if __name__ == '__main__':
     T1 = TestButterworth()
-    #T2 = TestCoherence()
-    #T3 = TestCorrelation()

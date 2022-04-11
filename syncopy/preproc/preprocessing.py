@@ -106,6 +106,9 @@ def preprocessing(data,
     elif filter_type in ('bp', 'bs'):
         array_parser(freq, varname='freq', hasinf=False, hasnan=False,
                      lims=[0, data.samplerate / 2], dims=(2,))
+        if freq[0] == freq[1]:
+            lgl = "two different frequencies"
+            raise SPYValueError(lgl, varname='freq', actual=freq)
         freq = np.sort(freq)
 
     # -- here the defaults are filter specific and get set later --
@@ -124,22 +127,21 @@ def preprocessing(data,
     # get sampleinfo and check for equidistancy
     if data.selection is not None:
         sinfo = data.selection.trialdefinition[:, :2]
-        trialList = data.selection.trials
         # user picked discrete set of time points
         if isinstance(data.selection.time[0], list):
             lgl = "equidistant time points (toi) or time slice (toilim)"
             actual = "non-equidistant set of time points"
             raise SPYValueError(legal=lgl, varname="select", actual=actual)
     else:
-        trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo).squeeze()
 
     # check for equidistant sampling as needed for filtering
-    if not all([np.allclose(np.diff(time), 1 / data.samplerate) for time in data.time]):
-        lgl = "equidistant sampling in time"
-        act = "non-equidistant sampling"
-        raise SPYValueError(lgl, varname="data", actual=act)
+    # FIXME: could be too slow, see #259
+    # if not all([np.allclose(np.diff(time), 1 / data.samplerate) for time in data.time]):
+    #     lgl = "equidistant sampling in time"
+    #     act = "non-equidistant sampling"
+    #     raise SPYValueError(lgl, varname="data", actual=act)
 
     # -- Method calls
 

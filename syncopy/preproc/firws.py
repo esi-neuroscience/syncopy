@@ -61,6 +61,11 @@ def design_wsinc(window, order, f_c, filter_type='lp'):
     filter_type : {'lp', 'hp', 'bp, 'bs'}, optional
         Select type of filter, either low-pass `'lp'`,
         high-pass `'hp'`, band-pass `'bp'` or band-stop (Notch) `'bs'`.
+
+    Returns
+    ------
+    kernel : (order,) :class:`numpy.ndarray`
+        The windowed sinc as 1d array
     """
 
     # order has to be even
