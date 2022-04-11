@@ -10,7 +10,7 @@ import numpy as np
 from syncopy import AnalogData
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.tools import get_defaults
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYInfo
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.input_processors import (
@@ -49,7 +49,7 @@ def preprocessing(data,
     data : `~syncopy.AnalogData`
         A non-empty Syncopy :class:`~syncopy.AnalogData` object
     filter_class : {'but', 'firws'}
-        Butterworth (IIR) or windowed sinc (FIR) 
+        Butterworth (IIR) or windowed sinc (FIR)
     filter_type : {'lp', 'hp', 'bp', 'bs'}, optional
         Select type of filter, either low-pass `'lp'`,
         high-pass `'hp'`, band-pass `'bp'` or band-stop (Notch) `'bs'`.
@@ -64,7 +64,7 @@ def preprocessing(data,
        Filter direction:
        `'twopass'` - zero-phase forward and reverse filter, IIR and FIR
        `'onepass'` - forward filter, introduces group delays for IIR, zerophase for FIR
-       `'onepass-minphase' - forward causal/minumum phase filter, FIR only
+       `'onepass-minphase' - forward causal/minimum phase filter, FIR only
     window : {"hamming", "hann", "blackman"}, optional
         The type of window to use for the FIR filter
     polyremoval : int or None, optional

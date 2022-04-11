@@ -20,7 +20,7 @@ from syncopy import AnalogData
 from syncopy import connectivityanalysis as cafunc
 import syncopy.tests.synth_data as synth_data
 import syncopy.tests.helpers as helpers
-from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults
 
 # Decorator to decide whether or not to run dask-related tests
@@ -127,8 +127,8 @@ class TestGranger:
     def test_gr_cfg(self):
 
         call = lambda cfg: cafunc(self.data, cfg)
-        helpers.run_cfg_test(call, method='granger',
-                             cfg=get_defaults(cafunc))
+        run_cfg_test(call, method='granger',
+                     cfg=get_defaults(cafunc))
 
     @skip_without_acme
     @skip_low_mem
@@ -243,8 +243,8 @@ class TestCoherence:
     def test_coh_cfg(self):
 
         call = lambda cfg: cafunc(self.data, cfg)
-        helpers.run_cfg_test(call, method='coh',
-                             cfg=get_defaults(cafunc))
+        run_cfg_test(call, method='coh',
+                     cfg=get_defaults(cafunc))
 
     @skip_without_acme
     @skip_low_mem
@@ -391,9 +391,9 @@ class TestCorrelation:
     def test_corr_cfg(self):
 
         call = lambda cfg: cafunc(self.data, cfg)
-        helpers.run_cfg_test(call, method='corr',
-                             positivity=False,
-                             cfg=get_defaults(cafunc))
+        run_cfg_test(call, method='corr',
+                     positivity=False,
+                     cfg=get_defaults(cafunc))
 
     @skip_without_acme
     @skip_low_mem
@@ -414,6 +414,26 @@ class TestCorrelation:
 
         call = lambda polyremoval: self.test_corr_solution(polyremoval=polyremoval)
         helpers.run_polyremoval_test(call)
+
+
+def run_cfg_test(method_call, method, cfg, positivity=True):
+
+    cfg.method = method
+    if method != 'granger':
+        cfg.foilim = [0, 70]
+    # test general tapers with
+    # additional parameters
+    cfg.taper = 'kaiser'
+    cfg.taper_opt = {'beta': 2}
+
+    cfg.output = 'abs'
+
+    result = method_call(cfg)
+
+    # check here just for finiteness and positivity
+    assert np.all(np.isfinite(result.data))
+    if positivity:
+        assert np.all(result.data[0, ...] >= -1e-10)
 
 
 def plot_Granger(G, i, j):
