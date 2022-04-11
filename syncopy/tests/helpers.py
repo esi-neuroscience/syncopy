@@ -12,6 +12,9 @@ import numpy as np
 
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 
+# fix random generators
+np.random.seed(40203)
+
 
 def run_padding_test(method_call, pad_length):
     """

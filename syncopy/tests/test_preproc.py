@@ -52,7 +52,7 @@ class TestButterworth:
 
     data = AnalogData(trls, samplerate=fs)
     # for toi tests, -1s offset
-    time_span = [-.5, 3.2]
+    time_span = [-.8, 4.2]
     flow, fhigh = 0.3 * fNy, 0.4 * fNy
     freq_kw = {'lp': fhigh, 'hp': flow,
                'bp': [flow, fhigh], 'bs': [flow, fhigh]}
@@ -165,7 +165,7 @@ class TestButterworth:
                                                nChannels=2,
                                                toi_min=self.time_span[0],
                                                toi_max=self.time_span[1],
-                                               min_len=2)
+                                               min_len=3.5)
         for sd in sel_dicts:
             self.test_but_filter(select=sd)
 
