@@ -463,6 +463,7 @@ class Hilbert(ComputationalRoutine):
         if data.selection is not None:
             chanSec = data.selection.channel
             trl = data.selection.trialdefinition
+
         else:
             chanSec = slice(None)
             trl = data.trialdefinition

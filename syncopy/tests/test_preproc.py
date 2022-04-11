@@ -74,6 +74,7 @@ class TestButterworth:
 
         # the unfiltered data
         spec = freqanalysis(self.data, tapsmofrq=1, keeptrials=False)
+
         # total power in arbitrary units (for now)
         pow_tot = spec.show(channel=0).sum()
         nFreq = spec.freq.size
@@ -138,6 +139,7 @@ class TestButterworth:
                       'order': 4}
             # only for firws
             if 'minphase' in direction:
+
                 failed = True
                 try:
                     self.test_but_filter(**kwargs)
@@ -147,7 +149,7 @@ class TestButterworth:
                 assert failed
             else:
                 self.test_but_filter(**kwargs)
-                
+               
         for order in [-2, 10, 5.6]:
             kwargs = {'direction': 'twopass',
                       'order': order}
@@ -479,7 +481,7 @@ class TestFIRWS:
         except SPYValueError as err:
             assert "one of {'" in str(err)
         assert failed
-        
+
 
 def mk_spec_ax():
 
@@ -506,3 +508,4 @@ def annotate_foilims(ax, flow, fhigh):
 if __name__ == '__main__':
     T1 = TestButterworth()
     T2 = TestFIRWS()
+

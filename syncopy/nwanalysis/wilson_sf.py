@@ -57,7 +57,7 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
     Ident = np.eye(*CSD.shape[1:])
 
     # attach negative frequencies
-    CSD = np.r_[CSD, CSD[nFreq:1:-1].conj()]
+    CSD = np.r_[CSD, CSD[nFreq - 2:0:-1].conj()]
 
     # nChannel x nChannel
     psi0 = _psi0_initial(CSD)
@@ -65,16 +65,24 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
     # initial choice of psi, constant for all z(~f)
     psi = np.tile(psi0, (nFreq, 1, 1))
     # attach negative frequencies
-    psi = np.r_[psi, psi[nFreq:1:-1].conj()]
+    psi = np.r_[psi, psi[nFreq - 2:0:-1].conj()]
 
     g = np.zeros(CSD.shape, dtype=np.complex64)
     converged = False
+    # use cholesky for performance
+    U = np.linalg.cholesky(CSD)
     for _ in range(nIter):
 
         if direct_inversion:
             psi_inv = np.linalg.inv(psi)
+
             # the bracket of equation 3.1
-            g = psi_inv @ CSD @ psi_inv.conj().transpose(0, 2, 1)
+            # g = psi_inv @ CSD @ psi_inv.conj().transpose(0, 2, 1)
+
+            # equivalent using cholesky decomposition
+            g = psi_inv @ U
+            g = (g @ g.conj().transpose(0, 2, 1))
+
         else:
             for i in range(g.shape[0]):
                 C = np.linalg.lstsq(psi[i], CSD[i], rcond=None)[0]
@@ -153,12 +161,15 @@ def _plusOperator(g):
 
     # 'negative lags' from the ifft
     nLag = g.shape[0] // 2
+
     # the series expansion in beta_k
-    beta = np.fft.ifft(g, axis=0)
+    # is covariance like
+    beta = np.real(np.fft.ifft(g, axis=0))
 
     # take half of the zero lag
     beta[0, ...] = 0.5 * beta[0, ...]
-    g0 = np.real(beta[0, ...].copy())
+    g0 = beta[0, ...].copy()
+
     # take half of Nyquist bin
     # Dhamala "NewEdits" 28.01.22
     beta[nLag, ...] = 0.5 * beta[nLag, ...]

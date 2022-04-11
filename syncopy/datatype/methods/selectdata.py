@@ -268,7 +268,7 @@ def selectdata(data,
     # Vet the only inputs not checked by `Selector`
     if not isinstance(inplace, bool):
         raise SPYTypeError(inplace, varname="inplace", expected="Boolean")
-    if not isinstance(inplace, bool):
+    if not isinstance(clear, bool):
         raise SPYTypeError(clear, varname="clear", expected="Boolean")
 
     # If provided, make sure output object is appropriate
