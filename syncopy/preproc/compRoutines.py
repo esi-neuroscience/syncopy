@@ -154,9 +154,9 @@ class Sinc_Filtering(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
-        if data._selection is not None:
-            chanSec = data._selection.channel
-            trl = data._selection.trialdefinition
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
             for row in range(trl.shape[0]):
                 trl[row, :2] = [row, row + 1]
         else:
@@ -290,11 +290,9 @@ class But_Filtering(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
-        if data._selection is not None:
-            chanSec = data._selection.channel
-            trl = data._selection.trialdefinition
-            for row in range(trl.shape[0]):
-                trl[row, :2] = [row, row + 1]
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
         else:
             chanSec = slice(None)
             trl = data.trialdefinition

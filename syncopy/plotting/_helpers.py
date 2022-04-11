@@ -134,7 +134,7 @@ def get_method(dataobject):
     """
 
     # get the method string in a capture group
-    pattern = re.compile('[\s\w\D]+method = (\w+)')
+    pattern = re.compile(r'[\s\w\D]+method = (\w+)')
     match = pattern.match(dataobject._log)
     if match:
         meth_str = match.group(1)

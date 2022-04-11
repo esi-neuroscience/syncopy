@@ -10,7 +10,7 @@ import numpy as np
 from syncopy import AnalogData
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.tools import get_defaults
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYInfo
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.input_processors import (
@@ -45,7 +45,7 @@ def preprocessing(data,
     data : `~syncopy.AnalogData`
         A non-empty Syncopy :class:`~syncopy.AnalogData` object
     filter_class : {'but', 'firws'}
-        Butterworth (IIR) or windowed sinc (FIR) 
+        Butterworth (IIR) or windowed sinc (FIR)
     filter_type : {'lp', 'hp', 'bp', 'bs'}, optional
         Select type of filter, either low-pass `'lp'`,
         high-pass `'hp'`, band-pass `'bp'` or band-stop (Notch) `'bs'`.
@@ -60,7 +60,7 @@ def preprocessing(data,
        Filter direction:
        `'twopass'` - zero-phase forward and reverse filter, IIR and FIR
        `'onepass'` - forward filter, introduces group delays for IIR, zerophase for FIR
-       `'onepass-minphase' - forward causal/minumum phase filter, FIR only
+       `'onepass-minphase' - forward causal/minimum phase filter, FIR only
     window : {"hamming", "hann", "blackman"}, optional
         The type of window to use for the FIR filter
     polyremoval : int or None, optional
@@ -106,6 +106,9 @@ def preprocessing(data,
     elif filter_type in ('bp', 'bs'):
         array_parser(freq, varname='freq', hasinf=False, hasnan=False,
                      lims=[0, data.samplerate / 2], dims=(2,))
+        if freq[0] == freq[1]:
+            lgl = "two different frequencies"
+            raise SPYValueError(lgl, varname='freq', actual=freq)
         freq = np.sort(freq)
 
     # -- here the defaults are filter specific and get set later --
@@ -122,24 +125,23 @@ def preprocessing(data,
 
     # if a subset selection is present
     # get sampleinfo and check for equidistancy
-    if data._selection is not None:
-        sinfo = data._selection.trialdefinition[:, :2]
-        trialList = data._selection.trials
+    if data.selection is not None:
+        sinfo = data.selection.trialdefinition[:, :2]
         # user picked discrete set of time points
-        if isinstance(data._selection.time[0], list):
+        if isinstance(data.selection.time[0], list):
             lgl = "equidistant time points (toi) or time slice (toilim)"
             actual = "non-equidistant set of time points"
             raise SPYValueError(legal=lgl, varname="select", actual=actual)
     else:
-        trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo).squeeze()
 
     # check for equidistant sampling as needed for filtering
-    if not all([np.allclose(np.diff(time), 1 / data.samplerate) for time in data.time]):
-        lgl = "equidistant sampling in time"
-        act = "non-equidistant sampling"
-        raise SPYValueError(lgl, varname="data", actual=act)
+    # FIXME: could be too slow, see #259
+    # if not all([np.allclose(np.diff(time), 1 / data.samplerate) for time in data.time]):
+    #     lgl = "equidistant sampling in time"
+    #     act = "non-equidistant sampling"
+    #     raise SPYValueError(lgl, varname="data", actual=act)
 
     # -- Method calls
 
@@ -189,7 +191,7 @@ def preprocessing(data,
 
         if window not in availableWindows:
             lgl = "'" + "or '".join(opt + "' " for opt in availableWindows)
-            raise SPYValueError(legal=lgl, varname="window", actual=window)          
+            raise SPYValueError(legal=lgl, varname="window", actual=window)
 
         # set filter specific defaults here
         if direction is None:
