@@ -216,7 +216,7 @@ class ESI_TDTinfo():
             for chk, content in enumerate(store_codes):
                 if self.code_to_name(content['code']) in looking_for:
                     targets[self.code_to_name(content['code'])] = chk
-
+                    
             for tar in targets.items():
                 store_code = store_codes[tar[1]]
                 store_code['name'] = self.code_to_name(store_code['code'])
