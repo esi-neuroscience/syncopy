@@ -268,7 +268,7 @@ def but_filtering_cF(dat,
 class But_Filtering(ComputationalRoutine):
 
     """
-    Compute class that performs filtering with butterworth filters 
+    Compute class that performs filtering with butterworth filters
     of :class:`~syncopy.AnalogData` objects
 
     Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
@@ -378,13 +378,13 @@ class Rectify(ComputationalRoutine):
 def hilbert_cF(dat, output='abs', timeAxis=0, noCompute=False, chunkShape=None):
 
     """
-    Provides hilbert transformation with various outputs, band-pass filtering
+    Provides Hilbert transformation with various outputs, band-pass filtering
     beforehand highly recommended.
 
     dat : (N, K) :class:`numpy.ndarray`
         Uniformly sampled multi-channel time-series data
     output : {'abs', 'complex', 'real', 'imag', 'absreal', 'absimag', 'angle'}
-        The transformation after performing the complex hilbert transform. Choose
+        The transformation after performing the complex Hilbert transform. Choose
         `'angle'` to get the phase.
     timeAxis : int, optional
         Index of running time axis in `dat` (0 or 1)

@@ -76,7 +76,7 @@ def preprocessing(data,
         Set to `True` to rectify (after filtering)
     hilbert : None or one of {'abs', 'complex', 'real', 'imag', 'absreal', 'absimag', 'angle'}
         Choose one of the supported output types to perform
-        hilbert transformation after filtering. Set to `'angle'` to return the phase.
+        Hilbert transformation after filtering. Set to `'angle'` to return the phase.
 
     Returns
     -------
@@ -157,7 +157,7 @@ def preprocessing(data,
 
     # -- post processing
     if rectify and hilbert:
-        lgl = "either rectification or hilbert transform"
+        lgl = "either rectification or Hilbert transform"
         raise SPYValueError(lgl, varname="rectify/hilbert", actual=(rectify, hilbert))
 
     # `hilbert` acts both as a switch and a parameter to set the output (like in FT)
