@@ -211,7 +211,7 @@ class ESI_TDTinfo():
                 })
 
             # Looking for only Mark, PDi\ and PDio
-            looking_for = ["Mark", "PDio", 'LFPs']  #
+            looking_for = ["Mark", "PDio", 'LFPs',"PDi\\"]  #
             targets = StructDict()
             for chk, content in enumerate(store_codes):
                 if self.code_to_name(content['code']) in looking_for:
@@ -577,7 +577,7 @@ class ESI_TDTdata():
 
     def data_aranging(self, Files, DataInfo_loaded):
         with h5py.File(self.outputdir + self.combined_data_filename + '.hdf5', 'w') as combined_data_file:
-            #combined_data_file = h5py.File(combined_data_filename, 'w')
+            # combined_data_file = h5py.File(outputdir+combined_data_filename+'.hdf5', 'w')
             idxStartStop = [np.clip(np.array((jj, jj + self.chan_in_chunks)),
                                     a_min=None, a_max=len(Files))
                             for jj in range(0, len(Files), self.chan_in_chunks)]
