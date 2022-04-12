@@ -101,8 +101,7 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
 
         # max relative error
         CSDfac = psi @ psi.conj().transpose(0, 2, 1)
-        err = np.abs(CSD - CSDfac)
-        err = (err / np.abs(CSD)).max()
+        err = max_rel_err(CSD, CSDfac)
         # converged
         if err < rtol:
             converged = True
@@ -129,8 +128,8 @@ def _psi0_initial(CSD):
 
     nSamples = CSD.shape[1]
 
-    # perform ifft to obtain gammas.
-    gamma = np.fft.ifft(CSD, axis=0)
+    # perform (i)fft to obtain gammas.
+    gamma = np.fft.fft(CSD, axis=0)
     gamma0 = gamma[0, ...]
 
     # Remove any asymmetry due to rounding error.

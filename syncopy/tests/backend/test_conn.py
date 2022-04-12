@@ -184,11 +184,10 @@ def test_wilson():
     assert max_rel_err(A, A + A * 1e-16) < 1e-15
 
     # --- create test data ---
-    fs = 5000
+    fs = 200
     nChannels = 2
-    nSamples = 5000
-    nTrials = 50
-
+    nSamples = 1000
+    nTrials = 150
     CSDav = np.zeros((nSamples // 2 + 1, nChannels, nChannels), dtype=np.complex64)
     for _ in range(nTrials):
 
@@ -204,8 +203,7 @@ def test_wilson():
 
     # --- factorize CSD with Wilson's algorithm ---
 
-    H, Sigma, conv = wilson_sf(CSDav, rtol=1e-12)
-
+    H, Sigma, conv = wilson_sf(CSDav, rtol=1e-6)
     # converged - \Psi \Psi^* \approx CSD,
     # with relative error <= rtol?
     assert conv
@@ -213,7 +211,7 @@ def test_wilson():
     # reconstitute
     CSDfac = H @ Sigma @ H.conj().transpose(0, 2, 1)
     err = max_rel_err(CSDav, CSDfac)
-    assert err < 1e-12
+    assert err < 1e-6
 
     fig, ax = ppl.subplots(figsize=(6, 4))
     ax.set_xlabel('frequency (Hz)')
@@ -265,8 +263,8 @@ def test_granger():
     """
 
     fs = 200  # Hz
-    nSamples = 2500
-    nTrials = 25
+    nSamples = 1500
+    nTrials = 100
 
     CSDav = np.zeros((nSamples // 2 + 1, 2, 2), dtype=np.complex64)
     for _ in range(nTrials):
