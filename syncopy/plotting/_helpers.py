@@ -120,7 +120,6 @@ def shift_multichan(data_y):
         # dips below 0
         offsets += np.abs(data_y.min(axis=0)[1:])
         offsets = np.cumsum(np.r_[0, offsets] * 1.1)
-        print(offsets)
         data_y += offsets
 
     return data_y

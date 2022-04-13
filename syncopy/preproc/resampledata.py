@@ -62,3 +62,23 @@ def resampledata(data,
                    "for `method='downsample'`")
             raise SPYValueError(lgl, varname='resamplefs', actual=resamplefs)
             
+        resampleMethod = Downsample(samplerate=data.samplerate,
+                                    new_samplerate=resamplefs,
+                                    timeAxis=timeAxis)
+
+    # keyword dict for logging
+    log_dict = {'method': method,
+                'resamplefs': resamplefs
+                }
+    # ------------------------------------
+    # Call the chosen ComputationalRoutine
+    # ------------------------------------
+
+    resampled = AnalogData(dimord=data.dimord)
+    resampleMethod.initialize(data,
+                              resampled._stackingDim,
+                              chan_per_worker=kwargs.get("chan_per_worker"),
+                              keeptrials=True)
+    resampleMethod.compute(data, resampled, parallel=kwargs.get("parallel"), log_dict=log_dict)
+
+    return resampled

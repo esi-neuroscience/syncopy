@@ -309,10 +309,13 @@ class But_Filtering(ComputationalRoutine):
 def downsample_cF(dat,
                   samplerate=1,
                   new_samplerate=1,
+                  timeAxis=0,
+                  chunkShape=None,
                   noCompute=False
                   ):
     """
-    Provides basic downsampling of signals.
+    Provides basic downsampling of signals. The `new_samplerate` should be 
+    an integer division of the original `samplerate`.
 
     dat : (N, K) :class:`numpy.ndarray`
         Uniformly sampled multi-channel time-series data
@@ -322,6 +325,8 @@ def downsample_cF(dat,
         Sample rate of the input data
     new_samplerate : float
         Sample rate of the output data
+    timeAxis : int, optional
+        Index of running time axis in `dat` (0 or 1)
 
     Returns
     -------
@@ -339,7 +344,14 @@ def downsample_cF(dat,
 
     """
 
-    skipped = samplerate // new_samplerate
+    # Re-arrange array if necessary and get dimensional information
+    if timeAxis != 0:
+        dat = dat.T       # does not copy but creates view of `dat`
+    else:
+        dat = dat
+
+    # we need integers for slicing
+    skipped = int(samplerate // new_samplerate)
 
     outShape = list(dat.shape)
     outShape[0] = int(np.ceil(dat.shape[0] / skipped))
@@ -372,13 +384,18 @@ class Downsample(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Some index gymnastics to get trial begin/end "samples"
+        # we need to re-calculate the downsampling factor
+        factor = int(data.samplerate // self.cfg['new_samplerate'])
+        
+        # now set new samplerate
+        data.samplerate = self.cfg['new_samplerate']
+        
         if data.selection is not None:
             chanSec = data.selection.channel
-            trl = data.selection.trialdefinition
+            trl = data.selection.trialdefinition // factor
         else:
             chanSec = slice(None)
-            trl = data.trialdefinition
+            trl = data.trialdefinition // factor
 
         out.trialdefinition = trl
 
