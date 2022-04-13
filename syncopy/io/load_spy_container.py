@@ -6,17 +6,15 @@
 # Builtin/3rd party package imports
 import os
 import json
-import inspect
 import h5py
 import sys
 import numpy as np
-from collections import OrderedDict
 from glob import glob
 
 # Local imports
 from syncopy.shared.filetypes import FILE_EXT
 from syncopy.shared.parsers import io_parser, data_parser, filename_parser, array_parser
-from syncopy.shared.errors import (SPYTypeError, SPYValueError, SPYIOError, 
+from syncopy.shared.errors import (SPYTypeError, SPYValueError, SPYIOError,
                                    SPYError, SPYWarning)
 from syncopy.io.utils import hash_file, startInfoDict
 
@@ -28,108 +26,108 @@ __all__ = ["load"]
 def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None):
     """
     Load Syncopy data object(s) from disk
-    
+
     Either loads single files within or outside of '.spy'-containers or loads
-    multiple objects from a single '.spy'-container. Loading from containers can 
-    be further controlled by imposing restrictions on object class(es) (via 
-    `dataclass`) and file-name tag(s) (via `tag`). 
-    
+    multiple objects from a single '.spy'-container. Loading from containers can
+    be further controlled by imposing restrictions on object class(es) (via
+    `dataclass`) and file-name tag(s) (via `tag`).
+
     Parameters
     ----------
     filename : str
         Either path to Syncopy container folder (\*.spy, if omitted, the extension
         '.spy' will be appended) or name of data or metadata file. If `filename`
-        points to a container and no further specifications are provided, the 
+        points to a container and no further specifications are provided, the
         entire contents of the container is loaded. Otherwise, specific objects
-        may be selected using the `dataclass` or `tag` keywords (see below). 
+        may be selected using the `dataclass` or `tag` keywords (see below).
     tag : None or str or list
         If `filename` points to a container, `tag` may be used to filter objects
-        by filename-`tag`. Multiple tags can be provided using a list, e.g., 
+        by filename-`tag`. Multiple tags can be provided using a list, e.g.,
         ``tag = ['experiment1', 'experiment2']``. Can be combined with `dataclass`
-        (see below). Invalid if `filename` points to a single file. 
+        (see below). Invalid if `filename` points to a single file.
     dataclass : None or str or list
-        If provided, only objects of provided dataclass are loaded from disk. 
-        Available options are '.analog', '.spectral', .spike' and '.event' 
+        If provided, only objects of provided dataclass are loaded from disk.
+        Available options are '.analog', '.spectral', .spike' and '.event'
         (as listed in  ``spy.FILE_EXT["data"]``). Multiple class specifications
         can be provided using a list, e.g., ``dataclass = ['.analog', '.spike']``.
         Can be combined with `tag` (see above) and is also valid if `filename`
         points to a single file (e.g., to ensure loaded object is of a specific
-        type). 
+        type).
     checksum : bool
         If `True`, checksum-matching is performed on loaded object(s) to ensure
-        data-integrity (impairs performance particularly when loading large files). 
+        data-integrity (impairs performance particularly when loading large files).
     mode : str
         Data access mode of loaded objects (can be 'r' for read-only, 'r+' or 'w'
-        for read/write access). 
+        for read/write access).
     out : Syncopy data object
-        Empty object to be filled with data loaded from disk. Has to match the 
+        Empty object to be filled with data loaded from disk. Has to match the
         type of the on-disk file (e.g., ``filename = 'mydata.analog'`` requires
-        `out` to be a :class:`syncopy.AnalogData` object). Can only be used 
+        `out` to be a :class:`syncopy.AnalogData` object). Can only be used
         when loading single objects from disk (`out` is ignored when multiple
-        files are loaded from a container). 
-        
+        files are loaded from a container).
+
     Returns
     -------
     Nothing : None
         If a single file is loaded and `out` was provided, `out` is filled with
-        data loaded from disk, i.e., :func:`syncopy.load` does **not** create a 
+        data loaded from disk, i.e., :func:`syncopy.load` does **not** create a
         new object
     obj : Syncopy data object
-        If a single file is loaded and `out` was `None`, :func:`syncopy.load` 
-        returns a new object. 
+        If a single file is loaded and `out` was `None`, :func:`syncopy.load`
+        returns a new object.
     objdict : dict
         If multiple files are loaded, :func:`syncopy.load` creates a new object
         for each file and places them in a dictionary whose keys are the base-names
-        (sans path) of the corresponding files. 
-        
+        (sans path) of the corresponding files.
+
     Notes
     -----
     All of Syncopy's classes offer (limited) support for data loading upon object
     creation. Just as the class method ``.save`` can be used as a shortcut for
-    :func:`syncopy.save`, Syncopy objects can be created from Syncopy data-files 
-    upon creation, e.g., 
-    
+    :func:`syncopy.save`, Syncopy objects can be created from Syncopy data-files
+    upon creation, e.g.,
+
     >>> adata = spy.AnalogData('/path/to/session1.analog')
-    
-    creates a new :class:`syncopy.AnalogData` object and immediately fills it 
-    with data loaded from the file "/path/to/session1.analog". 
-    
-    Since only one object can be created at a time, this loading shortcut only 
+
+    creates a new :class:`syncopy.AnalogData` object and immediately fills it
+    with data loaded from the file "/path/to/session1.analog".
+
+    Since only one object can be created at a time, this loading shortcut only
     supports single file specifications (i.e., ``spy.AnalogData("container.spy")``
-    is invalid). 
+    is invalid).
 
     Examples
-    -------- 
-    Load all objects found in the spy-container "sessionName" (the extension ".spy" 
+    --------
+    Load all objects found in the spy-container "sessionName" (the extension ".spy"
     may or may not be provided)
-    
+
     >>> objectDict = spy.load("sessionName")
     >>> # --> returns a dict with base-filenames as keys
-    
+
     Load all :class:`syncopy.AnalogData` and :class:`syncopy.SpectralData` objects
     from the spy-container "sessionName"
-    
+
     >>> objectDict = spy.load("sessionName.spy", dataclass=['analog', 'spectral'])
-    
+
     Load a specific :class:`syncopy.AnalogData` object from the above spy-container
-    
+
     >>> obj = spy.load("sessionName.spy/sessionName_someTag.analog")
-    
+
     This is equivalent to
-    
+
     >>> obj = spy.AnalogData("sessionName.spy/sessionName_someTag.analog")
-    
-    If the "sessionName" spy-container only contains one object with the tag 
+
+    If the "sessionName" spy-container only contains one object with the tag
     "someTag", the above call is equivalent to
-    
+
     >>> obj = spy.load("sessionName.spy", tag="someTag")
-    
+
     If there are multiple objects of different types using the same tag "someTag",
-    the above call can be further narrowed down to only load the requested 
+    the above call can be further narrowed down to only load the requested
     :class:`syncopy.AnalogData` object
-       
+
     >>> obj = spy.load("sessionName.spy", tag="someTag", dataclass="analog")
-    
+
     See also
     --------
     syncopy.save : save syncopy object on disk
@@ -145,7 +143,7 @@ def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None
         fileInfo = filename_parser(filename)
     except Exception as exc:
         raise exc
-    
+
     if tag is not None:
         if isinstance(tag, str):
             tags = [tag]
@@ -189,7 +187,7 @@ def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None
 
     # If `filename` points to a spy container, `glob` what's inside, otherwise just load
     if fileInfo["filename"] is None:
-        
+
         if dataclass is None:
             extensions = FILE_EXT["data"]
         container = os.path.join(fileInfo["folder"], fileInfo["container"])
@@ -259,7 +257,7 @@ def _load(filename, checksum, mode, out):
                            .format(field=key,
                                    cls=dataclass.__name__,
                                    file=jsonFile))
-            
+
     # If `_hdr` is an empty list, set it to `None` to not confuse meta-functions
     hdr = jsonDict.get("_hdr")
     if isinstance(hdr, (list, np.ndarray)):
@@ -296,7 +294,7 @@ def _load(filename, checksum, mode, out):
     out.mode = mode
     for datasetProperty in out._hdfFileDatasetProperties:
         setattr(out, datasetProperty, h5py.File(hdfFile, mode="r")[datasetProperty])
-    
+
 
     # Abuse ``definetrial`` to set trial-related props
     trialdef = h5py.File(hdfFile, mode="r")["trialdefinition"][()]

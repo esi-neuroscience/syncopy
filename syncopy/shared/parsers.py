@@ -6,7 +6,6 @@
 # Builtin/3rd party package imports
 import os
 import numpy as np
-import numbers
 
 # Local imports
 from syncopy.shared.filetypes import FILE_EXT
@@ -192,7 +191,7 @@ def scalar_parser(var, varname="", ntype=None, lims=None):
     """
 
     # Make sure `var` is a scalar-like number
-    if not isinstance(var, numbers.Number):
+    if not np.issubdtype(type(var), np.number):
         raise SPYTypeError(var, varname=varname, expected="scalar")
 
     # If required, parse type ("int_like" is a bit of a special case here...)
@@ -341,9 +340,17 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
     scalar_parser : similar functionality for parsing numeric scalars
     """
 
-    # Make sure `var` is array-like and convert it to ndarray to simplify parsing
+    # Make sure `var` is array-like
     if not isinstance(var, (np.ndarray, list)):
         raise SPYTypeError(var, varname=varname, expected="array_like")
+
+    # "Exotic" arrays (str et al.) must contain only elements of the same type
+    # (however, don't be too stingy with numeric arrays - `[2, 2.0, 3]`` is okay)
+    if ntype not in [None, "numeric", "int_like"]:
+        if np.unique([str(type(a)) for a in var]).size > 1:
+            raise SPYTypeError(var, varname=varname, expected="array elements of identical type")
+
+    # Convert input to ndarray to simplify parsing
     arr = np.array(var)
 
     # If bounds-checking is requested but `ntype` is not set, use the
@@ -367,7 +374,7 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
                 raise SPYValueError(msg.format(dt="numeric"), varname=varname,
                                     actual=msg.format(dt=str(arr.dtype)))
             if ntype == "int_like":
-                if not np.all([np.round(a) == a for a in arr]):
+                if not np.array_equal(arr, np.round(arr)):
                     raise SPYValueError(msg.format(dt=ntype), varname=varname)
         else:
             if not np.issubdtype(arr.dtype, np.dtype(ntype).type):
@@ -689,4 +696,66 @@ def filename_parser(filename, is_in_valid_container=None):
         "tag": tag,
         "basename": basename,
         "extension": ext
-        }
+    }
+
+
+def sequence_parser(sequence, content_type=None, varname=""):
+
+    '''
+    Check if input is of sequence (list, tuple, array..)
+    type. Intended for function arguments like
+    `add_fields = ['fieldA', 'fieldB']`. For numeric
+    sequences (aka arrays) better to use the `array_parser`.
+
+    Parameters
+    ----------
+    sequence: sequence type
+        The sequence to check
+    content_type: type
+        The type of the sequence contents, e.g. `str`
+    varname : str
+        Local variable name used in caller
+
+    See also
+    --------
+    array_parser : similar functionality for parsing array-like objects
+
+    Examples
+    --------
+
+    seq1 = ['one', 'two', 'three']
+
+    This will be parsed, as we check only if
+    `seq1` is any sequence:
+
+    sequence_parser(seq1)
+
+    This will raise a `SPYTypeError` as the
+    actual content type is `str`
+
+    sequence_parser(seq1, content_type=int)
+
+    '''
+
+    # this does NOT capture str and dict
+    try:
+        iter(sequence)
+    except TypeError:
+        expected = 'sequence'
+        raise SPYTypeError(sequence,
+                           varname=varname,
+                           expected=expected)
+
+    if isinstance(sequence, str) or isinstance(sequence, dict):
+        expected = 'sequence'
+        raise SPYTypeError(sequence,
+                           varname=varname,
+                           expected=expected)
+
+    if content_type is not None:
+        for element in sequence:
+            if not isinstance(element, content_type):
+                expected = content_type.__name__
+                raise SPYTypeError(element,
+                                   varname=f"element of {varname}",
+                                   expected=expected)

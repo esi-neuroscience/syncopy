@@ -172,6 +172,12 @@ class TestArrayParser():
         with pytest.raises(SPYValueError):
             array_parser(np.float32(self.time), varname="time",
                          ntype='float64')
+        # invalid mixed-type arrays
+        with pytest.raises(SPYTypeError):
+            array_parser([3, 's'], varname="testarr", ntype='str')
+        with pytest.raises(SPYTypeError):
+            array_parser([3, 's'], varname="testarr", ntype='int')
+
 
     def test_character_list(self):
         channels = np.array(["channel1", "channel2", "channel3"])

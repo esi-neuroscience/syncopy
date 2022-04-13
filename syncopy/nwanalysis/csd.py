@@ -19,6 +19,7 @@ def csd(trl_dat,
         nSamples=None,
         taper="hann",
         taper_opt=None,
+        demean_taper=False,
         norm=False,
         fullOutput=False):
 
@@ -62,6 +63,8 @@ def csd(trl_dat,
         `'Kmax'` and `'NW'`.
         For further details, please refer to the
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
+    demean_taper : bool
+        Set to `True` to perform de-meaning after tapering
     norm : bool, optional
         Set to `True` to normalize for a single-trial coherence measure.
         Only meaningful in a multi-taper (``taper = "dpss"``) setup and if no
@@ -91,7 +94,7 @@ def csd(trl_dat,
 
     # compute the individual spectra
     # specs have shape (nTapers x nFreq x nChannels)
-    specs, freqs = mtmfft(trl_dat, samplerate, nSamples, taper, taper_opt)
+    specs, freqs = mtmfft(trl_dat, samplerate, nSamples, taper, taper_opt, demean_taper)
 
     # outer product along channel axes
     # has shape (nTapers x nFreq x nChannels x nChannels)

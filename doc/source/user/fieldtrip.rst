@@ -151,6 +151,8 @@ Data created with Syncopy can be loaded into MATLAB using the `matlab-syncopy
 development and supports only a subset of data classes. Also, the MATLAB
 interface does not support loading data that do not fit into local memory.
 
+MAT-Files can also be imported directly into Syncopy via :func:`~syncopy.load_ft_raw`, at the moment only the ``ft_datatype_raw`` is supported.
+
 Exemplary Workflow: Roundtrip - FieldTrip to Syncopy and Back
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 For this illustrative example we start by generating synthetic data in FieldTrip

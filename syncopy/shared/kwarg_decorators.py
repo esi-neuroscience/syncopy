@@ -352,19 +352,19 @@ def unwrap_select(func):
 
         # Either extract `select` from input kws and cycle through positional
         # argument to apply in-place selection to all Syncopy objects, or clean
-        # any unintended leftovers in `_selection` if no `select` keyword was provided
+        # any unintended leftovers in `selection` if no `select` keyword was provided
         select = kwargs.get("select", None)
         for obj in args:
-            if hasattr(obj, "_selection"):
-                obj._selection = select
+            if hasattr(obj, "selection"):
+                obj.selection = select
 
         # Call function with modified data object(s)
         res = func(*args, **kwargs)
 
         # Wipe data-selection slot to not alter user objects
         for obj in args:
-            if hasattr(obj, "_selection"):
-                obj._selection = None
+            if hasattr(obj, "selection"):
+                obj.selection = None
 
         return res
 
@@ -575,6 +575,7 @@ def unwrap_io(func):
         infilename = trl_dat["infile"]
         indset = trl_dat["indset"]
         ingrid = trl_dat["ingrid"]
+        inshape = trl_dat["inshape"]
         sigrid = trl_dat["sigrid"]
         fancy = trl_dat["fancy"]
         vdsdir = trl_dat["vdsdir"]
@@ -598,14 +599,6 @@ def unwrap_io(func):
                             arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
                         else:
                             arr = np.array(h5fin[indset][ingrid])
-                except OSError:
-                    try:
-                        if fancy:
-                            arr = open_memmap(infilename, mode="c")[np.ix_(*ingrid)]
-                        else:
-                            arr = np.array(open_memmap(infilename, mode="c")[ingrid])
-                    except:
-                        raise SPYIOError(infilename)
                 except Exception as exc:
                     raise exc
 
@@ -622,8 +615,18 @@ def unwrap_io(func):
                 arr = np.vstack(dsets)
 
             # === STEP 2 === perform computation
+            # Ensure input array shape was not inflated by scalar selection
+            # tuple, e.g., ``e=np.ones((2,2)); e[0,:].shape = (2,)`` not ``(1,2)``
+            # (use an explicit `shape` assignment here to avoid copies)
+            arr.shape = inshape
+
             # Now, actually call wrapped function
             res = func(arr, *wrkargs, **kwargs)
+
+            # In case scalar selections have been performed, explicitly assign
+            # desired output shape to re-create "lost" singleton dimensions
+            # (use an explicit `shape` assignment here to avoid copies)
+            res.shape = outshape
 
         # === STEP 3 === write result to disk
         # Write result to multiple stand-alone HDF files or use a mutex to write to a

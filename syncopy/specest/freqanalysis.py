@@ -4,7 +4,6 @@
 #
 
 # Builtin/3rd party package imports
-from numbers import Number
 import numpy as np
 
 # Syncopy imports
@@ -17,10 +16,10 @@ from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
 from syncopy.shared.tools import best_match
 from syncopy.shared.const_def import spectralConversions
 
-from syncopy.shared.input_validators import (
-    validate_taper,
-    validate_foi,
-    validate_padding,
+from syncopy.shared.input_processors import (
+    process_taper,
+    process_foi,
+    process_padding,
     check_effective_parameters,
     check_passed_kwargs
 )
@@ -47,10 +46,10 @@ from .compRoutines import (
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
-def freqanalysis(data, method='mtmfft', output='fourier',
+def freqanalysis(data, method='mtmfft', output='pow',
                  keeptrials=True, foi=None, foilim=None,
-                 pad_to_length=None, polyremoval=None,
-                 taper="hann", tapsmofrq=None, nTaper=None, keeptapers=False,
+                 pad_to_length=None, polyremoval=None, taper="hann",
+                 taper_opt=None, tapsmofrq=None, nTaper=None, keeptapers=False,
                  toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
                  out=None, **kwargs):
@@ -87,7 +86,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         window short-time Fourier transform using either a single Hanning taper or
         multiple DPSS tapers.
 
-        * **taper** : one of :data:`~syncopy.specest.const_def.availableTapers`
+        * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : number of orthogonal tapers for slepian tapers
         * **keeptapers** : return individual tapers or average
@@ -151,9 +150,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         to this absolute length. For instance ``pad_to_length = 2000`` pads all
         trials to an absolute length of 2000 samples, if and only if the longest
         trial contains at maximum 2000 samples.
-        Alternatively if all trials have the same initial lengths
-        setting `pad_to_length='nextpow2'` pads all trials to
-        the next power of two.
+        Alternatively `pad_to_length='nextpow2'` pads all trials to
+        the next power of two of the longest trial.
         If `None` and trials have unequal lengths all trials are padded to match
         the longest trial.
     polyremoval : int or None
@@ -164,20 +162,25 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         If `polyremoval` is `None`, no de-trending is performed. Note that
         for spectral estimation de-meaning is very advisable and hence also the
         default.
-    taper : str
-        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. Windowing function,
-        one of :data:`~syncopy.specest.const_def.availableTapers` (see below).
-    tapsmofrq : float
-        Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and `taper` is `'dpss'`.
-        The amount of spectral smoothing through  multi-tapering (Hz).
-        Note that smoothing frequency specifications are one-sided,
-        i.e., 4 Hz smoothing means plus-minus 4 Hz, i.e., a 8 Hz smoothing box.
+    tapsmofrq : float or None
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`
+        Enables multi-tapering and sets the amount of spectral
+        smoothing with slepian tapers in Hz.
     nTaper : int or None
-        Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and `taper='dpss'`.
-        Number of orthogonal tapers to use. It is not recommended to set the number
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and `tapsmofrq` is set.
+        Number of orthogonal tapers to use for multi-tapering. It is not recommended to set the number
         of tapers manually! Leave at `None` for the optimal number to be set automatically.
+    taper : str or None, optional
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. Windowing function,
+        one of :data:`~syncopy.specest.const_def.availableTapers`
+        For multi-tapering with slepian tapers use `tapsmofrq` directly.
+    taper_opt : dict or None
+        Dictionary with keys for additional taper parameters.
+        For example :func:`~scipy.signal.windows.kaiser` has
+        the additional parameter 'beta'. For multi-tapering use `tapsmofrq` directly.
     keeptapers : bool
-        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`.
+        Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and multi-tapering enabled
+        via  setting `tapsmofrq`.
         If `True`, return spectral estimates for each taper.
         Otherwise power spectrum is averaged across tapers,
         if and only if `output` is `pow`.
@@ -258,7 +261,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     .. autodata:: syncopy.specest.const_def.availableOutputs
 
-    .. autodata:: syncopy.specest.const_def.availableTapers
+    .. autodata:: syncopy.shared.const_def.availableTapers
 
     .. autodata:: syncopy.specest.const_def.availableWavelets
 
@@ -308,9 +311,9 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     # If only a subset of `data` is to be processed, make some necessary adjustments
     # of the sampleinfo and trial lengths
-    if data._selection is not None:
-        sinfo = data._selection.trialdefinition[:, :2]
-        trialList = data._selection.trials
+    if data.selection is not None:
+        sinfo = data.selection.trialdefinition[:, :2]
+        trialList = data.selection.trials
     else:
         trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
@@ -334,7 +337,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
 
     if method == 'mtmfft':
         # the actual number of samples in case of later padding
-        minSampleNum = validate_padding(pad_to_length, lenTrials)
+        minSampleNum = process_padding(pad_to_length, lenTrials)
     else:
         minSampleNum = lenTrials.min()
 
@@ -344,7 +347,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     # Shortcut to data sampling interval
     dt = 1 / data.samplerate
 
-    foi, foilim = validate_foi(foi, foilim, data.samplerate)
+    foi, foilim = process_foi(foi, foilim, data.samplerate)
 
     # see also https://docs.obspy.org/_modules/obspy/signal/detrend.html#polynomial
     if polyremoval is not None:
@@ -372,8 +375,8 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         # Get start/end timing info respecting potential in-place selection
         if toi is None:
             raise SPYTypeError(toi, varname="toi", expected="scalar or array-like or 'all'")
-        if data._selection is not None:
-            tStart = data._selection.trialdefinition[:, 2] / data.samplerate
+        if data.selection is not None:
+            tStart = data.selection.trialdefinition[:, 2] / data.samplerate
         else:
             tStart = data._t0 / data.samplerate
         tEnd = tStart + lenTrials / data.samplerate
@@ -383,7 +386,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
     if method in ["wavelet", "superlet"]:
 
         valid = True
-        if isinstance(toi, Number):
+        if np.issubdtype(type(toi), np.number):
             valid = False
 
         elif isinstance(toi, str):
@@ -473,22 +476,24 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             act = "empty frequency selection"
             raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
 
-        # sanitize taper selection and retrieve dpss settings
-        taper_opt = validate_taper(taper,
-                                   tapsmofrq,
-                                   nTaper,
-                                   keeptapers,
-                                   foimax=foi.max(),
-                                   samplerate=data.samplerate,
-                                   nSamples=minSampleNum,
-                                   output=output)
+        # sanitize taper selection and/or retrieve dpss settings
+        taper, taper_opt = process_taper(taper,
+                                         taper_opt,
+                                         tapsmofrq,
+                                         nTaper,
+                                         keeptapers,
+                                         foimax=foi.max(),
+                                         samplerate=data.samplerate,
+                                         nSamples=minSampleNum,
+                                         output=output)
 
         # Update `log_dct` w/method-specific options
         log_dct["taper"] = taper
-        # only dpss returns non-empty taper_opt dict
-        if taper_opt:
+        if taper_opt and taper == 'dpss':
             log_dct["nTaper"] = taper_opt["Kmax"]
             log_dct["tapsmofrq"] = tapsmofrq
+        elif taper_opt:
+            log_dct["taper_opt"] = taper_opt
 
     # -------------------------------------------------------
     # Now, prepare explicit compute-classes for chosen method
@@ -535,7 +540,7 @@ def freqanalysis(data, method='mtmfft', output='fourier',
             equidistant = True
             overlap = np.inf
 
-        elif isinstance(toi, Number):
+        elif np.issubdtype(type(toi), np.number):
             try:
                 scalar_parser(toi, varname="toi", lims=[0, 1])
             except Exception as exc:
@@ -630,13 +635,12 @@ def freqanalysis(data, method='mtmfft', output='fourier',
         else:
             soi = [slice(None)] * numTrials
 
-
         # Collect keyword args for `mtmconvol` in dictionary
         method_kwargs = {"samplerate": data.samplerate,
                          "nperseg": nperseg,
                          "noverlap": noverlap,
-                         "taper" : taper,
-                         "taper_opt" : taper_opt}
+                         "taper": taper,
+                         "taper_opt": taper_opt}
 
         # Set up compute-class
         specestMethod = MultiTaperFFTConvol(

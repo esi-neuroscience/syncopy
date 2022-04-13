@@ -4,7 +4,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v0.2] - 2022-01-18
+## [v0.21] - 2022-04-13
+Feature update and bugfixes.
+
+### NEW
+- Added preprocessing functionality
+- Added experimental loading functionality for NWB 2.0 files
+- Added experimental loading functionality for Matlab mat files
+- Added support for "scalar" selections, i.e., things like `selectdata(trials=0)`
+  or `data.selectdata(channels='mychannel')`
+- Added command line argument "--full" for more granular testing: the new default
+  for running the testing pipeline is to execute a trimmed-down testing suite that
+  does not probe all possible input permutations but focuses on the core functionality
+  without sacrificing coverage.
+- New meta-function `taper_opt` parameter to control arbitrary taper (e.g. kaiser)
+  parameters
+
+### CHANGED
+- Renamed `_selection` class property to `selection`
+- Reworked plotting framework and made it matplotlib 3.5 compatible
+- The output of `show` is now automatically squeezed (i.e., singleton dimensions
+  are removed from the returned array).
+- Enhanced online documentation, now also covering connectivity analysis
+- Multi-tapering (`freqanalysis`, `connectivityanalysis`) now is switched on by
+  only specifying the `tapsmofrq` parameter, removed the need for the additional
+  and redundant setting of `taper='dpss'`
+- Granger-Geweke algorithm now matches the reference implementation (Dhamala 2008)
+  with machine precision
+
+### REMOVED
+- Do not parse scalars using `numbers.Number`, use `numpy.number` instead to
+  catch Boolean values
+- Do not raise a `SPYTypeError` if an arithmetic operation is performed using
+  objects of different numerical types (real/complex; closes #199)
+
+### DEPRECATED
+- Removed loading code for ESI binary format that is no longer supported
+- Repaired top-level imports: renamed `connectivity` to `connectivityanalysis`
+  and the "connectivity" module is now called "nwanalysis"
+- Included `conda clean` in CD pipeline to avoid disk fillup by unused conda
+  packages/cache
+- Inverted `selectdata` messaging policy: only actual on-disk copy operations
+  trigger a `SPYInfo` message (closes #197)
+- Matched selector keywords and class attribute names, i.e., selecting channels
+  is now done by using a `select` dictionary with key `'channel'` (not `'channels'`
+  as before). See the documentation of `selectdata` for details.
+- Retired Travis CI tests since free test runs are exhausted. Migrated to GitHub
+  actions (and re-included codecov)
+
+### FIXED
+- The `trialdefinition` arrays constructed by the `Selector` class were incorrect
+  for `SpectralData` objects without time-axis, resulting in "empty" trials. This
+  has been fixed (closes #207)
+- Repaired `array_parser` to adequately complain about mixed-type arrays (closes #211)
+- The `show` routine now consistently returns a list of trials if and only if
+  multiple trials are selected
+
+## [v0.20] - 2022-01-18
 Major Release
 
 ### NEW
