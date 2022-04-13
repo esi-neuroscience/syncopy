@@ -4,10 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-Bugfix release
+## [v0.21] - 2022-04-13
+Feature update and bugfixes.
 
 ### NEW
+- Added preprocessing functionality
 - Added experimental loading functionality for NWB 2.0 files
 - Added experimental loading functionality for Matlab mat files
 - Added support for "scalar" selections, i.e., things like `selectdata(trials=0)`
@@ -19,7 +20,7 @@ Bugfix release
 
 ### CHANGED
 - Renamed `_selection` class property to `selection`
-- Made plotting routines matplotlib 3.5 compatible
+- Reworked plotting framework and made it matplotlib 3.5 compatible
 - The output of `show` is now automatically squeezed (i.e., singleton dimensions
   are removed from the returned array).
 
@@ -40,7 +41,7 @@ Bugfix release
 - Matched selector keywords and class attribute names, i.e., selecting channels
   is now done by using a `select` dictionary with key `'channel'` (not `'channels'`
   as before). See the documentation of `selectdata` for details.
-- Retired travis CI tests since free test runs are exhausted. Migrated to GitHub
+- Retired Travis CI tests since free test runs are exhausted. Migrated to GitHub
   actions (and re-included codecov)
 
 ### FIXED
