@@ -20,17 +20,45 @@ from syncopy.shared.input_processors import (
 
 from .compRoutines import Downsample
 
+availableMethods = ('downsample', 'resample')
 
 
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
 def resampledata(data,
-                 resamplefs,
-                  **kwargs
-                  ):
+                 resamplefs=1,
+                 method='downsample',
+                 **kwargs
+                 ):
     """
     Performs resampling or downsampling of :class:`~syncopy.AnalogData`
     """
 
-    pass
+    # -- Basic input parsing --
+
+    # Make sure our one mandatory input object can be processed
+    try:
+        data_parser(data, varname="data", dataclass="AnalogData",
+                    writable=None, empty=False)
+    except Exception as exc:
+        raise exc
+    timeAxis = data.dimord.index("time")
+
+    # Get everything of interest in local namespace
+    defaults = get_defaults(resampledata)
+    lcls = locals()
+    # check for ineffective additional kwargs
+    check_passed_kwargs(lcls, defaults, frontend_name="preprocessing")
+
+    # check resampling frequency
+    scalar_parser(resamplefs, varname='resamplefs', lims=[1, np.inf])
+
+    # -- downsampling --
+    if method == 'downsample':
+
+        if data.samplerate % resamplefs != 0:
+            lgl = ("integeger division of the original sampling rate "
+                   "for `method='downsample'`")
+            raise SPYValueError(lgl, varname='resamplefs', actual=resamplefs)
+            
