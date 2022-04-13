@@ -17,12 +17,17 @@ Feature update and bugfixes.
   for running the testing pipeline is to execute a trimmed-down testing suite that
   does not probe all possible input permutations but focuses on the core functionality
   without sacrificing coverage.
+- new meta-function `taper_opt` parameter to control arbitrary taper (e.g. kaiser) parameters
 
 ### CHANGED
 - Renamed `_selection` class property to `selection`
 - Reworked plotting framework and made it matplotlib 3.5 compatible
 - The output of `show` is now automatically squeezed (i.e., singleton dimensions
   are removed from the returned array).
+- Enhanced online documentation, now also covering connectivity analysis
+- Multi-tapering (`freqanalysis`, `connectivityanalysis`) now is switched on by only specifying 
+  the `tapsmofrq` parameter, removed the need for the additional and redundant setting of `taper='dpss'`
+- Granger-Geweke algorithm now matches the reference implementation (Dhamala 2008) with machine precision
 
 ### REMOVED
 - Do not parse scalars using `numbers.Number`, use `numpy.number` instead to
@@ -49,6 +54,7 @@ Feature update and bugfixes.
   for `SpectralData` objects without time-axis, resulting in "empty" trials. This
   has been fixed (closes #207)
 - Repaired `array_parser` to adequately complain about mixed-type arrays (closes #211)
+- `show` routine now consistently returns a list of trials if and only if multiple trials are selected
 
 ## [v0.20] - 2022-01-18
 Major Release
