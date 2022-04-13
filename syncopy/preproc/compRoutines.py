@@ -472,3 +472,101 @@ class Hilbert(ComputationalRoutine):
 
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel[chanSec])
+
+
+@unwrap_io
+def downsample_cF(dat,
+                  samplerate=1,
+                  new_samplerate=1,
+                  timeAxis=0,
+                  chunkShape=None,
+                  noCompute=False
+                  ):
+    """
+    Provides basic downsampling of signals. The `new_samplerate` should be 
+    an integer division of the original `samplerate`.
+
+    dat : (N, K) :class:`numpy.ndarray`
+        Uniformly sampled multi-channel time-series data
+        The 1st dimension is interpreted as the time axis,
+        columns represent individual channels.
+    samplerate : float
+        Sample rate of the input data
+    new_samplerate : float
+        Sample rate of the output data
+    timeAxis : int, optional
+        Index of running time axis in `dat` (0 or 1)
+
+    Returns
+    -------
+    filtered : (X, K) :class:`~numpy.ndarray`
+        The downsampled data
+
+    Notes
+    -----
+    This method is intended to be used as
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+
+    """
+
+    # Re-arrange array if necessary and get dimensional information
+    if timeAxis != 0:
+        dat = dat.T       # does not copy but creates view of `dat`
+    else:
+        dat = dat
+
+    # we need integers for slicing
+    skipped = int(samplerate // new_samplerate)
+
+    outShape = list(dat.shape)
+    outShape[0] = int(np.ceil(dat.shape[0] / skipped))
+
+    if noCompute:
+        return tuple(outShape), dat.dtype
+
+    return dat[::skipped]
+
+
+class Downsample(ComputationalRoutine):
+
+    """
+    Compute class that performs straightforward downsampling
+    of :class:`~syncopy.AnalogData` objects
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.preprocessing : parent metafunction
+    """
+
+    computeFunction = staticmethod(downsample_cF)
+
+    # 1st argument,the data, gets omitted
+    valid_kws = list(signature(downsample_cF).parameters.keys())[1:]
+
+    def process_metadata(self, data, out):
+
+        # we need to re-calculate the downsampling factor
+        factor = int(data.samplerate // self.cfg['new_samplerate'])
+        
+        # now set new samplerate
+        data.samplerate = self.cfg['new_samplerate']
+        
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition // factor
+        else:
+            chanSec = slice(None)
+            trl = data.trialdefinition // factor
+
+        out.trialdefinition = trl
+
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel[chanSec])
