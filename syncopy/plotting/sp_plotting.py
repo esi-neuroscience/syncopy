@@ -100,6 +100,7 @@ def plot_SpectralData(data, **show_kwargs):
         # need freq x time for plotting
         data_yx = data.show(**show_kwargs).T
         _plotting.plot_tfreq(ax, data_yx, time, data.freq)
+        ax.set_title(label, fontsize=pltConfig['sTitleSize'])        
     # just a line plot
     else:
         # get the data to plot
@@ -113,7 +114,6 @@ def plot_SpectralData(data, **show_kwargs):
                                           ylabel='power (dB)')
 
         _plotting.plot_lines(ax, data_x, data_y, label=labels)
-        ax.set_title(label, fontsize=pltConfig['sTitleSize'])
 
 
 def plot_CrossSpectralData(data, **show_kwargs):
