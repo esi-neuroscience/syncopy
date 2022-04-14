@@ -119,7 +119,7 @@ def load_nwb(filename, memuse=3000):
             angSeries.append(acqValue)
 
         # TTL event pulse data
-        elif "abc.TTLs" in str(acqValue.__class__):
+        elif ".TTLs" in str(acqValue.__class__):
 
             if acqValue.name == "TTL_PulseValues":
                 ttlVals.append(acqValue)
