@@ -99,7 +99,8 @@ slurmtest:
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - export PYTHONPATH=$CI_PROJECT_DIR
-    - srun -p DEV --mem=8000m -c 4 pytest --full $TEST_DIR/test_specest.py
+    - srun -p DEV --mem=8000m -c 4 pytest --full $TEST_DIR/test_specest.py -k 'not para'
+    - srun -p DEV --mem=8000m -c 4 pytest --full $TEST_DIR/test_specest.py -k 'para'
     - srun -p DEV --mem=8000m -c 4 pytest --full $TEST_DIR/test_connectivity.py
     - srun -p DEV --mem=8000m -c 4 pytest --full --ignore=$TEST_DIR/test_specest.py --ignore=$TEST_DIR/test_connectivity.py
 
