@@ -199,6 +199,9 @@ def load_nwb(filename, memuse=3000):
         evtData.samplerate = float(1 / ts_resolution)
         if hasTrials:
             evtData.trialdefinition = trl
+        else:
+            evtData.trialdefinition = np.array([[np.nanmin(evtDset[:,0]), np.nanmax(evtDset[:,0]), 0]])
+            msg = "No trial information found. Proceeding with single all-encompassing trial"
 
     # Allocate `AnalogData` object and use generated HDF5 file-name to manually
     # allocate a target dataset for reading the NWB data
