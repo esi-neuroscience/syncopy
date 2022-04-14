@@ -90,6 +90,7 @@ def load_nwb(filename, memuse=3000):
     dTypes = []
     angSeries = []
     ttlVals = []
+    ttlChanStates = []
     ttlChans = []
     ttlDtypes = []
 
@@ -124,6 +125,8 @@ def load_nwb(filename, memuse=3000):
             if acqValue.name == "TTL_PulseValues":
                 ttlVals.append(acqValue)
             elif acqValue.name == "TTL_ChannelStates":
+                ttlChanStates.append(acqValue)
+            elif acqValue.name == "TTL_Channels":
                 ttlChans.append(acqValue)
             else:
                 lgl = "TTL data exported via `esi-oephys2nwb`"
