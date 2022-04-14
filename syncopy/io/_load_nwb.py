@@ -5,6 +5,7 @@
 
 # Builtin/3rd party package imports
 import os
+import sys
 import h5py
 import subprocess
 import numpy as np
@@ -69,7 +70,8 @@ def load_nwb(filename, memuse=3000):
 
     # First, perform some basal validation w/NWB
     try:
-        subprocess.run(["python", "-m", "pynwb.validate", nwbFullName], check=True)
+        this_python = os.path.join(os.path.dirname(sys.executable),'python')
+        subprocess.run([this_python, "-m", "pynwb.validate", nwbFullName], check=True)
     except subprocess.CalledProcessError as exc:
         err = "NWB file validation failed. Original error message: {}"
         raise SPYError(err.format(str(exc)))
