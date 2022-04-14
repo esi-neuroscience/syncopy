@@ -1325,20 +1325,6 @@ class TestSuperlet():
 
                     # Be more lenient w/`tfSpec`: don't scan for min/max freq, but all peaks at once
                     # (auto-scale resolution potentially too coarse to differentiate b/w min/max);
-                    # consider peak-count equal up to 2 misses
-                    if fulltests:
-                        Zxx = trlArr[tuple(tfIdx)].squeeze()
-                        ZxxMax = Zxx.max()
-                        ZxxThresh = 0.2 * ZxxMax
-                        _, freqPeaks = np.where(Zxx >= (ZxxMax - ZxxThresh))
-                        peakVals, peakCounts = np.unique(freqPeaks, return_counts=True)
-                        freqPeak = peakVals[peakCounts.argmax()]
-                        modCount = np.ceil(sum(modCounts) / 2)
-                        peakProfile = Zxx[:, freqPeak - 1 : freqPeak + 2].mean(axis=1)
-                        peaks, _ = scisig.find_peaks(peakProfile, height=2*ZxxThresh, distance=5)
-                        if np.abs(peaks.size - modCount) > 2:
-                            modCount = sum(modCounts)
-                        assert np.abs(peaks.size - modCount) <= 2
 
     def test_slet_toi(self, fulltests):
         # Don't keep trials to speed things up a bit
