@@ -379,7 +379,7 @@ class BaseData(ABC):
             if self.__class__.__name__ == "SpikeData":
                 nCol = 3
             else: # EventData
-                nCol = 2
+                nCol = inData[0].shape[1]
             if any(val.shape[1] != nCol for val in inData):
                 lgl = "NumPy 2d-arrays with 3 columns"
                 act = "NumPy arrays of different shape"
