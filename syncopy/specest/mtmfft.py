@@ -89,7 +89,7 @@ def mtmfft(data_arr,
     # only really 2d if taper='dpss' with Kmax > 1
     # here we take the actual signal lengths!
     windows = np.atleast_2d(taper_func(signal_length, **taper_opt))
-    # normalize window
+    # normalize window with length after padding
     windows = _norm_taper(taper, windows, nSamples)
 
     # Fourier transforms (nTapers x nFreq x nChannels)
@@ -102,8 +102,6 @@ def mtmfft(data_arr,
         if demean_taper:
             win -= win.mean(axis=0)
         ftr[taperIdx] = np.fft.rfft(win, n=nSamples, axis=0)
-        # FT uses original length
-        ftr[taperIdx] = _norm_spec(ftr[taperIdx], signal_length, samplerate)
-        # ftr[taperIdx] = _norm_spec(ftr[taperIdx], nSamples, samplerate)
+        ftr[taperIdx] = _norm_spec(ftr[taperIdx], nSamples, samplerate)
 
     return ftr, freqs

@@ -34,9 +34,12 @@ def _norm_taper(taper, windows, nSamples):
 
     if taper == 'dpss':
         windows *= np.sqrt(nSamples)
+    # only for padding
+    if taper == 'boxcar':
+        windows *= np.sqrt(nSamples / windows.sum())
     # weird 3 point normalization,
-    # checks out exactly for 'hann' though
-    elif taper != 'boxcar':
+    # checks out (almost) exactly for 'hann' though
+    else:
         windows *= np.sqrt(4 / 3) * np.sqrt(nSamples / windows.sum())
 
     return windows
