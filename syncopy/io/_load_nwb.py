@@ -5,6 +5,7 @@
 
 # Builtin/3rd party package imports
 import os
+import sys
 import h5py
 import subprocess
 import numpy as np
@@ -69,7 +70,8 @@ def load_nwb(filename, memuse=3000):
 
     # First, perform some basal validation w/NWB
     try:
-        subprocess.run(["python", "-m", "pynwb.validate", nwbFullName], check=True)
+        this_python = os.path.join(os.path.dirname(sys.executable),'python')
+        subprocess.run([this_python, "-m", "pynwb.validate", nwbFullName], check=True)
     except subprocess.CalledProcessError as exc:
         err = "NWB file validation failed. Original error message: {}"
         raise SPYError(err.format(str(exc)))
@@ -88,6 +90,7 @@ def load_nwb(filename, memuse=3000):
     dTypes = []
     angSeries = []
     ttlVals = []
+    ttlChanStates = []
     ttlChans = []
     ttlDtypes = []
 
@@ -117,11 +120,13 @@ def load_nwb(filename, memuse=3000):
             angSeries.append(acqValue)
 
         # TTL event pulse data
-        elif "abc.TTLs" in str(acqValue.__class__):
+        elif ".TTLs" in str(acqValue.__class__):
 
             if acqValue.name == "TTL_PulseValues":
                 ttlVals.append(acqValue)
             elif acqValue.name == "TTL_ChannelStates":
+                ttlChanStates.append(acqValue)
+            elif acqValue.name == "TTL_Channels":
                 ttlChans.append(acqValue)
             else:
                 lgl = "TTL data exported via `esi-oephys2nwb`"
@@ -182,13 +187,21 @@ def load_nwb(filename, memuse=3000):
         # Column 1: sample indices
         # Column 2: TTL pulse values
         # Column 3: TTL channel markers
-        evtDset[:, 0] = ((ttlChans[0].timestamps[()] - tStarts[0]) / ttlChans[0].timestamps__resolution).astype(np.intp)
+        if 'resolution' in ttlChans[0].__nwbfields__:
+            ts_resolution = ttlChans[0].resolution
+        else:
+            ts_resolution = ttlChans[0].timestamps__resolution
+            
+        evtDset[:, 0] = ((ttlChans[0].timestamps[()] - tStarts[0]) / ts_resolution).astype(np.intp)
         evtDset[:, 1] = ttlVals[0].data[()]
         evtDset[:, 2] = ttlChans[0].data[()]
         evtData.data = evtDset
-        evtData.samplerate = float(1 / ttlChans[0].timestamps__resolution)
+        evtData.samplerate = float(1 / ts_resolution)
         if hasTrials:
             evtData.trialdefinition = trl
+        else:
+            evtData.trialdefinition = np.array([[np.nanmin(evtDset[:,0]), np.nanmax(evtDset[:,0]), 0]])
+            msg = "No trial information found. Proceeding with single all-encompassing trial"
 
     # Allocate `AnalogData` object and use generated HDF5 file-name to manually
     # allocate a target dataset for reading the NWB data
