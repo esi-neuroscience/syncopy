@@ -10,7 +10,7 @@ import numpy as np
 from syncopy import AnalogData
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.tools import get_defaults
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYInfo
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.input_processors import (
@@ -18,12 +18,14 @@ from syncopy.shared.input_processors import (
     check_passed_kwargs
 )
 
-from .compRoutines import But_Filtering, Sinc_Filtering
+from .compRoutines import But_Filtering, Sinc_Filtering, Rectify, Hilbert
 
 availableFilters = ('but', 'firws')
 availableFilterTypes = ('lp', 'hp', 'bp', 'bs')
 availableDirections = ('twopass', 'onepass', 'onepass-minphase')
 availableWindows = ("hamming", "hann", "blackman")
+
+hilbert_outputs = {'abs', 'complex', 'real', 'imag', 'absreal', 'absimag', 'angle'}
 
 
 @unwrap_cfg
@@ -37,15 +39,17 @@ def preprocessing(data,
                   direction=None,
                   window="hamming",
                   polyremoval=None,
+                  rectify=False,
+                  hilbert=False,
                   **kwargs
                   ):
     """
-    Filtering of time continuous raw data with IIR and FIR filters
+    Preprocessing of time continuous raw data with IIR and FIR filters
 
     data : `~syncopy.AnalogData`
         A non-empty Syncopy :class:`~syncopy.AnalogData` object
     filter_class : {'but', 'firws'}
-        Butterworth (IIR) or windowed sinc (FIR) 
+        Butterworth (IIR) or windowed sinc (FIR)
     filter_type : {'lp', 'hp', 'bp', 'bs'}, optional
         Select type of filter, either low-pass `'lp'`,
         high-pass `'hp'`, band-pass `'bp'` or band-stop (Notch) `'bs'`.
@@ -60,7 +64,7 @@ def preprocessing(data,
        Filter direction:
        `'twopass'` - zero-phase forward and reverse filter, IIR and FIR
        `'onepass'` - forward filter, introduces group delays for IIR, zerophase for FIR
-       `'onepass-minphase' - forward causal/minumum phase filter, FIR only
+       `'onepass-minphase' - forward causal/minimum phase filter, FIR only
     window : {"hamming", "hann", "blackman"}, optional
         The type of window to use for the FIR filter
     polyremoval : int or None, optional
@@ -68,6 +72,11 @@ def preprocessing(data,
         to filtering. A value of 0 corresponds to subtracting the mean
         ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
         least squares fit of a linear polynomial).
+    rectify : bool, optional
+        Set to `True` to rectify (after filtering)
+    hilbert : None or one of {'abs', 'complex', 'real', 'imag', 'absreal', 'absimag', 'angle'}
+        Choose one of the supported output types to perform
+        Hilbert transformation after filtering. Set to `'angle'` to return the phase.
 
     Returns
     -------
@@ -106,6 +115,9 @@ def preprocessing(data,
     elif filter_type in ('bp', 'bs'):
         array_parser(freq, varname='freq', hasinf=False, hasnan=False,
                      lims=[0, data.samplerate / 2], dims=(2,))
+        if freq[0] == freq[1]:
+            lgl = "two different frequencies"
+            raise SPYValueError(lgl, varname='freq', actual=freq)
         freq = np.sort(freq)
 
     # -- here the defaults are filter specific and get set later --
@@ -118,28 +130,41 @@ def preprocessing(data,
     if polyremoval is not None:
         scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])
 
+    if not isinstance(rectify, bool):
+        SPYValueError("either `True` or `False`", varname='rectify', actual=rectify)
+
     # -- get trial info
 
     # if a subset selection is present
     # get sampleinfo and check for equidistancy
-    if data._selection is not None:
-        sinfo = data._selection.trialdefinition[:, :2]
-        trialList = data._selection.trials
+    if data.selection is not None:
+        sinfo = data.selection.trialdefinition[:, :2]
         # user picked discrete set of time points
-        if isinstance(data._selection.time[0], list):
+        if isinstance(data.selection.time[0], list):
             lgl = "equidistant time points (toi) or time slice (toilim)"
             actual = "non-equidistant set of time points"
             raise SPYValueError(legal=lgl, varname="select", actual=actual)
     else:
-        trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo).squeeze()
 
     # check for equidistant sampling as needed for filtering
-    if not all([np.allclose(np.diff(time), 1 / data.samplerate) for time in data.time]):
-        lgl = "equidistant sampling in time"
-        act = "non-equidistant sampling"
-        raise SPYValueError(lgl, varname="data", actual=act)
+    # FIXME: could be too slow, see #259
+    # if not all([np.allclose(np.diff(time), 1 / data.samplerate) for time in data.time]):
+    #     lgl = "equidistant sampling in time"
+    #     act = "non-equidistant sampling"
+    #     raise SPYValueError(lgl, varname="data", actual=act)
+
+    # -- post processing
+    if rectify and hilbert:
+        lgl = "either rectification or Hilbert transform"
+        raise SPYValueError(lgl, varname="rectify/hilbert", actual=(rectify, hilbert))
+
+    # `hilbert` acts both as a switch and a parameter to set the output (like in FT)
+    if hilbert:
+        if hilbert not in hilbert_outputs:
+            lgl = f"one of {hilbert_outputs}"
+            raise SPYValueError(lgl, varname="hilbert", actual=hilbert)
 
     # -- Method calls
 
@@ -175,7 +200,8 @@ def preprocessing(data,
         log_dict["order"] = order
         log_dict["direction"] = direction
 
-        check_effective_parameters(But_Filtering, defaults, lcls)
+        check_effective_parameters(But_Filtering, defaults, lcls,
+                                   besides=('hilbert', 'rectify'))
 
         filterMethod = But_Filtering(samplerate=data.samplerate,
                                      filter_type=filter_type,
@@ -189,7 +215,7 @@ def preprocessing(data,
 
         if window not in availableWindows:
             lgl = "'" + "or '".join(opt + "' " for opt in availableWindows)
-            raise SPYValueError(legal=lgl, varname="window", actual=window)          
+            raise SPYValueError(legal=lgl, varname="window", actual=window)
 
         # set filter specific defaults here
         if direction is None:
@@ -209,7 +235,7 @@ def preprocessing(data,
         log_dict["direction"] = direction
 
         check_effective_parameters(Sinc_Filtering, defaults, lcls,
-                                   besides=['filter_class'])
+                                   besides=['filter_class', 'hilbert', 'rectify'])
 
         filterMethod = Sinc_Filtering(samplerate=data.samplerate,
                                       filter_type=filter_type,
@@ -220,16 +246,48 @@ def preprocessing(data,
                                       polyremoval=polyremoval,
                                       timeAxis=timeAxis)
 
-    # ------------------------------------
-    # Call the chosen ComputationalRoutine
-    # ------------------------------------
+    # -------------------------------------------
+    # Call the chosen filter ComputationalRoutine
+    # -------------------------------------------
 
-    out = AnalogData(dimord=data.dimord)
+    filtered = AnalogData(dimord=data.dimord)
     # Perform actual computation
     filterMethod.initialize(data,
-                            out._stackingDim,
+                            data._stackingDim,
                             chan_per_worker=kwargs.get("chan_per_worker"),
                             keeptrials=True)
-    filterMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
+    filterMethod.compute(data, filtered, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
-    return out
+    # -- check for post processing flags --
+
+    if rectify:
+        log_dict['rectify'] = rectify
+        rectified = AnalogData(dimord=data.dimord)
+        rectCR = Rectify()
+        rectCR.initialize(filtered,
+                          data._stackingDim,
+                          chan_per_worker=kwargs.get("chan_per_worker"),
+                          keeptrials=True)
+        rectCR.compute(filtered, rectified,
+                       parallel=kwargs.get("parallel"),
+                       log_dict=log_dict)
+        del filtered
+        return rectified
+
+    elif hilbert:
+        log_dict['hilbert'] = hilbert
+        htrafo = AnalogData(dimord=data.dimord)
+        hilbertCR = Hilbert(output=hilbert,
+                            timeAxis=timeAxis)
+        hilbertCR.initialize(filtered, data._stackingDim,
+                             chan_per_worker=kwargs.get("chan_per_worker"),
+                             keeptrials=True)
+        hilbertCR.compute(filtered, htrafo,
+                          parallel=kwargs.get("parallel"),
+                          log_dict=log_dict)
+        del filtered
+        return htrafo
+
+    # no post-processing
+    else:
+        return filtered

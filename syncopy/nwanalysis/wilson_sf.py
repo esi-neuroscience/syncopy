@@ -57,7 +57,7 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
     Ident = np.eye(*CSD.shape[1:])
 
     # attach negative frequencies
-    CSD = np.r_[CSD, CSD[nFreq:1:-1]]
+    CSD = np.r_[CSD, CSD[nFreq - 2:0:-1].conj()]
 
     # nChannel x nChannel
     psi0 = _psi0_initial(CSD)
@@ -65,16 +65,24 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
     # initial choice of psi, constant for all z(~f)
     psi = np.tile(psi0, (nFreq, 1, 1))
     # attach negative frequencies
-    psi = np.r_[psi, psi[nFreq:1:-1]]
+    psi = np.r_[psi, psi[nFreq - 2:0:-1].conj()]
 
     g = np.zeros(CSD.shape, dtype=np.complex64)
     converged = False
+    # use cholesky for performance
+    U = np.linalg.cholesky(CSD)
     for _ in range(nIter):
 
         if direct_inversion:
             psi_inv = np.linalg.inv(psi)
+
             # the bracket of equation 3.1
-            g = psi_inv @ CSD @ psi_inv.conj().transpose(0, 2, 1)
+            # g = psi_inv @ CSD @ psi_inv.conj().transpose(0, 2, 1)
+
+            # equivalent using cholesky decomposition
+            g = psi_inv @ U
+            g = (g @ g.conj().transpose(0, 2, 1))
+
         else:
             for i in range(g.shape[0]):
                 C = np.linalg.lstsq(psi[i], CSD[i], rcond=None)[0]
@@ -93,8 +101,7 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
 
         # max relative error
         CSDfac = psi @ psi.conj().transpose(0, 2, 1)
-        err = np.abs(CSD - CSDfac)
-        err = (err / np.abs(CSD)).max()
+        err = max_rel_err(CSD, CSDfac)
         # converged
         if err < rtol:
             converged = True
@@ -121,8 +128,8 @@ def _psi0_initial(CSD):
 
     nSamples = CSD.shape[1]
 
-    # perform ifft to obtain gammas.
-    gamma = np.fft.ifft(CSD, axis=0)
+    # perform (i)fft to obtain gammas.
+    gamma = np.fft.fft(CSD, axis=0)
     gamma0 = gamma[0, ...]
 
     # Remove any asymmetry due to rounding error.
@@ -153,12 +160,15 @@ def _plusOperator(g):
 
     # 'negative lags' from the ifft
     nLag = g.shape[0] // 2
+
     # the series expansion in beta_k
-    beta = np.fft.ifft(g, axis=0)
+    # is covariance like
+    beta = np.real(np.fft.ifft(g, axis=0))
 
     # take half of the zero lag
     beta[0, ...] = 0.5 * beta[0, ...]
     g0 = beta[0, ...].copy()
+
     # take half of Nyquist bin
     # Dhamala "NewEdits" 28.01.22
     beta[nLag, ...] = 0.5 * beta[nLag, ...]
@@ -172,6 +182,13 @@ def _plusOperator(g):
 
 
 # --- End of Wilson's Algorithm ---
+
+
+def max_rel_err(A, B):
+
+    err = np.abs(A - B)
+    err = (err / np.abs(A)).max()
+    return err
 
 
 def regularize_csd(CSD, cond_max=1e6, eps_max=1e-3, nSteps=15):
