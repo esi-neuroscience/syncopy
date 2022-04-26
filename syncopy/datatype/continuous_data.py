@@ -18,10 +18,10 @@ from collections.abc import Iterator
 from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
-from syncopy.shared.errors import SPYValueError
+from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.tools import best_match
-from syncopy.plotting import _plot_analog
-from syncopy.plotting import _plot_spectral
+from syncopy.plotting import sp_plotting, mp_plotting
+
 
 __all__ = ["AnalogData", "SpectralData", "CrossSpectralData"]
 
@@ -243,6 +243,12 @@ class ContinuousData(BaseData, ABC):
             :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
             to avoid loading actual trial-data into memory.
 
+        Notes
+        -----
+        If an active in-place selection is found, the generated `FauxTrial` object
+        respects it (e.g., if only 2 of 10 channels are selected in-place, `faux_trl`
+        reports to only contain 2 channels)
+
         See also
         --------
         syncopy.datatype.base_data.FauxTrial : class definition and further details
@@ -256,10 +262,10 @@ class ContinuousData(BaseData, ABC):
         idx[self._stackingDim] = slice(start, stop)
 
         # process existing data selections
-        if self._selection is not None:
+        if self.selection is not None:
 
             # time-selection is most delicate due to trial-offset
-            tsel = self._selection.time[self._selection.trials.index(trialno)]
+            tsel = self.selection.time[self.selection.trials.index(trialno)]
             if isinstance(tsel, slice):
                 if tsel.start is not None:
                     tstart = tsel.start
@@ -284,8 +290,8 @@ class ContinuousData(BaseData, ABC):
             dims = list(self.dimord)
             dims.pop(self._stackingDim)
             for dim in dims:
-                sel = getattr(self._selection, dim)
-                if sel:
+                sel = getattr(self.selection, dim)
+                if sel is not None:
                     dimIdx = self.dimord.index(dim)
                     idx[dimIdx] = sel
                     if isinstance(sel, slice):
@@ -302,8 +308,10 @@ class ContinuousData(BaseData, ABC):
                             delta = 1
                         shp[dimIdx] = int(np.ceil((end - begin) / delta))
                         idx[dimIdx] = slice(begin, end, delta)
-                    else:
+                    elif isinstance(sel, list):
                         shp[dimIdx] = len(sel)
+                    else:
+                        shp[dimIdx] = 1
 
         return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
 
@@ -388,6 +396,13 @@ class ContinuousData(BaseData, ABC):
                 # First, fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
 
+    # plotting, only virtual in the abc
+    def singlepanelplot(self):
+        raise NotImplementedError
+
+    def multipanelplot(self):
+        raise NotImplementedError
+
 
 class AnalogData(ContinuousData):
     """Multi-channel, uniformly-sampled, analog (real float) data
@@ -406,10 +421,6 @@ class AnalogData(ContinuousData):
     _infoFileProperties = ContinuousData._infoFileProperties + ("_hdr",)
     _defaultDimord = ["time", "channel"]
     _stackingDimLabel = "time"
-
-    # Attach plotting routines to not clutter the core module code
-    singlepanelplot = _plot_analog.singlepanelplot
-    multipanelplot = _plot_analog.multipanelplot
 
     @property
     def hdr(self):
@@ -468,6 +479,15 @@ class AnalogData(ContinuousData):
                          channel=channel,
                          dimord=dimord)
 
+    # implement plotting
+    def singlepanelplot(self, shifted=True, **show_kwargs):
+
+        sp_plotting.plot_AnalogData(self, shifted, **show_kwargs)
+
+    def multipanelplot(self, **show_kwargs):
+
+        mp_plotting.plot_AnalogData(self, **show_kwargs)
+
 
 class SpectralData(ContinuousData):
     """
@@ -480,10 +500,6 @@ class SpectralData(ContinuousData):
     _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
     _defaultDimord = ["time", "taper", "freq", "channel"]
     _stackingDimLabel = "time"
-
-    # Attach plotting routines to not clutter the core module code
-    singlepanelplot = _plot_spectral.singlepanelplot
-    multipanelplot = _plot_spectral.multipanelplot
 
     @property
     def taper(self):
@@ -610,6 +626,15 @@ class SpectralData(ContinuousData):
                 self.freq = [1]
             if taper is not None:
                 self.taper = ['taper']
+
+    # implement plotting
+    def singlepanelplot(self, **show_kwargs):
+
+        sp_plotting.plot_SpectralData(self, **show_kwargs)
+
+    def multipanelplot(self, **show_kwargs):
+
+        mp_plotting.plot_SpectralData(self, **show_kwargs)
 
 
 class CrossSpectralData(ContinuousData):
@@ -766,3 +791,6 @@ class CrossSpectralData(ContinuousData):
                          freq=freq,
                          dimord=dimord)
 
+    def singlepanelplot(self, **show_kwargs):
+
+        sp_plotting.plot_CrossSpectralData(self, **show_kwargs)

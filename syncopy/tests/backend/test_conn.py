@@ -6,7 +6,11 @@ import matplotlib.pyplot as ppl
 from syncopy.tests import synth_data
 from syncopy.nwanalysis import csd
 from syncopy.nwanalysis import ST_compRoutines as stCR
-from syncopy.nwanalysis.wilson_sf import wilson_sf, regularize_csd
+from syncopy.nwanalysis.wilson_sf import (
+    wilson_sf,
+    regularize_csd,
+    max_rel_err
+)
 from syncopy.nwanalysis.granger import granger
 
 
@@ -173,71 +177,79 @@ def test_wilson():
     inbuild, we just need to check for convergence.
     """
 
+    # -- test error testing routine
+
+    A = np.random.randn(10, 10) + 1j * np.random.randn(10, 10)
+
+    assert max_rel_err(A, A + A * 1e-16) < 1e-15
+
     # --- create test data ---
-    fs = 1000
-    nChannels = 10
+    fs = 200
+    nChannels = 2
     nSamples = 1000
-    f1, f2 = [30 , 40] # 30Hz and 60Hz
-    data = np.zeros((nSamples, nChannels))
+    nTrials = 150
+    CSDav = np.zeros((nSamples // 2 + 1, nChannels, nChannels), dtype=np.complex64)
+    for _ in range(nTrials):
 
-    # more phase diffusion in the 60Hz band
-    p1 = synth_data.phase_evo(f1, eps=.3, fs=fs,
-                              nSamples=nSamples, nChannels=nChannels)
-    p2 = synth_data.phase_evo(f2, eps=1, fs=fs,
-                              nSamples=nSamples, nChannels=nChannels)
+        sol = synth_data.AR2_network(nSamples=nSamples)
+        # --- get the (single trial) CSD ---
 
-    data = np.cos(p1) + 2 * np.sin(p2) + .5 * np.random.randn(nSamples, nChannels)
+        CSD, freqs = csd.csd(sol, fs,
+                             norm=False,
+                             fullOutput=True)
+        CSDav += CSD
 
-    # --- get the (single trial) CSD ---
-
-    bw = 5 # 5Hz smoothing
-    NW = bw * nSamples / (2 * fs)
-    Kmax = int(2 * NW - 1) # optimal number of tapers
-
-    CSD, freqs = csd.csd(data, fs,
-                         taper='dpss',
-                         taper_opt={'Kmax' : Kmax, 'NW' : NW},
-                         norm=False,
-                         fullOutput=True)
-    
-    # get CSD condition number, which is way too large!
-    CN = np.linalg.cond(CSD).max()
-    assert CN > 1e6
-
-    # --- regularize CSD ---
-
-    CSDreg, fac = regularize_csd(CSD, cond_max=1e6, nSteps=25)
-    CNreg = np.linalg.cond(CSDreg).max()
-    assert CNreg < 1e6
-    # check that 'small' regularization factor is enough
-    assert fac < 1e-5
+    CSDav /= nTrials
 
     # --- factorize CSD with Wilson's algorithm ---
 
-    H, Sigma, conv = wilson_sf(CSDreg, rtol=1e-9)
-
+    H, Sigma, conv = wilson_sf(CSDav, rtol=1e-6)
     # converged - \Psi \Psi^* \approx CSD,
     # with relative error <= rtol?
     assert conv
 
     # reconstitute
     CSDfac = H @ Sigma @ H.conj().transpose(0, 2, 1)
+    err = max_rel_err(CSDav, CSDfac)
+    assert err < 1e-6
 
     fig, ax = ppl.subplots(figsize=(6, 4))
     ax.set_xlabel('frequency (Hz)')
     ax.set_ylabel(r'$|CSD_{ij}(f)|$')
     chan = nChannels // 2
     # show (real) auto-spectra
-    ax.plot(freqs, np.abs(CSD[:, chan, chan]),
+    ax.plot(freqs, np.abs(CSDav[:, chan, chan]),
             '-o', label='original CSD', ms=3)
-    ax.plot(freqs, np.abs(CSDreg[:, chan, chan]),
-            '--', label='regularized CSD', ms=3)
     ax.plot(freqs, np.abs(CSDfac[:, chan, chan]),
             '-o', label='factorized CSD', ms=3)
-    ax.set_xlim((f1 - 5, f2 + 5))
+    # ax.set_xlim((350, 450))
     ax.legend()
 
-    
+
+def test_regularization():
+
+    # dyadic product of random matrices has rank 1
+    CSD = np.zeros((50, 50))
+    for _ in range(40):
+        A = np.random.randn(50)
+        CSD += np.outer(A, A)
+
+    # get CSD condition number, which is way too large!
+    CN = np.linalg.cond(CSD).max()
+    print(CN)
+    cmax = 1e6
+    assert CN > cmax
+
+    # --- regularize CSD ---
+
+    CSDreg, fac = regularize_csd(CSD, cond_max=cmax, nSteps=25)
+
+    CNreg = np.linalg.cond(CSDreg).max()
+    assert CNreg < 1e6
+    # check that 'small' regularization factor is enough
+    assert fac < 1e-3
+
+
 def test_granger():
 
     """
@@ -250,9 +262,9 @@ def test_granger():
         of time series data." Physical review letters 100.1 (2008): 018701.
     """
 
-    fs = 200 # Hz
-    nSamples = 2500
-    nTrials = 25
+    fs = 200  # Hz
+    nSamples = 1500
+    nTrials = 100
 
     CSDav = np.zeros((nSamples // 2 + 1, 2, 2), dtype=np.complex64)
     for _ in range(nTrials):
@@ -263,18 +275,19 @@ def test_granger():
         # --- get CSD ---
         bw = 2
         NW = bw * nSamples / (2 * fs)
-        Kmax = int(2 * NW - 1) # optimal number of tapers
+        Kmax = int(2 * NW - 1)  # optimal number of tapers
         CSD, freqs = csd.csd(sol, fs,
                              taper='dpss',
-                             taper_opt={'Kmax' : Kmax, 'NW' : NW},
-                             fullOutput=True)
+                             taper_opt={'Kmax': Kmax, 'NW': NW},
+                             fullOutput=True,
+                             demean_taper=True)
 
         CSDav += CSD
 
     CSDav /= nTrials
     # with only 2 channels this CSD is well conditioned
     assert np.linalg.cond(CSDav).max() < 1e2
-    H, Sigma, conv = wilson_sf(CSDav)
+    H, Sigma, conv = wilson_sf(CSDav, direct_inversion=True)
 
     G = granger(CSDav, H, Sigma)
     assert G.shape == CSDav.shape
@@ -285,7 +298,7 @@ def test_granger():
     ax.plot(freqs, G[:, 0, 1], label=r'Granger $1\rightarrow2$')
     ax.plot(freqs, G[:, 1, 0], label=r'Granger $2\rightarrow1$')
     ax.legend()
-    
+
     # check for directional causality at 40Hz
     freq_idx = np.argmin(freqs < 40)
     assert 39 < freqs[freq_idx] < 41
@@ -293,9 +306,17 @@ def test_granger():
     # check low to no causality for 1->2
     assert G[freq_idx, 0, 1] < 0.1
     # check high causality for 2->1
-    assert G[freq_idx, 1, 0] > 0.8
+    assert G[freq_idx, 1, 0] > 0.7
 
+    # repeat test with least-square solution
+    H, Sigma, conv = wilson_sf(CSDav, direct_inversion=False)
+    G2 = granger(CSDav, H, Sigma)
 
-# --- Helper routines ---
+    # check low to no causality for 1->2
+    assert G2[freq_idx, 0, 1] < 0.1
+    # check high causality for 2->1
+    assert G2[freq_idx, 1, 0] > 0.7
 
-
+    ax.plot(freqs, G2[:, 0, 1], label=r'Granger (LS) $1\rightarrow2$')
+    ax.plot(freqs, G2[:, 1, 0], label=r'Granger (LS) $2\rightarrow1$')
+    ax.legend()

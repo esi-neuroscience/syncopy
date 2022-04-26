@@ -17,11 +17,22 @@ from memory_profiler import memory_usage
 
 # Local imports
 from syncopy.datatype import AnalogData
-from syncopy.io import save, load
+from syncopy.io import save, load, load_ft_raw
 from syncopy.shared.filetypes import FILE_EXT
-from syncopy.shared.errors import SPYValueError, SPYIOError, SPYError
+from syncopy.shared.errors import (
+    SPYValueError,
+    SPYIOError,
+    SPYError,
+    SPYTypeError
+)
 import syncopy.datatype as swd
 from syncopy.tests.misc import generate_artificial_data
+
+
+# Decorator to detect if test data dir is available
+on_esi = os.path.isdir('/cs/scratch/syncopy')
+skip_no_esi = pytest.mark.skipif(not on_esi, reason="ESI fs not available")
+
 
 class TestSpyIO():
 
@@ -452,3 +463,79 @@ class TestSpyIO():
 
             # Delete all open references to file objects b4 closing tmp dir
             del dmap, adata
+
+
+@skip_no_esi
+class Test_FT_Importer:
+
+    """At the moment only ft_datatype_raw is supported"""
+
+    mat_file_dir = '/cs/scratch/syncopy/MAT-Files'
+
+    def test_read_hdf(self):
+        """Test MAT-File v73 reader, uses h5py"""
+
+        mat_name = 'matdata-v73.mat'
+        fname = os.path.join(self.mat_file_dir, mat_name)
+
+        dct = load_ft_raw(fname)
+        assert 'Data_K' in dct
+        AData = dct['Data_K']
+
+        assert isinstance(AData, AnalogData)
+        assert len(AData.trials) == 393
+        assert len(AData.channel) == 218
+
+        # list only structure names
+        slist = load_ft_raw(fname, list_only=True)
+        assert 'Data_K' in slist
+        assert 'Data_KB' in slist
+
+        # additional fields of Matlab structures
+        # get attached to .info dict
+        # hdf reader does NOT support nested fields
+        dct = load_ft_raw(fname, include_fields=('chV1',))
+        AData2 = dct['Data_K']
+        assert 'chV1' in AData2.info
+        assert len(AData2.info['chV1']) == 30
+        assert isinstance(AData2.info['chV1'][0], str)
+
+        # test loading a subset of structures
+        dct = load_ft_raw(fname, select_structures=('Data_KB',))
+        assert 'Data_KB' in dct
+        assert 'Data_K' not in dct
+
+        # test str sequence parsing
+        try:
+            dct = load_ft_raw(fname, select_structures=(3, 'sth'))
+        except SPYTypeError as err:
+            assert 'expected str found int' in str(err)
+
+        try:
+            dct = load_ft_raw(fname, include_fields=(3, 'sth'))
+        except SPYTypeError as err:
+            assert 'expected str found int' in str(err)
+
+    def test_read_dict(self):
+        """Test MAT-File v7 reader, based on scipy.io.loadmat"""
+
+        mat_name = 'matdataK-v7.mat'
+        fname = os.path.join(self.mat_file_dir, mat_name)
+
+        dct = load_ft_raw(fname)
+        assert 'Data_K' in dct
+        AData = dct['Data_K']
+
+        assert isinstance(AData, AnalogData)
+        assert len(AData.trials) == 393
+        assert len(AData.channel) == 218
+
+        slist = load_ft_raw(fname, list_only=True)
+        assert 'Data_K' in slist
+
+        # additional fields of Matlab structures
+        # get attached to .info dict
+        # here nested structures are supported (but dis-encouraged)
+        dct = load_ft_raw(fname, include_fields=('ch',))
+        AData2 = dct['Data_K']
+        assert 'ch' in AData2.info

@@ -24,15 +24,16 @@ We strive to achieve the following goals:
 
 Getting Started
 ---------------
-Our :doc:`Quickstart Guide <quickstart>` covers installation and basic usage. 
-More in-depth information relevant to Syncopy users can be found in our 
-:doc:`User Guide <user/users>`. Want to contribute or just curious how the sausage 
-is made? Take a look at our :doc:`Developer Guide <developer/developers>`. Once again
-in order of brevity:
+- Prerequisites: :doc:`Install Syncopy </setup>`
+- Jumping right in: :doc:`Quickstart Guide <quickstart/quickstart>`
 
-* :doc:`Quickstart Guide <quickstart>`
-* :doc:`User Guide <user/users>`
-* :doc:`Developer Guide <developer/developers>`
+Want to contribute or just curious how the sausage 
+is made? Take a look at our :doc:`Developer Guide <developer/developers>`. 
+
+
+In depth Guides and Tutorials
+-----------------------------
+* :doc:`General User Guide <user/users>`
 
 Navigation
 ----------
@@ -50,6 +51,8 @@ For general inquiries please contact syncopy (at) esi-frankfurt.de.
 .. toctree::
    :hidden:
 
-   quickstart
-   user/users.rst    
+   quickstart/quickstart.rst
+   setup
+   user/users.rst
+   user/user_api.rst
    developer/developers.rst   

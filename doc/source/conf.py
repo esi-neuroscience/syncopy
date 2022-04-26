@@ -22,7 +22,7 @@ import syncopy
 
 project = 'Syncopy'
 copyright = '2020, Joscha Schmiedt and Stefan Fuertinger'
-author = 'Joscha Schmiedt and Stefan Fuertinger'
+author = 'Joscha Schmiedt, Stefan Fuertinger and Gregor Mönke'
 
 # The short X.Y version
 version = syncopy.__version__
@@ -129,7 +129,9 @@ html_theme_options = {
     # Global TOC depth for "site" navbar tab. (Default: 1)
     # Switching to -1 shows all levels.
     'globaltoc_depth': 2,
-    'bootswatch_theme': "lumen",
+    # Currently, the supported themes are:
+    # - Bootstrap 3: https://bootswatch.com/3
+    'bootswatch_theme': "simplex",
     'navbar_links': [
         ("GitHub", "https://www.github.com/esi-neuroscience/syncopy", True),
     ],
@@ -195,7 +197,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'Syncopy.tex', 'Syncopy Documentation',
-     'Gregor Moenke, Joscha Schmiedt and Stefan Fuertinger', 'manual'),
+     'Gregor Mönke, Joscha Schmiedt and Stefan Fuertinger', 'manual'),
 ]
 
 

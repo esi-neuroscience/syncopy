@@ -182,9 +182,9 @@ class DiscreteData(BaseData, ABC):
     def trialtime(self):
         """list(:class:`numpy.ndarray`): trigger-relative sample times in s"""
         if self.samplerate is not None and self.sampleinfo is not None:
-            return [((t + self._t0[tk]) / self.samplerate \
-                    for t in range(0, int(self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0]))) \
-                    for tk in self.trialid]
+            return [np.array([(t + self._t0[tk]) / self.samplerate \
+                              for t in range(0, int(self.sampleinfo[tk, 1] - self.sampleinfo[tk, 0]))]) \
+                    for tk in np.unique(self.trialid)]
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
@@ -208,6 +208,12 @@ class DiscreteData(BaseData, ABC):
             :meth:`syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
             to avoid loading actual trial-data into memory.
 
+        Notes
+        -----
+        If an active in-place selection is found, the generated `FauxTrial` object
+        respects it (e.g., if only 2 of 10 channels are selected in-place, `faux_trl`
+        reports to only contain 2 channels)
+
         See also
         --------
         syncopy.datatype.base_data.FauxTrial : class definition and further details
@@ -217,8 +223,8 @@ class DiscreteData(BaseData, ABC):
         trialIdx = np.where(self.trialid == trialno)[0]
         nCol = len(self.dimord)
         idx = [trialIdx.tolist(), slice(0, nCol)]
-        if self._selection is not None: # selections are harmonized, just take `.time`
-            idx[0] = trialIdx[self._selection.time[self._selection.trials.index(trialno)]].tolist()
+        if self.selection is not None: # selections are harmonized, just take `.time`
+            idx[0] = trialIdx[self.selection.time[self.selection.trials.index(trialno)]].tolist()
         shp = [len(idx[0]), nCol]
 
         return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
@@ -262,7 +268,7 @@ class DiscreteData(BaseData, ABC):
             for trlno in trials:
                 thisTrial = self.data[self.trialid == trlno, self.dimord.index("sample")]
                 trlSample = np.arange(*self.sampleinfo[trlno, :])
-                trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
+                trlTime = allTrials[trlno]
                 minSample = trlSample[np.where(trlTime >= toilim[0])[0][0]]
                 maxSample = trlSample[np.where(trlTime <= toilim[1])[0][-1]]
                 selSample, _ = best_match(trlSample, [minSample, maxSample], span=True)
@@ -280,7 +286,7 @@ class DiscreteData(BaseData, ABC):
             for trlno in trials:
                 thisTrial = self.data[self.trialid == trlno, self.dimord.index("sample")]
                 trlSample = np.arange(*self.sampleinfo[trlno, :])
-                trlTime = np.array(list(allTrials[np.where(self.trialid == trlno)[0][0]]))
+                trlTime = allTrials[trlno]
                 _, selSample = best_match(trlTime, toi)
                 for k, idx in enumerate(selSample):
                     if np.abs(trlTime[idx - 1] - toi[k]) < np.abs(trlTime[idx] - toi[k]):

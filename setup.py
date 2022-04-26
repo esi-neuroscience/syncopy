@@ -1,6 +1,7 @@
 # Builtins
 import datetime
 from setuptools import setup
+import subprocess
 
 # External packages
 import ruamel.yaml
@@ -11,21 +12,21 @@ import sys
 sys.path.insert(0, ".")
 from conda2pip import conda2pip
 
-# Set release version by hand
-releaseVersion = "0.2"
+# Set release version by hand for master branch
+releaseVersion = "0.21"
 
 # Get necessary and optional package dependencies
 required, dev = conda2pip(return_lists=True)
 
-# Get package version for citationFile (for dev-builds this might differ from
-# test-PyPI versions, which are ordered by recency)
-version = get_version(root='.', relative_to=__file__, local_scheme="no-local-version")
-
-# Release versions (commits at tag) have suffix "dev0": use `releaseVersion` as
-# fixed version. for TestPyPI uploads, keep the local `tag.devx` scheme
-if version.split(".dev")[-1] == "0":
-    versionKws = {"use_scm_version" : False, "version" : releaseVersion}
+# If code has not been obtained via `git` or we're inside the master branch,
+# use the hard-coded `releaseVersion` as version. Otherwise keep the local `tag.devx`
+# scheme for TestPyPI uploads
+proc = subprocess.run("git branch --show-current", shell=True, capture_output=True, text=True)
+if proc.returncode !=0 or proc.stdout.strip() == "master":
+    version = releaseVersion
+    versionKws = {"use_scm_version" : False, "version" : version}
 else:
+    version = get_version(root='.', relative_to=__file__, local_scheme="no-local-version")
     versionKws = {"use_scm_version" : {"local_scheme": "no-local-version"}}
 
 # Update citation file

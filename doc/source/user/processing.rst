@@ -70,35 +70,3 @@ cluster. All subsequent invocations of Syncopy analysis routines will automatica
 pick up ``spyClient`` and distribute any occurring computational payload across 
 the workers collected in ``spyClient``. 
 
-Visualization
--------------
-Syncopy offers convenience functions for quick visual inspection of its data objects:
-
-.. code-block:: python
-
-    import matplotlib.pyplot as plt
-    plt.ion() # enable "pop-out" figures
-
-    # generate synthetic data
-    from syncopy.tests.misc import generate_artificial_data
-    adata = generate_artificial_data(nChannels=12)
-
-    # plot each channel in `adata` inside one panel
-    spy.singlepanelplot(adata, avg_channels=False)
-
-    # compute dummy spectrum of `adata` and have a look at it
-    spec = spy.freqanalysis(adata, method="mtmfft", output="pow", keeptrials=False)
-    spy.singlepanelplot(spec)
-
-.. image:: ../_static/adata.png
-    :width: 370px
-    :alt: adata
-    :align: left
-
-.. image:: ../_static/spec.png
-    :width: 370px
-    :alt: spec
-    :align: right
-
-For more information, please refer to the documentation of :func:`~syncopy.singlepanelplot`
-and :func:`~syncopy.multipanelplot`.

@@ -7,6 +7,10 @@
 import numpy as np
 from scipy import signal
 
+# local imports
+from .stft import stft
+from ._norm_spec import _norm_taper
+
 
 def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
               taper_opt={}, boundary='zeros', padded=True, detrend=False):
@@ -37,10 +41,10 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
         `'Kmax'` and `'NW'`.
         For further details, please refer to the
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
-    boundary : bool
+    boundary : str or None
         Wether or not to auto-pad the signal such that a window is centered on each
-        sample. If set to `False` half the window size (`nperseg`) will be lost
-        on each side of the signal.
+        sample. If set to `None` half the window size (`nperseg`) will be lost
+        on each side of the signal. Defaults `'zeros'`, for zero padding extension.
     padded : bool
         Additional padding in case ``noverlap != nperseg - 1`` to fit an integer number
         of windows.
@@ -60,8 +64,10 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
 
     ``Sxx = np.real(ftr * ftr.conj()).mean(axis=0)``
 
-    The short time FFT result is normalized such that
-    this yields the squared harmonic amplitudes.
+    The STFT result is normalized such that this yields the power
+    spectral density. For a clean harmonic and a frequency bin
+    width of `dF` this will give a peak power of `A**2 / 2 * dF`,
+    with `A` as harmonic ampltiude.
     """
 
     # attach dummy channel axis in case only a
@@ -75,22 +81,26 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
     # FFT frequencies from the window size
     freqs = np.fft.rfftfreq(nperseg, 1 / samplerate)
     nFreq = freqs.size
+    # frequency bins
+    dFreq = freqs[1] - freqs[0]
 
-    taper_func = getattr(signal.windows,  taper)
+    if taper is None:
+        taper = 'boxcar'
+
+    taper_func = getattr(signal.windows, taper)
 
     # this parameter mitigates the sum-to-zero problem for the odd slepians
     # as signal.stft has hardcoded scaling='spectrum'
     # -> normalizes with win.sum() :/
     # see also https://github.com/scipy/scipy/issues/14740
     if taper == 'dpss':
-        taper_opt['sym']  = False
+        taper_opt['sym'] = False
 
     # only truly 2d for multi-taper "dpss"
     windows = np.atleast_2d(taper_func(nperseg, **taper_opt))
 
-    # Slepian normalization
-    if taper == 'dpss':
-        windows = windows * np.sqrt(taper_opt.get('Kmax', 1)) / np.sqrt(nperseg)
+    # normalize window(s)
+    windows = _norm_taper(taper, windows, nperseg)
 
     # number of time points in the output
     if boundary is None:
@@ -105,16 +115,12 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
     ftr = np.zeros((nTime, windows.shape[0], nFreq, nChannels), dtype='complex64')
 
     for taperIdx, win in enumerate(windows):
-        # pxx has shape (nFreq, nChannels, nTime)
-        _, _, pxx = signal.stft(data_arr, samplerate, win,
-                                nperseg, noverlap, boundary=boundary,
-                                padded=padded, axis=0, detrend=detrend)
+        # ftr has shape (nFreq, nChannels, nTime)
+        pxx, _, _ = stft(data_arr, samplerate, window=win,
+                         nperseg=nperseg, noverlap=noverlap,
+                         boundary=boundary, padded=padded,
+                         axis=0, detrend=detrend)
 
-        if taper == 'dpss':
-            # reverse scipy window normalization
-            pxx = win.sum() * pxx
-
-        # normalization for half the spectrum/power
-        ftr[:, taperIdx, ...] =  2 * pxx.transpose(2, 0, 1)[:nTime, ...]
+        ftr[:, taperIdx, ...] = pxx.transpose(2, 0, 1)[:nTime, ...]
 
     return ftr, freqs

@@ -59,6 +59,13 @@ try:
 except ImportError:
     __plt__ = False
 
+# See if NWB is available
+try:
+    import pynwb
+    __nwb__ = True
+except ImportError:
+    __nwb__ = False
+
 # Set package-wide temp directory
 csHome = "/cs/home/{}".format(getpass.getuser())
 if os.environ.get("SPYTMPDIR"):
@@ -95,6 +102,7 @@ from .specest import *
 from .nwanalysis import *
 from .statistics import *
 from .plotting import *
+from .preproc import *
 
 # Register session
 __session__ = datatype.base_data.SessionLogger()
@@ -119,3 +127,4 @@ __all__.extend(specest.__all__)
 __all__.extend(nwanalysis.__all__)
 __all__.extend(statistics.__all__)
 __all__.extend(plotting.__all__)
+__all__.extend(preproc.__all__)
