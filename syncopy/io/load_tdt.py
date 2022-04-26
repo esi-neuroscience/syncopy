@@ -3,7 +3,7 @@
 # @Author: Diljit Singh Kajal
 # @Date:   2022-04-08 15:00:00
 #
-# load_tdt.py Merge separate TDT SEV files into one HDF5 file Trying
+# load_tdt.py Merge separate TDT SEV files into one HDF5 file
 
 import os
 from datetime import datetime
