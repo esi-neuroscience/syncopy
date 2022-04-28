@@ -146,6 +146,13 @@ class DiscreteData(BaseData, ABC):
         self._samplerate = sr
 
     @property
+    def time(self):
+        """list(float): trigger-relative time of each event """
+        if self.samplerate is not None and self.sampleinfo is not None:
+            return [(trl[:,self.dimord.index("sample")] - self.sampleinfo[tk,0] + self._t0[tk]) / self.samplerate \
+                    for tk, trl in enumerate(self.trials)]
+
+    @property
     def trialid(self):
         """:class:`numpy.ndarray` of trial id associated with the sample"""
         return self._trialid
@@ -182,8 +189,9 @@ class DiscreteData(BaseData, ABC):
     def trialtime(self):
         """list(:class:`numpy.ndarray`): trigger-relative sample times in s"""
         if self.samplerate is not None and self.sampleinfo is not None:
-            return [(np.arange(0, stop - start) + self._t0[tk]) / self.samplerate \
-                    for tk, (start, stop) in enumerate(self.sampleinfo)]
+            sample0 = self.sampleinfo[:,0] + self._t0[:]
+            sample0 = np.append(sample0, np.nan)[self.trialid]
+            return (self.data[:,self.dimord.index("sample")] - sample0)/self.samplerate
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
@@ -229,7 +237,7 @@ class DiscreteData(BaseData, ABC):
         return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
 
     # Helper function that extracts by-trial timing-related indices
-    def _get_time(self, trials, toi=None, toilim=None):
+    def _get_time(self, trials, toilim=None, toi=None):
         """
         Get relative by-trial indices of time-selections
 
@@ -237,16 +245,16 @@ class DiscreteData(BaseData, ABC):
         ----------
         trials : list
             List of trial-indices to perform selection on
-        toi : None or list
-            Time-points to be selected (in seconds) on a by-trial scale.
         toilim : None or list
             Time-window to be selected (in seconds) on a by-trial scale
+        toi : None
+            Should always be none for DiscreteData
 
         Returns
         -------
         timing : list of lists
             List of by-trial sample-indices corresponding to provided
-            time-selection. If both `toi` and `toilim` are `None`, `timing`
+            time-selection. If `toilim` is `None`, `timing`
             is a list of universal (i.e., ``slice(None)``) selectors.
 
         Notes
@@ -265,41 +273,13 @@ class DiscreteData(BaseData, ABC):
         if toilim is not None:
             allTrials = self.trialtime
             for trlno in trials:
-                thisTrial = self.data[self.trialid == trlno, self.dimord.index("sample")]
-                trlSample = np.arange(*self.sampleinfo[trlno, :])
-                trlTime = allTrials[trlno]
-                minSample = trlSample[np.where(trlTime >= toilim[0])[0][0]]
-                maxSample = trlSample[np.where(trlTime <= toilim[1])[0][-1]]
-                selSample, _ = best_match(trlSample, [minSample, maxSample], span=True)
-                idxList = []
-                for smp in selSample:
-                    idxList += list(np.where(thisTrial == smp)[0])
-                if len(idxList) > 1:
-                    sampSteps = np.diff(idxList)
-                    if sampSteps.min() == sampSteps.max() == 1:
-                        idxList = slice(idxList[0], idxList[-1] + 1, 1)
-                timing.append(idxList)
-
-        elif toi is not None:
-            allTrials = self.trialtime
-            for trlno in trials:
-                thisTrial = self.data[self.trialid == trlno, self.dimord.index("sample")]
-                trlSample = np.arange(*self.sampleinfo[trlno, :])
-                trlTime = allTrials[trlno]
-                _, selSample = best_match(trlTime, toi)
-                for k, idx in enumerate(selSample):
-                    if np.abs(trlTime[idx - 1] - toi[k]) < np.abs(trlTime[idx] - toi[k]):
-                        selSample[k] = trlSample[idx -1]
-                    else:
-                        selSample[k] = trlSample[idx]
-                idxList = []
-                for smp in selSample:
-                    idxList += list(np.where(thisTrial == smp)[0])
-                if len(idxList) > 1:
-                    sampSteps = np.diff(idxList)
-                    if sampSteps.min() == sampSteps.max() == 1:
-                        idxList = slice(idxList[0], idxList[-1] + 1, 1)
-                timing.append(idxList)
+                trlTime = allTrials[self.trialid == trlno]
+                _, selTime = best_match(trlTime, toilim, span=True)
+                selTime = selTime.tolist()
+                if len(selTime) > 1:
+                    timing.append(slice(selTime[0], selTime[-1] + 1, 1))
+                else:
+                    timing.append(selTime)
 
         else:
             timing = [slice(None)] * len(trials)
