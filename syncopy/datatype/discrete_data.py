@@ -608,6 +608,15 @@ class EventData(DiscreteData):
         :func:`syncopy.definetrial`
 
         """
+        if dimord is not None:
+            # ensure that event data can have extra dimord columns
+            if data.shape[1] != len(self._defaultDimord):
+                for col in self._defaultDimord:
+                    if col not in dimord:
+                        base = "dimensional label {}"
+                        lgl = base.format("'" + col + "'")
+                        raise SPYValueError(legal=lgl, varname="dimord")
+                self._defaultDimord = dimord
 
         # Call parent initializer
         super().__init__(data=data,
