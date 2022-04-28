@@ -171,10 +171,6 @@ class TestSpikeData():
             range(5, 8),  # narrow range
             slice(-5, None)  # negative-start slice
             ]
-        toiSelections = [
-            "all",  # non-type-conform string
-            [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
-            ]
         toilimSelections = [
             [0.5, 3.5],  # regular range
             [1.0, np.inf]  # unbounded from above
@@ -185,8 +181,7 @@ class TestSpikeData():
             range(1, 4),  # narrow range
             slice(-2, None)  # negative-start slice
             ]
-        timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
-            + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
+        timeSelections = list(zip(["toilim"] * len(toilimSelections), toilimSelections))
 
         # Randomly pick one selection unless tests are run with `--full`
         if fulltests:
@@ -513,16 +508,11 @@ class TestEventData():
             range(0, 2),  # narrow range
             slice(-2, None)  # negative-start slice
             ]
-        toiSelections = [
-            "all",  # non-type-conform string
-            [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
-            ]
         toilimSelections = [
             [0.5, 3.5],  # regular range
             [0.0, np.inf]  # unbounded from above
             ]
-        timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
-            + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
+        timeSelections = list(zip(["toilim"] * len(toilimSelections), toilimSelections))
 
         # Randomly pick one selection unless tests are run with `--full`
         if fulltests:
