@@ -237,7 +237,7 @@ class DiscreteData(BaseData, ABC):
         return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
 
     # Helper function that extracts by-trial timing-related indices
-    def _get_time(self, trials, toilim=None, toi=None):
+    def _get_time(self, trials, toi=None, toilim=None):
         """
         Get relative by-trial indices of time-selections
 
@@ -245,16 +245,16 @@ class DiscreteData(BaseData, ABC):
         ----------
         trials : list
             List of trial-indices to perform selection on
+        toi : None or list
+            Time-points to be selected (in seconds) on a by-trial scale.
         toilim : None or list
             Time-window to be selected (in seconds) on a by-trial scale
-        toi : None
-            Should always be none for DiscreteData
 
         Returns
         -------
         timing : list of lists
             List of by-trial sample-indices corresponding to provided
-            time-selection. If `toilim` is `None`, `timing`
+            time-selection. If both `toi` and `toilim` are `None`, `timing`
             is a list of universal (i.e., ``slice(None)``) selectors.
 
         Notes
@@ -280,6 +280,18 @@ class DiscreteData(BaseData, ABC):
                     timing.append(slice(selTime[0], selTime[-1] + 1, 1))
                 else:
                     timing.append(selTime)
+
+        elif toi is not None:
+            allTrials = self.trialtime
+            for trlno in trials:
+                trlTime = allTrials[self.trialid == trlno]
+                _, selTime = best_match(trlTime, toi)
+                selTime = selTime.tolist()
+                if len(selTime) > 1:
+                    timeSteps = np.diff(selTime)
+                    if timeSteps.min() == timeSteps.max() == 1:
+                        selTime = slice(selTime[0], selTime[-1] + 1, 1)
+                timing.append(selTime)
 
         else:
             timing = [slice(None)] * len(trials)

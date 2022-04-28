@@ -1500,11 +1500,6 @@ class Selector():
         if self._dataClass == "CrossSpectralData":
             self._dimProps.remove("channel")
 
-        # DiscreteData cannot be selected by toi
-        if self._dataClass in ["EventData","SpikeData"]:
-            if select.get("toi") is not None:
-                raise(ValueError("toi cannot be used to select %s"%(self._dataClass)))
-
         # Assign defaults (trials are not a "real" property, handle it separately,
         # same goes for `trialdefinition`)
         self._trials = None
