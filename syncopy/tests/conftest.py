@@ -4,10 +4,8 @@
 #
 
 # Builtin/3rd party package imports
-import os
-import importlib
+import sys
 import pytest
-import syncopy
 from syncopy import __acme__
 import syncopy.tests.test_packagesetup as setupTestModule
 
@@ -17,13 +15,14 @@ import syncopy.tests.test_packagesetup as setupTestModule
 # skipped anyway)
 if __acme__:
     import dask.distributed as dd
-    import resource
     from acme.dask_helpers import esi_cluster_setup
     from syncopy.tests.misc import is_slurm_node
-    if max(resource.getrlimit(resource.RLIMIT_NOFILE)) < 1024:
-        msg = "Not enough open file descriptors allowed. Consider increasing " +\
-            "the limit using, e.g., `ulimit -Sn 1024`"
-        raise ValueError(msg)
+    if sys.platform != "win32":
+        import resource
+        if max(resource.getrlimit(resource.RLIMIT_NOFILE)) < 1024:
+            msg = "Not enough open file descriptors allowed. Consider increasing " +\
+                "the limit using, e.g., `ulimit -Sn 1024`"
+            raise ValueError(msg)
     if is_slurm_node():
         cluster = esi_cluster_setup(partition="8GB", n_jobs=10,
                                     timeout=360, interactive=False,
