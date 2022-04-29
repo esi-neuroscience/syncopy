@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [Unreleased]
+### NEW
+
+### CHANGED
+
+### REMOVED
+
+### DEPRECATED
+- Removed support for calling `freqanalysis` with a `toi` array as well as an
+  input dataset that has an active in-place time-selection attached
+
+### FIXED
+- Improved legibility of `spy.__version__` for non-release installations
+- Correctly process equidistant `toi` arrays with large spacing in `freqanalysis`
+
 ## [v0.21] - 2022-04-13
 Feature update and bugfixes.
 
