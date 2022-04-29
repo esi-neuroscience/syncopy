@@ -603,6 +603,11 @@ def freqanalysis(data, method='mtmfft', output='pow',
             padEnd = halfWin - offEnd
             padEnd = ((padEnd > 0) * padEnd).astype(np.intp)
 
+            # Treat equi-distant `toi` arrays with spacing large enough that windows
+            # do not overlap as if they were not equidistant
+            if tSteps.max() * data.samplerate > halfWin and equidistant:
+                equidistant = False
+
             # Compute sample-indices (one slice/list per trial) from time-selections
             soi = []
             if equidistant:
