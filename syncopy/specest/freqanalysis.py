@@ -312,6 +312,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # If only a subset of `data` is to be processed, make some necessary adjustments
     # of the sampleinfo and trial lengths
     if data.selection is not None:
+        # Refuse to go ahead with active time selection and provided `toi` on top`
+        if any(tsel != slice(None) for tsel in data.selection.time) and isinstance(toi, (np.ndarray, list)):
+            lgl = "no `toi` specification due to active in-place time-selection in input dataset"
+            raise SPYValueError(legal=lgl, varname="toi", actual=toi)
         sinfo = data.selection.trialdefinition[:, :2]
         trialList = data.selection.trials
     else:
