@@ -610,7 +610,7 @@ class EventData(DiscreteData):
         """
         if dimord is not None:
             # ensure that event data can have extra dimord columns
-            if data.shape[1] != len(self._defaultDimord):
+            if len(dimord) != len(self._defaultDimord):
                 for col in self._defaultDimord:
                     if col not in dimord:
                         base = "dimensional label {}"
