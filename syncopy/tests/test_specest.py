@@ -508,6 +508,11 @@ class TestMTMConvol():
         for select in self.dataSelections:
             if fulltests:
                 cfg.select = select
+                if select is not None and "toilim" in cfg.select.keys():
+                    with pytest.raises(SPYValueError) as err:
+                        freqanalysis(cfg, self.tfData)
+                        assert "expected no `toi` specification due to active in-place time-selection" in str(err)
+                    continue
                 for key, value in outputDict.items():
                     cfg.output = key
                     tfSpec = freqanalysis(cfg, self.tfData)
@@ -698,17 +703,18 @@ class TestMTMConvol():
                     assert np.allclose(timeArr, tfSpec.time[0])
 
             # Test window-centroids specified as time-point arrays
-            cfg.t_ftimwin = 0.05
-            for toi in toiArrs:
-                cfg.toi = toi
-                tfSpec = freqanalysis(cfg, self.tfData)
-                assert np.allclose(cfg.toi, tfSpec.time[0])
-                assert tfSpec.samplerate == 1/(toi[1] - toi[0])
+            if select is not None and "toilim" not in select.keys():
+                cfg.t_ftimwin = 0.05
+                for toi in toiArrs:
+                    cfg.toi = toi
+                    tfSpec = freqanalysis(cfg, self.tfData)
+                    assert np.allclose(cfg.toi, tfSpec.time[0])
+                    assert tfSpec.samplerate == 1/(toi[1] - toi[0])
 
-            # Unevenly sampled array: timing currently in lala-land, but sizes must match
-            cfg.toi = [-1, 2, 6]
-            tfSpec = freqanalysis(cfg, self.tfData)
-            assert tfSpec.time[0].size == len(cfg.toi)
+                # Unevenly sampled array: timing currently in lala-land, but sizes must match
+                cfg.toi = [-1, 2, 6]
+                tfSpec = freqanalysis(cfg, self.tfData)
+                assert tfSpec.time[0].size == len(cfg.toi)
 
         # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
         # to not overflow memory here); same for ``toi = 1.0```
@@ -965,6 +971,7 @@ class TestWavelet():
             timeArr = np.arange(self.tfData.time[0][0], self.tfData.time[0][-1])
             if select:
                 if "toilim" in select.keys():
+                    continue
                     timeArr = np.arange(*select["toilim"])
                     timeStart = int(select['toilim'][0] * self.tfData.samplerate - self.tfData._t0[0])
                     timeStop = int(select['toilim'][1] * self.tfData.samplerate - self.tfData._t0[0])
@@ -1065,18 +1072,16 @@ class TestWavelet():
         toiArrs = [np.arange(-2,7),
                    np.arange(-1, 6, 1/self.tfData.samplerate),
                    np.arange(1, 6, 2)]
-        # toiArrs = [np.arange(-10, 15.1),
-        #            np.arange(-15, -10, 1/self.tfData.samplerate),
-        #            np.arange(1, 20, 2)]
 
         # Combine `toi`-testing w/in-place data-pre-selection
         for select in self.dataSelections:
-            cfg.select = select
-            for toi in toiArrs:
-                cfg.toi = toi
-                tfSpec = freqanalysis(cfg, self.tfData)
-                assert np.allclose(cfg.toi, tfSpec.time[0])
-                assert tfSpec.samplerate == 1/(toi[1] - toi[0])
+            if select is not None and "toilim" not in select.keys():
+                cfg.select = select
+                for toi in toiArrs:
+                    cfg.toi = toi
+                    tfSpec = freqanalysis(cfg, self.tfData)
+                    assert np.allclose(cfg.toi, tfSpec.time[0])
+                    assert tfSpec.samplerate == 1/(toi[1] - toi[0])
 
         # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
         # to not overflow memory here)
@@ -1271,6 +1276,10 @@ class TestSuperlet():
                 timeSelection = np.where(self.fader == 1.0)[0]
             cfg.toi = timeArr
 
+            # Skip below tests if `toi` and an in-place time-selection clash
+            if select is not None and "toilim" in select.keys():
+                continue
+
             # Compute TF objects w\w/o`foi`/`foilim`
             cfg.select = select
             cfg.foi = maxFreqs
@@ -1287,7 +1296,7 @@ class TestSuperlet():
                 assert tfSpec.freq.max() == (self.tfData.samplerate / 2)
                 assert tfSpec.freq.size > 50
 
-            for tk in tfSpecFoi.trials:
+            for tk, _ in enumerate(tfSpecFoi.trials):
 
                 # Get reference trial-number in input object
                 trlNo = tk
@@ -1361,12 +1370,13 @@ class TestSuperlet():
 
         # Combine `toi`-testing w/in-place data-pre-selection
         for select in self.dataSelections:
-            cfg.select = select
-            for toi in toiArrs:
-                cfg.toi = toi
-                tfSpec = freqanalysis(cfg, self.tfData)
-                assert np.allclose(cfg.toi, tfSpec.time[0])
-                assert tfSpec.samplerate == 1/(toi[1] - toi[0])
+            if select is not None and "toilim" not in select.keys():
+                cfg.select = select
+                for toi in toiArrs:
+                    cfg.toi = toi
+                    tfSpec = freqanalysis(cfg, self.tfData)
+                    assert np.allclose(cfg.toi, tfSpec.time[0])
+                    assert tfSpec.samplerate == 1/(toi[1] - toi[0])
 
         # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
         # to not overflow memory here)
