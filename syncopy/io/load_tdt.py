@@ -639,12 +639,12 @@ class ESI_TDTdata():
         Data.cfg["stop_date"] = str(DataInfo_loaded.info.stop_date)
         Data.cfg["utc_stop_time"] = DataInfo_loaded.info.utc_stop_time
         Data.cfg["duration"] = str(DataInfo_loaded.info.duration)        
-        Data.cfg["PDio_onset"] = h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['PDio_onset'][:]
-        Data.cfg["PDio_offset"] = h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['PDio_offset'][:]
-        Data.cfg["PDio_data"] = h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['PDio_data'][:]
-        Data.cfg["Trigger_timestamp"] = h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['Trigger_timestamp'][:]
-        Data.cfg["Trigger_timestamp_sample"] = h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['Trigger_timestamp_sample'][:]
-        Data.cfg["Trigger_code"] = h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['Trigger_code'][:]        
+        Data.cfg["PDio_onset"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['PDio_onset'][:,0])
+        Data.cfg["PDio_offset"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['PDio_offset'][:,0])
+        Data.cfg["PDio_data"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['PDio_data'][:,0])
+        Data.cfg["Trigger_timestamp"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['Trigger_timestamp'][:,0])
+        Data.cfg["Trigger_timestamp_sample"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['Trigger_timestamp_sample'][:,0])
+        Data.cfg["Trigger_code"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['Trigger_code'][:,0])
         
         if self.export:
             Data.save(container = os.path.join(self.outputdir, self.combined_data_filename), overwrite = True)
