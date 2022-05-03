@@ -189,7 +189,7 @@ class DiscreteData(BaseData, ABC):
     def trialtime(self):
         """list(:class:`numpy.ndarray`): trigger-relative sample times in s"""
         if self.samplerate is not None and self.sampleinfo is not None:
-            sample0 = self.sampleinfo[:,0] + self._t0[:]
+            sample0 = self.sampleinfo[:,0] - self._t0[:]
             sample0 = np.append(sample0, np.nan)[self.trialid]
             return (self.data[:,self.dimord.index("sample")] - sample0)/self.samplerate
 
@@ -276,7 +276,7 @@ class DiscreteData(BaseData, ABC):
                 trlTime = allTrials[self.trialid == trlno]
                 _, selTime = best_match(trlTime, toilim, span=True)
                 selTime = selTime.tolist()
-                if len(selTime) > 1:
+                if len(selTime) > 1 and np.diff(trlTime).min() > 0:
                     timing.append(slice(selTime[0], selTime[-1] + 1, 1))
                 else:
                     timing.append(selTime)
@@ -285,8 +285,14 @@ class DiscreteData(BaseData, ABC):
             allTrials = self.trialtime
             for trlno in trials:
                 trlTime = allTrials[self.trialid == trlno]
-                _, selTime = best_match(trlTime, toi)
-                selTime = selTime.tolist()
+                _, arrayIdx = best_match(trlTime, toi)
+                # squash duplicate values then readd
+                _, xdi = np.unique(trlTime[arrayIdx], return_index=True)
+                arrayIdx = arrayIdx[np.sort(xdi)]
+                selTime = []
+                for t in arrayIdx:
+                    selTime += np.where(trlTime[t] == trlTime)[0].tolist()
+                # convert to slice if possible
                 if len(selTime) > 1:
                     timeSteps = np.diff(selTime)
                     if timeSteps.min() == timeSteps.max() == 1:
