@@ -670,6 +670,7 @@ class TestSelector():
             discrete = getattr(spd, dclass)(data=self.data[dclass],
                                             trialdefinition=self.trl[dclass],
                                             samplerate=self.samplerate)
+            discrIdx = [slice(None)] * len(discrete.dimord)
             for tselect in ["toi", "toilim"]:
                 for timeSel in selDict[tselect]:
                     sel = Selector(discrete, {tselect: timeSel}).time
