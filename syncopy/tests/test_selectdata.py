@@ -665,27 +665,19 @@ class TestSelector():
                               [1.0, np.inf],  # unbounded from above
                               [-np.inf, 1.0])}  # unbounded from below
 
-        # all trials have same time-scale for both `EventData` and `SpikeData`: take 1st one as reference
-        # trlTime = (np.arange(0, self.trl["SpikeData"][0, 1] - self.trl["SpikeData"][0, 0])
-        #                 + self.trl["SpikeData"][0, 2]) / self.samplerate
-
         # the below method of extracting spikes satisfying `toi`/`toilim` only works w/equidistant trials!
         for dclass in ["SpikeData", "EventData"]:
             discrete = getattr(spd, dclass)(data=self.data[dclass],
                                             trialdefinition=self.trl[dclass],
                                             samplerate=self.samplerate)
-            discrIdx = [slice(None)] * len(discrete.dimord)
-            #timeIdx = discrete.dimord.index("time")
             for tselect in ["toi", "toilim"]:
                 for timeSel in selDict[tselect]:
-                    print({tselect: timeSel})
                     sel = Selector(discrete, {tselect: timeSel}).time
                     result = []
 
                     # compute sel by hand
                     for trlno in range(len(discrete.trials)):
                         trlTime = discrete.time[trlno]
-                        print('Test time', trlTime)
                         if timeSel is None or timeSel == "all":
                             idx = np.arange(trlTime.size).tolist()
                         else:
@@ -707,8 +699,6 @@ class TestSelector():
                                                     np.where(trlTime <= timeSel[1])[0]).tolist()
 
                         # check that correct data was selected
-                        print('Test idx', idx)
-                        print('My idx', sel[trlno])
                         assert np.array_equal(discrete.trials[trlno][idx, :],
                                             discrete.trials[trlno][sel[trlno], :])
                         if not isinstance(idx, slice) and len(idx) > 1:
@@ -723,57 +713,9 @@ class TestSelector():
                     # perform actual data-selection and ensure identity of results
                     selected = selectdata(discrete, {tselect: timeSel})
                     for trialno in range(len(discrete.trials)):
-                        #discrIdx[timeIdx] = result[trialno]
                         assert np.array_equal(selected.trials[trialno],
-                                            discrete.trials[trialno][result[trialno],:])#[tuple(discrIdx)])
-
-                # for timeSel in selDict[tselect]:
-                    # if isinstance(timeSel, list):
-                    #     smpIdx = []
-                    #     for tp in timeSel:
-                    #         if np.isfinite(tp):
-                    #             smpIdx.append(np.abs(np.array(trlTime) - tp).argmin())
-                    #         else:
-                    #             smpIdx.append(tp)
-                    # result = []
-                    # sel = Selector(discrete, {tselect: timeSel}).time
-                    # selected = selectdata(discrete, {tselect: timeSel})
-                    # tk = 0
-                    # for trlno in range(len(discrete.trials)):
-                    #     thisTrial = discrete.trials[trlno][:, 0]
-                    #     if isinstance(timeSel, list):
-                    #         if tselect == "toi":
-                    #             trlRes = []
-                    #             for idx in smpIdx:
-                    #                 trlRes += list(np.where(thisTrial == idx + trlno * self.lenTrial)[0])
-                    #         else:
-                    #             start = smpIdx[0] + trlno * self.lenTrial
-                    #             stop = smpIdx[1] + trlno * self.lenTrial
-                    #             candidates = np.intersect1d(thisTrial[thisTrial >= start],
-                    #                                         thisTrial[thisTrial <= stop])
-                    #             trlRes = []
-                    #             for cand in candidates:
-                    #                 trlRes += list(np.where(thisTrial == cand)[0])
-                    #     else:
-                    #         trlRes = slice(0, thisTrial.size, 1)
-
-                        # ensure that actually selected data is correct
-                        # assert np.array_equal(discrete.trials[trlno][trlRes, :],
-                        #                       discrete.trials[trlno][sel[trlno], :])
-                        # if sel[trlno]:
-                        #     assert np.array_equal(selected.trials[tk],
-                        #                           discrete.trials[trlno][sel[trlno], :])
-                        #     tk += 1
-
-                        # if not isinstance(trlRes, slice) and len(trlRes) > 1:
-                        #     sampSteps = np.diff(trlRes)
-                        #     if sampSteps.min() == sampSteps.max() == 1:
-                        #         trlRes = slice(trlRes[0], trlRes[-1] + 1, 1)
-                        # result.append(trlRes)
-
-                    # check correct format of selector (list -> slice etc.)
-                    # assert result == sel
-
+                                            discrete.trials[trialno][result[trialno],:])
+                        
     def test_spectral_foifoilim(self):
 
         # this selection only works w/the dummy frequency data constructed above!!!
