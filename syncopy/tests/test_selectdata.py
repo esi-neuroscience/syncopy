@@ -330,6 +330,10 @@ class TestSelector():
     data["EventData"][2::3, 1] = 2
     trl["EventData"] = trl["AnalogData"]
 
+    # Append customized columns to EventData dataset
+    data["EventDataDimord"] = np.hstack([data["EventData"], data["EventData"]])
+    trl["EventDataDimord"] = trl["AnalogData"]
+
     # Define data classes to be used in tests below
     classes = ["AnalogData", "SpectralData", "SpikeData", "EventData"]
 
@@ -337,11 +341,15 @@ class TestSelector():
     def test_general(self):
 
         # construct expected results for `DiscreteData` objects defined above
-        mapDict = {"unit": "SpikeData", "eventid": "EventData"}
-        for prop, dclass in mapDict.items():
-            discrete = getattr(spd, dclass)(data=self.data[dclass],
+        mapDict = {"SpikeData" : "unit", "EventData" : "eventid"}
+        for dset in ["SpikeData", "EventData", "EventDataDimord"]:
+            dclass = "".join(dset.partition("Data")[:2])
+            prop = mapDict[dclass]
+            dimord = ["sample", "eventid", "custom1", "custom2"] if dset == "EventDataDimord" else None
+            discrete = getattr(spd, dclass)(data=self.data[dset],
                                             trialdefinition=self.trl[dclass],
-                                            samplerate=self.samplerate)
+                                            samplerate=self.samplerate,
+                                            dimord=dimord)
             propIdx = discrete.dimord.index(prop)
 
             # convert selection from `selectDict` to a usable integer-list
@@ -424,12 +432,15 @@ class TestSelector():
         assert isinstance(ang.show(trials=0, toilim=[0, 1]), np.ndarray)
         assert isinstance(ang.show(trials=[0, 1], toi=[0, 1]), list)
         assert isinstance(ang.show(trials=[0, 1], toilim=[0, 1]), list)
-        
+
         # go through all data-classes defined above
-        for dclass in self.classes:
-            dummy = getattr(spd, dclass)(data=self.data[dclass],
+        for dset in self.data.keys():
+            dclass = "".join(dset.partition("Data")[:2])
+            dimord = ["sample", "eventid", "custom1", "custom2"] if dset == "EventDataDimord" else None
+            dummy = getattr(spd, dclass)(data=self.data[dset],
                                          trialdefinition=self.trl[dclass],
-                                         samplerate=self.samplerate)
+                                         samplerate=self.samplerate,
+                                         dimord=dimord)
 
             # test trial selection
             selection = Selector(dummy, {"trials": [3, 1]})
@@ -657,7 +668,7 @@ class TestSelector():
                            [2.0, 0.5, 2.5],  # unsorted list
                            [1.0, 0.5, 0.5, 1.5],  # repetition
                            [0.5, 0.5, 1.0, 1.5], # preserve repetition, don't convert to slice
-                           [0.5, 1.0, 1.5]),  # sorted list 
+                           [0.5, 1.0, 1.5]),  # sorted list
                    "toilim": (None,  # trivial "selection" of entire contents
                               "all",  # trivial "selection" of entire contents
                               [0.5, 1.5],  # regular range
@@ -666,10 +677,13 @@ class TestSelector():
                               [-np.inf, 1.0])}  # unbounded from below
 
         # the below method of extracting spikes satisfying `toi`/`toilim` only works w/equidistant trials!
-        for dclass in ["SpikeData", "EventData"]:
+        for dset in ["SpikeData", "EventData", "EventDataDimord"]:
+            dclass = "".join(dset.partition("Data")[:2])
+            dimord = ["sample", "eventid", "custom1", "custom2"] if dset == "EventDataDimord" else None
             discrete = getattr(spd, dclass)(data=self.data[dclass],
                                             trialdefinition=self.trl[dclass],
-                                            samplerate=self.samplerate)
+                                            samplerate=self.samplerate,
+                                            dimord=dimord)
             discrIdx = [slice(None)] * len(discrete.dimord)
             for tselect in ["toi", "toilim"]:
                 for timeSel in selDict[tselect]:
@@ -713,10 +727,11 @@ class TestSelector():
 
                     # perform actual data-selection and ensure identity of results
                     selected = selectdata(discrete, {tselect: timeSel})
+                    assert selected.dimord == discrete.dimord
                     for trialno in range(len(discrete.trials)):
                         assert np.array_equal(selected.trials[trialno],
                                             discrete.trials[trialno][result[trialno],:])
-                        
+
     def test_spectral_foifoilim(self):
 
         # this selection only works w/the dummy frequency data constructed above!!!
