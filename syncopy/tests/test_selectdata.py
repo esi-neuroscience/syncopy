@@ -333,6 +333,7 @@ class TestSelector():
     # Append customized columns to EventData dataset
     data["EventDataDimord"] = np.hstack([data["EventData"], data["EventData"]])
     trl["EventDataDimord"] = trl["AnalogData"]
+    customEvtDimord = ["sample", "eventid", "custom1", "custom2"]
 
     # Define data classes to be used in tests below
     classes = ["AnalogData", "SpectralData", "SpikeData", "EventData"]
@@ -345,7 +346,7 @@ class TestSelector():
         for dset in ["SpikeData", "EventData", "EventDataDimord"]:
             dclass = "".join(dset.partition("Data")[:2])
             prop = mapDict[dclass]
-            dimord = ["sample", "eventid", "custom1", "custom2"] if dset == "EventDataDimord" else None
+            dimord = self.customEvtDimord if dset == "EventDataDimord" else None
             discrete = getattr(spd, dclass)(data=self.data[dset],
                                             trialdefinition=self.trl[dclass],
                                             samplerate=self.samplerate,
@@ -436,7 +437,7 @@ class TestSelector():
         # go through all data-classes defined above
         for dset in self.data.keys():
             dclass = "".join(dset.partition("Data")[:2])
-            dimord = ["sample", "eventid", "custom1", "custom2"] if dset == "EventDataDimord" else None
+            dimord = self.customEvtDimord if dset == "EventDataDimord" else None
             dummy = getattr(spd, dclass)(data=self.data[dset],
                                          trialdefinition=self.trl[dclass],
                                          samplerate=self.samplerate,
@@ -679,12 +680,11 @@ class TestSelector():
         # the below method of extracting spikes satisfying `toi`/`toilim` only works w/equidistant trials!
         for dset in ["SpikeData", "EventData", "EventDataDimord"]:
             dclass = "".join(dset.partition("Data")[:2])
-            dimord = ["sample", "eventid", "custom1", "custom2"] if dset == "EventDataDimord" else None
-            discrete = getattr(spd, dclass)(data=self.data[dclass],
+            dimord = self.customEvtDimord if dset == "EventDataDimord" else None
+            discrete = getattr(spd, dclass)(data=self.data[dset],
                                             trialdefinition=self.trl[dclass],
                                             samplerate=self.samplerate,
                                             dimord=dimord)
-            discrIdx = [slice(None)] * len(discrete.dimord)
             for tselect in ["toi", "toilim"]:
                 for timeSel in selDict[tselect]:
                     sel = Selector(discrete, {tselect: timeSel}).time
