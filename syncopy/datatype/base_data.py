@@ -250,10 +250,14 @@ class BaseData(ABC):
                 Number of expected array dimensions.
         """
 
+        # Ensure array has right no. of dimensions
         try:
             array_parser(inData, varname="data", dims=ndim)
         except Exception as exc:
             raise exc
+
+        # Gymnastics for `DiscreteData` objects w/non-standard `dimord`s
+        self._check_dataset_property_discretedata(inData)
 
         # If there is existing data, replace values if shape and type match
         if isinstance(getattr(self, "_" + propertyName), (np.memmap, h5py.Dataset)):
@@ -303,6 +307,7 @@ class BaseData(ABC):
             lgl = "{}-dimensional data".format(ndim)
             act = "{}-dimensional memmap".format(inData.ndim)
             raise SPYValueError(legal=lgl, varname=propertyName, actual=act)
+        self._check_dataset_property_discretedata(inData)
 
         self.mode = inData.mode
         self.filename = inData.filename
@@ -326,13 +331,17 @@ class BaseData(ABC):
             act = "backing HDF5 file is closed"
             raise SPYValueError(legal=lgl, actual=act, varname="data")
 
-        self._mode = inData.file.mode
-        self.filename = inData.file.filename
-
+        # Ensure dataset has right no. of dimensions
         if inData.ndim != ndim:
             lgl = "{}-dimensional data".format(ndim)
             act = "{}-dimensional HDF5 dataset or memmap".format(inData.ndim)
             raise SPYValueError(legal=lgl, varname="data", actual=act)
+
+        # Gymnastics for `DiscreteData` objects w/non-standard `dimord`s
+        self._check_dataset_property_discretedata(inData)
+
+        self._mode = inData.file.mode
+        self.filename = inData.file.filename
 
         setattr(self, "_" + propertyName, inData)
 
@@ -381,7 +390,7 @@ class BaseData(ABC):
             else: # EventData
                 nCol = inData[0].shape[1]
             if any(val.shape[1] != nCol for val in inData):
-                lgl = "NumPy 2d-arrays with 3 columns"
+                lgl = "NumPy 2d-arrays with {} columns".format(nCol)
                 act = "NumPy arrays of different shape"
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             trialLens = [np.nanmax(val[:, self.dimord.index("sample")]) for val in inData]
@@ -414,6 +423,24 @@ class BaseData(ABC):
         data = np.concatenate(inData, axis=self._stackingDim)
         self._set_dataset_property_with_ndarray(data, propertyName, ndim)
         self.trialdefinition = trialdefinition
+
+    def _check_dataset_property_discretedata(self, inData):
+        """Check `DiscreteData` input data for shape consistency
+
+        Parameters
+        ----------
+            inData : array/memmap/h5py.Dataset
+                array-like to be stored as a `DiscreteData` data source
+        """
+
+        # Special case `DiscreteData`: `dimord` encodes no. of expected cols/rows;
+        # ensure this is consistent w/`inData`!
+        if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
+            if len(self._defaultDimord) not in inData.shape:
+                lgl = "array with {} columns corresponding to dimord {}"
+                lgl = lgl.format(len(self._defaultDimord), self._defaultDimord)
+                act = "array with shape {}".format(str(inData.shape))
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
 
     def _is_empty(self):
         return all([getattr(self, attr) is None
