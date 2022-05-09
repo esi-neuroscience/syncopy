@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 ### NEW
+### NEW
+- Added support for flexible columns in `EventData` (thanks to @KatharineShapcott)
 
 ### CHANGED
 
@@ -19,6 +21,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### FIXED
 - Improved legibility of `spy.__version__` for non-release installations
 - Correctly process equidistant `toi` arrays with large spacing in `freqanalysis`
+- Corrected `trialtime` for `DiscreteData` objects (thanks to @KatharineShapcott)
 
 ## [v0.21] - 2022-04-13
 Feature update and bugfixes.
