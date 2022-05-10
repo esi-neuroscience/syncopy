@@ -10,7 +10,7 @@ def _norm_spec(ftr, nSamples, fs, mode='bins'):
 
     """
     Normalizes the complex Fourier transform to
-    power spectral density or dimensionless bin units.
+    power spectral density or 1Hz-bin units.
     """
 
     # frequency bins
@@ -29,16 +29,17 @@ def _norm_taper(taper, windows, nSamples):
     """
     Helper function to normalize tapers such
     that the resulting spectra are normalized
-    to power density units.
+    with respect to the sum of the window. Meaning
+    that the total original (untapered) power gets
+    distributed over the spectral window response.
     """
 
     if taper == 'dpss':
         windows *= np.sqrt(nSamples)
-    # only for padding
-    if taper == 'boxcar':
+    elif taper == 'boxcar':
         windows *= np.sqrt(nSamples / windows.sum())
     # weird 3 point normalization,
-    # checks out (almost) exactly for 'hann' though
+    # checks out exactly for 'hann' though
     else:
         windows *= np.sqrt(4 / 3) * np.sqrt(nSamples / windows.sum())
 
