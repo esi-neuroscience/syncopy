@@ -676,9 +676,6 @@ class TestMTMConvol():
         toiArrs = [np.arange(-2,7),
                    np.arange(-1, 6, 1/self.tfData.samplerate),
                    np.arange(1, 6, 2)]
-        # toiArrs = [np.arange(-10, 15.1),
-        #            np.arange(-15, -10, 1/self.tfData.samplerate),
-        #            np.arange(1, 20, 2)]
         winSizes = [0.5, 1.0]
 
         # Combine `toi`-testing w/in-place data-pre-selection
@@ -1360,9 +1357,6 @@ class TestSuperlet():
         toiArrs = [np.arange(-2,7),
                    np.arange(-1, 6, 1/self.tfData.samplerate),
                    np.arange(1, 6, 2)]
-        # toiArrs = [np.arange(-10, 15.1),
-        #            np.arange(-15, -10, 1/self.tfData.samplerate),
-        #            np.arange(1, 20, 2)]
 
         # Just pick one `toi` at random for quickly running tests
         if not fulltests:
