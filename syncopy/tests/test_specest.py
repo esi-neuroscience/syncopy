@@ -217,7 +217,7 @@ class TestMTMFFT():
         for sk, select in enumerate(self.sigdataSelections):
             sel = Selector(self.adata, select)
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
-                                pad_to_length="nextpow2", output="pow", select=select)
+                                pad="nextpow2", output="pow", select=select)
 
             chanList = np.arange(self.nChannels)[sel.channel]
             amps = np.empty((len(sel.trials) * len(chanList),))
@@ -249,13 +249,13 @@ class TestMTMFFT():
             # offset `foi` by 0.1 Hz - resulting freqs must be unaffected
             ftmp = foi + 0.1
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
-                                pad_to_length="nextpow2", foi=ftmp, select=select)
+                                pad="nextpow2", foi=ftmp, select=select)
             assert np.all(spec.freq == foi)
 
             # unsorted, duplicate entries in `foi` - result must stay the same
             ftmp = np.hstack([foi, np.full(20, foi[0])])
             spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
-                                pad_to_length="nextpow2", foi=ftmp, select=select)
+                                pad="nextpow2", foi=ftmp, select=select)
             assert np.all(spec.freq == foi)
 
     def test_dpss(self):

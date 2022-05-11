@@ -19,30 +19,30 @@ np.random.seed(40203)
 def run_padding_test(method_call, pad_length):
     """
     The callable should test a solution and support
-    a single keyword argument `pad_to_length`
+    a single keyword argument `pad`
     """
 
-    pad_options = [pad_length, 'nextpow2', None]
+    pad_options = [pad_length, 'nextpow2', 'maxperlen']
     for pad in pad_options:
-        method_call(pad_to_length=pad)
+        method_call(pad=pad)
 
     # test invalid pads
     try:
-        method_call(pad_to_length=2)
+        method_call(pad=0.1) # trials should be longer than 0.1 seconds
     except SPYValueError as err:
-        assert 'pad_to_length' in str(err)
+        assert 'pad' in str(err)
         assert 'expected value to be greater' in str(err)
 
     try:
-        method_call(pad_to_length='IamNoPad')
+        method_call(pad='IamNoPad')
     except SPYValueError as err:
-        assert 'Invalid value of `pad_to_length`' in str(err)
+        assert 'Invalid value of `pad`' in str(err)
         assert 'nextpow2' in str(err)
 
     try:
-        method_call(pad_to_length=np.array([1000]))
+        method_call(pad=np.array([1000]))
     except SPYValueError as err:
-        assert 'Invalid value of `pad_to_length`' in str(err)
+        assert 'Invalid value of `pad`' in str(err)
         assert 'nextpow2' in str(err)
 
 

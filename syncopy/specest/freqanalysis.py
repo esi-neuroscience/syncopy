@@ -48,7 +48,7 @@ from .compRoutines import (
 @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='pow',
                  keeptrials=True, foi=None, foilim=None,
-                 pad_to_length=None, polyremoval=None, taper="hann",
+                 pad='maxperlen', polyremoval=None, taper="hann",
                  taper_opt=None, tapsmofrq=None, nTaper=None, keeptapers=False,
                  toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
@@ -79,7 +79,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : number of orthogonal tapers for slepian tapers
         * **keeptapers** : return individual tapers or average
-        * **pad_to_length**: either pad to an absolute length or set to `'nextpow2'`
+        * **pad**: either pad to an absolute length or set to `'nextpow2'`
 
     "mtmconvol" : (Multi-)tapered sliding window Fourier transform
         Perform time-frequency analysis on time-series trial data based on a sliding
@@ -145,15 +145,15 @@ def freqanalysis(data, method='mtmfft', output='pow',
         but may be unbounded (e.g., ``[-np.inf, 60.5]`` is valid). Edges `fmin`
         and `fmax` are included in the selection. If `foilim` is `None` or
         ``foilim = "all"``, all frequencies are selected.
-    pad_to_length : int, None or 'nextpow2'
+    pad : 'maxperlen', float or 'nextpow2'
         Padding of the input data, if set to a number pads all trials
-        to this absolute length. For instance ``pad_to_length = 2000`` pads all
+        to this absolute length in seconds. For instance ``pad=2`` pads all
         trials to an absolute length of 2000 samples, if and only if the longest
-        trial contains at maximum 2000 samples.
-        Alternatively `pad_to_length='nextpow2'` pads all trials to
+        trial contains at maximum 2000 samples and the samplerate is 1kHz.
+        Alternatively `pad='nextpow2'` pads all trials to
         the next power of two of the longest trial.
-        If `None` and trials have unequal lengths all trials are padded to match
-        the longest trial.
+        For the default `'maxperlen'` and trials have unequal lengths all 
+        trials are padded to match the longest trial.
     polyremoval : int or None
         Order of polynomial used for de-trending data in the time domain prior
         to spectral analysis. A value of 0 corresponds to subtracting the mean
@@ -334,18 +334,18 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # --- Padding ---
 
     # Sliding window FFT does not support "fancy" padding
-    if method == "mtmconvol" and isinstance(pad_to_length, str):
+    if method == "mtmconvol" and isinstance(pad, str):
         msg = "method 'mtmconvol' only supports in-place padding for windows " +\
-            "exceeding trial boundaries. Your choice of `pad_to_length = '{}'` will be ignored. "
-        SPYWarning(msg.format(pad_to_length))
+            "exceeding trial boundaries. Your choice of `pad = '{}'` will be ignored. "
+        SPYWarning(msg.format(pad))
 
     if method == 'mtmfft':
         # the actual number of samples in case of later padding
-        minSampleNum = process_padding(pad_to_length, lenTrials)
+        minSampleNum = process_padding(pad, lenTrials, data.samplerate)
     else:
         minSampleNum = lenTrials.min()
 
-    # Compute length (in samples) of shortest trial
+    # Compute length (in seconds) of shortest trial
     minTrialLength = minSampleNum / data.samplerate
 
     # Shortcut to data sampling interval
@@ -367,7 +367,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
                "keeptapers": keeptapers,
                "keeptrials": keeptrials,
                "polyremoval": polyremoval,
-               "pad_to_length": pad_to_length}
+               "pad": pad}
 
     # --------------------------------
     # 1st: Check time-frequency inputs
