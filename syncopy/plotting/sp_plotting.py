@@ -56,7 +56,7 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
     fig, ax = _plotting.mk_line_figax()
 
     _plotting.plot_lines(ax, data_x, data_y, label=labels)
-
+    fig.tight_layout()
 
 def plot_SpectralData(data, **show_kwargs):
 
@@ -100,7 +100,8 @@ def plot_SpectralData(data, **show_kwargs):
         # need freq x time for plotting
         data_yx = data.show(**show_kwargs).T
         _plotting.plot_tfreq(ax, data_yx, time, data.freq)
-        ax.set_title(label, fontsize=pltConfig['sTitleSize'])        
+        ax.set_title(label, fontsize=pltConfig['sTitleSize'])
+        fig.tight_layout()
     # just a line plot
     else:
         # get the data to plot
@@ -114,7 +115,7 @@ def plot_SpectralData(data, **show_kwargs):
                                           ylabel='power (dB)')
 
         _plotting.plot_lines(ax, data_x, data_y, label=labels)
-
+        fig.tight_layout()
 
 def plot_CrossSpectralData(data, **show_kwargs):
     """
@@ -141,26 +142,41 @@ def plot_CrossSpectralData(data, **show_kwargs):
 
     # what channel combination
     if 'channel_i' not in show_kwargs or 'channel_j' not in show_kwargs:
-        SPYWarning("Please select a channel combination for plotting!")
+        SPYWarning("Please select a channel combination `channel_i` and `channel_j` for plotting!")
         return
     chi, chj = show_kwargs['channel_i'], show_kwargs['channel_j']
+    # parse labels
+    if isinstance(chi, str):
+        chi_label = chi
+    # must be int
+    else:
+        chi_label = f"channel{chi}"
+    # parse labels
+    if isinstance(chi, int):
+        chi_label = f"channel{chi + 1}"
+    else:
+        chi_label = chi
+    if isinstance(chj, int):
+        chj_label = f"channel{chj + 1}"
+    else:
+        chj_label = chj
 
     # what data do we have?
     method = plot_helpers.get_method(data)
     if method == 'granger':
         xlabel = 'frequency (Hz)'
         ylabel = 'Granger causality'
-        label = rf"channel{chi} $\rightarrow$ channel{chj}"
+        label = rf"{chi_label} $\rightarrow$ {chj_label}"
         data_x = plot_helpers.parse_foi(data, show_kwargs)
     elif method == 'coh':
         xlabel = 'frequency (Hz)'
         ylabel = 'coherence'
-        label = rf"channel{chi} - channel{chj}"
+        label = rf"{chi_label} - {chj_label}"
         data_x = plot_helpers.parse_foi(data, show_kwargs)
     elif method == 'corr':
         xlabel = 'lag'
         ylabel = 'correlation'
-        label = rf"channel{chi} - channel{chj}"
+        label = rf"{chi_label} - {chj_label}"
         data_x = plot_helpers.parse_toi(data, show_kwargs)
     # that's all the methods we got so far
     else:
@@ -170,8 +186,9 @@ def plot_CrossSpectralData(data, **show_kwargs):
     data_y = data.show(**show_kwargs)
 
     # create the axes and figure if needed
-    # persisten axes allows for plotting different
+    # persistent axes allows for plotting different
     # channel combinations into the same figure
-    if not hasattr(data, 'ax'):
-        fig, data.ax = _plotting.mk_line_figax(xlabel, ylabel)
+    if not hasattr(data, 'fig') or not _plotting.ppl.fignum_exists(data.fig.number):
+        data.fig, data.ax = _plotting.mk_line_figax(xlabel, ylabel)
     _plotting.plot_lines(data.ax, data_x, data_y, label=label)
+    data.fig.tight_layout()

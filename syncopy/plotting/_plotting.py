@@ -77,7 +77,7 @@ def plot_lines(ax, data_x, data_y, leg_fontsize=pltConfig['sLegendSize'], **pkwa
     else:
         ax.plot(data_x, data_y, **pkwargs)
     if 'label' in pkwargs:
-        ax.legend(ncol=2, loc='upper right',
+        ax.legend(ncol=2, loc='best', frameon=False,
                   fontsize=leg_fontsize)
         # make room for the legend
         mn, mx = ax.get_ylim()        
