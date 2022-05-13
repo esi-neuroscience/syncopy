@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2022.05] - 2022-05-13
 Bugfixes and features additions for `EventData` objects.
 
 ### NEW
@@ -18,8 +18,6 @@ Bugfixes and features additions for `EventData` objects.
 - Aligned padding API to FieldTrip in both `freqanalysis` and `connectivityanalysis`:
   use `pad` instead of `pad_to_length` with three supported modes ('maxperlen',
   float, 'nextpow2').
-
-### REMOVED
 
 ### DEPRECATED
 - Removed support for calling `freqanalysis` with a `toi` array as well as an
