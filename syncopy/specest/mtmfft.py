@@ -31,7 +31,7 @@ def mtmfft(data_arr,
         Samplerate in Hz
     nSamples : int or None
         Absolute length of the (potentially to be padded) signals
-        or `None` for no padding (`N` is the number of samples)
+        or `None` for no padding.
     taper : str or None
         Taper function to use, one of `scipy.signal.windows`
         Set to `None` for no tapering.
@@ -58,10 +58,9 @@ def mtmfft(data_arr,
 
     ``Sxx = np.real(ftr * ftr.conj()).mean(axis=0)``
 
-    The FFT result is normalized such that this yields the power
-    spectral density. For a clean harmonic and a Fourier frequency bin
-    width of `dF` this will give a peak power of `A**2 / 2 * dF`,
-    with `A` as harmonic ampltiude.
+    The FFT result is normalized such that this yields the
+    spectral power. For a clean harmonic this will give a
+    peak power of `A**2 / 2`, with `A` as harmonic ampltiude.
     """
 
     # attach dummy channel axis in case only a
@@ -69,6 +68,7 @@ def mtmfft(data_arr,
     if data_arr.ndim < 2:
         data_arr = data_arr[:, np.newaxis]
 
+    # raw length without padding
     signal_length = data_arr.shape[0]
     if nSamples is None:
         nSamples = signal_length
@@ -89,7 +89,7 @@ def mtmfft(data_arr,
     # only really 2d if taper='dpss' with Kmax > 1
     # here we take the actual signal lengths!
     windows = np.atleast_2d(taper_func(signal_length, **taper_opt))
-    # normalize window
+    # normalize window with total (after padding) length
     windows = _norm_taper(taper, windows, nSamples)
 
     # Fourier transforms (nTapers x nFreq x nChannels)
@@ -102,6 +102,7 @@ def mtmfft(data_arr,
         if demean_taper:
             win -= win.mean(axis=0)
         ftr[taperIdx] = np.fft.rfft(win, n=nSamples, axis=0)
+        # FT uses potentially padded length `nSamples`
         ftr[taperIdx] = _norm_spec(ftr[taperIdx], nSamples, samplerate)
 
     return ftr, freqs
