@@ -13,6 +13,11 @@ Bugfixes and features additions for `EventData` objects.
 ### CHANGED
 - Include specific example how to create an "all-to-all" `trialdefinition` array
   by invoking `definetrial` without arguments in the function's docstring.
+- Modified versioning scheme: use a date-based scheme instead of increasing
+  version numbers
+- Aligned padding API to FieldTrip in both `freqanalysis` and `connectivityanalysis`:
+  use `pad` instead of `pad_to_length` with three supported modes ('maxperlen',
+  float, 'nextpow2').
 
 ### REMOVED
 
