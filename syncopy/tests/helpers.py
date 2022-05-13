@@ -28,7 +28,7 @@ def run_padding_test(method_call, pad_length):
 
     # test invalid pads
     try:
-        method_call(pad=0.1) # trials should be longer than 0.1 seconds
+        method_call(pad=-0.1) # trials should be longer than 0.1 seconds
     except SPYValueError as err:
         assert 'pad' in str(err)
         assert 'expected value to be greater' in str(err)
