@@ -19,61 +19,67 @@ from syncopy.shared.const_def import availableTapers, generalParameters, availab
 from syncopy.datatype.methods.padding import _nextpow2
 
 
-def process_padding(pad_to_length, lenTrials):
+def process_padding(pad, lenTrials, samplerate):
 
     """
     Simplified padding interface, for all taper based methods
-    padding has to be done **before** tapering!
+    padding has to be done **after** tapering!
+
+    This function returns a number indicating the total
+    length in sample-count of all trials after padding.
 
     Parameters
     ----------
-    pad_to_length : int, None or 'nextpow2'
-        Either an integer indicating the absolute length of
-        the trials after padding or `'nextpow2'` to pad all trials
-        to the nearest power of two. If `None`, no padding is to
-        be performed
+    pad : 'maxperlen', float or 'nextpow2'
+        For the frontend default `maxperlen`, no padding is to
+        be performed in case of equal length trials but unequal lengths
+        trials get padded to the max. trial length.
+        A float indicates the absolute length of
+        all trials after padding in seconds. `'nextpow2'` pads all trials
+        to the nearest power of two.
     lenTrials : sequence of int_like
         Sequence holding all individual trial lengths
+    samplerate : float
+        The sampling rate in Hz
 
     Returns
     -------
     abs_pad : int
-        Absolute length of all trials after padding
+        Absolute length of all trials after padding (in samples)
 
     """
     # supported padding options
     not_valid = False
-    if not isinstance(pad_to_length, (numbers.Number, str, type(None))):
+    if not isinstance(pad, (numbers.Number, str)):
         not_valid = True
-    elif isinstance(pad_to_length, str) and pad_to_length not in availablePaddingOpt:
+    elif isinstance(pad, str) and pad not in availablePaddingOpt:
         not_valid = True
         # bool is an int subclass, have to check for it separately...
-    if isinstance(pad_to_length, bool):
+    if isinstance(pad, bool):
         not_valid = True
     if not_valid:
-        lgl = "`None`, 'nextpow2' or an integer like number"
-        actual = f"{pad_to_length}"
-        raise SPYValueError(legal=lgl, varname="pad_to_length", actual=actual)
+        lgl = "'maxperlen', 'nextpow2' or a float number"
+        actual = f"{pad}"
+        raise SPYValueError(legal=lgl, varname="pad", actual=actual)
 
     # zero padding of ALL trials the same way
-    if isinstance(pad_to_length, numbers.Number):
+    if isinstance(pad, numbers.Number):
 
-        scalar_parser(pad_to_length,
-                      varname='pad_to_length',
-                      ntype='int_like',
-                      lims=[lenTrials.max(), np.inf])
-        abs_pad = pad_to_length
+        scalar_parser(pad,
+                      varname='pad',
+                      lims=[lenTrials.max() / samplerate, np.inf])
+        abs_pad = int(pad * samplerate)
 
     # or pad to optimal FFT lengths
-    elif pad_to_length == 'nextpow2':
+    elif pad == 'nextpow2':
         abs_pad = _nextpow2(int(lenTrials.max()))
 
     # no padding in case of equal length trials
-    elif pad_to_length is None:
+    elif pad == 'maxperlen':
         abs_pad = int(lenTrials.max())
         if lenTrials.min() != lenTrials.max():
             msg = f"Unequal trial lengths present, padding all trials to {abs_pad} samples"
-            SPYWarning(msg)
+            SPYInfo(msg)
 
     # `abs_pad` is now the (soon to be padded) signal length in samples
 
