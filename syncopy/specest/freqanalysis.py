@@ -146,14 +146,14 @@ def freqanalysis(data, method='mtmfft', output='pow',
         and `fmax` are included in the selection. If `foilim` is `None` or
         ``foilim = "all"``, all frequencies are selected.
     pad : 'maxperlen', float or 'nextpow2'
-        Padding of the input data, if set to a number pads all trials
-        to this absolute length in seconds. For instance ``pad=2`` pads all
-        trials to an absolute length of 2000 samples, if and only if the longest
-        trial contains at maximum 2000 samples and the samplerate is 1kHz.
-        Alternatively `pad='nextpow2'` pads all trials to
-        the next power of two of the longest trial.
-        For the default `'maxperlen'` and trials have unequal lengths all 
-        trials are padded to match the longest trial.
+        For the default `maxperlen`, no padding is performed in case of equal
+        length trials, while trials of varying lengths are padded to match the
+        longest trial. If `pad` is a number all trials are padded so that `pad` indicates
+        the absolute length of all trials after padding (in seconds). For instance
+        ``pad = 2`` pads all trials to an absolute length of 2000 samples, if and
+        only if the longest trial contains at maximum 2000 samples and the
+        samplerate is 1kHz. If `pad` is `'nextpow2'` all trials are padded to the
+        nearest power of two (in samples) of the longest trial.
     polyremoval : int or None
         Order of polynomial used for de-trending data in the time domain prior
         to spectral analysis. A value of 0 corresponds to subtracting the mean

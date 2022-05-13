@@ -26,7 +26,7 @@ def process_padding(pad, lenTrials, samplerate):
     padding has to be done **after** tapering!
 
     This function returns a number indicating the total
-    length in #samples of all trials after padding.
+    length in sample-count of all trials after padding.
 
     Parameters
     ----------
@@ -36,7 +36,7 @@ def process_padding(pad, lenTrials, samplerate):
         trials get padded to the max. trial length.
         A float indicates the absolute length of
         all trials after padding in seconds. `'nextpow2'` pads all trials
-        to the nearest power of two. 
+        to the nearest power of two.
     lenTrials : sequence of int_like
         Sequence holding all individual trial lengths
     samplerate : float
@@ -45,7 +45,7 @@ def process_padding(pad, lenTrials, samplerate):
     Returns
     -------
     abs_pad : int
-        Absolute length of all trials after padding in #samples
+        Absolute length of all trials after padding (in samples)
 
     """
     # supported padding options
