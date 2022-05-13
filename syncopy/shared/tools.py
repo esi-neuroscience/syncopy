@@ -147,7 +147,7 @@ def best_match(source, selection, span=False, tol=None, squash_duplicates=False)
                              np.where(source <= selection[1])[0])
     else:
         issorted = True
-        if np.diff(source).min() < 0:
+        if source.size > 1 and np.diff(source).min() < 0:
             issorted = False
             orig = np.array(source, copy=True)
             idx_orig = np.argsort(orig)

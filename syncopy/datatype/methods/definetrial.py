@@ -24,6 +24,9 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                     start    trigger    stop
         |---- pre ----|--------|---------|--- post----|
 
+    **Note**: To define a trial encompassing the whole dataset simply invoke this
+    routine with no arguments, i.e., ``definetrial(obj)`` or equivalently
+    ``obj.definetrial()``
 
     Parameters
     ----------

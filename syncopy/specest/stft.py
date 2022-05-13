@@ -142,7 +142,7 @@ def stft(dat,
     # the complex transforms
     ftr = np.fft.rfft(dat, axis=-1)
 
-    # normalization to squared amplitude density
+    # normalization to power -> squared amplitude / 2
     ftr = _norm_spec(ftr, nperseg, fs)
 
     # Roll frequency axis back to axis where the data came from

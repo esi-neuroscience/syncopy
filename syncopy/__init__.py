@@ -16,7 +16,7 @@ from importlib.metadata import version, PackageNotFoundError
 try:
     __version__ = version("esi-syncopy")
 except PackageNotFoundError:
-    proc = subprocess.Popen("git describe --always",
+    proc = subprocess.Popen("git describe --tags",
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             text=True, shell=True)
     out, err = proc.communicate()

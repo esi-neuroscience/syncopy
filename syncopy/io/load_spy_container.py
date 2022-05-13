@@ -276,19 +276,17 @@ def _load(filename, checksum, mode, out):
                                 actual=hsh_msg.format(hsh=hsh))
 
     # Parsing is done, create new or check provided object
+    dimord = jsonDict.pop("dimord")
     if out is not None:
         try:
             data_parser(out, varname="out", writable=True, dataclass=jsonDict["dataclass"])
         except Exception as exc:
             raise exc
         new_out = False
+        out.dimord = dimord
     else:
-        out = dataclass()
+        out = dataclass(dimord=dimord)
         new_out = True
-
-    # First and foremost, assign dimensional information
-    dimord = jsonDict.pop("dimord")
-    out.dimord = dimord
 
     # Access data on disk (error checking is done by setters)
     out.mode = mode

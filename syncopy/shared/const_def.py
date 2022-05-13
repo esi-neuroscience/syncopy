@@ -26,7 +26,7 @@ all_windows.remove("hanning")  # deprecated
 all_windows.remove("dpss")  # activated via `tapsmofrq`
 
 availableTapers = all_windows
-availablePaddingOpt = [None, 'nextpow2']
+availablePaddingOpt = ['maxperlen', 'nextpow2']
 
 #: general, method agnostic, parameters for our CRs
 generalParameters = ("method", "output", "keeptrials", "samplerate",

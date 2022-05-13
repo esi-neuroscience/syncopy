@@ -13,7 +13,7 @@ sys.path.insert(0, ".")
 from conda2pip import conda2pip
 
 # Set release version by hand for master branch
-releaseVersion = "0.21"
+releaseVersion = "2022.05"
 
 # Get necessary and optional package dependencies
 required, dev = conda2pip(return_lists=True)
