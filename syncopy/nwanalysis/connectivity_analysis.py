@@ -35,7 +35,7 @@ availableMethods = ("coh", "corr", "granger")
 @unwrap_select
 @detect_parallel_client
 def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
-                         foi=None, foilim=None, pad_to_length=None,
+                         foi=None, foilim=None, pad='maxperlen',
                          polyremoval=None, tapsmofrq=None, nTaper=None,
                          taper="hann", taper_opt=None, out=None, **kwargs):
 
@@ -60,7 +60,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : (optional) number of orthogonal tapers for slepian tapers
-        * **pad_to_length**: either pad to an absolute length or set to `'nextpow2'`
+        * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
 
     "corr" : Cross-correlations
         Computes the one sided (positive lags) cross-correlations
@@ -77,7 +77,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : (optional, not recommended) number of slepian tapers
-        * **pad_to_length**: either pad to an absolute length or set to `'nextpow2'`
+        * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
 
     Parameters
     ----------
@@ -101,17 +101,15 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         Frequency-window ``[fmin, fmax]`` (in Hz) of interest. The
         `foi` array will be constructed in 1Hz steps from `fmin` to
         `fmax` (inclusive).
-    pad_to_length : int, None or 'nextpow2'
-        Padding of the (tapered) signal, if set to a number pads all trials
-        to this absolute length. E.g. `pad_to_length=2000` pads all
-        trials to 2000 samples, if and only if the longest trial is
-        at maximum 2000 samples.
-
-        Alternatively if all trials have the same initial lengths
-        setting `pad_to_length='nextpow2'` pads all trials to
-        the next power of two.
-        If `None` and trials have unequal lengths all trials are padded to match
-        the longest trial.
+    pad : 'maxperlen', float or 'nextpow2'
+        For the default `maxperlen`, no padding is performed in case of equal
+        length trials, while trials of varying lengths are padded to match the
+        longest trial. If `pad` is a number all trials are padded so that `pad` indicates
+        the absolute length of all trials after padding (in seconds). For instance
+        ``pad = 2`` pads all trials to an absolute length of 2000 samples, if and
+        only if the longest trial contains at maximum 2000 samples and the
+        samplerate is 1kHz. If `pad` is `'nextpow2'` all trials are padded to the
+        nearest power of two (in samples) of the longest trial.
     tapsmofrq : float or None
         Only valid if `method` is `'coh'` or `'granger'`.
         Enables multi-tapering and sets the amount of spectral
@@ -177,13 +175,13 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
     # --- Padding ---
 
-    if method == "corr" and pad_to_length:
-        lgl = "`None`, no padding needed/allowed for cross-correlations"
-        actual = f"{pad_to_length}"
-        raise SPYValueError(legal=lgl, varname="pad_to_length", actual=actual)
+    if method == "corr" and pad != 'maxperlen':
+        lgl = "'maxperlen', no padding needed/allowed for cross-correlations"
+        actual = f"{pad}"
+        raise SPYValueError(legal=lgl, varname="pad", actual=actual)
 
     # the actual number of samples in case of later padding
-    nSamples = process_padding(pad_to_length, lenTrials)
+    nSamples = process_padding(pad, lenTrials, data.samplerate)
 
     # --- Basic foi sanitization ---
 
@@ -199,7 +197,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                 "output": output,
                 "keeptrials": keeptrials,
                 "polyremoval": polyremoval,
-                "pad_to_length": pad_to_length}
+                "pad": pad}
 
     # --- Setting up specific Methods ---
     if method == 'granger':

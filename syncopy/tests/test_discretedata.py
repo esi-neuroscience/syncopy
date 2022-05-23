@@ -256,12 +256,14 @@ class TestEventData():
     data2 = data.copy()
     data2[:, -1] = data[:, 0]
     data2[:, 0] = data[:, -1]
+    data3 = np.hstack([data2, data2])
     trl = np.vstack([np.arange(0, ns, 5),
                      np.arange(5, ns + 5, 5),
                      np.ones((int(ns / 5), )),
                      np.ones((int(ns / 5), )) * np.pi]).T
     num_smp = np.unique(data[:, 0]).size
     num_evt = np.unique(data[:, 1]).size
+    customDimord = ["sample", "eventid", "custom1", "custom2"]
 
     adata = np.arange(1, nc * ns + 1).reshape(ns, nc)
 
@@ -298,7 +300,7 @@ class TestEventData():
             trl_ref = self.data[idx, ...]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
-        # test ``_get_trial`` with NumPy array: swapped dimensions
+        # test `_get_trial` with NumPy array: swapped dimensions
         dummy = EventData(self.data2, trialdefinition=self.trl,
                           dimord=["eventid", "sample"])
         smp = self.data2[:, -1]
@@ -306,6 +308,18 @@ class TestEventData():
             idx = np.intersect1d(np.where(smp >= start)[0],
                                  np.where(smp < start + 5)[0])
             trl_ref = self.data2[idx, ...]
+            assert np.array_equal(dummy._get_trial(trlno), trl_ref)
+
+        # test `_get_trial` with NumPy array: customized columns names
+        nuDimord = ["eventid", "sample", "custom1", "custom2"]
+        dummy = EventData(self.data3, trialdefinition=self.trl,
+                          dimord=nuDimord)
+        assert dummy.dimord == nuDimord
+        smp = self.data3[:, -1]
+        for trlno, start in enumerate(range(0, self.ns, 5)):
+            idx = np.intersect1d(np.where(smp >= start)[0],
+                                 np.where(smp < start + 5)[0])
+            trl_ref = self.data3[idx, ...]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
     def test_ed_saveload(self):
@@ -354,6 +368,16 @@ class TestEventData():
             assert dummy2.dimord == dummy.dimord
             assert dummy2.eventid.size == self.num_smp # swapped
             assert dummy2.data.shape == dummy.data.shape
+            del dummy, dummy2
+
+            # save dataset w/custom column names and ensure `dimord` is preserved
+            dummy = EventData(np.hstack([self.data, self.data]), dimord=self.customDimord, samplerate=10)
+            dummy.save(fname + "_customDimord")
+            filename = construct_spy_filename(fname + "_customDimord", dummy)
+            dummy2 = load(filename)
+            assert dummy2.dimord == dummy.dimord
+            assert dummy2.eventid.size == self.num_evt
+            assert dummy2.data.shape == dummy.data.shape
 
             # Delete all open references to file objects b4 closing tmp dir
             del dummy, dummy2
@@ -388,9 +412,10 @@ class TestEventData():
         samples = np.arange(0, int(self.ns / 3), 3)[1:]
         dappend = np.vstack([samples, np.full(samples.shape, 2)]).T
         data3 = np.vstack([self.data, dappend])
+        data3 = np.hstack([data3, data3])
         idx = np.argsort(data3[:, 0])
         data3 = data3[idx, :]
-        evt_dummy = EventData(data3, samplerate=sr_e)
+        evt_dummy = EventData(data3, dimord=self.customDimord, samplerate=sr_e)
         evt_dummy.definetrial(start=0, stop=1)
         assert np.array_equal(sinfo2, evt_dummy.sampleinfo)
 
@@ -410,7 +435,7 @@ class TestEventData():
             dcodes = dcodes[idx + 1:]
             dsamps = dsamps[idx + 1:]
             sinfo3[sk, :] = [start, stop]
-        evt_dummy = EventData(data3, samplerate=sr_e)
+        evt_dummy = EventData(data3, dimord=self.customDimord, samplerate=sr_e)
         evt_dummy.definetrial(start=[2, 2, 1], stop=[1, 2, 0])
         assert np.array_equal(evt_dummy.sampleinfo, sinfo3)
 
@@ -420,7 +445,7 @@ class TestEventData():
         ang_dummy = AnalogData(self.adata, samplerate=sr_a)
         ang_dummy.definetrial(evt_dummy)
         assert np.array_equal(ang_dummy.sampleinfo, sinfo_a)
-        evt_dummy = EventData(data=data3, samplerate=sr_e)
+        evt_dummy = EventData(data=data3, dimord=self.customDimord, samplerate=sr_e)
         evt_dummy.definetrial(pre=pre, post=post, trigger=1)
         ang_dummy.definetrial(evt_dummy)
         assert np.array_equal(ang_dummy.sampleinfo, sinfo_a)
@@ -430,17 +455,18 @@ class TestEventData():
         ang_dummy = AnalogData(self.adata, samplerate=sr_a)
         ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
         assert np.array_equal(ang_dummy.sampleinfo, sinfo_a)
-        evt_dummy = EventData(data=data3, samplerate=sr_e)
+        evt_dummy = EventData(data=data3, dimord=self.customDimord, samplerate=sr_e)
         ang_dummy = AnalogData(self.adata, samplerate=sr_a)
         ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
         assert np.array_equal(ang_dummy.sampleinfo, sinfo_a)
 
-        # Extend data and provoke an exception due to out of bounds erro
+        # Extend data and provoke an exception due to out of bounds error
         smp = np.vstack([np.arange(self.ns, int(2.5 * self.ns), 5),
                          np.zeros((int((1.5 * self.ns) / 5),))]).T
         smp[1::2, 1] = 1
+        smp = np.hstack([smp, smp])
         data4 = np.vstack([data3, smp])
-        evt_dummy = EventData(data=data4, samplerate=sr_e)
+        evt_dummy = EventData(data=data4, dimord=self.customDimord, samplerate=sr_e)
         evt_dummy.definetrial(pre=pre, post=post, trigger=1)
         # with pytest.raises(SPYValueError):
             # ang_dummy.definetrial(evt_dummy)
@@ -452,7 +478,7 @@ class TestEventData():
         # We need `clip_edges` to make trial-definition work
         data4 = data4[:-2, :]
         data4[-2, 0] = data4[-1, 0]
-        evt_dummy = EventData(data=data4, samplerate=sr_e)
+        evt_dummy = EventData(data=data4, dimord=self.customDimord, samplerate=sr_e)
         evt_dummy.definetrial(pre=pre, post=post, trigger=1)
         # with pytest.raises(SPYValueError):
             # ang_dummy.definetrial(evt_dummy)
@@ -495,10 +521,11 @@ class TestEventData():
     def test_ed_dataselection(self, fulltests):
 
         # Create testing objects (regular and swapped dimords)
-        dummy = EventData(data=self.data,
+        dummy = EventData(data=np.hstack([self.data, self.data]),
+                          dimord=self.customDimord,
                           trialdefinition=self.trl,
                           samplerate=2.0)
-        ymmud = EventData(data=self.data[:, ::-1],
+        ymmud = EventData(data=np.hstack([self.data[:, ::-1], self.data[:, ::-1]]),
                           trialdefinition=self.trl,
                           samplerate=2.0,
                           dimord=dummy.dimord[::-1])

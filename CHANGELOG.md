@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2022.05] - 2022-05-13
+Bugfixes and features additions for `EventData` objects.
+
+### NEW
+- Added support for flexible columns in `EventData` (thanks to @KatharineShapcott)
+
+### CHANGED
+- Include specific example how to create an "all-to-all" `trialdefinition` array
+  by invoking `definetrial` without arguments in the function's docstring.
+- Modified versioning scheme: use a date-based scheme instead of increasing
+  version numbers
+- Aligned padding API to FieldTrip in both `freqanalysis` and `connectivityanalysis`:
+  use `pad` instead of `pad_to_length` with three supported modes ('maxperlen',
+  float, 'nextpow2').
+
+### DEPRECATED
+- Removed support for calling `freqanalysis` with a `toi` array as well as an
+  input dataset that has an active in-place time-selection attached
+
+### FIXED
+- Improved legibility of `spy.__version__` for non-release installations
+- Correctly process equidistant `toi` arrays with large spacing in `freqanalysis`
+- Corrected `trialtime` for `DiscreteData` objects (thanks to @KatharineShapcott)
+
 ## [v0.21] - 2022-04-13
 Feature update and bugfixes.
 

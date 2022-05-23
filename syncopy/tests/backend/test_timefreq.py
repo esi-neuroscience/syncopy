@@ -83,7 +83,7 @@ def test_mtmconvol():
 
     # the transforms have shape (nTime, nTaper, nFreq, nChannel)
     ftr, freqs = mtmconvol.mtmconvol(signal,
-                                     samplerate=fs, taper='cosine',
+                                     samplerate=fs, taper='hann',
                                      nperseg=window_size,
                                      noverlap=window_size - 1)
 
@@ -113,7 +113,7 @@ def test_mtmconvol():
                origin='lower',
                extent=extent,
                vmin=0,
-               vmax=.5 * A**2 / df)
+               vmax=.5 * A**2)
 
     # zoom into foi region
     ax2.set_ylim((foi[0], foi[-1]))
@@ -137,7 +137,7 @@ def test_mtmconvol():
                  c='0.5')
 
         # integrated power at the respective frquency
-        cycle_num = (spec[:, idx] * df > .5 * A**2 / np.e**2).sum() / fs * frequency
+        cycle_num = (spec[:, idx] > .5 * A**2 / np.e**2).sum() / fs * frequency
         print(f'{cycle_num} cycles for the {frequency} Hz band')
         # we have 2 times the cycles for each frequency (temporal neighbor)
         assert cycle_num > 2 * cycles
@@ -151,13 +151,14 @@ def test_mtmconvol():
     # -------------------------
 
     taper = 'dpss'
-    tapsmofrq = 10  # Hz
+    tapsmofrq = 5  # two-sided in Hz
     # set parameters for scipy.signal.windows.dpss
-    NW = tapsmofrq * window_size / (2 * fs)
+    NW = tapsmofrq * window_size / fs
     # from the minBw setting NW always is at least 1
     Kmax = int(2 * NW - 1)  # optimal number of tapers
 
     taper_opt = {'Kmax': Kmax, 'NW': NW}
+    print(taper_opt)
     # the transforms have shape (nTime, nTaper, nFreq, nChannel)
     ftr2, freqs2 = mtmconvol.mtmconvol(signal,
                                        samplerate=fs, taper=taper, taper_opt=taper_opt,
@@ -186,7 +187,7 @@ def test_mtmconvol():
                origin='lower',
                extent=extent,
                vmin=0,
-               vmax=.5 * A**2 / df)
+               vmax=.5 * A**2)
 
     # zoom into foi region
     ax2.set_ylim((foi[0], foi[-1]))
@@ -210,9 +211,8 @@ def test_mtmconvol():
     # due to too much spectral broadening/smearing
     # so we just check that the maximum estimated
     # power within one bin is within 15% bounds of the real power
-    nBins = tapsmofrq / df
-    assert 0.4 * A**2 / df < spec2.max() * nBins < .65 * A**2 / df
-
+    nBins = tapsmofrq
+    assert 0.4 * A**2  < spec2.max() * nBins < .65 * A**2 
 
 def test_superlet():
 
@@ -387,7 +387,7 @@ def test_mtmfft():
     dpss_powers = dpss_spec[:, 0]   # only 1 channel
     # check for integrated power (and taper normalisation)
     # summing up all dpss powers should give total power of the
-    # test signal which is A1**2 + A2**2
+    # test signal which is (A1**2 + A2**2) / 2
     assert np.allclose(np.sum(dpss_powers) * 2, A1**2 + A2**2, atol=1e-2)
 
     ax.plot(freqs[:150], dpss_powers[:150], label="Slepian", lw=2)

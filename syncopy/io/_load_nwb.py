@@ -180,7 +180,7 @@ def load_nwb(filename, memuse=3000):
     if len(ttlVals) > 0:
         msg = "Creating separate EventData object for embedded TTL pulse data..."
         SPYInfo(msg)
-        evtData = EventData(dimord=EventData._defaultDimord)
+        evtData = EventData(dimord=["sample","eventid","chans"])
         h5evt = h5py.File(evtData.filename, mode="w")
         evtDset = h5evt.create_dataset("data", dtype=np.result_type(*ttlDtypes),
                                        shape=(ttlVals[0].data.size, 3))

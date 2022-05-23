@@ -147,8 +147,8 @@ class TestGranger:
 
     def test_gr_padding(self):
 
-        pad_length = int(1.7 * self.nSamples)
-        call = lambda pad_to_length: self.test_gr_solution(pad_to_length=pad_to_length)
+        pad_length = 6 # seconds
+        call = lambda pad: self.test_gr_solution(pad=pad)
         helpers.run_padding_test(call, pad_length)
 
     def test_gr_polyremoval(self):
@@ -263,8 +263,8 @@ class TestCoherence:
 
     def test_coh_padding(self):
 
-        pad_length = int(1.2 * self.nSamples)
-        call = lambda pad_to_length: self.test_coh_solution(pad_to_length=pad_to_length)
+        pad_length = 2 # seconds
+        call = lambda pad: self.test_coh_solution(pad=pad)
         helpers.run_padding_test(call, pad_length)
 
     def test_coh_polyremoval(self):
@@ -354,25 +354,25 @@ class TestCorrelation:
 
     def test_corr_padding(self):
 
-        self.test_corr_solution(pad_to_length=None)
+        self.test_corr_solution(pad='maxperlen')
         # no padding is allowed for
         # this method
         try:
-            self.test_corr_solution(pad_to_length=1000)
+            self.test_corr_solution(pad=1000)
         except SPYValueError as err:
-            assert 'pad_to_length' in str(err)
+            assert 'pad' in str(err)
             assert 'no padding needed/allowed' in str(err)
 
         try:
-            self.test_corr_solution(pad_to_length='nextpow2')
+            self.test_corr_solution(pad='nextpow2')
         except SPYValueError as err:
-            assert 'pad_to_length' in str(err)
+            assert 'pad' in str(err)
             assert 'no padding needed/allowed' in str(err)
 
         try:
-            self.test_corr_solution(pad_to_length='IamNoPad')
+            self.test_corr_solution(pad='IamNoPad')
         except SPYValueError as err:
-            assert 'Invalid value of `pad_to_length`' in str(err)
+            assert 'Invalid value of `pad`' in str(err)
             assert 'no padding needed/allowed' in str(err)
 
     def test_corr_selections(self):
