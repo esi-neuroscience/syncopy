@@ -176,8 +176,11 @@ def unwrap_cfg(func):
             # keyword arguments must *either* be provided via `cfg` or via standard kw
             # NOTE: the frontend defaults not set by the user do NOT appear in `kwargs`!
             for key in kwargs:
-                if key in cfg:
-                    lgl = f"parameter set either via `cfg.{key}=...` or as keyword"
+                # these get special treatment below
+                if key in ['data', 'dataset']:
+                    continue
+                elif key in cfg:
+                    lgl = f"parameter set either via `cfg.{key}=...` or directly via keyword"
                     act = f"parameter `{key}` set in both `cfg` and via explicit keyword"
                     raise SPYValueError(legal=lgl,
                                         varname=f"cfg/{key}",
