@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Syncopy preprocessing frontend
+# Syncopy resampling frontend
 #
 
 # Builtin/3rd party package imports
@@ -32,7 +32,25 @@ def resampledata(data,
                  **kwargs
                  ):
     """
-    Performs resampling or downsampling of :class:`~syncopy.AnalogData`
+    Performs resampling or downsampling of :class:`~syncopy.AnalogData` objects,
+    representing uniformly sampled time series data.
+    
+    Two methods are supported:
+
+    "downsample" : Take every nth sample
+        The new sampling rate `resamplefs` must be an integer division of
+        the old sampling rate, e.i. 500Hz to 250Hz. Note that no
+        anti-aliasing filtering is performed before downsampling,
+        it is strongly recommended to apply a low-pass filter
+        beforehand via :func:`~syncopy.preprocessing` with the new
+        Nyquist frequency (`resamplefs / 2`) as cut-off.
+
+    "resample" : Resample to a new sampling rate
+        The new sampling rate `resamplefs` can be any (rational) fraction
+        of the original sampling rate (`data.samperate`). An automatic
+        anti-aliasing filtering with the new Nyquist frequency is performed
+        before resampling.
+                   
     """
 
     # -- Basic input parsing --
@@ -49,7 +67,7 @@ def resampledata(data,
     defaults = get_defaults(resampledata)
     lcls = locals()
     # check for ineffective additional kwargs
-    check_passed_kwargs(lcls, defaults, frontend_name="preprocessing")
+    check_passed_kwargs(lcls, defaults, frontend_name="resampledata")
 
     # check resampling frequency
     scalar_parser(resamplefs, varname='resamplefs', lims=[1, np.inf])
@@ -68,7 +86,8 @@ def resampledata(data,
 
     # keyword dict for logging
     log_dict = {'method': method,
-                'resamplefs': resamplefs
+                'resamplefs': resamplefs,
+                'origfs': data.samplerate
                 }
     # ------------------------------------
     # Call the chosen ComputationalRoutine
