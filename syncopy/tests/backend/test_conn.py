@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-
+#
+# syncopy.nwanalysis backend method tests
+#
 import numpy as np
 import matplotlib.pyplot as ppl
 
@@ -17,7 +19,7 @@ from syncopy.nwanalysis.granger import granger
 def test_coherence():
 
     """
-    Tests the normalization cF to
+    Tests the csd normalization to
     arrive at the coherence given
     a trial averaged csd
     """

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # Backend methods/functions for 
-# rational (p/q) resampling
+# trivial down- and rational (p/q) resampling
 #
 
 # Builtin/3rd party package imports
@@ -50,6 +50,38 @@ def resample(data, orig_fs, new_fs, window=('kaiser', 0.5)):
     resampled = sci_sig.resample_poly(data, up, down, axis=0, window=window)
 
     return resampled
+
+def downsample(dat,
+               samplerate=1,
+               new_samplerate=1,
+               ):
+    """
+    Provides basic downsampling of signals. The `new_samplerate` should be 
+    an integer division of the original `samplerate`.
+
+    Parameters
+    ----------
+    dat : (N, K) :class:`numpy.ndarray`
+        Uniformly sampled multi-channel time-series data
+        The 1st dimension is interpreted as the time axis,
+        columns represent individual channels.
+    samplerate : float
+        Sample rate of the input data
+    new_samplerate : float
+        Sample rate of the output data
+
+    Returns
+    -------
+    resampled : (X, K) :class:`~numpy.ndarray`
+        The downsampled data
+
+    """
+
+    # we need integers for slicing
+    skipped = int(samplerate // new_samplerate)
+
+    return dat[::skipped]
+
 
 def _get_pq(orig_fs, new_fs):
 

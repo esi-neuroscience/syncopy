@@ -15,7 +15,7 @@ from syncopy.shared.kwarg_decorators import unwrap_io
 
 # backend imports
 from .firws import design_wsinc, apply_fir, minphaserceps
-
+from .resampling import downsample
 
 @unwrap_io
 def sinc_filtering_cF(dat,
@@ -499,7 +499,7 @@ def downsample_cF(dat,
 
     Returns
     -------
-    filtered : (X, K) :class:`~numpy.ndarray`
+    resampled : (X, K) :class:`~numpy.ndarray`
         The downsampled data
 
     Notes
@@ -519,16 +519,16 @@ def downsample_cF(dat,
     else:
         dat = dat
 
-    # we need integers for slicing
-    skipped = int(samplerate // new_samplerate)
-
-    outShape = list(dat.shape)
-    outShape[0] = int(np.ceil(dat.shape[0] / skipped))
-
     if noCompute:
+        # we need integers for slicing
+        skipped = int(samplerate // new_samplerate)
+        outShape = list(dat.shape)
+        outShape[0] = int(np.ceil(dat.shape[0] / skipped))        
         return tuple(outShape), dat.dtype
 
-    return dat[::skipped]
+    resampled = downsample(dat, samplerate, new_samplerate)
+
+    return resampled
 
 
 class Downsample(ComputationalRoutine):
