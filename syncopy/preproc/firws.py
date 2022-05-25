@@ -13,9 +13,8 @@ from scipy.signal import fftconvolve
 def apply_fir(data, fkernel):
 
     """
-    Convolution in the time domain of the input `data`
-    with an FIR filter. The filter's impulse response
-    is given by `fkernel`.
+    Convolution of the input `data` with a FIR filter.
+    The filter's impulse response is given by `fkernel`.
 
     Parameters
     ----------
