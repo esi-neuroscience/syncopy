@@ -1,20 +1,19 @@
 # -*- coding: utf-8 -*-
 #
-# Backend methods/functions for 
+# Backend methods/functions for
 # trivial down- and rational (p/q) resampling
 #
 
 # Builtin/3rd party package imports
 import fractions
-import numpy as np
 import scipy.signal as sci_sig
 
 
-def resample(data, orig_fs, new_fs, window=('kaiser', 0.5)):
+def resample(data, orig_fs, new_fs, window=("kaiser", 0.5)):
 
     """
     Uses SciPy's polyphase method for the implementation
-    of the standard resampling procedure: 
+    of the standard resampling procedure:
         upsampling : FIR filtering : downsampling
 
     Parameters
@@ -28,8 +27,8 @@ def resample(data, orig_fs, new_fs, window=('kaiser', 0.5)):
     new_fs : float
         The target sampling rate after resampling
     window : string, tuple, or array_like, optional
-        Either a window (+parameters) for the FIR filter 
-        to be implicitly designed/used, or the 1D 
+        Either a window (+parameters) for the FIR filter
+        to be implicitly designed/used, or the 1D
         FIR filter array directly. Supported windows
         are :data:`~syncopy.shared.const_def.availableTapers`
         Defaults to a Kaiser window with beta=0.5.
@@ -38,11 +37,11 @@ def resample(data, orig_fs, new_fs, window=('kaiser', 0.5)):
     -------
     resampled : (N, K) :class:`~numpy.ndarray`
         The resampled signals
-    
+
     See also
     --------
     `SciPy's resample implementation <https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.resample_poly.html>`_
-    syncopy.preproc.compRoutines.downsample_cF : Straightforward and cheap downsampling 
+    syncopy.preproc.compRoutines.downsample_cF : Straightforward and cheap downsampling
     """
 
     # get up/down sampling factors
@@ -51,12 +50,14 @@ def resample(data, orig_fs, new_fs, window=('kaiser', 0.5)):
 
     return resampled
 
-def downsample(dat,
-               samplerate=1,
-               new_samplerate=1,
-               ):
+
+def downsample(
+    dat,
+    samplerate=1,
+    new_samplerate=1,
+):
     """
-    Provides basic downsampling of signals. The `new_samplerate` should be 
+    Provides basic downsampling of signals. The `new_samplerate` should be
     an integer division of the original `samplerate`.
 
     Parameters
@@ -90,14 +91,12 @@ def _get_pq(orig_fs, new_fs):
     factors from the original and target
     sampling rate.
 
-    NOTE: Can return very large factors for 
+    NOTE: Can return very large factors for
           "almost irrational" sampling rate ratios!
     """
-    
+
     frac = fractions.Fraction.from_float(new_fs / orig_fs)
-    # trim down 
+    # trim down
     frac = frac.limit_denominator()
 
     return frac.numerator, frac.denominator
-
-

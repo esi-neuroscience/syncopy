@@ -11,38 +11,42 @@ from syncopy import AnalogData
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.tools import get_defaults
 from syncopy.shared.errors import SPYValueError, SPYInfo
-from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
-                                             detect_parallel_client)
+from syncopy.shared.kwarg_decorators import (
+    unwrap_cfg,
+    unwrap_select,
+    detect_parallel_client,
+)
 from syncopy.shared.input_processors import (
     check_effective_parameters,
-    check_passed_kwargs
+    check_passed_kwargs,
 )
 
 from .compRoutines import But_Filtering, Sinc_Filtering, Rectify, Hilbert
 
-availableFilters = ('but', 'firws')
-availableFilterTypes = ('lp', 'hp', 'bp', 'bs')
-availableDirections = ('twopass', 'onepass', 'onepass-minphase')
+availableFilters = ("but", "firws")
+availableFilterTypes = ("lp", "hp", "bp", "bs")
+availableDirections = ("twopass", "onepass", "onepass-minphase")
 availableWindows = ("hamming", "hann", "blackman")
 
-hilbert_outputs = {'abs', 'complex', 'real', 'imag', 'absreal', 'absimag', 'angle'}
+hilbert_outputs = {"abs", "complex", "real", "imag", "absreal", "absimag", "angle"}
 
 
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
-def preprocessing(data,
-                  filter_class='but',
-                  filter_type='lp',
-                  freq=None,
-                  order=None,
-                  direction=None,
-                  window="hamming",
-                  polyremoval=None,
-                  rectify=False,
-                  hilbert=False,
-                  **kwargs
-                  ):
+def preprocessing(
+    data,
+    filter_class="but",
+    filter_type="lp",
+    freq=None,
+    order=None,
+    direction=None,
+    window="hamming",
+    polyremoval=None,
+    rectify=False,
+    hilbert=False,
+    **kwargs,
+):
     """
     Preprocessing of time continuous raw data with IIR and FIR filters
 
@@ -88,8 +92,9 @@ def preprocessing(data,
 
     # Make sure our one mandatory input object can be processed
     try:
-        data_parser(data, varname="data", dataclass="AnalogData",
-                    writable=None, empty=False)
+        data_parser(
+            data, varname="data", dataclass="AnalogData", writable=None, empty=False
+        )
     except Exception as exc:
         raise exc
     timeAxis = data.dimord.index("time")
@@ -107,31 +112,37 @@ def preprocessing(data,
     if not isinstance(filter_type, str) or filter_type not in availableFilterTypes:
         lgl = f"one of {availableFilterTypes}"
         act = filter_type
-        raise SPYValueError(lgl, 'filter_type', filter_type)
+        raise SPYValueError(lgl, "filter_type", filter_type)
 
     # check `freq` setting
-    if filter_type in ('lp', 'hp'):
-        scalar_parser(freq, varname='freq', lims=[0, data.samplerate / 2])
-    elif filter_type in ('bp', 'bs'):
-        array_parser(freq, varname='freq', hasinf=False, hasnan=False,
-                     lims=[0, data.samplerate / 2], dims=(2,))
+    if filter_type in ("lp", "hp"):
+        scalar_parser(freq, varname="freq", lims=[0, data.samplerate / 2])
+    elif filter_type in ("bp", "bs"):
+        array_parser(
+            freq,
+            varname="freq",
+            hasinf=False,
+            hasnan=False,
+            lims=[0, data.samplerate / 2],
+            dims=(2,),
+        )
         if freq[0] == freq[1]:
             lgl = "two different frequencies"
-            raise SPYValueError(lgl, varname='freq', actual=freq)
+            raise SPYValueError(lgl, varname="freq", actual=freq)
         freq = np.sort(freq)
 
     # -- here the defaults are filter specific and get set later --
 
     # filter order
     if order is not None:
-        scalar_parser(order, varname='order', lims=[0, np.inf], ntype='int_like')
+        scalar_parser(order, varname="order", lims=[0, np.inf], ntype="int_like")
 
     # check polyremoval
     if polyremoval is not None:
         scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])
 
     if not isinstance(rectify, bool):
-        SPYValueError("either `True` or `False`", varname='rectify', actual=rectify)
+        SPYValueError("either `True` or `False`", varname="rectify", actual=rectify)
 
     # -- get trial info
 
@@ -170,26 +181,27 @@ def preprocessing(data,
 
     # Prepare keyword dict for logging (use `lcls` to get actually provided
     # keyword values, not defaults set above)
-    log_dict = {"filter_class": filter_class,
-                "filter_type": filter_type,
-                "freq": freq,
-                "polyremoval": polyremoval,
-                }
+    log_dict = {
+        "filter_class": filter_class,
+        "filter_type": filter_type,
+        "freq": freq,
+        "polyremoval": polyremoval,
+    }
 
-    if filter_class == 'but':
+    if filter_class == "but":
 
-        if window != defaults['window'] and window is not None:
+        if window != defaults["window"] and window is not None:
             lgl = "no `window` setting for IIR filtering"
             act = window
-            raise SPYValueError(lgl, 'window', act)
+            raise SPYValueError(lgl, "window", act)
 
         # set filter specific defaults here
         if direction is None:
-            direction = 'twopass'
+            direction = "twopass"
             msg = f"Setting default direction for IIR filter to '{direction}'"
             SPYInfo(msg)
-        elif not isinstance(direction, str) or direction not in ('onepass', 'twopass'):
-            lgl = "'" + "or '".join(opt + "' " for opt in ('onepass', 'twopass'))
+        elif not isinstance(direction, str) or direction not in ("onepass", "twopass"):
+            lgl = "'" + "or '".join(opt + "' " for opt in ("onepass", "twopass"))
             raise SPYValueError(legal=lgl, varname="direction", actual=direction)
 
         if order is None:
@@ -200,18 +212,21 @@ def preprocessing(data,
         log_dict["order"] = order
         log_dict["direction"] = direction
 
-        check_effective_parameters(But_Filtering, defaults, lcls,
-                                   besides=('hilbert', 'rectify'))
+        check_effective_parameters(
+            But_Filtering, defaults, lcls, besides=("hilbert", "rectify")
+        )
 
-        filterMethod = But_Filtering(samplerate=data.samplerate,
-                                     filter_type=filter_type,
-                                     freq=freq,
-                                     order=order,
-                                     direction=direction,
-                                     polyremoval=polyremoval,
-                                     timeAxis=timeAxis)
+        filterMethod = But_Filtering(
+            samplerate=data.samplerate,
+            filter_type=filter_type,
+            freq=freq,
+            order=order,
+            direction=direction,
+            polyremoval=polyremoval,
+            timeAxis=timeAxis,
+        )
 
-    if filter_class == 'firws':
+    if filter_class == "firws":
 
         if window not in availableWindows:
             lgl = "'" + "or '".join(opt + "' " for opt in availableWindows)
@@ -219,7 +234,7 @@ def preprocessing(data,
 
         # set filter specific defaults here
         if direction is None:
-            direction = 'onepass'
+            direction = "onepass"
             msg = f"Setting default direction for FIR filter to '{direction}'"
             SPYInfo(msg)
         elif not isinstance(direction, str) or direction not in availableDirections:
@@ -234,17 +249,23 @@ def preprocessing(data,
         log_dict["order"] = order
         log_dict["direction"] = direction
 
-        check_effective_parameters(Sinc_Filtering, defaults, lcls,
-                                   besides=['filter_class', 'hilbert', 'rectify'])
+        check_effective_parameters(
+            Sinc_Filtering,
+            defaults,
+            lcls,
+            besides=["filter_class", "hilbert", "rectify"],
+        )
 
-        filterMethod = Sinc_Filtering(samplerate=data.samplerate,
-                                      filter_type=filter_type,
-                                      freq=freq,
-                                      order=order,
-                                      window=window,
-                                      direction=direction,
-                                      polyremoval=polyremoval,
-                                      timeAxis=timeAxis)
+        filterMethod = Sinc_Filtering(
+            samplerate=data.samplerate,
+            filter_type=filter_type,
+            freq=freq,
+            order=order,
+            window=window,
+            direction=direction,
+            polyremoval=polyremoval,
+            timeAxis=timeAxis,
+        )
 
     # -------------------------------------------
     # Call the chosen filter ComputationalRoutine
@@ -252,39 +273,47 @@ def preprocessing(data,
 
     filtered = AnalogData(dimord=data.dimord)
     # Perform actual computation
-    filterMethod.initialize(data,
-                            data._stackingDim,
-                            chan_per_worker=kwargs.get("chan_per_worker"),
-                            keeptrials=True)
-    filterMethod.compute(data, filtered, parallel=kwargs.get("parallel"), log_dict=log_dict)
+    filterMethod.initialize(
+        data,
+        data._stackingDim,
+        chan_per_worker=kwargs.get("chan_per_worker"),
+        keeptrials=True,
+    )
+    filterMethod.compute(
+        data, filtered, parallel=kwargs.get("parallel"), log_dict=log_dict
+    )
 
     # -- check for post processing flags --
 
     if rectify:
-        log_dict['rectify'] = rectify
+        log_dict["rectify"] = rectify
         rectified = AnalogData(dimord=data.dimord)
         rectCR = Rectify()
-        rectCR.initialize(filtered,
-                          data._stackingDim,
-                          chan_per_worker=kwargs.get("chan_per_worker"),
-                          keeptrials=True)
-        rectCR.compute(filtered, rectified,
-                       parallel=kwargs.get("parallel"),
-                       log_dict=log_dict)
+        rectCR.initialize(
+            filtered,
+            data._stackingDim,
+            chan_per_worker=kwargs.get("chan_per_worker"),
+            keeptrials=True,
+        )
+        rectCR.compute(
+            filtered, rectified, parallel=kwargs.get("parallel"), log_dict=log_dict
+        )
         del filtered
         return rectified
 
     elif hilbert:
-        log_dict['hilbert'] = hilbert
+        log_dict["hilbert"] = hilbert
         htrafo = AnalogData(dimord=data.dimord)
-        hilbertCR = Hilbert(output=hilbert,
-                            timeAxis=timeAxis)
-        hilbertCR.initialize(filtered, data._stackingDim,
-                             chan_per_worker=kwargs.get("chan_per_worker"),
-                             keeptrials=True)
-        hilbertCR.compute(filtered, htrafo,
-                          parallel=kwargs.get("parallel"),
-                          log_dict=log_dict)
+        hilbertCR = Hilbert(output=hilbert, timeAxis=timeAxis)
+        hilbertCR.initialize(
+            filtered,
+            data._stackingDim,
+            chan_per_worker=kwargs.get("chan_per_worker"),
+            keeptrials=True,
+        )
+        hilbertCR.compute(
+            filtered, htrafo, parallel=kwargs.get("parallel"), log_dict=log_dict
+        )
         del filtered
         return htrafo
 
