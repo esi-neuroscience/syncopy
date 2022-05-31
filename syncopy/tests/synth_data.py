@@ -4,12 +4,67 @@
 #
 
 import numpy as np
+import functools
+
+from syncopy import AnalogData
 
 _2pi = np.pi * 2
 
 
+def collect_trials(trial_generator):
+
+    """
+    Decorator to wrap around a (nSamples x nChannels) shaped np.array producing
+    synthetic data routine, and returning an :class:`~syncopy.AnalogData`
+    object.
+
+    All backend trial generating functions (`trial_generator`) should
+    accept `nChannels` and `nSamples` as keyword arguments, OR provide
+    other means to define those numbers, e.g.
+    `AdjMat` for :func:`~syncopy.synth_data.AR2_network`
+
+    The default `nTrials=None` is the identity wrapper and
+    just returns the output of the trial generating function
+    directly, so a single trial :class:`numpy.ndarray`.
+    """
+
+    @functools.wraps(trial_generator)
+    def wrapper_synth(nTrials=None, samplerate=1000, **tg_kwargs):
+        # do nothing
+        if nTrials is None:
+            return trial_generator(**tg_kwargs)
+        # collect trials
+        else:
+            trl_list = []
+
+            for _ in range(nTrials):
+                trl_arr = trial_generator(**tg_kwargs)
+                trl_list.append(trl_arr)
+
+            data = AnalogData(trl_list, samplerate=samplerate)
+        return data
+
+    return wrapper_synth
+
+
+@collect_trials
+def white_noise(nSamples=1000, nChannels=2):
+
+    """
+    Plain white noise with unity standard deviation
+    """
+
+    return np.random.randn(nSamples, nChannels)
+
+
 # noisy phase evolution <-> phase diffusion
-def phase_diffusion(freq, eps=.1, fs=1000, nChannels=2, nSamples=1000):
+@collect_trials
+def phase_diffusion(freq,
+                    eps=.1,
+                    fs=1000,
+                    nChannels=2,
+                    nSamples=1000,
+                    return_phase=False):
 
     """
     Linear (harmonic) phase evolution + a Brownian noise term
@@ -35,6 +90,8 @@ def phase_diffusion(freq, eps=.1, fs=1000, nChannels=2, nSamples=1000):
         Number of channels
     nSamples : int
         Number of samples in time
+    return_phase : bool, optional
+        If set to true returns the phases in radians
 
     Returns
     -------
@@ -54,10 +111,14 @@ def phase_diffusion(freq, eps=.1, fs=1000, nChannels=2, nSamples=1000):
     rel_eps = np.sqrt(omega0 / fs * eps)
     brown_incr = rel_eps * wn
     phases = np.cumsum(lin_incr + brown_incr, axis=0)
-    return phases
+    if not return_phase:
+        return np.cos(phases)
+    else:
+        return phases
 
 
-def AR2_network(AdjMat=None, nSamples=2500, alphas=[0.55, -0.8]):
+@collect_trials
+def AR2_network(AdjMat=None, nSamples=1000, alphas=[0.55, -0.8]):
 
     """
     Simulation of a network of coupled AR(2) processes
@@ -65,6 +126,11 @@ def AR2_network(AdjMat=None, nSamples=2500, alphas=[0.55, -0.8]):
     With the default parameters the individual processes
     (as in Dhamala 2008) have a spectral peak at 40Hz
     with a sampling frequency of 200Hz.
+
+    NOTE: There is no check for stability: setting the
+          `alphas` ad libitum and/or defining large
+          and dense (many connections) systems will
+          almost surely lead to an unstable system
 
     Parameters
     ----------
