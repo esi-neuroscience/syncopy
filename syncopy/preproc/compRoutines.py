@@ -15,7 +15,8 @@ from syncopy.shared.kwarg_decorators import unwrap_io
 
 # backend imports
 from .firws import design_wsinc, apply_fir, minphaserceps
-from .resampling import downsample
+from .resampling import downsample, resample
+
 
 @unwrap_io
 def sinc_filtering_cF(dat,
@@ -131,7 +132,7 @@ def sinc_filtering_cF(dat,
     return filtered
 
 
-class Sinc_Filtering(ComputationalRoutine):
+class SincFiltering(ComputationalRoutine):
 
     """
     Compute class that performs filtering with windowed sinc filters
@@ -265,7 +266,7 @@ def but_filtering_cF(dat,
         return filtered
 
 
-class But_Filtering(ComputationalRoutine):
+class ButFiltering(ComputationalRoutine):
 
     """
     Compute class that performs filtering with butterworth filters
@@ -523,7 +524,7 @@ def downsample_cF(dat,
         # we need integers for slicing
         skipped = int(samplerate // new_samplerate)
         outShape = list(dat.shape)
-        outShape[0] = int(np.ceil(dat.shape[0] / skipped))        
+        outShape[0] = int(np.ceil(dat.shape[0] / skipped))
         return tuple(outShape), dat.dtype
 
     resampled = downsample(dat, samplerate, new_samplerate)
@@ -534,8 +535,8 @@ def downsample_cF(dat,
 class Downsample(ComputationalRoutine):
 
     """
-    Compute class that performs straightforward downsampling
-    of :class:`~syncopy.AnalogData` objects
+    Compute class that performs straightforward (integer division)
+    downsampling of :class:`~syncopy.AnalogData` objects
 
     Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
     see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
@@ -555,10 +556,7 @@ class Downsample(ComputationalRoutine):
 
         # we need to re-calculate the downsampling factor
         factor = int(data.samplerate // self.cfg['new_samplerate'])
-        
-        # now set new samplerate
-        data.samplerate = self.cfg['new_samplerate']
-        
+
         if data.selection is not None:
             chanSec = data.selection.channel
             trl = data.selection.trialdefinition // factor
@@ -567,6 +565,131 @@ class Downsample(ComputationalRoutine):
             trl = data.trialdefinition // factor
 
         out.trialdefinition = trl
+        # now set new samplerate
+        out.samplerate = self.cfg['new_samplerate']
+        out.channel = np.array(data.channel[chanSec])
 
-        out.samplerate = data.samplerate
+
+@unwrap_io
+def resample_cF(dat,
+                samplerate=1,
+                new_samplerate=1,
+                lpfreq=None,
+                order=None,
+                timeAxis=0,
+                chunkShape=None,
+                noCompute=False
+                ):
+    """
+    Provides resampling of signals. The `new_samplerate` can be
+    any (rational) factor of the original `samplerate`.
+
+    For the anti-aliasing an explicit low-pass firws filter
+    is constructed. Either implicitly with `lpfreq=None`
+    which takes the new Nyquist (new_samplerate / 2) as cut-off
+    or with an explicit `lpfreq` as the cut-off frequency.
+
+    dat : (N, K) :class:`numpy.ndarray`
+        Uniformly sampled multi-channel time-series data
+        The 1st dimension is interpreted as the time axis,
+        columns represent individual channels.
+    samplerate : float
+        Sample rate of the input data in Hz
+    new_samplerate : float
+        Sample rate of the output data in Hz
+    lpfreq : None or float, optional
+        Leave at `None` for standard anti-alias filtering with
+        the new Nyquist or set explicitly in Hz
+    order : None or int, optional
+        Order (length) of the firws anti-aliasing filter.
+        The default `None` will create a filter of
+        maximal order which is the number of samples in the trial.
+    timeAxis : int, optional
+        Index of running time axis in `dat` (0 or 1)
+
+    Returns
+    -------
+    resampled : (X, K) :class:`~numpy.ndarray`
+        The resampled data
+
+    Notes
+    -----
+    This method is intended to be used as
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+
+    """
+
+    # Re-arrange array if necessary and get dimensional information
+    if timeAxis != 0:
+        dat = dat.T       # does not copy but creates view of `dat`
+    else:
+        dat = dat
+
+    nSamples = dat.shape[0]
+    fs_ratio = new_samplerate / samplerate
+
+    if noCompute:
+        new_nSamples = int(np.ceil(nSamples * fs_ratio))
+        return (new_nSamples, dat.shape[1]), dat.dtype
+
+    # -- default low-pass filter --
+    if lpfreq is None:
+        f_c = 0.5 * fs_ratio
+    # explicit cut-off
+    else:
+        f_c = lpfreq / samplerate
+    if order is None:
+        order = nSamples
+
+    # design firws
+    lpfilter = design_wsinc("hamming",
+                            order=order,
+                            f_c=f_c)
+
+    resampled = resample(dat, samplerate, new_samplerate, window=lpfilter)
+
+    return resampled
+
+
+class Resample(ComputationalRoutine):
+
+    """
+    Compute class that performs resampling (up-fir-down)
+    of :class:`~syncopy.AnalogData` objects
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.preprocessing : parent metafunction
+    """
+
+    computeFunction = staticmethod(resample_cF)
+
+    # 1st argument,the data, gets omitted
+    valid_kws = list(signature(downsample_cF).parameters.keys())[1:]
+
+    def process_metadata(self, data, out):
+
+        # we need to re-calculate the resampling factor
+        factor = self.cfg['new_samplerate'] / data.samplerate
+        trafo_trl = lambda trldef: np.ceil(trldef * factor)
+
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = trafo_trl(data.selection.trialdefinition)
+        else:
+            chanSec = slice(None)
+            trl = trafo_trl(data.trialdefinition)
+
+        out.trialdefinition = trl
+
+        # now set new samplerate
+        out.samplerate = self.cfg['new_samplerate']
         out.channel = np.array(data.channel[chanSec])

@@ -21,7 +21,7 @@ from syncopy.shared.input_processors import (
     check_passed_kwargs,
 )
 
-from .compRoutines import But_Filtering, Sinc_Filtering, Rectify, Hilbert
+from .compRoutines import ButFiltering, SincFiltering, Rectify, Hilbert
 
 availableFilters = ("but", "firws")
 availableFilterTypes = ("lp", "hp", "bp", "bs")
@@ -50,6 +50,8 @@ def preprocessing(
     """
     Preprocessing of time continuous raw data with IIR and FIR filters
 
+    Parameters
+    ----------
     data : `~syncopy.AnalogData`
         A non-empty Syncopy :class:`~syncopy.AnalogData` object
     filter_class : {'but', 'firws'}
@@ -61,7 +63,8 @@ def preprocessing(
         Cut-off frequency for low- and high-pass filters or sequence
         of two frequencies for band-stop and band-pass filter.
     order : int, optional
-        Order of the filter, default is 6.
+        Order of the filter, default is 4 for `filter_class='but'` and
+        1000 for filter_class='firws'.
         Higher orders yield a sharper transition width
         or less 'roll off' of the filter, but are more computationally expensive.
     direction : {'twopass', 'onepass', 'onepass-minphase'}
@@ -213,10 +216,10 @@ def preprocessing(
         log_dict["direction"] = direction
 
         check_effective_parameters(
-            But_Filtering, defaults, lcls, besides=("hilbert", "rectify")
+            ButFiltering, defaults, lcls, besides=("hilbert", "rectify")
         )
 
-        filterMethod = But_Filtering(
+        filterMethod = ButFiltering(
             samplerate=data.samplerate,
             filter_type=filter_type,
             freq=freq,
@@ -250,13 +253,13 @@ def preprocessing(
         log_dict["direction"] = direction
 
         check_effective_parameters(
-            Sinc_Filtering,
+            SincFiltering,
             defaults,
             lcls,
             besides=["filter_class", "hilbert", "rectify"],
         )
 
-        filterMethod = Sinc_Filtering(
+        filterMethod = SincFiltering(
             samplerate=data.samplerate,
             filter_type=filter_type,
             freq=freq,
