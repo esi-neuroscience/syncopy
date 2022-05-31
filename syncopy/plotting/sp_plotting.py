@@ -117,6 +117,7 @@ def plot_SpectralData(data, **show_kwargs):
         _plotting.plot_lines(ax, data_x, data_y, label=labels)
         fig.tight_layout()
 
+
 def plot_CrossSpectralData(data, **show_kwargs):
     """
     Plot 2d-line plots for the different connectivity measures.
@@ -137,8 +138,6 @@ def plot_CrossSpectralData(data, **show_kwargs):
     if not isinstance(trl, int) and len(data.trials) > 1:
         SPYWarning("Please select a single trial for plotting!")
         return
-    elif len(data.trials) == 1:
-        trl = 0
 
     # what channel combination
     if 'channel_i' not in show_kwargs or 'channel_j' not in show_kwargs:
@@ -177,7 +176,7 @@ def plot_CrossSpectralData(data, **show_kwargs):
         xlabel = 'lag'
         ylabel = 'correlation'
         label = rf"{chi_label} - {chj_label}"
-        data_x = plot_helpers.parse_toi(data, show_kwargs)
+        data_x = plot_helpers.parse_toi(data, trl, show_kwargs)
     # that's all the methods we got so far
     else:
         raise NotImplementedError
