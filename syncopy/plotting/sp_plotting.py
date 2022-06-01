@@ -58,6 +58,7 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
     _plotting.plot_lines(ax, data_x, data_y, label=labels)
     fig.tight_layout()
 
+
 def plot_SpectralData(data, **show_kwargs):
 
     """

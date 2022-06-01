@@ -26,8 +26,10 @@ With this we have a dataset of type :class:`~syncopy.AnalogData`, which is inten
 
 .. image:: damped_signals.png
    :height: 260px
-  
-To recap: we have generated a synthetic dataset with a 50Hz nuisance signal and white noise on both channels, and ``channel1`` additionally carries the damped harmonic signal.
+
+By construction, we made the (white) noise of the same strength as the signal, hence by eye the oscillations present in channel1 are hardly visible.
+
+To recap: we have generated a synthetic dataset white noise on both channels, and channel1 additionally carries the damped harmonic signal.
 
 .. hint::
    Further details about artificial data generation can be found at the :ref:`synth_data` section.
@@ -79,17 +81,17 @@ Here we quickly want to showcase two important methods for (time-)frequency anal
 Multitapered Fourier Analysis
 ------------------------------
 
-`Multitaper methods <https://en.wikipedia.org/wiki/Multitaper>`_ allow for frequency smoothing of Fourier spectra. Syncopy implements the standard `Slepian/DPSS tapers <https://en.wikipedia.org/wiki/Window_function#DPSS_or_Slepian_window>`_ and provides a convenient parameter, the *taper smoothing frequency* ``tapsmofrq`` to control the amount of spectral smoothing in Hz. To perform a multi-tapered Fourier analysis with 3Hz spectral smoothing, we simply do:
+`Multitaper methods <https://en.wikipedia.org/wiki/Multitaper>`_ allow for frequency smoothing of Fourier spectra. Syncopy implements the standard `Slepian/DPSS tapers <https://en.wikipedia.org/wiki/Window_function#DPSS_or_Slepian_window>`_ and provides a convenient parameter, the *taper smoothing frequency* ``tapsmofrq`` to control the amount of one-sided spectral smoothing in Hz. To perform a multi-tapered Fourier analysis with 2Hz spectral smoothing, we simply do:
 
 .. code-block::
 
-   fft_spectra = spy.freqanalysis(data, method='mtmfft', foilim=[0, 80], tapsmofrq=2)
+   fft_spectra = spy.freqanalysis(data, method='mtmfft', foilim=[0, 60], tapsmofrq=1)
 
-The parameter ``foilim`` controls the *frequencies of interest  limits*, so in this case we are interested in the range 0-80Hz. Starting the computation interactively will show additional information::
+The parameter ``foilim`` controls the *frequencies of interest  limits*, so in this case we are interested in the range 0-60Hz. Starting the computation interactively will show additional information::
 
-  Syncopy <validate_taper> INFO: Using 3 taper(s) for multi-tapering
+  Syncopy <validate_taper> INFO: Using 7 taper(s) for multi-tapering
 
-informing us, that for this dataset a spectral smoothing of 2Hz required 3 Slepian tapers.
+informing us, that for this dataset a total spectral smoothing of 2Hz required 7 Slepian tapers.
 
 The resulting new dataset ``fft_spectra`` is of type :class:`syncopy.SpectralData`, which is the general datatype storing the results of a time-frequency analysis.
 
@@ -102,8 +104,8 @@ To quickly have something for the eye we can plot the power spectrum of a single
 
 .. image:: mtmfft_spec.png
    :height: 260px
-
-We clearly see a smoothed spectral peak at 30Hz in channel1, and the larger 50Hz peaks plus the flat white noise floor in both channels. Comparing with the signals plotted in the time domain above, we see the power of the frequency representation of an oscillatory signal.
+	    
+We clearly see a smoothed spectral peak at 30Hz, channel 2 just contains the flat white noise floor. Comparing with the signals plotted in the time domain above, we see the power of the frequency representation of an oscillatory signal.
 
 The related short time Fourier transform can be computed via ``method='mtmconvol'``, see :func:`~syncopy.freqanalysis` for more details and examples.
 
@@ -116,7 +118,7 @@ Wavelet Analysis
 In Syncopy we can compute the Wavelet transform by calling :func:`~syncopy.freqanalysis` with the ``method='wavelet'`` argument::
 
   # define frequencies to scan
-  fois = np.arange(10, 80, step=2) # 2Hz stepping
+  fois = np.arange(10, 60, step=2) # 2Hz stepping
   wav_spectra = spy.freqanalysis(data,
                                  method='wavelet',
 				 foi=fois,
@@ -138,16 +140,21 @@ To quickly inspect the results for each channel we can use::
 
 .. image:: wavelet_spec.png
    :height: 250px
-
-Again, we see the 30Hz signal in the 1st channel, and channel 2 only carries the 50Hz nuisance signal. However, in contrast to the ``method=mtmfft`` call,  now we also get information along the time axis: the dampening of the 30Hz harmonic over time in channel1 is clearly visible.
+	    
+Again, we see a strong 30Hz signal in the 1st channel, and channel 2 is devoid of any rhythms. However, in contrast to the ``method='mtmfft'`` call, now we also get information along the time axis. The dampening of the 30Hz harmonic over time in channel 1 is clearly visible.
 
 An improved method, the superlet transform, providing super-resolution time-frequency representations can be computed via ``method='superlet'``, see :func:`~syncopy.freqanalysis` for more details.
-
 
 Preprocessing
 =============
 
-Removing this dominating 50Hz signal::
+Raw data often contains unwanted signal components: offsets, trends or even oscillatory nuisance signals. Let's add all of these to our synthetic dataset::
+
+  lin_trend = spy.synth_data.linear_trend(y_max=3,
+                                          nTrials=50,
+					  samplerate=500,
+					  nSamples=1000,
+					  nChannels=2)
 
   data_pp = spy.preprocessing(data, filter_type='lp', freq=40, order=12)
   spec_pp = spy.freqanalysis(data, foilim=[0, 80], tapsmofrq=2, keeptrials=False)
