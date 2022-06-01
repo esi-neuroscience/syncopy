@@ -3,6 +3,7 @@
 # syncopy.preproc resampling tests
 #
 import numpy as np
+import scipy.signal as sci_sig
 import matplotlib.pyplot as ppl
 
 from syncopy.preproc import resampling, firws
@@ -63,35 +64,31 @@ def test_resample():
     gain = ds_lp_power.mean() / orig_power.mean()
     assert 0.98 < gain < 1.02
 
-    # -- test non-trivial resampling --
+    # -- test resampling --
 
     rs_fs = 200
     # make sure we have a non-integer division
     assert orig_fs % rs_fs > 1  # strictly > 0 would be enough..
 
-    rs_data = [resampling.resample(signal, orig_fs, rs_fs) for signal in data]
-    rs_power, rs_freqs = trl_av_power(rs_data, nSamples, rs_fs)
+    # -- test SciPy default --
+    rs_dataSP = [resampling.resample(signal, orig_fs, rs_fs, lpfreq=-1)
+                 for signal in data]
+
+    rs_powerSP, rs_freqsSP = trl_av_power(rs_dataSP, nSamples, rs_fs)
 
     # here we have implicit FIR filtering built in,
     # hence there should be again no gain
-    # NOTE: There is however an overshoot and ringing
-    # with the default (implicit) FIR filter
-    # Hence we need more relaxed gain checking here (5%)
-    gain = rs_power.mean() / orig_power.mean()
-    assert 0.95 < gain < 1.05
+    # NOTE: There is however a quite slow roll-off
+    # relax gain condition to tolerate losses up to 6%
+    gain = rs_powerSP.mean() / orig_power.mean()
+    assert 0.94 < gain < 1.02
 
-    # use home grown firws, needs other normalization?!
-    lpfilter2 = (
-        firws.design_wsinc("hamming",
-                           order=nSamples,
-                           f_c=0.5 * rs_fs / orig_fs)
-        * 1 / np.sqrt(2)
-    )
-    rs_data2 = [
-        resampling.resample(signal, orig_fs, rs_fs, window=lpfilter2) for signal in data
-    ]
-    rs_power2, rs_freqs2 = trl_av_power(rs_data2, nSamples, rs_fs)
-    gain = rs_power2.mean() / orig_power.mean()
+    # -- use backend with homegrown firws --
+
+    rs_data = [resampling.resample(signals, orig_fs, rs_fs)
+               for signals in data]
+    rs_power, rs_freqs = trl_av_power(rs_data, nSamples, rs_fs)
+    gain = rs_power.mean() / orig_power.mean()
     # NOTE: this works very well and we can
     # give again harder constraints on the gain (2%)
     assert 0.98 < gain < 1.02
@@ -105,8 +102,8 @@ def test_resample():
     ax.plot(orig_freqs, orig_power, label="original", lw=1.5, alpha=0.5)
     ax.plot(ds_freqs, ds_power, label="downsampled")
     ax.plot(ds_lp_freqs, ds_lp_power, label="downsampled + FIRWS")
-    ax.plot(rs_freqs, rs_power, label="resample_poly")
-    ax.plot(rs_freqs2, rs_power2, label="resample_poly + FIRWS")
+    ax.plot(rs_freqsSP, rs_powerSP, label="default resample_poly")
+    ax.plot(rs_freqs, rs_power, label="resample_poly + FIRWS")
     ax.set_ylim((0, ds_power.mean() * 1.2))
     ax.legend()
     fig.tight_layout()

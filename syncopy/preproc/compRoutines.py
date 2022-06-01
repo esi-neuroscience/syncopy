@@ -636,21 +636,11 @@ def resample_cF(dat,
         new_nSamples = int(np.ceil(nSamples * fs_ratio))
         return (new_nSamples, dat.shape[1]), dat.dtype
 
-    # -- default low-pass filter --
-    if lpfreq is None:
-        f_c = 0.5 * fs_ratio
-    # explicit cut-off
-    else:
-        f_c = lpfreq / samplerate
-    if order is None:
-        order = nSamples
-
-    # design firws
-    lpfilter = design_wsinc("hamming",
-                            order=order,
-                            f_c=f_c)
-
-    resampled = resample(dat, samplerate, new_samplerate, window=lpfilter)
+    resampled = resample(dat,
+                         samplerate,
+                         new_samplerate,
+                         lpfreq=lpfreq,
+                         order=order)
 
     return resampled
 

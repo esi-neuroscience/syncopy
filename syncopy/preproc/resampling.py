@@ -8,13 +8,18 @@
 import fractions
 import scipy.signal as sci_sig
 
+# Syncopy imports
+from syncopy.preproc import firws
 
-def resample(data, orig_fs, new_fs, window=("kaiser", 0.5)):
+def resample(data, orig_fs, new_fs, lpfreq=None, order=None):
 
     """
     Uses SciPy's polyphase method for the implementation
     of the standard resampling procedure:
         upsampling : FIR filtering : downsampling
+
+    SciPy's default FIR filter has a slow roll-off,
+    so the default is to design and use a homegrown firws.
 
     Parameters
     ----------
@@ -26,12 +31,14 @@ def resample(data, orig_fs, new_fs, window=("kaiser", 0.5)):
         The original sampling rate
     new_fs : float
         The target sampling rate after resampling
-    window : string, tuple, or array_like, optional
-        Either a window (+parameters) for the FIR filter
-        to be implicitly designed/used, or the 1D
-        FIR filter array directly. Supported windows
-        are :data:`~syncopy.shared.const_def.availableTapers`
-        Defaults to a Kaiser window with beta=0.5.
+    lpfreq : None or float, optional
+        Leave at `None` for standard anti-alias filtering with
+        the new Nyquist or set explicitly in Hz
+        If set to `-1` use SciPy's default kaiser windowed FIR
+    order : None or int, optional
+        Order (length) of the firws anti-aliasing filter.
+        The default `None` will create a filter of
+        maximal order which is the number of samples in the trial.
 
     Returns
     -------
@@ -44,9 +51,36 @@ def resample(data, orig_fs, new_fs, window=("kaiser", 0.5)):
     syncopy.preproc.compRoutines.downsample_cF : Straightforward and cheap downsampling
     """
 
+    nSamples = data.shape[0]
+
     # get up/down sampling factors
-    up, down = _get_pq(orig_fs, new_fs)
-    resampled = sci_sig.resample_poly(data, up, down, axis=0, window=window)
+    up, down = _get_updn(orig_fs, new_fs)
+    fs_ratio = new_fs / orig_fs
+
+    # -- design firws low-pass filter --
+
+    # default cuts at new Nyquist
+    if lpfreq is None:
+        f_c = 0.5 * fs_ratio
+    # for backend tests only,
+    # negative values don't pass the frontend                
+    elif lpfreq == -1:
+        f_c = None
+    # explicit cut-off
+    else:
+        f_c = lpfreq / orig_fs
+    if order is None:
+        order = nSamples
+
+    if f_c:
+        # filter has to be applied to the upsampled data    
+        window = firws.design_wsinc("hamming",
+                                  order=nSamples,
+                                  f_c=f_c / up)
+    else:
+        window = ('kaiser', 5.0)   # SciPy default
+    
+    resampled = sci_sig.resample_poly(data, up, down, window=window, axis=0)
 
     return resampled
 
@@ -84,10 +118,10 @@ def downsample(
     return dat[::skipped]
 
 
-def _get_pq(orig_fs, new_fs):
+def _get_updn(orig_fs, new_fs):
 
     """
-    Get the up/down (p/q) sampling
+    Get the up/down sampling
     factors from the original and target
     sampling rate.
 
@@ -100,3 +134,4 @@ def _get_pq(orig_fs, new_fs):
     frac = frac.limit_denominator()
 
     return frac.numerator, frac.denominator
+    
