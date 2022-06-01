@@ -303,7 +303,7 @@ def process_taper(taper,
 
         # --------------------------------------------
         # set parameters for scipy.signal.windows.dpss
-        NW = tapsmofrq * nSamples / (2 * samplerate)
+        NW = tapsmofrq * nSamples / samplerate
         # from the minBw setting NW always is at least 1
         Kmax = int(2 * NW - 1)  # optimal number of tapers
         # --------------------------------------------
