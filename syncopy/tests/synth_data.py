@@ -3,6 +3,8 @@
 # Synthetic data generators for testing and tutorials
 #
 
+# Builtin/3rd party package imports
+from inspect import signature
 import numpy as np
 import functools
 
@@ -23,6 +25,9 @@ def collect_trials(trial_generator):
     other means to define those numbers, e.g.
     `AdjMat` for :func:`~syncopy.synth_data.AR2_network`
 
+    If the underlying trial generating function also accepts
+    a `samplerate`, forward this directly.
+
     The default `nTrials=None` is the identity wrapper and
     just returns the output of the trial generating function
     directly, so a single trial :class:`numpy.ndarray`.
@@ -30,6 +35,11 @@ def collect_trials(trial_generator):
 
     @functools.wraps(trial_generator)
     def wrapper_synth(nTrials=None, samplerate=1000, **tg_kwargs):
+        
+        # append samplerate parameter if also needed by the generator
+        if 'samplerate' in signature(trial_generator).parameters.keys():
+            tg_kwargs['samplerate'] = samplerate
+
         # do nothing
         if nTrials is None:
             return trial_generator(**tg_kwargs)
@@ -55,6 +65,30 @@ def white_noise(nSamples=1000, nChannels=2):
     """
 
     return np.random.randn(nSamples, nChannels)
+
+
+@collect_trials
+def linear_trend(y_max, nSamples=1000, nChannels=2):
+
+    """
+    A linear trend  on all channels from 0 to `y_max` in `nSamples`
+    """
+
+    trend = np.linspace(0, y_max, nSamples)
+    return np.column_stack([trend for _ in range(nChannels)])
+
+
+@collect_trials
+def harmonic(freq, samplerate, nSamples=1000, nChannels=2):
+
+    """
+    A harmonic with frequency `freq`
+    """
+    # the sampling times vector needed for construction
+    tvec = np.arange(nSamples) * 1 / samplerate
+    # the  harmonic
+    harm = np.cos(2 * np.pi * freq * tvec)
+    return np.column_stack([harm for _ in range(nChannels)])
 
 
 # noisy phase evolution <-> phase diffusion
