@@ -80,9 +80,13 @@ def plot_lines(ax, data_x, data_y, leg_fontsize=pltConfig['sLegendSize'], **pkwa
         ax.legend(ncol=2, loc='best', frameon=False,
                   fontsize=leg_fontsize)
         # make room for the legend
-        mn, mx = ax.get_ylim()        
-        ax.set_ylim((mn, 1.1 * mx))
-
+        mn, mx = ax.get_ylim()
+        # accomodate (negative) log values
+        if mx < 0:
+            # add a quarter magnitude
+            ax.set_ylim((mn, mx + 0.25))
+        else:
+            ax.set_ylim((mn, mx * 1.1))
 
 # -- image plots --
 
