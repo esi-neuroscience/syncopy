@@ -33,16 +33,12 @@ if __name__ == "__main__":
     AdjMat = np.zeros((2, 2))
     # coupling from 0 to 1
     AdjMat[0, 1] = .15
-    for _ in range(nTrials):
+    alphas = [.55, -.8]
+    ad2 = synth_data.AR2_network(nTrials, samplerate=fs,
+                                 AdjMat=AdjMat,
+                                 nSamples=nSamples,
+                                 alphas=alphas)
 
-        # defaults AR(2) parameters yield 40Hz peak
-        alphas = [.55, -.8]
-        trl = synth_data.AR2_network(AdjMat, nSamples=nSamples,
-                                     alphas=alphas)
-
-        trls.append(trl)
-
-    ad2 = spy.AnalogData(trls, samplerate=fs)
     spec = spy.freqanalysis(ad2, tapsmofrq=2, keeptrials=False)
     foi = np.linspace(40, 160, 25)
     spec2 = spy.freqanalysis(ad2, method='wavelet', keeptrials=False, foi=foi)

@@ -13,6 +13,7 @@ import numbers
 from inspect import signature
 from scipy.signal import windows
 
+from syncopy.specest.mtmfft import _get_dpss_pars
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYInfo
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.const_def import availableTapers, generalParameters, availablePaddingOpt
@@ -184,7 +185,7 @@ def process_taper(taper,
         Dictionary holding additional keywords for tapers which have additional
         parameters like for example :func:`~scipy.signal.windows.kaiser`
     tapsmofrq : float or None
-        Taper smoothing bandwidth for multi-tapering with 'dpss' window
+        Taper smoothing bandwidth for multi-tapering with implicit 'dpss' window
     nTaper : int_like or None
         Number of tapers to use for multi-tapering (not recommended)
 
@@ -301,12 +302,10 @@ def process_taper(taper,
             SPYInfo(msg)
             tapsmofrq = minBw
 
-        # --------------------------------------------
+        # --------------------------------------------------------------
         # set parameters for scipy.signal.windows.dpss
-        NW = tapsmofrq * nSamples / samplerate
-        # from the minBw setting NW always is at least 1
-        Kmax = int(2 * NW - 1)  # optimal number of tapers
-        # --------------------------------------------
+        NW, Kmax = _get_dpss_pars(tapsmofrq, nSamples, samplerate)
+        # --------------------------------------------------------------
 
         # the recommended way:
         # set nTaper automatically to achieve exact effective smoothing bandwidth
@@ -317,12 +316,10 @@ def process_taper(taper,
             return 'dpss', dpss_opt
 
         elif nTaper is not None:
-            try:
-                scalar_parser(nTaper,
-                              varname="nTaper",
-                              ntype="int_like", lims=[1, np.inf])
-            except Exception as exc:
-                raise exc
+
+            scalar_parser(nTaper,
+                          varname="nTaper",
+                          ntype="int_like", lims=[1, np.inf])
 
             if nTaper != Kmax:
                 msg = f'''
@@ -389,4 +386,3 @@ def check_passed_kwargs(lcls, defaults, frontend_name):
         if name not in expected:
             msg = f"option `{name}` has no effect in `{frontend_name}`!"
             SPYWarning(msg, caller=__name__.split('.')[-1])
-
