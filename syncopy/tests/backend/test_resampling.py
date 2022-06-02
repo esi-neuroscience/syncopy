@@ -23,7 +23,7 @@ def test_resample():
     band after resampling.
 
     This strategy was inspired by a Field Trip Tutorial written
-    by Jan Mathijs: `https://www.fieldtriptoolbox.org/faq/resampling_lowpassfilter/`_
+    by Jan Mathijs Schoffelen: `https://www.fieldtriptoolbox.org/faq/resampling_lowpassfilter/`_
     """
 
     nSamples = 2000

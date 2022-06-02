@@ -8,18 +8,15 @@ import numpy as np
 
 # Syncopy imports
 from syncopy import AnalogData
-from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
+from syncopy.shared.parsers import data_parser, scalar_parser
 from syncopy.shared.tools import get_defaults
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYWarning, SPYInfo
 from syncopy.shared.kwarg_decorators import (
     unwrap_cfg,
     unwrap_select,
     detect_parallel_client,
 )
-from syncopy.shared.input_processors import (
-    check_effective_parameters,
-    check_passed_kwargs,
-)
+from syncopy.shared.input_processors import check_passed_kwargs
 
 from .compRoutines import Downsample, Resample, SincFiltering
 
@@ -43,7 +40,7 @@ def resampledata(data,
 
     "downsample" : Take every nth sample
         The new sampling rate `resamplefs` must be an integer division of
-        the old sampling rate, e.i. 500Hz to 250Hz.
+        the old sampling rate, e. g., 500Hz to 250Hz.
         Note that no anti-aliasing filtering is performed before downsampling,
         it is strongly recommended to apply a low-pass filter
         beforehand via :func:`~syncopy.preprocessing` with the new

@@ -63,7 +63,7 @@ def resample(data, orig_fs, new_fs, lpfreq=None, order=None):
     if lpfreq is None:
         f_c = 0.5 * fs_ratio
     # for backend tests only,
-    # negative values don't pass the frontend                
+    # negative values don't pass the frontend
     elif lpfreq == -1:
         f_c = None
     # explicit cut-off
@@ -73,13 +73,13 @@ def resample(data, orig_fs, new_fs, lpfreq=None, order=None):
         order = nSamples
 
     if f_c:
-        # filter has to be applied to the upsampled data    
+        # filter has to be applied to the upsampled data
         window = firws.design_wsinc("hamming",
                                   order=nSamples,
                                   f_c=f_c / up)
     else:
         window = ('kaiser', 5.0)   # SciPy default
-    
+
     resampled = sci_sig.resample_poly(data, up, down, window=window, axis=0)
 
     return resampled
@@ -89,7 +89,7 @@ def downsample(
     dat,
     samplerate=1,
     new_samplerate=1,
-):
+    ):
     """
     Provides basic downsampling of signals. The `new_samplerate` should be
     an integer division of the original `samplerate`.
@@ -134,4 +134,4 @@ def _get_updn(orig_fs, new_fs):
     frac = frac.limit_denominator()
 
     return frac.numerator, frac.denominator
-    
+
