@@ -16,7 +16,7 @@ Here we want to quickly explore some standard analyses for analog data (e.g. MUA
 Preparations
 ============
 
-To start with a clean slate, let's construct a synthetic dataset consisting of a damped 30Hz harmonic, a 50Hz nuisance signal  and additive white noise:
+To start with a clean slate, let's construct a synthetic dataset consisting of a damped 30Hz harmonic and additive white noise:
 
 .. literalinclude:: /quickstart/damped_harm.py
 
@@ -27,7 +27,7 @@ With this we have a dataset of type :class:`~syncopy.AnalogData`, which is inten
 .. image:: damped_signals.png
    :height: 260px
 
-By construction, we made the (white) noise of the same strength as the signal, hence by eye the oscillations present in channel1 are hardly visible.
+By construction, we made the (white) noise of the same strength as the signal, hence by eye the oscillations present in channel1 are hardly visible. The parameter ``toilim`` stands for *time of interest limits* and defines a time-interval selection.
 
 To recap: we have generated a synthetic dataset white noise on both channels, and channel1 additionally carries the damped harmonic signal.
 
