@@ -48,14 +48,9 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
     # multiple channels?
     labels = plot_helpers.parse_channel(data, show_kwargs)
 
-    # plot multiple channels with offsets for
-    # better visibility
-    if shifted:
-        data_y = plot_helpers.shift_multichan(data_y)
-
     fig, ax = _plotting.mk_line_figax()
-
-    _plotting.plot_lines(ax, data_x, data_y, label=labels)
+    _plotting.plot_lines(ax, data_x, data_y,
+                         label=labels, shifted=shifted)
     fig.tight_layout()
 
 

@@ -114,15 +114,14 @@ def shift_multichan(data_y):
 
     if data_y.ndim > 1:
         # shift 0-line for next channel
-        # above max of prev.
+        # above max of prev- min of current
         offsets = data_y.max(axis=0)[:-1]
-        # shift even further if next channel
-        # dips below 0
-        offsets += np.abs(data_y.min(axis=0)[1:])
+        offsets -= data_y.min(axis=0)[1:]
         offsets = np.cumsum(np.r_[0, offsets] * 1.1)
-        data_y += offsets
+    else:
+        offsets = 0
 
-    return data_y
+    return offsets
 
 
 def get_method(dataobject):

@@ -714,7 +714,7 @@ def sequence_parser(sequence, content_type=None, varname=""):
     content_type: type
         The type of the sequence contents, e.g. `str`
     varname : str
-        Local variable name used in caller
+        Local variable name piped to SPYTypeError
 
     See also
     --------

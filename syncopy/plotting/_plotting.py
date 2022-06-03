@@ -3,15 +3,24 @@
 # Syncopy plotting backend
 #
 
-from syncopy.plotting.config import pltConfig
+# 3rd party imports
+import numpy as np
+
+from syncopy.plotting.config import pltConfig, rc_props
 from syncopy import __plt__
+from syncopy.plotting import _helpers
 
 if __plt__:
+    import matplotlib
     import matplotlib.pyplot as ppl
 
 
-# -- 2d-line plots --
+# for the legends
+ncol_max = 3
 
+
+# -- 2d-line plots --
+@matplotlib.rc_context(rc_props)
 def mk_line_figax(xlabel='time (s)', ylabel='signal (a.u.)'):
 
     """
@@ -32,6 +41,7 @@ def mk_line_figax(xlabel='time (s)', ylabel='signal (a.u.)'):
     return fig, ax
 
 
+@matplotlib.rc_context(rc_props)
 def mk_multi_line_figax(nrows, ncols, xlabel='time (s)', ylabel='signal (a.u.)'):
 
     """
@@ -70,26 +80,44 @@ def mk_multi_line_figax(nrows, ncols, xlabel='time (s)', ylabel='signal (a.u.)')
     return fig, axs
 
 
-def plot_lines(ax, data_x, data_y, leg_fontsize=pltConfig['sLegendSize'], **pkwargs):
+@matplotlib.rc_context(rc_props)
+def plot_lines(ax, data_x, data_y,
+               leg_fontsize=pltConfig['sLegendSize'],
+               shifted=True,
+               **pkwargs):
+
+    if shifted:
+        offsets = _helpers.shift_multichan(data_y)
+        data_y = data_y + offsets
 
     if 'alpha' not in pkwargs:
         ax.plot(data_x, data_y, alpha=0.9, **pkwargs)
     else:
         ax.plot(data_x, data_y, **pkwargs)
+
+    # plot the legend
     if 'label' in pkwargs:
-        ax.legend(ncol=2, loc='best', frameon=False,
-                  fontsize=leg_fontsize)
-        # make room for the legend
-        mn, mx = ax.get_ylim()
-        # accomodate (negative) log values
-        if mx < 0:
-            # add a quarter magnitude
-            ax.set_ylim((mn, mx + 0.25))
+        # multi-chan stacking, use labels as ticks
+        if shifted:
+            pos = data_y.mean(axis=0)
+            ax.set_yticks(pos, pkwargs['label'])
+            pass
         else:
-            ax.set_ylim((mn, mx * 1.1))
+            ax.legend(ncol=ncol_max, loc='best', frameon=False,
+                      fontsize=leg_fontsize,
+                      )
+            # make room for the legend
+            mn, mx = ax.get_ylim()
+            # accomodate (negative) log values
+            if mx < 0:
+                # add a quarter magnitude
+                ax.set_ylim((mn, mx + 0.25))
+            else:
+                ax.set_ylim((mn, mx * 1.15))
+
 
 # -- image plots --
-
+@matplotlib.rc_context(rc_props)
 def mk_img_figax(xlabel='time (s)', ylabel='frequency (Hz)'):
 
     """
@@ -107,6 +135,7 @@ def mk_img_figax(xlabel='time (s)', ylabel='frequency (Hz)'):
     return fig, ax
 
 
+@matplotlib.rc_context(rc_props)
 def mk_multi_img_figax(nrows, ncols, xlabel='time (s)', ylabel='frequency (Hz)'):
 
     """
@@ -138,6 +167,7 @@ def mk_multi_img_figax(nrows, ncols, xlabel='time (s)', ylabel='frequency (Hz)')
     return fig, axs
 
 
+@matplotlib.rc_context(rc_props)
 def plot_tfreq(ax, data_yx, times, freqs, **pkwargs):
 
     """
