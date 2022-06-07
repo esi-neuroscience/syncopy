@@ -6,6 +6,7 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+from numbers import Number
 
 # Syncopy imports
 from syncopy import __plt__
@@ -25,6 +26,12 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
     ----------
     data : :class:`~syncopy.datatype.AnalogData`
     show_kwargs : :func:`~syncopy.datatype.methods.show.show` arguments
+
+    Returns
+    -------
+    fig : `~matplotlib.figure.Figure`
+
+    ax : `~matplotlib.axes.Axes`
     """
 
     if not __plt__:
@@ -34,7 +41,7 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
     # right now we have to enforce
     # single trial selection only
     trl = show_kwargs.get('trials', None)
-    if not isinstance(trl, int) and len(data.trials) > 1:
+    if not isinstance(trl, Number) and len(data.trials) > 1:
         SPYWarning("Please select a single trial for plotting!")
         return
     # only 1 trial so no explicit selection needed
@@ -52,6 +59,7 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
     _plotting.plot_lines(ax, data_x, data_y,
                          label=labels, shifted=shifted)
     fig.tight_layout()
+    return fig, ax
 
 
 def plot_SpectralData(data, **show_kwargs):

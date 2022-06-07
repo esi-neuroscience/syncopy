@@ -2,7 +2,7 @@
 #
 # Helper functions for frontend test design
 #
-# The runner signatures take a callable,
+# The `run_` function signatures take a callable,
 # the `method_call`, as 1st argument
 #
 
@@ -126,7 +126,9 @@ def run_foi_test(method_call, foilim, positivity=True):
 def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
 
     """
-    Takes 4 numbers, the last two descibing a time-interval
+    Takes 5 numbers, the last three descibing a `toilim/toi` time-interval
+    and creates cartesian product like `select` keyword
+    arguments.
 
     Returns
     -------

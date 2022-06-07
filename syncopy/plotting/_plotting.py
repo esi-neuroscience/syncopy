@@ -6,7 +6,7 @@
 # 3rd party imports
 import numpy as np
 
-from syncopy.plotting.config import pltConfig, rc_props
+from syncopy.plotting.config import pltConfig, rc_props, foreground
 from syncopy import __plt__
 from syncopy.plotting import _helpers
 
@@ -89,11 +89,13 @@ def plot_lines(ax, data_x, data_y,
     if shifted:
         offsets = _helpers.shift_multichan(data_y)
         data_y = data_y + offsets
+        # no colors needed
+        pkwargs['color'] = foreground
 
     if 'alpha' not in pkwargs:
-        ax.plot(data_x, data_y, alpha=0.9, **pkwargs)
-    else:
-        ax.plot(data_x, data_y, **pkwargs)
+        pkwargs['alpha'] = 0.9
+
+    ax.plot(data_x, data_y, **pkwargs)
 
     # plot the legend
     if 'label' in pkwargs:

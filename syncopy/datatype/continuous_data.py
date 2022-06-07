@@ -482,11 +482,13 @@ class AnalogData(ContinuousData):
     # implement plotting
     def singlepanelplot(self, shifted=True, **show_kwargs):
 
-        sp_plotting.plot_AnalogData(self, shifted, **show_kwargs)
+        figax = sp_plotting.plot_AnalogData(self, shifted, **show_kwargs)
+        return figax
 
     def multipanelplot(self, **show_kwargs):
 
-        mp_plotting.plot_AnalogData(self, **show_kwargs)
+        figax = mp_plotting.plot_AnalogData(self, **show_kwargs)
+        return figax
 
 
 class SpectralData(ContinuousData):

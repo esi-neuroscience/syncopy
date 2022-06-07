@@ -62,7 +62,7 @@ def parse_toi(dataobject, trl, show_kwargs):
         time, _ = best_match(time, toilim, span=True)
     # here show is broken atm, issue #240
     toi = show_kwargs.get('toi', None)
-    if toi is not None:
+    if toi is not None and toi != 'all':
         time, _ = best_match(time, toi, span=False)
 
     return time
