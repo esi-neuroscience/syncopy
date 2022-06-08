@@ -83,7 +83,7 @@ def mk_multi_line_figax(nrows, ncols, xlabel='time (s)', ylabel='signal (a.u.)')
 @matplotlib.rc_context(rc_props)
 def plot_lines(ax, data_x, data_y,
                leg_fontsize=pltConfig['sLegendSize'],
-               shifted=True,
+               shifted=False,
                **pkwargs):
 
     if shifted:
@@ -109,13 +109,11 @@ def plot_lines(ax, data_x, data_y,
                       fontsize=leg_fontsize,
                       )
             # make room for the legend
-            mn, mx = ax.get_ylim()
-            # accomodate (negative) log values
-            if mx < 0:
-                # add a quarter magnitude
-                ax.set_ylim((mn, mx + 0.25))
-            else:
-                ax.set_ylim((mn, mx * 1.15))
+            mn, mx = data_y.min(), data_y.max()
+
+            stretch = lambda x, fac: np.abs((fac - 1) * x)
+
+            ax.set_ylim((mn - stretch(mn, 1.1), mx + stretch(mx, 1.1)))
 
 
 # -- image plots --

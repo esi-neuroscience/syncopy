@@ -49,7 +49,7 @@ pltConfig = {"sTitleSize": 15,
              "mLegendSize": 10,
              "mXSize": 3.2,
              "mYSize": 2.4,
-             "mMaxAxes": 35,
+             "mMaxAxes": 25,
              "cmap": "magma"}
 
 # Global consistent error message if matplotlib is missing

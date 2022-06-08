@@ -62,7 +62,9 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
     fig, axs = _plotting.mk_multi_line_figax(nrows, ncols)
 
     for chan_dat, ax, label in zip(data_y.T, axs.flatten(), labels):
-        _plotting.plot_lines(ax, data_x, chan_dat, label=label, leg_fontsize=pltConfig['mLegendSize'])
+        _plotting.plot_lines(ax, data_x, chan_dat,
+                             label=label,
+                             leg_fontsize=pltConfig['mLegendSize'])
 
     # delete empty plot due to grid extension
     # because of prime nAx -> can be maximally 1 plot
@@ -70,6 +72,7 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
         axs.flatten()[-1].remove()
 
     fig.tight_layout()
+    return fig, axs
 
 
 def plot_SpectralData(data, **show_kwargs):

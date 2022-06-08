@@ -21,14 +21,20 @@ from syncopy.shared.tools import get_defaults
 class TestAnalogDataPlotting():
 
     nTrials = 10
-    nChannels = 8
+    nChannels = 9
+    nSamples = 250
     adata = synth_data.AR2_network(nTrials=nTrials,
-                                   AdjMat=np.identity(nChannels))
+                                   AdjMat=np.identity(nChannels),
+                                   nSamples=nSamples)
 
     adata += 0.3 * synth_data.linear_trend(nTrials=nTrials,
-                                           y_max=100,
-                                           nSamples=1000,
+                                           y_max=nSamples / 10,
+                                           nSamples=nSamples,
                                            nChannels=nChannels)
+
+    # add an offset
+    adata = adata + 5
+
     # all trials are equal
     toi_min, toi_max = adata.time[0][0], adata.time[0][-1]
 
@@ -43,7 +49,7 @@ class TestAnalogDataPlotting():
         if def_test:
             # interactive plotting
             ppl.ion()
-            def_kwargs = {'trials': 1, 'toilim': [-.4, -.2]}
+            def_kwargs = {'trials': 1}
             kwargs = def_kwargs
 
         # all plotting routines accept selection
@@ -52,15 +58,20 @@ class TestAnalogDataPlotting():
             sd = kwargs.pop('select')
             self.adata.singlepanelplot(**sd, **kwargs)
             self.adata.singlepanelplot(**sd, **kwargs, shifted=False)
+            self.adata.multipanelplot(**sd, **kwargs)
         else:
             fig1, ax1 = self.adata.singlepanelplot(**kwargs)
             fig2, ax2 = self.adata.singlepanelplot(**kwargs, shifted=False)
+            fig3, axs = self.adata.multipanelplot(**kwargs)
 
+        # check axes/figure references work
         if def_test:
             ax1.set_title('Shifted signals')
             fig1.tight_layout()
             ax2.set_title('Overlayed signals')
             fig2.tight_layout()
+            fig3.suptitle("Multipanel plot")
+            fig3.tight_layout()
         else:
             ppl.close('all')
 
@@ -82,6 +93,24 @@ class TestAnalogDataPlotting():
             # FIXME: see #291
             sel_dict['channel'] = sorted(sel_dict['channel'])
             self.test_ad_plotting(select=sel_dict)
+
+    def test_ad_exceptions(self):
+
+        # empty arrays get returned for empty time selection
+        with pytest.raises(SPYValueError) as err:
+            self.test_ad_plotting(trials=0,
+                                  toilim=[self.toi_max + 1, self.toi_max + 2])
+            assert "zero size" in str(err)
+
+        # invalid channel selection
+        with pytest.raises(SPYValueError) as err:
+            self.test_ad_plotting(trials=0, channel=self.nChannels + 1)
+            assert "channel existing names" in str(err)
+
+        # invalid trial selection
+        with pytest.raises(SPYValueError) as err:
+            self.test_ad_plotting(trials=self.nTrials + 1)
+            assert "select: trials" in str(err)
 
 
 if __name__ == '__main__':

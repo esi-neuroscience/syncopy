@@ -160,12 +160,12 @@ def calc_multi_layout(nAx):
             nrows = int(nAx / ncols)
         # nAx was prime and too big
         # for one plotting row
-        if ncols == nAx and nAx > 7:
+        if ncols == nAx and nAx > 4:
             nAx += 1
     # no elif to capture possibly incremented nAx
     if nAx % 2 == 0 and nAx > 2:
-        ncols = int(np.sqrt(nAx))  # this is max pltConfig["mMaxYaxes"]
-        nrows = ncols
+        nrows = int(np.sqrt(nAx))  # this is max pltConfig["mMaxYaxes"]
+        ncols = nAx // nrows
         while(ncols * nrows < nAx):
             nrows -= 1
             ncols = int(nAx / nrows)

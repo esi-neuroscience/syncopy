@@ -10,7 +10,7 @@ from numbers import Number
 
 # Syncopy imports
 from syncopy import __plt__
-from syncopy.shared.errors import SPYWarning
+from syncopy.shared.errors import SPYWarning, SPYValueError
 from syncopy.plotting import _plotting
 from syncopy.plotting import _helpers as plot_helpers
 from syncopy.plotting.config import pltErrMsg, pltConfig
@@ -49,8 +49,13 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
         trl = 0
 
     # get the data to plot
-    data_x = plot_helpers.parse_toi(data, trl, show_kwargs)
     data_y = data.show(**show_kwargs)
+    if data_y.size == 0:
+        lgl = "Selection with non-zero size"
+        act = "got zero samples"
+        raise SPYValueError(lgl, varname="show_kwargs", actual=act)
+
+    data_x = plot_helpers.parse_toi(data, trl, show_kwargs)
 
     # multiple channels?
     labels = plot_helpers.parse_channel(data, show_kwargs)
