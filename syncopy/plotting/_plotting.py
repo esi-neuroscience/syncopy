@@ -100,10 +100,10 @@ def plot_lines(ax, data_x, data_y,
     # plot the legend
     if 'label' in pkwargs:
         # multi-chan stacking, use labels as ticks
-        if shifted:
-            pos = data_y.mean(axis=0)
+        if shifted and data_y.ndim > 1:
+            pos = np.array(data_y.mean(axis=0))
             ax.set_yticks(pos, pkwargs['label'])
-            pass
+
         else:
             ax.legend(ncol=ncol_max, loc='best', frameon=False,
                       fontsize=leg_fontsize,

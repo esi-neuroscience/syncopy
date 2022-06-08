@@ -6,10 +6,11 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+from numbers import Number
 
 # Syncopy imports
 from syncopy import __plt__
-from syncopy.shared.errors import SPYWarning
+from syncopy.shared.errors import SPYWarning, SPYValueError
 from syncopy.plotting import _plotting
 from syncopy.plotting import _helpers as plot_helpers
 from syncopy.plotting.config import pltErrMsg, pltConfig
@@ -34,9 +35,10 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
     # right now we have to enforce
     # single trial selection only
     trl = show_kwargs.get('trials', None)
-    if not isinstance(trl, int) and len(data.trials) > 1:
+    if not isinstance(trl, Number) and len(data.trials) > 1:
         SPYWarning("Please select a single trial for plotting!")
         return
+
     # only 1 trial so no explicit selection needed
     elif len(data.trials) == 1:
         trl = 0
@@ -45,6 +47,11 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
     data_x = plot_helpers.parse_toi(data, trl, show_kwargs)
     data_y = data.show(**show_kwargs)
 
+    if data_y.size == 0:
+        lgl = "Selection with non-zero size"
+        act = "got zero samples"
+        raise SPYValueError(lgl, varname="show_kwargs", actual=act)
+
     # multiple channels?
     labels = plot_helpers.parse_channel(data, show_kwargs)
     nAx = 1 if isinstance(labels, str) else len(labels)
@@ -52,6 +59,7 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
     if nAx < 2:
         SPYWarning("Please select at least two channels for a multipanelplot!")
         return
+
     elif nAx > pltConfig['mMaxAxes']:
         SPYWarning("Please select max. {pltConfig['mMaxAxes']} channels for a multipanelplot!")
         return
@@ -95,7 +103,7 @@ def plot_SpectralData(data, **show_kwargs):
     # right now we have to enforce
     # single trial selection only
     trl = show_kwargs.get('trials', None)
-    if not isinstance(trl, int) and len(data.trials) > 1:
+    if not isinstance(trl, Number) and len(data.trials) > 1:
         SPYWarning("Please select a single trial for plotting!")
         return
     elif len(data.trials) == 1:
@@ -116,22 +124,43 @@ def plot_SpectralData(data, **show_kwargs):
 
     # how got the spectrum computed
     method = plot_helpers.get_method(data)
-    if method in ('wavelet', 'superlet', 'mtmconvol'):        
+    if method in ('wavelet', 'superlet', 'mtmconvol'):
         fig, axs = _plotting.mk_multi_img_figax(nrows, ncols)
 
+        # this could be more elegantly solve by
+        # an in-place selection?!
         time = plot_helpers.parse_toi(data, trl, show_kwargs)
+        freqs = plot_helpers.parse_foi(data, show_kwargs)
+
         # dimord is time x freq x channel
         # need freq x time each for plotting
         data_cyx = data.show(**show_kwargs).T
+        if data_cyx.size == 0:
+            lgl = "Selection with non-zero size"
+            act = "got zero samples"
+            raise SPYValueError(lgl, varname="show_kwargs", actual=act)
+
         maxP = data_cyx.max()
         for data_yx, ax, label in zip(data_cyx, axs.flatten(), labels):
-            _plotting.plot_tfreq(ax, data_yx, time, data.freq, vmax=maxP)
+            _plotting.plot_tfreq(ax, data_yx, time, freqs, vmax=maxP)
             ax.set_title(label, fontsize=pltConfig['mTitleSize'])
         fig.tight_layout()
         fig.subplots_adjust(wspace=0.05)
 
     # just a line plot
     else:
+        msg = False
+        if 'toilim' in show_kwargs:
+            show_kwargs.pop('toilim')
+            msg = True
+        if 'toi' in show_kwargs:
+            show_kwargs.pop('toi')
+            msg = True
+        if msg:
+            msg = ("Line spectra don't have a time axis, "
+                   "ignoring `toi/toilim` selection!")
+            SPYWarning(msg)
+
         # get the data to plot
         data_x = plot_helpers.parse_foi(data, show_kwargs)
         data_y = np.log10(data.show(**show_kwargs))
@@ -147,6 +176,8 @@ def plot_SpectralData(data, **show_kwargs):
         if ncols * nrows > nAx:
             axs.flatten()[-1].remove()
         fig.tight_layout()
+
+    return fig, axs
 
 
 def plot_CrossSpectralData(data, **show_kwargs):

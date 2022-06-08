@@ -632,11 +632,13 @@ class SpectralData(ContinuousData):
     # implement plotting
     def singlepanelplot(self, **show_kwargs):
 
-        sp_plotting.plot_SpectralData(self, **show_kwargs)
+        figax = sp_plotting.plot_SpectralData(self, **show_kwargs)
+        return figax
 
     def multipanelplot(self, **show_kwargs):
 
-        mp_plotting.plot_SpectralData(self, **show_kwargs)
+        figax = mp_plotting.plot_SpectralData(self, **show_kwargs)
+        return figax
 
 
 class CrossSpectralData(ContinuousData):
