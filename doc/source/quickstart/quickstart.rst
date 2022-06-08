@@ -25,7 +25,7 @@ With this we have a dataset of type :class:`~syncopy.AnalogData`, which is inten
   data.singlepanelplot(trials=0, toilim=[0, 0.5])
 
 .. image:: damped_signals.png
-   :height: 260px
+   :height: 220px
 
 By construction, we made the (white) noise of the same strength as the signal, hence by eye the oscillations present in channel1 are hardly visible. The parameter ``toilim`` stands for *time of interest limits* and defines a time-interval selection.
 
@@ -37,7 +37,7 @@ To recap: we have generated a synthetic dataset white noise on both channels, an
 Data Object Inspection
 ======================
 
-We can get some basic information about any Syncopy dataset by just typing its name in an interpreter:
+We can get some basic information about any Syncopy dataset by just typing its name in an interactive Python interpreter:
 
 .. code-block:: python
 
@@ -173,8 +173,11 @@ If we now do a spectral analysis, the power spectra are confounded by all our ne
 
 Here we used a ``cfg`` structure to assemble all needed parameters for our analysis, a concept we adopted from `FieldTrip <https://www.fieldtriptoolbox.org/>`_
 
+.. note::
+   We explicitly set ``polyremoval=None`` to see the full effect of our confounding signal components. The default for :func:`~syncopy.freqanalysis` is ``polyremoval=0``, which removes polynoms of 0th order: constant offsets (*de-meaning*).
+
 .. hint::
-   We explicitly set ``polyremoval=None`` to see the full effect of our confounding signal components. The default for :func:`~syncopy.freqanalysis` is ``polyremoval=0``, which removes polynoms of 0th order: constant offsets (*de-meaning*). Also note, that we did not specify a ``method`` as multi-tapered Fourier analysis (``'mtmfft'``) is the default. To learn about the defaults for any Python function you can inspect its signature with ``spy.freqanalysis?`` or ``help(spy.freqanalysis)``
+   We did not specify the ``method`` parameter for the ``spy.freqanalysis`` call as multi-tapered Fourier analysis (``method='mtmfft'``) is the default. To learn about the defaults of any Python function you can inspect its signature with ``spy.freqanalysis?`` or ``help(spy.freqanalysis)`` typed into an interpreter
    
 Let's see what we got::
   
