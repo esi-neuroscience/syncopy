@@ -33,7 +33,10 @@ is made? Take a look at our :doc:`Developer Guide <developer/developers>`.
 
 In depth Guides and Tutorials
 -----------------------------
-* :doc:`General User Guide <user/users>`
+* :doc:`Basic Concepts <user/concepts>`
+* :doc:`Syncopy for FieldTrip Users <user/fieldtrip>`
+* :doc:`Handling Data <user/data>`
+* :doc:`User API <user/user_api>`
 
 Navigation
 ----------

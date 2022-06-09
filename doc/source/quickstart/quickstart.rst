@@ -1,8 +1,8 @@
+.. _quick_start:
+
 ************************
 Quickstart with Syncopy
 ************************
-
-.. currentmodule:: syncopy
 
 Here we want to quickly explore some standard analyses for analog data (e.g. MUA or LFP measurements), and how to do these in Syncopy. Explorative coding is best done interactively by using e.g. `Jupyter <https://jupyter.org>`_ or `IPython <https://ipython.org>`_. Note that for plotting also `matplotlib <https://matplotlib.org>`_ has to be installed.
 
@@ -109,6 +109,8 @@ We clearly see a smoothed spectral peak at 30Hz, channel 2 just contains the fla
 
 The related short time Fourier transform can be computed via ``method='mtmconvol'``, see :func:`~syncopy.freqanalysis` for more details and examples.
 
+.. note::
+   Have a look at :ref:`workflow` to get an overview about data processing principles with Syncopy
 
 Wavelet Analysis
 ----------------
@@ -300,4 +302,4 @@ This reveals the coupling structure we put into this synthetic data set: ``chann
 
 
 .. note::
-   The ``keeptrials`` keyword is only valid for cross-correlations, as both Granger causality and coherence critically rely on trial averaging. 
+   The ``keeptrials`` keyword is only valid for cross-correlations, as both Granger causality and coherence critically rely on trial averaging.

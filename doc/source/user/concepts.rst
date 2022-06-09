@@ -1,9 +1,38 @@
-Data Analysis and Processing
-============================
+**************
+Basic Concepts
+**************
+
+Using Syncopy usually entails writing Python analysis scripts operating on a given list of data files. For new users we prepared a :ref:`quick_start`. Here we want to present the general concepts behind Syncopy.
+
 Data analysis pipelines are inspired by the well established and feature-rich 
 `MATLAB <https://mathworks.com>`_ toolbox `FieldTrip <http://www.fieldtriptoolbox.org>`_.
-Syncopy aims to emulate FieldTrip's basic usage concepts. 
+Syncopy aims to emulate FieldTrip's basic usage concepts.
 
+.. contents:: Topics covered
+   :local:
+
+.. _workflow:
+
+General Workflow
+----------------
+
+A typical analysis workflow with Syncopy might look like this:
+
+.. image:: WorkFlow.png
+   :height: 320px
+	  
+We have data import (or simply loading if already in ``.spy`` format) on the left which will bring it into one of Syncopy's dataypes like :class:`~syncopy.AnalogData`. Then actual (parallel) processing is triggered by calling a *meta-function* (see also below), for example :func:`~syncopy.connectivityanalysis`. Along the way the data can be plotted, NumPy :class:`~numpy.ndarray`'s extracted or saved to disc as ``.spy`` containers.
+
+.. note::
+   Have a look at :ref:`data_handling` for further details about Syncopy's data formats and interfaces.
+
+
+Memory Management
+~~~~~~~~~~~~~~~~~
+
+One of the key concepts of Syncopy is mindful computing resource management, especially keeping a low **memory footprint**. In the depicted workflow, data processed :blue:`on disc` is indicated in :blue:`blue`, whereas potentially :red:`memory exhausting operations` are indicated in :red:`red`. So care has to be taken when using :func:`~syncopy.show` or the plotting routines :func:`~syncopy.singlepanelplot` and :func:`~syncopy.multipanelplot`, as these potentially pipe the whole dataset into the systems memory. It is advised to either perform some averaging beforehand, or cautiously only selecting a few channels/trials for these operations.
+
+      
 Syncopy Meta-Functions
 ----------------------
 All of Syncopy's computing managers (like :func:`~syncopy.freqanalysis`) can be 
@@ -25,6 +54,7 @@ or using a ``cfg`` configuration structure:
     cfg.taper = 'dpss';
     cfg.tapsmofrq = 10;
     spec = spy.freqanalysis(cfg, data)
+    
 
 
 Serial and Parallel Processing
@@ -59,9 +89,7 @@ Thus, instead of simply "turning on" parallel computing via a keyword and lettin
 Syncopy choose an optimal setup for the computation at hand, more fine-grained 
 control over resource allocation and management can be achieved via running 
 :func:`~syncopy.esi_cluster_setup` **before** launching the actual calculation. 
-For example,
-
-.. code-block:: python
+For example::
 
     spyClient = spy.esi_cluster_setup(partition="16GBXL", n_jobs=10)
 
@@ -70,3 +98,6 @@ cluster. All subsequent invocations of Syncopy analysis routines will automatica
 pick up ``spyClient`` and distribute any occurring computational payload across 
 the workers collected in ``spyClient``. 
 
+.. hint::
+
+   If parallel processing is unavailable, have a look at :ref:`install_acme`

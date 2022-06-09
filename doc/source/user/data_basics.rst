@@ -1,7 +1,5 @@
-Handling Data in Syncopy
-========================
-
-This section of the Syncopy documentation contains information about how data is handled in Syncopy.
+Syncopy Data Basics
+===================
 
 Syncopy utilizes a simple data format based on `HDF5
 <https://portal.hdfgroup.org/display/HDF5/HDF5>`_ and `JSON
@@ -34,15 +32,5 @@ Defining trials, data selection and padding.
     syncopy.definetrial
     syncopy.show
     syncopy.selectdata
-    syncopy.padding
 
 
-
-Advanced Topics
----------------
-More information about Syncopy's data class structure and file format.
-
-.. toctree::
-
-    ../developer/datatype
-    ../developer/io

@@ -63,8 +63,11 @@ autodoc_default_options = {
     'ignore-module-all': False,
 }
 
+
 def setup(app):
     app.add_css_file("esi-style.css")
+    app.add_css_file("colors.css")
+
 
 autosectionlabel_maxdepth = 2
 autosectionlabel_prefix_document = True
@@ -165,6 +168,13 @@ html_show_copyright = False
 #
 # html_sidebars = {}
 
+# add role definitions to use css styled text
+# in _static/colors.css
+rst_prolog = """
+.. role:: red
+.. role:: green
+.. role:: blue
+"""
 
 # -- Options for HTMLHelp output ---------------------------------------------
 
