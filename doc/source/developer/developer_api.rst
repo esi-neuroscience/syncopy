@@ -74,11 +74,5 @@ syncopy.plotting
 .. autosummary::
     :toctree: _stubs
 
-    syncopy.plotting.spy_plotting._layout_subplot_panels
-    syncopy.plotting.spy_plotting._prep_plots
-    syncopy.plotting.spy_plotting._prep_toilim_avg
-    syncopy.plotting.spy_plotting._setup_figure
-    syncopy.plotting.spy_plotting._setup_colorbar
-    syncopy.plotting._plot_spectral._compute_pltArr
-    syncopy.plotting._plot_spectral._prep_spectral_plots
-    syncopy.plotting._plot_analog._prep_analog_plots
+    syncopy.plotting.spy_plotting.singlepanelplot
+    syncopy.plotting.spy_plotting.multipanelplot

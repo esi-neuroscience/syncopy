@@ -21,10 +21,10 @@ A typical analysis workflow with Syncopy might look like this:
 .. image:: WorkFlow.png
    :height: 320px
 	  
-We have data import (or simply loading if already in ``.spy`` format) on the left which will bring it into one of Syncopy's dataypes like :class:`~syncopy.AnalogData`. Then actual (parallel) processing is triggered by calling a *meta-function* (see also below), for example :func:`~syncopy.connectivityanalysis`. Along the way the data can be plotted, NumPy :class:`~numpy.ndarray`'s extracted or saved to disc as ``.spy`` containers.
+We start with data import (or simply loading if already in ``.spy`` format) which will create one of Syncopy's dataypes like :class:`~syncopy.AnalogData`. Then actual (parallel) processing of the data is triggered by calling a *meta-function* (see also below), for example :func:`~syncopy.connectivityanalysis`. An analysis output often results in a different datatype, e.g. :class:`~syncopy.CrossSpectralData`. All indicated methods (:func:`~syncopy.show`, :func:`~syncopy.singlepanelplot` and :func:`~syncopy.save`) for data access are available for all of Syncopy's datatypes. Hence, at any processing step the data can be plotted, NumPy :class:`~numpy.ndarray`'s extracted or (intermediate) results saved to disc as ``.spy`` containers. 
 
 .. note::
-   Have a look at :ref:`data_handling` for further details about Syncopy's data formats and interfaces.
+   Have a look at :doc:`Data Basics <data_basics>` for further details about Syncopy's data formats and interfaces
 
 
 Memory Management

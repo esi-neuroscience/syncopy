@@ -56,6 +56,8 @@ For general inquiries please contact syncopy (at) esi-frankfurt.de.
 
    quickstart/quickstart.rst
    setup
-   user/users.rst
+   user/concepts.rst
+   user/fieldtrip.rst
+   user/data.rst
    user/user_api.rst
    developer/developers.rst   
