@@ -165,7 +165,7 @@ def plot_CrossSpectralData(data, **show_kwargs):
 
     # right now we have to enforce
     # single trial selection only
-    trl = show_kwargs.get('trials', None)
+    trl = show_kwargs.get('trials', 0)
     if not isinstance(trl, int) and len(data.trials) > 1:
         SPYWarning("Please select a single trial for plotting!")
         return
@@ -214,6 +214,10 @@ def plot_CrossSpectralData(data, **show_kwargs):
 
     # get the data to plot
     data_y = data.show(**show_kwargs)
+    if data_y.size == 0:
+        lgl = "Selection with non-zero size"
+        act = "got zero samples"
+        raise SPYValueError(lgl, varname="show_kwargs", actual=act)
 
     # create the axes and figure if needed
     # persistent axes allows for plotting different
@@ -221,4 +225,11 @@ def plot_CrossSpectralData(data, **show_kwargs):
     if not hasattr(data, 'fig') or not _plotting.ppl.fignum_exists(data.fig.number):
         data.fig, data.ax = _plotting.mk_line_figax(xlabel, ylabel)
     _plotting.plot_lines(data.ax, data_x, data_y, label=label)
+    # format axes
+    if method in ['granger', 'coh']:
+        data.ax.set_ylim((-.02, 1.02))
+    elif method == 'corr':
+        data.ax.set_ylim((-1.02, 1.02))
+    data.ax.legend(ncol=1)
+
     data.fig.tight_layout()

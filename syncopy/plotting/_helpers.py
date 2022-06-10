@@ -25,16 +25,18 @@ def parse_foi(dataobject, show_kwargs):
     show_kwargs : dict
         The keywords provided to the `show` method
     """
-
+    print(show_kwargs)
     freq = dataobject.freq
     # cut to foi selection
     foilim = show_kwargs.get('foilim', None)
-    if foilim is not None:
+    # array or string 'all'
+    if foilim is not None and not isinstance(foilim, str):
         freq, _ = best_match(freq, foilim, span=True)
     # here show is broken atm, issue #240
     foi = show_kwargs.get('foi', None)
-    if foi is not None:
-        freq, _ = best_match(freq, foi, span=False)
+    # array or string 'all'
+    if foi is not None and not isinstance(foi, str):
+        freq, _ = best_match(freq, foi, span=True)
 
     return freq
 
@@ -58,11 +60,12 @@ def parse_toi(dataobject, trl, show_kwargs):
     time = dataobject.time[trl]
     # cut to time selection
     toilim = show_kwargs.get('toilim', None)
-    if toilim is not None:
+    # array or string 'all'..
+    if toilim is not None and not isinstance(toilim, str):
         time, _ = best_match(time, toilim, span=True)
     # here show is broken atm, issue #240
     toi = show_kwargs.get('toi', None)
-    if toi is not None and toi != 'all':
+    if toi is not None and not isinstance(toi, str):
         time, _ = best_match(time, toi, span=False)
 
     return time
