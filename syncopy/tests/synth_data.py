@@ -7,8 +7,9 @@
 from inspect import signature
 import numpy as np
 import functools
+import random
 
-from syncopy import AnalogData
+from syncopy import AnalogData, SpikeData
 
 _2pi = np.pi * 2
 
@@ -20,7 +21,7 @@ def collect_trials(trial_generator):
     synthetic data routine, and returning an :class:`~syncopy.AnalogData`
     object.
 
-    All backend trial generating functions (`trial_generator`) should
+    All backend single trial generating functions (`trial_generator`) should
     accept `nChannels` and `nSamples` as keyword arguments, OR provide
     other means to define those numbers, e.g.
     `AdjMat` for :func:`~syncopy.synth_data.AR2_network`
@@ -35,7 +36,7 @@ def collect_trials(trial_generator):
 
     @functools.wraps(trial_generator)
     def wrapper_synth(nTrials=None, samplerate=1000, **tg_kwargs):
-        
+
         # append samplerate parameter if also needed by the generator
         if 'samplerate' in signature(trial_generator).parameters.keys():
             tg_kwargs['samplerate'] = samplerate
@@ -55,6 +56,9 @@ def collect_trials(trial_generator):
         return data
 
     return wrapper_synth
+
+
+# ---- Synthetic AnalogData ----
 
 
 @collect_trials
@@ -264,3 +268,67 @@ def mk_RandomAdjMat(nChannels=3, conn_thresh=0.25, max_coupling=0.25):
     AdjMat = AdjMat / norm[None, :] * max_coupling
 
     return AdjMat
+
+
+# ---- Synthetic SpikeData ----
+
+
+def poisson_noise(nTrials=10,
+                  nSpikes=10000,
+                  nChannels=3,
+                  nUnits=10,
+                  samplerate=30000
+                  ):
+
+    """
+    Poisson (Shot-) noise generator
+
+
+    Parameters
+    ----------
+    nTrials : int
+        Number of trials
+    nSpikes : int
+        The total number of spikes to generate
+    nChannels : int
+        Number of channels
+    nUnits : int
+        Number of units
+    samplerate : float
+        Sampling rate in Hz
+
+    Returns
+    -------
+    sdata : :class:`~syncopy.SpikeData`
+        The generated spike data
+
+    Notes
+    -----
+    Originally conceived by `Alejandro Laie Boria https://github.com/atlaie_`
+
+    """
+
+    spike_times = np.sort(random.sample(range(int(5 * nSpikes)), nSpikes))
+    channels = np.random.choice(
+        np.arange(nChannels), p=np.array([0.5, 0.3, 0.2]), size=nSpikes, replace=True
+    )
+    units = np.random.choice(np.arange(nUnits), size=nSpikes, replace=True)
+
+    idx_start = np.sort(random.sample(range(int(5 * nSpikes)), nTrials))
+    idx_end = np.append(
+        [idx_start[1:] - 1], [idx_start[-1] + np.random.choice(np.arange(25), size=1)[0]]
+    )
+    idx_offset = np.random.choice(
+        np.arange(1, np.min(idx_end - idx_start)), size=nTrials, replace=True
+    )
+
+    trldef = np.vstack([idx_start, idx_end, idx_offset]).T
+    data = np.vstack([spike_times, channels, units]).T
+    sdata = SpikeData(
+        data=data,
+        trialdefinition=trldef,
+        dimord=["sample", "channel", "unit"],
+        samplerate=samplerate,
+    )
+
+    return sdata
