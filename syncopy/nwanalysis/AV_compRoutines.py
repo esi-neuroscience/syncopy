@@ -55,11 +55,12 @@ def normalize_csd_cF(csd_av_dat,
         Cross-spectral densities for `N` x `N` channels
         and `nFreq` frequencies averaged over trials.
     output : {'abs', 'pow', 'fourier'}, default: 'abs'
-        Also after normalization the coherency is still complex (`'fourier'`),
+        Also after normalization the coherency is still complex (`'complex'`),
         to get the real valued coherence ``0 < C_ij(f) < 1`` one can either take the
         absolute (`'abs'`) or the absolute squared (`'pow'`) values of the
         coherencies. The definitions are not uniform in the literature,
-        hence multiple output types are supported.
+        hence multiple output types are supported. Additionally `'angle'`,
+        `'imag'` or `'real'` are supported.
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
@@ -98,8 +99,12 @@ def normalize_csd_cF(csd_av_dat,
 
     # For initialization of computational routine,
     # just return output shape and dtype
+    if output in ['complex', 'fourier']:
+        fmt = spectralDTypes['fourier']
+    else:
+        fmt = spectralDTypes['abs']
     if noCompute:
-        return outShape, spectralDTypes[output]
+        return outShape, fmt
 
     CS_ij = normalize_csd(csd_av_dat[0], output)
 
