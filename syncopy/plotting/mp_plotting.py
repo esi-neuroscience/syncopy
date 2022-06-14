@@ -2,6 +2,7 @@
 #
 # The singlepanel plotting functions for Syncopy
 # data types
+# 1st argument **must** be `data` to revert the (plotting-)selections
 #
 
 # Builtin/3rd party package imports
@@ -16,6 +17,7 @@ from syncopy.plotting import _helpers as plot_helpers
 from syncopy.plotting.config import pltErrMsg, pltConfig
 
 
+@plot_helpers.revert_selection
 def plot_AnalogData(data, shifted=True, **show_kwargs):
 
     """
@@ -83,6 +85,7 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
     return fig, axs
 
 
+@plot_helpers.revert_selection
 def plot_SpectralData(data, **show_kwargs):
 
     """
@@ -180,6 +183,7 @@ def plot_SpectralData(data, **show_kwargs):
     return fig, axs
 
 
+@plot_helpers.revert_selection
 def plot_CrossSpectralData(data, **show_kwargs):
     """
     Plot 2d-line plots for the different connectivity measures.
