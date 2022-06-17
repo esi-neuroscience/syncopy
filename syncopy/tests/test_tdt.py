@@ -13,12 +13,12 @@ import sys
 # Import package
 import syncopy as spy
 
-data_path = '/cs/scratch/syncopy/Tdt_reader'
+data_path = '/cs/slurm/syncopy/Tdt_reader'
 out_path = data_path
 TDTdata = spy.io.load_tdt.ESI_TDTdata(data_path,
                                       out_path,
                                       combined_data_filename='sth',
                                       subtract_median=False)
     
-# how to go on from here to end up with a Syncopy Data object?
+# how to go on from here to end up with a Syncopy Data (spy.AnalogData) object?
 # ...
