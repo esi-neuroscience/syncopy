@@ -29,7 +29,7 @@ from .AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov, GrangerCa
 
 
 availableMethods = ("coh", "corr", "granger")
-coh_outputs = {"abs", "pow", "complex", "fourier", "real", "imag"}
+coh_outputs = {"abs", "pow", "complex", "fourier", "angle", "real", "imag"}
 
 
 @unwrap_cfg
@@ -278,7 +278,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
         if output not in coh_outputs:
             lgl = f"one of {coh_outputs}"
-            raise SPYValueError(lgl, varname="ouput", actual=output)
+            raise SPYValueError(lgl, varname="output", actual=output)
         log_dict['output'] = output
         
         # final normalization after trial averaging

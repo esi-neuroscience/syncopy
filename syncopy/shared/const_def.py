@@ -14,9 +14,9 @@ spectralDTypes = {"pow": np.float32,
 
 #: output conversion of complex fourier coefficients
 spectralConversions = {
-    "abs": lambda x: (np.absolute(x)).real.astype(np.float32),
-    "pow": lambda x: (x * np.conj(x)).real.astype(np.float32),
-    "fourier": lambda x: x.astype(np.complex64),
+    'abs': lambda x: (np.absolute(x)).real.astype(np.float32),
+    'pow': lambda x: (x * np.conj(x)).real.astype(np.float32),
+    'fourier': lambda x: x.astype(np.complex64),
     'real': lambda x: np.real(x),
     'imag': lambda x: np.imag(x),
     'angle': lambda x: np.angle(x),

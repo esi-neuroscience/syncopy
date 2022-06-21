@@ -17,6 +17,7 @@ if __acme__:
     import dask.distributed as dd
 
 from syncopy import AnalogData
+import syncopy.nwanalysis.connectivity_analysis as ca
 from syncopy import connectivityanalysis as cafunc
 import syncopy.tests.synth_data as synth_data
 import syncopy.tests.helpers as helpers
@@ -141,7 +142,7 @@ class TestGranger:
 
     def test_gr_padding(self):
 
-        pad_length = 6 # seconds
+        pad_length = 6   # seconds
         call = lambda pad: self.test_gr_solution(pad=pad)
         helpers.run_padding_test(call, pad_length)
 
@@ -189,7 +190,6 @@ class TestCoherence:
         res = cafunc(data=self.data,
                      method='coh',
                      foilim=[5, 60],
-                     output='pow',
                      tapsmofrq=1.5,
                      **kwargs)
 
@@ -209,9 +209,10 @@ class TestCoherence:
         # is low coherence
         null_idx = (res.freq < self.f1 - 5) | (res.freq > self.f1 + 5)
         null_idx *= (res.freq < self.f2 - 5) | (res.freq > self.f2 + 5)
-        assert np.all(res.data[0, null_idx, 0, 1] < 0.15)
+        assert np.all(res.data[0, null_idx, 0, 1] < 0.2)
 
-        plot_coh(res, 0, 1, label="channel 0-1")
+        if kwargs is None:
+            res.singlepanelplot(channel_i=0, channel_j=1)
 
     def test_coh_selections(self):
 
@@ -259,7 +260,7 @@ class TestCoherence:
 
     def test_coh_padding(self):
 
-        pad_length = 2 # seconds
+        pad_length = 2   # seconds
         call = lambda pad: self.test_coh_solution(pad=pad)
         helpers.run_padding_test(call, pad_length)
 
@@ -268,13 +269,30 @@ class TestCoherence:
         call = lambda polyremoval: self.test_coh_solution(polyremoval=polyremoval)
         helpers.run_polyremoval_test(call)
 
+    def test_coh_outputs(self):
+
+        for output in ca.coh_outputs:
+            coh = cafunc(self.data,
+                         method='coh',
+                         output=output)
+
+            if output in ['complex', 'fourier']:
+                # we have imaginary parts
+                assert not np.all(np.imag(coh.trials[0]) == 0)
+            elif output == 'angle':
+                # all values in [-pi, pi]
+                assert np.all((coh.trials[0] < np.pi) | (coh.trials[0] > -np.pi))
+            else:
+                # strictly real outputs
+                assert np.all(np.imag(coh.trials[0]) == 0)
+
 
 class TestCorrelation:
 
     nChannels = 5
     nTrials = 10
     fs = 1000
-    nSamples = 2000 # 2s long signals
+    nSamples = 2000   # 2s long signals
 
     # -- a single harmonic with phase shifts between channels
 
