@@ -34,29 +34,10 @@ if __name__ == "__main__":
     # coupling from 0 to 1
     AdjMat[0, 1] = .15
     alphas = [.55, -.8]
-    ad2 = synth_data.AR2_network(nTrials, samplerate=fs,
-                                 AdjMat=AdjMat,
-                                 nSamples=nSamples,
-                                 alphas=alphas)
+    adata = synth_data.AR2_network(nTrials, samplerate=fs,
+                                   AdjMat=AdjMat,
+                                   nSamples=nSamples,
+                                   alphas=alphas)
 
-    spec = spy.freqanalysis(ad2, tapsmofrq=2, keeptrials=False)
+    spec = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False)
     foi = np.linspace(40, 160, 25)
-    spec2 = spy.freqanalysis(ad2, method='wavelet', keeptrials=False, foi=foi)
-    coh = spy.connectivityanalysis(ad2, method='coh', tapsmofrq=5)
-    gr = spy.connectivityanalysis(ad2, method='granger', tapsmofrq=10, polyremoval=0)
-
-    # show new plotting
-    ad2.singlepanelplot(trials=12, toilim=[0, 0.35])
-
-    # mtmfft spectrum
-    spec.singlepanelplot()
-    # time freq singlepanel needs single channel
-    spec2.singlepanelplot(channel=0, toilim=[0, 0.35])
-
-    coh.singlepanelplot(channel_i=0, channel_j=1)
-
-    gr.singlepanelplot(channel_i=0, channel_j=1, foilim=[40, 160])
-    gr.singlepanelplot(channel_i=1, channel_j=0, foilim=[40, 160])
-
-    # test top-level interface
-    spy.singlepanelplot(ad2, trials=2, toilim=[-.2, .2])
