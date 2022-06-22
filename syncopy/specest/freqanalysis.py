@@ -30,10 +30,6 @@ import syncopy.specest.superlet as superlet
 from .wavelet import get_optimal_wavelet_scales
 
 # Local imports
-from .const_def import (
-    availableWavelets,
-    availableMethods,
-)
 
 from .compRoutines import (
     SuperletTransform,
@@ -41,6 +37,11 @@ from .compRoutines import (
     MultiTaperFFT,
     MultiTaperFFTConvol
 )
+
+
+availableOutputs = tuple(spectralConversions.keys())
+availableWavelets = ("Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat")
+availableMethods = ("mtmfft", "mtmconvol", "wavelet", "superlet")
 
 
 @unwrap_cfg

@@ -144,17 +144,17 @@ class TestButterworth:
                     assert "expected 'onepass'" in str(err)
             else:
                 self.test_but_filter(**kwargs)
-               
+
         for order in [-2, 10, 5.6]:
             kwargs = {'direction': 'twopass',
                       'order': order}
 
             if order < 1 and isinstance(order, int):
-                with pytest.raises(SPYValueError) as err:                
+                with pytest.raises(SPYValueError) as err:
                     self.test_but_filter(**kwargs)
                     assert "value to be greater" in str(err)
             elif not isinstance(order, int):
-                with pytest.raises(SPYValueError) as err:                
+                with pytest.raises(SPYValueError) as err:
                     self.test_but_filter(**kwargs)
                     assert "expected int_like" in str(err)
             # valid order
@@ -225,7 +225,7 @@ class TestButterworth:
         assert np.all(rectified.trials[0] > 0)
 
         # test simultaneous call to hilbert and rectification
-        with pytest.raises(SPYValueError) as err:        
+        with pytest.raises(SPYValueError) as err:
             call(rectify=True, hilbert='abs')
             assert "either rectifi" in str(err)
             assert "or hilbert" in str(err)
@@ -239,7 +239,7 @@ class TestButterworth:
                 assert np.all(np.imag(htrafo.trials[0]) == 0)
 
         # test wrong hilbert parameter
-        with pytest.raises(SPYValueError) as err:                
+        with pytest.raises(SPYValueError) as err:
             call(hilbert='absnot')
             assert "one of {'" in str(err)
 
@@ -351,12 +351,12 @@ class TestFIRWS:
                       'order': order}
 
             if order < 1 and isinstance(order, int):
-                with pytest.raises(SPYValueError) as err:        
+                with pytest.raises(SPYValueError) as err:
                     self.test_firws_filter(**kwargs)
                     assert "value to be greater" in str(err)
 
             elif not isinstance(order, int):
-                with pytest.raises(SPYValueError) as err:                    
+                with pytest.raises(SPYValueError) as err:
                     self.test_firws_filter(**kwargs)
                     assert "expected int_like" in str(err)
 
@@ -372,7 +372,7 @@ class TestFIRWS:
                                                toi_max=self.time_span[1],
                                                min_len=3.5)
         for sd in sel_dicts:
-            print(sd)            
+            print(sd)
             self.test_firws_filter(select=sd, order=200)
 
     def test_firws_polyremoval(self):
@@ -429,7 +429,7 @@ class TestFIRWS:
         assert np.all(rectified.trials[0] > 0)
 
         # test simultaneous call to hilbert and rectification
-        with pytest.raises(SPYValueError) as err:        
+        with pytest.raises(SPYValueError) as err:
             call(rectify=True, hilbert='abs')
             assert "either rectifi" in str(err)
             assert "or hilbert" in str(err)
@@ -443,7 +443,7 @@ class TestFIRWS:
                 assert np.all(np.imag(htrafo.trials[0]) == 0)
 
         # test wrong hilbert parameter
-        with pytest.raises(SPYValueError) as err:        
+        with pytest.raises(SPYValueError) as err:
             call(hilbert='absnot')
             assert "one of {'" in str(err)
 
@@ -473,4 +473,3 @@ def annotate_foilims(ax, flow, fhigh):
 if __name__ == '__main__':
     T1 = TestButterworth()
     T2 = TestFIRWS()
-
