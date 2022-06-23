@@ -15,7 +15,7 @@ from abc import ABC
 from collections.abc import Iterator
 
 # Local imports
-from .base_data import BaseData, FauxTrial
+from .base_data import BaseData, FauxTrial, _definetrial
 from .methods.definetrial import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYWarning
@@ -758,3 +758,118 @@ class CrossSpectralData(ContinuousData):
     def singlepanelplot(self, **show_kwargs):
 
         sp_plotting.plot_CrossSpectralData(self, **show_kwargs)
+
+
+class TimeLockData(ContinuousData):
+
+    """
+    Multi-channel, uniformly-sampled, time-locked data.
+    """
+
+    _defaultDimord = ["time", "channel"]
+    _stackingDimLabel = "time"
+
+    # "Constructor"
+    def __init__(self,
+                 data=None,
+                 filename=None,
+                 samplerate=None,
+                 channel=None,
+                 dimord=None):
+
+        """Initialize an :class:`TimeLockData` object.
+
+            Parameters
+            ----------
+                data : 2D :class:numpy.ndarray or HDF5 dataset
+                    multi-channel time series data with uniform sampling
+                filename : str
+                    path to target filename that should be used for writing
+                samplerate : float
+                    sampling rate in Hz
+                channel : str or list/array(str)
+                dimord : list(str)
+                    ordered list of dimension labels
+
+            1. `filename` + `data` : create hdf dataset incl. sampleinfo @filename
+            2. just `data` : try to attach data (error checking done by :meth:`AnalogData.data.setter`)
+
+            See also
+            --------
+            :func:`syncopy.definetrial`
+
+            """
+
+        if data is not None and dimord is None:
+            dimord = self._defaultDimord
+
+        self._avg = None
+        self._var = None
+
+        # Call parent initializer
+        # trialdefinition has to come from a CR!
+        super().__init__(data=data,
+                         filename=filename,
+                         trialdefinition=None,
+                         samplerate=samplerate,
+                         channel=channel,
+                         dimord=dimord)
+
+    @property
+    def avg(self):
+        """ :class:`numpy.ndarray`: time x nChannel / nUnits
+        The 'single trial' sized trial average stacked at the second last
+        position (which could be the first if no single trials are stored)"""
+
+        if self._avg is None and self._data is not None:
+            # all channels
+            nTrials = len(self.trials)
+            avg_idx = self._preview_trial(nTrials - 2).idx
+            self._avg = self._data[avg_idx]
+
+        return self._avg
+
+    @property
+    def var(self):
+        """ :class:`numpy.ndarray`: time x nChannel / nUnits
+        The 'single trial' sized variance over trials stacked at the last
+        position (which could be the 2nd if no single trials are stored)"""
+
+        if self._var is None and self._data is not None:
+            # all channels
+            nTrials = len(self.trials)
+            var_idx = self._preview_trial(nTrials - 1).idx
+            self._var = self._data[var_idx]
+
+        return self._var
+
+    @ContinuousData.trialdefinition.setter
+    def trialdefinition(self, trl):
+        """
+        Override trialdefinition setter, which is special for time-locked data:
+        all trials have to have the same length and relative timings.
+
+        So the trialdefinition has 0 offsets everywhere, and it has the general
+        simple structure:
+                              [[0, nTime, 0],
+                              [nTime, 2 * nTime, 0],
+                              [2 * nTime, 3 * nTime, 0],
+                              ...]
+        """
+
+        # first harness all parsers here
+        _definetrial(self, trialdefinition=trl)
+
+        # now check for additional conditions
+        if not np.all(trl[:, 2] == 0):
+            self.trialdefinition = None
+            lgl = "no offsets for timelocked data"
+            act = "non-zero offsets"
+            raise SPYValueError(lgl, varname="trialdefinition", actual=act)
+
+        # diff-diff should give 0 -> same number of samples for each trial
+        if not np.all(np.diff(trl, axis=0, n=2) == 0):
+            self.trialdefinition = None
+            lgl = "all trials/entities of same length for timelocked data"
+            act = "non-equally sized trials defined"
+            raise SPYValueError(lgl, varname="trialdefinition", actual=act)
