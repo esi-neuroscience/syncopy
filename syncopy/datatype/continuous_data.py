@@ -734,42 +734,6 @@ class CrossSpectralData(ContinuousData):
 
         self._channel_j = np.array(channel_j)
 
-    # # Local 2d -> 1d channel index converter
-    # def _ind2sub(self, channel1, channel2):
-    #     """Convert 2d channel tuple to linear 1d index"""
-
-    #     chanIdx = []
-    #     for ck, channel in enumerate((channel1, channel2)):
-    #         target = getattr(self, "_channel{}".format(ck + 1))
-    #         if isinstance(channel, str):
-    #             if channel == "all":
-    #                 channel = None
-    #             else:
-    #                 raise SPYValueError(legal="'all' or `None` or list/array",
-    #                                     varname="channels", actual=channel)
-    #         if channel is None:
-    #             channel = target
-    #         if isinstance(channel, range):
-    #             channel = list(channel)
-    #         elif isinstance(channel, slice):
-    #             channel = target[channel]
-
-    #         # Use set comparison to ensure (a) no mixed-type selections (['a', 2, 'c'])
-    #         # and (b) no invalid selections ([-99, 0.01])
-    #         if not set(channel).issubset(target):
-    #             lgl = "list/array of existing channel names or indices"
-    #             raise SPYValueError(legal=lgl, varname="channel")
-    #         if not all(isinstance(c, str) for c in channel):
-    #             target = np.arange(target.size)
-
-    #         # Preserve order and duplicates of selection - don't use `np.isin` here!
-    #         chanIdx.append([np.where(target == c)[0] for c in channel])
-
-    #     # Almost: `ravel_multi_index` expects a tuple of arrays, so perform some zipping
-    #     linearIndex = [(c1, c2) for c1 in chanIdx[0] for c2 in chanIdx[1]]
-    #     return np.ravel_multi_index(tuple(zip(*linearIndex)),
-    #                                 dims=(self._channel1.size, self._channel2.size))
-
     def __init__(self,
                  data=None,
                  filename=None,
