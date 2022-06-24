@@ -60,7 +60,7 @@ def mtmfft(data_arr,
 
     The FFT result is normalized such that this yields the
     spectral power. For a clean harmonic this will give a
-    peak power of `A**2 / 2`, with `A` as harmonic ampltiude.
+    peak power of `A**2 / 2`, with `A` as harmonic amplitude.
     """
 
     # attach dummy channel axis in case only a
