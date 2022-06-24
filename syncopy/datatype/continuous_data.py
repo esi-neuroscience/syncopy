@@ -817,17 +817,24 @@ class TimeLockData(ContinuousData):
 
     @property
     def avg(self):
-        """ :class:`numpy.ndarray`: time x nChannel / nUnits
+        """
         The 'single trial' sized trial average stacked at the second last
         position (which could be the first if no single trials are stored)"""
 
         if self._avg is None and self._data is not None:
             # all channels
-            nTrials = len(self.trials)
-            avg_idx = self._preview_trial(nTrials - 2).idx
-            self._avg = self._data[avg_idx]
+            nStacked = len(self.trials)
+            self._avg = self._get_trial(nStacked - 2)
 
         return self._avg
+
+    @setter.avg
+    def avg(self, trl_av):
+
+        """
+        :class:`numpy.ndarray`: time x nChannel/nUnits
+        Set single-trial sized average """
+        pass
 
     @property
     def var(self):
@@ -837,9 +844,8 @@ class TimeLockData(ContinuousData):
 
         if self._var is None and self._data is not None:
             # all channels
-            nTrials = len(self.trials)
-            var_idx = self._preview_trial(nTrials - 1).idx
-            self._var = self._data[var_idx]
+            nStacked = len(self.trials)
+            self._var = self._get_trial(nStacked - 1)
 
         return self._var
 
