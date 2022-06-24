@@ -29,6 +29,7 @@ from .AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov, GrangerCa
 
 
 availableMethods = ("coh", "corr", "granger")
+coh_outputs = {"abs", "pow", "complex", "fourier", "angle", "real", "imag"}
 
 
 @unwrap_cfg
@@ -56,7 +57,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         Compute the normalized cross spectral densities
         between all channel combinations
 
-        * **output** : one of ('abs', 'pow', 'fourier')
+        * **output** : one of ('abs', 'pow', 'complex', 'angle', 'imag' or 'real')
         * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : (optional) number of orthogonal tapers for slepian tapers
@@ -88,7 +89,8 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     output : str
         Relevant for cross-spectral density estimation (`method='coh'`)
         Use `'pow'` for absolute squared coherence, `'abs'` for absolute value of coherence
-        and`'fourier'` for the complex valued coherency.
+        , `'complex'` for the complex valued coherency or `'angle'`, `'imag'` or `'real'`
+        to extract the phase difference, imaginary or real part of the coherency respectively.
     keeptrials : bool
         Relevant for cross-correlations (`method='corr'`).
         If `True` single-trial cross-correlations are returned.
@@ -194,7 +196,6 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # Prepare keyword dict for logging (use `lcls` to get actually provided
     # keyword values, not defaults set above)
     log_dict = {"method": method,
-                "output": output,
                 "keeptrials": keeptrials,
                 "polyremoval": polyremoval,
                 "pad": pad}
@@ -274,6 +275,12 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         st_dimord = ST_CrossSpectra.dimord
 
     if method == 'coh':
+
+        if output not in coh_outputs:
+            lgl = f"one of {coh_outputs}"
+            raise SPYValueError(lgl, varname="output", actual=output)
+        log_dict['output'] = output
+        
         # final normalization after trial averaging
         av_compRoutine = NormalizeCrossSpectra(output=output)
 

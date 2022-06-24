@@ -106,3 +106,14 @@ def mtmfft(data_arr,
         ftr[taperIdx] = _norm_spec(ftr[taperIdx], nSamples, samplerate)
 
     return ftr, freqs
+
+
+def _get_dpss_pars(tapsmofrq, nSamples, samplerate):
+
+    """ Helper function to retrieve dpss parameters from tapsmofrq """
+
+    NW = tapsmofrq * nSamples / samplerate
+    # from the minBw setting NW always is at least 1
+    Kmax = int(2 * NW - 1)  # optimal number of tapers
+
+    return NW, Kmax

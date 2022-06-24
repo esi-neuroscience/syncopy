@@ -7,9 +7,27 @@
 # Builtin/3rd party package imports
 import numpy as np
 import re
+import functools
 
-# Syncopy imports
-from syncopy.shared.tools import best_match
+
+def revert_selection(plotter):
+
+    """
+    To extract 'meta-information' like time and freq axis
+    for a particular plot we use (implicit from the users
+    perspective) selections. To return to a clean slate
+    we revert/delete it afterwards.
+
+    All plotting routines must have `data` as 1st (*arg) argument!
+    """
+    @functools.wraps(plotter)
+    def wrapper_plot(*args, **kwargs):
+
+        res = plotter(*args, **kwargs)
+        args[0].selection = None
+        return res
+
+    return wrapper_plot
 
 
 def parse_foi(dataobject, show_kwargs):
@@ -23,18 +41,15 @@ def parse_foi(dataobject, show_kwargs):
     dataobject : one derived from :class:`~syncopy.datatype.base_data`
         Syncopy datatype instance, needs to have a `freq` property
     show_kwargs : dict
-        The keywords provided to the `show` method
+        The keywords provided to the `selectdata` method
     """
 
-    freq = dataobject.freq
-    # cut to foi selection
-    foilim = show_kwargs.get('foilim', None)
-    if foilim is not None:
-        freq, _ = best_match(freq, foilim, span=True)
-    # here show is broken atm, issue #240
-    foi = show_kwargs.get('foi', None)
-    if foi is not None:
-        freq, _ = best_match(freq, foi, span=False)
+    # apply the selection
+    dataobject.selectdata(inplace=True, **show_kwargs)
+
+    idx = dataobject.selection.freq
+    # index selection, only one `freq` for all trials
+    freq = dataobject.freq[idx]
 
     return freq
 
@@ -52,18 +67,17 @@ def parse_toi(dataobject, trl, show_kwargs):
     trl : int
         The index of the selected trial to plot
     show_kwargs : dict
-        The keywords provided to the `show` method
+        The keywords provided to the `selectdata` method
     """
 
-    time = dataobject.time[trl]
-    # cut to time selection
-    toilim = show_kwargs.get('toilim', None)
-    if toilim is not None:
-        time, _ = best_match(time, toilim, span=True)
-    # here show is broken atm, issue #240
-    toi = show_kwargs.get('toi', None)
-    if toi is not None:
-        time, _ = best_match(time, toi, span=False)
+    # apply the selection
+    dataobject.selectdata(inplace=True, **show_kwargs)
+
+    # still have to index the single trial
+    idx = dataobject.selection.time[0]
+
+    # index selection, again the single trial
+    time = dataobject.time[trl][idx]
 
     return time
 
@@ -79,7 +93,7 @@ def parse_channel(dataobject, show_kwargs):
     dataobject : one derived from :class:`~syncopy.datatype.base_data`
         Syncopy datatype instance, needs to have a `channel` property
     show_kwargs : dict
-        The keywords provided to the `show` method
+        The keywords provided to the `selectdata` method
 
     Returns
     -------
@@ -89,23 +103,17 @@ def parse_channel(dataobject, show_kwargs):
         str for a single channel selection.
     """
 
-    chs = show_kwargs.get('channel', None)
+    # apply selection
+    dataobject.selectdata(inplace=True, **show_kwargs)
 
-    # channel selections only allow for arrays and lists
-    if hasattr(chs, '__len__'):
-        # either str or int for index
-        if isinstance(chs[0], str):
-            labels = chs
-        else:
-            labels = ['channel' + str(i + 1) for i in chs]
-    # single channel
-    elif isinstance(chs, int):
-        labels = dataobject.channel[chs]
-    elif isinstance(chs, str):
-        labels = chs
-    # all channels
-    else:
-        labels = dataobject.channel
+    # get channel labels
+    idx = dataobject.selection.channel
+    labels = dataobject.channel[idx]
+
+    # make sure a single string is returned
+    # if only one channel is selected
+    if np.size(labels) == 1 and np.ndim(labels) != 0:
+        labels = labels[0]
 
     return labels
 
@@ -114,15 +122,14 @@ def shift_multichan(data_y):
 
     if data_y.ndim > 1:
         # shift 0-line for next channel
-        # above max of prev.
+        # above max of prev- min of current
         offsets = data_y.max(axis=0)[:-1]
-        # shift even further if next channel
-        # dips below 0
-        offsets += np.abs(data_y.min(axis=0)[1:])
+        offsets -= data_y.min(axis=0)[1:]
         offsets = np.cumsum(np.r_[0, offsets] * 1.1)
-        data_y += offsets
+    else:
+        offsets = 0
 
-    return data_y
+    return offsets
 
 
 def get_method(dataobject):
@@ -161,12 +168,12 @@ def calc_multi_layout(nAx):
             nrows = int(nAx / ncols)
         # nAx was prime and too big
         # for one plotting row
-        if ncols == nAx and nAx > 7:
+        if ncols == nAx and nAx > 4:
             nAx += 1
     # no elif to capture possibly incremented nAx
     if nAx % 2 == 0 and nAx > 2:
-        ncols = int(np.sqrt(nAx))  # this is max pltConfig["mMaxYaxes"]
-        nrows = ncols
+        nrows = int(np.sqrt(nAx))  # this is max pltConfig["mMaxYaxes"]
+        ncols = nAx // nrows
         while(ncols * nrows < nAx):
             nrows -= 1
             ncols = int(nAx / nrows)

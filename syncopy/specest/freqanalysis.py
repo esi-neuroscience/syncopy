@@ -30,10 +30,6 @@ import syncopy.specest.superlet as superlet
 from .wavelet import get_optimal_wavelet_scales
 
 # Local imports
-from .const_def import (
-    availableWavelets,
-    availableMethods,
-)
 
 from .compRoutines import (
     SuperletTransform,
@@ -43,12 +39,17 @@ from .compRoutines import (
 )
 
 
+availableOutputs = tuple(spectralConversions.keys())
+availableWavelets = ("Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat")
+availableMethods = ("mtmfft", "mtmconvol", "wavelet", "superlet")
+
+
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='pow',
                  keeptrials=True, foi=None, foilim=None,
-                 pad='maxperlen', polyremoval=None, taper="hann",
+                 pad='maxperlen', polyremoval=0, taper="hann",
                  taper_opt=None, tapsmofrq=None, nTaper=None, keeptapers=False,
                  toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
@@ -164,7 +165,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         default.
     tapsmofrq : float or None
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'`
-        Enables multi-tapering and sets the amount of spectral
+        Enables multi-tapering and sets the amount of one-sided spectral
         smoothing with slepian tapers in Hz.
     nTaper : int or None
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'` and `tapsmofrq` is set.

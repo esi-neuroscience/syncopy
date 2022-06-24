@@ -33,7 +33,10 @@ is made? Take a look at our :doc:`Developer Guide <developer/developers>`.
 
 In depth Guides and Tutorials
 -----------------------------
-* :doc:`General User Guide <user/users>`
+* :doc:`Basic Concepts <user/concepts>`
+* :doc:`Syncopy for FieldTrip Users <user/fieldtrip>`
+* :doc:`Handling Data <user/data>`
+* :doc:`User API <user/user_api>`
 
 Navigation
 ----------
@@ -53,6 +56,8 @@ For general inquiries please contact syncopy (at) esi-frankfurt.de.
 
    quickstart/quickstart.rst
    setup
-   user/users.rst
+   user/concepts.rst
+   user/fieldtrip.rst
+   user/data.rst
    user/user_api.rst
    developer/developers.rst   

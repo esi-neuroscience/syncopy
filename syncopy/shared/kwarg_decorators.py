@@ -94,6 +94,8 @@ def unwrap_cfg(func):
       being provided explicitly
     * ``func(data1, data2, kw1=val1, kw2=val2)``: same as above with multiple input
       objects
+    * ``func(data, cfg, kw2=val2)``: valid if `cfg` does NOT contain `'kw2'`
+
 
     Invalid call signatures:
 
@@ -104,6 +106,7 @@ def unwrap_cfg(func):
     * ``func(cfg, {})``: every dict in `func`'s positional argument list is interpreted
       as `cfg` "structure"
     * ``func(data, cfg=value)``: `cfg` must be a Python dict or :class:`~syncopy.StructDict`
+    * ``func(data, cfg, kw1=val1)``: invalid if keyword `'kw1'` also appears in `cfg`
 
     See also
     --------
@@ -169,14 +172,23 @@ def unwrap_cfg(func):
             # not manipulate `cfg` in user's namespace!
             cfg = StructDict(cfg) # FIXME
 
-            # If a method is called using `cfg`, non-default values for
-            # keyword arguments must *only* to be provided via `cfg`
-            defaults = get_defaults(func)
-            for key, value in kwargs.items():
-                if defaults.get(key, value) != value:
-                    raise SPYValueError(legal="no keyword arguments",
-                                        varname=key,
-                                        actual="non-default value for {}".format(key))
+            # If a meta-function is called using `cfg`, any (not only non-default) values for
+            # keyword arguments must *either* be provided via `cfg` or via standard kw
+            # NOTE: the frontend defaults not set by the user do NOT appear in `kwargs`!
+            for key in kwargs:
+                # these get special treatment below
+                if key in ['data', 'dataset']:
+                    continue
+                elif key in cfg:
+                    lgl = f"parameter set either via `cfg.{key}=...` or directly via keyword"
+                    act = f"parameter `{key}` set in both `cfg` and via explicit keyword"
+                    raise SPYValueError(legal=lgl,
+                                        varname=f"cfg/{key}",
+                                        actual=act)
+                # now attach the explicit set keywords to `cfg`
+                # to be passed to the func call
+                else:
+                    cfg[key] = kwargs[key]
 
             # Translate any existing "yes" and "no" fields to `True` and `False`
             for key in cfg.keys():
