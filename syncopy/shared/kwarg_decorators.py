@@ -581,6 +581,9 @@ def unwrap_io(func):
         if not isinstance(trl_dat, dict):
             return func(trl_dat, *wrkargs, **kwargs)
 
+        ### Idea: hook .compute_sequential() from CR into here
+
+
         # The fun part: `trl_dat` is a dictionary holding components for parallelization
         hdr = trl_dat["hdr"]
         keeptrials = trl_dat["keeptrials"]
