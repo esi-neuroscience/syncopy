@@ -633,7 +633,7 @@ def unwrap_io(func):
             arr.shape = inshape
 
             # Now, actually call wrapped function
-            res = func(arr, *wrkargs, **kwargs)
+            res, new_output_here = func(arr, *wrkargs, **kwargs)
 
             # In case scalar selections have been performed, explicitly assign
             # desired output shape to re-create "lost" singleton dimensions
@@ -646,6 +646,7 @@ def unwrap_io(func):
         if vdsdir is not None:
             with h5py.File(outfilename, "w") as h5fout:
                 h5fout.create_dataset(outdset, data=res)
+                # add new dataset/attribute to capture new outputs
                 h5fout.flush()
         else:
 
@@ -655,6 +656,9 @@ def unwrap_io(func):
             # Either (continue to) compute average or write current chunk
             lock.acquire()
             with h5py.File(outfilename, "r+") as h5fout:
+                # get unique id (from outgrid?)
+                # to attach additional outputs
+                # to the one and only hdf5 container
                 target = h5fout[outdset]
                 if keeptrials:
                     target[outgrid] = res
