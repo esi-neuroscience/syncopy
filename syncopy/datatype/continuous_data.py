@@ -773,6 +773,7 @@ class TimeLockData(ContinuousData):
     def __init__(self,
                  data=None,
                  filename=None,
+                 trialdefinition=None,
                  samplerate=None,
                  channel=None,
                  dimord=None):
@@ -806,11 +807,14 @@ class TimeLockData(ContinuousData):
         self._avg = None
         self._var = None
 
+        # for stacking, we would have to
+        # re-define the trialdefinition here?!
+
         # Call parent initializer
         # trialdefinition has to come from a CR!
         super().__init__(data=data,
                          filename=filename,
-                         trialdefinition=None,
+                         trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          channel=channel,
                          dimord=dimord)
@@ -821,14 +825,15 @@ class TimeLockData(ContinuousData):
         The 'single trial' sized trial average stacked at the second last
         position (which could be the first if no single trials are stored)"""
 
-        if self._avg is None and self._data is not None:
-            # all channels
-            nStacked = len(self.trials)
-            self._avg = self._get_trial(nStacked - 2)
+        # stacking stub
+        # if self._avg is None and self._data is not None:
+        #     # all channels
+        #     nStacked = len(self.trials)
+        #     self._avg = self._get_trial(nStacked - 2)
 
         return self._avg
 
-    @setter.avg
+    @avg.setter
     def avg(self, trl_av):
 
         """
@@ -842,10 +847,11 @@ class TimeLockData(ContinuousData):
         The 'single trial' sized variance over trials stacked at the last
         position (which could be the 2nd if no single trials are stored)"""
 
-        if self._var is None and self._data is not None:
-            # all channels
-            nStacked = len(self.trials)
-            self._var = self._get_trial(nStacked - 1)
+        # stacking stub
+        # if self._var is None and self._data is not None:
+        #     # all channels
+        #     nStacked = len(self.trials)
+        #     self._var = self._get_trial(nStacked - 1)
 
         return self._var
 

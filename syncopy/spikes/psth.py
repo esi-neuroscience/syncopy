@@ -27,12 +27,17 @@ def psth(trl_dat,
     bins: :class:`~numpy.array` or None
         An array of monotonically increasing PSTH bin edges
         in seconds including the rightmost edge
+        Defaults with `None` to the Rice rule
 
     Returns
     -------
     counts : :class:`~np.ndarray`
         Spike counts for each channel and unit
         with shape (nUnits, nBins, nChannels)
+
+    See Also
+    --------
+    `Rice Rule <https://en.wikipedia.org/wiki/Histogram#Rice_Rule>`_ on Wikipedia
     """
 
     # for readability
