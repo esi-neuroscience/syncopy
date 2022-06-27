@@ -1535,6 +1535,7 @@ class TestFOOOF():
     def test_reduce_selections(self, fulltests):
         if not fulltests:
             self.dataSelections.pop(random.choice([-1, 1]))
+            assert 1 == 1
 
     def test_tf_output(self, fulltests):
         # Set up basic TF analysis parameters to not slow down things too much
@@ -1548,4 +1549,7 @@ class TestFOOOF():
             cfg.select = {"trials" : 0, "channel" : 1}
             cfg.output = "fourier"
             cfg.toi = np.linspace(-2, 6, 5)
-            tfSpec = freqanalysis(cfg, _make_tf_signal(2, 2, self.seed, fadeIn=self.fadeIn, fadeOut=self.fadeOut)[0])            
+            tfSpec = freqanalysis(cfg, self.tfData)
+            assert 1 == 1
+
+

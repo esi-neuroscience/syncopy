@@ -8,6 +8,7 @@
 # Builtin/3rd party package imports
 import numpy as np
 from scipy import signal
+from scipy.optimize import curve_fit
 
 # Syncopy imports
 from syncopy.shared.errors import SPYValueError

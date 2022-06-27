@@ -28,6 +28,7 @@ from .mtmfft import mtmfft
 from .mtmconvol import mtmconvol
 from .superlet import superlet
 from .wavelet import wavelet
+from .fooof import fooof
 
 # Local imports
 from syncopy.shared.errors import SPYWarning
