@@ -301,9 +301,14 @@ def freqanalysis(data, method='mtmfft', output='pow',
         raise SPYValueError(legal=lgl, varname="method", actual=method)
 
     # Ensure a valid output format was selected
-    if output not in spectralConversions.keys():
-        lgl = "'" + "or '".join(opt + "' " for opt in spectralConversions.keys())
+    valid_outputs = spectralConversions.keys() + ['fooof']
+    if output not in valid_outputs:
+        lgl = "'" + "or '".join(opt + "' " for opt in valid_outputs)
         raise SPYValueError(legal=lgl, varname="output", actual=output)
+
+    # output = 'fooof' is allowed only with method = 'mtmfft'
+    if output == 'fooof' and method != 'mtmfft':
+        raise ValueError('Output \'fooof\' is only allowed with method = \'mtmfft\'.')
 
     # Parse all Boolean keyword arguments
     for vname in ["keeptrials", "keeptapers"]:
@@ -524,6 +529,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
             polyremoval=polyremoval,
             output_fmt=output,
             method_kwargs=method_kwargs)
+        
 
     elif method == "mtmconvol":
 
@@ -835,6 +841,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     # If provided, make sure output object is appropriate
     if out is not None:
+        if output == 'fooof':
+            raise ValueError('Pre-allocated output object not supported with output = \'fooof\'.')
         try:
             data_parser(out, varname="out", writable=True, empty=True,
                         dataclass="SpectralData",
@@ -852,6 +860,28 @@ def freqanalysis(data, method='mtmfft', output='pow',
                              chan_per_worker=kwargs.get("chan_per_worker"),
                              keeptrials=keeptrials)
     specestMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)
+
+    # FOOOF is a post-processing method of MTMFFT output, so we handle it here, once
+    # the MTMFFT has finished.
+    if method == 'mtmfft' and output == 'fooof':
+        # method specific parameters
+        fooof_kwargs = {
+        }
+
+        # Set up compute-class
+        fooofMethod = FOOOF(method_kwargs=fooof_kwargs)
+
+        # Use the output of the MTMFFMT method as the new data and create new output data.
+        fooof_data = out
+        fooof_out = SpectralData(dimord=SpectralData._defaultDimord)
+        new_out = True
+
+        # Perform actual computation
+        fooofMethod.initialize(fooof_data,
+                             fooof_out._stackingDim,
+                             chan_per_worker=kwargs.get("chan_per_worker"),
+                             keeptrials=keeptrials)
+        fooofMethod.compute(fooof_data, fooof_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
 
     # Either return newly created output object or simply quit
     return out if new_out else None
