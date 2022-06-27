@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Collection of I/O utility functions
-# 
+#
 
 # Builtin/3rd party package imports
 import os
@@ -38,8 +38,8 @@ startInfoDict["data_offset"] = None
 startInfoDict["trl_dtype"] = None
 startInfoDict["trl_shape"] = None
 startInfoDict["trl_offset"] = None
-startInfoDict["file_checksum"] = None 
-startInfoDict["order"] = "C" 
+startInfoDict["file_checksum"] = None
+startInfoDict["order"] = "C"
 startInfoDict["checksum_algorithm"] = __checksum_algorithm__.__name__
 
 
@@ -57,17 +57,20 @@ def hash_file(fname, bsize=65536):
     return hash.hexdigest()
 
 
-def cleanup(older_than=24, **kwargs):
+def cleanup(older_than=24, interactive=True, **kwargs):
     """
     Delete old files in temporary Syncopy folder
-    
+
     The location of the temporary folder is stored in `syncopy.__storage__`.
-    
+
     Parameters
     ----------
     older_than : int
         Files older than `older_than` hours will be removed
-        
+    interactive : bool
+        Set to `False` to remove all (sessions and dangling files) at once
+        without a prompt asking for confirmation
+
     Examples
     --------
     >>> spy.cleanup()
@@ -87,8 +90,7 @@ def cleanup(older_than=24, **kwargs):
         "\n{name:s} Analyzing temporary storage folder {dir:s}...\n"
     print(dirInfo.format(name=funcName, dir=__storage__))
 
-    # Parse "hidden" interactive keyword: if `False`, don't ask, just delete    
-    interactive = kwargs.get("interactive", True)
+    # Parse "hidden" interactive keyword: if `False`, don't ask, just delete
     if not isinstance(interactive, bool):
         raise SPYTypeError(interactive, varname="interactive", expected="bool")
 
@@ -129,9 +131,9 @@ def cleanup(older_than=24, **kwargs):
                 ageList.append(round(age/24))                  # age in days
                 usrList.append(sesslog[:sesslog.find("@")])
                 ownList.append(sesslog[:sesslog.find(":")])
-                sizList.append(sum(os.path.getsize(file) if os.path.isfile(file) else 
+                sizList.append(sum(os.path.getsize(file) if os.path.isfile(file) else
                                    sum(os.path.getsize(os.path.join(dirpth, fname)) \
-                                       for dirpth, _, fnames in os.walk(file) 
+                                       for dirpth, _, fnames in os.walk(file)
                                        for fname in fnames) for file in files))
 
     # Farewell if nothing's to do here
@@ -165,7 +167,7 @@ def cleanup(older_than=24, **kwargs):
         promptInfo = sesInfo
         promptOptions = sesOptions
         promptValid = sesValid
-            
+
     # Prepare info prompt for dangling files
     if dangling:
         dangInfo = \
@@ -185,7 +187,7 @@ def cleanup(older_than=24, **kwargs):
         promptValid = dangValid
 
     # Put together actual prompt message message
-    promptChoice = "\nPlease choose one of the following options:\n" 
+    promptChoice = "\nPlease choose one of the following options:\n"
     abortOption = "[C]ANCEL\n"
     abortValid = ["C"]
 
@@ -198,14 +200,14 @@ def cleanup(older_than=24, **kwargs):
         promptOptions = sesOptions + dangOptions + rmAllOption
         promptValid = sesValid + dangValid + rmAllValid
 
-    # By default, ask what to do; if `interactive` is `False`, remove everything    
+    # By default, ask what to do; if `interactive` is `False`, remove everything
     if interactive:
-        choice = user_input(promptInfo + promptChoice + promptOptions + abortOption, 
+        choice = user_input(promptInfo + promptChoice + promptOptions + abortOption,
                             valid=promptValid + abortValid)
     else:
         choice = "R"
-    
-    # Query removal of data session by session    
+
+    # Query removal of data session by session
     if choice == "I":
         promptYesNo = \
             "Found{numf:s} files created by session {sess:s} {age:d} " +\
@@ -218,26 +220,26 @@ def cleanup(older_than=24, **kwargs):
                                                  str(round(sizList[sk]/1024**2)) + \
                                                      " MB of disk space.")):
                 _rm_session(flsList[sk])
-                
+
     # Delete all session-remains at once
     elif choice == "S":
         for fls in tqdm(flsList, desc="Deleting session data..."):
             _rm_session(fls)
-            
+
     # Deleate all dangling files at once
     elif choice == "D":
         for dat in tqdm(dangling, desc="Deleting dangling data..."):
             _rm_session([dat])
-    
+
     # Delete everything
     elif choice == "R":
-        for contents in tqdm(flsList + [[dat] for dat in dangling], 
+        for contents in tqdm(flsList + [[dat] for dat in dangling],
                         desc="Deleting temporary data..."):
             _rm_session(contents)
 
     # Don't do anything for now, continue w/dangling data
     else:
-        print("Aborting...")        
+        print("Aborting...")
 
     return
 
@@ -245,16 +247,16 @@ def cleanup(older_than=24, **kwargs):
 def clear():
     """
     Clear Syncopy objects from memory
-    
+
     Notes
     -----
     Syncopy objects are **not** loaded wholesale into memory. Only the corresponding
     meta-information is read from disk and held in memory. The underlying numerical
-    data is streamed on-demand from disk leveraging HDF5's modified LRU (least 
+    data is streamed on-demand from disk leveraging HDF5's modified LRU (least
     recently used) page replacement algorithm. Thus, :func:`syncopy.clear` simply
     force-flushes all of Syncopy's HDF5 backing devices to free up memory currently
     blocked by cached data chunks.
-    
+
     Examples
     --------
     >>> spy.clear()
@@ -262,7 +264,7 @@ def clear():
 
     # Get current frame
     thisFrame = sys._getframe()
-    
+
     # For later reference: dynamically fetch name of current function
     funcName = "Syncopy <{}>".format(thisFrame.f_code.co_name)
 
@@ -272,13 +274,13 @@ def clear():
         if isinstance(value, BaseData):
             value.clear()
             counter += 1
-    
+
     # Be talkative
     msg = "{name:s} flushed {objcount:d} objects from memory"
     print(msg.format(name=funcName, objcount=counter))
-    
+
     return
-                
+
 def _rm_session(session_files):
     """
     Local helper for deleting tmp data of a given spy session
