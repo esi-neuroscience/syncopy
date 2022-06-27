@@ -15,6 +15,7 @@ from syncopy.shared.errors import SPYValueError
 
 # Constants
 available_fooof_out_types = ['spec_periodic', 'fit_gaussians', 'fit_aperiodic']
+available_fooof_options = ['peak_width_limits', 'max_n_peaks', 'min_peak_height', 'peak_threshold', 'aperiodic_mode', 'verbose']
 
 def fooof(data_arr,
            freqs,
@@ -31,11 +32,12 @@ def fooof(data_arr,
     freqs : 1D :class:`numpy.ndarray`
          Array of Fourier frequencies, obtained from mtmfft output.
     foof_opt : dict or None
-        Additional keyword arguments passed to the `FOOOF` constructor.
-        For multi-tapering with ``taper='dpss'`` set the keys
-        `'Kmax'` and `'NW'`.
-        For further details, please refer to the
+        Additional keyword arguments passed to the `FOOOF` constructor. Available
+        arguments include 'peak_width_limits', 'max_n_peaks', 'min_peak_height',
+        'peak_threshold', and 'aperiodic_mode'.
+        Please refer to the
         `FOOOF docs <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_
+        for the meanings.
     out_type : string
         The requested output type, one of ``'spec_periodic'`` for the original spectrum minus the aperiodic
         parts, ``'fit_gaussians'`` for the Gaussians fit to the original spectrum minus the aperiodic parts, or
@@ -65,6 +67,8 @@ def fooof(data_arr,
     if out_type not in available_fooof_out_types:
         lgl = "'" + "or '".join(opt + "' " for opt in available_fooof_out_types)
         raise SPYValueError(legal=lgl, varname="out_type", actual=out_type)
+
+    
     
     return data_arr
 
