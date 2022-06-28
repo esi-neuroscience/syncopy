@@ -111,7 +111,7 @@ def unwrap_cfg(func):
     See also
     --------
     unwrap_select : extract `select` keyword and process in-place data-selections
-    unwrap_io : set up
+    process_io : set up
                 :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`-calls
                 based on parallel processing setup
     detect_parallel_client : controls parallel processing engine via `parallel` keyword
@@ -515,7 +515,7 @@ def detect_parallel_client(func):
     return parallel_client_detector
 
 
-def unwrap_io(func):
+def process_io(func):
     """
     Decorator for handling parallel execution of a
     :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`

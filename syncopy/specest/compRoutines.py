@@ -33,7 +33,7 @@ from .wavelet import wavelet
 from syncopy.shared.errors import SPYWarning
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import unwrap_io
+from syncopy.shared.kwarg_decorators import process_io
 from syncopy.shared.const_def import (
     spectralConversions,
     spectralDTypes,
@@ -44,7 +44,7 @@ from syncopy.shared.const_def import (
 # MultiTaper FFT
 # -----------------------
 
-@unwrap_io
+@process_io
 def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
               polyremoval=None, output_fmt="pow",
               noCompute=False, chunkShape=None, method_kwargs=None):
@@ -225,7 +225,7 @@ class MultiTaperFFT(ComputationalRoutine):
 
 
 # Local workhorse that performs the computational heavy lifting
-@unwrap_io
+@process_io
 def mtmconvol_cF(
         trl_dat,
         soi,
@@ -450,7 +450,7 @@ class MultiTaperFFTConvol(ComputationalRoutine):
 # -----------------
 
 
-@unwrap_io
+@process_io
 def wavelet_cF(
     trl_dat,
     preselect,
@@ -621,7 +621,7 @@ class WaveletTransform(ComputationalRoutine):
 # -----------------
 
 
-@unwrap_io
+@process_io
 def superlet_cF(
     trl_dat,
     preselect,

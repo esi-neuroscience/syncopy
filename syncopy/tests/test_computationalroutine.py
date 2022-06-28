@@ -20,14 +20,14 @@ from syncopy.datatype import AnalogData
 from syncopy.datatype.base_data import Selector
 from syncopy.io import load
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import unwrap_io, unwrap_cfg, unwrap_select
+from syncopy.shared.kwarg_decorators import process_io, unwrap_cfg, unwrap_select
 from syncopy.tests.misc import generate_artificial_data
 
 # Decorator to decide whether or not to run dask-related tests
 skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 
 
-@unwrap_io
+@process_io
 def lowpass(arr, b, a=None, noCompute=None, chunkShape=None):
     if noCompute:
         return arr.shape, arr.dtype

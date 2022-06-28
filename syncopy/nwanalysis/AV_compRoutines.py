@@ -22,13 +22,13 @@ from .granger import granger
 # syncopy imports
 from syncopy.shared.const_def import spectralDTypes
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import unwrap_io
+from syncopy.shared.kwarg_decorators import process_io
 from syncopy.shared.errors import (
     SPYValueError,
 )
 
 
-@unwrap_io
+@process_io
 def normalize_csd_cF(csd_av_dat,
                      output='abs',
                      chunkShape=None,
@@ -185,7 +185,7 @@ class NormalizeCrossSpectra(ComputationalRoutine):
         out.freq = data.freq
 
 
-@unwrap_io
+@process_io
 def normalize_ccov_cF(trl_av_dat,
                       chunkShape=None,
                       noCompute=False):
@@ -314,7 +314,7 @@ class NormalizeCrossCov(ComputationalRoutine):
         out.channel_j = np.array(data.channel_j[chanSec_j])
 
 
-@unwrap_io
+@process_io
 def granger_cF(csd_av_dat,
                rtol=1e-8,
                nIter=100,

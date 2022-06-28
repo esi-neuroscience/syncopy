@@ -810,7 +810,7 @@ class ComputationalRoutine(ABC):
         Notes
         -----
         The actual reading of source data and writing of results is managed by
-        the decorator :func:`syncopy.shared.parsers.unwrap_io`.
+        the decorator :func:`syncopy.shared.kwarg_decorators.process_io`.
 
         See also
         --------
