@@ -308,7 +308,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     # output = 'fooof' is allowed only with method = 'mtmfft'
     if output == 'fooof' and method != 'mtmfft':
-        raise ValueError('Output \'fooof\' is only allowed with method = \'mtmfft\'.')
+        lgl = "method must be 'mtmfft' with output = 'fooof'"
+        raise SPYValueError(legal=lgl, varname="method", actual=method)
 
     # Parse all Boolean keyword arguments
     for vname in ["keeptrials", "keeptapers"]:
@@ -842,7 +843,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # If provided, make sure output object is appropriate
     if out is not None:
         if output == 'fooof':
-            raise ValueError('Pre-allocated output object not supported with output = \'fooof\'.')
+            lgl = "None: pre-allocated output object not supported with output = 'fooof'."
+            raise SPYValueError(legal=lgl, varname="out")
         try:
             data_parser(out, varname="out", writable=True, empty=True,
                         dataclass="SpectralData",
