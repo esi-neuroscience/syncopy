@@ -636,7 +636,8 @@ def process_io(func):
             arr.shape = inshape
 
             # Now, actually call wrapped function
-            res, new_output_here = func(arr, *wrkargs, **kwargs)
+            # Put new outputs here!
+            res = func(arr, *wrkargs, **kwargs)
 
             # In case scalar selections have been performed, explicitly assign
             # desired output shape to re-create "lost" singleton dimensions
