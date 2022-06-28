@@ -301,14 +301,15 @@ def freqanalysis(data, method='mtmfft', output='pow',
         raise SPYValueError(legal=lgl, varname="method", actual=method)
 
     # Ensure a valid output format was selected
-    valid_outputs = spectralConversions.keys() + ['fooof']
+    fooof_output_types = ['fooof', 'fooof_aperiodic', 'fooof_peaks']
+    valid_outputs = spectralConversions.keys() + fooof_output_types
     if output not in valid_outputs:
         lgl = "'" + "or '".join(opt + "' " for opt in valid_outputs)
         raise SPYValueError(legal=lgl, varname="output", actual=output)
 
     # output = 'fooof' is allowed only with method = 'mtmfft'
-    if output == 'fooof' and method != 'mtmfft':
-        lgl = "method must be 'mtmfft' with output = 'fooof'"
+    if output.startswith('fooof') and method != 'mtmfft':
+        lgl = "method must be 'mtmfft' with output = 'fooof*'"
         raise SPYValueError(legal=lgl, varname="method", actual=method)
 
     # Parse all Boolean keyword arguments
@@ -842,8 +843,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     # If provided, make sure output object is appropriate
     if out is not None:
-        if output == 'fooof':
-            lgl = "None: pre-allocated output object not supported with output = 'fooof'."
+        if output.startswith('fooof'):
+            lgl = "None: pre-allocated output object not supported with output = 'fooof*'."
             raise SPYValueError(legal=lgl, varname="out")
         try:
             data_parser(out, varname="out", writable=True, empty=True,
@@ -865,13 +866,19 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     # FOOOF is a post-processing method of MTMFFT output, so we handle it here, once
     # the MTMFFT has finished.
-    if method == 'mtmfft' and output == 'fooof':
+    if method == 'mtmfft' and output.startswith('fooof'):
         # method specific parameters
         fooof_kwargs = {
+            'peak_width_limits' : (0.5, 12.0),
+            'max_n_peaks':np.inf,
+            'min_peak_height':0.0,
+            'peak_threshold':2.0,
+            'aperiodic_mode':'fixed',
+            'verbose': False
         }
 
         # Set up compute-class
-        fooofMethod = FOOOF(method_kwargs=fooof_kwargs)
+        fooofMethod = SpyFOOOF(output=output, method_kwargs=fooof_kwargs)
 
         # Use the output of the MTMFFMT method as the new data and create new output data.
         fooof_data = out
@@ -884,6 +891,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
                              chan_per_worker=kwargs.get("chan_per_worker"),
                              keeptrials=keeptrials)
         fooofMethod.compute(fooof_data, fooof_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
+        out = fooof_out
 
     # Either return newly created output object or simply quit
     return out if new_out else None
