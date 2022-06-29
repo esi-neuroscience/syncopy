@@ -879,7 +879,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         }
 
         # Set up compute-class
-        fooofMethod = SpyFOOOF(output_type=output, method_kwargs=fooof_kwargs)
+        fooofMethod = SpyFOOOF(output_fmt=output, method_kwargs=fooof_kwargs)
 
         # Use the output of the MTMFFMT method as the new data and create new output data.
         fooof_data = out

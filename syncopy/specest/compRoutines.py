@@ -875,7 +875,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
 
 @unwrap_io
 def fooof_cF(trl_dat, foi=None, timeAxis=0,
-              output_fooof='fooof', noCompute=False, chunkShape=None, method_kwargs=None):
+              output_fmt='fooof', noCompute=False, chunkShape=None, method_kwargs=None):
 
     """
     Run FOOOF
@@ -890,8 +890,8 @@ def fooof_cF(trl_dat, foi=None, timeAxis=0,
         data length and padding) are used.
     timeAxis : int
         Index of running time axis in `trl_dat` (0 or 1)
-    output_fooof : str
-        Output of spectral estimation; one of :data:`~syncopy.specest.const_def.availableFOOOFOutputs`
+    output_fmt : str
+        Output of FOOOF; one of :data:`~syncopy.specest.const_def.availableFOOOFOutputs`
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
@@ -917,9 +917,6 @@ def fooof_cF(trl_dat, foi=None, timeAxis=0,
     Consequently, this function does **not** perform any error checking and operates
     under the assumption that all inputs have been externally validated and cross-checked.
 
-    The computational heavy lifting in this code is performed by NumPy's reference
-    implementation of the Fast Fourier Transform :func:`numpy.fft.fft`.
-
     See also
     --------
     syncopy.freqanalysis : parent metafunction
@@ -938,26 +935,11 @@ def fooof_cF(trl_dat, foi=None, timeAxis=0,
     # For initialization of computational routine,
     # just return output shape and dtype
     if noCompute:
-        return outShape, fooofDTypes[output_fooof]
+        return outShape, fooofDTypes[output_fmt]
 
-    # detrend, does not work with 'FauxTrial' data..
-    if polyremoval == 0:
-        dat = signal.detrend(dat, type='constant', axis=0, overwrite_data=True)
-    elif polyremoval == 1:
-        dat = signal.detrend(dat, type='linear', axis=0, overwrite_data=True)
-
-    # call actual specest method
-    res, _ = mtmfft(dat, **method_kwargs)
-
-    # attach time-axis and convert to output_fmt
-    spec = res[np.newaxis, :, freq_idx, :]
-    spec = spectralConversions[output_fmt](spec)
-    # Average across tapers if wanted
-    # averaging is only valid spectral estimate
-    # if output_fmt == 'pow'! (gets checked in parent meta)
-    if not keeptapers:
-        return spec.mean(axis=1, keepdims=True)
-    return spec
+    # call actual fooof method
+    res, _ = fooof(dat[0,0,:,:], **method_kwargs)
+    return res
 
 
 class SpyFOOOF(ComputationalRoutine):
@@ -981,27 +963,14 @@ class SpyFOOOF(ComputationalRoutine):
     # hardcode some parameter names which got digested from the frontend
     valid_kws += []
 
+    # To aattach metadata to the output of the CF
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
             chanSec = data.selection.channel
-            trl = data.selection.trialdefinition
-            for row in range(trl.shape[0]):
-                trl[row, :2] = [row, row + 1]
         else:
             chanSec = slice(None)
-            time = np.arange(len(data.trials))
-            time = time.reshape((time.size, 1))
-            trl = np.hstack((time, time + 1,
-                             np.zeros((len(data.trials), 1)),
-                             np.array(data.trialinfo)))
-
-        # Attach constructed trialdef-array (if even necessary)
-        if self.keeptrials:
-            out.trialdefinition = trl
-        else:
-            out.trialdefinition = np.array([[0, 1, 0]])
 
         # Attach remaining meta-data
         out.samplerate = data.samplerate

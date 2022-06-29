@@ -20,7 +20,7 @@ available_fooof_options = ['peak_width_limits', 'max_n_peaks', 'min_peak_height'
 def fooof(data_arr,
            freqs,
            fooof_opt= {'peak_width_limits' : (0.5, 12.0), 'max_n_peaks':np.inf, 'min_peak_height':0.0, 'peak_threshold':2.0, 'aperiodic_mode':'fixed', 'verbose':True},
-           out_type='spec_periodic'):
+           out_type='fooof'):
     """
     Parameterization of neural power spectra using 
     the FOOOF mothod by Donoghue et al: fitting oscillations & one over f.
