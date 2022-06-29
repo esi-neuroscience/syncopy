@@ -533,7 +533,6 @@ def freqanalysis(data, method='mtmfft', output='pow',
             output_fmt=output,
             method_kwargs=method_kwargs)
         
-
     elif method == "mtmconvol":
 
         check_effective_parameters(MultiTaperFFTConvol, defaults, lcls)
@@ -598,9 +597,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
         # number of samples per window
         nperseg = int(t_ftimwin * data.samplerate)
         halfWin = int(nperseg / 2)
-        postSelect = slice(None) # select all is the default
+        postSelect = slice(None)  # select all is the default
 
-        if 0 <= overlap <= 1: # `toi` is percentage
+        if 0 <= overlap <= 1:  # `toi` is percentage
             noverlap = min(nperseg - 1, int(overlap * nperseg))
         # windows get shifted exactly 1 sample
         # to get a spectral estimate at each sample
@@ -869,17 +868,29 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # the MTMFFT has finished.
     if method == 'mtmfft' and output.startswith('fooof'):
         # method specific parameters
-        fooof_kwargs = {
+        # TODO: We need to add a way for the user to pass these in,
+        #       currently they are hard-coded here.
+        fooof_kwargs = { # These are passed to the fooof.FOOOF() constructor.
             'peak_width_limits' : (0.5, 12.0),
-            'max_n_peaks':np.inf,
-            'min_peak_height':0.0,
-            'peak_threshold':2.0,
+            'max_n_peaks': np.inf,
+            'min_peak_height': 0.0,
+            'peak_threshold': 2.0,
             'aperiodic_mode':'fixed',
             'verbose': False
         }
 
+        # Settings used during the FOOOF analysis.
+        fooof_settings = {
+            'freq_range': None  # or something like [2, 40] to limit frequency range.
+        }
+
         # Set up compute-class
-        fooofMethod = SpyFOOOF(output_fmt=output, method_kwargs=fooof_kwargs)
+        #  - the output_fmt must be one of 'fooof', 'fooof_aperiodic',
+        #    or 'fooof_peaks'.
+        #  - everything passed as method_kwargs is passed as arguments
+        #    to the foooof.FOOOF() constructor or functions, the other args are 
+        #    used elsewhere.
+        fooofMethod = SpyFOOOF(output_fmt=output, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)
 
         # Use the output of the MTMFFMT method as the new data and create new output data.
         fooof_data = out

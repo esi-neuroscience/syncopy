@@ -875,7 +875,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
 
 @unwrap_io
 def fooof_cF(trl_dat, foi=None, timeAxis=0,
-              output_fmt='fooof', noCompute=False, chunkShape=None, method_kwargs=None):
+              output_fmt='fooof', fooof_settings=None, noCompute=False, chunkShape=None, method_kwargs=None):
 
     """
     Run FOOOF
@@ -928,8 +928,6 @@ def fooof_cF(trl_dat, foi=None, timeAxis=0,
     else:
         dat = trl_dat
 
-    nSamples = dat.shape[0]
-
     outShape = dat.shape
 
     # For initialization of computational routine,
@@ -938,7 +936,7 @@ def fooof_cF(trl_dat, foi=None, timeAxis=0,
         return outShape, fooofDTypes[output_fmt]
 
     # call actual fooof method
-    res, _ = fooof(dat[0,0,:,:], **method_kwargs)
+    res, _ = fooof(dat[0, 0, :, :], out_type=output_fmt, **method_kwargs)
     return res
 
 
@@ -963,7 +961,7 @@ class SpyFOOOF(ComputationalRoutine):
     # hardcode some parameter names which got digested from the frontend
     valid_kws += []
 
-    # To aattach metadata to the output of the CF
+    # To attach metadata to the output of the CF
     def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"

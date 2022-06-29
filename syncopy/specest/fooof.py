@@ -9,18 +9,21 @@
 import numpy as np
 from scipy import signal
 from scipy.optimize import curve_fit
+from fooof import FOOOF
 
 # Syncopy imports
 from syncopy.shared.errors import SPYValueError
+from syncopy.shared.const_def import fooofDTypes
 
 # Constants
-available_fooof_out_types = ['spec_periodic', 'fit_gaussians', 'fit_aperiodic']
+available_fooof_out_types = fooofDTypes.keys()
 available_fooof_options = ['peak_width_limits', 'max_n_peaks', 'min_peak_height', 'peak_threshold', 'aperiodic_mode', 'verbose']
 
+
 def fooof(data_arr,
-           freqs,
-           fooof_opt= {'peak_width_limits' : (0.5, 12.0), 'max_n_peaks':np.inf, 'min_peak_height':0.0, 'peak_threshold':2.0, 'aperiodic_mode':'fixed', 'verbose':True},
-           out_type='fooof'):
+          fooof_settings={'freq_range': None},
+          fooof_opt={'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf, 'min_peak_height': 0.0, 'peak_threshold': 2.0, 'aperiodic_mode': 'fixed', 'verbose': True},
+          out_type='fooof'):
     """
     Parameterization of neural power spectra using 
     the FOOOF mothod by Donoghue et al: fitting oscillations & one over f.
@@ -39,9 +42,7 @@ def fooof(data_arr,
         `FOOOF docs <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_
         for the meanings.
     out_type : string
-        The requested output type, one of ``'spec_periodic'`` for the original spectrum minus the aperiodic
-        parts, ``'fit_gaussians'`` for the Gaussians fit to the original spectrum minus the aperiodic parts, or
-        ``'fit_aperiodic'``.
+        The requested output type, one of ``'fooof'``, 'fooof_aperiodic' or 'fooof_peaks'.
 
     Returns
     -------
@@ -68,7 +69,24 @@ def fooof(data_arr,
         lgl = "'" + "or '".join(opt + "' " for opt in available_fooof_out_types)
         raise SPYValueError(legal=lgl, varname="out_type", actual=out_type)
 
-    
+    # TODO: iterate over channels in the data here.
+
+    fm = FOOOF(**fooof_opt)
+    freqs =  # TODO: extract from data_arr
+    spectrum = # TODO: extract from data_arr
+    fm.fit(freqs, spectrum, freq_range=fooof_settings.freq_range)
+
+    if out_type == 'fooof':
+        res = fm.fooofed_spectrum_
+    elif out_type == "fooof_aperiodic":
+        res = fm.tmp1 # TODO
+    else: # fooof_peaks
+        res = fm.tmp2 # TODO
+
+    # TODO: add return values like the r_squared_, 
+    # aperiodic_params_, and peak_params_ somehow.
+    # We will need more than one return value for that
+    # though, which is not implemented yet.
     
     return data_arr
 
