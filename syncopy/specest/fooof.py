@@ -19,7 +19,7 @@ available_fooof_options = ['peak_width_limits', 'max_n_peaks', 'min_peak_height'
 
 def fooof(data_arr,
            freqs,
-           fooof_opt= None,
+           fooof_opt= {'peak_width_limits' : (0.5, 12.0), 'max_n_peaks':np.inf, 'min_peak_height':0.0, 'peak_threshold':2.0, 'aperiodic_mode':'fixed', 'verbose':True},
            out_type='spec_periodic'):
     """
     Parameterization of neural power spectra using 
@@ -62,7 +62,7 @@ def fooof(data_arr,
         data_arr = data_arr[:, np.newaxis]
 
     if fooof_opt is None:
-        fooof_opt = {}
+        fooof_opt = {'peak_width_limits' : (0.5, 12.0), 'max_n_peaks':np.inf, 'min_peak_height':0.0, 'peak_threshold':2.0, 'aperiodic_mode':'fixed', 'verbose':True}
 
     if out_type not in available_fooof_out_types:
         lgl = "'" + "or '".join(opt + "' " for opt in available_fooof_out_types)
