@@ -14,7 +14,7 @@ from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYIn
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.tools import best_match
-from syncopy.shared.const_def import spectralConversions
+from syncopy.shared.const_def import spectralConversions, fooofDTypes
 
 from syncopy.shared.input_processors import (
     process_taper,
@@ -35,7 +35,8 @@ from .compRoutines import (
     SuperletTransform,
     WaveletTransform,
     MultiTaperFFT,
-    MultiTaperFFTConvol
+    MultiTaperFFTConvol,
+    SpyFOOOF
 )
 
 
@@ -301,7 +302,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         raise SPYValueError(legal=lgl, varname="method", actual=method)
 
     # Ensure a valid output format was selected
-    fooof_output_types = ['fooof', 'fooof_aperiodic', 'fooof_peaks']
+    fooof_output_types = fooofDTypes.keys()
     valid_outputs = spectralConversions.keys() + fooof_output_types
     if output not in valid_outputs:
         lgl = "'" + "or '".join(opt + "' " for opt in valid_outputs)
@@ -878,7 +879,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         }
 
         # Set up compute-class
-        fooofMethod = SpyFOOOF(output=output, method_kwargs=fooof_kwargs)
+        fooofMethod = SpyFOOOF(output_type=output, method_kwargs=fooof_kwargs)
 
         # Use the output of the MTMFFMT method as the new data and create new output data.
         fooof_data = out
