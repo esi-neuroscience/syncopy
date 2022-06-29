@@ -16,7 +16,8 @@ from tqdm.auto import tqdm
 import h5py
 import json
 from syncopy.shared.tools import StructDict
-import syncopy as snp
+from syncopy.shared.parsers import io_parser, scalar_parser
+import syncopy as spy
 
 class ESI_TDTinfo():
     def __init__(self, block_path):
@@ -91,14 +92,6 @@ class ESI_TDTinfo():
     def code_to_name(self, code):
         return int(code).to_bytes(4, byteorder = 'little').decode('cp437')
 
-    def natural_sort(self, file_names):
-        """Sort a list of strings using numbers
-        Ch1 will be followed by Ch2 and not Ch11.
-        """
-        def convert(text): return int(text) if text.isdigit() else text.lower()
-        def alphanum_key(key): return [convert(c) for c in re.split('([0-9]+)', key)]
-        return sorted(file_names, key = alphanum_key)
-
     def get_files(self, ext, speci_trgt):
         f_names = list()
         if speci_trgt is None:
@@ -128,11 +121,11 @@ class ESI_TDTinfo():
         epocs.data = []
         epocs.dform = []
 
-        tsq_list = self.get_files('.tsq', None)
-
+        # tsq_list = self.get_files('.tsq', None)
+        tsq_list = _get_source_paths(self.block_path, '.tsq')
         if len(tsq_list) > 1:
             raise Exception('multiple TSQ files found\n{0}'.format(', '.join(tsq_list)))
-        tsq = open(self.block_path + tsq_list[0], 'rb')
+        tsq = open(tsq_list[0], 'rb')
         tsq.seek(0, os.SEEK_SET)
         xxx = tsq.read(8)
         file_size = np.fromfile(tsq, dtype = np.int64, count = 1)
@@ -587,7 +580,7 @@ class ESI_TDTdata():
                 len(Files), len(idxStartStop), self.chan_in_chunks, 
                 self.outputdir + self.combined_data_filename + '.hdf5'))
             for (start, stop) in tqdm(iterable = idxStartStop, desc = "chunk", unit = "chunk"):
-                data = [self.read_data(self.inputdir + Files[jj]) for jj in range(start, stop)]
+                data = [self.read_data(Files[jj]) for jj in range(start, stop)]
                 data = np.vstack(data).T
                 if start == 0:
                     target = combined_data_file.create_dataset("data", 
@@ -615,7 +608,7 @@ class ESI_TDTdata():
                 target[:, start:stop] = data
         chanlist = None if self.channels == 'all' else ['channel'+str(trch+1).zfill(3) for trch in self.channels]
         chanind = np.arange(len(Files)) if self.channels == 'all' else self.channels
-        Data = snp.AnalogData(data = h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['data'][:,chanind], samplerate = DataInfo_loaded.LFPs.fs, channel = chanlist)
+        Data = spy.AnalogData(data = h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['data'][:,chanind], samplerate = DataInfo_loaded.LFPs.fs, channel = chanlist)
         # write info file        
         Data.cfg["originalFiles"] = Files, 
         Data.cfg["samplingRate"] = DataInfo_loaded.LFPs.fs
@@ -630,7 +623,7 @@ class ESI_TDTdata():
         Data.cfg["data_dtype"] = 'single'
         Data.cfg["samplerate"] = DataInfo_loaded.LFPs.fs, 
         # Data.cfg["channel"] = ["channel{:03d}".format(iChannel)for iChannel in chanind], 
-        Data.cfg["_version"] = snp.__version__, 
+        Data.cfg["_version"] = spy.__version__, 
         Data.cfg["_log"] = "", 
         Data.cfg["tank_path"] = DataInfo_loaded.info.tankpath
         Data.cfg["blockname"] = DataInfo_loaded.info.blockname
@@ -649,3 +642,38 @@ class ESI_TDTdata():
         if self.export:
             Data.save(container = os.path.join(self.outputdir, self.combined_data_filename), overwrite = True)
         return Data
+
+
+def load_tdt2():
+
+    pass
+
+# --- Helpers ---
+
+
+def _get_source_paths(directory, ext='.sev'):
+    """
+    Returns all abs. paths in `directory` 
+    for files which end with `ext`
+    """
+
+    # get all data source file names
+    f_names = [f for f in os.listdir(directory) if f.endswith(ext)]
+    # parse absolute paths to source files
+    tdtPaths = []
+    for fname in f_names:
+        fname = os.path.join(directory, fname)
+        f_path, f_name = io_parser(fname, varname="tdt source file name", isfile=True, exists=True)
+        tdtPaths.append(os.path.join(f_path, f_name))
+    tdtPaths = _natural_sort(tdtPaths)
+    return tdtPaths
+
+
+def _natural_sort(file_names):
+    """Sort a list of strings using numbers
+        Ch1 will be followed by Ch2 and not Ch11.
+    """
+    def convert(text): return int(text) if text.isdigit() else text.lower()
+    def alphanum_key(key): return [convert(c) for c in re.split('([0-9]+)', key)]
+    return sorted(file_names, key = alphanum_key)
+    

@@ -20,6 +20,6 @@ out_path = data_path
 
 TDT_Load_Info = spy.io.load_tdt.ESI_TDTinfo(data_path)
 DataInfo_loaded = TDT_Load_Info.load_tdt_info()
-Files = TDT_Load_Info.get_files('.sev', 'DivAtt_session-25_LFPs')
+Files = spy.io.load_tdt._get_source_paths(data_path, '.sev')
 TDT_Data = spy.io.load_tdt.ESI_TDTdata(data_path, out_path, 'sth', subtract_median=False, channels=None, export=True)
 Data_Syncopy = TDT_Data.data_aranging(Files, DataInfo_loaded)
