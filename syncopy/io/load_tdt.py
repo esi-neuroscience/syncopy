@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # @Author: Diljit Singh Kajal
 # @Date:   2022-04-08 15:00:00
-# 
+#
 # load_tdt.py Merge separate TDT SEV files into one HDF5 file
 
 import os
@@ -18,6 +18,29 @@ import json
 from syncopy.shared.tools import StructDict
 from syncopy.shared.parsers import io_parser, scalar_parser
 import syncopy as spy
+
+
+# --- The user exposed function ---
+
+def load_tdt(data_path, out_path=None, memuse=3000):
+
+    # initialize tdt info loader class
+    TDT_Load_Info = ESI_TDTinfo(data_path)
+    # this is a StructDict
+    tdt_info = TDT_Load_Info.load_tdt_info()
+
+    # nicely sorted by channel names
+    file_paths = _get_source_paths(data_path, '.sev')
+    if out_path is None:
+        out_path = data_path
+    # set source directory name as Syncopy file name
+    out_name = tdt_info.info.blockname
+    tdt_data_handler = ESI_TDTdata(data_path, out_path, out_name,
+                                   subtract_median=False, channels=None, export=True)
+    adata = tdt_data_handler.data_aranging(file_paths, tdt_info)
+
+    return adata
+
 
 class ESI_TDTinfo():
     def __init__(self, block_path):
@@ -192,14 +215,14 @@ class ESI_TDTinfo():
             unique_codes, unique_ind = np.unique(codes, return_index = True)
             for counter, x in enumerate(unique_codes):
                 store_codes.append({
-                    'code': x, 
-                    'type': heads[1, unique_ind[counter]], 
-                    'type_str': self.code_to_type(heads[1, unique_ind[counter]]), 
-                    'ucf': self.check_ucf(heads[1, unique_ind[counter]]), 
-                    'epoc_type': self.epoc_to_type(heads[1, unique_ind[counter]]), 
-                    'dform': heads[8, unique_ind[counter]], 
-                    'size': heads[0, unique_ind[counter]], 
-                    'buddy': heads[3, unique_ind[counter]], 
+                    'code': x,
+                    'type': heads[1, unique_ind[counter]],
+                    'type_str': self.code_to_type(heads[1, unique_ind[counter]]),
+                    'ucf': self.check_ucf(heads[1, unique_ind[counter]]),
+                    'epoc_type': self.epoc_to_type(heads[1, unique_ind[counter]]),
+                    'dform': heads[8, unique_ind[counter]],
+                    'size': heads[0, unique_ind[counter]],
+                    'buddy': heads[3, unique_ind[counter]],
                     'temp': heads[:, unique_ind[counter]]
                 })
 
@@ -244,10 +267,10 @@ class ESI_TDTinfo():
 
                 if not var_name in header.stores.keys():
                     if store_code['type_str'] != 'epocs':
-                        header.stores[var_name] = StructDict(name = store_code['name'], 
-                                                             code = store_code['code'], 
-                                                             size = store_code['size'], 
-                                                             type = store_code['type'], 
+                        header.stores[var_name] = StructDict(name = store_code['name'],
+                                                             code = store_code['code'],
+                                                             size = store_code['size'],
+                                                             type = store_code['type'],
                                                              type_str = store_code['type_str'])
                         if header.stores[var_name].type_str == 'streams':
                             header.stores[var_name].ucf = store_code['ucf']
@@ -536,18 +559,14 @@ class ESI_TDTinfo():
 
 class ESI_TDTdata():
     def __init__(self, inputdir, outputdir, combined_data_filename, subtract_median, channels = None,export = False):
-        if not os.path.isdir(inputdir):
-            raise Exception('Input directory path {0} not found'.format(inputdir))
         self.inputdir = inputdir
-        if not os.path.isdir(outputdir):
-            raise Exception('Output directory path {0} not found'.format(outputdir))
-        self.export = export
         self.outputdir = outputdir
+        self.export = export
         self.combined_data_filename = combined_data_filename
         self.chan_in_chunks = 16
         self.subtract_median = subtract_median
         self.channels = 'all' if channels == None else channels
-        
+
     def arrange_header(self, DataInfo_loaded, Files):
         header = StructDict()
         header['fs'] = DataInfo_loaded.LFPs.fs
@@ -571,20 +590,20 @@ class ESI_TDTdata():
         return hash.hexdigest()
 
     def data_aranging(self, Files, DataInfo_loaded):
-        with h5py.File(self.outputdir + self.combined_data_filename + '.hdf5', 'w') as combined_data_file:
-            # combined_data_file = h5py.File(self.outputdir+self.combined_data_filename+'.hdf5', 'w')
-            idxStartStop = [np.clip(np.array((jj, jj + self.chan_in_chunks)), 
+        hdf_out_path = os.path.join(self.outputdir, self.combined_data_filename + '.hdf5')
+        with h5py.File(hdf_out_path, 'w') as combined_data_file:
+            idxStartStop = [np.clip(np.array((jj, jj + self.chan_in_chunks)),
                                     a_min = None, a_max = len(Files))
                             for jj in range(0, len(Files), self.chan_in_chunks)]
             print("Merging {0} files in {1} chunks each with {2} channels into \n   {3}".format(
-                len(Files), len(idxStartStop), self.chan_in_chunks, 
+                len(Files), len(idxStartStop), self.chan_in_chunks,
                 self.outputdir + self.combined_data_filename + '.hdf5'))
             for (start, stop) in tqdm(iterable = idxStartStop, desc = "chunk", unit = "chunk"):
                 data = [self.read_data(Files[jj]) for jj in range(start, stop)]
                 data = np.vstack(data).T
                 if start == 0:
-                    target = combined_data_file.create_dataset("data", 
-                                                                shape = (data.shape[0], len(Files)), 
+                    target = combined_data_file.create_dataset("data",
+                                                                shape = (data.shape[0], len(Files)),
                                                                 dtype = 'single')
                     PDio_onset = combined_data_file.create_dataset("PDio_onset", shape = (DataInfo_loaded.PDio.onset.shape[0], 1))
                     PDio_onset[:, 0] = DataInfo_loaded.PDio.onset
@@ -609,51 +628,46 @@ class ESI_TDTdata():
         chanlist = None if self.channels == 'all' else ['channel'+str(trch+1).zfill(3) for trch in self.channels]
         chanind = np.arange(len(Files)) if self.channels == 'all' else self.channels
         Data = spy.AnalogData(data = h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['data'][:,chanind], samplerate = DataInfo_loaded.LFPs.fs, channel = chanlist)
-        # write info file        
-        Data.cfg["originalFiles"] = Files, 
+        # write info file
+        Data.cfg["originalFiles"] = Files,
         Data.cfg["samplingRate"] = DataInfo_loaded.LFPs.fs
         Data.cfg["dtype"] = 'single'
         Data.cfg["numberOfChannels"] = len(Files)
         Data.cfg["mergedBy"] = getuser()
         Data.cfg["mergeTime"] = str(datetime.now())
         Data.cfg["md5sum"] = self.md5sum(self.outputdir + self.combined_data_filename + '.hdf5')
-        Data.cfg["channelMedianSubtracted"] = self.subtract_median        
+        Data.cfg["channelMedianSubtracted"] = self.subtract_median
         Data.cfg["filename"] = self.outputdir + self.combined_data_filename + '.hdf5'
-        Data.cfg["dataclass"] = "AnalogData" 
+        Data.cfg["dataclass"] = "AnalogData"
         Data.cfg["data_dtype"] = 'single'
-        Data.cfg["samplerate"] = DataInfo_loaded.LFPs.fs, 
-        # Data.cfg["channel"] = ["channel{:03d}".format(iChannel)for iChannel in chanind], 
-        Data.cfg["_version"] = spy.__version__, 
-        Data.cfg["_log"] = "", 
+        Data.cfg["samplerate"] = DataInfo_loaded.LFPs.fs,
+        # Data.cfg["channel"] = ["channel{:03d}".format(iChannel)for iChannel in chanind],
+        Data.cfg["_version"] = spy.__version__,
+        Data.cfg["_log"] = "",
         Data.cfg["tank_path"] = DataInfo_loaded.info.tankpath
         Data.cfg["blockname"] = DataInfo_loaded.info.blockname
         Data.cfg["start_date"] = str(DataInfo_loaded.info.start_date)
         Data.cfg["utc_start_time"] = DataInfo_loaded.info.utc_start_time
         Data.cfg["stop_date"] = str(DataInfo_loaded.info.stop_date)
         Data.cfg["utc_stop_time"] = DataInfo_loaded.info.utc_stop_time
-        Data.cfg["duration"] = str(DataInfo_loaded.info.duration)        
+        Data.cfg["duration"] = str(DataInfo_loaded.info.duration)
         Data.cfg["PDio_onset"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['PDio_onset'][:,0])
         Data.cfg["PDio_offset"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['PDio_offset'][:,0])
         Data.cfg["PDio_data"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['PDio_data'][:,0])
         Data.cfg["Trigger_timestamp"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['Trigger_timestamp'][:,0])
         Data.cfg["Trigger_timestamp_sample"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['Trigger_timestamp_sample'][:,0])
         Data.cfg["Trigger_code"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['Trigger_code'][:,0])
-        
+
         if self.export:
             Data.save(container = os.path.join(self.outputdir, self.combined_data_filename), overwrite = True)
         return Data
-
-
-def load_tdt2():
-
-    pass
 
 # --- Helpers ---
 
 
 def _get_source_paths(directory, ext='.sev'):
     """
-    Returns all abs. paths in `directory` 
+    Returns all abs. paths in `directory`
     for files which end with `ext`
     """
 
@@ -676,4 +690,3 @@ def _natural_sort(file_names):
     def convert(text): return int(text) if text.isdigit() else text.lower()
     def alphanum_key(key): return [convert(c) for c in re.split('([0-9]+)', key)]
     return sorted(file_names, key = alphanum_key)
-    

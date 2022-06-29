@@ -13,13 +13,6 @@ import sys
 # Import package
 import syncopy as spy
 
-data_path = '/mnt/hpc/slurm/syncopy/Tdt_reader/'
-out_path = data_path
-# how to go on from here to end up with a Syncopy Data (spy.AnalogData) object?
-# ...
+data_path = '/mnt/hpc/slurm/syncopy/Tdt_reader/session-25'
 
-TDT_Load_Info = spy.io.load_tdt.ESI_TDTinfo(data_path)
-DataInfo_loaded = TDT_Load_Info.load_tdt_info()
-Files = spy.io.load_tdt._get_source_paths(data_path, '.sev')
-TDT_Data = spy.io.load_tdt.ESI_TDTdata(data_path, out_path, 'sth', subtract_median=False, channels=None, export=True)
-Data_Syncopy = TDT_Data.data_aranging(Files, DataInfo_loaded)
+adata = spy.io.load_tdt(data_path)
