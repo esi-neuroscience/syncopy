@@ -28,7 +28,7 @@ from .mtmfft import mtmfft
 from .mtmconvol import mtmconvol
 from .superlet import superlet
 from .wavelet import wavelet
-from .fooof import fooof
+from .spfooof import spfooof
 
 # Local imports
 from syncopy.shared.errors import SPYWarning
@@ -936,7 +936,7 @@ def fooof_cF(trl_dat, foi=None, timeAxis=0,
         return outShape, fooofDTypes[output_fmt]
 
     # call actual fooof method
-    res, _ = fooof(dat[0, 0, :, :], out_type=output_fmt, **method_kwargs)
+    res, _ = spfooof(dat[0, 0, :, :], out_type=output_fmt, **method_kwargs)
     return res
 
 
@@ -956,7 +956,7 @@ class SpyFOOOF(ComputationalRoutine):
     computeFunction = staticmethod(fooof_cF)
 
     # 1st argument,the data, gets omitted
-    valid_kws = list(signature(fooof).parameters.keys())[1:]
+    valid_kws = list(signature(spfooof).parameters.keys())[1:]
     valid_kws += list(signature(fooof_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
     valid_kws += []

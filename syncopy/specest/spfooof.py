@@ -20,7 +20,7 @@ available_fooof_out_types = fooofDTypes.keys()
 available_fooof_options = ['peak_width_limits', 'max_n_peaks', 'min_peak_height', 'peak_threshold', 'aperiodic_mode', 'verbose']
 
 
-def fooof(data_arr,
+def spfooof(data_arr,
           fooof_settings={'freq_range': None},
           fooof_opt={'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf, 'min_peak_height': 0.0, 'peak_threshold': 2.0, 'aperiodic_mode': 'fixed', 'verbose': True},
           out_type='fooof'):
