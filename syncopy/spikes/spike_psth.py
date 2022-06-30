@@ -51,6 +51,14 @@ def spike_psth(data,
         Set to `'rate'` to convert the output to firing rates (spikes/sec),
         'spikecount' to count the number spikes per trial or
         'proportion' to normalize the area under the PSTH to 1.
+    vartriallen : bool, optional
+        `True` (default): accept variable trial lengths and use all
+        available trials and the samples in every trial.
+        Missing values (empty bins) will be ignored in the
+        computation and results stored as NaNs
+        `False` : only select those trials that fully cover the
+        window as specified by `latency` and discard
+        those trials that do not.
     latency : array_like or {'maxperiod', 'minperiod', 'prestim', 'poststim'}
         Either set desired time window (`[begin, end]`) for spike counting in
         seconds, 'maxperiod' (default) for the maximum period
@@ -71,22 +79,52 @@ def spike_psth(data,
         raise exc
 
     # --- parse and digest `latency` (time window of analysis) ---
-    
+
     if isinstance(latency, str):
         if latency not in available_latencies:
             lgl = f"one of {available_latencies}"
             act = latency
             raise SPYValueError(lgl, varname='latency', actual=act)
 
-        if latency == 'minperiod':
-            # relative start and end of trials
-            beg_ends = (data.sampleinfo - (
-                data.sampleinfo[:, 0] + data.trialdefinition[:, 2])[:, None]
-                        ) / data.samplerate
-        
-    else:
-        array_parser(latency, lims=[0, np.inf])
+        # beginnings and ends of all trials in relative time
+        beg_ends = (data.sampleinfo - (
+            data.sampleinfo[:, 0] + data.trialdefinition[:, 2])[:, None]
+                    ) / data.samplerate
+        trl_starts = beg_ends[:, 0]
+        trl_ends = beg_ends[:, 1]
 
-    
-    
+        # find overlapping interval for all trials
+        if latency == 'minperiod':
+            # latest start and earliest finish
+            interval = [np.max(trl_starts), np.min(trl_ends)]
+            if interval[0] > interval[1]:
+                lgl = 'overlapping trials'
+                act = f"{latency} - no common time window for all trials"
+                raise SPYValueError(lgl, 'latency', act)
+
+        # cover maximal time window where
+        # there is still some data in at least 1 trial
+        elif latency == 'maxperiod':
+            interval = [np.min(trl_starts), np.max(trl_ends)]
+
+        elif latency == 'prestim':
+            if not np.any(trl_starts < 0):
+                lgl = "pre-stimulus recordings"
+                act = "no pre-stimulus (t < 0) events"
+                raise SPYValueError(lgl, 'latency', act)
+            interval = [np.min(trl_starts), 0]
+
+        elif latency == 'poststim':
+            if not np.any(trl_ends > 0):
+                lgl = "post-stimulus recordings"
+                act = "no post-stimulus (t > 0) events"
+                raise SPYValueError(lgl, 'latency', act)
+            interval = [0, np.max(trl_ends)]
+    # explicit time window in seconds
+    else:
+        array_parser(latency, lims=[0, np.inf], dims=(2,))
+        interval = latency
+    print(interval)
+
+
     pass
