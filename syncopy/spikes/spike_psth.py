@@ -17,10 +17,10 @@ from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
 
 # method specific imports - they should go when
 # we have multiple returns
-from .psth import Rice_rule
+# from .psth import Rice_rule
 
 # Local imports
-from .compRoutines import PSTH
+# from .compRoutines import PSTH
 
 available_binsizes = ['rice', 'sqrt']
 available_outputs = ['rate', 'spikecount', 'proportion']
@@ -51,9 +51,10 @@ def spike_psth(data,
         Set to `'rate'` to convert the output to firing rates (spikes/sec),
         'spikecount' to count the number spikes per trial or
         'proportion' to normalize the area under the PSTH to 1.
-    latency : array_like or {'minperiod', 'prestim', 'poststim'}
+    latency : array_like or {'maxperiod', 'minperiod', 'prestim', 'poststim'}
         Either set desired time window (`[begin, end]`) for spike counting in
-        seconds, or `'minperiod' for minimal time-window all trials share,
+        seconds, 'maxperiod' (default) for the maximum period
+        available or `'minperiod' for minimal time-window all trials share,
         or `'prestim'` (all t < 0) or `'poststim'` (all t > 0)
     keeptrials : bool, optional
         If `True` the psth's of individual trials are returned, otherwise
@@ -61,4 +62,31 @@ def spike_psth(data,
 
     """
 
+    # Make sure our one mandatory input object can be processed
+    try:
+        data_parser(
+            data, varname="data", dataclass="SpikeData", writable=None, empty=False
+        )
+    except Exception as exc:
+        raise exc
+
+    # --- parse and digest `latency` (time window of analysis) ---
+    
+    if isinstance(latency, str):
+        if latency not in available_latencies:
+            lgl = f"one of {available_latencies}"
+            act = latency
+            raise SPYValueError(lgl, varname='latency', actual=act)
+
+        if latency == 'minperiod':
+            # relative start and end of trials
+            beg_ends = (data.sampleinfo - (
+                data.sampleinfo[:, 0] + data.trialdefinition[:, 2])[:, None]
+                        ) / data.samplerate
+        
+    else:
+        array_parser(latency, lims=[0, np.inf])
+
+    
+    
     pass
