@@ -342,7 +342,7 @@ class SpikeData(DiscreteData):
 
     _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
     _hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel",)
-    _defaultDimord = ["sample", "channel", "unit"]
+    _defaultDimord = ["sample", "channel/unit"]
     _stackingDimLabel = "sample"
 
     @property
