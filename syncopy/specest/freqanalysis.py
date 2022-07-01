@@ -302,8 +302,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
         raise SPYValueError(legal=lgl, varname="method", actual=method)
 
     # Ensure a valid output format was selected
-    fooof_output_types = fooofDTypes.keys()
-    valid_outputs = spectralConversions.keys() + fooof_output_types
+    fooof_output_types = list(fooofDTypes)
+    valid_outputs = list(spectralConversions) + fooof_output_types
     if output not in valid_outputs:
         lgl = "'" + "or '".join(opt + "' " for opt in valid_outputs)
         raise SPYValueError(legal=lgl, varname="output", actual=output)
@@ -867,6 +867,12 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # FOOOF is a post-processing method of MTMFFT output, so we handle it here, once
     # the MTMFFT has finished.
     if method == 'mtmfft' and output.startswith('fooof'):
+
+        # Use the output of the MTMFFMT method as the new data and create new output data.
+        fooof_data = out
+        fooof_out = SpectralData(dimord=SpectralData._defaultDimord)
+        new_out = True
+
         # method specific parameters
         # TODO: We need to add a way for the user to pass these in,
         #       currently they are hard-coded here.
@@ -881,6 +887,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
         # Settings used during the FOOOF analysis.
         fooof_settings = {
+            'in_freqs': data.freq,
             'freq_range': None  # or something like [2, 40] to limit frequency range.
         }
 
@@ -890,12 +897,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         #  - everything passed as method_kwargs is passed as arguments
         #    to the foooof.FOOOF() constructor or functions, the other args are 
         #    used elsewhere.
-        fooofMethod = SpyFOOOF(output_fmt=output, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)
-
-        # Use the output of the MTMFFMT method as the new data and create new output data.
-        fooof_data = out
-        fooof_out = SpectralData(dimord=SpectralData._defaultDimord)
-        new_out = True
+        fooofMethod = SpyFOOOF(output_fmt=output, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)        
 
         # Perform actual computation
         fooofMethod.initialize(fooof_data,

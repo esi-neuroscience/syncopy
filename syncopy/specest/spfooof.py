@@ -17,13 +17,17 @@ from syncopy.shared.const_def import fooofDTypes
 
 # Constants
 available_fooof_out_types = fooofDTypes.keys()
-available_fooof_options = ['peak_width_limits', 'max_n_peaks', 'min_peak_height', 'peak_threshold', 'aperiodic_mode', 'verbose']
+available_fooof_options = ['peak_width_limits', 'max_n_peaks', 
+                           'min_peak_height', 'peak_threshold',
+                           'aperiodic_mode', 'verbose']
 
 
 def spfooof(data_arr,
-          fooof_settings={'freq_range': None},
-          fooof_opt={'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf, 'min_peak_height': 0.0, 'peak_threshold': 2.0, 'aperiodic_mode': 'fixed', 'verbose': True},
-          out_type='fooof'):
+            fooof_settings={'in_freqs': None, 'freq_range': None},
+            fooof_opt={'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf,
+                       'min_peak_height': 0.0, 'peak_threshold': 2.0,
+                       'aperiodic_mode': 'fixed', 'verbose': True},
+            out_type='fooof'):
     """
     Parameterization of neural power spectra using 
     the FOOOF mothod by Donoghue et al: fitting oscillations & one over f.
@@ -63,7 +67,9 @@ def spfooof(data_arr,
         data_arr = data_arr[:, np.newaxis]
 
     if fooof_opt is None:
-        fooof_opt = {'peak_width_limits' : (0.5, 12.0), 'max_n_peaks':np.inf, 'min_peak_height':0.0, 'peak_threshold':2.0, 'aperiodic_mode':'fixed', 'verbose':True}
+        fooof_opt = {'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf,
+                     'min_peak_height': 0.0, 'peak_threshold': 2.0,
+                     'aperiodic_mode': 'fixed', 'verbose': True}
 
     if out_type not in available_fooof_out_types:
         lgl = "'" + "or '".join(opt + "' " for opt in available_fooof_out_types)
@@ -72,21 +78,26 @@ def spfooof(data_arr,
     # TODO: iterate over channels in the data here.
 
     fm = FOOOF(**fooof_opt)
-    freqs =  # TODO: extract from data_arr
-    spectrum = # TODO: extract from data_arr
-    fm.fit(freqs, spectrum, freq_range=fooof_settings.freq_range)
+    freqs = fooof_settings.in_freqs  # this array is required, so maybe we should sanitize input.
 
-    if out_type == 'fooof':
-        res = fm.fooofed_spectrum_
-    elif out_type == "fooof_aperiodic":
-        res = fm.tmp1 # TODO
-    else: # fooof_peaks
-        res = fm.tmp2 # TODO
+    out_spectra = np.zeros_like(data_arr, data_arr.data.dtype)
+
+    for channel_idx in range(data_arr.shape[1]):
+        spectrum = data_arr[:, channel_idx]
+        fm.fit(freqs, spectrum, freq_range=fooof_settings.freq_range)
+
+        if out_type == 'fooof':
+            out_spectrum = fm.fooofed_spectrum_  # the powers
+        elif out_type == "fooof_aperiodic":
+            out_spectrum = fm.tmp1  # TODO
+        else:  # fooof_peaks
+            out_spectrum = fm.tmp2  # TODO
+        out_spectra[:, channel_idx] = out_spectrum
 
     # TODO: add return values like the r_squared_, 
     # aperiodic_params_, and peak_params_ somehow.
     # We will need more than one return value for that
     # though, which is not implemented yet.
     
-    return data_arr
+    return out_spectra
 

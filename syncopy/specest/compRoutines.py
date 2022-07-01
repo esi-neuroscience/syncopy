@@ -30,6 +30,7 @@ from .superlet import superlet
 from .wavelet import wavelet
 from .spfooof import spfooof
 
+
 # Local imports
 from syncopy.shared.errors import SPYWarning
 from syncopy.shared.tools import best_match
@@ -936,7 +937,8 @@ def fooof_cF(trl_dat, foi=None, timeAxis=0,
         return outShape, fooofDTypes[output_fmt]
 
     # call actual fooof method
-    res, _ = spfooof(dat[0, 0, :, :], out_type=output_fmt, **method_kwargs)
+    res, _ = spfooof(dat, out_type=output_fmt, fooof_settings=fooof_settings,
+                     fooof_opt=method_kwargs)
     return res
 
 

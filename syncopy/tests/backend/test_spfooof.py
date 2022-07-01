@@ -12,6 +12,7 @@ from fooof.sim.utils import set_random_seed
 
 import matplotlib.pyplot as plt
 
+
 def _plotspec(f, p):
     plt.plot(f, p)
     plt.show()
@@ -25,8 +26,8 @@ def test_fooof_ouput_fooof():
     set_random_seed(21)
     # Simulate example power spectra
     freqs, powers = gen_power_spectrum([3, 40], [1, 1],
-                                     [[10, 0.2, 1.25], [30, 0.15, 2]])
+                                       [[10, 0.2, 1.25], [30, 0.15, 2]])
 
     # _plotspec(freqs1, powers)
-    res = spfoof()
+    res = spfooof()
 
