@@ -80,7 +80,7 @@ def spfooof(data_arr,
     fm = FOOOF(**fooof_opt)
     freqs = fooof_settings.in_freqs  # this array is required, so maybe we should sanitize input.
 
-    out_spectra = np.zeros_like(data_arr, data_arr.data.dtype)
+    out_spectra = np.zeros_like(data_arr, data_arr.dtype)
 
     for channel_idx in range(data_arr.shape[1]):
         spectrum = data_arr[:, channel_idx]
@@ -89,7 +89,14 @@ def spfooof(data_arr,
         if out_type == 'fooof':
             out_spectrum = fm.fooofed_spectrum_  # the powers
         elif out_type == "fooof_aperiodic":
-            out_spectrum = fm.tmp1  # TODO
+            offset = fm.aperiodic_params_[0]            
+            if fm.aperiodic_mode == 'fixed':
+                exp = fm.aperiodic_params_[1]
+                out_spectrum = offset - np.log10(freqs**exp)
+            else:  # fm.aperiodic_mode == 'knee':
+                knee = fm.aperiodic_params_[1]
+                exp = fm.aperiodic_params_[2]
+                out_spectrum = offset - np.log10(knee + freqs**exp)
         else:  # fooof_peaks
             out_spectrum = fm.tmp2  # TODO
         out_spectra[:, channel_idx] = out_spectrum
