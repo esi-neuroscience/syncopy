@@ -101,7 +101,9 @@ def spfooof(data_arr,
             gp = fm.gaussian_params_
             out_spectrum = np.zeroes_like(freqs, freqs.dtype)
             for ii in range(0, len(gp), 3):
-                ctr, hgt, wid = gp[ii:ii+3]  # Extract Gaussian parameters: central frequency, power over aperiodic, bandwith of peak.
+                ctr, hgt, wid = gp[ii:ii+3]  
+                # Extract Gaussian parameters: central frequency (=mean), power over aperiodic, bandwith of peak (= 2* stddev of Gaussian).
+                # see FOOOF docs for details, especially Tutorial 2, Section 'Notes on Interpreting Peak Parameters'
                 out_spectrum = out_spectrum + hgt * np.exp(-(freqs-ctr)**2 / (2*wid**2))
 
         out_spectra[:, channel_idx] = out_spectrum
