@@ -34,10 +34,10 @@ def spfooof(data_arr,
 
     Parameters
     ----------
-    data_arr : 3D :class:`numpy.ndarray`
-         Complex has shape ``(nTapers x nFreq x nChannels)``, obtained from :func:`syncopy.specest.mtmfft` output.
+    data_arr : 2D :class:`numpy.ndarray`
+         Float array containing power spectrum with shape ``(nFreq x nChannels)``, typically obtained from :func:`syncopy.specest.mtmfft` output.
     freqs : 1D :class:`numpy.ndarray`
-         Array of Fourier frequencies, obtained from mtmfft output.
+         Float array of frequencies for all spectra, typically obtained from mtmfft output.
     foof_opt : dict or None
         Additional keyword arguments passed to the `FOOOF` constructor. Available
         arguments include 'peak_width_limits', 'max_n_peaks', 'min_peak_height',
@@ -75,21 +75,25 @@ def spfooof(data_arr,
         lgl = "'" + "or '".join(opt + "' " for opt in available_fooof_out_types)
         raise SPYValueError(legal=lgl, varname="out_type", actual=out_type)
 
-    # TODO: iterate over channels in the data here.
+    num_channels = data_arr.shape[1]
 
     fm = FOOOF(**fooof_opt)
     freqs = fooof_settings.in_freqs  # this array is required, so maybe we should sanitize input.
 
     out_spectra = np.zeros_like(data_arr, data_arr.dtype)
+    if fm.aperiodic_mode == 'knee':
+        aperiodic_params = np.zeros(shape=(num_channels, 3))
+    else:
+        aperiodic_params = np.zeros(shape=(num_channels, 2))
 
-    for channel_idx in range(data_arr.shape[1]):
+    for channel_idx in range(num_channels):
         spectrum = data_arr[:, channel_idx]
         fm.fit(freqs, spectrum, freq_range=fooof_settings.freq_range)
 
         if out_type == 'fooof':
             out_spectrum = fm.fooofed_spectrum_  # the powers
         elif out_type == "fooof_aperiodic":
-            offset = fm.aperiodic_params_[0]            
+            offset = fm.aperiodic_params_[0]  
             if fm.aperiodic_mode == 'fixed':
                 exp = fm.aperiodic_params_[1]
                 out_spectrum = offset - np.log10(freqs**exp)
@@ -107,11 +111,12 @@ def spfooof(data_arr,
                 out_spectrum = out_spectrum + hgt * np.exp(-(freqs-ctr)**2 / (2*wid**2))
 
         out_spectra[:, channel_idx] = out_spectrum
+        aperiodic_params[:, channel_idx] = fm.aperiodic_params_
 
     # TODO: add return values like the r_squared_, 
     # aperiodic_params_, and peak_params_ somehow.
     # We will need more than one return value for that
     # though, which is not implemented yet.
     
-    return out_spectra
+    return out_spectra, aperiodic_params
 

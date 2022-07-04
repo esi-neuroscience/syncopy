@@ -21,13 +21,13 @@ def _plotspec(f, p):
 def test_fooof_ouput_fooof():
 
     """
-    Tests fooof with output 'fooof'.
+    Tests fooof with output 'fooof'. This will return the full, foofed spectrum.
     """
-    set_random_seed(21)
     # Simulate example power spectra
+    set_random_seed(21)    
     freqs, powers = gen_power_spectrum([3, 40], [1, 1],
                                        [[10, 0.2, 1.25], [30, 0.15, 2]])
 
     # _plotspec(freqs1, powers)
-    res = spfooof()
+    res = spfooof(powers, fooof_settings={'in_freqs': freqs, 'freq_range': None}, out_type = 'fooof')
 
