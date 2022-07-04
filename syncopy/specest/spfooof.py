@@ -75,10 +75,16 @@ def spfooof(data_arr,
         lgl = "'" + "or '".join(opt + "' " for opt in available_fooof_out_types)
         raise SPYValueError(legal=lgl, varname="out_type", actual=out_type)
 
+    # Check info on input frequencies, they are required.
+    freqs = fooof_settings['in_freqs']
+    freq_range = fooof_settings['freq_range']
+    if freqs is None:
+        raise SPYValueError(legal='The input frequencies are required and must not be None.', varname="fooof_settings['in_freqs']")
+
     num_channels = data_arr.shape[1]
 
     fm = FOOOF(**fooof_opt)
-    freqs = fooof_settings['in_freqs']  # this array is required, so maybe we should sanitize input.
+    
 
     # Prepare output data structures
     out_spectra = np.zeros_like(data_arr, data_arr.dtype)
@@ -93,7 +99,7 @@ def spfooof(data_arr,
     # Run fooof and store results. We could also use a fooof group.
     for channel_idx in range(num_channels):
         spectrum = data_arr[:, channel_idx]
-        fm.fit(freqs, spectrum, freq_range=fooof_settings['freq_range'])
+        fm.fit(freqs, spectrum, freq_range=freq_range)
 
         if out_type == 'fooof':
             out_spectrum = fm.fooofed_spectrum_  # the powers
@@ -121,7 +127,8 @@ def spfooof(data_arr,
         r_squared[channel_idx] = fm.r_squared_
         error[channel_idx] = fm.error_
 
-    details = {'aperiodic_params': aperiodic_params, 'n_peaks': n_peaks, 'r_squared': r_squared, 'error': error}
+    settings_used = {'fooof_opt': fooof_opt, 'out_type': out_type, 'freq_range': freq_range}
+    details = {'aperiodic_params': aperiodic_params, 'n_peaks': n_peaks, 'r_squared': r_squared, 'error': error, 'settings_used': settings_used}
     
     return out_spectra, details
 
