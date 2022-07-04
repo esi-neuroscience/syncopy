@@ -78,17 +78,22 @@ def spfooof(data_arr,
     num_channels = data_arr.shape[1]
 
     fm = FOOOF(**fooof_opt)
-    freqs = fooof_settings.in_freqs  # this array is required, so maybe we should sanitize input.
+    freqs = fooof_settings['in_freqs']  # this array is required, so maybe we should sanitize input.
 
+    # Prepare output data structures
     out_spectra = np.zeros_like(data_arr, data_arr.dtype)
     if fm.aperiodic_mode == 'knee':
-        aperiodic_params = np.zeros(shape=(num_channels, 3))
+        aperiodic_params = np.zeros(shape=(3, num_channels), dtype=np.float64)
     else:
-        aperiodic_params = np.zeros(shape=(num_channels, 2))
+        aperiodic_params = np.zeros(shape=(2, num_channels), dtype=np.float64)
+    n_peaks = np.zeros(shape=(num_channels), dtype=np.int32)    # helper: number of peaks fit.
+    r_squared = np.zeros(shape=(num_channels), dtype=np.float64)  # helper: R squared of fit.
+    error = np.zeros(shape=(num_channels), dtype=np.float64)      # helper: model error.
 
+    # Run fooof and store results. We could also use a fooof group.
     for channel_idx in range(num_channels):
         spectrum = data_arr[:, channel_idx]
-        fm.fit(freqs, spectrum, freq_range=fooof_settings.freq_range)
+        fm.fit(freqs, spectrum, freq_range=fooof_settings['freq_range'])
 
         if out_type == 'fooof':
             out_spectrum = fm.fooofed_spectrum_  # the powers
@@ -112,11 +117,11 @@ def spfooof(data_arr,
 
         out_spectra[:, channel_idx] = out_spectrum
         aperiodic_params[:, channel_idx] = fm.aperiodic_params_
+        n_peaks[channel_idx] = fm.n_peaks_
+        r_squared[channel_idx] = fm.r_squared_
+        error[channel_idx] = fm.error_
 
-    # TODO: add return values like the r_squared_, 
-    # aperiodic_params_, and peak_params_ somehow.
-    # We will need more than one return value for that
-    # though, which is not implemented yet.
+    details = {'aperiodic_params': aperiodic_params, 'n_peaks': n_peaks, 'r_squared': r_squared, 'error': error}
     
-    return out_spectra, aperiodic_params
+    return out_spectra, details
 
