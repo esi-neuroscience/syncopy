@@ -292,26 +292,31 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     # Get everything of interest in local namespace
     defaults = get_defaults(freqanalysis)
+    is_fooof = False
+    if method == "mtmfft" and output.startswith("fooof"):
+        is_fooof = True
+        output_fooof = output
+        output = "pow" # we need to change this as the mtmfft running first will complain otherwise.
     lcls = locals()
     # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="freqanalysis")
 
+    if is_fooof:
+        fooof_output_types = list(fooofDTypes)
+        if output_fooof not in fooof_output_types:
+            lgl = "'" + "or '".join(opt + "' " for opt in fooof_output_types)
+            raise SPYValueError(legal=lgl, varname="output_fooof", actual=output_fooof)
+    
     # Ensure a valid computational method was selected
     if method not in availableMethods:
         lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
         raise SPYValueError(legal=lgl, varname="method", actual=method)
 
-    # Ensure a valid output format was selected
-    fooof_output_types = list(fooofDTypes)
-    valid_outputs = list(spectralConversions) + fooof_output_types
+    # Ensure a valid output format was selected    
+    valid_outputs = list(spectralConversions)
     if output not in valid_outputs:
         lgl = "'" + "or '".join(opt + "' " for opt in valid_outputs)
         raise SPYValueError(legal=lgl, varname="output", actual=output)
-
-    # output = 'fooof' is allowed only with method = 'mtmfft'
-    if output.startswith('fooof') and method != 'mtmfft':
-        lgl = "method must be 'mtmfft' with output = 'fooof*'"
-        raise SPYValueError(legal=lgl, varname="method", actual=method)
 
     # Parse all Boolean keyword arguments
     for vname in ["keeptrials", "keeptapers"]:
@@ -843,7 +848,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     # If provided, make sure output object is appropriate
     if out is not None:
-        if output.startswith('fooof'):
+        if is_fooof:
             lgl = "None: pre-allocated output object not supported with output = 'fooof*'."
             raise SPYValueError(legal=lgl, varname="out")
         try:
@@ -866,7 +871,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     # FOOOF is a post-processing method of MTMFFT output, so we handle it here, once
     # the MTMFFT has finished.
-    if method == 'mtmfft' and output.startswith('fooof'):
+    if is_fooof:
 
         # Use the output of the MTMFFMT method as the new data and create new output data.
         fooof_data = out
@@ -887,7 +892,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
         # Settings used during the FOOOF analysis.
         fooof_settings = {
-            'in_freqs': data.freq,
+            'in_freqs': fooof_data.freq,
             'freq_range': None  # or something like [2, 40] to limit frequency range.
         }
 
@@ -897,7 +902,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         #  - everything passed as method_kwargs is passed as arguments
         #    to the foooof.FOOOF() constructor or functions, the other args are 
         #    used elsewhere.
-        fooofMethod = SpyFOOOF(output_fmt=output, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)        
+        fooofMethod = SpyFOOOF(output_fmt=output_fooof, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)        
 
         # Perform actual computation
         fooofMethod.initialize(fooof_data,
