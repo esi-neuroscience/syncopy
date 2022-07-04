@@ -77,6 +77,9 @@ def spfooof(data_arr,
 
     # Check info on input frequencies, they are required.
     freqs = fooof_settings['in_freqs']
+
+    print("number of fooof input freq labels: %d" % (freqs.size))
+
     freq_range = fooof_settings['freq_range']
     if freqs is None:
         raise SPYValueError(legal='The input frequencies are required and must not be None.', varname="fooof_settings['in_freqs']")

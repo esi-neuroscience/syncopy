@@ -931,13 +931,17 @@ def fooof_cF(trl_dat, foi=None, timeAxis=0,
 
     outShape = dat.shape
 
+    print("outShape: %s" % str(dat.shape))
+
     # For initialization of computational routine,
     # just return output shape and dtype
     if noCompute:
         return outShape, fooofDTypes[output_fmt]
 
+    print("shape passed to spfooof from cF: %s" % str(dat[0,0,:,:].shape))
+
     # call actual fooof method
-    res, _ = spfooof(dat, out_type=output_fmt, fooof_settings=fooof_settings,
+    res, _ = spfooof(dat[0,0,:,:], out_type=output_fmt, fooof_settings=fooof_settings,
                      fooof_opt=method_kwargs)
     return res
 

@@ -17,9 +17,9 @@ class TestFOOOF():
     #
     # Construct high-frequency signal modulated by slow oscillating cosine and
     # add time-decaying noise
-    nChannels = 6
+    nChannels = 2
     nChan2 = int(nChannels / 2)
-    nTrials = 3
+    nTrials = 1
     seed = 151120
     fadeIn = None
     fadeOut = None

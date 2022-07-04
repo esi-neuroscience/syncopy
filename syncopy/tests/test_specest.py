@@ -45,7 +45,7 @@ def _make_tf_signal(nChannels, nTrials, seed, fadeIn=None, fadeOut=None):
     noise_power = 0.01 * fs / 2
     numType = "float32"
     modPeriods = [0.125, 0.0625]
-    rng = np.random.default_rng(seed)
+    rng = np.random.default_rng(seed)    
     tStart = -2.95 # FIXME
     tStop = 7.05
     # tStart = -29.5
