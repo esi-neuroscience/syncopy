@@ -115,14 +115,16 @@ def spfooof(data_arr,
                 knee = fm.aperiodic_params_[1]
                 exp = fm.aperiodic_params_[2]
                 out_spectrum = offset - np.log10(knee + freqs**exp)
-        else:  # fooof_peaks
+        elif out_type == "fooof_peaks":
             gp = fm.gaussian_params_
-            out_spectrum = np.zeroes_like(freqs, freqs.dtype)
-            for ii in range(0, len(gp), 3):
-                ctr, hgt, wid = gp[ii:ii+3]  
+            out_spectrum = np.zeros_like(freqs, freqs.dtype)
+            for row_idx in range(len(gp)):
+                ctr, hgt, wid = gp[row_idx, :]  
                 # Extract Gaussian parameters: central frequency (=mean), power over aperiodic, bandwith of peak (= 2* stddev of Gaussian).
                 # see FOOOF docs for details, especially Tutorial 2, Section 'Notes on Interpreting Peak Parameters'
                 out_spectrum = out_spectrum + hgt * np.exp(-(freqs-ctr)**2 / (2*wid**2))
+        else:
+            raise SPYValueError(legal=available_fooof_out_types, varname="out_type", actual=out_type)
 
         out_spectra[:, channel_idx] = out_spectrum
         aperiodic_params[:, channel_idx] = fm.aperiodic_params_
