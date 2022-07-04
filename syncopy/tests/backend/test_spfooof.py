@@ -32,10 +32,10 @@ class TestSpfooof():
 
     freqs, powers = _power_spectrum()
 
-    def test_spfooof_ouput_fooof(self, freqs=freqs, powers=powers):
+    def test_spfooof_ouput_fooof_single_channel(self, freqs=freqs, powers=powers):
         """
-        Tests spfooof with output 'fooof'. This will return the full, foofed spectrum.
-        """                
+        Tests spfooof with output 'fooof' and a single input signal. This will return the full, foofed spectrum.
+        """
 
         # _plotspec(freqs1, powers)
         spectra, details = spfooof(powers, fooof_settings={'in_freqs': freqs, 'freq_range': None}, out_type = 'fooof')
@@ -44,12 +44,34 @@ class TestSpfooof():
         assert all (key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
 
 
+    def test_spfooof_ouput_fooof_several_channels(self, freqs=freqs, powers=powers):
+        """
+        Tests spfooof with output 'fooof' and several input signal. This will return the full, foofed spectrum.
+        """
+
+        num_channels = 3
+        powers = np.tile(powers, num_channels).reshape(powers.size, num_channels) # copy signal to create channels.
+        # _plotspec(freqs1, powers)
+        spectra, details = spfooof(powers, fooof_settings={'in_freqs': freqs, 'freq_range': None}, out_type = 'fooof')
+
+        assert spectra.shape == (freqs.size, num_channels)
+        assert all (key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
+
+
     def test_spfooof_exceptions(self):
+        """
+        Tests that spfooof throws the expected error if incomplete data is passed to it.
+        """
 
         # The input frequencies must not be None.
         with pytest.raises(SPYValueError) as err:
-            self.test_spfooof_ouput_fooof(freqs=None, powers=self.powers)
+            self.test_spfooof_ouput_fooof_single_channel(freqs=None, powers=self.powers)
             assert "input frequencies are required and must not be None" in str(err)
+
+        # The input frequencies must have the same length as the channel data.
+        with pytest.raises(SPYValueError) as err:
+            self.test_spfooof_ouput_fooof_single_channel(freqs=np.arange(self.powers.size + 1), powers=self.powers)
+            assert "signal length must match the number of frequency labels" in str(err)
 
 
 
