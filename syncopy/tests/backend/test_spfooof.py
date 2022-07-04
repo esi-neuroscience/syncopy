@@ -100,7 +100,8 @@ class TestSpfooof():
         # The input frequencies must have the same length as the channel data.
         with pytest.raises(SPYValueError) as err:
             self.test_spfooof_output_fooof_single_channel(freqs=np.arange(self.powers.size + 1), powers=self.powers)
-            assert "signal length must match the number of frequency labels" in str(err)
+            assert "signal length" in str(err)
+            assert "must match the number of frequency labels" in str(err)
 
         # Invalid out_type is rejected.
         with pytest.raises(SPYValueError) as err:

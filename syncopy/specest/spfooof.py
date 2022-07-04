@@ -82,7 +82,7 @@ def spfooof(data_arr,
         raise SPYValueError(legal='The input frequencies are required and must not be None.', varname="fooof_settings['in_freqs']")
 
     if freqs.size != data_arr.shape[0]:
-        raise SPYValueError(legal='The signal length must match the number of frequency labels.', varname="data_arr/fooof_settings['in_freqs']")
+        raise SPYValueError(legal='The signal length %d must match the number of frequency labels %d.' % (data_arr.shape[0], freqs.size), varname="data_arr/fooof_settings['in_freqs']")
 
     num_channels = data_arr.shape[1]    
 
