@@ -24,16 +24,27 @@ class TestFOOOF():
     fadeIn = None
     fadeOut = None
     tfData, modulators, even, odd, fader = _make_tf_signal(nChannels, nTrials, seed,
-                                                           fadeIn=fadeIn, fadeOut=fadeOut)
+                                                           fadeIn=fadeIn, fadeOut=fadeOut, short=True)
+    cfg = get_defaults(freqanalysis)
+    cfg.method = "mtmfft"
+    cfg.taper = "hann"
+    cfg.select = {"trials": 0, "channel": 1}
+    cfg.output = "fooof"
 
-    def test_spfooof_output(self, fulltests):
-        # Set up basic TF analysis parameters to not slow down things too much
-        cfg = get_defaults(freqanalysis)
-        cfg.method = "mtmfft"
-        cfg.taper = "hann"
-        cfg.select = {"trials" : 0, "channel" : 1}
-        cfg.output = "fooof"
-        tfSpec = freqanalysis(cfg, self.tfData)
-        assert 1 == 1
+    def test_spfooof_output_fooof(self, fulltests):
+        self.cfg['output'] = "fooof"
+        spec_dt = freqanalysis(self.cfg, self.tfData)
+        assert spec_dt.data.ndim == 4
+        # TODO: add meaningful tests here
 
+    def test_spfooof_output_fooof_aperiodic(self, fulltests):                
+        self.cfg['output'] = "fooof_aperiodic"
+        spec_dt = freqanalysis(self.cfg, self.tfData)
+        assert spec_dt.data.ndim == 4
+        # TODO: add meaningful tests here
 
+    def test_spfooof_output_fooof_peaks(self, fulltests):                
+        self.cfg['output'] = "fooof_peaks"
+        spec_dt = freqanalysis(self.cfg, self.tfData)
+        assert spec_dt.data.ndim == 4
+        # TODO: add meaningful tests here

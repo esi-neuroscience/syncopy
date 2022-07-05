@@ -35,19 +35,23 @@ skip_low_mem = pytest.mark.skipif(availMem < 10 * 1024**3, reason="less than 10G
 
 
 # Local helper for constructing TF testing signals
-def _make_tf_signal(nChannels, nTrials, seed, fadeIn=None, fadeOut=None):
+def _make_tf_signal(nChannels, nTrials, seed, fadeIn=None, fadeOut=None, short=False):
 
     # Construct high-frequency signal modulated by slow oscillating cosine and
     # add time-decaying noise
     nChan2 = int(nChannels / 2)
     fs = 1000
+    tStart = -2.95  # FIXME
+    tStop = 7.05
+    if short:
+        fs = 500
+        tStart = -0.5  # FIXME
+        tStop = 1.5
     amp = 2 * np.sqrt(2)
     noise_power = 0.01 * fs / 2
     numType = "float32"
     modPeriods = [0.125, 0.0625]
-    rng = np.random.default_rng(seed)    
-    tStart = -2.95 # FIXME
-    tStop = 7.05
+    rng = np.random.default_rng(seed)        
     # tStart = -29.5
     # tStop = 70.5
     t0 = -np.abs(tStart * fs).astype(np.intp)
@@ -62,7 +66,7 @@ def _make_tf_signal(nChannels, nTrials, seed, fadeIn=None, fadeOut=None):
     if fadeOut is None:
         fadeOut = tStop
     fadeIn = np.arange(0, (fadeIn - tStart) * fs, dtype=np.intp)
-    fadeOut = np.arange((fadeOut - tStart) * fs, 10 * fs, dtype=np.intp)
+    fadeOut = np.arange((fadeOut - tStart) * fs, min(10 * fs, N), dtype=np.intp)
     sigmoid = lambda x: 1 / (1 + np.exp(-x))
     fader[fadeIn] = sigmoid(np.linspace(-2 * np.pi, 2 * np.pi, fadeIn.size))
     fader[fadeOut] = sigmoid(-np.linspace(-2 * np.pi, 2 * np.pi, fadeOut.size))

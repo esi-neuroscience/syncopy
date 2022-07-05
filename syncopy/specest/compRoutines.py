@@ -943,6 +943,10 @@ def fooof_cF(trl_dat, foi=None, timeAxis=0,
     # call actual fooof method
     res, _ = spfooof(dat[0,0,:,:], out_type=output_fmt, fooof_settings=fooof_settings,
                      fooof_opt=method_kwargs)
+
+    # Add omitted axes back to result.
+    res = res[np.newaxis, np.newaxis, :, :]
+
     return res
 
 

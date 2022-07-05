@@ -76,7 +76,7 @@ def spfooof(data_arr,
         raise SPYValueError(legal=lgl, varname="out_type", actual=out_type)
 
     # Check info on input frequencies, they are required.
-    freqs = fooof_settings['in_freqs']
+    freqs = fooof_settings['in_freqs']    
 
     print("number of fooof input freq labels: %d" % (freqs.size))
 
@@ -87,10 +87,9 @@ def spfooof(data_arr,
     if freqs.size != data_arr.shape[0]:
         raise SPYValueError(legal='The signal length %d must match the number of frequency labels %d.' % (data_arr.shape[0], freqs.size), varname="data_arr/fooof_settings['in_freqs']")
 
-    num_channels = data_arr.shape[1]    
+    num_channels = data_arr.shape[1]
 
-    fm = FOOOF(**fooof_opt)
-    
+    fm = FOOOF(**fooof_opt)    
 
     # Prepare output data structures
     out_spectra = np.zeros_like(data_arr, data_arr.dtype)
