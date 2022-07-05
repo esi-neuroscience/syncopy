@@ -128,6 +128,8 @@ def spfooof(data_arr,
         else:
             raise SPYValueError(legal=available_fooof_out_types, varname="out_type", actual=out_type)
 
+        print("Channel %d fooofing done, received spektrum of length %d." % (channel_idx, out_spectrum.size))
+
         out_spectra[:, channel_idx] = out_spectrum
         aperiodic_params[:, channel_idx] = fm.aperiodic_params_
         n_peaks[channel_idx] = fm.n_peaks_
