@@ -277,6 +277,7 @@ def poisson_noise(nTrials=10,
                   nSpikes=10000,
                   nChannels=3,
                   nUnits=10,
+                  intensity=.1,
                   samplerate=30000
                   ):
 
@@ -294,6 +295,8 @@ def poisson_noise(nTrials=10,
         Number of channels
     nUnits : int
         Number of units
+    intensity : int
+        Average number of spikes per samplling interval
     samplerate : float
         Sampling rate in Hz
 
@@ -308,16 +311,18 @@ def poisson_noise(nTrials=10,
 
     """
 
-    spike_times = np.sort(random.sample(range(int(5 * nSpikes)), nSpikes))
+    T_max = int(1 / intensity * nSpikes)
+    spike_times = np.sort(random.sample(range(T_max), nSpikes))
     channels = np.random.choice(
         np.arange(nChannels), p=np.array([0.5, 0.3, 0.2]), size=nSpikes, replace=True
     )
     units = np.random.choice(np.arange(nUnits), size=nSpikes, replace=True)
 
-    idx_start = np.sort(random.sample(range(int(5 * nSpikes)), nTrials))
-    idx_end = np.append(
-        [idx_start[1:] - 1], [idx_start[-1] + np.random.choice(np.arange(25), size=1)[0]]
-    )
+    trl_intervals = np.sort(random.sample(range(T_max), nTrials + 1))
+    # 1st trial
+    idx_start = trl_intervals[:-1]
+    idx_end = trl_intervals[1:] - 1
+
     idx_offset = np.random.choice(
         np.arange(1, np.min(idx_end - idx_start)), size=nTrials, replace=True
     )
