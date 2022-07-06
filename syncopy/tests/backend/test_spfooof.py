@@ -32,6 +32,7 @@ class TestSpfooof():
         assert spectra.shape == (freqs.size, 1)
         assert details['settings_used']['out_type'] == 'fooof'
         assert all(key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
+        # TODO: plot result here
 
     def test_spfooof_output_fooof_several_channels(self, freqs=freqs, powers=powers):
         """
@@ -86,3 +87,9 @@ class TestSpfooof():
         with pytest.raises(SPYValueError) as err:
             spectra, details = spfooof(self.powers, self.freqs, out_type='fooof_invalidout')
             assert "out_type" in str(err)
+
+        # Invalid fooof_opt entry is rejected.
+        with pytest.raises(SPYValueError) as err:
+            fooof_opt = {'peak_threshold': 2.0, 'invalid_key': 42}
+            spectra, details = spfooof(self.powers, self.freqs, out_type='fooof_invalidout', fooof_opt=fooof_opt)
+            assert "fooof_opt" in str(err)

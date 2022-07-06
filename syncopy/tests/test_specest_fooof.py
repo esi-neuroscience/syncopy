@@ -48,3 +48,13 @@ class TestFOOOF():
         spec_dt = freqanalysis(self.cfg, self.tfData)
         assert spec_dt.data.ndim == 4
         # TODO: add meaningful tests here
+
+    def test_spfooof_frontend_settings_are_merged_with_defaults_used_in_backend(self, fulltests):                
+        self.cfg['output'] = "fooof_peaks"
+        fooof_opt = {'max_n_peaks': 8}
+        spec_dt = freqanalysis(self.cfg, self.tfData, fooof_opt=fooof_opt)
+        assert spec_dt.data.ndim == 4
+        # TODO: test whether the settings returned as 2nd return value include
+        #  our custom value for fooof_opt['max_n_peaks']. Not possible yet on
+        #  this level as we have no way to get the 'details' return value.
+        # TODO: add meaningful tests here

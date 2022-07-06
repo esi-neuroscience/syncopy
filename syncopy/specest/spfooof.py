@@ -75,6 +75,10 @@ def spfooof(data_arr, in_freqs, freq_range=None,
                      'min_peak_height': 0.0, 'peak_threshold': 2.0,
                      'aperiodic_mode': 'fixed', 'verbose': True}
 
+    invalid_fooof_opts = [i for i in fooof_opt.keys() if i not in available_fooof_options]
+    if invalid_fooof_opts:
+        raise SPYValueError(legal=fooof_opt.keys(), varname="fooof_opt", actual=invalid_fooof_opts)
+
     if out_type not in available_fooof_out_types:
         lgl = "'" + "or '".join(opt + "' " for opt in available_fooof_out_types)
         raise SPYValueError(legal=lgl, varname="out_type", actual=out_type)
@@ -100,7 +104,7 @@ def spfooof(data_arr, in_freqs, freq_range=None,
     r_squared = np.zeros(shape=(num_channels), dtype=np.float64)  # helper: R squared of fit.
     error = np.zeros(shape=(num_channels), dtype=np.float64)      # helper: model error.
 
-    # Run fooof and store results. We could also use a fooof group.
+    # Run fooof and store results.
     for channel_idx in range(num_channels):
         spectrum = data_arr[:, channel_idx]
         fm.fit(in_freqs, spectrum, freq_range=freq_range)

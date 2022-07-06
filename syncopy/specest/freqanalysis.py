@@ -891,12 +891,12 @@ def freqanalysis(data, method='mtmfft', output='pow',
             'verbose': False
         }
 
-        # TODO: We need to join the ones from fooof_opt into fooof_kwargs.
+        fooof_kwargs = fooof_kwargs | fooof_opt  # Join the ones from fooof_opt into fooof_kwargs.        
 
         # Settings used during the FOOOF analysis.
         fooof_settings = {
             'in_freqs': fooof_data.freq,
-            'freq_range': None  # or something like [2, 40] to limit frequency range.
+            'freq_range': None  # or something like [2, 40] to limit frequency range. Currently not exposed to user.
         }
 
         # Set up compute-class

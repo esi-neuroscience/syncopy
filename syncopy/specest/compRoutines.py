@@ -949,6 +949,9 @@ def fooof_cF(trl_dat, foi=None, timeAxis=0,
     #  to lack of support for several return values, see #140
 
     # Add omitted axes back to result.
+    # Note that we do not need to worry about flipped timeAxis,
+    # as our input is the result of the mtmfft method, so we do
+    # not need to flip back here.
     res = res[np.newaxis, np.newaxis, :, :]
 
     return res
