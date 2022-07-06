@@ -323,7 +323,7 @@ def poisson_noise(nTrials=10,
     idx_start = trl_intervals[:-1]
     idx_end = trl_intervals[1:] - 1
 
-    idx_offset = np.random.choice(
+    idx_offset = -np.random.choice(
         np.arange(1, np.min(idx_end - idx_start)), size=nTrials, replace=True
     )
 
