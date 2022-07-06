@@ -296,7 +296,7 @@ def poisson_noise(nTrials=10,
     nUnits : int
         Number of units
     intensity : int
-        Average number of spikes per samplling interval
+        Average number of spikes per sampling interval
     samplerate : float
         Sampling rate in Hz
 
@@ -307,7 +307,7 @@ def poisson_noise(nTrials=10,
 
     Notes
     -----
-    Originally conceived by `Alejandro Laie Boria https://github.com/atlaie_`
+    Originally conceived by `Alejandro Tlaie Boria https://github.com/atlaie_`
 
     """
 
