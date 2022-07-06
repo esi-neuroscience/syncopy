@@ -69,22 +69,23 @@ def psth_cF(trl_dat,
     """
 
     nUnits = np.unique(trl_dat)[2]
+    nChannels = np.unique(trl_dat)[2]
     nBins = len(method_kwargs['bins']) - 1
-    outShape = (nBins, nUnits)
 
     # For initialization of computational routine,
     # just return output shape and dtype
     if noCompute:
+        outShape = (nBins, nUnits * nChannels)
         return outShape, np.int32
 
     # call backend method
+    # counts has shape (nBins, nUnits, nChannels)
     counts, bins = psth(trl_dat, **method_kwargs)
 
-    # counts has shape (nUnits, nBins, nChannels)
-    # sum up channel counts and reorder to (nBins, nUnits)
-    tl_dat = np.sum(counts, axis=2).transpose(1, 0)
+    # split out channel counts along the units axis
+    counts.shape = (nBins, nUnits * nChannels)
 
-    return tl_dat
+    return counts
 
 
 class PSTH(ComputationalRoutine):
@@ -114,6 +115,12 @@ class PSTH(ComputationalRoutine):
         else:
             chanSec = slice(None)
 
+        # Get trialdef array + units from source
+        if data.selection is not None:
+            unitSec = data.selection.unit
+        else:
+            unitSec = slice(None)
+
         # compute new time axis / samplerate
         bin_midpoints = stride_tricks.sliding_window_view(self.cfg['bins'], (2,)).mean(axis=1)
         srate = 1 / np.diff(bin_midpoints).mean()
@@ -132,4 +139,5 @@ class PSTH(ComputationalRoutine):
         # Attach meta-data
         out.trialdefinition = trl
         out.samplerate = srate
-        out.channel = np.array(data.channel[chanSec])
+        # join labels for final unitX_channelY channel labels
+        out.channel = [u + '_' + c for u in data.unit[unitSec] for c in data.channel[chanSec]]

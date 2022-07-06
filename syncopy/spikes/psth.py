@@ -60,17 +60,17 @@ def psth(trl_dat,
     bins = [bins, np.arange(nChannels + 1)]
 
     unique_units = np.unique(units)
-    counts = np.zeros((len(unique_units), nBins, nChannels))
+    counts = np.zeros((nBins, len(unique_units), nChannels))
 
     for i, iunit in enumerate(unique_units):
         unit_idx = (units == iunit)
         if np.sum(unit_idx):
-            counts[i, :, :] = np.histogram2d(times[unit_idx],
+            counts[:, i, :] = np.histogram2d(times[unit_idx],
                                              channels[unit_idx],
                                              bins=bins)[0]
         # no spikes in this unit
         else:
-            counts[i, :, :] = np.zeros(nBins, nChannels)
+            counts[:, i, :] = np.zeros(nBins, nChannels)
 
     return counts, bins
 
