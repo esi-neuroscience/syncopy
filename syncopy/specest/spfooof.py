@@ -109,7 +109,7 @@ def spfooof(data_arr,
         if out_type == 'fooof':
             out_spectrum = fm.fooofed_spectrum_  # the powers
         elif out_type == "fooof_aperiodic":
-            offset = fm.aperiodic_params_[0]  
+            offset = fm.aperiodic_params_[0]
             if fm.aperiodic_mode == 'fixed':
                 exp = fm.aperiodic_params_[1]
                 out_spectrum = offset - np.log10(freqs**exp)
@@ -121,10 +121,10 @@ def spfooof(data_arr,
             gp = fm.gaussian_params_
             out_spectrum = np.zeros_like(freqs, freqs.dtype)
             for row_idx in range(len(gp)):
-                ctr, hgt, wid = gp[row_idx, :]  
+                ctr, hgt, wid = gp[row_idx, :]
                 # Extract Gaussian parameters: central frequency (=mean), power over aperiodic, bandwith of peak (= 2* stddev of Gaussian).
                 # see FOOOF docs for details, especially Tutorial 2, Section 'Notes on Interpreting Peak Parameters'
-                out_spectrum = out_spectrum + hgt * np.exp(-(freqs-ctr)**2 / (2*wid**2))
+                out_spectrum = out_spectrum + hgt * np.exp(- (freqs - ctr)**2 / (2 * wid**2))
         else:
             raise SPYValueError(legal=available_fooof_out_types, varname="out_type", actual=out_type)
 

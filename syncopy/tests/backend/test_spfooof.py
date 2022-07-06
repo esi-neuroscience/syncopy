@@ -3,26 +3,17 @@
 # syncopy.specest fooof backend tests
 #
 import numpy as np
-import scipy.signal as sci_sig
 import pytest
 
-from syncopy.preproc import resampling, firws
 from syncopy.specest.spfooof import spfooof
 from fooof.sim.gen import gen_power_spectrum
 from fooof.sim.utils import set_random_seed
 
 from syncopy.shared.errors import SPYValueError
 
-import matplotlib.pyplot as plt
-
-
-def _plotspec(f, p):
-    plt.plot(f, p)
-    plt.show()
-
 
 def _power_spectrum():
-    set_random_seed(21)    
+    set_random_seed(21)
     freqs, powers = gen_power_spectrum([3, 40], [1, 1],
                                        [[10, 0.2, 1.25], [30, 0.15, 2]])
     return (freqs, powers)
@@ -36,14 +27,11 @@ class TestSpfooof():
         """
         Tests spfooof with output 'fooof' and a single input signal. This will return the full, foofed spectrum.
         """
-
-        # _plotspec(freqs1, powers)
-        spectra, details = spfooof(powers, fooof_settings={'in_freqs': freqs, 'freq_range': None}, out_type = 'fooof')
+        spectra, details = spfooof(powers, fooof_settings={'in_freqs': freqs, 'freq_range': None}, out_type='fooof')
 
         assert spectra.shape == (freqs.size, 1)
         assert details['settings_used']['out_type'] == 'fooof'
-        assert all (key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
-
+        assert all(key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
 
     def test_spfooof_output_fooof_several_channels(self, freqs=freqs, powers=powers):
         """
@@ -51,27 +39,22 @@ class TestSpfooof():
         """
 
         num_channels = 3
-        powers = np.tile(powers, num_channels).reshape(powers.size, num_channels) # copy signal to create channels.
-        # _plotspec(freqs1, powers)
-        spectra, details = spfooof(powers, fooof_settings={'in_freqs': freqs, 'freq_range': None}, out_type = 'fooof')
+        powers = np.tile(powers, num_channels).reshape(powers.size, num_channels)  # Copy signal to create channels.
+        spectra, details = spfooof(powers, fooof_settings={'in_freqs': freqs, 'freq_range': None}, out_type='fooof')
 
         assert spectra.shape == (freqs.size, num_channels)
         assert details['settings_used']['out_type'] == 'fooof'
-        assert all (key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
-
+        assert all(key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
 
     def test_spfooof_output_fooof_aperiodic(self, freqs=freqs, powers=powers):
         """
         Tests spfooof with output 'fooof_aperiodic' and a single input signal. This will return the aperiodic part of the fit.
         """
-
-        # _plotspec(freqs1, powers)
-        spectra, details = spfooof(powers, fooof_settings={'in_freqs': freqs, 'freq_range': None}, out_type = 'fooof_aperiodic')
+        spectra, details = spfooof(powers, fooof_settings={'in_freqs': freqs, 'freq_range': None}, out_type='fooof_aperiodic')
 
         assert spectra.shape == (freqs.size, 1)
         assert details['settings_used']['out_type'] == 'fooof_aperiodic'
-        assert all (key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
-
+        assert all(key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
 
     def test_spfooof_output_fooof_peaks(self, freqs=freqs, powers=powers):
         """
@@ -79,13 +62,11 @@ class TestSpfooof():
         """
 
         # _plotspec(freqs1, powers)
-        spectra, details = spfooof(powers, fooof_settings={'in_freqs': freqs, 'freq_range': None}, out_type = 'fooof_peaks')
+        spectra, details = spfooof(powers, fooof_settings={'in_freqs': freqs, 'freq_range': None}, out_type='fooof_peaks')
 
         assert spectra.shape == (freqs.size, 1)
         assert details['settings_used']['out_type'] == 'fooof_peaks'
-        assert all (key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
-
-
+        assert all(key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
 
     def test_spfooof_exceptions(self):
         """
@@ -105,8 +86,5 @@ class TestSpfooof():
 
         # Invalid out_type is rejected.
         with pytest.raises(SPYValueError) as err:
-            spectra, details = spfooof(self.powers, fooof_settings={'in_freqs': self.freqs}, out_type = 'fooof_invalidout')            
+            spectra, details = spfooof(self.powers, fooof_settings={'in_freqs': self.freqs}, out_type='fooof_invalidout')
             assert "out_type" in str(err)
-
-
-
