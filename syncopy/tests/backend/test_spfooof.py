@@ -16,7 +16,7 @@ def _power_spectrum():
     set_random_seed(21)
     freqs, powers = gen_power_spectrum([3, 40], [1, 1],
                                        [[10, 0.2, 1.25], [30, 0.15, 2]])
-    return (freqs, powers)
+    return(freqs, powers)
 
 
 class TestSpfooof():
@@ -25,7 +25,7 @@ class TestSpfooof():
 
     def test_spfooof_output_fooof_single_channel(self, freqs=freqs, powers=powers):
         """
-        Tests spfooof with output 'fooof' and a single input signal. This will return the full, foofed spectrum.
+        Tests spfooof with output 'fooof' and a single input signal. This will return the full, fooofed spectrum.
         """
         spectra, details = spfooof(powers, fooof_settings={'in_freqs': freqs, 'freq_range': None}, out_type='fooof')
 
@@ -35,7 +35,7 @@ class TestSpfooof():
 
     def test_spfooof_output_fooof_several_channels(self, freqs=freqs, powers=powers):
         """
-        Tests spfooof with output 'fooof' and several input signal. This will return the full, foofed spectrum.
+        Tests spfooof with output 'fooof' and several input signal. This will return the full, fooofed spectrum.
         """
 
         num_channels = 3
@@ -60,8 +60,6 @@ class TestSpfooof():
         """
         Tests spfooof with output 'fooof_peaks' and a single input signal. This will return the Gaussian fit of the periodic part of the spectrum.
         """
-
-        # _plotspec(freqs1, powers)
         spectra, details = spfooof(powers, fooof_settings={'in_freqs': freqs, 'freq_range': None}, out_type='fooof_peaks')
 
         assert spectra.shape == (freqs.size, 1)

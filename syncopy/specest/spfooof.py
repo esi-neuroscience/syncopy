@@ -7,8 +7,6 @@
 
 # Builtin/3rd party package imports
 import numpy as np
-from scipy import signal
-from scipy.optimize import curve_fit
 from fooof import FOOOF
 
 # Syncopy imports
@@ -76,7 +74,7 @@ def spfooof(data_arr,
         raise SPYValueError(legal=lgl, varname="out_type", actual=out_type)
 
     # Check info on input frequencies, they are required.
-    freqs = fooof_settings['in_freqs']    
+    freqs = fooof_settings['in_freqs']
 
     print("number of fooof input freq labels: %d" % (freqs.size))
 

@@ -296,7 +296,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     if method == "mtmfft" and output.startswith("fooof"):
         is_fooof = True
         output_fooof = output
-        output = "pow" # we need to change this as the mtmfft running first will complain otherwise.
+        output = "pow"  # we need to change this as the mtmfft running first will complain otherwise.
     lcls = locals()
     # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="freqanalysis")
