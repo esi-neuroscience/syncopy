@@ -938,11 +938,15 @@ def fooof_cF(trl_dat, foi=None, timeAxis=0,
     if noCompute:
         return outShape, fooofDTypes[output_fmt]
 
-    print("shape passed to spfooof from cF: %s" % str(dat[0,0,:,:].shape))
+    print("shape passed to spfooof from cF: %s" % str(dat[0, 0, :, :].shape))
 
     # call actual fooof method
-    res, _ = spfooof(dat[0,0,:,:], out_type=output_fmt, fooof_settings=fooof_settings,
+    res, _ = spfooof(dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
                      fooof_opt=method_kwargs)
+
+    # TODO later: get the 'details' from the unused _ return
+    #  value and pass them on. This cannot be done right now due
+    #  to lack of support for several return values, see #140
 
     # Add omitted axes back to result.
     res = res[np.newaxis, np.newaxis, :, :]
@@ -969,7 +973,7 @@ class SpyFOOOF(ComputationalRoutine):
     valid_kws = list(signature(spfooof).parameters.keys())[1:]
     valid_kws += list(signature(fooof_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
-    valid_kws += []
+    valid_kws += ["fooof_settings"]
 
     # To attach metadata to the output of the CF
     def process_metadata(self, data, out):

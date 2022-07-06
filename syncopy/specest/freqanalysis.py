@@ -54,7 +54,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
                  taper_opt=None, tapsmofrq=None, nTaper=None, keeptapers=False,
                  toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
-                 out=None, **kwargs):
+                 out=None, fooof_opt=None, **kwargs):
     """
     Perform (time-)frequency analysis of Syncopy :class:`~syncopy.AnalogData` objects
 
@@ -243,6 +243,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
         linearly with the frequencies of interest from `order_min`
         to `order_max`. If set to False the same SL will be used for
         all frequencies.
+    fooof_opt : dict
+        Only valid if `method` is `'mtmfft'` and `output` is `'fooof'`, `'fooof_aperiodic'`, or `'fooof_peaks'`.
+        Settings for fooof.
     out : None or :class:`SpectralData` object
         None if a new :class:`SpectralData` object is to be created, or an empty :class:`SpectralData` object
 
@@ -878,9 +881,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         fooof_out = SpectralData(dimord=SpectralData._defaultDimord)
         new_out = True
 
-        # method specific parameters
-        # TODO: We need to add a way for the user to pass these in,
-        #       currently they are hard-coded here.
+        # method specific parameters        
         fooof_kwargs = { # These are passed to the fooof.FOOOF() constructor.
             'peak_width_limits' : (0.5, 12.0),
             'max_n_peaks': np.inf,
@@ -889,6 +890,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
             'aperiodic_mode':'fixed',
             'verbose': False
         }
+
+        # TODO: We need to join the ones from fooof_opt into fooof_kwargs.
 
         # Settings used during the FOOOF analysis.
         fooof_settings = {
@@ -911,6 +914,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
                              keeptrials=keeptrials)
         fooofMethod.compute(fooof_data, fooof_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
         out = fooof_out
+
+        # Update `log_dct` w/method-specific options
+        log_dct["fooof_method"] = output_fooof
+        log_dct["fooof_opt"] = fooof_kwargs
 
     # Either return newly created output object or simply quit
     return out if new_out else None

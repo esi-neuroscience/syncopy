@@ -20,8 +20,7 @@ available_fooof_options = ['peak_width_limits', 'max_n_peaks',
                            'aperiodic_mode', 'verbose']
 
 
-def spfooof(data_arr,
-            fooof_settings={'in_freqs': None, 'freq_range': None},
+def spfooof(data_arr, in_freqs, freq_range=None,
             fooof_opt={'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf,
                        'min_peak_height': 0.0, 'peak_threshold': 2.0,
                        'aperiodic_mode': 'fixed', 'verbose': True},
@@ -33,9 +32,12 @@ def spfooof(data_arr,
     Parameters
     ----------
     data_arr : 2D :class:`numpy.ndarray`
-         Float array containing power spectrum with shape ``(nFreq x nChannels)``, typically obtained from :func:`syncopy.specest.mtmfft` output.
-    freqs : 1D :class:`numpy.ndarray`
+         Float array containing power spectrum with shape ``(nFreq x nChannels)``,
+         typically obtained from :func:`syncopy.specest.mtmfft` output.
+    in_freqs : 1D :class:`numpy.ndarray`
          Float array of frequencies for all spectra, typically obtained from mtmfft output.
+    freq_range: 2-tuple
+         optional definition of a frequency range of interest of the fooof result (post processing).
     foof_opt : dict or None
         Additional keyword arguments passed to the `FOOOF` constructor. Available
         arguments include 'peak_width_limits', 'max_n_peaks', 'min_peak_height',
@@ -49,7 +51,11 @@ def spfooof(data_arr,
     Returns
     -------
     Depends on the value of parameter ``'out_type'``.
-    TODO: describe here.
+    out_spectra: 2D :class:`numpy.ndarray`
+        The fooofed spectrum (for out_type ``'fooof'``), the aperiodic part of the
+        spectrum (for ``'fooof_aperiodic'``) or the peaks (for ``'fooof_peaks'``).
+    details : dictionary
+        Details on the model fit and settings used.
 
     References
     -----
@@ -73,21 +79,16 @@ def spfooof(data_arr,
         lgl = "'" + "or '".join(opt + "' " for opt in available_fooof_out_types)
         raise SPYValueError(legal=lgl, varname="out_type", actual=out_type)
 
-    # Check info on input frequencies, they are required.
-    freqs = fooof_settings['in_freqs']
+    if in_freqs is None:
+        raise SPYValueError(legal='The input frequencies are required and must not be None.', varname='in_freqs')
+    print("number of fooof input freq labels: %d" % (in_freqs.size))
 
-    print("number of fooof input freq labels: %d" % (freqs.size))
-
-    freq_range = fooof_settings['freq_range']
-    if freqs is None:
-        raise SPYValueError(legal='The input frequencies are required and must not be None.', varname="fooof_settings['in_freqs']")
-
-    if freqs.size != data_arr.shape[0]:
-        raise SPYValueError(legal='The signal length %d must match the number of frequency labels %d.' % (data_arr.shape[0], freqs.size), varname="data_arr/fooof_settings['in_freqs']")
+    if in_freqs.size != data_arr.shape[0]:
+        raise SPYValueError(legal='The signal length %d must match the number of frequency labels %d.' % (data_arr.shape[0], in_freqs.size), varname="data_arr/in_freqs")
 
     num_channels = data_arr.shape[1]
 
-    fm = FOOOF(**fooof_opt)    
+    fm = FOOOF(**fooof_opt)
 
     # Prepare output data structures
     out_spectra = np.zeros_like(data_arr, data_arr.dtype)
@@ -102,7 +103,7 @@ def spfooof(data_arr,
     # Run fooof and store results. We could also use a fooof group.
     for channel_idx in range(num_channels):
         spectrum = data_arr[:, channel_idx]
-        fm.fit(freqs, spectrum, freq_range=freq_range)
+        fm.fit(in_freqs, spectrum, freq_range=freq_range)
 
         if out_type == 'fooof':
             out_spectrum = fm.fooofed_spectrum_  # the powers
@@ -110,19 +111,19 @@ def spfooof(data_arr,
             offset = fm.aperiodic_params_[0]
             if fm.aperiodic_mode == 'fixed':
                 exp = fm.aperiodic_params_[1]
-                out_spectrum = offset - np.log10(freqs**exp)
+                out_spectrum = offset - np.log10(in_freqs**exp)
             else:  # fm.aperiodic_mode == 'knee':
                 knee = fm.aperiodic_params_[1]
                 exp = fm.aperiodic_params_[2]
-                out_spectrum = offset - np.log10(knee + freqs**exp)
+                out_spectrum = offset - np.log10(knee + in_freqs**exp)
         elif out_type == "fooof_peaks":
             gp = fm.gaussian_params_
-            out_spectrum = np.zeros_like(freqs, freqs.dtype)
+            out_spectrum = np.zeros_like(in_freqs, in_freqs.dtype)
             for row_idx in range(len(gp)):
                 ctr, hgt, wid = gp[row_idx, :]
                 # Extract Gaussian parameters: central frequency (=mean), power over aperiodic, bandwith of peak (= 2* stddev of Gaussian).
                 # see FOOOF docs for details, especially Tutorial 2, Section 'Notes on Interpreting Peak Parameters'
-                out_spectrum = out_spectrum + hgt * np.exp(- (freqs - ctr)**2 / (2 * wid**2))
+                out_spectrum = out_spectrum + hgt * np.exp(- (in_freqs - ctr)**2 / (2 * wid**2))
         else:
             raise SPYValueError(legal=available_fooof_out_types, varname="out_type", actual=out_type)
 
@@ -136,6 +137,5 @@ def spfooof(data_arr,
 
     settings_used = {'fooof_opt': fooof_opt, 'out_type': out_type, 'freq_range': freq_range}
     details = {'aperiodic_params': aperiodic_params, 'n_peaks': n_peaks, 'r_squared': r_squared, 'error': error, 'settings_used': settings_used}
-    
-    return out_spectra, details
 
+    return out_spectra, details
