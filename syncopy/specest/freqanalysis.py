@@ -891,7 +891,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
             'verbose': False
         }
 
-        fooof_kwargs = fooof_kwargs | fooof_opt  # Join the ones from fooof_opt into fooof_kwargs.        
+        fooof_kwargs = {**fooof_kwargs, **fooof_opt}  # Join the ones from fooof_opt into fooof_kwargs.        
 
         # Settings used during the FOOOF analysis.
         fooof_settings = {

@@ -19,6 +19,9 @@ available_fooof_options = ['peak_width_limits', 'max_n_peaks',
                            'min_peak_height', 'peak_threshold',
                            'aperiodic_mode', 'verbose']
 
+default_fooof_opt = {'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf,
+                     'min_peak_height': 0.0, 'peak_threshold': 2.0,
+                     'aperiodic_mode': 'fixed', 'verbose': True}
 
 def spfooof(data_arr, in_freqs, freq_range=None,
             fooof_opt={'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf,
@@ -71,9 +74,9 @@ def spfooof(data_arr, in_freqs, freq_range=None,
         data_arr = data_arr[:, np.newaxis]
 
     if fooof_opt is None:
-        fooof_opt = {'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf,
-                     'min_peak_height': 0.0, 'peak_threshold': 2.0,
-                     'aperiodic_mode': 'fixed', 'verbose': True}
+        fooof_opt = default_fooof_opt
+    else:
+        fooof_opt = {**default_fooof_opt, **fooof_opt}
 
     invalid_fooof_opts = [i for i in fooof_opt.keys() if i not in available_fooof_options]
     if invalid_fooof_opts:

@@ -67,6 +67,19 @@ class TestSpfooof():
         assert details['settings_used']['out_type'] == 'fooof_peaks'
         assert all(key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
 
+    def test_spfooof_the_fooof_opt_settings_are_used(self, freqs=freqs, powers=powers):
+        """
+        Tests spfooof with output 'fooof_peaks' and a single input signal. This will return the Gaussian fit of the periodic part of the spectrum.
+        """
+        fooof_opt = {'peak_threshold': 3.0 }
+        spectra, details = spfooof(powers, freqs, out_type='fooof_peaks', fooof_opt=fooof_opt)
+
+        assert spectra.shape == (freqs.size, 1)
+        assert details['settings_used']['out_type'] == 'fooof_peaks'
+        assert all(key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
+        assert details['settings_used']['fooof_opt']['peak_threshold'] == 3.0  # Should reflect our custom value.
+        assert details['settings_used']['fooof_opt']['min_peak_height'] == 0.0  # No custom value => should be at default.
+
     def test_spfooof_exceptions(self):
         """
         Tests that spfooof throws the expected error if incomplete data is passed to it.
@@ -91,5 +104,5 @@ class TestSpfooof():
         # Invalid fooof_opt entry is rejected.
         with pytest.raises(SPYValueError) as err:
             fooof_opt = {'peak_threshold': 2.0, 'invalid_key': 42}
-            spectra, details = spfooof(self.powers, self.freqs, out_type='fooof_invalidout', fooof_opt=fooof_opt)
+            spectra, details = spfooof(self.powers, self.freqs, fooof_opt=fooof_opt)
             assert "fooof_opt" in str(err)
