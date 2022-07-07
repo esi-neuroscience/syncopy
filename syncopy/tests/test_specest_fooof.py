@@ -1,6 +1,6 @@
-import pytest
-import numpy as np
-
+# -*- coding: utf-8 -*-
+#
+# Test FOOOF integration from user/frontend perspective.
 
 from syncopy.tests.test_specest import _make_tf_signal
 
@@ -37,19 +37,19 @@ class TestFOOOF():
         assert spec_dt.data.ndim == 4
         # TODO: add meaningful tests here
 
-    def test_spfooof_output_fooof_aperiodic(self, fulltests):                
+    def test_spfooof_output_fooof_aperiodic(self, fulltests):
         self.cfg['output'] = "fooof_aperiodic"
         spec_dt = freqanalysis(self.cfg, self.tfData)
         assert spec_dt.data.ndim == 4
         # TODO: add meaningful tests here
 
-    def test_spfooof_output_fooof_peaks(self, fulltests):                
+    def test_spfooof_output_fooof_peaks(self, fulltests):
         self.cfg['output'] = "fooof_peaks"
         spec_dt = freqanalysis(self.cfg, self.tfData)
         assert spec_dt.data.ndim == 4
         # TODO: add meaningful tests here
 
-    def test_spfooof_frontend_settings_are_merged_with_defaults_used_in_backend(self, fulltests):                
+    def test_spfooof_frontend_settings_are_merged_with_defaults_used_in_backend(self, fulltests):
         self.cfg['output'] = "fooof_peaks"
         fooof_opt = {'max_n_peaks': 8}
         spec_dt = freqanalysis(self.cfg, self.tfData, fooof_opt=fooof_opt)

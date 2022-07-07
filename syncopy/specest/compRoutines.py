@@ -875,7 +875,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
 # -----------------------
 
 @unwrap_io
-def fooof_cF(trl_dat, foi=None, timeAxis=0,
+def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
               output_fmt='fooof', fooof_settings=None, noCompute=False, chunkShape=None, method_kwargs=None):
 
     """
@@ -957,9 +957,9 @@ def fooof_cF(trl_dat, foi=None, timeAxis=0,
     return res
 
 
-class SpyFOOOF(ComputationalRoutine):
+class FooofSpy(ComputationalRoutine):
     """
-    Compute class that calculates FOOOF.
+    Compute class that calculates FOOOFed spectrum.
 
     Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
     see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
@@ -970,11 +970,11 @@ class SpyFOOOF(ComputationalRoutine):
     syncopy.freqanalysis : parent metafunction
     """
 
-    computeFunction = staticmethod(fooof_cF)
+    computeFunction = staticmethod(fooofspy_cF)
 
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(fooofspy).parameters.keys())[1:]
-    valid_kws += list(signature(fooof_cF).parameters.keys())[1:]
+    valid_kws += list(signature(fooofspy_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ["fooof_settings"]
 

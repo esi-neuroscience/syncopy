@@ -25,6 +25,7 @@ from syncopy.shared.input_processors import (
 )
 
 # method specific imports - they should go!
+from syncopy.specest.fooofspy import default_fooof_opt
 import syncopy.specest.wavelets as spywave
 import syncopy.specest.superlet as superlet
 from .wavelet import get_optimal_wavelet_scales
@@ -36,7 +37,7 @@ from .compRoutines import (
     WaveletTransform,
     MultiTaperFFT,
     MultiTaperFFTConvol,
-    SpyFOOOF
+    FooofSpy
 )
 
 
@@ -850,7 +851,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # If provided, make sure output object is appropriate
     if out is not None:
         if is_fooof:
-            lgl = "None: pre-allocated output object not supported with output = 'fooof*'."
+            lgl = "None: pre-allocated output object not supported with 'output'='fooof*'."
             raise SPYValueError(legal=lgl, varname="out")
         try:
             data_parser(out, varname="out", writable=True, empty=True,
@@ -880,16 +881,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
         new_out = True
 
         # method specific parameters
-        fooof_kwargs = {  # These are passed to the fooof.FOOOF() constructor.
-            'peak_width_limits': (0.5, 12.0),
-            'max_n_peaks': np.inf,
-            'min_peak_height': 0.0,
-            'peak_threshold': 2.0,
-            'aperiodic_mode': 'fixed',
-            'verbose': False
-        }
-
-        fooof_kwargs = {**fooof_kwargs, **fooof_opt}  # Join the ones from fooof_opt into fooof_kwargs.
+        fooof_kwargs = default_fooof_opt
+        fooof_kwargs = {**fooof_kwargs, **fooof_opt}  # Join the ones from fooof_opt (the user) into fooof_kwargs.
 
         # Settings used during the FOOOF analysis.
         fooof_settings = {
@@ -903,7 +896,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         #  - everything passed as method_kwargs is passed as arguments
         #    to the foooof.FOOOF() constructor or functions, the other args are
         #    used elsewhere.
-        fooofMethod = SpyFOOOF(output_fmt=output_fooof, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)
+        fooofMethod = FooofSpy(output_fmt=output_fooof, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)
 
         # Perform actual computation
         fooofMethod.initialize(fooof_data,

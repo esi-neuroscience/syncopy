@@ -35,7 +35,7 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
          typically obtained from :func:`syncopy.specest.mtmfft` output.
     in_freqs : 1D :class:`numpy.ndarray`
          Float array of frequencies for all spectra, typically obtained from the `freq` property of the `mtmfft` output (`AnalogData` object).
-    freq_range: 2-tuple
+    freq_range: float list of length 2
          optional definition of a frequency range of interest of the fooof result (post processing).
          Note: It is currently not possible for the user to set this from the frontend.
     foopf_opt : dict or None
