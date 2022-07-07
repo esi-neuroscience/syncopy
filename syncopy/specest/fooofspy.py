@@ -63,6 +63,13 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
             `error`: 1D :class:`numpy.ndarray` of float, the model error of the fits
             `settings_used`: dict, the settings used, including the keys `fooof_opt`, `out_type`, and `freq_range`.
 
+    Examples
+    --------
+    Run fooof on a generated power spectrum:
+    >>> from fooof.sim.gen import gen_power_spectrum
+    >>> freqs, powers = gen_power_spectrum([3, 40], [1, 1], [[10, 0.2, 1.25], [30, 0.15, 2]])
+    >>> spectra, details = fooofspy(powers, freqs, out_type='fooof')
+
     References
     -----
     Donoghue T, Haller M, Peterson EJ, Varma P, Sebastian P, Gao R, Noto T, Lara AH, Wallis JD,
