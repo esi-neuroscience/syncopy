@@ -117,14 +117,13 @@ def show(data, squeeze=True, **kwargs):
             if sel.start > sel.stop:
                 invalid = True
         # sequence type
-        else:
+        elif np.array(sel).size != 1:
             if np.any(np.diff(sel) < 0) or len(set(sel)) != len(sel):
                 invalid = True
         if invalid:
             lgl = f"unique and sorted `{sel_key}` indices"
             act = sel
-            raise SPYValueError(lgl, 'selection kwargs', act)
-
+            raise SPYValueError(lgl, 'show kwargs', act)
 
     # Leverage `selectdata` to sanitize input and perform subset picking
     data.selectdata(inplace=True, **kwargs)
@@ -146,6 +145,16 @@ def show(data, squeeze=True, **kwargs):
     for trlno in data.selection.trials:
         # each dim has an entry
         idxs = data._preview_trial(trlno).idx
+        # catch totally out of range toi selection
+        # (toilim is fine - returns empty arrays)
+        # that's a special case, all other dims get checked
+        # beforehand, e.g. foi, channel, ...
+        for idx in idxs:
+            if not isinstance(idx, slice) and (
+                    len(idx) != len(set(idx))):
+                lgl = "valid `toi` selection"
+                act = sel
+                raise SPYValueError(lgl, 'show kwargs', act)
         idxList.append(idxs)
 
     # Reset in-place subset selection

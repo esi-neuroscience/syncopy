@@ -441,6 +441,9 @@ class TestSelector():
         with pytest.raises(SPYValueError) as err:
             ang.show(trials=[0, 1], toi=[1, 1])
             assert "expected unique and sorted" in str(err)
+        with pytest.raises(SPYValueError) as err:
+            ang.show(trials=[0, 1], toi=[9999, 99999])
+            assert "expected valid `toi` selection" in str(err)
 
         # go through all data-classes defined above
         for dset in self.data.keys():
