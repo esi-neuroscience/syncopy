@@ -17,7 +17,7 @@ from memory_profiler import memory_usage
 
 # Local imports
 from syncopy.datatype import AnalogData
-from syncopy.io import save, load, load_ft_raw
+from syncopy.io import save, load, load_ft_raw, load_tdt
 from syncopy.shared.filetypes import FILE_EXT
 from syncopy.shared.errors import (
     SPYValueError,
@@ -470,7 +470,7 @@ class Test_FT_Importer:
 
     """At the moment only ft_datatype_raw is supported"""
 
-    mat_file_dir = '/cs/scratch/syncopy/MAT-Files'
+    mat_file_dir = '/cs/slurm/syncopy/MAT-Files'
 
     def test_read_hdf(self):
         """Test MAT-File v73 reader, uses h5py"""
@@ -539,3 +539,17 @@ class Test_FT_Importer:
         dct = load_ft_raw(fname, include_fields=('ch',))
         AData2 = dct['Data_K']
         assert 'ch' in AData2.info
+
+
+@skip_no_esi
+class Test_TDT_Importer:
+
+    tdt_dir = '/cs/slurm/syncopy/Tdt_reader/session-25'
+
+    def test_read_tdt(self):
+
+        adata = load_tdt(self.tdt_dir)
+
+
+if __name__ == '__main__':
+    TDT = Test_TDT_Importer()
