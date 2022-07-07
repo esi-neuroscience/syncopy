@@ -14,14 +14,11 @@ from syncopy.shared.errors import SPYValueError
 from syncopy.shared.const_def import fooofDTypes
 
 # Constants
-available_fooof_out_types = fooofDTypes.keys()
-available_fooof_options = ['peak_width_limits', 'max_n_peaks',
-                           'min_peak_height', 'peak_threshold',
-                           'aperiodic_mode', 'verbose']
-
+available_fooof_out_types = list(fooofDTypes)
 default_fooof_opt = {'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf,
                      'min_peak_height': 0.0, 'peak_threshold': 2.0,
                      'aperiodic_mode': 'fixed', 'verbose': True}
+available_fooof_options = list(default_fooof_opt)
 
 
 def spfooof(data_arr, in_freqs, freq_range=None,
