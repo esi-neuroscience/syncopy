@@ -21,7 +21,7 @@ default_fooof_opt = {'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf,
 available_fooof_options = list(default_fooof_opt)
 
 
-def spfooof(data_arr, in_freqs, freq_range=None,
+def fooofspy(data_arr, in_freqs, freq_range=None,
             fooof_opt=None,
             out_type='fooof'):
     """

@@ -5,7 +5,7 @@
 import numpy as np
 import pytest
 
-from syncopy.specest.spfooof import spfooof
+from syncopy.specest.spfooof import fooofspy
 from fooof.sim.gen import gen_power_spectrum
 from fooof.sim.utils import set_random_seed
 
@@ -27,7 +27,7 @@ class TestSpfooof():
         """
         Tests spfooof with output 'fooof' and a single input signal. This will return the full, fooofed spectrum.
         """
-        spectra, details = spfooof(powers, freqs, out_type='fooof')
+        spectra, details = fooofspy(powers, freqs, out_type='fooof')
 
         assert spectra.shape == (freqs.size, 1)
         assert details['settings_used']['out_type'] == 'fooof'
@@ -42,7 +42,7 @@ class TestSpfooof():
 
         num_channels = 3
         powers = np.tile(powers, num_channels).reshape(powers.size, num_channels)  # Copy signal to create channels.
-        spectra, details = spfooof(powers, freqs, out_type='fooof')
+        spectra, details = fooofspy(powers, freqs, out_type='fooof')
 
         assert spectra.shape == (freqs.size, num_channels)
         assert details['settings_used']['out_type'] == 'fooof'
@@ -53,7 +53,7 @@ class TestSpfooof():
         """
         Tests spfooof with output 'fooof_aperiodic' and a single input signal. This will return the aperiodic part of the fit.
         """
-        spectra, details = spfooof(powers, freqs, out_type='fooof_aperiodic')
+        spectra, details = fooofspy(powers, freqs, out_type='fooof_aperiodic')
 
         assert spectra.shape == (freqs.size, 1)
         assert details['settings_used']['out_type'] == 'fooof_aperiodic'
@@ -64,7 +64,7 @@ class TestSpfooof():
         """
         Tests spfooof with output 'fooof_peaks' and a single input signal. This will return the Gaussian fit of the periodic part of the spectrum.
         """
-        spectra, details = spfooof(powers, freqs, out_type='fooof_peaks')
+        spectra, details = fooofspy(powers, freqs, out_type='fooof_peaks')
 
         assert spectra.shape == (freqs.size, 1)
         assert details['settings_used']['out_type'] == 'fooof_peaks'
@@ -76,7 +76,7 @@ class TestSpfooof():
         Tests spfooof with output 'fooof_peaks' and a single input signal. This will return the Gaussian fit of the periodic part of the spectrum.
         """
         fooof_opt = {'peak_threshold': 3.0 }
-        spectra, details = spfooof(powers, freqs, out_type='fooof_peaks', fooof_opt=fooof_opt)
+        spectra, details = fooofspy(powers, freqs, out_type='fooof_peaks', fooof_opt=fooof_opt)
 
         assert spectra.shape == (freqs.size, 1)
         assert details['settings_used']['out_type'] == 'fooof_peaks'
@@ -102,11 +102,11 @@ class TestSpfooof():
 
         # Invalid out_type is rejected.
         with pytest.raises(SPYValueError) as err:
-            spectra, details = spfooof(self.powers, self.freqs, out_type='fooof_invalidout')
+            spectra, details = fooofspy(self.powers, self.freqs, out_type='fooof_invalidout')
             assert "out_type" in str(err)
 
         # Invalid fooof_opt entry is rejected.
         with pytest.raises(SPYValueError) as err:
             fooof_opt = {'peak_threshold': 2.0, 'invalid_key': 42}
-            spectra, details = spfooof(self.powers, self.freqs, fooof_opt=fooof_opt)
+            spectra, details = fooofspy(self.powers, self.freqs, fooof_opt=fooof_opt)
             assert "fooof_opt" in str(err)

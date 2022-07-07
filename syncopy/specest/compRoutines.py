@@ -28,7 +28,7 @@ from .mtmfft import mtmfft
 from .mtmconvol import mtmconvol
 from .superlet import superlet
 from .wavelet import wavelet
-from .spfooof import spfooof
+from .fooofspy import fooofspy
 
 
 # Local imports
@@ -941,7 +941,7 @@ def fooof_cF(trl_dat, foi=None, timeAxis=0,
     print("shape passed to spfooof from cF: %s" % str(dat[0, 0, :, :].shape))
 
     # call actual fooof method
-    res, _ = spfooof(dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
+    res, _ = fooofspy(dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
                      fooof_opt=method_kwargs)
 
     # TODO later: get the 'details' from the unused _ return
@@ -973,7 +973,7 @@ class SpyFOOOF(ComputationalRoutine):
     computeFunction = staticmethod(fooof_cF)
 
     # 1st argument,the data, gets omitted
-    valid_kws = list(signature(spfooof).parameters.keys())[1:]
+    valid_kws = list(signature(fooofspy).parameters.keys())[1:]
     valid_kws += list(signature(fooof_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ["fooof_settings"]
