@@ -38,18 +38,23 @@ class TestFooofSpy():
         self.cfg['output'] = "fooof"
         spec_dt = freqanalysis(self.cfg, self.tfData)
         assert spec_dt.data.ndim == 4
+        assert "fooof" in spec_dt._log
         # TODO: add meaningful tests here
 
     def test_spfooof_output_fooof_aperiodic(self, fulltests):
         self.cfg['output'] = "fooof_aperiodic"
         spec_dt = freqanalysis(self.cfg, self.tfData)
         assert spec_dt.data.ndim == 4
+        assert "fooof" in spec_dt._log
+        assert "fooof_aperiodic" in spec_dt._log
         # TODO: add meaningful tests here
 
     def test_spfooof_output_fooof_peaks(self, fulltests):
         self.cfg['output'] = "fooof_peaks"
         spec_dt = freqanalysis(self.cfg, self.tfData)
         assert spec_dt.data.ndim == 4
+        assert "fooof" in spec_dt._log
+        assert "fooof_peaks" in spec_dt._log
         # TODO: add meaningful tests here
 
     def test_spfooof_frontend_settings_are_merged_with_defaults_used_in_backend(self, fulltests):
