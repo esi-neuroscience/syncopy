@@ -31,7 +31,7 @@ class TestFOOOF():
     cfg.select = {"trials": 0, "channel": 1}
     cfg.output = "fooof"
 
-    def test_spfooof_output_fooof(self, fulltests):
+    def test_fooof_output_fooof(self, fulltests):
         self.cfg['output'] = "fooof"
         spec_dt = freqanalysis(self.cfg, self.tfData)
         assert spec_dt.data.ndim == 4

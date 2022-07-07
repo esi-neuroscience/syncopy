@@ -912,6 +912,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
         #    used elsewhere.
         fooofMethod = FooofSpy(output_fmt=output_fooof, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)
 
+        # Update `log_dct` w/method-specific options
+        log_dct["fooof_method"] = output_fooof
+        log_dct["fooof_opt"] = fooof_kwargs
+
         # Perform actual computation
         fooofMethod.initialize(fooof_data,
                                fooof_out._stackingDim,
@@ -920,9 +924,6 @@ def freqanalysis(data, method='mtmfft', output='pow',
         fooofMethod.compute(fooof_data, fooof_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
         out = fooof_out
 
-        # Update `log_dct` w/method-specific options
-        log_dct["fooof_method"] = output_fooof
-        log_dct["fooof_opt"] = fooof_kwargs
 
     # Either return newly created output object or simply quit
     return out if new_out else None
