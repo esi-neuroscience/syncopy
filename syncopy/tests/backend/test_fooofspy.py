@@ -5,7 +5,7 @@
 import numpy as np
 import pytest
 
-from syncopy.specest.spfooof import fooofspy
+from syncopy.specest.fooofspy import fooofspy
 from fooof.sim.gen import gen_power_spectrum
 from fooof.sim.utils import set_random_seed
 

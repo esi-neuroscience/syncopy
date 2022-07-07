@@ -22,8 +22,8 @@ available_fooof_options = list(default_fooof_opt)
 
 
 def fooofspy(data_arr, in_freqs, freq_range=None,
-            fooof_opt=None,
-            out_type='fooof'):
+             fooof_opt=None,
+             out_type='fooof'):
     """
     Parameterization of neural power spectra using
     the FOOOF mothod by Donoghue et al: fitting oscillations & one over f.
