@@ -236,7 +236,7 @@ def mtmconvol_cF(
         equidistant=True,
         toi=None,
         foi=None,
-        nTaper=1, tapsmofrq=None,  timeAxis=0,
+        nTaper=1, tapsmofrq=None, timeAxis=0,
         keeptapers=True, polyremoval=0, output_fmt="pow",
         noCompute=False, chunkShape=None, method_kwargs=None):
     """
@@ -363,7 +363,7 @@ def mtmconvol_cF(
     # additional keyword args for `stft` in dictionary
     method_kwargs.update({"boundary": stftBdry,
                           "padded": stftPad,
-                          "detrend" : detrend})
+                          "detrend": detrend})
 
     if equidistant:
         ftr, freqs = mtmconvol(dat[soi, :], **method_kwargs)
@@ -381,12 +381,12 @@ def mtmconvol_cF(
         # and average afterwards
         spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
 
-        ftr, freqs = mtmfft(dat[soi[0], :],  samplerate, taper=taper, taper_opt=taper_opt)
+        ftr, freqs = mtmfft(dat[soi[0], :], samplerate, taper=taper, taper_opt=taper_opt)
         _, fIdx = best_match(freqs, foi, squash_duplicates=True)
         spec[0, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
         # loop over remaining soi to center windows on
         for tk in range(1, len(soi)):
-            ftr, freqs = mtmfft(dat[soi[tk], :],  samplerate, taper=taper, taper_opt=taper_opt)
+            ftr, freqs = mtmfft(dat[soi[tk], :], samplerate, taper=taper, taper_opt=taper_opt)
             spec[tk, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
 
     # Average across tapers if wanted
@@ -876,7 +876,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
 
 @unwrap_io
 def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
-              output_fmt='fooof', fooof_settings=None, noCompute=False, chunkShape=None, method_kwargs=None):
+                output_fmt='fooof', fooof_settings=None, noCompute=False, chunkShape=None, method_kwargs=None):
 
     """
     Run FOOOF
@@ -942,7 +942,7 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
 
     # call actual fooof method
     res, _ = fooofspy(dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
-                     fooof_opt=method_kwargs)
+                      fooof_opt=method_kwargs)
 
     # TODO later: get the 'details' from the unused _ return
     #  value and pass them on. This cannot be done right now due

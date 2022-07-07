@@ -84,6 +84,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
         * **keeptapers** : return individual tapers or average
         * **pad**: either pad to an absolute length or set to `'nextpow2'`
 
+        Post-processing of the resulting spectra with FOOOOF is available
+        via setting `output` to one of `'fooof'`, `'fooof_aperiodic'` or
+        `'fooof_peaks'`, see below for details.
+
     "mtmconvol" : (Multi-)tapered sliding window Fourier transform
         Perform time-frequency analysis on time-series trial data based on a sliding
         window short-time Fourier transform using either a single Hanning taper or
@@ -133,7 +137,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
         Output of spectral estimation. One of :data:`~syncopy.specest.const_def.availableOutputs` (see below);
         use `'pow'` for power spectrum (:obj:`numpy.float32`), `'fourier'` for complex
         Fourier coefficients (:obj:`numpy.complex64`) or `'abs'` for absolute
-        values (:obj:`numpy.float32`).
+        values (:obj:`numpy.float32`). Use one of `'fooof'`, `'fooof_aperiodic'` or
+        `'fooof_peaks'` to request post-precessing of the results with FOOOF, also see
+        the `'fooof_opt'` parameter description.
     keeptrials : bool
         If `True` spectral estimates of individual trials are returned, otherwise
         results are averaged across trials.
@@ -244,9 +250,16 @@ def freqanalysis(data, method='mtmfft', output='pow',
         linearly with the frequencies of interest from `order_min`
         to `order_max`. If set to False the same SL will be used for
         all frequencies.
-    fooof_opt : dict
-        Only valid if `method` is `'mtmfft'` and `output` is `'fooof'`, `'fooof_aperiodic'`, or `'fooof_peaks'`.
-        Settings for fooof.
+    fooof_opt : dict or None
+        Only valid if `method` is `'mtmfft'` and `output` is  one of
+        `'fooof'`, `'fooof_aperiodic'`, or `'fooof_peaks'`.
+        Additional keyword arguments passed to the `FOOOF` constructor. Available
+        arguments include ``'peak_width_limits'``, ``'max_n_peaks'``, ``'min_peak_height'``,
+        ``'peak_threshold'``, and ``'aperiodic_mode'``.
+        Please refer to the
+        `FOOOF docs <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_
+        for the meanings and the defaults.
+        The FOOOF reference is: Donoghue et al. 2020, DOI 10.1038/s41593-020-00744-x.
     out : None or :class:`SpectralData` object
         None if a new :class:`SpectralData` object is to be created, or an empty :class:`SpectralData` object
 
