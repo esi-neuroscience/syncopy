@@ -39,15 +39,18 @@ class TestFooofSpy():
         spec_dt = freqanalysis(self.cfg, self.tfData)
         assert spec_dt.data.ndim == 4
         assert "fooof" in spec_dt._log
-        # TODO: add meaningful tests here
+        assert "fooof_aperiodic" not in spec_dt._log
+        assert "fooof_peaks" not in spec_dt._log
+        # TODO: add more meaningful asserts here
 
     def test_spfooof_output_fooof_aperiodic(self, fulltests):
         self.cfg['output'] = "fooof_aperiodic"
         spec_dt = freqanalysis(self.cfg, self.tfData)
         assert spec_dt.data.ndim == 4
-        assert "fooof" in spec_dt._log
+        assert "fooof" in spec_dt._log  # from the method
         assert "fooof_aperiodic" in spec_dt._log
-        # TODO: add meaningful tests here
+        assert "fooof_peaks" not in spec_dt._log
+        # TODO: add more meaningful asserts here
 
     def test_spfooof_output_fooof_peaks(self, fulltests):
         self.cfg['output'] = "fooof_peaks"
@@ -55,7 +58,8 @@ class TestFooofSpy():
         assert spec_dt.data.ndim == 4
         assert "fooof" in spec_dt._log
         assert "fooof_peaks" in spec_dt._log
-        # TODO: add meaningful tests here
+        assert "fooof_aperiodic" not in spec_dt._log
+        # TODO: add more meaningful asserts here
 
     def test_spfooof_frontend_settings_are_merged_with_defaults_used_in_backend(self, fulltests):
         self.cfg['output'] = "fooof_peaks"
@@ -67,7 +71,7 @@ class TestFooofSpy():
         #  our custom value for fooof_opt['max_n_peaks']. Not possible yet on
         #  this level as we have no way to get the 'details' return value.
         #  This is verified in backend tests though.
-        # TODO: add meaningful tests here
+        # TODO: add more meaningful asserts here
 
     def test_foofspy_rejects_preallocated_output(self, fulltests):
         with pytest.raises(SPYValueError) as err:
