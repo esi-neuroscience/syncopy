@@ -138,7 +138,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         use `'pow'` for power spectrum (:obj:`numpy.float32`), `'fourier'` for complex
         Fourier coefficients (:obj:`numpy.complex64`) or `'abs'` for absolute
         values (:obj:`numpy.float32`). Use one of `'fooof'`, `'fooof_aperiodic'` or
-        `'fooof_peaks'` to request post-precessing of the results with FOOOF, also see
+        `'fooof_peaks'` to request post-processing of the results with FOOOF, also see
         the `'fooof_opt'` parameter description.
     keeptrials : bool
         If `True` spectral estimates of individual trials are returned, otherwise
@@ -295,6 +295,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     syncopy.specest.mtmfft.mtmfft : (multi-)tapered Fourier transform of multi-channel time series data
     syncopy.specest.mtmconvol.mtmconvol : time-frequency analysis of multi-channel time series data with a sliding window FFT
     syncopy.specest.wavelet.wavelet : time-frequency analysis of multi-channel time series data using a wavelet transform
+    syncopy.specest.fooofspy.fooofspy : parameterization of neural power spectra with the 'fitting oscillations & one over f' method
     numpy.fft.fft : NumPy's reference FFT implementation
     scipy.signal.stft : SciPy's Short Time Fourier Transform
     """
@@ -313,7 +314,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     if method == "mtmfft" and output.startswith("fooof"):
         is_fooof = True
         output_fooof = output
-        output = "pow"  # we need to change this as the mtmfft running first will complain otherwise.
+        output = "pow"  # We need to change this as the mtmfft running first will complain otherwise.
     lcls = locals()
     # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="freqanalysis")
@@ -393,7 +394,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # Prepare keyword dict for logging (use `lcls` to get actually provided
     # keyword values, not defaults set above)
     log_dct = {"method": method,
-               "output": output,
+               "output": output_fooof if is_fooof else output,
                "keeptapers": keeptapers,
                "keeptrials": keeptrials,
                "polyremoval": polyremoval,
