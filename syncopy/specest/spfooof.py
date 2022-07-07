@@ -15,7 +15,7 @@ from syncopy.shared.const_def import fooofDTypes
 
 # Constants
 available_fooof_out_types = fooofDTypes.keys()
-available_fooof_options = ['peak_width_limits', 'max_n_peaks', 
+available_fooof_options = ['peak_width_limits', 'max_n_peaks',
                            'min_peak_height', 'peak_threshold',
                            'aperiodic_mode', 'verbose']
 
@@ -23,13 +23,12 @@ default_fooof_opt = {'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf,
                      'min_peak_height': 0.0, 'peak_threshold': 2.0,
                      'aperiodic_mode': 'fixed', 'verbose': True}
 
+
 def spfooof(data_arr, in_freqs, freq_range=None,
-            fooof_opt={'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf,
-                       'min_peak_height': 0.0, 'peak_threshold': 2.0,
-                       'aperiodic_mode': 'fixed', 'verbose': True},
+            fooof_opt=None,
             out_type='fooof'):
     """
-    Parameterization of neural power spectra using 
+    Parameterization of neural power spectra using
     the FOOOF mothod by Donoghue et al: fitting oscillations & one over f.
 
     Parameters
@@ -38,18 +37,19 @@ def spfooof(data_arr, in_freqs, freq_range=None,
          Float array containing power spectrum with shape ``(nFreq x nChannels)``,
          typically obtained from :func:`syncopy.specest.mtmfft` output.
     in_freqs : 1D :class:`numpy.ndarray`
-         Float array of frequencies for all spectra, typically obtained from mtmfft output.
+         Float array of frequencies for all spectra, typically obtained from the `freq` property of the `mtmfft` output (`AnalogData` object).
     freq_range: 2-tuple
          optional definition of a frequency range of interest of the fooof result (post processing).
-    foof_opt : dict or None
+         Note: It is currently not possible for the user to set this from the frontend.
+    foopf_opt : dict or None
         Additional keyword arguments passed to the `FOOOF` constructor. Available
-        arguments include 'peak_width_limits', 'max_n_peaks', 'min_peak_height',
-        'peak_threshold', and 'aperiodic_mode'.
+        arguments include ``'peak_width_limits'``, ``'max_n_peaks'``, ``'min_peak_height'``,
+        ``'peak_threshold'``, and ``'aperiodic_mode'``.
         Please refer to the
         `FOOOF docs <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_
-        for the meanings.
+        for the meanings and the defaults.
     out_type : string
-        The requested output type, one of ``'fooof'``, 'fooof_aperiodic' or 'fooof_peaks'.
+        The requested output type, one of ``'fooof'``, ``'fooof_aperiodic'`` or ``'fooof_peaks'``.
 
     Returns
     -------
@@ -57,8 +57,14 @@ def spfooof(data_arr, in_freqs, freq_range=None,
     out_spectra: 2D :class:`numpy.ndarray`
         The fooofed spectrum (for out_type ``'fooof'``), the aperiodic part of the
         spectrum (for ``'fooof_aperiodic'``) or the peaks (for ``'fooof_peaks'``).
+        Each row corresponds to a row in the input `data_arr`, i.e., a channel.
     details : dictionary
-        Details on the model fit and settings used.
+        Details on the model fit and settings used. Contains the following keys:
+            `aperiodic_params` 2D :class:`numpy.ndarray`, the aperiodoc parameters of the fits
+            `n_peaks`: 1D :class:`numpy.ndarray` of int, the number of peaks detected in the spectra of the fits
+            `r_squared`: 1D :class:`numpy.ndarray` of int, the number of peaks detected in the spectra of the fits
+            `error`: 1D :class:`numpy.ndarray` of float, the model error of the fits
+            `settings_used`: dict, the settings used, including the keys `fooof_opt`, `out_type`, and `freq_range`.
 
     References
     -----
