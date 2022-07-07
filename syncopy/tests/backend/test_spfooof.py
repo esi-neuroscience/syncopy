@@ -32,6 +32,7 @@ class TestSpfooof():
         assert spectra.shape == (freqs.size, 1)
         assert details['settings_used']['out_type'] == 'fooof'
         assert all(key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
+        assert details['settings_used']['fooof_opt']['peak_threshold'] == 2.0  # Should be in and at default value.
         # TODO: plot result here
 
     def test_spfooof_output_fooof_several_channels(self, freqs=freqs, powers=powers):
@@ -46,6 +47,7 @@ class TestSpfooof():
         assert spectra.shape == (freqs.size, num_channels)
         assert details['settings_used']['out_type'] == 'fooof'
         assert all(key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
+        assert details['settings_used']['fooof_opt']['peak_threshold'] == 2.0  # Should be in and at default value.
 
     def test_spfooof_output_fooof_aperiodic(self, freqs=freqs, powers=powers):
         """
@@ -56,6 +58,7 @@ class TestSpfooof():
         assert spectra.shape == (freqs.size, 1)
         assert details['settings_used']['out_type'] == 'fooof_aperiodic'
         assert all(key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
+        assert details['settings_used']['fooof_opt']['peak_threshold'] == 2.0  # Should be in and at default value.
 
     def test_spfooof_output_fooof_peaks(self, freqs=freqs, powers=powers):
         """
@@ -66,6 +69,7 @@ class TestSpfooof():
         assert spectra.shape == (freqs.size, 1)
         assert details['settings_used']['out_type'] == 'fooof_peaks'
         assert all(key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
+        assert details['settings_used']['fooof_opt']['peak_threshold'] == 2.0  # Should be in and at default value.
 
     def test_spfooof_the_fooof_opt_settings_are_used(self, freqs=freqs, powers=powers):
         """

@@ -309,13 +309,13 @@ def freqanalysis(data, method='mtmfft', output='pow',
         if output_fooof not in fooof_output_types:
             lgl = "'" + "or '".join(opt + "' " for opt in fooof_output_types)
             raise SPYValueError(legal=lgl, varname="output_fooof", actual=output_fooof)
-    
+
     # Ensure a valid computational method was selected
     if method not in availableMethods:
         lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
         raise SPYValueError(legal=lgl, varname="method", actual=method)
 
-    # Ensure a valid output format was selected    
+    # Ensure a valid output format was selected
     valid_outputs = list(spectralConversions)
     if output not in valid_outputs:
         lgl = "'" + "or '".join(opt + "' " for opt in valid_outputs)
@@ -346,7 +346,6 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # check polyremoval
     if polyremoval is not None:
         scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])
-
 
     # --- Padding ---
 
@@ -450,7 +449,6 @@ def freqanalysis(data, method='mtmfft', output='pow',
             lgl = "array of equidistant time-points or 'all' for wavelet based methods"
             raise SPYValueError(legal=lgl, varname="toi", actual=toi)
 
-
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
         log_dct["toi"] = lcls["toi"]
@@ -540,7 +538,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
             polyremoval=polyremoval,
             output_fmt=output,
             method_kwargs=method_kwargs)
-        
+
     elif method == "mtmconvol":
 
         check_effective_parameters(MultiTaperFFTConvol, defaults, lcls)
@@ -728,7 +726,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         # automatic frequency selection
         if foi is None and foilim is None:
             scales = get_optimal_wavelet_scales(
-                wfun.scale_from_period, # all availableWavelets sport one!
+                wfun.scale_from_period,  # all availableWavelets sport one!
                 int(minTrialLength * data.samplerate),
                 dt)
             foi = 1 / wfun.fourier_period(scales)
@@ -751,9 +749,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
         # method specific parameters
         method_kwargs = {
-            'samplerate' : data.samplerate,
-            'scales' : scales,
-            'wavelet' : wfun
+            'samplerate': data.samplerate,
+            'scales': scales,
+            'wavelet': wfun
         }
 
         # Set up compute-class
@@ -827,12 +825,12 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
         # method specific parameters
         method_kwargs = {
-            'samplerate' : data.samplerate,
-            'scales' : scales,
-            'order_max' : order_max,
-            'order_min' : order_min,
-            'c_1' : c_1,
-            'adaptive' : adaptive
+            'samplerate': data.samplerate,
+            'scales': scales,
+            'order_max': order_max,
+            'order_min': order_min,
+            'c_1': c_1,
+            'adaptive': adaptive
         }
 
         # Set up compute-class
@@ -881,37 +879,37 @@ def freqanalysis(data, method='mtmfft', output='pow',
         fooof_out = SpectralData(dimord=SpectralData._defaultDimord)
         new_out = True
 
-        # method specific parameters        
-        fooof_kwargs = { # These are passed to the fooof.FOOOF() constructor.
-            'peak_width_limits' : (0.5, 12.0),
+        # method specific parameters
+        fooof_kwargs = {  # These are passed to the fooof.FOOOF() constructor.
+            'peak_width_limits': (0.5, 12.0),
             'max_n_peaks': np.inf,
             'min_peak_height': 0.0,
             'peak_threshold': 2.0,
-            'aperiodic_mode':'fixed',
+            'aperiodic_mode': 'fixed',
             'verbose': False
         }
 
-        fooof_kwargs = {**fooof_kwargs, **fooof_opt}  # Join the ones from fooof_opt into fooof_kwargs.        
+        fooof_kwargs = {**fooof_kwargs, **fooof_opt}  # Join the ones from fooof_opt into fooof_kwargs.
 
         # Settings used during the FOOOF analysis.
         fooof_settings = {
             'in_freqs': fooof_data.freq,
-            'freq_range': None  # or something like [2, 40] to limit frequency range. Currently not exposed to user.
+            'freq_range': None  # or something like [2, 40] to limit frequency range (post processing). Currently not exposed to user.
         }
 
         # Set up compute-class
         #  - the output_fmt must be one of 'fooof', 'fooof_aperiodic',
         #    or 'fooof_peaks'.
         #  - everything passed as method_kwargs is passed as arguments
-        #    to the foooof.FOOOF() constructor or functions, the other args are 
+        #    to the foooof.FOOOF() constructor or functions, the other args are
         #    used elsewhere.
-        fooofMethod = SpyFOOOF(output_fmt=output_fooof, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)        
+        fooofMethod = SpyFOOOF(output_fmt=output_fooof, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)
 
         # Perform actual computation
         fooofMethod.initialize(fooof_data,
-                             fooof_out._stackingDim,
-                             chan_per_worker=kwargs.get("chan_per_worker"),
-                             keeptrials=keeptrials)
+                               fooof_out._stackingDim,
+                               chan_per_worker=kwargs.get("chan_per_worker"),
+                               keeptrials=keeptrials)
         fooofMethod.compute(fooof_data, fooof_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
         out = fooof_out
 
