@@ -24,6 +24,9 @@ import syncopy as spy
 
 def load_tdt(data_path, out_path=None, memuse=3000):
 
+    io_parser(data_path, isfile=False)
+    if out_path is not None:
+        io_parser(out_path, isfile=False)
     # initialize tdt info loader class
     TDT_Load_Info = ESI_TDTinfo(data_path)
     # this is a StructDict
@@ -31,10 +34,9 @@ def load_tdt(data_path, out_path=None, memuse=3000):
 
     # nicely sorted by channel names
     file_paths = _get_source_paths(data_path, '.sev')
-    if out_path is None:
-        out_path = data_path
-    # set source directory name as Syncopy file name
-    out_name = tdt_info.info.blockname
+    # if an explicit out_path is given, set also output filename
+    out_name = tdt_info.info.blockname if out_path else None
+
     tdt_data_handler = ESI_TDTdata(data_path, out_path, out_name,
                                    subtract_median=False, channels=None, export=True)
     adata = tdt_data_handler.data_aranging(file_paths, tdt_info)
@@ -558,7 +560,13 @@ class ESI_TDTinfo():
 
 
 class ESI_TDTdata():
-    def __init__(self, inputdir, outputdir, combined_data_filename, subtract_median, channels = None,export = False):
+    def __init__(self, inputdir,
+                 outputdir=None,
+                 combined_data_filename=None,
+                 subtract_median=False,
+                 channels = None,
+                 export = False):
+
         self.inputdir = inputdir
         self.outputdir = outputdir
         self.export = export
@@ -590,77 +598,71 @@ class ESI_TDTdata():
         return hash.hexdigest()
 
     def data_aranging(self, Files, DataInfo_loaded):
-        hdf_out_path = os.path.join(self.outputdir, self.combined_data_filename + '.hdf5')
+        AData = spy.AnalogData()
+        if self.outputdir is not None:
+            hdf_out_path = os.path.join(self.outputdir,
+                                        self.combined_data_filename + '.hdf5')
+        else:
+            hdf_out_path = AData.filename
         with h5py.File(hdf_out_path, 'w') as combined_data_file:
             idxStartStop = [np.clip(np.array((jj, jj + self.chan_in_chunks)),
                                     a_min = None, a_max = len(Files))
                             for jj in range(0, len(Files), self.chan_in_chunks)]
             print("Merging {0} files in {1} chunks each with {2} channels into \n   {3}".format(
                 len(Files), len(idxStartStop), self.chan_in_chunks,
-                self.outputdir + self.combined_data_filename + '.hdf5'))
+                hdf_out_path))
             for (start, stop) in tqdm(iterable = idxStartStop, desc = "chunk", unit = "chunk"):
                 data = [self.read_data(Files[jj]) for jj in range(start, stop)]
                 data = np.vstack(data).T
                 if start == 0:
+                    # this is the actual dataset for the AnalogData
                     target = combined_data_file.create_dataset("data",
-                                                                shape = (data.shape[0], len(Files)),
-                                                                dtype = 'single')
-                    PDio_onset = combined_data_file.create_dataset("PDio_onset", shape = (DataInfo_loaded.PDio.onset.shape[0], 1))
-                    PDio_onset[:, 0] = DataInfo_loaded.PDio.onset
-                    PDio_offset = combined_data_file.create_dataset("PDio_offset", shape = (DataInfo_loaded.PDio.offset.shape[0], 1))
-                    PDio_offset[:, 0] = DataInfo_loaded.PDio.offset
-
-                    PDio_data = combined_data_file.create_dataset("PDio_data", shape = (DataInfo_loaded.PDio.data.shape[0], 1))
-                    PDio_data[:, 0] = DataInfo_loaded.PDio.data
-
-                    Trigger_timestamp = combined_data_file.create_dataset("Trigger_timestamp", shape = (DataInfo_loaded.Mark.ts.shape[0], 1))
-                    Trigger_timestamp[:, 0] = DataInfo_loaded.Mark.ts
-
-                    Trigger_timestamp_sample = combined_data_file.create_dataset("Trigger_timestamp_sample", shape = (DataInfo_loaded.Mark.ts.shape[0], 1))
-                    Trigger_timestamp_sample[:, 0] = np.round(DataInfo_loaded.Mark.ts * DataInfo_loaded.LFPs.fs)
-
-                    Trigger_code = combined_data_file.create_dataset("Trigger_code", shape = (DataInfo_loaded.Mark.data.shape[1], 1))
-                    Trigger_code[:, 0] = DataInfo_loaded.Mark.data[0]
-
+                                                               shape = (data.shape[0],
+                                                                        len(Files)),
+                                                               dtype = 'single')
                 if self.subtract_median:
                     data-= np.median(data, keepdims = True).astype(data.dtype)
                 target[:, start:stop] = data
+                
+            # link dataset to AnalogData instance
+            AData.data = target# [:, chanind]
+        
         chanlist = None if self.channels == 'all' else ['channel'+str(trch+1).zfill(3) for trch in self.channels]
-        chanind = np.arange(len(Files)) if self.channels == 'all' else self.channels
-        Data = spy.AnalogData(data = h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['data'][:,chanind], samplerate = DataInfo_loaded.LFPs.fs, channel = chanlist)
-        # write info file
-        Data.cfg["originalFiles"] = Files,
-        Data.cfg["samplingRate"] = DataInfo_loaded.LFPs.fs
-        Data.cfg["dtype"] = 'single'
-        Data.cfg["numberOfChannels"] = len(Files)
-        Data.cfg["mergedBy"] = getuser()
-        Data.cfg["mergeTime"] = str(datetime.now())
-        Data.cfg["md5sum"] = self.md5sum(self.outputdir + self.combined_data_filename + '.hdf5')
-        Data.cfg["channelMedianSubtracted"] = self.subtract_median
-        Data.cfg["filename"] = self.outputdir + self.combined_data_filename + '.hdf5'
-        Data.cfg["dataclass"] = "AnalogData"
-        Data.cfg["data_dtype"] = 'single'
-        Data.cfg["samplerate"] = DataInfo_loaded.LFPs.fs,
-        # Data.cfg["channel"] = ["channel{:03d}".format(iChannel)for iChannel in chanind],
-        Data.cfg["_version"] = spy.__version__,
-        Data.cfg["_log"] = "",
-        Data.cfg["tank_path"] = DataInfo_loaded.info.tankpath
-        Data.cfg["blockname"] = DataInfo_loaded.info.blockname
-        Data.cfg["start_date"] = str(DataInfo_loaded.info.start_date)
-        Data.cfg["utc_start_time"] = DataInfo_loaded.info.utc_start_time
-        Data.cfg["stop_date"] = str(DataInfo_loaded.info.stop_date)
-        Data.cfg["utc_stop_time"] = DataInfo_loaded.info.utc_stop_time
-        Data.cfg["duration"] = str(DataInfo_loaded.info.duration)
-        Data.cfg["PDio_onset"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['PDio_onset'][:,0])
-        Data.cfg["PDio_offset"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['PDio_offset'][:,0])
-        Data.cfg["PDio_data"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['PDio_data'][:,0])
-        Data.cfg["Trigger_timestamp"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['Trigger_timestamp'][:,0])
-        Data.cfg["Trigger_timestamp_sample"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['Trigger_timestamp_sample'][:,0])
-        Data.cfg["Trigger_code"] = np.array(h5py.File(os.path.join(self.outputdir, self.combined_data_filename + '.hdf5'), 'r')['Trigger_code'][:,0])
+        chanind = np.arange(len(Files)) if self.channels == 'all' else self.channels        
+        AData.samplerate = DataInfo_loaded.LFPs.fs
+        AData.channel = chanlist
 
-        if self.export:
-            Data.save(container = os.path.join(self.outputdir, self.combined_data_filename), overwrite = True)
-        return Data
+        # write info file
+        AData.cfg["originalFiles"] = Files,
+        AData.cfg["samplingRate"] = DataInfo_loaded.LFPs.fs
+        AData.cfg["dtype"] = 'single'
+        AData.cfg["numberOfChannels"] = len(Files)
+        AData.cfg["mergedBy"] = getuser()
+        AData.cfg["mergeTime"] = str(datetime.now())
+        AData.cfg["md5sum"] = self.md5sum(hdf_out_path)
+        AData.cfg["channelMedianSubtracted"] = self.subtract_median
+        AData.cfg["dataclass"] = "AnalogData"
+        AData.cfg["data_dtype"] = 'single'
+        AData.cfg["samplerate"] = DataInfo_loaded.LFPs.fs,
+        # AData.cfg["channel"] = ["channel{:03d}".format(iChannel)for iChannel in chanind],
+        AData.cfg["_version"] = spy.__version__,
+        AData.cfg["_log"] = "",
+        AData.cfg["tank_path"] = DataInfo_loaded.info.tankpath
+        AData.cfg["blockname"] = DataInfo_loaded.info.blockname
+        AData.cfg["start_date"] = str(DataInfo_loaded.info.start_date)
+        AData.cfg["utc_start_time"] = DataInfo_loaded.info.utc_start_time
+        AData.cfg["stop_date"] = str(DataInfo_loaded.info.stop_date)
+        AData.cfg["utc_stop_time"] = DataInfo_loaded.info.utc_stop_time
+        AData.cfg["duration"] = str(DataInfo_loaded.info.duration)
+        AData.cfg["PDio_onset"] = DataInfo_loaded.PDio.onset
+        AData.cfg["PDio_offset"] = DataInfo_loaded.PDio.offset
+        AData.cfg["PDio_data"] = DataInfo_loaded.PDio.data
+        AData.cfg["Trigger_timestamp"] = DataInfo_loaded.Mark.ts
+        AData.cfg["Trigger_timestamp_sample"] = np.round(
+            DataInfo_loaded.Mark.ts * DataInfo_loaded.LFPs.fs)
+        AData.cfg["Trigger_code"] = DataInfo_loaded.Mark.data[0]
+
+        return AData
 
 # --- Helpers ---
 
@@ -690,3 +692,9 @@ def _natural_sort(file_names):
     def convert(text): return int(text) if text.isdigit() else text.lower()
     def alphanum_key(key): return [convert(c) for c in re.split('([0-9]+)', key)]
     return sorted(file_names, key = alphanum_key)
+
+
+tdt_dir = '/cs/slurm/syncopy/Tdt_reader/session-25'
+
+# adata = load_tdt(tdt_dir, out_path='/cs/slurm/syncopy/Tdt_reader')
+adata = load_tdt(tdt_dir, out_path=None)

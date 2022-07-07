@@ -548,8 +548,9 @@ class Test_TDT_Importer:
 
     def test_read_tdt(self):
 
-        adata = load_tdt(self.tdt_dir)
+        adata = load_tdt(self.tdt_dir, outpath=None)
 
 
 if __name__ == '__main__':
+    FTRAW = Test_FT_Importer()
     TDT = Test_TDT_Importer()
