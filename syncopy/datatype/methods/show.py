@@ -7,7 +7,7 @@
 import numpy as np
 
 # Local imports
-from syncopy.shared.errors import SPYInfo, SPYTypeError
+from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError
 from syncopy.shared.kwarg_decorators import unwrap_cfg
 
 __all__ = ["show"]
@@ -109,6 +109,23 @@ def show(data, squeeze=True, **kwargs):
     if not isinstance(squeeze, bool):
         raise SPYTypeError(squeeze, varname="squeeze", expected="True or False")
 
+    # show only supports simple, ordered indexing
+    invalid = False
+    for sel_key in kwargs:
+        sel = kwargs[sel_key]
+        if isinstance(sel, slice):
+            if sel.start > sel.stop:
+                invalid = True
+        # sequence type
+        else:
+            if np.any(np.diff(sel) < 0) or len(set(sel)) != len(sel):
+                invalid = True
+        if invalid:
+            lgl = f"unique and sorted `{sel_key}` indices"
+            act = sel
+            raise SPYValueError(lgl, 'selection kwargs', act)
+
+
     # Leverage `selectdata` to sanitize input and perform subset picking
     data.selectdata(inplace=True, **kwargs)
 
@@ -127,8 +144,9 @@ def show(data, squeeze=True, **kwargs):
     # Use an object's `_preview_trial` method fetch required indexing tuples
     idxList = []
     for trlno in data.selection.trials:
-        idxList.append(data._preview_trial(trlno).idx)
-
+        # each dim has an entry
+        idxs = data._preview_trial(trlno).idx
+        idxList.append(idxs)
 
     # Reset in-place subset selection
     data.selection = None
