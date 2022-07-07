@@ -895,10 +895,15 @@ def freqanalysis(data, method='mtmfft', output='pow',
         new_out = True
 
         # method specific parameters
-        fooof_kwargs = default_fooof_opt
-        fooof_kwargs = {**fooof_kwargs, **fooof_opt}  # Join the ones from fooof_opt (the user) into fooof_kwargs.
+        if fooof_opt is None:
+            fooof_opt = default_fooof_opt
 
-        # Settings used during the FOOOF analysis.
+        # These go into the FOOOF constructor, so we keep them separate from the fooof_settings below.
+        fooof_kwargs = {**default_fooof_opt, **fooof_opt}  # Join the ones from fooof_opt (the user) into fooof_kwargs.
+
+        # Settings used during the FOOOF analysis (that are NOT passed to FOOOF constructor).
+        # The user cannot influence these: in_freqs is derived from mtmfft output, freq_range is always None (=full mtmfft output spectrum).
+        # We still define them here, and they are passed through to the backend and actually used there.
         fooof_settings = {
             'in_freqs': fooof_data.freq,
             'freq_range': None  # or something like [2, 40] to limit frequency range (post processing). Currently not exposed to user.

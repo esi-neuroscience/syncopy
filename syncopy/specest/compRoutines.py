@@ -893,6 +893,8 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
         Index of running time axis in `trl_dat` (0 or 1)
     output_fmt : str
         Output of FOOOF; one of :data:`~syncopy.specest.const_def.availableFOOOFOutputs`
+    fooof_settings: dict or None
+        Can contain keys `'in_freqs'` (the frequency axis for the data) and `'freq_range'` (post-processing range for fooofed spectrum).
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
@@ -901,7 +903,7 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
         If not `None`, represents shape of output `spec` (respecting provided
         values of `nTaper`, `keeptapers` etc.)
     method_kwargs : dict
-        Keyword arguments passed to :func:`~syncopy.specest.fooof.fooof`
+        Keyword arguments passed to :func:`~syncopy.specest.fooofspy.fooofspy`
         controlling the spectral estimation method
 
     Returns
@@ -944,7 +946,7 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
     res, _ = fooofspy(dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
                       fooof_opt=method_kwargs)
 
-    # TODO later: get the 'details' from the unused _ return
+    # TODO (later): get the 'details' from the unused _ return
     #  value and pass them on. This cannot be done right now due
     #  to lack of support for several return values, see #140
 
