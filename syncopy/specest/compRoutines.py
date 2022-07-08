@@ -193,8 +193,8 @@ class MultiTaperFFT(ComputationalRoutine):
         print(5 * 'A',self.outFileName.format(0))
         print(5 * 'A',self.outFileName.format(1))
         print(self.numCalls)
-        vsources = out.data.virtual_sources()
-        print([source.file_name for source in vsources])
+        #vsources = out.data.virtual_sources()
+        #print([source.file_name for source in vsources])
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:

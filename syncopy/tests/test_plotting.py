@@ -11,11 +11,9 @@ import matplotlib.pyplot as ppl
 
 # Local imports
 import syncopy as spy
-from syncopy import AnalogData
 import syncopy.tests.synth_data as synth_data
 import syncopy.tests.helpers as helpers
 from syncopy.shared.errors import SPYValueError
-from syncopy.shared.tools import get_defaults
 
 
 class TestAnalogPlotting():

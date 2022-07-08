@@ -6,13 +6,10 @@
 # Builtin/3rd party package imports
 import os
 import tempfile
-from attr import has
 import h5py
 import time
 import pytest
 import numpy as np
-from numpy.lib.format import open_memmap
-from memory_profiler import memory_usage
 
 # Local imports
 from syncopy.datatype import AnalogData
@@ -25,11 +22,11 @@ skip_in_vm = pytest.mark.skipif(is_win_vm(), reason="running in Win VM")
 skip_in_slurm = pytest.mark.skipif(is_slurm_node(), reason="running on cluster node")
 
 # Collect all supported binary arithmetic operators
-arithmetics = [lambda x, y : x + y,
-               lambda x, y : x - y,
-               lambda x, y : x * y,
-               lambda x, y : x / y,
-               lambda x, y : x ** y]
+arithmetics = [lambda x, y: x + y,
+               lambda x, y: x - y,
+               lambda x, y: x * y,
+               lambda x, y: x / y,
+               lambda x, y: x ** y]
 
 
 # Test BaseData methods that work identically for all regular classes
@@ -96,19 +93,7 @@ class TestBaseData():
                 assert dummy.mode == "r+", dummy.data.file.mode
                 del dummy
 
-                # allocation using memmap directly
-                np.save(fname, self.data[dclass])
-                mm = open_memmap(fname, mode="r")
-                dummy = getattr(spd, dclass)(data=mm)
-                assert np.array_equal(dummy.data, self.data[dclass])
-                assert dummy.mode == "r"
-
-                # attempt assigning data to read-only object
-                with pytest.raises(SPYValueError):
-                    dummy.data = self.data[dclass]
-
                 # allocation using array + filename
-                del dummy, mm
                 dummy = getattr(spd, dclass)(data=self.data[dclass], filename=fname)
                 assert dummy.filename == fname
                 assert np.array_equal(dummy.data, self.data[dclass])
@@ -136,11 +121,6 @@ class TestBaseData():
                 # attempt allocation with HDF5 dataset of closed file
                 with pytest.raises(SPYValueError):
                     getattr(spd, dclass)(data=dset)
-
-                # attempt allocation using memmap of wrong shape
-                np.save(fname, np.ones((self.nChannels,)))
-                with pytest.raises(SPYValueError):
-                    getattr(spd, dclass)(data=open_memmap(fname))
 
                 # ensure synthetic data allocation via list of arrays works
                 dummy = getattr(spd, dclass)(data=[self.data[dclass], self.data[dclass]])
@@ -181,29 +161,6 @@ class TestBaseData():
             assert np.array_equal(dummy._t0, self.trl[dclass][:, 2])
             assert np.array_equal(dummy.trialinfo.flatten(), self.trl[dclass][:, 3])
 
-    # Test ``clear`` with `AnalogData` only - method is independent from concrete data object
-    @skip_in_vm
-    def test_clear(self):
-        with tempfile.TemporaryDirectory() as tdir:
-            fname = os.path.join(tdir, "dummy.npy")
-            data = np.ones((5000, 1000))  # ca. 38.2 MB
-            np.save(fname, data)
-            del data
-            dmap = open_memmap(fname)
-
-            # test consistency and efficacy of clear method
-            dummy = AnalogData(dmap)
-            data = np.array(dummy.data)
-            dummy.clear()
-            assert np.array_equal(data, dummy.data)
-            mem = memory_usage()[0]
-            dummy.clear()
-            time.sleep(1)
-            assert np.abs(mem - memory_usage()[0]) > 30
-
-            # Delete all open references to file objects b4 closing tmp dir
-            del dmap, dummy
-
     # Test ``_gen_filename`` with `AnalogData` only - method is independent from concrete data object
     def test_filename(self):
         # ensure we're salting sufficiently to create at least `numf`
@@ -235,35 +192,10 @@ class TestBaseData():
         # test shallow + deep copies of memmaps + HDF5 files
         with tempfile.TemporaryDirectory() as tdir:
             for dclass in self.classes:
-                fname = os.path.join(tdir, "dummy.npy")
                 hname = os.path.join(tdir, "dummy.h5")
-                np.save(fname, self.data[dclass])
                 h5f = h5py.File(hname, mode="w")
                 h5f.create_dataset("dummy", data=self.data[dclass])
                 h5f.close()
-                mm = open_memmap(fname, mode="r")
-
-                # hash-matching of shallow-copied memmap
-                dummy = getattr(spd, dclass)(data=mm,
-                                             samplerate=self.samplerate)
-                dummy.trialdefinition = self.trl[dclass]
-                dummy2 = dummy.copy()
-                assert dummy.filename == dummy2.filename
-                assert hash(str(dummy.data)) == hash(str(dummy2.data))
-                assert hash(str(dummy.sampleinfo)) == hash(str(dummy2.sampleinfo))
-                assert hash(str(dummy._t0)) == hash(str(dummy2._t0))
-                assert hash(str(dummy.trialinfo)) == hash(str(dummy2.trialinfo))
-                assert hash(str(dummy.samplerate)) == hash(str(dummy2.samplerate))
-
-                # test integrity of deep-copy
-                dummy3 = dummy.copy(deep=True)
-                assert dummy3.filename != dummy.filename
-                assert np.array_equal(dummy.trialdefinition, dummy3.trialdefinition)
-                assert np.array_equal(dummy.data, dummy3.data)
-                assert np.array_equal(dummy._t0, dummy3._t0)
-                assert np.array_equal(dummy.trialinfo, dummy3.trialinfo)
-                assert np.array_equal(dummy.sampleinfo, dummy3.sampleinfo)
-                assert dummy.samplerate == dummy3.samplerate
 
                 # hash-matching of shallow-copied HDF5 dataset
                 dummy = getattr(spd, dclass)(data=h5py.File(hname)["dummy"],
@@ -287,7 +219,7 @@ class TestBaseData():
                 assert dummy.samplerate == dummy3.samplerate
 
                 # Delete all open references to file objects b4 closing tmp dir
-                del mm, dummy, dummy2, dummy3
+                del dummy, dummy2, dummy3
                 time.sleep(0.01)
 
                 # remove file for next round
