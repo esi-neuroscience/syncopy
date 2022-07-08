@@ -45,8 +45,9 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
         If `True` an existing HDF5 file and its accompanying JSON file is
         overwritten (without prompt).
     memuse : scalar
-        Approximate in-memory cache size (in MB) for writing data to disk
-        (only relevant for :class:`syncopy.VirtualData` or memory map data sources)
+        Approximate in-memory cache size (in MB) for writing data to disk.
+        Ignored.
+        .. deprecated::
 
     Returns
     -------

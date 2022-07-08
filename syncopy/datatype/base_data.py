@@ -532,11 +532,11 @@ class BaseData(ABC):
                 prop.flush()
                 prop.file.close()
 
-        # Re-attach memory maps/datasets
+        # Re-attach datasets
         for propertyName in self._hdfFileDatasetProperties:
             if prop is not None:
                 setattr(self, propertyName,
-                            h5py.File(self.filename, mode=md)[propertyName])
+                        h5py.File(self.filename, mode=md)[propertyName])
         self._mode = md
 
     @property

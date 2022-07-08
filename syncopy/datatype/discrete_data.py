@@ -325,9 +325,7 @@ class SpikeData(DiscreteData):
     stored as a two-dimensional [nSpikes x 3] array on disk with the columns
     being ``["sample", "channel", "unit"]``.
 
-    Data is only read from disk on demand, similar to memory maps and HDF5
-    files.
-
+    Data is only read from disk on demand, similar to HDF5 files.
     """
 
     _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
@@ -506,9 +504,7 @@ class EventData(DiscreteData):
     stimulus was turned on, etc. These usually occur at non-regular time points
     and have associated event codes.
 
-    Data is only read from disk on demand, similar to memory maps and HDF5
-    files.
-
+    Data is only read from disk on demand, similar to HDF5 files.
     """
 
     _defaultDimord = ["sample", "eventid"]

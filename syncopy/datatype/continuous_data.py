@@ -401,8 +401,7 @@ class AnalogData(ContinuousData):
     The data is always stored as a two-dimensional array on disk. On disk, Trials are
     concatenated along the time axis.
 
-    Data is only read from disk on demand, similar to memory maps and HDF5
-    files.
+    Data is only read from disk on demand, similar to HDF5 files.
     """
 
     _infoFileProperties = ContinuousData._infoFileProperties
