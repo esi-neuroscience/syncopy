@@ -12,10 +12,15 @@ from fooof.sim.utils import set_random_seed
 from syncopy.shared.errors import SPYValueError
 
 
-def _power_spectrum():
+def _power_spectrum(freq_range=[3, 40], freq_res=0.5, periodic_params=[[10, 0.2, 1.25], [30, 0.15, 2]], aperiodic_params=[1, 1]):
+    """
+     aperiodic_params = [1, 1]  # use len 2 for fixed, 3 for knee. order is: offset, (knee), exponent.
+     periodic_params = [[10, 0.2, 1.25], [30, 0.15, 2]] # the Gaussians: Mean (Center Frequency), height (Power), and standard deviation (Bandwidth).
+    """
     set_random_seed(21)
-    freqs, powers = gen_power_spectrum([3, 40], [1, 1],
-                                       [[10, 0.2, 1.25], [30, 0.15, 2]])
+    noise_level = 0.005
+    freqs, powers = gen_power_spectrum(freq_range, aperiodic_params,
+                                       periodic_params, nlv=noise_level, freq_res=freq_res)
     return(freqs, powers)
 
 

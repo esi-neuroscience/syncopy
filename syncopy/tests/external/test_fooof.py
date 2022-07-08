@@ -5,21 +5,16 @@
 import numpy as np
 
 from fooof import FOOOF
-from fooof.sim.gen import gen_power_spectrum
-from fooof.sim.utils import set_random_seed
-
-
 from syncopy.tests.backend.test_fooofspy import _power_spectrum
 
 class TestFooof():
 
     freqs, powers = _power_spectrum()
-    default_fooof_opt = {'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf,
-                     'min_peak_height': 0.0, 'peak_threshold': 2.0,
-                     'aperiodic_mode': 'fixed', 'verbose': True}
+    fooof_opt = {'peak_width_limits': (0.7, 12.0), 'max_n_peaks': np.inf,
+                         'min_peak_height': 0.0, 'peak_threshold': 2.0,
+                         'aperiodic_mode': 'fixed', 'verbose': True}
 
-
-    def test_spfooof_output_fooof_single_channel(self, freqs=freqs, powers=powers, fooof_opt=default_fooof_opt):
+    def test_fooof_output_len_equals_in_length(self, freqs=freqs, powers=powers, fooof_opt=fooof_opt):
         """
         Tests FOOOF.fit() to check when output length is not equal to input freq length, which we observe for some example data.
         """
@@ -27,5 +22,15 @@ class TestFooof():
         fm = FOOOF(**fooof_opt)
         fm.fit(freqs, powers)
         assert fm.fooofed_spectrum_.size == freqs.size
+
+    def test_fooof_freq_res(self, fooof_opt=fooof_opt):
+        """
+        Check whether the issue is related to frequency resolution
+        """
+        self.test_fooof_output_len_equals_in_length(*_power_spectrum(freq_range=[3, 40], freq_res=0.6))
+        self.test_fooof_output_len_equals_in_length(*_power_spectrum(freq_range=[3, 40], freq_res=0.62))
+        self.test_fooof_output_len_equals_in_length(*_power_spectrum(freq_range=[3, 40], freq_res=0.7))
+        self.test_fooof_output_len_equals_in_length(*_power_spectrum(freq_range=[3, 40], freq_res=0.75))
+        self.test_fooof_output_len_equals_in_length(*_power_spectrum(freq_range=[3, 40], freq_res=0.2))
 
 
