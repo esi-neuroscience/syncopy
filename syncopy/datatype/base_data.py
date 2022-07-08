@@ -19,7 +19,6 @@ from functools import reduce
 from inspect import signature
 import shutil
 import numpy as np
-from numpy.lib.format import open_memmap, read_magic
 import h5py
 import scipy as sp
 
@@ -138,7 +137,6 @@ class BaseData(ABC):
         except Exception as exc:
             raise exc
 
-
     def _set_dataset_property(self, dataIn, propertyName, ndim=None):
         """Set property that is streamed from HDF dataset ('dataset property')
 
@@ -147,7 +145,7 @@ class BaseData(ABC):
 
         Parameters
         ----------
-            dataIn : str, np.ndarray, np.core.memmap or h5py.Dataset
+            dataIn : str, np.ndarray, or h5py.Dataset
                 Filename, array or HDF5 dataset to be stored in property
             propertyName : str
                 Name of the property. The actual data must reside in the attribute
@@ -162,17 +160,16 @@ class BaseData(ABC):
             ndim = len(self._defaultDimord)
 
         supportedSetters = {
-            list : self._set_dataset_property_with_list,
-            str : self._set_dataset_property_with_str,
-            np.ndarray : self._set_dataset_property_with_ndarray,
-            np.core.memmap : self._set_dataset_property_with_memmap,
-            h5py.Dataset : self._set_dataset_property_with_dataset,
+            list: self._set_dataset_property_with_list,
+            str: self._set_dataset_property_with_str,
+            np.ndarray: self._set_dataset_property_with_ndarray,
+            h5py.Dataset: self._set_dataset_property_with_dataset,
             type(None): self._set_dataset_property_with_none
         }
         try:
             supportedSetters[type(dataIn)](dataIn, propertyName, ndim=ndim)
         except KeyError:
-            msg = "filename of HDF5 or NPY file, HDF5 dataset, or NumPy array"
+            msg = "filename of HDF5 file, HDF5 dataset, or NumPy array"
             raise SPYTypeError(dataIn, varname="data", expected=msg)
         except Exception as exc:
             raise exc
@@ -188,9 +185,9 @@ class BaseData(ABC):
         ----------
             filename : str
                 A filename pointing to a HDF5 file containing the dataset
-                `propertyName` or a NPY file. NPY files are loaded as memmaps.
+                `propertyName`.
             propertyName : str
-                Name of the property to be filled with the dataset/memmap
+                Name of the property to be filled with the dataset
             ndim : int
                 Number of expected array dimensions.
         """
@@ -204,35 +201,26 @@ class BaseData(ABC):
         if md == "w":
             md = "r+"
 
-        isNpy = False
         isHdf = False
-        try:
-            with open(filename, "rb") as fd:
-                read_magic(fd)
-            isNpy = True
-        except ValueError as exc:
-            err = "NumPy memorymap: " + str(exc)
         try:
             h5f = h5py.File(filename, mode=md)
             isHdf = True
         except OSError as exc:
             err = "HDF5: " + str(exc)
-        if not isNpy and not isHdf:
-            raise SPYValueError("accessible HDF5 file or memory-mapped npy-file",
+        if not isHdf:
+            raise SPYValueError("accessible HDF5 file",
                                 actual=err, varname="data")
 
-        if isHdf:
-            h5keys = list(h5f.keys())
-            if propertyName not in h5keys and len(h5keys) != 1:
-                lgl = "HDF5 file with only one 'data' dataset or single dataset of arbitrary name"
-                act = "HDF5 file holding {} data-objects"
-                raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname=propertyName)
-            if len(h5keys) == 1:
-                setattr(self, propertyName, h5f[h5keys[0]])
-            else:
-                setattr(self, propertyName, h5f[propertyName])
-        if isNpy:
-            setattr(self, propertyName, open_memmap(filename, mode=md))
+        h5keys = list(h5f.keys())
+        if propertyName not in h5keys and len(h5keys) != 1:
+            lgl = "HDF5 file with only one 'data' dataset or single dataset of arbitrary name"
+            act = "HDF5 file holding {} data-objects"
+            raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname=propertyName)
+        if len(h5keys) == 1:
+            setattr(self, propertyName, h5f[h5keys[0]])
+        else:
+            setattr(self, propertyName, h5f[propertyName])
+
         self.filename = filename
 
     def _set_dataset_property_with_ndarray(self, inData, propertyName, ndim):
@@ -260,18 +248,18 @@ class BaseData(ABC):
         self._check_dataset_property_discretedata(inData)
 
         # If there is existing data, replace values if shape and type match
-        if isinstance(getattr(self, "_" + propertyName), (np.memmap, h5py.Dataset)):
+        if isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
             prop = getattr(self, "_" + propertyName)
             if self.mode == "r":
-                lgl = "HDF5 dataset/memmap with write or copy-on-write access"
+                lgl = "HDF5 dataset with write or copy-on-write access"
                 act = "read-only file"
                 raise SPYValueError(legal=lgl, varname="mode", actual=act)
             if prop.shape != inData.shape:
-                lgl = "HDF5 dataset/memmap with shape {}".format(str(self.data.shape))
+                lgl = "HDF5 dataset with shape {}".format(str(self.data.shape))
                 act = "data with shape {}".format(str(inData.shape))
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             if prop.dtype != inData.dtype:
-                lgl = "HDF5 dataset/memmap of type {}".format(self.data.dtype.name)
+                lgl = "HDF5 dataset of type {}".format(self.data.dtype.name)
                 act = "data of type {}".format(inData.dtype.name)
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             prop[...] = inData
@@ -286,32 +274,6 @@ class BaseData(ABC):
             if md == "w":
                 md = "r+"
             setattr(self, "_" + propertyName, h5py.File(self.filename, md)[propertyName])
-
-    def _set_dataset_property_with_memmap(self, inData, propertyName, ndim):
-        """Set a dataset property with a memory map
-
-        The memory map is directly stored in the attribute. No backing HDF5
-        dataset is created. This feature may be removed in future versions.
-
-        Parameters
-        ----------
-            inData : numpy.memmap
-                NumPy memory-map to be stored in property of name `propertyName`
-            propertyName : str
-                Name of the property to be filled with the memory map.
-            ndim : int
-                Number of expected array dimensions.
-        """
-
-        if inData.ndim != ndim:
-            lgl = "{}-dimensional data".format(ndim)
-            act = "{}-dimensional memmap".format(inData.ndim)
-            raise SPYValueError(legal=lgl, varname=propertyName, actual=act)
-        self._check_dataset_property_discretedata(inData)
-
-        self.mode = inData.mode
-        self.filename = inData.filename
-        setattr(self, "_" + propertyName, inData)
 
     def _set_dataset_property_with_dataset(self, inData, propertyName, ndim):
         """Set a dataset property with an already loaded HDF5 dataset
@@ -334,7 +296,7 @@ class BaseData(ABC):
         # Ensure dataset has right no. of dimensions
         if inData.ndim != ndim:
             lgl = "{}-dimensional data".format(ndim)
-            act = "{}-dimensional HDF5 dataset or memmap".format(inData.ndim)
+            act = "{}-dimensional HDF5 dataset".format(inData.ndim)
             raise SPYValueError(legal=lgl, varname="data", actual=act)
 
         # Gymnastics for `DiscreteData` objects w/non-standard `dimord`s
@@ -429,7 +391,7 @@ class BaseData(ABC):
 
         Parameters
         ----------
-            inData : array/memmap/h5py.Dataset
+            inData : array/h5py.Dataset
                 array-like to be stored as a `DiscreteData` data source
         """
 
@@ -568,22 +530,13 @@ class BaseData(ABC):
             # flush data to disk and from memory
             if prop is not None:
                 prop.flush()
-                if isinstance(prop, np.memmap):
-                    setattr(self, propertyName, None)
-                else:
-                    prop.file.close()
-
+                prop.file.close()
 
         # Re-attach memory maps/datasets
         for propertyName in self._hdfFileDatasetProperties:
             if prop is not None:
-                if isinstance(prop, np.memmap):
-                    setattr(self, propertyName,
-                            open_memmap(self.filename, mode=md))
-                else:
-                    setattr(self, propertyName,
+                setattr(self, propertyName,
                             h5py.File(self.filename, mode=md)[propertyName])
-
         self._mode = md
 
     @property
@@ -667,18 +620,12 @@ class BaseData(ABC):
     def clear(self):
         """Clear loaded data from memory
 
-        Calls `flush` method of HDF5 dataset or memory map. Memory maps are
-        deleted and re-instantiated.
-
+        Calls `flush` method of HDF5 dataset.
         """
         for propName in self._hdfFileDatasetProperties:
             dsetProp = getattr(self, propName)
             if dsetProp is not None:
                 dsetProp.flush()
-                if isinstance(dsetProp, np.memmap):
-                    filename, mode = dsetProp.filename, dsetProp.mode
-                    setattr(self, propName, None)
-                    setattr(self, propName, open_memmap(filename, mode=mode))
         return
 
     # Return a (deep) copy of the current class instance
@@ -713,9 +660,6 @@ class BaseData(ABC):
                     sourceName = getattr(self, propertyName).name
                     setattr(cpy, propertyName,
                             h5py.File(filename, mode=cpy.mode)[sourceName])
-                elif isinstance(prop, np.memmap):
-                    setattr(cpy, propertyName,
-                            open_memmap(filename, mode=cpy.mode))
                 else:
                     setattr(cpy, propertyName, prop)
                     cpy.filename = filename
