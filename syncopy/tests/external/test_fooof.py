@@ -33,4 +33,12 @@ class TestFooof():
         self.test_fooof_output_len_equals_in_length(*_power_spectrum(freq_range=[3, 40], freq_res=0.75))
         self.test_fooof_output_len_equals_in_length(*_power_spectrum(freq_range=[3, 40], freq_res=0.2))
 
+    def test_show_that_the_problem_occurs_if_frequency_zero_is_included_in_data(self, fooof_opt=fooof_opt):
+        freqs, powers = _power_spectrum(freq_range=[0, 40], freq_res=0.5)
+        assert freqs.size == powers.size
+        fm = FOOOF(**fooof_opt)
+        fm.fit(freqs, powers)
+        assert fm.fooofed_spectrum_.size == freqs.size - 1  # One is missing!
+
+
 
