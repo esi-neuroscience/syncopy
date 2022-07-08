@@ -304,8 +304,6 @@ def _load(filename, checksum, mode, out):
 
     # Write `cfg` entries
     thisMethod = sys._getframe().f_code.co_name.replace("_", "")
-    out.cfg = {"method": thisMethod,
-               "files": [hdfFile, jsonFile]}
 
     # Write log-entry
     msg = "Read files v. {ver:s} ".format(ver=jsonDict["_version"])

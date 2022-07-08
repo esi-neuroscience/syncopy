@@ -124,9 +124,10 @@ class BaseData(ABC):
 
     @cfg.setter
     def cfg(self, dct):
+        """ For loading only, for processing the CR extends the existing (empty) cfg dictionary """
         if not isinstance(dct, dict):
             raise SPYTypeError(dct, varname="cfg", expected="dictionary-like object")
-        self._cfg = self._set_cfg(self._cfg, dct)
+        self._cfg = dct
 
     @property
     def container(self):
@@ -509,6 +510,7 @@ class BaseData(ABC):
 
     @log.setter
     def log(self, msg):
+        """ This appends the assigned msg to the existing log """
         if not isinstance(msg, str):
             raise SPYTypeError(msg, varname="log", expected="str")
         prefix = "\n\n|=== {user:s}@{host:s}: {time:s} ===|\n\n\t{caller:s}"
@@ -802,19 +804,6 @@ class BaseData(ABC):
     # Helper function converting object class-name to usable file extension
     def _classname_to_extension(self):
         return "." + self.__class__.__name__.split('Data')[0].lower()
-
-    # Helper function that digs into cfg dictionaries
-    def _set_cfg(self, cfg, dct):
-        dct = StructDict(dct)
-        if not cfg:
-            cfg = dct
-        else:
-            if "cfg" in cfg.keys():
-                self._set_cfg(cfg["cfg"], dct)
-            else:
-                cfg["cfg"] = dct
-                return cfg
-        return cfg
 
     # Legacy support
     def __repr__(self):
