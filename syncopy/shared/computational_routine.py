@@ -138,9 +138,6 @@ class ComputationalRoutine(ABC):
         # numerical type of output dataset
         self.dtype = None
 
-        # list of dicts encoding header info of raw binary input files (experimental!)
-        self.hdr = None
-
         # list of trial numbers to process (either `data.trials` or `data.selection.trials`)
         self.trialList = None
 
@@ -607,8 +604,7 @@ class ComputationalRoutine(ABC):
 
             # Construct list of dicts that will be passed on to workers: in the
             # parallel case, `trl_dat` is a dictionary!
-            workerDicts = [{"hdr": self.hdr,
-                            "keeptrials": self.keeptrials,
+            workerDicts = [{"keeptrials": self.keeptrials,
                             "infile": data.filename,
                             "indset": data.data.name,
                             "ingrid": self.sourceLayout[chk],
@@ -719,9 +715,6 @@ class ComputationalRoutine(ABC):
         # Ensure `data` is openend read-only to permit (potentially concurrent)
         # reading access to backing device on disk
         data.mode = "r"
-
-        # Take care of `VirtualData` objects
-        self.hdr = getattr(data, "hdr", None)
 
         # Perform actual computation
         computeMethod(data, out)
