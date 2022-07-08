@@ -81,7 +81,6 @@ class BaseData(ABC):
     show = show
 
     # Initialize hidden attributes used by all children
-    _cfg = {}
     _filename = None
     _trialdefinition = None
     _dimord = None
@@ -948,7 +947,6 @@ class BaseData(ABC):
         # If we made it this far, `self` and `other` really seem to be identical
         return True
 
-
     # Class "constructor"
     def __init__(self, filename=None, dimord=None, mode="r+", **kwargs):
         """
@@ -958,6 +956,9 @@ class BaseData(ABC):
         2. data only
 
         """
+
+        # each instance needs its own cfg!
+        self._cfg = {}
 
         # Initialize hidden attributes
         for propertyName in self._hdfFileDatasetProperties:
