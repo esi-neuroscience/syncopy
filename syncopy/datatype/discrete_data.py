@@ -475,8 +475,7 @@ class SpikeData(DiscreteData):
                 ordered list of dimension labels
 
         1. `filename` + `data` : create hdf dataset incl. sampleinfo @filename
-        2. `filename` no `data` : read from file or memmap (spy, hdf5, npy file
-           array -> memmap)
+        2. `filename` no `data` : read from file (spy, hdf5 file)
         3. just `data` : try to attach data (error checking done by
            :meth:`SpikeData.data.setter`)
 
@@ -594,8 +593,7 @@ class EventData(DiscreteData):
                 ordered list of dimension labels
 
         1. `filename` + `data` : create hdf dataset incl. sampleinfo @filename
-        2. `filename` no `data` : read from file or memmap (spy, hdf5, npy file
-           array -> memmap)
+        2. `filename` no `data` : read from file(spy, hdf5)
         3. just `data` : try to attach data (error checking done by
            :meth:`EventData.data.setter`)
 

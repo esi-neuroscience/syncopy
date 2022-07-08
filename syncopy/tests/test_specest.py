@@ -4,16 +4,12 @@
 #
 
 # Builtin/3rd party package imports
-import os
-import tempfile
 import inspect
 import random
 import psutil
-import gc
 import pytest
 import numpy as np
 import scipy.signal as scisig
-from numpy.lib.format import open_memmap
 from syncopy import __acme__
 if __acme__:
     import dask.distributed as dd
@@ -22,7 +18,7 @@ if __acme__:
 from syncopy.tests.misc import generate_artificial_data, flush_local_cluster
 from syncopy import freqanalysis
 from syncopy.shared.errors import SPYValueError
-from syncopy.datatype.base_data import VirtualData, Selector
+from syncopy.datatype.base_data import Selector
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.shared.tools import StructDict, get_defaults
 
@@ -368,25 +364,6 @@ class TestMTMFFT():
             assert spec.freq.size == freqs.size
             assert np.max(spec.freq - freqs) < self.ftol
             assert spec.taper.size == 1
-
-
-    @pytest.mark.skip(reason="VirtualData is currently not supported")
-    def test_vdata(self):
-        # test constant padding w/`VirtualData` objects (trials have identical lengths)
-        with tempfile.TemporaryDirectory() as tdir:
-            npad = 10
-            fname = os.path.join(tdir, "dummy.npy")
-            np.save(fname, self.sig)
-            dmap = open_memmap(fname, mode="r")
-            vdata = VirtualData([dmap, dmap])
-            avdata = AnalogData(vdata, samplerate=self.fs,
-                                trialdefinition=self.trialdefinition)
-            spec = freqanalysis(avdata, method="mtmfft",
-                                tapsmofrq=3, keeptapers=False, output="abs", pad="relative",
-                                padlength=npad)
-            assert (np.diff(avdata.sampleinfo)[0][0] + npad) / 2 + 1 == spec.freq.size
-            del avdata, vdata, dmap, spec
-            gc.collect()  # force-garbage-collect object so that tempdir can be closed
 
     @skip_without_acme
     @skip_low_mem
