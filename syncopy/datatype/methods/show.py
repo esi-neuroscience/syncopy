@@ -160,18 +160,20 @@ def show(data, squeeze=True, **kwargs):
         transform_out = lambda x: x
     SPYInfo("Showing{}".format(msg))
 
+    # catch totally out of range toi selection
+    has_time = True if 'time' in data.dimord else False
+
     # Use an object's `_preview_trial` method fetch required indexing tuples
     idxList = []
     for trlno in data.selection.trials:
         # each dim has an entry
         idxs = data._preview_trial(trlno).idx
-        # catch totally out of range toi selection
-        # (toilim is fine - returns empty arrays)
-        # that's a special case, all other dims get checked
-        # beforehand, e.g. foi, channel, ...
-        # but out of range toi's get mapped
-        # repeatedly to the last index
-        for idx in idxs:
+
+        # time/toi is a special case, all other dims get checked
+        # beforehand, e.g. foi, channel, ... but out of range toi's get mapped
+        # repeatedly to the last index, causing invalid hdf5 indexing
+        if has_time:
+            idx = idxs[data.dimord.index('time')]
             if not isinstance(idx, slice) and (
                     len(idx) != len(set(idx))):
                 lgl = "valid `toi` selection"
