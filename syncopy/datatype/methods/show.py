@@ -109,16 +109,36 @@ def show(data, squeeze=True, **kwargs):
     if not isinstance(squeeze, bool):
         raise SPYTypeError(squeeze, varname="squeeze", expected="True or False")
 
-    # show only supports simple, ordered indexing
+    # show (hdf5 indexing that is) only supports simple, ordered indexing
+    # we have to painstakingly check for this
     invalid = False
     for sel_key in kwargs:
         sel = kwargs[sel_key]
-        if isinstance(sel, slice):
-            if sel.start > sel.stop:
-                invalid = True
         # sequence type
-        elif np.array(sel).size != 1:
-            if np.any(np.diff(sel) < 0) or len(set(sel)) != len(sel):
+        if np.array(sel).size != 1:
+            # some selections can be strings
+            # with no clear way of sorting ('chanY', 'chanX')
+            if isinstance(sel[0], str):
+                # temporary selection to extract numerical indices
+                sel_kw = {sel_key: sel}
+                data.selectdata(inplace=True, **sel_kw)
+                # extract only channel indexing (index of an index :/)
+                ch_idx2 = data.dimord.index(sel_key)
+                # this is now numeric!
+                ch_idx = data._preview_trial(0).idx[ch_idx2]
+                data.selection = None
+                # consecutive, ordered selections are suddenly a slice :/
+                # so all fine here actually
+                if isinstance(ch_idx, slice):
+                    continue
+                if np.any(np.diff(ch_idx) < 0) or len(set(ch_idx)) != len(sel):
+                    invalid = True
+            # numeric selection, e.g. [0,4,2]
+            else:
+                if np.any(np.diff(sel) < 0) or len(set(sel)) != len(sel):
+                    invalid = True
+        elif isinstance(sel, slice):
+            if sel.start > sel.stop:
                 invalid = True
         if invalid:
             lgl = f"unique and sorted `{sel_key}` indices"
@@ -149,6 +169,8 @@ def show(data, squeeze=True, **kwargs):
         # (toilim is fine - returns empty arrays)
         # that's a special case, all other dims get checked
         # beforehand, e.g. foi, channel, ...
+        # but out of range toi's get mapped
+        # repeatedly to the last index
         for idx in idxs:
             if not isinstance(idx, slice) and (
                     len(idx) != len(set(idx))):
