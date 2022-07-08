@@ -17,7 +17,6 @@ from memory_profiler import memory_usage
 # Local imports
 from syncopy.datatype import AnalogData
 import syncopy.datatype as spd
-from syncopy.datatype.base_data import VirtualData
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYError
 from syncopy.tests.misc import is_win_vm, is_slurm_node
 
@@ -31,111 +30,6 @@ arithmetics = [lambda x, y : x + y,
                lambda x, y : x * y,
                lambda x, y : x / y,
                lambda x, y : x ** y]
-
-
-class TestVirtualData():
-
-    # Allocate test-dataset
-    nChannels = 5
-    nSamples = 30
-    data = np.arange(1, nChannels * nSamples + 1).reshape(nSamples, nChannels)
-
-    def test_alloc(self):
-        with tempfile.TemporaryDirectory() as tdir:
-            fname = os.path.join(tdir, "vdat")
-            np.save(fname, self.data)
-            dmap = open_memmap(fname + ".npy")
-
-            # illegal type
-            with pytest.raises(SPYTypeError):
-                VirtualData({})
-
-            # 2darray expected
-            d3 = np.ones((2, 3, 4))
-            np.save(fname + "3", d3)
-            d3map = open_memmap(fname + "3.npy")
-            with pytest.raises(SPYValueError):
-                VirtualData([d3map])
-
-            # rows/cols don't match up
-            with pytest.raises(SPYValueError):
-                VirtualData([dmap, dmap.T])
-
-            # check consistency of VirtualData object
-            for vk in range(2, 6):
-                vdata = VirtualData([dmap] * vk)
-                assert vdata.dtype == dmap.dtype
-                assert vdata.M == dmap.shape[0]
-                assert vdata.N == vk * dmap.shape[1]
-
-            # Delete all open references to file objects b4 closing tmp dir
-            del dmap, vdata, d3map
-
-    def test_retrieval(self):
-        with tempfile.TemporaryDirectory() as tdir:
-            fname = os.path.join(tdir, "vdat.npy")
-            fname2 = os.path.join(tdir, "vdat2.npy")
-            np.save(fname, self.data)
-            np.save(fname2, self.data * 2)
-            dmap = open_memmap(fname)
-            dmap2 = open_memmap(fname2)
-
-            # ensure stacking is performed correctly
-            vdata = VirtualData([dmap, dmap2])
-            assert np.array_equal(vdata[:, :self.nChannels], self.data)
-            assert np.array_equal(vdata[:, self.nChannels:], 2 * self.data)
-            assert np.array_equal(vdata[:, 0].flatten(), self.data[:, 0].flatten())
-            assert np.array_equal(vdata[:, self.nChannels].flatten(), 2 * self.data[:, 0].flatten())
-            assert np.array_equal(vdata[0, :].flatten(),
-                                  np.hstack([self.data[0, :], 2 * self.data[0, :]]))
-            vdata = VirtualData([dmap, dmap2, dmap])
-            assert np.array_equal(vdata[:, :self.nChannels], self.data)
-            assert np.array_equal(vdata[:, self.nChannels:2 * self.nChannels], 2 * self.data)
-            assert np.array_equal(vdata[:, 2 * self.nChannels:], self.data)
-            assert np.array_equal(vdata[:, 0].flatten(), self.data[:, 0].flatten())
-            assert np.array_equal(vdata[:, self.nChannels].flatten(),
-                                  2 * self.data[:, 0].flatten())
-            assert np.array_equal(vdata[0, :].flatten(),
-                                  np.hstack([self.data[0, :], 2 * self.data[0, :], self.data[0, :]]))
-
-            # illegal indexing type
-            with pytest.raises(SPYTypeError):
-                vdata[{}, :]
-
-            # queried indices out of bounds
-            with pytest.raises(SPYValueError):
-                vdata[:, self.nChannels * 3]
-            with pytest.raises(SPYValueError):
-                vdata[self.nSamples * 2, 0]
-
-            # Delete all open references to file objects b4 closing tmp dir
-            del dmap, dmap2, vdata
-
-    @skip_in_vm
-    @skip_in_slurm
-    def test_memory(self):
-        with tempfile.TemporaryDirectory() as tdir:
-            fname = os.path.join(tdir, "vdat.npy")
-            data = np.ones((1000, 5000))  # ca. 38.2 MB
-            np.save(fname, data)
-            del data
-            dmap = open_memmap(fname)
-
-            # allocation of VirtualData object must not consume memory
-            mem = memory_usage()[0]
-            vdata = VirtualData([dmap, dmap, dmap])
-            assert np.abs(mem - memory_usage()[0]) < 1
-
-            # test consistency and efficacy of clear method
-            vd = vdata[:, :]
-            vdata.clear()
-            assert np.array_equal(vd, vdata[:, :])
-            mem = memory_usage()[0]
-            vdata.clear()
-            assert (mem - memory_usage()[0]) > 100
-
-            # Delete all open references to file objects b4 closing tmp dir
-            del dmap, vdata
 
 
 # Test BaseData methods that work identically for all regular classes
@@ -170,7 +64,7 @@ class TestBaseData():
     seed = np.random.RandomState(13)
     data["SpikeData"] = np.vstack([seed.choice(nSamples, size=nSpikes),
                                    seed.choice(nChannels, size=nSpikes),
-                                   seed.choice(int(nChannels/2), size=nSpikes)]).T
+                                   seed.choice(int(nChannels / 2), size=nSpikes)]).T
     trl["SpikeData"] = trl["AnalogData"]
 
     # Use a simple binary trigger pattern to simulate EventData
@@ -273,7 +167,6 @@ class TestBaseData():
                 # shape mismatch
                 with pytest.raises(SPYValueError):
                     getattr(spd, dclass)(data=[self.data[dclass], self.data[dclass].T])
-
 
             time.sleep(0.01)
             del dummy
@@ -427,7 +320,7 @@ class TestBaseData():
                                              samplerate=self.samplerate)
             other.trialdefinition = self.trl[dclass]
             complexArr = np.complex64(dummy.trials[0])
-            complexNum = 3+4j
+            complexNum = 3 + 4j
 
             # Start w/the one operator that does not handle zeros well...
             with pytest.raises(SPYValueError) as spyval:

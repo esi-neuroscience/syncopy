@@ -369,7 +369,6 @@ class TestMTMFFT():
     @skip_low_mem
     def test_parallel(self, testcluster):
         # collect all tests of current class and repeat them using dask
-        # (skip VirtualData tests since ``wrapper_io`` expects valid headers)
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()
                      if (inspect.ismethod(getattr(self, attr)) and attr not in ["test_parallel", "test_cut_selections"])]
@@ -386,13 +385,13 @@ class TestMTMFFT():
 
         # no. of HDF5 files that will make up virtual data-set in case of channel-chunking
         chanPerWrkr = 7
-        nFiles = self.nTrials * (int(self.nChannels/chanPerWrkr)
+        nFiles = self.nTrials * (int(self.nChannels / chanPerWrkr)
                                  + int(self.nChannels % chanPerWrkr > 0))
 
         # simplest case: equidistant trial spacing, all in memory
         fileCount = [self.nTrials, nFiles]
         artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                          inmemory=True)
+                                           inmemory=True)
         for k, chan_per_worker in enumerate([None, chanPerWrkr]):
             cfg.chan_per_worker = chan_per_worker
             spec = freqanalysis(artdata, cfg)
@@ -417,7 +416,7 @@ class TestMTMFFT():
         cfg.output = "abs"
         cfg.keeptapers = True
         artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                          inmemory=False)
+                                           inmemory=False)
         for k, chan_per_worker in enumerate([None, chanPerWrkr]):
             spec = freqanalysis(artdata, cfg)
             assert spec.taper.size > 1
@@ -427,8 +426,8 @@ class TestMTMFFT():
         cfg.keeptrials = "no"
         cfg.output = "pow"
         artdata = generate_artificial_data(nTrials=self.nTrials, nChannels=self.nChannels,
-                                          inmemory=False, equidistant=False,
-                                          overlapping=True)
+                                           inmemory=False, equidistant=False,
+                                           overlapping=True)
         spec = freqanalysis(artdata, cfg)
         timeAxis = artdata.dimord.index("time")
         maxtrlno = np.diff(artdata.sampleinfo).argmax()
@@ -480,7 +479,7 @@ class TestMTMConvol():
         cfg.taper = "hann"
         cfg.toi = np.linspace(-2, 6, 10)
         cfg.t_ftimwin = 1.0
-        outputDict = {"fourier" : "complex", "abs" : "float", "pow" : "float"}
+        outputDict = {"fourier": "complex", "abs": "float", "pow": "float"}
 
         for select in self.dataSelections:
             if fulltests:
@@ -494,7 +493,7 @@ class TestMTMConvol():
                     cfg.output = key
                     tfSpec = freqanalysis(cfg, self.tfData)
                     assert value in tfSpec.data.dtype.name
-            else: # randomly pick from 'fourier', 'abs' and 'pow' and work w/smaller signal
+            else:  # randomly pick from 'fourier', 'abs' and 'pow' and work w/smaller signal
                 cfg.select = {"trials" : 0, "channel" : 1}
                 cfg.output = random.choice(list(outputDict.keys()))
                 cfg.toi = np.linspace(-2, 6, 5)
@@ -650,8 +649,8 @@ class TestMTMConvol():
         # arrays containing the onset, purely pre-onset, purely after onset and
         # non-unit spacing
         toiVals = [0.9, 0.75]
-        toiArrs = [np.arange(-2,7),
-                   np.arange(-1, 6, 1/self.tfData.samplerate),
+        toiArrs = [np.arange(-2, 7),
+                   np.arange(-1, 6, 1 / self.tfData.samplerate),
                    np.arange(1, 6, 2)]
         winSizes = [0.5, 1.0]
 
