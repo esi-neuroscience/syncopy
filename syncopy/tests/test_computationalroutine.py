@@ -235,11 +235,6 @@ class TestComputationalRoutine():
             out = filter_manager(self.sigdata, self.b, self.a, select=select,
                                  log_dict={"a": "this is a", "b": "this is b"})
 
-            # access the cfg belonging to the (single) CR
-            cr_cfg = out.cfg['LowPassFilter']
-            # only keyword args (`a` in this case here) are stored in `cfg`
-            assert set(["a"]) == set(cr_cfg.keys())
-            assert np.array_equal(cr_cfg["a"], self.a)
             assert len(out.trials) == len(sel.trials)
             # ensure our `log_dict` specification was respected
             assert "lowpass" in out._log
@@ -253,8 +248,6 @@ class TestComputationalRoutine():
                 selected = self.sigdata.selectdata(**select)
             out_sel = filter_manager(selected, self.b, self.a,
                                      log_dict={"a": "this is a", "b": "this is b"})
-            assert set(["a"]) == set(cr_cfg.keys())
-            assert np.array_equal(cr_cfg["a"], self.a)
             assert len(out.trials) == len(out_sel.trials)
             assert "lowpass" in out._log
             assert "a = this is a" in out._log
@@ -265,8 +258,6 @@ class TestComputationalRoutine():
                 fname = os.path.join(tdir, "dummy")
                 out.save(fname)
                 dummy = load(fname)
-                assert "a" in dummy.cfg['LowPassFilter'].keys()
-                assert np.array_equal(dummy.cfg['LowPassFilter']["a"], self.a)
                 assert out.filename == dummy.filename
                 if select is None:
                     reference = self.orig
@@ -285,8 +276,6 @@ class TestComputationalRoutine():
                 fname2 = os.path.join(tdir, "dummy2")
                 out_sel.save(fname2)
                 dummy2 = load(fname2)
-                assert "a" in dummy2.cfg['LowPassFilter'].keys()
-                assert np.array_equal(dummy2.cfg['LowPassFilter']["a"], dummy.cfg['LowPassFilter']["a"])
                 assert np.array_equal(dummy.data, dummy2.data)
                 assert np.array_equal(dummy.channel, dummy2.channel)
                 assert np.array_equal(dummy.time, dummy2.time)
@@ -441,11 +430,7 @@ class TestComputationalRoutine():
                 out = filter_manager(self.sigdata, self.b, self.a, select=select,
                                      log_dict={"a": "this is a", "b": "this is b"},
                                      parallel=True, parallel_store=parallel_store)
-                
-                cr_cfg = out.cfg['LowPassFilter']
-                # only keyword args (`a` in this case here) are stored in `cfg`
-                assert set(["a"]) == set(cr_cfg.keys())
-                assert np.array_equal(cr_cfg["a"], self.a)
+
                 assert len(out.trials) == len(sel.trials)
                 # ensure our `log_dict` specification was respected
                 assert "lowpass" in out._log
@@ -461,8 +446,6 @@ class TestComputationalRoutine():
                                          log_dict={"a": "this is a", "b": "this is b"},
                                          parallel=True, parallel_store=parallel_store)
                 # only keyword args (`a` in this case here) are stored in `cfg`
-                assert set(["a"]) == set(cr_cfg.keys())
-                assert np.array_equal(cr_cfg["a"], self.a)
                 assert len(out.trials) == len(sel.trials)
                 # ensure our `log_dict` specification was respected
                 assert "lowpass" in out._log
@@ -474,8 +457,6 @@ class TestComputationalRoutine():
                     fname = os.path.join(tdir, "dummy")
                     out.save(fname)
                     dummy = load(fname)
-                    assert "a" in dummy.cfg['LowPassFilter'].keys()
-                    assert np.array_equal(dummy.cfg['LowPassFilter']["a"], self.a)
                     assert out.filename == dummy.filename
                     assert not out.data.is_virtual
                     if select is None:
@@ -494,8 +475,6 @@ class TestComputationalRoutine():
                     fname2 = os.path.join(tdir, "dummy2")
                     out_sel.save(fname2)
                     dummy2 = load(fname2)
-                    assert "a" in dummy2.cfg['LowPassFilter'].keys()
-                    assert np.array_equal(dummy2.cfg['LowPassFilter']["a"], dummy.cfg['LowPassFilter']["a"])
                     assert np.array_equal(dummy.data, dummy2.data)
                     assert np.array_equal(dummy.channel, dummy2.channel)
                     assert np.array_equal(dummy.time, dummy2.time)
