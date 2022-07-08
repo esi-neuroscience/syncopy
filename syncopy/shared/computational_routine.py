@@ -998,10 +998,6 @@ class ComputationalRoutine(ABC):
                                                         value=str(v) if len(str(v)) < 80
                                                         else str(v)[:30] + ", ..., " + str(v)[-30:])
         out.log = logHead + logOpts
-        # attach CR cfg to output data object
-        # in case of chained CRs, keep old cfg
-        new_cfg = {self.__class__.__name__: cfg}
-        out.cfg.update(new_cfg)
 
     @abstractmethod
     def process_metadata(self, data, out):

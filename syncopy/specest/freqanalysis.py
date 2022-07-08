@@ -8,7 +8,7 @@ import numpy as np
 
 # Syncopy imports
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
-from syncopy.shared.tools import get_defaults
+from syncopy.shared.tools import get_defaults, StructDict
 from syncopy.datatype import SpectralData
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
@@ -852,6 +852,14 @@ def freqanalysis(data, method='mtmfft', output='pow',
                              chan_per_worker=kwargs.get("chan_per_worker"),
                              keeptrials=keeptrials)
     specestMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)
+
+    # create new cfg dict
+    new_cfg = StructDict()
+    for setting in defaults:
+        # only for injected kwargs like `parallel`
+        if setting in lcls:
+            new_cfg[setting] = lcls[setting]
+    out.cfg.update({'freqanalysis': new_cfg})
 
     # Either return newly created output object or simply quit
     return out if new_out else None
