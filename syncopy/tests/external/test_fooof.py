@@ -23,7 +23,7 @@ class TestFooof():
         fm.fit(freqs, powers)
         assert fm.fooofed_spectrum_.size == freqs.size
 
-    def test_fooof_freq_res(self, fooof_opt=fooof_opt):
+    def test_fooof_the_issue_is_unrelated_to_freq_res(self, fooof_opt=fooof_opt):
         """
         Check whether the issue is related to frequency resolution
         """
