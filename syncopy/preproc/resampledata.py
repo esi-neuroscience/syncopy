@@ -222,5 +222,7 @@ def resampledata(data,
     resampleMethod.compute(
         data, resampled, parallel=kwargs.get("parallel"), log_dict=log_dict
     )
+
+    resampled.cfg.update(data.cfg)
     resampled.cfg.update({'resampledata': new_cfg})
     return resampled

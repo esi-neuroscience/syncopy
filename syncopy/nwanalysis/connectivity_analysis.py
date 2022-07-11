@@ -345,6 +345,9 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     av_compRoutine.pre_check()   # make sure we got a trial_average
     av_compRoutine.compute(st_out, out, parallel=False, log_dict=log_dict)
 
+    # attach potential older cfg's from the input
+    # to support chained frontend calls..
+    out.cfg.update(data.cfg)
     # attach frontend parameters for replay
     out.cfg.update({'connectivityanalysis': new_cfg})
     return out

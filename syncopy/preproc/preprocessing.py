@@ -304,6 +304,7 @@ def preprocessing(
             filtered, rectified, parallel=kwargs.get("parallel"), log_dict=log_dict
         )
         del filtered
+        rectified.cfg.update(data.cfg)
         rectified.cfg.update({'preprocessing': new_cfg})
         return rectified
 
@@ -321,10 +322,14 @@ def preprocessing(
             filtered, htrafo, parallel=kwargs.get("parallel"), log_dict=log_dict
         )
         del filtered
+        htrafo.cfg.update(data.cfg)
         htrafo.cfg.update({'preprocessing': new_cfg})
         return htrafo
 
     # no post-processing
     else:
+        # attach potential older cfg's from the input
+        # to support chained frontend calls..
+        filtered.cfg.update(data.cfg)
         filtered.cfg.update({'preprocessing': new_cfg})
         return filtered
