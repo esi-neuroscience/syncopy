@@ -54,7 +54,7 @@ class TestCfg:
 
             print(frontend)
             # same results
-            assert np.all(res.data[:] == res2.data[:])
+            assert np.allclose(res.data[:], res2.data[:])
             assert res.cfg == res2.cfg
 
             # check that it's not just the defaults
@@ -77,7 +77,7 @@ class TestCfg:
             # same results
             assert 'select' in res.cfg[frontend]
             assert 'select' in res2.cfg[frontend]
-            assert np.all(res.data[:] == res2.data[:])
+            assert np.allclose(res.data[:], res2.data[:])
             assert res.cfg == res2.cfg
 
     def test_chaining_frontends(self):
@@ -95,7 +95,7 @@ class TestCfg:
             res2 = getattr(spy, frontend)(res_pp2, res.cfg)
 
             # same results
-            assert np.all(res.data[:] == res2.data[:])
+            assert np.allclose(res.data[:], res2.data[:])
             assert res.cfg == res2.cfg
 
     @skip_without_acme
