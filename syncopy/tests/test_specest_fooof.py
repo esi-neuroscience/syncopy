@@ -13,6 +13,15 @@ from syncopy.shared.errors import SPYValueError
 from syncopy.tests.test_specest import _make_tf_signal
 
 
+import matplotlib.pyplot as plt
+def _plot_powerspec(freqs, powers):
+    plt.plot(freqs, powers)
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Power (db)')
+    plt.show()
+
+
+
 class TestFooofSpy():
 
     # FOOOF is a post-processing of an FFT, so we first generate a signal and
@@ -64,7 +73,7 @@ class TestFooofSpy():
         assert not np.isnan(spec_dt.data).any()
 
         # Plot it.
-        #spec_dt.singlepanelplot()
+        spec_dt.singlepanelplot()
 
     def test_spfooof_output_fooof_aperiodic(self, fulltests):
         self.cfg['output'] = "fooof_aperiodic"
