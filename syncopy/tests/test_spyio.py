@@ -11,9 +11,7 @@ import h5py
 import time
 import pytest
 import numpy as np
-from numpy.lib.format import open_memmap
 from glob import glob
-from memory_profiler import memory_usage
 
 # Local imports
 from syncopy.datatype import AnalogData
@@ -445,24 +443,6 @@ class TestSpyIO():
             with pytest.raises(SPYValueError):
                 load(os.path.join(tdir, container), dataclass=["invalid", "stillinvalid"],
                      tag="2nd")
-
-    def test_save_mmap(self):
-        with tempfile.TemporaryDirectory() as tdir:
-            fname = os.path.join(tdir, "vdat.npy")
-            dname = os.path.join(tdir, "dummy")
-            vdata = np.ones((1000, 5000))  # ca. 38.2 MB
-            np.save(fname, vdata)
-            del vdata
-            dmap = open_memmap(fname)
-            adata = AnalogData(dmap, samplerate=10)
-
-            # Ensure memory consumption stays within provided bounds
-            mem = memory_usage()[0]
-            save(adata, filename=dname, memuse=60)
-            assert (mem - memory_usage()[0]) < 70
-
-            # Delete all open references to file objects b4 closing tmp dir
-            del dmap, adata
 
 
 @skip_no_esi

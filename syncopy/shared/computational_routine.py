@@ -12,7 +12,6 @@ import numpy as np
 from itertools import chain
 from abc import ABC, abstractmethod
 from copy import copy
-from numpy.lib.format import open_memmap
 from tqdm.auto import tqdm
 if sys.platform == "win32":
     # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
@@ -138,9 +137,6 @@ class ComputationalRoutine(ABC):
 
         # numerical type of output dataset
         self.dtype = None
-
-        # list of dicts encoding header info of raw binary input files (experimental!)
-        self.hdr = None
 
         # list of trial numbers to process (either `data.trials` or `data.selection.trials`)
         self.trialList = None
@@ -608,8 +604,7 @@ class ComputationalRoutine(ABC):
 
             # Construct list of dicts that will be passed on to workers: in the
             # parallel case, `trl_dat` is a dictionary!
-            workerDicts = [{"hdr": self.hdr,
-                            "keeptrials": self.keeptrials,
+            workerDicts = [{"keeptrials": self.keeptrials,
                             "infile": data.filename,
                             "indset": data.data.name,
                             "ingrid": self.sourceLayout[chk],
@@ -720,9 +715,6 @@ class ComputationalRoutine(ABC):
         # Ensure `data` is openend read-only to permit (potentially concurrent)
         # reading access to backing device on disk
         data.mode = "r"
-
-        # Take care of `VirtualData` objects
-        self.hdr = getattr(data, "hdr", None)
 
         # Perform actual computation
         computeMethod(data, out)
@@ -865,16 +857,7 @@ class ComputationalRoutine(ABC):
         compute_parallel : concurrent processing counterpart of this method
         """
 
-        # Initialize on-disk backing device (either HDF5 file or memmap)
-        if self.hdr is None:
-            try:
-                sourceObj = h5py.File(data.filename, mode="r")[data.data.name]
-                isHDF = True
-            except OSError:
-                sourceObj = open_memmap(data.filename, mode="c")
-                isHDF = False
-            except Exception as exc:
-                raise exc
+        sourceObj = h5py.File(data.filename, mode="r")[data.data.name]
 
         # Iterate over (selected) trials and write directly to target HDF5 dataset
         with h5py.File(out.filename, "r+") as h5fout:
@@ -886,9 +869,9 @@ class ComputationalRoutine(ABC):
                 ingrid = self.sourceLayout[nblock]
                 sigrid = self.sourceSelectors[nblock]
                 outgrid = self.targetLayout[nblock]
-                argv = tuple(arg[nblock] \
-                    if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials \
-                        else arg for arg in self.argv)
+                argv = tuple(arg[nblock]
+                             if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials
+                             else arg for arg in self.argv)
 
                 # Catch empty source-array selections; this workaround is not
                 # necessary for h5py version 2.10+ (see https://github.com/h5py/h5py/pull/1174)
@@ -896,28 +879,11 @@ class ComputationalRoutine(ABC):
                     res = np.empty(self.targetShapes[nblock], dtype=self.dtype)
                 else:
                     # Get source data as NumPy array
-                    if self.hdr is None:
-                        if isHDF:
-                            if self.useFancyIdx:
-                                arr = np.array(sourceObj[tuple(ingrid)])[np.ix_(*sigrid)]
-                            else:
-                                arr = np.array(sourceObj[tuple(ingrid)])
-                        else:
-                            if self.useFancyIdx:
-                                arr = sourceObj[np.ix_(*ingrid)]
-                            else:
-                                arr = np.array(sourceObj[ingrid])
-                        sourceObj.flush()
+                    if self.useFancyIdx:
+                        arr = np.array(sourceObj[tuple(ingrid)])[np.ix_(*sigrid)]
                     else:
-                        idx = ingrid
-                        if self.useFancyIdx:
-                            idx = np.ix_(*ingrid)
-                        stacks = []
-                        for fk, fname in enumerate(data.filename):
-                            stacks.append(np.memmap(fname, offset=int(self.hdr[fk]["length"]),
-                                                    mode="r", dtype=self.hdr[fk]["dtype"],
-                                                    shape=(self.hdr[fk]["M"], self.hdr[fk]["N"]))[idx])
-                        arr = np.vstack(stacks)[ingrid]
+                        arr = np.array(sourceObj[tuple(ingrid)])
+                    sourceObj.flush()
 
                     # Ensure input array shape was not inflated by scalar selection
                     # tuple, e.g., ``e=np.ones((2,2)); e[0,:].shape = (2,)`` not ``(1,2)``
@@ -946,8 +912,7 @@ class ComputationalRoutine(ABC):
                 target[()] /= self.numTrials
 
         # If source was HDF5 file, close it to prevent access errors
-        if isHDF:
-            sourceObj.file.close()
+        sourceObj.file.close()
 
         return
 

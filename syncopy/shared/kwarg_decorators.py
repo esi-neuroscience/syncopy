@@ -585,7 +585,6 @@ def process_io(func):
 
 
         # The fun part: `trl_dat` is a dictionary holding components for parallelization
-        hdr = trl_dat["hdr"]
         keeptrials = trl_dat["keeptrials"]
         infilename = trl_dat["infile"]
         indset = trl_dat["indset"]
@@ -606,28 +605,14 @@ def process_io(func):
         if any([not sel for sel in ingrid]):
             res = np.empty(outshape, dtype=outdtype)
         else:
-            # Generic case: data is either a HDF5 dataset or memmap
-            if hdr is None:
-                try:
-                    with h5py.File(infilename, mode="r") as h5fin:
+            try:
+                with h5py.File(infilename, mode="r") as h5fin:
                         if fancy:
                             arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
                         else:
                             arr = np.array(h5fin[indset][ingrid])
-                except Exception as exc:
-                    raise exc
-
-            # For VirtualData objects
-            else:
-                idx = ingrid
-                if fancy:
-                    idx = np.ix_(*ingrid)
-                dsets = []
-                for fk, fname in enumerate(infilename):
-                    dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
-                                            mode="r", dtype=hdr[fk]["dtype"],
-                                            shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
-                arr = np.vstack(dsets)
+            except Exception as exc:  # TODO: aren't these 2 lines superfluous?
+                raise exc
 
             # === STEP 2 === perform computation
             # Ensure input array shape was not inflated by scalar selection
@@ -671,7 +656,7 @@ def process_io(func):
                 h5fout.flush()
             lock.release()
 
-        return None # result has already been written to disk
+        return None  # result has already been written to disk
 
     return wrapper_io
 
