@@ -58,6 +58,7 @@ class TestFooofSpy():
         assert "fooof_aperiodic" not in spec_dt._log
         assert "fooof_peaks" not in spec_dt._log
         assert "fooof_opt" in spec_dt._log
+        spec_dt.singlepanelplot()
 
     def test_spfooof_output_fooof_aperiodic(self, fulltests):
         self.cfg['output'] = "fooof_aperiodic"

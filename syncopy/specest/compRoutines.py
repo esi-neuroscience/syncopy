@@ -993,3 +993,4 @@ class FooofSpy(ComputationalRoutine):
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel[chanSec])
         out.freq = data.freq
+        out._trialdefinition = data._trialdefinition
