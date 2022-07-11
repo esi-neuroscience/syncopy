@@ -37,6 +37,7 @@ class TestFooofSpy():
 
     def test_fooof_output_fooof_fails_with_freq_zero(self, fulltests):
         self.cfg['output'] = "fooof"
+        self.cfg['foilim'] = [0., 250.]    # Include the zero in tfData.
         with pytest.raises(SPYValueError) as err:
             spec_dt = freqanalysis(self.cfg, self.tfData)  # tfData contains zero.
             assert "a frequency range that does not include zero" in str(err)
@@ -45,40 +46,47 @@ class TestFooofSpy():
         self.cfg['output'] = "fooof"
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
         spec_dt = freqanalysis(self.cfg, self.tfData)
-        assert spec_dt.data.ndim == 4
 
         # check frequency axis
         assert spec_dt.freq.size == 500
         assert spec_dt.freq[0] == 0.5
         assert spec_dt.freq[499] == 250.
 
-        # log
-        assert "fooof_method" in spec_dt._log
-        assert "fooof" in spec_dt._log
+        # check the log
+        assert "fooof_method = fooof" in spec_dt._log
         assert "fooof_aperiodic" not in spec_dt._log
         assert "fooof_peaks" not in spec_dt._log
         assert "fooof_opt" in spec_dt._log
-        spec_dt.singlepanelplot()
+
+        # check the data
+        assert spec_dt.data.ndim == 4
+        assert spec_dt.data.shape == (1, 1, 500, 1)
+        assert not np.isnan(spec_dt.data).any()
+
+        # Plot it.
+        #spec_dt.singlepanelplot()
 
     def test_spfooof_output_fooof_aperiodic(self, fulltests):
         self.cfg['output'] = "fooof_aperiodic"
+        assert self.cfg['foilim'] == [0.5, 250.]
         spec_dt = freqanalysis(self.cfg, self.tfData)
-        assert spec_dt.data.ndim == 4
 
         # log
         assert "fooof" in spec_dt._log  # from the method
-        assert "fooof_method" in spec_dt._log
-        assert "fooof_aperiodic" in spec_dt._log
+        assert "fooof_method = fooof_aperiodic" in spec_dt._log
         assert "fooof_peaks" not in spec_dt._log
-        # TODO: add more meaningful asserts here
+
+        # check the data
+        assert spec_dt.data.ndim == 4
+        assert spec_dt.data.shape == (1, 1, 500, 1)
+        assert not np.isnan(spec_dt.data).any()
 
     def test_spfooof_output_fooof_peaks(self, fulltests):
         self.cfg['output'] = "fooof_peaks"
         spec_dt = freqanalysis(self.cfg, self.tfData)
         assert spec_dt.data.ndim == 4
         assert "fooof" in spec_dt._log
-        assert "fooof_method" in spec_dt._log
-        assert "fooof_peaks" in spec_dt._log
+        assert "fooof_method = fooof_peaks" in spec_dt._log
         assert "fooof_aperiodic" not in spec_dt._log
 
 
