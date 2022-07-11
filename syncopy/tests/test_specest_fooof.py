@@ -73,6 +73,7 @@ class TestFooofSpy():
         assert not np.isnan(spec_dt.data).any()
 
         # Plot it.
+        _plot_powerspec(freqs=spec_dt.freq, powers=spec_dt.data[0,0,:,0])
         spec_dt.singlepanelplot()
 
     def test_spfooof_output_fooof_aperiodic(self, fulltests):
