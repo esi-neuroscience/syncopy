@@ -50,7 +50,7 @@ class TestFooofSpy():
         # check frequency axis
         assert spec_dt.freq.size == 500
         assert spec_dt.freq[0] == 0.5
-        assert spec_dt.freq[0] == 250.
+        assert spec_dt.freq[499] == 250.
 
         # log
         assert "fooof_method" in spec_dt._log

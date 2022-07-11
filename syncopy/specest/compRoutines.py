@@ -992,4 +992,4 @@ class FooofSpy(ComputationalRoutine):
         # Attach remaining meta-data
         out.samplerate = data.samplerate
         out.channel = np.array(data.channel[chanSec])
-        out.freq = self.cfg["foi"]
+        out.freq = data.freq
