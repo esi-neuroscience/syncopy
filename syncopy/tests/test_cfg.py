@@ -48,11 +48,11 @@ class TestCfg:
 
         for frontend in availableFrontend_cfgs.keys():
 
-            res = getattr(spy, frontend)(self.adata, cfg=availableFrontend_cfgs[frontend])
+            # unwrap cfg into keywords
+            res = getattr(spy, frontend)(self.adata, **availableFrontend_cfgs[frontend])
             # now replay with cfg from preceding frontend call
             res2 = getattr(spy, frontend)(self.adata, res.cfg)
 
-            print(frontend)
             # same results
             assert np.allclose(res.data[:], res2.data[:])
             assert res.cfg == res2.cfg
