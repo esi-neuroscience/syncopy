@@ -8,7 +8,7 @@ import numpy as np
 
 # Syncopy imports
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
-from syncopy.shared.tools import get_defaults, StructDict
+from syncopy.shared.tools import get_defaults, StructDict, get_frontend_cfg
 from syncopy.datatype import SpectralData
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
@@ -295,6 +295,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="freqanalysis")
 
+    new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
+
     # Ensure a valid computational method was selected
     if method not in availableMethods:
         lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
@@ -330,7 +332,6 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # check polyremoval
     if polyremoval is not None:
         scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])
-
 
     # --- Padding ---
 
@@ -433,7 +434,6 @@ def freqanalysis(data, method='mtmfft', output='pow',
         if not valid:
             lgl = "array of equidistant time-points or 'all' for wavelet based methods"
             raise SPYValueError(legal=lgl, varname="toi", actual=toi)
-
 
         # Update `log_dct` w/method-specific options (use `lcls` to get actually
         # provided keyword values, not defaults set in here)
@@ -589,9 +589,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
         # number of samples per window
         nperseg = int(t_ftimwin * data.samplerate)
         halfWin = int(nperseg / 2)
-        postSelect = slice(None) # select all is the default
+        postSelect = slice(None)  # select all is the default
 
-        if 0 <= overlap <= 1: # `toi` is percentage
+        if 0 <= overlap <= 1:  # `toi` is percentage
             noverlap = min(nperseg - 1, int(overlap * nperseg))
         # windows get shifted exactly 1 sample
         # to get a spectral estimate at each sample
@@ -712,7 +712,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         # automatic frequency selection
         if foi is None and foilim is None:
             scales = get_optimal_wavelet_scales(
-                wfun.scale_from_period, # all availableWavelets sport one!
+                wfun.scale_from_period,  # all availableWavelets sport one!
                 int(minTrialLength * data.samplerate),
                 dt)
             foi = 1 / wfun.fourier_period(scales)
@@ -735,9 +735,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
         # method specific parameters
         method_kwargs = {
-            'samplerate' : data.samplerate,
-            'scales' : scales,
-            'wavelet' : wfun
+            'samplerate': data.samplerate,
+            'scales': scales,
+            'wavelet': wfun
         }
 
         # Set up compute-class
@@ -811,12 +811,12 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
         # method specific parameters
         method_kwargs = {
-            'samplerate' : data.samplerate,
-            'scales' : scales,
-            'order_max' : order_max,
-            'order_min' : order_min,
-            'c_1' : c_1,
-            'adaptive' : adaptive
+            'samplerate': data.samplerate,
+            'scales': scales,
+            'order_max': order_max,
+            'order_min': order_min,
+            'c_1': c_1,
+            'adaptive': adaptive
         }
 
         # Set up compute-class
@@ -833,18 +833,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # Sanitize output and call the ComputationalRoutine
     # -------------------------------------------------
 
-    # If provided, make sure output object is appropriate
-    if out is not None:
-        try:
-            data_parser(out, varname="out", writable=True, empty=True,
-                        dataclass="SpectralData",
-                        dimord=SpectralData().dimord)
-        except Exception as exc:
-            raise exc
-        new_out = False
-    else:
-        out = SpectralData(dimord=SpectralData._defaultDimord)
-        new_out = True
+    out = SpectralData(dimord=SpectralData._defaultDimord)
 
     # Perform actual computation
     specestMethod.initialize(data,
@@ -853,13 +842,6 @@ def freqanalysis(data, method='mtmfft', output='pow',
                              keeptrials=keeptrials)
     specestMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)
 
-    # create new cfg dict
-    new_cfg = StructDict()
-    for setting in defaults:
-        # only for injected kwargs like `parallel`
-        if setting in lcls:
-            new_cfg[setting] = lcls[setting]
+    # attach frontend parameters for replay
     out.cfg.update({'freqanalysis': new_cfg})
-
-    # Either return newly created output object or simply quit
-    return out if new_out else None
+    return out
