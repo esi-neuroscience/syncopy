@@ -909,6 +909,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
             'freq_range': None  # or something like [2, 40] to limit frequency range (post processing). Currently not exposed to user.
         }
 
+        if fooof_data.freq[0] == 0:
+            # FOOOF does not work with input frequency zero in the data.
+            raise SPYValueError(legal="a frequency range that does not include zero. Use 'foi' or 'foilim' to restrict.", varname="foi/foilim", actual="Frequency range from {} to {}.".format(min(fooof_data.freq), max(fooof_data.freq)))
+
         # Set up compute-class
         #  - the output_fmt must be one of 'fooof', 'fooof_aperiodic',
         #    or 'fooof_peaks'.
