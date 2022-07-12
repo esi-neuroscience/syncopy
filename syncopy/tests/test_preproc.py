@@ -373,7 +373,6 @@ class TestFIRWS:
                                                toi_max=self.time_span[1],
                                                min_len=3.5)
         for sd in sel_dicts:
-            print(sd)
             self.test_firws_filter(select=sd, order=200)
 
     def test_firws_polyremoval(self):
