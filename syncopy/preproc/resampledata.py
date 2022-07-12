@@ -123,22 +123,16 @@ def resampledata(data,
         order = int(lenTrials.min()) if lenTrials.min() < 1000 else 1000
 
     # check for anti-alias low-pass filter settings
-    # minimum requirement: (old) Nyquist limit
+    # minimum requirement: new Nyquist limit
     if lpfreq is not None:
-        scalar_parser(lpfreq, varname="lpfreq", lims=[0, data.samplerate / 2])
-        # filtering should be done at most with the new Nyquist
-        if lpfreq > resamplefs / 2:
-            msg = ("You have chosen a sub-optimal anti-alias filter, "
-                   f"`lpfreq` should be at most {resamplefs / 2}Hz!"
-                   )
-            SPYWarning(msg)
+        scalar_parser(lpfreq, varname="lpfreq", lims=[0, resamplefs / 2])
 
     # -- downsampling --
     if method == "downsample":
 
         if data.samplerate % resamplefs != 0:
             lgl = (
-                "integeger division of the original sampling rate "
+                "integer division of the original sampling rate "
                 "for `method='downsample'`"
             )
             raise SPYValueError(lgl, varname="resamplefs", actual=resamplefs)
