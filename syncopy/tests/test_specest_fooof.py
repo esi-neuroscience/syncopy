@@ -2,6 +2,7 @@
 #
 # Test FOOOF integration from user/frontend perspective.
 
+
 import pytest
 import numpy as np
 
@@ -12,8 +13,10 @@ from syncopy.datatype import SpectralData
 from syncopy.shared.errors import SPYValueError
 from syncopy.tests.test_specest import _make_tf_signal
 
-
 import matplotlib.pyplot as plt
+
+
+"""Simple, internal plotting function to plot x versus y."""
 def _plot_powerspec(freqs, powers):
     plt.plot(freqs, powers)
     plt.xlabel('Frequency (Hz)')
@@ -21,15 +24,14 @@ def _plot_powerspec(freqs, powers):
     plt.show()
 
 
-
 class TestFooofSpy():
+    """
+    FOOOF is a post-processing of an FFT, so we first generate a signal and
+    run an MTMFFT on it. Then we run FOOOF.
 
-    # FOOOF is a post-processing of an FFT, so we first generate a signal and
-    # run an FFT on it. Then we run FOOOF. The first part of these tests is
-    # therefore very similar to the code in TestMTMConvol above.
-    #
-    # Construct high-frequency signal modulated by slow oscillating cosine and
-    # add time-decaying noise
+    Construct high-frequency signal modulated by slow oscillating cosine and
+    add time-decaying noise
+    """
     nChannels = 2
     nChan2 = int(nChannels / 2)
     nTrials = 1
@@ -73,7 +75,7 @@ class TestFooofSpy():
         assert not np.isnan(spec_dt.data).any()
 
         # Plot it.
-        _plot_powerspec(freqs=spec_dt.freq, powers=spec_dt.data[0,0,:,0])
+        #_plot_powerspec(freqs=spec_dt.freq, powers=spec_dt.data[0, 0, :, 0])
         spec_dt.singlepanelplot()
 
     def test_spfooof_output_fooof_aperiodic(self, fulltests):
@@ -90,6 +92,7 @@ class TestFooofSpy():
         assert spec_dt.data.ndim == 4
         assert spec_dt.data.shape == (1, 1, 500, 1)
         assert not np.isnan(spec_dt.data).any()
+        _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data))
 
     def test_spfooof_output_fooof_peaks(self, fulltests):
         self.cfg['output'] = "fooof_peaks"
@@ -98,7 +101,7 @@ class TestFooofSpy():
         assert "fooof" in spec_dt._log
         assert "fooof_method = fooof_peaks" in spec_dt._log
         assert "fooof_aperiodic" not in spec_dt._log
-
+        _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data))
 
     def test_spfooof_frontend_settings_are_merged_with_defaults_used_in_backend(self, fulltests):
         self.cfg['output'] = "fooof_peaks"
@@ -118,3 +121,5 @@ class TestFooofSpy():
             out = SpectralData(dimord=SpectralData._defaultDimord)
             _ = freqanalysis(self.cfg, self.tfData, out=out)
             assert "pre-allocated output object not supported with" in str(err)
+
+# %%
