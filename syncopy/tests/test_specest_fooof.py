@@ -116,7 +116,7 @@ class TestFooofSpy():
         #  this level as we have no way to get the 'details' return value.
         #  This is verified in backend tests though.
 
-    def test_foofspy_rejects_preallocated_output(self, fulltests):
+    def test_fooofspy_rejects_preallocated_output(self, fulltests):
         with pytest.raises(SPYValueError) as err:
             out = SpectralData(dimord=SpectralData._defaultDimord)
             _ = freqanalysis(self.cfg, self.tfData, out=out)

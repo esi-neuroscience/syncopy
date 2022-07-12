@@ -21,7 +21,7 @@ def _power_spectrum(freq_range=[3, 40], freq_res=0.5, periodic_params=[[10, 0.2,
     noise_level = 0.005
     freqs, powers = gen_power_spectrum(freq_range, aperiodic_params,
                                        periodic_params, nlv=noise_level, freq_res=freq_res)
-    return(freqs, powers)
+    return freqs, powers
 
 
 class TestSpfooof():
@@ -38,13 +38,11 @@ class TestSpfooof():
         assert details['settings_used']['out_type'] == 'fooof'
         assert all(key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
         assert details['settings_used']['fooof_opt']['peak_threshold'] == 2.0  # Should be in and at default value.
-        # TODO: plot result here
 
     def test_spfooof_output_fooof_several_channels(self, freqs=freqs, powers=powers):
         """
         Tests spfooof with output 'fooof' and several input signal. This will return the full, fooofed spectrum.
         """
-
         num_channels = 3
         powers = np.tile(powers, num_channels).reshape(powers.size, num_channels)  # Copy signal to create channels.
         spectra, details = fooofspy(powers, freqs, out_type='fooof')
@@ -80,7 +78,7 @@ class TestSpfooof():
         """
         Tests spfooof with output 'fooof_peaks' and a single input signal. This will return the Gaussian fit of the periodic part of the spectrum.
         """
-        fooof_opt = {'peak_threshold': 3.0 }
+        fooof_opt = {'peak_threshold': 3.0}
         spectra, details = fooofspy(powers, freqs, out_type='fooof_peaks', fooof_opt=fooof_opt)
 
         assert spectra.shape == (freqs.size, 1)

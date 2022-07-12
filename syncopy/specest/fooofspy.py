@@ -66,7 +66,7 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
     Examples
     --------
     Run fooof on a generated power spectrum:
-    >>> from syncopy.specest.foofspy import fooofspy
+    >>> from syncopy.specest.fooofspy import fooofspy
     >>> from fooof.sim.gen import gen_power_spectrum
     >>> freqs, powers = gen_power_spectrum([3, 40], [1, 1], [[10, 0.2, 1.25], [30, 0.15, 2]])
     >>> spectra, details = fooofspy(powers, freqs, out_type='fooof')
@@ -99,7 +99,6 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
 
     if in_freqs is None:
         raise SPYValueError(legal='The input frequencies are required and must not be None.', varname='in_freqs')
-    print("number of fooof input freq labels: %d" % (in_freqs.size))
 
     if in_freqs.size != data_arr.shape[0]:
         raise SPYValueError(legal='The signal length %d must match the number of frequency labels %d.' % (data_arr.shape[0], in_freqs.size), varname="data_arr/in_freqs")
@@ -144,8 +143,6 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
                 out_spectrum = out_spectrum + hgt * np.exp(- (in_freqs - ctr)**2 / (2 * wid**2))
         else:
             raise SPYValueError(legal=available_fooof_out_types, varname="out_type", actual=out_type)
-
-        print("Channel %d fooofing done, received spektrum of length %d." % (channel_idx, out_spectrum.size))
 
         out_spectra[:, channel_idx] = out_spectrum
         aperiodic_params[:, channel_idx] = fm.aperiodic_params_
