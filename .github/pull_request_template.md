@@ -1,6 +1,6 @@
 Author Guidelines
 -----------------
-- [ ] Is the change set **< 400 lines**?
+- [ ] Is the change set **< 600 lines**?
 - [ ] Was the code checked for memory leaks/performance bottlenecks?
 - [ ] Is the code running locally **and** on the ESI cluster?
 - [ ] Is the code running on all supported platforms?
@@ -17,3 +17,4 @@ Reviewer Checklist
   - [ ] Are keywords clearly named and easy to understand?
   - [ ] No commented-out code?
 - [ ] Are all docstrings complete and accurate?
+- [ ] Is the CHANGELOG.md up to date?
