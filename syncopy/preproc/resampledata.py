@@ -10,7 +10,7 @@ import numpy as np
 from syncopy import AnalogData
 from syncopy.shared.parsers import data_parser, scalar_parser
 from syncopy.shared.tools import get_defaults
-from syncopy.shared.errors import SPYValueError, SPYWarning, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.kwarg_decorators import (
     unwrap_cfg,
     unwrap_select,
@@ -27,7 +27,7 @@ availableMethods = ("downsample", "resample")
 @unwrap_select
 @detect_parallel_client
 def resampledata(data,
-                 resamplefs=1,
+                 resamplefs=1.,
                  method="resample",
                  lpfreq=None,
                  order=None,
@@ -66,9 +66,8 @@ def resampledata(data,
         Leave at `None` for standard anti-alias filtering with
         the new Nyquist for `method='resample'` or set explicitly in Hz
     order : None or int, optional
-        Order (length) of the firws anti-aliasing filter.
-        The default `None` will create a filter with a length
-        of 1000 samples.
+        Order (length) of the firws anti-aliasing filter
+        The default `None` will create a filter with a length of 1000 samples
 
     Returns
     -------
@@ -154,12 +153,22 @@ def resampledata(data,
                 direction='twopass',
                 timeAxis=timeAxis,
             )
+            # keyword dict for logging
+            aa_log_dict = {"filter_type": 'lp',
+                           "lpfreq": lpfreq,
+                           "order": order,
+                           "direction": 'twopass'}
+
         else:
             AntiAliasFilter = None
 
         resampleMethod = Downsample(
             samplerate=data.samplerate, new_samplerate=resamplefs, timeAxis=timeAxis
         )
+        # keyword dict for logging
+        log_dict = {"method": method,
+                    "resamplefs": resamplefs,
+                    "origfs": data.samplerate}
 
     # -- resampling --
     elif method == "resample":
@@ -179,12 +188,13 @@ def resampledata(data,
             order=order,
             timeAxis=timeAxis
         )
-    # keyword dict for logging
-    log_dict = {"method": method,
-                "resamplefs": resamplefs,
-                "origfs": data.samplerate,
-                "lpfreq": lpfreq,
-                "order": order}
+        # keyword dict for logging
+        log_dict = {"method": method,
+                    "resamplefs": resamplefs,
+                    "origfs": data.samplerate,
+                    "lpfreq": lpfreq,
+                    "order": order}
+
     # ------------------------------------
     # Call the chosen ComputationalRoutine
     # ------------------------------------
@@ -195,18 +205,15 @@ def resampledata(data,
         filtered = AnalogData(dimord=data.dimord)
         AntiAliasFilter.initialize(
             data,
-            filtered._stackingDimm,
+            filtered._stackingDim,
             chan_per_worker=kwargs.get("chan_per_worker"),
             keeptrials=True
         )
-        msg = ("Performing explicit anti-alias filtering "
-               f"with a cut-off frequency of {lpfreq}Hz"
-               )
-        SPYInfo(msg)
+
         AntiAliasFilter.compute(data,
                                 filtered,
                                 parallel=kwargs.get("parallel"),
-                                log_dict=log_dict)
+                                log_dict=aa_log_dict)
         target = filtered
     else:
         target = data  # just rebinds the name
@@ -218,7 +225,7 @@ def resampledata(data,
         keeptrials=True,
     )
     resampleMethod.compute(
-        data, resampled, parallel=kwargs.get("parallel"), log_dict=log_dict
+        target, resampled, parallel=kwargs.get("parallel"), log_dict=log_dict
     )
 
     return resampled
