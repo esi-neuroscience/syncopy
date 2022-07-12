@@ -57,6 +57,9 @@ class TestButterworth:
     freq_kw = {'lp': fhigh, 'hp': flow,
                'bp': [flow, fhigh], 'bs': [flow, fhigh]}
 
+    # the unfiltered data
+    spec = freqanalysis(data, tapsmofrq=1, keeptrials=False)
+
     def test_but_filter(self, **kwargs):
 
         """
@@ -72,12 +75,9 @@ class TestButterworth:
             kwargs = {'direction': 'twopass',
                       'order': 4}
 
-        # the unfiltered data
-        spec = freqanalysis(self.data, tapsmofrq=1, keeptrials=False)
-
         # total power in arbitrary units (for now)
-        pow_tot = spec.show(channel=0).sum()
-        nFreq = spec.freq.size
+        pow_tot = self.spec.show(channel=0).sum()
+        nFreq = self.spec.freq.size
 
         if def_test:
             fig, ax = mk_spec_ax()
@@ -124,7 +124,7 @@ class TestButterworth:
 
         # plotting
         if def_test:
-            plot_spec(ax, spec, c='0.3', label='unfiltered')
+            plot_spec(ax, self.spec, c='0.3', label='unfiltered')
             annotate_foilims(ax, *self.freq_kw['bp'])
             ax.set_title(f"Twopass Butterworth, order = {kwargs['order']}")
 
@@ -266,6 +266,9 @@ class TestFIRWS:
     freq_kw = {'lp': fhigh, 'hp': flow,
                'bp': [flow, fhigh], 'bs': [flow, fhigh]}
 
+    # the unfiltered data
+    spec = freqanalysis(data, tapsmofrq=1, keeptrials=False)
+
     def test_firws_filter(self, **kwargs):
 
         """
@@ -282,11 +285,9 @@ class TestFIRWS:
             kwargs = {'direction': 'twopass',
                       'order': 200}
 
-        # the unfiltered data
-        spec = freqanalysis(self.data, tapsmofrq=1, keeptrials=False)
         # total power in arbitrary units (for now)
-        pow_tot = spec.show(channel=0).sum()
-        nFreq = spec.freq.size
+        pow_tot = self.spec.show(channel=0).sum()
+        nFreq = self.spec.freq.size
 
         if def_test:
             fig, ax = mk_spec_ax()
@@ -332,7 +333,7 @@ class TestFIRWS:
 
         # plotting
         if def_test:
-            plot_spec(ax, spec, c='0.3', label='unfiltered')
+            plot_spec(ax, self.spec, c='0.3', label='unfiltered')
             annotate_foilims(ax, *self.freq_kw['bp'])
             ax.set_title(f"Twopass FIRWS, order = {kwargs['order']}")
 
