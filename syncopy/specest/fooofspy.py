@@ -55,6 +55,7 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
         The fooofed spectrum (for out_type ``'fooof'``), the aperiodic part of the
         spectrum (for ``'fooof_aperiodic'``) or the peaks (for ``'fooof_peaks'``).
         Each row corresponds to a row in the input `data_arr`, i.e., a channel.
+        The data is in log space (log10).
     details : dictionary
         Details on the model fit and settings used. Contains the following keys:
             `aperiodic_params` 2D :class:`numpy.ndarray`, the aperiodoc parameters of the fits
