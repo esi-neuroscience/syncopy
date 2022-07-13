@@ -16,8 +16,8 @@ from syncopy.tests.test_specest import _make_tf_signal
 import matplotlib.pyplot as plt
 
 
-"""Simple, internal plotting function to plot x versus y."""
 def _plot_powerspec(freqs, powers):
+    """Simple, internal plotting function to plot x versus y."""
     plt.plot(freqs, powers)
     plt.xlabel('Frequency (Hz)')
     plt.ylabel('Power (db)')
@@ -117,6 +117,32 @@ class TestFooofSpy():
         assert "fooof_method = fooof_peaks" in spec_dt._log
         assert "fooof_aperiodic" not in spec_dt._log
         _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data))
+
+    def test_spfooof_outputs_from_different_fooof_methods_are_consistent(self, fulltests):
+        """Test fooof with all output types plotted into a single plot and ensure consistent output."""
+        self.cfg['output'] = "fooof"
+        out_fooof = freqanalysis(self.cfg, self.tfData)
+        self.cfg['output'] = "fooof_aperiodic"
+        out_fooof_aperiodic = freqanalysis(self.cfg, self.tfData)
+        self.cfg['output'] = "fooof_peaks"
+        out_fooof_peaks = freqanalysis(self.cfg, self.tfData)
+
+        assert out_fooof.freq == out_fooof_aperiodic.freq
+        assert out_fooof.freq == out_fooof_peaks.freq
+
+        freqs = out_fooof.freq
+
+        assert out_fooof.data.shape == out_fooof_aperiodic.data.shape
+        assert out_fooof.data.shape == out_fooof_peaks.data.shape
+
+        plt.plot(freqs, self.tfData, label="Raw input data")
+        plt.plot(freqs, out_fooof, label="Fooofed spectrum")
+        plt.plot(freqs, out_fooof_aperiodic, label="Fooof aperiodic fit")
+        plt.plot(freqs, out_fooof_peaks, label="Fooof peaks fit")
+        plt.xlabel('Frequency (Hz)')
+        plt.ylabel('Power (db)')
+        plt.legend()
+        plt.show()
 
     def test_spfooof_frontend_settings_are_merged_with_defaults_used_in_backend(self, fulltests):
         self.cfg['output'] = "fooof_peaks"
