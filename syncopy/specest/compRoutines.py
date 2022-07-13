@@ -877,7 +877,6 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
 @unwrap_io
 def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
                 output_fmt='fooof', fooof_settings=None, noCompute=False, chunkShape=None, method_kwargs=None):
-
     """
     Run FOOOF
 
@@ -924,42 +923,29 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
     --------
     syncopy.freqanalysis : parent metafunction
     """
-
-    # Re-arrange array if necessary and get dimensional information
-    if timeAxis != 0:
-        dat = trl_dat.T       # does not copy but creates view of `trl_dat`
-    else:
-        dat = trl_dat
-
-    outShape = dat.shape
-
+    outShape = trl_dat.shape
     # For initialization of computational routine,
     # just return output shape and dtype
     if noCompute:
         return outShape, fooofDTypes[output_fmt]
 
-    # call actual fooof method
-    res, _ = fooofspy(dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
+    # Call actual fooof method
+    res, _ = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
                       fooof_opt=method_kwargs)
 
     res = 10 ** res  # FOOOF stores values as log10, undo.
 
     # TODO (later): get the 'details' from the unused _ return
     #  value and pass them on. This cannot be done right now due
-    #  to lack of support for several return values, see #140
+    #  to lack of support for several return values, see #140.
 
-    # Add omitted axes back to result.
-    # Note that we do not need to worry about flipped timeAxis,
-    # as our input is the result of the mtmfft method, so we do
-    # not need to flip back here.
-    res = res[np.newaxis, np.newaxis, :, :]
-
+    res = res[np.newaxis, np.newaxis, :, :] # re-add omitted axes.
     return res
 
 
 class FooofSpy(ComputationalRoutine):
     """
-    Compute class that calculates FOOOFed spectrum.
+    Compute class that checks parameters and adds metadata to output spectral data.
 
     Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
     see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
