@@ -933,14 +933,10 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
 
     outShape = dat.shape
 
-    print("outShape: %s" % str(dat.shape))
-
     # For initialization of computational routine,
     # just return output shape and dtype
     if noCompute:
         return outShape, fooofDTypes[output_fmt]
-
-    print("shape passed to spfooof from cF: %s" % str(dat[0, 0, :, :].shape))
 
     # call actual fooof method
     res, _ = fooofspy(dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
