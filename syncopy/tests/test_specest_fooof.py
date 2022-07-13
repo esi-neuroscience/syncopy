@@ -26,12 +26,12 @@ def _plot_powerspec(freqs, powers):
 
 class TestFooofSpy():
     """
-    FOOOF is a post-processing of an FFT, so we first generate a signal and
-    run an MTMFFT on it. Then we run FOOOF.
-
-    Construct high-frequency signal modulated by slow oscillating cosine and
-    add time-decaying noise
+    Test the frontend (user API) for running FOOOF. FOOOF is a post-processing of an FFT, and
+    to request the post-prcocesing, the user sets the method to "mtmfft", and the output to
+    one of the available FOOOF output types.
     """
+
+    # Construct input signal
     nChannels = 2
     nChan2 = int(nChannels / 2)
     nTrials = 1
@@ -47,13 +47,26 @@ class TestFooofSpy():
     cfg.output = "fooof"
 
     def test_fooof_output_fooof_fails_with_freq_zero(self, fulltests):
+        """ The fooof package ignores input values of zero frequency, and shortens the output array
+            in that case with a warning. This is not acceptable for us, as the expected output dimension
+            will not off by one. Also it is questionable whether users would want that. We therefore use
+            consider it an error to pass an input frequency axis that contains the zero, and throw an
+            error in the frontend to stop before any expensive computations happen. This test checks for
+            that error.
+        """
         self.cfg['output'] = "fooof"
         self.cfg['foilim'] = [0., 250.]    # Include the zero in tfData.
         with pytest.raises(SPYValueError) as err:
-            spec_dt = freqanalysis(self.cfg, self.tfData)  # tfData contains zero.
+            _ = freqanalysis(self.cfg, self.tfData)  # tfData contains zero.
             assert "a frequency range that does not include zero" in str(err)
 
     def test_fooof_output_fooof_works_with_freq_zero_in_data_after_setting_foilim(self, fulltests):
+        """
+        This tests the intended operation with output type 'fooof': with an input that does not
+        include zero, ensured by using the 'foilim' argument/setting when calling freqanalysis.
+
+        This returns the full, fooofed spectrum.
+        """
         self.cfg['output'] = "fooof"
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
         spec_dt = freqanalysis(self.cfg, self.tfData)
@@ -75,10 +88,11 @@ class TestFooofSpy():
         assert not np.isnan(spec_dt.data).any()
 
         # Plot it.
-        #_plot_powerspec(freqs=spec_dt.freq, powers=spec_dt.data[0, 0, :, 0])
+        #  _plot_powerspec(freqs=spec_dt.freq, powers=spec_dt.data[0, 0, :, 0])
         spec_dt.singlepanelplot()
 
     def test_spfooof_output_fooof_aperiodic(self, fulltests):
+        """Test fooof with output type 'fooof_aperiodic'. A spectrum containing only the aperiodic part is returned."""
         self.cfg['output'] = "fooof_aperiodic"
         assert self.cfg['foilim'] == [0.5, 250.]
         spec_dt = freqanalysis(self.cfg, self.tfData)
@@ -95,6 +109,7 @@ class TestFooofSpy():
         _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data))
 
     def test_spfooof_output_fooof_peaks(self, fulltests):
+        """Test fooof with output type 'fooof_peaks'. A spectrum containing only the peaks (actually, the Gaussians fit to the peaks) is returned."""
         self.cfg['output'] = "fooof_peaks"
         spec_dt = freqanalysis(self.cfg, self.tfData)
         assert spec_dt.data.ndim == 4
@@ -111,15 +126,17 @@ class TestFooofSpy():
 
         assert spec_dt.data.ndim == 4
 
-        # TODO: test whether the settings returned as 2nd return value include
+        # TODO later: test whether the settings returned as 2nd return value include
         #  our custom value for fooof_opt['max_n_peaks']. Not possible yet on
         #  this level as we have no way to get the 'details' return value.
         #  This is verified in backend tests though.
 
     def test_fooofspy_rejects_preallocated_output(self, fulltests):
+        """ We do not support a pre-allocated out SpectralData object with output = 'fooof*'.
+            Ensure an error is thrown if the user tries it.
+        """
         with pytest.raises(SPYValueError) as err:
             out = SpectralData(dimord=SpectralData._defaultDimord)
             _ = freqanalysis(self.cfg, self.tfData, out=out)
             assert "pre-allocated output object not supported with" in str(err)
 
-# %%
