@@ -159,6 +159,102 @@ class TestDownsampling:
         ppl.ion()
 
 
+class TestResampling:
+
+    nSamples = 1000
+    nChannels = 4
+    nTrials = 100
+    fs = 200
+    fNy = fs / 2
+
+    # -- use flat white noise as test data --
+    adata = synth_data.white_noise(nTrials,
+                                   nChannels=nChannels,
+                                   nSamples=nSamples,
+                                   samplerate=fs)
+
+    # original spectrum
+    spec = freqanalysis(adata, tapsmofrq=1, keeptrials=False)
+    # mean of the flat spectrum
+    pow_orig = spec.show(channel=0).mean()
+
+    # for toi tests, -1s offset
+    time_span = [-.8, 4.2]
+
+    def test_resampling(self, **kwargs):
+
+        """
+        We test for remaining power after
+        resampling.
+        """
+        # check if we run the default test
+        def_test = not len(kwargs)
+
+        # write default parameters dict
+        if def_test:
+            # polyphase method: firws acts on the upsampled data!
+            kwargs = {'resamplefs': self.fs * 0.43, 'order': 5000}
+
+        rs = resampledata(self.adata, method='resample', **kwargs)
+        spec_rs = freqanalysis(rs, tapsmofrq=1, keeptrials=False)
+
+        # all channels are equal,
+        # avoid the nose with 3Hz away from the cut-off
+        pow_rs = spec_rs.show(channel=0,
+                              foilim=[0, kwargs['resamplefs'] / 2 - 3]).mean()
+
+        if def_test:
+            # here we have aa filtering built in,
+            # so the power should be unchanged after resampling
+            assert np.allclose(self.pow_orig, pow_rs, rtol=.5e-1)
+
+            f, ax = mk_spec_ax()
+            ax.plot(spec_rs.freq, spec_rs.show(channel=0), label='resampled')
+            ax.plot(self.spec.freq, self.spec.show(channel=0), label='original')
+            ax.plot([rs.samplerate / 2, rs.samplerate / 2], [0.001, 0.0025], 'k--', lw=0.5)
+            ax.legend()
+
+            return
+
+        return spec_rs
+
+    def test_rs_exceptions(self):
+
+        # test sub-optimal lp freq, needs to be maximally the new Nyquist
+        with pytest.raises(SPYValueError) as err:
+            self.test_resampling(resamplefs=self.fs // 2, lpfreq=self.fs / 1.5)
+        assert f"less or equals {self.fs / 4}" in str(err.value)
+
+        # test wrong order
+        with pytest.raises(SPYValueError) as err:
+            self.test_resampling(resamplefs=self.fs // 2, lpfreq=self.fs / 10, order=-1)
+        assert "less or equals inf" in str(err.value)
+
+    def test_rs_selections(self):
+
+        sel_dicts = helpers.mk_selection_dicts(nTrials=20,
+                                               nChannels=2,
+                                               toi_min=self.time_span[0],
+                                               toi_max=self.time_span[1],
+                                               min_len=3.5)
+        for sd in sel_dicts:
+            self.test_resampling(select=sd, resamplefs=self.fs // 2)
+
+    @skip_without_acme
+    def test_rs_parallel(self, testcluster=None):
+
+        ppl.ioff()
+        client = dd.Client(testcluster)
+        all_tests = [attr for attr in self.__dir__()
+                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
+
+        for test_name in all_tests:
+            test_method = getattr(self, test_name)
+            test_method()
+        client.close()
+        ppl.ion()
+
+
 def mk_spec_ax():
 
     fig, ax = ppl.subplots()
@@ -169,3 +265,4 @@ def mk_spec_ax():
 
 if __name__ == '__main__':
     T1 = TestDownsampling()
+    T2 = TestResampling()

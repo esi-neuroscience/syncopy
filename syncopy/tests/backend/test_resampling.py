@@ -66,7 +66,7 @@ def test_resample():
 
     # -- test resampling --
 
-    rs_fs = 200
+    rs_fs = 205
     # make sure we have a non-integer division
     assert orig_fs % rs_fs > 1  # strictly > 0 would be enough..
 
@@ -83,9 +83,9 @@ def test_resample():
     gain = rs_powerSP.mean() / orig_power.mean()
     assert 0.94 < gain < 1.02
 
-    # -- use backend with homegrown firws --
+    # -- use backend with homegrown default firws --
 
-    rs_data = [resampling.resample(signals, orig_fs, rs_fs)
+    rs_data = [resampling.resample(signals, orig_fs, rs_fs, lpfreq=None, order=None)
                for signals in data]
     rs_power, rs_freqs = trl_av_power(rs_data, nSamples, rs_fs)
     gain = rs_power.mean() / orig_power.mean()
@@ -102,7 +102,7 @@ def test_resample():
     ax.plot(orig_freqs, orig_power, label="original", lw=1.5, alpha=0.5)
     ax.plot(ds_freqs, ds_power, label="downsampled")
     ax.plot(ds_lp_freqs, ds_lp_power, label="downsampled + FIRWS")
-    ax.plot(rs_freqsSP, rs_powerSP, label="default resample_poly")
+    ax.plot(rs_freqsSP, rs_powerSP, label="resample_poly + default")
     ax.plot(rs_freqs, rs_power, label="resample_poly + FIRWS")
     ax.set_ylim((0, ds_power.mean() * 1.2))
     ax.legend()

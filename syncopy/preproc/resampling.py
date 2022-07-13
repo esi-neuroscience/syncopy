@@ -11,6 +11,7 @@ import scipy.signal as sci_sig
 # Syncopy imports
 from syncopy.preproc import firws
 
+
 def resample(data, orig_fs, new_fs, lpfreq=None, order=None):
 
     """
@@ -38,7 +39,8 @@ def resample(data, orig_fs, new_fs, lpfreq=None, order=None):
     order : None or int, optional
         Order (length) of the firws anti-aliasing filter.
         The default `None` will create a filter of
-        maximal order which is the number of samples in the trial.
+        maximal order which is the number of samples times the upsampling
+        factor of the trial, or 10 000 if that is smaller
 
     Returns
     -------
@@ -70,15 +72,17 @@ def resample(data, orig_fs, new_fs, lpfreq=None, order=None):
     else:
         f_c = lpfreq / orig_fs
     if order is None:
-        order = nSamples
+        order = nSamples * up
+        # limit maximal order
+        order = 10000 if order > 10000 else order
 
     if f_c:
         # filter has to be applied to the upsampled data
         window = firws.design_wsinc("hamming",
-                                  order=nSamples,
-                                  f_c=f_c / up)
+                                    order=order,
+                                    f_c=f_c / up)
     else:
-        window = ('kaiser', 5.0)   # SciPy default
+        window = ('kaiser', 5.0)  # triggers SciPy default filter design
 
     resampled = sci_sig.resample_poly(data, up, down, window=window, axis=0)
 
@@ -134,4 +138,3 @@ def _get_updn(orig_fs, new_fs):
     frac = frac.limit_denominator()
 
     return frac.numerator, frac.denominator
-

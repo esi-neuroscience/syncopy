@@ -41,16 +41,15 @@ def resampledata(data,
     "downsample" : Take every nth sample
         The new sampling rate `resamplefs` must be an integer division of
         the old sampling rate, e. g., 500Hz to 250Hz.
-        Note that no anti-aliasing filtering is performed before downsampling,
+        NOTE: No anti-aliasing filtering is performed before downsampling,
         it is strongly recommended to apply a low-pass filter
-        beforehand via :func:`~syncopy.preprocessing` with the new
-        Nyquist frequency (`resamplefs / 2`) as cut-off.
-        Alternatively explicitly setting `lpfreq` (and `order` if needed)
-        performs anti-aliasing on the fly.
+        via explicitly setting `lpfreq` to the new Nyquist frequency
+        (`resamplefs / 2`) as cut-off.
+        Alternatively filter the data with :func:`~syncopy.preprocessing` beforehand.
 
     "resample" : Resample to a new sampling rate
         The new sampling rate `resamplefs` can be any (rational) fraction
-        of the original sampling rate (`data.samperate`). Automatic
+        of the original sampling rate (`data.samplerate`). Automatic
         anti-aliasing FIRWS filtering with the new Nyquist frequency
         is performed before resampling. Optionally set `lpfreq` in Hz
         for manual control over the low-pass filtering.
@@ -107,7 +106,7 @@ def resampledata(data,
     check_passed_kwargs(lcls, defaults, frontend_name="resampledata")
 
     # check resampling frequency
-    scalar_parser(resamplefs, varname="resamplefs", lims=[1, np.inf])
+    scalar_parser(resamplefs, varname="resamplefs", lims=[1, data.samplerate])
 
     # filter order
     if order is not None:
