@@ -110,6 +110,7 @@ class TestFooofSpy():
 
     def test_spfooof_output_fooof_peaks(self, fulltests):
         """Test fooof with output type 'fooof_peaks'. A spectrum containing only the peaks (actually, the Gaussians fit to the peaks) is returned."""
+        self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
         self.cfg['output'] = "fooof_peaks"
         spec_dt = freqanalysis(self.cfg, self.tfData)
         assert spec_dt.data.ndim == 4
@@ -120,6 +121,9 @@ class TestFooofSpy():
 
     def test_spfooof_outputs_from_different_fooof_methods_are_consistent(self, fulltests):
         """Test fooof with all output types plotted into a single plot and ensure consistent output."""
+        self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
+        self.cfg['output'] = "pow"
+        out_fft = freqanalysis(self.cfg, self.tfData)
         self.cfg['output'] = "fooof"
         out_fooof = freqanalysis(self.cfg, self.tfData)
         self.cfg['output'] = "fooof_aperiodic"
@@ -127,24 +131,26 @@ class TestFooofSpy():
         self.cfg['output'] = "fooof_peaks"
         out_fooof_peaks = freqanalysis(self.cfg, self.tfData)
 
-        assert out_fooof.freq == out_fooof_aperiodic.freq
-        assert out_fooof.freq == out_fooof_peaks.freq
+        assert (out_fooof.freq == out_fooof_aperiodic.freq).all()
+        assert (out_fooof.freq == out_fooof_peaks.freq).all()
 
         freqs = out_fooof.freq
 
         assert out_fooof.data.shape == out_fooof_aperiodic.data.shape
         assert out_fooof.data.shape == out_fooof_peaks.data.shape
 
-        plt.plot(freqs, self.tfData, label="Raw input data")
-        plt.plot(freqs, out_fooof, label="Fooofed spectrum")
-        plt.plot(freqs, out_fooof_aperiodic, label="Fooof aperiodic fit")
-        plt.plot(freqs, out_fooof_peaks, label="Fooof peaks fit")
+        plt.figure()
+        plt.plot(freqs, np.ravel(out_fft.data), label="Raw input data")
+        plt.plot(freqs, np.ravel(out_fooof.data), label="Fooofed spectrum")
+        plt.plot(freqs, np.ravel(out_fooof_aperiodic.data), label="Fooof aperiodic fit")
+        plt.plot(freqs, np.ravel(out_fooof_peaks.data), label="Fooof peaks fit")
         plt.xlabel('Frequency (Hz)')
         plt.ylabel('Power (db)')
         plt.legend()
         plt.show()
 
     def test_spfooof_frontend_settings_are_merged_with_defaults_used_in_backend(self, fulltests):
+        self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
         self.cfg['output'] = "fooof_peaks"
         self.cfg.pop('fooof_opt', None)  # Remove from cfg to avoid passing twice. We could also modify it (and then leave out the fooof_opt kw below).
         fooof_opt = {'max_n_peaks': 8}
