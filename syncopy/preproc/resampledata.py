@@ -77,6 +77,11 @@ def resampledata(data,
 
     # -- Basic input parsing --
 
+    if method not in availableMethods:
+        lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
+        raise SPYValueError(legal=lgl, varname="method", actual=method)
+
+
     # Make sure our one mandatory input object can be processed
     try:
         data_parser(
