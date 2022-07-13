@@ -261,7 +261,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
         for the meanings and the defaults.
         The FOOOF reference is: Donoghue et al. 2020, DOI 10.1038/s41593-020-00744-x.
     out : None or :class:`SpectralData` object
-        None if a new :class:`SpectralData` object is to be created, or an empty :class:`SpectralData` object
+        None if a new :class:`SpectralData` object is to be created, or an empty :class:`SpectralData` object.
+        Must be None if `output` is `'fooof'`, `'fooof_aperiodic'`, or `'fooof_peaks'`.
 
 
     Returns
