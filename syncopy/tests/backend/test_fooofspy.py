@@ -87,12 +87,18 @@ class TestSpfooof():
         assert spec_fooof.shape == (powers.size, 1)
         assert spec_fooof.shape == (freqs.size, 1)
 
+        fooofed_spectrum = 10 ** spec_fooof.squeeze()
+        fooof_aperiodic = 10 ** spec_fooof_aperiodic.squeeze()
+        fooof_peaks = spec_fooof_peaks.squeeze()
+        fooof_peaks_and_aperiodic = 10 ** (spec_fooof_peaks.squeeze() + spec_fooof_aperiodic.squeeze())
+
         # Visually compare data and fits.
         plt.figure()
         plt.plot(freqs, powers, label="Raw input data")
-        plt.plot(freqs, 10 ** spec_fooof.squeeze(), label="Fooofed spectrum")
-        plt.plot(freqs, 10 ** spec_fooof_aperiodic.squeeze(), label="Fooof aperiodic fit")
-        plt.plot(freqs, spec_fooof_peaks.squeeze(), label="Fooof peaks fit")
+        plt.plot(freqs, fooofed_spectrum, label="Fooofed spectrum")
+        plt.plot(freqs, fooof_aperiodic, label="Fooof aperiodic fit")
+        plt.plot(freqs, fooof_peaks, label="Fooof peaks fit")
+        plt.plot(freqs, fooof_peaks_and_aperiodic, label="Fooof peaks fit + aperiodic")
         plt.xlabel('Frequency (Hz)')
         plt.ylabel('Power')
         plt.legend()
