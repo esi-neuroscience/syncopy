@@ -10,6 +10,7 @@ from fooof.sim.gen import gen_power_spectrum
 from fooof.sim.utils import set_random_seed
 
 from syncopy.shared.errors import SPYValueError
+import matplotlib.pyplot as plt
 
 
 def _power_spectrum(freq_range=[3, 40], freq_res=0.5, periodic_params=[[10, 0.2, 1.25], [30, 0.15, 2]], aperiodic_params=[1, 1]):
@@ -30,7 +31,7 @@ class TestSpfooof():
 
     def test_spfooof_output_fooof_single_channel(self, freqs=freqs, powers=powers):
         """
-        Tests spfooof with output 'fooof' and a single input signal. This will return the full, fooofed spectrum.
+        Tests spfooof with output 'fooof' and a single input signal/channel. This will return the full, fooofed spectrum.
         """
         spectra, details = fooofspy(powers, freqs, out_type='fooof')
 
@@ -41,7 +42,7 @@ class TestSpfooof():
 
     def test_spfooof_output_fooof_several_channels(self, freqs=freqs, powers=powers):
         """
-        Tests spfooof with output 'fooof' and several input signal. This will return the full, fooofed spectrum.
+        Tests spfooof with output 'fooof' and several input signals/channels. This will return the full, fooofed spectrum.
         """
         num_channels = 3
         powers = np.tile(powers, num_channels).reshape(powers.size, num_channels)  # Copy signal to create channels.
@@ -73,6 +74,29 @@ class TestSpfooof():
         assert details['settings_used']['out_type'] == 'fooof_peaks'
         assert all(key in details for key in ("aperiodic_params", "n_peaks", "r_squared", "error", "settings_used"))
         assert details['settings_used']['fooof_opt']['peak_threshold'] == 2.0  # Should be in and at default value.
+
+    def test_spfooof_together(self, freqs=freqs, powers=powers):
+
+        spec_fooof, det_fooof = fooofspy(powers, freqs, out_type='fooof')
+        spec_fooof_aperiodic, det_fooof_aperiodic = fooofspy(powers, freqs, out_type='fooof_aperiodic')
+        spec_fooof_peaks, det_fooof_peaks = fooofspy(powers, freqs, out_type='fooof_peaks')
+
+        # Ensure output shapes are as expected.
+        assert spec_fooof.shape == spec_fooof_aperiodic.shape
+        assert spec_fooof.shape == spec_fooof_peaks.shape
+        assert spec_fooof.shape == (powers.size, 1)
+        assert spec_fooof.shape == (freqs.size, 1)
+
+        # Visually compare data and fits.
+        plt.figure()
+        plt.plot(freqs, powers, label="Raw input data")
+        plt.plot(freqs, 10 ** spec_fooof.squeeze(), label="Fooofed spectrum")
+        plt.plot(freqs, 10 ** spec_fooof_aperiodic.squeeze(), label="Fooof aperiodic fit")
+        plt.plot(freqs, spec_fooof_peaks.squeeze(), label="Fooof peaks fit")
+        plt.xlabel('Frequency (Hz)')
+        plt.ylabel('Power')
+        plt.legend()
+        plt.show()
 
     def test_spfooof_the_fooof_opt_settings_are_used(self, freqs=freqs, powers=powers):
         """
