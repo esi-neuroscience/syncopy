@@ -8,12 +8,11 @@ import numpy as np
 
 # Local imports
 from syncopy.shared.errors import SPYInfo, SPYTypeError
-from syncopy.shared.kwarg_decorators import unwrap_cfg
+
 
 __all__ = ["show"]
 
 
-@unwrap_cfg
 def show(data, squeeze=True, **kwargs):
     """
     Show (partial) contents of Syncopy object

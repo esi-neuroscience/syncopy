@@ -1490,7 +1490,7 @@ class Selector():
 
         # Keep list of supported selectors in sync w/supported keywords of `selectdata`
         supported = list(signature(selectdata).parameters.keys())
-        for key in ["data", "out", "inplace", "clear", "parallel", "kwargs"]:
+        for key in ["data", "inplace", "clear", "parallel", "kwargs"]:
             supported.remove(key)
         # supported = ["trials", "channel", "channel_i", "channel_j", "toi",
         #              "toilim", "foi", "foilim", "taper", "unit", "eventid"]

@@ -25,7 +25,8 @@ skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available"
 availableFrontend_cfgs = {'freqanalysis': {'method': 'mtmconvol', 't_ftimwin': 0.1},
                           'preprocessing': {'freq': 10, 'filter_class': 'firws', 'filter_type': 'hp'},
                           'resampledata': {'resamplefs': 125, 'lpfreq': 100},
-                          'connectivityanalysis': {'method': 'coh', 'tapsmofrq': 5}
+                          'connectivityanalysis': {'method': 'coh', 'tapsmofrq': 5},
+                          'selectdata': {'trials': [1, 7, 3], 'channel': [2, 0]}
                           }
 
 
@@ -94,6 +95,9 @@ class TestCfg:
 
         select = {'toilim': self.time_span, 'trials': [1, 2, 3], 'channel': [2, 0]}
         for frontend in availableFrontend_cfgs.keys():
+            # select kw for selectdata makes no direct sense
+            if frontend == 'selectdata':
+                continue
             res = getattr(spy, frontend)(self.adata,
                                          cfg=availableFrontend_cfgs[frontend],
                                          select=select)
