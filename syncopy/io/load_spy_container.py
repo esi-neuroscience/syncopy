@@ -302,7 +302,6 @@ def _load(filename, checksum, mode, out):
     for key in [prop for prop in dataclass._infoFileProperties if prop != "dimord"]:
         setattr(out, key, jsonDict[key])
 
-    # Write `cfg` entries
     thisMethod = sys._getframe().f_code.co_name.replace("_", "")
 
     # Write log-entry

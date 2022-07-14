@@ -8,7 +8,7 @@ import numpy as np
 
 # Syncopy imports
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
-from syncopy.shared.tools import get_defaults, StructDict, get_frontend_cfg
+from syncopy.shared.tools import get_defaults, get_frontend_cfg
 from syncopy.datatype import SpectralData
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,

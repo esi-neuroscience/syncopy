@@ -6,6 +6,8 @@
 import pytest
 import numpy as np
 import inspect
+import tempfile
+import os
 
 # Local imports
 import syncopy as spy
@@ -14,6 +16,8 @@ if __acme__:
     import dask.distributed as dd
 
 import syncopy.tests.synth_data as synth_data
+from syncopy.shared.tools import StructDict
+
 
 # Decorator to decide whether or not to run dask-related tests
 skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
@@ -62,6 +66,29 @@ class TestCfg:
                 res3 = getattr(spy, frontend)(self.adata)
                 assert np.any(res.data[:] != res3.data[:])
                 assert res.cfg != res3.cfg
+
+    def test_io(self):
+
+        for frontend in availableFrontend_cfgs.keys():
+
+            # unwrap cfg into keywords
+            res = getattr(spy, frontend)(self.adata, **availableFrontend_cfgs[frontend])
+            # make a copy
+            cfg = StructDict(res.cfg)
+
+            # test saving and loading
+            with tempfile.TemporaryDirectory() as tdir:
+                fname = os.path.join(tdir, "res")
+                res.save(container=fname)
+
+                res = spy.load(fname)
+                assert res.cfg == cfg
+
+                # now replay with cfg from preceding frontend call
+                res2 = getattr(spy, frontend)(self.adata, res.cfg)
+                # same results
+                assert np.allclose(res.data[:], res2.data[:])
+                assert res.cfg == res2.cfg
 
     def test_selection(self):
 
