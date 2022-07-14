@@ -7,7 +7,7 @@
 import numpy as np
 
 # Local imports
-from syncopy.shared.errors import SPYInfo, SPYTypeError
+from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError
 
 __all__ = ["show"]
 
