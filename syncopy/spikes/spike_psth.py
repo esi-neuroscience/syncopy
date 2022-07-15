@@ -17,15 +17,19 @@ from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
 
 # method specific imports - they should go when
 # we have multiple returns
-# from .psth import Rice_rule
+from syncopy.spikes.psth import Rice_rule, sqrt_rule
 
 # Local imports
 # from .compRoutines import PSTH
 
-available_binsizes = ['rice', 'sqrt']
+available_binsizes = {'rice': Rice_rule, 'sqrt': sqrt_rule}
 available_outputs = ['rate', 'spikecount', 'proportion']
 available_latencies = ['maxperiod', 'minperiod', 'prestim', 'poststim']
 
+# ===DEV SNIPPET===
+from syncopy.tests import synth_data as sd
+spd = sd.poisson_noise(10)
+# =================
 
 @unwrap_cfg
 @unwrap_select
@@ -73,7 +77,8 @@ def spike_psth(data,
     # Make sure our one mandatory input object can be processed
     try:
         data_parser(
-            data, varname="data", dataclass="SpikeData", writable=None, empty=False
+            data, varname="data", dataclass="SpikeData",
+            writable=None, empty=False, dimord=['sample', 'channel', 'unit']
         )
     except Exception as exc:
         raise exc
@@ -89,7 +94,7 @@ def spike_psth(data,
         # beginnings and ends of all trials in relative time
         beg_ends = (data.sampleinfo - (
             data.sampleinfo[:, 0] + data.trialdefinition[:, 2])[:, None]
-                    ) / data.samplerate
+                ) / data.samplerate
         trl_starts = beg_ends[:, 0]
         trl_ends = beg_ends[:, 1]
 
@@ -124,7 +129,40 @@ def spike_psth(data,
     else:
         array_parser(latency, lims=[0, np.inf], dims=(2,))
         interval = latency
-    print(interval)
 
+    # --- determine overall (all trials) histrogram shape ---
 
-    pass
+    # get average trial size for auto-binning
+    av_trl_size = data.data.shape[0] / len(data.trials)
+
+    # TODO: respect time window (latency)
+    if binsize in available_binsizes:
+        nBins = available_binsizes[binsize](av_trl_size)
+        bins = np.linspace(*interval, nBins)
+    else:
+        # include rightmost bin edge
+        bins = np.arange(interval[0], interval[1] + binsize, binsize)
+        nBins = len(bins)
+    print(interval, bins)
+
+    # get all channelX-unitY combinations with at least one event
+
+    # possible channel-unit indices
+    combs = []
+
+    # the straightforward way would be: np.unique(data.data[:, 1:], axis=0)
+    # however this loads 66% the size of the total data into memory
+    for trial in data.trials:
+        # tuples allow for a set operation, dimord is fixed as parsed above!
+        combs += [tuple(x) for x in np.unique(trial[:, 1:], axis=0)]
+
+    combs = set(combs)
+    # sadly now this needs to be massaged further
+    combs = np.sort(list(combs), axis=0)
+
+    # right away create the output labels
+    chan_labels = [f'channel{i}_unit{j}' for i, j in combs]
+
+    # now we have our (single-trial, avg, std,..) histogram shape
+    h_shape = (nBins, len(combs))
+    return combs

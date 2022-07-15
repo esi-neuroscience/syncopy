@@ -23,7 +23,7 @@ def psth(trl_dat,
     trl_start : int
         Start of the trial in sample units
     onset : int
-        Trigger onset in samples
+        Trigger onset in samples units
     bins: :class:`~numpy.array` or None
         An array of monotonically increasing PSTH bin edges
         in seconds including the rightmost edge
@@ -32,8 +32,8 @@ def psth(trl_dat,
     Returns
     -------
     counts : :class:`~np.ndarray`
-        Spike counts for each channel and unit
-        with shape (nUnits, nBins, nChannels)
+        Spike counts for each available channelX_unitY
+        combination with shape (nBins, nChannelUnits)
 
     See Also
     --------
@@ -89,10 +89,19 @@ def _calc_time(samples, trl_start, onset, samplerate):
 
 # --- Bin selection rules ---
 
+def sqrt_rule(nSamples):
+
+    """
+    Get number of bins via square root of number of samples
+    """
+
+    return int(np.ceil(np.sqrt(nSamples)))
+
+
 def Freedman_Diaconis_rule(samples):
 
     """
-    Get optimal number of bins from samples,
+    Get number of bins from number and min/max of samples,
     probably too low for 'typical' spike data.
     """
 
@@ -101,11 +110,11 @@ def Freedman_Diaconis_rule(samples):
     return Nbins
 
 
-def Rice_rule(samples):
+def Rice_rule(nSamples):
 
     """
-    Get optimal number of bins from samples
+    Get number of bins from number of samples
     """
 
-    Nbins = int(2 * pow(len(samples), 1 / 3))
+    Nbins = int(2 * pow(nSamples, 1 / 3))
     return Nbins
