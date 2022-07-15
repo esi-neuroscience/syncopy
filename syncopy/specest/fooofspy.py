@@ -137,12 +137,7 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
                 exp = fm.aperiodic_params_[2]
                 out_spectrum = offset - np.log10(knee + in_freqs**exp)
         elif out_type == "fooof_peaks":
-            use_gauss = True
-            if use_gauss:
-                gp = fm.gaussian_params_
-            else:
-                gp = fm.peak_params_
-
+            gp = fm.gaussian_params
             out_spectrum = np.zeros_like(in_freqs, in_freqs.dtype)
             for row_idx in range(len(gp)):
                 ctr, hgt, wid = gp[row_idx, :]
