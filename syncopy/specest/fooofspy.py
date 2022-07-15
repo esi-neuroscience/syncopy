@@ -58,10 +58,12 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
         The data is in log space (log10).
     details : dictionary
         Details on the model fit and settings used. Contains the following keys:
-            `aperiodic_params` 2D :class:`numpy.ndarray`, the aperiodoc parameters of the fits
-            `n_peaks`: 1D :class:`numpy.ndarray` of int, the number of peaks detected in the spectra of the fits
-            `r_squared`: 1D :class:`numpy.ndarray` of int, the number of peaks detected in the spectra of the fits
-            `error`: 1D :class:`numpy.ndarray` of float, the model error of the fits
+            `aperiodic_params` 2D :class:`numpy.ndarray`, the aperiodoc parameters of the fits, in log10.
+            `gaussian_params` list of 2D nx3 :class:`numpy.ndarray`, the Gaussian parameters of the fits, in log10. Each column describes the mean, height and width of a Gaussian fit to a peak.
+            `peak_params` list of 2D xn3 :class:`numpy.ndarray`, the peak parameters (a modified version of the Gaussian parameters, see FOOOF docs) of the fits, in log10. Each column describes the mean, height over aperiodic and 2-sided width of a Gaussian fit to a peak.
+            `n_peaks`: 1D :class:`numpy.ndarray` of int, the number of peaks detected in the spectra of the fits.
+            `r_squared`: 1D :class:`numpy.ndarray` of int, the number of peaks detected in the spectra of the fits.
+            `error`: 1D :class:`numpy.ndarray` of float, the model error of the fits.
             `settings_used`: dict, the settings used, including the keys `fooof_opt`, `out_type`, and `freq_range`.
 
     Examples
@@ -80,9 +82,7 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
     DOI: 10.1038/s41593-020-00744-x
     """
 
-    # attach dummy channel axis in case only a
-    # single signal/channel is the input
-    if data_arr.ndim < 2:
+    if data_arr.ndim < 2:  # Attach dummy channel axis for single channel data.
         data_arr = data_arr[:, np.newaxis]
 
     if fooof_opt is None:
@@ -117,6 +117,8 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
     n_peaks = np.zeros(shape=(num_channels), dtype=np.int32)    # helper: number of peaks fit.
     r_squared = np.zeros(shape=(num_channels), dtype=np.float64)  # helper: R squared of fit.
     error = np.zeros(shape=(num_channels), dtype=np.float64)      # helper: model error.
+    gaussian_params = list()  # Gaussian fit parameters of peaks
+    peak_params = list()  # Peak fit parameters, a modified version of gaussian_parameters. See FOOOF docs.
 
     # Run fooof and store results.
     for channel_idx in range(num_channels):
@@ -135,13 +137,18 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
                 exp = fm.aperiodic_params_[2]
                 out_spectrum = offset - np.log10(knee + in_freqs**exp)
         elif out_type == "fooof_peaks":
-            gp = fm.gaussian_params_
+            use_gauss = False
+            if use_gauss:
+                gp = fm.gaussian_params_
+            else:
+                gp = fm.peak_params_
+
             out_spectrum = np.zeros_like(in_freqs, in_freqs.dtype)
             for row_idx in range(len(gp)):
                 ctr, hgt, wid = gp[row_idx, :]
                 # Extract Gaussian parameters: central frequency (=mean), power over aperiodic, bandwith of peak (= 2* stddev of Gaussian).
                 # see FOOOF docs for details, especially Tutorial 2, Section 'Notes on Interpreting Peak Parameters'
-                out_spectrum = out_spectrum + hgt * np.exp(- (in_freqs - ctr)**2 / (2 * wid**2))
+                out_spectrum += hgt * np.exp(- (in_freqs - ctr)**2 / (2 * wid**2))
         else:
             raise SPYValueError(legal=available_fooof_out_types, varname="out_type", actual=out_type)
 
@@ -150,8 +157,10 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
         n_peaks[channel_idx] = fm.n_peaks_
         r_squared[channel_idx] = fm.r_squared_
         error[channel_idx] = fm.error_
+        gaussian_params.append(fm.gaussian_params_)
+        peak_params.append(fm.peak_params_)
 
     settings_used = {'fooof_opt': fooof_opt, 'out_type': out_type, 'freq_range': freq_range}
-    details = {'aperiodic_params': aperiodic_params, 'n_peaks': n_peaks, 'r_squared': r_squared, 'error': error, 'settings_used': settings_used}
+    details = {'aperiodic_params': aperiodic_params, 'gaussian_params': gaussian_params, 'peak_params': peak_params, 'n_peaks': n_peaks, 'r_squared': r_squared, 'error': error, 'settings_used': settings_used}
 
     return out_spectra, details

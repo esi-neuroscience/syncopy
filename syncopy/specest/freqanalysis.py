@@ -86,7 +86,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
         Post-processing of the resulting spectra with FOOOOF is available
         via setting `output` to one of `'fooof'`, `'fooof_aperiodic'` or
-        `'fooof_peaks'`, see below for details.
+        `'fooof_peaks'`, see below for details. The returned spectrum represents
+        the full foofed spectrum for `'fooof'`, the aperiodic
+        fit for `'fooof_aperiodic'`, and the peaks (Gaussians fit to them) for
+        `'fooof_peaks'`.
 
     "mtmconvol" : (Multi-)tapered sliding window Fourier transform
         Perform time-frequency analysis on time-series trial data based on a sliding
