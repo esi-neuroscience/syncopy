@@ -177,5 +177,5 @@ class TestFooofSpy():
         with pytest.raises(SPYValueError) as err:
             self.cfg['out'] = out
             _ = freqanalysis(self.cfg, self.tfData)
-        assert "pre-allocated output object not supported with" in str(err.value)
+        assert "pre-allocated output object not supported" in str(err.value)
 
