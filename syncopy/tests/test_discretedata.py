@@ -170,21 +170,21 @@ class TestSpikeData():
             [4, 2, 2, 5, 5],   # repetition + unorderd
             range(5, 8),  # narrow range
             slice(-5, None)  # negative-start slice
-            ]
+        ]
         toiSelections = [
             "all",  # non-type-conform string
             [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
-            ]
+        ]
         toilimSelections = [
             [0.5, 3.5],  # regular range
             [1.0, np.inf]  # unbounded from above
-            ]
+        ]
         unitSelections = [
             ["unit1", "unit1", "unit2", "unit3"],  # preserve repetition
             [0, 0, 2, 3],  # preserve repetition, don't convert to slice
             range(1, 4),  # narrow range
             slice(-2, None)  # negative-start slice
-            ]
+        ]
         timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
             + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
 
@@ -221,19 +221,18 @@ class TestSpikeData():
                             for trialno in selector.trials:
                                 if selector.time[tk]:
                                     assert np.array_equal(obj.trials[trialno][selector.time[tk], :],
-                                                        selected.trials[tk])
+                                                          selected.trials[tk])
                                     tk += 1
                             assert set(selected.data[:, chanIdx]).issubset(chanArr[selector.channel])
                             assert set(selected.channel) == set(obj.channel[selector.channel])
                             assert np.array_equal(selected.unit,
-                                                obj.unit[np.unique(selected.data[:, unitIdx])])
+                                                  obj.unit[np.unique(selected.data[:, unitIdx])])
                             cfg.data = obj
-                            cfg.out = SpikeData(dimord=obj.dimord)
                             # data selection via package function and `cfg`: ensure equality
-                            selectdata(cfg)
-                            assert np.array_equal(cfg.out.channel, selected.channel)
-                            assert np.array_equal(cfg.out.unit, selected.unit)
-                            assert np.array_equal(cfg.out.data, selected.data)
+                            out = selectdata(cfg)
+                            assert np.array_equal(out.channel, selected.channel)
+                            assert np.array_equal(out.unit, selected.unit)
+                            assert np.array_equal(out.data, selected.data)
 
     @skip_without_acme
     def test_parallel(self, testcluster, fulltests):
@@ -244,6 +243,7 @@ class TestSpikeData():
             getattr(self, test)(fulltests)
             flush_local_cluster(testcluster)
         client.close()
+
 
 class TestEventData():
 
@@ -270,7 +270,7 @@ class TestEventData():
     def test_ed_empty(self):
         dummy = EventData()
         assert len(dummy.cfg) == 0
-        assert dummy.dimord == None
+        assert dummy.dimord is None
         for attr in ["data", "sampleinfo", "samplerate", "trialid", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
@@ -366,7 +366,7 @@ class TestEventData():
             filename = construct_spy_filename(fname + "_dimswap", dummy)
             dummy2 = load(filename)
             assert dummy2.dimord == dummy.dimord
-            assert dummy2.eventid.size == self.num_smp # swapped
+            assert dummy2.eventid.size == self.num_smp  # swapped
             assert dummy2.data.shape == dummy.data.shape
             del dummy, dummy2
 
@@ -469,7 +469,7 @@ class TestEventData():
         evt_dummy = EventData(data=data4, dimord=self.customDimord, samplerate=sr_e)
         evt_dummy.definetrial(pre=pre, post=post, trigger=1)
         # with pytest.raises(SPYValueError):
-            # ang_dummy.definetrial(evt_dummy)
+        # ang_dummy.definetrial(evt_dummy)
 
         # Trimming edges produces zero-length trial
         with pytest.raises(SPYValueError):
@@ -481,7 +481,7 @@ class TestEventData():
         evt_dummy = EventData(data=data4, dimord=self.customDimord, samplerate=sr_e)
         evt_dummy.definetrial(pre=pre, post=post, trigger=1)
         # with pytest.raises(SPYValueError):
-            # ang_dummy.definetrial(evt_dummy)
+        # ang_dummy.definetrial(evt_dummy)
         ang_dummy.definetrial(evt_dummy, clip_edges=True)
         assert ang_dummy.sampleinfo[-1, 1] == self.ns
 
@@ -539,15 +539,15 @@ class TestEventData():
             [0, 0, 1],  # preserve repetition, don't convert to slice
             range(0, 2),  # narrow range
             slice(-2, None)  # negative-start slice
-            ]
+        ]
         toiSelections = [
             "all",  # non-type-conform string
             [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
-            ]
+        ]
         toilimSelections = [
             [0.5, 3.5],  # regular range
             [0.0, np.inf]  # unbounded from above
-            ]
+        ]
         timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
             + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
 
@@ -578,16 +578,15 @@ class TestEventData():
                         for trialno in selector.trials:
                             if selector.time[tk]:
                                 assert np.array_equal(obj.trials[trialno][selector.time[tk], :],
-                                                    selected.trials[tk])
+                                                      selected.trials[tk])
                                 tk += 1
                         assert np.array_equal(selected.eventid,
-                                            obj.eventid[np.unique(selected.data[:, eventidIdx]).astype(np.intp)])
+                                              obj.eventid[np.unique(selected.data[:, eventidIdx]).astype(np.intp)])
                         cfg.data = obj
-                        cfg.out = EventData(dimord=obj.dimord)
                         # data selection via package function and `cfg`: ensure equality
-                        selectdata(cfg)
-                        assert np.array_equal(cfg.out.eventid, selected.eventid)
-                        assert np.array_equal(cfg.out.data, selected.data)
+                        out = selectdata(cfg)
+                        assert np.array_equal(out.eventid, selected.eventid)
+                        assert np.array_equal(out.data, selected.data)
 
     @skip_without_acme
     def test_ed_parallel(self, testcluster, fulltests):

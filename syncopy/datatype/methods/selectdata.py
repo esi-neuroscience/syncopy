@@ -7,8 +7,9 @@
 import numpy as np
 
 # Local imports
+from syncopy.shared.tools import get_frontend_cfg, get_defaults
 from syncopy.shared.parsers import data_parser
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, SPYWarning
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo
 from syncopy.shared.kwarg_decorators import unwrap_cfg, unwrap_io, detect_parallel_client
 from syncopy.shared.computational_routine import ComputationalRoutine
 
@@ -29,7 +30,6 @@ def selectdata(data,
                taper=None,
                unit=None,
                eventid=None,
-               out=None,
                inplace=False,
                clear=False,
                **kwargs):
@@ -271,23 +271,12 @@ def selectdata(data,
     if not isinstance(clear, bool):
         raise SPYTypeError(clear, varname="clear", expected="Boolean")
 
+    # get input arguments into cfg dict
+    new_cfg = get_frontend_cfg(get_defaults(selectdata), locals(), kwargs)
+
     # If provided, make sure output object is appropriate
     if not inplace:
-        if out is not None:
-            try:
-                data_parser(out, varname="out", writable=True, empty=True,
-                            dataclass=data.__class__.__name__,
-                            dimord=data.dimord)
-            except Exception as exc:
-                raise exc
-            new_out = False
-        else:
-            out = data.__class__(dimord=data.dimord)
-            new_out = True
-    else:
-        if out is not None:
-            lgl = "no output object for in-place selection"
-            raise SPYValueError(lgl, varname="out", actual=out.__class__.__name__)
+        out = data.__class__(dimord=data.dimord)
 
     # Collect provided selection keywords in dict
     selectDict = {"trials": trials,
@@ -330,6 +319,8 @@ def selectdata(data,
 
     # If an in-place selection was requested we're done
     if inplace:
+        # attach frontend parameters for replay
+        data.cfg.update({'selectdata': new_cfg})
         return
 
     # Inform the user what's about to happen
@@ -357,8 +348,12 @@ def selectdata(data,
     # Wipe data-selection slot to not alter input object
     data.selection = None
 
-    # Either return newly created output object or simply quit
-    return out if new_out else None
+    # attach cfg
+    out.cfg.update(data.cfg)
+    out.cfg.update({'selectdata': new_cfg})
+
+    # return newly created output object
+    return out
 
 
 def _get_selection_size(data):

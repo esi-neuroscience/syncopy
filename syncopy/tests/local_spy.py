@@ -39,5 +39,6 @@ if __name__ == "__main__":
                                    nSamples=nSamples,
                                    alphas=alphas)
 
-    spec = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False)
     foi = np.linspace(40, 160, 25)
+    spec = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False, foi=foi)
+

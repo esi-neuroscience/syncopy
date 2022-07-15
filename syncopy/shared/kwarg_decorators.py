@@ -10,9 +10,9 @@ import inspect
 import numpy as np
 
 # Local imports
-from syncopy.shared.errors import (SPYIOError, SPYTypeError, SPYValueError,
+from syncopy.shared.errors import (SPYTypeError, SPYValueError,
                                    SPYError, SPYWarning)
-from syncopy.shared.tools import StructDict, get_defaults
+from syncopy.shared.tools import StructDict
 import syncopy as spy
 if spy.__acme__:
     import dask.distributed as dd
@@ -168,9 +168,13 @@ def unwrap_cfg(func):
             if not isinstance(cfg, dict):
                 raise SPYTypeError(cfg, varname="cfg", expected="dictionary-like")
 
+            # check if we have saved pre-sets (replay a frontend run via out.cfg)
+            if func.__name__ in cfg.keys():
+                cfg = StructDict(cfg[func.__name__])
+
             # IMPORTANT: create a copy of `cfg` using `StructDict` constructor to
             # not manipulate `cfg` in user's namespace!
-            cfg = StructDict(cfg) # FIXME
+            cfg = StructDict(cfg)
 
             # If a meta-function is called using `cfg`, any (not only non-default) values for
             # keyword arguments must *either* be provided via `cfg` or via standard kw
