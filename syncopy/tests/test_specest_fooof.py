@@ -58,7 +58,7 @@ class TestFooofSpy():
         self.cfg['foilim'] = [0., 250.]    # Include the zero in tfData.
         with pytest.raises(SPYValueError) as err:
             _ = freqanalysis(self.cfg, self.tfData)  # tfData contains zero.
-            assert "a frequency range that does not include zero" in str(err)
+        assert "a frequency range that does not include zero" in str(err.value)
 
     def test_fooof_output_fooof_works_with_freq_zero_in_data_after_setting_foilim(self, fulltests):
         """
@@ -167,8 +167,9 @@ class TestFooofSpy():
         """ We do not support a pre-allocated out SpectralData object with output = 'fooof*'.
             Ensure an error is thrown if the user tries it.
         """
+        out = SpectralData(dimord=SpectralData._defaultDimord)
         with pytest.raises(SPYValueError) as err:
-            out = SpectralData(dimord=SpectralData._defaultDimord)
-            _ = freqanalysis(self.cfg, self.tfData, out=out)
-            assert "pre-allocated output object not supported with" in str(err)
+            self.cfg['out'] = out
+            _ = freqanalysis(self.cfg, self.tfData)
+        assert "pre-allocated output object not supported with" in str(err.value)
 
