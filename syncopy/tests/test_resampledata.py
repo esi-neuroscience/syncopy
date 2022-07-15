@@ -52,7 +52,7 @@ class TestDownsampling:
 
         """
         We test for remaining power after
-        downsampling and compare to `power_fac * self.pow_orig`
+        downsampling.
         """
         # check if we run the default test
         def_test = not len(kwargs)
@@ -86,7 +86,7 @@ class TestDownsampling:
         kwargs = {'resamplefs': self.fs // 2,
                   'lpfreq': self.fs // 4}
 
-        spec_ds = self.test_downsampling(power_fac=1, **kwargs)
+        spec_ds = self.test_downsampling(**kwargs)
         # all channels are equal, trim off 0-frequency dip
         pow_ds = spec_ds.show(channel=0)[5:].mean()
         # now with the anti-alias filter the powers should be equal
