@@ -8,7 +8,7 @@ import numpy as np
 
 # Syncopy imports
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
-from syncopy.shared.tools import get_defaults
+from syncopy.shared.tools import get_defaults, get_frontend_cfg
 from syncopy.datatype import SpectralData
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
@@ -328,6 +328,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
         if output_fooof not in fooof_output_types:
             lgl = "'" + "or '".join(opt + "' " for opt in fooof_output_types)
             raise SPYValueError(legal=lgl, varname="output_fooof", actual=output_fooof)
+
+    new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
 
     # Ensure a valid computational method was selected
     if method not in availableMethods:
@@ -868,19 +870,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     # If provided, make sure output object is appropriate
     if out is not None:
-        if is_fooof:
-            lgl = "None: pre-allocated output object not supported with 'output'='fooof*'."
-            raise SPYValueError(legal=lgl, varname="out")
-        try:
-            data_parser(out, varname="out", writable=True, empty=True,
-                        dataclass="SpectralData",
-                        dimord=SpectralData().dimord)
-        except Exception as exc:
-            raise exc
-        new_out = False
-    else:
-        out = SpectralData(dimord=SpectralData._defaultDimord)
-        new_out = True
+        lgl = "None: pre-allocated output object not supported."
+        raise SPYValueError(legal=lgl, varname="out")
+
+    out = SpectralData(dimord=SpectralData._defaultDimord)
 
     # Perform actual computation
     specestMethod.initialize(data,
@@ -896,7 +889,6 @@ def freqanalysis(data, method='mtmfft', output='pow',
         # Use the output of the MTMFFMT method as the new data and create new output data.
         fooof_data = out
         fooof_out = SpectralData(dimord=SpectralData._defaultDimord)
-        new_out = True
 
         # method specific parameters
         if fooof_opt is None:
@@ -937,6 +929,6 @@ def freqanalysis(data, method='mtmfft', output='pow',
         fooofMethod.compute(fooof_data, fooof_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
         out = fooof_out
 
-
-    # Either return newly created output object or simply quit
-    return out if new_out else None
+    # attach frontend parameters for replay
+    out.cfg.update({'freqanalysis': new_cfg})
+    return out

@@ -8,7 +8,7 @@ import numpy as np
 
 # Syncopy imports
 from syncopy.shared.parsers import data_parser, scalar_parser
-from syncopy.shared.tools import get_defaults, best_match
+from syncopy.shared.tools import get_defaults, best_match, get_frontend_cfg
 from syncopy.datatype import CrossSpectralData
 from syncopy.shared.errors import (
     SPYValueError,
@@ -38,7 +38,7 @@ coh_outputs = {"abs", "pow", "complex", "fourier", "angle", "real", "imag"}
 def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                          foi=None, foilim=None, pad='maxperlen',
                          polyremoval=None, tapsmofrq=None, nTaper=None,
-                         taper="hann", taper_opt=None, out=None, **kwargs):
+                         taper="hann", taper_opt=None, **kwargs):
 
     """
     Perform connectivity analysis of Syncopy :class:`~syncopy.AnalogData` objects
@@ -152,8 +152,10 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     lcls = locals()
     # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="connectivity")
-    # Ensure a valid computational method was selected
 
+    new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
+
+    # Ensure a valid computational method was selected
     if method not in availableMethods:
         lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
         raise SPYValueError(legal=lgl, varname="method", actual=method)
@@ -324,39 +326,28 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # Perform the trial-parallelized computation of the matrix quantity
     st_compRoutine.initialize(data,
                               st_out._stackingDim,
-                              chan_per_worker=None, # no parallelisation over channels possible
-                              keeptrials=keeptrials) # we most likely need trial averaging!
+                              chan_per_worker=None,   # no parallelisation over channels possible
+                              keeptrials=keeptrials)  # we most likely need trial averaging!
     st_compRoutine.compute(data, st_out, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
-    # if ever needed..
     # for single trial cross-corr results <-> keeptrials is True
-    if keeptrials and av_compRoutine is None:
-        if out is not None:
-            msg = "Single trial processing does not support `out` argument but directly returns the results"
-            SPYWarning(msg)
+    if av_compRoutine is None:
         return st_out
 
     # ----------------------------------------------------------------------------------
     # Sanitize output and call the chosen ComputationalRoutine on the averaged ST output
     # ----------------------------------------------------------------------------------
 
-    # If provided, make sure output object is appropriate
-    if out is not None:
-        try:
-            data_parser(out, varname="out", writable=True, empty=True,
-                        dataclass="CrossSpectralData",
-                        dimord=st_dimord)
-        except Exception as exc:
-            raise exc
-        new_out = False
-    else:
-        out = CrossSpectralData(dimord=st_dimord)
-        new_out = True
+    out = CrossSpectralData(dimord=st_dimord)
 
     # now take the trial average from the single trial CR as input
     av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
-    av_compRoutine.pre_check() # make sure we got a trial_average
+    av_compRoutine.pre_check()   # make sure we got a trial_average
     av_compRoutine.compute(st_out, out, parallel=False, log_dict=log_dict)
 
-    # Either return newly created output object or simply quit
-    return out if new_out else None
+    # attach potential older cfg's from the input
+    # to support chained frontend calls..
+    out.cfg.update(data.cfg)
+    # attach frontend parameters for replay
+    out.cfg.update({'connectivityanalysis': new_cfg})
+    return out

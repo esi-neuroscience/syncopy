@@ -85,8 +85,7 @@ class TestAnalogPlotting():
             # is supported until averaging is availbale
             # take random 1st trial
             sel_dict['trials'] = sel_dict['trials'][0]
-            # we have to sort the channels
-            # FIXME: see #291
+            # we have to sort the channels (hdf5 access)
             sel_dict['channel'] = sorted(sel_dict['channel'])
             self.test_ad_plotting(**sel_dict)
 
@@ -189,11 +188,8 @@ class TestSpectralPlotting():
             # is supported until averaging is availbale
             # take random 1st trial
             sel_dict['trials'] = sel_dict['trials'][0]
-
-            # we have to sort the channels
-            # FIXME: see #291
+            # we have to sort the channels (hdf5 access)
             sel_dict['channel'] = sorted(sel_dict['channel'])
-
             self.test_spectral_plotting(**sel_dict)
 
     def test_spectral_exceptions(self):
