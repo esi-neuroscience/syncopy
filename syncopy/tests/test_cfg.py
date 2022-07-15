@@ -62,10 +62,10 @@ class TestCfg:
             assert np.allclose(res.data[:], res2.data[:])
             assert res.cfg == res2.cfg
 
-            # check that it's not just the defaults
+            # check that it's not just the defaults (mtmfft)
             if frontend == 'freqanalysis':
                 res3 = getattr(spy, frontend)(self.adata)
-                assert not np.allclose(res.data[:], res3.data[:])
+                assert res.data.shape != res3.data.shape
                 assert res.cfg != res3.cfg
 
     def test_io(self):
