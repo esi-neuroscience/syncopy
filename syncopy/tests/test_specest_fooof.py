@@ -56,6 +56,7 @@ class TestFooofSpy():
         """
         self.cfg['output'] = "fooof"
         self.cfg['foilim'] = [0., 250.]    # Include the zero in tfData.
+        self.cfg['out'] = None
         with pytest.raises(SPYValueError) as err:
             _ = freqanalysis(self.cfg, self.tfData)  # tfData contains zero.
         assert "a frequency range that does not include zero" in str(err.value)
@@ -69,6 +70,7 @@ class TestFooofSpy():
         """
         self.cfg['output'] = "fooof"
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
+        self.cfg['out'] = None
         spec_dt = freqanalysis(self.cfg, self.tfData)
 
         # check frequency axis
@@ -94,7 +96,8 @@ class TestFooofSpy():
     def test_spfooof_output_fooof_aperiodic(self, fulltests):
         """Test fooof with output type 'fooof_aperiodic'. A spectrum containing only the aperiodic part is returned."""
         self.cfg['output'] = "fooof_aperiodic"
-        assert self.cfg['foilim'] == [0.5, 250.]
+        self.cfg['foilim'] == [0.5, 250.]
+        self.cfg['out'] = None
         spec_dt = freqanalysis(self.cfg, self.tfData)
 
         # log
@@ -112,6 +115,7 @@ class TestFooofSpy():
         """Test fooof with output type 'fooof_peaks'. A spectrum containing only the peaks (actually, the Gaussians fit to the peaks) is returned."""
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
         self.cfg['output'] = "fooof_peaks"
+        self.cfg['out'] = None
         spec_dt = freqanalysis(self.cfg, self.tfData)
         assert spec_dt.data.ndim == 4
         assert "fooof" in spec_dt._log
@@ -123,6 +127,7 @@ class TestFooofSpy():
         """Test fooof with all output types plotted into a single plot and ensure consistent output."""
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
         self.cfg['output'] = "pow"
+        self.cfg['out'] = None
         out_fft = freqanalysis(self.cfg, self.tfData)
         self.cfg['output'] = "fooof"
         out_fooof = freqanalysis(self.cfg, self.tfData)
@@ -152,6 +157,7 @@ class TestFooofSpy():
     def test_spfooof_frontend_settings_are_merged_with_defaults_used_in_backend(self, fulltests):
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
         self.cfg['output'] = "fooof_peaks"
+        self.cfg['out'] = None
         self.cfg.pop('fooof_opt', None)  # Remove from cfg to avoid passing twice. We could also modify it (and then leave out the fooof_opt kw below).
         fooof_opt = {'max_n_peaks': 8}
         spec_dt = freqanalysis(self.cfg, self.tfData, fooof_opt=fooof_opt)
