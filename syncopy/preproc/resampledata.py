@@ -9,8 +9,10 @@ import numpy as np
 # Syncopy imports
 from syncopy import AnalogData
 from syncopy.shared.parsers import data_parser, scalar_parser
-from syncopy.shared.tools import get_defaults
-from syncopy.shared.errors import SPYValueError, SPYWarning
+
+from syncopy.shared.tools import get_defaults, get_frontend_cfg
+from syncopy.shared.errors import SPYValueError, SPYWarning, SPYInfo
+
 from syncopy.shared.kwarg_decorators import (
     unwrap_cfg,
     unwrap_select,
@@ -109,6 +111,8 @@ def resampledata(data,
     lcls = locals()
     # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="resampledata")
+
+    new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
 
     # check resampling frequency
     scalar_parser(resamplefs, varname="resamplefs", lims=[1, data.samplerate])
@@ -226,4 +230,6 @@ def resampledata(data,
         target, resampled, parallel=kwargs.get("parallel"), log_dict=log_dict
     )
 
+    resampled.cfg.update(data.cfg)
+    resampled.cfg.update({'resampledata': new_cfg})
     return resampled

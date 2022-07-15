@@ -47,6 +47,45 @@ class StructDict(dict):
         return ppStr
 
 
+def get_frontend_cfg(defaults, lcls, kwargs):
+
+    """
+    Assemble cfg dict to allow direct replay of frontend calls
+
+    Parameters
+    ----------
+
+    defaults : dict
+        The result of :func:`~get_defaults`, holding all frontend specific
+        parameter names and default values
+    lcls : dict
+        The `locals()` within a frontend call, contains passed
+        parameter names and values
+    kwargs : dict
+        The `kwargs` attached to every frontend signature, holding
+        additional arguments, e.g. `parallel` and `select`
+
+    Returns
+    -------
+    new_cfg : :class:`~StructDict`
+        Holds all (default and non-default) parameter key-value
+        pairs passed to the frontend
+
+    """
+
+    # create new cfg dict
+    new_cfg = StructDict()
+    for par_name in defaults:
+        # check only needed for injected kwargs like `parallel`
+        if par_name in lcls:
+            new_cfg[par_name] = lcls[par_name]
+    # attach additional kwargs (like select)
+    for key in kwargs:
+        new_cfg[key] = kwargs[key]
+
+    return new_cfg
+
+
 def best_match(source, selection, span=False, tol=None, squash_duplicates=False):
     """
     Find matching elements in a given 1d-array/list
@@ -199,5 +238,3 @@ def get_defaults(obj):
     dct = {k: v.default for k, v in inspect.signature(obj).parameters.items()\
            if v.default != v.empty and v.name != "cfg"}
     return StructDict(dct)
-
-
