@@ -24,7 +24,7 @@ skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available"
 
 availableFrontend_cfgs = {'freqanalysis': {'method': 'mtmconvol', 't_ftimwin': 0.1},
                           'preprocessing': {'freq': 10, 'filter_class': 'firws', 'filter_type': 'hp'},
-                          'resampledata': {'resamplefs': 125, 'lpfreq': 100},
+                          'resampledata': {'resamplefs': 125, 'lpfreq': 60},
                           'connectivityanalysis': {'method': 'coh', 'tapsmofrq': 5},
                           'selectdata': {'trials': [1, 7, 3], 'channel': [2, 0]}
                           }
@@ -65,7 +65,7 @@ class TestCfg:
             # check that it's not just the defaults
             if frontend == 'freqanalysis':
                 res3 = getattr(spy, frontend)(self.adata)
-                assert np.any(res.data[:] != res3.data[:])
+                assert not np.allclose(res.data[:], res3.data[:])
                 assert res.cfg != res3.cfg
 
     def test_io(self):
