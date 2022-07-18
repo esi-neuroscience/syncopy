@@ -129,6 +129,26 @@ class TestCfg:
             assert np.allclose(res.data[:], res2.data[:])
             assert res.cfg == res2.cfg
 
+    def test_chaining_frontends_with_fooof_types(self):
+
+        # only preprocessing makes sense to chain atm
+        res_pp = spy.preprocessing(self.adata, cfg=availableFrontend_cfgs['preprocessing'])
+
+        frontend = 'freqanalysis'
+        frontend_cfg = {'method': 'mtmfft', 'output': 'fooof', 'foilim' : [0.5, 100.]}
+
+        res = getattr(spy, frontend)(res_pp,
+                                        cfg=frontend_cfg)
+
+        # now replay with cfg from preceding frontend calls
+        # note we can use the final results `res.cfg` for both calls!
+        res_pp2 = spy.preprocessing(self.adata, res.cfg)
+        res2 = getattr(spy, frontend)(res_pp2, res.cfg)
+
+        # same results
+        assert np.allclose(res.data[:], res2.data[:])
+        assert res.cfg == res2.cfg
+
     @skip_without_acme
     def test_parallel(self, testcluster=None):
 
