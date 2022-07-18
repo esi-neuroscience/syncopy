@@ -14,7 +14,7 @@ from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYIn
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.tools import best_match
-from syncopy.shared.const_def import spectralConversions, fooofDTypes
+from syncopy.shared.const_def import spectralConversions
 
 from syncopy.shared.input_processors import (
     process_taper,
@@ -40,7 +40,7 @@ from .compRoutines import (
     FooofSpy
 )
 
-
+availableFooofOutputs = ['fooof', 'fooof_aperiodic', 'fooof_peaks']
 availableOutputs = tuple(spectralConversions.keys())
 availableWavelets = ("Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat")
 availableMethods = ("mtmfft", "mtmconvol", "wavelet", "superlet")
@@ -328,9 +328,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
         output = "pow"  # We need to change this as the mtmfft running first will complain otherwise.
 
     if is_fooof:
-        fooof_output_types = list(fooofDTypes)
-        if output_fooof not in fooof_output_types:
-            lgl = "'" + "or '".join(opt + "' " for opt in fooof_output_types)
+        if output_fooof not in availableFooofOutputs:
+            lgl = "'" + "or '".join(opt + "' " for opt in availableFooofOutputs)
             raise SPYValueError(legal=lgl, varname="output_fooof", actual=output_fooof)
 
     # Ensure a valid computational method was selected

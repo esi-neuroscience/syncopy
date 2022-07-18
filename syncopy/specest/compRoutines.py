@@ -38,8 +38,7 @@ from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import unwrap_io
 from syncopy.shared.const_def import (
     spectralConversions,
-    spectralDTypes,
-    fooofDTypes
+    spectralDTypes
 )
 
 
@@ -927,7 +926,7 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
     # For initialization of computational routine,
     # just return output shape and dtype
     if noCompute:
-        return outShape, fooofDTypes[output_fmt]
+        return outShape, spectralDTypes['pow']
 
     # Call actual fooof method
     res, _ = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,

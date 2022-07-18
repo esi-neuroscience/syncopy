@@ -12,12 +12,6 @@ spectralDTypes = {"pow": np.float32,
                   "fourier": np.complex64,
                   "abs": np.float32}
 
-fooofDTypes = {
-    "fooof": np.float32,
-    "fooof_aperiodic": np.float32,
-    "fooof_peaks": np.float32,
-}
-
 #: output conversion of complex fourier coefficients
 spectralConversions = {
     'abs': lambda x: (np.absolute(x)).real.astype(np.float32),
