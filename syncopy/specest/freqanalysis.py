@@ -929,6 +929,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
         fooofMethod.compute(fooof_data, fooof_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
         out = fooof_out
 
+     # attach potential older cfg's from the input
+    # to support chained frontend calls..
+    out.cfg.update(data.cfg)
+
     # attach frontend parameters for replay
     out.cfg.update({'freqanalysis': new_cfg})
     return out
