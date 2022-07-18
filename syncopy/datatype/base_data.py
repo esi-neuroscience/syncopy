@@ -80,7 +80,6 @@ class BaseData(ABC):
     show = show
 
     # Initialize hidden attributes used by all children
-    _cfg = {}
     _filename = None
     _trialdefinition = None
     _dimord = None
@@ -124,9 +123,10 @@ class BaseData(ABC):
 
     @cfg.setter
     def cfg(self, dct):
+        """ For loading only, for processing the CR extends the existing (empty) cfg dictionary """
         if not isinstance(dct, dict):
             raise SPYTypeError(dct, varname="cfg", expected="dictionary-like object")
-        self._cfg = self._set_cfg(self._cfg, dct)
+        self._cfg = dct
 
     @property
     def container(self):
@@ -472,6 +472,7 @@ class BaseData(ABC):
 
     @log.setter
     def log(self, msg):
+        """ This appends the assigned msg to the existing log """
         if not isinstance(msg, str):
             raise SPYTypeError(msg, varname="log", expected="str")
         prefix = "\n\n|=== {user:s}@{host:s}: {time:s} ===|\n\n\t{caller:s}"
@@ -748,19 +749,6 @@ class BaseData(ABC):
     def _classname_to_extension(self):
         return "." + self.__class__.__name__.split('Data')[0].lower()
 
-    # Helper function that digs into cfg dictionaries
-    def _set_cfg(self, cfg, dct):
-        dct = StructDict(dct)
-        if not cfg:
-            cfg = dct
-        else:
-            if "cfg" in cfg.keys():
-                self._set_cfg(cfg["cfg"], dct)
-            else:
-                cfg["cfg"] = dct
-                return cfg
-        return cfg
-
     # Legacy support
     def __repr__(self):
         return self.__str__()
@@ -892,7 +880,6 @@ class BaseData(ABC):
         # If we made it this far, `self` and `other` really seem to be identical
         return True
 
-
     # Class "constructor"
     def __init__(self, filename=None, dimord=None, mode="r+", **kwargs):
         """
@@ -902,6 +889,9 @@ class BaseData(ABC):
         2. data only
 
         """
+
+        # each instance needs its own cfg!
+        self._cfg = {}
 
         # Initialize hidden attributes
         for propertyName in self._hdfFileDatasetProperties:
@@ -1251,7 +1241,7 @@ class Selector():
 
         # Keep list of supported selectors in sync w/supported keywords of `selectdata`
         supported = list(signature(selectdata).parameters.keys())
-        for key in ["data", "out", "inplace", "clear", "parallel", "kwargs"]:
+        for key in ["data", "inplace", "clear", "parallel", "kwargs"]:
             supported.remove(key)
         # supported = ["trials", "channel", "channel_i", "channel_j", "toi",
         #              "toilim", "foi", "foilim", "taper", "unit", "eventid"]

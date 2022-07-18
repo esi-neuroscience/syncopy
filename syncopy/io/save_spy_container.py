@@ -45,9 +45,14 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
         If `True` an existing HDF5 file and its accompanying JSON file is
         overwritten (without prompt).
     memuse : scalar
+<<<<<<< HEAD
         Approximate in-memory cache size (in MB) for writing data to disk.
         Ignored.
         .. deprecated::
+=======
+        Approximate in-memory cache size (in MB) for writing data to disk
+        (only relevant for :class:`syncopy.VirtualData` or memory map data sources)
+>>>>>>> dev
 
     Returns
     -------
@@ -202,7 +207,31 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
         # Save each member of `_hdfFileDatasetProperties` in target HDF file
         for datasetName in out._hdfFileDatasetProperties:
             dataset = getattr(out, datasetName)
+<<<<<<< HEAD
             dat = h5f.create_dataset(datasetName, data=dataset)
+=======
+
+            # Member is a memory map
+            if isinstance(dataset, np.memmap):
+                # Given memory cap, compute how many data blocks can be grabbed
+                # per swipe (divide by 2 since we're working with an add'l tmp array)
+                memuse *= 1024**2 / 2
+                nrow = int(memuse / (np.prod(dataset.shape[1:]) * dataset.dtype.itemsize))
+                rem = int(dataset.shape[0] % nrow)
+                n_blocks = [nrow] * int(dataset.shape[0] // nrow) + [rem] * int(rem > 0)
+
+                # Write data block-wise to dataset (use `clear` to wipe blocks of
+                # mem-maps from memory)
+                dat = h5f.create_dataset(datasetName,
+                                        dtype=dataset.dtype, shape=dataset.shape)
+                for m, M in enumerate(n_blocks):
+                    dat[m * nrow: m * nrow + M, :] = out.data[m * nrow: m * nrow + M, :]
+                    out.clear()
+
+            # Member is a HDF5 dataset
+            else:
+                dat = h5f.create_dataset(datasetName, data=dataset)
+>>>>>>> dev
 
     # Now write trial-related information
     trl_arr = np.array(out.trialdefinition)
@@ -216,10 +245,13 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
     # Write to log already here so that the entry can be exported to json
     infoFile = dataFile + FILE_EXT["info"]
     out.log = "Wrote files " + dataFile + "\n\t\t\t" + 2*" " + infoFile
+<<<<<<< HEAD
 
     # While we're at it, write cfg entries
     out.cfg = {"method": sys._getframe().f_code.co_name,
                "files": [dataFile, infoFile]}
+=======
+>>>>>>> dev
 
     # Assemble dict for JSON output: order things by their "readability"
     outDict = OrderedDict(startInfoDict)

@@ -21,7 +21,7 @@ if sys.platform == "win32":
 
 # Local imports
 from .tools import get_defaults
-from syncopy import __storage__, __acme__, __path__
+from syncopy import __storage__, __acme__
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYParallelError, SPYWarning
 if __acme__:
     from acme import ParallelMap
@@ -281,8 +281,9 @@ class ComputationalRoutine(ABC):
         trials = []
         for tk, trialno in enumerate(self.trialList):
             trial = data._preview_trial(trialno)
-            trlArg = tuple(arg[tk] if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials \
-                else arg for arg in self.argv)
+            trlArg = tuple(arg[tk] if isinstance(arg, (list, tuple, np.ndarray)) and
+                           len(arg) == self.numTrials
+                           else arg for arg in self.argv)
             chunkShape, dtype = self.computeFunction(trial,
                                                      *trlArg,
                                                      **dryRunKwargs)
@@ -333,8 +334,9 @@ class ComputationalRoutine(ABC):
 
         # Allocate control variables
         trial = trials[0]
-        trlArg0 = tuple(arg[0] if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials \
-            else arg for arg in self.argv)
+        trlArg0 = tuple(arg[0] if isinstance(arg, (list, tuple, np.ndarray)) and
+                        len(arg) == self.numTrials
+                        else arg for arg in self.argv)
         chunkShape0 = tuple(chk_arr[0, :])
         lyt = [slice(0, stop) for stop in chunkShape0]
         sourceLayout = []
@@ -350,7 +352,7 @@ class ComputationalRoutine(ABC):
             # Set up channel-chunking: `c_blocks` holds channel blocks per trial
             nChannels = data.channel.size
             rem = int(nChannels % chan_per_worker)
-            c_blocks = [chan_per_worker] * int(nChannels//chan_per_worker) + [rem] * int(rem > 0)
+            c_blocks = [chan_per_worker] * int(nChannels // chan_per_worker) + [rem] * int(rem > 0)
             inchanidx = data.dimord.index("channel")
 
             # Perform dry-run w/first channel-block of first trial to identify
@@ -399,8 +401,9 @@ class ComputationalRoutine(ABC):
         stacking = targetLayout[0][stackingDim].stop
         for tk in range(1, self.numTrials):
             trial = trials[tk]
-            trlArg = tuple(arg[tk] if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials \
-                else arg for arg in self.argv)
+            trlArg = tuple(arg[tk] if isinstance(arg, (list, tuple, np.ndarray)) and
+                           len(arg) == self.numTrials
+                           else arg for arg in self.argv)
             chkshp = chk_list[tk]
             lyt = [slice(0, stop) for stop in chkshp]
             lyt[stackingDim] = slice(stacking, stacking + chkshp[stackingDim])
@@ -420,7 +423,7 @@ class ComputationalRoutine(ABC):
                     idx[inchanidx] = slice(blockstack, blockstack + block)
                     trial.shape = tuple(shp)
                     trial.idx = tuple(idx)
-                    res, _ = self.computeFunction(trial, *trlArg, **dryRunKwargs) # FauxTrial
+                    res, _ = self.computeFunction(trial, *trlArg, **dryRunKwargs)   # FauxTrial
                     lyt[outchanidx] = slice(chanstack, chanstack + res[outchanidx])
                     targetLayout.append(tuple(lyt))
                     targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
@@ -458,7 +461,7 @@ class ComputationalRoutine(ABC):
                         sel = [sel]
                     if isinstance(sel, list):
                         selarr = np.array(sel, dtype=np.intp)
-                    else: # sel is a slice
+                    else:   # sel is a slice
                         step = sel.step
                         if sel.step is None:
                             step = 1
@@ -870,7 +873,12 @@ class ComputationalRoutine(ABC):
                 sigrid = self.sourceSelectors[nblock]
                 outgrid = self.targetLayout[nblock]
                 argv = tuple(arg[nblock]
+<<<<<<< HEAD
                              if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials
+=======
+                             if isinstance(arg, (list, tuple, np.ndarray)) and
+                             len(arg) == self.numTrials
+>>>>>>> dev
                              else arg for arg in self.argv)
 
                 # Catch empty source-array selections; this workaround is not
@@ -959,7 +967,6 @@ class ComputationalRoutine(ABC):
                                                         value=str(v) if len(str(v)) < 80
                                                         else str(v)[:30] + ", ..., " + str(v)[-30:])
         out.log = logHead + logOpts
-        out.cfg = cfg
 
     @abstractmethod
     def process_metadata(self, data, out):

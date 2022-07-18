@@ -166,48 +166,6 @@ class TestMTMFFT():
                                 output="pow", select=select)
             assert "float" in spec.data.dtype.name
 
-
-    def test_allocout(self):
-        # call `freqanalysis` w/pre-allocated output object
-        out = SpectralData(dimord=SpectralData._defaultDimord)
-        freqanalysis(self.adata, method="mtmfft", taper="hann", out=out)
-        assert len(out.trials) == self.nTrials
-        assert out.taper.size == 1
-        assert out.freq.size == self.fband.size + 1
-        assert np.allclose([0] + self.fband.tolist(), out.freq)
-        assert out.channel.size == self.nChannels
-
-        # build `cfg` object for calling
-        cfg = StructDict()
-        cfg.method = "mtmfft"
-        cfg.taper = "hann"
-        cfg.keeptrials = "no"
-        cfg.output = "abs"
-        cfg.out = SpectralData(dimord=SpectralData._defaultDimord)
-
-        # throw away trials
-        freqanalysis(self.adata, cfg)
-        assert len(cfg.out.time) == 1
-        assert len(cfg.out.time[0]) == 1
-        assert np.all(cfg.out.sampleinfo == [0, 1])
-        assert cfg.out.data.shape[0] == 1  # ensure trial-count == 1
-
-        # keep trials but throw away tapers
-        out = SpectralData(dimord=SpectralData._defaultDimord)
-        freqanalysis(self.adata, method="mtmfft",
-                     tapsmofrq=3, keeptapers=False, output="pow", out=out)
-        assert out.sampleinfo.shape == (self.nTrials, 2)
-        assert out.taper.size == 1
-
-        # re-use `cfg` from above and additionally throw away `tapers`
-        cfg.dataset = self.adata
-        cfg.out = SpectralData(dimord=SpectralData._defaultDimord)
-        cfg.tapsmofrq = 3
-        cfg.output = "pow"
-        cfg.keeptapers = False
-        freqanalysis(cfg)
-        assert cfg.out.taper.size == 1
-
     def test_solution(self):
         # ensure channel-specific frequencies are identified correctly
         for sk, select in enumerate(self.sigdataSelections):
@@ -499,51 +457,6 @@ class TestMTMConvol():
                 cfg.toi = np.linspace(-2, 6, 5)
                 tfSpec = freqanalysis(cfg, _make_tf_signal(2, 2, self.seed, fadeIn=self.fadeIn, fadeOut=self.fadeOut)[0])
                 assert outputDict[cfg.output] in tfSpec.data.dtype.name
-
-    def test_tf_allocout(self):
-        # use `mtmconvol` w/pre-allocated output object
-        out = SpectralData(dimord=SpectralData._defaultDimord)
-        freqanalysis(self.tfData, method="mtmconvol", taper="hann", toi=0.0,
-                     t_ftimwin=1.0, out=out)
-        assert len(out.trials) == len(self.tfData.trials)
-        assert out.taper.size == 1
-        assert out.freq.size == self.tfData.samplerate / 2 + 1
-        assert out.channel.size == self.nChannels
-
-        # build `cfg` object for calling
-        cfg = StructDict()
-        cfg.method = "mtmconvol"
-        cfg.taper = "hann"
-        cfg.keeptrials = "no"
-        cfg.output = "abs"
-        cfg.toi = 0.0
-        cfg.t_ftimwin = 1.0
-        cfg.out = SpectralData(dimord=SpectralData._defaultDimord)
-
-        # throw away trials: computing `trLen` this way only works for non-overlapping windows!
-        freqanalysis(self.tfData, cfg)
-        assert len(cfg.out.time) == 1
-        trLen = len(self.tfData.time[0]) / (cfg.t_ftimwin * self.tfData.samplerate)
-        assert len(cfg.out.time[0]) == trLen
-        assert np.all(cfg.out.sampleinfo == [0, trLen])
-        assert cfg.out.data.shape[0] == trLen  # ensure trial-count == 1
-
-        # keep trials but throw away tapers
-        out = SpectralData(dimord=SpectralData._defaultDimord)
-        freqanalysis(self.tfData, method="mtmconvol", tapsmofrq=3,
-                     keeptapers=False, output="pow", toi=0.0, t_ftimwin=1.0,
-                     out=out)
-        assert out.sampleinfo.shape == (self.nTrials, 2)
-        assert out.taper.size == 1
-
-        # re-use `cfg` from above and additionally throw away `tapers`
-        cfg.dataset = self.tfData
-        cfg.out = SpectralData(dimord=SpectralData._defaultDimord)
-        cfg.tapsmofrq = 3
-        cfg.keeptapers = False
-        cfg.output = "pow"
-        freqanalysis(cfg)
-        assert cfg.out.taper.size == 1
 
     def test_tf_solution(self):
         # Compute "full" non-overlapping TF spectrum, i.e., center analysis windows
