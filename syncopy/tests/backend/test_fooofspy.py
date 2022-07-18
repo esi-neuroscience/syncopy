@@ -5,9 +5,11 @@
 import numpy as np
 import pytest
 
+
 from syncopy.specest.fooofspy import fooofspy
+from syncopy.tests.backend.test_resampling import trl_av_power
+from syncopy.tests import synth_data as sd
 from fooof.sim.gen import gen_power_spectrum
-from fooof.sim.utils import set_random_seed
 
 from syncopy.shared.errors import SPYValueError
 import matplotlib.pyplot as plt
@@ -22,11 +24,31 @@ def _power_spectrum(freq_range=[3, 40],
     # the Gaussians: Mean (Center Frequency), height (Power), and standard deviation (Bandwidth).
     periodic_params = [[10, 0.2, 1.25], [30, 0.15, 2]]
 
-    set_random_seed(21)
     noise_level = 0.005
     freqs, powers = gen_power_spectrum(freq_range, aperiodic_params,
                                        periodic_params, nlv=noise_level, freq_res=freq_res)
     return freqs, powers
+
+
+def AR1_plus_harm_spec(nTrials=30, hfreq=30, ratio=0.7):
+
+    """
+    Create AR(1) background + ratio * (harmonic + phase diffusion)
+    and take the mtmfft with 1Hz spectral smoothing
+    """
+    fs = 400
+    nSamples = 1000
+    # single channel and alpha2 = 0 <-> single AR(1)
+    signals = [sd.AR2_network(AdjMat=np.zeros(1),
+                              alphas=[0.8, 0],
+                              nSamples=nSamples) + ratio * sd.phase_diffusion(freq=hfreq,
+                                                                              fs=fs, eps=0.1,
+                                                                              nChannels=1)
+               for i in range(nTrials)]
+
+    power, freqs = trl_av_power(signals, nSamples, fs, tapsmofrq=1)
+
+    return freqs, power
 
 
 class TestSpfooof():
