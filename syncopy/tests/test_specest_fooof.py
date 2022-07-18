@@ -99,7 +99,7 @@ class TestFooofSpy():
     def test_spfooof_output_fooof_aperiodic(self, fulltests):
         """Test fooof with output type 'fooof_aperiodic'. A spectrum containing only the aperiodic part is returned."""
         self.cfg['output'] = "fooof_aperiodic"
-        self.cfg['foilim'] == [0.5, 250.]
+        self.cfg['foilim'] = [0.5, 250.]
         self.cfg['out'] = None
         spec_dt = freqanalysis(self.cfg, self.tfData)
 
