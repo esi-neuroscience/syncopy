@@ -338,7 +338,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         raise SPYValueError(legal=lgl, varname="method", actual=method)
 
     # Ensure a valid output format was selected
-    valid_outputs = list(spectralConversions)
+    valid_outputs = spectralConversions.keys()
     if output not in valid_outputs:
         lgl = "'" + "or '".join(opt + "' " for opt in valid_outputs)
         raise SPYValueError(legal=lgl, varname="output", actual=output)
