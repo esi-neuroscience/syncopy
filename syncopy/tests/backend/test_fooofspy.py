@@ -13,11 +13,15 @@ from syncopy.shared.errors import SPYValueError
 import matplotlib.pyplot as plt
 
 
-def _power_spectrum(freq_range=[3, 40], freq_res=0.5, periodic_params=[[10, 0.2, 1.25], [30, 0.15, 2]], aperiodic_params=[1, 1]):
-    """
-     aperiodic_params = [1, 1]  # use len 2 for fixed, 3 for knee. order is: offset, (knee), exponent.
-     periodic_params = [[10, 0.2, 1.25], [30, 0.15, 2]] # the Gaussians: Mean (Center Frequency), height (Power), and standard deviation (Bandwidth).
-    """
+def _power_spectrum(freq_range=[3, 40],
+                    freq_res=0.5):
+
+    # use len 2 for fixed, 3 for knee. order is: offset, (knee), exponent.
+    aperiodic_params = [1, 1]
+
+    # the Gaussians: Mean (Center Frequency), height (Power), and standard deviation (Bandwidth).
+    periodic_params = [[10, 0.2, 1.25], [30, 0.15, 2]]
+
     set_random_seed(21)
     noise_level = 0.005
     freqs, powers = gen_power_spectrum(freq_range, aperiodic_params,
@@ -29,53 +33,77 @@ class TestSpfooof():
 
     freqs, powers = _power_spectrum()
 
-    def test_spfooof_output_fooof_single_channel(self, freqs=freqs, powers=powers):
+    def test_output_fooof_single_channel(self, freqs=freqs, powers=powers):
         """
-        Tests spfooof with output 'fooof' and a single input signal/channel. This will return the full, fooofed spectrum.
+        Tests spfooof with output 'fooof' and a single input signal/channel.
+        This will return the full, fooofed spectrum.
         """
         spectra, details = fooofspy(powers, freqs, out_type='fooof')
 
         assert spectra.shape == (freqs.size, 1)
         assert details['settings_used']['out_type'] == 'fooof'
-        assert all(key in details for key in ("aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error", "settings_used"))
+        assert all(key in details for key in ("aperiodic_params", "gaussian_params",
+                                              "peak_params", "n_peaks", "r_squared",
+                                              "error", "settings_used"))
+
         assert details['settings_used']['fooof_opt']['peak_threshold'] == 2.0  # Should be in and at default value.
 
-    def test_spfooof_output_fooof_several_channels(self, freqs=freqs, powers=powers):
+    def test_output_fooof_several_channels(self, freqs=freqs, powers=powers):
         """
-        Tests spfooof with output 'fooof' and several input signals/channels. This will return the full, fooofed spectrum.
+        Tests spfooof with output 'fooof' and several input signals/channels.
+        This will return the full, fooofed spectrum.
         """
         num_channels = 3
-        powers = np.tile(powers, num_channels).reshape(powers.size, num_channels)  # Copy signal to create channels.
+        # Copy signal to create channels.
+        powers = np.tile(powers, num_channels).reshape(powers.size, num_channels)
         spectra, details = fooofspy(powers, freqs, out_type='fooof')
 
         assert spectra.shape == (freqs.size, num_channels)
         assert details['settings_used']['out_type'] == 'fooof'
-        assert all(key in details for key in ("aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error", "settings_used"))
-        assert details['settings_used']['fooof_opt']['peak_threshold'] == 2.0  # Should be in and at default value.
+        assert all(key in details for key in ("aperiodic_params",
+                                              "gaussian_params",
+                                              "peak_params",
+                                              "n_peaks",
+                                              "r_squared",
+                                              "error",
+                                              "settings_used"))
 
-    def test_spfooof_output_fooof_aperiodic(self, freqs=freqs, powers=powers):
+        # Should be in and at default value.
+        assert details['settings_used']['fooof_opt']['peak_threshold'] == 2.0
+
+    def test_output_fooof_aperiodic(self, freqs=freqs, powers=powers):
         """
-        Tests spfooof with output 'fooof_aperiodic' and a single input signal. This will return the aperiodic part of the fit.
+        Tests spfooof with output 'fooof_aperiodic' and a single input signal.
+        This will return the aperiodic part of the fit.
         """
         spectra, details = fooofspy(powers, freqs, out_type='fooof_aperiodic')
 
         assert spectra.shape == (freqs.size, 1)
         assert details['settings_used']['out_type'] == 'fooof_aperiodic'
-        assert all(key in details for key in ("aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error", "settings_used"))
-        assert details['settings_used']['fooof_opt']['peak_threshold'] == 2.0  # Should be in and at default value.
+        assert all(key in details for key in ("aperiodic_params",
+                                              "gaussian_params",
+                                              "peak_params",
+                                              "n_peaks",
+                                              "r_squared",
+                                              "error",
+                                              "settings_used"))
+        # Should be in and at default value.
+        assert details['settings_used']['fooof_opt']['peak_threshold'] == 2.0
 
-    def test_spfooof_output_fooof_peaks(self, freqs=freqs, powers=powers):
+    def test_output_fooof_peaks(self, freqs=freqs, powers=powers):
         """
-        Tests spfooof with output 'fooof_peaks' and a single input signal. This will return the Gaussian fit of the periodic part of the spectrum.
+        Tests spfooof with output 'fooof_peaks' and a single input signal.
+        This will return the Gaussian fit of the periodic part of the spectrum.
         """
         spectra, details = fooofspy(powers, freqs, out_type='fooof_peaks')
 
         assert spectra.shape == (freqs.size, 1)
         assert details['settings_used']['out_type'] == 'fooof_peaks'
         assert all(key in details for key in ("aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error", "settings_used"))
-        assert details['settings_used']['fooof_opt']['peak_threshold'] == 2.0  # Should be in and at default value.
+        # Should be in and at default value.
+        assert details['settings_used']['fooof_opt']['peak_threshold'] == 2.0
 
-    def test_spfooof_together(self, freqs=freqs, powers=powers):
+    def test_together(self, freqs=freqs, powers=powers):
         spec_fooof, det_fooof = fooofspy(powers, freqs, out_type='fooof')
         spec_fooof_aperiodic, det_fooof_aperiodic = fooofspy(powers, freqs, out_type='fooof_aperiodic')
         spec_fooof_peaks, det_fooof_peaks = fooofspy(powers, freqs, out_type='fooof_peaks')
@@ -103,9 +131,10 @@ class TestSpfooof():
         plt.legend()
         plt.show()
 
-    def test_spfooof_the_fooof_opt_settings_are_used(self, freqs=freqs, powers=powers):
+    def test_the_fooof_opt_settings_are_used(self, freqs=freqs, powers=powers):
         """
-        Tests spfooof with output 'fooof_peaks' and a single input signal. This will return the Gaussian fit of the periodic part of the spectrum.
+        Tests spfooof with output 'fooof_peaks' and a single input signal.
+        This will return the Gaussian fit of the periodic part of the spectrum.
         """
         fooof_opt = {'peak_threshold': 3.0}
         spectra, details = fooofspy(powers, freqs, out_type='fooof_peaks', fooof_opt=fooof_opt)
@@ -113,29 +142,32 @@ class TestSpfooof():
         assert spectra.shape == (freqs.size, 1)
         assert details['settings_used']['out_type'] == 'fooof_peaks'
         assert all(key in details for key in ("aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error", "settings_used"))
-        assert details['settings_used']['fooof_opt']['peak_threshold'] == 3.0  # Should reflect our custom value.
-        assert details['settings_used']['fooof_opt']['min_peak_height'] == 0.0  # No custom value => should be at default.
+        # Should reflect our custom value.
+        assert details['settings_used']['fooof_opt']['peak_threshold'] == 3.0
+        # No custom value => should be at default.
+        assert details['settings_used']['fooof_opt']['min_peak_height'] == 0.0
 
-    def test_spfooof_exception_empty_freqs(self):
+    def test_exception_empty_freqs(self):
         # The input frequencies must not be None.
         with pytest.raises(SPYValueError) as err:
             spectra, details = fooofspy(self.powers, None)
         assert "input frequencies are required and must not be None" in str(err.value)
 
-    def test_spfooof_exception_freq_length_does_not_match_spectrum_length(self):
+    def test_exception_freq_length_does_not_match_spectrum_length(self):
         # The input frequencies must have the same length as the spectrum.
         with pytest.raises(SPYValueError) as err:
-            self.test_spfooof_output_fooof_single_channel(freqs=np.arange(self.powers.size + 1), powers=self.powers)
+            self.test_output_fooof_single_channel(freqs=np.arange(self.powers.size + 1),
+                                                  powers=self.powers)
         assert "signal length" in str(err.value)
         assert "must match the number of frequency labels" in str(err.value)
 
-    def test_spfooof_exception_on_invalid_output_type(self):
+    def test_exception_on_invalid_output_type(self):
         # Invalid out_type is rejected.
         with pytest.raises(SPYValueError) as err:
             spectra, details = fooofspy(self.powers, self.freqs, out_type='fooof_invalidout')
         assert "out_type" in str(err.value)
 
-    def test_spfooof_exception_on_invalid_fooof_opt_entry(self):
+    def test_exception_on_invalid_fooof_opt_entry(self):
         # Invalid fooof_opt entry is rejected.
         with pytest.raises(SPYValueError) as err:
             fooof_opt = {'peak_threshold': 2.0, 'invalid_key': 42}
