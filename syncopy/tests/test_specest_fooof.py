@@ -46,7 +46,7 @@ class TestFooofSpy():
     cfg.select = {"trials": 0, "channel": 1}
     cfg.output = "fooof"
 
-    def test_fooof_output_fooof_fails_with_freq_zero(self, fulltests):
+    def test_fooof_output_fooof_fails_with_freq_zero(self):
         """ The fooof package ignores input values of zero frequency, and shortens the output array
             in that case with a warning. This is not acceptable for us, as the expected output dimension
             will not off by one. Also it is questionable whether users would want that. We therefore use
@@ -61,7 +61,7 @@ class TestFooofSpy():
             _ = freqanalysis(self.cfg, self.tfData)  # tfData contains zero.
         assert "a frequency range that does not include zero" in str(err.value)
 
-    def test_fooof_output_fooof_works_with_freq_zero_in_data_after_setting_foilim(self, fulltests):
+    def test_fooof_output_fooof_works_with_freq_zero_in_data_after_setting_foilim(self):
         """
         This tests the intended operation with output type 'fooof': with an input that does not
         include zero, ensured by using the 'foilim' argument/setting when calling freqanalysis.
@@ -96,7 +96,7 @@ class TestFooofSpy():
         #  _plot_powerspec(freqs=spec_dt.freq, powers=spec_dt.data[0, 0, :, 0])
         #spec_dt.singlepanelplot()
 
-    def test_spfooof_output_fooof_aperiodic(self, fulltests):
+    def test_spfooof_output_fooof_aperiodic(self):
         """Test fooof with output type 'fooof_aperiodic'. A spectrum containing only the aperiodic part is returned."""
         self.cfg['output'] = "fooof_aperiodic"
         self.cfg['foilim'] = [0.5, 250.]
@@ -114,7 +114,7 @@ class TestFooofSpy():
         assert not np.isnan(spec_dt.data).any()
         _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data))
 
-    def test_spfooof_output_fooof_peaks(self, fulltests):
+    def test_spfooof_output_fooof_peaks(self):
         """Test fooof with output type 'fooof_peaks'. A spectrum containing only the peaks (actually, the Gaussians fit to the peaks) is returned."""
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
         self.cfg['output'] = "fooof_peaks"
@@ -126,7 +126,7 @@ class TestFooofSpy():
         assert "fooof_aperiodic" not in spec_dt._log
         _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data))
 
-    def test_spfooof_outputs_from_different_fooof_methods_are_consistent(self, fulltests):
+    def test_spfooof_outputs_from_different_fooof_methods_are_consistent(self):
         """Test fooof with all output types plotted into a single plot and ensure consistent output."""
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
         self.cfg['output'] = "pow"
@@ -157,7 +157,7 @@ class TestFooofSpy():
         plt.legend()
         plt.show()
 
-    def test_spfooof_frontend_settings_are_merged_with_defaults_used_in_backend(self, fulltests):
+    def test_spfooof_frontend_settings_are_merged_with_defaults_used_in_backend(self):
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
         self.cfg['output'] = "fooof_peaks"
         self.cfg['out'] = None
@@ -172,7 +172,7 @@ class TestFooofSpy():
         #  this level as we have no way to get the 'details' return value.
         #  This is verified in backend tests though.
 
-    def test_fooofspy_rejects_preallocated_output(self, fulltests):
+    def test_fooofspy_rejects_preallocated_output(self):
         """ We do not support a pre-allocated out SpectralData object with output = 'fooof*'.
             Ensure an error is thrown if the user tries it.
         """
