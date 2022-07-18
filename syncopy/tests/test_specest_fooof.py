@@ -89,9 +89,12 @@ class TestFooofSpy():
         assert spec_dt.data.shape == (1, 1, 500, 1)
         assert not np.isnan(spec_dt.data).any()
 
+        # check that the cfg is correct (required for replay)
+        assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
+
         # Plot it.
         #  _plot_powerspec(freqs=spec_dt.freq, powers=spec_dt.data[0, 0, :, 0])
-        spec_dt.singlepanelplot()
+        #spec_dt.singlepanelplot()
 
     def test_spfooof_output_fooof_aperiodic(self, fulltests):
         """Test fooof with output type 'fooof_aperiodic'. A spectrum containing only the aperiodic part is returned."""
