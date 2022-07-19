@@ -70,6 +70,11 @@ class TestSpfooof():
 
         assert details['settings_used']['fooof_opt']['peak_threshold'] == 2.0  # Should be in and at default value.
 
+        # Ensure the results resemble the params used to generate the artificial data
+        # See the _power_spectrum() function above for the origins of these values.
+        assert np.allclose(details['gaussian_params'][0][0], [10, 0.2, 1.25], atol=0.1)  # The first peak
+        assert np.allclose(details['gaussian_params'][0][1], [30, 0.15, 2], atol=0.1)  # The second peak
+
     def test_output_fooof_several_channels(self, freqs=freqs, powers=powers):
         """
         Tests spfooof with output 'fooof' and several input signals/channels.
@@ -129,6 +134,11 @@ class TestSpfooof():
         spec_fooof, det_fooof = fooofspy(powers, freqs, out_type='fooof')
         spec_fooof_aperiodic, det_fooof_aperiodic = fooofspy(powers, freqs, out_type='fooof_aperiodic')
         spec_fooof_peaks, det_fooof_peaks = fooofspy(powers, freqs, out_type='fooof_peaks')
+
+        # Ensure details are correct
+        assert det_fooof['settings_used']['out_type'] == 'fooof'
+        assert det_fooof_aperiodic['settings_used']['out_type'] == 'fooof_aperiodic'
+        assert det_fooof_peaks['settings_used']['out_type'] == 'fooof_peaks'
 
         # Ensure output shapes are as expected.
         assert spec_fooof.shape == spec_fooof_aperiodic.shape

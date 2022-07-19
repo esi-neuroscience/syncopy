@@ -72,11 +72,14 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
 
     Examples
     --------
-    Run fooof on a generated power spectrum:
+    Run fooof on a generated power spectrum, then check that we can roughly recover the parameters
+    used to generate the artificial data:
     >>> from syncopy.specest.fooofspy import fooofspy
     >>> from fooof.sim.gen import gen_power_spectrum
     >>> freqs, powers = gen_power_spectrum([3, 40], [1, 1], [[10, 0.2, 1.25], [30, 0.15, 2]])
     >>> spectra, details = fooofspy(powers, freqs, out_type='fooof')
+    >>> import numpy as np
+    >>> assert np.allclose(details['gaussian_params'][0][0], [10, 0.2, 1.25], atol=0.1)
 
     References
     -----
@@ -155,7 +158,8 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
                 # Extract Gaussian parameters: central frequency (=mean), power over aperiodic, bandwith of peak (= 2* stddev of Gaussian).
                 # see FOOOF docs for details, especially Tutorial 2, Section 'Notes on Interpreting Peak Parameters'
                 out_spectrum += hgt * np.exp(- (in_freqs - ctr)**2 / (2 * wid**2))
-            out_spectrum /= hgt_total
+            if len(gp):
+                out_spectrum /= len(gp)
             out_spectrum = 10 ** out_spectrum
         else:
             raise SPYValueError(legal=available_fooof_out_types, varname="out_type", actual=out_type)
