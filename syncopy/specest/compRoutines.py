@@ -187,7 +187,7 @@ class MultiTaperFFT(ComputationalRoutine):
     valid_kws = list(signature(mtmfft).parameters.keys())[1:]
     valid_kws += list(signature(mtmfft_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
-    valid_kws += ['tapsmofrq', 'nTaper', 'pad']
+    valid_kws += ['tapsmofrq', 'nTaper', 'pad', 'fooof_opt']
 
     def process_metadata(self, data, out):
 
