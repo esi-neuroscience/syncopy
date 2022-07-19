@@ -33,7 +33,7 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
          Float array containing power spectrum with shape ``(nFreq x nChannels)``,
          typically obtained from :func:`syncopy.specest.mtmfft` output.
     in_freqs : 1D :class:`numpy.ndarray`
-         Float array of frequencies for all spectra, typically obtained from the `freq` property of the `mtmfft` output (`AnalogData` object).
+         Float array of frequencies for all spectra, typically obtained from the `freq` property of the `mtmfft` output (`AnalogData` object). Must not include zero.
     freq_range: float list of length 2
          optional definition of a frequency range of interest of the fooof result (post processing).
          Note: It is currently not possible for the user to set this from the frontend.
@@ -89,6 +89,13 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
     else:
         fooof_opt = {**default_fooof_opt, **fooof_opt}
 
+    if in_freqs is None:
+        raise SPYValueError(legal='The input frequencies are required and must not be None.', varname='in_freqs')
+
+    if in_freqs[0] == 0:
+        raise SPYValueError(legal="a frequency range that does not include zero.", varname="in_freqs",
+                            actual="Frequency range from {} to {}.".format(min(in_freqs), max(in_freqs)))
+
     invalid_fooof_opts = [i for i in fooof_opt.keys() if i not in available_fooof_options]
     if invalid_fooof_opts:
         raise SPYValueError(legal=fooof_opt.keys(), varname="fooof_opt", actual=invalid_fooof_opts)
@@ -96,9 +103,6 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
     if out_type not in available_fooof_out_types:
         lgl = "'" + "or '".join(opt + "' " for opt in available_fooof_out_types)
         raise SPYValueError(legal=lgl, varname="out_type", actual=out_type)
-
-    if in_freqs is None:
-        raise SPYValueError(legal='The input frequencies are required and must not be None.', varname='in_freqs')
 
     if in_freqs.size != data_arr.shape[0]:
         raise SPYValueError(legal='The signal length %d must match the number of frequency labels %d.' % (data_arr.shape[0], in_freqs.size), varname="data_arr/in_freqs")
