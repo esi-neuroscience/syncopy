@@ -71,8 +71,8 @@ class TestSpfooof():
 
         # Ensure the results resemble the params used to generate the artificial data
         # See the _power_spectrum() function above for the origins of these values.
-        assert np.allclose(details['gaussian_params'][0][0], [10, 0.2, 1.25], atol=0.1)  # The first peak
-        assert np.allclose(details['gaussian_params'][0][1], [30, 0.15, 2], atol=0.1)  # The second peak
+        assert np.allclose(details['gaussian_params'][0][0], [10, 0.2, 1.25], atol=0.5)  # The first peak
+        assert np.allclose(details['gaussian_params'][0][1], [30, 0.15, 2], atol=2.0)  # The second peak
 
     def test_output_fooof_several_channels(self, freqs=freqs, powers=powers):
         """
@@ -146,10 +146,10 @@ class TestSpfooof():
         assert spec_fooof.shape == (powers.size, 1)
         assert spec_fooof.shape == (freqs.size, 1)
 
-        fooofed_spectrum = 10 ** spec_fooof.squeeze()
-        fooof_aperiodic = 10 ** spec_fooof_aperiodic.squeeze()
+        fooofed_spectrum = spec_fooof.squeeze()
+        fooof_aperiodic = spec_fooof_aperiodic.squeeze()
         fooof_peaks = spec_fooof_peaks.squeeze()
-        fooof_peaks_and_aperiodic = 10 ** (spec_fooof_peaks.squeeze() + spec_fooof_aperiodic.squeeze())
+        fooof_peaks_and_aperiodic = fooof_peaks + fooof_aperiodic
 
         # Visually compare data and fits.
         plt.figure()
