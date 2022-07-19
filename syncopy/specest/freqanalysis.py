@@ -869,11 +869,6 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # Sanitize output and call the ComputationalRoutine
     # -------------------------------------------------
 
-    # If provided, make sure output object is appropriate
-    if out is not None:
-        lgl = "None: pre-allocated output object not supported."
-        raise SPYValueError(legal=lgl, varname="out")
-
     out = SpectralData(dimord=SpectralData._defaultDimord)
 
     # Perform actual computation
