@@ -130,7 +130,7 @@ class TestFooofSpy():
         assert spec_dt.data.ndim == 4
         assert spec_dt.data.shape == (1, 1, 500, 1)
         assert not np.isnan(spec_dt.data).any()
-        _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data))
+        _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof aperiodic")
 
     def test_output_fooof_peaks(self):
         """Test fooof with output type 'fooof_peaks'. A spectrum containing only the peaks (actually, the Gaussians fit to the peaks) is returned."""
@@ -143,7 +143,7 @@ class TestFooofSpy():
         assert "fooof" in spec_dt._log
         assert "fooof_method = fooof_peaks" in spec_dt._log
         assert "fooof_aperiodic" not in spec_dt._log
-        _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data))
+        _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof peaks")
 
     def test_outputs_from_different_fooof_methods_are_consistent(self):
         """Test fooof with all output types plotted into a single plot and ensure consistent output."""
@@ -176,6 +176,7 @@ class TestFooofSpy():
         plt.xlabel('Frequency (Hz)')
         plt.ylabel('Power (db)')
         plt.legend()
+        plt.title("Outputs from different fooof methods")
         plt.show()
 
     def test_frontend_settings_are_merged_with_defaults_used_in_backend(self):

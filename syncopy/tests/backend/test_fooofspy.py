@@ -157,7 +157,6 @@ class TestSpfooof():
         plt.plot(freqs, fooofed_spectrum, label="Fooofed spectrum")
         plt.plot(freqs, fooof_aperiodic, label="Fooof aperiodic fit")
         plt.plot(freqs, fooof_peaks, label="Fooof peaks fit")
-        plt.plot(freqs, fooof_peaks_and_aperiodic, label="Fooof peaks fit + aperiodic")
         plt.xlabel('Frequency (Hz)')
         plt.ylabel('Power')
         plt.legend()

@@ -141,7 +141,8 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
                 out_spectrum = offset - np.log10(knee + in_freqs**exp)
             out_spectrum = 10 ** out_spectrum
         elif out_type == "fooof_peaks":
-            gp = fm.gaussian_params_
+            use_peaks_gaussian = True
+            gp = fm.gaussian_params_ if use_peaks_gaussian else fm.peak_params_
             out_spectrum = np.zeros_like(in_freqs, in_freqs.dtype)
             hgt_total = 0.0
             for row_idx in range(len(gp)):
