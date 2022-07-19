@@ -89,7 +89,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
         `'fooof_peaks'`, see below for details. The returned spectrum represents
         the full foofed spectrum for `'fooof'`, the aperiodic
         fit for `'fooof_aperiodic'`, and the peaks (Gaussians fit to them) for
-        `'fooof_peaks'`.
+        `'fooof_peaks'`. Returned data is in linear scale. Noisy input
+        data will most likely lead to fitting issues with fooof, always inspect
+        your results!
 
     "mtmconvol" : (Multi-)tapered sliding window Fourier transform
         Perform time-frequency analysis on time-series trial data based on a sliding
@@ -263,9 +265,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         `FOOOF docs <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_
         for the meanings and the defaults.
         The FOOOF reference is: Donoghue et al. 2020, DOI 10.1038/s41593-020-00744-x.
-    out : None or :class:`SpectralData` object
-        None if a new :class:`SpectralData` object is to be created, or an empty :class:`SpectralData` object.
-        Must be None if `output` is `'fooof'`, `'fooof_aperiodic'`, or `'fooof_peaks'`.
+    out : Must be `None`.
 
 
     Returns
