@@ -157,7 +157,7 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
                 out_spectrum /= len(gp)
             out_spectrum = 10 ** out_spectrum
         else:
-            raise SPYValueError(legal=available_fooof_out_types, varname="out_type", actual=out_type)
+            raise ValueError("out_type: invalid value '{inv}', expected one of '{lgl}'.".format(inv=out_type, lgl=available_fooof_out_types))
 
         out_spectra[:, channel_idx] = out_spectrum
         aperiodic_params[:, channel_idx] = fm.aperiodic_params_
