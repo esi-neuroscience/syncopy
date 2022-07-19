@@ -20,9 +20,15 @@ import matplotlib.pyplot as plt
 
 def _plot_powerspec(freqs, powers, title="Power spectrum"):
     """Simple, internal plotting function to plot x versus y.
+    Parameter 'powers' can be a vector or a dict with keys being labels and values being vectors.
     Called for plotting side effect.
     """
-    plt.plot(freqs, powers)
+    plt.figure()
+    if isinstance(powers, dict):
+        for label, power in powers.items():
+            plt.plot(freqs, power, label=label)
+    else:
+        plt.plot(freqs, powers)
     plt.xlabel('Frequency (Hz)')
     plt.ylabel('Power (db)')
     plt.title(title)
@@ -168,16 +174,8 @@ class TestFooofSpy():
         assert out_fooof.data.shape == out_fooof_aperiodic.data.shape
         assert out_fooof.data.shape == out_fooof_peaks.data.shape
 
-        plt.figure()
-        plt.plot(freqs, np.ravel(out_fft.data), label="Raw input data")
-        plt.plot(freqs, np.ravel(out_fooof.data), label="Fooofed spectrum")
-        plt.plot(freqs, np.ravel(out_fooof_aperiodic.data), label="Fooof aperiodic fit")
-        plt.plot(freqs, np.ravel(out_fooof_peaks.data), label="Fooof peaks fit")
-        plt.xlabel('Frequency (Hz)')
-        plt.ylabel('Power (db)')
-        plt.legend()
-        plt.title("Outputs from different fooof methods")
-        plt.show()
+        plot_data = {"Raw input data": np.ravel(out_fft.data), "Fooofed spectrum": np.ravel(out_fooof.data), "Fooof aperiodic fit": np.ravel(out_fooof_aperiodic.data), "Fooof peaks fit": np.ravel(out_fooof_peaks.data)}
+        _plot_powerspec(freqs, powers=plot_data, title="Outputs from different fooof methods for make_tf_signal data")
 
     def test_frontend_settings_are_merged_with_defaults_used_in_backend(self):
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
@@ -192,3 +190,24 @@ class TestFooofSpy():
         #  our custom value for fooof_opt['max_n_peaks']. Not possible yet on
         #  this level as we have no way to get the 'details' return value.
         #  This is verified in backend tests though.
+
+    def test_with_ap2_data(self):
+        adata = _get_fooof_signal()  # get AnalogData instance
+        self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in data.
+        self.cfg['output'] = "pow"
+        self.cfg.select = {"trials": 0, "channel": 0}
+        self.cfg.pop('fooof_opt', None)
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
+
+        out_fft = freqanalysis(self.cfg, adata)
+        self.cfg['output'] = "fooof"
+        out_fooof = freqanalysis(self.cfg, adata, fooof_opt=fooof_opt)
+        self.cfg['output'] = "fooof_aperiodic"
+        out_fooof_aperiodic = freqanalysis(self.cfg, adata, fooof_opt=fooof_opt)
+        self.cfg['output'] = "fooof_peaks"
+        out_fooof_peaks = freqanalysis(self.cfg, adata, fooof_opt=fooof_opt)
+
+        freqs = out_fooof.freq
+
+        plot_data = {"Raw input data": np.ravel(out_fft.data), "Fooofed spectrum": np.ravel(out_fooof.data), "Fooof aperiodic fit": np.ravel(out_fooof_aperiodic.data), "Fooof peaks fit": np.ravel(out_fooof_peaks.data)}
+        _plot_powerspec(freqs, powers=plot_data, title="Outputs from different fooof methods for AR1 data")
