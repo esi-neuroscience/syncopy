@@ -18,13 +18,14 @@ from syncopy.tests.synth_data import harmonic, AR2_network
 import matplotlib.pyplot as plt
 
 
-def _plot_powerspec(freqs, powers):
+def _plot_powerspec(freqs, powers, title="Power spectrum"):
     """Simple, internal plotting function to plot x versus y.
     Called for plotting side effect.
     """
     plt.plot(freqs, powers)
     plt.xlabel('Frequency (Hz)')
     plt.ylabel('Power (db)')
+    plt.title(title)
     plt.show()
 
 
@@ -34,8 +35,8 @@ def _get_fooof_signal():
     Returns AnalogData instance.
     """
     nTrials = 5
-    harmonic_part = harmonic(freq=30, samplerate=1000, nSamples=1000, nChannels=2, nTrials=nTrials)
-    ar1_part = AR2_network(AdjMat=np.zeros(1), alphas=[0.7, 0])
+    harmonic_part = harmonic(freq=30, samplerate=1000, nSamples=1000, nChannels=1, nTrials=nTrials)
+    ar1_part = AR2_network(AdjMat=np.zeros(1), alphas=[0.7, 0], nTrials=nTrials)
     signal = harmonic_part + ar1_part
     return signal
 
