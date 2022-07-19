@@ -11,7 +11,6 @@ from syncopy.tests.backend.test_resampling import trl_av_power
 from syncopy.tests import synth_data as sd
 from fooof.sim.gen import gen_power_spectrum
 
-from syncopy.shared.errors import SPYValueError
 import matplotlib.pyplot as plt
 
 
@@ -181,13 +180,13 @@ class TestSpfooof():
 
     def test_exception_empty_freqs(self):
         # The input frequencies must not be None.
-        with pytest.raises(SPYValueError) as err:
+        with pytest.raises(ValueError) as err:
             spectra, details = fooofspy(self.powers, None)
         assert "input frequencies are required and must not be None" in str(err.value)
 
     def test_exception_freq_length_does_not_match_spectrum_length(self):
         # The input frequencies must have the same length as the spectrum.
-        with pytest.raises(SPYValueError) as err:
+        with pytest.raises(ValueError) as err:
             self.test_output_fooof_single_channel(freqs=np.arange(self.powers.size + 1),
                                                   powers=self.powers)
         assert "signal length" in str(err.value)
@@ -195,13 +194,13 @@ class TestSpfooof():
 
     def test_exception_on_invalid_output_type(self):
         # Invalid out_type is rejected.
-        with pytest.raises(SPYValueError) as err:
+        with pytest.raises(ValueError) as err:
             spectra, details = fooofspy(self.powers, self.freqs, out_type='fooof_invalidout')
         assert "out_type" in str(err.value)
 
     def test_exception_on_invalid_fooof_opt_entry(self):
         # Invalid fooof_opt entry is rejected.
-        with pytest.raises(SPYValueError) as err:
+        with pytest.raises(ValueError) as err:
             fooof_opt = {'peak_threshold': 2.0, 'invalid_key': 42}
             spectra, details = fooofspy(self.powers, self.freqs, fooof_opt=fooof_opt)
         assert "fooof_opt" in str(err.value)

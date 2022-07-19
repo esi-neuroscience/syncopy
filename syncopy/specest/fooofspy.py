@@ -9,9 +9,6 @@
 import numpy as np
 from fooof import FOOOF
 
-# Syncopy imports
-from syncopy.shared.errors import SPYValueError
-
 # Constants
 available_fooof_out_types = ['fooof', 'fooof_aperiodic', 'fooof_peaks']
 default_fooof_opt = {'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf,
@@ -98,22 +95,20 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
         fooof_opt = {**default_fooof_opt, **fooof_opt}
 
     if in_freqs is None:
-        raise SPYValueError(legal='The input frequencies are required and must not be None.', varname='in_freqs')
-
-    if in_freqs[0] == 0:
-        raise SPYValueError(legal="a frequency range that does not include zero.", varname="in_freqs",
-                            actual="Frequency range from {} to {}.".format(min(in_freqs), max(in_freqs)))
+        raise ValueError('infreqs: The input frequencies are required and must not be None.')
 
     invalid_fooof_opts = [i for i in fooof_opt.keys() if i not in available_fooof_options]
     if invalid_fooof_opts:
-        raise SPYValueError(legal=fooof_opt.keys(), varname="fooof_opt", actual=invalid_fooof_opts)
+        raise ValueError("fooof_opt: invalid keys: '{inv}', allowed keys are: '{lgl}'.".format(inv=invalid_fooof_opts, lgl=fooof_opt.keys()))
 
     if out_type not in available_fooof_out_types:
-        lgl = "'" + "or '".join(opt + "' " for opt in available_fooof_out_types)
-        raise SPYValueError(legal=lgl, varname="out_type", actual=out_type)
+        raise ValueError("out_type: invalid value '{inv}', expected one of '{lgl}'.".format(inv=out_type, lgl=available_fooof_out_types))
 
     if in_freqs.size != data_arr.shape[0]:
-        raise SPYValueError(legal='The signal length %d must match the number of frequency labels %d.' % (data_arr.shape[0], in_freqs.size), varname="data_arr/in_freqs")
+        raise ValueError("data_arr/in_freqs: The signal length {sl} must match the number of frequency labels {ll}.".format(sl=data_arr.shape[0], ll=in_freqs.size))
+
+    if in_freqs[0] == 0:
+        raise ValueError("in_freqs: invalid frequency range {minf} to {maxf}, expected a frequency range that does not include zero.".format(minf=min(in_freqs), maxf=max(in_freqs)))
 
     num_channels = data_arr.shape[1]
 
