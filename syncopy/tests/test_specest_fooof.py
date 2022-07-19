@@ -9,7 +9,6 @@ import numpy as np
 # Local imports
 from syncopy import freqanalysis
 from syncopy.shared.tools import get_defaults
-from syncopy.datatype import SpectralData
 from syncopy.shared.errors import SPYValueError
 from syncopy.tests.test_specest import _make_tf_signal
 
@@ -69,7 +68,9 @@ class TestFooofSpy():
         """
         self.cfg['output'] = "fooof"
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
-        spec_dt = freqanalysis(self.cfg, self.tfData)
+        self.cfg.pop('fooof_opt', None)
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
+        spec_dt = freqanalysis(self.cfg, self.tfData, fooof_opt=fooof_opt)
 
         # check frequency axis
         assert spec_dt.freq.size == 500
@@ -98,7 +99,9 @@ class TestFooofSpy():
         """Test fooof with output type 'fooof_aperiodic'. A spectrum containing only the aperiodic part is returned."""
         self.cfg['output'] = "fooof_aperiodic"
         self.cfg['foilim'] = [0.5, 250.]
-        spec_dt = freqanalysis(self.cfg, self.tfData)
+        self.cfg.pop('fooof_opt', None)
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
+        spec_dt = freqanalysis(self.cfg, self.tfData, fooof_opt=fooof_opt)
 
         # log
         assert "fooof" in spec_dt._log  # from the method
@@ -115,7 +118,9 @@ class TestFooofSpy():
         """Test fooof with output type 'fooof_peaks'. A spectrum containing only the peaks (actually, the Gaussians fit to the peaks) is returned."""
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
         self.cfg['output'] = "fooof_peaks"
-        spec_dt = freqanalysis(self.cfg, self.tfData)
+        self.cfg.pop('fooof_opt', None)
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
+        spec_dt = freqanalysis(self.cfg, self.tfData, fooof_opt=fooof_opt)
         assert spec_dt.data.ndim == 4
         assert "fooof" in spec_dt._log
         assert "fooof_method = fooof_peaks" in spec_dt._log
@@ -126,13 +131,16 @@ class TestFooofSpy():
         """Test fooof with all output types plotted into a single plot and ensure consistent output."""
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
         self.cfg['output'] = "pow"
+        self.cfg.pop('fooof_opt', None)
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
+
         out_fft = freqanalysis(self.cfg, self.tfData)
         self.cfg['output'] = "fooof"
-        out_fooof = freqanalysis(self.cfg, self.tfData)
+        out_fooof = freqanalysis(self.cfg, self.tfData, fooof_opt=fooof_opt)
         self.cfg['output'] = "fooof_aperiodic"
-        out_fooof_aperiodic = freqanalysis(self.cfg, self.tfData)
+        out_fooof_aperiodic = freqanalysis(self.cfg, self.tfData, fooof_opt=fooof_opt)
         self.cfg['output'] = "fooof_peaks"
-        out_fooof_peaks = freqanalysis(self.cfg, self.tfData)
+        out_fooof_peaks = freqanalysis(self.cfg, self.tfData, fooof_opt=fooof_opt)
 
         assert (out_fooof.freq == out_fooof_aperiodic.freq).all()
         assert (out_fooof.freq == out_fooof_peaks.freq).all()
@@ -156,7 +164,7 @@ class TestFooofSpy():
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
         self.cfg['output'] = "fooof_peaks"
         self.cfg.pop('fooof_opt', None)  # Remove from cfg to avoid passing twice. We could also modify it (and then leave out the fooof_opt kw below).
-        fooof_opt = {'max_n_peaks': 8}
+        fooof_opt = {'max_n_peaks': 8, 'peak_width_limits': (1.0, 12.0)}
         spec_dt = freqanalysis(self.cfg, self.tfData, fooof_opt=fooof_opt)
 
         assert spec_dt.data.ndim == 4
