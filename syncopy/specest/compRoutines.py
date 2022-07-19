@@ -932,14 +932,11 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
     res, _ = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
                       fooof_opt=method_kwargs)
 
-    if output_fmt != "fooof_peaks":
-        res = 10 ** res  # FOOOF stores values as log10, undo.
-
     # TODO (later): get the 'details' from the unused _ return
     #  value and pass them on. This cannot be done right now due
     #  to lack of support for several return values, see #140.
 
-    res = res[np.newaxis, np.newaxis, :, :] # re-add omitted axes.
+    res = res[np.newaxis, np.newaxis, :, :]  # Re-add omitted axes.
     return res
 
 

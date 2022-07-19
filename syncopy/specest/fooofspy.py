@@ -31,11 +31,13 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
     ----------
     data_arr : 2D :class:`numpy.ndarray`
          Float array containing power spectrum with shape ``(nFreq x nChannels)``,
-         typically obtained from :func:`syncopy.specest.mtmfft` output.
+         typically obtained from :func:`syncopy.specest.mtmfft` output. Must be in linear space. Noisy
+         data will most likely lead to fitting issues, always inspect your results!
     in_freqs : 1D :class:`numpy.ndarray`
-         Float array of frequencies for all spectra, typically obtained from the `freq` property of the `mtmfft` output (`AnalogData` object). Must not include zero.
+         Float array of frequencies for all spectra, typically obtained from the `freq` property
+         of the `mtmfft` output (`AnalogData` object). Must not include zero.
     freq_range: float list of length 2
-         optional definition of a frequency range of interest of the fooof result (post processing).
+         optional definition of a frequency range of interest of the fooof result.
          Note: It is currently not possible for the user to set this from the frontend.
     foopf_opt : dict or None
         Additional keyword arguments passed to the `FOOOF` constructor. Available
@@ -54,12 +56,15 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
         The fooofed spectrum (for out_type ``'fooof'``), the aperiodic part of the
         spectrum (for ``'fooof_aperiodic'``) or the peaks (for ``'fooof_peaks'``).
         Each row corresponds to a row in the input `data_arr`, i.e., a channel.
-        The data is in log space (log10).
+        The data is in linear space.
     details : dictionary
         Details on the model fit and settings used. Contains the following keys:
             `aperiodic_params` 2D :class:`numpy.ndarray`, the aperiodoc parameters of the fits, in log10.
-            `gaussian_params` list of 2D nx3 :class:`numpy.ndarray`, the Gaussian parameters of the fits, in log10. Each column describes the mean, height and width of a Gaussian fit to a peak.
-            `peak_params` list of 2D xn3 :class:`numpy.ndarray`, the peak parameters (a modified version of the Gaussian parameters, see FOOOF docs) of the fits, in log10. Each column describes the mean, height over aperiodic and 2-sided width of a Gaussian fit to a peak.
+            `gaussian_params` list of 2D nx3 :class:`numpy.ndarray`, the Gaussian parameters of the fits, in log10.
+                              Each column describes the mean, height and width of a Gaussian fit to a peak.
+            `peak_params` list of 2D xn3 :class:`numpy.ndarray`, the peak parameters (a modified version of the
+                          Gaussian parameters, see FOOOF docs) of the fits, in log10. Each column describes the
+                          mean, height over aperiodic and 2-sided width of a Gaussian fit to a peak.
             `n_peaks`: 1D :class:`numpy.ndarray` of int, the number of peaks detected in the spectra of the fits.
             `r_squared`: 1D :class:`numpy.ndarray` of int, the number of peaks detected in the spectra of the fits.
             `error`: 1D :class:`numpy.ndarray` of float, the model error of the fits.
@@ -129,7 +134,7 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
         fm.fit(in_freqs, spectrum, freq_range=freq_range)
 
         if out_type == 'fooof':
-            out_spectrum = fm.fooofed_spectrum_  # the powers
+            out_spectrum = 10 ** fm.fooofed_spectrum_  # The powers. Need to undo log10, which is used internally by fooof.
         elif out_type == "fooof_aperiodic":
             offset = fm.aperiodic_params_[0]
             if fm.aperiodic_mode == 'fixed':
@@ -139,14 +144,19 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
                 knee = fm.aperiodic_params_[1]
                 exp = fm.aperiodic_params_[2]
                 out_spectrum = offset - np.log10(knee + in_freqs**exp)
+            out_spectrum = 10 ** out_spectrum
         elif out_type == "fooof_peaks":
             gp = fm.gaussian_params_
             out_spectrum = np.zeros_like(in_freqs, in_freqs.dtype)
+            hgt_total = 0.0
             for row_idx in range(len(gp)):
                 ctr, hgt, wid = gp[row_idx, :]
+                hgt_total += hgt
                 # Extract Gaussian parameters: central frequency (=mean), power over aperiodic, bandwith of peak (= 2* stddev of Gaussian).
                 # see FOOOF docs for details, especially Tutorial 2, Section 'Notes on Interpreting Peak Parameters'
                 out_spectrum += hgt * np.exp(- (in_freqs - ctr)**2 / (2 * wid**2))
+            out_spectrum /= hgt_total
+            out_spectrum = 10 ** out_spectrum
         else:
             raise SPYValueError(legal=available_fooof_out_types, varname="out_type", actual=out_type)
 
