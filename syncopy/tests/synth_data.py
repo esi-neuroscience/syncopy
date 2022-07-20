@@ -311,12 +311,23 @@ def poisson_noise(nTrials=10,
 
     """
 
+    def get_rdm_weights(size):
+        pvec = np.random.uniform(size=size)
+        return pvec / pvec.sum()
+
     T_max = int(1 / intensity * nSpikes)
     spike_times = np.sort(random.sample(range(T_max), nSpikes))
     channels = np.random.choice(
-        np.arange(nChannels), p=np.array([0.5, 0.3, 0.2]), size=nSpikes, replace=True
+        np.arange(nChannels), p=get_rdm_weights(nChannels),
+        size=nSpikes, replace=True
     )
-    units = np.random.choice(np.arange(nUnits), size=nSpikes, replace=True)
+
+    uvec = np.arange(nUnits)
+    pvec = get_rdm_weights(nUnits)
+    units = np.random.choice(uvec, p=pvec, size=nSpikes, replace=True)
+    # units = np.r_[units, np.random.choice(uvec, size=nSpikes // 2, replace=True)]
+    # if nSpikes % 2 == 1:
+    #     units = np.r_[units, [np.random.choice(uvec)]]
 
     trl_intervals = np.sort(random.sample(range(T_max), nTrials + 1))
     # 1st trial

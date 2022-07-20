@@ -28,7 +28,7 @@ available_latencies = ['maxperiod', 'minperiod', 'prestim', 'poststim']
 
 # ===DEV SNIPPET===
 from syncopy.tests import synth_data as sd
-spd = sd.poisson_noise(10)
+spd = sd.poisson_noise(10, nUnits=7, nChannels=3, nSpikes=1000)
 # =================
 
 
@@ -131,7 +131,7 @@ def spike_psth(data,
         array_parser(latency, lims=[0, np.inf], dims=(2,))
         interval = latency
 
-    # --- determine overall (all trials) histrogram shape ---
+    # --- determine overall (all trials) histogram shape ---
 
     # get average trial size for auto-binning
     av_trl_size = data.data.shape[0] / len(data.trials)
@@ -148,20 +148,17 @@ def spike_psth(data,
 
     # get all channelX-unitY combinations with at least one event
 
-    # possible channel-unit indices
+    # possible channel-unit indice combinations (it's not a meshgrid..)
     combs = []
 
     # the straightforward way would be: np.unique(data.data[:, 1:], axis=0)
     # however this loads 66% the size of the total data into memory
     for trial in data.trials:
         # tuples allow for a set operation, dimord is fixed as parsed above!
-        combs += [tuple(x) for x in np.unique(trial[:, 1:], axis=0)]
+        combs.append(np.unique(trial[:, 1:], axis=0))
 
-    combs = set(combs)
-    return combs
-    # sadly now this needs to be massaged further
-    combs = np.sort(list(combs), axis=0)    
-    print(combs)
+    combs = np.unique(np.concatenate(combs), axis=0)
+
     # right away create the output labels for the channel axis
     chan_labels = [f'channel{i}_unit{j}' for i, j in combs]
 
