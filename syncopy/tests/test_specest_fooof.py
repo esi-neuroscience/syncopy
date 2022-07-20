@@ -13,7 +13,7 @@ from syncopy import freqanalysis
 from syncopy.shared.tools import get_defaults
 from syncopy.shared.errors import SPYValueError
 from syncopy.tests.test_specest import _make_tf_signal
-from syncopy.tests.synth_data import harmonic, AR2_network
+from syncopy.tests.synth_data import harmonic, AR2_network, phase_diffusion
 import syncopy as spy
 
 
@@ -41,9 +41,10 @@ def _plot_powerspec(freqs, powers, title="Power spectrum", save="test.png"):
     plt.legend()
     plt.title(title)
     if save is not None:
-        print("Saving figure to '{save}'. Working directory is {wd}.".format(save=save, wd=os.getcwd()))
+        print("Saving figure to '{save}'. Working directory is '{wd}'.".format(save=save, wd=os.getcwd()))
         plt.savefig(save)
     plt.show()
+
 
 def _fft(analog_data, select = {"trials": 0, "channel": 0}):
     """Run standard mtmfft on AnalogData instance."""
@@ -56,23 +57,31 @@ def _fft(analog_data, select = {"trials": 0, "channel": 0}):
     cfg.output = "pow"
     return freqanalysis(cfg, analog_data)
 
+
 def _show_spec(analog_data, save="test.png"):
     """Plot the power spectrum for an AnalogData object. Performs mtmfft to do that."""
     if not isinstance(analog_data, spy.datatype.continuous_data.AnalogData):
         raise ValueError("Parameter 'analog_data' must be a syncopy.datatype.continuous_data.AnalogData instance.")
     (_fft(analog_data)).singlepanelplot()
     if save is not None:
-        print("Saving power spectrum figure for AnalogData to '{save}'. Working directory is {wd}.".format(save=save, wd=os.getcwd()))
+        print("Saving power spectrum figure for AnalogData to '{save}'. Working directory is '{wd}'.".format(save=save, wd=os.getcwd()))
         plt.savefig(save)
 
-def _get_fooof_signal(nTrials = 1):
+
+def _get_fooof_signal(nTrials = 1, use_phase_diffusion=True):
     """
     Produce suitable test signal for fooof, using AR1 and a harmonic.
     Returns AnalogData instance.
     """
-    harmonic_part = harmonic(freq=30, samplerate=1000, nSamples=1000, nChannels=1, nTrials=nTrials)
-    ar1_part = AR2_network(AdjMat=np.zeros(1), alphas=[0.7, 0], nTrials=nTrials)
+    nSamples = 1000
+    nChannels = 1
+    samplerate = 1000
+    harmonic_part = harmonic(freq=30, samplerate=samplerate, nSamples=nSamples, nChannels=nChannels, nTrials=nTrials)
+    ar1_part = AR2_network(AdjMat=np.zeros(1), nSamples=nSamples, alphas=[0.7, 0], nTrials=nTrials)
     signal = harmonic_part + ar1_part
+    if use_phase_diffusion:
+        pd = phase_diffusion(freq=50., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples)
+        signal += pd
     return signal
 
 
