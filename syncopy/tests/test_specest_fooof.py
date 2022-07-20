@@ -14,6 +14,7 @@ from syncopy.shared.tools import get_defaults
 from syncopy.shared.errors import SPYValueError
 from syncopy.tests.test_specest import _make_tf_signal
 from syncopy.tests.synth_data import harmonic, AR2_network
+import syncopy as spy
 
 
 import matplotlib.pyplot as plt
@@ -40,10 +41,29 @@ def _plot_powerspec(freqs, powers, title="Power spectrum", save="test.png"):
     plt.legend()
     plt.title(title)
     if save is not None:
-        print("Saving figure to '{save}'. Working directory is {wd}.".format((save, os.getcwd())))
+        print("Saving figure to '{save}'. Working directory is {wd}.".format(save=save, wd=os.getcwd()))
         plt.savefig(save)
     plt.show()
 
+def _fft(analog_data, select = {"trials": 0, "channel": 0}):
+    """Run standard mtmfft on AnalogData instance."""
+    if not isinstance(analog_data, spy.datatype.continuous_data.AnalogData):
+        raise ValueError("Parameter 'analog_data' must be a syncopy.datatype.continuous_data.AnalogData instance.")
+    cfg = get_defaults(freqanalysis)
+    cfg.method = "mtmfft"
+    cfg.taper = "hann"
+    cfg.select = select
+    cfg.output = "pow"
+    return freqanalysis(cfg, analog_data)
+
+def _show_spec(analog_data, save="test.png"):
+    """Plot the power spectrum for an AnalogData object. Performs mtmfft to do that."""
+    if not isinstance(analog_data, spy.datatype.continuous_data.AnalogData):
+        raise ValueError("Parameter 'analog_data' must be a syncopy.datatype.continuous_data.AnalogData instance.")
+    (_fft(analog_data)).singlepanelplot()
+    if save is not None:
+        print("Saving power spectrum figure for AnalogData to '{save}'. Working directory is {wd}.".format(save=save, wd=os.getcwd()))
+        plt.savefig(save)
 
 def _get_fooof_signal(nTrials = 1):
     """
@@ -126,7 +146,8 @@ class TestFooofSpy():
 
         # Plot it.
         #  _plot_powerspec(freqs=spec_dt.freq, powers=spec_dt.data[0, 0, :, 0])
-        #spec_dt.singlepanelplot()
+        spec_dt.singlepanelplot()
+        #plt.savefig("spp.png")
 
     def test_output_fooof_aperiodic(self):
         """Test fooof with output type 'fooof_aperiodic'. A spectrum containing only the aperiodic part is returned."""
@@ -200,8 +221,12 @@ class TestFooofSpy():
         #  this level as we have no way to get the 'details' return value.
         #  This is verified in backend tests though.
 
-    def test_with_ap2_data(self):
-        adata = _get_fooof_signal()  # get AnalogData instance
+    def test_with_ap2_data(self, show_data=False):
+        adata = _get_fooof_signal(nTrials=1)  # get AnalogData instance
+
+        if show_data:
+            _show_spec(adata)
+
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in data.
         self.cfg['output'] = "pow"
         self.cfg.select = {"trials": 0, "channel": 0}
