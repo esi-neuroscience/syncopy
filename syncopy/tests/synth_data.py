@@ -35,7 +35,7 @@ def collect_trials(trial_generator):
 
     @functools.wraps(trial_generator)
     def wrapper_synth(nTrials=None, samplerate=1000, **tg_kwargs):
-        
+
         # append samplerate parameter if also needed by the generator
         if 'samplerate' in signature(trial_generator).parameters.keys():
             tg_kwargs['samplerate'] = samplerate
