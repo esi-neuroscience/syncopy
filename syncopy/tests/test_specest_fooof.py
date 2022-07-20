@@ -46,22 +46,26 @@ def _plot_powerspec(freqs, powers, title="Power spectrum", save="test.png"):
     plt.show()
 
 
-def _fft(analog_data, select = {"channel": 0}):
-    """Run standard mtmfft on AnalogData instance."""
+def _fft(analog_data, select = {"channel": 0}, foilim = [1.0, 100]):
+    """Run standard mtmfft with trial averaging on AnalogData instance.
+    """
     if not isinstance(analog_data, spy.datatype.continuous_data.AnalogData):
         raise ValueError("Parameter 'analog_data' must be a syncopy.datatype.continuous_data.AnalogData instance.")
     cfg = get_defaults(freqanalysis)
     cfg.method = "mtmfft"
     cfg.taper = "hann"
     cfg.select = select
-    cfg.keeptrials = False
+    cfg.keeptrials = False  # Averages signal over all (selected) trials.
     cfg.output = "pow"
-    cfg.foilim = [1.0, 100]
+    cfg.foilim = foilim
     return freqanalysis(cfg, analog_data)
 
 
 def _show_spec(analog_data, save="test.png"):
-    """Plot the power spectrum for an AnalogData object. Performs mtmfft to do that."""
+    """Plot the power spectrum for an AnalogData object.
+
+       Performs mtmfft with `_fft()` to do that. Use `matplotlib.pyplot.ion()` if you dont see the plot.
+    """
     if not isinstance(analog_data, spy.datatype.continuous_data.AnalogData):
         raise ValueError("Parameter 'analog_data' must be a syncopy.datatype.continuous_data.AnalogData instance.")
     (_fft(analog_data)).singlepanelplot()
@@ -73,16 +77,19 @@ def _show_spec(analog_data, save="test.png"):
 def _get_fooof_signal(nTrials = 100):
     """
     Produce suitable test signal for fooof, using AR1 and a harmonic.
+
+    One should perform trial averaging to get realistic data out of it (and reduce noise).
+
     Returns AnalogData instance.
     """
     nSamples = 1000
     nChannels = 1
     samplerate = 1000
     #harmonic_part = harmonic(freq=30, samplerate=samplerate, nSamples=nSamples, nChannels=nChannels, nTrials=nTrials)
-    pd1 = phase_diffusion(freq=30., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
     ar1_part = AR2_network(AdjMat=np.zeros(1), nSamples=nSamples, alphas=[0.7, 0], nTrials=nTrials)
-    signal = 0.7 * pd1 + ar1_part
-    signal += 0.4 * phase_diffusion(freq=50., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
+    pd1 = phase_diffusion(freq=30., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
+    pd2 = phase_diffusion(freq=50., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
+    signal = ar1_part + 0.7 * pd1 + 0.4 * pd2
     return signal
 
 
