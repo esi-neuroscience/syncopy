@@ -166,7 +166,7 @@ class TestFooofSpy():
         assert spec_dt.data.ndim == 4
         assert spec_dt.data.shape == (1, 1, 500, 1)
         assert not np.isnan(spec_dt.data).any()
-        _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof aperiodic")
+        _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof aperiodic, for make_tf_signal data")
 
     def test_output_fooof_peaks(self):
         """Test fooof with output type 'fooof_peaks'. A spectrum containing only the peaks (actually, the Gaussians fit to the peaks) is returned."""
@@ -179,7 +179,7 @@ class TestFooofSpy():
         assert "fooof" in spec_dt._log
         assert "fooof_method = fooof_peaks" in spec_dt._log
         assert "fooof_aperiodic" not in spec_dt._log
-        _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof peaks")
+        _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof peaks, for make_tf_signal data")
 
     def test_outputs_from_different_fooof_methods_are_consistent(self):
         """Test fooof with all output types plotted into a single plot and ensure consistent output."""
@@ -221,7 +221,7 @@ class TestFooofSpy():
         #  this level as we have no way to get the 'details' return value.
         #  This is verified in backend tests though.
 
-    def test_with_ap2_data(self, show_data=False):
+    def test_with_ar1_data(self, show_data=False):
         adata = _get_fooof_signal(nTrials=1)  # get AnalogData instance
 
         if show_data:
