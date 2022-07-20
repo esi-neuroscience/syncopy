@@ -31,6 +31,7 @@ from syncopy.tests import synth_data as sd
 spd = sd.poisson_noise(10)
 # =================
 
+
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
@@ -157,12 +158,13 @@ def spike_psth(data,
         combs += [tuple(x) for x in np.unique(trial[:, 1:], axis=0)]
 
     combs = set(combs)
+    return combs
     # sadly now this needs to be massaged further
-    combs = np.sort(list(combs), axis=0)
-
-    # right away create the output labels
+    combs = np.sort(list(combs), axis=0)    
+    print(combs)
+    # right away create the output labels for the channel axis
     chan_labels = [f'channel{i}_unit{j}' for i, j in combs]
 
-    # now we have our (single-trial, avg, std,..) histogram shape
+    # now we have our global (single-trial, avg, std,..) histogram shape
     h_shape = (nBins, len(combs))
     return combs
