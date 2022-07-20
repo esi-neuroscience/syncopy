@@ -6,6 +6,7 @@
 from multiprocessing.sharedctypes import Value
 import pytest
 import numpy as np
+import os
 
 # Local imports
 from syncopy import freqanalysis
@@ -18,9 +19,14 @@ from syncopy.tests.synth_data import harmonic, AR2_network
 import matplotlib.pyplot as plt
 
 
-def _plot_powerspec(freqs, powers, title="Power spectrum"):
+def _plot_powerspec(freqs, powers, title="Power spectrum", save="test.png"):
     """Simple, internal plotting function to plot x versus y.
-    Parameter 'powers' can be a vector or a dict with keys being labels and values being vectors.
+
+    Parameters
+    ----------
+    powers: can be a vector or a dict with keys being labels and values being vectors
+    save: str interpreted as file name if you want to save the figure, None if you do not want to save to disk.
+
     Called for plotting side effect.
     """
     plt.figure()
@@ -31,16 +37,19 @@ def _plot_powerspec(freqs, powers, title="Power spectrum"):
         plt.plot(freqs, powers)
     plt.xlabel('Frequency (Hz)')
     plt.ylabel('Power (db)')
+    plt.legend()
     plt.title(title)
+    if save is not None:
+        print("Saving figure to '{save}'. Working directory is {wd}.".format((save, os.getcwd())))
+        plt.savefig(save)
     plt.show()
 
 
-def _get_fooof_signal():
+def _get_fooof_signal(nTrials = 1):
     """
     Produce suitable test signal for fooof, using AR1 and a harmonic.
     Returns AnalogData instance.
     """
-    nTrials = 5
     harmonic_part = harmonic(freq=30, samplerate=1000, nSamples=1000, nChannels=1, nTrials=nTrials)
     ar1_part = AR2_network(AdjMat=np.zeros(1), alphas=[0.7, 0], nTrials=nTrials)
     signal = harmonic_part + ar1_part
