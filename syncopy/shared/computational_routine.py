@@ -873,12 +873,8 @@ class ComputationalRoutine(ABC):
                 sigrid = self.sourceSelectors[nblock]
                 outgrid = self.targetLayout[nblock]
                 argv = tuple(arg[nblock]
-<<<<<<< HEAD
-                             if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials
-=======
                              if isinstance(arg, (list, tuple, np.ndarray)) and
                              len(arg) == self.numTrials
->>>>>>> dev
                              else arg for arg in self.argv)
 
                 # Catch empty source-array selections; this workaround is not
