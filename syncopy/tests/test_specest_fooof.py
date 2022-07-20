@@ -77,10 +77,10 @@ def _get_fooof_signal(nTrials = 1, use_phase_diffusion=True):
     nChannels = 1
     samplerate = 1000
     harmonic_part = harmonic(freq=30, samplerate=samplerate, nSamples=nSamples, nChannels=nChannels, nTrials=nTrials)
-    ar1_part = AR2_network(AdjMat=np.zeros(1), nSamples=nSamples, alphas=[0.7, 0], nTrials=nTrials)
+    ar1_part = AR2_network(AdjMat=np.zeros(1), nSamples=nSamples, alphas=[0.9, 0], nTrials=nTrials)
     signal = harmonic_part + ar1_part
     if use_phase_diffusion:
-        pd = phase_diffusion(freq=50., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples)
+        pd = phase_diffusion(freq=50., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
         signal += pd
     return signal
 
