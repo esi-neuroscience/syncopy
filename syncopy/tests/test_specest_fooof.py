@@ -155,7 +155,7 @@ class TestFooofSpy():
 
         # Plot it.
         #  _plot_powerspec(freqs=spec_dt.freq, powers=spec_dt.data[0, 0, :, 0])
-        spec_dt.singlepanelplot()
+        #spec_dt.singlepanelplot()
         #plt.savefig("spp.png")
 
     def test_output_fooof_aperiodic(self):
@@ -175,7 +175,7 @@ class TestFooofSpy():
         assert spec_dt.data.ndim == 4
         assert spec_dt.data.shape == (1, 1, 500, 1)
         assert not np.isnan(spec_dt.data).any()
-        _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof aperiodic, for make_tf_signal data")
+        #_plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof aperiodic, for make_tf_signal data")
 
     def test_output_fooof_peaks(self):
         """Test fooof with output type 'fooof_peaks'. A spectrum containing only the peaks (actually, the Gaussians fit to the peaks) is returned."""
@@ -188,7 +188,7 @@ class TestFooofSpy():
         assert "fooof" in spec_dt._log
         assert "fooof_method = fooof_peaks" in spec_dt._log
         assert "fooof_aperiodic" not in spec_dt._log
-        _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof peaks, for make_tf_signal data")
+        #_plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof peaks, for make_tf_signal data")
 
     def test_outputs_from_different_fooof_methods_are_consistent(self):
         """Test fooof with all output types plotted into a single plot and ensure consistent output."""
@@ -214,7 +214,7 @@ class TestFooofSpy():
         assert out_fooof.data.shape == out_fooof_peaks.data.shape
 
         plot_data = {"Raw input data": np.ravel(out_fft.data), "Fooofed spectrum": np.ravel(out_fooof.data), "Fooof aperiodic fit": np.ravel(out_fooof_aperiodic.data), "Fooof peaks fit": np.ravel(out_fooof_peaks.data)}
-        _plot_powerspec(freqs, powers=plot_data, title="Outputs from different fooof methods for make_tf_signal data")
+        #_plot_powerspec(freqs, powers=plot_data, title="Outputs from different fooof methods for make_tf_signal data")
 
     def test_frontend_settings_are_merged_with_defaults_used_in_backend(self):
         self.cfg['foilim'] = [0.5, 250.]    # Exclude the zero in tfData.
