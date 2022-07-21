@@ -128,33 +128,24 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
         spectrum = data_arr[:, channel_idx]
         fm.fit(in_freqs, spectrum, freq_range=freq_range)
 
-        if out_type == 'fooof':
-            out_spectrum = fm.fooofed_spectrum_  # The powers. Need to undo log10, which is used internally by fooof.
-        elif out_type == "fooof_aperiodic":
-            offset = fm.aperiodic_params_[0]
-            if fm.aperiodic_mode == 'fixed':
-                exp = fm.aperiodic_params_[1]
-                out_spectrum = offset - np.log10(in_freqs**exp)
-            else:  # fm.aperiodic_mode == 'knee':
-                knee = fm.aperiodic_params_[1]
-                exp = fm.aperiodic_params_[2]
-                out_spectrum = offset - np.log10(knee + in_freqs**exp)
-        elif out_type == "fooof_peaks":
-            use_peaks_gaussian = True
-            gp = fm.gaussian_params_ if use_peaks_gaussian else fm.peak_params_
-            out_spectrum = np.zeros_like(in_freqs, in_freqs.dtype)
-            for row_idx in range(len(gp)):
-                ctr, hgt, wid = gp[row_idx, :]
-                # Extract Gaussian parameters: central frequency (=mean), power over aperiodic, bandwith of peak (= 2* stddev of Gaussian).
-                # see FOOOF docs for details, especially Tutorial 2, Section 'Notes on Interpreting Peak Parameters'
-                out_spectrum += hgt * np.exp(- (in_freqs - ctr)**2 / (2 * wid**2))
-            if len(gp):
-                out_spectrum /= len(gp)
+        # compute aperiodic fit
+        offset = fm.aperiodic_params_[0]
+        if fm.aperiodic_mode == 'fixed':
+            exp = fm.aperiodic_params_[1]
+            aperiodic_spec = offset - np.log10(in_freqs**exp)
+        else:  # fm.aperiodic_mode == 'knee':
+            knee = fm.aperiodic_params_[1]
+            exp = fm.aperiodic_params_[2]
+            aperiodic_spec = offset - np.log10(knee + in_freqs**exp)
 
+        if out_type == 'fooof':
+            out_spectrum = 10 ** fm.fooofed_spectrum_  # The powers. Need to undo log10, which is used internally by fooof.
+        elif out_type == "fooof_aperiodic":
+            out_spectrum = 10 ** aperiodic_spec
+        elif out_type == "fooof_peaks":
+            out_spectrum = 10 ** (fm.fooofed_spectrum_ - aperiodic_spec)
         else:
             raise ValueError("out_type: invalid value '{inv}', expected one of '{lgl}'.".format(inv=out_type, lgl=available_fooof_out_types))
-
-        out_spectrum = 10 ** out_spectrum   # Undo log10 representation of fooof: back to linear.
 
         out_spectra[:, channel_idx] = out_spectrum
         aperiodic_params[:, channel_idx] = fm.aperiodic_params_
