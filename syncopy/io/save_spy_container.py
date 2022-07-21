@@ -6,14 +6,13 @@
 # Builtin/3rd party package imports
 import os
 import json
-import sys
 import h5py
 import numpy as np
 from collections import OrderedDict
 
 # Local imports
 from syncopy.shared.filetypes import FILE_EXT
-from syncopy.shared.parsers import filename_parser, data_parser, scalar_parser
+from syncopy.shared.parsers import filename_parser, data_parser
 from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYError, SPYWarning
 from syncopy.io.utils import hash_file, startInfoDict
 from syncopy import __storage__
@@ -21,7 +20,7 @@ from syncopy import __storage__
 __all__ = ["save"]
 
 
-def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=100):
+def save(out, container=None, tag=None, filename=None, overwrite=False):
     r"""Save Syncopy data object to disk
 
     The underlying array data object is stored in a HDF5 file, the metadata in
@@ -44,9 +43,6 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
     overwrite : bool
         If `True` an existing HDF5 file and its accompanying JSON file is
         overwritten (without prompt).
-    memuse : scalar
-        Approximate in-memory cache size (in MB) for writing data to disk
-        (only relevant for :class:`syncopy.VirtualData` or memory map data sources)
 
     Returns
     -------
@@ -146,11 +142,6 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
     if "." not in os.path.splitext(filename)[1]:
         filename += out._classname_to_extension()
 
-    try:
-        scalar_parser(memuse, varname="memuse", lims=[0, np.inf])
-    except Exception as exc:
-        raise exc
-
     if not isinstance(overwrite, bool):
         raise SPYTypeError(overwrite, varname="overwrite", expected="bool")
 
@@ -159,7 +150,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
     if fileInfo["extension"] != out._classname_to_extension():
         raise SPYError("""Extension in filename ({ext}) does not match data
                     class ({dclass})""".format(ext=fileInfo["extension"],
-                                                dclass=out.__class__.__name__))
+                                               dclass=out.__class__.__name__))
     dataFile = os.path.join(fileInfo["folder"], fileInfo["filename"])
 
     # If `out` is to replace its own on-disk representation, be more careful
@@ -201,27 +192,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
         # Save each member of `_hdfFileDatasetProperties` in target HDF file
         for datasetName in out._hdfFileDatasetProperties:
             dataset = getattr(out, datasetName)
-
-            # Member is a memory map
-            if isinstance(dataset, np.memmap):
-                # Given memory cap, compute how many data blocks can be grabbed
-                # per swipe (divide by 2 since we're working with an add'l tmp array)
-                memuse *= 1024**2 / 2
-                nrow = int(memuse / (np.prod(dataset.shape[1:]) * dataset.dtype.itemsize))
-                rem = int(dataset.shape[0] % nrow)
-                n_blocks = [nrow] * int(dataset.shape[0] // nrow) + [rem] * int(rem > 0)
-
-                # Write data block-wise to dataset (use `clear` to wipe blocks of
-                # mem-maps from memory)
-                dat = h5f.create_dataset(datasetName,
-                                        dtype=dataset.dtype, shape=dataset.shape)
-                for m, M in enumerate(n_blocks):
-                    dat[m * nrow: m * nrow + M, :] = out.data[m * nrow: m * nrow + M, :]
-                    out.clear()
-
-            # Member is a HDF5 dataset
-            else:
-                dat = h5f.create_dataset(datasetName, data=dataset)
+            dat = h5f.create_dataset(datasetName, data=dataset)
 
     # Now write trial-related information
     trl_arr = np.array(out.trialdefinition)
@@ -234,7 +205,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
 
     # Write to log already here so that the entry can be exported to json
     infoFile = dataFile + FILE_EXT["info"]
-    out.log = "Wrote files " + dataFile + "\n\t\t\t" + 2*" " + infoFile
+    out.log = "Wrote files " + dataFile + "\n\t\t\t" + 2 * " " + infoFile
 
     # Assemble dict for JSON output: order things by their "readability"
     outDict = OrderedDict(startInfoDict)
@@ -293,6 +264,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False, memuse=1
         json.dump(outDict, out_json, indent=4)
 
     return
+
 
 def _dict_converter(dct, firstrun=True):
     """

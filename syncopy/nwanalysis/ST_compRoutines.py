@@ -17,10 +17,10 @@ from .csd import csd
 from syncopy.shared.const_def import spectralDTypes
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import unwrap_io
+from syncopy.shared.kwarg_decorators import process_io
 
 
-@unwrap_io
+@process_io
 def cross_spectra_cF(trl_dat,
                      samplerate=1,
                      nSamples=None,
@@ -221,7 +221,7 @@ class ST_CrossSpectra(ComputationalRoutine):
         out.freq = self.cfg['foi']
 
 
-@unwrap_io
+@process_io
 def cross_covariance_cF(trl_dat,
                         samplerate=1,
                         polyremoval=0,

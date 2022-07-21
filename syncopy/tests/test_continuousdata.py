@@ -11,12 +11,11 @@ import pytest
 import random
 import numbers
 import numpy as np
-from numpy.lib.format import open_memmap
 
 # Local imports
 from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, padding
 from syncopy.io import save, load
-from syncopy.datatype.base_data import VirtualData, Selector
+from syncopy.datatype.base_data import Selector
 from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.tools import StructDict
@@ -203,7 +202,7 @@ class TestAnalogData():
         dummy = AnalogData()
         assert len(dummy.cfg) == 0
         assert dummy.dimord is None
-        for attr in ["channel", "data", "hdr", "sampleinfo", "trialinfo"]:
+        for attr in ["channel", "data", "sampleinfo", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
             AnalogData({})
@@ -220,19 +219,6 @@ class TestAnalogData():
         with pytest.raises(SPYValueError):
             AnalogData(np.ones((3,)))
 
-    @pytest.mark.skip(reason="VirtualData is currently not supported")
-    def test_virtualdata(self):
-        with tempfile.TemporaryDirectory() as tdir:
-            fname = os.path.join(tdir, "dummy.npy")
-            np.save(fname, self.data)
-            dmap = open_memmap(fname, mode="r")
-            vdata = VirtualData([dmap, dmap])
-            dummy = AnalogData(vdata)
-            assert dummy.channel.size == 2 * self.nc
-            assert len(dummy._filename) == 2
-            assert isinstance(dummy.filename, str)
-            del dmap, dummy, vdata
-
     def test_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order
         dummy = AnalogData(data=self.data, trialdefinition=self.trl)
@@ -247,23 +233,6 @@ class TestAnalogData():
             trl_ref = self.data.T[:, start:start + 5]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
-        # # test ``_copy_trial`` with memmap'ed data
-        # with tempfile.TemporaryDirectory() as tdir:
-        #     fname = os.path.join(tdir, "dummy.npy")
-        #     np.save(fname, self.data)
-        #     mm = open_memmap(fname, mode="r")
-        #     dummy = AnalogData(mm, trialdefinition=self.trl)
-        #     for trlno, start in enumerate(range(0, self.ns, 5)):
-        #         trl_ref = self.data[start:start + 5, :]
-        #         trl_tmp = dummy._copy_trial(trlno,
-        #                                     dummy.filename,
-        #                                     dummy.dimord,
-        #                                     dummy.sampleinfo,
-        #                                     dummy.hdr)
-        #         assert np.array_equal(trl_tmp, trl_ref)
-        #
-        #    # Delete all open references to file objects b4 closing tmp dir
-        #    del mm, dummy
         del dummy
 
     def test_saveload(self):

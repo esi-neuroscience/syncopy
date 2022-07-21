@@ -10,7 +10,7 @@ import numpy as np
 from syncopy.shared.tools import get_frontend_cfg, get_defaults
 from syncopy.shared.parsers import data_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo
-from syncopy.shared.kwarg_decorators import unwrap_cfg, unwrap_io, detect_parallel_client
+from syncopy.shared.kwarg_decorators import unwrap_cfg, process_io, detect_parallel_client
 from syncopy.shared.computational_routine import ComputationalRoutine
 
 __all__ = ["selectdata"]
@@ -365,7 +365,7 @@ def _get_selection_size(data):
     return sum(fauxSizes) / 1024**2
 
 
-@unwrap_io
+@process_io
 def _selectdata(trl, noCompute=False, chunkShape=None):
     if noCompute:
         return trl.shape, trl.dtype

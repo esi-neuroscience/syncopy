@@ -19,7 +19,6 @@ from functools import reduce
 from inspect import signature
 import shutil
 import numpy as np
-from numpy.lib.format import open_memmap, read_magic
 import h5py
 import scipy as sp
 
@@ -138,7 +137,6 @@ class BaseData(ABC):
         except Exception as exc:
             raise exc
 
-
     def _set_dataset_property(self, dataIn, propertyName, ndim=None):
         """Set property that is streamed from HDF dataset ('dataset property')
 
@@ -147,7 +145,7 @@ class BaseData(ABC):
 
         Parameters
         ----------
-            dataIn : str, np.ndarray, np.core.memmap or h5py.Dataset
+            dataIn : str, np.ndarray, or h5py.Dataset
                 Filename, array or HDF5 dataset to be stored in property
             propertyName : str
                 Name of the property. The actual data must reside in the attribute
@@ -162,17 +160,16 @@ class BaseData(ABC):
             ndim = len(self._defaultDimord)
 
         supportedSetters = {
-            list : self._set_dataset_property_with_list,
-            str : self._set_dataset_property_with_str,
-            np.ndarray : self._set_dataset_property_with_ndarray,
-            np.core.memmap : self._set_dataset_property_with_memmap,
-            h5py.Dataset : self._set_dataset_property_with_dataset,
+            list: self._set_dataset_property_with_list,
+            str: self._set_dataset_property_with_str,
+            np.ndarray: self._set_dataset_property_with_ndarray,
+            h5py.Dataset: self._set_dataset_property_with_dataset,
             type(None): self._set_dataset_property_with_none
         }
         try:
             supportedSetters[type(dataIn)](dataIn, propertyName, ndim=ndim)
         except KeyError:
-            msg = "filename of HDF5 or NPY file, HDF5 dataset, or NumPy array"
+            msg = "filename of HDF5 file, HDF5 dataset, or NumPy array"
             raise SPYTypeError(dataIn, varname="data", expected=msg)
         except Exception as exc:
             raise exc
@@ -188,9 +185,9 @@ class BaseData(ABC):
         ----------
             filename : str
                 A filename pointing to a HDF5 file containing the dataset
-                `propertyName` or a NPY file. NPY files are loaded as memmaps.
+                `propertyName`.
             propertyName : str
-                Name of the property to be filled with the dataset/memmap
+                Name of the property to be filled with the dataset
             ndim : int
                 Number of expected array dimensions.
         """
@@ -204,35 +201,26 @@ class BaseData(ABC):
         if md == "w":
             md = "r+"
 
-        isNpy = False
         isHdf = False
-        try:
-            with open(filename, "rb") as fd:
-                read_magic(fd)
-            isNpy = True
-        except ValueError as exc:
-            err = "NumPy memorymap: " + str(exc)
         try:
             h5f = h5py.File(filename, mode=md)
             isHdf = True
         except OSError as exc:
             err = "HDF5: " + str(exc)
-        if not isNpy and not isHdf:
-            raise SPYValueError("accessible HDF5 file or memory-mapped npy-file",
+        if not isHdf:
+            raise SPYValueError("accessible HDF5 file",
                                 actual=err, varname="data")
 
-        if isHdf:
-            h5keys = list(h5f.keys())
-            if propertyName not in h5keys and len(h5keys) != 1:
-                lgl = "HDF5 file with only one 'data' dataset or single dataset of arbitrary name"
-                act = "HDF5 file holding {} data-objects"
-                raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname=propertyName)
-            if len(h5keys) == 1:
-                setattr(self, propertyName, h5f[h5keys[0]])
-            else:
-                setattr(self, propertyName, h5f[propertyName])
-        if isNpy:
-            setattr(self, propertyName, open_memmap(filename, mode=md))
+        h5keys = list(h5f.keys())
+        if propertyName not in h5keys and len(h5keys) != 1:
+            lgl = "HDF5 file with only one 'data' dataset or single dataset of arbitrary name"
+            act = "HDF5 file holding {} data-objects"
+            raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname=propertyName)
+        if len(h5keys) == 1:
+            setattr(self, propertyName, h5f[h5keys[0]])
+        else:
+            setattr(self, propertyName, h5f[propertyName])
+
         self.filename = filename
 
     def _set_dataset_property_with_ndarray(self, inData, propertyName, ndim):
@@ -260,18 +248,18 @@ class BaseData(ABC):
         self._check_dataset_property_discretedata(inData)
 
         # If there is existing data, replace values if shape and type match
-        if isinstance(getattr(self, "_" + propertyName), (np.memmap, h5py.Dataset)):
+        if isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
             prop = getattr(self, "_" + propertyName)
             if self.mode == "r":
-                lgl = "HDF5 dataset/memmap with write or copy-on-write access"
+                lgl = "HDF5 dataset with write or copy-on-write access"
                 act = "read-only file"
                 raise SPYValueError(legal=lgl, varname="mode", actual=act)
             if prop.shape != inData.shape:
-                lgl = "HDF5 dataset/memmap with shape {}".format(str(self.data.shape))
+                lgl = "HDF5 dataset with shape {}".format(str(self.data.shape))
                 act = "data with shape {}".format(str(inData.shape))
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             if prop.dtype != inData.dtype:
-                lgl = "HDF5 dataset/memmap of type {}".format(self.data.dtype.name)
+                lgl = "HDF5 dataset of type {}".format(self.data.dtype.name)
                 act = "data of type {}".format(inData.dtype.name)
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             prop[...] = inData
@@ -286,32 +274,6 @@ class BaseData(ABC):
             if md == "w":
                 md = "r+"
             setattr(self, "_" + propertyName, h5py.File(self.filename, md)[propertyName])
-
-    def _set_dataset_property_with_memmap(self, inData, propertyName, ndim):
-        """Set a dataset property with a memory map
-
-        The memory map is directly stored in the attribute. No backing HDF5
-        dataset is created. This feature may be removed in future versions.
-
-        Parameters
-        ----------
-            inData : numpy.memmap
-                NumPy memory-map to be stored in property of name `propertyName`
-            propertyName : str
-                Name of the property to be filled with the memory map.
-            ndim : int
-                Number of expected array dimensions.
-        """
-
-        if inData.ndim != ndim:
-            lgl = "{}-dimensional data".format(ndim)
-            act = "{}-dimensional memmap".format(inData.ndim)
-            raise SPYValueError(legal=lgl, varname=propertyName, actual=act)
-        self._check_dataset_property_discretedata(inData)
-
-        self.mode = inData.mode
-        self.filename = inData.filename
-        setattr(self, "_" + propertyName, inData)
 
     def _set_dataset_property_with_dataset(self, inData, propertyName, ndim):
         """Set a dataset property with an already loaded HDF5 dataset
@@ -334,7 +296,7 @@ class BaseData(ABC):
         # Ensure dataset has right no. of dimensions
         if inData.ndim != ndim:
             lgl = "{}-dimensional data".format(ndim)
-            act = "{}-dimensional HDF5 dataset or memmap".format(inData.ndim)
+            act = "{}-dimensional HDF5 dataset".format(inData.ndim)
             raise SPYValueError(legal=lgl, varname="data", actual=act)
 
         # Gymnastics for `DiscreteData` objects w/non-standard `dimord`s
@@ -429,7 +391,7 @@ class BaseData(ABC):
 
         Parameters
         ----------
-            inData : array/memmap/h5py.Dataset
+            inData : array/h5py.Dataset
                 array-like to be stored as a `DiscreteData` data source
         """
 
@@ -569,22 +531,13 @@ class BaseData(ABC):
             # flush data to disk and from memory
             if prop is not None:
                 prop.flush()
-                if isinstance(prop, np.memmap):
-                    setattr(self, propertyName, None)
-                else:
-                    prop.file.close()
+                prop.file.close()
 
-
-        # Re-attach memory maps/datasets
+        # Re-attach datasets
         for propertyName in self._hdfFileDatasetProperties:
             if prop is not None:
-                if isinstance(prop, np.memmap):
-                    setattr(self, propertyName,
-                            open_memmap(self.filename, mode=md))
-                else:
-                    setattr(self, propertyName,
-                            h5py.File(self.filename, mode=md)[propertyName])
-
+                setattr(self, propertyName,
+                        h5py.File(self.filename, mode=md)[propertyName])
         self._mode = md
 
     @property
@@ -668,18 +621,12 @@ class BaseData(ABC):
     def clear(self):
         """Clear loaded data from memory
 
-        Calls `flush` method of HDF5 dataset or memory map. Memory maps are
-        deleted and re-instantiated.
-
+        Calls `flush` method of HDF5 dataset.
         """
         for propName in self._hdfFileDatasetProperties:
             dsetProp = getattr(self, propName)
             if dsetProp is not None:
                 dsetProp.flush()
-                if isinstance(dsetProp, np.memmap):
-                    filename, mode = dsetProp.filename, dsetProp.mode
-                    setattr(self, propName, None)
-                    setattr(self, propName, open_memmap(filename, mode=mode))
         return
 
     # Return a (deep) copy of the current class instance
@@ -714,9 +661,6 @@ class BaseData(ABC):
                     sourceName = getattr(self, propertyName).name
                     setattr(cpy, propertyName,
                             h5py.File(filename, mode=cpy.mode)[sourceName])
-                elif isinstance(prop, np.memmap):
-                    setattr(cpy, propertyName,
-                            open_memmap(filename, mode=cpy.mode))
                 else:
                     setattr(cpy, propertyName, prop)
                     cpy.filename = filename
@@ -727,7 +671,7 @@ class BaseData(ABC):
     definetrial = _definetrial
 
     # Wrapper that makes saving routine usable as class method
-    def save(self, container=None, tag=None, filename=None, overwrite=False, memuse=100):
+    def save(self, container=None, tag=None, filename=None, overwrite=False):
         r"""Save data object as new ``spy`` container to disk (:func:`syncopy.save_data`)
 
         FIXME: update docu
@@ -746,9 +690,6 @@ class BaseData(ABC):
             overwrite : bool
                 If `True` an existing HDF5 file and its accompanying JSON file is
                 overwritten (without prompt).
-            memuse : scalar
-                 Approximate in-memory cache size (in MB) for writing data to disk
-                 (only relevant for :class:`VirtualData` or memory map data sources)
 
         Examples
         --------
@@ -790,7 +731,7 @@ class BaseData(ABC):
             container = filename_parser(self.filename)["folder"]
 
         spy.save(self, filename=filename, container=container, tag=tag,
-                 overwrite=overwrite, memuse=memuse)
+                 overwrite=overwrite)
 
     # Helper function generating pseudo-random temp file-names
     def _gen_filename(self):
@@ -985,199 +926,6 @@ class BaseData(ABC):
 
         # Write version
         self._version = __version__
-
-
-
-
-class VirtualData():
-    """Class for handling 2D-data spread across multiple files
-
-    Arrays from individual files (chunks) are concatenated along
-    the 2nd dimension (dim=1).
-
-    """
-
-    # Pre-allocate slots here - this class is *not* meant to be expanded
-    # and/or monkey-patched at runtime
-    __slots__ = ["_M", "_N", "_shape", "_size", "_ncols", "_data", "_cols", "_dtype"]
-
-    @property
-    def dtype(self):
-        return self._dtype
-
-    @property
-    def M(self):
-        return self._M
-
-    @property
-    def N(self):
-        return self._N
-
-    @property
-    def shape(self):
-        return self._shape
-
-    @property
-    def size(self):
-        return self._size
-
-    # Class instantiation
-    def __init__(self, chunk_list):
-        """
-        Docstring coming soon...
-
-        Do not confuse chunks with trials: chunks refer to actual raw binary
-        data-files on disk, thus, row- *and* col-numbers MUST match!
-        """
-
-        # First, make sure our one mandatory input argument does not contain
-        # any unpleasant surprises
-        if not isinstance(chunk_list, (list, np.memmap)):
-            raise SPYTypeError(chunk_list, varname="chunk_list", expected="array_like")
-
-        # Do not use ``array_parser`` to validate chunks to not force-load memmaps
-        try:
-            shapes = [chunk.shape for chunk in chunk_list]
-        except:
-            raise SPYTypeError(chunk_list[0], varname="chunk in chunk_list",
-                               expected="2d-array-like")
-        if np.any([len(shape) != 2 for shape in shapes]):
-            raise SPYValueError(legal="2d-array", varname="chunk in chunk_list")
-
-        # Get row number per input chunk and raise error in case col.-no. does not match up
-        shapes = [chunk.shape for chunk in chunk_list]
-        if not np.array_equal([shape[0] for shape in shapes], [shapes[0][0]] * len(shapes)):
-            raise SPYValueError(legal="identical number of samples per chunk",
-                                varname="chunk_list")
-        ncols = [shape[1] for shape in shapes]
-        cumlen = np.cumsum(ncols)
-
-        # Get hierarchically "highest" dtype of data present in `chunk_list`
-        dtypes = []
-        for chunk in chunk_list:
-            dtypes.append(chunk.dtype)
-        cdtype = np.max(dtypes)
-
-        # Create list of "global" row numbers and assign "global" dimensional info
-        self._ncols = ncols
-        self._cols = [range(start, stop) for (start, stop) in zip(cumlen - ncols, cumlen)]
-        self._M = chunk_list[0].shape[0]
-        self._N = cumlen[-1]
-        self._shape = (self._M, self._N)
-        self._size = self._M * self._N
-        self._dtype = cdtype
-        self._data = chunk_list
-
-    # Compatibility
-    def __len__(self):
-        return self._size
-
-    # The only part of this class that actually does something
-    def __getitem__(self, idx):
-
-        # Extract queried row/col from input tuple `idx`
-        qrow, qcol = idx
-
-        # Convert input to slice (if it isn't already) or assign explicit start/stop values
-        if isinstance(qrow, numbers.Number):
-            try:
-                scalar_parser(qrow, varname="row", ntype="int_like", lims=[0, self._M])
-            except Exception as exc:
-                raise exc
-            row = slice(int(qrow), int(qrow + 1))
-        elif isinstance(qrow, slice):
-            start, stop = qrow.start, qrow.stop
-            if qrow.start is None:
-                start = 0
-            if qrow.stop is None:
-                stop = self._M
-            row = slice(start, stop)
-        else:
-            raise SPYTypeError(qrow, varname="row", expected="int_like or slice")
-
-        # Convert input to slice (if it isn't already) or assign explicit start/stop values
-        if isinstance(qcol, numbers.Number):
-            try:
-                scalar_parser(qcol, varname="col", ntype="int_like", lims=[0, self._N])
-            except Exception as exc:
-                raise exc
-            col = slice(int(qcol), int(qcol + 1))
-        elif isinstance(qcol, slice):
-            start, stop = qcol.start, qcol.stop
-            if qcol.start is None:
-                start = 0
-            if qcol.stop is None:
-                stop = self._N
-            col = slice(start, stop)
-        else:
-            raise SPYTypeError(qcol, varname="col", expected="int_like or slice")
-
-        # Make sure queried row/col are inside dimensional limits
-        err = "value between {lb:s} and {ub:s}"
-        if not(0 <= row.start < self._M) or not(0 < row.stop <= self._M):
-            raise SPYValueError(err.format(lb="0", ub=str(self._M)),
-                                varname="row", actual=str(row))
-        if not(0 <= col.start < self._N) or not(0 < col.stop <= self._N):
-            raise SPYValueError(err.format(lb="0", ub=str(self._N)),
-                                varname="col", actual=str(col))
-
-        # The interesting part: find out wich chunk(s) `col` is pointing at
-        i1 = np.where([col.start in chunk for chunk in self._cols])[0].item()
-        i2 = np.where([(col.stop - 1) in chunk for chunk in self._cols])[0].item()
-
-        # If start and stop are not within the same chunk, data is loaded into memory
-        if i1 != i2:
-            data = []
-            data.append(self._data[i1][row, col.start - self._cols[i1].start:])
-            for i in range(i1 + 1, i2):
-                data.append(self._data[i][row, :])
-            data.append(self._data[i2][row, :col.stop - self._cols[i2].start])
-            return np.hstack(data)
-
-        # If start and stop are in the same chunk, return a view of the underlying memmap
-        else:
-
-            # Convert "global" row index to local chunk-based row-number (by subtracting offset)
-            col = slice(col.start - self._cols[i1].start, col.stop - self._cols[i1].start)
-            return self._data[i1][:, col][row, :]
-
-    # Legacy support
-    def __repr__(self):
-        return self.__str__()
-
-    # Make class contents comprehensible when viewed from the command line
-    def __str__(self):
-        ppstr = "{shape:s} element {name:s} object mapping {numfiles:s} file(s)"
-        return ppstr.format(shape="[" + " x ".join([str(numel) for numel in self.shape]) + "]",
-                            name=self.__class__.__name__,
-                            numfiles=str(len(self._ncols)))
-
-    # Free memory by force-closing resident memory maps
-    def clear(self):
-        """Clear read data from memory
-
-        Reinstantiates memory maps of all open files.
-
-        """
-        shapes = []
-        dtypes = []
-        fnames = []
-        offset = []
-        for mmp in self._data:
-            shapes.append(mmp.shape)
-            dtypes.append(mmp.dtype)
-            fnames.append(mmp.filename)
-            offset.append(mmp.offset)
-        self._data = []
-        for k in range(len(fnames)):
-            self._data.append(np.memmap(fnames[k], offset=offset[k],
-                                        mode="r", dtype=dtypes[k],
-                                        shape=shapes[k]))
-        return
-
-    # Ensure compatibility b/w `VirtualData`, HDF5 datasets and memmaps
-    def flush(self):
-        self.clear()
 
 
 class Indexer():
