@@ -671,7 +671,7 @@ class BaseData(ABC):
     definetrial = _definetrial
 
     # Wrapper that makes saving routine usable as class method
-    def save(self, container=None, tag=None, filename=None, overwrite=False, memuse=100):
+    def save(self, container=None, tag=None, filename=None, overwrite=False):
         r"""Save data object as new ``spy`` container to disk (:func:`syncopy.save_data`)
 
         FIXME: update docu
@@ -690,9 +690,6 @@ class BaseData(ABC):
             overwrite : bool
                 If `True` an existing HDF5 file and its accompanying JSON file is
                 overwritten (without prompt).
-            memuse : scalar
-                 Approximate in-memory cache size (in MB) for writing data to disk
-                 (only relevant for :class:`VirtualData` or memory map data sources)
 
         Examples
         --------
@@ -734,7 +731,7 @@ class BaseData(ABC):
             container = filename_parser(self.filename)["folder"]
 
         spy.save(self, filename=filename, container=container, tag=tag,
-                 overwrite=overwrite, memuse=memuse)
+                 overwrite=overwrite)
 
     # Helper function generating pseudo-random temp file-names
     def _gen_filename(self):
