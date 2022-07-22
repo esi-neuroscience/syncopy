@@ -9,9 +9,7 @@ import socket
 import time
 import sys
 import os
-import numbers
 from abc import ABC, abstractmethod
-from copy import copy
 from datetime import datetime
 from hashlib import blake2b
 from itertools import islice
@@ -27,7 +25,6 @@ import syncopy as spy
 from .methods.arithmetic import _process_operator
 from .methods.selectdata import selectdata
 from .methods.show import show
-from syncopy.shared.tools import StructDict
 from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser,
                                     filename_parser, data_parser)
 from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError
@@ -629,43 +626,31 @@ class BaseData(ABC):
                 dsetProp.flush()
         return
 
-    # Return a (deep) copy of the current class instance
-    def copy(self, deep=False):
-        """Create a copy of the data object in memory.
+    # Return a deep copy of the current class instance
+    def copy(self):
 
-        Parameters
-        ----------
-        deep : bool
-            If `True`, a copy of the underlying data file is created in the
-            temporary Syncopy folder.
+        """
+        Create a copy of the entire object on disk
 
         Returns
         -------
-        Syncopy data object
-            in-memory copy of data object
+        cpy : Syncopy data object
+            Reference to the copied data object
+            on disk
+
+        Notes
+        -----
+        For copying only a subset of the `data` use :func:`syncopy.selectdata` directly
+        with the default `inplace=False` parameter.
 
         See also
         --------
-        syncopy.save
+        :func:`syncopy.save` : save to specific file path
+        :func:`syncopy.selectdata` : creates copy of a selection with `inplace=False`
 
         """
-        cpy = copy(self)
-        if deep:
-            self.clear()
-            filename = self._gen_filename()
-            shutil.copyfile(self.filename, filename)
 
-            for propertyName in self._hdfFileDatasetProperties:
-                prop = getattr(self, propertyName)
-                if isinstance(prop, h5py.Dataset):
-                    sourceName = getattr(self, propertyName).name
-                    setattr(cpy, propertyName,
-                            h5py.File(filename, mode=cpy.mode)[sourceName])
-                else:
-                    setattr(cpy, propertyName, prop)
-                    cpy.filename = filename
-
-        return cpy
+        return spy.copy(self)
 
     # Attach trial-definition routine to not re-invent the wheel here
     definetrial = _definetrial
