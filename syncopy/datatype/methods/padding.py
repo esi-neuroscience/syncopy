@@ -9,7 +9,7 @@ import numpy as np
 # Local imports
 from syncopy.datatype.continuous_data import AnalogData
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import unwrap_io
+from syncopy.shared.kwarg_decorators import process_io
 from syncopy.shared.parsers import data_parser, array_parser, scalar_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYWarning
 from syncopy.shared.kwarg_decorators import unwrap_cfg, unwrap_select, detect_parallel_client
@@ -564,7 +564,7 @@ def _nextpow2(number):
     return n
 
 
-@unwrap_io
+@process_io
 def padding_cF(trl_dat, timeAxis, chanAxis, pad_opt, noCompute=False, chunkShape=None):
     """
     Perform trial data padding

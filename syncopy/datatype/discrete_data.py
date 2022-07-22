@@ -13,7 +13,6 @@ import inspect
 # Local imports
 from .base_data import BaseData, Indexer, FauxTrial
 from .methods.definetrial import definetrial
-from .methods.selectdata import selectdata
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import best_match
@@ -29,7 +28,7 @@ class DiscreteData(BaseData, ABC):
     This class cannot be instantiated. Use one of the children instead.
     """
 
-    _infoFileProperties = BaseData._infoFileProperties + ("_hdr", "samplerate", )
+    _infoFileProperties = BaseData._infoFileProperties + ("samplerate", )
     _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate",)
     _hdfFileDatasetProperties = BaseData._hdfFileDatasetProperties + ("data",)
 
@@ -59,7 +58,7 @@ class DiscreteData(BaseData, ABC):
     def __str__(self):
         # Get list of print-worthy attributes
         ppattrs = [attr for attr in self.__dir__()
-                   if not (attr.startswith("_") or attr in ["log", "trialdefinition", "hdr"])]
+                   if not (attr.startswith("_") or attr in ["log", "trialdefinition"])]
         ppattrs = [attr for attr in ppattrs
                    if not (inspect.ismethod(getattr(self, attr))
                            or isinstance(getattr(self, attr), Iterator))]
@@ -112,14 +111,6 @@ class DiscreteData(BaseData, ABC):
             ppstr += printString.format(attr, valueString)
         ppstr += "\nUse `.log` to see object history"
         return ppstr
-
-    @property
-    def hdr(self):
-        """dict with information about raw data
-
-        This property is empty for data created by Syncopy.
-        """
-        return self._hdr
 
     @property
     def sample(self):
@@ -309,7 +300,6 @@ class DiscreteData(BaseData, ABC):
         # Assign (default) values
         self._trialid = None
         self._samplerate = None
-        self._hdr = None
         self._data = None
 
         self.samplerate = samplerate
@@ -335,9 +325,7 @@ class SpikeData(DiscreteData):
     stored as a two-dimensional [nSpikes x 3] array on disk with the columns
     being ``["sample", "channel", "unit"]``.
 
-    Data is only read from disk on demand, similar to memory maps and HDF5
-    files.
-
+    Data is only read from disk on demand, similar to HDF5 files.
     """
 
     _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
@@ -485,8 +473,7 @@ class SpikeData(DiscreteData):
                 ordered list of dimension labels
 
         1. `filename` + `data` : create hdf dataset incl. sampleinfo @filename
-        2. `filename` no `data` : read from file or memmap (spy, hdf5, npy file
-           array -> memmap)
+        2. `filename` no `data` : read from file (spy, hdf5 file)
         3. just `data` : try to attach data (error checking done by
            :meth:`SpikeData.data.setter`)
 
@@ -517,9 +504,7 @@ class EventData(DiscreteData):
     stimulus was turned on, etc. These usually occur at non-regular time points
     and have associated event codes.
 
-    Data is only read from disk on demand, similar to memory maps and HDF5
-    files.
-
+    Data is only read from disk on demand, similar to HDF5 files.
     """
 
     _defaultDimord = ["sample", "eventid"]
@@ -604,8 +589,7 @@ class EventData(DiscreteData):
                 ordered list of dimension labels
 
         1. `filename` + `data` : create hdf dataset incl. sampleinfo @filename
-        2. `filename` no `data` : read from file or memmap (spy, hdf5, npy file
-           array -> memmap)
+        2. `filename` no `data` : read from file(spy, hdf5)
         3. just `data` : try to attach data (error checking done by
            :meth:`EventData.data.setter`)
 
