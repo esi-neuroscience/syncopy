@@ -152,9 +152,6 @@ class TestSpfooof():
 
         assert np.max(fooof_peaks) < np.max(fooofed_spectrum)
 
-        # Ensure we recover the two peaks.
-        assert det_fooof['n_peaks'][0] == 2
-
         # Visually compare data and fits.
         plt.figure()
         plt.plot(freqs, powers, label="Raw input data")
