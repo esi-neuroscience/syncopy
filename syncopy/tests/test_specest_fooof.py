@@ -19,8 +19,8 @@ import syncopy as spy
 import matplotlib.pyplot as plt
 
 
-def _plot_powerspec(freqs, powers, title="Power spectrum", save="test.png"):
-    """Simple, internal plotting function to plot x versus y.
+def _plot_powerspec_linear(freqs, powers, title="Power spectrum", save="test.png"):
+    """Simple, internal plotting function to plot x versus y. Uses linear scale.
 
     Parameters
     ----------
@@ -60,7 +60,7 @@ def _fft(analog_data, select = {"channel": 0}, foilim = [1.0, 100]):
     return freqanalysis(cfg, analog_data)
 
 
-def _show_spec(analog_data, save="test.png"):
+def _show_spec_log(analog_data, save="test.png"):
     """Plot the power spectrum for an AnalogData object. Uses singlepanelplot, so data are shown on a log scale.
 
        Performs mtmfft with `_fft()` to do that. Use `matplotlib.pyplot.ion()` if you dont see the plot.
@@ -96,7 +96,7 @@ def _get_fooof_signal(nTrials = 100):
 class TestFooofSpy():
     """
     Test the frontend (user API) for running FOOOF. FOOOF is a post-processing of an FFT, and
-    to request the post-prcocesing, the user sets the method to "mtmfft", and the output to
+    to request the post-processing, the user sets the method to "mtmfft", and the output to
     one of the available FOOOF output types.
     """
 
@@ -161,8 +161,8 @@ class TestFooofSpy():
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
 
         # Plot it.
-        _plot_powerspec(freqs=spec_dt.freq, powers=spec_dt.data[0, 0, :, 0], title="fooof full model, for ar1 data (linear scale)")
-        #spec_dt.singlepanelplot()
+        _plot_powerspec_linear(freqs=spec_dt.freq, powers=spec_dt.data[0, 0, :, 0], title="fooof full model, for ar1 data (linear scale)")
+        spec_dt.singlepanelplot()
         #plt.savefig("spp.png")
 
     def test_output_fooof_aperiodic(self):
@@ -182,7 +182,8 @@ class TestFooofSpy():
         assert spec_dt.data.ndim == 4
         assert spec_dt.data.shape == (1, 1, 100, 1)
         assert not np.isnan(spec_dt.data).any()
-        _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof aperiodic, for ar1 data (linear scale)")
+        _plot_powerspec_linear(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof aperiodic, for ar1 data (linear scale)")
+        spec_dt.singlepanelplot()
 
     def test_output_fooof_peaks(self):
         """Test fooof with output type 'fooof_peaks'. A spectrum containing only the peaks (actually, the Gaussians fit to the peaks) is returned."""
@@ -195,7 +196,8 @@ class TestFooofSpy():
         assert "fooof" in spec_dt._log
         assert "fooof_method = fooof_peaks" in spec_dt._log
         assert "fooof_aperiodic" not in spec_dt._log
-        _plot_powerspec(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof peaks, for ar1 data (linear scale)")
+        _plot_powerspec_linear(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof peaks, for ar1 data (linear scale)")
+        spec_dt.singlepanelplot()
 
     def test_outputs_from_different_fooof_methods_are_consistent(self):
         """Test fooof with all output types plotted into a single plot and ensure consistent output."""
@@ -221,7 +223,7 @@ class TestFooofSpy():
         assert out_fooof.data.shape == out_fooof_peaks.data.shape
 
         plot_data = {"Raw input data": np.ravel(out_fft.data), "Fooofed spectrum": np.ravel(out_fooof.data), "Fooof aperiodic fit": np.ravel(out_fooof_aperiodic.data), "Fooof peaks fit": np.ravel(out_fooof_peaks.data)}
-        _plot_powerspec(freqs, powers=plot_data, title="Outputs from different fooof methods for ar1 data (linear scale)")
+        _plot_powerspec_linear(freqs, powers=plot_data, title="Outputs from different fooof methods for ar1 data (linear scale)")
 
     def test_frontend_settings_are_merged_with_defaults_used_in_backend(self):
         cfg = TestFooofSpy.get_fooof_cfg()
@@ -236,24 +238,3 @@ class TestFooofSpy():
         #  our custom value for fooof_opt['max_n_peaks']. Not possible yet on
         #  this level as we have no way to get the 'details' return value.
         #  This is verified in backend tests though.
-
-    def test_with_ar1_data(self, show_data=False):
-        if show_data:
-            _show_spec(self.tfData)
-        cfg = TestFooofSpy.get_fooof_cfg()
-        cfg.pop('fooof_opt', None)
-        cfg['output'] = "pow"
-        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
-
-        out_fft = freqanalysis(cfg, self.tfData)
-        cfg['output'] = "fooof"
-        out_fooof = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
-        cfg['output'] = "fooof_aperiodic"
-        out_fooof_aperiodic = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
-        cfg['output'] = "fooof_peaks"
-        out_fooof_peaks = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
-
-        freqs = out_fooof.freq
-
-        plot_data = {"Raw input data": np.ravel(out_fft.data), "Fooofed spectrum": np.ravel(out_fooof.data), "Fooof aperiodic fit": np.ravel(out_fooof_aperiodic.data), "Fooof peaks fit": np.ravel(out_fooof_peaks.data)}
-        _plot_powerspec(freqs, powers=plot_data, title="Outputs from different fooof methods for AR1  (linear scale)")
