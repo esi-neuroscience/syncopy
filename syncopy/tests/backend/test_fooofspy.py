@@ -149,7 +149,8 @@ class TestSpfooof():
         fooofed_spectrum = spec_fooof.squeeze()
         fooof_aperiodic = spec_fooof_aperiodic.squeeze()
         fooof_peaks = spec_fooof_peaks.squeeze()
-        fooof_peaks_and_aperiodic = fooof_peaks + fooof_aperiodic
+
+        assert np.max(fooof_peaks) < np.max(fooofed_spectrum)
 
         # Visually compare data and fits.
         plt.figure()
@@ -158,8 +159,9 @@ class TestSpfooof():
         plt.plot(freqs, fooof_aperiodic, label="Fooof aperiodic fit")
         plt.plot(freqs, fooof_peaks, label="Fooof peaks fit")
         plt.xlabel('Frequency (Hz)')
-        plt.ylabel('Power')
+        plt.ylabel('Power (Db)')
         plt.legend()
+        plt.title("Comparison of raw data and fooof results, linear scale.")
         plt.show()
 
     def test_the_fooof_opt_settings_are_used(self, freqs=freqs, powers=powers):

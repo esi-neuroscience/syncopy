@@ -12,8 +12,7 @@ import os
 from syncopy import freqanalysis
 from syncopy.shared.tools import get_defaults
 from syncopy.shared.errors import SPYValueError
-from syncopy.tests.test_specest import _make_tf_signal
-from syncopy.tests.synth_data import harmonic, AR2_network, phase_diffusion
+from syncopy.tests.synth_data import AR2_network, phase_diffusion
 import syncopy as spy
 
 
@@ -62,7 +61,7 @@ def _fft(analog_data, select = {"channel": 0}, foilim = [1.0, 100]):
 
 
 def _show_spec(analog_data, save="test.png"):
-    """Plot the power spectrum for an AnalogData object.
+    """Plot the power spectrum for an AnalogData object. Uses singlepanelplot, so data are shown on a log scale.
 
        Performs mtmfft with `_fft()` to do that. Use `matplotlib.pyplot.ion()` if you dont see the plot.
     """
@@ -76,9 +75,10 @@ def _show_spec(analog_data, save="test.png"):
 
 def _get_fooof_signal(nTrials = 100):
     """
-    Produce suitable test signal for fooof, using AR1 and a harmonic.
+    Produce suitable test signal for fooof, with peaks at 30 and 50 Hz.
 
-    One should perform trial averaging to get realistic data out of it (and reduce noise).
+    Note: One must perform trial averaging during the FFT to get realistic
+    data out of it (and reduce noise). Then work with the averaged data.
 
     Returns AnalogData instance.
     """

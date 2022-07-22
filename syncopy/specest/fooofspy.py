@@ -143,7 +143,7 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
         elif out_type == "fooof_aperiodic":
             out_spectrum = 10 ** aperiodic_spec
         elif out_type == "fooof_peaks":
-            out_spectrum = 10 ** (fm.fooofed_spectrum_ - aperiodic_spec)
+            out_spectrum = fm.fooofed_spectrum_ - aperiodic_spec
         else:
             raise ValueError("out_type: invalid value '{inv}', expected one of '{lgl}'.".format(inv=out_type, lgl=available_fooof_out_types))
 
