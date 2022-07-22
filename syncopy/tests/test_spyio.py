@@ -96,19 +96,6 @@ class TestSpyIO():
             # Delete all open references to file objects b4 closing tmp dir
             del dummy, dummy2
 
-    # test aux. info dict saving and loading
-    def test_info_property(self):
-        for dclass in self.classes:
-            with tempfile.TemporaryDirectory() as tdir:
-                fname = os.path.join(tdir, "dummy")
-                dummy = getattr(swd, dclass)(self.data[dclass], samplerate=1000)
-                # attach some aux. info
-                dummy.info = {'sth': 4, 'important': [1, 2],
-                              'to-remember': {'v1': 2}}
-                save(dummy, fname)
-                dummy2 = load(fname)
-                assert dummy2.info == dummy.info
-
     # Test consistency of generated checksums
     def test_checksum(self):
         with tempfile.TemporaryDirectory() as tdir:
