@@ -60,14 +60,14 @@ def _fft(analog_data, select = {"channel": 0}, foilim = [1.0, 100]):
     return freqanalysis(cfg, analog_data)
 
 
-def _show_spec_log(analog_data, save="test.png"):
+def _show_spec_log(analog_data, save="test.png", title=None):
     """Plot the power spectrum for an AnalogData object. Uses singlepanelplot, so data are shown on a log scale.
 
        Performs mtmfft with `_fft()` to do that. Use `matplotlib.pyplot.ion()` if you dont see the plot.
     """
     if not isinstance(analog_data, spy.datatype.continuous_data.AnalogData):
         raise ValueError("Parameter 'analog_data' must be a syncopy.datatype.continuous_data.AnalogData instance.")
-    (_fft(analog_data)).singlepanelplot()
+    spp(_fft(analog_data), title=title)
     if save is not None:
         print("Saving power spectrum figure for AnalogData to '{save}'. Working directory is '{wd}'.".format(save=save, wd=os.getcwd()))
         plt.savefig(save)
@@ -93,7 +93,6 @@ def _get_fooof_signal(nTrials = 100):
     nSamples = 1000
     nChannels = 1
     samplerate = 1000
-    #harmonic_part = harmonic(freq=30, samplerate=samplerate, nSamples=nSamples, nChannels=nChannels, nTrials=nTrials)
     ar1_part = AR2_network(AdjMat=np.zeros(1), nSamples=nSamples, alphas=[0.7, 0], nTrials=nTrials)
     pd1 = phase_diffusion(freq=30., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
     pd2 = phase_diffusion(freq=50., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
@@ -172,8 +171,12 @@ class TestFooofSpy():
         #spp(spec_dt, "FOOOF full model")
         #plt.savefig("spp.png")
 
-    def test_output_fooof_aperiodic(self):
+    def test_output_fooof_aperiodic(self, show_data=False):
         """Test fooof with output type 'fooof_aperiodic'. A spectrum containing only the aperiodic part is returned."""
+
+        if show_data:
+            _show_spec_log(self.tfData)
+
         cfg = TestFooofSpy.get_fooof_cfg()
         cfg.output = "fooof_aperiodic"
         cfg.pop('fooof_opt', None)
@@ -228,6 +231,8 @@ class TestFooofSpy():
 
         assert out_fooof.data.shape == out_fooof_aperiodic.data.shape
         assert out_fooof.data.shape == out_fooof_peaks.data.shape
+
+        # The
 
         plot_data = {"Raw input data": np.ravel(out_fft.data), "Fooofed spectrum": np.ravel(out_fooof.data), "Fooof aperiodic fit": np.ravel(out_fooof_aperiodic.data), "Fooof peaks fit": np.ravel(out_fooof_peaks.data)}
         _plot_powerspec_linear(freqs, powers=plot_data, title="Outputs from different fooof methods for ar1 data (linear scale)")
