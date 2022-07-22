@@ -59,7 +59,7 @@ class BaseData(ABC):
     """
 
     #: properties that are written into the JSON file and HDF5 attributes upon save
-    _infoFileProperties = ("dimord", "_version", "_log", "cfg",)
+    _infoFileProperties = ("dimord", "_version", "_log", "cfg", "info")
     _hdfFileAttributeProperties = ("dimord", "_version", "_log",)
 
     #: properties that are mapped onto HDF5 datasets
@@ -123,10 +123,29 @@ class BaseData(ABC):
 
     @cfg.setter
     def cfg(self, dct):
-        """ For loading only, for processing the CR extends the existing (empty) cfg dictionary """
+        """ For loading only, for processing the frontends
+        extend the existing (empty) cfg dictionary """
+
         if not isinstance(dct, dict):
             raise SPYTypeError(dct, varname="cfg", expected="dictionary-like object")
         self._cfg = dct
+
+    @property
+    def info(self):
+        """Dictionary of auxiliary meta information"""
+        return self._info
+
+    @info.setter
+    def info(self, dct):
+
+        """
+        Users usually want to extend the existing info dictionary,
+        however it is possible to completely overwrite with a new dict
+        """
+
+        if not isinstance(dct, dict):
+            raise SPYTypeError(dct, varname="info", expected="dictionary-like object")
+        self._info = dct
 
     @property
     def container(self):
@@ -889,6 +908,7 @@ class BaseData(ABC):
 
         # each instance needs its own cfg!
         self._cfg = {}
+        self._info = {}
 
         # Initialize hidden attributes
         for propertyName in self._hdfFileDatasetProperties:

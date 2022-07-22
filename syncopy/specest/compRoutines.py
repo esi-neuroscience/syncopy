@@ -189,13 +189,6 @@ class MultiTaperFFT(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # only workd for parallel computing!!
-        print(5 * 'A',self.outFileName.format(0))
-        print(5 * 'A',self.outFileName.format(1))
-        print(self.numCalls)
-        #vsources = out.data.virtual_sources()
-        #print([source.file_name for source in vsources])
-
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
             chanSec = data.selection.channel
