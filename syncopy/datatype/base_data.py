@@ -25,6 +25,7 @@ import syncopy as spy
 from .methods.arithmetic import _process_operator
 from .methods.selectdata import selectdata
 from .methods.show import show
+from syncopy.shared.tools import SerializableDict
 from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser,
                                     filename_parser, data_parser)
 from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError
@@ -142,7 +143,8 @@ class BaseData(ABC):
 
         if not isinstance(dct, dict):
             raise SPYTypeError(dct, varname="info", expected="dictionary-like object")
-        self._info = dct
+
+        self._info = SerializableDict(dct)
 
     @property
     def container(self):
@@ -893,7 +895,7 @@ class BaseData(ABC):
 
         # each instance needs its own cfg!
         self._cfg = {}
-        self._info = {}
+        self._info = SerializableDict()
 
         # Initialize hidden attributes
         for propertyName in self._hdfFileDatasetProperties:
