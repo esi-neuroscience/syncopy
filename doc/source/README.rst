@@ -36,6 +36,7 @@ In depth Guides and Tutorials
 * :doc:`Basic Concepts <user/concepts>`
 * :doc:`Syncopy for FieldTrip Users <user/fieldtrip>`
 * :doc:`Handling Data <user/data>`
+* :doc:`Fooof <tutorials/fooof>`
 
 Auto-generate API Docs
 -----------------------

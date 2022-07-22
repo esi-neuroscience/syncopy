@@ -31,6 +31,8 @@ might help.
 |                   | |SpecEx|              | |SpecExDesc|              |
 |                   +-----------------------+---------------------------+
 |                   | |SpecAdv|             | |SpecAdvDesc|             |
+|                   +-----------------------+---------------------------+
+|                   | |SpecFof|             | |SpecFofDesc|             |
 +-------------------+-----------------------+---------------------------+
 | |Con|             | |ConTut|              | |ConTutDesc|              |
 |                   +-----------------------+---------------------------+
@@ -68,6 +70,8 @@ might help.
 .. |SpecExDesc| replace:: Example scripts and notebooks illustrating spectral estimation in Syncopy
 .. |SpecAdv| replace:: Advanced Topics in Spectral Estimation
 .. |SpecAdvDesc| replace:: Technical details and notes for advanced users/developers
+.. |SpecFof| replace:: :doc:`Applying FOOOF <tutorials/fooof>`
+.. |SpecFofDesc| replace:: Post-processing spectral data with FOOOF: fitting oscillations and one over f
 
 .. |ConTut| replace:: Connectivity Tutorial
 .. |ConTutDesc| replace:: An introduction to connectivity estimation in Syncopy
