@@ -880,7 +880,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
 # FOOOF
 # -----------------------
 
-@unwrap_io
+@process_io
 def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
                 output_fmt='fooof', fooof_settings=None, noCompute=False, chunkShape=None, method_kwargs=None):
     """
