@@ -8,16 +8,19 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### NEW
 - Added down- and resampling algorithms for the new meta-function `resampledata`
+- new global `spy.copy()` function which copies entire Syncopy objects on disk
 
 ### CHANGED
 - the `out.cfg` attached to an analysis result now allows to replay all analysis methods
 - `connectivityanalysis` now has FT compliant output support for the coherence
 - `spy.cleanup` now has exposed `interactive` parameter
+- removed keyword `deep` from `copy()`, all our copies are in fact deep
 
 ### FIXED
 - `out.cfg` global side-effects (sorry again @kajal5888)
 - `CrossSpectralData` plotting
 - mixing of explicit keywords and `cfg` to control analysis
+
 
 ## [2022.05] - 2022-05-13
 Bugfixes and features additions for `EventData` objects.

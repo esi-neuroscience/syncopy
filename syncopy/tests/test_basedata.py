@@ -127,16 +127,16 @@ class TestBaseData():
                 assert len(dummy.trials) == 2
 
                 dummy = getattr(spd, dclass)(data=[self.data[dclass], self.data[dclass]],
-                                samplerate=10.0)
+                                             samplerate=10.0)
                 assert len(dummy.trials) == 2
                 assert dummy.samplerate == 10
 
                 if any(["ContinuousData" in str(base) for base in self.__class__.__mro__]):
                     nChan = self.data[dclass].shape[dummy.dimord.index("channel")]
                     dummy = getattr(spd, dclass)(data=[self.data[dclass], self.data[dclass]],
-                                    channel=['label']*nChan)
+                                                 channel=['label'] * nChan)
                     assert len(dummy.trials) == 2
-                    assert np.array_equal(dummy.channel, np.array(['label']*nChan))
+                    assert np.array_equal(dummy.channel, np.array(['label'] * nChan))
 
                 # the most egregious input errors are caught by `array_parser`; only
                 # test list-routine-specific stuff: complex/real mismatch
@@ -175,21 +175,7 @@ class TestBaseData():
     # Object copying is tested with all members of `classes`
     def test_copy(self):
 
-        # test shallow copy of data arrays (hashes must match up, since
-        # shallow copies are views in memory)
-        for dclass in self.classes:
-            dummy = getattr(spd, dclass)(self.data[dclass],
-                                         samplerate=self.samplerate)
-            dummy.trialdefinition = self.trl[dclass]
-            dummy2 = dummy.copy()
-            assert dummy.filename == dummy2.filename
-            assert hash(str(dummy.data)) == hash(str(dummy2.data))
-            assert hash(str(dummy.sampleinfo)) == hash(str(dummy2.sampleinfo))
-            assert hash(str(dummy._t0)) == hash(str(dummy2._t0))
-            assert hash(str(dummy.trialinfo)) == hash(str(dummy2.trialinfo))
-            assert hash(str(dummy.samplerate)) == hash(str(dummy2.samplerate))
-
-        # test shallow + deep copies of memmaps + HDF5 files
+        # test (deep) copies HDF5 files
         with tempfile.TemporaryDirectory() as tdir:
             for dclass in self.classes:
                 hname = os.path.join(tdir, "dummy.h5")
@@ -198,28 +184,21 @@ class TestBaseData():
                 h5f.close()
 
                 # hash-matching of shallow-copied HDF5 dataset
-                dummy = getattr(spd, dclass)(data=h5py.File(hname)["dummy"],
+                dummy = getattr(spd, dclass)(data=h5py.File(hname, 'r')["dummy"],
                                              samplerate=self.samplerate)
-                dummy.trialdefinition = self.trl[dclass]
-                dummy2 = dummy.copy()
-                assert dummy.filename == dummy2.filename
-                assert hash(str(dummy.data)) == hash(str(dummy2.data))
-                assert hash(str(dummy.sampleinfo)) == hash(str(dummy2.sampleinfo))
-                assert hash(str(dummy._t0)) == hash(str(dummy2._t0))
-                assert hash(str(dummy.trialinfo)) == hash(str(dummy2.trialinfo))
-                assert hash(str(dummy.samplerate)) == hash(str(dummy2.samplerate))
 
                 # test integrity of deep-copy
-                dummy3 = dummy.copy(deep=True)
-                assert dummy3.filename != dummy.filename
-                assert np.array_equal(dummy.sampleinfo, dummy3.sampleinfo)
-                assert np.array_equal(dummy._t0, dummy3._t0)
-                assert np.array_equal(dummy.trialinfo, dummy3.trialinfo)
-                assert np.array_equal(dummy.data, dummy3.data)
-                assert dummy.samplerate == dummy3.samplerate
+                dummy.trialdefinition = self.trl[dclass]
+                dummy2 = dummy.copy()
+                assert dummy2.filename != dummy.filename
+                assert np.array_equal(dummy.sampleinfo, dummy2.sampleinfo)
+                assert np.array_equal(dummy._t0, dummy2._t0)
+                assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
+                assert np.array_equal(dummy.data, dummy2.data)
+                assert dummy.samplerate == dummy2.samplerate
 
                 # Delete all open references to file objects b4 closing tmp dir
-                del dummy, dummy2, dummy3
+                del dummy, dummy2
                 time.sleep(0.01)
 
                 # remove file for next round
@@ -281,7 +260,7 @@ class TestBaseData():
                 with pytest.raises(SPYTypeError) as spytyp:
                     operation(dummy, other)
                     err = "expected Syncopy {} object found {}"
-                    assert err.format(dclass, otherClass)  in str(spytyp.value)
+                    assert err.format(dclass, otherClass) in str(spytyp.value)
 
         # Next, validate proper functionality of `==` operator for Syncopy objects
         for dclass in self.classes:
@@ -305,14 +284,11 @@ class TestBaseData():
             other.trialdefinition = self.trl[otherClass]
             assert dummy != other
 
-            # Ensure shallow and deep copies are "==" to their origin
-            dummy2 = dummy.copy()
-            assert dummy2 == dummy
-            dummy3 = dummy.copy(deep=True)
+            dummy3 = dummy.copy()
             assert dummy3 == dummy
 
             # Ensure differing samplerate evaluates to `False`
-            dummy3.samplerate = 2*dummy.samplerate
+            dummy3.samplerate = 2 * dummy.samplerate
             assert dummy3 != dummy
             dummy3.samplerate = dummy.samplerate
 
@@ -353,12 +329,12 @@ class TestBaseData():
             assert dummy3 != dummy
 
             # Difference in actual numerical data
-            dummy3 = dummy.copy(deep=True)
+            dummy3 = dummy.copy()
             for dsetName in dummy3._hdfFileDatasetProperties:
                 getattr(dummy3, dsetName)[0] = 2 * np.pi
             assert dummy3 != dummy
 
-            del dummy, dummy2, dummy3, other
+            del dummy, dummy3, other
 
         # Same objects but different dimords: `ContinuousData`` children
         for dclass in continuousClasses:
@@ -381,6 +357,3 @@ class TestBaseData():
                                          trialdefinition=self.trl[dclass],
                                          samplerate=self.samplerate)
             assert dummy != ymmud
-
-
-
