@@ -3,10 +3,11 @@
 # Test FOOOF integration from user/frontend perspective.
 
 
-from multiprocessing.sharedctypes import Value
 import pytest
 import numpy as np
+import inspect
 import os
+import matplotlib.pyplot as plt
 
 # Local imports
 from syncopy import freqanalysis
@@ -14,12 +15,15 @@ from syncopy.shared.tools import get_defaults
 from syncopy.shared.errors import SPYValueError
 from syncopy.tests.synth_data import AR2_network, phase_diffusion
 import syncopy as spy
+from syncopy import __acme__
+if __acme__:
+    import dask.distributed as dd
+
+# Decorator to decide whether or not to run dask-related tests
+skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 
 
-import matplotlib.pyplot as plt
-
-
-def _plot_powerspec_linear(freqs, powers, title="Power spectrum", save="test.png"):
+def _plot_powerspec_linear(freqs, powers, title="Power spectrum"):
     """Simple, internal plotting function to plot x versus y. Uses linear scale.
 
     Parameters
@@ -29,6 +33,7 @@ def _plot_powerspec_linear(freqs, powers, title="Power spectrum", save="test.png
 
     Called for plotting side effect.
     """
+    plt.ion()
     plt.figure()
     if isinstance(powers, dict):
         for label, power in powers.items():
@@ -36,16 +41,12 @@ def _plot_powerspec_linear(freqs, powers, title="Power spectrum", save="test.png
     else:
         plt.plot(freqs, powers)
     plt.xlabel('Frequency (Hz)')
-    plt.ylabel('Power (db)')
+    plt.ylabel('Power (a.u.)')
     plt.legend()
     plt.title(title)
-    if save is not None:
-        print("Saving figure to '{save}'. Working directory is '{wd}'.".format(save=save, wd=os.getcwd()))
-        plt.savefig(save)
-    plt.show()
 
 
-def _fft(analog_data, select = {"channel": 0}, foilim = [1.0, 100]):
+def _fft(analog_data, select={"channel": 0}, foilim=[1.0, 100]):
     """Run standard mtmfft with trial averaging on AnalogData instance.
     """
     if not isinstance(analog_data, spy.datatype.continuous_data.AnalogData):
@@ -60,7 +61,7 @@ def _fft(analog_data, select = {"channel": 0}, foilim = [1.0, 100]):
     return freqanalysis(cfg, analog_data)
 
 
-def _show_spec_log(analog_data, save="test.png", title=None):
+def _show_spec_log(analog_data, title=None):
     """Plot the power spectrum for an AnalogData object. Uses singlepanelplot, so data are shown on a log scale.
 
        Performs mtmfft with `_fft()` to do that. Use `matplotlib.pyplot.ion()` if you dont see the plot.
@@ -68,9 +69,7 @@ def _show_spec_log(analog_data, save="test.png", title=None):
     if not isinstance(analog_data, spy.datatype.continuous_data.AnalogData):
         raise ValueError("Parameter 'analog_data' must be a syncopy.datatype.continuous_data.AnalogData instance.")
     spp(_fft(analog_data), title=title)
-    if save is not None:
-        print("Saving power spectrum figure for AnalogData to '{save}'. Working directory is '{wd}'.".format(save=save, wd=os.getcwd()))
-        plt.savefig(save)
+
 
 def spp(dt, title=None):
     """Single panet plot with a title."""
@@ -81,7 +80,8 @@ def spp(dt, title=None):
         ax.set_title(title)
     return fig, ax
 
-def _get_fooof_signal(nTrials = 100):
+
+def _get_fooof_signal(nTrials=100):
     """
     Produce suitable test signal for fooof, with peaks at 30 and 50 Hz.
 
@@ -93,10 +93,10 @@ def _get_fooof_signal(nTrials = 100):
     nSamples = 1000
     nChannels = 1
     samplerate = 1000
-    ar1_part = AR2_network(AdjMat=np.zeros(1), nSamples=nSamples, alphas=[0.7, 0], nTrials=nTrials)
+    ar1_part = AR2_network(AdjMat=np.zeros(1), nSamples=nSamples, alphas=[0.9, 0], nTrials=nTrials)
     pd1 = phase_diffusion(freq=30., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
     pd2 = phase_diffusion(freq=50., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
-    signal = ar1_part + 0.7 * pd1 + 0.4 * pd2
+    signal = ar1_part + .8 * pd1 + 0.6 * pd2
     return signal
 
 
@@ -108,7 +108,6 @@ class TestFooofSpy():
     """
 
     tfData = _get_fooof_signal()
-
 
     @staticmethod
     def get_fooof_cfg():
@@ -167,9 +166,9 @@ class TestFooofSpy():
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
 
         # Plot it.
-        #_plot_powerspec_linear(freqs=spec_dt.freq, powers=spec_dt.data[0, 0, :, 0], title="fooof full model, for ar1 data (linear scale)")
-        #spp(spec_dt, "FOOOF full model")
-        #plt.savefig("spp.png")
+        # _plot_powerspec_linear(freqs=spec_dt.freq, powers=spec_dt.data[0, 0, :, 0], title="fooof full model, for ar1 data (linear scale)")
+        # spp(spec_dt, "FOOOF full model")
+        # plt.savefig("spp.png")
 
     def test_output_fooof_aperiodic(self, show_data=False):
         """Test fooof with output type 'fooof_aperiodic'. A spectrum containing only the aperiodic part is returned."""
@@ -192,8 +191,6 @@ class TestFooofSpy():
         assert spec_dt.data.ndim == 4
         assert spec_dt.data.shape == (1, 1, 100, 1)
         assert not np.isnan(spec_dt.data).any()
-        #_plot_powerspec_linear(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof aperiodic, for ar1 data (linear scale)")
-        #spp(spec_dt, "FOOOF aperiodic")
 
     def test_output_fooof_peaks(self):
         """Test fooof with output type 'fooof_peaks'. A spectrum containing only the peaks (actually, the Gaussians fit to the peaks) is returned."""
@@ -206,15 +203,17 @@ class TestFooofSpy():
         assert "fooof" in spec_dt._log
         assert "fooof_method = fooof_peaks" in spec_dt._log
         assert "fooof_aperiodic" not in spec_dt._log
-        #_plot_powerspec_linear(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof peaks, for ar1 data (linear scale)")
-        #spp(spec_dt, "FOOOF peaks")
+        # _plot_powerspec_linear(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof peaks, for ar1 data (linear scale)")
+        # spp(spec_dt, "FOOOF peaks")
 
-    def test_different_fooof_methods_are_consistent(self):
+    def test_different_fooof_outputs_are_consistent(self):
         """Test fooof with all output types plotted into a single plot and ensure consistent output."""
         cfg = TestFooofSpy.get_fooof_cfg()
         cfg['output'] = "pow"
+        cfg['foilim'] = [10, 70]
         cfg.pop('fooof_opt', None)
-        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
+        fooof_opt = {'peak_width_limits': (6.0, 12.0),
+                     'min_peak_height': 0.2}  # Increase lower limit to avoid foooof warning.
 
         out_fft = freqanalysis(cfg, self.tfData)
         cfg['output'] = "fooof"
@@ -232,7 +231,9 @@ class TestFooofSpy():
         assert out_fooof.data.shape == out_fooof_aperiodic.data.shape
         assert out_fooof.data.shape == out_fooof_peaks.data.shape
 
-        # The
+        # biggest peak is at 30Hz
+        f1_ind = out_fooof_peaks.show(channel=0).argmax()
+        assert 27 < out_fooof_peaks.freq[f1_ind] < 33
 
         plot_data = {"Raw input data": np.ravel(out_fft.data), "Fooofed spectrum": np.ravel(out_fooof.data), "Fooof aperiodic fit": np.ravel(out_fooof_aperiodic.data), "Fooof peaks fit": np.ravel(out_fooof_peaks.data)}
         _plot_powerspec_linear(freqs, powers=plot_data, title="Outputs from different fooof methods for ar1 data (linear scale)")
@@ -250,3 +251,21 @@ class TestFooofSpy():
         #  our custom value for fooof_opt['max_n_peaks']. Not possible yet on
         #  this level as we have no way to get the 'details' return value.
         #  This is verified in backend tests though.
+
+    @skip_without_acme
+    def test_parallel(self, testcluster=None):
+
+        plt.ioff()
+        client = dd.Client(testcluster)
+        all_tests = [attr for attr in self.__dir__()
+                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
+
+        for test in all_tests:
+            test_method = getattr(self, test)
+            test_method()
+        client.close()
+        plt.ion()
+
+
+if __name__ == '__main__':
+    T = TestFooofSpy()
