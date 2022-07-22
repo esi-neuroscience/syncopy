@@ -35,7 +35,7 @@ def collect_trials(trial_generator):
 
     @functools.wraps(trial_generator)
     def wrapper_synth(nTrials=None, samplerate=1000, **tg_kwargs):
-        
+
         # append samplerate parameter if also needed by the generator
         if 'samplerate' in signature(trial_generator).parameters.keys():
             tg_kwargs['samplerate'] = samplerate
@@ -63,7 +63,6 @@ def white_noise(nSamples=1000, nChannels=2):
     """
     Plain white noise with unity standard deviation
     """
-
     return np.random.randn(nSamples, nChannels)
 
 
@@ -186,6 +185,7 @@ def AR2_network(AdjMat=None, nSamples=1000, alphas=[0.55, -0.8]):
         solution of the network dynamics
     """
 
+
     # default system layout as in Dhamala 2008:
     # unidirectional (2->1) coupling
     if AdjMat is None:
@@ -247,6 +247,7 @@ def mk_RandomAdjMat(nChannels=3, conn_thresh=0.25, max_coupling=0.25):
     AdjMat : numpy.ndarray
         `nChannels` x `nChannels` adjacency matrix where
     """
+
 
     # random numbers in [0,1)
     AdjMat = np.random.random_sample((nChannels, nChannels))

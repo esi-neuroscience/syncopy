@@ -25,6 +25,7 @@ from syncopy.shared.input_processors import (
 )
 
 # method specific imports - they should go!
+from syncopy.specest.fooofspy import default_fooof_opt
 import syncopy.specest.wavelets as spywave
 import syncopy.specest.superlet as superlet
 from .wavelet import get_optimal_wavelet_scales
@@ -35,10 +36,11 @@ from .compRoutines import (
     SuperletTransform,
     WaveletTransform,
     MultiTaperFFT,
-    MultiTaperFFTConvol
+    MultiTaperFFTConvol,
+    FooofSpy
 )
 
-
+availableFooofOutputs = ['fooof', 'fooof_aperiodic', 'fooof_peaks']
 availableOutputs = tuple(spectralConversions.keys())
 availableWavelets = ("Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat")
 availableMethods = ("mtmfft", "mtmconvol", "wavelet", "superlet")
@@ -53,7 +55,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
                  taper_opt=None, tapsmofrq=None, nTaper=None, keeptapers=False,
                  toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
-                 out=None, **kwargs):
+                 out=None, fooof_opt=None, **kwargs):
     """
     Perform (time-)frequency analysis of Syncopy :class:`~syncopy.AnalogData` objects
 
@@ -81,6 +83,15 @@ def freqanalysis(data, method='mtmfft', output='pow',
         * **nTaper** : number of orthogonal tapers for slepian tapers
         * **keeptapers** : return individual tapers or average
         * **pad**: either pad to an absolute length or set to `'nextpow2'`
+
+        Post-processing of the resulting spectra with FOOOOF is available
+        via setting `output` to one of `'fooof'`, `'fooof_aperiodic'` or
+        `'fooof_peaks'`, see below for details. The returned spectrum represents
+        the full foofed spectrum for `'fooof'`, the aperiodic
+        fit for `'fooof_aperiodic'`, and the peaks (Gaussians fit to them) for
+        `'fooof_peaks'`. Returned data is in linear scale. Noisy input
+        data will most likely lead to fitting issues with fooof, always inspect
+        your results!
 
     "mtmconvol" : (Multi-)tapered sliding window Fourier transform
         Perform time-frequency analysis on time-series trial data based on a sliding
@@ -131,7 +142,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
         Output of spectral estimation. One of :data:`~syncopy.specest.const_def.availableOutputs` (see below);
         use `'pow'` for power spectrum (:obj:`numpy.float32`), `'fourier'` for complex
         Fourier coefficients (:obj:`numpy.complex64`) or `'abs'` for absolute
-        values (:obj:`numpy.float32`).
+        values (:obj:`numpy.float32`). Use one of `'fooof'`, `'fooof_aperiodic'` or
+        `'fooof_peaks'` to request post-processing of the results with FOOOF, also see
+        the `'fooof_opt'` parameter description.
     keeptrials : bool
         If `True` spectral estimates of individual trials are returned, otherwise
         results are averaged across trials.
@@ -242,8 +255,17 @@ def freqanalysis(data, method='mtmfft', output='pow',
         linearly with the frequencies of interest from `order_min`
         to `order_max`. If set to False the same SL will be used for
         all frequencies.
-    out : None or :class:`SpectralData` object
-        None if a new :class:`SpectralData` object is to be created, or an empty :class:`SpectralData` object
+    fooof_opt : dict or None
+        Only valid if `method` is `'mtmfft'` and `output` is  one of
+        `'fooof'`, `'fooof_aperiodic'`, or `'fooof_peaks'`.
+        Additional keyword arguments passed to the `FOOOF` constructor. Available
+        arguments include ``'peak_width_limits'``, ``'max_n_peaks'``, ``'min_peak_height'``,
+        ``'peak_threshold'``, and ``'aperiodic_mode'``.
+        Please refer to the
+        `FOOOF docs <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_
+        for the meanings and the defaults.
+        The FOOOF reference is: Donoghue et al. 2020, DOI 10.1038/s41593-020-00744-x.
+    out : Must be `None`.
 
 
     Returns
@@ -277,6 +299,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     syncopy.specest.mtmfft.mtmfft : (multi-)tapered Fourier transform of multi-channel time series data
     syncopy.specest.mtmconvol.mtmconvol : time-frequency analysis of multi-channel time series data with a sliding window FFT
     syncopy.specest.wavelet.wavelet : time-frequency analysis of multi-channel time series data using a wavelet transform
+    syncopy.specest.fooofspy.fooofspy : parameterization of neural power spectra with the 'fitting oscillations & one over f' method
     numpy.fft.fft : NumPy's reference FFT implementation
     scipy.signal.stft : SciPy's Short Time Fourier Transform
     """
@@ -291,11 +314,23 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     # Get everything of interest in local namespace
     defaults = get_defaults(freqanalysis)
+
     lcls = locals()
     # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="freqanalysis")
 
     new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
+
+    is_fooof = False
+    if method == "mtmfft" and output.startswith("fooof"):
+        is_fooof = True
+        output_fooof = output
+        output = "pow"  # We need to change this as the mtmfft running first will complain otherwise.
+
+    if is_fooof:
+        if output_fooof not in availableFooofOutputs:
+            lgl = "'" + "or '".join(opt + "' " for opt in availableFooofOutputs)
+            raise SPYValueError(legal=lgl, varname="output_fooof", actual=output_fooof)
 
     # Ensure a valid computational method was selected
     if method not in availableMethods:
@@ -303,8 +338,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
         raise SPYValueError(legal=lgl, varname="method", actual=method)
 
     # Ensure a valid output format was selected
-    if output not in spectralConversions.keys():
-        lgl = "'" + "or '".join(opt + "' " for opt in spectralConversions.keys())
+    valid_outputs = spectralConversions.keys()
+    if output not in valid_outputs:
+        lgl = "'" + "or '".join(opt + "' " for opt in valid_outputs)
         raise SPYValueError(legal=lgl, varname="output", actual=output)
 
     # Parse all Boolean keyword arguments
@@ -365,7 +401,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # Prepare keyword dict for logging (use `lcls` to get actually provided
     # keyword values, not defaults set above)
     log_dct = {"method": method,
-               "output": output,
+               "output": output_fooof if is_fooof else output,
                "keeptapers": keeptapers,
                "keeptrials": keeptrials,
                "polyremoval": polyremoval,
@@ -842,7 +878,54 @@ def freqanalysis(data, method='mtmfft', output='pow',
                              keeptrials=keeptrials)
     specestMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)
 
-    # attach potential older cfg's from the input
+    # FOOOF is a post-processing method of MTMFFT output, so we handle it here, once
+    # the MTMFFT has finished.
+    if is_fooof:
+
+        # Use the output of the MTMFFMT method as the new data and create new output data.
+        fooof_data = out
+        fooof_out = SpectralData(dimord=SpectralData._defaultDimord)
+
+        # method specific parameters
+        if fooof_opt is None:
+            fooof_opt = default_fooof_opt
+
+        # These go into the FOOOF constructor, so we keep them separate from the fooof_settings below.
+        fooof_kwargs = {**default_fooof_opt, **fooof_opt}  # Join the ones from fooof_opt (the user) into fooof_kwargs.
+
+        # Settings used during the FOOOF analysis (that are NOT passed to FOOOF constructor).
+        # The user cannot influence these: in_freqs is derived from mtmfft output, freq_range is always None (=full mtmfft output spectrum).
+        # We still define them here, and they are passed through to the backend and actually used there.
+        fooof_settings = {
+            'in_freqs': fooof_data.freq,
+            'freq_range': None  # or something like [2, 40] to limit frequency range (post processing). Currently not exposed to user.
+        }
+
+        if fooof_data.freq[0] == 0:
+            # FOOOF does not work with input frequency zero in the data.
+            raise SPYValueError(legal="a frequency range that does not include zero. Use 'foi' or 'foilim' to restrict.", varname="foi/foilim", actual="Frequency range from {} to {}.".format(min(fooof_data.freq), max(fooof_data.freq)))
+
+        # Set up compute-class
+        #  - the output_fmt must be one of 'fooof', 'fooof_aperiodic',
+        #    or 'fooof_peaks'.
+        #  - everything passed as method_kwargs is passed as arguments
+        #    to the foooof.FOOOF() constructor or functions, the other args are
+        #    used elsewhere.
+        fooofMethod = FooofSpy(output_fmt=output_fooof, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)
+
+        # Update `log_dct` w/method-specific options
+        log_dct["fooof_method"] = output_fooof
+        log_dct["fooof_opt"] = fooof_kwargs
+
+        # Perform actual computation
+        fooofMethod.initialize(fooof_data,
+                               fooof_out._stackingDim,
+                               chan_per_worker=kwargs.get("chan_per_worker"),
+                               keeptrials=keeptrials)
+        fooofMethod.compute(fooof_data, fooof_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
+        out = fooof_out
+
+     # attach potential older cfg's from the input
     # to support chained frontend calls..
     out.cfg.update(data.cfg)
 

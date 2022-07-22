@@ -241,7 +241,7 @@ class TestResampling:
 
             # test for finitenes and make sure we did not loose power
             assert np.all(np.isfinite(spec_rs.data))
-            assert pow_rs >= 0.95 * self.pow_orig
+            assert pow_rs >= 0.9 * self.pow_orig
 
     @skip_without_acme
     def test_rs_parallel(self, testcluster=None):

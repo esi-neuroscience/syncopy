@@ -113,7 +113,7 @@ def trl_av_power(data, nSamples, fs, tapsmofrq=1):
 
     power = []
     for signal in data:
-        NW, Kmax = mtmfft._get_dpss_pars(1, nSamples, fs)
+        NW, Kmax = mtmfft._get_dpss_pars(tapsmofrq, nSamples, fs)
         ftr, freqs = mtmfft.mtmfft(
             signal, samplerate=fs, taper="dpss", taper_opt={"Kmax": Kmax, "NW": NW}
         )

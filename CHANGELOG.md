@@ -4,11 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+
 ## [Unreleased]
 
 ### NEW
 - Added down- and resampling algorithms for the new meta-function `resampledata`
+- Added FOOOF method as a post-processing option for the freqanalysis method mtmfft.
 - new global `spy.copy()` function which copies entire Syncopy objects on disk
+
 
 ### CHANGED
 - the `out.cfg` attached to an analysis result now allows to replay all analysis methods
