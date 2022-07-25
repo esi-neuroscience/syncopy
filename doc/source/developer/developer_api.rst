@@ -11,7 +11,7 @@ syncopy.datatype
     syncopy.datatype.base_data.BaseData
     syncopy.datatype.base_data.Selector
     syncopy.datatype.base_data.FauxTrial
-    syncopy.datatype.base_data.StructDict
+    syncopy.shared.StructDict
     syncopy.datatype.continuous_data.ContinuousData
     syncopy.datatype.discrete_data.DiscreteData
 
@@ -39,7 +39,7 @@ syncopy.shared
     syncopy.shared.errors.SPYWarning
     syncopy.shared.kwarg_decorators.unwrap_cfg
     syncopy.shared.kwarg_decorators.unwrap_select
-    syncopy.shared.kwarg_decorators.unwrap_io
+    syncopy.shared.kwarg_decorators.process_io
     syncopy.shared.kwarg_decorators.detect_parallel_client
     syncopy.shared.kwarg_decorators._append_docstring
     syncopy.shared.kwarg_decorators._append_signature
