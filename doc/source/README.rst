@@ -64,4 +64,5 @@ For general inquiries please contact syncopy (at) esi-frankfurt.de.
    user/fieldtrip.rst
    user/data.rst
    user/user_api.rst
+   tutorials/fooof.rst
    developer/developers.rst

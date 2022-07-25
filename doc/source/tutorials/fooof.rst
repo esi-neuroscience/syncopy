@@ -19,8 +19,8 @@ Generating Example Data
 
 Let us first prepare
 suitable data. FOOOF will typically be applied to trial-averaged data, as the method is
-quite sensitive to noise, so we generate an example data set consisting of 200 trials and
-a single channel here:
+quite sensitive to noise, so we generate an example data set consisting of 500 trials and
+a single channel here (see `the Synthetic data tutorial <user/synth_data>` for details on this):
 
 .. code-block:: python
     :linenos:
@@ -29,7 +29,7 @@ a single channel here:
     from syncopy import freqanalysis, get_defaults
     from syncopy.tests.synth_data import AR2_network, phase_diffusion
 
-    def get_signal(nTrials=200, nChannels = 1):
+    def get_signal(nTrials=500, nChannels = 1):
         nSamples = 1000
         samplerate = 1000
         ar1_part = AR2_network(AdjMat=np.zeros(1), nSamples=nSamples, alphas=[0.9, 0], nTrials=nTrials)
@@ -81,9 +81,9 @@ from the `freqanalysis` function.
 .. code-block:: python
     :linenos:
 
-    cfg.out = 'fooof'
-    spec_dt = freqanalysis(cfg, dt)
-    spec_dt.singlepanelplot()
+    cfg.output = 'fooof'
+    spec_fooof = freqanalysis(cfg, dt)
+    spec_fooof.singlepanelplot()
 
 .. image:: ../_static/fooof_out_first_try.png
 
@@ -99,21 +99,28 @@ in the other options. The following ouput types are available:
 * **fooo_aperiodic**: the aperiodic part of the spectrum
 * **fooof_peaks**: the detected peaks, with Gaussian fit to them
 
-Here we request only the aperiodic part:
+Here we request only the aperiodic part and plot it:
 
 
 .. code-block:: python
     :linenos:
 
-    cfg.out = 'fooof_aperiodic'
-    spec_dt = freqanalysis(cfg, dt)
-    spec_dt.singlepanelplot()
+    cfg.output = 'fooof_aperiodic'
+    spec_fooof_aperiodic = freqanalysis(cfg, dt)
+    spec_fooof_aperiodic.singlepanelplot()
+
+
+.. image:: ../_static/fooof_out_aperiodic.png
 
 You way want to use a combination of the different return types to inspect
 your results.
 
 Knowing what your data and the FOOOF results like is important, because typically
 you will have to fine-tune the FOOOF method to get the results you are interested in.
+
+With the data above, we were interested only in the 2 large peaks around 30 and 50 Hz,
+but 2 more minor peaks were detected by FOOOF, around 37 and 42 Hz. We will learn
+how to exclude these peaks in the next section.
 
 
 Fine-tuning FOOOF
@@ -126,12 +133,16 @@ Increasing the minimal peak width is one method to exclude them:
 
 .. code-block:: python
     :linenos:
-
+    cfg.output = 'fooof'
     cfg.fooof_opt = {'peak_width_limits': (6.0, 12.0), 'min_peak_height': 0.2}
-    spec_dt = freqanalysis(cfg, tf)
-    spec_dt.singlepanelplot()
+    spec_fooof_tuned = freqanalysis(cfg, dt)
+    spec_fooof_tuned.singlepanelplot()
 
 Once more, look at the FOOOFed spectrum:
 
 .. image:: ../_static/fooof_out_tuned.png
+
+Note that the tiny peak has been removed.
+
+This concludes the tutorial on using FOOOF from syncopy. Please do not forget to cite `Donoghue et al. 2020 <https://doi.org/10.1038/s41593-020-00744-x>`_ when using FOOOF.
 
