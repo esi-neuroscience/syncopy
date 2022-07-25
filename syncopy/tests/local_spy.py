@@ -43,18 +43,18 @@ if __name__ == "__main__":
                                     nSamples=nSamples,
                                     alphas=[0.9, 0])
 
-    foi = np.linspace(30, 160, 65)
+    adata += synth_data.harmonic(nTrials, freq=30, samplerate=fs)
+
+    foi = np.linspace(20, 160, 100)
     spec = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False, foi=foi)
 
     # fooof it
     specf = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False, foi=foi,
-                             output="fooof", fooof_opt={'max_n_peaks': 3})
+                             output="fooof", fooof_opt={'max_n_peaks': 2})
 
     specf2 = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False, foi=foi,
-                              output="fooof_peaks", fooof_opt={'max_n_peaks': 3})
+                              output="fooof_peaks", fooof_opt={'max_n_peaks': 2})
 
     spec.singlepanelplot()
-
-    tiny_pwr = spy.SpectralData(np.zeros_like(specf2.data[()]) + 0.00001, samplerate=fs)
-    (specf2 + tiny_pwr).singlepanelplot()
-
+    specf.singlepanelplot()
+    specf2.singlepanelplot()
