@@ -114,7 +114,7 @@ class TestFooofSpy():
         cfg = get_defaults(freqanalysis)
         cfg.method = "mtmfft"
         cfg.taper = "hann"
-        cfg.select = {"channel": 0, "trial" : 0}
+        cfg.select = {"channel": 0}
         cfg.keeptrials = False
         cfg.output = "fooof"
         cfg.foilim = [1., 100.]
