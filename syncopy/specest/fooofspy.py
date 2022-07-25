@@ -144,6 +144,7 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
             out_spectrum = 10 ** aperiodic_spec
         elif out_type == "fooof_peaks":
             out_spectrum = (10 ** fm.fooofed_spectrum_) - (10 ** aperiodic_spec)
+            out_spectrum += 1e-16  # Prevent zero values in areas without peaks/periodic parts. These would result in log plotting issues.
         else:
             raise ValueError("out_type: invalid value '{inv}', expected one of '{lgl}'.".format(inv=out_type, lgl=available_fooof_out_types))
 
