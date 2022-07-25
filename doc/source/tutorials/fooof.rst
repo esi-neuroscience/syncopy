@@ -113,11 +113,11 @@ You way want to use a combination of the different return types to inspect
 your results.
 
 Knowing what your data and the FOOOF results like is important, because typically
-you will have to fine tune the FOOOF method to get the results you are interested in.
+you will have to fine-tune the FOOOF method to get the results you are interested in.
 
 
-Finetuning FOOOF
-----------------
+Fine-tuning FOOOF
+-----------------
 
 The FOOOF method can be adjusted using the `fooof_opt` parameter to `freqanalyis`.
 
