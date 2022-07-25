@@ -51,8 +51,10 @@ if __name__ == "__main__":
                              output="fooof", fooof_opt={'max_n_peaks': 3})
 
     specf2 = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False, foi=foi,
-                              output="fooof_peaks", fooof_opt={'max_n_peaks': 1})
+                              output="fooof_peaks", fooof_opt={'max_n_peaks': 3})
 
     spec.singlepanelplot()
-    specf2.singlepanelplot()
-    
+
+    tiny_pwr = spy.SpectralData(np.zeros_like(specf2.data[()]) + 0.00001, samplerate=fs)
+    (specf2 + tiny_pwr).singlepanelplot()
+
