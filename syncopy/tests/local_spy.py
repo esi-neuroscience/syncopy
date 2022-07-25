@@ -38,7 +38,21 @@ if __name__ == "__main__":
                                    AdjMat=AdjMat,
                                    nSamples=nSamples,
                                    alphas=alphas)
+    adata += synth_data.AR2_network(nTrials, AdjMat=np.zeros((2, 2)),
+                                    samplerate=fs,
+                                    nSamples=nSamples,
+                                    alphas=[0.9, 0])
 
-    foi = np.linspace(40, 160, 25)
+    foi = np.linspace(30, 160, 65)
     spec = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False, foi=foi)
 
+    # fooof it
+    specf = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False, foi=foi,
+                             output="fooof", fooof_opt={'max_n_peaks': 3})
+
+    specf2 = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False, foi=foi,
+                              output="fooof_peaks", fooof_opt={'max_n_peaks': 1})
+
+    spec.singlepanelplot()
+    specf2.singlepanelplot()
+    
