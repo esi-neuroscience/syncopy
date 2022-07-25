@@ -1,4 +1,4 @@
-Using FOOOF from syncopy
+Using FOOOF from Syncopy
 ========================
 
 Syncopy supports parameterization of neural power spectra using
@@ -20,7 +20,7 @@ Generating Example Data
 Let us first prepare
 suitable data. FOOOF will typically be applied to trial-averaged data, as the method is
 quite sensitive to noise, so we generate an example data set consisting of 500 trials and
-a single channel here (see `the Synthetic data tutorial <user/synth_data>` for details on this):
+a single channel here (see :ref:`the Synthetic data tutorial<synth_data>` for details on this):
 
 .. code-block:: python
     :linenos:
@@ -40,7 +40,7 @@ a single channel here (see `the Synthetic data tutorial <user/synth_data>` for d
 
     dt = get_signal()
 
-Let's have a look at the signal in the time domain first:
+The return value `dt` is of type :class:`~syncopy.AnalogData`. Let's have a look at the signal in the time domain first:
 
 .. code-block:: python
     :linenos:
@@ -51,7 +51,7 @@ Let's have a look at the signal in the time domain first:
 
 Since FOOOF works on the power spectrum, we can perform an `mtmfft` and look at the results to get
 a better idea of how our data look in the frequency domain. The `spec_dt` data structure we obtain is
-of type `syncopy.SpectralData`, and can also be plotted:
+of type :class:`~syncopy.SpectralData`, and can also be plotted:
 
 .. code-block:: python
     :linenos:
@@ -142,7 +142,7 @@ Once more, look at the FOOOFed spectrum:
 
 .. image:: ../_static/fooof_out_tuned.png
 
-Note that the tiny peak has been removed.
+Note that the 2 tiny peaks have been removed.
 
-This concludes the tutorial on using FOOOF from syncopy. Please do not forget to cite `Donoghue et al. 2020 <https://doi.org/10.1038/s41593-020-00744-x>`_ when using FOOOF.
+This concludes the tutorial on using FOOOF from Syncopy. Please do not forget to cite `Donoghue et al. 2020 <https://doi.org/10.1038/s41593-020-00744-x>`_ when using FOOOF.
 
