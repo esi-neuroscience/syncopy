@@ -94,7 +94,12 @@ When running FOOOF, it
 
 Knowing what your data and the FOOOF results like is important, because typically
 you will have to fine tune the FOOOF method to get the results you are interested in.
-This can be achieved by using the `fooof_opt` parameter to `freqanalyis`.
+
+
+Finetuning FOOOF
+----------------
+
+The FOOOF method can be adjusted using the `fooof_opt` parameter to `freqanalyis`.
 
 From the results above, we see that some peaks were detected that we feel are noise.
 Increasing the minimal peak width is one method to exclude them:
