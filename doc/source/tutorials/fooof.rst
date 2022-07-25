@@ -126,13 +126,15 @@ how to exclude these peaks in the next section.
 Fine-tuning FOOOF
 -----------------
 
-The FOOOF method can be adjusted using the `fooof_opt` parameter to `freqanalyis`.
+The FOOOF method can be adjusted using the `fooof_opt` parameter to `freqanalyis`. The full
+list of available options and defaults are explained in detail in the `official FOOOF documentation <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_.
 
 From the results above, we see that some peaks were detected that we feel are noise.
 Increasing the minimal peak width is one method to exclude them:
 
 .. code-block:: python
     :linenos:
+
     cfg.output = 'fooof'
     cfg.fooof_opt = {'peak_width_limits': (6.0, 12.0), 'min_peak_height': 0.2}
     spec_fooof_tuned = freqanalysis(cfg, dt)
