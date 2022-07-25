@@ -23,8 +23,10 @@ quite sensitive to noise, so we generate an example data set consisting of 200 t
 a single channel here:
 
 .. code-block:: python
-   :linenos:
-    from syncopy import freqanalysis
+    :linenos:
+
+    import numpy as np
+    from syncopy import freqanalysis, get_defaults
     from syncopy.tests.synth_data import AR2_network, phase_diffusion
 
     def get_signal(nTrials=200, nChannels = 1):
@@ -41,8 +43,9 @@ a single channel here:
 Let's have a look at the signal in the time domain first:
 
 .. code-block:: python
-   :linenos:
-    dt.singlepanelplot()
+    :linenos:
+
+    dt.singlepanelplot(trials = 0)
 
 .. image:: ../_static/fooof_signal_time.png
 
@@ -51,7 +54,8 @@ a better idea of how our data look in the frequency domain. The `spec_dt` data s
 of type `syncopy.SpectralData`, and can also be plotted:
 
 .. code-block:: python
-   :linenos:
+    :linenos:
+
     cfg = get_defaults(freqanalysis)
     cfg.method = "mtmfft"
     cfg.taper = "hann"
@@ -60,8 +64,9 @@ of type `syncopy.SpectralData`, and can also be plotted:
     cfg.output = "pow"
     cfg.foilim = [10, 100]
 
-    spec_dt = freqanalysis(cfg, self.tfData)
+    spec_dt = freqanalysis(cfg, dt)
     spec_dt.singlepanelplot()
+
 
 .. image:: ../_static/fooof_signal_spectrum.png
 
@@ -79,9 +84,10 @@ When running FOOOF, it
 * **fooof_peaks**: the detected peaks, with Gaussian fit to them
 
 .. code-block:: python
-   :linenos:
+    :linenos:
+
     cfg.out = 'fooof'
-    spec_dt = freqanalysis(cfg, self.tfData)
+    spec_dt = freqanalysis(cfg, dt)
     spec_dt.singlepanelplot()
 
 .. image:: ../_static/fooof_out_first_try.png
@@ -94,9 +100,10 @@ From the results above, we see that some peaks were detected that we feel are no
 Increasing the minimal peak width is one method to exclude them:
 
 .. code-block:: python
-   :linenos:
+    :linenos:
+
     cfg.fooof_opt = {'peak_width_limits': (6.0, 12.0), 'min_peak_height': 0.2}
-    spec_dt = freqanalysis(cfg, self.tfData)
+    spec_dt = freqanalysis(cfg, tf)
     spec_dt.singlepanelplot()
 
 Once more, look at the FOOOFed spectrum:
