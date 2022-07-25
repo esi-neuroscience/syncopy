@@ -61,7 +61,7 @@ of type :class:`~syncopy.SpectralData`, and can also be plotted:
     cfg.output = "pow"
     cfg.foilim = [10, 100]
 
-    spec = freqanalysis(cfg, dt)
+    spec = freqanalysis(cfg, signals)
     spec.singlepanelplot()
 
 
@@ -80,7 +80,7 @@ from the `freqanalysis` function by setting the `output` parameter to `'fooof'`:
     :linenos:
 
     cfg.output = 'fooof'
-    spec_fooof = freqanalysis(cfg, dt)
+    spec_fooof = freqanalysis(cfg, signals)
     spec_fooof.singlepanelplot()
 
 .. image:: ../_static/fooof_out_first_try.png
@@ -104,7 +104,7 @@ Here we request only the aperiodic (:math:`\sim 1/f`) part and plot it:
     :linenos:
 
     cfg.output = 'fooof_aperiodic'
-    spec_fooof_aperiodic = freqanalysis(cfg, dt)
+    spec_fooof_aperiodic = freqanalysis(cfg, signals)
     spec_fooof_aperiodic.singlepanelplot()
 
 
@@ -135,7 +135,7 @@ Increasing the minimal peak width is one method to exclude them:
 
     cfg.output = 'fooof'
     cfg.fooof_opt = {'peak_width_limits': (6.0, 12.0), 'min_peak_height': 0.2}
-    spec_fooof_tuned = freqanalysis(cfg, dt)
+    spec_fooof_tuned = freqanalysis(cfg, signals)
     spec_fooof_tuned.singlepanelplot()
 
 Once more, we look at the FOOOFed spectrum:
