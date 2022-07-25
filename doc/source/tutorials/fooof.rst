@@ -3,7 +3,7 @@ Using FOOOF from syncopy
 
 Syncopy supports parameterization of neural power spectra using
 the `Fitting oscillations & one over f` (`FOOOF <https://github.com/fooof-tools/fooof>`_
-) method described in the following publication (`DOI link <https://doi.org/10.1038/s41593-020-00744-x>`):
+) method described in the following publication (`DOI link <https://doi.org/10.1038/s41593-020-00744-x>`_):
 
 `Donoghue T, Haller M, Peterson EJ, Varma P, Sebastian P, Gao R, Noto T, Lara AH, Wallis JD,
 Knight RT, Shestyuk A, & Voytek B (2020). Parameterizing neural power spectra into periodic
@@ -77,11 +77,6 @@ Running FOOOF
 Now that we have seen the data, let us start FOOOF. The FOOOF method is accessible
 from the `freqanalysis` function.
 
-When running FOOOF, it
-
-* **fooof**: the full fooofed spectrum
-* **fooo_aperiodic**: the aperiodic part of the spectrum
-* **fooof_peaks**: the detected peaks, with Gaussian fit to them
 
 .. code-block:: python
     :linenos:
@@ -91,6 +86,31 @@ When running FOOOF, it
     spec_dt.singlepanelplot()
 
 .. image:: ../_static/fooof_out_first_try.png
+
+
+FOOOF output types
+^^^^^^^^^^^^^^^^^^
+
+In the example above, the spectrum returned is the full FOOOFed spectrum. This is
+typically what you want, but to better understand your results, you may be interested
+in the other options. The following ouput types are available:
+
+* **fooof**: the full fooofed spectrum
+* **fooo_aperiodic**: the aperiodic part of the spectrum
+* **fooof_peaks**: the detected peaks, with Gaussian fit to them
+
+Here we request only the aperiodic part:
+
+
+.. code-block:: python
+    :linenos:
+
+    cfg.out = 'fooof_aperiodic'
+    spec_dt = freqanalysis(cfg, dt)
+    spec_dt.singlepanelplot()
+
+You way want to use a combination of the different return types to inspect
+your results.
 
 Knowing what your data and the FOOOF results like is important, because typically
 you will have to fine tune the FOOOF method to get the results you are interested in.
