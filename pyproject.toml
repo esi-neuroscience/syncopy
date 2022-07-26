@@ -3,21 +3,34 @@ name = "esi-syncopy-test"
 packages = [
     {include = "syncopy"}
 ]
-version = "2022.07"
+version = "2022.07b"
 license = "BSD-3-Clause"
-description = "Syncopy is a Python toolkit for user-friendly large-scale electrophysiology data analysis. It is scalable to accomodate very large datasets and automatically makes use of available computing ressources. Syncopy is compatible with the Matlab toolbox FieldTrip."
-authors = ["Stefan Fürtinger <sfuerti@esi-frankfurt.de>", "Tim Schäfer <tim.schaefer@esi-frankfurt.de>", "Gregor Mönke <gregor.moenke@esi-frankfurt.de>"]
+readme="README.rst"
+homepage="https://syncopy.org"
+repository="https://github.com/esi-neuroscience/syncopy"
+include = [
+    "LICENSE",
+]
+classifiers = [
+	    "Topic :: Scientific/Engineering",
+	    "Environment :: Console",
+	    "Framework :: Jupyter",
+	    "Operating System :: OS Independent"
+]
+description = "A toolkit for user-friendly large-scale electrophysiology data analysis. Syncopy is compatible with the Matlab toolbox FieldTrip."
+authors = ["Stefan Fürtinger <sfuerti@esi-frankfurt.de>", "Tim Schäfer <tim.schaefer@esi-frankfurt.de>", "Joscha Schmiedt <schmiedt@uni-bremen.de>", "Gregor Mönke <gregor.moenke@esi-frankfurt.de>"]
 
 [tool.poetry.dependencies]
+# acme needs hard python version pinning
 python = "^3.8, <3.9"
 h5py = ">=2.9"
 numpy = ">=1.10"
-scipy = ">= 1.5"
+scipy = ">=1.5"
 matplotlib = ">=3.5"
 tqdm = ">=4.31"
 natsort = "^8.1.0"
 psutil = ""
-fooof = ">= 1.0"
+fooof = ">=1.0"
 esi-acme = "2022.7"
 ipdb = "^0.13.9"
 memory-profiler = "^0.60.0"
