@@ -24,6 +24,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - `out.cfg` global side-effects (sorry again @kajal5888)
 - `CrossSpectralData` plotting
 - mixing of explicit keywords and `cfg` to control analysis
+- fixed error on initializing SpikeData with empty ndarray (#257)
 
 
 ## [2022.05] - 2022-05-13

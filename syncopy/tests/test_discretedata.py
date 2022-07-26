@@ -59,6 +59,11 @@ class TestSpikeData():
         with pytest.raises(SPYTypeError):
             SpikeData({})
 
+    def test_issue_257_fixed_no_error_for_empty_data(self):
+        """This tests that the data object is created without throwing an error, see #257."""
+        data = SpikeData(np.column_stack(([],[],[])), dimord = ['sample', 'channel', 'unit'], samplerate = 30000)
+        assert data.dimord == ["sample", "channel", "unit"]
+
     def test_nparray(self):
         dummy = SpikeData(self.data)
         assert dummy.dimord == ["sample", "channel", "unit"]

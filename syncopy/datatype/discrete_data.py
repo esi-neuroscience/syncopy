@@ -308,7 +308,7 @@ class DiscreteData(BaseData, ABC):
         # Call initializer
         super().__init__(data=data, **kwargs)
 
-        if self.data is not None:
+        if self.data is not None and self.data.size != 0:
 
             # In case of manual data allocation (reading routine would leave a
             # mark in `cfg`), fill in missing info
