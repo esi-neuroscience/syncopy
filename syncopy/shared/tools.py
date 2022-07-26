@@ -69,8 +69,13 @@ class SerializableDict(dict):
         try:
             json.dumps(value)
         except TypeError:
-            lgl = "serializable data type, e.g. numbers, lists, tuples, ... "
+            lgl = "serializable data type, e.g. floats, lists, tuples, ... "
             raise SPYTypeError(value, f"value for key '{key}'", lgl)
+        try:
+            json.dumps(key)
+        except TypeError:
+            lgl = "serializable data type, e.g. floats, lists, tuples, ... "
+            raise SPYTypeError(value, f"key '{key}'", lgl)
 
 
 def get_frontend_cfg(defaults, lcls, kwargs):
