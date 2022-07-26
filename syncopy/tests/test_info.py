@@ -21,6 +21,8 @@ class TestInfo:
                'to': {'v1': 2}, 'remember': 'need more coffe'}
     # non-serializable dict
     ns_dict = {'sth': 4, 'not_serializable': {'v1': range(2)}}
+    # dict with non-serializable keys
+    ns_dict2 = {range(2) : 'small_range', range(1000) : 'large_range'}
 
     # test setter
     def test_property(self):
@@ -51,6 +53,10 @@ class TestInfo:
             adata.info['new-var'] = np.arange(3)
         with pytest.raises(SPYTypeError, match="expected serializable data type"):
             adata.info = self.ns_dict
+
+        # test that we also catch non-serializable keys
+        with pytest.raises(SPYTypeError, match="expected serializable data type"):
+            adata.info = self.ns_dict2
 
         # this interestingly still does NOT work (numbers are np.float64):
         with pytest.raises(SPYTypeError, match="expected serializable data type"):
