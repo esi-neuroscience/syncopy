@@ -12,6 +12,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Added down- and resampling algorithms for the new meta-function `resampledata`
 - Added FOOOF method as a post-processing option for the freqanalysis method mtmfft.
 - new global `spy.copy()` function which copies entire Syncopy objects on disk
+- Added `.info` attribute for all data classes to store auxiliary meta information
 
 
 ### CHANGED

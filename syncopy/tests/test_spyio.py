@@ -44,30 +44,30 @@ class TestSpyIO():
     trl = {}
 
     # Generate 2D array simulating an AnalogData array
-    data["AnalogData"] = np.arange(1, nc*ns + 1).reshape(ns, nc)
+    data["AnalogData"] = np.arange(1, nc * ns + 1).reshape(ns, nc)
     trl["AnalogData"] = np.vstack([np.arange(0, ns, 5),
                                    np.arange(5, ns + 5, 5),
-                                   np.ones((int(ns/5), )),
-                                   np.ones((int(ns/5), )) * np.pi]).T
+                                   np.ones((int(ns / 5), )),
+                                   np.ones((int(ns / 5), )) * np.pi]).T
 
     # Generate a 4D array simulating a SpectralData array
-    data["SpectralData"] = np.arange(1, nc*ns*nt*nf + 1).reshape(ns, nt, nc, nf)
+    data["SpectralData"] = np.arange(1, nc * ns * nt * nf + 1).reshape(ns, nt, nc, nf)
     trl["SpectralData"] = trl["AnalogData"]
 
     # Generate a 4D array simulating a CorssSpectralData array
-    data["CrossSpectralData"] = np.arange(1, nc*nc*ns*nf + 1).reshape(ns, nf, nc, nc)
+    data["CrossSpectralData"] = np.arange(1, nc * nc * ns * nf + 1).reshape(ns, nf, nc, nc)
     trl["CrossSpectralData"] = trl["AnalogData"]
 
     # Use a fixed random number generator seed to simulate a 2D SpikeData array
     seed = np.random.RandomState(13)
     data["SpikeData"] = np.vstack([seed.choice(ns, size=nd),
                                    seed.choice(nc, size=nd),
-                                   seed.choice(int(nc/2), size=nd)]).T
+                                   seed.choice(int(nc / 2), size=nd)]).T
     trl["SpikeData"] = trl["AnalogData"]
 
     # Generate bogus trigger timings
     data["EventData"] = np.vstack([np.arange(0, ns, 5),
-                                   np.zeros((int(ns/5), ))]).T
+                                   np.zeros((int(ns / 5), ))]).T
     data["EventData"][1::2, 1] = 1
     trl["EventData"] = trl["AnalogData"]
 
