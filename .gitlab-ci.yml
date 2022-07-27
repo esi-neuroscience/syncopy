@@ -107,10 +107,11 @@ slurmtest:
     - srun -p DEV --mem=8000m -c 4 pytest --full test_connectivity.py
     - srun -p DEV --mem=8000m -c 4 pytest --full --ignore=test_specest.py --ignore=test_connectivity.py
     
-pypitest-poetry:
+pypitest:
     stage: upload
     only:
-    - 318-migrate-build-system-to-poetry
+    - master
+    - tags
     tags:
     - deploy
     variables:
@@ -133,37 +134,6 @@ pypitest-poetry:
     - conda deactivate
     - conda remove --yes --name piptest --all
 
-pypitest:
-    stage: upload
-    only:
-    - master
-    - tags
-    tags:
-    - deploy
-    variables:
-        GIT_FETCH_EXTRA_FLAGS: --tags
-    script:
-    - source $HOME/miniconda/etc/profile.d/conda.sh
-    - conda update --yes conda
-    - conda clean --all -y
-    - conda env update -f syncopy.yml --prune
-    - conda activate syncopy
-    - conda install --yes twine keyring rfc3986
-    - conda update --yes twine keyring rfc3986
-    - rm -rf dist/ build/ esi_syncopy.egg-info/
-    - python setup.py sdist bdist_wheel
-    - tarname="$(basename -- $(ls dist/*.tar.gz) .tar.gz)"
-    - version=$(sed -e 's/esi-syncopy-\(.*\)/\1/' <<< "$tarname")
-    - twine upload --repository testpypi --config-file=~/.esipypirc dist/*
-    - sleep 300
-    - conda create --yes --name piptest python=3.8
-    - conda activate piptest
-    - conda install --yes pip
-    - pip --no-cache-dir install --extra-index-url https://test.pypi.org/simple esi-syncopy==$version
-    - python -c "import syncopy as spy"
-    - conda deactivate
-    - conda remove --yes --name piptest --all
-
 pypideploy:
     stage: deploy
     when: manual
@@ -174,13 +144,10 @@ pypideploy:
     variables:
         GIT_FETCH_EXTRA_FLAGS: --tags
     script:
+    - rm -rf dist/
     - source $HOME/miniconda/etc/profile.d/conda.sh
-    - conda update --yes conda
-    - conda clean --all -y
-    - conda env update -f syncopy.yml --prune
-    - conda activate syncopy
-    - conda install --yes twine keyring rfc3986
-    - conda update --yes twine keyring rfc3986
-    - rm -rf dist/ build/ esi_syncopy.egg-info/
-    - python setup.py sdist bdist_wheel
-    - twine upload --config-file=~/.esipypirc dist/*
+    # get poetry with python 3.8
+    - conda activate spy38
+    - poetry build
+    # needs config pypi credentials on runner
+    - poetry publish -r pypi
