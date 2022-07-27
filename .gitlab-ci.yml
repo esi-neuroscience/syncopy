@@ -44,6 +44,8 @@ powerlinux:
     - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
+    # see https://github.com/conda/conda/issues/10178
+    - conda install ruamel.yaml
     - tox -p 0
 
 intelwin:
