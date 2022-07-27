@@ -35,7 +35,10 @@ jobs:
     - name: Test with pytest and get coverage
       run: |
         cd syncopy/tests
-        pytest --color=yes --tb=short --verbose --cov=../../syncopy --cov-config=../../.coveragerc --cov-report=xml
+        # run parallel tests only for base CR
+        pytest -k 'computationalroutine and parallel'
+        # don't run general parallel tests
+        pytest  -k 'not parallel' --color=yes --tb=short --verbose --cov=../../syncopy --cov-config=../../.coveragerc --cov-report=xml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
       with:
