@@ -105,6 +105,32 @@ slurmtest:
     - srun -p DEV --mem=8000m -c 4 pytest --full test_connectivity.py
     - srun -p DEV --mem=8000m -c 4 pytest --full --ignore=test_specest.py --ignore=test_connectivity.py
 
+pypitest-poetry:
+    stage: upload
+    only:
+    - 318-migrate-build-system-to-poetry
+    tags:
+    - deploy
+    variables:
+        GIT_FETCH_EXTRA_FLAGS: --tags
+    script:
+    - rm -rf dist/
+    - source $HOME/miniconda/etc/profile.d/conda.sh
+    # get poetry with python 3.8
+    - conda activate spy38
+    - poetry build
+    # needs config pypi credentials on runner
+    - poetry publish -r testpypi
+    - sleep 300
+    - conda create --yes --name piptest python=3.8
+    - conda activate piptest
+    - conda install --yes pip
+    - version=$(grep 'version =' pyproject.toml | awk -F "\"" '{print $2}')
+    - pip --no-cache-dir install --extra-index-url https://test.pypi.org/simple esi-syncopy==$version
+    - python -c "import syncopy as spy"
+    - conda deactivate
+    - conda remove --yes --name piptest --all
+
 pypitest:
     stage: upload
     only:
