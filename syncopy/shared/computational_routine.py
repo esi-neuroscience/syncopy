@@ -595,7 +595,7 @@ class ComputationalRoutine(ABC):
 
         # Do not spill trials on disk if they're supposed to be removed anyway
         if parallel_store and not self.keeptrials:
-            msg = "trial-averaging only supports sequential writing!"
+            msg = "trial-averaging only supports sequential writing, disabling parallel mode!"
             SPYWarning(msg)
             parallel_store = False
 
