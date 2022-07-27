@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "esi-syncopy-test"
+name = "esi-syncopy"
 packages = [
     {include = "syncopy"}
 ]
