@@ -560,6 +560,13 @@ def _parse_details(details):
     return attribs, dsets
 
 
+def _get_res_details(res):
+    details = None  # This holds the 2nd return value from a cF, if any.
+    if isinstance(res, tuple):  # The cF has a 2nd return value.
+        if len(res) != 2:
+            raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="tuple with length {}" % len(res))
+        res, details = res
+    return res, details
 
 
 def process_io(func):
@@ -669,17 +676,11 @@ def process_io(func):
 
             # Now, actually call wrapped function
             # Put new outputs here!
-            res = func(arr, *wrkargs, **kwargs)
+            res, details = _get_res_details(func(arr, *wrkargs, **kwargs))
             # User-supplied cFs may return a single numpy.ndarray, or a 2-tuple of type (ndarray, sdict) where
             # 'ndarray' is a numpy.ndarray containing computation results to be stored in the Syncopy data type (like AnalogData),
             #  and 'sdict' is a shallow dictionary containing meta data that will be temporarily attached to the hdf5 container(s)
             # during the compute run, but removed/collected and returned as separate return values to the user in the frontend.
-            details = None
-            if isinstance(res, tuple):
-                # error if length of tuple is not 2.
-                if len(res) != 2:
-                    raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="tuple with length {}" % len(res))
-                res, details = res
 
             # In case scalar selections have been performed, explicitly assign
             # desired output shape to re-create "lost" singleton dimensions
@@ -693,13 +694,14 @@ def process_io(func):
             with h5py.File(outfilename, "w") as h5fout:
                 main_dset = h5fout.create_dataset(outdset, data=res)
                 # add new dataset/attribute to capture new outputs
-                attribs, dsets = _parse_details(details)
-                for k, v in attribs.items():
-                    main_dset.attrs.create(k, data=v)
-                if dsets:
-                    grp = h5fout.create_group("metadata")
-                    for k, v in dsets.items():
-                        grp.create_dataset(k, data=v)
+                if details is not None:
+                    attribs, dsets = _parse_details(details)
+                    for k, v in attribs.items():
+                        main_dset.attrs.create(k, data=v)
+                    if dsets:
+                        grp = h5fout.create_group("metadata")
+                        for k, v in dsets.items():
+                            grp.create_dataset(k, data=v)
                 h5fout.flush()
         else:
 
@@ -712,11 +714,23 @@ def process_io(func):
                 # get unique id (from outgrid?)
                 # to attach additional outputs
                 # to the one and only hdf5 container
-                target = h5fout[outdset]
+
+                #### The next part does not make any sense, because the datasets will be added to the
+                #### same container several times (in each iteration of the cF), and will overwrite
+                #### the values of previous iterations. It will be deleted, ignore.
+                main_dset = h5fout[outdset]
                 if keeptrials:
-                    target[outgrid] = res
+                    main_dset[outgrid] = res
                 else:
-                    target[()] = np.nansum([target, res], axis=0)
+                    main_dset[()] = np.nansum([main_dset, res], axis=0)
+                if details is not None:
+                    attribs, dsets = _parse_details(details)
+                    for k, v in attribs.items():
+                        main_dset.attrs.create(k, data=v)
+                    if dsets:
+                        grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")
+                        for k, v in dsets.items():
+                            grp.create_dataset(k, data=v)
                 h5fout.flush()
             lock.release()
 
