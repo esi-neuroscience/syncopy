@@ -633,7 +633,7 @@ def process_io(func):
         # `trl_dat` is a NumPy array or `FauxTrial` object: execute the wrapped
         # function and return its result
         if not isinstance(trl_dat, dict):
-            return func(trl_dat, *wrkargs, **kwargs)
+            raise SPYError("trl_dat is not a dict (but most likely ndarray): You are not supposed to be here, this branch should not be executed anymore.")
 
         ### Idea: hook .compute_sequential() from CR into here
 
@@ -704,23 +704,7 @@ def process_io(func):
                             grp.create_dataset(k, data=v)
                 h5fout.flush()
         else:
-
-            # Create distributed lock (use unique name so it's synced across workers)
-            lock = dd.lock.Lock(name='sequential_write')
-
-            # Either (continue to) compute average or write current chunk
-            lock.acquire()
-            with h5py.File(outfilename, "r+") as h5fout:
-                # get unique id (from outgrid?)
-                # to attach additional outputs
-                # to the one and only hdf5 container
-                main_dset = h5fout[outdset]
-                if keeptrials:
-                    main_dset[outgrid] = res
-                else:
-                    main_dset[()] = np.nansum([main_dset, res], axis=0)
-                h5fout.flush()
-            lock.release()
+            raise SPYError("vdsdir is None: You are not supposed to be here, this branch should not be executed anymore.")
 
         return None  # result has already been written to disk
 
