@@ -519,6 +519,30 @@ def detect_parallel_client(func):
     return parallel_client_detector
 
 
+def _parse_details(details):
+    """
+    Parse and validate extra cF return value.
+
+    Parameters
+    ----------
+    details: dict
+        The keys must be tuples of type (str, str), where the first str is a free-form name, and
+        the second str must be one of 'attr' or 'data', and defines whether this entry is an attribute ('attr') or a dataset ('data').
+        The values must be numpy ndarrays. For attributes, the size of the ndarray is limited to 64kB, i.e., they must be small.
+
+    Returns
+    -------
+    attribs: dict, where (key, value) are of type (str, ndarray) and the ndarrays are small.
+    dets: dict, where (key, value) are of type (str, ndarray)
+    """
+    attribs = dict()
+    dsets = dict()
+    # TODO: implement me.
+    return attribs, dsets
+
+
+
+
 def process_io(func):
     """
     Decorator for handling parallel execution of a
@@ -538,8 +562,8 @@ def process_io(func):
 
         * `trl_dat` : dict
           Wrapped `computeFunction` is executed concurrently; `trl_dat` was
-          assembled by the parallel branch of
-          :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.compute`
+          assembled by
+          :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.compute_parallel`
           and contains information for parallel workers (particularly, paths and
           dataset indices of HDF5 files for reading source data and writing results).
           Nothing is returned (the output of the wrapped `computeFunction` is
@@ -609,11 +633,14 @@ def process_io(func):
         if any([not sel for sel in ingrid]):
             res = np.empty(outshape, dtype=outdtype)
         else:
-            with h5py.File(infilename, mode="r") as h5fin:
-                if fancy:
-                    arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
-                else:
-                    arr = np.array(h5fin[indset][ingrid])
+            try:
+                with h5py.File(infilename, mode="r") as h5fin:
+                        if fancy:
+                            arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
+                        else:
+                            arr = np.array(h5fin[indset][ingrid])
+            except Exception as exc:  # TODO: aren't these 2 lines superfluous?
+                raise exc
 
             # === STEP 2 === perform computation
             # Ensure input array shape was not inflated by scalar selection
@@ -624,6 +651,16 @@ def process_io(func):
             # Now, actually call wrapped function
             # Put new outputs here!
             res = func(arr, *wrkargs, **kwargs)
+            # User-supplied cFs may return a single numpy.ndarray, or a 2-tuple of type (ndarray, sdict) where
+            # 'ndarray' is a numpy.ndarray containing computation results to be stored in the Syncopy data type (like AnalogData),
+            #  and 'sdict' is a shallow dictionary containing meta data that will be temporarily attached to the hdf5 container(s)
+            # during the compute run, but removed/collected and returned as separate return values to the user in the frontend.
+            details = None
+            if isinstance(res, tuple):
+                # error if length of tuple is not 2.
+                if len(res) != 2:
+                    raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="tuple with length {}" % len(res))
+                res, details = res
 
             # In case scalar selections have been performed, explicitly assign
             # desired output shape to re-create "lost" singleton dimensions
@@ -635,8 +672,17 @@ def process_io(func):
         # common single file (sequentially)
         if vdsdir is not None:
             with h5py.File(outfilename, "w") as h5fout:
-                h5fout.create_dataset(outdset, data=res)
+                main_dset = h5fout.create_dataset(outdset, data=res)
                 # add new dataset/attribute to capture new outputs
+                # TODO: add hdf5 Group here
+                attribs, dsets = _parse_details(details)
+                for k, v in attribs.items():
+                    main_dset.attrs.create(k, data=v)
+                if dsets:
+                    grp = h5fout.create_group("metadata")
+                    for k, v in dsets.items():
+                        grp.create_dataset(k, data=v)
+
                 h5fout.flush()
         else:
 
