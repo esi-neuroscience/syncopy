@@ -121,8 +121,6 @@ pypitest:
     - source $HOME/miniconda/etc/profile.d/conda.sh
     # get poetry with python 3.8
     - conda activate spy38
-    # bump to pre-release version
-    - poetry version prerelease
     - poetry build
     # needs config pypi credentials on runner
     - poetry publish -r testpypi
