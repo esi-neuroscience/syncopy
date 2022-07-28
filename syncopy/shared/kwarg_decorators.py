@@ -528,6 +528,7 @@ def _parse_details(details):
     details: dict
         The keys must be tuples of type (str, str), where the first str is a free-form name, and
         the second str must be one of 'attr' or 'data', and defines whether this entry is an attribute ('attr') or a dataset ('data').
+        Alternatively, keys that are just of type str are treated as attributes.
         The values must be numpy ndarrays. For attributes, the size of the ndarray is limited to 64kB, i.e., they must be small.
 
     Returns
@@ -535,9 +536,27 @@ def _parse_details(details):
     attribs: dict, where (key, value) are of type (str, ndarray) and the ndarrays are small.
     dets: dict, where (key, value) are of type (str, ndarray)
     """
+    if not isinstance(details, dict):
+        raise SPYTypeError(details, varname="details", expected="dict")
     attribs = dict()
     dsets = dict()
-    # TODO: implement me.
+    for k, v in details.entries():
+        if not isinstance(v, np.ndarray):
+            raise SPYTypeError(v, varname="value in details", expected="np.ndarray")
+        if isinstance(k, tuple):
+            if len(k) != 2:
+                raise SPYValueError("keys in details must be 2-tuples or strings", varname="details", actual="tuple with length {}" % len(k))
+            else:
+                if k[1] == "attr":
+                    attribs[k[0]] = v
+                elif k[1] == "data":
+                    dsets[k[0]] = v
+                else:
+                    raise SPYValueError("second value of 2-tuple keys in details must be strings with value 'attr' or 'data'", varname="details")
+        elif isinstance(k, str):    # We assume it is an attrib if it is only a str key.
+            attribs[k] = v
+        else:
+            raise SPYValueError("keys in details must be 2-tuples or strings", varname="details")
     return attribs, dsets
 
 
@@ -674,7 +693,6 @@ def process_io(func):
             with h5py.File(outfilename, "w") as h5fout:
                 main_dset = h5fout.create_dataset(outdset, data=res)
                 # add new dataset/attribute to capture new outputs
-                # TODO: add hdf5 Group here
                 attribs, dsets = _parse_details(details)
                 for k, v in attribs.items():
                     main_dset.attrs.create(k, data=v)
@@ -682,7 +700,6 @@ def process_io(func):
                     grp = h5fout.create_group("metadata")
                     for k, v in dsets.items():
                         grp.create_dataset(k, data=v)
-
                 h5fout.flush()
         else:
 
