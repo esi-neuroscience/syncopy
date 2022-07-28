@@ -639,7 +639,6 @@ def process_io(func):
 
 
         # The fun part: `trl_dat` is a dictionary holding components for parallelization
-        keeptrials = trl_dat["keeptrials"]
         infilename = trl_dat["infile"]
         indset = trl_dat["indset"]
         ingrid = trl_dat["ingrid"]
