@@ -538,8 +538,8 @@ def process_io(func):
 
         * `trl_dat` : dict
           Wrapped `computeFunction` is executed concurrently; `trl_dat` was
-          assembled by
-          :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.compute_parallel`
+          assembled by the parallel branch of
+          :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.compute`
           and contains information for parallel workers (particularly, paths and
           dataset indices of HDF5 files for reading source data and writing results).
           Nothing is returned (the output of the wrapped `computeFunction` is
