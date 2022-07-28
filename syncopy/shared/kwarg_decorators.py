@@ -714,23 +714,11 @@ def process_io(func):
                 # get unique id (from outgrid?)
                 # to attach additional outputs
                 # to the one and only hdf5 container
-
-                #### The next part does not make any sense, because the datasets will be added to the
-                #### same container several times (in each iteration of the cF), and will overwrite
-                #### the values of previous iterations. It will be deleted, ignore.
                 main_dset = h5fout[outdset]
                 if keeptrials:
                     main_dset[outgrid] = res
                 else:
                     main_dset[()] = np.nansum([main_dset, res], axis=0)
-                if details is not None:
-                    attribs, dsets = _parse_details(details)
-                    for k, v in attribs.items():
-                        main_dset.attrs.create(k, data=v)
-                    if dsets:
-                        grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")
-                        for k, v in dsets.items():
-                            grp.create_dataset(k, data=v)
                 h5fout.flush()
             lock.release()
 
