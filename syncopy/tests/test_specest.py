@@ -334,7 +334,6 @@ class TestMTMFFT():
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()
                      if (inspect.ismethod(getattr(self, attr)) and attr not in ["test_parallel", "test_cut_selections"])]
-        all_tests.remove("test_vdata")
         for test in all_tests:
             getattr(self, test)()
             flush_local_cluster(testcluster)
