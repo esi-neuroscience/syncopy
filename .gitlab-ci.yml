@@ -44,6 +44,8 @@ powerlinux:
     - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
+    # see https://github.com/conda/conda/issues/10178
+    - conda install ruamel.yaml
     - tox -p 0
 
 intelwin:
@@ -104,7 +106,7 @@ slurmtest:
     - srun -p DEV --mem=8000m -c 4 pytest --full test_specest.py -k 'para'
     - srun -p DEV --mem=8000m -c 4 pytest --full test_connectivity.py
     - srun -p DEV --mem=8000m -c 4 pytest --full --ignore=test_specest.py --ignore=test_connectivity.py
-
+    
 pypitest:
     stage: upload
     only:
@@ -115,22 +117,18 @@ pypitest:
     variables:
         GIT_FETCH_EXTRA_FLAGS: --tags
     script:
+    - rm -rf dist/
     - source $HOME/miniconda/etc/profile.d/conda.sh
-    - conda update --yes conda
-    - conda clean --all -y
-    - conda env update -f syncopy.yml --prune
-    - conda activate syncopy
-    - conda install --yes twine keyring rfc3986
-    - conda update --yes twine keyring rfc3986
-    - rm -rf dist/ build/ esi_syncopy.egg-info/
-    - python setup.py sdist bdist_wheel
-    - tarname="$(basename -- $(ls dist/*.tar.gz) .tar.gz)"
-    - version=$(sed -e 's/esi-syncopy-\(.*\)/\1/' <<< "$tarname")
-    - twine upload --repository testpypi --config-file=~/.esipypirc dist/*
+    # get poetry with python 3.8
+    - conda activate spy38
+    - poetry build
+    # needs config pypi credentials on runner
+    - poetry publish -r testpypi
     - sleep 300
     - conda create --yes --name piptest python=3.8
     - conda activate piptest
     - conda install --yes pip
+    - version=$(grep 'version =' pyproject.toml | awk -F "\"" '{print $2}')
     - pip --no-cache-dir install --extra-index-url https://test.pypi.org/simple esi-syncopy==$version
     - python -c "import syncopy as spy"
     - conda deactivate
@@ -146,13 +144,10 @@ pypideploy:
     variables:
         GIT_FETCH_EXTRA_FLAGS: --tags
     script:
+    - rm -rf dist/
     - source $HOME/miniconda/etc/profile.d/conda.sh
-    - conda update --yes conda
-    - conda clean --all -y
-    - conda env update -f syncopy.yml --prune
-    - conda activate syncopy
-    - conda install --yes twine keyring rfc3986
-    - conda update --yes twine keyring rfc3986
-    - rm -rf dist/ build/ esi_syncopy.egg-info/
-    - python setup.py sdist bdist_wheel
-    - twine upload --config-file=~/.esipypirc dist/*
+    # get poetry with python 3.8
+    - conda activate spy38
+    - poetry build
+    # needs config pypi credentials on runner
+    - poetry publish -r pypi
