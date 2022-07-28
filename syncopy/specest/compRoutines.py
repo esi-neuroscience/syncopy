@@ -929,15 +929,11 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
         return outShape, spectralDTypes['pow']
 
     # Call actual fooof method
-    res, _ = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
+    res, details = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
                       fooof_opt=method_kwargs)
 
-    # TODO (later): get the 'details' from the unused _ return
-    #  value and pass them on. This cannot be done right now due
-    #  to lack of support for several return values, see #140.
-
     res = res[np.newaxis, np.newaxis, :, :]  # Re-add omitted axes.
-    return res
+    return res, details
 
 
 class FooofSpy(ComputationalRoutine):
