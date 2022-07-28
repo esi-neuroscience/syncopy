@@ -121,6 +121,8 @@ pypitest:
     - source $HOME/miniconda/etc/profile.d/conda.sh
     # get poetry with python 3.8
     - conda activate spy38
+    # bump pre-release version
+    - poetry version prerelease
     - poetry build
     # needs config pypi credentials on runner
     - poetry publish -r testpypi
@@ -128,7 +130,7 @@ pypitest:
     - conda create --yes --name piptest python=3.8
     - conda activate piptest
     - conda install --yes pip
-    - version=$(grep 'version =' pyproject.toml | awk -F "\"" '{print $2}')
+    - version=$(poetry version --short)
     - pip --no-cache-dir install --extra-index-url https://test.pypi.org/simple esi-syncopy==$version
     - python -c "import syncopy as spy"
     - conda deactivate
