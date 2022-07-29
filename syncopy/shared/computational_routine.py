@@ -608,6 +608,8 @@ class ComputationalRoutine(ABC):
 
         if parallel:
 
+            print("compute(): running parallel branch")
+
             # Construct list of dicts that will be passed on to workers: in the
             # parallel case, `trl_dat` is a dictionary!
             workerDicts = [{"keeptrials": self.keeptrials,
@@ -705,6 +707,8 @@ class ComputationalRoutine(ABC):
 
         # Now for the sequential processing case.
         else:
+
+            print("compute(): running sequential branch")
 
             # Prepare our sequential map
             self.smap = { 'cF': self.computeFunction,
@@ -832,6 +836,8 @@ class ComputationalRoutine(ABC):
         compute_sequential : serial processing counterpart of this method
         """
 
+        print("compute_parallel(): called")
+
         # Let ACME do the heavy lifting
         with self.pmap as pm:
             pm.compute(debug=self.parallelDebug)
@@ -879,6 +885,9 @@ class ComputationalRoutine(ABC):
         compute_parallel : concurrent processing counterpart of this method
         """
 
+
+        print("compute_sequential(): called, handling {} trials.".format(self.numTrials))
+
         sourceObj = h5py.File(data.filename, mode="r")[data.data.name]
 
         # Iterate over (selected) trials and write directly to target HDF5 dataset
@@ -917,7 +926,10 @@ class ComputationalRoutine(ABC):
                     res, details = get_res_details(self.computeFunction(arr, *argv, **self.cfg))
 
                     if details is not None:
-                        print("********* received details in sequential part***************")
+                        print("compute_sequential(): ********* received filled details in sequential part***************")
+                    else:
+                        print("compute_sequential(): ********* received NONE details in sequential part***************")
+
 
                     # In case scalar selections have been performed, explicitly assign
                     # desired output shape to re-create "lost" singleton dimensions

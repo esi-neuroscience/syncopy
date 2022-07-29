@@ -69,7 +69,7 @@ class TestFooofSpy():
         """
         cfg = TestFooofSpy.get_fooof_cfg()
         cfg.pop('fooof_opt', None)
-        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
         spec_dt = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
 
         # check frequency axis
