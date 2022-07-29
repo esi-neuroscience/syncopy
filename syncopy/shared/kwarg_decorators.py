@@ -595,7 +595,8 @@ def get_res_details(res):
 def h5_add_details(hdf5_filename, details):
     """
     Add details, the second return value of user-supplied cF, as a 'metadata' group to an existing hdf5 file.
-    This is not thread-safe.
+    This is not thread-safe and it assumes that no metadata exists yet in the hdf5. It does not try to create unique keys.
+    I.e., it is supposed to work on a part of a virtual hdf5 dataset, in `store_parallel=true` mode.
 
     Parameters
     ----------
