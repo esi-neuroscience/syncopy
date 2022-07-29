@@ -932,6 +932,11 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
     res, details = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
                       fooof_opt=method_kwargs)
 
+    del details['settings_used']  # We like to keep this in the return value of the
+    # backend functions for now (the vast majority of unit tests rely on it), but
+    # nested dicts are not allowed in the additional return value of cFs, so we remove
+    # it before passing the return value on.
+
     res = res[np.newaxis, np.newaxis, :, :]  # Re-add omitted axes.
     return res, details
 

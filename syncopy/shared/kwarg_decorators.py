@@ -730,6 +730,8 @@ def process_io(func):
             #  and 'sdict' is a shallow dictionary containing meta data that will be temporarily attached to the hdf5 container(s)
             # during the compute run, but removed/collected and returned as separate return values to the user in the frontend.
 
+            assert isinstance(res, np.ndarray)
+
             # In case scalar selections have been performed, explicitly assign
             # desired output shape to re-create "lost" singleton dimensions
             # (use an explicit `shape` assignment here to avoid copies)
@@ -753,13 +755,13 @@ def process_io(func):
             # Either (continue to) compute average or write current chunk
             lock.acquire()
             with h5py.File(outfilename, "r+") as h5fout:
-                # get unique id (from outgrid?)
-                # to attach additional outputs
-                # to the one and only hdf5 container
 
-                #### TODO: The next part does not make any sense, because the datasets will be added to the
+                #### TODO: The next part does not make any sense yet, because the datasets will be added to the
                 #### same container several times (in each iteration of the cF), and will overwrite
                 #### the values of previous iterations. It will be deleted, ignore.
+
+                unique_id = 5  # TODO: get unique id (from outgrid?) to attach additional outputs to the one and only hdf5 container.
+
                 main_dset = h5fout[outdset]
                 if keeptrials:
                     main_dset[outgrid] = res
@@ -768,11 +770,13 @@ def process_io(func):
                 if details is not None:
                     attribs, dsets = _parse_details(details)
                     for k, v in attribs.items():
-                        main_dset.attrs.create(k, data=v)
+                        k_unique = k + "_" + str(unique_id)
+                        main_dset.attrs.create(k_unique, data=v)
                     if dsets:
                         grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")
                         for k, v in dsets.items():
-                            grp.create_dataset(k, data=v)
+                            k_unique = k + "_" + str(unique_id)
+                            grp.create_dataset(k_unique, data=v)
                 h5fout.flush()
             lock.release()
 

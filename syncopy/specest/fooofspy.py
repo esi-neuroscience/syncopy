@@ -156,7 +156,7 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
         gaussian_params.append(fm.gaussian_params_)
         peak_params.append(fm.peak_params_)
 
-    #settings_used = {'fooof_opt': fooof_opt, 'out_type': out_type, 'freq_range': freq_range}
-    details = {'aperiodic_params': aperiodic_params, 'gaussian_params': gaussian_params, 'peak_params': peak_params, 'n_peaks': n_peaks, 'r_squared': r_squared, 'error': error} # 'settings_used': settings_used}
+    settings_used = {'fooof_opt': fooof_opt, 'out_type': out_type, 'freq_range': freq_range}
+    details = {'aperiodic_params': aperiodic_params, 'gaussian_params': gaussian_params, 'peak_params': peak_params, 'n_peaks': n_peaks, 'r_squared': r_squared, 'error': error, 'settings_used': settings_used}
 
     return out_spectra, details
