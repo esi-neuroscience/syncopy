@@ -376,7 +376,7 @@ class DataSelection(ComputationalRoutine):
 
     computeFunction = staticmethod(_selectdata)
 
-    def process_metadata(self, data, out):
+    def process_metadata(self, data, out, metadata=None):
 
         # Get/set timing-related selection modifiers
         out.trialdefinition = data.selection.trialdefinition

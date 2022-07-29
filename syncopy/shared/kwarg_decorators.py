@@ -536,13 +536,21 @@ def _parse_details(details):
     attribs: dict, where (key, value) are of type (str, ndarray) and the ndarrays are small.
     dets: dict, where (key, value) are of type (str, ndarray)
     """
-    if not isinstance(details, dict):
-        raise SPYTypeError(details, varname="details", expected="dict")
     attribs = dict()
     dsets = dict()
-    for k, v in details.entries():
+
+    if details is None:
+        return attribs, dsets
+
+    if not isinstance(details, dict):
+        raise SPYTypeError(details, varname="details", expected="dict")
+
+    for k, v in details.items():
         if not isinstance(v, np.ndarray):
-            raise SPYTypeError(v, varname="value in details", expected="np.ndarray")
+            if isinstance(v, list): # Be nice and convert it ourselves.
+                v = np.array(v)
+            else:
+                raise SPYTypeError(v, varname="value in details", expected="np.ndarray")
         if isinstance(k, tuple):
             if len(k) != 2:
                 raise SPYValueError("keys in details must be 2-tuples or strings", varname="details", actual="tuple with length {}" % len(k))
@@ -560,14 +568,53 @@ def _parse_details(details):
     return attribs, dsets
 
 
-def _get_res_details(res):
+def get_res_details(res):
+    """
+    Split the first and second return value of user-supplied cF, if a second one exists.
+
+    Returns
+    -------
+    res: np.ndarray
+    details: dict or None
+    """
+
     details = None  # This holds the 2nd return value from a cF, if any.
     if isinstance(res, tuple):  # The cF has a 2nd return value.
         if len(res) != 2:
             raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="tuple with length {}" % len(res))
-        res, details = res
+        else:
+            res, details = res
+        if not details is None: # Accept and silently ignore a 2nd return value of None.
+            if not isinstance(details, dict):
+                    raise SPYValueError("the second return value of user-supplied compute functions must be a dict")
+    else:
+        if not isinstance(res, np.ndarray):
+            raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="neither tuple nor np.ndarray")
     return res, details
 
+def h5_add_details(hdf5_filename, details):
+    """
+    Add details, the second return value of user-supplied cF, as a 'metadata' group to an existing hdf5 file.
+    This is not thread-safe.
+
+    Parameters
+    ----------
+    hdf5_filename: str
+        Path to existing hdf5 file. The file will be openend in write mode, written to, and then flushed and closed.
+    details: dict
+        The second return value of user-supplied cF, with the limitations described in `_parse_details()`.
+
+    """
+    if details is not None:
+        with h5py.File(hdf5_filename, "w") as h5fout:
+            grp = h5fout.create_group("metadata")
+            attribs, dsets = _parse_details(details)
+            for k, v in attribs.items():
+                grp.attrs.create(k, data=v)
+            if dsets:
+                for k, v in dsets.items():
+                    grp.create_dataset(k, data=v)
+            h5fout.flush()
 
 def process_io(func):
     """
@@ -633,12 +680,14 @@ def process_io(func):
         # `trl_dat` is a NumPy array or `FauxTrial` object: execute the wrapped
         # function and return its result
         if not isinstance(trl_dat, dict):
-            raise SPYError("trl_dat is not a dict (but most likely ndarray): You are not supposed to be here, this branch should not be executed anymore.")
+            print("trl_dat is not a dict (but most likely ndarray): You are not supposed to be here, this branch should not be executed anymore.")
+            return func(trl_dat, *wrkargs, **kwargs)
 
         ### Idea: hook .compute_sequential() from CR into here
 
 
         # The fun part: `trl_dat` is a dictionary holding components for parallelization
+        keeptrials = trl_dat["keeptrials"]
         infilename = trl_dat["infile"]
         indset = trl_dat["indset"]
         ingrid = trl_dat["ingrid"]
@@ -675,7 +724,7 @@ def process_io(func):
 
             # Now, actually call wrapped function
             # Put new outputs here!
-            res, details = _get_res_details(func(arr, *wrkargs, **kwargs))
+            res, details = get_res_details(func(arr, *wrkargs, **kwargs))
             # User-supplied cFs may return a single numpy.ndarray, or a 2-tuple of type (ndarray, sdict) where
             # 'ndarray' is a numpy.ndarray containing computation results to be stored in the Syncopy data type (like AnalogData),
             #  and 'sdict' is a shallow dictionary containing meta data that will be temporarily attached to the hdf5 container(s)
@@ -691,19 +740,41 @@ def process_io(func):
         # common single file (sequentially)
         if vdsdir is not None:
             with h5py.File(outfilename, "w") as h5fout:
-                main_dset = h5fout.create_dataset(outdset, data=res)
+                h5fout.create_dataset(outdset, data=res)
+                h5fout.flush()
                 # add new dataset/attribute to capture new outputs
+            h5_add_details(outfilename, details)
+        else:
+
+            print("vdsdir is None/sequential writing active: You are not supposed to be here, this branch should not be executed anymore.")
+
+            # Create distributed lock (use unique name so it's synced across workers)
+            lock = dd.lock.Lock(name='sequential_write')
+            # Either (continue to) compute average or write current chunk
+            lock.acquire()
+            with h5py.File(outfilename, "r+") as h5fout:
+                # get unique id (from outgrid?)
+                # to attach additional outputs
+                # to the one and only hdf5 container
+
+                #### TODO: The next part does not make any sense, because the datasets will be added to the
+                #### same container several times (in each iteration of the cF), and will overwrite
+                #### the values of previous iterations. It will be deleted, ignore.
+                main_dset = h5fout[outdset]
+                if keeptrials:
+                    main_dset[outgrid] = res
+                else:
+                    main_dset[()] = np.nansum([main_dset, res], axis=0)
                 if details is not None:
                     attribs, dsets = _parse_details(details)
                     for k, v in attribs.items():
                         main_dset.attrs.create(k, data=v)
                     if dsets:
-                        grp = h5fout.create_group("metadata")
+                        grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")
                         for k, v in dsets.items():
                             grp.create_dataset(k, data=v)
                 h5fout.flush()
-        else:
-            raise SPYError("vdsdir is None: You are not supposed to be here, this branch should not be executed anymore.")
+            lock.release()
 
         return None  # result has already been written to disk
 

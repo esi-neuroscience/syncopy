@@ -192,7 +192,7 @@ class ST_CrossSpectra(ComputationalRoutine):
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ['tapsmofrq', 'nTaper', 'pad_to_length']
 
-    def process_metadata(self, data, out):
+    def process_metadata(self, data, out, metadata=None):
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -364,7 +364,7 @@ class ST_CrossCovariance(ComputationalRoutine):
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(cross_covariance_cF).parameters.keys())[1:]
 
-    def process_metadata(self, data, out):
+    def process_metadata(self, data, out, metadata=None):
 
         # Get trialdef array + channels from source: note, since lags are encoded
         # in time-axis, trial offsets etc. are bogus anyway: simply take max-sample

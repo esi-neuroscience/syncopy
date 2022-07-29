@@ -30,6 +30,7 @@ if __acme__:
     # # In case of problems w/worker-stealing, uncomment the following lines
     # import dask
     # dask.config.set(distributed__scheduler__work_stealing=False)
+from syncopy.shared.kwarg_decorators import get_res_details, _parse_details, h5_add_details
 
 __all__ = []
 
@@ -185,6 +186,9 @@ class ComputationalRoutine(ABC):
 
         # instance of ACME's `ParallelMap` to handle actual parallel computing workload
         self.pmap = None
+
+        # dictionary acting as a replacement for `self.pmap` in the sequential case
+        self.smap = None
 
         # directory for storing source-HDF5 files making up virtual output dataset
         self.virtualDatasetDir = None
@@ -602,49 +606,50 @@ class ComputationalRoutine(ABC):
         # Create HDF5 dataset of appropriate dimension
         self.preallocate_output(out, parallel_store=parallel_store)
 
+        # Construct list of dicts that will be passed on to workers: in the
+        # parallel case, `trl_dat` is a dictionary!
+        workerDicts = [{"keeptrials": self.keeptrials,
+                        "infile": data.filename,
+                        "indset": data.data.name,
+                        "ingrid": self.sourceLayout[chk],
+                        "inshape": self.sourceShapes[chk],
+                        "sigrid": self.sourceSelectors[chk],
+                        "fancy": self.useFancyIdx,
+                        "vdsdir": self.virtualDatasetDir,
+                        "outfile": self.outFileName.format(chk),
+                        "outdset": self.tmpDsetName,
+                        "outgrid": self.targetLayout[chk],
+                        "outshape": self.targetShapes[chk],
+                        "dtype": self.dtype} for chk in range(self.numCalls)]
+
+
+        # If channel-block parallelization has been set up, positional args of
+        # `computeFunction` need to be massaged: any list whose elements represent
+        # trial-specific args, needs to be expanded (so that each channel-block
+        # per trial receives the correct number of pos. args)
+        ArgV = list(self.argv)
+        if self.numBlocksPerTrial > 1:
+            for ak, arg in enumerate(self.argv):
+                if isinstance(arg, (list, tuple)):
+                    if len(arg) == self.numTrials:
+                        unrolled = chain.from_iterable([[ag] * self.numBlocksPerTrial for ag in arg])
+                        if isinstance(arg, list):
+                            ArgV[ak] = list(unrolled)
+                        else:
+                            ArgV[ak] = tuple(unrolled)
+                elif isinstance(arg, np.ndarray):
+                    if len(arg.squeeze().shape) == 1 and arg.squeeze().size == self.numTrials:
+                        ArgV[ak] = np.array(chain.from_iterable([[ag] * self.numBlocksPerTrial for ag in arg]))
+
+        # Positional args for computeFunctions consist of `trl_dat` + others
+        # (stored in `ArgV`). Account for this when seeting up `ParallelMap`
+        if len(ArgV) == 0:
+            inargs = (workerDicts, )
+        else:
+            inargs = (workerDicts, *ArgV)
+
         # Concurrent processing requires some additional prep-work...
         if parallel:
-
-            # Construct list of dicts that will be passed on to workers: in the
-            # parallel case, `trl_dat` is a dictionary!
-            workerDicts = [{"keeptrials": self.keeptrials,
-                            "infile": data.filename,
-                            "indset": data.data.name,
-                            "ingrid": self.sourceLayout[chk],
-                            "inshape": self.sourceShapes[chk],
-                            "sigrid": self.sourceSelectors[chk],
-                            "fancy": self.useFancyIdx,
-                            "vdsdir": self.virtualDatasetDir,
-                            "outfile": self.outFileName.format(chk),
-                            "outdset": self.tmpDsetName,
-                            "outgrid": self.targetLayout[chk],
-                            "outshape": self.targetShapes[chk],
-                            "dtype": self.dtype} for chk in range(self.numCalls)]
-
-            # If channel-block parallelization has been set up, positional args of
-            # `computeFunction` need to be massaged: any list whose elements represent
-            # trial-specific args, needs to be expanded (so that each channel-block
-            # per trial receives the correct number of pos. args)
-            ArgV = list(self.argv)
-            if self.numBlocksPerTrial > 1:
-                for ak, arg in enumerate(self.argv):
-                    if isinstance(arg, (list, tuple)):
-                        if len(arg) == self.numTrials:
-                            unrolled = chain.from_iterable([[ag] * self.numBlocksPerTrial for ag in arg])
-                            if isinstance(arg, list):
-                                ArgV[ak] = list(unrolled)
-                            else:
-                                ArgV[ak] = tuple(unrolled)
-                    elif isinstance(arg, np.ndarray):
-                        if len(arg.squeeze().shape) == 1 and arg.squeeze().size == self.numTrials:
-                            ArgV[ak] = np.array(chain.from_iterable([[ag] * self.numBlocksPerTrial for ag in arg]))
-
-            # Positional args for computeFunctions consist of `trl_dat` + others
-            # (stored in `ArgV`). Account for this when seeting up `ParallelMap`
-            if len(ArgV) == 0:
-                inargs = (workerDicts, )
-            else:
-                inargs = (workerDicts, *ArgV)
 
             # Let ACME take care of argument distribution and memory checks: note
             # that `cfg` is trial-independent, i.e., we can simply throw it in here!
@@ -696,8 +701,16 @@ class ComputationalRoutine(ABC):
             # Store provided debugging state
             self.parallelDebug = parallel_debug
 
-        # For sequential processing, just ensure enough memory is available
+        # Now for the sequential processing case.
         else:
+
+            # Prepare our sequential map
+            self.smap = { 'cF': self.computeFunction,
+                     'inargs': inargs,  # First entry is workerdicts
+                     'n_inputs': self.numCalls,
+                     'cfg': self.cfg }
+
+            # We only check memory
             memSize = psutil.virtual_memory().available
             if self.chunkMem >= mem_thresh * memSize:
                 self.chunkMem /= 1024**3
@@ -726,10 +739,12 @@ class ComputationalRoutine(ABC):
         data.mode = self.dataMode
 
         # Attach computed results to output object
-        out.data = h5py.File(out.filename, mode="r+")[self.outDatasetName]
+        h5f = h5py.File(out.filename, mode="r+")
+        out.data = h5f[self.outDatasetName]
+        metadata = h5f['metadata'] if 'metadata' in h5f else None
 
         # Store meta-data, write log and get outta here
-        self.process_metadata(data, out)
+        self.process_metadata(data, out, metadata=metadata)
         self.write_log(data, out, log_dict)
 
     def preallocate_output(self, out, parallel_store=False):
@@ -895,7 +910,7 @@ class ComputationalRoutine(ABC):
                     arr.shape = self.sourceShapes[nblock]
 
                     # Perform computation
-                    res = self.computeFunction(arr, *argv, **self.cfg)
+                    res, details = get_res_details(self.computeFunction(arr, *argv, **self.cfg))
 
                     # In case scalar selections have been performed, explicitly assign
                     # desired output shape to re-create "lost" singleton dimensions
@@ -914,6 +929,12 @@ class ComputationalRoutine(ABC):
             # If trial-averaging was requested, normalize computed sum to get mean
             if not self.keeptrials:
                 target[()] /= self.numTrials
+
+        # TODO: currently the storing of details is broken in the sequential case,
+        # since this will only store the details for the last function call in the
+        # loop above, all others will be overwritten.
+        print("TODO: fix details storing in sequential case!")
+        h5_add_details(out.filename, details)
 
         # If source was HDF5 file, close it to prevent access errors
         sourceObj.file.close()
@@ -965,7 +986,7 @@ class ComputationalRoutine(ABC):
         out.log = logHead + logOpts
 
     @abstractmethod
-    def process_metadata(self, data, out):
+    def process_metadata(self, data, out, metadata=None):
         """
         Meta-information manager
 
@@ -975,6 +996,7 @@ class ComputationalRoutine(ABC):
            Syncopy data object that has been processed
         out : syncopy data object
            Syncopy data object holding calculation results
+        metadata : metadata holding additional return value of cF
 
         Returns
         -------

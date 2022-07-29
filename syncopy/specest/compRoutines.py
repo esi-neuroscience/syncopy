@@ -189,7 +189,7 @@ class MultiTaperFFT(ComputationalRoutine):
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ['tapsmofrq', 'nTaper', 'pad', 'fooof_opt']
 
-    def process_metadata(self, data, out):
+    def process_metadata(self, data, out, metadata=None):
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -416,7 +416,7 @@ class MultiTaperFFTConvol(ComputationalRoutine):
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ['tapsmofrq', 't_ftimwin', 'nTaper']
 
-    def process_metadata(self, data, out):
+    def process_metadata(self, data, out, metadata=None):
 
         # Get trialdef array + channels from source
         if data.selection is not None:
@@ -589,7 +589,7 @@ class WaveletTransform(ComputationalRoutine):
     valid_kws += list(signature(wavelet_cF).parameters.keys())[1:-1]
     valid_kws += ["width"]
 
-    def process_metadata(self, data, out):
+    def process_metadata(self, data, out, metadata=None):
 
         # Get trialdef array + channels from source
         if data.selection is not None:
@@ -753,7 +753,7 @@ class SuperletTransform(ComputationalRoutine):
     valid_kws = list(signature(superlet).parameters.keys())[1:]
     valid_kws += list(signature(superlet_cF).parameters.keys())[1:-1]
 
-    def process_metadata(self, data, out):
+    def process_metadata(self, data, out, metadata=None):
 
         # Get trialdef array + channels from source
         if data.selection is not None:
@@ -958,13 +958,16 @@ class FooofSpy(ComputationalRoutine):
     valid_kws += ["fooof_settings"]
 
     # To attach metadata to the output of the CF
-    def process_metadata(self, data, out):
+    def process_metadata(self, data, out, metadata=None):
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
             chanSec = data.selection.channel
         else:
             chanSec = slice(None)
+
+        if metadata:
+            print("Received metadata.")
 
         # Attach remaining meta-data
         out.samplerate = data.samplerate
