@@ -916,6 +916,9 @@ class ComputationalRoutine(ABC):
                     # Perform computation
                     res, details = get_res_details(self.computeFunction(arr, *argv, **self.cfg))
 
+                    if details is not None:
+                        print("********* received details in sequential part***************")
+
                     # In case scalar selections have been performed, explicitly assign
                     # desired output shape to re-create "lost" singleton dimensions
                     # (use an explicit `shape` assignment here to avoid copies)
