@@ -921,6 +921,22 @@ class ComputationalRoutine(ABC):
                     # (use an explicit `shape` assignment here to avoid copies)
                     res.shape = self.targetShapes[nblock]
 
+                    if not 'metadata' in h5fout:
+                        grp = h5fout.create_group("metadata")
+                    else:
+                        grp = h5fout['metadata']
+                    attribs, dsets = _parse_details(details)
+
+                    unique_key = nblock
+
+                    for k, v in attribs.items():
+                        k_unique = str(k) + "_" + str(unique_key)
+                        grp.attrs.create(k_unique, data=v)
+                    if dsets:
+                        for k, v in dsets.items():
+                            k_unique = str(k) + "_" + str(unique_key)
+                            grp.create_dataset(k_unique, data=v)
+
                 # Either write result to `outgrid` location in `target` or add it up
                 if self.keeptrials:
                     target[outgrid] = res
@@ -938,7 +954,6 @@ class ComputationalRoutine(ABC):
         # since this will only store the details for the last function call in the
         # loop above, all others will be overwritten.
         print("TODO: fix details storing in sequential case!")
-        # h5_add_details(out.filename, details) <-- TODO: this breaks the hdf5 for some reason
 
         # If source was HDF5 file, close it to prevent access errors
         sourceObj.file.close()
