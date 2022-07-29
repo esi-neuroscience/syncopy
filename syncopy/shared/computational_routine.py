@@ -938,7 +938,7 @@ class ComputationalRoutine(ABC):
         # since this will only store the details for the last function call in the
         # loop above, all others will be overwritten.
         print("TODO: fix details storing in sequential case!")
-        h5_add_details(out.filename, details)
+        # h5_add_details(out.filename, details) <-- TODO: this breaks the hdf5 for some reason
 
         # If source was HDF5 file, close it to prevent access errors
         sourceObj.file.close()
