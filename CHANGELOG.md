@@ -20,6 +20,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - `connectivityanalysis` now has FT compliant output support for the coherence
 - `spy.cleanup` now has exposed `interactive` parameter
 - removed keyword `deep` from `copy()`, all our copies are in fact deep
+- demeaning after tapering for granger analysis
 
 ### FIXED
 - `out.cfg` global side-effects (sorry again @kajal5888)
