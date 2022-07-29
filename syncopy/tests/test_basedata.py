@@ -187,6 +187,10 @@ class TestBaseData():
                 dummy = getattr(spd, dclass)(data=h5py.File(hname, 'r')["dummy"],
                                              samplerate=self.samplerate)
 
+                # attach some aux. info
+                dummy.info = {'sth': 4, 'important': [1, 2],
+                              'to-remember': {'v1': 2}}
+
                 # test integrity of deep-copy
                 dummy.trialdefinition = self.trl[dclass]
                 dummy2 = dummy.copy()
@@ -196,6 +200,7 @@ class TestBaseData():
                 assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
                 assert np.array_equal(dummy.data, dummy2.data)
                 assert dummy.samplerate == dummy2.samplerate
+                assert dummy.info == dummy2.info
 
                 # Delete all open references to file objects b4 closing tmp dir
                 del dummy, dummy2

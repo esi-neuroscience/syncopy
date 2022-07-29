@@ -6,6 +6,7 @@
 # Builtin/3rd party package imports
 import numpy as np
 import inspect
+import json
 
 # Local imports
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYTypeError
@@ -45,6 +46,36 @@ class StructDict(dict):
         else:
             ppStr = "{}"
         return ppStr
+
+
+class SerializableDict(dict):
+
+    """
+    It's a dict which checks newly inserted
+    values for serializability, keys should always be serializable
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # check also initial entries
+        for key, value in self.items():
+            self.is_json(key, value)
+
+    def __setitem__(self, key, value):
+        self.is_json(key, value)
+        dict.__setitem__(self, key, value)
+
+    def is_json(self, key, value):
+        try:
+            json.dumps(value)
+        except TypeError:
+            lgl = "serializable data type, e.g. floats, lists, tuples, ... "
+            raise SPYTypeError(value, f"value for key '{key}'", lgl)
+        try:
+            json.dumps(key)
+        except TypeError:
+            lgl = "serializable data type, e.g. floats, lists, tuples, ... "
+            raise SPYTypeError(value, f"key '{key}'", lgl)
 
 
 def get_frontend_cfg(defaults, lcls, kwargs):
