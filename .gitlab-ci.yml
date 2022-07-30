@@ -105,7 +105,7 @@ slurmtest:
     - srun -p DEV --mem=8000m -c 4 pytest --full test_specest.py -k 'not para'
     - srun -p DEV --mem=8000m -c 4 pytest --full test_specest.py -k 'para'
     - srun -p DEV --mem=8000m -c 4 pytest --full test_connectivity.py
-    - srun -p DEV --mem=8000m -c 4 pytest --full --ignore=test_specest.py --ignore=test_connectivity.py
+    - srun -p 8GBL --mem=8000m -c 4 pytest --full --ignore=test_specest.py --ignore=test_connectivity.py
     
 pypitest:
     stage: upload
