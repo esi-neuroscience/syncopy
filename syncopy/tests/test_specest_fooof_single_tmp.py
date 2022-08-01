@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Test FOOOF integration from user/frontend perspective.
+# Test metadata implementation.
 
 
 import pytest
@@ -40,11 +40,10 @@ def _get_fooof_signal(nTrials=100):
     return signal
 
 
-class TestFooofSpy():
+class TestMetadataUsingFooof():
     """
-    Test the frontend (user API) for running FOOOF. FOOOF is a post-processing of an FFT, and
-    to request the post-processing, the user sets the method to "mtmfft", and the output to
-    one of the available FOOOF output types.
+    Test passing on 2nd cF function return value in sequential mode.
+    This function tests with the sime
     """
 
     tfData = _get_fooof_signal()
@@ -60,14 +59,14 @@ class TestFooofSpy():
         cfg.foilim = [1., 100.]
         return cfg
 
-    def test_foilim(self):
+    def test_metadata_1call(self):
         """
         This tests the intended operation with output type 'fooof': with an input that does not
         include zero, ensured by using the 'foilim' argument/setting when calling freqanalysis.
 
         This returns the full, fooofed spectrum.
         """
-        cfg = TestFooofSpy.get_fooof_cfg()
+        cfg = TestMetadataUsingFooof.get_fooof_cfg()
         cfg.pop('fooof_opt', None)
         fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
         spec_dt = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
@@ -131,7 +130,7 @@ class TestFooofSpy():
 
         plt.ioff()
         client = dd.Client(testcluster)
-        all_tests = [self.test_foilim]
+        all_tests = [self.test_metadata_1call]
 
         for test_name in all_tests:
             test_method = getattr(self, test_name)
@@ -141,5 +140,5 @@ class TestFooofSpy():
 
 if __name__ == "__main__":
     print("---------------Testing---------------")
-    TestFooofSpy().test_foilim()
+    TestMetadataUsingFooof().test_metadata_1call()
     print("------------Testing done------------")
