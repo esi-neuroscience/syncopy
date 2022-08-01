@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # @Author: Diljit Singh Kajal
 # @Date:   2022-04-08 15:00:00
@@ -119,17 +118,6 @@ class ESI_TDTinfo:
     def code_to_name(self, code):
         return int(code).to_bytes(4, byteorder="little").decode("cp437")
 
-    def get_files(self, ext, speci_trgt):
-        f_names = list()
-        if speci_trgt is None:
-            f_names = [f for f in os.listdir(self.block_path) if f.endswith(ext)]
-        else:
-            for f in os.listdir(self.block_path):
-                if speci_trgt in f and f.endswith(ext):
-                    f_names.append(f)
-        f_names = self.natural_sort(f_names)
-        return f_names
-
     def load_tdt_info(self):
         header = StructDict()
         data = StructDict()
@@ -148,7 +136,6 @@ class ESI_TDTinfo:
         epocs.data = []
         epocs.dform = []
 
-        # tsq_list = self.get_files('.tsq', None)
         tsq_list = _get_source_paths(self.block_path, ".tsq")
         if len(tsq_list) > 1:
             raise Exception("multiple TSQ files found\n{0}".format(", ".join(tsq_list)))
