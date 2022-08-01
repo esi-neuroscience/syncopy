@@ -41,7 +41,10 @@ def load_tdt(data_path, out_path=None, memuse=3000):
         data_path, out_path, out_name, subtract_median=False, channels=None, export=True
     )
     adata = tdt_data_handler.data_aranging(file_paths, tdt_info)
-
+    # we have to open for reading again
+    h5File = h5py.File(adata.filename, "r")
+    adata.data = h5File['data']
+    # print(type(adata.data))
     return adata
 
 
@@ -653,6 +656,7 @@ class ESI_TDTdata:
         AData = spy.AnalogData()
         if self.outputdir is not None:
             hdf_out_path = os.path.join(self.outputdir, self.combined_data_filename + ".hdf5")
+            AData.filename = hdf_out_path
         else:
             hdf_out_path = AData.filename
         with h5py.File(hdf_out_path, "w") as combined_data_file:
@@ -687,32 +691,32 @@ class ESI_TDTdata:
         AData.channel = chanlist
 
         # write info file
-        AData.cfg["originalFiles"] = (Files,)
-        AData.cfg["samplingRate"] = DataInfo_loaded.LFPs.fs
-        AData.cfg["dtype"] = "single"
-        AData.cfg["numberOfChannels"] = len(Files)
-        AData.cfg["mergedBy"] = getuser()
-        AData.cfg["mergeTime"] = str(datetime.now())
-        AData.cfg["md5sum"] = self.md5sum(hdf_out_path)
-        AData.cfg["channelMedianSubtracted"] = self.subtract_median
-        AData.cfg["dataclass"] = "AnalogData"
-        AData.cfg["data_dtype"] = "single"
-        AData.cfg["samplerate"] = (DataInfo_loaded.LFPs.fs,)
-        AData.cfg["_version"] = (spy.__version__,)
-        AData.cfg["_log"] = ("",)
-        AData.cfg["tank_path"] = DataInfo_loaded.info.tankpath
-        AData.cfg["blockname"] = DataInfo_loaded.info.blockname
-        AData.cfg["start_date"] = str(DataInfo_loaded.info.start_date)
-        AData.cfg["utc_start_time"] = DataInfo_loaded.info.utc_start_time
-        AData.cfg["stop_date"] = str(DataInfo_loaded.info.stop_date)
-        AData.cfg["utc_stop_time"] = DataInfo_loaded.info.utc_stop_time
-        AData.cfg["duration"] = str(DataInfo_loaded.info.duration)
-        AData.cfg["PDio_onset"] = DataInfo_loaded.PDio.onset
-        AData.cfg["PDio_offset"] = DataInfo_loaded.PDio.offset
-        AData.cfg["PDio_data"] = DataInfo_loaded.PDio.data
-        AData.cfg["Trigger_timestamp"] = DataInfo_loaded.Mark.ts
-        AData.cfg["Trigger_timestamp_sample"] = np.round(DataInfo_loaded.Mark.ts * DataInfo_loaded.LFPs.fs)
-        AData.cfg["Trigger_code"] = DataInfo_loaded.Mark.data[0]
+        AData.info["originalFiles"] = (Files,)
+        AData.info["samplingRate"] = DataInfo_loaded.LFPs.fs
+        AData.info["dtype"] = "single"
+        AData.info["numberOfChannels"] = len(Files)
+        AData.info["mergedBy"] = getuser()
+        AData.info["mergeTime"] = str(datetime.now())
+        AData.info["md5sum"] = self.md5sum(hdf_out_path)
+        AData.info["channelMedianSubtracted"] = self.subtract_median
+        AData.info["dataclass"] = "AnalogData"
+        AData.info["data_dtype"] = "single"
+        AData.info["samplerate"] = (DataInfo_loaded.LFPs.fs,)
+        AData.info["_version"] = (spy.__version__,)
+        AData.info["_log"] = ("",)
+        AData.info["tank_path"] = DataInfo_loaded.info.tankpath
+        AData.info["blockname"] = DataInfo_loaded.info.blockname
+        AData.info["start_date"] = str(DataInfo_loaded.info.start_date)
+        AData.info["utc_start_time"] = DataInfo_loaded.info.utc_start_time
+        AData.info["stop_date"] = str(DataInfo_loaded.info.stop_date)
+        AData.info["utc_stop_time"] = DataInfo_loaded.info.utc_stop_time
+        AData.info["duration"] = str(DataInfo_loaded.info.duration)
+        AData.info["PDio_onset"] = DataInfo_loaded.PDio.onset
+        AData.info["PDio_offset"] = DataInfo_loaded.PDio.offset
+        AData.info["PDio_data"] = DataInfo_loaded.PDio.data
+        AData.info["Trigger_timestamp"] = DataInfo_loaded.Mark.ts
+        AData.info["Trigger_timestamp_sample"] = np.round(DataInfo_loaded.Mark.ts * DataInfo_loaded.LFPs.fs)
+        AData.info["Trigger_code"] = DataInfo_loaded.Mark.data[0]
 
         return AData
 

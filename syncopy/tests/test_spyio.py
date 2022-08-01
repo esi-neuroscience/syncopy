@@ -520,11 +520,12 @@ class Test_TDT_Importer:
 
     tdt_dir = '/cs/slurm/syncopy/Tdt_reader/session-25'
 
-    def test_read_tdt(self):
+    def test_load_tdt(self):
 
         adata = load_tdt(self.tdt_dir, outpath=None)
 
-
+        
+        
 if __name__ == '__main__':
     FTRAW = Test_FT_Importer()
     TDT = Test_TDT_Importer()
