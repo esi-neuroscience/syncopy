@@ -615,6 +615,10 @@ def h5_add_details(hdf5_filename, details):
             if dsets:
                 for k, v in dsets.items():
                     grp.create_dataset(k, data=v)
+            if 'data' in h5fout:  # Also add attributes to main dataset 'data' for now.
+                main_dset = h5fout['data']
+                for k, v in attribs.items():
+                    main_dset.attrs.create(k, data=v)
             h5fout.flush()
 
 def process_io(func):
@@ -681,7 +685,9 @@ def process_io(func):
         # `trl_dat` is a NumPy array or `FauxTrial` object: execute the wrapped
         # function and return its result
         if not isinstance(trl_dat, dict):
-            #print("process_io(): trl_dat is not a dict (but most likely ndarray): You are not supposed to be here, this branch should not be executed anymore.")
+            # Adding the metadata is done in compute_sequential(), nothing to do here.
+            # Note that the return value of 'func' in the next line may be a tuple containing
+            # both the ndarray for 'data', and the 'details'.
             return func(trl_dat, *wrkargs, **kwargs)
         else:
             print("process_io(): trl_dat is a dict, using parallel part")
@@ -704,6 +710,7 @@ def process_io(func):
         outgrid = trl_dat["outgrid"]
         outshape = trl_dat["outshape"]
         outdtype = trl_dat["dtype"]
+        call_id = trl_dat["call_id"]
 
         # === STEP 1 === read data into memory
         # Catch empty source-array selections; this workaround is not
@@ -745,14 +752,15 @@ def process_io(func):
         # Write result to multiple stand-alone HDF files or use a mutex to write to a
         # common single file (sequentially)
         if vdsdir is not None:
+            print("process_io():parallel branch: writing to multiple stand-alone hdf5 files (virtual dataset) in parallel.")
             with h5py.File(outfilename, "w") as h5fout:
                 h5fout.create_dataset(outdset, data=res)
                 h5fout.flush()
-                # add new dataset/attribute to capture new outputs
+            # Add new dataset/attribute to capture new outputs
             h5_add_details(outfilename, details)
         else:
 
-            print("vdsdir is None/sequential writing active: You are not supposed to be here, this branch should not be executed anymore.")
+            print("process_io():parallel branch: writing in parallel to a single file (non-virtual) hf5 file using a mutex.")
 
             # Create distributed lock (use unique name so it's synced across workers)
             lock = dd.lock.Lock(name='sequential_write')
@@ -764,7 +772,7 @@ def process_io(func):
                 #### same container several times (in each iteration of the cF), and will overwrite
                 #### the values of previous iterations. It will be deleted, ignore.
 
-                unique_id = 5  # TODO: get unique id (from outgrid?) to attach additional outputs to the one and only hdf5 container.
+                unique_id = call_id  # get unique id to attach additional outputs in the one and only hdf5 container.
 
                 main_dset = h5fout[outdset]
                 if keeptrials:
@@ -773,11 +781,12 @@ def process_io(func):
                     main_dset[()] = np.nansum([main_dset, res], axis=0)
                 if details is not None:
                     attribs, dsets = _parse_details(details)
+                    grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")
                     for k, v in attribs.items():
                         k_unique = k + "_" + str(unique_id)
                         main_dset.attrs.create(k_unique, data=v)
+                        grp.attrs.create(k_unique, data=v)
                     if dsets:
-                        grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")
                         for k, v in dsets.items():
                             k_unique = k + "_" + str(unique_id)
                             grp.create_dataset(k_unique, data=v)

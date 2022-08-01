@@ -624,7 +624,8 @@ class ComputationalRoutine(ABC):
                             "outdset": self.tmpDsetName,
                             "outgrid": self.targetLayout[chk],
                             "outshape": self.targetShapes[chk],
-                            "dtype": self.dtype} for chk in range(self.numCalls)]
+                            "dtype": self.dtype,
+                            "call_id": chk } for chk in range(self.numCalls)]
 
 
             # If channel-block parallelization has been set up, positional args of
@@ -947,7 +948,7 @@ class ComputationalRoutine(ABC):
                         grp = h5fout['metadata']
                     attribs, dsets = _parse_details(details)
 
-                    unique_key = nblock
+                    unique_key = nblock # This is a trial index.
 
                     if details is not None:
                         print("compute_sequential(): received additional return value containing {na} attribs and {nd} datasets.".format(na=len(attribs), nd=len(dsets)))
