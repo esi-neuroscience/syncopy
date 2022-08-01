@@ -88,8 +88,8 @@ class TestMetadataUsingFooof():
         assert not np.isnan(spec_dt.data).any()
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset as attribute.
-        assert len(spec_dt.data.attrs.keys()) == 6
-        k_unique = "_0"
+        k_unique = "_0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
+                         #       depending on data size and RAM, there may or may not be several calls, and "_1" , "_2", ... exist.
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
         assert len(spec_dt.data.attrs.keys()) == len(expected_fooof_dict_entries)
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
@@ -112,13 +112,6 @@ class TestMetadataUsingFooof():
         for kv in keys_unique:
             assert (kv) in spec_dt.metadata.attrs.keys()
             assert isinstance(spec_dt.metadata.attrs.get(kv), np.ndarray)
-
-
-
-        # Now for the separate 'metadata' group in the hdf5 container
-        #assert len(spec_dt.metadata.attrs.keys()) == 6
-        # We cannot access it like this from the Sycopy data instance, we need to get a handle to the hdf5.
-
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
