@@ -882,6 +882,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # the MTMFFT has finished.
     if is_fooof:
 
+        print("######### mtmfft done, starting fooof ###########")
+
         # Use the output of the MTMFFMT method as the new data and create new output data.
         fooof_data = out
         fooof_out = SpectralData(dimord=SpectralData._defaultDimord)
