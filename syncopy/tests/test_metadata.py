@@ -214,7 +214,7 @@ class TestMetadataUsingFooof():
         # check the data
         assert spec_dt.data.ndim == 4
         #print("spec_dt.data.shape is {}.".format(spec_dt.data.shape))
-        assert spec_dt.data.shape == (100, 1, 100, 1) # TODO: Properly check this for (it differs from other tests due to `keeptrials=True`)
+        assert spec_dt.data.shape == (100, 1, 100, 1) # Differs from other tests due to `keeptrials=True`.
         assert not np.isnan(spec_dt.data).any()
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset 'data' as attributes.
@@ -229,7 +229,7 @@ class TestMetadataUsingFooof():
         if test_metadata_on_main_dset:
             print("spec_dt.data.attrs has length {}.".format(len(spec_dt.data.attrs.keys())))
 
-            assert len(spec_dt.data.attrs.keys()) == len(expected_fooof_dict_entries)
+            assert len(spec_dt.data.attrs.keys()) >= len(expected_fooof_dict_entries)
 
             for kv in keys_unique:
                 assert (kv) in spec_dt.data.attrs.keys()
@@ -237,9 +237,9 @@ class TestMetadataUsingFooof():
             # Expect one entry in detail.
             n_peaks = spec_dt.data.attrs.get("n_peaks" + k_unique)
             assert isinstance(n_peaks, np.ndarray)
-            assert n_peaks.size == 1 # cfg.keeptrials is False, so FOOOF operates on a single trial and we expect only one value here.
-            assert spec_dt.data.attrs.get("r_squared" + k_unique).size == 1  # Same, see line above.
-            assert spec_dt.data.attrs.get("error" + k_unique).size == 1  # Same, see line above.
+            assert n_peaks.size == 100 # cfg.keeptrials is True, so FOOOF operates on 100 trials
+            assert spec_dt.data.attrs.get("r_squared" + k_unique).size == 100  # Same, see line above.
+            assert spec_dt.data.attrs.get("error" + k_unique).size == 100  # Same, see line above.
 
         if test_metadata_on_metadata_group:
             # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
