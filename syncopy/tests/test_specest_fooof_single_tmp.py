@@ -92,10 +92,17 @@ class TestFooofSpy():
         assert len(spec_dt.data.attrs.keys()) == 6
         k_unique = "_0"
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
+        assert len(spec_dt.data.attrs.keys()) == len(expected_fooof_dict_entries)
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
         for kv in keys_unique:
             assert (kv) in spec_dt.data.attrs.keys()
             assert isinstance(spec_dt.data.attrs.get(kv), np.ndarray)
+        # Expect one entry in detail.
+        n_peaks = spec_dt.data.attrs.get("n_peaks" + k_unique)
+        assert isinstance(n_peaks, np.ndarray)
+        assert n_peaks.size == 1 # cfg.keeptrials is False, so FOOOF operates on a single trial and we expect only one value here.
+        assert spec_dt.data.attrs.get("r_squared" + k_unique).size == 1  # Same, see line above.
+        assert spec_dt.data.attrs.get("error" + k_unique).size == 1  # Same, see line above.
 
 
         # check that the cfg is correct (required for replay)
