@@ -965,6 +965,9 @@ class FooofSpy(ComputationalRoutine):
     # To attach metadata to the output of the CF
     def process_metadata(self, data, out, metadata=None):
 
+        if metadata is not None:
+            print("FooofSpy: received some (non-None) metadata")
+
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
             chanSec = data.selection.channel
