@@ -157,7 +157,16 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
         peak_params.append(fm.peak_params_)
 
     settings_used = {'fooof_opt': fooof_opt, 'out_type': out_type, 'freq_range': freq_range}
-    details = {'aperiodic_params': aperiodic_params, 'gaussian_params': gaussian_params, 'peak_params': peak_params, 'n_peaks': n_peaks, 'r_squared': r_squared, 'error': error, 'settings_used': settings_used}
+    #  Note: we add the 'settings_used' here in the backend, but they get stripped in the middle layer
+    #       (in the 'compRoutines.py/fooofspy_cF'), so they do not reach the frontend.
+    #        The reason for removing them there is that we/h5py do not support nested dicts as
+    #        dataset/group attributes, and thus we cannot encode them in hdf5.
+    #        Returning them from here still has the benefit that we can test for them in backend tests.
+    details_pre = {'aperiodic_params': aperiodic_params, 'gaussian_params': gaussian_params,
+               'peak_params': peak_params, 'n_peaks': n_peaks, 'r_squared': r_squared,
+               'error': error}
+    details = {k: v.astype(np.float64) for k, v in details_pre.items()}
+    details['settings_used'] = settings_used
 
     print("fooofspy(): called and returning details")
     return out_spectra, details
