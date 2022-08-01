@@ -746,10 +746,15 @@ class ComputationalRoutine(ABC):
 
         # Attach computed results to output object
         out.data = h5py.File(out.filename, mode="r+")[self.outDatasetName]
-        metadata = None
-        #with h5py.File(out.filename, mode="r+") as h5f:
-        #    out.data = h5f[self.outDatasetName]
-        #    metadata = h5f['metadata'] if 'metadata' in h5f else None
+
+        # Extract metadata group from hdf5. There may or may not be one, depending
+        # on whether the cF had multiple return values. So we just try.
+        try:
+            metadata = h5py.File(out.filename, mode="r+")["metadata"]
+            print("compute(): Metadata was attached to hdf5 file.")
+        except:
+            metadata = None
+            print("compute(): NO metadata was attached to hdf5 file.")
 
         # Store meta-data, write log and get outta here
         self.process_metadata(data, out, metadata=metadata)

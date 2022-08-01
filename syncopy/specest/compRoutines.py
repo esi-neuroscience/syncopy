@@ -966,18 +966,16 @@ class FooofSpy(ComputationalRoutine):
     def process_metadata(self, data, out, metadata=None):
 
         if metadata is not None:
-            print("FooofSpy: ************** received some (non-None) metadata ******************")
+            print("FooofSpy.process_metadata(): ************** received some (non-None) metadata ******************")
+            out.metadata = metadata
         else:
-            print("FooofSpy: received metadata is None")
+            print("FooofSpy.process_metadata(): received metadata is None")
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
             chanSec = data.selection.channel
         else:
             chanSec = slice(None)
-
-        if metadata:
-            print("Received metadata.")
 
         # Attach remaining meta-data
         out.samplerate = data.samplerate

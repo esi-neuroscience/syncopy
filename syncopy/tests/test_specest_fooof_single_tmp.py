@@ -104,9 +104,19 @@ class TestFooofSpy():
         assert spec_dt.data.attrs.get("r_squared" + k_unique).size == 1  # Same, see line above.
         assert spec_dt.data.attrs.get("error" + k_unique).size == 1  # Same, see line above.
 
+        # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
+        assert spec_dt.metadata is not None
+        assert len(spec_dt.metadata.keys()) == 3
+
+
+        # Now for the separate 'metadata' group in the hdf5 container
+        #assert len(spec_dt.metadata.attrs.keys()) == 6
+        # We cannot access it like this from the Sycopy data instance, we need to get a handle to the hdf5.
+
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
+        return spec_dt
 
     @pytest.mark.skip(reason="we only care about sequential for now")
     @skip_without_acme
