@@ -959,8 +959,14 @@ class ComputationalRoutine(ABC):
                     for k, v in attribs.items():
                         k_unique = str(k) + "_" + str(unique_key)
                         print("  -compute_sequential(): attaching attribute with unique key '{uk}'.".format(uk=k_unique))
-                        grp.attrs.create(k_unique, data=v)  # Create attribs on metadata group
-                        target.attrs.create(k_unique, data=v)   # For now, also create attribs on 'data' dataset. Accessing the 'metadata' group later will require extra work.
+                        if k_unique in grp.attrs.keys():
+                            print("WARNING: hdf5 'metadata' group already contains unique key '{uk}', this must not happen.".format(uk=k_unique))
+                        else:
+                            grp.attrs.create(k_unique, data=v, dtype=v.dtype)  # Create attribs on metadata group
+                        if k_unique in target.attrs.keys():
+                            print("WARNING: hdf5 main dataset '{maindset}' already contains unique key '{uk}', this must not happen.".format(maindset=self.outDatasetName, uk=k_unique))
+                        else:
+                            target.attrs.create(k_unique, data=v, dtype=v.dtype)   # For now, also create attribs on 'data' dataset. Accessing the 'metadata' group later will require extra work.
                     if dsets:
                         for k, v in dsets.items():
                             k_unique = str(k) + "_" + str(unique_key)
