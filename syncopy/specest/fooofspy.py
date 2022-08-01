@@ -165,8 +165,8 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
     details_pre = {'aperiodic_params': aperiodic_params, 'gaussian_params': gaussian_params,
                'peak_params': peak_params, 'n_peaks': n_peaks, 'r_squared': r_squared,
                'error': error}
-    details = {k: v.astype(np.float64) for k, v in details_pre.items()}
-    details['settings_used'] = settings_used
+    details = {k: np.array(v) for k, v in details_pre.items()}  # Only np.ndarray is supported, make sure we have that.
+    details['settings_used'] =   # This will be removed before hdf5 sees it, see comment above for details.
 
     print("fooofspy(): called and returning details")
     return out_spectra, details
