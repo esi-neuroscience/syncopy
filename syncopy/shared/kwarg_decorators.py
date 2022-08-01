@@ -681,7 +681,7 @@ def process_io(func):
         # `trl_dat` is a NumPy array or `FauxTrial` object: execute the wrapped
         # function and return its result
         if not isinstance(trl_dat, dict):
-            print("process_io(): trl_dat is not a dict (but most likely ndarray): You are not supposed to be here, this branch should not be executed anymore.")
+            #print("process_io(): trl_dat is not a dict (but most likely ndarray): You are not supposed to be here, this branch should not be executed anymore.")
             return func(trl_dat, *wrkargs, **kwargs)
         else:
             print("process_io(): trl_dat is a dict, using parallel part")

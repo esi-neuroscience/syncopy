@@ -944,9 +944,18 @@ class ComputationalRoutine(ABC):
 
                     unique_key = nblock
 
+                    if details is not None:
+                        print("compute_sequential(): received additional return value containing {na} attribs and {nd} datasets.".format(na=len(attribs), nd=len(dsets)))
+                        if attribs:
+                            print("compute_sequential(): attibs: {at}".format(at=",".join(attribs.keys())))
+                        if dsets:
+                            print("compute_sequential(): dsets: {ds}".format(ds=",".join(dsets.keys())))
+
                     for k, v in attribs.items():
                         k_unique = str(k) + "_" + str(unique_key)
-                        grp.attrs.create(k_unique, data=v)
+                        print("  -compute_sequential(): attaching attribute with unique key '{uk}'.".format(uk=k_unique))
+                        grp.attrs.create(k_unique, data=v)  # Create attribs on metadata group
+                        target.attrs.create(k_unique, data=v)   # For now, also create attribs on 'data' dataset. Accessing the 'metadata' group later will require extra work.
                     if dsets:
                         for k, v in dsets.items():
                             k_unique = str(k) + "_" + str(unique_key)
@@ -964,11 +973,6 @@ class ComputationalRoutine(ABC):
             # If trial-averaging was requested, normalize computed sum to get mean
             if not self.keeptrials:
                 target[()] /= self.numTrials
-
-        # TODO: currently the storing of details is broken in the sequential case,
-        # since this will only store the details for the last function call in the
-        # loop above, all others will be overwritten.
-        print("TODO: fix details storing in sequential case!")
 
         # If source was HDF5 file, close it to prevent access errors
         sourceObj.file.close()

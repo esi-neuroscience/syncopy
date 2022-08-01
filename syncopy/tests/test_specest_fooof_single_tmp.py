@@ -88,6 +88,16 @@ class TestFooofSpy():
         assert spec_dt.data.shape == (1, 1, 100, 1)
         assert not np.isnan(spec_dt.data).any()
 
+        # check metadata from 2nd cF return value, added to the hdf5 dataset as attribute.
+        assert len(spec_dt.data.attrs.keys()) == 6
+        k_unique = "_0"
+        expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
+        keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
+        for kv in keys_unique:
+            assert (kv) in spec_dt.data.attrs.keys()
+            assert isinstance(spec_dt.data.attrs.get(kv), np.ndarray)
+
+
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
 
@@ -104,3 +114,8 @@ class TestFooofSpy():
             test_method()
         client.close()
         plt.ion()
+
+if __name__ == "__main__":
+    print("---------------Testing---------------")
+    TestFooofSpy().test_foilim()
+    print("------------Testing done------------")
