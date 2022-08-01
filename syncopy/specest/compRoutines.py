@@ -967,6 +967,7 @@ class FooofSpy(ComputationalRoutine):
 
         if metadata is not None:
             print("FooofSpy.process_metadata(): ************** received some (non-None) metadata ******************")
+            print("FooofSpy.process_metadata(): metadata group consists of {ne} entries and {na} attribs".format(ne=len(metadata.keys()), na=len(metadata.attrs.keys())))
             out.metadata = metadata
         else:
             print("FooofSpy.process_metadata(): received metadata is None")

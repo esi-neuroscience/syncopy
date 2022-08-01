@@ -106,7 +106,14 @@ class TestFooofSpy():
 
         # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
         assert spec_dt.metadata is not None
-        #assert len(spec_dt.metadata.keys()) == 3
+        num_metadata_dsets = len(spec_dt.metadata.keys())
+        num_metadata_attrs = len(spec_dt.metadata.attrs.keys())  # Get keys of hdf5 attribute manager.
+        assert num_metadata_dsets == 0
+        assert num_metadata_attrs == 6
+        for kv in keys_unique:
+            assert (kv) in spec_dt.metadata.attrs.keys()
+            assert isinstance(spec_dt.metadata.attrs.get(kv), np.ndarray)
+
 
 
         # Now for the separate 'metadata' group in the hdf5 container
