@@ -11,12 +11,11 @@ import pytest
 import random
 import numbers
 import numpy as np
-from numpy.lib.format import open_memmap
 
 # Local imports
 from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, padding
 from syncopy.io import save, load
-from syncopy.datatype.base_data import VirtualData, Selector
+from syncopy.datatype.base_data import Selector
 from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.tools import StructDict
@@ -30,11 +29,11 @@ skip_without_acme = pytest.mark.skipif(
     not __acme__, reason="acme not available")
 
 # Collect all supported binary arithmetic operators
-arithmetics = [lambda x, y : x + y,
-               lambda x, y : x - y,
-               lambda x, y : x * y,
-               lambda x, y : x / y,
-               lambda x, y : x ** y]
+arithmetics = [lambda x, y: x + y,
+               lambda x, y: x - y,
+               lambda x, y: x * y,
+               lambda x, y: x / y,
+               lambda x, y: x ** y]
 
 # Module-wide set of testing selections
 trialSelections = [
@@ -46,29 +45,29 @@ chanSelections = [
     [4, 2, 2, 5, 5],   # repetition + unordered
     range(5, 8),  # narrow range
     slice(-2, None),  # negative-start slice
-    "channel02", # str selection
+    "channel02",  # str selection
     1  # scalar selection
-    ]
+]
 toiSelections = [
     "all",  # non-type-conform string
     0.6,  # single inexact match
     [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
-    ]
+]
 toilimSelections = [
     [0.5, 1.5],  # regular range
     [1.5, 2.0],  # minimal range (just two-time points)
     [1.0, np.inf]  # unbounded from above
-    ]
+]
 foiSelections = [
     "all",  # non-type-conform string
     2.6,  # single inexact match
     [1.1, 1.9, 2.1, 3.9, 9.2, 11.8, 12.9, 5.1, 13.8]  # unordered, inexact, repetions
-    ]
+]
 foilimSelections = [
     [2, 11],  # regular range
     [1, 2.0],  # minimal range (just two-time points)
     [1.0, np.inf]  # unbounded from above
-    ]
+]
 taperSelections = [
     ["TestTaper_03", "TestTaper_01", "TestTaper_01", "TestTaper_02"],  # string selection w/repetition + unordered
     "TestTaper_03",  # singe str
@@ -76,11 +75,12 @@ taperSelections = [
     [0, 1, 1, 2, 3],  # preserve repetition, don't convert to slice
     range(2, 5),  # narrow range
     slice(0, 5, 2),  # slice w/non-unitary step-size
-    ]
+]
 timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
     + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
 freqSelections = list(zip(["foi"] * len(foiSelections), foiSelections)) \
     + list(zip(["foilim"] * len(foilimSelections), foilimSelections))
+
 
 # Local helper function for performing basic arithmetic tests
 def _base_op_tests(dummy, ymmud, dummy2, ymmud2, dummyC, operation):
@@ -95,24 +95,24 @@ def _base_op_tests(dummy, ymmud, dummy2, ymmud2, dummyC, operation):
     dummy2.selectdata(trials=0, inplace=True)
     with pytest.raises(SPYValueError) as spyval:
         operation(dummy, dummy2)
-        assert "Syncopy object with same number of trials (selected)" in str (spyval.value)
+        assert "Syncopy object with same number of trials (selected)" in str(spyval.value)
     dummy2.selection = None
 
     # Scalar algebra must be commutative (except for pow)
     for operand in scalarOperands:
-        result = operation(dummy, operand) # perform operation from right
+        result = operation(dummy, operand)  # perform operation from right
         for tk, trl in enumerate(result.trials):
             assert np.array_equal(trl, operation(dummy.trials[tk], operand))
         # Don't try to compute `2 ** data``
-        if operation(2,3) != 8:
-            result2 = operation(operand, dummy) # perform operation from left
+        if operation(2, 3) != 8:
+            result2 = operation(operand, dummy)  # perform operation from left
             assert np.array_equal(result2.data, result.data)
 
         # Same as above, but swapped `dimord`
         result = operation(ymmud, operand)
         for tk, trl in enumerate(result.trials):
             assert np.array_equal(trl, operation(ymmud.trials[tk], operand))
-        if operation(2,3) != 8:
+        if operation(2, 3) != 8:
             result2 = operation(operand, ymmud)
             assert np.array_equal(result2.data, result.data)
 
@@ -144,6 +144,7 @@ def _base_op_tests(dummy, ymmud, dummy2, ymmud2, dummyC, operation):
     for tk, trl in enumerate(result.trials):
         assert np.array_equal(trl, operation(ymmud.trials[tk], ymmud2.trials[tk]))
 
+
 def _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation):
 
     # Perform in-place selection and construct array based on new subset
@@ -169,14 +170,14 @@ def _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation):
     if cleanSelection:
         for tk, trl in enumerate(result.trials):
             assert np.array_equal(trl, operation(selected.trials[tk],
-                                                selected.trials[tk]))
+                                                 selected.trials[tk]))
         selected = ymmud.selectdata(**kwdict)
         ymmud.selectdata(inplace=True, **kwdict)
         ymmud2.selectdata(inplace=True, **kwdict)
         result = operation(ymmud, ymmud2)
         for tk, trl in enumerate(result.trials):
             assert np.array_equal(trl, operation(selected.trials[tk],
-                                                selected.trials[tk]))
+                                                 selected.trials[tk]))
 
     # Very important: clear manually set selections for next iteration
     dummy.selection = None
@@ -200,8 +201,8 @@ class TestAnalogData():
     def test_empty(self):
         dummy = AnalogData()
         assert len(dummy.cfg) == 0
-        assert dummy.dimord == None
-        for attr in ["channel", "data", "hdr", "sampleinfo", "trialinfo"]:
+        assert dummy.dimord is None
+        for attr in ["channel", "data", "sampleinfo", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
             AnalogData({})
@@ -218,19 +219,6 @@ class TestAnalogData():
         with pytest.raises(SPYValueError):
             AnalogData(np.ones((3,)))
 
-    @pytest.mark.skip(reason="VirtualData is currently not supported")
-    def test_virtualdata(self):
-        with tempfile.TemporaryDirectory() as tdir:
-            fname = os.path.join(tdir, "dummy.npy")
-            np.save(fname, self.data)
-            dmap = open_memmap(fname, mode="r")
-            vdata = VirtualData([dmap, dmap])
-            dummy = AnalogData(vdata)
-            assert dummy.channel.size == 2 * self.nc
-            assert len(dummy._filename) == 2
-            assert isinstance(dummy.filename, str)
-            del dmap, dummy, vdata
-
     def test_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order
         dummy = AnalogData(data=self.data, trialdefinition=self.trl)
@@ -245,23 +233,6 @@ class TestAnalogData():
             trl_ref = self.data.T[:, start:start + 5]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
-        # # test ``_copy_trial`` with memmap'ed data
-        # with tempfile.TemporaryDirectory() as tdir:
-        #     fname = os.path.join(tdir, "dummy.npy")
-        #     np.save(fname, self.data)
-        #     mm = open_memmap(fname, mode="r")
-        #     dummy = AnalogData(mm, trialdefinition=self.trl)
-        #     for trlno, start in enumerate(range(0, self.ns, 5)):
-        #         trl_ref = self.data[start:start + 5, :]
-        #         trl_tmp = dummy._copy_trial(trlno,
-        #                                     dummy.filename,
-        #                                     dummy.dimord,
-        #                                     dummy.sampleinfo,
-        #                                     dummy.hdr)
-        #         assert np.array_equal(trl_tmp, trl_ref)
-        #
-        #    # Delete all open references to file objects b4 closing tmp dir
-        #    del mm, dummy
         del dummy
 
     def test_saveload(self):
@@ -474,7 +445,7 @@ class TestAnalogData():
 
         # construct AnalogData object w/trials of unequal lengths
         adata = generate_artificial_data(nTrials=7, nChannels=16,
-                                        equidistant=False, inmemory=False)
+                                         equidistant=False, inmemory=False)
         timeAxis = adata.dimord.index("time")
         chanAxis = adata.dimord.index("channel")
 
@@ -494,7 +465,7 @@ class TestAnalogData():
             assert trl_time - total_time < 1 / adata.samplerate
 
         # real thing: pad object with standing channel selection
-        res = padding(adata, "zero", pad="absolute", padlength=total_time,unit="time",
+        res = padding(adata, "zero", pad="absolute", padlength=total_time, unit="time",
                       create_new=True, select={"trials": trialSel, "channel": chanSel})
         for tk, trl in enumerate(res.trials):
             adataTrl = adata.trials[trialSel[tk]]
@@ -634,11 +605,10 @@ class TestAnalogData():
                             assert np.array_equal(selected.trials[tk].squeeze(),
                                                   obj.trials[trialno][idx[0], :][:, idx[1]].squeeze())
                         cfg.data = obj
-                        cfg.out = AnalogData(dimord=obj.dimord)
                         # data selection via package function and `cfg`: ensure equality
-                        selectdata(cfg)
-                        assert np.array_equal(cfg.out.channel, selected.channel)
-                        assert np.array_equal(cfg.out.data, selected.data)
+                        out = selectdata(cfg)
+                        assert np.array_equal(out.channel, selected.channel)
+                        assert np.array_equal(out.data, selected.data)
                         time.sleep(0.001)
 
     # test arithmetic operations
@@ -666,7 +636,7 @@ class TestAnalogData():
             # First, ensure `dimord` is respected
             with pytest.raises(SPYValueError) as spyval:
                 operation(dummy, ymmud)
-                assert "expected Syncopy 'time' x 'channel' data object" in str (spyval.value)
+                assert "expected Syncopy 'time' x 'channel' data object" in str(spyval.value)
 
             _base_op_tests(dummy, ymmud, dummy2, ymmud2, None, operation)
 
@@ -732,7 +702,7 @@ class TestSpectralData():
     def test_sd_empty(self):
         dummy = SpectralData()
         assert len(dummy.cfg) == 0
-        assert dummy.dimord == None
+        assert dummy.dimord is None
         for attr in ["channel", "data", "freq", "sampleinfo", "taper", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
@@ -872,15 +842,14 @@ class TestSpectralData():
                                     idx[timeIdx] = selector.time[tk]
                                     indexed = obj.trials[trialno][idx[0], ...][:, idx[1], ...][:, :, idx[2], :][..., idx[3]]
                                     assert np.array_equal(selected.trials[tk].squeeze(),
-                                                        indexed.squeeze())
+                                                          indexed.squeeze())
                                 cfg.data = obj
-                                cfg.out = SpectralData(dimord=obj.dimord)
                                 # data selection via package function and `cfg`: ensure equality
-                                selectdata(cfg)
-                                assert np.array_equal(cfg.out.channel, selected.channel)
-                                assert np.array_equal(cfg.out.freq, selected.freq)
-                                assert np.array_equal(cfg.out.taper, selected.taper)
-                                assert np.array_equal(cfg.out.data, selected.data)
+                                out = selectdata(cfg)
+                                assert np.array_equal(out.channel, selected.channel)
+                                assert np.array_equal(out.freq, selected.freq)
+                                assert np.array_equal(out.taper, selected.taper)
+                                assert np.array_equal(out.data, selected.data)
                                 time.sleep(0.001)
 
     # test arithmetic operations
@@ -946,7 +915,6 @@ class TestSpectralData():
                 kwdict["taper"] = taperSelections[2]
                 _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
-
         # Finally, perform a representative chained operation to ensure chaining works
         result = (dummy + dummy2) / dummy ** 3
         for tk, trl in enumerate(result.trials):
@@ -984,7 +952,7 @@ class TestCrossSpectralData():
     def test_csd_empty(self):
         dummy = CrossSpectralData()
         assert len(dummy.cfg) == 0
-        assert dummy.dimord == None
+        assert dummy.dimord is None
         for attr in ["channel_i", "channel_j", "data", "freq", "sampleinfo", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
@@ -1059,8 +1027,8 @@ class TestCrossSpectralData():
             filename = construct_spy_filename(fname + "_dimswap", dummy)
             dummy2 = load(filename)
             assert dummy2.dimord == dummy.dimord
-            assert dummy2.channel_i.size == self.nci # swapped
-            assert dummy2.channel_j.size == self.nf # swapped
+            assert dummy2.channel_i.size == self.nci  # swapped
+            assert dummy2.channel_j.size == self.nf  # swapped
             assert dummy2.freq.size == self.ns  # swapped
             assert dummy2.data.shape == dummy.data.shape
 
@@ -1124,13 +1092,12 @@ class TestCrossSpectralData():
                                     assert np.array_equal(selected.trials[tk].squeeze(),
                                                           indexed.squeeze())
                                 cfg.data = obj
-                                cfg.out = CrossSpectralData(dimord=obj.dimord)
                                 # data selection via package function and `cfg`: ensure equality
-                                selectdata(cfg)
-                                assert np.array_equal(cfg.out.channel_i, selected.channel_i)
-                                assert np.array_equal(cfg.out.channel_j, selected.channel_j)
-                                assert np.array_equal(cfg.out.freq, selected.freq)
-                                assert np.array_equal(cfg.out.data, selected.data)
+                                out = selectdata(cfg)
+                                assert np.array_equal(out.channel_i, selected.channel_i)
+                                assert np.array_equal(out.channel_j, selected.channel_j)
+                                assert np.array_equal(out.freq, selected.freq)
+                                assert np.array_equal(out.data, selected.data)
                                 time.sleep(0.001)
 
     # test arithmetic operations

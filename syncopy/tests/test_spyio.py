@@ -11,9 +11,7 @@ import h5py
 import time
 import pytest
 import numpy as np
-from numpy.lib.format import open_memmap
 from glob import glob
-from memory_profiler import memory_usage
 
 # Local imports
 from syncopy.datatype import AnalogData
@@ -46,37 +44,37 @@ class TestSpyIO():
     trl = {}
 
     # Generate 2D array simulating an AnalogData array
-    data["AnalogData"] = np.arange(1, nc*ns + 1).reshape(ns, nc)
+    data["AnalogData"] = np.arange(1, nc * ns + 1).reshape(ns, nc)
     trl["AnalogData"] = np.vstack([np.arange(0, ns, 5),
                                    np.arange(5, ns + 5, 5),
-                                   np.ones((int(ns/5), )),
-                                   np.ones((int(ns/5), )) * np.pi]).T
+                                   np.ones((int(ns / 5), )),
+                                   np.ones((int(ns / 5), )) * np.pi]).T
 
     # Generate a 4D array simulating a SpectralData array
-    data["SpectralData"] = np.arange(1, nc*ns*nt*nf + 1).reshape(ns, nt, nc, nf)
+    data["SpectralData"] = np.arange(1, nc * ns * nt * nf + 1).reshape(ns, nt, nc, nf)
     trl["SpectralData"] = trl["AnalogData"]
 
     # Generate a 4D array simulating a CorssSpectralData array
-    data["CrossSpectralData"] = np.arange(1, nc*nc*ns*nf + 1).reshape(ns, nf, nc, nc)
+    data["CrossSpectralData"] = np.arange(1, nc * nc * ns * nf + 1).reshape(ns, nf, nc, nc)
     trl["CrossSpectralData"] = trl["AnalogData"]
 
     # Use a fixed random number generator seed to simulate a 2D SpikeData array
     seed = np.random.RandomState(13)
     data["SpikeData"] = np.vstack([seed.choice(ns, size=nd),
                                    seed.choice(nc, size=nd),
-                                   seed.choice(int(nc/2), size=nd)]).T
+                                   seed.choice(int(nc / 2), size=nd)]).T
     trl["SpikeData"] = trl["AnalogData"]
 
     # Generate bogus trigger timings
     data["EventData"] = np.vstack([np.arange(0, ns, 5),
-                                   np.zeros((int(ns/5), ))]).T
+                                   np.zeros((int(ns / 5), ))]).T
     data["EventData"][1::2, 1] = 1
     trl["EventData"] = trl["AnalogData"]
 
     # Define data classes to be used in tests below
     classes = ["AnalogData", "SpectralData", "CrossSpectralData", "SpikeData", "EventData"]
 
-    # Test correct handling of object log and cfg
+    # Test correct handling of object log
     def test_logging(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "dummy")
@@ -88,18 +86,12 @@ class TestSpyIO():
             assert len(dummy._log) > ldum
             assert dummy.filename in dummy._log
             assert dummy.filename + FILE_EXT["info"] in dummy._log
-            assert dummy.cfg["method"] == "save"
-            assert dummy.filename in dummy.cfg["files"]
-            assert dummy.filename + FILE_EXT["info"] in dummy.cfg["files"]
 
             # ensure loading is logged correctly
             dummy2 = load(filename=fname + ".analog")
             assert len(dummy2._log) > len(dummy._log)
             assert dummy2.filename in dummy2._log
             assert dummy2.filename + FILE_EXT["info"] in dummy._log
-            assert dummy2.cfg.cfg["method"] == "load"
-            assert dummy2.filename in dummy2.cfg.cfg["files"]
-            assert dummy2.filename + FILE_EXT["info"] in dummy2.cfg.cfg["files"]
 
             # Delete all open references to file objects b4 closing tmp dir
             del dummy, dummy2
@@ -445,24 +437,6 @@ class TestSpyIO():
             with pytest.raises(SPYValueError):
                 load(os.path.join(tdir, container), dataclass=["invalid", "stillinvalid"],
                      tag="2nd")
-
-    def test_save_mmap(self):
-        with tempfile.TemporaryDirectory() as tdir:
-            fname = os.path.join(tdir, "vdat.npy")
-            dname = os.path.join(tdir, "dummy")
-            vdata = np.ones((1000, 5000))  # ca. 38.2 MB
-            np.save(fname, vdata)
-            del vdata
-            dmap = open_memmap(fname)
-            adata = AnalogData(dmap, samplerate=10)
-
-            # Ensure memory consumption stays within provided bounds
-            mem = memory_usage()[0]
-            save(adata, filename=dname, memuse=60)
-            assert (mem - memory_usage()[0]) < 70
-
-            # Delete all open references to file objects b4 closing tmp dir
-            del dmap, adata
 
 
 @skip_no_esi

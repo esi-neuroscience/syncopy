@@ -33,34 +33,28 @@ if __name__ == "__main__":
     AdjMat = np.zeros((2, 2))
     # coupling from 0 to 1
     AdjMat[0, 1] = .15
-    for _ in range(nTrials):
+    alphas = [.55, -.8]
+    adata = synth_data.AR2_network(nTrials, samplerate=fs,
+                                   AdjMat=AdjMat,
+                                   nSamples=nSamples,
+                                   alphas=alphas)
+    adata += synth_data.AR2_network(nTrials, AdjMat=np.zeros((2, 2)),
+                                    samplerate=fs,
+                                    nSamples=nSamples,
+                                    alphas=[0.9, 0])
 
-        # defaults AR(2) parameters yield 40Hz peak
-        alphas = [.55, -.8]
-        trl = synth_data.AR2_network(AdjMat, nSamples=nSamples,
-                                     alphas=alphas)
+    adata += synth_data.harmonic(nTrials, freq=30, samplerate=fs)
 
-        trls.append(trl)
+    foi = np.linspace(20, 160, 100)
+    spec = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False, foi=foi)
 
-    ad2 = spy.AnalogData(trls, samplerate=fs)
-    spec = spy.freqanalysis(ad2, tapsmofrq=2, keeptrials=False)
-    foi = np.linspace(40, 160, 25)
-    spec2 = spy.freqanalysis(ad2, method='wavelet', keeptrials=False, foi=foi)
-    coh = spy.connectivityanalysis(ad2, method='coh', tapsmofrq=5)
-    gr = spy.connectivityanalysis(ad2, method='granger', tapsmofrq=10, polyremoval=0)
+    # fooof it
+    specf = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False, foi=foi,
+                             output="fooof", fooof_opt={'max_n_peaks': 2})
 
-    # show new plotting
-    ad2.singlepanelplot(trials=12, toilim=[0, 0.35])
+    specf2 = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False, foi=foi,
+                              output="fooof_peaks", fooof_opt={'max_n_peaks': 2})
 
-    # mtmfft spectrum
     spec.singlepanelplot()
-    # time freq singlepanel needs single channel
-    spec2.singlepanelplot(channel=0, toilim=[0, 0.35])
-
-    coh.singlepanelplot(channel_i=0, channel_j=1)
-
-    gr.singlepanelplot(channel_i=0, channel_j=1, foilim=[40, 160])
-    gr.singlepanelplot(channel_i=1, channel_j=0, foilim=[40, 160])
-
-    # test top-level interface
-    spy.singlepanelplot(ad2, trials=2, toilim=[-.2, .2])
+    specf.singlepanelplot()
+    specf2.singlepanelplot()

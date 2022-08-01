@@ -8,7 +8,7 @@ import numpy as np
 
 # Syncopy imports
 from syncopy.shared.parsers import data_parser, scalar_parser
-from syncopy.shared.tools import get_defaults, best_match
+from syncopy.shared.tools import get_defaults, best_match, get_frontend_cfg
 from syncopy.datatype import CrossSpectralData
 from syncopy.shared.errors import (
     SPYValueError,
@@ -29,6 +29,7 @@ from .AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov, GrangerCa
 
 
 availableMethods = ("coh", "corr", "granger")
+coh_outputs = {"abs", "pow", "complex", "fourier", "angle", "real", "imag"}
 
 
 @unwrap_cfg
@@ -37,7 +38,7 @@ availableMethods = ("coh", "corr", "granger")
 def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                          foi=None, foilim=None, pad='maxperlen',
                          polyremoval=None, tapsmofrq=None, nTaper=None,
-                         taper="hann", taper_opt=None, out=None, **kwargs):
+                         taper="hann", taper_opt=None, **kwargs):
 
     """
     Perform connectivity analysis of Syncopy :class:`~syncopy.AnalogData` objects
@@ -56,7 +57,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         Compute the normalized cross spectral densities
         between all channel combinations
 
-        * **output** : one of ('abs', 'pow', 'fourier')
+        * **output** : one of ('abs', 'pow', 'complex', 'angle', 'imag' or 'real')
         * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : (optional) number of orthogonal tapers for slepian tapers
@@ -88,7 +89,8 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     output : str
         Relevant for cross-spectral density estimation (`method='coh'`)
         Use `'pow'` for absolute squared coherence, `'abs'` for absolute value of coherence
-        and`'fourier'` for the complex valued coherency.
+        , `'complex'` for the complex valued coherency or `'angle'`, `'imag'` or `'real'`
+        to extract the phase difference, imaginary or real part of the coherency respectively.
     keeptrials : bool
         Relevant for cross-correlations (`method='corr'`).
         If `True` single-trial cross-correlations are returned.
@@ -150,8 +152,10 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     lcls = locals()
     # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="connectivity")
-    # Ensure a valid computational method was selected
 
+    new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
+
+    # Ensure a valid computational method was selected
     if method not in availableMethods:
         lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
         raise SPYValueError(legal=lgl, varname="method", actual=method)
@@ -194,7 +198,6 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # Prepare keyword dict for logging (use `lcls` to get actually provided
     # keyword values, not defaults set above)
     log_dict = {"method": method,
-                "output": output,
                 "keeptrials": keeptrials,
                 "polyremoval": polyremoval,
                 "pad": pad}
@@ -266,7 +269,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                                          nSamples=nSamples,
                                          taper=taper,
                                          taper_opt=taper_opt,
-                                         demean_taper=False,
+                                         demean_taper=method == 'granger',
                                          polyremoval=polyremoval,
                                          timeAxis=timeAxis,
                                          foi=foi)
@@ -274,6 +277,12 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         st_dimord = ST_CrossSpectra.dimord
 
     if method == 'coh':
+
+        if output not in coh_outputs:
+            lgl = f"one of {coh_outputs}"
+            raise SPYValueError(lgl, varname="output", actual=output)
+        log_dict['output'] = output
+        
         # final normalization after trial averaging
         av_compRoutine = NormalizeCrossSpectra(output=output)
 
@@ -317,39 +326,28 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # Perform the trial-parallelized computation of the matrix quantity
     st_compRoutine.initialize(data,
                               st_out._stackingDim,
-                              chan_per_worker=None, # no parallelisation over channels possible
-                              keeptrials=keeptrials) # we most likely need trial averaging!
+                              chan_per_worker=None,   # no parallelisation over channels possible
+                              keeptrials=keeptrials)  # we most likely need trial averaging!
     st_compRoutine.compute(data, st_out, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
-    # if ever needed..
     # for single trial cross-corr results <-> keeptrials is True
-    if keeptrials and av_compRoutine is None:
-        if out is not None:
-            msg = "Single trial processing does not support `out` argument but directly returns the results"
-            SPYWarning(msg)
+    if av_compRoutine is None:
         return st_out
 
     # ----------------------------------------------------------------------------------
     # Sanitize output and call the chosen ComputationalRoutine on the averaged ST output
     # ----------------------------------------------------------------------------------
 
-    # If provided, make sure output object is appropriate
-    if out is not None:
-        try:
-            data_parser(out, varname="out", writable=True, empty=True,
-                        dataclass="CrossSpectralData",
-                        dimord=st_dimord)
-        except Exception as exc:
-            raise exc
-        new_out = False
-    else:
-        out = CrossSpectralData(dimord=st_dimord)
-        new_out = True
+    out = CrossSpectralData(dimord=st_dimord)
 
     # now take the trial average from the single trial CR as input
     av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
-    av_compRoutine.pre_check() # make sure we got a trial_average
+    av_compRoutine.pre_check()   # make sure we got a trial_average
     av_compRoutine.compute(st_out, out, parallel=False, log_dict=log_dict)
 
-    # Either return newly created output object or simply quit
-    return out if new_out else None
+    # attach potential older cfg's from the input
+    # to support chained frontend calls..
+    out.cfg.update(data.cfg)
+    # attach frontend parameters for replay
+    out.cfg.update({'connectivityanalysis': new_cfg})
+    return out

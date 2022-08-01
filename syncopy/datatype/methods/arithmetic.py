@@ -13,7 +13,7 @@ from .selectdata import _get_selection_size
 from syncopy.shared.parsers import data_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import unwrap_io
+from syncopy.shared.kwarg_decorators import process_io
 from syncopy.shared.computational_routine import ComputationalRoutine
 if __acme__:
     import dask.distributed as dd
@@ -429,7 +429,7 @@ def _perform_computation(baseObj,
     return out
 
 
-@unwrap_io
+@process_io
 def arithmetic_cF(base_dat, operand_dat, operand_idx, operation=None, opres_type=None,
                   noCompute=False, chunkShape=None):
     """

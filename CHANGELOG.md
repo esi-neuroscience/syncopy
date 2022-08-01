@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+
+## [Unreleased]
+
+### NEW
+- Added down- and resampling algorithms for the new meta-function `resampledata`
+- Added FOOOF method as a post-processing option for the freqanalysis method mtmfft.
+- new global `spy.copy()` function which copies entire Syncopy objects on disk
+- Added `.info` attribute for all data classes to store auxiliary meta information
+
+
+### CHANGED
+- the `out.cfg` attached to an analysis result now allows to replay all analysis methods
+- `connectivityanalysis` now has FT compliant output support for the coherence
+- `spy.cleanup` now has exposed `interactive` parameter
+- removed keyword `deep` from `copy()`, all our copies are in fact deep
+- demeaning after tapering for granger analysis
+
+### FIXED
+- `out.cfg` global side-effects (sorry again @kajal5888)
+- `CrossSpectralData` plotting
+- mixing of explicit keywords and `cfg` to control analysis
+- fixed error on initializing SpikeData with empty ndarray (#257)
+
+
 ## [2022.05] - 2022-05-13
 Bugfixes and features additions for `EventData` objects.
 

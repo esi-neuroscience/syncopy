@@ -13,9 +13,8 @@ from scipy.signal import fftconvolve
 def apply_fir(data, fkernel):
 
     """
-    Convolution in the time domain of the input `data`
-    with an FIR filter. The filter's impulse response
-    is given by `fkernel`.
+    Convolution of the input `data` with a FIR filter.
+    The filter's impulse response is given by `fkernel`.
 
     Parameters
     ----------
@@ -37,11 +36,11 @@ def apply_fir(data, fkernel):
     slices[0] = slice(None)
     slices = tuple(slices)
 
-    filtered = fftconvolve(data, fkernel[slices], mode='same')
+    filtered = fftconvolve(data, fkernel[slices], mode="same")
     return filtered
 
 
-def design_wsinc(window, order, f_c, filter_type='lp'):
+def design_wsinc(window, order, f_c, filter_type="lp"):
 
     """
     Construct the windowed sinc filter kernel in the time domain
@@ -72,20 +71,20 @@ def design_wsinc(window, order, f_c, filter_type='lp'):
     if order % 2 != 0:
         order += 1
 
-    if filter_type == 'lp':
+    if filter_type == "lp":
         kernel = windowed_sinc(window, order, f_c)
         return kernel
 
-    elif filter_type == 'hp':
+    elif filter_type == "hp":
         lp_kernel = windowed_sinc(window, order, f_c)
         kernel = invert_sinc(lp_kernel)
         return kernel
 
-    if filter_type == 'bp':
+    if filter_type == "bp":
         # high-pass freq is lower than low-pass freq
         # for band-pass filters
         f_hp, f_lp = f_c
-    elif filter_type == 'bs':
+    elif filter_type == "bs":
         # high-pass freq is higher than low-pass freq
         # for band-stop filters
         f_lp, f_hp = f_c
@@ -98,7 +97,7 @@ def design_wsinc(window, order, f_c, filter_type='lp'):
 
     # subtract dc component from filter addition
     # for band-pass filters in the time-domain
-    if filter_type == 'bp':
+    if filter_type == "bp":
         kernel[len(kernel) // 2] -= 1
 
     return kernel
@@ -182,8 +181,10 @@ def minphaserceps(fkernel):
     """
 
     nSamples = len(fkernel)
-    upsamplingFactor = 1e3  # Impulse response upsampling/zero padding to reduce time-aliasing
-    nFFT = int(2**np.ceil(np.log2(nSamples * upsamplingFactor)))  # Power of 2
+    upsamplingFactor = (
+        1e3  # Impulse response upsampling/zero padding to reduce time-aliasing
+    )
+    nFFT = int(2 ** np.ceil(np.log2(nSamples * upsamplingFactor)))  # Power of 2
     clipThresh = 1e-8  # -160 dB
 
     # Spectrum
@@ -194,9 +195,10 @@ def minphaserceps(fkernel):
     specR = np.real(np.fft.ifft(np.log(specC)))
 
     # Convolve
-    ires = np.hstack([specR[1:nFFT // 2], 0]) + np.conj(specR[nFFT // 2:nFFT + 1][::-1])
-    specR = np.hstack([
-        specR[0], ires, np.zeros(nFFT // 2 - 2)])
+    ires = np.hstack([specR[1 : nFFT // 2], 0]) + np.conj(
+        specR[nFFT // 2 : nFFT + 1][::-1]
+    )
+    specR = np.hstack([specR[0], ires, np.zeros(nFFT // 2 - 2)])
 
     # Minimum phase
     MinPhase = np.real(np.fft.ifft(np.exp(np.fft.fft(specR))))

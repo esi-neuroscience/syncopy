@@ -140,7 +140,7 @@ class TestSpyCalls():
         # keyword set via cfg and kwarg
         with pytest.raises(SPYValueError) as exc:
             group_objects(self.data, cfg, groupbychan="invalid")
-        assert "'non-default value for groupbychan'; expected no keyword arguments" in str(exc.value)
+        assert "set in both `cfg` and via explicit keyword" in str(exc.value)
 
         # both data and dataset in cfg/keywords
         cfg = StructDict()
