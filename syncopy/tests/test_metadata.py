@@ -213,34 +213,44 @@ class TestMetadataUsingFooof():
 
         # check the data
         assert spec_dt.data.ndim == 4
-        #assert spec_dt.data.shape == (1, 1, 100, 1) # TODO: Properly check this for (it differs from other tests due to `keeptrials=True`)
+        #print("spec_dt.data.shape is {}.".format(spec_dt.data.shape))
+        assert spec_dt.data.shape == (100, 1, 100, 1) # TODO: Properly check this for (it differs from other tests due to `keeptrials=True`)
         assert not np.isnan(spec_dt.data).any()
 
-        # check metadata from 2nd cF return value, added to the hdf5 dataset as attribute.
+        # check metadata from 2nd cF return value, added to the hdf5 dataset 'data' as attributes.
         k_unique = "_0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
                          #       depending on data size and RAM, there may or may not be several calls, and "_1" , "_2", ... exist.
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
-        assert len(spec_dt.data.attrs.keys()) == len(expected_fooof_dict_entries)
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
-        for kv in keys_unique:
-            assert (kv) in spec_dt.data.attrs.keys()
-            assert isinstance(spec_dt.data.attrs.get(kv), np.ndarray)
-        # Expect one entry in detail.
-        n_peaks = spec_dt.data.attrs.get("n_peaks" + k_unique)
-        assert isinstance(n_peaks, np.ndarray)
-        assert n_peaks.size == 1 # cfg.keeptrials is False, so FOOOF operates on a single trial and we expect only one value here.
-        assert spec_dt.data.attrs.get("r_squared" + k_unique).size == 1  # Same, see line above.
-        assert spec_dt.data.attrs.get("error" + k_unique).size == 1  # Same, see line above.
 
-        # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
-        assert spec_dt.metadata is not None
-        num_metadata_dsets = len(spec_dt.metadata.keys())
-        num_metadata_attrs = len(spec_dt.metadata.attrs.keys())  # Get keys of hdf5 attribute manager.
-        assert num_metadata_dsets == 0
-        assert num_metadata_attrs == 6
-        for kv in keys_unique:
-            assert (kv) in spec_dt.metadata.attrs.keys()
-            assert isinstance(spec_dt.metadata.attrs.get(kv), np.ndarray)
+        test_metadata_on_main_dset = False
+        test_metadata_on_metadata_group = True
+
+        if test_metadata_on_main_dset:
+            print("spec_dt.data.attrs has length {}.".format(len(spec_dt.data.attrs.keys())))
+
+            assert len(spec_dt.data.attrs.keys()) == len(expected_fooof_dict_entries)
+
+            for kv in keys_unique:
+                assert (kv) in spec_dt.data.attrs.keys()
+                assert isinstance(spec_dt.data.attrs.get(kv), np.ndarray)
+            # Expect one entry in detail.
+            n_peaks = spec_dt.data.attrs.get("n_peaks" + k_unique)
+            assert isinstance(n_peaks, np.ndarray)
+            assert n_peaks.size == 1 # cfg.keeptrials is False, so FOOOF operates on a single trial and we expect only one value here.
+            assert spec_dt.data.attrs.get("r_squared" + k_unique).size == 1  # Same, see line above.
+            assert spec_dt.data.attrs.get("error" + k_unique).size == 1  # Same, see line above.
+
+        if test_metadata_on_metadata_group:
+            # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
+            assert spec_dt.metadata is not None
+            num_metadata_dsets = len(spec_dt.metadata.keys())
+            num_metadata_attrs = len(spec_dt.metadata.attrs.keys())  # Get keys of hdf5 attribute manager.
+            assert num_metadata_dsets == 0
+            assert num_metadata_attrs == 6
+            for kv in keys_unique:
+                assert (kv) in spec_dt.metadata.attrs.keys()
+                assert isinstance(spec_dt.metadata.attrs.get(kv), np.ndarray)
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
