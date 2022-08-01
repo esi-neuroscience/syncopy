@@ -59,15 +59,74 @@ class TestMetadataUsingFooof():
         cfg.foilim = [1., 100.]
         return cfg
 
-    def test_metadata_1call(self):
+    def test_metadata_1call_sequential(self):
         """
-        This tests the intended operation with output type 'fooof': with an input that does not
-        include zero, ensured by using the 'foilim' argument/setting when calling freqanalysis.
+        Test metadata propagation in with sequential compute.
+        """
+        cfg = TestMetadataUsingFooof.get_fooof_cfg()
+        cfg.parallel = False
+        cfg.pop('fooof_opt', None)
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
+        spec_dt = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
 
-        This returns the full, fooofed spectrum.
+        # check frequency axis
+        assert spec_dt.freq.size == 100
+        assert spec_dt.freq[0] == 1
+        assert spec_dt.freq[99] == 100.
+
+        # check the log
+        assert "fooof_method = fooof" in spec_dt._log
+        assert "fooof_aperiodic" not in spec_dt._log
+        assert "fooof_peaks" not in spec_dt._log
+        assert "fooof_opt" in spec_dt._log
+
+        # check the data
+        assert spec_dt.data.ndim == 4
+        assert spec_dt.data.shape == (1, 1, 100, 1)
+        assert not np.isnan(spec_dt.data).any()
+
+        # check metadata from 2nd cF return value, added to the hdf5 dataset as attribute.
+        k_unique = "_0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
+                         #       depending on data size and RAM, there may or may not be several calls, and "_1" , "_2", ... exist.
+        expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
+        assert len(spec_dt.data.attrs.keys()) == len(expected_fooof_dict_entries)
+        keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
+        for kv in keys_unique:
+            assert (kv) in spec_dt.data.attrs.keys()
+            assert isinstance(spec_dt.data.attrs.get(kv), np.ndarray)
+        # Expect one entry in detail.
+        n_peaks = spec_dt.data.attrs.get("n_peaks" + k_unique)
+        assert isinstance(n_peaks, np.ndarray)
+        assert n_peaks.size == 1 # cfg.keeptrials is False, so FOOOF operates on a single trial and we expect only one value here.
+        assert spec_dt.data.attrs.get("r_squared" + k_unique).size == 1  # Same, see line above.
+        assert spec_dt.data.attrs.get("error" + k_unique).size == 1  # Same, see line above.
+
+        # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
+        assert spec_dt.metadata is not None
+        num_metadata_dsets = len(spec_dt.metadata.keys())
+        num_metadata_attrs = len(spec_dt.metadata.attrs.keys())  # Get keys of hdf5 attribute manager.
+        assert num_metadata_dsets == 0
+        assert num_metadata_attrs == 6
+        for kv in keys_unique:
+            assert (kv) in spec_dt.metadata.attrs.keys()
+            assert isinstance(spec_dt.metadata.attrs.get(kv), np.ndarray)
+
+        # check that the cfg is correct (required for replay)
+        assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
+        return spec_dt
+
+    def test_metadata_parallel_with_sequential_storage(self):
+        """
+        Test metadata propagation in with parallel compute and sequential storage.
+        With trial averaging (`keeptrials=false` in cfg), sequential storage is used.
+
+        Note: This function is currently identical to 'test_metadata_1call_sequential()',
+              the only difference is the `cfg.parallel = True` before the call to freqanalysis().
+              TODO: We should refactor this.
         """
         cfg = TestMetadataUsingFooof.get_fooof_cfg()
         cfg.pop('fooof_opt', None)
+        cfg.parallel = True
         fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
         spec_dt = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
 
@@ -123,7 +182,7 @@ class TestMetadataUsingFooof():
 
         plt.ioff()
         client = dd.Client(testcluster)
-        all_tests = [self.test_metadata_1call]
+        all_tests = [self.test_metadata_1call_sequential]
 
         for test_name in all_tests:
             test_method = getattr(self, test_name)
@@ -133,5 +192,6 @@ class TestMetadataUsingFooof():
 
 if __name__ == "__main__":
     print("---------------Testing---------------")
-    TestMetadataUsingFooof().test_metadata_1call()
+    #TestMetadataUsingFooof().test_metadata_1call_sequential()
+    TestMetadataUsingFooof().test_metadata_parallel_with_sequential_storage()
     print("------------Testing done------------")
