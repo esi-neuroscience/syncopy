@@ -223,7 +223,11 @@ class TestMetadataUsingFooof():
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
 
-        test_metadata_on_main_dset = False
+        ### TODO: Continue here!
+        ### These tests still fail in this case because we somehow need to collect the attributes and extra datasets from
+        ### the virtual datasets, I guess.
+
+        test_metadata_on_main_dset = True
         test_metadata_on_metadata_group = True
 
         if test_metadata_on_main_dset:
