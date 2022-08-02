@@ -43,18 +43,14 @@ if __name__ == "__main__":
                                     nSamples=nSamples,
                                     alphas=[0.9, 0])
 
-    adata += synth_data.harmonic(nTrials, freq=30, samplerate=fs)
+    spec = spy.freqanalysis(ad2, tapsmofrq=2, keeptrials=False)
+    foi = np.linspace(40, 160, 25)
+    coh = spy.connectivityanalysis(ad2, method='coh', tapsmofrq=5)
 
-    foi = np.linspace(20, 160, 100)
-    spec = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False, foi=foi)
+    # show new plotting
+    # ad2.singlepanelplot(trials=12, toilim=[0, 0.35])
 
-    # fooof it
-    specf = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False, foi=foi,
-                             output="fooof", fooof_opt={'max_n_peaks': 2})
+    # mtmfft spectrum
+    # spec.singlepanelplot()
+    # coh.singlepanelplot(channel_i=0, channel_j=1)
 
-    specf2 = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False, foi=foi,
-                              output="fooof_peaks", fooof_opt={'max_n_peaks': 2})
-
-    spec.singlepanelplot()
-    specf.singlepanelplot()
-    specf2.singlepanelplot()
