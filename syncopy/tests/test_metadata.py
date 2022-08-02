@@ -226,6 +226,8 @@ class TestMetadataUsingFooof():
         ### TODO: Continue here!
         ### These tests still fail in this case because we somehow need to collect the attributes and extra datasets from
         ### the virtual datasets, I guess.
+        # We need to open the hdf5 instances of the virtual dataset in process_metadata()
+        # one by one and extract the added attributes.
 
         test_metadata_on_main_dset = True
         test_metadata_on_metadata_group = True

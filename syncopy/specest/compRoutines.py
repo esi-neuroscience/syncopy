@@ -22,6 +22,7 @@
 from inspect import signature
 import numpy as np
 from scipy import signal
+import h5py
 
 # backend method imports
 from .mtmfft import mtmfft
@@ -965,6 +966,20 @@ class FooofSpy(ComputationalRoutine):
 
     # To attach metadata to the output of the CF
     def process_metadata(self, data, out, metadata=None):
+
+        # TODO: instead of getting metadata as an arg, we should
+        #       get the hdf5 file name from 'out' and read it out
+        #       of the file.
+        print("process_metadata(): out.container is {c}".format(c=out.container))
+        print("process_metadata(): out.filename is {c}".format(c=out.filename))
+        with h5py.File(out.filename, mode="r") as h5f:
+            main_dset = h5f['data']
+            if main_dset.is_virtual:
+                print("process_metadata(): The main dataset is virtual")
+                print(main_dset.virtual_sources())
+                print("process_metadata(): - virtual main dataset has {na} attributes".format(na=len(main_dset.attrs.keys())))
+            if 'metadata' in h5f:
+                print("process_metadata(): h5f file contains 'metadata' dataset.")
 
         if metadata is not None:
             print("FooofSpy.process_metadata(): ************** received some (non-None) metadata ******************")

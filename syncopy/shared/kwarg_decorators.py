@@ -584,7 +584,7 @@ def get_res_details(res):
             raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="tuple with length {}" % len(res))
         else:
             res, details = res
-        if not details is None: # Accept and silently ignore a 2nd return value of None.
+        if details is not None: # Accept and silently ignore a 2nd return value of None.
             if not isinstance(details, dict):
                     raise SPYValueError("the second return value of user-supplied compute functions must be a dict")
     else:
@@ -606,6 +606,8 @@ def h5_add_details(hdf5_filename, details):
         The second return value of user-supplied cF, with the limitations described in `_parse_details()`.
 
     """
+    if not isinstance(hdf5_filename, str):
+        raise SPYTypeError(hdf5_filename, varname="hdf5_filename", expected="str")
     if details is not None:
         with h5py.File(hdf5_filename, "w") as h5fout:
             grp = h5fout.create_group("metadata")
@@ -754,7 +756,11 @@ def process_io(func):
         if vdsdir is not None:
             print("process_io():parallel branch: writing to multiple stand-alone hdf5 files (virtual dataset) in parallel.")
             with h5py.File(outfilename, "w") as h5fout:
-                h5fout.create_dataset(outdset, data=res)
+                ds = h5fout.create_dataset(outdset, data=res)
+                k_unique = "my_key" + "_" + str(call_id)
+                ds.attrs.create(k_unique, np.zeros((3,3 )))
+                grp = h5fout.create_group("metadata")
+                grp.attrs.create(k_unique, np.zeros((3,3 )))
                 h5fout.flush()
             # Add new dataset/attribute to capture new outputs
             h5_add_details(outfilename, details)

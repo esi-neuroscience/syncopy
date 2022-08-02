@@ -742,7 +742,7 @@ class ComputationalRoutine(ABC):
         # Extract metadata group from hdf5. There may or may not be one, depending
         # on whether the cF had multiple return values. So we just try.
         try:
-            metadata = h5py.File(out.filename, mode="r+")["metadata"]
+            metadata = h5py.File(out.filename, mode="r")["metadata"]
             print("compute(): Metadata was attached to hdf5 file.")
         except:
             metadata = None
@@ -814,7 +814,10 @@ class ComputationalRoutine(ABC):
         Parameters
         ----------
         data : syncopy data object
-           Syncopy data object, ignored for parallel case.
+           Syncopy data object, ignored for parallel case. The input data information
+           is already contained in the workerdicts, which are stored in `self.pmap` (expanded
+           from the `inargs` in `compute()`) and can be accessed from it.
+
         out : syncopy data object
            Empty object for holding results
 
