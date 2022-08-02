@@ -40,7 +40,7 @@ def load_tdt(data_path, out_path=None, memuse=3000):
     tdt_data_handler = ESI_TDTdata(
         data_path, out_path, out_name, subtract_median=False, channels=None, export=True
     )
-    print(file_paths)
+
     adata = tdt_data_handler.data_aranging(file_paths, tdt_info)
     # we have to open for reading again
     adata.data = h5py.File(adata.filename, "r")['data']

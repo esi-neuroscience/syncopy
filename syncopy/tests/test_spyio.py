@@ -522,8 +522,14 @@ class Test_TDT_Importer:
 
     def test_load_tdt(self):
 
-        adata = load_tdt(self.tdt_dir, outpath=None)
+        AData = load_tdt(self.tdt_dir, out_path=None)
 
+        assert isinstance(AData, AnalogData)
+        # check meta info parsing
+        assert len(AData.info.keys()) == 26
+        # that is apparently fixed
+        assert AData.dimord == ['time', 'channel']
+        assert len(AData.channel) == 9
         
         
 if __name__ == '__main__':
