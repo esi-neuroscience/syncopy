@@ -9,7 +9,7 @@ import numpy as np
 # Syncopy imports
 from syncopy import AnalogData
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
-from syncopy.shared.tools import get_defaults
+from syncopy.shared.tools import get_defaults, get_frontend_cfg
 from syncopy.shared.errors import SPYValueError, SPYInfo
 from syncopy.shared.kwarg_decorators import (
     unwrap_cfg,
@@ -107,6 +107,8 @@ def preprocessing(
     lcls = locals()
     # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="preprocessing")
+
+    new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
 
     if filter_class not in availableFilters:
         lgl = "'" + "or '".join(opt + "' " for opt in availableFilters)
@@ -302,6 +304,8 @@ def preprocessing(
             filtered, rectified, parallel=kwargs.get("parallel"), log_dict=log_dict
         )
         del filtered
+        rectified.cfg.update(data.cfg)
+        rectified.cfg.update({'preprocessing': new_cfg})
         return rectified
 
     elif hilbert:
@@ -318,8 +322,14 @@ def preprocessing(
             filtered, htrafo, parallel=kwargs.get("parallel"), log_dict=log_dict
         )
         del filtered
+        htrafo.cfg.update(data.cfg)
+        htrafo.cfg.update({'preprocessing': new_cfg})
         return htrafo
 
     # no post-processing
     else:
+        # attach potential older cfg's from the input
+        # to support chained frontend calls..
+        filtered.cfg.update(data.cfg)
+        filtered.cfg.update({'preprocessing': new_cfg})
         return filtered

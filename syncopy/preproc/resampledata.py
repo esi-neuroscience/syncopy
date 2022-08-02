@@ -9,8 +9,10 @@ import numpy as np
 # Syncopy imports
 from syncopy import AnalogData
 from syncopy.shared.parsers import data_parser, scalar_parser
-from syncopy.shared.tools import get_defaults
+
+from syncopy.shared.tools import get_defaults, get_frontend_cfg
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYInfo
+
 from syncopy.shared.kwarg_decorators import (
     unwrap_cfg,
     unwrap_select,
@@ -27,7 +29,7 @@ availableMethods = ("downsample", "resample")
 @unwrap_select
 @detect_parallel_client
 def resampledata(data,
-                 resamplefs=1,
+                 resamplefs=1.,
                  method="resample",
                  lpfreq=None,
                  order=None,
@@ -41,16 +43,15 @@ def resampledata(data,
     "downsample" : Take every nth sample
         The new sampling rate `resamplefs` must be an integer division of
         the old sampling rate, e. g., 500Hz to 250Hz.
-        Note that no anti-aliasing filtering is performed before downsampling,
+        NOTE: No anti-aliasing filtering is performed before downsampling,
         it is strongly recommended to apply a low-pass filter
-        beforehand via :func:`~syncopy.preprocessing` with the new
-        Nyquist frequency (`resamplefs / 2`) as cut-off.
-        Alternatively explicitly setting `lpfreq` (and `order` if needed)
-        performs anti-aliasing on the fly.
+        via explicitly setting `lpfreq` to the new Nyquist frequency
+        (`resamplefs / 2`) as cut-off.
+        Alternatively filter the data with :func:`~syncopy.preprocessing` beforehand.
 
     "resample" : Resample to a new sampling rate
         The new sampling rate `resamplefs` can be any (rational) fraction
-        of the original sampling rate (`data.samperate`). Automatic
+        of the original sampling rate (`data.samplerate`). Automatic
         anti-aliasing FIRWS filtering with the new Nyquist frequency
         is performed before resampling. Optionally set `lpfreq` in Hz
         for manual control over the low-pass filtering.
@@ -66,9 +67,8 @@ def resampledata(data,
         Leave at `None` for standard anti-alias filtering with
         the new Nyquist for `method='resample'` or set explicitly in Hz
     order : None or int, optional
-        Order (length) of the firws anti-aliasing filter.
-        The default `None` will create a filter with a length
-        of 1000 samples.
+        Order (length) of the firws anti-aliasing filter
+        The default `None` will create a filter with a length of 1000 samples
 
     Returns
     -------
@@ -78,6 +78,11 @@ def resampledata(data,
     """
 
     # -- Basic input parsing --
+
+    if method not in availableMethods:
+        lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
+        raise SPYValueError(legal=lgl, varname="method", actual=method)
+
 
     # Make sure our one mandatory input object can be processed
     try:
@@ -107,8 +112,10 @@ def resampledata(data,
     # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="resampledata")
 
+    new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
+
     # check resampling frequency
-    scalar_parser(resamplefs, varname="resamplefs", lims=[1, np.inf])
+    scalar_parser(resamplefs, varname="resamplefs", lims=[1, data.samplerate])
 
     # filter order
     if order is not None:
@@ -124,22 +131,16 @@ def resampledata(data,
         order = int(lenTrials.min()) if lenTrials.min() < 1000 else 1000
 
     # check for anti-alias low-pass filter settings
-    # minimum requirement: (old) Nyquist limit
+    # minimum requirement: new Nyquist limit
     if lpfreq is not None:
-        scalar_parser(lpfreq, varname="lpfreq", lims=[0, data.samplerate / 2])
-        # filtering should be done at most with the new Nyquist
-        if lpfreq > resamplefs / 2:
-            msg = ("You have chosen a sub-optimal anti-alias filter, "
-                   f"`lpfreq` should be at most {resamplefs / 2}Hz!"
-                   )
-            SPYWarning(msg)
+        scalar_parser(lpfreq, varname="lpfreq", lims=[0, resamplefs / 2])
 
     # -- downsampling --
     if method == "downsample":
 
         if data.samplerate % resamplefs != 0:
             lgl = (
-                "integeger division of the original sampling rate "
+                "integer division of the original sampling rate "
                 "for `method='downsample'`"
             )
             raise SPYValueError(lgl, varname="resamplefs", actual=resamplefs)
@@ -154,12 +155,22 @@ def resampledata(data,
                 direction='twopass',
                 timeAxis=timeAxis,
             )
+            # keyword dict for logging
+            aa_log_dict = {"filter_type": 'lp',
+                           "lpfreq": lpfreq,
+                           "order": order,
+                           "direction": 'twopass'}
+
         else:
             AntiAliasFilter = None
 
         resampleMethod = Downsample(
             samplerate=data.samplerate, new_samplerate=resamplefs, timeAxis=timeAxis
         )
+        # keyword dict for logging
+        log_dict = {"method": method,
+                    "resamplefs": resamplefs,
+                    "origfs": data.samplerate}
 
     # -- resampling --
     elif method == "resample":
@@ -179,12 +190,13 @@ def resampledata(data,
             order=order,
             timeAxis=timeAxis
         )
-    # keyword dict for logging
-    log_dict = {"method": method,
-                "resamplefs": resamplefs,
-                "origfs": data.samplerate,
-                "lpfreq": lpfreq,
-                "order": order}
+        # keyword dict for logging
+        log_dict = {"method": method,
+                    "resamplefs": resamplefs,
+                    "origfs": data.samplerate,
+                    "lpfreq": lpfreq,
+                    "order": order}
+
     # ------------------------------------
     # Call the chosen ComputationalRoutine
     # ------------------------------------
@@ -195,18 +207,15 @@ def resampledata(data,
         filtered = AnalogData(dimord=data.dimord)
         AntiAliasFilter.initialize(
             data,
-            filtered._stackingDimm,
+            filtered._stackingDim,
             chan_per_worker=kwargs.get("chan_per_worker"),
             keeptrials=True
         )
-        msg = ("Performing explicit anti-alias filtering "
-               f"with a cut-off frequency of {lpfreq}Hz"
-               )
-        SPYInfo(msg)
+
         AntiAliasFilter.compute(data,
                                 filtered,
                                 parallel=kwargs.get("parallel"),
-                                log_dict=log_dict)
+                                log_dict=aa_log_dict)
         target = filtered
     else:
         target = data  # just rebinds the name
@@ -218,7 +227,9 @@ def resampledata(data,
         keeptrials=True,
     )
     resampleMethod.compute(
-        data, resampled, parallel=kwargs.get("parallel"), log_dict=log_dict
+        target, resampled, parallel=kwargs.get("parallel"), log_dict=log_dict
     )
 
+    resampled.cfg.update(data.cfg)
+    resampled.cfg.update({'resampledata': new_cfg})
     return resampled

@@ -65,7 +65,7 @@ class ContinuousData(BaseData, ABC):
     def __str__(self):
         # Get list of print-worthy attributes
         ppattrs = [attr for attr in self.__dir__()
-                   if not (attr.startswith("_") or attr in ["log", "trialdefinition", "hdr"])]
+                   if not (attr.startswith("_") or attr in ["log", "trialdefinition"])]
         ppattrs = [attr for attr in ppattrs
                    if not (inspect.ismethod(getattr(self, attr))
                            or isinstance(getattr(self, attr), Iterator))]
@@ -183,38 +183,25 @@ class ContinuousData(BaseData, ABC):
 
     # # Helper function that reads a single trial into memory
     # @staticmethod
-    # def _copy_trial(trialno, filename, dimord, sampleinfo, hdr):
+    # def _copy_trial(trialno, filename, dimord, sampleinfo):
     #     """
     #     # FIXME: currently unused - check back to see if we need this functionality
     #     """
     #     idx = [slice(None)] * len(dimord)
     #     idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
     #     idx = tuple(idx)
-    #     if hdr is None:
-    #         # Generic case: data is either a HDF5 dataset or memmap
-    #         try:
-    #             with h5py.File(filename, mode="r") as h5f:
-    #                 h5keys = list(h5f.keys())
-    #                 cnt = [h5keys.count(dclass) for dclass in spy.datatype.__all__
-    #                        if not inspect.isfunction(getattr(spy.datatype, dclass))]
-    #                 if len(h5keys) == 1:
-    #                     arr = h5f[h5keys[0]][idx]
-    #                 else:
-    #                     arr = h5f[spy.datatype.__all__[cnt.index(1)]][idx]
-    #         except:
-    #             try:
-    #                 arr = np.array(open_memmap(filename, mode="c")[idx])
-    #             except:
-    #                 raise SPYIOError(filename)
-    #         return arr
-    #     else:
-    #         # For VirtualData objects
-    #         dsets = []
-    #         for fk, fname in enumerate(filename):
-    #             dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
-    #                                    mode="r", dtype=hdr[fk]["dtype"],
-    #                                    shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
-    #         return np.vstack(dsets)
+    #     try:
+    #         with h5py.File(filename, mode="r") as h5f:
+    #             h5keys = list(h5f.keys())
+    #             cnt = [h5keys.count(dclass) for dclass in spy.datatype.__all__
+    #                    if not inspect.isfunction(getattr(spy.datatype, dclass))]
+    #             if len(h5keys) == 1:
+    #                 arr = h5f[h5keys[0]][idx]
+    #             else:
+    #                 arr = h5f[spy.datatype.__all__[cnt.index(1)]][idx]
+    #     except:
+    #         raise SPYIOError(filename)
+    #     return arr
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
@@ -414,21 +401,12 @@ class AnalogData(ContinuousData):
     The data is always stored as a two-dimensional array on disk. On disk, Trials are
     concatenated along the time axis.
 
-    Data is only read from disk on demand, similar to memory maps and HDF5
-    files.
+    Data is only read from disk on demand, similar to HDF5 files.
     """
 
-    _infoFileProperties = ContinuousData._infoFileProperties + ("_hdr",)
+    _infoFileProperties = ContinuousData._infoFileProperties
     _defaultDimord = ["time", "channel"]
     _stackingDimLabel = "time"
-
-    @property
-    def hdr(self):
-        """dict with information about raw data
-
-        This property is empty for data created by Syncopy.
-        """
-        return self._hdr
 
     # "Constructor"
     def __init__(self,
@@ -468,9 +446,6 @@ class AnalogData(ContinuousData):
         if data is not None and dimord is None:
             dimord = self._defaultDimord
 
-        # Assign default (blank) values
-        self._hdr = None
-
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
@@ -482,11 +457,13 @@ class AnalogData(ContinuousData):
     # implement plotting
     def singlepanelplot(self, shifted=True, **show_kwargs):
 
-        sp_plotting.plot_AnalogData(self, shifted, **show_kwargs)
+        figax = sp_plotting.plot_AnalogData(self, shifted, **show_kwargs)
+        return figax
 
     def multipanelplot(self, **show_kwargs):
 
-        mp_plotting.plot_AnalogData(self, **show_kwargs)
+        figax = mp_plotting.plot_AnalogData(self, **show_kwargs)
+        return figax
 
 
 class SpectralData(ContinuousData):
@@ -630,11 +607,13 @@ class SpectralData(ContinuousData):
     # implement plotting
     def singlepanelplot(self, **show_kwargs):
 
-        sp_plotting.plot_SpectralData(self, **show_kwargs)
+        figax = sp_plotting.plot_SpectralData(self, **show_kwargs)
+        return figax
 
     def multipanelplot(self, **show_kwargs):
 
-        mp_plotting.plot_SpectralData(self, **show_kwargs)
+        figax = mp_plotting.plot_SpectralData(self, **show_kwargs)
+        return figax
 
 
 class CrossSpectralData(ContinuousData):

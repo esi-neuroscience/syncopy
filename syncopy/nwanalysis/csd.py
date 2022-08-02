@@ -144,12 +144,13 @@ def normalize_csd(csd_av_dat,
     csd_av_dat : (nFreq, N, N) :class:`numpy.ndarray`
         Averaged cross-spectral densities for `N` x `N` channels
         and `nFreq` frequencies averaged over trials.
-    output : {'abs', 'pow', 'fourier'}, default: 'abs'
+    output : {'abs', 'pow', 'fourier', 'complex', 'angle', 'imag' or 'real'}, default: 'abs'
         After normalization the coherency is still complex (`'fourier'`);
         to get the real valued coherence ``0 < C_ij(f) < 1`` one can either take the
         absolute (`'abs'`) or the absolute squared (`'pow'`) values of the
         coherencies. The definitions are not uniform in the literature,
-        hence multiple output types are supported.
+        hence multiple output types are supported. Use `'angle'`, `'imag'` or `'real'`
+        to extract the phase difference, imaginary or real part of the coherency respectively.
 
     Returns
     -------

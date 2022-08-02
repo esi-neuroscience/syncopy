@@ -10,9 +10,9 @@ import inspect
 import numpy as np
 
 # Local imports
-from syncopy.shared.errors import (SPYIOError, SPYTypeError, SPYValueError,
+from syncopy.shared.errors import (SPYTypeError, SPYValueError,
                                    SPYError, SPYWarning)
-from syncopy.shared.tools import StructDict, get_defaults
+from syncopy.shared.tools import StructDict
 import syncopy as spy
 if spy.__acme__:
     import dask.distributed as dd
@@ -111,7 +111,7 @@ def unwrap_cfg(func):
     See also
     --------
     unwrap_select : extract `select` keyword and process in-place data-selections
-    unwrap_io : set up
+    process_io : set up
                 :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`-calls
                 based on parallel processing setup
     detect_parallel_client : controls parallel processing engine via `parallel` keyword
@@ -168,9 +168,13 @@ def unwrap_cfg(func):
             if not isinstance(cfg, dict):
                 raise SPYTypeError(cfg, varname="cfg", expected="dictionary-like")
 
+            # check if we have saved pre-sets (replay a frontend run via out.cfg)
+            if func.__name__ in cfg.keys():
+                cfg = StructDict(cfg[func.__name__])
+
             # IMPORTANT: create a copy of `cfg` using `StructDict` constructor to
             # not manipulate `cfg` in user's namespace!
-            cfg = StructDict(cfg) # FIXME
+            cfg = StructDict(cfg)
 
             # If a meta-function is called using `cfg`, any (not only non-default) values for
             # keyword arguments must *either* be provided via `cfg` or via standard kw
@@ -515,7 +519,7 @@ def detect_parallel_client(func):
     return parallel_client_detector
 
 
-def unwrap_io(func):
+def process_io(func):
     """
     Decorator for handling parallel execution of a
     :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
@@ -581,8 +585,10 @@ def unwrap_io(func):
         if not isinstance(trl_dat, dict):
             return func(trl_dat, *wrkargs, **kwargs)
 
+        ### Idea: hook .compute_sequential() from CR into here
+
+
         # The fun part: `trl_dat` is a dictionary holding components for parallelization
-        hdr = trl_dat["hdr"]
         keeptrials = trl_dat["keeptrials"]
         infilename = trl_dat["infile"]
         indset = trl_dat["indset"]
@@ -603,28 +609,14 @@ def unwrap_io(func):
         if any([not sel for sel in ingrid]):
             res = np.empty(outshape, dtype=outdtype)
         else:
-            # Generic case: data is either a HDF5 dataset or memmap
-            if hdr is None:
-                try:
-                    with h5py.File(infilename, mode="r") as h5fin:
+            try:
+                with h5py.File(infilename, mode="r") as h5fin:
                         if fancy:
                             arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
                         else:
                             arr = np.array(h5fin[indset][ingrid])
-                except Exception as exc:
-                    raise exc
-
-            # For VirtualData objects
-            else:
-                idx = ingrid
-                if fancy:
-                    idx = np.ix_(*ingrid)
-                dsets = []
-                for fk, fname in enumerate(infilename):
-                    dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
-                                            mode="r", dtype=hdr[fk]["dtype"],
-                                            shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
-                arr = np.vstack(dsets)
+            except Exception as exc:  # TODO: aren't these 2 lines superfluous?
+                raise exc
 
             # === STEP 2 === perform computation
             # Ensure input array shape was not inflated by scalar selection
@@ -633,6 +625,7 @@ def unwrap_io(func):
             arr.shape = inshape
 
             # Now, actually call wrapped function
+            # Put new outputs here!
             res = func(arr, *wrkargs, **kwargs)
 
             # In case scalar selections have been performed, explicitly assign
@@ -646,6 +639,7 @@ def unwrap_io(func):
         if vdsdir is not None:
             with h5py.File(outfilename, "w") as h5fout:
                 h5fout.create_dataset(outdset, data=res)
+                # add new dataset/attribute to capture new outputs
                 h5fout.flush()
         else:
 
@@ -655,6 +649,9 @@ def unwrap_io(func):
             # Either (continue to) compute average or write current chunk
             lock.acquire()
             with h5py.File(outfilename, "r+") as h5fout:
+                # get unique id (from outgrid?)
+                # to attach additional outputs
+                # to the one and only hdf5 container
                 target = h5fout[outdset]
                 if keeptrials:
                     target[outgrid] = res
@@ -663,7 +660,7 @@ def unwrap_io(func):
                 h5fout.flush()
             lock.release()
 
-        return None # result has already been written to disk
+        return None  # result has already been written to disk
 
     return wrapper_io
 

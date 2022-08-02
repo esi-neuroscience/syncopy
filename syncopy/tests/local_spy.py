@@ -34,10 +34,14 @@ if __name__ == "__main__":
     # coupling from 0 to 1
     AdjMat[0, 1] = .15
     alphas = [.55, -.8]
-    ad2 = synth_data.AR2_network(nTrials, samplerate=fs,
-                                 AdjMat=AdjMat,
-                                 nSamples=nSamples,
-                                 alphas=alphas)
+    adata = synth_data.AR2_network(nTrials, samplerate=fs,
+                                   AdjMat=AdjMat,
+                                   nSamples=nSamples,
+                                   alphas=alphas)
+    adata += synth_data.AR2_network(nTrials, AdjMat=np.zeros((2, 2)),
+                                    samplerate=fs,
+                                    nSamples=nSamples,
+                                    alphas=[0.9, 0])
 
     spec = spy.freqanalysis(ad2, tapsmofrq=2, keeptrials=False)
     foi = np.linspace(40, 160, 25)
@@ -49,3 +53,4 @@ if __name__ == "__main__":
     # mtmfft spectrum
     # spec.singlepanelplot()
     # coh.singlepanelplot(channel_i=0, channel_j=1)
+

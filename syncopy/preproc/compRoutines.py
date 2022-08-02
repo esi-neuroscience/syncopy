@@ -11,14 +11,15 @@ from inspect import signature
 
 # syncopy imports
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import unwrap_io
+from syncopy.shared.const_def import spectralConversions, spectralDTypes
+from syncopy.shared.kwarg_decorators import process_io
 
 # backend imports
 from .firws import design_wsinc, apply_fir, minphaserceps
 from .resampling import downsample, resample
 
 
-@unwrap_io
+@process_io
 def sinc_filtering_cF(dat,
                       samplerate=1,
                       filter_type='lp',
@@ -168,7 +169,7 @@ class SincFiltering(ComputationalRoutine):
         out.channel = np.array(data.channel[chanSec])
 
 
-@unwrap_io
+@process_io
 def but_filtering_cF(dat,
                      samplerate=1,
                      filter_type='lp',
@@ -302,7 +303,7 @@ class ButFiltering(ComputationalRoutine):
         out.channel = np.array(data.channel[chanSec])
 
 
-@unwrap_io
+@process_io
 def rectify_cF(dat, noCompute=False, chunkShape=None):
 
     """
@@ -375,7 +376,7 @@ class Rectify(ComputationalRoutine):
         out.channel = np.array(data.channel[chanSec])
 
 
-@unwrap_io
+@process_io
 def hilbert_cF(dat, output='abs', timeAxis=0, noCompute=False, chunkShape=None):
 
     """
@@ -410,16 +411,6 @@ def hilbert_cF(dat, output='abs', timeAxis=0, noCompute=False, chunkShape=None):
 
     """
 
-    out_trafo = {
-        'abs': lambda x: np.abs(x),
-        'complex': lambda x: x,
-        'real': lambda x: np.real(x),
-        'imag': lambda x: np.imag(x),
-        'absreal': lambda x: np.abs(np.real(x)),
-        'absimag': lambda x: np.abs(np.imag(x)),
-        'angle': lambda x: np.angle(x)
-    }
-
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
         dat = dat.T       # does not copy but creates view of `dat`
@@ -429,13 +420,13 @@ def hilbert_cF(dat, output='abs', timeAxis=0, noCompute=False, chunkShape=None):
     # operation does not change the shape
     # but may change the number format
     outShape = dat.shape
-    fmt = np.complex64 if output == 'complex' else np.float32
+    fmt = spectralDTypes["fourier"] if output == 'complex' else spectralDTypes["abs"]
     if noCompute:
         return outShape, fmt
 
     trafo = sci.hilbert(dat, axis=0)
 
-    return out_trafo[output](trafo)
+    return spectralConversions[output](trafo)
 
 
 class Hilbert(ComputationalRoutine):
@@ -475,7 +466,7 @@ class Hilbert(ComputationalRoutine):
         out.channel = np.array(data.channel[chanSec])
 
 
-@unwrap_io
+@process_io
 def downsample_cF(dat,
                   samplerate=1,
                   new_samplerate=1,
@@ -570,7 +561,7 @@ class Downsample(ComputationalRoutine):
         out.channel = np.array(data.channel[chanSec])
 
 
-@unwrap_io
+@process_io
 def resample_cF(dat,
                 samplerate=1,
                 new_samplerate=1,

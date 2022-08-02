@@ -78,6 +78,8 @@ Syncopy groups analysis functionality into *meta-functions*, which in turn have 
 
 Here we quickly want to showcase two important methods for (time-)frequency analysis: (multi-tapered) FFT and Wavelet analysis.
 
+.. _mtmfft:
+
 Multitapered Fourier Analysis
 ------------------------------
 

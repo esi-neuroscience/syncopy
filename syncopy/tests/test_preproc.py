@@ -57,6 +57,9 @@ class TestButterworth:
     freq_kw = {'lp': fhigh, 'hp': flow,
                'bp': [flow, fhigh], 'bs': [flow, fhigh]}
 
+    # the unfiltered data
+    spec = freqanalysis(data, tapsmofrq=1, keeptrials=False)
+
     def test_but_filter(self, **kwargs):
 
         """
@@ -72,12 +75,9 @@ class TestButterworth:
             kwargs = {'direction': 'twopass',
                       'order': 4}
 
-        # the unfiltered data
-        spec = freqanalysis(self.data, tapsmofrq=1, keeptrials=False)
-
         # total power in arbitrary units (for now)
-        pow_tot = spec.show(channel=0).sum()
-        nFreq = spec.freq.size
+        pow_tot = self.spec.show(channel=0).sum()
+        nFreq = self.spec.freq.size
 
         if def_test:
             fig, ax = mk_spec_ax()
@@ -124,7 +124,7 @@ class TestButterworth:
 
         # plotting
         if def_test:
-            plot_spec(ax, spec, c='0.3', label='unfiltered')
+            plot_spec(ax, self.spec, c='0.3', label='unfiltered')
             annotate_foilims(ax, *self.freq_kw['bp'])
             ax.set_title(f"Twopass Butterworth, order = {kwargs['order']}")
 
@@ -141,22 +141,22 @@ class TestButterworth:
             if 'minphase' in direction:
                 with pytest.raises(SPYValueError) as err:
                     self.test_but_filter(**kwargs)
-                    assert "expected 'onepass'" in str(err)
+                assert "expected 'onepass'" in str(err.value)
             else:
                 self.test_but_filter(**kwargs)
-               
+
         for order in [-2, 10, 5.6]:
             kwargs = {'direction': 'twopass',
                       'order': order}
 
             if order < 1 and isinstance(order, int):
-                with pytest.raises(SPYValueError) as err:                
+                with pytest.raises(SPYValueError) as err:
                     self.test_but_filter(**kwargs)
-                    assert "value to be greater" in str(err)
+                assert "value to be greater" in str(err)
             elif not isinstance(order, int):
-                with pytest.raises(SPYValueError) as err:                
+                with pytest.raises(SPYValueError) as err:
                     self.test_but_filter(**kwargs)
-                    assert "expected int_like" in str(err)
+                assert "int_like" in str(err)
             # valid order
             else:
                 self.test_but_filter(**kwargs)
@@ -225,10 +225,10 @@ class TestButterworth:
         assert np.all(rectified.trials[0] > 0)
 
         # test simultaneous call to hilbert and rectification
-        with pytest.raises(SPYValueError) as err:        
+        with pytest.raises(SPYValueError) as err:
             call(rectify=True, hilbert='abs')
-            assert "either rectifi" in str(err)
-            assert "or hilbert" in str(err)
+        assert "either rectifi" in str(err)
+        assert "or Hilbert" in str(err)
 
         # test hilbert outputs
         for output in preproc.hilbert_outputs:
@@ -239,9 +239,9 @@ class TestButterworth:
                 assert np.all(np.imag(htrafo.trials[0]) == 0)
 
         # test wrong hilbert parameter
-        with pytest.raises(SPYValueError) as err:                
+        with pytest.raises(SPYValueError) as err:
             call(hilbert='absnot')
-            assert "one of {'" in str(err)
+        assert "one of {'" in str(err)
 
 
 class TestFIRWS:
@@ -266,6 +266,9 @@ class TestFIRWS:
     freq_kw = {'lp': fhigh, 'hp': flow,
                'bp': [flow, fhigh], 'bs': [flow, fhigh]}
 
+    # the unfiltered data
+    spec = freqanalysis(data, tapsmofrq=1, keeptrials=False)
+
     def test_firws_filter(self, **kwargs):
 
         """
@@ -282,11 +285,9 @@ class TestFIRWS:
             kwargs = {'direction': 'twopass',
                       'order': 200}
 
-        # the unfiltered data
-        spec = freqanalysis(self.data, tapsmofrq=1, keeptrials=False)
         # total power in arbitrary units (for now)
-        pow_tot = spec.show(channel=0).sum()
-        nFreq = spec.freq.size
+        pow_tot = self.spec.show(channel=0).sum()
+        nFreq = self.spec.freq.size
 
         if def_test:
             fig, ax = mk_spec_ax()
@@ -332,7 +333,7 @@ class TestFIRWS:
 
         # plotting
         if def_test:
-            plot_spec(ax, spec, c='0.3', label='unfiltered')
+            plot_spec(ax, self.spec, c='0.3', label='unfiltered')
             annotate_foilims(ax, *self.freq_kw['bp'])
             ax.set_title(f"Twopass FIRWS, order = {kwargs['order']}")
 
@@ -351,14 +352,14 @@ class TestFIRWS:
                       'order': order}
 
             if order < 1 and isinstance(order, int):
-                with pytest.raises(SPYValueError) as err:        
+                with pytest.raises(SPYValueError) as err:
                     self.test_firws_filter(**kwargs)
-                    assert "value to be greater" in str(err)
+                assert "value to be greater" in str(err)
 
             elif not isinstance(order, int):
-                with pytest.raises(SPYValueError) as err:                    
+                with pytest.raises(SPYValueError) as err:
                     self.test_firws_filter(**kwargs)
-                    assert "expected int_like" in str(err)
+                assert "int_like" in str(err)
 
             # valid order
             else:
@@ -372,7 +373,6 @@ class TestFIRWS:
                                                toi_max=self.time_span[1],
                                                min_len=3.5)
         for sd in sel_dicts:
-            print(sd)            
             self.test_firws_filter(select=sd, order=200)
 
     def test_firws_polyremoval(self):
@@ -429,10 +429,10 @@ class TestFIRWS:
         assert np.all(rectified.trials[0] > 0)
 
         # test simultaneous call to hilbert and rectification
-        with pytest.raises(SPYValueError) as err:        
+        with pytest.raises(SPYValueError) as err:
             call(rectify=True, hilbert='abs')
-            assert "either rectifi" in str(err)
-            assert "or hilbert" in str(err)
+        assert "either rectifi" in str(err)
+        assert "or Hilbert" in str(err)
 
         # test hilbert outputs
         for output in preproc.hilbert_outputs:
@@ -443,9 +443,9 @@ class TestFIRWS:
                 assert np.all(np.imag(htrafo.trials[0]) == 0)
 
         # test wrong hilbert parameter
-        with pytest.raises(SPYValueError) as err:        
+        with pytest.raises(SPYValueError) as err:
             call(hilbert='absnot')
-            assert "one of {'" in str(err)
+        assert "one of {'" in str(err)
 
 
 def mk_spec_ax():
@@ -473,4 +473,3 @@ def annotate_foilims(ax, flow, fhigh):
 if __name__ == '__main__':
     T1 = TestButterworth()
     T2 = TestFIRWS()
-
