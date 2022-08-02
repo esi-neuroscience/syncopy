@@ -187,9 +187,6 @@ class ComputationalRoutine(ABC):
         # instance of ACME's `ParallelMap` to handle actual parallel computing workload
         self.pmap = None
 
-        # dictionary acting as a replacement for `self.pmap` in the sequential case
-        self.smap = None
-
         # directory for storing source-HDF5 files making up virtual output dataset
         self.virtualDatasetDir = None
 
@@ -711,12 +708,6 @@ class ComputationalRoutine(ABC):
 
             print("compute(): running sequential branch")
 
-            # Prepare our sequential map
-            self.smap = { 'cF': self.computeFunction,
-                     #'inargs': inargs,  # First entry is workerdicts
-                     'n_inputs': self.numCalls,
-                     'cfg': self.cfg }
-
             # We only check memory
             memSize = psutil.virtual_memory().available
             if self.chunkMem >= mem_thresh * memSize:
@@ -823,7 +814,7 @@ class ComputationalRoutine(ABC):
         Parameters
         ----------
         data : syncopy data object
-           Syncopy data object to be processed
+           Syncopy data object, ignored for parallel case.
         out : syncopy data object
            Empty object for holding results
 
