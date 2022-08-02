@@ -42,9 +42,8 @@ def load_tdt(data_path, out_path=None, memuse=3000):
     )
     adata = tdt_data_handler.data_aranging(file_paths, tdt_info)
     # we have to open for reading again
-    h5File = h5py.File(adata.filename, "r")
-    adata.data = h5File['data']
-    # print(type(adata.data))
+    adata.data = h5py.File(adata.filename, "r")['data']
+
     return adata
 
 
@@ -690,6 +689,10 @@ class ESI_TDTdata:
         AData.samplerate = DataInfo_loaded.LFPs.fs
         AData.channel = chanlist
 
+        # helper to make serializable
+        def serial(arr):
+            return arr.tolist()
+
         # write info file
         AData.info["originalFiles"] = (Files,)
         AData.info["samplingRate"] = DataInfo_loaded.LFPs.fs
@@ -711,12 +714,12 @@ class ESI_TDTdata:
         AData.info["stop_date"] = str(DataInfo_loaded.info.stop_date)
         AData.info["utc_stop_time"] = DataInfo_loaded.info.utc_stop_time
         AData.info["duration"] = str(DataInfo_loaded.info.duration)
-        AData.info["PDio_onset"] = DataInfo_loaded.PDio.onset
-        AData.info["PDio_offset"] = DataInfo_loaded.PDio.offset
-        AData.info["PDio_data"] = DataInfo_loaded.PDio.data
-        AData.info["Trigger_timestamp"] = DataInfo_loaded.Mark.ts
-        AData.info["Trigger_timestamp_sample"] = np.round(DataInfo_loaded.Mark.ts * DataInfo_loaded.LFPs.fs)
-        AData.info["Trigger_code"] = DataInfo_loaded.Mark.data[0]
+        AData.info["PDio_onset"] = serial(DataInfo_loaded.PDio.onset)
+        AData.info["PDio_offset"] = serial(DataInfo_loaded.PDio.offset)
+        AData.info["PDio_data"] = serial(DataInfo_loaded.PDio.data)
+        AData.info["Trigger_timestamp"] = serial(DataInfo_loaded.Mark.ts)
+        AData.info["Trigger_timestamp_sample"] = serial(np.round(DataInfo_loaded.Mark.ts * DataInfo_loaded.LFPs.fs))
+        AData.info["Trigger_code"] = serial(DataInfo_loaded.Mark.data[0])
 
         return AData
 
