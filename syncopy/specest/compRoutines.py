@@ -978,9 +978,26 @@ class FooofSpy(ComputationalRoutine):
                 print("process_metadata(): The main dataset is virtual")
                 print(main_dset.virtual_sources())
                 print("process_metadata(): - virtual main dataset has {na} attributes".format(na=len(main_dset.attrs.keys())))
+
+                # Now open the virtual sources and check there for the metadata.
+                for source_tpl in main_dset.virtual_sources():
+                    with h5py.File(source_tpl.file_name, mode="r") as h5f_virtual_part:
+                        if 'data' in h5f_virtual_part:
+                            print("Opened virtual dataset from file '{vds}', it contains 'data' dataset.".format(vds=source_tpl.file_name))
+                            virtual_main_dset_part = h5f_virtual_part['data']
+                            print("the main 'data' dataset contains {na} attribs.".format(na=len(virtual_main_dset_part.attrs.keys())))
+                        if 'metadata' in h5f_virtual_part:
+                            print("Opened virtual dataset from file '{vds}', it contains 'metadata' dataset.".format(vds=source_tpl.file_name))
+                            virtual_metadata_dset_part = h5f_virtual_part['metadata']
+                            print("the 'metadata' dataset contains {na} attribs.".format(na=len(virtual_metadata_dset_part.attrs.keys())))
+
+
+
+
             if 'metadata' in h5f:
                 print("process_metadata(): h5f file contains 'metadata' dataset.")
-            # TODO: open the virtual sources and check there for the metadata.
+
+
 
         if metadata is not None:
             print("FooofSpy.process_metadata(): ************** received some (non-None) metadata ******************")
