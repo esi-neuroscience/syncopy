@@ -28,7 +28,7 @@ from syncopy.tests.misc import generate_artificial_data
 
 
 # Decorator to detect if test data dir is available
-on_esi = os.path.isdir('/cs/scratch/syncopy')
+on_esi = os.path.isdir('/cs/slurm/syncopy')
 skip_no_esi = pytest.mark.skipif(not on_esi, reason="ESI fs not available")
 
 
@@ -440,7 +440,7 @@ class TestSpyIO():
 
 
 @skip_no_esi
-class Test_FT_Importer:
+class TestFTImporter:
 
     """At the moment only ft_datatype_raw is supported"""
 
@@ -509,20 +509,21 @@ class Test_FT_Importer:
 
         # additional fields of Matlab structures
         # get attached to .info dict
-        # here nested structures are supported (but dis-encouraged)
+        # here nested structures are also now forbidden
         dct = load_ft_raw(fname, include_fields=('ch',))
         AData2 = dct['Data_K']
-        assert 'ch' in AData2.info
+        # sadly here it is actually nested
+        assert len(AData2.info) == 0
 
 
 @skip_no_esi
-class Test_TDT_Importer:
+class TestTDTImporter:
 
     tdt_dir = '/cs/slurm/syncopy/Tdt_reader/session-25'
 
     def test_load_tdt(self):
 
-        AData = load_tdt(self.tdt_dir, out_path=None)
+        AData = load_tdt(self.tdt_dir)
 
         assert isinstance(AData, AnalogData)
         # check meta info parsing
@@ -530,8 +531,17 @@ class Test_TDT_Importer:
         # that is apparently fixed
         assert AData.dimord == ['time', 'channel']
         assert len(AData.channel) == 9
-        
-        
+
+        # it's only one big trial atm
+        assert AData.trials[0].shape == (3170560, 9)
+
+        # test median subtr
+        AData2 = load_tdt(self.tdt_dir, subtract_median=True)
+        assert np.allclose(np.median(AData2.data), 0)
+        # check that it wasn't 0 before
+        assert not np.allclose(np.median(AData.data), 0)
+
+
 if __name__ == '__main__':
-    FTRAW = Test_FT_Importer()
-    TDT = Test_TDT_Importer()
+    T1 = TestFTImporter()
+    T2 = TestTDTImporter()

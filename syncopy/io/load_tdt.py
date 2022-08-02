@@ -22,11 +22,9 @@ import syncopy as spy
 # --- The user exposed function ---
 
 
-def load_tdt(data_path, out_path=None, memuse=3000):
+def load_tdt(data_path, subtract_median=False, memuse=3000):
 
     io_parser(data_path, isfile=False)
-    if out_path is not None:
-        io_parser(out_path, isfile=False)
     # initialize tdt info loader class
     TDT_Load_Info = ESI_TDTinfo(data_path)
     # this is a StructDict
@@ -34,11 +32,9 @@ def load_tdt(data_path, out_path=None, memuse=3000):
 
     # nicely sorted by channel names
     file_paths = _get_source_paths(data_path, ".sev")
-    # if an explicit out_path is given, set also output filename
-    out_name = tdt_info.info.blockname if out_path else None
 
     tdt_data_handler = ESI_TDTdata(
-        data_path, out_path, out_name, subtract_median=False, channels=None, export=True
+        data_path, subtract_median=subtract_median, channels=None
     )
 
     adata = tdt_data_handler.data_aranging(file_paths, tdt_info)
@@ -49,7 +45,7 @@ def load_tdt(data_path, out_path=None, memuse=3000):
     msg = f"loaded TDT data from {len(file_paths)} files\n"
     msg += f"\tsource folder: {data_path}"
     adata.log = msg
-    
+
     return adata
 
 
@@ -619,17 +615,11 @@ class ESI_TDTdata:
     def __init__(
         self,
         inputdir,
-        outputdir=None,
-        combined_data_filename=None,
         subtract_median=False,
         channels=None,
-        export=False,
     ):
 
         self.inputdir = inputdir
-        self.outputdir = outputdir
-        self.export = export
-        self.combined_data_filename = combined_data_filename
         self.chan_in_chunks = 16
         self.subtract_median = subtract_median
         self.channels = "all" if channels is None else channels
@@ -659,11 +649,7 @@ class ESI_TDTdata:
 
     def data_aranging(self, Files, DataInfo_loaded):
         AData = spy.AnalogData(dimord=['time', 'channel'])
-        if self.outputdir is not None:
-            hdf_out_path = os.path.join(self.outputdir, self.combined_data_filename + ".hdf5")
-            AData.filename = hdf_out_path
-        else:
-            hdf_out_path = AData.filename
+        hdf_out_path = AData.filename
         with h5py.File(hdf_out_path, "w") as combined_data_file:
             idxStartStop = [
                 np.clip(np.array((jj, jj + self.chan_in_chunks)), a_min=None, a_max=len(Files))
@@ -765,9 +751,3 @@ def _natural_sort(file_names):
         return [convert(c) for c in re.split("([0-9]+)", key)]
 
     return sorted(file_names, key=alphanum_key)
-
-
-tdt_dir = "/cs/slurm/syncopy/Tdt_reader/session-25"
-
-# adata = load_tdt(tdt_dir, out_path='/cs/slurm/syncopy/Tdt_reader')
-# adata = load_tdt(tdt_dir, out_path=None)
