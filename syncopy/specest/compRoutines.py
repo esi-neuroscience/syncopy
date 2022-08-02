@@ -987,9 +987,13 @@ class FooofSpy(ComputationalRoutine):
                             virtual_main_dset_part = h5f_virtual_part['data']
                             print("the main 'data' dataset contains {na} attribs.".format(na=len(virtual_main_dset_part.attrs.keys())))
                         if 'metadata' in h5f_virtual_part:
-                            print("Opened virtual dataset from file '{vds}', it contains 'metadata' dataset.".format(vds=source_tpl.file_name))
-                            virtual_metadata_dset_part = h5f_virtual_part['metadata']
-                            print("the 'metadata' dataset contains {na} attribs.".format(na=len(virtual_metadata_dset_part.attrs.keys())))
+                            print("Opened virtual dataset from file '{vds}', it contains 'metadata' group.".format(vds=source_tpl.file_name))
+                            virtual_metadata_grp = h5f_virtual_part['metadata']
+                            print("the 'metadata' group contains {na} attribs.".format(na=len(virtual_metadata_grp.attrs.keys())))
+                            vds_name = "md_dataset_0"
+                            if vds_name in virtual_metadata_grp:
+                                virtual_state = "virtual" if virtual_metadata_grp[vds_name].is_virtual else "non-virtual"
+                                print("the 'metadata' group contains the {vs} 'md_dataset_0' dataset.".format(vs=virtual_state))
 
 
 

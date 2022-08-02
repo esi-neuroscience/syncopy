@@ -760,7 +760,8 @@ def process_io(func):
                 k_unique = "my_key" + "_" + str(call_id)
                 ds.attrs.create(k_unique, np.zeros((3,3 )))
                 grp = h5fout.create_group("metadata")
-                grp.attrs.create(k_unique, np.zeros((3,3 )))
+                grp.create_dataset("md_dataset_0", data=np.zeros((3,3)))
+                grp.attrs.create(k_unique, np.zeros((3,3)))
                 h5fout.flush()
             # Add new dataset/attribute to capture new outputs
             h5_add_details(outfilename, details)
