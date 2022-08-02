@@ -27,8 +27,8 @@ available_outputs = ['rate', 'spikecount', 'proportion']
 available_latencies = ['maxperiod', 'minperiod', 'prestim', 'poststim']
 
 # ===DEV SNIPPET===
-from syncopy.tests import synth_data as sd
-spd = sd.poisson_noise(10, nUnits=7, nChannels=3, nSpikes=1000)
+# from syncopy.tests import synth_data as sd
+# spd = sd.poisson_noise(10, nUnits=7, nChannels=3, nSpikes=1000)
 # =================
 
 
