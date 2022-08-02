@@ -4,6 +4,7 @@
 #
 
 # Builtin/3rd party package imports
+import sys
 import re
 import h5py
 import numpy as np
@@ -81,8 +82,8 @@ def load_ft_raw(filename,
     Returns
     -------
     out_dict: dict
-        Dictionary with keys being the names of the structures loaded from the MAT-File,
-        and its values being the :class:`~syncopy.AnalogData` datasets
+        Dictionary with the names of the structures as keys loaded from the MAT-File,
+        and :class:`~syncopy.AnalogData` datasets as values
 
     See also
     --------
@@ -199,9 +200,17 @@ def load_ft_raw(filename,
 
         structure = struct_container[skey]
         _check_req_fields(req_fields_raw, structure)
-        data = struct_reader(structure)
-        out_dict[skey] = data
+        # the AnalogData objs
+        adata = struct_reader(structure)
+        thisMethod = sys._getframe().f_code.co_name.replace("_", "")
 
+        # Write log-entry
+        msg = f"loaded struct `{skey}` from Matlab file version {version}\n"
+        msg += f"\tsource file: {filename}"
+        adata.log = msg
+
+        out_dict[skey] = adata
+        
     return out_dict
 
 
