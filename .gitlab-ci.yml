@@ -104,7 +104,7 @@ slurmtest:
     - cd $TEST_DIR
     - srun -p DEV --mem=8000m -c 4 pytest --full test_specest.py
     - srun -p DEV --mem=8000m -c 4 pytest --full test_connectivity.py
-    - srun -p 8GBL pytest --full --ignore=test_specest.py --ignore=test_connectivity.py
+    - srun -p DEV pytest --ignore=test_specest.py --ignore=test_connectivity.py
     
 pypitest:
     stage: upload
