@@ -652,7 +652,7 @@ class ESI_TDTdata:
         return hash.hexdigest()
 
     def data_aranging(self, Files, DataInfo_loaded):
-        AData = spy.AnalogData()
+        AData = spy.AnalogData(dimord=['time', 'channel'])
         if self.outputdir is not None:
             hdf_out_path = os.path.join(self.outputdir, self.combined_data_filename + ".hdf5")
             AData.filename = hdf_out_path
@@ -682,6 +682,8 @@ class ESI_TDTdata:
 
             # link dataset to AnalogData instance
             AData.data = target
+            # temporary fix to get at least all-to-all
+            AData.trialdefinition = None
 
         chanlist = (
             None if self.channels == "all" else ["channel" + str(trch + 1).zfill(3) for trch in self.channels]
