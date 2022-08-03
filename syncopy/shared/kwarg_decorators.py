@@ -534,8 +534,8 @@ def _parse_details(details):
 
     Returns
     -------
-    attribs: dict, where (key, value) are of type (str, ndarray) and the ndarrays are small.
-    dets: dict, where (key, value) are of type (str, ndarray)
+    attribs: dict, where `(key, value)` are of type `(str, np.ndarray)` and the ndarrays are small.
+    dsets: dict, where `(key, value)` are of type `(str, ndarray)`, with no limitations.
     """
     attribs = dict()
     dsets = dict()
