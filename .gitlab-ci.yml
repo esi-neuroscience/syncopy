@@ -54,7 +54,8 @@ intelwin:
     tags:
     - windows10
     only:
-    - fix-tox-win
+    - master
+    - dev
     variables:
         PYTEST_ADDOPTS: "--color=yes --tb=short --verbose"
         GIT_FETCH_EXTRA_FLAGS: --tags
