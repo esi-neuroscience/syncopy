@@ -592,36 +592,54 @@ def get_res_details(res):
             raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="neither tuple nor np.ndarray")
     return res, details
 
-def h5_add_details(hdf5_filename, details):
+def h5_add_details(h5fout, details, unique_key_suffix="", attribs_to_data=True, attribs_to_metadata=True):
     """
-    Add details, the second return value of user-supplied cF, as a 'metadata' group to an existing hdf5 file.
-    This is not thread-safe and it assumes that no metadata exists yet in the hdf5. It does not try to create unique keys.
-    I.e., it is supposed to work on a part of a virtual hdf5 dataset, in `store_parallel=true` mode.
+    Add details, the second return value of user-supplied cF, after parsing with `_parse_details`,
+    as a 'metadata' group to an existing hdf5 file.
 
     Parameters
     ----------
-    hdf5_filename: str
-        Path to existing hdf5 file. The file will be openend in write mode, written to, and then flushed and closed.
+    hdf5_filename: h5py file instance | str
+        Open h5py file, or path to existing hdf5 file. The file will be openend in write mode, written to, and then flushed and closed.
     details: dict
         The second return value of user-supplied cF, with the limitations described in `_parse_details()`.
-
+    unique_key_suffix: str or int
+        A suffix to add to each attrib or dset name, to make it unique. Leave at the default for no suffix. Typically something like '_n', where `n` is an integer.
+        If an integer `n` is passed, it will be converted to the str '_n', where `n` is the integer.
+    attribs_to_data: bool
+        Whether to attach the 'attribs' contained in the details to the main dataset called 'data' in the hdf5 file (if it exists).
+    attribs_to_metadata: bool
+        Whether to attach the 'attribs' contained in the details to the metadata group called 'metadata' in the hdf5 file. The group will be created if it does not exist.
     """
-    if not isinstance(hdf5_filename, str):
-        raise SPYTypeError(hdf5_filename, varname="hdf5_filename", expected="str")
+    close_file = False
+    if isinstance(h5fout, str):
+        close_file = True # We openend it, we close it.
+        h5fout = h5py.File(h5fout, mode="w")
+
+    if isinstance(unique_key_suffix, int):
+        unique_key_suffix = "_" + str(unique_key_suffix)
+
     if details is not None:
-        with h5py.File(hdf5_filename, "w") as h5fout:
-            grp = h5fout.create_group("metadata")
-            attribs, dsets = _parse_details(details)
+        grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")
+        attribs, dsets = _parse_details(details)
+        if attribs_to_metadata:
             for k, v in attribs.items():
-                grp.attrs.create(k, data=v)
-            if dsets:
-                for k, v in dsets.items():
-                    grp.create_dataset(k, data=v)
+                k_unique = k + unique_key_suffix
+                grp.attrs.create(k_unique, data=v)
+        if dsets:
+            for k, v in dsets.items():
+                k_unique = k + unique_key_suffix
+                grp.create_dataset(k_unique, data=v)
+        if attribs_to_data:
             if 'data' in h5fout:  # Also add attributes to main dataset 'data' for now.
                 main_dset = h5fout['data']
                 for k, v in attribs.items():
-                    main_dset.attrs.create(k, data=v)
-            h5fout.flush()
+                    k_unique = k + unique_key_suffix
+                    main_dset.attrs.create(k_unique, data=v)
+        h5fout.flush()
+    if close_file:
+        h5fout.close()
+
 
 def process_io(func):
     """
@@ -757,14 +775,16 @@ def process_io(func):
             print("process_io():parallel branch: writing to multiple stand-alone hdf5 files (virtual dataset) in parallel.")
             with h5py.File(outfilename, "w") as h5fout:
                 ds = h5fout.create_dataset(outdset, data=res)
-                k_unique = "my_key" + "_" + str(call_id)
-                ds.attrs.create(k_unique, np.zeros((3,3 )))
-                grp = h5fout.create_group("metadata")
-                grp.create_dataset("md_dataset_0", data=np.zeros((3,3)))
-                grp.attrs.create(k_unique, np.zeros((3,3)))
+                ## The next lines were added only to test what we can attach to a virtual dataset
+                #k_unique = "my_key" + "_" + str(call_id)
+                #ds.attrs.create(k_unique, np.zeros((3,3 )))
+                #grp = h5fout.create_group("metadata")
+                #grp.create_dataset("md_dataset_0", data=np.zeros((3,3)))
+                #grp.attrs.create(k_unique, np.zeros((3,3)))
+                #h5fout.flush()
+                # Add new dataset/attribute to capture new outputs
+                h5_add_details(h5fout, details, unique_key_suffix=call_id)
                 h5fout.flush()
-            # Add new dataset/attribute to capture new outputs
-            h5_add_details(outfilename, details)
         else:
 
             print("process_io():parallel branch: writing in parallel to a single file (non-virtual) hf5 file using a mutex.")
@@ -774,29 +794,13 @@ def process_io(func):
             # Either (continue to) compute average or write current chunk
             lock.acquire()
             with h5py.File(outfilename, "r+") as h5fout:
-
-                #### TODO: The next part does not make any sense yet, because the datasets will be added to the
-                #### same container several times (in each iteration of the cF), and will overwrite
-                #### the values of previous iterations. It will be deleted, ignore.
-
-                unique_id = call_id  # get unique id to attach additional outputs in the one and only hdf5 container.
-
                 main_dset = h5fout[outdset]
                 if keeptrials:
                     main_dset[outgrid] = res
                 else:
                     main_dset[()] = np.nansum([main_dset, res], axis=0)
-                if details is not None:
-                    attribs, dsets = _parse_details(details)
-                    grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")
-                    for k, v in attribs.items():
-                        k_unique = k + "_" + str(unique_id)
-                        main_dset.attrs.create(k_unique, data=v)
-                        grp.attrs.create(k_unique, data=v)
-                    if dsets:
-                        for k, v in dsets.items():
-                            k_unique = k + "_" + str(unique_id)
-                            grp.create_dataset(k_unique, data=v)
+
+                h5_add_details(h5fout, details, unique_key_suffix=call_id)
                 h5fout.flush()
             lock.release()
 

@@ -936,36 +936,7 @@ class ComputationalRoutine(ABC):
                     # (use an explicit `shape` assignment here to avoid copies)
                     res.shape = self.targetShapes[nblock]
 
-                    if not 'metadata' in h5fout:
-                        grp = h5fout.create_group("metadata")
-                    else:
-                        grp = h5fout['metadata']
-                    attribs, dsets = _parse_details(details)
-
-                    unique_key = nblock # This is a trial index.
-
-                    if details is not None:
-                        print("compute_sequential(): received additional return value containing {na} attribs and {nd} datasets.".format(na=len(attribs), nd=len(dsets)))
-                        if attribs:
-                            print("compute_sequential(): attibs: {at}".format(at=",".join(attribs.keys())))
-                        if dsets:
-                            print("compute_sequential(): dsets: {ds}".format(ds=",".join(dsets.keys())))
-
-                    for k, v in attribs.items():
-                        k_unique = str(k) + "_" + str(unique_key)
-                        print("  -compute_sequential(): attaching attribute with unique key '{uk}'.".format(uk=k_unique))
-                        if k_unique in grp.attrs.keys():
-                            print("WARNING: hdf5 'metadata' group already contains unique key '{uk}', this must not happen.".format(uk=k_unique))
-                        else:
-                            grp.attrs.create(k_unique, data=v, dtype=v.dtype)  # Create attribs on metadata group
-                        if k_unique in target.attrs.keys():
-                            print("WARNING: hdf5 main dataset '{maindset}' already contains unique key '{uk}', this must not happen.".format(maindset=self.outDatasetName, uk=k_unique))
-                        else:
-                            target.attrs.create(k_unique, data=v, dtype=v.dtype)   # For now, also create attribs on 'data' dataset. Accessing the 'metadata' group later will require extra work.
-                    if dsets:
-                        for k, v in dsets.items():
-                            k_unique = str(k) + "_" + str(unique_key)
-                            grp.create_dataset(k_unique, data=v)
+                    h5_add_details(h5fout, details, unique_key_suffix=nblock)
 
                 # Either write result to `outgrid` location in `target` or add it up
                 if self.keeptrials:

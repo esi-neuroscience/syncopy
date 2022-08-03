@@ -278,7 +278,7 @@ class TestMetadataUsingFooof():
 
 if __name__ == "__main__":
     print("---------------Testing---------------")
-    #TestMetadataUsingFooof().test_metadata_1call_sequential()
+    TestMetadataUsingFooof().test_metadata_1call_sequential()
     #TestMetadataUsingFooof().test_metadata_parallel_with_sequential_storage()
-    TestMetadataUsingFooof().test_metadata_parallel_with_parallel_storage()
+    #TestMetadataUsingFooof().test_metadata_parallel_with_parallel_storage()
     print("------------Testing done------------")
