@@ -749,7 +749,7 @@ class ComputationalRoutine(ABC):
             print("compute(): NO metadata was attached to hdf5 file.")
 
         # Store meta-data, write log and get outta here
-        self.process_metadata(data, out, metadata=metadata)
+        self.process_metadata(data, out)
         self.write_log(data, out, log_dict)
 
     def preallocate_output(self, out, parallel_store=False):
@@ -1001,7 +1001,7 @@ class ComputationalRoutine(ABC):
         out.log = logHead + logOpts
 
     @abstractmethod
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
         """
         Meta-information manager
 
@@ -1011,7 +1011,6 @@ class ComputationalRoutine(ABC):
            Syncopy data object that has been processed
         out : syncopy data object
            Syncopy data object holding calculation results
-        metadata : metadata holding additional return value of cF
 
         Returns
         -------

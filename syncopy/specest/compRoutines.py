@@ -19,6 +19,7 @@
 # method: backend method name
 
 # Builtin/3rd party package imports
+from curses import meta
 from inspect import signature
 import numpy as np
 from scipy import signal
@@ -190,7 +191,7 @@ class MultiTaperFFT(ComputationalRoutine):
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ['tapsmofrq', 'nTaper', 'pad', 'fooof_opt']
 
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -417,7 +418,7 @@ class MultiTaperFFTConvol(ComputationalRoutine):
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ['tapsmofrq', 't_ftimwin', 'nTaper']
 
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
 
         # Get trialdef array + channels from source
         if data.selection is not None:
@@ -590,7 +591,7 @@ class WaveletTransform(ComputationalRoutine):
     valid_kws += list(signature(wavelet_cF).parameters.keys())[1:-1]
     valid_kws += ["width"]
 
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
 
         # Get trialdef array + channels from source
         if data.selection is not None:
@@ -754,7 +755,7 @@ class SuperletTransform(ComputationalRoutine):
     valid_kws = list(signature(superlet).parameters.keys())[1:]
     valid_kws += list(signature(superlet_cF).parameters.keys())[1:-1]
 
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
 
         # Get trialdef array + channels from source
         if data.selection is not None:
@@ -942,6 +943,32 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
     res = res[np.newaxis, np.newaxis, :, :]  # Re-add omitted axes.
     return res, details
 
+# Extract metadata from h5py 'metadata' group and return a standard dict containing 2 nested dicts 'dsets' and 'attrs'.
+def extract_md_group(md):
+    metadata = dict()
+    metadata['dsets'] = dict()
+    metadata['attrs'] = dict()
+    for k, v in md.attrs.items():
+        metadata['attrs'][k] = v.copy() # copy the numpy array
+    print("extract_md_group(): extracted {na} attribs.".format(na=len(md.attrs.keys())))
+    for k, v in md.items():
+        metadata['dsets'][k] = v.copy() # copy the numpy array
+    print("extract_md_group(): extracted {nd} datasets.".format(nd=len(md.keys())))
+    return metadata
+
+def merge_md_list(md_list):
+    metadata = dict()
+    metadata['dsets'] = dict()
+    metadata['attrs'] = dict()
+    for md in md_list:
+        # We just join all of them into a single dict, the unique keys should allow this.
+        metadata['attrs'] = {**metadata['attrs'], **md['attrs']}
+        #print("merge_md_list(): added {na} attrs.".format(na=len(md['attrs'])))
+        metadata['dsets'] = {**metadata['dsets'], **md['dsets']}
+        #print("merge_md_list(): added {nd} dsets.".format(nd=len(md['dsets'])))
+    print("merge_md_list(): final metadata contains {na} attribs and {nd} dsets.".format(na=len(metadata['attrs']), nd=len(metadata['dsets'])))
+    return metadata
+
 
 class FooofSpy(ComputationalRoutine):
     """
@@ -965,50 +992,56 @@ class FooofSpy(ComputationalRoutine):
     valid_kws += ["fooof_settings"]
 
     # To attach metadata to the output of the CF
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
 
         # TODO: instead of getting metadata as an arg, we should
         #       get the hdf5 file name from 'out' and read it out
         #       of the file.
         print("process_metadata(): out.container is {c}".format(c=out.container))
         print("process_metadata(): out.filename is {c}".format(c=out.filename))
+
+        metadata = None
         with h5py.File(out.filename, mode="r") as h5f:
-            main_dset = h5f['data']
-            if main_dset.is_virtual:
-                print("process_metadata(): The main dataset is virtual")
-                print(main_dset.virtual_sources())
-                print("process_metadata(): - virtual main dataset has {na} attributes".format(na=len(main_dset.attrs.keys())))
+            if 'data' in h5f:
+                main_dset = h5f['data']
+                if main_dset.is_virtual:
+                    metadata_list = list()  # A list of dicts.
+                    print("process_metadata(): The main dataset is virtual")
+                    print(main_dset.virtual_sources())
+                    print("process_metadata(): - virtual main dataset has {na} attributes".format(na=len(main_dset.attrs.keys())))
 
-                # Now open the virtual sources and check there for the metadata.
-                for source_tpl in main_dset.virtual_sources():
-                    with h5py.File(source_tpl.file_name, mode="r") as h5f_virtual_part:
-                        if 'data' in h5f_virtual_part:
-                            print("Opened virtual dataset from file '{vds}', it contains 'data' dataset.".format(vds=source_tpl.file_name))
-                            virtual_main_dset_part = h5f_virtual_part['data']
-                            print("the main 'data' dataset contains {na} attribs.".format(na=len(virtual_main_dset_part.attrs.keys())))
-                        if 'metadata' in h5f_virtual_part:
-                            print("Opened virtual dataset from file '{vds}', it contains 'metadata' group.".format(vds=source_tpl.file_name))
-                            virtual_metadata_grp = h5f_virtual_part['metadata']
-                            print("the 'metadata' group contains {na} attribs.".format(na=len(virtual_metadata_grp.attrs.keys())))
-                            vds_name = "md_dataset_0"
-                            if vds_name in virtual_metadata_grp:
-                                virtual_state = "virtual" if virtual_metadata_grp[vds_name].is_virtual else "non-virtual"
-                                print("the 'metadata' group contains the {vs} 'md_dataset_0' dataset.".format(vs=virtual_state))
+                    # Now open the virtual sources and check there for the metadata.
+                    for source_tpl in main_dset.virtual_sources():
+                        with h5py.File(source_tpl.file_name, mode="r") as h5f_virtual_part:
+                            if 'data' in h5f_virtual_part:
+                                print("process_metadata(): virtual part file '{vds}' contains virtual 'data' dataset.".format(vds=source_tpl.file_name))
+                                virtual_main_dset_part = h5f_virtual_part['data']
+                                print("process_metadata(): the virtual main 'data' dataset contains {na} attribs.".format(na=len(virtual_main_dset_part.attrs.keys())))
+                            if 'metadata' in h5f_virtual_part:
+                                print("process_metadata(): virtual dataset 'data' from file '{vds}' contains 'metadata' group.".format(vds=source_tpl.file_name))
+                                virtual_metadata_grp = h5f_virtual_part['metadata']
+                                metadata_list.append(extract_md_group(virtual_metadata_grp))
+                                print("process_metadata(): the 'metadata' group contains {na} attribs.".format(na=len(virtual_metadata_grp.attrs.keys())))
+                                #vds_name = "md_dataset_0"
+                                #if vds_name in virtual_metadata_grp:
+                                #    virtual_state = "virtual" if virtual_metadata_grp[vds_name].is_virtual else "non-virtual"
+                                #    print("process_metadata(): the 'metadata' group contains the {vs} 'md_dataset_0' dataset.".format(vs=virtual_state))
+                    metadata = merge_md_list(metadata_list)
+                else:
+                    # the main_dset is not virtual, so just grab the metadata group from the file.
+                    if 'metadata' in h5f:
+                        print("process_metadata(): NV extracting 'metadata' group from non-virtual dataset.")
+                        metadata = extract_md_group(h5f['metadata'])
+                        print("process_metadata(): NV the extracted 'metadata' group contains {na} attribs.".format(na=len(metadata['attrs'].keys())))
+            else:
+                print("process_metadata(): ERROR: No 'data' dataset in hd5f file {of}.".format(of=out.filename))
 
-
-
-
-            if 'metadata' in h5f:
-                print("process_metadata(): h5f file contains 'metadata' dataset.")
-
-
-
-        if metadata is not None:
-            print("FooofSpy.process_metadata(): ************** received some (non-None) metadata ******************")
-            print("FooofSpy.process_metadata(): metadata group consists of {ne} entries and {na} attribs".format(ne=len(metadata.keys()), na=len(metadata.attrs.keys())))
-            out.metadata = metadata
-        else:
-            print("FooofSpy.process_metadata(): received metadata is None")
+            if metadata is not None:
+                print("FooofSpy.process_metadata(): ************** received some (non-None) metadata ******************")
+                print("FooofSpy.process_metadata(): metadata group consists of {ne} dsets and {na} attribs".format(ne=len(metadata['dsets'].keys()), na=len(metadata['attrs'].keys())))
+                out.metadata = metadata
+            else:
+                print("FooofSpy.process_metadata(): received metadata is None")
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:

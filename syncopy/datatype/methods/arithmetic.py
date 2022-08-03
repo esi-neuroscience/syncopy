@@ -507,7 +507,7 @@ class SpyArithmetic(ComputationalRoutine):
 
     computeFunction = staticmethod(arithmetic_cF)
 
-    def process_metadata(self, baseObj, out, metadata=None):
+    def process_metadata(self, baseObj, out):
 
         # Get/set timing-related selection modifiers
         out.trialdefinition = baseObj.selection.trialdefinition

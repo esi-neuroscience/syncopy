@@ -154,7 +154,7 @@ class NormalizeCrossSpectra(ComputationalRoutine):
             act = f"DataSet contains {self.numTrials} trials"
             raise SPYValueError(legal=lgl, varname="data", actual=act)
 
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -295,7 +295,7 @@ class NormalizeCrossCov(ComputationalRoutine):
             act = f"DataSet contains {self.numTrials} trials"
             raise SPYValueError(legal=lgl, varname="data", actual=act)
 
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
 
         # Get trialdef array + channels from source
         if data.selection is not None:
@@ -474,7 +474,7 @@ class GrangerCausality(ComputationalRoutine):
             act = f"DataSet contains {self.numTrials} trials"
             raise SPYValueError(legal=lgl, varname="data", actual=act)
 
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:

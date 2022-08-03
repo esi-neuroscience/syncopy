@@ -633,7 +633,7 @@ class PaddingRoutine(ComputationalRoutine):
 
     computeFunction = staticmethod(padding_cF)
 
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
 
         # Fetch index of running time and used padding options from provided
         # positional args and use them to compute new start/stop/trigger onset samples

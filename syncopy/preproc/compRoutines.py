@@ -153,7 +153,7 @@ class SincFiltering(ComputationalRoutine):
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(sinc_filtering_cF).parameters.keys())[1:]
 
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -287,7 +287,7 @@ class ButFiltering(ComputationalRoutine):
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(but_filtering_cF).parameters.keys())[1:]
 
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -360,7 +360,7 @@ class Rectify(ComputationalRoutine):
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(rectify_cF).parameters.keys())[1:]
 
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -449,7 +449,7 @@ class Hilbert(ComputationalRoutine):
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(hilbert_cF).parameters.keys())[1:]
 
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -543,7 +543,7 @@ class Downsample(ComputationalRoutine):
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(downsample_cF).parameters.keys())[1:]
 
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
 
         # we need to re-calculate the downsampling factor
         factor = int(data.samplerate // self.cfg['new_samplerate'])
@@ -656,7 +656,7 @@ class Resample(ComputationalRoutine):
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(downsample_cF).parameters.keys())[1:]
 
-    def process_metadata(self, data, out, metadata=None):
+    def process_metadata(self, data, out):
 
         # we need to re-calculate the resampling factor
         factor = self.cfg['new_samplerate'] / data.samplerate
