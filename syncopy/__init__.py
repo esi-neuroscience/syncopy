@@ -39,6 +39,7 @@ np.set_printoptions(suppress=True, precision=4, linewidth=80)
 # Import `esi_cluster_setup` and `cluster_cleanup` from acme to make the routines
 # available in the `spy` package namespace
 try:
+    # so here we pin acme to the esi cluster?
     from acme import esi_cluster_setup, cluster_cleanup
     __acme__ = True
 except ImportError:

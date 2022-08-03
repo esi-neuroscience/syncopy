@@ -54,15 +54,17 @@ intelwin:
     tags:
     - windows10
     only:
-    - master
-    - dev
+    - fix-tox-win
     variables:
         PYTEST_ADDOPTS: "--color=yes --tb=short --verbose"
         GIT_FETCH_EXTRA_FLAGS: --tags
     script:
     - conda clean --all -y
     - conda env update -f syncopy.yml --prune
+    - conda install virtualenv
     - conda.bat activate syncopy
+    # point tox to python from the conda env
+    - cmd /c mklink /J C:\Python38 %CONDA_PREFIX%
     - tox
 
 m1macos:
@@ -129,6 +131,8 @@ pypitest:
     - conda install --yes pip
     - version=$(grep 'version =' pyproject.toml | awk -F "\"" '{print $2}')
     - pip --no-cache-dir install --extra-index-url https://test.pypi.org/simple esi-syncopy==$version
+    # move out of project dir
+    - cd $HOME
     - python -c "import syncopy as spy"
     - conda deactivate
     - conda remove --yes --name piptest --all
