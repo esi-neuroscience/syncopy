@@ -60,7 +60,7 @@ def mtmfft(data_arr,
 
     The FFT result is normalized such that this yields the
     spectral power. For a clean harmonic this will give a
-    peak power of `A**2 / 2`, with `A` as harmonic ampltiude.
+    peak power of `A**2 / 2`, with `A` as harmonic amplitude.
     """
 
     # attach dummy channel axis in case only a
@@ -106,3 +106,14 @@ def mtmfft(data_arr,
         ftr[taperIdx] = _norm_spec(ftr[taperIdx], nSamples, samplerate)
 
     return ftr, freqs
+
+
+def _get_dpss_pars(tapsmofrq, nSamples, samplerate):
+
+    """ Helper function to retrieve dpss parameters from tapsmofrq """
+
+    NW = tapsmofrq * nSamples / samplerate
+    # from the minBw setting NW always is at least 1
+    Kmax = int(2 * NW - 1)  # optimal number of tapers
+
+    return NW, Kmax

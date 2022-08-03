@@ -15,7 +15,7 @@ from abc import ABC
 from collections.abc import Iterator
 
 # Local imports
-from .base_data import BaseData, FauxTrial
+from .base_data import BaseData, FauxTrial, _definetrial
 from .methods.definetrial import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYWarning
@@ -65,7 +65,7 @@ class ContinuousData(BaseData, ABC):
     def __str__(self):
         # Get list of print-worthy attributes
         ppattrs = [attr for attr in self.__dir__()
-                   if not (attr.startswith("_") or attr in ["log", "trialdefinition", "hdr"])]
+                   if not (attr.startswith("_") or attr in ["log", "trialdefinition"])]
         ppattrs = [attr for attr in ppattrs
                    if not (inspect.ismethod(getattr(self, attr))
                            or isinstance(getattr(self, attr), Iterator))]
@@ -183,38 +183,25 @@ class ContinuousData(BaseData, ABC):
 
     # # Helper function that reads a single trial into memory
     # @staticmethod
-    # def _copy_trial(trialno, filename, dimord, sampleinfo, hdr):
+    # def _copy_trial(trialno, filename, dimord, sampleinfo):
     #     """
     #     # FIXME: currently unused - check back to see if we need this functionality
     #     """
     #     idx = [slice(None)] * len(dimord)
     #     idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
     #     idx = tuple(idx)
-    #     if hdr is None:
-    #         # Generic case: data is either a HDF5 dataset or memmap
-    #         try:
-    #             with h5py.File(filename, mode="r") as h5f:
-    #                 h5keys = list(h5f.keys())
-    #                 cnt = [h5keys.count(dclass) for dclass in spy.datatype.__all__
-    #                        if not inspect.isfunction(getattr(spy.datatype, dclass))]
-    #                 if len(h5keys) == 1:
-    #                     arr = h5f[h5keys[0]][idx]
-    #                 else:
-    #                     arr = h5f[spy.datatype.__all__[cnt.index(1)]][idx]
-    #         except:
-    #             try:
-    #                 arr = np.array(open_memmap(filename, mode="c")[idx])
-    #             except:
-    #                 raise SPYIOError(filename)
-    #         return arr
-    #     else:
-    #         # For VirtualData objects
-    #         dsets = []
-    #         for fk, fname in enumerate(filename):
-    #             dsets.append(np.memmap(fname, offset=int(hdr[fk]["length"]),
-    #                                    mode="r", dtype=hdr[fk]["dtype"],
-    #                                    shape=(hdr[fk]["M"], hdr[fk]["N"]))[idx])
-    #         return np.vstack(dsets)
+    #     try:
+    #         with h5py.File(filename, mode="r") as h5f:
+    #             h5keys = list(h5f.keys())
+    #             cnt = [h5keys.count(dclass) for dclass in spy.datatype.__all__
+    #                    if not inspect.isfunction(getattr(spy.datatype, dclass))]
+    #             if len(h5keys) == 1:
+    #                 arr = h5f[h5keys[0]][idx]
+    #             else:
+    #                 arr = h5f[spy.datatype.__all__[cnt.index(1)]][idx]
+    #     except:
+    #         raise SPYIOError(filename)
+    #     return arr
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
@@ -414,21 +401,12 @@ class AnalogData(ContinuousData):
     The data is always stored as a two-dimensional array on disk. On disk, Trials are
     concatenated along the time axis.
 
-    Data is only read from disk on demand, similar to memory maps and HDF5
-    files.
+    Data is only read from disk on demand, similar to HDF5 files.
     """
 
-    _infoFileProperties = ContinuousData._infoFileProperties + ("_hdr",)
+    _infoFileProperties = ContinuousData._infoFileProperties
     _defaultDimord = ["time", "channel"]
     _stackingDimLabel = "time"
-
-    @property
-    def hdr(self):
-        """dict with information about raw data
-
-        This property is empty for data created by Syncopy.
-        """
-        return self._hdr
 
     # "Constructor"
     def __init__(self,
@@ -468,9 +446,6 @@ class AnalogData(ContinuousData):
         if data is not None and dimord is None:
             dimord = self._defaultDimord
 
-        # Assign default (blank) values
-        self._hdr = None
-
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
@@ -482,11 +457,13 @@ class AnalogData(ContinuousData):
     # implement plotting
     def singlepanelplot(self, shifted=True, **show_kwargs):
 
-        sp_plotting.plot_AnalogData(self, shifted, **show_kwargs)
+        figax = sp_plotting.plot_AnalogData(self, shifted, **show_kwargs)
+        return figax
 
     def multipanelplot(self, **show_kwargs):
 
-        mp_plotting.plot_AnalogData(self, **show_kwargs)
+        figax = mp_plotting.plot_AnalogData(self, **show_kwargs)
+        return figax
 
 
 class SpectralData(ContinuousData):
@@ -630,11 +607,13 @@ class SpectralData(ContinuousData):
     # implement plotting
     def singlepanelplot(self, **show_kwargs):
 
-        sp_plotting.plot_SpectralData(self, **show_kwargs)
+        figax = sp_plotting.plot_SpectralData(self, **show_kwargs)
+        return figax
 
     def multipanelplot(self, **show_kwargs):
 
-        mp_plotting.plot_SpectralData(self, **show_kwargs)
+        figax = mp_plotting.plot_SpectralData(self, **show_kwargs)
+        return figax
 
 
 class CrossSpectralData(ContinuousData):
@@ -734,42 +713,6 @@ class CrossSpectralData(ContinuousData):
 
         self._channel_j = np.array(channel_j)
 
-    # # Local 2d -> 1d channel index converter
-    # def _ind2sub(self, channel1, channel2):
-    #     """Convert 2d channel tuple to linear 1d index"""
-
-    #     chanIdx = []
-    #     for ck, channel in enumerate((channel1, channel2)):
-    #         target = getattr(self, "_channel{}".format(ck + 1))
-    #         if isinstance(channel, str):
-    #             if channel == "all":
-    #                 channel = None
-    #             else:
-    #                 raise SPYValueError(legal="'all' or `None` or list/array",
-    #                                     varname="channels", actual=channel)
-    #         if channel is None:
-    #             channel = target
-    #         if isinstance(channel, range):
-    #             channel = list(channel)
-    #         elif isinstance(channel, slice):
-    #             channel = target[channel]
-
-    #         # Use set comparison to ensure (a) no mixed-type selections (['a', 2, 'c'])
-    #         # and (b) no invalid selections ([-99, 0.01])
-    #         if not set(channel).issubset(target):
-    #             lgl = "list/array of existing channel names or indices"
-    #             raise SPYValueError(legal=lgl, varname="channel")
-    #         if not all(isinstance(c, str) for c in channel):
-    #             target = np.arange(target.size)
-
-    #         # Preserve order and duplicates of selection - don't use `np.isin` here!
-    #         chanIdx.append([np.where(target == c)[0] for c in channel])
-
-    #     # Almost: `ravel_multi_index` expects a tuple of arrays, so perform some zipping
-    #     linearIndex = [(c1, c2) for c1 in chanIdx[0] for c2 in chanIdx[1]]
-    #     return np.ravel_multi_index(tuple(zip(*linearIndex)),
-    #                                 dims=(self._channel1.size, self._channel2.size))
-
     def __init__(self,
                  data=None,
                  filename=None,
@@ -794,3 +737,130 @@ class CrossSpectralData(ContinuousData):
     def singlepanelplot(self, **show_kwargs):
 
         sp_plotting.plot_CrossSpectralData(self, **show_kwargs)
+
+
+class TimeLockData(ContinuousData):
+
+    """
+    Multi-channel, uniformly-sampled, time-locked data.
+    """
+
+    _defaultDimord = ["time", "channel"]
+    _stackingDimLabel = "time"
+
+    # "Constructor"
+    def __init__(self,
+                 data=None,
+                 filename=None,
+                 trialdefinition=None,
+                 samplerate=None,
+                 channel=None,
+                 dimord=None):
+
+        """Initialize an :class:`TimeLockData` object.
+
+            Parameters
+            ----------
+                data : 2D :class:numpy.ndarray or HDF5 dataset
+                    multi-channel time series data with uniform sampling
+                filename : str
+                    path to target filename that should be used for writing
+                samplerate : float
+                    sampling rate in Hz
+                channel : str or list/array(str)
+                dimord : list(str)
+                    ordered list of dimension labels
+
+            1. `filename` + `data` : create hdf dataset incl. sampleinfo @filename
+            2. just `data` : try to attach data (error checking done by :meth:`AnalogData.data.setter`)
+
+            See also
+            --------
+            :func:`syncopy.definetrial`
+
+            """
+
+        if data is not None and dimord is None:
+            dimord = self._defaultDimord
+
+        self._avg = None
+        self._var = None
+
+        # for stacking, we would have to
+        # re-define the trialdefinition here?!
+
+        # Call parent initializer
+        # trialdefinition has to come from a CR!
+        super().__init__(data=data,
+                         filename=filename,
+                         trialdefinition=trialdefinition,
+                         samplerate=samplerate,
+                         channel=channel,
+                         dimord=dimord)
+
+    @property
+    def avg(self):
+        """
+        The 'single trial' sized trial average stacked at the second last
+        position (which could be the first if no single trials are stored)"""
+
+        # stacking stub
+        # if self._avg is None and self._data is not None:
+        #     # all channels
+        #     nStacked = len(self.trials)
+        #     self._avg = self._get_trial(nStacked - 2)
+
+        return self._avg
+
+    @avg.setter
+    def avg(self, trl_av):
+
+        """
+        :class:`numpy.ndarray`: time x nChannel/nUnits
+        Set single-trial sized average """
+        pass
+
+    @property
+    def var(self):
+        """ :class:`numpy.ndarray`: time x nChannel / nUnits
+        The 'single trial' sized variance over trials stacked at the last
+        position (which could be the 2nd if no single trials are stored)"""
+
+        # stacking stub
+        # if self._var is None and self._data is not None:
+        #     # all channels
+        #     nStacked = len(self.trials)
+        #     self._var = self._get_trial(nStacked - 1)
+
+        return self._var
+
+    @ContinuousData.trialdefinition.setter
+    def trialdefinition(self, trl):
+        """
+        Override trialdefinition setter, which is special for time-locked data:
+        all trials have to have the same length and relative timings.
+
+        So the trialdefinition has 0 offsets everywhere, and it has the general
+        simple structure:
+                              [[0, nTime, 0],
+                              [nTime, 2 * nTime, 0],
+                              [2 * nTime, 3 * nTime, 0],
+                              ...]
+        """
+
+        # first harness all parsers here
+        _definetrial(self, trialdefinition=trl)
+
+        # now check for additional conditions
+        if not np.all(trl[:, 2] == 0):
+            self.trialdefinition = None
+            lgl = "no offsets for timelocked data"
+            act = "non-zero offsets"
+            raise SPYValueError(lgl, varname="trialdefinition", actual=act)
+
+        # diff-diff should give 0 -> same number of samples for each trial
+        if not np.all(np.diff(trl, axis=0, n=2) == 0):
+            self.trialdefinition = None
+            lgl = "all trials/entities of same length for timelocked data"
+            act = "non-equally sized trials defined"
+            raise SPYValueError(lgl, varname="trialdefinition", actual=act)

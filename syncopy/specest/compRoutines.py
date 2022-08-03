@@ -28,15 +28,17 @@ from .mtmfft import mtmfft
 from .mtmconvol import mtmconvol
 from .superlet import superlet
 from .wavelet import wavelet
+from .fooofspy import fooofspy
+
 
 # Local imports
 from syncopy.shared.errors import SPYWarning
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import unwrap_io
+from syncopy.shared.kwarg_decorators import process_io
 from syncopy.shared.const_def import (
     spectralConversions,
-    spectralDTypes,
+    spectralDTypes
 )
 
 
@@ -44,7 +46,7 @@ from syncopy.shared.const_def import (
 # MultiTaper FFT
 # -----------------------
 
-@unwrap_io
+@process_io
 def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
               polyremoval=None, output_fmt="pow",
               noCompute=False, chunkShape=None, method_kwargs=None):
@@ -185,7 +187,7 @@ class MultiTaperFFT(ComputationalRoutine):
     valid_kws = list(signature(mtmfft).parameters.keys())[1:]
     valid_kws += list(signature(mtmfft_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
-    valid_kws += ['tapsmofrq', 'nTaper']
+    valid_kws += ['tapsmofrq', 'nTaper', 'pad', 'fooof_opt']
 
     def process_metadata(self, data, out):
 
@@ -225,7 +227,7 @@ class MultiTaperFFT(ComputationalRoutine):
 
 
 # Local workhorse that performs the computational heavy lifting
-@unwrap_io
+@process_io
 def mtmconvol_cF(
         trl_dat,
         soi,
@@ -233,7 +235,7 @@ def mtmconvol_cF(
         equidistant=True,
         toi=None,
         foi=None,
-        nTaper=1, tapsmofrq=None,  timeAxis=0,
+        nTaper=1, tapsmofrq=None, timeAxis=0,
         keeptapers=True, polyremoval=0, output_fmt="pow",
         noCompute=False, chunkShape=None, method_kwargs=None):
     """
@@ -360,7 +362,7 @@ def mtmconvol_cF(
     # additional keyword args for `stft` in dictionary
     method_kwargs.update({"boundary": stftBdry,
                           "padded": stftPad,
-                          "detrend" : detrend})
+                          "detrend": detrend})
 
     if equidistant:
         ftr, freqs = mtmconvol(dat[soi, :], **method_kwargs)
@@ -378,12 +380,12 @@ def mtmconvol_cF(
         # and average afterwards
         spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
 
-        ftr, freqs = mtmfft(dat[soi[0], :],  samplerate, taper=taper, taper_opt=taper_opt)
+        ftr, freqs = mtmfft(dat[soi[0], :], samplerate, taper=taper, taper_opt=taper_opt)
         _, fIdx = best_match(freqs, foi, squash_duplicates=True)
         spec[0, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
         # loop over remaining soi to center windows on
         for tk in range(1, len(soi)):
-            ftr, freqs = mtmfft(dat[soi[tk], :],  samplerate, taper=taper, taper_opt=taper_opt)
+            ftr, freqs = mtmfft(dat[soi[tk], :], samplerate, taper=taper, taper_opt=taper_opt)
             spec[tk, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
 
     # Average across tapers if wanted
@@ -450,7 +452,7 @@ class MultiTaperFFTConvol(ComputationalRoutine):
 # -----------------
 
 
-@unwrap_io
+@process_io
 def wavelet_cF(
     trl_dat,
     preselect,
@@ -621,7 +623,7 @@ class WaveletTransform(ComputationalRoutine):
 # -----------------
 
 
-@unwrap_io
+@process_io
 def superlet_cF(
     trl_dat,
     preselect,
@@ -865,3 +867,111 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
         trialdefinition[:, 1] = bounds
 
     return trialdefinition, samplerate
+
+
+# -----------------------
+# FOOOF
+# -----------------------
+
+@process_io
+def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
+                output_fmt='fooof', fooof_settings=None, noCompute=False, chunkShape=None, method_kwargs=None):
+    """
+    Run FOOOF
+
+    Parameters
+    ----------
+    trl_dat : 2D :class:`numpy.ndarray`
+        Uniformly sampled multi-channel time-series
+    foi : 1D :class:`numpy.ndarray`
+        Frequencies of interest  (Hz) for output. If desired frequencies
+        cannot be matched exactly the closest possible frequencies (respecting
+        data length and padding) are used.
+    timeAxis : int
+        Index of running time axis in `trl_dat` (0 or 1)
+    output_fmt : str
+        Output of FOOOF; one of :data:`~syncopy.specest.const_def.availableFOOOFOutputs`
+    fooof_settings: dict or None
+        Can contain keys `'in_freqs'` (the frequency axis for the data) and `'freq_range'` (post-processing range for fooofed spectrum).
+    noCompute : bool
+        Preprocessing flag. If `True`, do not perform actual calculation but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+    chunkShape : None or tuple
+        If not `None`, represents shape of output `spec` (respecting provided
+        values of `nTaper`, `keeptapers` etc.)
+    method_kwargs : dict
+        Keyword arguments passed to :func:`~syncopy.specest.fooofspy.fooofspy`
+        controlling the spectral estimation method
+
+    Returns
+    -------
+    spec : :class:`numpy.ndarray`
+        Complex or real spectrum of (padded) input data.
+
+    Notes
+    -----
+    This method is intended to be used as
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+
+    See also
+    --------
+    syncopy.freqanalysis : parent metafunction
+    """
+    outShape = trl_dat.shape
+    # For initialization of computational routine,
+    # just return output shape and dtype
+    if noCompute:
+        return outShape, spectralDTypes['pow']
+
+    # Call actual fooof method
+    res, _ = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
+                      fooof_opt=method_kwargs)
+
+    # TODO (later): get the 'details' from the unused _ return
+    #  value and pass them on. This cannot be done right now due
+    #  to lack of support for several return values, see #140.
+
+    res = res[np.newaxis, np.newaxis, :, :]  # Re-add omitted axes.
+    return res
+
+
+class FooofSpy(ComputationalRoutine):
+    """
+    Compute class that checks parameters and adds metadata to output spectral data.
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.freqanalysis : parent metafunction
+    """
+
+    computeFunction = staticmethod(fooofspy_cF)
+
+    # 1st argument,the data, gets omitted
+    valid_kws = list(signature(fooofspy).parameters.keys())[1:]
+    valid_kws += list(signature(fooofspy_cF).parameters.keys())[1:]
+    # hardcode some parameter names which got digested from the frontend
+    valid_kws += ["fooof_settings"]
+
+    # To attach metadata to the output of the CF
+    def process_metadata(self, data, out):
+
+        # Some index gymnastics to get trial begin/end "samples"
+        if data.selection is not None:
+            chanSec = data.selection.channel
+        else:
+            chanSec = slice(None)
+
+        # Attach remaining meta-data
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel[chanSec])
+        out.freq = data.freq
+        out._trialdefinition = data._trialdefinition

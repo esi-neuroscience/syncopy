@@ -17,6 +17,7 @@ if __acme__:
     import dask.distributed as dd
 
 from syncopy import AnalogData
+import syncopy.nwanalysis.connectivity_analysis as ca
 from syncopy import connectivityanalysis as cafunc
 import syncopy.tests.synth_data as synth_data
 import syncopy.tests.helpers as helpers
@@ -55,22 +56,17 @@ class TestGranger:
     cpl_idx = np.where(AdjMat)
     nocpl_idx = np.where(AdjMat == 0)
 
-    trls = []
-    for _ in range(nTrials):
-        # defaults AR(2) parameters yield 40Hz peak
-        trls.append(synth_data.AR2_network(AdjMat, nSamples=nSamples))
-
-    # create syncopy data instance
-    data = AnalogData(trls, samplerate=fs)
+    data = synth_data.AR2_network(nTrials,
+                                  AdjMat=AdjMat,
+                                  nSamples=nSamples,
+                                  samplerate=fs)
     time_span = [-1, nSamples / fs - 1]   # -1s offset
     foi = np.arange(5, 75)   # in Hz
 
     def test_gr_solution(self, **kwargs):
 
-
         Gcaus = cafunc(self.data, method='granger',
                        tapsmofrq=3, foi=None, **kwargs)
-
 
         # check all channel combinations with coupling
         for i, j in zip(*self.cpl_idx):
@@ -99,7 +95,6 @@ class TestGranger:
                                                 *self.time_span)
 
         for sel_dct in selections:
-
             Gcaus = cafunc(self.data, method='granger', select=sel_dct)
 
             # check here just for finiteness and positivity
@@ -147,7 +142,7 @@ class TestGranger:
 
     def test_gr_padding(self):
 
-        pad_length = 6 # seconds
+        pad_length = 6   # seconds
         call = lambda pad: self.test_gr_solution(pad=pad)
         helpers.run_padding_test(call, pad_length)
 
@@ -173,19 +168,21 @@ class TestCoherence:
     # -- two harmonics with individual phase diffusion --
 
     f1, f2 = 20, 40
-    trls = []
-    for _ in range(nTrials):
-        # a lot of phase diffusion (1% per step) in the 20Hz band
-        p1 = synth_data.phase_diffusion(f1, eps=.01, nChannels=nChannels, nSamples=nSamples)
-        # little diffusion in the 40Hz band
-        p2 = synth_data.phase_diffusion(f2, eps=0.001, nChannels=nChannels, nSamples=nSamples)
-        # superposition
-        signals = np.cos(p1) + np.cos(p2)
-        # noise stabilizes the result(!!)
-        signals += np.random.randn(nSamples, nChannels)
-        trls.append(signals)
+    # a lot of phase diffusion (1% per step) in the 20Hz band
+    s1 = synth_data.phase_diffusion(nTrials, freq=f1,
+                                    eps=.01,
+                                    nChannels=nChannels,
+                                    nSamples=nSamples)
+    # little diffusion in the 40Hz band
+    s2 = synth_data.phase_diffusion(nTrials, freq=f2,
+                                    eps=.001,
+                                    nChannels=nChannels,
+                                    nSamples=nSamples)
+    wn = synth_data.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples)
 
-    data = AnalogData(trls, samplerate=fs)
+    # superposition
+    data = s1 + s2 + wn
+    data.samplerate = fs
     time_span = [-1, nSamples / fs - 1]   # -1s offset
 
     def test_coh_solution(self, **kwargs):
@@ -193,7 +190,6 @@ class TestCoherence:
         res = cafunc(data=self.data,
                      method='coh',
                      foilim=[5, 60],
-                     output='pow',
                      tapsmofrq=1.5,
                      **kwargs)
 
@@ -213,9 +209,10 @@ class TestCoherence:
         # is low coherence
         null_idx = (res.freq < self.f1 - 5) | (res.freq > self.f1 + 5)
         null_idx *= (res.freq < self.f2 - 5) | (res.freq > self.f2 + 5)
-        assert np.all(res.data[0, null_idx, 0, 1] < 0.15)
+        assert np.all(res.data[0, null_idx, 0, 1] < 0.2)
 
-        plot_coh(res, 0, 1, label="channel 0-1")
+        if kwargs is None:
+            res.singlepanelplot(channel_i=0, channel_j=1)
 
     def test_coh_selections(self):
 
@@ -263,7 +260,7 @@ class TestCoherence:
 
     def test_coh_padding(self):
 
-        pad_length = 2 # seconds
+        pad_length = 2   # seconds
         call = lambda pad: self.test_coh_solution(pad=pad)
         helpers.run_padding_test(call, pad_length)
 
@@ -272,13 +269,30 @@ class TestCoherence:
         call = lambda polyremoval: self.test_coh_solution(polyremoval=polyremoval)
         helpers.run_polyremoval_test(call)
 
+    def test_coh_outputs(self):
+
+        for output in ca.coh_outputs:
+            coh = cafunc(self.data,
+                         method='coh',
+                         output=output)
+
+            if output in ['complex', 'fourier']:
+                # we have imaginary parts
+                assert not np.all(np.imag(coh.trials[0]) == 0)
+            elif output == 'angle':
+                # all values in [-pi, pi]
+                assert np.all((coh.trials[0] < np.pi) | (coh.trials[0] > -np.pi))
+            else:
+                # strictly real outputs
+                assert np.all(np.imag(coh.trials[0]) == 0)
+
 
 class TestCorrelation:
 
     nChannels = 5
     nTrials = 10
     fs = 1000
-    nSamples = 2000 # 2s long signals
+    nSamples = 2000   # 2s long signals
 
     # -- a single harmonic with phase shifts between channels
 
@@ -287,9 +301,18 @@ class TestCorrelation:
     for _ in range(nTrials):
 
         # no phase diffusion
-        p1 = synth_data.phase_diffusion(f1, eps=0, nChannels=nChannels, nSamples=nSamples)
+        p1 = synth_data.phase_diffusion(freq=f1,
+                                        eps=0,
+                                        nChannels=nChannels,
+                                        nSamples=nSamples,
+                                        return_phase=True)
         # same frequency but more diffusion
-        p2 = synth_data.phase_diffusion(f1, eps=0.1, nChannels=1, nSamples=nSamples)
+        p2 = synth_data.phase_diffusion(freq=f1,
+                                        eps=0.1,
+                                        nChannels=1,
+                                        nSamples=nSamples,
+                                        return_phase=True)
+
         # set 2nd channel to higher phase diffusion
         p1[:, 1] = p2[:, 0]
         # add a pi/2 phase shift for the even channels
@@ -298,7 +321,7 @@ class TestCorrelation:
         trls.append(np.cos(p1))
 
     data = AnalogData(trls, samplerate=fs)
-    time_span = [-1, nSamples / fs - 1] # -1s offset
+    time_span = [-1, nSamples / fs - 1]  # -1s offset
 
     def test_corr_solution(self, **kwargs):
 

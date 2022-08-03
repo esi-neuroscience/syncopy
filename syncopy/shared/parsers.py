@@ -562,13 +562,14 @@ def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dim
 
 
 def filename_parser(filename, is_in_valid_container=None):
-    """Extract information from Syncopy file and folder names
+    """
+    Extract information from Syncopy file and folder names
 
     Parameters
     ----------
         filename: str
-            Syncopy data file (\*.<dataclass>.info), Syncopy info
-            file (\*.<dataclass>) or Syncopy container folder (\*.spy)
+            Syncopy data file (*.<dataclass>), Syncopy info
+            file (*.<dataclass>.info) or Syncopy container folder (*.spy)
         is_in_valid_container: bool
             If `True`, the `filename` must be inside a folder with a .spy
             extension.
@@ -714,7 +715,7 @@ def sequence_parser(sequence, content_type=None, varname=""):
     content_type: type
         The type of the sequence contents, e.g. `str`
     varname : str
-        Local variable name used in caller
+        Local variable name piped to SPYTypeError
 
     See also
     --------

@@ -434,6 +434,17 @@ class TestSelector():
         assert isinstance(ang.show(trials=[0, 1], toi=[0, 1]), list)
         assert isinstance(ang.show(trials=[0, 1], toilim=[0, 1]), list)
 
+        # test invalid indexing for .show operations
+        with pytest.raises(SPYValueError) as err:
+            ang.show(trials=[1, 0])
+            assert "expected unique and sorted" in str(err)
+        with pytest.raises(SPYValueError) as err:
+            ang.show(trials=[0, 1], toi=[1, 1])
+            assert "expected unique and sorted" in str(err)
+        with pytest.raises(SPYValueError) as err:
+            ang.show(trials=[0, 1], toi=[9999, 99999])
+            assert "expected valid `toi` selection" in str(err)
+
         # go through all data-classes defined above
         for dset in self.data.keys():
             dclass = "".join(dset.partition("Data")[:2])
@@ -805,6 +816,3 @@ class TestSelector():
             getattr(self, test)()
             flush_local_cluster(testcluster)
         client.close()
-
-
-
