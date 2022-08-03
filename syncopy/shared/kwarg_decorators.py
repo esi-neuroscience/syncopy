@@ -519,7 +519,7 @@ def detect_parallel_client(func):
     return parallel_client_detector
 
 
-def _parse_details(details):
+def _parse_details(details, check_attr_dsize=True):
     """
     Parse and validate extra cF return value.
 
@@ -531,6 +531,9 @@ def _parse_details(details):
         Alternatively, keys that are just of type `str` (no tuple) are treated as attributes.
         The values must be of type `np.ndarray`. For attributes, the size of the `ndarray` is limited to 64kB, i.e., they must be small.
         This is a limit of hdf5 attributes, see the h5py documentation on attributes for details.
+    check_attr_dsize: boolean
+        Wheter to compute size of arrays and print warnings if they are too large.
+
 
     Returns
     -------
@@ -566,6 +569,11 @@ def _parse_details(details):
             attribs[k] = v
         else:
             raise SPYValueError("keys in details must be 2-tuples or strings", varname="details")
+    if check_attr_dsize:
+        for k,v in attribs.items():
+            dsize_kb = np.prod(v.shape) * v.dtype.itemsize / 1024.
+            if dsize_kb > 64:
+                SPYWarning("cF details: attribute '{attr}' has size {attr_size} kb, which is > the allowed 64 kb limit.".format(attr=k, attr_size=dsize_kb))
     return attribs, dsets
 
 
