@@ -54,14 +54,17 @@ intelwin:
     tags:
     - windows10
     only:
-    - master
-    - dev
+    - fix-tox-win
     variables:
         PYTEST_ADDOPTS: "--color=yes --tb=short --verbose"
         GIT_FETCH_EXTRA_FLAGS: --tags
     script:
     - conda clean --all -y
     - conda env update -f syncopy.yml --prune
+    - conda install virtualenv
+    - echo %CONDA_PREFIX%
+    # trying https://stackoverflow.com/questions/30555943/is-it-possible-to-use-tox-with-conda-based-python-installations
+    - mklink /J C:\Python38 %CONDA_PREFIX%
     - conda.bat activate syncopy
     - tox
 
