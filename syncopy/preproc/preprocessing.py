@@ -21,7 +21,13 @@ from syncopy.shared.input_processors import (
     check_passed_kwargs,
 )
 
-from .compRoutines import ButFiltering, SincFiltering, Rectify, Hilbert
+from .compRoutines import (
+    ButFiltering,
+    SincFiltering,
+    Rectify,
+    Hilbert,
+    Detrending
+)
 
 availableFilters = ("but", "firws")
 availableFilterTypes = ("lp", "hp", "bp", "bs")
@@ -54,8 +60,9 @@ def preprocessing(
     ----------
     data : `~syncopy.AnalogData`
         A non-empty Syncopy :class:`~syncopy.AnalogData` object
-    filter_class : {'but', 'firws'}
+    filter_class : {'but', 'firws'} or None
         Butterworth (IIR) or windowed sinc (FIR)
+        Set to `None` to disable filtering altogether
     filter_type : {'lp', 'hp', 'bp', 'bs'}, optional
         Select type of filter, either low-pass `'lp'`,
         high-pass `'hp'`, band-pass `'bp'` or band-stop (Notch) `'bs'`.
@@ -110,37 +117,44 @@ def preprocessing(
 
     new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
 
-    if filter_class not in availableFilters:
-        lgl = "'" + "or '".join(opt + "' " for opt in availableFilters)
-        raise SPYValueError(legal=lgl, varname="filter_class", actual=filter_class)
+    if filter_class is not None:
+        if filter_class not in availableFilters:
+            lgl = "'" + "or '".join(opt + "' " for opt in availableFilters)
+            raise SPYValueError(legal=lgl, varname="filter_class", actual=filter_class)
 
-    if not isinstance(filter_type, str) or filter_type not in availableFilterTypes:
-        lgl = f"one of {availableFilterTypes}"
-        act = filter_type
-        raise SPYValueError(lgl, "filter_type", filter_type)
+        if not isinstance(filter_type, str) or filter_type not in availableFilterTypes:
+            lgl = f"one of {availableFilterTypes}"
+            act = filter_type
+            raise SPYValueError(lgl, "filter_type", filter_type)
 
-    # check `freq` setting
-    if filter_type in ("lp", "hp"):
-        scalar_parser(freq, varname="freq", lims=[0, data.samplerate / 2])
-    elif filter_type in ("bp", "bs"):
-        array_parser(
-            freq,
-            varname="freq",
-            hasinf=False,
-            hasnan=False,
-            lims=[0, data.samplerate / 2],
-            dims=(2,),
-        )
-        if freq[0] == freq[1]:
-            lgl = "two different frequencies"
-            raise SPYValueError(lgl, varname="freq", actual=freq)
-        freq = np.sort(freq)
+        # check `freq` setting
+        if filter_type in ("lp", "hp"):
+            scalar_parser(freq, varname="freq", lims=[0, data.samplerate / 2])
+        elif filter_type in ("bp", "bs"):
+            array_parser(
+                freq,
+                varname="freq",
+                hasinf=False,
+                hasnan=False,
+                lims=[0, data.samplerate / 2],
+                dims=(2,),
+            )
+            if freq[0] == freq[1]:
+                lgl = "two different frequencies"
+                raise SPYValueError(lgl, varname="freq", actual=freq)
+            freq = np.sort(freq)
 
-    # -- here the defaults are filter specific and get set later --
+        # -- here the defaults are filter specific and get set later --
 
-    # filter order
-    if order is not None:
-        scalar_parser(order, varname="order", lims=[0, np.inf], ntype="int_like")
+        # filter order
+        if order is not None:
+            scalar_parser(order, varname="order", lims=[0, np.inf], ntype="int_like")
+
+    # check if anything else was requested
+    elif filter_class is None and polyremoval is None:
+        lgl = "a preprocessing method"
+        act = "neither filtering nor detrending requested"
+        raise SPYValueError(lgl, "filter_class/polyremoval", act)
 
     # check polyremoval
     if polyremoval is not None:
@@ -272,6 +286,19 @@ def preprocessing(
             timeAxis=timeAxis,
         )
 
+    # only detrending
+    if filter_class is None and polyremoval is not None:
+
+        check_effective_parameters(
+            Detrending,
+            defaults,
+            lcls,
+            besides=["filter_class", "hilbert", "rectify"],
+        )
+
+        # not really a `filterMethod` though..
+        filterMethod = Detrending(polyremoval=polyremoval, timeAxis=timeAxis)
+        
     # -------------------------------------------
     # Call the chosen filter ComputationalRoutine
     # -------------------------------------------
