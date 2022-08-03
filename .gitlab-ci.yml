@@ -102,9 +102,9 @@ slurmtest:
     - conda activate syncopy
     - export PYTHONPATH=$CI_PROJECT_DIR
     - cd $TEST_DIR
-    - srun -p DEV --mem=8000m -c 4 pytest --full test_specest.py
-    - srun -p DEV --mem=8000m -c 4 pytest --full test_connectivity.py
-    - srun -p DEV pytest --ignore=test_specest.py --ignore=test_connectivity.py
+    - srun -p DEV --mem=8000m pytest -ra --full test_specest.py
+    - srun -p DEV --mem=8000m pytest -ra --full test_connectivity.py
+    - srun -p 8GBL pytest -ra --ignore=test_specest.py --ignore=test_connectivity.py
     
 pypitest:
     stage: upload
