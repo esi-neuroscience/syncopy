@@ -63,8 +63,7 @@ intelwin:
     - conda env update -f syncopy.yml --prune
     - conda install virtualenv
     - conda.bat activate syncopy
-    - echo %CONDA_PREFIX%
-    # trying https://stackoverflow.com/questions/30555943/is-it-possible-to-use-tox-with-conda-based-python-installations
+    # point tox to python from the conda env
     - cmd /c mklink /J C:\Python38 %CONDA_PREFIX%
     - tox
 
