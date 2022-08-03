@@ -298,7 +298,7 @@ def preprocessing(
 
         # not really a `filterMethod` though..
         filterMethod = Detrending(polyremoval=polyremoval, timeAxis=timeAxis)
-        
+
     # -------------------------------------------
     # Call the chosen filter ComputationalRoutine
     # -------------------------------------------

@@ -19,6 +19,7 @@ from syncopy import preprocessing as ppfunc
 from syncopy import AnalogData, freqanalysis
 import syncopy.preproc as preproc  # submodule
 import syncopy.tests.helpers as helpers
+from syncopy.tests import synth_data as sd
 
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults, best_match
@@ -448,6 +449,65 @@ class TestFIRWS:
         assert "one of {'" in str(err)
 
 
+class TestDetrending:
+
+    """ Test standalone detrending """
+
+    nTrials = 2
+    nSamples = 5000
+    AData = sd.linear_trend(nTrials, nSamples=nSamples, y_max=10)
+    AData += sd.white_noise(nTrials, nSamples=nSamples) + 5  # add constant
+
+    def test_demeaning(self):
+
+        res = ppfunc(self.AData, filter_class=None, polyremoval=0)
+
+        orig_c0 = self.AData.show(trials=1, channel=0)
+        res_c0 = res.show(trials=1, channel=0)
+        # just to make sure we have an offset
+        assert np.mean(self.AData.show(trials=1, channel=0)) > 1
+        assert np.allclose(np.mean(res.show(trials=1, channel=0)), 0, atol=1e-5)
+
+        # check that the linear trend is still around
+        assert np.allclose(orig_c0.max() - orig_c0.min(), res_c0.max() - res_c0.min())
+
+    def test_detrending(self):
+
+        res = ppfunc(self.AData, filter_class=None, polyremoval=1)
+
+        orig_c0 = self.AData.show(trials=1, channel=0)
+        res_c0 = res.show(trials=1, channel=0)
+
+        # detrended also means demeaned
+        assert np.allclose(np.mean(res.show(trials=1, channel=0)), 0, atol=1e-5)
+
+        # check that the linear trend is gone
+        assert (orig_c0.max() - orig_c0.min()) > (2 * res_c0.max() - res_c0.min())
+
+    def test_exceptions(self):
+
+        with pytest.raises(SPYValueError, match='neither filtering nor detrending'):
+            ppfunc(self.AData, filter_class=None, polyremoval=None)
+
+        with pytest.raises(SPYValueError, match='expected value to be greater'):
+            ppfunc(self.AData, filter_class=None, polyremoval=-1)
+
+        with pytest.raises(SPYValueError, match='expected value to be greater'):
+            ppfunc(self.AData, filter_class=None, polyremoval=2)
+
+    @skip_without_acme
+    def test_detr_parallel(self, testcluster=None):
+
+        client = dd.Client(testcluster)
+        all_tests = [attr for attr in self.__dir__()
+                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
+
+        for test_name in all_tests:
+            test_method = getattr(self, test_name)
+            test_method()
+        client.close()
+            
+
 def mk_spec_ax():
 
     fig, ax = ppl.subplots()
@@ -473,3 +533,4 @@ def annotate_foilims(ax, flow, fhigh):
 if __name__ == '__main__':
     T1 = TestButterworth()
     T2 = TestFIRWS()
+    T3 = TestDetrending()

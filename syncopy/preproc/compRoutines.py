@@ -676,6 +676,7 @@ class Resample(ComputationalRoutine):
         out.channel = np.array(data.channel[chanSec])
 
 
+@process_io
 def detrending_cF(dat, polyremoval=None, timeAxis=0, noCompute=False, chunkShape=None):
 
     """
