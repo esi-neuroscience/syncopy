@@ -775,7 +775,8 @@ def process_io(func):
             print("process_io():parallel branch: writing to multiple stand-alone hdf5 files (virtual dataset) in parallel.")
             with h5py.File(outfilename, "w") as h5fout:
                 ds = h5fout.create_dataset(outdset, data=res)
-                ## The next lines were added only to test what we can attach to a virtual dataset
+                ## The next lines were added only to test *what* (attribs, group, datasets) we can attach to a virtual dataset.
+                ## They will be removed without replacment.
                 #k_unique = "my_key" + "_" + str(call_id)
                 #ds.attrs.create(k_unique, np.zeros((3,3 )))
                 #grp = h5fout.create_group("metadata")
