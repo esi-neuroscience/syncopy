@@ -62,10 +62,10 @@ intelwin:
     - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda install virtualenv
+    - conda.bat activate syncopy
     - echo %CONDA_PREFIX%
     # trying https://stackoverflow.com/questions/30555943/is-it-possible-to-use-tox-with-conda-based-python-installations
-    - mklink /J C:\Python38 %CONDA_PREFIX%
-    - conda.bat activate syncopy
+    - cmd /c mklink /J C:\Python38 %CONDA_PREFIX%
     - tox
 
 m1macos:
