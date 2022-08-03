@@ -526,10 +526,11 @@ def _parse_details(details):
     Parameters
     ----------
     details: dict
-        The keys must be tuples of type (str, str), where the first str is a free-form name, and
-        the second str must be one of 'attr' or 'data', and defines whether this entry is an attribute ('attr') or a dataset ('data').
-        Alternatively, keys that are just of type str are treated as attributes.
-        The values must be numpy ndarrays. For attributes, the size of the ndarray is limited to 64kB, i.e., they must be small.
+        The keys must be tuples of type `(str, str)`, where the first `str` is a free-form name, and
+        the second `str` must be one of `'attr'` or `'data'`, and defines whether this entry is an attribute `('attr')` or a dataset `('data')`.
+        Alternatively, keys that are just of type `str` (no tuple) are treated as attributes.
+        The values must be of type `np.ndarray`. For attributes, the size of the `ndarray` is limited to 64kB, i.e., they must be small.
+        This is a limit of hdf5 attributes, see the h5py documentation on attributes for details.
 
     Returns
     -------
