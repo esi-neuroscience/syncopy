@@ -1060,6 +1060,9 @@ def metadata_from_h5py_file(h5py_filename):
                     metadata = None
         else:
             raise SPYValueError("'data' dataset in hd5f file {of}.".format(of=h5py_filename), actual="no such dataset")
+
+    # TODO: in the virtual case, the _merge_md_list() function returns a dict with many keys/suffixes
+    #       that we may still want to join. we could hstack them (depending on ndim).
     return metadata
 
 
