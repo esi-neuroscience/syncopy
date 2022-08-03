@@ -626,7 +626,7 @@ def h5_add_details(h5fout, details, unique_key_suffix="", attribs_to_data=False,
         h5fout = h5py.File(h5fout, mode="w")
 
     if isinstance(unique_key_suffix, int):
-        unique_key_suffix = "_" + str(unique_key_suffix)
+        unique_key_suffix = "__" + str(unique_key_suffix)
 
     if details is not None:
         grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")

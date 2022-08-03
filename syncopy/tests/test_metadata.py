@@ -92,7 +92,7 @@ class TestMetadataUsingFooof():
         assert not np.isnan(spec_dt.data).any()
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset as attribute.
-        k_unique = "_0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
+        k_unique = "__0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
                          #       depending on data size and RAM, there may or may not be several calls, and "_1" , "_2", ... exist.
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
@@ -166,7 +166,7 @@ class TestMetadataUsingFooof():
         assert not np.isnan(spec_dt.data).any()
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset as attribute.
-        k_unique = "_0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
+        k_unique = "__0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
                          #       depending on data size and RAM, there may or may not be several calls, and "_1" , "_2", ... exist.
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
@@ -240,7 +240,7 @@ class TestMetadataUsingFooof():
         assert not np.isnan(spec_dt.data).any()
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset 'data' as attributes.
-        k_unique = "_0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
+        k_unique = "__0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
                          #       depending on data size and RAM, there may or may not be several calls, and "_1" , "_2", ... exist.
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
@@ -278,6 +278,9 @@ class TestMetadataUsingFooof():
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
         return spec_dt
+
+    def test_metadata_parallel_with_parallel_storage_and_channel_parallelisation(self):
+        raise ValueError("not implemented yet")  # TODO: implement me
 
     @pytest.mark.skip(reason="we only care about sequential for now")
     @skip_without_acme
