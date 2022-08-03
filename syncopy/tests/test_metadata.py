@@ -95,17 +95,22 @@ class TestMetadataUsingFooof():
         k_unique = "_0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
                          #       depending on data size and RAM, there may or may not be several calls, and "_1" , "_2", ... exist.
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
-        assert len(spec_dt.data.attrs.keys()) == len(expected_fooof_dict_entries)
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
-        for kv in keys_unique:
-            assert (kv) in spec_dt.data.attrs.keys()
-            assert isinstance(spec_dt.data.attrs.get(kv), np.ndarray)
-        # Expect one entry in detail.
-        n_peaks = spec_dt.data.attrs.get("n_peaks" + k_unique)
-        assert isinstance(n_peaks, np.ndarray)
-        assert n_peaks.size == 1 # cfg.keeptrials is False, so FOOOF operates on a single trial and we expect only one value here.
-        assert spec_dt.data.attrs.get("r_squared" + k_unique).size == num_trials_fooof  # Same, see line above.
-        assert spec_dt.data.attrs.get("error" + k_unique).size == num_trials_fooof  # Same, see line above.
+
+        test_metadata_on_main_dset = False
+
+        if test_metadata_on_main_dset:
+            assert len(spec_dt.data.attrs.keys()) == len(expected_fooof_dict_entries)
+
+            for kv in keys_unique:
+                assert (kv) in spec_dt.data.attrs.keys()
+                assert isinstance(spec_dt.data.attrs.get(kv), np.ndarray)
+            # Expect one entry in detail.
+            n_peaks = spec_dt.data.attrs.get("n_peaks" + k_unique)
+            assert isinstance(n_peaks, np.ndarray)
+            assert n_peaks.size == 1 # cfg.keeptrials is False, so FOOOF operates on a single trial and we expect only one value here.
+            assert spec_dt.data.attrs.get("r_squared" + k_unique).size == num_trials_fooof  # Same, see line above.
+            assert spec_dt.data.attrs.get("error" + k_unique).size == num_trials_fooof  # Same, see line above.
 
         # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
         assert spec_dt.metadata is not None
@@ -155,9 +160,6 @@ class TestMetadataUsingFooof():
         assert "fooof_peaks" not in spec_dt._log
         assert "fooof_opt" in spec_dt._log
 
-
-
-
         # check the data
         assert spec_dt.data.ndim == 4
         assert spec_dt.data.shape == (num_trials_fooof, 1, data_size, 1)
@@ -167,17 +169,21 @@ class TestMetadataUsingFooof():
         k_unique = "_0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
                          #       depending on data size and RAM, there may or may not be several calls, and "_1" , "_2", ... exist.
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
-        assert len(spec_dt.data.attrs.keys()) == len(expected_fooof_dict_entries)
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
-        for kv in keys_unique:
-            assert (kv) in spec_dt.data.attrs.keys()
-            assert isinstance(spec_dt.data.attrs.get(kv), np.ndarray)
-        # Expect one entry in detail.
-        n_peaks = spec_dt.data.attrs.get("n_peaks" + k_unique)
-        assert isinstance(n_peaks, np.ndarray)
-        assert n_peaks.size == 1 # cfg.keeptrials is False, so FOOOF operates on a single trial and we expect only one value here.
-        assert spec_dt.data.attrs.get("r_squared" + k_unique).size == num_trials_fooof  # Same, see line above.
-        assert spec_dt.data.attrs.get("error" + k_unique).size == num_trials_fooof  # Same, see line above.
+
+        test_metadata_on_main_dset = False
+
+        if test_metadata_on_main_dset:
+            assert len(spec_dt.data.attrs.keys()) == len(expected_fooof_dict_entries)
+            for kv in keys_unique:
+                assert (kv) in spec_dt.data.attrs.keys()
+                assert isinstance(spec_dt.data.attrs.get(kv), np.ndarray)
+            # Expect one entry in detail.
+            n_peaks = spec_dt.data.attrs.get("n_peaks" + k_unique)
+            assert isinstance(n_peaks, np.ndarray)
+            assert n_peaks.size == 1 # cfg.keeptrials is False, so FOOOF operates on a single trial and we expect only one value here.
+            assert spec_dt.data.attrs.get("r_squared" + k_unique).size == num_trials_fooof  # Same, see line above.
+            assert spec_dt.data.attrs.get("error" + k_unique).size == num_trials_fooof  # Same, see line above.
 
         # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
         assert spec_dt.metadata is not None
@@ -239,12 +245,6 @@ class TestMetadataUsingFooof():
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
 
-        ### TODO: Continue here!
-        ### These tests still fail in this case because we somehow need to collect the attributes and extra datasets from
-        ### the virtual datasets, I guess.
-        # We need to open the hdf5 instances of the virtual dataset in process_metadata()
-        # one by one and extract the added attributes.
-
         test_metadata_on_main_dset = False # its not there, because the dataset was virtual.
         test_metadata_on_metadata_group = True
 
@@ -295,7 +295,7 @@ class TestMetadataUsingFooof():
 
 if __name__ == "__main__":
     print("---------------Testing---------------")
-    #TestMetadataUsingFooof().test_metadata_1call_sequential()
+    TestMetadataUsingFooof().test_metadata_1call_sequential()
     #TestMetadataUsingFooof().test_metadata_parallel_with_sequential_storage()
-    TestMetadataUsingFooof().test_metadata_parallel_with_parallel_storage()
+    #TestMetadataUsingFooof().test_metadata_parallel_with_parallel_storage()
     print("------------Testing done------------")

@@ -434,6 +434,7 @@ class ComputationalRoutine(ABC):
                     blockstack += block
 
         # Infer how many concurrent `computeFunction` calls we're about to execute
+        self.c_blocks = c_blocks
         self.numBlocksPerTrial = len(c_blocks)
         self.numCalls = self.numBlocksPerTrial * self.numTrials
 
@@ -609,6 +610,21 @@ class ComputationalRoutine(ABC):
 
             # Construct list of dicts that will be passed on to workers: in the
             # parallel case, `trl_dat` is a dictionary!
+
+            # Compute trial_ids and chunk_ids to turn into a unique index.
+            # Keep in mind that these may not be absolute due to selections.
+            if self.numBlocksPerTrial == 1:
+                unique_key = ["__" + str(trial_id) for trial_id in range(self.numCalls)]
+            # channel parallelisation is active, we need to add the chunk to the trial ID for the key to be unique, as a trial will be split into several chunks.
+            else:
+                rel_trial_ids = list()
+                chunk_ids = list()
+                for idx, value in enumerate(self.c_blocks):
+                    rel_trial_ids.extend([idx] * value)
+                    chunk_ids.extend(list(range(value)))
+                unique_key = ["__" + str(trial_id) + "_" + str(chunk_id) for trial_id, chunk_id in zip(rel_trial_ids, chunk_ids)]
+
+
             workerDicts = [{"keeptrials": self.keeptrials,
                             "infile": data.filename,
                             "indset": data.data.name,
@@ -622,7 +638,8 @@ class ComputationalRoutine(ABC):
                             "outgrid": self.targetLayout[chk],
                             "outshape": self.targetShapes[chk],
                             "dtype": self.dtype,
-                            "call_id": chk } for chk in range(self.numCalls)]
+                            #"call_id": chk } for chk in range(self.numCalls)]
+                            "call_id": unique_key[chk] } for chk in range(self.numCalls)]
 
 
             # If channel-block parallelization has been set up, positional args of

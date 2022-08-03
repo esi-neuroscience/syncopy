@@ -601,7 +601,7 @@ def get_res_details(res):
             raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="neither tuple nor np.ndarray")
     return res, details
 
-def h5_add_details(h5fout, details, unique_key_suffix="", attribs_to_data=True, attribs_to_metadata=True):
+def h5_add_details(h5fout, details, unique_key_suffix="", attribs_to_data=False, attribs_to_metadata=True):
     """
     Add details, the second return value of user-supplied cF, after parsing with `_parse_details`,
     as a 'metadata' group to an existing hdf5 file.
