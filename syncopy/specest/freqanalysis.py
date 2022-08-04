@@ -888,6 +888,11 @@ def freqanalysis(data, method='mtmfft', output='pow',
         fooof_data = out
         fooof_out = SpectralData(dimord=SpectralData._defaultDimord)
 
+        if fooof_data.selection is not None:
+            print("### fooofdata.selection.channel = {dsc}".format(dsc=fooof_data.selection.channel))
+        else:
+            print("### fooofdata.selection is None")
+
         # method specific parameters
         if fooof_opt is None:
             fooof_opt = default_fooof_opt

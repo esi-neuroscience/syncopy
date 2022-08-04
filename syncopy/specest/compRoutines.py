@@ -924,6 +924,9 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
     --------
     syncopy.freqanalysis : parent metafunction
     """
+    if timeAxis != 0:
+        raise SPYValueError("timeaxis of input spectral data to be 0. Non-standard axes not supported with FOOOF.", actual=timeAxis)
+
     outShape = trl_dat.shape
     # For initialization of computational routine,
     # just return output shape and dtype
@@ -1051,7 +1054,7 @@ def metadata_from_h5py_file(h5py_filename):
                             #    print("process_metadata()/metadata_from_h5py_file(): [V] the 'metadata' group contains the {vs} 'md_dataset_0' dataset.".format(vs=virtual_state))
                 metadata = _merge_md_list(metadata_list)
             else:
-                # the main_dset is not virtual, so just grab the metadata group from the file.
+                # the main_dset is not virtual, so just grab the metadata group from the file root.
                 if 'metadata' in h5f:
                     print("process_metadata()/metadata_from_h5py_file(): [NV] extracting 'metadata' group from non-virtual dataset.")
                     metadata = extract_md_group(h5f['metadata'])
@@ -1092,11 +1095,11 @@ class FooofSpy(ComputationalRoutine):
 
         out.metadata = metadata_from_h5py_file(out.filename)
 
-        if out.metadata is not None:
-            print("FooofSpy.process_metadata(): ************** received some (non-None) metadata ******************")
-            print("FooofSpy.process_metadata(): metadata group consists of {ne} dsets and {na} attribs".format(ne=len(out.metadata['dsets'].keys()), na=len(out.metadata['attrs'].keys())))
-        else:
-            print("FooofSpy.process_metadata(): received metadata is None")
+        #if out.metadata is not None:
+        #    print("FooofSpy.process_metadata(): ************** received some (non-None) metadata ******************")
+        #    print("FooofSpy.process_metadata(): metadata group consists of {ne} dsets and {na} attribs".format(ne=len(out.metadata['dsets'].keys()), na=len(out.metadata['attrs'].keys())))
+        #else:
+        #    print("FooofSpy.process_metadata(): received metadata is None")
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:

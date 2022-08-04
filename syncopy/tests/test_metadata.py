@@ -282,7 +282,9 @@ class TestMetadataUsingFooof():
         """
         Test metadata propagation in with parallel compute and parallel storage.
         Without trial averaging (`keeptrials=True` in cfg), parallel storage is used.
-        We also for channel parallelisation by setting 'chan_per_worker'.
+        We also test for channel parallelisation by setting 'chan_per_worker' (and of
+        course `keeptrials=True`, otherwise it makes no sense). We also do not select
+        channels in cfg, as that is not supported with channel parallelisation.
 
         Note: This function is currently identical to 'test_metadata_parallel_with_sequential_storage()',
               the only difference is the `cfg.keeptrials = True`.
@@ -295,6 +297,7 @@ class TestMetadataUsingFooof():
         cfg.pop('fooof_opt', None)
         cfg.parallel = True # enable parallel computation
         cfg.keeptrials = True # enable parallel storage (is turned off when trial averaging is happening)
+        cfg.select = None
         fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
         num_trials_fooof = 100
         num_channels = 5
@@ -319,8 +322,7 @@ class TestMetadataUsingFooof():
 
         # check the data
         assert spec_dt.data.ndim == 4
-        #print("spec_dt.data.shape is {}.".format(spec_dt.data.shape))
-        assert spec_dt.data.shape == (num_trials_fooof, 1, data_size, 1) # Differs from other tests due to `keeptrials=True`.
+        assert spec_dt.data.shape == (num_trials_fooof, 1, data_size, num_channels) # Differs from other tests due to `keeptrials=True` and channels.
         assert not np.isnan(spec_dt.data).any()
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset 'data' as attributes.

@@ -581,6 +581,8 @@ def get_res_details(res):
     """
     Split the first and second return value of user-supplied cF, if a second one exists.
 
+    Also checks the contract on the allowed return values.
+
     Returns
     -------
     res: np.ndarray
@@ -594,11 +596,18 @@ def get_res_details(res):
         else:
             res, details = res
         if details is not None: # Accept and silently ignore a 2nd return value of None.
-            if not isinstance(details, dict):
-                    raise SPYValueError("the second return value of user-supplied compute functions must be a dict")
+            if isinstance(details, dict):
+                for k, v in details.items():
+                    if not isinstance(v, np.ndarray):
+                        raise SPYValueError("the second return value of user-supplied compute functions must be a dict containing np.ndarrays")
+                    if not np.issubdtype(v.dtype, np.number):
+                        raise SPYValueError("the second return value of user-supplied compute functions must be a dict containing np.ndarrays containing numbers")
+            else:
+                raise SPYValueError("the second return value of user-supplied compute functions must be a dict")
     else:
         if not isinstance(res, np.ndarray):
             raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="neither tuple nor np.ndarray")
+
     return res, details
 
 def h5_add_details(h5fout, details, unique_key_suffix="", attribs_to_data=False, attribs_to_metadata=True):

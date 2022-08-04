@@ -434,7 +434,6 @@ class ComputationalRoutine(ABC):
                     blockstack += block
 
         # Infer how many concurrent `computeFunction` calls we're about to execute
-        self.c_blocks = c_blocks
         self.numBlocksPerTrial = len(c_blocks)
         self.numCalls = self.numBlocksPerTrial * self.numTrials
 
@@ -619,11 +618,14 @@ class ComputationalRoutine(ABC):
             else:
                 rel_trial_ids = list()
                 chunk_ids = list()
-                for idx, value in enumerate(self.c_blocks):
-                    rel_trial_ids.extend([idx] * value)
-                    chunk_ids.extend(list(range(value)))
+                for trial_id in range(self.numTrials):
+                    for chunk_id in range(self.numBlocksPerTrial):
+                        rel_trial_ids.append(trial_id)
+                        chunk_ids.append(chunk_id)
                 unique_key = ["__" + str(trial_id) + "_" + str(chunk_id) for trial_id, chunk_id in zip(rel_trial_ids, chunk_ids)]
+                #print("compute(): c_blocks is: {cb}, numTrials={nt}".format(cb=self.c_blocks, nt=self.numTrials))
 
+            print("compute(): Expected numCalls={exp} unique keys, found {act} (with numBlocksPerTrial={nbpt})".format(exp=self.numCalls, act=len(unique_key), nbpt=self.numBlocksPerTrial))
 
             workerDicts = [{"keeptrials": self.keeptrials,
                             "infile": data.filename,
@@ -933,10 +935,10 @@ class ComputationalRoutine(ABC):
                     # Perform computation
                     res, details = get_res_details(self.computeFunction(arr, *argv, **self.cfg))
 
-                    if details is not None:
-                        print("compute_sequential(): ********* received filled details in sequential part***************")
-                    else:
-                        print("compute_sequential(): ********* received NONE details in sequential part***************")
+                    #if details is not None:
+                    #    print("compute_sequential(): ********* received filled details in sequential part***************")
+                    #else:
+                    #    print("compute_sequential(): ********* received NONE details in sequential part***************")
 
 
                     # In case scalar selections have been performed, explicitly assign
