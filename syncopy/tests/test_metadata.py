@@ -133,8 +133,10 @@ class TestMetadataUsingFooof():
         assert num_metadata_dsets == 0
         assert num_metadata_attrs == 6
         for kv in keys_unique:
-            assert (kv) in spec_dt.metadata['attrs'].keys()
-            assert isinstance(spec_dt.metadata['attrs'].get(kv), np.ndarray)
+            assert kv in spec_dt.metadata['attrs'].keys()
+            # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
+            # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
+            assert isinstance(spec_dt.metadata['attrs'].get(kv), list) or isinstance(spec_dt.metadata['attrs'].get(kv), np.ndarray)
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
@@ -192,8 +194,10 @@ class TestMetadataUsingFooof():
         assert num_metadata_dsets == 0
         assert num_metadata_attrs == 6
         for kv in keys_unique:
-            assert (kv) in spec_dt.metadata['attrs'].keys()
-            assert isinstance(spec_dt.metadata['attrs'].get(kv), np.ndarray)
+            assert kv in spec_dt.metadata['attrs'].keys()
+            # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
+            # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
+            assert isinstance(spec_dt.metadata['attrs'].get(kv), list) or isinstance(spec_dt.metadata['attrs'].get(kv), np.ndarray)
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
@@ -258,7 +262,9 @@ class TestMetadataUsingFooof():
             print("keys={k}".format(k=",".join(spec_dt.metadata['attrs'].keys())))
             for kv in keys_unique:
                 assert (kv) in spec_dt.metadata['attrs'].keys()
-                assert isinstance(spec_dt.metadata['attrs'].get(kv), np.ndarray)
+                # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
+                # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
+                assert isinstance(spec_dt.metadata['attrs'].get(kv), list) or isinstance(spec_dt.metadata['attrs'].get(kv), np.ndarray)
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
@@ -334,10 +340,10 @@ class TestMetadataUsingFooof():
             assert num_metadata_attrs == 6 * num_trials_fooof * calls_per_trial
             print("keys={k}".format(k=",".join(spec_dt.metadata['attrs'].keys())))
             for kv in keys_unique:
-                assert (kv) in spec_dt.metadata['attrs'].keys()
+                assert kv in spec_dt.metadata['attrs'].keys()
                 # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
                 # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
-                assert isinstance(spec_dt.metadata['attrs'].get(kv), np.ndarray) or isinstance(spec_dt.metadata['attrs'].get(kv), list)
+                assert isinstance(spec_dt.metadata['attrs'].get(kv), list) or isinstance(spec_dt.metadata['attrs'].get(kv), np.ndarray)
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
