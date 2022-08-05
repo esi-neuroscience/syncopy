@@ -65,7 +65,8 @@ intelwin:
     - conda install virtualenv
     - conda.bat activate syncopy
     # point tox to python from the conda env
-    - cmd /c mklink /J C:\Python38 %CONDA_PREFIX%
+    # needs to be done only once
+    # - cmd /c mklink /J C:\Python38 %CONDA_PREFIX%
     - tox
 
 m1macos:
@@ -111,8 +112,8 @@ slurmtest:
     
 pypitest:
     stage: upload
+    when: manual
     only:
-    - master
     - tags
     tags:
     - deploy
