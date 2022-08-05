@@ -37,7 +37,7 @@ from .fooofspy import fooofspy
 from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import process_io
+from syncopy.shared.kwarg_decorators import process_io, encode_unique_md_label, decode_unique_md_label
 from syncopy.shared.const_def import (
     spectralConversions,
     spectralDTypes
@@ -943,6 +943,8 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
     # nested dicts are not allowed in the additional return value of cFs, so we remove
     # it before passing the return value on.
 
+    details = pack_singletrial_metadata_fooof_into_hdf5(details)
+
     res = res[np.newaxis, np.newaxis, :, :]  # Re-add omitted axes.
     return res, details
 
@@ -1063,10 +1065,61 @@ def metadata_from_h5py_file(h5py_filename):
                     metadata = None
         else:
             raise SPYValueError("'data' dataset in hd5f file {of}.".format(of=h5py_filename), actual="no such dataset")
-
-    # TODO: in the virtual case, the _merge_md_list() function returns a dict with many keys/suffixes
-    #       that we may still want to join. we could hstack them (depending on ndim).
     return metadata
+
+
+def pack_singletrial_metadata_fooof_into_hdf5(metadata_fooof_backend):
+    # Reformat the gaussian and peak params for inclusion in the 2nd return value.
+    # For several channels, the number of peaks may differ, and thus we cannot simply
+    # call something like `np.array(gaussian_params)` in that case, as that will create
+    # an array of type 'object', which is not supported by hdf5. We could use one return
+    # value (entry in the 'details' dict below) per channel to solve that, but in this
+    # case, we decided to vstack the arrays instead. When extracting the data again
+    # (in process_metadata()), we need to revert this. That is possible because we can
+    # see from the `n_peaks` return value how many (and thus which) rows belong to
+    # which channel.
+    metadata_fooof_backend['gaussian_params'] = np.vstack(metadata_fooof_backend['gaussian_params'])
+    metadata_fooof_backend['peak_params'] = np.vstack(metadata_fooof_backend['peak_params'])
+    return metadata_fooof_backend
+
+
+def unpack_alltrials_metadata_fooof_from_hdf5(metadata_fooof_hdf5):
+    """This reverts and special packaging applied to the backend
+    function return values to fit them into the hdf5 container.
+
+    In the case of FOOOF, we had to vstack the gaussian_params
+    and peak_params, and we now revert this.
+
+    Of course, you do not have to undo things if you are fine
+    with passing them to the frontend the way they are stored in the hdf5.
+
+    Keep in mind that this is not directly the inverse of the
+    function called in the cF, because:
+     - that function prepares data from a single backend function call,
+       while this function has to unpack the data from all cF function calls.
+     - the input metadata is a standard dict that has already
+       been pre-processed, including the split into 'attrs' and 'dsets'.
+    """
+    print(f"unpack_metadata_fooof_from_hdf5(): {metadata_fooof_hdf5}")
+    for unique_attr_label, v in metadata_fooof_hdf5['attrs'].items():
+        label, trial_idx, call_idx = decode_unique_md_label(unique_attr_label)
+        if label == "n_peaks":
+            n_peaks = v
+            gaussian_params_out = list()
+            peak_params_out = list()
+            start_idx = 0
+            unique_attr_label_gaussian_params = encode_unique_md_label('gaussian_params', trial_idx, call_idx)
+            unique_attr_label_peak_params = encode_unique_md_label('peak_params', trial_idx, call_idx)
+            gaussian_params_in = metadata_fooof_hdf5['attrs'][unique_attr_label_gaussian_params]
+            peak_params_in = metadata_fooof_hdf5['attrs'][unique_attr_label_peak_params]
+            for trial_idx in range(len(n_peaks)):
+                end_idx = start_idx + n_peaks[trial_idx]
+                gaussian_params_out.append(gaussian_params_in[start_idx:end_idx, :])
+                peak_params_out.append(peak_params_in[start_idx:end_idx, :])
+
+            metadata_fooof_hdf5['attrs'][unique_attr_label_gaussian_params] = gaussian_params_out
+            metadata_fooof_hdf5['attrs'][unique_attr_label_gaussian_params] = peak_params_out
+    return metadata_fooof_hdf5
 
 
 class FooofSpy(ComputationalRoutine):
@@ -1093,7 +1146,8 @@ class FooofSpy(ComputationalRoutine):
     # To attach metadata to the output of the CF
     def process_metadata(self, data, out):
 
-        out.metadata = metadata_from_h5py_file(out.filename)
+        out.metadata = metadata_from_h5py_file(out.filename)          # general
+        out.metadata = unpack_alltrials_metadata_fooof_from_hdf5(out.metadata)  # backend-specific. may or may not be needed, depending on what you need to do in the cF to fit the return values into hdf5.
 
         #if out.metadata is not None:
         #    print("FooofSpy.process_metadata(): ************** received some (non-None) metadata ******************")

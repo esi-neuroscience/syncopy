@@ -12,6 +12,7 @@ import math
 from syncopy import freqanalysis
 from syncopy.shared.tools import get_defaults
 from syncopy.tests.synth_data import AR2_network, phase_diffusion
+from syncopy.shared.kwarg_decorators import encode_unique_md_label, decode_unique_md_label
 import syncopy as spy
 from syncopy import __acme__
 if __acme__:
@@ -37,6 +38,17 @@ def _get_fooof_signal(nTrials=100, nChannels = 1):
     pd2 = phase_diffusion(freq=50., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
     signal = ar1_part + .8 * pd1 + 0.6 * pd2
     return signal
+
+
+class TestMetadataHelpers():
+    def test_encode_unique_md_label():
+        assert encode_unique_md_label("label", "1", "2") == "label__1_2"
+        assert encode_unique_md_label("label", 1, 2) == "label__1_2"
+        assert encode_unique_md_label("label", 1) == "label__1_0"
+        assert encode_unique_md_label("label", "1") == "label__1_0"
+
+    def test_decode_unique_md_label():
+        assert ("label", "1", "2") == decode_unique_md_label("label__1_2")
 
 
 class TestMetadataUsingFooof():
@@ -92,7 +104,7 @@ class TestMetadataUsingFooof():
         assert not np.isnan(spec_dt.data).any()
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset as attribute.
-        k_unique = "__0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
+        k_unique = "__0_0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
                          #       depending on data size and RAM, there may or may not be several calls, and "_1" , "_2", ... exist.
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
@@ -167,24 +179,10 @@ class TestMetadataUsingFooof():
         assert not np.isnan(spec_dt.data).any()
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset as attribute.
-        k_unique = "__0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
+        k_unique = "__0_0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
                          #       depending on data size and RAM, there may or may not be several calls, and "_1" , "_2", ... exist.
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
-
-        test_metadata_on_main_dset = False
-
-        if test_metadata_on_main_dset:
-            assert len(spec_dt.data.attrs.keys()) == len(expected_fooof_dict_entries)
-            for kv in keys_unique:
-                assert (kv) in spec_dt.data.attrs.keys()
-                assert isinstance(spec_dt.data.attrs.get(kv), np.ndarray)
-            # Expect one entry in detail.
-            n_peaks = spec_dt.data.attrs.get("n_peaks" + k_unique)
-            assert isinstance(n_peaks, np.ndarray)
-            assert n_peaks.size == 1 # cfg.keeptrials is False, so FOOOF operates on a single trial and we expect only one value here.
-            assert spec_dt.data.attrs.get("r_squared" + k_unique).size == num_trials_fooof  # Same, see line above.
-            assert spec_dt.data.attrs.get("error" + k_unique).size == num_trials_fooof  # Same, see line above.
 
         # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
         assert spec_dt.metadata is not None
@@ -242,28 +240,12 @@ class TestMetadataUsingFooof():
         assert not np.isnan(spec_dt.data).any()
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset 'data' as attributes.
-        k_unique = "__0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
+        k_unique = "__0_0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
                          #       depending on data size and RAM, there may or may not be several calls, and "_1" , "_2", ... exist.
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
 
-        test_metadata_on_main_dset = False # its not there, because the dataset was virtual.
         test_metadata_on_metadata_group = True
-
-        if test_metadata_on_main_dset:
-            print("spec_dt.data.attrs has length {}.".format(len(spec_dt.data.attrs.keys())))
-
-            assert len(spec_dt.data.attrs.keys()) >= len(expected_fooof_dict_entries)
-
-            for kv in keys_unique:
-                assert (kv) in spec_dt.data.attrs.keys()
-                assert isinstance(spec_dt.data.attrs.get(kv), np.ndarray)
-            # Expect one entry in detail.
-            n_peaks = spec_dt.data.attrs.get("n_peaks" + k_unique)
-            assert isinstance(n_peaks, np.ndarray)
-            assert n_peaks.size == num_trials_fooof # cfg.keeptrials is True, so FOOOF operates on 100 trials
-            assert spec_dt.data.attrs.get("r_squared" + k_unique).size == num_trials_fooof  # Same, see line above.
-            assert spec_dt.data.attrs.get("error" + k_unique).size == num_trials_fooof  # Same, see line above.
 
         if test_metadata_on_metadata_group:
             # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
@@ -337,25 +319,9 @@ class TestMetadataUsingFooof():
         for fde in expected_fooof_dict_entries:
             for trial_idx in range(num_trials_fooof):
                 for call_idx in range(calls_per_trial):
-                    keys_unique.append(fde + "__" + str(trial_idx) + "_" + str(call_idx))
+                    keys_unique.append(encode_unique_md_label(fde, trial_idx, call_idx))
 
-        test_metadata_on_main_dset = False # its not there, because the dataset was virtual.
         test_metadata_on_metadata_group = True
-
-        if test_metadata_on_main_dset:
-            print("spec_dt.data.attrs has length {}.".format(len(spec_dt.data.attrs.keys())))
-
-            assert len(spec_dt.data.attrs.keys()) >= len(expected_fooof_dict_entries)
-
-            for kv in keys_unique:
-                assert (kv) in spec_dt.data.attrs.keys()
-                assert isinstance(spec_dt.data.attrs.get(kv), np.ndarray)
-            # Expect one entry in detail.
-            n_peaks = spec_dt.data.attrs.get("n_peaks" + k_unique)
-            assert isinstance(n_peaks, np.ndarray)
-            assert n_peaks.size == num_trials_fooof # cfg.keeptrials is True, so FOOOF operates on 100 trials
-            assert spec_dt.data.attrs.get("r_squared" + k_unique).size == num_trials_fooof  # Same, see line above.
-            assert spec_dt.data.attrs.get("error" + k_unique).size == num_trials_fooof  # Same, see line above.
 
         if test_metadata_on_metadata_group:
             # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute,
@@ -369,7 +335,9 @@ class TestMetadataUsingFooof():
             print("keys={k}".format(k=",".join(spec_dt.metadata['attrs'].keys())))
             for kv in keys_unique:
                 assert (kv) in spec_dt.metadata['attrs'].keys()
-                assert isinstance(spec_dt.metadata['attrs'].get(kv), np.ndarray)
+                # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
+                # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
+                assert isinstance(spec_dt.metadata['attrs'].get(kv), np.ndarray) or isinstance(spec_dt.metadata['attrs'].get(kv), list)
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'

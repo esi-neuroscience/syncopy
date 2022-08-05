@@ -622,8 +622,8 @@ def h5_add_details(h5fout, details, unique_key_suffix="", attribs_to_data=False,
     details: dict
         The second return value of user-supplied cF, with the limitations described in `_parse_details()`.
     unique_key_suffix: str or int
-        A suffix to add to each attrib or dset name, to make it unique. Leave at the default for no suffix. Typically something like '_n', where `n` is an integer.
-        If an integer `n` is passed, it will be converted to the str '_n', where `n` is the integer.
+        A suffix to add to each attrib or dset name, to make it unique. Leave at the default for no suffix. Typically something like '__n_m', where `n` and `m` are integers.
+        If an integer `n` is passed, it will be converted to the str '__n_0', where `n` is the integer.
     attribs_to_data: bool
         Whether to attach the 'attribs' contained in the details to the main dataset called 'data' in the hdf5 file (if it exists).
     attribs_to_metadata: bool
@@ -635,7 +635,7 @@ def h5_add_details(h5fout, details, unique_key_suffix="", attribs_to_data=False,
         h5fout = h5py.File(h5fout, mode="w")
 
     if isinstance(unique_key_suffix, int):
-        unique_key_suffix = "__" + str(unique_key_suffix)
+        unique_key_suffix = "__" + str(unique_key_suffix) + "_0"
 
     if details is not None:
         grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")
@@ -826,6 +826,23 @@ def process_io(func):
         return None  # result has already been written to disk
 
     return wrapper_io
+
+
+def encode_unique_md_label(label, trial_idx, call_idx=0):
+    """Assemble something like `test`, `2` and `0` into `test__2_0`."""
+    return(label + "__" + str(trial_idx) + "_" + str(call_idx))
+
+
+def decode_unique_md_label(unique_label):
+    """
+    Splits something like `test__2_0` into `test`, `2` and `0`.
+
+    Note that a tuple of all `str`, (no `int`s) is returned.
+    """
+    lab_ind = unique_label.rsplit("__")
+    label = lab_ind[0]
+    trialidx_callidx = lab_ind[1].rsplit("_")
+    return label, trialidx_callidx[0], trialidx_callidx[1]
 
 
 def _append_docstring(func, supplement, insert_in="Parameters", at_end=True):

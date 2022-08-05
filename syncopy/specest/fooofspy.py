@@ -156,32 +156,15 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
         gaussian_params.append(fm.gaussian_params_)
         peak_params.append(fm.peak_params_)
 
-    # Reformat the gaussian and peak params for inclusion in the 2nd return value.
-    # For several channels, the number of peaks may differ, and thus we cannot simply
-    # call something like `np.array(gaussian_params)` in that case, as that will create
-    # an array of type 'object', which is not supported by hdf5. We could use one return
-    # value (entry in the 'details' dict below) per channel to solve that, but in this
-    # case, we decided to vstack the arrays instead. When extracting the data again
-    # (in process_metadata()), we need to revert this. That is possible because we can
-    # see from the `n_peaks` return value how many (and thus which) rows belong to
-    # which channel.
-    gaussian_params = np.vstack(gaussian_params)
-    peak_params = np.vstack(peak_params)
-
-    #for idx, gp in enumerate(gaussian_params):
-    #    print(f"gp {idx} has dim {gp.shape}")
-
     settings_used = {'fooof_opt': fooof_opt, 'out_type': out_type, 'freq_range': freq_range}
     #  Note: we add the 'settings_used' here in the backend, but they get stripped in the middle layer
     #       (in the 'compRoutines.py/fooofspy_cF'), so they do not reach the frontend.
     #        The reason for removing them there is that we/h5py do not support nested dicts as
     #        dataset/group attributes, and thus we cannot encode them in hdf5.
     #        Returning them from here still has the benefit that we can test for them in backend tests.
-    details_pre = {'aperiodic_params': aperiodic_params, 'gaussian_params': gaussian_params,
+    details = {'aperiodic_params': aperiodic_params, 'gaussian_params': gaussian_params,
                'peak_params': peak_params, 'n_peaks': n_peaks, 'r_squared': r_squared,
-               'error': error}
-    details = {k: np.array(v) for k, v in details_pre.items()}  # Only np.ndarray is supported, make sure we have that.
-    details['settings_used'] =  settings_used  # This will be removed before hdf5 sees it, see comment above for details.
+               'error': error, 'settings_used': settings_used}
 
     return out_spectra, details
 

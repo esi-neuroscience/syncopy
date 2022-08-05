@@ -30,7 +30,7 @@ if __acme__:
     # # In case of problems w/worker-stealing, uncomment the following lines
     # import dask
     # dask.config.set(distributed__scheduler__work_stealing=False)
-from syncopy.shared.kwarg_decorators import get_res_details, _parse_details, h5_add_details
+from syncopy.shared.kwarg_decorators import get_res_details, h5_add_details, encode_unique_md_label
 
 __all__ = []
 
@@ -613,7 +613,7 @@ class ComputationalRoutine(ABC):
             # Compute trial_ids and chunk_ids to turn into a unique index.
             # Keep in mind that these may not be absolute due to selections.
             if self.numBlocksPerTrial == 1:
-                unique_key = ["__" + str(trial_id) for trial_id in range(self.numCalls)]
+                unique_key = [encode_unique_md_label(trial_id) for trial_id in range(self.numCalls)]
             # channel parallelisation is active, we need to add the chunk to the trial ID for the key to be unique, as a trial will be split into several chunks.
             else:
                 rel_trial_ids = list()
@@ -640,7 +640,6 @@ class ComputationalRoutine(ABC):
                             "outgrid": self.targetLayout[chk],
                             "outshape": self.targetShapes[chk],
                             "dtype": self.dtype,
-                            #"call_id": chk } for chk in range(self.numCalls)]
                             "call_id": unique_key[chk] } for chk in range(self.numCalls)]
 
 
