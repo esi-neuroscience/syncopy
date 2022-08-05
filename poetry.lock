@@ -961,6 +961,20 @@ lint = ["flake8 (>=3.5.0)", "flake8-comprehensions", "flake8-bugbear", "isort", 
 test = ["pytest (>=4.6)", "html5lib", "cython", "typed-ast"]
 
 [[package]]
+name = "sphinx-automodapi"
+version = "0.14.1"
+description = "Sphinx extension for auto-generating API documentation for entire modules"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+sphinx = ">=2"
+
+[package.extras]
+test = ["pytest", "pytest-cov", "cython", "codecov", "coverage"]
+
+[[package]]
 name = "sphinx-bootstrap-theme"
 version = "0.8.1"
 description = "Sphinx Bootstrap Theme."
@@ -1178,7 +1192,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8, <3.9"
-content-hash = "320f72f74d45e36605186a3e29e2ad31e26cdab86d121c65986fb6ba7bfd33b2"
+content-hash = "c618f664f3f604db86a1aa31b685abcf5349fb83cb24f00e4a8247057b75a532"
 
 [metadata.files]
 alabaster = [
@@ -1896,6 +1910,10 @@ sortedcontainers = [
 sphinx = [
     {file = "Sphinx-5.1.1-py3-none-any.whl", hash = "sha256:309a8da80cb6da9f4713438e5b55861877d5d7976b69d87e336733637ea12693"},
     {file = "Sphinx-5.1.1.tar.gz", hash = "sha256:ba3224a4e206e1fbdecf98a4fae4992ef9b24b85ebf7b584bb340156eaf08d89"},
+]
+sphinx-automodapi = [
+    {file = "sphinx-automodapi-0.14.1.tar.gz", hash = "sha256:a2f9c0f9e2901875e6db75df6c01412875eb15f25e7db1206e1b69fedf75bbc9"},
+    {file = "sphinx_automodapi-0.14.1-py3-none-any.whl", hash = "sha256:4238e131d7abc47226449661bb3cfa2bb1b5b190184ffa69d9b924b984a22753"},
 ]
 sphinx-bootstrap-theme = [
     {file = "sphinx-bootstrap-theme-0.8.1.tar.gz", hash = "sha256:683e3b735448dadd0149f76edecf95ff4bd9157787e9e77e0d048ca6f1d680df"},
