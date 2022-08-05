@@ -691,8 +691,8 @@ def detrending_cF(dat, polyremoval=None, timeAxis=0, noCompute=False, chunkShape
         columns represent individual channels.
         Dimensions can be transposed to `(K, N)` with the `timeAxis` parameter
     polyremoval : {0, 1} or None
-        Order of polynomial used for de-trending data in the time domain prior
-        to filtering. A value of 0 corresponds to subtracting the mean
+        Order of polynomial used for de-trending data in the time domain.
+        A value of 0 corresponds to subtracting the mean
         ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
         least squares fit of a linear polynomial).
     timeAxis : int, optional
@@ -762,6 +762,108 @@ class Detrending(ComputationalRoutine):
 
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(detrending_cF).parameters.keys())[1:]
+
+    def process_metadata(self, data, out):
+
+        # Some index gymnastics to get trial begin/end "samples"
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
+        else:
+            chanSec = slice(None)
+            trl = data.trialdefinition
+
+        out.trialdefinition = trl
+
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel[chanSec])
+
+
+@process_io
+def standardize_cF(dat, polyremoval=None, timeAxis=0, noCompute=False, chunkShape=None):
+
+    """
+    Yet another simple cF to z-score ('standardize') signals:
+    subtracting the mean and normalize by standard deviation.
+
+    Parameters
+    ----------
+    dat : (N, K) :class:`numpy.ndarray`
+        Uniformly sampled multi-channel time-series data
+        The 1st dimension is interpreted as the time axis,
+        columns represent individual channels.
+        Dimensions can be transposed to `(K, N)` with the `timeAxis` parameter
+    polyremoval : {0, 1} or None
+        Order of polynomial used for de-trending data in the time domain prior
+        to z-scoring. A value of 0 corresponds to subtracting the mean
+        ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
+        least squares fit of a linear polynomial).
+    timeAxis : int, optional
+        Index of running time axis in `dat` (0 or 1)
+    noCompute : bool
+        Preprocessing flag. If `True`, do not perform actual calculation but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+
+    Returns
+    -------
+    standardized : (N, K) :class:`~numpy.ndarray`
+        The standardized signals
+
+    Notes
+    -----
+    This method is intended to be used as
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+    """
+
+    # Re-arrange array if necessary and get dimensional information
+    if timeAxis != 0:
+        dat = dat.T       # does not copy but creates view of `dat`
+    else:
+        dat = dat
+
+    # cF does not change the shape
+    outShape = dat.shape
+    if noCompute:
+        return outShape, np.float32
+
+    # detrend
+    if polyremoval == 0:
+        dat = sci.detrend(dat, type='constant', axis=0, overwrite_data=True)
+    elif polyremoval == 1:
+        dat = sci.detrend(dat, type='linear', axis=0, overwrite_data=True)
+
+    # standardize
+    dat = (dat - np.mean(dat, axis=0)) / np.std(dat, axis=0)
+
+    # renaming
+    standardized = dat
+    return standardized
+
+
+class Standardize(ComputationalRoutine):
+
+    """
+    Compute class that performs standardizing
+    of :class:`~syncopy.AnalogData` objects
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.preprocessing : parent metafunction
+    """
+
+    computeFunction = staticmethod(standardize_cF)
+
+    # 1st argument,the data, gets omitted
+    valid_kws = list(signature(standardize_cF).parameters.keys())[1:]
 
     def process_metadata(self, data, out):
 

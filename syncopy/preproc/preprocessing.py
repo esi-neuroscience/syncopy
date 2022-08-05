@@ -26,7 +26,8 @@ from .compRoutines import (
     SincFiltering,
     Rectify,
     Hilbert,
-    Detrending
+    Detrending,
+    Standardize
 )
 
 availableFilters = ("but", "firws")
@@ -46,9 +47,10 @@ def preprocessing(
     filter_type="lp",
     freq=None,
     order=None,
-    direction=None,
+    direction='twopass',
     window="hamming",
     polyremoval=None,
+    zscore=False,
     rectify=False,
     hilbert=False,
     **kwargs,
@@ -86,6 +88,8 @@ def preprocessing(
         to filtering. A value of 0 corresponds to subtracting the mean
         ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
         least squares fit of a linear polynomial).
+    zscore : bool, optional
+        Set to `True` to individually standardize all signals
     rectify : bool, optional
         Set to `True` to rectify (after filtering)
     hilbert : None or one of {'abs', 'complex', 'real', 'imag', 'absreal', 'absimag', 'angle'}
@@ -96,6 +100,23 @@ def preprocessing(
     -------
     filtered : `~syncopy.AnalogData`
         The filtered dataset with the same shape and dimord as the input `data`
+
+    Examples
+    --------
+    In the following `adata` is an instance of :class:`~syncopy.AnalogData`
+
+    Low-pass filtering with a Butterworth filter and a cut-off of 100Hz:
+
+    >>> spy.preprocessing(adata, filter_class='but', filter_type='lp', freq=100)
+
+    Notch (band-stop) filtering with a FIR filter of order 2000 around 50Hz:
+
+    >>> spy.preprocessing(adata, filter_class='firws', filter_type='bs', freq=[49, 51], order=2000)
+
+    Remove linear trends and stadardize but no filtering:
+
+    >>> spy.preprocessing(adata, filter_class=None, polyremoval=1, zscore=True)
+
     """
 
     # -- Basic input parsing --
@@ -117,6 +138,7 @@ def preprocessing(
 
     new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
 
+    # filter specific settings
     if filter_class is not None:
         if filter_class not in availableFilters:
             lgl = "'" + "or '".join(opt + "' " for opt in availableFilters)
@@ -151,14 +173,17 @@ def preprocessing(
             scalar_parser(order, varname="order", lims=[0, np.inf], ntype="int_like")
 
     # check if anything else was requested
-    elif filter_class is None and polyremoval is None:
+    elif filter_class is None and polyremoval is None and zscore is False:
         lgl = "a preprocessing method"
-        act = "neither filtering nor detrending requested"
-        raise SPYValueError(lgl, "filter_class/polyremoval", act)
+        act = "neither filtering, detrending or zscore requested"
+        raise SPYValueError(lgl, "filter_class/polyremoval/zscore", act)
 
     # check polyremoval
     if polyremoval is not None:
         scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])
+
+    if not isinstance(zscore, bool):
+        SPYValueError("either `True` or `False`", varname="zscore", actual=zscore)
 
     if not isinstance(rectify, bool):
         SPYValueError("either `True` or `False`", varname="rectify", actual=rectify)
@@ -198,14 +223,29 @@ def preprocessing(
 
     # -- Method calls
 
-    # Prepare keyword dict for logging (use `lcls` to get actually provided
-    # keyword values, not defaults set above)
+    # Prepare keyword dict for logging
     log_dict = {
-        "filter_class": filter_class,
-        "filter_type": filter_type,
-        "freq": freq,
         "polyremoval": polyremoval,
+        "zscore": zscore
     }
+
+    # pre-processing
+    if zscore:
+
+        std_data = AnalogData(dimord=data.dimord)
+        stdCR = Standardize(polyremoval=polyremoval, timeAxis=timeAxis)
+        stdCR.initialize(
+            data,
+            data._stackingDim,
+            chan_per_worker=kwargs.get("chan_per_worker"),
+            keeptrials=True,
+        )
+
+        stdCR.compute(
+            data, std_data, parallel=kwargs.get("parallel"), log_dict=log_dict
+        )
+
+        data = std_data
 
     if filter_class == "but":
 
@@ -230,9 +270,13 @@ def preprocessing(
 
         log_dict["order"] = order
         log_dict["direction"] = direction
+        log_dict["filter_class"] = filter_class
+        log_dict["filter_type"] = filter_type
+        log_dict["freq"] = freq
 
         check_effective_parameters(
-            ButFiltering, defaults, lcls, besides=("hilbert", "rectify")
+            ButFiltering, defaults, lcls, besides=("hilbert", "rectify",
+                                                   "zscore")
         )
 
         filterMethod = ButFiltering(
@@ -267,12 +311,15 @@ def preprocessing(
 
         log_dict["order"] = order
         log_dict["direction"] = direction
+        log_dict["filter_class"] = filter_class
+        log_dict["filter_type"] = filter_type
+        log_dict["freq"] = freq
 
         check_effective_parameters(
             SincFiltering,
             defaults,
             lcls,
-            besides=["filter_class", "hilbert", "rectify"],
+            besides=["filter_class", "hilbert", "rectify", "zscore"],
         )
 
         filterMethod = SincFiltering(
@@ -293,7 +340,7 @@ def preprocessing(
             Detrending,
             defaults,
             lcls,
-            besides=["filter_class", "hilbert", "rectify"],
+            besides=["filter_class", "hilbert", "rectify", "zscore"],
         )
 
         # not really a `filterMethod` though..
@@ -315,7 +362,7 @@ def preprocessing(
         data, filtered, parallel=kwargs.get("parallel"), log_dict=log_dict
     )
 
-    # -- check for post processing flags --
+    # -- check for post-processing flags --
 
     if rectify:
         log_dict["rectify"] = rectify
