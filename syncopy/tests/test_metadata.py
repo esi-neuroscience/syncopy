@@ -6,7 +6,7 @@
 import pytest
 import numpy as np
 import matplotlib.pyplot as plt
-
+import math
 
 # Local imports
 from syncopy import freqanalysis
@@ -308,6 +308,9 @@ class TestMetadataUsingFooof():
         multi_chan_data = _get_fooof_signal(nTrials=num_trials_fooof, nChannels = num_channels)
         spec_dt = freqanalysis(cfg, multi_chan_data, fooof_opt=fooof_opt, chan_per_worker=chan_per_worker)
 
+        # How many more calls we expect due to channel parallelization.
+        calls_per_trial = int(math.ceil(num_channels / chan_per_worker))
+
         # These are known from the input data and cfg.
 
         data_size = 100
@@ -329,10 +332,12 @@ class TestMetadataUsingFooof():
         assert not np.isnan(spec_dt.data).any()
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset 'data' as attributes.
-        k_unique = "__0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
-                         #       depending on data size and RAM, there may or may not be several calls, and "_1" , "_2", ... exist.
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
-        keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
+        keys_unique = list()
+        for fde in expected_fooof_dict_entries:
+            for trial_idx in range(num_trials_fooof):
+                for call_idx in range(calls_per_trial):
+                    keys_unique.append(fde + "__" + str(trial_idx) + "_" + str(call_idx))
 
         test_metadata_on_main_dset = False # its not there, because the dataset was virtual.
         test_metadata_on_metadata_group = True
@@ -360,7 +365,7 @@ class TestMetadataUsingFooof():
             num_metadata_dsets = len(spec_dt.metadata['dsets'].keys())
             num_metadata_attrs = len(spec_dt.metadata['attrs'].keys())  # Get keys of hdf5 attribute manager.
             assert num_metadata_dsets == 0
-            assert num_metadata_attrs == 6 * num_trials_fooof
+            assert num_metadata_attrs == 6 * num_trials_fooof * calls_per_trial
             print("keys={k}".format(k=",".join(spec_dt.metadata['attrs'].keys())))
             for kv in keys_unique:
                 assert (kv) in spec_dt.metadata['attrs'].keys()
