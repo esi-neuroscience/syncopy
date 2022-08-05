@@ -15,7 +15,7 @@ from glob import glob
 
 # Local imports
 from syncopy.datatype import AnalogData
-from syncopy.io import save, load, load_ft_raw
+from syncopy.io import save, load, load_ft_raw, load_tdt
 from syncopy.shared.filetypes import FILE_EXT
 from syncopy.shared.errors import (
     SPYValueError,
@@ -28,7 +28,7 @@ from syncopy.tests.misc import generate_artificial_data
 
 
 # Decorator to detect if test data dir is available
-on_esi = os.path.isdir('/cs/scratch/syncopy')
+on_esi = os.path.isdir('/cs/slurm/syncopy')
 skip_no_esi = pytest.mark.skipif(not on_esi, reason="ESI fs not available")
 
 
@@ -440,11 +440,11 @@ class TestSpyIO():
 
 
 @skip_no_esi
-class Test_FT_Importer:
+class TestFTImporter:
 
     """At the moment only ft_datatype_raw is supported"""
 
-    mat_file_dir = '/cs/scratch/syncopy/MAT-Files'
+    mat_file_dir = '/cs/slurm/syncopy/MAT-Files'
 
     def test_read_hdf(self):
         """Test MAT-File v73 reader, uses h5py"""
@@ -509,7 +509,62 @@ class Test_FT_Importer:
 
         # additional fields of Matlab structures
         # get attached to .info dict
-        # here nested structures are supported (but dis-encouraged)
+        # here nested structures are also now forbidden
         dct = load_ft_raw(fname, include_fields=('ch',))
         AData2 = dct['Data_K']
-        assert 'ch' in AData2.info
+        # sadly here it is actually nested
+        assert len(AData2.info) == 0
+
+
+@skip_no_esi
+class TestTDTImporter:
+
+    tdt_dir = '/cs/slurm/syncopy/Tdt_reader/session-25'
+    start_code, end_code = 23000, 30020
+
+    def test_load_tdt(self):
+
+        AData = load_tdt(self.tdt_dir)
+
+        assert isinstance(AData, AnalogData)
+        # check meta info parsing
+        assert len(AData.info.keys()) == 13
+        # that is apparently fixed
+        assert AData.dimord == ['time', 'channel']
+        assert len(AData.channel) == 9
+
+        # it's only one big trial here
+        assert AData.trials[0].shape == (3170560, 9)
+
+        # test median subtr
+        AData2 = load_tdt(self.tdt_dir, subtract_median=True)
+        assert np.allclose(np.median(AData2.data), 0)
+
+        # check that it wasn't 0 before
+        assert not np.allclose(np.median(AData.data), 0)
+
+        # test automatic trialdefinition
+        AData = load_tdt(self.tdt_dir, self.start_code, self.end_code)
+        assert len(AData.trials) == 659
+
+    def test_exceptions(self):
+
+        with pytest.raises(SPYIOError, match='Cannot read'):
+            load_tdt('non/existing/path')
+
+        with pytest.raises(SPYValueError, match='Invalid value of `start_code`'):
+            load_tdt(self.tdt_dir, start_code=None, end_code=self.end_code)
+
+        with pytest.raises(SPYValueError, match='Invalid value of `end_code`'):
+            load_tdt(self.tdt_dir, start_code=self.start_code, end_code=None)
+
+        with pytest.raises(SPYValueError, match='Invalid value of `start_code`'):
+            load_tdt(self.tdt_dir, start_code=999999, end_code=self.end_code)
+
+        with pytest.raises(SPYValueError, match='Invalid value of `end_code`'):
+            load_tdt(self.tdt_dir, start_code=self.start_code, end_code=999999)
+
+
+if __name__ == '__main__':
+    T1 = TestFTImporter()
+    T2 = TestTDTImporter()

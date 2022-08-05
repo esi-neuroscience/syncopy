@@ -4,6 +4,7 @@
 #
 
 # Builtin/3rd party package imports
+import sys
 import re
 import h5py
 import numpy as np
@@ -71,7 +72,7 @@ def load_ft_raw(filename,
         the default `None` will load all structures found
     include_fields: sequence, optional
         Additional MAT-File fields within each structure to
-        be imported. They can be accessed via a purpose-generated `AnalogData.info`
+        be imported. They can be accessed via the `AnalogData.info`
         attribute.
     mem_use: int
         The amount of RAM requested for the import process in MB. Note that < v7.3
@@ -81,8 +82,8 @@ def load_ft_raw(filename,
     Returns
     -------
     out_dict: dict
-        Dictionary with keys being the names of the structures loaded from the MAT-File,
-        and its values being the :class:`~syncopy.AnalogData` datasets
+        Dictionary with the names of the structures as keys loaded from the MAT-File,
+        and :class:`~syncopy.AnalogData` datasets as values
 
     See also
     --------
@@ -199,8 +200,16 @@ def load_ft_raw(filename,
 
         structure = struct_container[skey]
         _check_req_fields(req_fields_raw, structure)
-        data = struct_reader(structure)
-        out_dict[skey] = data
+        # the AnalogData objs
+        adata = struct_reader(structure)
+        thisMethod = sys._getframe().f_code.co_name.replace("_", "")
+
+        # Write log-entry
+        msg = f"loaded struct `{skey}` from Matlab file version {version}\n"
+        msg += f"\tsource file: {filename}"
+        adata.log = msg
+
+        out_dict[skey] = adata
 
     return out_dict
 
@@ -339,12 +348,12 @@ def _read_hdf_structure(h5Group,
 
             # ASCII encoding via uint16
             if dset.dtype == np.uint16 and len(dset.shape) == 2:
-                AData.info[field] = _parse_MAT_hdf_strings(dset)
+                AData.info[field] = _parse_MAT_hdf_strings(dset).tolist()
 
             # numerical data can be written
-            # directly as np.array into info dict
+            # directly as into info dict
             elif dset.dtype == np.float64:
-                AData.info[field] = dset[...]
+                AData.info[field] = dset[...].tolist()
 
             else:
                 msg = f"Could not read additional field '{field}'\n"
@@ -433,8 +442,15 @@ def _read_dict_structure(structure, include_fields=None):
                 msg = f"Could not find additional field {field}"
                 SPYWarning(msg, caller='load_ft_raw')
                 continue
-            
-            AData.info[field] = structure[field]
+            # we only support fields pointing directly to some data
+            # no nested structures!
+            if np.ndim(structure[field]) != 0:
+                msg = f"Could not read additional nested field '{field}'\n"
+                msg += "Only simple fields holding str labels or 1D arrays are supported"
+                SPYWarning(msg)
+                continue
+
+            AData.info[field] = structure[field].tolist()
 
     return AData
 
