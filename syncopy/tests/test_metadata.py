@@ -280,15 +280,14 @@ class TestMetadataUsingFooof():
 
     def test_metadata_parallel_with_parallel_storage_and_channel_parallelisation(self):
         """
-        Test metadata propagation in with parallel compute and parallel storage.
-        Without trial averaging (`keeptrials=True` in cfg), parallel storage is used.
-        We also test for channel parallelisation by setting 'chan_per_worker' (and of
-        course `keeptrials=True`, otherwise it makes no sense). We also do not select
-        channels in cfg, as that is not supported with channel parallelisation.
+        Test metadata propagation in with channel parallelisation. This implies
+        parallel compute and parallel storage.
 
-        Note: This function is currently identical to 'test_metadata_parallel_with_sequential_storage()',
-              the only difference is the `cfg.keeptrials = True`.
-              TODO: We should refactor this.
+        For syncopy to use channel parallelization, we must make sure that:
+        - we use parallel mode (`cfg.parallel` = `True`)
+        - 'chan_per_worker' is set to a positive integer (it is a kwarg of `freqanalysis()`)
+        - `keeptrials=True`, otherwise it makes no sense
+        - We also do not select specific channels in `cfg.select`, as that is not supported with channel parallelisation.
 
         Note2: This test implicitely also tests the case that no metadata is attached by the cF, because
                before FOOOF, we also call mtmfft, which does not attach metadata.
