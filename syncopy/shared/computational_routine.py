@@ -613,7 +613,7 @@ class ComputationalRoutine(ABC):
             # Compute trial_ids and chunk_ids to turn into a unique index.
             # Keep in mind that these may not be absolute due to selections.
             if self.numBlocksPerTrial == 1:
-                unique_key = [encode_unique_md_label(trial_id) for trial_id in range(self.numCalls)]
+                unique_key = ["__" + str(trial_id) + "_0" for trial_id in range(self.numCalls)]
             # channel parallelisation is active, we need to add the chunk to the trial ID for the key to be unique, as a trial will be split into several chunks.
             else:
                 rel_trial_ids = list()

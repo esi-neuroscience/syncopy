@@ -41,13 +41,13 @@ def _get_fooof_signal(nTrials=100, nChannels = 1):
 
 
 class TestMetadataHelpers():
-    def test_encode_unique_md_label():
+    def test_encode_unique_md_label(self):
         assert encode_unique_md_label("label", "1", "2") == "label__1_2"
         assert encode_unique_md_label("label", 1, 2) == "label__1_2"
         assert encode_unique_md_label("label", 1) == "label__1_0"
         assert encode_unique_md_label("label", "1") == "label__1_0"
 
-    def test_decode_unique_md_label():
+    def test_decode_unique_md_label(self):
         assert ("label", "1", "2") == decode_unique_md_label("label__1_2")
 
 
