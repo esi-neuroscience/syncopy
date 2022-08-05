@@ -23,7 +23,63 @@ import syncopy as spy
 
 
 def load_tdt(data_path, start_code=None, end_code=None,
-             subtract_median=False, memuse=3000):
+             subtract_median=False):
+
+    """
+    Imports TDT time series data and meta-information
+    into a single :class:`~syncopy.AnalogData` object.
+
+    An ad-hoc trialdefinition will be attached if
+    both `start_code` and `end_code` are given.
+    Otherwise a single all-to-all trialdefintion
+    is used. Custom trialdefinitions can be done
+    afterwards with :func:`~syncopy.definetrial`.
+
+    All meta-information is stored within the `.info`
+    dict of the  :class:`~syncopy.AnalogData` object.
+
+    PDio related keys:
+        ("PDio_onset", "PDio_offset", "PDio_data")
+
+    Trigger related keys:
+        ("Trigger_code", "Trigger_timestamp", "Trigger_sample")
+
+    Parameters
+    ----------
+    data_path : str
+        Path to the directory containing the `.sev` files
+    start_code : int or None, optional
+        Trigger code defining the beginning of a trial
+    end_code : int or None, optional
+        Trigger code defining the end of a trial
+    subtract_median : bool
+        Set  to `True` to subtract the median from all
+        individual time series
+
+    Returns
+    -------
+    adata : :class:`~syncopy.AnalogData`
+        The tdt data in syncopy format
+
+    Examples
+    --------
+    Load all channels from a source directory `/data/session3/`:
+
+    >>> adata = load_tdt('/data/session3')
+
+    Access the trigger codes and samples:
+
+    >>> trg_code = adata.info['Trigger_code']
+    >>> trg_sample = adata.info['Trigger_sample']
+
+    Load the same data and construct a trialdefinition on the fly:
+
+    >>> adata = load_tdt('/data/session3', start_code=23000, end_code=30020)
+
+    Access the 3rd trial:
+
+    >>> trl_dat = adata.trials[2]
+    """
 
     io_parser(data_path, isfile=False)
 
@@ -58,7 +114,8 @@ def load_tdt(data_path, start_code=None, end_code=None,
 
     # Write log-entry
     msg = f"loaded TDT data from {len(file_paths)} files\n"
-    msg += f"\tsource folder: {data_path}"
+    msg += f"\tsource folder: {data_path}\n"
+    msg += f"\tsubtract median: {subtract_median}"
     adata.log = msg
 
     if start_code is not None:
@@ -709,19 +766,7 @@ class ESI_TDTdata:
 
         # write info file
         AData.info["originalFiles"] = (Files,)
-        AData.info["samplingRate"] = DataInfo_loaded.LFPs.fs
-        AData.info["dtype"] = "single"
-        AData.info["numberOfChannels"] = len(Files)
-        AData.info["mergedBy"] = getuser()
-        AData.info["mergeTime"] = str(datetime.now())
-        AData.info["md5sum"] = self.md5sum(hdf_out_path)
-        AData.info["channelMedianSubtracted"] = self.subtract_median
-        AData.info["dataclass"] = "AnalogData"
-        AData.info["data_dtype"] = "single"
-        AData.info["samplerate"] = (DataInfo_loaded.LFPs.fs,)
-        AData.info["_version"] = (spy.__version__,)
-        AData.info["_log"] = ("",)
-        AData.info["tank_path"] = DataInfo_loaded.info.tankpath
+        # AData.info["md5sum"] = self.md5sum(hdf_out_path)
         AData.info["blockname"] = DataInfo_loaded.info.blockname
         AData.info["start_date"] = str(DataInfo_loaded.info.start_date)
         AData.info["utc_start_time"] = DataInfo_loaded.info.utc_start_time

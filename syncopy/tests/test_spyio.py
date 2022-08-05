@@ -528,7 +528,7 @@ class TestTDTImporter:
 
         assert isinstance(AData, AnalogData)
         # check meta info parsing
-        assert len(AData.info.keys()) == 26
+        assert len(AData.info.keys()) == 13
         # that is apparently fixed
         assert AData.dimord == ['time', 'channel']
         assert len(AData.channel) == 9
