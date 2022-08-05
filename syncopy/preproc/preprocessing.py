@@ -113,7 +113,7 @@ def preprocessing(
 
     >>> spy.preprocessing(adata, filter_class='firws', filter_type='bs', freq=[49, 51], order=2000)
 
-    Remove linear trends and stadardize but no filtering:
+    Remove linear trends and standardize but no filtering:
 
     >>> spy.preprocessing(adata, filter_class=None, polyremoval=1, zscore=True)
 
@@ -183,10 +183,10 @@ def preprocessing(
         scalar_parser(polyremoval, varname="polyremoval", ntype="int_like", lims=[0, 1])
 
     if not isinstance(zscore, bool):
-        SPYValueError("either `True` or `False`", varname="zscore", actual=zscore)
+        raise SPYValueError("either `True` or `False`", varname="zscore", actual=zscore)
 
     if not isinstance(rectify, bool):
-        SPYValueError("either `True` or `False`", varname="rectify", actual=rectify)
+        raise SPYValueError("either `True` or `False`", varname="rectify", actual=rectify)
 
     # -- get trial info
 
@@ -289,7 +289,7 @@ def preprocessing(
             timeAxis=timeAxis,
         )
 
-    if filter_class == "firws":
+    elif filter_class == "firws":
 
         if window not in availableWindows:
             lgl = "'" + "or '".join(opt + "' " for opt in availableWindows)
@@ -334,7 +334,7 @@ def preprocessing(
         )
 
     # only detrending
-    if filter_class is None and polyremoval is not None:
+    elif filter_class is None and polyremoval is not None and zscore is False:
 
         check_effective_parameters(
             Detrending,
@@ -345,22 +345,28 @@ def preprocessing(
 
         # not really a `filterMethod` though..
         filterMethod = Detrending(polyremoval=polyremoval, timeAxis=timeAxis)
-
+    # only zscoring
+    else:
+        filterMethod = None
     # -------------------------------------------
     # Call the chosen filter ComputationalRoutine
     # -------------------------------------------
 
-    filtered = AnalogData(dimord=data.dimord)
-    # Perform actual computation
-    filterMethod.initialize(
-        data,
-        data._stackingDim,
-        chan_per_worker=kwargs.get("chan_per_worker"),
-        keeptrials=True,
-    )
-    filterMethod.compute(
-        data, filtered, parallel=kwargs.get("parallel"), log_dict=log_dict
-    )
+    # unlikely but possible: post-processing without filtering
+    if filterMethod is None:
+        filtered = data
+    else:
+        filtered = AnalogData(dimord=data.dimord)
+        # Perform actual computation
+        filterMethod.initialize(
+            data,
+            data._stackingDim,
+            chan_per_worker=kwargs.get("chan_per_worker"),
+            keeptrials=True,
+        )
+        filterMethod.compute(
+            data, filtered, parallel=kwargs.get("parallel"), log_dict=log_dict
+        )
 
     # -- check for post-processing flags --
 
