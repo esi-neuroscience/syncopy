@@ -520,6 +520,7 @@ class TestFTImporter:
 class TestTDTImporter:
 
     tdt_dir = '/cs/slurm/syncopy/Tdt_reader/session-25'
+    start_code, end_code = 23000, 30020
 
     def test_load_tdt(self):
 
@@ -532,14 +533,36 @@ class TestTDTImporter:
         assert AData.dimord == ['time', 'channel']
         assert len(AData.channel) == 9
 
-        # it's only one big trial atm
+        # it's only one big trial here
         assert AData.trials[0].shape == (3170560, 9)
 
         # test median subtr
         AData2 = load_tdt(self.tdt_dir, subtract_median=True)
         assert np.allclose(np.median(AData2.data), 0)
+
         # check that it wasn't 0 before
         assert not np.allclose(np.median(AData.data), 0)
+
+        # test automatic trialdefinition
+        AData = load_tdt(self.tdt_dir, self.start_code, self.end_code)
+        assert len(AData.trials) == 659
+
+    def test_exceptions(self):
+
+        with pytest.raises(SPYIOError, match='Cannot read'):
+            load_tdt('non/existing/path')
+
+        with pytest.raises(SPYValueError, match='Invalid value of `start_code`'):
+            load_tdt(self.tdt_dir, start_code=None, end_code=self.end_code)
+
+        with pytest.raises(SPYValueError, match='Invalid value of `end_code`'):
+            load_tdt(self.tdt_dir, start_code=self.start_code, end_code=None)
+
+        with pytest.raises(SPYValueError, match='Invalid value of `start_code`'):
+            load_tdt(self.tdt_dir, start_code=999999, end_code=self.end_code)
+
+        with pytest.raises(SPYValueError, match='Invalid value of `end_code`'):
+            load_tdt(self.tdt_dir, start_code=self.start_code, end_code=999999)
 
 
 if __name__ == '__main__':

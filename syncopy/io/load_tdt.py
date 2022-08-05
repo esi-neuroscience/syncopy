@@ -13,8 +13,8 @@ from tqdm.auto import tqdm
 import h5py
 
 # Local imports
-from syncopy.shared.parsers import io_parser
-from syncopy.shared.errors import SPYWarning
+from syncopy.shared.parsers import io_parser, scalar_parser
+from syncopy.shared.errors import SPYWarning, SPYValueError
 from syncopy.shared.tools import StructDict
 import syncopy as spy
 
@@ -22,9 +22,24 @@ import syncopy as spy
 # --- The user exposed function ---
 
 
-def load_tdt(data_path, subtract_median=False, memuse=3000):
+def load_tdt(data_path, start_code=None, end_code=None,
+             subtract_median=False, memuse=3000):
 
     io_parser(data_path, isfile=False)
+
+    if start_code is not None and end_code is None:
+        lgl = "trigger codes for both trial start and end"
+        raise SPYValueError(lgl, "end_code", end_code)
+    if end_code is not None and start_code is None:
+        lgl = "trigger codes for both trial start and end"
+        raise SPYValueError(lgl, "start_code", start_code)
+    elif end_code is None and start_code is None:
+        pass
+    # both are given
+    else:
+        scalar_parser(start_code, "start_code", ntype='int_like')
+        scalar_parser(end_code, "end_code", ntype='int_like')
+
     # initialize tdt info loader class
     TDT_Load_Info = ESI_TDTinfo(data_path)
     # this is a StructDict
@@ -45,6 +60,11 @@ def load_tdt(data_path, subtract_median=False, memuse=3000):
     msg = f"loaded TDT data from {len(file_paths)} files\n"
     msg += f"\tsource folder: {data_path}"
     adata.log = msg
+
+    if start_code is not None:
+        adata.trialdefinition = _mk_trialdef(adata, start_code, end_code)
+        msg = f"created trialdefinition from start code `{start_code}` and end code `{end_code}`"
+        adata.log = msg
 
     return adata
 
@@ -712,7 +732,7 @@ class ESI_TDTdata:
         AData.info["PDio_offset"] = serial(DataInfo_loaded.PDio.offset)
         AData.info["PDio_data"] = serial(DataInfo_loaded.PDio.data)
         AData.info["Trigger_timestamp"] = serial(DataInfo_loaded.Mark.ts)
-        AData.info["Trigger_timestamp_sample"] = serial(np.round(DataInfo_loaded.Mark.ts * DataInfo_loaded.LFPs.fs))
+        AData.info["Trigger_sample"] = serial(np.round(DataInfo_loaded.Mark.ts * DataInfo_loaded.LFPs.fs))
         AData.info["Trigger_code"] = serial(DataInfo_loaded.Mark.data[0])
 
         return AData
@@ -720,6 +740,48 @@ class ESI_TDTdata:
 
 # --- Helpers ---
 
+def _mk_trialdef(adata, start_code, end_code):
+
+    """
+    Create a basic trialdefinition from the trial
+    start and end trigger codes
+    """
+
+    # trigger codes and samples
+    trg_codes = np.array(adata.info['Trigger_code'], dtype=int)
+    trg_sample = np.array(adata.info['Trigger_sample'], dtype=int)
+
+    # boolean indexing
+    trl_starts = trg_sample[trg_codes == start_code]
+    trl_ends = trg_sample[trg_codes == end_code]
+
+    if trl_starts.size == 0:
+        lgl = "at least one occurence of trial start code"
+        raise SPYValueError(lgl, "start_code", start_code)
+
+    if trl_ends.size == 0:
+        lgl = "at least one occurence of trial end code"
+        raise SPYValueError(lgl, "end_code", end_code)
+
+    if trl_starts.size > trl_ends.size:
+        msg = f"Found {trl_starts.size} trial starts and {trl_ends.size} trial end codes!\n"
+        msg += "truncating to number of trial ends.."
+        SPYWarning(msg)
+        N = trl_ends.size
+    elif trl_ends.size > trl_starts.size:
+        msg = f"Found {trl_starts.size} trial starts and {trl_ends.size} trial end codes!\n"
+        msg += "truncating to number of trial starts.."
+        SPYWarning(msg)
+        N = trl_starts.size
+    # both are equal
+    else:
+        N = trl_starts.size
+
+    trldef = np.zeros((N, 3))
+    trldef[:, 0] = trl_starts[:N]
+    trldef[:, 1] = trl_ends[:N]
+
+    return trldef
 
 def _get_source_paths(directory, ext=".sev"):
     """
