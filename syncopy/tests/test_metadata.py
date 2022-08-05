@@ -71,7 +71,8 @@ class TestMetadataUsingFooof():
         spec_dt = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
 
         # These are known from the input data and cfg.
-        data_size = 100
+        data_size = 100  # number of samples (per trial) seen by fooof. the full signal returned by _get_fooof_signal() is
+                         # larger, but the cfg.foilim setting (in get_fooof_cfg()) limits to 100 samples.
         num_trials_fooof = 1 # Because of keeptrials = False in cfg.
 
         # check frequency axis
@@ -113,6 +114,7 @@ class TestMetadataUsingFooof():
 
         # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
         assert spec_dt.metadata is not None
+        assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
         num_metadata_dsets = len(spec_dt.metadata['dsets'].keys())
         num_metadata_dsets = 0
         num_metadata_attrs = len(spec_dt.metadata['attrs'].keys())  # Get keys of dict
@@ -186,6 +188,7 @@ class TestMetadataUsingFooof():
 
         # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
         assert spec_dt.metadata is not None
+        assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
         num_metadata_dsets = len(spec_dt.metadata['dsets'].keys())
         num_metadata_attrs = len(spec_dt.metadata['attrs'].keys())
         assert num_metadata_dsets == 0
@@ -265,6 +268,7 @@ class TestMetadataUsingFooof():
         if test_metadata_on_metadata_group:
             # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
             assert spec_dt.metadata is not None
+            assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
             num_metadata_dsets = len(spec_dt.metadata['dsets'].keys())
             num_metadata_attrs = len(spec_dt.metadata['attrs'].keys())  # Get keys of hdf5 attribute manager.
             assert num_metadata_dsets == 0
@@ -349,8 +353,10 @@ class TestMetadataUsingFooof():
             assert spec_dt.data.attrs.get("error" + k_unique).size == num_trials_fooof  # Same, see line above.
 
         if test_metadata_on_metadata_group:
-            # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
+            # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute,
+            # and was collected from the metadata of each part of the virtual hdf5 dataset. It is a standard dictionary (not a hdf5 group).
             assert spec_dt.metadata is not None
+            assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
             num_metadata_dsets = len(spec_dt.metadata['dsets'].keys())
             num_metadata_attrs = len(spec_dt.metadata['attrs'].keys())  # Get keys of hdf5 attribute manager.
             assert num_metadata_dsets == 0
