@@ -31,7 +31,7 @@ def load_tdt(data_path, start_code=None, end_code=None,
 
     An ad-hoc trialdefinition will be attached if
     both `start_code` and `end_code` are given.
-    Otherwise a single all-to-all trialdefintion
+    Otherwise a single all-to-all trialdefinition
     is used. Custom trialdefinitions can be done
     afterwards with :func:`~syncopy.definetrial`.
 
