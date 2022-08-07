@@ -16,8 +16,8 @@ import os
 from syncopy import freqanalysis
 from syncopy.shared.tools import get_defaults
 from syncopy.tests.synth_data import AR2_network, phase_diffusion
-from syncopy.shared.kwarg_decorators import encode_unique_md_label, decode_unique_md_label, get_res_details
-from syncopy.shared.errors import SPYValueError
+from syncopy.shared.kwarg_decorators import encode_unique_md_label, decode_unique_md_label, get_res_details, _parse_details
+from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.specest.compRoutines import _merge_md_list, metadata_from_hdf5_file
 import syncopy as spy
 from syncopy import __acme__
@@ -115,6 +115,12 @@ class TestMetadataHelpers():
             a, b = get_res_details((np.zeros(3), {'a': np.array(['apples', 'foobar', 'cowboy'])}))
         assert "the second return value of user-supplied compute functions must be a dict containing np.ndarrays containing numbers" in str(err.value)
 
+    def test_parse_details(self):
+        # Test for error if input is not dict.
+        with pytest.raises(SPYTypeError) as err:
+            attrs, dsets = _parse_details(np.zeros(3))
+        assert "details" in str(err.value)
+        assert "dict" in str(err.value)
 
 
 
