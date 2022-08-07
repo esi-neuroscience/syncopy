@@ -615,7 +615,7 @@ class ComputationalRoutine(ABC):
                 unique_key = ["__" + str(trial_id) + "_0" for trial_id in range(self.numCalls)]
             else:  # The more complex case: channel parallelisation is active, we need to add the chunk to the
                    # trial ID for the key to be unique, as a trial will be split into several chunks.
-                rel_trial_ids = np.arange(self.numTrials)
+                rel_trial_ids = np.repeat(np.arange(self.numTrials), self.numBlocksPerTrial)
                 chunk_ids = np.tile(np.arange(self.numBlocksPerTrial), self.numTrials)
                 unique_key = ["__" + str(trial_id) + "_" + str(chunk_id) for trial_id, chunk_id in zip(rel_trial_ids, chunk_ids)]
 
