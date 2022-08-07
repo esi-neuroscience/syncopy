@@ -110,6 +110,11 @@ class TestMetadataHelpers():
             a, b = get_res_details((np.zeros(3), {'a': dict()}))
         assert "the second return value of user-supplied compute functions must be a dict containing np.ndarrays" in str(err.value)
 
+        # Test with tuple of correct length, 2nd value is dict, but values ndarray but not numeric
+        with pytest.raises(SPYValueError) as err:
+            a, b = get_res_details((np.zeros(3), {'a': np.array(['apples', 'foobar', 'cowboy'])}))
+        assert "the second return value of user-supplied compute functions must be a dict containing np.ndarrays containing numbers" in str(err.value)
+
 
 
 
