@@ -16,7 +16,7 @@ import os
 from syncopy import freqanalysis
 from syncopy.shared.tools import get_defaults
 from syncopy.tests.synth_data import AR2_network, phase_diffusion
-from syncopy.shared.kwarg_decorators import encode_unique_md_label, decode_unique_md_label
+from syncopy.shared.kwarg_decorators import encode_unique_md_label, decode_unique_md_label, get_res_details
 from syncopy.shared.errors import SPYValueError
 from syncopy.specest.compRoutines import _merge_md_list, metadata_from_hdf5_file
 import syncopy as spy
@@ -80,6 +80,36 @@ class TestMetadataHelpers():
             _ = metadata_from_hdf5_file(h5py_filename)
         assert "dataset in hd5f file" in str(err.value)
         os.remove(h5py_filename)
+
+    def test_get_res_details(self):
+        # Test error on invalid input: a dict instead of tuple
+        with pytest.raises(SPYValueError) as err:
+            a, b = get_res_details({"a": 2})
+        assert "user-supplied compute function must return a single ndarray or a tuple with length exactly 2" in str(err.value)
+
+        # Test with tuple of incorrect length 3
+        with pytest.raises(SPYValueError) as err:
+            a, b = get_res_details((1, 2, 3))
+        assert "user-supplied compute function must return a single ndarray or a tuple with length exactly 2" in str(err.value)
+
+        # Test with tuple, 2nd arg is None
+        a, b = get_res_details((np.zeros(3)))
+        assert b is None
+
+        # Test with ndarray only
+        a, b = get_res_details(np.zeros(3))
+        assert b is None
+
+        # Test with tuple of correct length, but 2nd value is not dict
+        with pytest.raises(SPYValueError) as err:
+            a, b = get_res_details((np.zeros(3), np.zeros(4)))
+        assert "the second return value of user-supplied compute functions must be a dict" in str(err.value)
+
+        # Test with tuple of correct length, 2nd value is dict, but values are not ndarray
+        with pytest.raises(SPYValueError) as err:
+            a, b = get_res_details((np.zeros(3), {'a': dict()}))
+        assert "the second return value of user-supplied compute functions must be a dict containing np.ndarrays" in str(err.value)
+
 
 
 

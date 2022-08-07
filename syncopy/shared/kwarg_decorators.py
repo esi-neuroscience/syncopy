@@ -592,7 +592,7 @@ def get_res_details(res):
     details = None  # This holds the 2nd return value from a cF, if any.
     if isinstance(res, tuple):  # The cF has a 2nd return value.
         if len(res) != 2:
-            raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="tuple with length {}" % len(res))
+            raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="tuple with length {tl}".format(tl=len(res)))
         else:
             res, details = res
         if details is not None: # Accept and silently ignore a 2nd return value of None.
