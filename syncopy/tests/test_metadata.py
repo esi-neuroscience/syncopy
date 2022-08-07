@@ -3,17 +3,22 @@
 # Test metadata implementation.
 
 
+import tempfile
 import pytest
 import numpy as np
 import matplotlib.pyplot as plt
 import math
+import h5py
+import tempfile
+import os
 
 # Local imports
 from syncopy import freqanalysis
 from syncopy.shared.tools import get_defaults
 from syncopy.tests.synth_data import AR2_network, phase_diffusion
 from syncopy.shared.kwarg_decorators import encode_unique_md_label, decode_unique_md_label
-from syncopy.specest.compRoutines import _merge_md_list
+from syncopy.shared.errors import SPYValueError
+from syncopy.specest.compRoutines import _merge_md_list, metadata_from_hdf5_file
 import syncopy as spy
 from syncopy import __acme__
 if __acme__:
@@ -64,6 +69,18 @@ class TestMetadataHelpers():
         assert len(merged['attrs']) == 4
         for k in ['1c', '1d', '2c', '2d']:
             assert k in merged['attrs']
+
+    def test_metadata_from_hdf5_file(self):
+        # Test for correct error on hdf5 file without 'data' dataset.
+        _, h5py_filename = tempfile.mkstemp()
+        with h5py.File(h5py_filename, "w") as f:
+            f.create_dataset("mydataset", (100,), dtype='i')
+
+        with pytest.raises(SPYValueError) as err:
+            _ = metadata_from_hdf5_file(h5py_filename)
+        assert "dataset in hd5f file" in str(err.value)
+        os.remove(h5py_filename)
+
 
 
 class TestMetadataUsingFooof():
