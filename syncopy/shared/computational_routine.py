@@ -605,27 +605,19 @@ class ComputationalRoutine(ABC):
 
         if parallel:
 
-            print("compute(): running parallel branch")
-
             # Construct list of dicts that will be passed on to workers: in the
             # parallel case, `trl_dat` is a dictionary!
 
             # Compute trial_ids and chunk_ids to turn into a unique index.
             # Keep in mind that these may not be absolute due to selections.
-            if self.numBlocksPerTrial == 1:
+            if self.numBlocksPerTrial == 1:  # The simple case: 1 call per trial. We add a chunk id (the trailing `_0` to be consistent with
+                                             # the more complex case, but the chunk index is always `0`).
                 unique_key = ["__" + str(trial_id) + "_0" for trial_id in range(self.numCalls)]
-            # channel parallelisation is active, we need to add the chunk to the trial ID for the key to be unique, as a trial will be split into several chunks.
-            else:
-                rel_trial_ids = list()
-                chunk_ids = list()
-                for trial_id in range(self.numTrials):
-                    for chunk_id in range(self.numBlocksPerTrial):
-                        rel_trial_ids.append(trial_id)
-                        chunk_ids.append(chunk_id)
+            else:  # The more complex case: channel parallelisation is active, we need to add the chunk to the
+                   # trial ID for the key to be unique, as a trial will be split into several chunks.
+                rel_trial_ids = np.arange(self.numTrials)
+                chunk_ids = np.tile(np.arange(self.numBlocksPerTrial), self.numTrials)
                 unique_key = ["__" + str(trial_id) + "_" + str(chunk_id) for trial_id, chunk_id in zip(rel_trial_ids, chunk_ids)]
-                #print("compute(): c_blocks is: {cb}, numTrials={nt}".format(cb=self.c_blocks, nt=self.numTrials))
-
-            print("compute(): Expected numCalls={exp} unique keys, found {act} (with numBlocksPerTrial={nbpt})".format(exp=self.numCalls, act=len(unique_key), nbpt=self.numBlocksPerTrial))
 
             workerDicts = [{"keeptrials": self.keeptrials,
                             "infile": data.filename,
@@ -845,8 +837,6 @@ class ComputationalRoutine(ABC):
         compute_sequential : serial processing counterpart of this method
         """
 
-        print("compute_parallel(): called")
-
         # Let ACME do the heavy lifting
         with self.pmap as pm:
             pm.compute(debug=self.parallelDebug)
@@ -861,8 +851,6 @@ class ComputationalRoutine(ABC):
             with h5py.File(out.filename, mode="r+") as h5f:
                 h5f[self.outDatasetName][()] /= self.numTrials
                 h5f.flush()
-
-        return
 
     def compute_sequential(self, data, out):
         """
@@ -893,10 +881,6 @@ class ComputationalRoutine(ABC):
         compute : management routine invoking parallel/sequential compute kernels
         compute_parallel : concurrent processing counterpart of this method
         """
-
-
-        print("compute_sequential(): called, handling {} trials.".format(self.numTrials))
-
         sourceObj = h5py.File(data.filename, mode="r")[data.data.name]
 
         # Iterate over (selected) trials and write directly to target HDF5 dataset
@@ -934,12 +918,6 @@ class ComputationalRoutine(ABC):
                     # Perform computation
                     res, details = get_res_details(self.computeFunction(arr, *argv, **self.cfg))
 
-                    #if details is not None:
-                    #    print("compute_sequential(): ********* received filled details in sequential part***************")
-                    #else:
-                    #    print("compute_sequential(): ********* received NONE details in sequential part***************")
-
-
                     # In case scalar selections have been performed, explicitly assign
                     # desired output shape to re-create "lost" singleton dimensions
                     # (use an explicit `shape` assignment here to avoid copies)
@@ -962,8 +940,6 @@ class ComputationalRoutine(ABC):
 
         # If source was HDF5 file, close it to prevent access errors
         sourceObj.file.close()
-
-        return
 
     def write_log(self, data, out, log_dict=None):
         """
