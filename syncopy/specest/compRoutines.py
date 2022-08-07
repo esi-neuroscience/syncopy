@@ -998,15 +998,12 @@ def _merge_md_list(md_list):
     metadata['dsets'] = dict()
     metadata['attrs'] = dict()
     for md in md_list:
-        # We just join all of them into a single dict, the unique keys should allow this.
+        # We just join all of them into a single dict, the unique keys allow this.
         metadata['attrs'] = {**metadata['attrs'], **md['attrs']}
-        #print("merge_md_list(): added {na} attrs.".format(na=len(md['attrs'])))
         metadata['dsets'] = {**metadata['dsets'], **md['dsets']}
-        #print("merge_md_list(): added {nd} dsets.".format(nd=len(md['dsets'])))
-    print("merge_md_list(): final metadata contains {na} attribs and {nd} dsets.".format(na=len(metadata['attrs']), nd=len(metadata['dsets'])))
     return metadata
 
-def metadata_from_h5py_file(h5py_filename):
+def metadata_from_hdf5_file(h5py_filename):
     """
     Extract metadata from h5py file.
 
@@ -1033,62 +1030,46 @@ def metadata_from_h5py_file(h5py_filename):
             main_dset = h5f['data']
             if main_dset.is_virtual:
                 metadata_list = list()  # A list of dicts.
-                #print(main_dset.virtual_sources())
-                print("process_metadata()/metadata_from_h5py_file(): [V] virtual main dataset has {na} attributes".format(na=len(main_dset.attrs.keys())))
 
                 # Now open the virtual sources and check there for the metadata.
                 for source_tpl in main_dset.virtual_sources():
                     with h5py.File(source_tpl.file_name, mode="r") as h5f_virtual_part:
-                        if 'data' in h5f_virtual_part:
-                            print("process_metadata()/metadata_from_h5py_file(): [V] virtual part file '{vds}' contains virtual 'data' dataset.".format(vds=source_tpl.file_name))
-                            virtual_main_dset_part = h5f_virtual_part['data']
-                            print("process_metadata()/metadata_from_h5py_file(): [V] the virtual main 'data' dataset contains {na} attribs.".format(na=len(virtual_main_dset_part.attrs.keys())))
                         if 'metadata' in h5f_virtual_part:
-                            print("process_metadata()/metadata_from_h5py_file(): [V] virtual dataset 'data' from file '{vds}' contains 'metadata' group.".format(vds=source_tpl.file_name))
                             virtual_metadata_grp = h5f_virtual_part['metadata']
                             metadata_list.append(extract_md_group(virtual_metadata_grp))
-                            print("process_metadata()/metadata_from_h5py_file(): [V] the 'metadata' group contains {na} attribs.".format(na=len(virtual_metadata_grp.attrs.keys())))
-                            ## These lines were added only to test whether the added dict arrives here,
-                            ## they will be deleted without replacement.
-                            #vds_name = "md_dataset_0"
-                            #if vds_name in virtual_metadata_grp:
-                            #    virtual_state = "virtual" if virtual_metadata_grp[vds_name].is_virtual else "non-virtual"
-                            #    print("process_metadata()/metadata_from_h5py_file(): [V] the 'metadata' group contains the {vs} 'md_dataset_0' dataset.".format(vs=virtual_state))
                 metadata = _merge_md_list(metadata_list)
             else:
                 # the main_dset is not virtual, so just grab the metadata group from the file root.
                 if 'metadata' in h5f:
-                    print("process_metadata()/metadata_from_h5py_file(): [NV] extracting 'metadata' group from non-virtual dataset.")
                     metadata = extract_md_group(h5f['metadata'])
-                    print("process_metadata()/metadata_from_h5py_file(): [NV] the extracted 'metadata' group contains {na} attribs.".format(na=len(metadata['attrs'].keys())))
-                else:
-                    metadata = None
         else:
             raise SPYValueError("'data' dataset in hd5f file {of}.".format(of=h5py_filename), actual="no such dataset")
     return metadata
 
 
 def pack_singletrial_metadata_fooof_into_hdf5(metadata_fooof_backend):
-    # Reformat the gaussian and peak params for inclusion in the 2nd return value.
-    # For several channels, the number of peaks may differ, and thus we cannot simply
-    # call something like `np.array(gaussian_params)` in that case, as that will create
-    # an array of type 'object', which is not supported by hdf5. We could use one return
-    # value (entry in the 'details' dict below) per channel to solve that, but in this
-    # case, we decided to vstack the arrays instead. When extracting the data again
-    # (in process_metadata()), we need to revert this. That is possible because we can
-    # see from the `n_peaks` return value how many (and thus which) rows belong to
-    # which channel.
+    """ Reformat the gaussian and peak params for inclusion in the 2nd return value and hdf5 file.
+
+    For several channels, the number of peaks may differ, and thus we cannot simply
+    call something like `np.array(gaussian_params)` in that case, as that will create
+    an array of dtype 'object', which is not supported by hdf5. We could use one return
+    value (entry in the `'metadata_fooof_backend'` dict below) per channel to solve that, but in this
+    case, we decided to `vstack` the arrays instead. When extracting the data again
+    (in `process_metadata()`), we need to revert this. That is possible because we can
+    see from the `n_peaks` return value how many (and thus which) rows belong to
+    which channel.
+    """
     metadata_fooof_backend['gaussian_params'] = np.vstack(metadata_fooof_backend['gaussian_params'])
     metadata_fooof_backend['peak_params'] = np.vstack(metadata_fooof_backend['peak_params'])
     return metadata_fooof_backend
 
 
-def unpack_alltrials_metadata_fooof_from_hdf5(metadata_fooof_hdf5):
+def decode_metadata_fooof_alltrials_from_hdf5_file(metadata_fooof_hdf5):
     """This reverts and special packaging applied to the backend
     function return values to fit them into the hdf5 container.
 
-    In the case of FOOOF, we had to vstack the gaussian_params
-    and peak_params, and we now revert this.
+    In the case of FOOOF, we had to `np.vstack` the `gaussian_params`
+    and `peak_params`, and we now revert this.
 
     Of course, you do not have to undo things if you are fine
     with passing them to the frontend the way they are stored in the hdf5.
@@ -1096,11 +1077,11 @@ def unpack_alltrials_metadata_fooof_from_hdf5(metadata_fooof_hdf5):
     Keep in mind that this is not directly the inverse of the
     function called in the cF, because:
      - that function prepares data from a single backend function call,
-       while this function has to unpack the data from all cF function calls.
+       while this function has to unpack the data from *all* cF function calls.
      - the input metadata is a standard dict that has already
-       been pre-processed, including the split into 'attrs' and 'dsets'.
+       been pre-processed, including the split into 'attrs' and 'dsets',
+       by the general-purpose metadata extraction function `metadata_from_hdf5_file()`.
     """
-    print(f"unpack_metadata_fooof_from_hdf5(): {metadata_fooof_hdf5}")
     for unique_attr_label, v in metadata_fooof_hdf5['attrs'].items():
         label, trial_idx, call_idx = decode_unique_md_label(unique_attr_label)
         if label == "n_peaks":
@@ -1146,14 +1127,12 @@ class FooofSpy(ComputationalRoutine):
     # To attach metadata to the output of the CF
     def process_metadata(self, data, out):
 
-        out.metadata = metadata_from_h5py_file(out.filename)          # general
-        out.metadata = unpack_alltrials_metadata_fooof_from_hdf5(out.metadata)  # backend-specific. may or may not be needed, depending on what you need to do in the cF to fit the return values into hdf5.
+        # General-purpose loading of metadata.
+        out.metadata = metadata_from_hdf5_file(out.filename)
 
-        #if out.metadata is not None:
-        #    print("FooofSpy.process_metadata(): ************** received some (non-None) metadata ******************")
-        #    print("FooofSpy.process_metadata(): metadata group consists of {ne} dsets and {na} attribs".format(ne=len(out.metadata['dsets'].keys()), na=len(out.metadata['attrs'].keys())))
-        #else:
-        #    print("FooofSpy.process_metadata(): received metadata is None")
+        # Backend-specific post-processing. May or may not be needed, depending on what
+        # you need to do in the cF to fit the return values into hdf5.
+        out.metadata = decode_metadata_fooof_alltrials_from_hdf5_file(out.metadata)
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
