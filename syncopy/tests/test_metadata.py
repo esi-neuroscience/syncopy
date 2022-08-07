@@ -13,6 +13,7 @@ from syncopy import freqanalysis
 from syncopy.shared.tools import get_defaults
 from syncopy.tests.synth_data import AR2_network, phase_diffusion
 from syncopy.shared.kwarg_decorators import encode_unique_md_label, decode_unique_md_label
+from syncopy.specest.compRoutines import _merge_md_list
 import syncopy as spy
 from syncopy import __acme__
 if __acme__:
@@ -49,6 +50,20 @@ class TestMetadataHelpers():
 
     def test_decode_unique_md_label(self):
         assert ("label", "1", "2") == decode_unique_md_label("label__1_2")
+
+    def test_merge_md_list(self):
+        assert _merge_md_list(None) is None
+        md1 = {'dsets': {'1a': np.zeros(3), '1b': np.zeros(3)}, 'attrs': {'1c': np.zeros(3), '1d': np.zeros(3)}}
+        md2 = {'dsets': {'2a': np.zeros(5), '2b': np.zeros(5)}, 'attrs': {'2c': np.zeros(5), '2d': np.zeros(5)}}
+        md3 = {'dsets': {'3a': np.zeros(1)}, 'attrs': {}}
+        mdl = [md1, md2, md3]
+        merged = _merge_md_list(mdl)
+        assert len(merged['dsets']) == 5
+        for k in ['1a', '1b', '2a', '2b', '3a']:
+            assert k in merged['dsets']
+        assert len(merged['attrs']) == 4
+        for k in ['1c', '1d', '2c', '2d']:
+            assert k in merged['attrs']
 
 
 class TestMetadataUsingFooof():

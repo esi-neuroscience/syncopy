@@ -969,10 +969,8 @@ def extract_md_group(md):
     metadata['attrs'] = dict()
     for k, v in md.attrs.items():
         metadata['attrs'][k] = v.copy() # copy the numpy array
-    print("extract_md_group(): extracted {na} attribs.".format(na=len(md.attrs.keys())))
     for k, v in md.items():
         metadata['dsets'][k] = v.copy() # copy the numpy array
-    print("extract_md_group(): extracted {nd} datasets.".format(nd=len(md.keys())))
     return metadata
 
 def _merge_md_list(md_list):
