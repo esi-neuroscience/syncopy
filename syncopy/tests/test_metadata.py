@@ -83,20 +83,20 @@ class TestMetadataHelpers():
     def test_get_res_details(self):
         # Test error on invalid input: a dict instead of tuple
         with pytest.raises(SPYValueError) as err:
-            a, b = get_res_details({"a": 2})
+            _, b = get_res_details({"a": 2})
         assert "user-supplied compute function must return a single ndarray or a tuple with length exactly 2" in str(err.value)
 
         # Test with tuple of incorrect length 3
         with pytest.raises(SPYValueError) as err:
-            a, b = get_res_details((1, 2, 3))
+            _, b = get_res_details((1, 2, 3))
         assert "user-supplied compute function must return a single ndarray or a tuple with length exactly 2" in str(err.value)
 
         # Test with tuple, 2nd arg is None
-        a, b = get_res_details((np.zeros(3)))
+        _, b = get_res_details((np.zeros(3)))
         assert b is None
 
         # Test with ndarray only
-        a, b = get_res_details(np.zeros(3))
+        _, b = get_res_details(np.zeros(3))
         assert b is None
 
         # Test with tuple of correct length, but 2nd value is not dict
