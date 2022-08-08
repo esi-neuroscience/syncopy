@@ -1001,13 +1001,14 @@ def _merge_md_list(md_list):
         metadata['dsets'] = {**metadata['dsets'], **md['dsets']}
     return metadata
 
-def metadata_from_hdf5_file(h5py_filename):
+def metadata_from_hdf5_file(h5py_filename, delete_afterwards=True):
     """
     Extract metadata from h5py file.
 
     This extracts metadata as a standard dictionary from the 'metadata' group of a (virtual or standard)
     hdf5 file. Note that it converts the attributes from the hdf5 attribute manager into a standard dictionary
-    (that is independent of whether the hdf5 file is still open).
+    (that is independent of whether the hdf5 file is still open). This function is intended to be used on
+    metadata temporarily attached to an hdf5 file by the cF.
 
     Parameters
     ----------
@@ -1015,6 +1016,8 @@ def metadata_from_hdf5_file(h5py_filename):
         path to hdf5 file. The file will be opened for reading, and closed in the end.
         The file must contain a standard or virtual dataset named 'data'.
         If it does not contain 'metadata' group, the returned value will be `None`.
+    delete_afterwards bool
+        Whether to delete the metadata from the hdf5 file after extracting it.
 
     Returns
     -------
@@ -1023,7 +1026,8 @@ def metadata_from_hdf5_file(h5py_filename):
         sub dicts are of type `(str, np.ndarray)`.
     """
     metadata = None
-    with h5py.File(h5py_filename, mode="r") as h5f:
+    open_mode = "a" if delete_afterwards else "r"
+    with h5py.File(h5py_filename, mode=open_mode) as h5f:
         if 'data' in h5f:
             main_dset = h5f['data']
             if main_dset.is_virtual:
@@ -1031,15 +1035,19 @@ def metadata_from_hdf5_file(h5py_filename):
 
                 # Now open the virtual sources and check there for the metadata.
                 for source_tpl in main_dset.virtual_sources():
-                    with h5py.File(source_tpl.file_name, mode="r") as h5f_virtual_part:
+                    with h5py.File(source_tpl.file_name, mode=open_mode) as h5f_virtual_part:
                         if 'metadata' in h5f_virtual_part:
                             virtual_metadata_grp = h5f_virtual_part['metadata']
                             metadata_list.append(extract_md_group(virtual_metadata_grp))
+                            if delete_afterwards:
+                                del h5f['metadata']
                 metadata = _merge_md_list(metadata_list)
             else:
                 # the main_dset is not virtual, so just grab the metadata group from the file root.
                 if 'metadata' in h5f:
                     metadata = extract_md_group(h5f['metadata'])
+                    if delete_afterwards:
+                        del h5f['metadata']
         else:
             raise SPYValueError("'data' dataset in hd5f file {of}.".format(of=h5py_filename), actual="no such dataset")
     return metadata
@@ -1076,7 +1084,7 @@ def decode_metadata_fooof_alltrials_from_hdf5_file(metadata_fooof_hdf5):
     function called in the cF, because:
      - that function prepares data from a single backend function call,
        while this function has to unpack the data from *all* cF function calls.
-     - the input metadata is a standard dict that has already
+     - the input metadata to this function is a standard dict that has already
        been pre-processed, including the split into 'attrs' and 'dsets',
        by the general-purpose metadata extraction function `metadata_from_hdf5_file()`.
     """
@@ -1127,6 +1135,9 @@ class FooofSpy(ComputationalRoutine):
 
         # General-purpose loading of metadata.
         out.metadata = metadata_from_hdf5_file(out.filename)
+
+        # TODO: get selection from input object (trial selection)
+        # to compute absolute trial numbers from relative ones.
 
         # Backend-specific post-processing. May or may not be needed, depending on what
         # you need to do in the cF to fit the return values into hdf5.

@@ -727,12 +727,6 @@ def process_io(func):
             # Note that the return value of 'func' in the next line may be a tuple containing
             # both the ndarray for 'data', and the 'details'.
             return func(trl_dat, *wrkargs, **kwargs)
-        else:
-            print("process_io(): trl_dat is a dict, using parallel part")
-
-
-        ### Idea: hook .compute_sequential() from CR into here
-
 
         # The fun part: `trl_dat` is a dictionary holding components for parallelization
         keeptrials = trl_dat["keeptrials"]
@@ -790,23 +784,11 @@ def process_io(func):
         # Write result to multiple stand-alone HDF files or use a mutex to write to a
         # common single file (sequentially)
         if vdsdir is not None:
-            print("process_io():parallel branch: writing to multiple stand-alone hdf5 files (virtual dataset) in parallel.")
             with h5py.File(outfilename, "w") as h5fout:
                 ds = h5fout.create_dataset(outdset, data=res)
-                ## The next lines were added only to test *what* (attribs, group, datasets) we can attach to a virtual dataset.
-                ## They will be removed without replacment.
-                #k_unique = "my_key" + "_" + str(call_id)
-                #ds.attrs.create(k_unique, np.zeros((3,3 )))
-                #grp = h5fout.create_group("metadata")
-                #grp.create_dataset("md_dataset_0", data=np.zeros((3,3)))
-                #grp.attrs.create(k_unique, np.zeros((3,3)))
-                #h5fout.flush()
-                # Add new dataset/attribute to capture new outputs
                 h5_add_details(h5fout, details, unique_key_suffix=call_id)
                 h5fout.flush()
         else:
-
-            print("process_io():parallel branch: writing in parallel to a single file (non-virtual) hf5 file using a mutex.")
 
             # Create distributed lock (use unique name so it's synced across workers)
             lock = dd.lock.Lock(name='sequential_write')
