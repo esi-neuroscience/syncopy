@@ -10,7 +10,7 @@ import scipy.signal as sci
 from inspect import signature
 
 # syncopy imports
-from syncopy.shared.computational_routine import ComputationalRoutine
+from syncopy.shared.computational_routine import ComputationalRoutine, propagate_metadata
 from syncopy.shared.const_def import spectralConversions, spectralDTypes
 from syncopy.shared.kwarg_decorators import process_io
 
@@ -155,18 +155,7 @@ class SincFiltering(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Some index gymnastics to get trial begin/end "samples"
-        if data.selection is not None:
-            chanSec = data.selection.channel
-            trl = data.selection.trialdefinition
-        else:
-            chanSec = slice(None)
-            trl = data.trialdefinition
-
-        out.trialdefinition = trl
-
-        out.samplerate = data.samplerate
-        out.channel = np.array(data.channel[chanSec])
+        propagate_metadata(data, out)
 
 
 @process_io
@@ -289,18 +278,7 @@ class ButFiltering(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Some index gymnastics to get trial begin/end "samples"
-        if data.selection is not None:
-            chanSec = data.selection.channel
-            trl = data.selection.trialdefinition
-        else:
-            chanSec = slice(None)
-            trl = data.trialdefinition
-
-        out.trialdefinition = trl
-
-        out.samplerate = data.samplerate
-        out.channel = np.array(data.channel[chanSec])
+        propagate_metadata(data, out)
 
 
 @process_io
@@ -362,18 +340,7 @@ class Rectify(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Some index gymnastics to get trial begin/end "samples"
-        if data.selection is not None:
-            chanSec = data.selection.channel
-            trl = data.selection.trialdefinition
-        else:
-            chanSec = slice(None)
-            trl = data.trialdefinition
-
-        out.trialdefinition = trl
-
-        out.samplerate = data.samplerate
-        out.channel = np.array(data.channel[chanSec])
+        propagate_metadata(data, out)
 
 
 @process_io
@@ -451,19 +418,7 @@ class Hilbert(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Some index gymnastics to get trial begin/end "samples"
-        if data.selection is not None:
-            chanSec = data.selection.channel
-            trl = data.selection.trialdefinition
-
-        else:
-            chanSec = slice(None)
-            trl = data.trialdefinition
-
-        out.trialdefinition = trl
-
-        out.samplerate = data.samplerate
-        out.channel = np.array(data.channel[chanSec])
+        propagate_metadata(data, out)
 
 
 @process_io
@@ -765,18 +720,7 @@ class Detrending(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Some index gymnastics to get trial begin/end "samples"
-        if data.selection is not None:
-            chanSec = data.selection.channel
-            trl = data.selection.trialdefinition
-        else:
-            chanSec = slice(None)
-            trl = data.trialdefinition
-
-        out.trialdefinition = trl
-
-        out.samplerate = data.samplerate
-        out.channel = np.array(data.channel[chanSec])
+        propagate_metadata(data, out)
 
 
 @process_io
@@ -867,15 +811,4 @@ class Standardize(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Some index gymnastics to get trial begin/end "samples"
-        if data.selection is not None:
-            chanSec = data.selection.channel
-            trl = data.selection.trialdefinition
-        else:
-            chanSec = slice(None)
-            trl = data.trialdefinition
-
-        out.trialdefinition = trl
-
-        out.samplerate = data.samplerate
-        out.channel = np.array(data.channel[chanSec])
+        propagate_metadata(data, out)

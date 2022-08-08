@@ -20,6 +20,7 @@ if sys.platform == "win32":
     colorama.init(strip=False)
 
 # Local imports
+import syncopy as spy
 from .tools import get_defaults
 from syncopy import __storage__, __acme__
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYParallelError, SPYWarning
@@ -991,3 +992,63 @@ class ComputationalRoutine(ABC):
         write_log : Logging of calculation parameters
         """
         pass
+
+
+# --- metadata helper functions ---
+
+def propagate_metadata(in_data, out_data):
+
+    """
+    Propagating metadata/selections (channels, trials, time, ...)
+    from the input object `in_data` to the output
+    object `out_data` is the task of
+    concrete (overloaded) `process_metadata` implementations.
+
+    Depending on the concrete CR, different propagations are needed.
+    For example
+
+        AnalogData -> CrossSpectralData (connectivityanalysis)
+
+    needs a mapping .channel -> .channel_i, .channel_j
+
+    Whereas
+
+        AnalogData -> AnalogData (preprocessing)
+
+    directly propagates all (including selections)
+    attributes from the input to the output
+    (same channels, time and so on)
+
+    This function is a general approach to unify the
+    propagation / adaptation of all needed attributes.
+
+    Parameters
+    ----------
+    in_data : Syncopy data object
+        Input object to get attributes from
+    out_data : Syncopy data object
+        Output object to set attributes
+    """
+
+    # instance checkers
+    is_AD = lambda data: isinstance(data, spy.AnalogData)
+
+    # simplest case, direct propagation between two AnalogData objects
+    if is_AD(in_data) and is_AD(out_data):
+
+        # get channels and trial selections
+        if in_data.selection is not None:
+            chanSec = in_data.selection.channel
+            # captures toi selections
+            trl = in_data.selection.trialdefinition
+        else:
+            chanSec = slice(None)
+            trl = in_data.trialdefinition
+
+        out_data.trialdefinition = trl
+        out_data.channel = np.array(in_data.channel[chanSec])
+        out_data.samplerate = in_data.samplerate
+
+    # nothing else supported atm
+    else:
+        raise NotImplementedError
