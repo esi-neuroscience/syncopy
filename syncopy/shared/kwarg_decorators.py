@@ -659,6 +659,29 @@ def h5_add_details(h5fout, details, unique_key_suffix="", attribs_to_data=False,
         h5fout.close()
 
 
+def metadata_trial_indices_abs(metadata, selection):
+    """
+    Re-compute absolute trial indices in the metadata from the relative ones.
+
+    Note that the input metadata is already preprocessed from the hdf5.
+    """
+    del_keys = list()
+    for unique_md_label_rel, v in metadata['attrs'].items():
+        label, rel_trial_idx, call_idx = decode_unique_md_label(unique_md_label_rel)
+
+        if selection is None or selection.trial is None:
+            pass  # abs_trial_idx = rel_trial_idx, so nothing to do for us.
+        else:
+            abs_trial_idx = selection.trial[rel_trial_idx]
+            unique_md_label_abs = encode_unique_md_label(label, abs_trial_idx, call_idx)
+            metadata['attrs'][unique_md_label_abs] = v  # Re-add value with new key.
+            del_keys.append(unique_md_label_rel)
+
+    for k in del_keys:
+        del metadata['attrs'][k]
+    return metadata
+
+
 def process_io(func):
     """
     Decorator for handling parallel execution of a

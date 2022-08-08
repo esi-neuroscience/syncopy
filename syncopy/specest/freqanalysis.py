@@ -882,16 +882,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # the MTMFFT has finished.
     if is_fooof:
 
-        print("######### mtmfft done, starting fooof ###########")
-
         # Use the output of the MTMFFMT method as the new data and create new output data.
         fooof_data = out
         fooof_out = SpectralData(dimord=SpectralData._defaultDimord)
-
-        if fooof_data.selection is not None:
-            print("### fooofdata.selection.channel = {dsc}".format(dsc=fooof_data.selection.channel))
-        else:
-            print("### fooofdata.selection is None")
 
         # method specific parameters
         if fooof_opt is None:

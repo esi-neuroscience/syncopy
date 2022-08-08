@@ -37,7 +37,7 @@ from .fooofspy import fooofspy
 from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import process_io, encode_unique_md_label, decode_unique_md_label
+from syncopy.shared.kwarg_decorators import process_io, encode_unique_md_label, decode_unique_md_label, metadata_trial_indices_abs
 from syncopy.shared.const_def import (
     spectralConversions,
     spectralDTypes
@@ -1136,8 +1136,8 @@ class FooofSpy(ComputationalRoutine):
         # General-purpose loading of metadata.
         out.metadata = metadata_from_hdf5_file(out.filename)
 
-        # TODO: get selection from input object (trial selection)
-        # to compute absolute trial numbers from relative ones.
+        # Compute absolute trial numbers from relative ones.
+        out.metadata = metadata_trial_indices_abs(out.metadata, data.selection)
 
         # Backend-specific post-processing. May or may not be needed, depending on what
         # you need to do in the cF to fit the return values into hdf5.
