@@ -1040,7 +1040,7 @@ def metadata_from_hdf5_file(h5py_filename, delete_afterwards=True):
                             virtual_metadata_grp = h5f_virtual_part['metadata']
                             metadata_list.append(extract_md_group(virtual_metadata_grp))
                             if delete_afterwards:
-                                del h5f['metadata']
+                                del h5f_virtual_part['metadata']
                 metadata = _merge_md_list(metadata_list)
             else:
                 # the main_dset is not virtual, so just grab the metadata group from the file root.
