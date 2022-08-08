@@ -254,6 +254,7 @@ def load_nwb(filename, memuse=3000):
     angData.channel = chanNames
     angData.samplerate = sRates[0]
     angData.trialdefinition = trl
+    angData.info = {'start_sample' : int(tStarts[0] * sRates[0])}
 
     # Write logs
     msg = "Read data from NWB file {}".format(nwbFullName)
