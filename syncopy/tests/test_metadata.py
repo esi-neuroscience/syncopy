@@ -76,9 +76,8 @@ class TestMetadataHelpers():
         with h5py.File(h5py_filename, "w") as f:
             f.create_dataset("mydataset", (100,), dtype='i')
 
-        with pytest.raises(SPYValueError) as err:
+        with pytest.raises(SPYValueError, match="dataset in hd5f file"):
             _ = metadata_from_hdf5_file(h5py_filename)
-        assert "dataset in hd5f file" in str(err.value)
         os.remove(h5py_filename)
 
     def test_get_res_details(self):
