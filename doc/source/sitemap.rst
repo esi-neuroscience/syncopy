@@ -10,15 +10,15 @@ might help.
 +-------------------+-----------------------+---------------------------+
 | **Topic**         | **Resources**         | **Description**           |
 +-------------------+-----------------------+---------------------------+
-| |TnW|             | |Spy4FT|              | |Spy4FTDesc|              |
+| |TnW|             | |Quick|               | |QuickDesc|               |
+|                   +-----------------------+---------------------------+
+|                   | |Spy4FT|              | |Spy4FTDesc|              |
+|                   +-----------------------+---------------------------+
+|                   | |SpyBasic|            | |SpyBasicDesc|            |
 |                   +-----------------------+---------------------------+
 |                   | |SpyData|             | |SpyDataDesc|             |
-|                   +-----------------------+---------------------------+
-|                   | |SpyProc|             | |SpyProcDesc|             |
-|                   +-----------------------+---------------------------+
-|                   | |UG|                  | |UGDesc|                  |
 +-------------------+-----------------------+---------------------------+
-| |RDoc|            | |UsrAPI|              | |UsrAPIDesc|              |
+| |RDoc|            | |UserAPI|             | |UserAPIDesc|             |
 |                   +-----------------------+---------------------------+
 |                   | |DevAPI|              | |DevAPIDesc|              |
 |                   +-----------------------+---------------------------+
@@ -46,17 +46,17 @@ might help.
 .. |Spec| replace:: *Spectral Estimation*
 .. |Con| replace:: *Connectivity*
 
+.. |Quick| replace:: :doc:`Quickstart <quickstart/quickstart>`
+.. |QuickDesc| replace:: A quick tour through Syncopy 
 .. |Spy4FT| replace:: :doc:`Syncopy for FieldTrip Users <user/fieldtrip>`
 .. |Spy4FTDesc| replace:: Quick introduction to Syncopy from a FieldTrip user's perspective
-.. |SpyData| replace:: :doc:`Data Handling in Syncopy <user/data_handling>`
+.. |SpyData| replace:: :doc:`Data Handling in Syncopy <user/data>`
 .. |SpyDataDesc| replace:: Overview of Syncopy's data management
-.. |SpyProc| replace:: :doc:`Data Analysis in Syncopy <user/processing>`
-.. |SpyProcDesc| replace:: Sequential and Parallel Processing in Syncopy
-.. |UG| replace:: :doc:`Syncopy User Guide <user/users>`
-.. |UGDesc| replace:: Syncopy's user manual
+.. |SpyBasic| replace:: :doc:`Basic Concepts  <user/concepts>`
+.. |SpyBasicDesc| replace:: Overview of Syncopy's approach to neural data analysis
 
-.. |UsrAPI| replace:: :doc:`User API <user/user_api>`
-.. |UsrAPIDesc| replace:: The subset of Syncopy's interface relevant to users
+.. |UserAPI| replace:: :doc:`User API <user/user_api>`
+.. |UserAPIDesc| replace:: The public API for users
 .. |DevAPI| replace:: :doc:`Developer API <developer/developer_api>`
 .. |DevAPIDesc| replace:: The parts of Syncopy mostly interesting for developers
 .. |Indx| replace:: :ref:`Package Index <genindex>`
@@ -87,7 +87,7 @@ Sitemap
    :maxdepth: 2
 
    quickstart/quickstart.rst
-   user/users.rst
+   user/concepts.rst
    developer/developers.rst
 
 Still no luck finding what you're looking for? Try using the :ref:`search <search>` function.

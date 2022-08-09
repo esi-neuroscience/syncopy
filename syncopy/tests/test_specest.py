@@ -47,7 +47,7 @@ def _make_tf_signal(nChannels, nTrials, seed, fadeIn=None, fadeOut=None, short=F
     noise_power = 0.01 * fs / 2
     numType = "float32"
     modPeriods = [0.125, 0.0625]
-    rng = np.random.default_rng(seed)        
+    rng = np.random.default_rng(seed)
     # tStart = -29.5
     # tStop = 70.5
     t0 = -np.abs(tStart * fs).astype(np.intp)
@@ -334,7 +334,6 @@ class TestMTMFFT():
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()
                      if (inspect.ismethod(getattr(self, attr)) and attr not in ["test_parallel", "test_cut_selections"])]
-        all_tests.remove("test_vdata")
         for test in all_tests:
             getattr(self, test)()
             flush_local_cluster(testcluster)
@@ -648,8 +647,8 @@ class TestMTMConvol():
         # also make sure ``toi = "all"`` works under any circumstance
         cfg = get_defaults(freqanalysis)
         cfg.method = "mtmconvol"
-        cfg.tapsmofrq = 10
-        cfg.t_ftimwin = 1.0
+        cfg.tapsmofrq = 2
+        cfg.t_ftimwin = 0.3
         cfg.output = "pow"
         cfg.keeptapers = True
 
@@ -663,19 +662,23 @@ class TestMTMConvol():
 
         # start harmless: equidistant trials w/multiple tapers
         cfg.toi = 0.0
+        # this guy always creates a data set from [-1, ..., 1.9999] seconds
+        # no way to change this..
+        artdata_len = 3
         artdata = generate_artificial_data(nTrials=nTrials, nChannels=nChannels,
                                            equidistant=True, inmemory=False)
         tfSpec = freqanalysis(artdata, **cfg)
         assert tfSpec.taper.size >= 1
-        for tk, origTime in enumerate(artdata.time):
-            assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
+        for trl_time in tfSpec.time:
+            assert np.allclose(artdata_len / cfg.t_ftimwin, trl_time[0].shape)
 
-        # to process all time-points via `stft`, reduce dataset size (avoid oom kills)
         cfg.toi = "all"
         artdata = generate_artificial_data(nTrials=nTrials, nChannels=nChannels,
                                            equidistant=True, inmemory=False)
-        tfSpec = freqanalysis(artdata, **cfg)
-        for tk, origTime in enumerate(artdata.time):
+        # reduce samples, otherwise the the memory usage explodes (nSamples x win_size x nFreq)
+        rdat = artdata.selectdata(toilim=[0, 0.5])
+        tfSpec = freqanalysis(rdat, **cfg)
+        for tk, origTime in enumerate(rdat.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
         # non-equidistant trials w/multiple tapers
@@ -684,41 +687,41 @@ class TestMTMConvol():
                                            equidistant=False, inmemory=False)
         tfSpec = freqanalysis(artdata, **cfg)
         assert tfSpec.taper.size >= 1
-        for tk, origTime in enumerate(artdata.time):
-            assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
+        for tk, trl_time in enumerate(tfSpec.time):
+            assert np.allclose(np.ceil(artdata.time[tk].size / artdata.samplerate / cfg.t_ftimwin), trl_time.size)
+
         cfg.toi = "all"
-        tfSpec = freqanalysis(artdata, **cfg)
-        for tk, origTime in enumerate(artdata.time):
+        # reduce samples, otherwise the the memory usage explodes (nSamples x win_size x nFreq)
+        rdat = artdata.selectdata(toilim=[0, 0.5])
+        tfSpec = freqanalysis(rdat, **cfg)
+        for tk, origTime in enumerate(rdat.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
         # same + reversed dimensional order in input object
         cfg.toi = 0.0
-        cfg.data = generate_artificial_data(nTrials=nTrials, nChannels=nChannels,
-                                            equidistant=False, inmemory=False,
-                                            dimord=AnalogData._defaultDimord[::-1])
-        tfSpec = freqanalysis(cfg)
+        artdata = generate_artificial_data(nTrials=nTrials, nChannels=nChannels,
+                                           equidistant=False, inmemory=False,
+                                           dimord=AnalogData._defaultDimord[::-1])
+        tfSpec = freqanalysis(artdata, cfg)
         assert tfSpec.taper.size >= 1
-        for tk, origTime in enumerate(cfg.data.time):
-            assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
+        for tk, trl_time in enumerate(tfSpec.time):
+            assert np.allclose(np.ceil(artdata.time[tk].size / artdata.samplerate / cfg.t_ftimwin), trl_time.size)
+
         cfg.toi = "all"
-        tfSpec = freqanalysis(cfg)
-        for tk, origTime in enumerate(cfg.data.time):
-            assert np.array_equal(origTime, tfSpec.time[tk])
+        # reduce samples, otherwise the the memory usage explodes (nSamples x win_size x nFreq)
+        rdat = artdata.selectdata(toilim=[0, 0.5])
+        tfSpec = freqanalysis(rdat, cfg)
 
         # same + overlapping trials
         cfg.toi = 0.0
-        cfg.data = generate_artificial_data(nTrials=nTrials, nChannels=nChannels,
-                                            equidistant=False, inmemory=False,
-                                            dimord=AnalogData._defaultDimord[::-1],
-                                            overlapping=True)
-        tfSpec = freqanalysis(cfg)
+        artdata = generate_artificial_data(nTrials=nTrials, nChannels=nChannels,
+                                           equidistant=False, inmemory=False,
+                                           dimord=AnalogData._defaultDimord[::-1],
+                                           overlapping=True)
+        tfSpec = freqanalysis(artdata, cfg)
         assert tfSpec.taper.size >= 1
-        for tk, origTime in enumerate(cfg.data.time):
-            assert np.array_equal(np.unique(np.floor(origTime)), tfSpec.time[tk])
-        cfg.toi = "all"
-        tfSpec = freqanalysis(cfg)
-        for tk, origTime in enumerate(cfg.data.time):
-            assert np.array_equal(origTime, tfSpec.time[tk])
+        for tk, trl_time in enumerate(tfSpec.time):
+            assert np.allclose(np.ceil(artdata.time[tk].size / artdata.samplerate / cfg.t_ftimwin), trl_time.size)
 
     @skip_without_acme
     @skip_low_mem
@@ -780,7 +783,7 @@ class TestMTMConvol():
 
         # equidistant trial spacing, keep tapers
         cfg.output = "abs"
-        cfg.tapsmofrq = 10
+        cfg.tapsmofrq = 2
         cfg.keeptapers = True
         artdata = generate_artificial_data(nTrials=nTrials, nChannels=nChannels,
                                            inmemory=False)
@@ -1397,3 +1400,7 @@ class TestSuperlet():
         assert tfSpec.data.shape == (tfSpec.time[0].size, 1, expectedFreqs.size, self.nChannels)
 
         client.close()
+
+
+if __name__ == '__main__':
+    T1 = TestMTMConvol()

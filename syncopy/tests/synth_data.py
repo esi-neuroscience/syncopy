@@ -7,8 +7,9 @@
 from inspect import signature
 import numpy as np
 import functools
+import random
 
-from syncopy import AnalogData
+from syncopy import AnalogData, SpikeData
 
 _2pi = np.pi * 2
 
@@ -20,7 +21,7 @@ def collect_trials(trial_generator):
     synthetic data routine, and returning an :class:`~syncopy.AnalogData`
     object.
 
-    All backend trial generating functions (`trial_generator`) should
+    All backend single trial generating functions (`trial_generator`) should
     accept `nChannels` and `nSamples` as keyword arguments, OR provide
     other means to define those numbers, e.g.
     `AdjMat` for :func:`~syncopy.synth_data.AR2_network`
@@ -55,6 +56,9 @@ def collect_trials(trial_generator):
         return data
 
     return wrapper_synth
+
+
+# ---- Synthetic AnalogData ----
 
 
 @collect_trials
@@ -265,3 +269,83 @@ def mk_RandomAdjMat(nChannels=3, conn_thresh=0.25, max_coupling=0.25):
     AdjMat = AdjMat / norm[None, :] * max_coupling
 
     return AdjMat
+
+
+# ---- Synthetic SpikeData ----
+
+
+def poisson_noise(nTrials=10,
+                  nSpikes=10000,
+                  nChannels=3,
+                  nUnits=10,
+                  intensity=.1,
+                  samplerate=30000
+                  ):
+
+    """
+    Poisson (Shot-) noise generator
+
+
+    Parameters
+    ----------
+    nTrials : int
+        Number of trials
+    nSpikes : int
+        The total number of spikes to generate
+    nChannels : int
+        Number of channels
+    nUnits : int
+        Number of units
+    intensity : int
+        Average number of spikes per sampling interval
+    samplerate : float
+        Sampling rate in Hz
+
+    Returns
+    -------
+    sdata : :class:`~syncopy.SpikeData`
+        The generated spike data
+
+    Notes
+    -----
+    Originally conceived by `Alejandro Tlaie Boria https://github.com/atlaie_`
+
+    """
+
+    def get_rdm_weights(size):
+        pvec = np.random.uniform(size=size)
+        return pvec / pvec.sum()
+
+    T_max = int(1 / intensity * nSpikes)
+    spike_times = np.sort(random.sample(range(T_max), nSpikes))
+    channels = np.random.choice(
+        np.arange(nChannels), p=get_rdm_weights(nChannels),
+        size=nSpikes, replace=True
+    )
+
+    uvec = np.arange(nUnits)
+    pvec = get_rdm_weights(nUnits)
+    units = np.random.choice(uvec, p=pvec, size=nSpikes, replace=True)
+    # units = np.r_[units, np.random.choice(uvec, size=nSpikes // 2, replace=True)]
+    # if nSpikes % 2 == 1:
+    #     units = np.r_[units, [np.random.choice(uvec)]]
+
+    trl_intervals = np.sort(random.sample(range(T_max), nTrials + 1))
+    # 1st trial
+    idx_start = trl_intervals[:-1]
+    idx_end = trl_intervals[1:] - 1
+
+    idx_offset = -np.random.choice(
+        np.arange(1, np.min(idx_end - idx_start)), size=nTrials, replace=True
+    )
+
+    trldef = np.vstack([idx_start, idx_end, idx_offset]).T
+    data = np.vstack([spike_times, channels, units]).T
+    sdata = SpikeData(
+        data=data,
+        trialdefinition=trldef,
+        dimord=["sample", "channel", "unit"],
+        samplerate=samplerate,
+    )
+
+    return sdata
