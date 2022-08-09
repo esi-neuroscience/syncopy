@@ -1,15 +1,7 @@
 name: Run all parallel tests
 
 on:
-  # Triggers the workflow on push or pull request events
-  # only manual trigger
-  # push:
-    # branches:
-    # - master
-    # - dev
-  pull_request:
-
-  # Allows you to run this workflow manually from the Actions tab
+  # only manual trigger here
   workflow_dispatch:
 
 jobs:
