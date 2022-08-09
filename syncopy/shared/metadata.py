@@ -3,7 +3,7 @@
 import h5py
 import numpy as np
 
-from syncopy.shared.errors import (SPYTypeError, SPYValueError)
+from syncopy.shared.errors import (SPYTypeError, SPYValueError, SPYWarning)
 
 
 
@@ -67,82 +67,64 @@ def _merge_md_list(md_list):
 
     Parameters
     ----------
-    md_list: a list of dictionaries. Each entry dict has to contain two more dictionaries at keys `'dsets'` and `'attrs'`.
-             Both sub dicts are of type `(str, np.ndarray)`.
+    md_list: a list of dictionaries. Each entry dict has to be of type `(str, np.ndarray)`.
 
     Returns
     -------
-    dict, containing two more dictionaries at keys `'dsets'` and `'attrs'`. Both
-          sub dicts are of type `(str, np.ndarray)`.
+    dict, where entries are of type `(str, np.ndarray)`.
     """
     if not md_list:
         return None
     metadata = dict()
-    metadata['dsets'] = dict()
-    metadata['attrs'] = dict()
     for md in md_list:
         # We just join all of them into a single dict, the unique keys allow this.
-        metadata['attrs'] = {**metadata['attrs'], **md['attrs']}
-        metadata['dsets'] = {**metadata['dsets'], **md['dsets']}
+        metadata = {**metadata, **md}
     return metadata
 
 
-def _parse_details(details, check_attr_dsize=True):
+def _parse_backend_metadata(metadata, check_attr_dsize=True):
     """
     Parse and validate extra cF return value.
 
     Parameters
     ----------
-    details: dict
-        The keys must be tuples of type `(str, str)`, where the first `str` is a free-form name, and
-        the second `str` must be one of `'attr'` or `'data'`, and defines whether this entry is an attribute `('attr')` or a dataset `('data')`.
-        Alternatively, keys that are just of type `str` (no tuple) are treated as attributes.
-        The values must be of type `np.ndarray`. For attributes, the size of the `ndarray` is limited to 64kB, i.e., they must be small.
-        This is a limit of hdf5 attributes, see the h5py documentation on attributes for details.
+    metadata: dict
+        The keys must be of type `str`.
+        The values must be of type `np.ndarray`, but the size of the `ndarray`s is limited to 64kB, i.e., they must be small.
+        The dtype of the arrays must not be `object`, as there is no hdf5 equivalent for that.
+        These are limits of hdf5 attributes, see the h5py documentation on `attributes` for details.
     check_attr_dsize: boolean
         Wheter to compute size of arrays and print warnings if they are too large.
 
-
     Returns
     -------
-    attribs: dict, where `(key, value)` are of type `(str, np.ndarray)` and the ndarrays are small.
-    dsets: dict, where `(key, value)` are of type `(str, ndarray)`, with no limitations.
+    dict, where `(key, value)` are of type `(str, np.ndarray)`.
     """
     attribs = dict()
-    dsets = dict()
 
-    if details is None:
-        return attribs, dsets
+    if metadata is None:
+        return attribs
 
-    if not isinstance(details, dict):
-        raise SPYTypeError(details, varname="details", expected="dict")
+    if not isinstance(metadata, dict):
+        raise SPYTypeError(metadata, varname="metadata", expected="dict")
 
-    for k, v in details.items():
+    for k, v in metadata.items():
         if not isinstance(v, np.ndarray):
-            if isinstance(v, list): # Be nice and convert it ourselves.
+            if isinstance(v, list): # Be nice and convert it ourselves. This does not work in
+                                    # all cases though, as the resulting datatype may be 'object'.
                 v = np.array(v)
             else:
-                raise SPYTypeError(v, varname="value in details", expected="np.ndarray")
-        if isinstance(k, tuple):
-            if len(k) != 2:
-                raise SPYValueError("keys in details must be 2-tuples or strings", varname="details", actual="tuple with length {}" % len(k))
-            else:
-                if k[1] == "attr":
-                    attribs[k[0]] = v
-                elif k[1] == "data":
-                    dsets[k[0]] = v
-                else:
-                    raise SPYValueError("second value of 2-tuple keys in details must be strings with value 'attr' or 'data'", varname="details")
-        elif isinstance(k, str):    # We assume it is an attrib if it is only a str key.
+                raise SPYTypeError(v, varname="value in metadata", expected="np.ndarray")
+        if isinstance(k, str):
             attribs[k] = v
         else:
-            raise SPYValueError("keys in details must be 2-tuples or strings", varname="details")
+            raise SPYValueError("keys in metadata must be strings", varname="details")
     if check_attr_dsize:
         for k,v in attribs.items():
             dsize_kb = np.prod(v.shape) * v.dtype.itemsize / 1024.
             if dsize_kb > 64:
                 SPYWarning("cF details: attribute '{attr}' has size {attr_size} kb, which is > the allowed 64 kb limit.".format(attr=k, attr_size=dsize_kb))
-    return attribs, dsets
+    return attribs
 
 
 def get_res_details(res):
@@ -207,7 +189,7 @@ def h5_add_details(h5fout, details, unique_key_suffix="", attribs_to_data=False,
 
     if details is not None:
         grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")
-        attribs, dsets = _parse_details(details)
+        attribs, dsets = _parse_backend_metadata(details)
         if attribs_to_metadata:
             for k, v in attribs.items():
                 k_unique = k + unique_key_suffix

@@ -16,7 +16,7 @@ import os
 from syncopy import freqanalysis
 from syncopy.shared.tools import get_defaults
 from syncopy.tests.synth_data import AR2_network, phase_diffusion
-from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, get_res_details, _parse_details, _merge_md_list, metadata_from_hdf5_file
+from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, get_res_details, _parse_backend_metadata, _merge_md_list, metadata_from_hdf5_file
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 import syncopy as spy
 from syncopy import __acme__
@@ -116,36 +116,36 @@ class TestMetadataHelpers():
     def test_parse_details(self):
         # Test for error if input is not dict.
         with pytest.raises(SPYTypeError) as err:
-            attrs, dsets = _parse_details(np.zeros(3))
+            attrs, dsets = _parse_backend_metadata(np.zeros(3))
         assert "details" in str(err.value)
         assert "dict" in str(err.value)
 
         # Test that empty input leads to empty output
-        attrs, dsets = _parse_details(dict())
+        attrs, dsets = _parse_backend_metadata(dict())
         assert isinstance(attrs, dict)
         assert isinstance(dsets, dict)
         assert not attrs
         assert not dsets
 
         # Test that string-only keys are treated as attributes (not dsets)
-        attrs, dsets = _parse_details({'attr1': np.zeros(3)})
+        attrs, dsets = _parse_backend_metadata({'attr1': np.zeros(3)})
         assert 'attr1' in attrs and len(attrs) == 1
         assert not dsets
 
         # Test that tuple keys lead to proper sorting into dsets and attrs
-        attrs, dsets = _parse_details({('attr1', 'attr'): np.zeros(3), ('dset1', 'data'): np.zeros(3), ('attr2', 'attr'): np.zeros(3)})
+        attrs, dsets = _parse_backend_metadata({('attr1', 'attr'): np.zeros(3), ('dset1', 'data'): np.zeros(3), ('attr2', 'attr'): np.zeros(3)})
         assert 'attr1' in attrs and 'attr2' in attrs and len(attrs) == 2
         assert 'dset1' in dsets and len(dsets) == 1
 
         # Test that error is raised if implicit 'attr 'values are not ndarray
         with pytest.raises(SPYTypeError, match="value in details"):
-            attrs, dsets = _parse_details({'attr1': dict()})
+            attrs, dsets = _parse_backend_metadata({'attr1': dict()})
         # Test that error is raised if explicit 'attr 'values are not ndarray
         with pytest.raises(SPYTypeError, match="value in details"):
-            attrs, dsets = _parse_details({('attr1', 'attr'): dict()})
+            attrs, dsets = _parse_backend_metadata({('attr1', 'attr'): dict()})
         # Test that error is raised if explicit 'dset 'values are not ndarray
         with pytest.raises(SPYTypeError, match="value in details"):
-            attrs, dsets = _parse_details({('dset1', 'data'): dict()})
+            attrs, dsets = _parse_backend_metadata({('dset1', 'data'): dict()})
 
 
 
