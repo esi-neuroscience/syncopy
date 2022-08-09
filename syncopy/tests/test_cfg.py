@@ -91,6 +91,8 @@ class TestCfg:
                 assert np.allclose(res.data[:], res2.data[:])
                 assert res.cfg == res2.cfg
 
+                del res, res2
+
     def test_selection(self):
 
         select = {'toilim': self.time_span, 'trials': [1, 2, 3], 'channel': [2, 0]}
