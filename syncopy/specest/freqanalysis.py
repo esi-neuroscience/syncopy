@@ -63,7 +63,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     Options available in all analysis methods:
 
-    * **output** : one of :data:`~syncopy.specest.const_def.availableOutputs`;
+    * **output** : one of :data:`~syncopy.specest.freqanalysis.availableOutputs`;
       return power spectra, complex Fourier spectra or absolute values.
     * **foi**/**foilim** : frequencies of interest; either array of frequencies or
       frequency window (not both)
@@ -112,7 +112,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         Perform time-frequency analysis on time-series trial data using a non-orthogonal
         continuous wavelet transform.
 
-        * **wavelet** : one of :data:`~syncopy.specest.const_def.availableWavelets`
+        * **wavelet** : one of :data:`~syncopy.specest.freqanalysis.availableWavelets`
         * **toi** : time-points of interest; can be either an array representing
           time points (in sec) or "all"(pre-trimming and subsampling of results)
         * **width** : Nondimensional frequency constant of Morlet wavelet function (>= 6)
@@ -136,10 +136,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
     data : `~syncopy.AnalogData`
         A non-empty Syncopy :class:`~syncopy.datatype.AnalogData` object
     method : str
-        Spectral estimation method, one of :data:`~syncopy.specest.const_def.availableMethods`
+        Spectral estimation method, one of :data:`~syncopy.specest.freqanalysis.availableMethods`
         (see below).
     output : str
-        Output of spectral estimation. One of :data:`~syncopy.specest.const_def.availableOutputs` (see below);
+        Output of spectral estimation. One of :data:`~syncopy.specest.freqanalysis.availableOutputs` (see below);
         use `'pow'` for power spectrum (:obj:`numpy.float32`), `'fourier'` for complex
         Fourier coefficients (:obj:`numpy.complex64`) or `'abs'` for absolute
         values (:obj:`numpy.float32`). Use one of `'fooof'`, `'fooof_aperiodic'` or
@@ -186,7 +186,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         of tapers manually! Leave at `None` for the optimal number to be set automatically.
     taper : str or None, optional
         Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. Windowing function,
-        one of :data:`~syncopy.specest.const_def.availableTapers`
+        one of :data:`~syncopy.shared.const_def.availableTapers`
         For multi-tapering with slepian tapers use `tapsmofrq` directly.
     taper_opt : dict or None
         Dictionary with keys for additional taper parameters.
@@ -213,7 +213,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         Only valid if `method` is `'mtmconvol'`. Sliding window length (in seconds).
     wavelet : str
         Only valid if `method` is `'wavelet'`. Wavelet function to use, one of
-        :data:`~syncopy.specest.const_def.availableWavelets` (see below).
+        :data:`~syncopy.specest.freqanalysis.availableWavelets` (see below).
     width : positive float
         Only valid if `method` is `'wavelet'` and `wavelet` is `'Morlet'`. Nondimensional
         frequency constant of Morlet wavelet function. This number should be >= 6,
@@ -280,13 +280,13 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     **Options**
 
-    .. autodata:: syncopy.specest.const_def.availableMethods
+    .. autodata:: syncopy.specest.freqanalysis.availableMethods
 
-    .. autodata:: syncopy.specest.const_def.availableOutputs
+    .. autodata:: syncopy.specest.freqanalysis.availableOutputs
 
     .. autodata:: syncopy.shared.const_def.availableTapers
 
-    .. autodata:: syncopy.specest.const_def.availableWavelets
+    .. autodata:: syncopy.specest.freqanalysis.availableWavelets
 
     Examples
     --------

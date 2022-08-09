@@ -11,8 +11,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### NEW
 - Added down- and resampling algorithms for the new meta-function `resampledata`
 - Added FOOOF method as a post-processing option for the freqanalysis method mtmfft.
+- Added `load_tdt` to import data from the TDT system, thanks to @kajal5888
 - new global `spy.copy()` function which copies entire Syncopy objects on disk
 - Added `.info` attribute for all data classes to store auxiliary meta information
+- Added `zscore` normalization to `preprocessing`
 
 
 ### CHANGED
@@ -21,6 +23,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - `spy.cleanup` now has exposed `interactive` parameter
 - removed keyword `deep` from `copy()`, all our copies are in fact deep
 - demeaning after tapering for granger analysis
+- detrending is now possible without filtering in `preprocessing`
 
 ### FIXED
 - `out.cfg` global side-effects (sorry again @kajal5888)
