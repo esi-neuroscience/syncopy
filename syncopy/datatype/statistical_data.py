@@ -19,6 +19,8 @@ from syncopy.shared.parsers import array_parser
 from syncopy.shared.errors import SPYValueError
 
 
+### THIS IS ALL DEPRECATED ###
+
 __all__ = ["TimelockData"]
 
 

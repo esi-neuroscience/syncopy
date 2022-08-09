@@ -75,6 +75,22 @@ def resampledata(data,
     resampled : `~syncopy.AnalogData`
         The resampled dataset with the same shape and dimord as the input `data`
 
+    Examples
+    --------
+    In the following `adata` is an instance of :class:`~syncopy.AnalogData`
+    with a samplerate of 2kHz.
+
+    Downsample (decimate) to 1kHz without low-pass filtering:
+
+    >>> downsampled = spy.resampledata(adata, method='downsample', resamplefs=1000)
+
+    Repeat, but this time remove aliases via explicit low-pass filter:
+
+    >>> downsampled = spy.resampledata(adata, method='downsample', resamplefs=1000, lpfreq=500)
+
+    Resample to 600Hz, low-pass filtering to new Nyquist is implicit:
+
+    >>> resampled = spy.resampledata(adata, resamplefs=600)
     """
 
     # -- Basic input parsing --

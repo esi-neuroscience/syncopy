@@ -39,6 +39,7 @@ np.set_printoptions(suppress=True, precision=4, linewidth=80)
 # Import `esi_cluster_setup` and `cluster_cleanup` from acme to make the routines
 # available in the `spy` package namespace
 try:
+    # so here we pin acme to the esi cluster?
     from acme import esi_cluster_setup, cluster_cleanup
     __acme__ = True
 except ImportError:
@@ -103,6 +104,7 @@ from .nwanalysis import *
 from .statistics import *
 from .plotting import *
 from .preproc import *
+from .spikes import *
 
 # Register session
 __session__ = datatype.base_data.SessionLogger()
@@ -128,3 +130,4 @@ __all__.extend(nwanalysis.__all__)
 __all__.extend(statistics.__all__)
 __all__.extend(plotting.__all__)
 __all__.extend(preproc.__all__)
+__all__.extend(spikes.__all__)

@@ -136,7 +136,32 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
     Examples
     --------
-    Coming soon...
+    In the following `adata` is an instance of :class:`~syncopy.AnalogData`
+
+    Calculate the coherence between all channels with 2Hz spectral smoothing,
+    and plot the results for two combinations between 30Hz and 90Hz:
+
+    >>> coh = spy.connectivityanalysis(adata, method='coh', tapsmofrq=2)
+    >>> coh.singlepanelplot(channel_i=0, channel_j=1, foilim=[30,90])
+    >>> coh.singlepanelplot(channel_i=1, channel_j=2, foilim=[30,90])
+
+    Compute the cross-correlation between channel 8 and 12 and
+    plot the results for the first 200ms:
+
+    >>> cfg = spy.StructDict()
+    >>> cfg.method = 'corr'
+    >>> cfg.select = {'channel': ['channel8', 'channel12']}
+    >>> corr = spy.connectivityanalysis(adata, cfg)
+    >>> corr.singlepanelplot(channel_i='channel8', channel_j='channel12', toilim=[0, 0.2])
+
+    Estimate Granger causality between the same channels (re-using the cfg from above):
+
+    >>> cfg.method = 'granger'
+    >>> granger = spy.connectivityanalysis(adata, cfg)
+
+    Plot the results between 15Hz and 30Hz:
+
+    >>> granger.singlepanelplot(channel_i='channel8', channel_j='channel12', foilim=[15, 25])
     """
 
     # Make sure our one mandatory input object can be processed
@@ -269,7 +294,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                                          nSamples=nSamples,
                                          taper=taper,
                                          taper_opt=taper_opt,
-                                         demean_taper=False,
+                                         demean_taper=method == 'granger',
                                          polyremoval=polyremoval,
                                          timeAxis=timeAxis,
                                          foi=foi)

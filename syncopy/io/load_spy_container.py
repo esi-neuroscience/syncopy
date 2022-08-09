@@ -20,6 +20,9 @@ from syncopy.io.utils import hash_file, startInfoDict
 
 import syncopy.datatype as spd
 
+# to allow loading older spy containers
+legacy_not_required = ['info']
+
 __all__ = ["load"]
 
 
@@ -252,7 +255,7 @@ def _load(filename, checksum, mode, out):
     requiredFields = tuple(startInfoDict.keys()) + dataclass._infoFileProperties
 
     for key in requiredFields:
-        if key not in jsonDict.keys():
+        if key not in jsonDict.keys() and key not in legacy_not_required:
             raise SPYError("Required field {field} for {cls} not in {file}"
                            .format(field=key,
                                    cls=dataclass.__name__,
@@ -293,7 +296,8 @@ def _load(filename, checksum, mode, out):
     out.definetrial(trialdef)
 
     # Assign metadata
-    for key in [prop for prop in dataclass._infoFileProperties if prop != "dimord"]:
+    for key in [prop for prop in dataclass._infoFileProperties if
+                prop != "dimord" and prop in jsonDict.keys()]:
         setattr(out, key, jsonDict[key])
 
     thisMethod = sys._getframe().f_code.co_name.replace("_", "")
