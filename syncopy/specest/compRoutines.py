@@ -19,11 +19,9 @@
 # method: backend method name
 
 # Builtin/3rd party package imports
-from curses import meta
 from inspect import signature
 import numpy as np
 from scipy import signal
-import h5py
 
 # backend method imports
 from .mtmfft import mtmfft
@@ -37,7 +35,8 @@ from .fooofspy import fooofspy
 from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import process_io, encode_unique_md_label, decode_unique_md_label, metadata_trial_indices_abs
+from syncopy.shared.kwarg_decorators import process_io
+from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, metadata_trial_indices_abs, metadata_from_hdf5_file
 from syncopy.shared.const_def import (
     spectralConversions,
     spectralDTypes
@@ -949,108 +948,6 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
     return res, details
 
 
-def extract_md_group(md):
-    """
-    Extract metadata from h5py 'metadata' group and return a standard dict
-    containing 2 nested dicts 'dsets' and 'attrs'.
-
-    Parameters
-    ----------
-    md: a h5py group, that contains metadata attributes as 'attrs' and/or
-        extra datasets in the group.
-
-    Returns
-    -------
-    dict, containing two more dictionaries at keys `'dsets'` and `'attrs'`. Both
-          dicts are of type `(str, np.ndarray)`.
-    """
-    metadata = dict()
-    metadata['dsets'] = dict()
-    metadata['attrs'] = dict()
-    for k, v in md.attrs.items():
-        metadata['attrs'][k] = v.copy() # copy the numpy array
-    for k, v in md.items():
-        metadata['dsets'][k] = v.copy() # copy the numpy array
-    return metadata
-
-def _merge_md_list(md_list):
-    """
-    Merge a list of dictionaries as returned by `extract_md_group()` into a single dictionary.
-
-    For this to make any sense, the dicts in the `md_list` sub dicts must have unique keys. If that
-    is not the case, later dicts will overwrite values of previous ones. This is not checked.
-
-    Parameters
-    ----------
-    md_list: a list of dictionaries. Each entry dict has to contain two more dictionaries at keys `'dsets'` and `'attrs'`.
-             Both sub dicts are of type `(str, np.ndarray)`.
-
-    Returns
-    -------
-    dict, containing two more dictionaries at keys `'dsets'` and `'attrs'`. Both
-          sub dicts are of type `(str, np.ndarray)`.
-    """
-    if not md_list:
-        return None
-    metadata = dict()
-    metadata['dsets'] = dict()
-    metadata['attrs'] = dict()
-    for md in md_list:
-        # We just join all of them into a single dict, the unique keys allow this.
-        metadata['attrs'] = {**metadata['attrs'], **md['attrs']}
-        metadata['dsets'] = {**metadata['dsets'], **md['dsets']}
-    return metadata
-
-def metadata_from_hdf5_file(h5py_filename, delete_afterwards=True):
-    """
-    Extract metadata from h5py file.
-
-    This extracts metadata as a standard dictionary from the 'metadata' group of a (virtual or standard)
-    hdf5 file. Note that it converts the attributes from the hdf5 attribute manager into a standard dictionary
-    (that is independent of whether the hdf5 file is still open). This function is intended to be used on
-    metadata temporarily attached to an hdf5 file by the cF.
-
-    Parameters
-    ----------
-    h5py_filename str
-        path to hdf5 file. The file will be opened for reading, and closed in the end.
-        The file must contain a standard or virtual dataset named 'data'.
-        If it does not contain 'metadata' group, the returned value will be `None`.
-    delete_afterwards bool
-        Whether to delete the metadata from the hdf5 file after extracting it.
-
-    Returns
-    -------
-    metadata None or dict
-        If a dict, that dict contains two more dictionaries at keys `'dsets'` and `'attrs'`. Both
-        sub dicts are of type `(str, np.ndarray)`.
-    """
-    metadata = None
-    open_mode = "a" if delete_afterwards else "r"
-    with h5py.File(h5py_filename, mode=open_mode) as h5f:
-        if 'data' in h5f:
-            main_dset = h5f['data']
-            if main_dset.is_virtual:
-                metadata_list = list()  # A list of dicts.
-
-                # Now open the virtual sources and check there for the metadata.
-                for source_tpl in main_dset.virtual_sources():
-                    with h5py.File(source_tpl.file_name, mode=open_mode) as h5f_virtual_part:
-                        if 'metadata' in h5f_virtual_part:
-                            virtual_metadata_grp = h5f_virtual_part['metadata']
-                            metadata_list.append(extract_md_group(virtual_metadata_grp))
-                            if delete_afterwards:
-                                del h5f_virtual_part['metadata']
-                metadata = _merge_md_list(metadata_list)
-            else:
-                # the main_dset is not virtual, so just grab the metadata group from the file root.
-                if 'metadata' in h5f:
-                    metadata = extract_md_group(h5f['metadata'])
-                    if delete_afterwards:
-                        del h5f['metadata']
-        else:
-            raise SPYValueError("'data' dataset in hd5f file {of}.".format(of=h5py_filename), actual="no such dataset")
-    return metadata
 
 
 def pack_singletrial_metadata_fooof_into_hdf5(metadata_fooof_backend):

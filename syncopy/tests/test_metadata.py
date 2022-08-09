@@ -16,9 +16,8 @@ import os
 from syncopy import freqanalysis
 from syncopy.shared.tools import get_defaults
 from syncopy.tests.synth_data import AR2_network, phase_diffusion
-from syncopy.shared.kwarg_decorators import encode_unique_md_label, decode_unique_md_label, get_res_details, _parse_details
+from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, get_res_details, _parse_details, _merge_md_list, metadata_from_hdf5_file
 from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.specest.compRoutines import _merge_md_list, metadata_from_hdf5_file
 import syncopy as spy
 from syncopy import __acme__
 if __acme__:

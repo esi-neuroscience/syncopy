@@ -30,7 +30,7 @@ if __acme__:
     # # In case of problems w/worker-stealing, uncomment the following lines
     # import dask
     # dask.config.set(distributed__scheduler__work_stealing=False)
-from syncopy.shared.kwarg_decorators import get_res_details, h5_add_details, encode_unique_md_label
+from syncopy.shared.metadata import get_res_details, h5_add_details
 
 __all__ = []
 

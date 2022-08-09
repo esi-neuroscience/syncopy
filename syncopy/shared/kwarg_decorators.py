@@ -13,6 +13,7 @@ import numpy as np
 from syncopy.shared.errors import (SPYTypeError, SPYValueError,
                                    SPYError, SPYWarning)
 from syncopy.shared.tools import StructDict
+from syncopy.shared.metadata import h5_add_details, get_res_details
 import syncopy as spy
 if spy.__acme__:
     import dask.distributed as dd
@@ -519,169 +520,6 @@ def detect_parallel_client(func):
     return parallel_client_detector
 
 
-def _parse_details(details, check_attr_dsize=True):
-    """
-    Parse and validate extra cF return value.
-
-    Parameters
-    ----------
-    details: dict
-        The keys must be tuples of type `(str, str)`, where the first `str` is a free-form name, and
-        the second `str` must be one of `'attr'` or `'data'`, and defines whether this entry is an attribute `('attr')` or a dataset `('data')`.
-        Alternatively, keys that are just of type `str` (no tuple) are treated as attributes.
-        The values must be of type `np.ndarray`. For attributes, the size of the `ndarray` is limited to 64kB, i.e., they must be small.
-        This is a limit of hdf5 attributes, see the h5py documentation on attributes for details.
-    check_attr_dsize: boolean
-        Wheter to compute size of arrays and print warnings if they are too large.
-
-
-    Returns
-    -------
-    attribs: dict, where `(key, value)` are of type `(str, np.ndarray)` and the ndarrays are small.
-    dsets: dict, where `(key, value)` are of type `(str, ndarray)`, with no limitations.
-    """
-    attribs = dict()
-    dsets = dict()
-
-    if details is None:
-        return attribs, dsets
-
-    if not isinstance(details, dict):
-        raise SPYTypeError(details, varname="details", expected="dict")
-
-    for k, v in details.items():
-        if not isinstance(v, np.ndarray):
-            if isinstance(v, list): # Be nice and convert it ourselves.
-                v = np.array(v)
-            else:
-                raise SPYTypeError(v, varname="value in details", expected="np.ndarray")
-        if isinstance(k, tuple):
-            if len(k) != 2:
-                raise SPYValueError("keys in details must be 2-tuples or strings", varname="details", actual="tuple with length {}" % len(k))
-            else:
-                if k[1] == "attr":
-                    attribs[k[0]] = v
-                elif k[1] == "data":
-                    dsets[k[0]] = v
-                else:
-                    raise SPYValueError("second value of 2-tuple keys in details must be strings with value 'attr' or 'data'", varname="details")
-        elif isinstance(k, str):    # We assume it is an attrib if it is only a str key.
-            attribs[k] = v
-        else:
-            raise SPYValueError("keys in details must be 2-tuples or strings", varname="details")
-    if check_attr_dsize:
-        for k,v in attribs.items():
-            dsize_kb = np.prod(v.shape) * v.dtype.itemsize / 1024.
-            if dsize_kb > 64:
-                SPYWarning("cF details: attribute '{attr}' has size {attr_size} kb, which is > the allowed 64 kb limit.".format(attr=k, attr_size=dsize_kb))
-    return attribs, dsets
-
-
-def get_res_details(res):
-    """
-    Split the first and second return value of user-supplied cF, if a second one exists.
-
-    Also checks the contract on the allowed return values.
-
-    Returns
-    -------
-    res: np.ndarray
-    details: dict or None
-    """
-
-    details = None  # This holds the 2nd return value from a cF, if any.
-    if isinstance(res, tuple):  # The cF has a 2nd return value.
-        if len(res) != 2:
-            raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="tuple with length {tl}".format(tl=len(res)))
-        else:
-            res, details = res
-        if details is not None: # Accept and silently ignore a 2nd return value of None.
-            if isinstance(details, dict):
-                for k, v in details.items():
-                    if not isinstance(v, np.ndarray):
-                        raise SPYValueError("the second return value of user-supplied compute functions must be a dict containing np.ndarrays")
-                    if not np.issubdtype(v.dtype, np.number):
-                        raise SPYValueError("the second return value of user-supplied compute functions must be a dict containing np.ndarrays containing numbers")
-            else:
-                raise SPYValueError("the second return value of user-supplied compute functions must be a dict")
-    else:
-        if not isinstance(res, np.ndarray):
-            raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="neither tuple nor np.ndarray")
-
-    return res, details
-
-def h5_add_details(h5fout, details, unique_key_suffix="", attribs_to_data=False, attribs_to_metadata=True):
-    """
-    Add details, the second return value of user-supplied cF, after parsing with `_parse_details`,
-    as a 'metadata' group to an existing hdf5 file.
-
-    Parameters
-    ----------
-    hdf5_filename: h5py file instance | str
-        Open h5py file, or path to existing hdf5 file. The file will be openend in write mode, written to, and then flushed and closed.
-    details: dict
-        The second return value of user-supplied cF, with the limitations described in `_parse_details()`.
-    unique_key_suffix: str or int
-        A suffix to add to each attrib or dset name, to make it unique. Leave at the default for no suffix. Typically something like '__n_m', where `n` and `m` are integers.
-        If an integer `n` is passed, it will be converted to the str '__n_0', where `n` is the integer.
-    attribs_to_data: bool
-        Whether to attach the 'attribs' contained in the details to the main dataset called 'data' in the hdf5 file (if it exists).
-    attribs_to_metadata: bool
-        Whether to attach the 'attribs' contained in the details to the metadata group called 'metadata' in the hdf5 file. The group will be created if it does not exist.
-    """
-    close_file = False
-    if isinstance(h5fout, str):
-        close_file = True # We openend it, we close it.
-        h5fout = h5py.File(h5fout, mode="w")
-
-    if isinstance(unique_key_suffix, int):
-        unique_key_suffix = "__" + str(unique_key_suffix) + "_0"
-
-    if details is not None:
-        grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")
-        attribs, dsets = _parse_details(details)
-        if attribs_to_metadata:
-            for k, v in attribs.items():
-                k_unique = k + unique_key_suffix
-                grp.attrs.create(k_unique, data=v)
-        if dsets:
-            for k, v in dsets.items():
-                k_unique = k + unique_key_suffix
-                grp.create_dataset(k_unique, data=v)
-        if attribs_to_data:
-            if 'data' in h5fout:  # Also add attributes to main dataset 'data' for now.
-                main_dset = h5fout['data']
-                for k, v in attribs.items():
-                    k_unique = k + unique_key_suffix
-                    main_dset.attrs.create(k_unique, data=v)
-        h5fout.flush()
-    if close_file:
-        h5fout.close()
-
-
-def metadata_trial_indices_abs(metadata, selection):
-    """
-    Re-compute absolute trial indices in the metadata from the relative ones.
-
-    Note that the input metadata is already preprocessed from the hdf5.
-    """
-    del_keys = list()
-    for unique_md_label_rel, v in metadata['attrs'].items():
-        label, rel_trial_idx, call_idx = decode_unique_md_label(unique_md_label_rel)
-
-        if selection is None or selection.trial is None:
-            pass  # abs_trial_idx = rel_trial_idx, so nothing to do for us.
-        else:
-            abs_trial_idx = selection.trial[rel_trial_idx]
-            unique_md_label_abs = encode_unique_md_label(label, abs_trial_idx, call_idx)
-            metadata['attrs'][unique_md_label_abs] = v  # Re-add value with new key.
-            del_keys.append(unique_md_label_rel)
-
-    for k in del_keys:
-        del metadata['attrs'][k]
-    return metadata
-
-
 def process_io(func):
     """
     Decorator for handling parallel execution of a
@@ -831,23 +669,6 @@ def process_io(func):
         return None  # result has already been written to disk
 
     return wrapper_io
-
-
-def encode_unique_md_label(label, trial_idx, call_idx=0):
-    """Assemble something like `test`, `2` and `0` into `test__2_0`."""
-    return(label + "__" + str(trial_idx) + "_" + str(call_idx))
-
-
-def decode_unique_md_label(unique_label):
-    """
-    Splits something like `test__2_0` into `test`, `2` and `0`.
-
-    Note that a tuple of all `str`, (no `int`s) is returned.
-    """
-    lab_ind = unique_label.rsplit("__")
-    label = lab_ind[0]
-    trialidx_callidx = lab_ind[1].rsplit("_")
-    return label, trialidx_callidx[0], trialidx_callidx[1]
 
 
 def _append_docstring(func, supplement, insert_in="Parameters", at_end=True):
