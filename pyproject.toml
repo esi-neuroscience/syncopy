@@ -44,6 +44,7 @@ pytest-cov = "^3.0.0"
 sphinx-bootstrap-theme = ""
 sphinx-automodapi = "^0.14.1"
 flake8 = "^3.9"
+tox = "^3.25.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
