@@ -206,7 +206,9 @@ def metadata_trial_indices_abs(metadata, selection):
 
         if selection is None or selection.trial is None:
             pass  # abs_trial_idx = rel_trial_idx, so nothing to do for us.
+            print("leaving trial index as-is")
         else:
+            print(f"rewriting rel trial index {rel_trial_idx} to abs index {abs_trial_idx}")
             abs_trial_idx = selection.trial[rel_trial_idx]
             unique_md_label_abs = encode_unique_md_label(label, abs_trial_idx, call_idx)
             metadata[unique_md_label_abs] = v  # Re-add value with new key.

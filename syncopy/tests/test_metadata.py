@@ -320,6 +320,79 @@ class TestMetadataUsingFooof():
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
         return spec_dt
 
+    def test_metadata_parallel_with_parallel_storage_and_selections(self):
+        """
+        Test metadata propagation in with parallel compute and parallel storage,
+        and trial selections.
+
+        In the case of trial selections, the computation of absolute trial indices
+        from relative ones uses the non-trivial branch. We test for correctly
+        reconstructed absolute trial indices in this test.
+        """
+        cfg = TestMetadataUsingFooof.get_fooof_cfg()
+        cfg.pop('fooof_opt', None)
+        cfg.parallel = True # enable parallel computation
+        cfg.keeptrials = True # enable parallel storage (is turned off when trial averaging is happening)
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
+        data = self.tfData.copy()
+
+        selected_trials = [3, 5, 7]
+        spy.selectdata(data, trials=selected_trials, inplace=True)
+        spec_dt = freqanalysis(cfg, data, fooof_opt=fooof_opt)
+
+
+        # These are known from the input data and cfg.
+        num_trials_fooof_selected = 3
+        data_size = 100
+
+        # check frequency axis
+        assert spec_dt.freq.size == data_size
+        assert spec_dt.freq[0] == 1
+        assert spec_dt.freq[99] == 100.
+
+        # check the log
+        assert "fooof_method = fooof" in spec_dt._log
+        assert "fooof_aperiodic" not in spec_dt._log
+        assert "fooof_peaks" not in spec_dt._log
+        assert "fooof_opt" in spec_dt._log
+
+        # check the data
+        assert spec_dt.data.ndim == 4
+        #print("spec_dt.data.shape is {}.".format(spec_dt.data.shape))
+        assert spec_dt.data.shape == (num_trials_fooof_selected, 1, data_size, 1) # Differs from other tests due to `keeptrials=True`.
+        assert not np.isnan(spec_dt.data).any()
+
+        # check metadata from 2nd cF return value, added to the hdf5 dataset 'data' as attributes.
+        k_unique = "__0_0"
+        expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
+        keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
+
+        # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
+        assert spec_dt.metadata is not None
+        assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
+        num_metadata_attrs = len(spec_dt.metadata.keys())  # Get keys of hdf5 attribute manager.
+        assert num_metadata_attrs == 6 * num_trials_fooof_selected
+        for kv in keys_unique:
+            assert (kv) in spec_dt.metadata.keys()
+            # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
+            # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
+            assert isinstance(spec_dt.metadata.get(kv), list) or isinstance(spec_dt.metadata.get(kv), np.ndarray)
+
+        # Check that the metadata keys are absolute.
+        # TO DISCUSS: This does not work for fooof, beause the mtmfft comsumes the selection, leaving
+        #             fooof with a smaller trials list and no selection (and trial indices in the list
+        #             are relative to the mtmfft selection).
+        #md_trial_indices = []
+        #for k in spec_dt.metadata.keys():
+        #    label, trial_idx, chunk_idx = decode_unique_md_label(k)
+        #    md_trial_indices.append(int(trial_idx))
+        #for ti in md_trial_indices:
+        #    assert ti in selected_trials, f"Expected trial index '{ti}' not in selected_trials"
+
+        # check that the cfg is correct (required for replay)
+        assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
+        return spec_dt
+
     def test_metadata_parallel_with_parallel_storage_and_channel_parallelisation(self):
         """
         Test metadata propagation in with channel parallelisation. This implies
@@ -377,20 +450,17 @@ class TestMetadataUsingFooof():
                 for call_idx in range(calls_per_trial):
                     keys_unique.append(encode_unique_md_label(fde, trial_idx, call_idx))
 
-        test_metadata_on_metadata_group = True
-
-        if test_metadata_on_metadata_group:
-            # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute,
-            # and was collected from the metadata of each part of the virtual hdf5 dataset. It is a standard dictionary (not a hdf5 group).
-            assert spec_dt.metadata is not None
-            assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
-            num_metadata_attrs = len(spec_dt.metadata.keys())  # Get keys of hdf5 attribute manager.
-            assert num_metadata_attrs == 6 * num_trials_fooof * calls_per_trial
-            for kv in keys_unique:
-                assert kv in spec_dt.metadata.keys()
-                # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
-                # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
-                assert isinstance(spec_dt.metadata.get(kv), list) or isinstance(spec_dt.metadata.get(kv), np.ndarray)
+        # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute,
+        # and was collected from the metadata of each part of the virtual hdf5 dataset. It is a standard dictionary (not a hdf5 group).
+        assert spec_dt.metadata is not None
+        assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
+        num_metadata_attrs = len(spec_dt.metadata.keys())  # Get keys of hdf5 attribute manager.
+        assert num_metadata_attrs == 6 * num_trials_fooof * calls_per_trial
+        for kv in keys_unique:
+            assert kv in spec_dt.metadata.keys()
+            # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
+            # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
+            assert isinstance(spec_dt.metadata.get(kv), list) or isinstance(spec_dt.metadata.get(kv), np.ndarray)
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
@@ -415,5 +485,6 @@ if __name__ == "__main__":
     #TestMetadataUsingFooof().test_metadata_1call_sequential()
     #TestMetadataUsingFooof().test_metadata_parallel_with_sequential_storage()
     #TestMetadataUsingFooof().test_metadata_parallel_with_parallel_storage()
-    TestMetadataUsingFooof().test_metadata_parallel_with_parallel_storage_and_channel_parallelisation()
+    #TestMetadataUsingFooof().test_metadata_parallel_with_parallel_storage_and_channel_parallelisation()
+    TestMetadataUsingFooof().test_metadata_parallel_with_parallel_storage_and_selections()
     print("------------Testing done------------")
