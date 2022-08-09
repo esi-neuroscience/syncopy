@@ -933,19 +933,19 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
         return outShape, spectralDTypes['pow']
 
     # Call actual fooof method
-    res, details = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
+    res, metadata = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
                       fooof_opt=method_kwargs)
 
-    if 'settings_used' in details:
-        del details['settings_used']  # We like to keep this in the return value of the
+    if 'settings_used' in metadata:
+        del metadata['settings_used']  # We like to keep this in the return value of the
     # backend functions for now (the vast majority of unit tests rely on it), but
     # nested dicts are not allowed in the additional return value of cFs, so we remove
     # it before passing the return value on.
 
-    details = pack_singletrial_metadata_fooof_into_hdf5(details)
+    metadata = pack_singletrial_metadata_fooof_into_hdf5(metadata)
 
     res = res[np.newaxis, np.newaxis, :, :]  # Re-add omitted axes.
-    return res, details
+    return res, metadata
 
 
 
@@ -985,7 +985,7 @@ def decode_metadata_fooof_alltrials_from_hdf5_file(metadata_fooof_hdf5):
        been pre-processed, including the split into 'attrs' and 'dsets',
        by the general-purpose metadata extraction function `metadata_from_hdf5_file()`.
     """
-    for unique_attr_label, v in metadata_fooof_hdf5['attrs'].items():
+    for unique_attr_label, v in metadata_fooof_hdf5.items():
         label, trial_idx, call_idx = decode_unique_md_label(unique_attr_label)
         if label == "n_peaks":
             n_peaks = v
@@ -994,15 +994,15 @@ def decode_metadata_fooof_alltrials_from_hdf5_file(metadata_fooof_hdf5):
             start_idx = 0
             unique_attr_label_gaussian_params = encode_unique_md_label('gaussian_params', trial_idx, call_idx)
             unique_attr_label_peak_params = encode_unique_md_label('peak_params', trial_idx, call_idx)
-            gaussian_params_in = metadata_fooof_hdf5['attrs'][unique_attr_label_gaussian_params]
-            peak_params_in = metadata_fooof_hdf5['attrs'][unique_attr_label_peak_params]
+            gaussian_params_in = metadata_fooof_hdf5[unique_attr_label_gaussian_params]
+            peak_params_in = metadata_fooof_hdf5[unique_attr_label_peak_params]
             for trial_idx in range(len(n_peaks)):
                 end_idx = start_idx + n_peaks[trial_idx]
                 gaussian_params_out.append(gaussian_params_in[start_idx:end_idx, :])
                 peak_params_out.append(peak_params_in[start_idx:end_idx, :])
 
-            metadata_fooof_hdf5['attrs'][unique_attr_label_gaussian_params] = gaussian_params_out
-            metadata_fooof_hdf5['attrs'][unique_attr_label_gaussian_params] = peak_params_out
+            metadata_fooof_hdf5[unique_attr_label_gaussian_params] = gaussian_params_out
+            metadata_fooof_hdf5[unique_attr_label_gaussian_params] = peak_params_out
     return metadata_fooof_hdf5
 
 

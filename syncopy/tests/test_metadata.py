@@ -57,17 +57,14 @@ class TestMetadataHelpers():
 
     def test_merge_md_list(self):
         assert _merge_md_list(None) is None
-        md1 = {'dsets': {'1a': np.zeros(3), '1b': np.zeros(3)}, 'attrs': {'1c': np.zeros(3), '1d': np.zeros(3)}}
-        md2 = {'dsets': {'2a': np.zeros(5), '2b': np.zeros(5)}, 'attrs': {'2c': np.zeros(5), '2d': np.zeros(5)}}
-        md3 = {'dsets': {'3a': np.zeros(1)}, 'attrs': {}}
+        md1 = {'1c': np.zeros(3), '1d': np.zeros(3)}
+        md2 = {'2c': np.zeros(5), '2d': np.zeros(5)}
+        md3 = {}
         mdl = [md1, md2, md3]
         merged = _merge_md_list(mdl)
-        assert len(merged['dsets']) == 5
-        for k in ['1a', '1b', '2a', '2b', '3a']:
-            assert k in merged['dsets']
-        assert len(merged['attrs']) == 4
+        assert len(merged) == 4
         for k in ['1c', '1d', '2c', '2d']:
-            assert k in merged['attrs']
+            assert k in merged
 
     def test_metadata_from_hdf5_file(self):
         # Test for correct error on hdf5 file without 'data' dataset.
@@ -116,37 +113,21 @@ class TestMetadataHelpers():
     def test_parse_details(self):
         # Test for error if input is not dict.
         with pytest.raises(SPYTypeError) as err:
-            attrs, dsets = _parse_backend_metadata(np.zeros(3))
-        assert "details" in str(err.value)
-        assert "dict" in str(err.value)
+            attrs = _parse_backend_metadata(np.zeros(3))
+        assert "expected dict found ndarray" in str(err.value)
 
         # Test that empty input leads to empty output
-        attrs, dsets = _parse_backend_metadata(dict())
+        attrs = _parse_backend_metadata(dict())
         assert isinstance(attrs, dict)
-        assert isinstance(dsets, dict)
         assert not attrs
-        assert not dsets
 
         # Test that string-only keys are treated as attributes (not dsets)
-        attrs, dsets = _parse_backend_metadata({'attr1': np.zeros(3)})
+        attrs = _parse_backend_metadata({'attr1': np.zeros(3)})
         assert 'attr1' in attrs and len(attrs) == 1
-        assert not dsets
-
-        # Test that tuple keys lead to proper sorting into dsets and attrs
-        attrs, dsets = _parse_backend_metadata({('attr1', 'attr'): np.zeros(3), ('dset1', 'data'): np.zeros(3), ('attr2', 'attr'): np.zeros(3)})
-        assert 'attr1' in attrs and 'attr2' in attrs and len(attrs) == 2
-        assert 'dset1' in dsets and len(dsets) == 1
 
         # Test that error is raised if implicit 'attr 'values are not ndarray
-        with pytest.raises(SPYTypeError, match="value in details"):
-            attrs, dsets = _parse_backend_metadata({'attr1': dict()})
-        # Test that error is raised if explicit 'attr 'values are not ndarray
-        with pytest.raises(SPYTypeError, match="value in details"):
-            attrs, dsets = _parse_backend_metadata({('attr1', 'attr'): dict()})
-        # Test that error is raised if explicit 'dset 'values are not ndarray
-        with pytest.raises(SPYTypeError, match="value in details"):
-            attrs, dsets = _parse_backend_metadata({('dset1', 'data'): dict()})
-
+        with pytest.raises(SPYTypeError, match="value in metadata"):
+            attrs = _parse_backend_metadata({'attr1': dict()})
 
 
 class TestMetadataUsingFooof():
@@ -202,39 +183,20 @@ class TestMetadataUsingFooof():
         assert not np.isnan(spec_dt.data).any()
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset as attribute.
-        k_unique = "__0_0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
-                         #       depending on data size and RAM, there may or may not be several calls, and "_1" , "_2", ... exist.
+        k_unique = "__0_0"
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
-
-        test_metadata_on_main_dset = False
-
-        if test_metadata_on_main_dset:
-            assert len(spec_dt.data.attrs.keys()) == len(expected_fooof_dict_entries)
-
-            for kv in keys_unique:
-                assert (kv) in spec_dt.data.attrs.keys()
-                assert isinstance(spec_dt.data.attrs.get(kv), np.ndarray)
-            # Expect one entry in detail.
-            n_peaks = spec_dt.data.attrs.get("n_peaks" + k_unique)
-            assert isinstance(n_peaks, np.ndarray)
-            assert n_peaks.size == 1 # cfg.keeptrials is False, so FOOOF operates on a single trial and we expect only one value here.
-            assert spec_dt.data.attrs.get("r_squared" + k_unique).size == num_trials_fooof  # Same, see line above.
-            assert spec_dt.data.attrs.get("error" + k_unique).size == num_trials_fooof  # Same, see line above.
 
         # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
         assert spec_dt.metadata is not None
         assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
-        num_metadata_dsets = len(spec_dt.metadata['dsets'].keys())
-        num_metadata_dsets = 0
-        num_metadata_attrs = len(spec_dt.metadata['attrs'].keys())  # Get keys of dict
-        assert num_metadata_dsets == 0
+        num_metadata_attrs = len(spec_dt.metadata.keys())  # Get keys of dict
         assert num_metadata_attrs == 6
         for kv in keys_unique:
-            assert kv in spec_dt.metadata['attrs'].keys()
+            assert kv in spec_dt.metadata.keys()
             # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
             # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
-            assert isinstance(spec_dt.metadata['attrs'].get(kv), list) or isinstance(spec_dt.metadata['attrs'].get(kv), np.ndarray)
+            assert isinstance(spec_dt.metadata.get(kv), list) or isinstance(spec_dt.metadata.get(kv), np.ndarray)
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
@@ -279,23 +241,20 @@ class TestMetadataUsingFooof():
         assert not np.isnan(spec_dt.data).any()
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset as attribute.
-        k_unique = "__0_0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
-                         #       depending on data size and RAM, there may or may not be several calls, and "_1" , "_2", ... exist.
+        k_unique = "__0_0"
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
 
         # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
         assert spec_dt.metadata is not None
         assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
-        num_metadata_dsets = len(spec_dt.metadata['dsets'].keys())
-        num_metadata_attrs = len(spec_dt.metadata['attrs'].keys())
-        assert num_metadata_dsets == 0
+        num_metadata_attrs = len(spec_dt.metadata.keys())
         assert num_metadata_attrs == 6
         for kv in keys_unique:
-            assert kv in spec_dt.metadata['attrs'].keys()
+            assert kv in spec_dt.metadata.keys()
             # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
             # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
-            assert isinstance(spec_dt.metadata['attrs'].get(kv), list) or isinstance(spec_dt.metadata['attrs'].get(kv), np.ndarray)
+            assert isinstance(spec_dt.metadata.get(kv), list) or isinstance(spec_dt.metadata.get(kv), np.ndarray)
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
@@ -342,27 +301,20 @@ class TestMetadataUsingFooof():
         assert not np.isnan(spec_dt.data).any()
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset 'data' as attributes.
-        k_unique = "__0_0"  # TODO: this is currently still hardcoded, and the _0 is the one added by the first cF function call.
-                         #       depending on data size and RAM, there may or may not be several calls, and "_1" , "_2", ... exist.
+        k_unique = "__0_0"
         expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
         keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
 
-        test_metadata_on_metadata_group = True
-
-        if test_metadata_on_metadata_group:
-            # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
-            assert spec_dt.metadata is not None
-            assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
-            num_metadata_dsets = len(spec_dt.metadata['dsets'].keys())
-            num_metadata_attrs = len(spec_dt.metadata['attrs'].keys())  # Get keys of hdf5 attribute manager.
-            assert num_metadata_dsets == 0
-            assert num_metadata_attrs == 6 * num_trials_fooof
-            print("keys={k}".format(k=",".join(spec_dt.metadata['attrs'].keys())))
-            for kv in keys_unique:
-                assert (kv) in spec_dt.metadata['attrs'].keys()
-                # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
-                # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
-                assert isinstance(spec_dt.metadata['attrs'].get(kv), list) or isinstance(spec_dt.metadata['attrs'].get(kv), np.ndarray)
+        # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
+        assert spec_dt.metadata is not None
+        assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
+        num_metadata_attrs = len(spec_dt.metadata.keys())  # Get keys of hdf5 attribute manager.
+        assert num_metadata_attrs == 6 * num_trials_fooof
+        for kv in keys_unique:
+            assert (kv) in spec_dt.metadata.keys()
+            # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
+            # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
+            assert isinstance(spec_dt.metadata.get(kv), list) or isinstance(spec_dt.metadata.get(kv), np.ndarray)
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
@@ -432,16 +384,13 @@ class TestMetadataUsingFooof():
             # and was collected from the metadata of each part of the virtual hdf5 dataset. It is a standard dictionary (not a hdf5 group).
             assert spec_dt.metadata is not None
             assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
-            num_metadata_dsets = len(spec_dt.metadata['dsets'].keys())
-            num_metadata_attrs = len(spec_dt.metadata['attrs'].keys())  # Get keys of hdf5 attribute manager.
-            assert num_metadata_dsets == 0
+            num_metadata_attrs = len(spec_dt.metadata.keys())  # Get keys of hdf5 attribute manager.
             assert num_metadata_attrs == 6 * num_trials_fooof * calls_per_trial
-            print("keys={k}".format(k=",".join(spec_dt.metadata['attrs'].keys())))
             for kv in keys_unique:
-                assert kv in spec_dt.metadata['attrs'].keys()
+                assert kv in spec_dt.metadata.keys()
                 # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
                 # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
-                assert isinstance(spec_dt.metadata['attrs'].get(kv), list) or isinstance(spec_dt.metadata['attrs'].get(kv), np.ndarray)
+                assert isinstance(spec_dt.metadata.get(kv), list) or isinstance(spec_dt.metadata.get(kv), np.ndarray)
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'

@@ -58,6 +58,7 @@ def metadata_from_hdf5_file(h5py_filename, delete_afterwards=True):
             raise SPYValueError("'data' dataset in hd5f file {of}.".format(of=h5py_filename), actual="no such dataset")
     return metadata
 
+
 def _merge_md_list(md_list):
     """
     Merge a list of dictionaries as returned by `extract_md_group()` into a single dictionary.
@@ -138,7 +139,6 @@ def get_res_details(res):
     res: np.ndarray
     details: dict or None
     """
-
     details = None  # This holds the 2nd return value from a cF, if any.
     if isinstance(res, tuple):  # The cF has a 2nd return value.
         if len(res) != 2:
@@ -147,7 +147,7 @@ def get_res_details(res):
             res, details = res
         if details is not None: # Accept and silently ignore a 2nd return value of None.
             if isinstance(details, dict):
-                for k, v in details.items():
+                for _, v in details.items():
                     if not isinstance(v, np.ndarray):
                         raise SPYValueError("the second return value of user-supplied compute functions must be a dict containing np.ndarrays")
                     if not np.issubdtype(v.dtype, np.number):
@@ -157,10 +157,10 @@ def get_res_details(res):
     else:
         if not isinstance(res, np.ndarray):
             raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="neither tuple nor np.ndarray")
-
     return res, details
 
-def h5_add_details(h5fout, details, unique_key_suffix="", attribs_to_data=False, attribs_to_metadata=True):
+
+def h5_add_details(h5fout, details, unique_key_suffix=""):
     """
     Add details, the second return value of user-supplied cF, after parsing with `_parse_details`,
     as a 'metadata' group to an existing hdf5 file.
@@ -174,10 +174,6 @@ def h5_add_details(h5fout, details, unique_key_suffix="", attribs_to_data=False,
     unique_key_suffix: str or int
         A suffix to add to each attrib or dset name, to make it unique. Leave at the default for no suffix. Typically something like '__n_m', where `n` and `m` are integers.
         If an integer `n` is passed, it will be converted to the str '__n_0', where `n` is the integer.
-    attribs_to_data: bool
-        Whether to attach the 'attribs' contained in the details to the main dataset called 'data' in the hdf5 file (if it exists).
-    attribs_to_metadata: bool
-        Whether to attach the 'attribs' contained in the details to the metadata group called 'metadata' in the hdf5 file. The group will be created if it does not exist.
     """
     close_file = False
     if isinstance(h5fout, str):
@@ -189,21 +185,10 @@ def h5_add_details(h5fout, details, unique_key_suffix="", attribs_to_data=False,
 
     if details is not None:
         grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")
-        attribs, dsets = _parse_backend_metadata(details)
-        if attribs_to_metadata:
-            for k, v in attribs.items():
-                k_unique = k + unique_key_suffix
-                grp.attrs.create(k_unique, data=v)
-        if dsets:
-            for k, v in dsets.items():
-                k_unique = k + unique_key_suffix
-                grp.create_dataset(k_unique, data=v)
-        if attribs_to_data:
-            if 'data' in h5fout:  # Also add attributes to main dataset 'data' for now.
-                main_dset = h5fout['data']
-                for k, v in attribs.items():
-                    k_unique = k + unique_key_suffix
-                    main_dset.attrs.create(k_unique, data=v)
+        attribs = _parse_backend_metadata(details)
+        for k, v in attribs.items():
+            k_unique = k + unique_key_suffix
+            grp.attrs.create(k_unique, data=v)
         h5fout.flush()
     if close_file:
         h5fout.close()
@@ -216,7 +201,7 @@ def metadata_trial_indices_abs(metadata, selection):
     Note that the input metadata is already preprocessed from the hdf5.
     """
     del_keys = list()
-    for unique_md_label_rel, v in metadata['attrs'].items():
+    for unique_md_label_rel, v in metadata.items():
         label, rel_trial_idx, call_idx = decode_unique_md_label(unique_md_label_rel)
 
         if selection is None or selection.trial is None:
@@ -224,11 +209,11 @@ def metadata_trial_indices_abs(metadata, selection):
         else:
             abs_trial_idx = selection.trial[rel_trial_idx]
             unique_md_label_abs = encode_unique_md_label(label, abs_trial_idx, call_idx)
-            metadata['attrs'][unique_md_label_abs] = v  # Re-add value with new key.
+            metadata[unique_md_label_abs] = v  # Re-add value with new key.
             del_keys.append(unique_md_label_rel)
 
     for k in del_keys:
-        del metadata['attrs'][k]
+        del metadata[k]
     return metadata
 
 
@@ -248,26 +233,20 @@ def decode_unique_md_label(unique_label):
     trialidx_callidx = lab_ind[1].rsplit("_")
     return label, trialidx_callidx[0], trialidx_callidx[1]
 
+
 def extract_md_group(md):
     """
-    Extract metadata from h5py 'metadata' group and return a standard dict
-    containing 2 nested dicts 'dsets' and 'attrs'.
+    Extract metadata from h5py 'metadata' group and return a standard dict.
 
     Parameters
     ----------
-    md: a h5py group, that contains metadata attributes as 'attrs' and/or
-        extra datasets in the group.
+    md: a h5py group, that contains metadata attributes as 'attrs'.
 
     Returns
     -------
-    dict, containing two more dictionaries at keys `'dsets'` and `'attrs'`. Both
-          dicts are of type `(str, np.ndarray)`.
+    dict, containing entries of type `(str, np.ndarray)`.
     """
     metadata = dict()
-    metadata['dsets'] = dict()
-    metadata['attrs'] = dict()
     for k, v in md.attrs.items():
-        metadata['attrs'][k] = v.copy() # copy the numpy array
-    for k, v in md.items():
-        metadata['dsets'][k] = v.copy() # copy the numpy array
+        metadata[k] = v.copy() # copy the numpy array
     return metadata
