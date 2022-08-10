@@ -47,7 +47,7 @@ Note that our *original sampling rate* is 5000Hz, so both harmonics are well sam
 Downsampling
 ------------
 
-Suppose we want to downsample our signal to 1kHz. The *original sampling rate* here is an exact integer multiple of our *new sampling rate*: :math:`5 \times 1000Hz = 5000Hz` Hence, we can use direct *decimation* or downsampling. This is only a fancy term for taking every `nth` data point, where `n` is the integer division factor, which is 5 in our case. In Syncopy we can directly use :func:`~syncopy.resampledata` with ``method='downsample'`` and the target sampling rate ``resamplefs`` set to 1000Hz::
+Suppose we want to downsample our signal to 1kHz. The *original sampling rate* here is an exact integer multiple of our *new sampling rate*: :math:`5 \times 1000Hz = 5000Hz`. Hence, we can use direct *decimation* or downsampling. This is only a fancy term for taking every `nth` data point, where `n` is the integer division factor, which is 5 in our case. In Syncopy we can directly use :func:`~syncopy.resampledata` with ``method='downsample'`` and the target sampling rate ``resamplefs`` set to 1000Hz::
 
   ds_adata = spy.resampledata(adata, method='downsample', resamplefs=1000)
 
@@ -72,7 +72,7 @@ where :math:`f_{sample}` is the original sampling frequency, :math:`n = \frac{f_
 Low-pass filtering
 ^^^^^^^^^^^^^^^^^^
 
-To circumvent the problem of aliasing, application of a so-called *anti-alias-filter* is advisable. There is nothing special with that filter as such, basically every low-pass filter will work. The critical step is to filter out all frequencies which are greater than the *new Nyquist frequency*. Filtering out more than those does not introduce additional artifacts, however setting the cut-off to high gets only partially rid of the aliasing. In Syncopy we enforce that if a filtering step is requested by setting the cut-off frequency ``lpfreq`` parameter, it has to be maximally the new Nyquist. So trying::
+To circumvent the problem of aliasing, application of a so-called *anti-alias-filter* is advisable. There is nothing special with that filter as such, basically every low-pass filter will work. The critical step is to filter out all frequencies which are greater than the *new Nyquist frequency*. Filtering out more than those does not introduce additional artifacts, however setting the cut-off too high gets only partially rid of the aliasing. In Syncopy we enforce that if a filtering step is requested by setting the cut-off frequency ``lpfreq`` parameter, it has to be maximally the new Nyquist. So trying::
 
   ds_data2 = spy.resampledata(adata, method='downsample', resamplefs=1000, lpfreq=600)
 
