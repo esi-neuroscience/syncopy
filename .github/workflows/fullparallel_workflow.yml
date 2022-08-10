@@ -1,4 +1,4 @@
-name: Run all full tests
+name: Run all tests
 
 on:
   # only manual trigger here
@@ -31,14 +31,10 @@ jobs:
       run: |
         cd syncopy/tests
         # run sequential tests
-        poetry run pytest -ra --full --color=yes -k 'not parallel'
+        poetry run pytest -ra --color=yes -k 'not parallel'
     - name: Test basic parallel with pytest
       run: |
         cd syncopy/tests
         # run basic parallel tests
-        poetry run pytest --full --disable-warnings --color=yes  -k 'parallel'
-    - name: Test full parallel with pytest
-      run: |
-        cd syncopy/tests
-        # run full parallel tests
-        poetry run pytest --full --disable-warnings --color=yes  -k 'parallel'
+        poetry run pytest --disable-warnings --color=yes  -k 'parallel'
+
