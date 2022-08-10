@@ -25,6 +25,8 @@ intellinux:
     - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
+    - export PYTHONPATH=$CI_PROJECT_DIR
+    - cd $TEST_DIR    
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'paralel'            
     # - tox -p 0
