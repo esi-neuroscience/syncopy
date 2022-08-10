@@ -1,5 +1,5 @@
 stages:
-    - tox
+    - single
     - slurm
     - upload
     - deploy
@@ -8,7 +8,7 @@ variables:
     TEST_DIR: "$CI_PROJECT_DIR/syncopy/tests"
 
 intellinux:
-    stage: tox
+    stage: single
     allow_failure: true
     tags:
     - deploy
@@ -30,7 +30,7 @@ intellinux:
     # - tox -p 0
 
 powerlinux:
-    stage: tox
+    stage: single
     allow_failure: true
     tags:
     - power
@@ -46,6 +46,8 @@ powerlinux:
     - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
+    - export PYTHONPATH=$CI_PROJECT_DIR
+    - cd $TEST_DIR    
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'
     # see https://github.com/conda/conda/issues/10178
@@ -53,7 +55,7 @@ powerlinux:
     # - tox -p 0
 
 intelwin:
-    stage: tox
+    stage: single
     allow_failure: true
     tags:
     - windows10
@@ -68,6 +70,8 @@ intelwin:
     - conda env update -f syncopy.yml --prune
     - conda install virtualenv
     - conda.bat activate syncopy
+    - set PYTHONPATH=%PYTHONPATH%;%CI_PROJECT_DIR%
+    - cd %TEST_DIR%        
     # point tox to python from the conda env
     # needs to be done only once
     # - cmd /c mklink /J C:\Python38 %CONDA_PREFIX%
@@ -75,7 +79,7 @@ intelwin:
     - pytest -ra -k 'parallel'        
 
 m1macos:
-    stage: tox
+    stage: single
     allow_failure: true
     tags:
     - macos
@@ -92,6 +96,8 @@ m1macos:
     - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
+    - export PYTHONPATH=$CI_PROJECT_DIR
+    - cd $TEST_DIR    
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'        
     # - tox -p 0
