@@ -149,7 +149,7 @@ class TestMetadataUsingFooof():
         cfg.foilim = [1., 100.]
         return cfg
 
-    def test_metadata_sequential(self):
+    def test_sequential(self):
         """
         Test metadata propagation in sequential compute mode.
         """
@@ -183,7 +183,7 @@ class TestMetadataUsingFooof():
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
 
-    def test_metadata_parallel_with_sequential_storage(self):
+    def test_par_compute_with_sequential_storage(self):
         """
         Test metadata propagation in with parallel compute and sequential storage.
         With trial averaging (`keeptrials=false` in cfg), sequential storage is used.
@@ -223,7 +223,7 @@ class TestMetadataUsingFooof():
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
 
-    def test_metadata_parallel_with_parallel_storage(self):
+    def test_par_compute_with_par_storage(self):
         """
         Test metadata propagation in with parallel compute and parallel storage.
         Without trial averaging (`keeptrials=True` in cfg), parallel storage is used.
@@ -265,7 +265,7 @@ class TestMetadataUsingFooof():
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
 
-    def test_metadata_parallel_with_parallel_storage_and_selections(self):
+    def test_par_with_selections(self):
         """
         Test metadata propagation in with parallel compute and parallel storage,
         and trial selections.
@@ -288,8 +288,6 @@ class TestMetadataUsingFooof():
         #  and be equivalent to the `cfg.select`... line above, but it seems to have no effect. Bug? See #332
 
         spec_dt = freqanalysis(cfg, data, fooof_opt=fooof_opt)
-
-
 
         # These are known from the input data and cfg.
         num_trials_fooof_selected = len(selected_trials)
@@ -330,9 +328,9 @@ class TestMetadataUsingFooof():
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
 
-    def test_metadata_parallel_with_parallel_storage_and_channel_parallelisation(self):
+    def test_channel_par(self):
         """
-        Test metadata propagation in with channel parallelisation. This implies
+        Test metadata propagation in with channel parallelization. This implies
         parallel compute and parallel storage.
 
         For syncopy to use channel parallelization, we must make sure that:
@@ -384,13 +382,14 @@ class TestMetadataUsingFooof():
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
 
-    @pytest.mark.skip(reason="we only care about sequential for now")
     @skip_without_acme
-    def test_fooof_parallel(self, testcluster=None):
+    def test_metadata_parallel(self, testcluster=None):
 
         plt.ioff()
         client = dd.Client(testcluster)
-        all_tests = [self.test_metadata_sequential]
+        all_tests = ["test_par_compute_with_sequential_storage",
+                     "test_par_compute_with_par_storage",
+                     "test_channel_par"]
 
         for test_name in all_tests:
             test_method = getattr(self, test_name)
