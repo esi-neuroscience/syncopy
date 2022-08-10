@@ -37,7 +37,9 @@ In depth Guides and Tutorials
 * :doc:`Syncopy for FieldTrip Users <user/fieldtrip>`
 * :doc:`Handling Data <user/data>`
 * :doc:`Fooof <tutorials/fooof>`
+* :doc:`Resampling <tutorials/resampling>`
 
+  
 Auto-generate API Docs
 -----------------------
 * :doc:`User API <user/user_api>`
@@ -65,4 +67,5 @@ For general inquiries please contact syncopy (at) esi-frankfurt.de.
    user/data.rst
    user/user_api.rst
    tutorials/fooof.rst
+   tutorials/resampling.rst
    developer/developers.rst

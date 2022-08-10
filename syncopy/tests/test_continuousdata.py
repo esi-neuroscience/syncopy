@@ -1137,8 +1137,8 @@ class TestCrossSpectralData():
                 for trialSel in trialSelections:
                     for chaniSel in chanSelections[2:]:
                         for chanjSel in chanSelections[2:]:
-                            for timeSel in timeSelections:
-                                for freqSel in freqSelections:
+                            for timeSel in timeSelections[:1]:
+                                for freqSel in freqSelections[:1]:
                                     kwdict = {}
                                     kwdict["trials"] = trialSel
                                     kwdict["channel_i"] = chaniSel
@@ -1170,3 +1170,6 @@ class TestCrossSpectralData():
             getattr(self, test)(fulltests)
             flush_local_cluster(testcluster)
         client.close()
+
+if __name__ == '__main__':
+    T1 = TestCrossSpectralData()
