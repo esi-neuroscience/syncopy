@@ -282,8 +282,13 @@ class TestMetadataUsingFooof():
         data = self.tfData.copy()
 
         selected_trials = [3, 5, 7]
-        spy.selectdata(data, trials=selected_trials, inplace=True)
+
+        cfg.select = { 'trials': selected_trials }
+        #spy.selectdata(data, trials=selected_trials, inplace=True) # TODO: This line should also work,
+        #  and be equivalent to the `cfg.select`... line above, but it seems to have no effect. Bug?
+
         spec_dt = freqanalysis(cfg, data, fooof_opt=fooof_opt)
+
 
 
         # These are known from the input data and cfg.
@@ -294,6 +299,8 @@ class TestMetadataUsingFooof():
         assert spec_dt.freq.size == data_size
         assert spec_dt.freq[0] == 1
         assert spec_dt.freq[99] == 100.
+
+        assert spec_dt.data.shape == (num_trials_fooof_selected, 1, data_size, 1)
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset 'data' as attributes.
         k_unique = "__0_0"
