@@ -285,7 +285,7 @@ class TestMetadataUsingFooof():
 
         cfg.select = { 'trials': selected_trials }
         #spy.selectdata(data, trials=selected_trials, inplace=True) # TODO: This line should also work,
-        #  and be equivalent to the `cfg.select`... line above, but it seems to have no effect. Bug?
+        #  and be equivalent to the `cfg.select`... line above, but it seems to have no effect. Bug? See #332
 
         spec_dt = freqanalysis(cfg, data, fooof_opt=fooof_opt)
 
