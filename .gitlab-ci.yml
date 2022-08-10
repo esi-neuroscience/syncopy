@@ -29,7 +29,6 @@ intellinux:
     - cd $TEST_DIR    
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'paralel'            
-    # - tox -p 0
 
 powerlinux:
     stage: single
@@ -52,9 +51,6 @@ powerlinux:
     - cd $TEST_DIR    
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'
-    # see https://github.com/conda/conda/issues/10178
-    # - conda install ruamel.yaml
-    # - tox -p 0
 
 intelwin:
     stage: single
@@ -102,7 +98,6 @@ m1macos:
     - cd $TEST_DIR    
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'        
-    # - tox -p 0
 
 slurmtest:
     stage: slurm

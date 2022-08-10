@@ -3,7 +3,7 @@ name = "esi-syncopy"
 packages = [
     {include = "syncopy"}
 ]
-version = "2022.07.6"
+version = "2022.08"
 license = "BSD-3-Clause"
 readme="README.rst"
 homepage="https://syncopy.org"
@@ -44,7 +44,6 @@ pytest-cov = "^3.0.0"
 sphinx-bootstrap-theme = ""
 sphinx-automodapi = "^0.14.1"
 flake8 = "^3.9"
-tox = "^3.25.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

@@ -165,7 +165,7 @@ class TestBaseData():
     def test_filename(self):
         # ensure we're salting sufficiently to create at least `numf`
         # distinct pseudo-random filenames in `__storage__`
-        numf = 10000
+        numf = 1000
         dummy = AnalogData()
         fnames = []
         for k in range(numf):

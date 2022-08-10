@@ -27,7 +27,6 @@ dependencies:
   - ruamel.yaml >=0.16, < 0.17
   - setuptools_scm
   - sphinx_bootstrap_theme
-  - tox
   - pip:
     # Optional: only necessary when building the HTML documentation
     - sphinx_automodapi
