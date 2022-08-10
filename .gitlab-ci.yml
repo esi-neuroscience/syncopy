@@ -124,7 +124,8 @@ pypitest:
     stage: upload
     when: manual
     only:
-    - tags
+    - master
+    - dev
     tags:
     - deploy
     variables:
@@ -153,7 +154,7 @@ pypideploy:
     stage: deploy
     when: manual
     only:
-    - tags
+    - master
     tags:
     - deploy
     variables:
