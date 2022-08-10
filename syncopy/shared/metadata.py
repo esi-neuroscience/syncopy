@@ -200,6 +200,8 @@ def metadata_trial_indices_abs(metadata, selection):
 
     Note that the input metadata is already preprocessed from the hdf5.
     """
+    if metadata is None:
+        return None
     del_keys = list()
     for unique_md_label_rel, v in metadata.items():
         label, rel_trial_idx, call_idx = decode_unique_md_label(unique_md_label_rel)

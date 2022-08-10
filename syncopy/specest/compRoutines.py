@@ -21,6 +21,8 @@
 # Builtin/3rd party package imports
 from inspect import signature
 import numpy as np
+from hashlib import blake2b
+
 from scipy import signal
 
 # backend method imports
@@ -41,7 +43,6 @@ from syncopy.shared.const_def import (
     spectralConversions,
     spectralDTypes
 )
-
 
 # -----------------------
 # MultiTaper FFT
@@ -156,7 +157,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
         dat = signal.detrend(dat, type='linear', axis=0, overwrite_data=True)
 
     # call actual specest method
-    res, _ = mtmfft(dat, **method_kwargs)
+    res, freqs = mtmfft(dat, **method_kwargs)
 
     # attach time-axis and convert to output_fmt
     spec = res[np.newaxis, :, freq_idx, :]
@@ -166,7 +167,10 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
     # if output_fmt == 'pow'! (gets checked in parent meta)
     if not keeptapers:
         return spec.mean(axis=1, keepdims=True)
-    return spec
+
+    freqs_hash = blake2b(freqs).hexdigest().encode('utf-8')
+    metadata = { 'freqs_hash': freqs_hash }
+    return spec, metadata
 
 
 class MultiTaperFFT(ComputationalRoutine):
@@ -191,6 +195,12 @@ class MultiTaperFFT(ComputationalRoutine):
     valid_kws += ['tapsmofrq', 'nTaper', 'pad', 'fooof_opt']
 
     def process_metadata(self, data, out):
+
+        # General-purpose loading of metadata.
+        out.metadata = metadata_from_hdf5_file(out.filename)
+
+        # Compute absolute trial numbers from relative ones.
+        out.metadata = metadata_trial_indices_abs(out.metadata, data.selection)
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -1033,8 +1043,10 @@ class FooofSpy(ComputationalRoutine):
         # General-purpose loading of metadata.
         out.metadata = metadata_from_hdf5_file(out.filename)
 
-        # Compute absolute trial numbers from relative ones.
-        out.metadata = metadata_trial_indices_abs(out.metadata, data.selection)
+        # Computing absolute trial numbers from relative ones makes
+        # no sense for FOOOF, because the mtmfft run before will have
+        # consumed them and changed the input data of fooof, so it never
+        # sees them. Therefore, we do not call `metadata_trial_indices_abs` here.
 
         # Backend-specific post-processing. May or may not be needed, depending on what
         # you need to do in the cF to fit the return values into hdf5.
