@@ -28,7 +28,7 @@ intellinux:
     - export PYTHONPATH=$CI_PROJECT_DIR
     - cd $TEST_DIR    
     - pytest -ra -k 'not parallel'
-    - pytest -ra -k 'paralel'            
+    - pytest -ra -k 'parallel'            
 
 powerlinux:
     stage: single
