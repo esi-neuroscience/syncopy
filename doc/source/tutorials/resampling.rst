@@ -1,14 +1,14 @@
 Resample data with Syncopy
 ==========================
 
-Changing the sampling rate of a dataset is a common tasks in digital signal processing. Syncopy offers simple *downsampling* (decimation) with or without explicit low pass filtering, and the numerically more expensive *resampling* to arbitrary new sampling rates.
+Changing the sampling rate of a dataset is a common task in digital signal processing. Syncopy offers simple *downsampling* (decimation) with or without explicit low pass filtering, and the numerically more expensive *resampling* to arbitrary new sampling rates.
 
 .. Note::
    Our friends at FieldTrip also have a nice tutorial about resampling `here <https://www.fieldtriptoolbox.org/faq/resampling_lowpassfilter>`_
 
 .. contents:: Topics covered
    :local:
-   
+
 Synthetic Data
 --------------
 
@@ -52,7 +52,7 @@ Suppose we want to downsample our signal to 1kHz. The *original sampling rate* h
   ds_adata = spy.resampledata(adata, method='downsample', resamplefs=1000)
 
 Let's have a look at the new power spectrum::
-  
+
   ds_spec = spy.freqanalysis(adata, keeptrials=False)
   ds_spec.singlepanelplot(channel=0)
 
@@ -62,7 +62,7 @@ What happened? First we have to note that the frequency axis now goes from 0Hz t
 
 .. math::
 
-   f_{alias} = \left |\frac{f_{sample}}{n} - f_{orig}\right | 
+   f_{alias} = \left |\frac{f_{sample}}{n} - f_{orig}\right |
 
 where :math:`f_{sample}` is the original sampling frequency, :math:`n = \frac{f_{sample}}{f_{resample}}` is the integer decimation factor and :math:`f_{orig}` is the original frequency. Plugging in the values we have gives: :math:`|5000Hz / 5 - 1300Hz| = 300Hz`. So this 300Hz peak is the alias of our original 1300Hz peak, but shifted by 1000Hz.
 
@@ -79,7 +79,7 @@ To circumvent the problem of aliasing, application of a so-called *anti-alias-fi
 throws::
 
   >>> SPYValueError: Invalid value of `lpfreq`: '600'; expected value to be greater or equals 0 and less or equals 500.0
-  
+
 because 600Hz is still bigger than the new Nyquist of :math:`1000Hz / 2 = 500Hz`. But this here will work just fine and results in the expected spectrum::
 
   ds_data2 = spy.resampledata(adata, method='downsample', resamplefs=1000, lpfreq=500)
@@ -88,14 +88,14 @@ because 600Hz is still bigger than the new Nyquist of :math:`1000Hz / 2 = 500Hz`
 
 .. image:: res_lpds_spec.png
 
-Note the appearance of a "nose" in the spectrum towards 500Hz, this is the *filter roll-off*. Syncopy uses a windowed sinc FIR filter as anti-aliasing filter, but no filter is perfect so some frequencies away from the 500Hz cut-off also get attenuated. We can sharpen the filter by increasing its order, Syncopy's default is ``order=1000``, let's try with ``order=5000``::  
+Note the appearance of a "nose" in the spectrum towards 500Hz, this is the *filter roll-off*. Syncopy uses a windowed sinc FIR filter as anti-aliasing filter, but no filter is perfect so some frequencies away from the 500Hz cut-off also get attenuated. We can sharpen the filter by increasing its order, Syncopy's default is ``order=1000``, let's try with ``order=5000``::
 
   ds_data3 = spy.resampledata(adata, method='downsample', resamplefs=1000, lpfreq=500, order=5000)
   ds_spec3 = spy.freqanalysis(ds_adata3, keeptrials=False)
   ds_spec3.singlepanelplot(channel=0)
 
 .. image:: res_lporderds_spec.png
-  
+
 Indeed, we see a sharper transition around the 500Hz cut-off frequency. In practice, the frequencies of interest are rarely near the Nyquist limit so the default order should be fine for most if not all cases.
 
 .. note::
@@ -124,7 +124,7 @@ These numbers directly depend on the greatest common divisor :math:`gcd` between
 This time we did not get a spurious additional peak, as for resampling the FIR step acts as an implicit anti-alias filter getting automatically rid of any aliases. We could again increase the sharpness towards the new Nyquist frequency of 600Hz by increasing the order, but we'll leave that to the interested reader.
 
 Under the hood, Syncopy leverages the efficient polyphase method from `SciPy's reference implementation <https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.resample_poly.html>`_, but we use our own windowed sinc as it provides a sharper roll-off compared to SciPy's default FIR filter.
-  
+
 .. note::
 
    If the :math:`gcd` is quite small, the up- and downsampling factors can get huge. As the anti-aliasing FIR filter acts on the upsampled signal, the default filter order can get insufficient and aliases start to reappear. In these cases manually setting a higher order is crucial. As an exercise, try resampling to :math:`f_{resample} = 1202Hz`, and see for yourself!
