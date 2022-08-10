@@ -149,9 +149,27 @@ class TestMetadataUsingFooof():
         cfg.foilim = [1., 100.]
         return cfg
 
+    def test_sequential_mtmfft_only(self):
+        """
+        Test metadata propagation with mtmfft in sequential compute mode.
+        """
+        cfg = TestMetadataUsingFooof.get_fooof_cfg()
+        cfg.output = "pow"  # Run mtmfft instead of fooof.
+        cfg.parallel = False
+        spec_dt = freqanalysis(cfg, self.tfData)
+
+        # These are known from the input data and cfg.
+        data_size = 100  # Number of samples (per trial) seen by mtmfftm. The full signal returned by _get_fooof_signal() is
+                         # larger, but the cfg.foilim setting (in get_fooof_cfg()) limits to 100 samples.
+        num_trials_out = 1 # Because of keeptrials = False in cfg.
+
+        assert spec_dt.data.shape == (num_trials_out, 1, data_size, 1)
+        assert spec_dt.metadata is not None
+        assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
+
     def test_sequential(self):
         """
-        Test metadata propagation in sequential compute mode.
+        Test metadata propagation with fooof in sequential compute mode.
         """
         cfg = TestMetadataUsingFooof.get_fooof_cfg()
         cfg.parallel = False

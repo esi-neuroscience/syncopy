@@ -150,8 +150,8 @@ def get_res_details(res):
                 for _, v in details.items():
                     if not isinstance(v, np.ndarray):
                         raise SPYValueError("the second return value of user-supplied compute functions must be a dict containing np.ndarrays")
-                    if not np.issubdtype(v.dtype, np.number):
-                        raise SPYValueError("the second return value of user-supplied compute functions must be a dict containing np.ndarrays containing numbers")
+                    if v.dtype == np.object:
+                        raise SPYValueError("the second return value of user-supplied compute functions must be a dict containing np.ndarrays with datatype other than 'np.object'")
             else:
                 raise SPYValueError("the second return value of user-supplied compute functions must be a dict")
     else:
