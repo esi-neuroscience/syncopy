@@ -488,7 +488,7 @@ class TestDetrending:
         assert np.allclose(np.mean(res.show(trials=1, channel=0)), 0, atol=1e-5)
 
         # check that the linear trend is gone
-        assert (orig_c0.max() - orig_c0.min()) > 2 * (res_c0.max() - res_c0.min())
+        assert (orig_c0.max() - orig_c0.min()) > 1.8 * (res_c0.max() - res_c0.min())
 
     def test_exceptions(self):
         with pytest.raises(SPYValueError, match='neither filtering, detrending or zscore'):
