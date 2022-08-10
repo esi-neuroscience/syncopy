@@ -226,7 +226,13 @@ def decode_unique_md_label(unique_label):
     """
     Splits something like `test__2_0` into `test`, `2` and `0`.
 
-    Note that a tuple of all `str`, (no `int`s) is returned.
+    Parameters
+    ----------
+    unique_label: str, with format `<label>__<trial_idx>_<chunk_idx>'`.
+
+    Returns
+    -------
+    tuple of `str`: the `'label'`, `'trial_idx'` and `'chunk_idx'`.
     """
     lab_ind = unique_label.rsplit("__")
     label = lab_ind[0]
