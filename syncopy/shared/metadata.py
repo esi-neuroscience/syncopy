@@ -209,17 +209,19 @@ def metadata_trial_indices_abs(metadata, selection):
         return metadata  # abs_trial_idx = rel_trial_idx, so nothing to do for us.
     del_keys = list()
 
+    metadata_to_add = dict()
     for unique_md_label_rel, v in metadata.items():
         label, rel_trial_idx, call_idx = decode_unique_md_label(unique_md_label_rel)
         rel_trial_idx = int(rel_trial_idx)
         abs_trial_idx = selection.trials[rel_trial_idx]
         if abs_trial_idx != rel_trial_idx:
             unique_md_label_abs = encode_unique_md_label(label, abs_trial_idx, call_idx)
-            metadata[unique_md_label_abs] = v  # Re-add value with new key.
+            metadata_to_add[unique_md_label_abs] = v  # Re-add value with new key later (cannot add in iteration).
             del_keys.append(unique_md_label_rel)
 
     for k in del_keys:
         del metadata[k]
+    metadata = { **metadata,  **metadata_to_add}
     return metadata
 
 
