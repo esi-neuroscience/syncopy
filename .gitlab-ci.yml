@@ -68,7 +68,7 @@ intelwin:
     - conda env update --prefix ./env -f syncopy.yml --prune
     - conda install virtualenv
     - conda install pytest
-    - call conda.bat activate syncopy
+    - cmd /k call conda.bat activate syncopy
     # - set PYTHONPATH=%PYTHONPATH%;$CI_PROJECT_DIR
     - conda list
     # - python -m pytest       
