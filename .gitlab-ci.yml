@@ -67,10 +67,12 @@ intelwin:
     - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda install virtualenv
-    - conda.bat activate syncopy
+    # - conda.bat activate syncopy
     - conda install pytest
+    - conda activate syncopy
     # - set PYTHONPATH=%PYTHONPATH%;$CI_PROJECT_DIR
     - conda list
+    - conda env list
     # - python -m pytest       
     # point tox to python from the conda env
     # needs to be done only once
