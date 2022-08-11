@@ -26,10 +26,9 @@ intellinux:
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - export PYTHONPATH=$CI_PROJECT_DIR
-    - cd $TEST_DIR    
+    - cd $TEST_DIR
     - pytest -ra -k 'not parallel'
-    - pytest -ra -k 'paralel'            
-    # - tox -p 0
+    - pytest -ra -k 'parallel'
 
 powerlinux:
     stage: single
@@ -49,12 +48,9 @@ powerlinux:
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - export PYTHONPATH=$CI_PROJECT_DIR
-    - cd $TEST_DIR    
+    - cd $TEST_DIR
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'
-    # see https://github.com/conda/conda/issues/10178
-    # - conda install ruamel.yaml
-    # - tox -p 0
 
 intelwin:
     stage: single
@@ -73,12 +69,12 @@ intelwin:
     - conda install virtualenv
     - conda.bat activate syncopy
     - set PYTHONPATH=%PYTHONPATH%;%CI_PROJECT_DIR%
-    - cd %TEST_DIR%        
+    - cd %TEST_DIR%
     # point tox to python from the conda env
     # needs to be done only once
     # - cmd /c mklink /J C:\Python38 %CONDA_PREFIX%
     - pytest -ra -k 'not parallel'
-    - pytest -ra -k 'parallel'        
+    - pytest -ra -k 'parallel'
 
 m1macos:
     stage: single
@@ -99,10 +95,9 @@ m1macos:
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - export PYTHONPATH=$CI_PROJECT_DIR
-    - cd $TEST_DIR    
+    - cd $TEST_DIR
     - pytest -ra -k 'not parallel'
-    - pytest -ra -k 'parallel'        
-    # - tox -p 0
+    - pytest -ra -k 'parallel'
 
 slurmtest:
     stage: slurm
@@ -124,7 +119,7 @@ slurmtest:
     - srun -p DEV --mem=8000m pytest -ra test_specest.py
     - srun -p DEV --mem=8000m pytest -ra test_connectivity.py
     - srun -p 8GBL pytest -ra --ignore=test_specest.py --ignore=test_connectivity.py
-    
+
 pypitest:
     stage: upload
     when: manual
