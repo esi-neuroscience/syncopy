@@ -14,10 +14,11 @@ import os
 
 # Local imports
 from syncopy import freqanalysis
+from syncopy.datatype.methods.copy import copy
 from syncopy.shared.tools import get_defaults
 from syncopy.tests.synth_data import AR2_network, phase_diffusion
 from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, get_res_details, _parse_backend_metadata, _merge_md_list, metadata_from_hdf5_file
-from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 import syncopy as spy
 from syncopy import __acme__
 if __acme__:
@@ -415,14 +416,18 @@ class TestMetadataUsingMtmfft():
         """
         Test metadata propagation with mtmfft in sequential compute mode.
         """
-        cfg = TestMetadataUsingMtmfft.get_mtmfft_cfg()
-        cfg.parallel = False
-        spec_dt = freqanalysis(cfg, self.tfData)
-
         # These are known from the input data and cfg.
         data_size = 100  # Number of samples (per trial) seen by mtmfftm. The full signal returned by _get_fooof_signal() is
                          # larger, but the cfg.foilim setting (in get_fooof_cfg()) limits to 100 samples.
         num_trials_out = 1 # Because of keeptrials = False in cfg.
+
+        cfg = TestMetadataUsingMtmfft.get_mtmfft_cfg()
+        cfg.parallel = False
+
+        freq_axis = np.arange(data_size) # Attach a freq axis to input data, to compare hashes later.
+        spec_dt = freqanalysis(cfg, self.tfData)
+
+
 
         assert spec_dt.data.shape == (num_trials_out, 1, data_size, 1)
 
@@ -433,6 +438,29 @@ class TestMetadataUsingMtmfft():
         for kv in keys_unique:
             assert kv in spec_dt.metadata.keys()
             assert isinstance(spec_dt.metadata.get(kv), (np.bytes_))
+
+
+        # Demo: Use the extra return values to make sure the hashes of the frequency
+        #       arrays are identicals across all trials:
+        from hmac import compare_digest
+        reference_hash = None
+        trials_with_mismatches = []
+        num_hashes_checked = 0
+        for unique_md_label_rel, v in spec_dt.metadata.items():
+            label, trial_idx, _ = decode_unique_md_label(unique_md_label_rel)
+            if label == "freqs_hash":
+                trial_freqs_hash = v
+                if reference_hash is None:
+                    reference_hash = trial_freqs_hash
+                else:
+                    if not compare_digest(reference_hash, trial_freqs_hash):
+                        trials_with_mismatches.append(trial_idx)
+                num_hashes_checked += 1
+        if trials_with_mismatches:
+            SPYWarning(f"Frequency axes hashes mismatched for {len(trials_with_mismatches)} trials: {trials_with_mismatches} against reference hash from first trial.")
+        else:
+            print(f"Frequency axes hashes are identical across all {num_hashes_checked} trials.")
+
 
 if __name__ == "__main__":
     T1 = TestMetadataHelpers()

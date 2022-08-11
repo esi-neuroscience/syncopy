@@ -19,6 +19,7 @@
 # method: backend method name
 
 # Builtin/3rd party package imports
+from hmac import compare_digest
 from inspect import signature
 import numpy as np
 from hashlib import blake2b
