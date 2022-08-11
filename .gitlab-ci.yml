@@ -65,8 +65,7 @@ intelwin:
         GIT_FETCH_EXTRA_FLAGS: --tags
     script:
     - conda clean --all -y
-    - conda env create -f syncopy.yml
-    - conda env update -f syncopy.yml --prune
+    - conda env update --prefix ./env -f syncopy.yml --prune
     - conda install virtualenv
     - conda install pytest
     - conda.bat activate syncopy
