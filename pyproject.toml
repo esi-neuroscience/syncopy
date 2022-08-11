@@ -3,7 +3,7 @@ name = "esi-syncopy"
 packages = [
     {include = "syncopy"}
 ]
-version = "2022.8.1-alpha.2"
+version = "2022.8"
 license = "BSD-3-Clause"
 readme="README.rst"
 homepage="https://syncopy.org"
