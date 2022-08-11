@@ -105,10 +105,16 @@ class TestMetadataHelpers():
             a, b = get_res_details((np.zeros(3), {'a': dict()}))
         assert "the second return value of user-supplied compute functions must be a dict containing np.ndarrays" in str(err.value)
 
-        # Test with tuple of correct length, 2nd value is dict, but values ndarray but not numeric
+        # Test with numpy array with datatype np.object, which is not valid.
+        invalid_val = np.array([np.zeros((5,3)), np.zeros((8,3))], dtype = object)  # The dtype is required to silence numpy deprecation warnings, the dtype will be object even without it.
+        assert invalid_val.dtype == object
         with pytest.raises(SPYValueError) as err:
-            a, b = get_res_details((np.zeros(3), {'a': np.array(['apples', 'foobar', 'cowboy'])}))
-        assert "the second return value of user-supplied compute functions must be a dict containing np.ndarrays containing numbers" in str(err.value)
+            a, b = get_res_details((np.zeros(3), {'a': invalid_val}))
+        assert "the second return value of user-supplied compute functions must be a dict containing np.ndarrays with datatype other than 'np.object'" in str(err.value)
+
+        # Test with tuple of correct length, 2nd value is dict, and values in ndarray are string (but not object). This is fine.
+        a, b = get_res_details((np.zeros(3), {'a': np.array(['apples', 'foobar', 'cowboy'])}))
+        assert 'a' in b
 
     def test_parse_details(self):
         # Test for error if input is not dict.
