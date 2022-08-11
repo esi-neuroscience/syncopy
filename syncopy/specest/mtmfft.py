@@ -104,7 +104,6 @@ def mtmfft(data_arr,
         ftr[taperIdx] = np.fft.rfft(win, n=nSamples, axis=0)
         # FT uses potentially padded length `nSamples`
         ftr[taperIdx] = _norm_spec(ftr[taperIdx], nSamples, samplerate)
-
     return ftr, freqs
 
 

@@ -123,7 +123,6 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
                      that calls this method as :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     numpy.fft.rfft : NumPy's FFT implementation
     """
-
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
@@ -162,14 +161,17 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
     # attach time-axis and convert to output_fmt
     spec = res[np.newaxis, :, freq_idx, :]
     spec = spectralConversions[output_fmt](spec)
+
+    # Hash the freqs and add to second return value.
+    freqs_hash = blake2b(freqs).hexdigest().encode('utf-8')
+    metadata = { 'freqs_hash': np.array(freqs_hash) }  # Will have dtype='|S128'
+
     # Average across tapers if wanted
     # averaging is only valid spectral estimate
     # if output_fmt == 'pow'! (gets checked in parent meta)
     if not keeptapers:
-        return spec.mean(axis=1, keepdims=True)
+        return spec.mean(axis=1, keepdims=True), metadata
 
-    freqs_hash = blake2b(freqs).hexdigest().encode('utf-8')
-    metadata = { 'freqs_hash': np.array(freqs_hash) }  # Will have dtype='|S128'
     return spec, metadata
 
 
@@ -1012,7 +1014,7 @@ def decode_metadata_fooof_alltrials_from_hdf5(metadata_fooof_hdf5):
                 peak_params_out.append(peak_params_in[start_idx:end_idx, :])
 
             metadata_fooof_hdf5[unique_attr_label_gaussian_params] = gaussian_params_out
-            metadata_fooof_hdf5[unique_attr_label_gaussian_params] = peak_params_out
+            metadata_fooof_hdf5[unique_attr_label_peak_params] = peak_params_out
     return metadata_fooof_hdf5
 
 

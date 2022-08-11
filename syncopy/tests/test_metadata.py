@@ -432,10 +432,12 @@ class TestMetadataUsingMtmfft():
         assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
         for kv in keys_unique:
             assert kv in spec_dt.metadata.keys()
-            assert isinstance(spec_dt.metadata.get(kv), (list, np.ndarray))
+            assert isinstance(spec_dt.metadata.get(kv), (np.bytes_))
 
 if __name__ == "__main__":
     T1 = TestMetadataHelpers()
     T2 = TestMetadataUsingFooof()
     T3 = TestMetadataUsingMtmfft()
+    print("=================Testing================")
     T3.test_sequential_mtmfft()
+    print("===============Testing done==============")

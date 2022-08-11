@@ -717,8 +717,6 @@ class ComputationalRoutine(ABC):
         # Now for the sequential processing case.
         else:
 
-            print("compute(): running sequential branch")
-
             # We only check memory
             memSize = psutil.virtual_memory().available
             if self.chunkMem >= mem_thresh * memSize:

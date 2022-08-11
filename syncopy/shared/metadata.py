@@ -175,6 +175,9 @@ def h5_add_details(h5fout, details, unique_key_suffix=""):
         A suffix to add to each attrib or dset name, to make it unique. Leave at the default for no suffix. Typically something like '__n_m', where `n` and `m` are integers.
         If an integer `n` is passed, it will be converted to the str '__n_0', where `n` is the integer.
     """
+    if details is None:
+        return
+
     close_file = False
     if isinstance(h5fout, str):
         close_file = True # We openend it, we close it.
@@ -183,13 +186,13 @@ def h5_add_details(h5fout, details, unique_key_suffix=""):
     if isinstance(unique_key_suffix, int):
         unique_key_suffix = "__" + str(unique_key_suffix) + "_0"
 
-    if details is not None:
-        grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")
-        attribs = _parse_backend_metadata(details)
-        for k, v in attribs.items():
-            k_unique = k + unique_key_suffix
-            grp.attrs.create(k_unique, data=v)
-        h5fout.flush()
+    grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")
+    attribs = _parse_backend_metadata(details)
+    for k, v in attribs.items():
+        k_unique = k + unique_key_suffix
+        grp.attrs.create(k_unique, data=v)
+    h5fout.flush()
+
     if close_file:
         h5fout.close()
 
@@ -201,15 +204,16 @@ def metadata_trial_indices_abs(metadata, selection):
     Note that the input metadata is already preprocessed from the hdf5.
     """
     if metadata is None:
-        return None
+        return metadata  # Nothing to do.
+    if selection is None or selection.trials is None:
+        return metadata  # abs_trial_idx = rel_trial_idx, so nothing to do for us.
     del_keys = list()
+
     for unique_md_label_rel, v in metadata.items():
         label, rel_trial_idx, call_idx = decode_unique_md_label(unique_md_label_rel)
-
-        if selection is None or selection.trial is None:
-            pass  # abs_trial_idx = rel_trial_idx, so nothing to do for us.
-        else:
-            abs_trial_idx = selection.trial[rel_trial_idx]
+        rel_trial_idx = int(rel_trial_idx)
+        abs_trial_idx = selection.trials[rel_trial_idx]
+        if abs_trial_idx != rel_trial_idx:
             unique_md_label_abs = encode_unique_md_label(label, abs_trial_idx, call_idx)
             metadata[unique_md_label_abs] = v  # Re-add value with new key.
             del_keys.append(unique_md_label_rel)
