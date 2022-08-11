@@ -169,7 +169,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
         return spec.mean(axis=1, keepdims=True)
 
     freqs_hash = blake2b(freqs).hexdigest().encode('utf-8')
-    metadata = { 'freqs_hash': freqs_hash }
+    metadata = { 'freqs_hash': np.array(freqs_hash) }  # Will have dtype='|S128'
     return spec, metadata
 
 
@@ -952,7 +952,7 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
     # nested dicts are not allowed in the additional return value of cFs, so we remove
     # it before passing the return value on.
 
-    metadata = pack_singletrial_metadata_fooof_into_hdf5(metadata)
+    metadata = encode_singletrial_metadata_fooof_for_hdf5(metadata)
 
     res = res[np.newaxis, np.newaxis, :, :]  # Re-add omitted axes.
     return res, metadata
@@ -960,7 +960,7 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
 
 
 
-def pack_singletrial_metadata_fooof_into_hdf5(metadata_fooof_backend):
+def encode_singletrial_metadata_fooof_for_hdf5(metadata_fooof_backend):
     """ Reformat the gaussian and peak params for inclusion in the 2nd return value and hdf5 file.
 
     For several channels, the number of peaks may differ, and thus we cannot simply
@@ -977,7 +977,7 @@ def pack_singletrial_metadata_fooof_into_hdf5(metadata_fooof_backend):
     return metadata_fooof_backend
 
 
-def decode_metadata_fooof_alltrials_from_hdf5_file(metadata_fooof_hdf5):
+def decode_metadata_fooof_alltrials_from_hdf5(metadata_fooof_hdf5):
     """This reverts and special packaging applied to the fooof backend
     function return values to fit them into the hdf5 container.
 
@@ -1050,7 +1050,7 @@ class FooofSpy(ComputationalRoutine):
 
         # Backend-specific post-processing. May or may not be needed, depending on what
         # you need to do in the cF to fit the return values into hdf5.
-        out.metadata = decode_metadata_fooof_alltrials_from_hdf5_file(out.metadata)
+        out.metadata = decode_metadata_fooof_alltrials_from_hdf5(out.metadata)
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:

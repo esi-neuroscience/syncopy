@@ -135,7 +135,6 @@ class TestMetadataHelpers():
         with pytest.raises(SPYTypeError, match="value in metadata"):
             attrs = _parse_backend_metadata({'attr1': dict()})
 
-
 class TestMetadataUsingFooof():
     """
     Test 2nd cF function return value, with FOOOF as example compute method.
@@ -154,24 +153,6 @@ class TestMetadataUsingFooof():
         cfg.output = "fooof"
         cfg.foilim = [1., 100.]
         return cfg
-
-    def test_sequential_mtmfft_only(self):
-        """
-        Test metadata propagation with mtmfft in sequential compute mode.
-        """
-        cfg = TestMetadataUsingFooof.get_fooof_cfg()
-        cfg.output = "pow"  # Run mtmfft instead of fooof.
-        cfg.parallel = False
-        spec_dt = freqanalysis(cfg, self.tfData)
-
-        # These are known from the input data and cfg.
-        data_size = 100  # Number of samples (per trial) seen by mtmfftm. The full signal returned by _get_fooof_signal() is
-                         # larger, but the cfg.foilim setting (in get_fooof_cfg()) limits to 100 samples.
-        num_trials_out = 1 # Because of keeptrials = False in cfg.
-
-        assert spec_dt.data.shape == (num_trials_out, 1, data_size, 1)
-        assert spec_dt.metadata is not None
-        assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
 
     def test_sequential(self):
         """
@@ -325,9 +306,7 @@ class TestMetadataUsingFooof():
         assert spec_dt.data.shape == (num_trials_fooof_selected, 1, data_size, 1)
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset 'data' as attributes.
-        k_unique = "__0_0"
-        expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
-        keys_unique = [kv + k_unique for kv in expected_fooof_dict_entries]
+        keys_unique = [kv + "__0_0" for kv in self.expected_fooof_dict_entries]
 
         # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
         assert spec_dt.metadata is not None
@@ -421,6 +400,42 @@ class TestMetadataUsingFooof():
         client.close()
         plt.ion()
 
+
+class TestMetadataUsingMtmfft():
+    tfData = _get_fooof_signal()
+    expected_metadata_dict_entries = ["freqs_hash"]
+
+    @staticmethod
+    def get_mtmfft_cfg():
+        cfg = TestMetadataUsingFooof.get_fooof_cfg()
+        cfg.output = "pow"
+        return cfg
+
+    def test_sequential_mtmfft(self):
+        """
+        Test metadata propagation with mtmfft in sequential compute mode.
+        """
+        cfg = TestMetadataUsingMtmfft.get_mtmfft_cfg()
+        cfg.parallel = False
+        spec_dt = freqanalysis(cfg, self.tfData)
+
+        # These are known from the input data and cfg.
+        data_size = 100  # Number of samples (per trial) seen by mtmfftm. The full signal returned by _get_fooof_signal() is
+                         # larger, but the cfg.foilim setting (in get_fooof_cfg()) limits to 100 samples.
+        num_trials_out = 1 # Because of keeptrials = False in cfg.
+
+        assert spec_dt.data.shape == (num_trials_out, 1, data_size, 1)
+
+        keys_unique = [kv + "__0_0" for kv in self.expected_metadata_dict_entries]
+
+        assert spec_dt.metadata is not None
+        assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
+        for kv in keys_unique:
+            assert kv in spec_dt.metadata.keys()
+            assert isinstance(spec_dt.metadata.get(kv), (list, np.ndarray))
+
 if __name__ == "__main__":
     T1 = TestMetadataHelpers()
     T2 = TestMetadataUsingFooof()
+    T3 = TestMetadataUsingMtmfft()
+    T3.test_sequential_mtmfft()
