@@ -117,11 +117,18 @@ class TestMetadataHelpers():
         a, b = get_res_details((np.zeros(3), {'a': np.array(['apples', 'foobar', 'cowboy'])}))
         assert 'a' in b
 
-    def test_parse_details(self):
+    def test_parse_backend_metadata(self):
+        assert _parse_backend_metadata(None) == dict()
+
         # Test for error if input is not dict.
         with pytest.raises(SPYTypeError) as err:
             attrs = _parse_backend_metadata(np.zeros(3))
         assert "expected dict found ndarray" in str(err.value)
+
+        # Test for error if dict keys are not string
+        with pytest.raises(SPYValueError) as err:
+            attrs = _parse_backend_metadata({5: np.zeros(3)})
+        assert "keys in metadata must be strings" in str(err.value)
 
         # Test that empty input leads to empty output
         attrs = _parse_backend_metadata(dict())
@@ -135,6 +142,9 @@ class TestMetadataHelpers():
         # Test that error is raised if implicit 'attr 'values are not ndarray
         with pytest.raises(SPYTypeError, match="value in metadata"):
             attrs = _parse_backend_metadata({'attr1': dict()})
+
+        # Test that warning is raised for large data
+        _parse_backend_metadata({'attr1': np.arange(100000)})
 
 class TestMetadataUsingFooof():
     """
@@ -489,6 +499,6 @@ if __name__ == "__main__":
     T1 = TestMetadataHelpers()
     T2 = TestMetadataUsingFooof()
     T3 = TestMetadataUsingMtmfft()
-    print("=================Testing================")
-    T3.test_par_mtmfft_with_selections()
-    print("===============Testing done==============")
+    #print("=================Testing================")
+    #T3.test_par_mtmfft_with_selections()
+    #print("===============Testing done==============")

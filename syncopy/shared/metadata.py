@@ -111,11 +111,7 @@ def _parse_backend_metadata(metadata, check_attr_dsize=True):
 
     for k, v in metadata.items():
         if not isinstance(v, np.ndarray):
-            if isinstance(v, list): # Be nice and convert it ourselves. This does not work in
-                                    # all cases though, as the resulting datatype may be 'object'.
-                v = np.array(v)
-            else:
-                raise SPYTypeError(v, varname="value in metadata", expected="np.ndarray")
+            raise SPYTypeError(v, varname="value in metadata", expected="np.ndarray")
         if isinstance(k, str):
             attribs[k] = v
         else:
@@ -150,7 +146,7 @@ def get_res_details(res):
                 for _, v in details.items():
                     if not isinstance(v, np.ndarray):
                         raise SPYValueError("the second return value of user-supplied compute functions must be a dict containing np.ndarrays")
-                    if v.dtype == np.object:
+                    if v.dtype == object:
                         raise SPYValueError("the second return value of user-supplied compute functions must be a dict containing np.ndarrays with datatype other than 'np.object'")
             else:
                 raise SPYValueError("the second return value of user-supplied compute functions must be a dict")
