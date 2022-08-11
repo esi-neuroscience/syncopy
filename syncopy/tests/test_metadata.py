@@ -277,21 +277,19 @@ class TestMetadataUsingFooof():
         and trial selections.
 
         In the case of trial selections, the computation of absolute trial indices
-        from relative ones uses the non-trivial branch. We test for correctly
-        reconstructed absolute trial indices in this test.
+        from relative ones uses the trivial branch for fooof, bacause the selection
+        is handled (and consumed) by the mtmfft running before fooof. See the test
+        in the `TestMetadataUsingMtmfft` class below for the other branch.
         """
         cfg = TestMetadataUsingFooof.get_fooof_cfg()
         cfg.pop('fooof_opt', None)
-        cfg.parallel = True # enable parallel computation
-        cfg.keeptrials = True # enable parallel storage (is turned off when trial averaging is happening)
+        cfg.parallel = True  # Enable parallel computation
+        cfg.keeptrials = True  # Enable parallel storage (is turned off when trial averaging is happening)
         fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
         data = self.tfData.copy()
 
         selected_trials = [3, 5, 7]
-
         cfg.select = { 'trials': selected_trials }
-        #spy.selectdata(data, trials=selected_trials, inplace=True) # TODO: This line should also work,
-        #  and be equivalent to the `cfg.select`... line above, but it seems to have no effect. Bug? See #332
 
         spec_dt = freqanalysis(cfg, data, fooof_opt=fooof_opt)
 
@@ -317,20 +315,6 @@ class TestMetadataUsingFooof():
         for kv in keys_unique:
             assert (kv) in spec_dt.metadata.keys()
             assert isinstance(spec_dt.metadata.get(kv), (list, np.ndarray))
-
-        # Check that the metadata keys are absolute.
-        # TO DISCUSS: This does not work for fooof, beause the mtmfft comsumes the selection, leaving
-        #             fooof with a smaller trials list and no selection (and trial indices in the list
-        #             are relative to the mtmfft selection).
-        #md_trial_indices = []
-        #for k in spec_dt.metadata.keys():
-        #    label, trial_idx, chunk_idx = decode_unique_md_label(k)
-        #    md_trial_indices.append(int(trial_idx))
-        #for ti in md_trial_indices:
-        #    assert ti in selected_trials, f"Expected trial index '{ti}' not in selected_trials"
-
-        # check that the cfg is correct (required for replay)
-        assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
 
     def test_channel_par(self):
         """
@@ -415,6 +399,9 @@ class TestMetadataUsingMtmfft():
     def test_sequential_mtmfft(self):
         """
         Test metadata propagation with mtmfft in sequential compute mode.
+
+        This also demonstrates howto use the hashed frequencies from the 2nd return
+        value to ensure they are identical across trials.
         """
         # These are known from the input data and cfg.
         data_size = 100  # Number of samples (per trial) seen by mtmfftm. The full signal returned by _get_fooof_signal() is
@@ -424,10 +411,7 @@ class TestMetadataUsingMtmfft():
         cfg = TestMetadataUsingMtmfft.get_mtmfft_cfg()
         cfg.parallel = False
 
-        freq_axis = np.arange(data_size) # Attach a freq axis to input data, to compare hashes later.
         spec_dt = freqanalysis(cfg, self.tfData)
-
-
 
         assert spec_dt.data.shape == (num_trials_out, 1, data_size, 1)
 
@@ -461,11 +445,50 @@ class TestMetadataUsingMtmfft():
         else:
             print(f"Frequency axes hashes are identical across all {num_hashes_checked} trials.")
 
+    def test_par_mtmfft_with_selections(self):
+        """
+        Test metadata propagation with mtmfft in with parallel compute and parallel storage,
+        and trial selections.
+
+        In the case of trial selections, the computation of absolute trial indices
+        from relative ones uses the complex branch for mtmfft, where absolute trial
+        indices are computed from the relative ones.
+        """
+        # These are known from the input data and cfg.
+        data_size = 100  # Number of samples (per trial) seen by mtmfftm. The full signal returned by _get_fooof_signal() is
+                         # larger, but the cfg.foilim setting (in get_fooof_cfg()) limits to 100 samples.
+
+        cfg = TestMetadataUsingMtmfft.get_mtmfft_cfg()
+        cfg.parallel = True  # Enable parallel computation
+        cfg.keeptrials = True  # Enable parallel storage (is turned off when trial averaging is happening)
+
+        selected_trials = [3, 5, 7]
+        cfg.select = { 'trials': selected_trials }
+        num_trials_out = len(selected_trials)
+
+        spec_dt = freqanalysis(cfg, self.tfData)
+
+        assert spec_dt.data.shape == (num_trials_out, 1, data_size, 1)
+
+        assert spec_dt.metadata is not None
+        assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
+
+        # Check that the metadata keys are absolute, despite the selection.
+        # We expect this to be the case because in the `process_metadata` implementation
+        # of the mtmfft computational routine, we call `metadata_trial_indices_abs` to compute them.
+        md_trial_indices = []
+        for k, v in spec_dt.metadata.items():
+            label, trial_idx, chunk_idx = decode_unique_md_label(k)
+            md_trial_indices.append(int(trial_idx))
+            assert isinstance(v, (np.bytes_))
+        for ti in md_trial_indices:
+            assert ti in selected_trials, f"Expected trial index '{ti}' not found in selected_trials"
+
 
 if __name__ == "__main__":
     T1 = TestMetadataHelpers()
     T2 = TestMetadataUsingFooof()
     T3 = TestMetadataUsingMtmfft()
     print("=================Testing================")
-    T3.test_sequential_mtmfft()
+    T3.test_par_mtmfft_with_selections()
     print("===============Testing done==============")
