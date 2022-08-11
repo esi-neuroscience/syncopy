@@ -69,7 +69,7 @@ intelwin:
     - conda install virtualenv
     - conda.bat activate syncopy
     - set PYTHONPATH=%PYTHONPATH%;$CI_PROJECT_DIR
-    - cd %TEST_DIR%        
+    - cd $TEST_DIR       
     # point tox to python from the conda env
     # needs to be done only once
     # - cmd /c mklink /J C:\Python38 %CONDA_PREFIX%
