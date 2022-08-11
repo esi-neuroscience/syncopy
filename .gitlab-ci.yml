@@ -68,14 +68,15 @@ intelwin:
     - conda env update -f syncopy.yml --prune
     - conda install virtualenv
     - conda.bat activate syncopy
+    - conda install pytest
     - set PYTHONPATH=%PYTHONPATH%;$CI_PROJECT_DIR
     - cd $TEST_DIR
-    - python -m pytest       
+    # - python -m pytest       
     # point tox to python from the conda env
     # needs to be done only once
     # - cmd /c mklink /J C:\Python38 %CONDA_PREFIX%
-    # - pytest -ra -k 'not parallel'
-    # - pytest -ra -k 'parallel'        
+    - pytest -ra -k 'not parallel'
+    - pytest -ra -k 'parallel'        
 
 m1macos:
     stage: single
