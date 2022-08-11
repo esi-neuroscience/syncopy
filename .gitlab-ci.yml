@@ -65,11 +65,11 @@ intelwin:
         GIT_FETCH_EXTRA_FLAGS: --tags
     script:
     - conda clean --all -y
+    - conda env create -f syncopy.yml
     - conda env update -f syncopy.yml --prune
     - conda install virtualenv
-    # - conda.bat activate syncopy
     - conda install pytest
-    - conda activate syncopy
+    - conda.bat activate syncopy
     # - set PYTHONPATH=%PYTHONPATH%;$CI_PROJECT_DIR
     - conda list
     - conda env list
