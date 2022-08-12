@@ -12,7 +12,6 @@ import numpy as np
 # Local imports
 from syncopy.shared.errors import (SPYTypeError, SPYValueError,
                                    SPYError, SPYWarning)
-from syncopy.datatype.base_data import BaseData
 from syncopy.shared.tools import StructDict
 import syncopy as spy
 if spy.__acme__:
@@ -235,7 +234,7 @@ def unwrap_cfg(func):
         if data:
             if not isinstance(data, (tuple, list)):
                 data = [data]
-            if any([isinstance(arg, BaseData) for arg in args]):
+            if any([isinstance(arg, spy.datatype.base_data.BaseData) for arg in args]):
                 lgl = "Syncopy data object(s) provided either via `cfg`/keyword or " +\
                     "positional arguments, not both"
                 raise SPYValueError(legal=lgl, varname="cfg/data")
@@ -243,7 +242,7 @@ def unwrap_cfg(func):
                 lgl = "Syncopy data object(s) provided either via `cfg` or as " +\
                     "keyword argument, not both"
                 raise SPYValueError(legal=lgl, varname="cfg.data")
-            if any([not isinstance(obj, BaseData) for obj in data]):
+            if any([not isinstance(obj, spy.datatype.base_data.BaseData) for obj in data]):
                 raise SPYError("`data` must be Syncopy data object(s)!")
             posargs = args
 
@@ -253,7 +252,7 @@ def unwrap_cfg(func):
             posargs = []
             while args:
                 arg = args.pop(0)
-                if isinstance(arg, BaseData):
+                if isinstance(arg, spy.datatype.base_data.BaseData):
                     data.append(arg)
                 else:
                     posargs.append(arg)
