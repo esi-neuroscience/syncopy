@@ -646,6 +646,7 @@ def process_io(func):
         # common single file (sequentially)
         if vdsdir is not None:
             with h5py.File(outfilename, "w") as h5fout:
+                h5fout.create_dataset(outdset, data=res)
                 h5_add_details(h5fout, details, unique_key_suffix=call_id)
                 h5fout.flush()
         else:
