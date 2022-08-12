@@ -323,5 +323,5 @@ Users (as in: developers writing compute functions) are supposed to do the follo
    #. Check the return value for things indicating that things went wrong in the backend/cF, and raise exceptions or print warnings accordingly
    #. To recompute absolute trial indices from relative ones (if a selection was active in the input data, and that makes sense for your cF), you can optionally call `my_metadata_absind = metadata_trial_indices_abs(my_metadata, data.selection)` on the collected metadata.
    #. If you did some special encoding in the `cF` to fit the data into the dict with the hdf5 'attribute' limitations, you may want to undo this.
-   #. To pass it to the frontend/user, one could attach it to the syncopy data instance `out`. Keep in mind that it will not be saved in that case, but the user calling the frontend will have access to it.
+   #. To pass it to the frontend/user, one could add it to the `info` property or the `log` of `out`, or attach it to the syncopy data instance `out` as a new attribute. Keep in mind that such an attribute will not be saved in that case, but the user calling the frontend will have access to it.
 
