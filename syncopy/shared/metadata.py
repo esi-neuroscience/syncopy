@@ -156,22 +156,22 @@ def parse_cF_returns(res):
     return res, details
 
 
-def h5_add_details(h5fout, details, unique_key_suffix=""):
+def h5_add_metadata(h5fout, metadata, unique_key_suffix=""):
     """
-    Add details, the second return value of user-supplied cF, after parsing with `_parse_details`,
+    Add details, the second return value of user-supplied cF, after parsing with `_parse_backend_metadata`,
     as a 'metadata' group to an existing hdf5 file.
 
     Parameters
     ----------
     hdf5_filename: h5py file instance | str
         Open h5py file, or path to existing hdf5 file. The file will be openend in write mode, written to, and then flushed and closed.
-    details: dict
-        The second return value of user-supplied cF, with the limitations described in `_parse_details()`.
+    metadata: dict
+        The second return value of user-supplied cF, with the limitations described in `_parse_backend_metadata()`.
     unique_key_suffix: str or int
         A suffix to add to each attrib or dset name, to make it unique. Leave at the default for no suffix. Typically something like '__n_m', where `n` and `m` are integers.
         If an integer `n` is passed, it will be converted to the str '__n_0', where `n` is the integer.
     """
-    if details is None:
+    if metadata is None:
         return
 
     close_file = False
@@ -182,8 +182,8 @@ def h5_add_details(h5fout, details, unique_key_suffix=""):
     if isinstance(unique_key_suffix, int):
         unique_key_suffix = "__" + str(unique_key_suffix) + "_0"
 
-    grp = h5fout['metadata'] if 'metadata' in h5fout else h5fout.create_group("metadata")
-    attribs = _parse_backend_metadata(details)
+    grp = h5fout.require_group("metadata")
+    attribs = _parse_backend_metadata(metadata)
     for k, v in attribs.items():
         k_unique = k + unique_key_suffix
         grp.attrs.create(k_unique, data=v)
@@ -193,7 +193,7 @@ def h5_add_details(h5fout, details, unique_key_suffix=""):
         h5fout.close()
 
 
-def metadata_trial_indices_abs(metadata, selection):
+def trial_indices_abs(metadata, selection):
     """
     Re-compute absolute trial indices in the metadata from the relative ones.
 

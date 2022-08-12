@@ -39,7 +39,7 @@ from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import process_io
-from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, metadata_trial_indices_abs, metadata_from_hdf5_file
+from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, trial_indices_abs, metadata_from_hdf5_file
 from syncopy.shared.const_def import (
     spectralConversions,
     spectralDTypes
@@ -203,7 +203,7 @@ class MultiTaperFFT(ComputationalRoutine):
         out.metadata = metadata_from_hdf5_file(out.filename)
 
         # Compute absolute trial numbers from relative ones.
-        out.metadata = metadata_trial_indices_abs(out.metadata, data.selection)
+        out.metadata = trial_indices_abs(out.metadata, data.selection)
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:

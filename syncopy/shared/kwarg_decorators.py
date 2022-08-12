@@ -13,7 +13,7 @@ import numpy as np
 from syncopy.shared.errors import (SPYTypeError, SPYValueError,
                                    SPYError, SPYWarning)
 from syncopy.shared.tools import StructDict
-from syncopy.shared.metadata import h5_add_details, parse_cF_returns
+from syncopy.shared.metadata import h5_add_metadata, parse_cF_returns
 import syncopy as spy
 if spy.__acme__:
     import dask.distributed as dd
@@ -647,7 +647,7 @@ def process_io(func):
         if vdsdir is not None:
             with h5py.File(outfilename, "w") as h5fout:
                 h5fout.create_dataset(outdset, data=res)
-                h5_add_details(h5fout, details, unique_key_suffix=call_id)
+                h5_add_metadata(h5fout, details, unique_key_suffix=call_id)
                 h5fout.flush()
         else:
 
@@ -662,7 +662,7 @@ def process_io(func):
                 else:
                     main_dset[()] = np.nansum([main_dset, res], axis=0)
 
-                h5_add_details(h5fout, details, unique_key_suffix=call_id)
+                h5_add_metadata(h5fout, details, unique_key_suffix=call_id)
                 h5fout.flush()
             lock.release()
 

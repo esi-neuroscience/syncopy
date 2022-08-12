@@ -31,7 +31,7 @@ if __acme__:
     # # In case of problems w/worker-stealing, uncomment the following lines
     # import dask
     # dask.config.set(distributed__scheduler__work_stealing=False)
-from syncopy.shared.metadata import parse_cF_returns, h5_add_details
+from syncopy.shared.metadata import parse_cF_returns, h5_add_metadata
 
 __all__ = []
 
@@ -922,7 +922,7 @@ class ComputationalRoutine(ABC):
                     # (use an explicit `shape` assignment here to avoid copies)
                     res.shape = self.targetShapes[nblock]
 
-                    h5_add_details(h5fout, details, unique_key_suffix=nblock)
+                    h5_add_metadata(h5fout, details, unique_key_suffix=nblock)
 
                 # Either write result to `outgrid` location in `target` or add it up
                 if self.keeptrials:
