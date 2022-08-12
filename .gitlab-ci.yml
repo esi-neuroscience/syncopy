@@ -65,16 +65,15 @@ intelwin:
         GIT_FETCH_EXTRA_FLAGS: --tags
     script:
     - conda clean --all -y
-    - conda env update -f syncopy.yml --prune
-    - conda install virtualenv
-    - conda.bat activate syncopy
-    - set PYTHONPATH=%PYTHONPATH%;%CI_PROJECT_DIR%
-    - cd %TEST_DIR%
+    - conda env update --prefix ./env -f syncopy.yml --prune
+    # - conda install virtualenv
+    # - set PYTHONPATH=%PYTHONPATH%;$CI_PROJECT_DIR
+    - cmd /k call conda.bat activate syncopy "&" conda list
     # point tox to python from the conda env
     # needs to be done only once
     # - cmd /c mklink /J C:\Python38 %CONDA_PREFIX%
-    - pytest -ra -k 'not parallel'
-    - pytest -ra -k 'parallel'
+    - conda.bat activate syncopy "&" pytest -ra -k 'not parallel' $TEST_DIR
+    - conda.bat activate syncopy "&" pytest -ra -k 'parallel' $TEST_DIR        
 
 m1macos:
     stage: single
@@ -124,7 +123,8 @@ pypitest:
     stage: upload
     when: manual
     only:
-    - tags
+    - master
+    - dev
     tags:
     - deploy
     variables:
@@ -153,7 +153,7 @@ pypideploy:
     stage: deploy
     when: manual
     only:
-    - tags
+    - master
     tags:
     - deploy
     variables:
