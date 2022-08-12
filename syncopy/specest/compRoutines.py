@@ -955,68 +955,10 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
     # nested dicts are not allowed in the additional return value of cFs, so we remove
     # it before passing the return value on.
 
-    metadata = encode_singletrial_metadata_fooof_for_hdf5(metadata)
+    metadata = FooofSpy.encode_singletrial_metadata_fooof_for_hdf5(metadata)
 
     res = res[np.newaxis, np.newaxis, :, :]  # Re-add omitted axes.
     return res, metadata
-
-
-
-
-def encode_singletrial_metadata_fooof_for_hdf5(metadata_fooof_backend):
-    """ Reformat the gaussian and peak params for inclusion in the 2nd return value and hdf5 file.
-
-    For several channels, the number of peaks may differ, and thus we cannot simply
-    call something like `np.array(gaussian_params)` in that case, as that will create
-    an array of dtype 'object', which is not supported by hdf5. We could use one return
-    value (entry in the `'metadata_fooof_backend'` dict below) per channel to solve that, but in this
-    case, we decided to `vstack` the arrays instead. When extracting the data again
-    (in `process_metadata()`), we need to revert this. That is possible because we can
-    see from the `n_peaks` return value how many (and thus which) rows belong to
-    which channel.
-    """
-    metadata_fooof_backend['gaussian_params'] = np.vstack(metadata_fooof_backend['gaussian_params'])
-    metadata_fooof_backend['peak_params'] = np.vstack(metadata_fooof_backend['peak_params'])
-    return metadata_fooof_backend
-
-
-def decode_metadata_fooof_alltrials_from_hdf5(metadata_fooof_hdf5):
-    """This reverts and special packaging applied to the fooof backend
-    function return values to fit them into the hdf5 container.
-
-    In the case of FOOOF, we had to `np.vstack` the `gaussian_params`
-    and `peak_params`, and we now revert this.
-
-    Of course, you do not have to undo things if you are fine
-    with passing them to the frontend the way they are stored in the hdf5.
-
-    Keep in mind that this is not directly the inverse of the
-    function called in the cF, because:
-     - that function prepares data from a single backend function call,
-       while this function has to unpack the data from *all* cF function calls.
-     - the input metadata to this function is a standard dict that has already
-       been pre-processed, including the split into 'attrs' and 'dsets',
-       by the general-purpose metadata extraction function `metadata_from_hdf5_file()`.
-    """
-    for unique_attr_label, v in metadata_fooof_hdf5.items():
-        label, trial_idx, call_idx = decode_unique_md_label(unique_attr_label)
-        if label == "n_peaks":
-            n_peaks = v
-            gaussian_params_out = list()
-            peak_params_out = list()
-            start_idx = 0
-            unique_attr_label_gaussian_params = encode_unique_md_label('gaussian_params', trial_idx, call_idx)
-            unique_attr_label_peak_params = encode_unique_md_label('peak_params', trial_idx, call_idx)
-            gaussian_params_in = metadata_fooof_hdf5[unique_attr_label_gaussian_params]
-            peak_params_in = metadata_fooof_hdf5[unique_attr_label_peak_params]
-            for trial_idx in range(len(n_peaks)):
-                end_idx = start_idx + n_peaks[trial_idx]
-                gaussian_params_out.append(gaussian_params_in[start_idx:end_idx, :])
-                peak_params_out.append(peak_params_in[start_idx:end_idx, :])
-
-            metadata_fooof_hdf5[unique_attr_label_gaussian_params] = gaussian_params_out
-            metadata_fooof_hdf5[unique_attr_label_peak_params] = peak_params_out
-    return metadata_fooof_hdf5
 
 
 class FooofSpy(ComputationalRoutine):
@@ -1053,7 +995,7 @@ class FooofSpy(ComputationalRoutine):
 
         # Backend-specific post-processing. May or may not be needed, depending on what
         # you need to do in the cF to fit the return values into hdf5.
-        out.metadata = decode_metadata_fooof_alltrials_from_hdf5(out.metadata)
+        out.metadata = FooofSpy.decode_metadata_fooof_alltrials_from_hdf5(out.metadata)
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -1066,3 +1008,60 @@ class FooofSpy(ComputationalRoutine):
         out.channel = np.array(data.channel[chanSec])
         out.freq = data.freq
         out._trialdefinition = data._trialdefinition
+
+    @staticmethod
+    def encode_singletrial_metadata_fooof_for_hdf5(metadata_fooof_backend):
+        """ Reformat the gaussian and peak params for inclusion in the 2nd return value and hdf5 file.
+
+        For several channels, the number of peaks may differ, and thus we cannot simply
+        call something like `np.array(gaussian_params)` in that case, as that will create
+        an array of dtype 'object', which is not supported by hdf5. We could use one return
+        value (entry in the `'metadata_fooof_backend'` dict below) per channel to solve that, but in this
+        case, we decided to `vstack` the arrays instead. When extracting the data again
+        (in `process_metadata()`), we need to revert this. That is possible because we can
+        see from the `n_peaks` return value how many (and thus which) rows belong to
+        which channel.
+        """
+        metadata_fooof_backend['gaussian_params'] = np.vstack(metadata_fooof_backend['gaussian_params'])
+        metadata_fooof_backend['peak_params'] = np.vstack(metadata_fooof_backend['peak_params'])
+        return metadata_fooof_backend
+
+    @staticmethod
+    def decode_metadata_fooof_alltrials_from_hdf5(metadata_fooof_hdf5):
+        """This reverts and special packaging applied to the fooof backend
+        function return values to fit them into the hdf5 container.
+
+        In the case of FOOOF, we had to `np.vstack` the `gaussian_params`
+        and `peak_params`, and we now revert this.
+
+        Of course, you do not have to undo things if you are fine
+        with passing them to the frontend the way they are stored in the hdf5.
+
+        Keep in mind that this is not directly the inverse of the
+        function called in the cF, because:
+        - that function prepares data from a single backend function call,
+        while this function has to unpack the data from *all* cF function calls.
+        - the input metadata to this function is a standard dict that has already
+        been pre-processed, including the split into 'attrs' and 'dsets',
+        by the general-purpose metadata extraction function `metadata_from_hdf5_file()`.
+        """
+        for unique_attr_label, v in metadata_fooof_hdf5.items():
+            label, trial_idx, call_idx = decode_unique_md_label(unique_attr_label)
+            if label == "n_peaks":
+                n_peaks = v
+                gaussian_params_out = list()
+                peak_params_out = list()
+                start_idx = 0
+                unique_attr_label_gaussian_params = encode_unique_md_label('gaussian_params', trial_idx, call_idx)
+                unique_attr_label_peak_params = encode_unique_md_label('peak_params', trial_idx, call_idx)
+                gaussian_params_in = metadata_fooof_hdf5[unique_attr_label_gaussian_params]
+                peak_params_in = metadata_fooof_hdf5[unique_attr_label_peak_params]
+                for trial_idx in range(len(n_peaks)):
+                    end_idx = start_idx + n_peaks[trial_idx]
+                    gaussian_params_out.append(gaussian_params_in[start_idx:end_idx, :])
+                    peak_params_out.append(peak_params_in[start_idx:end_idx, :])
+
+                metadata_fooof_hdf5[unique_attr_label_gaussian_params] = gaussian_params_out
+                metadata_fooof_hdf5[unique_attr_label_peak_params] = peak_params_out
+        return metadata_fooof_hdf5
+
