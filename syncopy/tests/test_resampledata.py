@@ -198,6 +198,7 @@ class TestResampling:
             # polyphase method: firws acts on the upsampled data!
             kwargs = {'resamplefs': self.fs * 0.43, 'order': 5000}
 
+        print(f"resampledata: kwargs={kwargs}")
         rs = resampledata(self.adata, method='resample', **kwargs)
         spec_rs = freqanalysis(rs, tapsmofrq=1, keeptrials=False)
 

@@ -415,7 +415,7 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
         if amin < lims[0] or amax > lims[1]:
             legal = "all array elements to be bounded by {lb:s} and {ub:s}"
             raise SPYValueError(legal.format(lb=str(lims[0]), ub=str(lims[1])),
-                                varname=varname)
+                                varname=varname, actual=f"array with range {amin} to {amax}")
 
     # If required parse dimensional layout of array
     if dims is not None:
