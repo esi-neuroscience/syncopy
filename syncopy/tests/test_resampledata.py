@@ -198,7 +198,6 @@ class TestResampling:
             # polyphase method: firws acts on the upsampled data!
             kwargs = {'resamplefs': self.fs * 0.43, 'order': 5000}
 
-        print(f"resampledata: kwargs={kwargs}")
         rs = resampledata(self.adata, method='resample', **kwargs)
         spec_rs = freqanalysis(rs, tapsmofrq=1, keeptrials=False)
 
@@ -229,7 +228,7 @@ class TestResampling:
             resampledata(self.adata, method='nothing-real', resamplefs=self.fs // 2)
 
     def test_rs_selections(self):
-
+        np.random.seed(42)
         sel_dicts = helpers.mk_selection_dicts(nTrials=20,
                                                nChannels=2,
                                                toi_min=self.time_span[0],

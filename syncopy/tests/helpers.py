@@ -136,7 +136,6 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
         The list of dicts holding the keys and values for
         Syncopy selections.
     """
-
     # at least 10 trials
     assert nTrials > 9
     # at least 2 channels
