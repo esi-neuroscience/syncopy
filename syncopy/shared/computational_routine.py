@@ -31,7 +31,7 @@ if __acme__:
     # # In case of problems w/worker-stealing, uncomment the following lines
     # import dask
     # dask.config.set(distributed__scheduler__work_stealing=False)
-from syncopy.shared.metadata import get_res_details, h5_add_details
+from syncopy.shared.metadata import parse_cF_returns, h5_add_details
 
 __all__ = []
 
@@ -915,7 +915,7 @@ class ComputationalRoutine(ABC):
                     arr.shape = self.sourceShapes[nblock]
 
                     # Perform computation
-                    res, details = get_res_details(self.computeFunction(arr, *argv, **self.cfg))
+                    res, details = parse_cF_returns(self.computeFunction(arr, *argv, **self.cfg))
 
                     # In case scalar selections have been performed, explicitly assign
                     # desired output shape to re-create "lost" singleton dimensions

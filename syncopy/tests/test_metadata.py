@@ -17,7 +17,7 @@ from syncopy import freqanalysis
 from syncopy.datatype.methods.copy import copy
 from syncopy.shared.tools import get_defaults
 from syncopy.tests.synth_data import AR2_network, phase_diffusion
-from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, get_res_details, _parse_backend_metadata, _merge_md_list, metadata_from_hdf5_file
+from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, parse_cF_returns, _parse_backend_metadata, _merge_md_list, metadata_from_hdf5_file
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 import syncopy as spy
 from syncopy import __acme__
@@ -80,41 +80,41 @@ class TestMetadataHelpers():
     def test_get_res_details(self):
         # Test error on invalid input: a dict instead of tuple
         with pytest.raises(SPYValueError) as err:
-            _, b = get_res_details({"a": 2})
+            _, b = parse_cF_returns({"a": 2})
         assert "user-supplied compute function must return a single ndarray or a tuple with length exactly 2" in str(err.value)
 
         # Test with tuple of incorrect length 3
         with pytest.raises(SPYValueError) as err:
-            _, b = get_res_details((1, 2, 3))
+            _, b = parse_cF_returns((1, 2, 3))
         assert "user-supplied compute function must return a single ndarray or a tuple with length exactly 2" in str(err.value)
 
         # Test with tuple, 2nd arg is None
-        _, b = get_res_details((np.zeros(3)))
+        _, b = parse_cF_returns((np.zeros(3)))
         assert b is None
 
         # Test with ndarray only
-        _, b = get_res_details(np.zeros(3))
+        _, b = parse_cF_returns(np.zeros(3))
         assert b is None
 
         # Test with tuple of correct length, but 2nd value is not dict
         with pytest.raises(SPYValueError) as err:
-            a, b = get_res_details((np.zeros(3), np.zeros(4)))
+            a, b = parse_cF_returns((np.zeros(3), np.zeros(4)))
         assert "the second return value of user-supplied compute functions must be a dict" in str(err.value)
 
         # Test with tuple of correct length, 2nd value is dict, but values are not ndarray
         with pytest.raises(SPYValueError) as err:
-            a, b = get_res_details((np.zeros(3), {'a': dict()}))
+            a, b = parse_cF_returns((np.zeros(3), {'a': dict()}))
         assert "the second return value of user-supplied compute functions must be a dict containing np.ndarrays" in str(err.value)
 
         # Test with numpy array with datatype np.object, which is not valid.
         invalid_val = np.array([np.zeros((5,3)), np.zeros((8,3))], dtype = object)  # The dtype is required to silence numpy deprecation warnings, the dtype will be object even without it.
         assert invalid_val.dtype == object
         with pytest.raises(SPYValueError) as err:
-            a, b = get_res_details((np.zeros(3), {'a': invalid_val}))
+            a, b = parse_cF_returns((np.zeros(3), {'a': invalid_val}))
         assert "the second return value of user-supplied compute functions must be a dict containing np.ndarrays with datatype other than 'np.object'" in str(err.value)
 
         # Test with tuple of correct length, 2nd value is dict, and values in ndarray are string (but not object). This is fine.
-        a, b = get_res_details((np.zeros(3), {'a': np.array(['apples', 'foobar', 'cowboy'])}))
+        a, b = parse_cF_returns((np.zeros(3), {'a': np.array(['apples', 'foobar', 'cowboy'])}))
         assert 'a' in b
 
     def test_parse_backend_metadata(self):

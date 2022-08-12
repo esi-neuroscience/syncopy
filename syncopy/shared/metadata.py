@@ -124,7 +124,7 @@ def _parse_backend_metadata(metadata, check_attr_dsize=True):
     return attribs
 
 
-def get_res_details(res):
+def parse_cF_returns(res):
     """
     Split the first and second return value of user-supplied cF, if a second one exists.
 

@@ -13,7 +13,7 @@ import numpy as np
 from syncopy.shared.errors import (SPYTypeError, SPYValueError,
                                    SPYError, SPYWarning)
 from syncopy.shared.tools import StructDict
-from syncopy.shared.metadata import h5_add_details, get_res_details
+from syncopy.shared.metadata import h5_add_details, parse_cF_returns
 import syncopy as spy
 if spy.__acme__:
     import dask.distributed as dd
@@ -628,7 +628,7 @@ def process_io(func):
 
             # Now, actually call wrapped function
             # Put new outputs here!
-            res, details = get_res_details(func(arr, *wrkargs, **kwargs))
+            res, details = parse_cF_returns(func(arr, *wrkargs, **kwargs))
             # User-supplied cFs may return a single numpy.ndarray, or a 2-tuple of type (ndarray, sdict) where
             # 'ndarray' is a numpy.ndarray containing computation results to be stored in the Syncopy data type (like AnalogData),
             #  and 'sdict' is a shallow dictionary containing meta data that will be temporarily attached to the hdf5 container(s)
