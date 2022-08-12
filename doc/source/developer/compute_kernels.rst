@@ -294,8 +294,8 @@ For realizing more complex mechanisms, consult the implementations of
 :func:`syncopy.freqanalysis` or other metafunctions in Syncopy.
 
 
-Additional more return values for backend and compute functions
-----------------------------------------------------------------
+Additional return values for backend and compute functions
+----------------------------------------------------------
 
 Description and Overview
 ~~~~~~~~~~~~~~~~~~~~~~~~
