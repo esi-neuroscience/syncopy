@@ -300,7 +300,7 @@ Additional return values for backend and compute functions
 Description and Overview
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-One can pass a 2nd return value (a `dict`) from the `cF` functions, which will be attached automatically and temporarily to the (virtual or non-virtual) hdf5 files used by the compute backend to store results. The returned dict is subject to various limitations of hdf5 container 'attributes', including:
+One can pass a 2nd return value (a `dict`) from the `cF` functions, which will be attached automatically and temporarily to the (virtual or non-virtual) hdf5 files used by the compute backend (`cF` + `process_io` wrapper) to store results. The returned `dict` is subject to various limitations of hdf5 container 'attributes', including:
 
 * keys must be strings
 * values must be ndarrays with dtype != object, and size not exceeding 64k of data.
