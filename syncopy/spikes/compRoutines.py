@@ -90,7 +90,7 @@ def psth_cF(trl_dat,
     # just return output shape and dtype
     if noCompute:
         outShape = (nBins, nChanUnit)
-        return outShape, np.int32
+        return outShape, np.float32
 
     # call backend method
     # counts has shape (nBins, nUnits, nChannels)
@@ -151,7 +151,11 @@ class PSTH(ComputationalRoutine):
         trl[:, :2] = stride_tricks.sliding_window_view(sample_idx, (2,))
 
         # Attach meta-data
-        out.trialdefinition = trl
+        if self.keeptrials:
+            out.trialdefinition = trl
+        else:
+            out.trialdefinition = trl[[0], :]
+
         out.samplerate = srate
         # join labels for final unitX_channelY channel labels
         chan_str = "channel{}_unit{}"
