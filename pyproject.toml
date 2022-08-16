@@ -3,7 +3,7 @@ name = "esi-syncopy"
 packages = [
     {include = "syncopy"}
 ]
-version = "2022.07.2"
+version = "2022.8"
 license = "BSD-3-Clause"
 readme="README.rst"
 homepage="https://syncopy.org"
@@ -42,6 +42,7 @@ pytest = "^7.0"
 ipython = "^8.0"
 pytest-cov = "^3.0.0"
 sphinx-bootstrap-theme = ""
+sphinx-automodapi = "^0.14.1"
 flake8 = "^3.9"
 
 [build-system]

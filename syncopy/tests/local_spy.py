@@ -43,12 +43,12 @@ if __name__ == "__main__":
                                     nSamples=nSamples,
                                     alphas=[0.9, 0])
 
-    spec = spy.freqanalysis(ad2, tapsmofrq=2, keeptrials=False)
+    spec = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False)
     foi = np.linspace(40, 160, 25)
-    coh = spy.connectivityanalysis(ad2, method='coh', tapsmofrq=5)
+    coh = spy.connectivityanalysis(adata, method='coh', tapsmofrq=5)
 
     # show new plotting
-    # ad2.singlepanelplot(trials=12, toilim=[0, 0.35])
+    # adata.singlepanelplot(trials=12, toilim=[0, 0.35])
 
     # mtmfft spectrum
     # spec.singlepanelplot()

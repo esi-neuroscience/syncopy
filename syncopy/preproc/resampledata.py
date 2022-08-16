@@ -11,7 +11,7 @@ from syncopy import AnalogData
 from syncopy.shared.parsers import data_parser, scalar_parser
 
 from syncopy.shared.tools import get_defaults, get_frontend_cfg
-from syncopy.shared.errors import SPYValueError, SPYWarning, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYWarning
 
 from syncopy.shared.kwarg_decorators import (
     unwrap_cfg,
@@ -75,6 +75,22 @@ def resampledata(data,
     resampled : `~syncopy.AnalogData`
         The resampled dataset with the same shape and dimord as the input `data`
 
+    Examples
+    --------
+    In the following `adata` is an instance of :class:`~syncopy.AnalogData`
+    with a samplerate of 2kHz.
+
+    Downsample (decimate) to 1kHz without low-pass filtering:
+
+    >>> downsampled = spy.resampledata(adata, method='downsample', resamplefs=1000)
+
+    Repeat, but this time remove aliases via explicit low-pass filter:
+
+    >>> downsampled = spy.resampledata(adata, method='downsample', resamplefs=1000, lpfreq=500)
+
+    Resample to 600Hz, low-pass filtering to new Nyquist is implicit:
+
+    >>> resampled = spy.resampledata(adata, resamplefs=600)
     """
 
     # -- Basic input parsing --
@@ -82,7 +98,6 @@ def resampledata(data,
     if method not in availableMethods:
         lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
         raise SPYValueError(legal=lgl, varname="method", actual=method)
-
 
     # Make sure our one mandatory input object can be processed
     try:

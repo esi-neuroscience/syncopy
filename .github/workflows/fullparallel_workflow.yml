@@ -1,0 +1,40 @@
+name: Run all tests
+
+on:
+  # only manual trigger here
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+    - name: Install poetry
+      run: |
+        pip install poetry
+    - name: Install SyNCoPy
+      run: |
+        poetry install
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        poetry run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        poetry run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Test sequential with pytest
+      run: |
+        cd syncopy/tests
+        # run sequential tests
+        poetry run pytest -ra --color=yes -k 'not parallel'
+    - name: Test basic parallel with pytest
+      run: |
+        cd syncopy/tests
+        # run basic parallel tests
+        poetry run pytest --disable-warnings --color=yes  -k 'parallel'
+
