@@ -20,7 +20,8 @@ from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
 from syncopy.spikes.psth import Rice_rule, sqrt_rule, get_chan_unit_combs
 
 # Local imports
-from .compRoutines import PSTH
+# from .compRoutines import PSTH
+from syncopy.spikes.compRoutines import PSTH
 
 available_binsizes = {'rice': Rice_rule, 'sqrt': sqrt_rule}
 available_outputs = ['rate', 'spikecount', 'proportion']
@@ -28,7 +29,7 @@ available_latencies = ['maxperiod', 'minperiod', 'prestim', 'poststim']
 
 # ===DEV SNIPPET===
 from syncopy.tests import synth_data as sd
-spd = sd.poisson_noise(10, nUnits=7, nChannels=3, nSpikes=1000)
+spd = sd.poisson_noise(10, nUnits=7, nChannels=3, nSpikes=1000, samplerate=1000)
 # =================
 
 
@@ -86,18 +87,21 @@ def spike_psth(data,
 
     # --- parse and digest `latency` (time window of analysis) ---
 
+    # beginnings and ends of all trials in relative time
+    beg_ends = (data.sampleinfo - (
+        data.sampleinfo[:, 0] + data.trialdefinition[:, 2])[:, None]
+                ) / data.samplerate
+    trl_starts = beg_ends[:, 0]
+    trl_ends = beg_ends[:, 1]
+    tmin, tmax = trl_starts.min(), trl_ends.max()
+    print(tmin, tmax)
+
     if isinstance(latency, str):
         if latency not in available_latencies:
             lgl = f"one of {available_latencies}"
             act = latency
             raise SPYValueError(lgl, varname='latency', actual=act)
 
-        # beginnings and ends of all trials in relative time
-        beg_ends = (data.sampleinfo - (
-            data.sampleinfo[:, 0] + data.trialdefinition[:, 2])[:, None]
-                ) / data.samplerate
-        trl_starts = beg_ends[:, 0]
-        trl_ends = beg_ends[:, 1]
 
         # find overlapping interval for all trials
         if latency == 'minperiod':
@@ -128,7 +132,7 @@ def spike_psth(data,
             interval = [0, np.max(trl_ends)]
     # explicit time window in seconds
     else:
-        array_parser(latency, lims=[0, np.inf], dims=(2,))
+        array_parser(latency, lims=[-np.inf, np.inf], dims=(2,))
         interval = latency
 
     # --- determine overall (all trials) histogram shape ---
@@ -136,18 +140,20 @@ def spike_psth(data,
     # get average trial size for auto-binning
     av_trl_size = data.data.shape[0] / len(data.trials)
 
-    # TODO: respect time window (latency)
     if binsize in available_binsizes:
         nBins = available_binsizes[binsize](av_trl_size)
         bins = np.linspace(*interval, nBins)
     else:
+        scalar_parser(binsize, varname='binsize', lims=[0, np.inf])
         # include rightmost bin edge
         bins = np.arange(interval[0], interval[1] + binsize, binsize)
         nBins = len(bins)
-    # print(interval, bins)
+
+    print(interval, bins)
 
     # it's a sequential loop
     combs = get_chan_unit_combs(data.trials)
+    print('front', combs.shape)
 
     # right away create the output labels for the channel axis
     chan_labels = [f'channel{i}_unit{j}' for i, j in combs]
@@ -160,29 +166,28 @@ def spike_psth(data,
     log_dict = {'bins': bins,
                 'latency': latency
                 }
-    
+
     # --- set up CR ---
 
-    method_kwargs = {
-        'chan_unit_combs': combs,
-        'tbins': bins,
-        'samplerate': data.samplerate
-    }
-
-    # no named `trl_start` and `onset` for distributing positional args
-    psth_cR = PSTH(data.trialdefinition[:, 0],
-                   data.trialdefinition[:, 2],
-                   method_kwargs=method_kwargs
+    # trl_start` and `onset` for distributing positional args to psth_cF
+    trl_starts = data.trialdefinition[:, 0]
+    trigger_onsets = data.trialdefinition[:, 2]
+    psth_cR = PSTH(trl_starts,
+                   trigger_onsets,
+                   chan_unit_combs=combs,
+                   tbins=bins,
+                   samplerate=data.samplerate
                    )
 
     # only available dimord=['time', 'channel'])
     psth_results = TimeLockData()
     psth_cR.initialize(data, chan_per_worker=None,
-                       out_stackingdim=psth_results._stackingDim)
+                       out_stackingdim=psth_results._stackingDim,
+                       keeptrials=keeptrials)
 
     psth_cR.compute(data,
                     psth_results,
                     parallel=kwargs.get("parallel"),
                     log_dict=log_dict)
 
-    return combs
+    return psth_results

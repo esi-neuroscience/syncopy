@@ -862,3 +862,5 @@ class TimeLockData(ContinuousData):
             lgl = "all trials/entities of same length for timelocked data"
             act = "non-equally sized trials defined"
             raise SPYValueError(lgl, varname="trialdefinition", actual=act)
+
+    # TODO - overload `time` property, as there is only one by definition!

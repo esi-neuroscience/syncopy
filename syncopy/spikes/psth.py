@@ -46,7 +46,6 @@ def psth(trl_dat,
     `Rice Rule <https://en.wikipedia.org/wiki/Histogram#Rice_Rule>`_ on Wikipedia
     """
 
-
     # for readability
     samples = trl_dat[:, 0]
     channels = trl_dat[:, 1]
@@ -67,7 +66,7 @@ def psth(trl_dat,
     # now the ith channel bin maps to the ith available channel
     # (0, 1, 2) -> (1, 5, 10)
     bins = [tbins, np.arange(chan_vec.size + 1)]
-
+        
     # inference from a single trial is just a fallback
     if chan_unit_combs is None:
         chan_unit_combs = get_chan_unit_combs([trl_dat])
@@ -75,15 +74,18 @@ def psth(trl_dat,
     # this is the global(!) output shape - some columns may be filled with 0s
     # -> no firing for that chan-unit combo in this specific trial
     counts = np.zeros((nBins, len(chan_unit_combs)))
-    print(counts.shape)
     # available units in this trial
     unique_units = np.unique(units)
 
     # create boolean mapping of all trial specific combinations
     # into global output shape
     map_cu = lambda c, u: np.all(chan_unit_combs == [c, u], axis=1)
+
     # now map with respect to unit for all single trial channels (-bins)
     map_unit = {u: np.logical_or.reduce([map_cu(c, u) for c in chan_vec]) for u in unique_units}
+
+    # map into histogram time x channel dimensions
+    map_unit_hist = {u: [np.any(map_cu(c, u)) for c in chan_vec] for u in unique_units}
 
     for i, iunit in enumerate(unique_units):
         unit_idx = (units == iunit)
@@ -93,12 +95,14 @@ def psth(trl_dat,
             unit_counts = np.histogram2d(times[unit_idx],
                                          channels[unit_idx],
                                          bins=bins)[0]
-            print(unit_counts.shape, counts.shape)
+
             # get indices to inject the results
             # at the right position
             cu_idx = map_unit[iunit]
-            print(cu_idx)
-            counts[:, cu_idx] = unit_counts
+
+            # masks non-existent combinations in histogram
+            chan_hist_idx = map_unit_hist[iunit]
+            counts[:, cu_idx] = unit_counts[:, chan_hist_idx].astype(np.float32)
 
     return counts, bins
 
@@ -107,9 +111,8 @@ def _calc_time(samples, trl_start, onset, samplerate):
 
     """
     Calculates the event times relative to the trigger
-    from sample numbers of individual events.
+    from sample numbers of individual events (the `samples`).
     """
-
     times = (samples - trl_start + onset) / samplerate
 
     return times

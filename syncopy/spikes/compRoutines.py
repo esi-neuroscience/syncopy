@@ -20,9 +20,11 @@ from syncopy.shared.kwarg_decorators import process_io
 def psth_cF(trl_dat,
             trl_start,
             onset,
+            chan_unit_combs=None,
+            tbins=None,
+            samplerate=1000,
             noCompute=False,
-            chunkShape=None,
-            method_kwargs=None):
+            chunkShape=None):
 
     """
     Peristimulus time histogram
@@ -39,16 +41,22 @@ def psth_cF(trl_dat,
         Start of the trial in sample units
     onset : int
         Trigger onset in samples units
+    chan_unit_combs : :class:`~np.ndarray`
+        All (sorted) numeric channel-unit combinations to bin for
+        arangend in a (N, 2) shaped array, where each row is
+        one unique combination (say [4, 1] for channel4 - unit1)
+        If `None` will infer from the supplied SpikeData array.
+    tbins: :class:`~numpy.array` or None
+        An array of monotonically increasing PSTH bin edges
+        in seconds including the rightmost edge
+        Defaults with `None` to the Rice rule
+
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
         array.
     chunkShape : None or tuple
         If not `None`, represents shape of output `tl_data`
-    method_kwargs : dict with keys
-                    {'trl_start', 'onset', 'chan_unit_combs', 'tbins', 'samplerate'}
-        Keyword arguments passed to :func:`~syncopy.spikes.psth.psth`
-        controlling the actual spike analysis method
 
     Returns
     -------
@@ -75,8 +83,8 @@ def psth_cF(trl_dat,
 
     """
 
-    nChanUnit = len(method_kwargs['chan_unit_combs'])
-    nBins = len(method_kwargs['tbins']) - 1
+    nChanUnit = len(chan_unit_combs)
+    nBins = len(tbins) - 1
 
     # For initialization of computational routine,
     # just return output shape and dtype
@@ -86,7 +94,9 @@ def psth_cF(trl_dat,
 
     # call backend method
     # counts has shape (nBins, nUnits, nChannels)
-    counts, bins = psth(trl_dat, trl_start, onset, **method_kwargs)
+    counts, bins = psth(trl_dat, trl_start, onset,
+                        chan_unit_combs=chan_unit_combs,
+                        tbins=tbins, samplerate=samplerate)
 
     return counts
 
@@ -124,7 +134,7 @@ class PSTH(ComputationalRoutine):
         else:
             unitSec = slice(None)
 
-        tbins = self.cfg['method_kwargs']['tbins']
+        tbins = self.cfg['tbins']
         # compute new time axis / samplerate
         bin_midpoints = stride_tricks.sliding_window_view(tbins, (2,)).mean(axis=1)
         srate = 1 / np.diff(bin_midpoints).mean()
@@ -144,4 +154,5 @@ class PSTH(ComputationalRoutine):
         out.trialdefinition = trl
         out.samplerate = srate
         # join labels for final unitX_channelY channel labels
-        out.channel = [u + '_' + c for u in data.unit[unitSec] for c in data.channel[chanSec]]
+        chan_str = "channel{}_unit{}"
+        out.channel = [chan_str.format(c, u) for c, u in self.cfg['chan_unit_combs']]
