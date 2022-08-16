@@ -23,7 +23,7 @@ from syncopy.shared.tools import best_match
 from syncopy.plotting import sp_plotting, mp_plotting
 
 
-__all__ = ["AnalogData", "SpectralData", "CrossSpectralData"]
+__all__ = ["AnalogData", "SpectralData", "CrossSpectralData", "TimeLockData"]
 
 
 class ContinuousData(BaseData, ABC):
@@ -745,6 +745,7 @@ class TimeLockData(ContinuousData):
     Multi-channel, uniformly-sampled, time-locked data.
     """
 
+    _infoFileProperties = ContinuousData._infoFileProperties
     _defaultDimord = ["time", "channel"]
     _stackingDimLabel = "time"
 
@@ -780,14 +781,11 @@ class TimeLockData(ContinuousData):
 
             """
 
-        if data is not None and dimord is None:
+        if dimord is None:
             dimord = self._defaultDimord
 
         self._avg = None
         self._var = None
-
-        # for stacking, we would have to
-        # re-define the trialdefinition here?!
 
         # Call parent initializer
         # trialdefinition has to come from a CR!

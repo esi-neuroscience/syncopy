@@ -8,7 +8,7 @@ import numpy as np
 # Syncopy imports
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.tools import get_defaults
-from syncopy.datatype import SpikeData
+from syncopy.datatype import SpikeData, TimeLockData
 
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
@@ -17,18 +17,18 @@ from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
 
 # method specific imports - they should go when
 # we have multiple returns
-from syncopy.spikes.psth import Rice_rule, sqrt_rule
+from syncopy.spikes.psth import Rice_rule, sqrt_rule, get_chan_unit_combs
 
 # Local imports
-# from .compRoutines import PSTH
+from .compRoutines import PSTH
 
 available_binsizes = {'rice': Rice_rule, 'sqrt': sqrt_rule}
 available_outputs = ['rate', 'spikecount', 'proportion']
 available_latencies = ['maxperiod', 'minperiod', 'prestim', 'poststim']
 
 # ===DEV SNIPPET===
-# from syncopy.tests import synth_data as sd
-# spd = sd.poisson_noise(10, nUnits=7, nChannels=3, nSpikes=1000)
+from syncopy.tests import synth_data as sd
+spd = sd.poisson_noise(10, nUnits=7, nChannels=3, nSpikes=1000)
 # =================
 
 
@@ -144,24 +144,45 @@ def spike_psth(data,
         # include rightmost bin edge
         bins = np.arange(interval[0], interval[1] + binsize, binsize)
         nBins = len(bins)
-    print(interval, bins)
+    # print(interval, bins)
 
-    # get all channelX-unitY combinations with at least one event
-
-    # possible channel-unit indice combinations (it's not a meshgrid..)
-    combs = []
-
-    # the straightforward way would be: np.unique(data.data[:, 1:], axis=0)
-    # however this loads 66% the size of the total data into memory
-    for trial in data.trials:
-        # tuples allow for a set operation, dimord is fixed as parsed above!
-        combs.append(np.unique(trial[:, 1:], axis=0))
-
-    combs = np.unique(np.concatenate(combs), axis=0)
+    # it's a sequential loop
+    combs = get_chan_unit_combs(data.trials)
 
     # right away create the output labels for the channel axis
     chan_labels = [f'channel{i}_unit{j}' for i, j in combs]
 
     # now we have our global (single-trial, avg, std,..) histogram shape
     h_shape = (nBins, len(combs))
+
+    # --- populate the log
+
+    log_dict = {'bins': bins,
+                'latency': latency
+                }
+    
+    # --- set up CR ---
+
+    method_kwargs = {
+        'chan_unit_combs': combs,
+        'tbins': bins,
+        'samplerate': data.samplerate
+    }
+
+    # no named `trl_start` and `onset` for distributing positional args
+    psth_cR = PSTH(data.trialdefinition[:, 0],
+                   data.trialdefinition[:, 2],
+                   method_kwargs=method_kwargs
+                   )
+
+    # only available dimord=['time', 'channel'])
+    psth_results = TimeLockData()
+    psth_cR.initialize(data, chan_per_worker=None,
+                       out_stackingdim=psth_results._stackingDim)
+
+    psth_cR.compute(data,
+                    psth_results,
+                    parallel=kwargs.get("parallel"),
+                    log_dict=log_dict)
+
     return combs

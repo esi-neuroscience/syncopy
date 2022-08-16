@@ -9,15 +9,17 @@ import numpy as np
 from numpy.lib import stride_tricks
 
 # backend method imports
-from .psth import psth, Rice_rule
+from .psth import psth
 
 # syncopy imports
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import unwrap_io
+from syncopy.shared.kwarg_decorators import process_io
 
 
-@unwrap_io
+@process_io
 def psth_cF(trl_dat,
+            trl_start,
+            onset,
             noCompute=False,
             chunkShape=None,
             method_kwargs=None):
@@ -33,13 +35,18 @@ def psth_cF(trl_dat,
     ----------
     trl_dat : 2D :class:`numpy.ndarray`
         Single trial spike data with shape (nEvents x 3)
+    trl_start : int
+        Start of the trial in sample units
+    onset : int
+        Trigger onset in samples units
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
         array.
     chunkShape : None or tuple
         If not `None`, represents shape of output `tl_data`
-    method_kwargs : dict
+    method_kwargs : dict with keys
+                    {'trl_start', 'onset', 'chan_unit_combs', 'tbins', 'samplerate'}
         Keyword arguments passed to :func:`~syncopy.spikes.psth.psth`
         controlling the actual spike analysis method
 
@@ -68,22 +75,18 @@ def psth_cF(trl_dat,
 
     """
 
-    nUnits = np.unique(trl_dat)[2]
-    nChannels = np.unique(trl_dat)[2]
-    nBins = len(method_kwargs['bins']) - 1
+    nChanUnit = len(method_kwargs['chan_unit_combs'])
+    nBins = len(method_kwargs['tbins']) - 1
 
     # For initialization of computational routine,
     # just return output shape and dtype
     if noCompute:
-        outShape = (nBins, nUnits * nChannels)
+        outShape = (nBins, nChanUnit)
         return outShape, np.int32
 
     # call backend method
     # counts has shape (nBins, nUnits, nChannels)
-    counts, bins = psth(trl_dat, **method_kwargs)
-
-    # split out channel counts along the units axis
-    counts.shape = (nBins, nUnits * nChannels)
+    counts, bins = psth(trl_dat, trl_start, onset, **method_kwargs)
 
     return counts
 
@@ -121,14 +124,15 @@ class PSTH(ComputationalRoutine):
         else:
             unitSec = slice(None)
 
+        tbins = self.cfg['method_kwargs']['tbins']
         # compute new time axis / samplerate
-        bin_midpoints = stride_tricks.sliding_window_view(self.cfg['bins'], (2,)).mean(axis=1)
+        bin_midpoints = stride_tricks.sliding_window_view(tbins, (2,)).mean(axis=1)
         srate = 1 / np.diff(bin_midpoints).mean()
 
         # each trial has the same length
         # for "timelocked" (same bins) psth data
-        trl_len = len(self.cfg['bins']) - 1
-        nTrials = len(self.data.trials)
+        trl_len = len(tbins) - 1
+        nTrials = len(data.trials)
 
         # create trialdefinition, offsets are all 0
         # for timelocked data
