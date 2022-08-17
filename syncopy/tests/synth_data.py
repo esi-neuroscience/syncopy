@@ -285,6 +285,13 @@ def poisson_noise(nTrials=10,
     """
     Poisson (Shot-) noise generator
 
+    The (mean) number of spikes `nSpikes`
+    divided by the poissong intensity gives the
+    total sampling time over all trials.
+
+    The distribution of the spikes along channels and units
+    has randomized weights, meaning that typically
+    you get very active channels/units and some which are almost quiet.
 
     Parameters
     ----------
@@ -317,7 +324,7 @@ def poisson_noise(nTrials=10,
         return pvec / pvec.sum()
 
     T_max = int(1 / intensity * nSpikes)
-    spike_times = np.sort(random.sample(range(T_max), nSpikes))
+    spike_samples = np.sort(random.sample(range(T_max), nSpikes))
     channels = np.random.choice(
         np.arange(nChannels), p=get_rdm_weights(nChannels),
         size=nSpikes, replace=True
@@ -326,21 +333,24 @@ def poisson_noise(nTrials=10,
     uvec = np.arange(nUnits)
     pvec = get_rdm_weights(nUnits)
     units = np.random.choice(uvec, p=pvec, size=nSpikes, replace=True)
-    # units = np.r_[units, np.random.choice(uvec, size=nSpikes // 2, replace=True)]
-    # if nSpikes % 2 == 1:
-    #     units = np.r_[units, [np.random.choice(uvec)]]
 
-    trl_intervals = np.sort(random.sample(range(T_max), nTrials + 1))
+    # fixed trial size
+    step = T_max // nTrials
+    trl_intervals = np.arange(T_max + 1, step=step)
+
     # 1st trial
     idx_start = trl_intervals[:-1]
     idx_end = trl_intervals[1:] - 1
+
+    # now randomize a bit, max 10% size difference
+    idx_end -= np.r_[np.random.randint(step // 10, size=nTrials - 1), 0]
 
     idx_offset = -np.random.choice(
         np.arange(1, np.min(idx_end - idx_start)), size=nTrials, replace=True
     )
 
     trldef = np.vstack([idx_start, idx_end, idx_offset]).T
-    data = np.vstack([spike_times, channels, units]).T
+    data = np.vstack([spike_samples, channels, units]).T
     sdata = SpikeData(
         data=data,
         trialdefinition=trldef,
