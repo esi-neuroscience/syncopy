@@ -20,7 +20,6 @@ from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
 from syncopy.spikes.psth import Rice_rule, sqrt_rule, get_chan_unit_combs
 
 # Local imports
-# from .compRoutines import PSTH
 from syncopy.spikes.compRoutines import PSTH
 
 available_binsizes = {'rice': Rice_rule, 'sqrt': sqrt_rule}
@@ -29,7 +28,7 @@ available_latencies = ['maxperiod', 'minperiod', 'prestim', 'poststim']
 
 # ===DEV SNIPPET===
 from syncopy.tests import synth_data as sd
-spd = sd.poisson_noise(10, nUnits=7, nChannels=3, nSpikes=10000, samplerate=1000)
+spd = sd.poisson_noise(10, nUnits=4, nChannels=2, nSpikes=10000, samplerate=10000)
 # =================
 
 
@@ -88,20 +87,20 @@ def spike_psth(data,
     # --- parse and digest `latency` (time window of analysis) ---
 
     # beginnings and ends of all trials in relative time
-    beg_ends = (data.sampleinfo - (
-        data.sampleinfo[:, 0] + data.trialdefinition[:, 2])[:, None]
-                ) / data.samplerate
+    beg_ends = data.sampleinfo + data.trialdefinition[:, 2][:, None]
+    beg_ends = (beg_ends - data.sampleinfo[:, 0][:, None]) / data.samplerate
+
     trl_starts = beg_ends[:, 0]
     trl_ends = beg_ends[:, 1]
+    # just for sanity checks atm
     tmin, tmax = trl_starts.min(), trl_ends.max()
     print(tmin, tmax)
-
+    print(beg_ends)
     if isinstance(latency, str):
         if latency not in available_latencies:
             lgl = f"one of {available_latencies}"
             act = latency
             raise SPYValueError(lgl, varname='latency', actual=act)
-
 
         # find overlapping interval for all trials
         if latency == 'minperiod':
@@ -151,9 +150,8 @@ def spike_psth(data,
 
     print(interval, bins)
 
-    # it's a sequential loop
+    # it's a sequential loop to get an array of [chan, unit] indices
     combs = get_chan_unit_combs(data.trials)
-    print('front', combs.shape)
 
     # right away create the output labels for the channel axis
     chan_labels = [f'channel{i}_unit{j}' for i, j in combs]
@@ -171,15 +169,17 @@ def spike_psth(data,
 
     # trl_start` and `onset` for distributing positional args to psth_cF
     trl_starts = data.trialdefinition[:, 0]
+    trl_ends = data.trialdefinition[:, 1]
     trigger_onsets = data.trialdefinition[:, 2]
     psth_cR = PSTH(trl_starts,
                    trigger_onsets,
+                   trl_ends,
                    chan_unit_combs=combs,
                    tbins=bins,
                    samplerate=data.samplerate
                    )
 
-    # only available dimord=['time', 'channel'])
+    # only available dimord labels ['time', 'channel'])
     psth_results = TimeLockData()
     psth_cR.initialize(data, chan_per_worker=None,
                        out_stackingdim=psth_results._stackingDim,

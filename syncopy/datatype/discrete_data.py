@@ -180,9 +180,9 @@ class DiscreteData(BaseData, ABC):
     def trialtime(self):
         """list(:class:`numpy.ndarray`): trigger-relative sample times in s"""
         if self.samplerate is not None and self.sampleinfo is not None:
-            sample0 = self.sampleinfo[:,0] - self._t0[:]
+            sample0 = self.sampleinfo[:, 0] - self._t0[:]
             sample0 = np.append(sample0, np.nan)[self.trialid]
-            return (self.data[:,self.dimord.index("sample")] - sample0)/self.samplerate
+            return (self.data[:, self.dimord.index("sample")] - sample0) / self.samplerate
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):

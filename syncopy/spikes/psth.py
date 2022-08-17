@@ -5,6 +5,7 @@ from scipy.stats import iqr
 def psth(trl_dat,
          trl_start,
          onset,
+         trl_end,
          chan_unit_combs=None,
          tbins=None,
          samplerate=1000):
@@ -25,6 +26,8 @@ def psth(trl_dat,
         Start of the trial in sample units
     onset : int
         Trigger onset in samples units
+    trl_end : int
+        End of the trial in sample units
     chan_unit_combs : :class:`~np.ndarray`
         All (sorted) numeric channel-unit combinations to bin for
         arangend in a (N, 2) shaped array, where each row is
@@ -66,14 +69,16 @@ def psth(trl_dat,
     # now the ith channel bin maps to the ith available channel
     # (0, 1, 2) -> (1, 5, 10)
     bins = [tbins, np.arange(chan_vec.size + 1)]
-        
-    # inference from a single trial is just a fallback
+
+    # inference here from a single trial is just a fallback
+    # for testing etc.
     if chan_unit_combs is None:
         chan_unit_combs = get_chan_unit_combs([trl_dat])
 
     # this is the global(!) output shape - some columns may be filled with 0s
     # -> no firing for that chan-unit combo in this specific trial
     counts = np.zeros((nBins, len(chan_unit_combs)))
+
     # available units in this trial
     unique_units = np.unique(units)
 
@@ -103,6 +108,23 @@ def psth(trl_dat,
             # masks non-existent combinations in histogram
             chan_hist_idx = map_unit_hist[iunit]
             counts[:, cu_idx] = unit_counts[:, chan_hist_idx].astype(np.float32)
+
+    # --- mask time bins which are outside of this trial ---
+    # in trigger relative (timelocked) time
+    trl_start_reltime = onset / samplerate
+    trl_end_reltime = (trl_end - trl_start + onset) / samplerate
+
+    print(tbins[0], tbins[-1], trl_start_reltime, trl_end_reltime)
+    # indices along the time bin axis
+    min_idx = np.argmin(trl_start_reltime > tbins)
+    max_idx = np.argmin(trl_end_reltime > tbins)
+
+    if min_idx != 0:
+        counts[:min_idx - 1] = np.nan
+    if max_idx != 0:
+        counts[max_idx:] = np.nan
+
+    print(min_idx, max_idx)
 
     return counts, bins
 

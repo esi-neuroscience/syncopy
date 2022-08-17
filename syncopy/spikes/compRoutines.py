@@ -20,6 +20,7 @@ from syncopy.shared.kwarg_decorators import process_io
 def psth_cF(trl_dat,
             trl_start,
             onset,
+            trl_end,
             chan_unit_combs=None,
             tbins=None,
             samplerate=1000,
@@ -41,6 +42,8 @@ def psth_cF(trl_dat,
         Start of the trial in sample units
     onset : int
         Trigger onset in samples units
+    trl_end : int
+        End of the trial in sample units
     chan_unit_combs : :class:`~np.ndarray`
         All (sorted) numeric channel-unit combinations to bin for
         arangend in a (N, 2) shaped array, where each row is
@@ -93,8 +96,7 @@ def psth_cF(trl_dat,
         return outShape, np.float32
 
     # call backend method
-    # counts has shape (nBins, nUnits, nChannels)
-    counts, bins = psth(trl_dat, trl_start, onset,
+    counts, bins = psth(trl_dat, trl_start, onset, trl_end,
                         chan_unit_combs=chan_unit_combs,
                         tbins=tbins, samplerate=samplerate)
 
@@ -122,18 +124,6 @@ class PSTH(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Get trialdef array + channels from source
-        if data.selection is not None:
-            chanSec = data.selection.channel
-        else:
-            chanSec = slice(None)
-
-        # Get trialdef array + units from source
-        if data.selection is not None:
-            unitSec = data.selection.unit
-        else:
-            unitSec = slice(None)
-
         tbins = self.cfg['tbins']
         # compute new time axis / samplerate
         bin_midpoints = stride_tricks.sliding_window_view(tbins, (2,)).mean(axis=1)
@@ -144,12 +134,15 @@ class PSTH(ComputationalRoutine):
         trl_len = len(tbins) - 1
         nTrials = len(data.trials)
 
-        # create trialdefinition, offsets are all 0
+        # create trialdefinition, offsets are all equal
         # for timelocked data
         trl = np.zeros((nTrials, 3))
         sample_idx = np.arange(0, nTrials * trl_len + 1, trl_len)
         trl[:, :2] = stride_tricks.sliding_window_view(sample_idx, (2,))
-
+        # negative relative time is pre-stimulus!
+        offsets = np.rint(tbins[0] * srate)
+        trl[:, 2] = offsets
+        print('pm', trl)
         # Attach meta-data
         if self.keeptrials:
             out.trialdefinition = trl
