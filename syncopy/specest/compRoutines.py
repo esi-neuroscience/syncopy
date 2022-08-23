@@ -19,8 +19,11 @@
 # method: backend method name
 
 # Builtin/3rd party package imports
+from hmac import compare_digest
 from inspect import signature
 import numpy as np
+from hashlib import blake2b
+
 from scipy import signal
 
 # backend method imports
@@ -32,15 +35,15 @@ from .fooofspy import fooofspy
 
 
 # Local imports
-from syncopy.shared.errors import SPYWarning
+from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import process_io
+from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, metadata_from_hdf5_file
 from syncopy.shared.const_def import (
     spectralConversions,
     spectralDTypes
 )
-
 
 # -----------------------
 # MultiTaper FFT
@@ -121,7 +124,6 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
                      that calls this method as :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     numpy.fft.rfft : NumPy's FFT implementation
     """
-
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
@@ -155,17 +157,23 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
         dat = signal.detrend(dat, type='linear', axis=0, overwrite_data=True)
 
     # call actual specest method
-    res, _ = mtmfft(dat, **method_kwargs)
+    res, freqs = mtmfft(dat, **method_kwargs)
 
     # attach time-axis and convert to output_fmt
     spec = res[np.newaxis, :, freq_idx, :]
     spec = spectralConversions[output_fmt](spec)
+
+    # Hash the freqs and add to second return value.
+    freqs_hash = blake2b(freqs).hexdigest().encode('utf-8')
+    metadata = { 'freqs_hash': np.array(freqs_hash) }  # Will have dtype='|S128'
+
     # Average across tapers if wanted
     # averaging is only valid spectral estimate
     # if output_fmt == 'pow'! (gets checked in parent meta)
     if not keeptapers:
-        return spec.mean(axis=1, keepdims=True)
-    return spec
+        return spec.mean(axis=1, keepdims=True), metadata
+
+    return spec, metadata
 
 
 class MultiTaperFFT(ComputationalRoutine):
@@ -190,6 +198,9 @@ class MultiTaperFFT(ComputationalRoutine):
     valid_kws += ['tapsmofrq', 'nTaper', 'pad', 'fooof_opt']
 
     def process_metadata(self, data, out):
+
+        # General-purpose loading of metadata.
+        out.metadata = metadata_from_hdf5_file(out.filename)
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -922,6 +933,9 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
     --------
     syncopy.freqanalysis : parent metafunction
     """
+    if timeAxis != 0:
+        raise SPYValueError("timeaxis of input spectral data to be 0. Non-standard axes not supported with FOOOF.", actual=timeAxis)
+
     outShape = trl_dat.shape
     # For initialization of computational routine,
     # just return output shape and dtype
@@ -929,15 +943,19 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
         return outShape, spectralDTypes['pow']
 
     # Call actual fooof method
-    res, _ = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
+    res, metadata = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
                       fooof_opt=method_kwargs)
 
-    # TODO (later): get the 'details' from the unused _ return
-    #  value and pass them on. This cannot be done right now due
-    #  to lack of support for several return values, see #140.
+    if 'settings_used' in metadata:
+        del metadata['settings_used']  # We like to keep this in the return value of the
+    # backend functions for now (the vast majority of unit tests rely on it), but
+    # nested dicts are not allowed in the additional return value of cFs, so we remove
+    # it before passing the return value on.
+
+    metadata = FooofSpy.encode_singletrial_metadata_fooof_for_hdf5(metadata)
 
     res = res[np.newaxis, np.newaxis, :, :]  # Re-add omitted axes.
-    return res
+    return res, metadata
 
 
 class FooofSpy(ComputationalRoutine):
@@ -964,6 +982,17 @@ class FooofSpy(ComputationalRoutine):
     # To attach metadata to the output of the CF
     def process_metadata(self, data, out):
 
+        # General-purpose loading of metadata.
+        out.metadata = metadata_from_hdf5_file(out.filename)
+
+        # Note that FOOOF never sees absolute trial indices if a selection was
+        # made in the call to `freqanalysis`, because the mtmfft run before will have
+        # consumed them. So the trial indices are always relative.
+
+        # Backend-specific post-processing. May or may not be needed, depending on what
+        # you need to do in the cF to fit the return values into hdf5.
+        out.metadata = FooofSpy.decode_metadata_fooof_alltrials_from_hdf5(out.metadata)
+
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
             chanSec = data.selection.channel
@@ -975,3 +1004,60 @@ class FooofSpy(ComputationalRoutine):
         out.channel = np.array(data.channel[chanSec])
         out.freq = data.freq
         out._trialdefinition = data._trialdefinition
+
+    @staticmethod
+    def encode_singletrial_metadata_fooof_for_hdf5(metadata_fooof_backend):
+        """ Reformat the gaussian and peak params for inclusion in the 2nd return value and hdf5 file.
+
+        For several channels, the number of peaks may differ, and thus we cannot simply
+        call something like `np.array(gaussian_params)` in that case, as that will create
+        an array of dtype 'object', which is not supported by hdf5. We could use one return
+        value (entry in the `'metadata_fooof_backend'` dict below) per channel to solve that, but in this
+        case, we decided to `vstack` the arrays instead. When extracting the data again
+        (in `process_metadata()`), we need to revert this. That is possible because we can
+        see from the `n_peaks` return value how many (and thus which) rows belong to
+        which channel.
+        """
+        metadata_fooof_backend['gaussian_params'] = np.vstack(metadata_fooof_backend['gaussian_params'])
+        metadata_fooof_backend['peak_params'] = np.vstack(metadata_fooof_backend['peak_params'])
+        return metadata_fooof_backend
+
+    @staticmethod
+    def decode_metadata_fooof_alltrials_from_hdf5(metadata_fooof_hdf5):
+        """This reverts and special packaging applied to the fooof backend
+        function return values to fit them into the hdf5 container.
+
+        In the case of FOOOF, we had to `np.vstack` the `gaussian_params`
+        and `peak_params`, and we now revert this.
+
+        Of course, you do not have to undo things if you are fine
+        with passing them to the frontend the way they are stored in the hdf5.
+
+        Keep in mind that this is not directly the inverse of the
+        function called in the cF, because:
+        - that function prepares data from a single backend function call,
+        while this function has to unpack the data from *all* cF function calls.
+        - the input metadata to this function is a standard dict that has already
+        been pre-processed, including the split into 'attrs' and 'dsets',
+        by the general-purpose metadata extraction function `metadata_from_hdf5_file()`.
+        """
+        for unique_attr_label, v in metadata_fooof_hdf5.items():
+            label, trial_idx, call_idx = decode_unique_md_label(unique_attr_label)
+            if label == "n_peaks":
+                n_peaks = v
+                gaussian_params_out = list()
+                peak_params_out = list()
+                start_idx = 0
+                unique_attr_label_gaussian_params = encode_unique_md_label('gaussian_params', trial_idx, call_idx)
+                unique_attr_label_peak_params = encode_unique_md_label('peak_params', trial_idx, call_idx)
+                gaussian_params_in = metadata_fooof_hdf5[unique_attr_label_gaussian_params]
+                peak_params_in = metadata_fooof_hdf5[unique_attr_label_peak_params]
+                for trial_idx in range(len(n_peaks)):
+                    end_idx = start_idx + n_peaks[trial_idx]
+                    gaussian_params_out.append(gaussian_params_in[start_idx:end_idx, :])
+                    peak_params_out.append(peak_params_in[start_idx:end_idx, :])
+
+                metadata_fooof_hdf5[unique_attr_label_gaussian_params] = gaussian_params_out
+                metadata_fooof_hdf5[unique_attr_label_peak_params] = peak_params_out
+        return metadata_fooof_hdf5
+

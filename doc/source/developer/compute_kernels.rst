@@ -85,9 +85,9 @@ Summarized, a valid |cf|_, `cfunc`, meets the following basic requirements:
   >>> return res
 
   Note that dtype and shape of `res` have to agree with `outShape` and
-  `outdtype` specified in the dry-run. 
+  `outdtype` specified in the dry-run.
 
-A simple instance of a |cf|_ illustrating these concepts 
+A simple instance of a |cf|_ illustrating these concepts
 is given in :ref:`Examples`.
 
 The Algorithmic Layout of :class:`ComputationalRoutine`
@@ -177,7 +177,7 @@ is encapsulated in two class methods:
      virtual HDF5 datasets. If ``parallel_store = False``, and `parallel` is
      `True`, a mutex is used to lock a single HDF5 file for sequential writing.
      If ``parallel = parallel_store`` and `parallel` is `False`, the computation
-     result is saved using standard single-process HDF writing. 
+     result is saved using standard single-process HDF writing.
 
    * The `method` keyword can be used to override the default selection of
      the processing function (:func:`compute_parallel` if `parallel` is
@@ -206,12 +206,12 @@ encapsulate a simple algorithmic scheme in a subclass of
 :class:`ComputationalRoutine` that calls a custom |cf|_.
 
 .. _Examples:
-       
+
 Examples
 --------
 Consider the following example illustrating the implementation of a
 (deliberately simple) filtering routine by subclassing
-:class:`ComputationalRoutine` and designing a |cf|_.  
+:class:`ComputationalRoutine` and designing a |cf|_.
 
 As a first step, a |cf|_ is defined:
 
@@ -290,5 +290,38 @@ with the `parallel` keyword set to `True`:
 >>> myfilter.initialize(data)
 >>> myfilter.compute(data, out, parallel=True)
 
-For realizing more complex mechanisms, consult the implementations of 
+For realizing more complex mechanisms, consult the implementations of
 :func:`syncopy.freqanalysis` or other metafunctions in Syncopy.
+
+
+Additional return values for backend and compute functions
+----------------------------------------------------------
+
+Description and Overview
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+One can pass a 2nd return value (a `dict`) from the `cF` functions, which will be attached automatically and temporarily to the (virtual or non-virtual) hdf5 files used by the compute backend (`cF` + `process_io` wrapper) to store results. The returned `dict` is subject to various limitations of hdf5 container 'attributes', including:
+
+* keys must be strings
+* values must be ndarrays with dtype != object, and size not exceeding 64k of data.
+
+Note that your backend function can return whatever it wants as a 2nd return value, as long as you adapt/encode this in the `cF` to a `dict` following the rules mentioned above.
+
+The return value will get attached to the hdf5 file(s) used to store computation results, and can later be extracted from the hdf5 file(s) in `process_metadata`.
+
+
+Using the 2nd return value when writing a cF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Users (as in: developers writing compute functions) are supposed to do the following:
+
+* Have their `backend` function return a 2nd argument (typically a dict, but this is not required)
+* In the `cF`, accept the 2nd argument returned from the `backend` function and remove or encode parts of the return value and put it into a `dict`. All entries in the `dict` must comply with the hdf5 attribute rules mentioned above. Then pass this modified return value on (i.e., return the modified `dict` as a 2nd return value of the `cF`).
+* Automatically: now the `dict` items get added to the hdf5 file as attributes, attached to a new hdf5 group called `metadata`, that is temporarily added to the hdf5 container(s). (Note that there may exist a single hdf5 container in the case of sequential storage, or several containers in case of parallel storage using virtual datasets. You do not need to worry about this.)
+* In your `process_metadata` implementation, (with signature: `def process_metadata(self, data, out):`), call `my_metadata = metadata_from_hdf5_file(out.filename)` to obtain the metadata as a dictionary. (Note: By default, this will remove the added data from the hdf5 file(s) after retrieving it.)
+* Do whatever you want with the metadata in `process_metadata`, e.g.:
+   #. Check the return value for things indicating that things went wrong in the backend/cF, and raise exceptions or print warnings accordingly
+   #. To recompute absolute trial indices from relative ones (if a selection was active in the input data, and that makes sense for your cF), you can optionally call `my_metadata_absind = metadata_trial_indices_abs(my_metadata, data.selection)` on the collected metadata.
+   #. If you did some special encoding in the `cF` to fit the data into the dict with the hdf5 'attribute' limitations, you may want to undo this.
+   #. To pass it to the frontend/user, one could add it to the `info` property or the `log` of `out`, or attach it to the syncopy data instance `out` as a new attribute. Keep in mind that such an attribute will not be saved in that case, but the user calling the frontend will have access to it.
+

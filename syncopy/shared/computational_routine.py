@@ -31,6 +31,7 @@ if __acme__:
     # # In case of problems w/worker-stealing, uncomment the following lines
     # import dask
     # dask.config.set(distributed__scheduler__work_stealing=False)
+from syncopy.shared.metadata import parse_cF_returns, h5_add_metadata
 
 __all__ = []
 
@@ -596,18 +597,31 @@ class ComputationalRoutine(ABC):
 
         # Do not spill trials on disk if they're supposed to be removed anyway
         if parallel_store and not self.keeptrials:
-            msg = "trial-averaging only supports sequential writing!"
+            msg = "trial-averaging only supports sequential storage, disabling parallel storage mode!"
             SPYWarning(msg)
             parallel_store = False
 
         # Create HDF5 dataset of appropriate dimension
         self.preallocate_output(out, parallel_store=parallel_store)
 
-        # Concurrent processing requires some additional prep-work...
         if parallel:
 
             # Construct list of dicts that will be passed on to workers: in the
             # parallel case, `trl_dat` is a dictionary!
+
+            # Use the trial IDs from the selection, so we have absolute trial indices.
+            trial_ids = data.selection.trials if data.selection is not None else range(self.numTrials)
+
+            # Use trial_ids and chunk_ids to turn into a unique index.
+            if self.numBlocksPerTrial == 1:  # The simple case: 1 call per trial. We add a chunk id (the trailing `_0` to be consistent with
+                                             # the more complex case, but the chunk index is always `0`).
+                unique_key = ["__" + str(trial_id) + "_0" for trial_id in trial_ids]
+            else:  # The more complex case: channel parallelization is active, we need to add the chunk to the
+                   # trial ID for the key to be unique, as a trial will be split into several chunks.
+                trial_ids = np.repeat(trial_ids, self.numBlocksPerTrial)
+                chunk_ids = np.tile(np.arange(self.numBlocksPerTrial), self.numTrials)
+                unique_key = ["__" + str(trial_id) + "_" + str(chunk_id) for trial_id, chunk_id in zip(trial_ids, chunk_ids)]
+
             workerDicts = [{"keeptrials": self.keeptrials,
                             "infile": data.filename,
                             "indset": data.data.name,
@@ -620,7 +634,9 @@ class ComputationalRoutine(ABC):
                             "outdset": self.tmpDsetName,
                             "outgrid": self.targetLayout[chk],
                             "outshape": self.targetShapes[chk],
-                            "dtype": self.dtype} for chk in range(self.numCalls)]
+                            "dtype": self.dtype,
+                            "call_id": unique_key[chk] } for chk in range(self.numCalls)]
+
 
             # If channel-block parallelization has been set up, positional args of
             # `computeFunction` need to be massaged: any list whose elements represent
@@ -646,6 +662,9 @@ class ComputationalRoutine(ABC):
                 inargs = (workerDicts, )
             else:
                 inargs = (workerDicts, *ArgV)
+
+            # Concurrent processing requires some additional prep-work...
+
 
             # Let ACME take care of argument distribution and memory checks: note
             # that `cfg` is trial-independent, i.e., we can simply throw it in here!
@@ -697,8 +716,10 @@ class ComputationalRoutine(ABC):
             # Store provided debugging state
             self.parallelDebug = parallel_debug
 
-        # For sequential processing, just ensure enough memory is available
+        # Now for the sequential processing case.
         else:
+
+            # We only check memory
             memSize = psutil.virtual_memory().available
             if self.chunkMem >= mem_thresh * memSize:
                 self.chunkMem /= 1024**3
@@ -795,7 +816,10 @@ class ComputationalRoutine(ABC):
         Parameters
         ----------
         data : syncopy data object
-           Syncopy data object to be processed
+           Syncopy data object, ignored for parallel case. The input data information
+           is already contained in the workerdicts, which are stored in `self.pmap` (expanded
+           from the `inargs` in `compute()`) and can be accessed from it.
+
         out : syncopy data object
            Empty object for holding results
 
@@ -829,8 +853,6 @@ class ComputationalRoutine(ABC):
                 h5f[self.outDatasetName][()] /= self.numTrials
                 h5f.flush()
 
-        return
-
     def compute_sequential(self, data, out):
         """
         Sequential computing kernel
@@ -860,7 +882,6 @@ class ComputationalRoutine(ABC):
         compute : management routine invoking parallel/sequential compute kernels
         compute_parallel : concurrent processing counterpart of this method
         """
-
         sourceObj = h5py.File(data.filename, mode="r")[data.data.name]
 
         # Iterate over (selected) trials and write directly to target HDF5 dataset
@@ -896,12 +917,16 @@ class ComputationalRoutine(ABC):
                     arr.shape = self.sourceShapes[nblock]
 
                     # Perform computation
-                    res = self.computeFunction(arr, *argv, **self.cfg)
+                    res, details = parse_cF_returns(self.computeFunction(arr, *argv, **self.cfg))
 
                     # In case scalar selections have been performed, explicitly assign
                     # desired output shape to re-create "lost" singleton dimensions
                     # (use an explicit `shape` assignment here to avoid copies)
                     res.shape = self.targetShapes[nblock]
+
+                    trial_idx = data.selection.trials[nblock] if data.selection is not None else nblock
+
+                    h5_add_metadata(h5fout, details, unique_key_suffix=trial_idx)
 
                 # Either write result to `outgrid` location in `target` or add it up
                 if self.keeptrials:
@@ -918,8 +943,6 @@ class ComputationalRoutine(ABC):
 
         # If source was HDF5 file, close it to prevent access errors
         sourceObj.file.close()
-
-        return
 
     def write_log(self, data, out, log_dict=None):
         """

@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from syncopy import freqanalysis
 from syncopy.shared.tools import get_defaults
 from syncopy.shared.errors import SPYValueError
-from syncopy.tests.synth_data import AR2_network, phase_diffusion
+from syncopy.tests.test_metadata import _get_fooof_signal
 import syncopy as spy
 from syncopy import __acme__
 if __acme__:
@@ -79,25 +79,6 @@ def spp(dt, title=None):
     if title is not None:
         ax.set_title(title)
     return fig, ax
-
-
-def _get_fooof_signal(nTrials=100):
-    """
-    Produce suitable test signal for fooof, with peaks at 30 and 50 Hz.
-
-    Note: One must perform trial averaging during the FFT to get realistic
-    data out of it (and reduce noise). Then work with the averaged data.
-
-    Returns AnalogData instance.
-    """
-    nSamples = 1000
-    nChannels = 1
-    samplerate = 1000
-    ar1_part = AR2_network(AdjMat=np.zeros(1), nSamples=nSamples, alphas=[0.9, 0], nTrials=nTrials)
-    pd1 = phase_diffusion(freq=30., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
-    pd2 = phase_diffusion(freq=50., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
-    signal = ar1_part + .8 * pd1 + 0.6 * pd2
-    return signal
 
 
 class TestFooofSpy():

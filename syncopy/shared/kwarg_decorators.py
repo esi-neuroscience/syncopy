@@ -13,6 +13,7 @@ import numpy as np
 from syncopy.shared.errors import (SPYTypeError, SPYValueError,
                                    SPYError, SPYWarning)
 from syncopy.shared.tools import StructDict
+from syncopy.shared.metadata import h5_add_metadata, parse_cF_returns
 import syncopy as spy
 if spy.__acme__:
     import dask.distributed as dd
@@ -583,10 +584,10 @@ def process_io(func):
         # `trl_dat` is a NumPy array or `FauxTrial` object: execute the wrapped
         # function and return its result
         if not isinstance(trl_dat, dict):
+            # Adding the metadata is done in compute_sequential(), nothing to do here.
+            # Note that the return value of 'func' in the next line may be a tuple containing
+            # both the ndarray for 'data', and the 'details'.
             return func(trl_dat, *wrkargs, **kwargs)
-
-        ### Idea: hook .compute_sequential() from CR into here
-
 
         # The fun part: `trl_dat` is a dictionary holding components for parallelization
         keeptrials = trl_dat["keeptrials"]
@@ -602,6 +603,7 @@ def process_io(func):
         outgrid = trl_dat["outgrid"]
         outshape = trl_dat["outshape"]
         outdtype = trl_dat["dtype"]
+        call_id = trl_dat["call_id"]
 
         # === STEP 1 === read data into memory
         # Catch empty source-array selections; this workaround is not
@@ -626,7 +628,13 @@ def process_io(func):
 
             # Now, actually call wrapped function
             # Put new outputs here!
-            res = func(arr, *wrkargs, **kwargs)
+            res, details = parse_cF_returns(func(arr, *wrkargs, **kwargs))
+            # User-supplied cFs may return a single numpy.ndarray, or a 2-tuple of type (ndarray, sdict) where
+            # 'ndarray' is a numpy.ndarray containing computation results to be stored in the Syncopy data type (like AnalogData),
+            #  and 'sdict' is a shallow dictionary containing meta data that will be temporarily attached to the hdf5 container(s)
+            # during the compute run, but removed/collected and returned as separate return values to the user in the frontend.
+
+            assert isinstance(res, np.ndarray)
 
             # In case scalar selections have been performed, explicitly assign
             # desired output shape to re-create "lost" singleton dimensions
@@ -639,24 +647,22 @@ def process_io(func):
         if vdsdir is not None:
             with h5py.File(outfilename, "w") as h5fout:
                 h5fout.create_dataset(outdset, data=res)
-                # add new dataset/attribute to capture new outputs
+                h5_add_metadata(h5fout, details, unique_key_suffix=call_id)
                 h5fout.flush()
         else:
 
             # Create distributed lock (use unique name so it's synced across workers)
             lock = dd.lock.Lock(name='sequential_write')
-
             # Either (continue to) compute average or write current chunk
             lock.acquire()
             with h5py.File(outfilename, "r+") as h5fout:
-                # get unique id (from outgrid?)
-                # to attach additional outputs
-                # to the one and only hdf5 container
-                target = h5fout[outdset]
+                main_dset = h5fout[outdset]
                 if keeptrials:
-                    target[outgrid] = res
+                    main_dset[outgrid] = res
                 else:
-                    target[()] = np.nansum([target, res], axis=0)
+                    main_dset[()] = np.nansum([main_dset, res], axis=0)
+
+                h5_add_metadata(h5fout, details, unique_key_suffix=call_id)
                 h5fout.flush()
             lock.release()
 
