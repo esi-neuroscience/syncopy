@@ -28,7 +28,7 @@ skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available"
 
 class TestDownsampling:
 
-    nSamples = 1000
+    nSamples = 991
     nChannels = 4
     nTrials = 100
     fs = 200
@@ -61,6 +61,10 @@ class TestDownsampling:
         if def_test:
             kwargs = {'resamplefs': self.fs // 2}
         ds = resampledata(self.adata, method='downsample', **kwargs)
+        lenTrials = np.diff(ds.sampleinfo).squeeze()
+        # check for equal trials
+        assert np.unique(lenTrials).size == 1
+
         spec_ds = freqanalysis(ds, tapsmofrq=1, keeptrials=False)
 
         # all channels are equal, trim off 0-frequency dip
@@ -199,6 +203,10 @@ class TestResampling:
             kwargs = {'resamplefs': self.fs * 0.43, 'order': 5000}
 
         rs = resampledata(self.adata, method='resample', **kwargs)
+        lenTrials = np.diff(rs.sampleinfo).squeeze()
+        # check for equal trials
+        assert np.unique(lenTrials).size == 1
+
         spec_rs = freqanalysis(rs, tapsmofrq=1, keeptrials=False)
 
         # all channels are equal,
@@ -235,6 +243,7 @@ class TestResampling:
                                                toi_max=self.time_span[1],
                                                min_len=3.5)
         for sd in sel_dicts:
+            print(sd)
             spec_rs = self.test_resampling(select=sd, resamplefs=self.fs / 2.1)
             # remove 3Hz window around the filter cut
             pow_rs = spec_rs.show(channel=0)[:-3].mean()

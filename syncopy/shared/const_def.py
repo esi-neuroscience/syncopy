@@ -32,7 +32,6 @@ spectralConversions["complex"] = spectralConversions["fourier"]
 all_windows = windows.__all__
 all_windows.remove("get_window")  # aux. function
 all_windows.remove("exponential")  # not symmetric
-all_windows.remove("hanning")  # deprecated
 all_windows.remove("dpss")  # activated via `tapsmofrq`
 
 availableTapers = all_windows
