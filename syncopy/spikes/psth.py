@@ -114,7 +114,6 @@ def psth(trl_dat,
     trl_start_reltime = onset / samplerate
     trl_end_reltime = (trl_end - trl_start + onset) / samplerate
 
-    print(tbins[0], tbins[-1], trl_start_reltime, trl_end_reltime)
     # indices along the time bin axis
     min_idx = np.argmin(trl_start_reltime > tbins)
     max_idx = np.argmin(trl_end_reltime > tbins)
@@ -123,8 +122,6 @@ def psth(trl_dat,
         counts[:min_idx - 1] = np.nan
     if max_idx != 0:
         counts[max_idx:] = np.nan
-
-    print(min_idx, max_idx)
 
     return counts, bins
 
