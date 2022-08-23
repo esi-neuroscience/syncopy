@@ -924,7 +924,9 @@ class ComputationalRoutine(ABC):
                     # (use an explicit `shape` assignment here to avoid copies)
                     res.shape = self.targetShapes[nblock]
 
-                    h5_add_metadata(h5fout, details, unique_key_suffix=nblock)
+                    trial_idx = data.selection.trials[nblock] if data.selection is not None else nblock
+
+                    h5_add_metadata(h5fout, details, unique_key_suffix=trial_idx)
 
                 # Either write result to `outgrid` location in `target` or add it up
                 if self.keeptrials:

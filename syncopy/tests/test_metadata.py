@@ -455,6 +455,45 @@ class TestMetadataUsingMtmfft():
         else:
             print(f"Frequency axes hashes are identical across all {num_hashes_checked} trials.")
 
+    def test_sequential_mtmfft_with_selections(self):
+        """
+        Test metadata propagation with mtmfft in sequential compute mode, with selections.
+
+        This also demonstrates howto use the hashed frequencies from the 2nd return
+        value to ensure they are identical across trials.
+        """
+        # These are known from the input data and cfg.
+        data_size = 100  # Number of samples (per trial) seen by mtmfftm. The full signal returned by _get_fooof_signal() is
+                         # larger, but the cfg.foilim setting (in get_fooof_cfg()) limits to 100 samples.
+
+
+        cfg = TestMetadataUsingMtmfft.get_mtmfft_cfg()
+        cfg.parallel = False
+        cfg.keeptrials = True
+        selected_trials = [3, 5, 7]
+        cfg.select = { 'trials': selected_trials }
+        num_trials_out = len(selected_trials)
+
+        spec_dt = freqanalysis(cfg, self.tfData)
+
+        assert spec_dt.data.shape == (num_trials_out, 1, data_size, 1)
+
+        keys_unique = [kv + "__0_0" for kv in self.expected_metadata_dict_entries]
+
+        assert spec_dt.metadata is not None
+        assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
+
+        # Check that the metadata keys are absolute, despite the selection.
+        md_trial_indices = []
+        for k, v in spec_dt.metadata.items():
+            label, trial_idx, chunk_idx = decode_unique_md_label(k)
+            md_trial_indices.append(int(trial_idx))
+            assert isinstance(v, (np.bytes_))
+        for ti in md_trial_indices:
+            assert ti in selected_trials, f"Expected trial index '{ti}' not found in selected_trials"
+
+
+
     def test_par_mtmfft_with_selections(self):
         """
         Test metadata propagation with mtmfft in with parallel compute and parallel storage,
@@ -484,8 +523,6 @@ class TestMetadataUsingMtmfft():
         assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
 
         # Check that the metadata keys are absolute, despite the selection.
-        # We expect this to be the case because in the `process_metadata` implementation
-        # of the mtmfft computational routine.
         md_trial_indices = []
         for k, v in spec_dt.metadata.items():
             label, trial_idx, chunk_idx = decode_unique_md_label(k)
