@@ -7,12 +7,17 @@ import numpy as np
 
 # Syncopy imports
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
-from syncopy.shared.tools import get_defaults
-from syncopy.datatype import SpikeData, TimeLockData
+from syncopy.shared.tools import get_defaults, get_frontend_cfg
+from syncopy.datatype import TimeLockData
+from syncopy.datatype.base_data import Indexer
 
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
-from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
-                                             detect_parallel_client)
+from syncopy.shared.kwarg_decorators import (
+    unwrap_cfg,
+    unwrap_select,
+    detect_parallel_client
+)
+from syncopy.shared.input_processors import check_passed_kwargs
 
 
 # method specific imports - they should go when
@@ -25,11 +30,6 @@ from syncopy.spikes.compRoutines import PSTH
 available_binsizes = {'rice': Rice_rule, 'sqrt': sqrt_rule}
 available_outputs = ['rate', 'spikecount', 'proportion']
 available_latencies = ['maxperiod', 'minperiod', 'prestim', 'poststim']
-
-# ===DEV SNIPPET===
-from syncopy.tests import synth_data as sd
-spd = sd.poisson_noise(10, nUnits=4, nChannels=2, nSpikes=10000, samplerate=10000)
-# =================
 
 
 @unwrap_cfg
@@ -84,18 +84,39 @@ def spike_psth(data,
     except Exception as exc:
         raise exc
 
+    defaults = get_defaults(spike_psth)
+    lcls = locals()
+    # check for ineffective additional kwargs
+    check_passed_kwargs(lcls, defaults, frontend_name="spike_psth")
+    # save frontend call in cfg
+    new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
+
+    # digest selections
+
+    if data.selection is not None:
+        trl_def = data.selection.trialdefinition
+        sinfo = data.selection.trialdefinition[:, :2]
+        # why is this not directly data.selection.trials?!
+        trials = Indexer(map(data._get_trial, data.selection.trials),
+                         sinfo.shape[0])
+    else:
+        trl_def = data.trialdefinition
+        sinfo = data.sampleinfo
+        trials = data.trials
+
+    lenTrials = np.diff(sinfo).squeeze()
+
     # --- parse and digest `latency` (time window of analysis) ---
 
     # beginnings and ends of all trials in relative time
-    beg_ends = data.sampleinfo + data.trialdefinition[:, 2][:, None]
-    beg_ends = (beg_ends - data.sampleinfo[:, 0][:, None]) / data.samplerate
+    beg_ends = sinfo + trl_def[:, 2][:, None]
+    beg_ends = (beg_ends - sinfo[:, 0][:, None]) / data.samplerate
 
     trl_starts = beg_ends[:, 0]
     trl_ends = beg_ends[:, 1]
     # just for sanity checks atm
     tmin, tmax = trl_starts.min(), trl_ends.max()
-    print(tmin, tmax)
-    print(beg_ends)
+
     if isinstance(latency, str):
         if latency not in available_latencies:
             lgl = f"one of {available_latencies}"
@@ -136,7 +157,7 @@ def spike_psth(data,
 
     # --- determine overall (all trials) histogram shape ---
 
-    # get average trial size for auto-binning
+    # get average trial size for auto-binning (no selection respected)
     av_trl_size = data.data.shape[0] / len(data.trials)
 
     if binsize in available_binsizes:
@@ -148,10 +169,8 @@ def spike_psth(data,
         bins = np.arange(interval[0], interval[1] + binsize, binsize)
         nBins = len(bins)
 
-    print(interval, bins)
-
     # it's a sequential loop to get an array of [chan, unit] indices
-    combs = get_chan_unit_combs(data.trials)
+    combs = get_chan_unit_combs(trials)
 
     # right away create the output labels for the channel axis
     chan_labels = [f'channel{i}_unit{j}' for i, j in combs]
@@ -168,9 +187,9 @@ def spike_psth(data,
     # --- set up CR ---
 
     # trl_start` and `onset` for distributing positional args to psth_cF
-    trl_starts = data.trialdefinition[:, 0]
-    trl_ends = data.trialdefinition[:, 1]
-    trigger_onsets = data.trialdefinition[:, 2]
+    trl_starts = trl_def[:, 0]
+    trl_ends = trl_def[:, 1]
+    trigger_onsets = trl_def[:, 2]
     psth_cR = PSTH(trl_starts,
                    trigger_onsets,
                    trl_ends,
@@ -190,4 +209,7 @@ def spike_psth(data,
                     parallel=kwargs.get("parallel"),
                     log_dict=log_dict)
 
+    # propagate old cfg and attach this one
+    psth_results.cfg.update(data.cfg)
+    psth_results.cfg.update({'spike_psth': new_cfg})
     return psth_results

@@ -144,7 +144,7 @@ def get_chan_unit_combs(trials):
 
     """
     Get all channelX-unitY indice combinations with at least one event
-    by checking every single trial sequentially in `trials`.
+    by checking every single trial array sequentially in `trials`.
     """
     combs = []
 

@@ -132,7 +132,10 @@ class PSTH(ComputationalRoutine):
         # each trial has the same length
         # for "timelocked" (same bins) psth data
         trl_len = len(tbins) - 1
-        nTrials = len(data.trials)
+        if data.selection is not None:
+            nTrials = len(data.selection.trials)
+        else:
+            nTrials = len(data.trials)
 
         # create trialdefinition, offsets are all equal
         # for timelocked data
@@ -142,7 +145,7 @@ class PSTH(ComputationalRoutine):
         # negative relative time is pre-stimulus!
         offsets = np.rint(tbins[0] * srate)
         trl[:, 2] = offsets
-        print('pm', trl)
+
         # Attach meta-data
         if self.keeptrials:
             out.trialdefinition = trl
