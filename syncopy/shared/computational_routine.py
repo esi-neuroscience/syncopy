@@ -609,16 +609,18 @@ class ComputationalRoutine(ABC):
             # Construct list of dicts that will be passed on to workers: in the
             # parallel case, `trl_dat` is a dictionary!
 
-            # Compute trial_ids and chunk_ids to turn into a unique index.
-            # Keep in mind that these may not be absolute due to selections.
+            # Use the trial IDs from the selection, so we have absolute trial indices.
+            trial_ids = data.selection.trials if data.selection is not None else range(self.numTrials)
+
+            # Use trial_ids and chunk_ids to turn into a unique index.
             if self.numBlocksPerTrial == 1:  # The simple case: 1 call per trial. We add a chunk id (the trailing `_0` to be consistent with
                                              # the more complex case, but the chunk index is always `0`).
-                unique_key = ["__" + str(trial_id) + "_0" for trial_id in range(self.numCalls)]
-            else:  # The more complex case: channel parallelisation is active, we need to add the chunk to the
+                unique_key = ["__" + str(trial_id) + "_0" for trial_id in trial_ids]
+            else:  # The more complex case: channel parallelization is active, we need to add the chunk to the
                    # trial ID for the key to be unique, as a trial will be split into several chunks.
-                rel_trial_ids = np.repeat(np.arange(self.numTrials), self.numBlocksPerTrial)
+                trial_ids = np.repeat(trial_ids, self.numBlocksPerTrial)
                 chunk_ids = np.tile(np.arange(self.numBlocksPerTrial), self.numTrials)
-                unique_key = ["__" + str(trial_id) + "_" + str(chunk_id) for trial_id, chunk_id in zip(rel_trial_ids, chunk_ids)]
+                unique_key = ["__" + str(trial_id) + "_" + str(chunk_id) for trial_id, chunk_id in zip(trial_ids, chunk_ids)]
 
             workerDicts = [{"keeptrials": self.keeptrials,
                             "infile": data.filename,

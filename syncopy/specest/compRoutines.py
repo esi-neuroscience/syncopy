@@ -39,7 +39,7 @@ from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import process_io
-from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, trial_indices_abs, metadata_from_hdf5_file
+from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, metadata_from_hdf5_file
 from syncopy.shared.const_def import (
     spectralConversions,
     spectralDTypes
@@ -201,9 +201,6 @@ class MultiTaperFFT(ComputationalRoutine):
 
         # General-purpose loading of metadata.
         out.metadata = metadata_from_hdf5_file(out.filename)
-
-        # Compute absolute trial numbers from relative ones.
-        out.metadata = trial_indices_abs(out.metadata, data.selection)
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -988,10 +985,9 @@ class FooofSpy(ComputationalRoutine):
         # General-purpose loading of metadata.
         out.metadata = metadata_from_hdf5_file(out.filename)
 
-        # Computing absolute trial numbers from relative ones makes
-        # no sense for FOOOF, because the mtmfft run before will have
-        # consumed them and changed the input data of fooof, so it never
-        # sees them. Therefore, we do not call `metadata_trial_indices_abs` here.
+        # Note that FOOOF never sees absolute trial indices if a selection was
+        # made in the call to `freqanalysis`, because the mtmfft run before will have
+        # consumed them. So the trial indices are always relative.
 
         # Backend-specific post-processing. May or may not be needed, depending on what
         # you need to do in the cF to fit the return values into hdf5.

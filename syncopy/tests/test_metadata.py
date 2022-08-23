@@ -485,7 +485,7 @@ class TestMetadataUsingMtmfft():
 
         # Check that the metadata keys are absolute, despite the selection.
         # We expect this to be the case because in the `process_metadata` implementation
-        # of the mtmfft computational routine, we call `metadata_trial_indices_abs` to compute them.
+        # of the mtmfft computational routine.
         md_trial_indices = []
         for k, v in spec_dt.metadata.items():
             label, trial_idx, chunk_idx = decode_unique_md_label(k)
@@ -499,6 +499,3 @@ if __name__ == "__main__":
     T1 = TestMetadataHelpers()
     T2 = TestMetadataUsingFooof()
     T3 = TestMetadataUsingMtmfft()
-    #print("=================Testing================")
-    #T3.test_par_mtmfft_with_selections()
-    #print("===============Testing done==============")
