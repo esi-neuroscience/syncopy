@@ -286,7 +286,7 @@ def poisson_noise(nTrials=10,
     Poisson (Shot-) noise generator
 
     The (mean) number of spikes `nSpikes`
-    divided by the poissong intensity gives the
+    divided by the poisson intensity gives the
     total sampling time over all trials.
 
     The distribution of the spikes along channels and units
