@@ -1297,6 +1297,9 @@ class Selector():
         # than 2 list selectors for `ContinuousData`-offspring
         self._make_consistent(data)
 
+        # store for later re-application/modification
+        self.select = select
+
     @property
     def trials(self):
         """Index list of selected trials"""

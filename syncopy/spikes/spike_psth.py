@@ -39,6 +39,7 @@ def spike_psth(data,
                binsize='rice',
                output='rate',
                latency='maxperiod',
+               vartriallen=True,
                keeptrials=True,
                **kwargs):
 
@@ -84,6 +85,9 @@ def spike_psth(data,
     except Exception as exc:
         raise exc
 
+    if not isinstance(vartriallen, bool):
+        raise SPYTypeError(vartriallen, varname='vartriallen', expected='Bool')
+
     defaults = get_defaults(spike_psth)
     lcls = locals()
     # check for ineffective additional kwargs
@@ -104,18 +108,16 @@ def spike_psth(data,
         sinfo = data.sampleinfo
         trials = data.trials
 
-    lenTrials = np.diff(sinfo).squeeze()
-
     # --- parse and digest `latency` (time window of analysis) ---
 
-    # beginnings and ends of all trials in relative time
+    # beginnings and ends of all (selected) trials in relative time
     beg_ends = sinfo + trl_def[:, 2][:, None]
     beg_ends = (beg_ends - sinfo[:, 0][:, None]) / data.samplerate
 
     trl_starts = beg_ends[:, 0]
     trl_ends = beg_ends[:, 1]
     # just for sanity checks atm
-    tmin, tmax = trl_starts.min(), trl_ends.max()
+    # tmin, tmax = trl_starts.min(), trl_ends.max()
 
     if isinstance(latency, str):
         if latency not in available_latencies:
@@ -123,11 +125,11 @@ def spike_psth(data,
             act = latency
             raise SPYValueError(lgl, varname='latency', actual=act)
 
-        # find overlapping interval for all trials
+        # find overlapping window (timelocked time axis borders) for all trials
         if latency == 'minperiod':
             # latest start and earliest finish
-            interval = [np.max(trl_starts), np.min(trl_ends)]
-            if interval[0] > interval[1]:
+            window = [np.max(trl_starts), np.min(trl_ends)]
+            if window[0] > window[1]:
                 lgl = 'overlapping trials'
                 act = f"{latency} - no common time window for all trials"
                 raise SPYValueError(lgl, 'latency', act)
@@ -135,53 +137,99 @@ def spike_psth(data,
         # cover maximal time window where
         # there is still some data in at least 1 trial
         elif latency == 'maxperiod':
-            interval = [np.min(trl_starts), np.max(trl_ends)]
+            window = [np.min(trl_starts), np.max(trl_ends)]
 
         elif latency == 'prestim':
             if not np.any(trl_starts < 0):
                 lgl = "pre-stimulus recordings"
                 act = "no pre-stimulus (t < 0) events"
                 raise SPYValueError(lgl, 'latency', act)
-            interval = [np.min(trl_starts), 0]
+            window = [np.min(trl_starts), 0]
 
         elif latency == 'poststim':
             if not np.any(trl_ends > 0):
                 lgl = "post-stimulus recordings"
                 act = "no post-stimulus (t > 0) events"
                 raise SPYValueError(lgl, 'latency', act)
-            interval = [0, np.max(trl_ends)]
+            window = [0, np.max(trl_ends)]
     # explicit time window in seconds
     else:
         array_parser(latency, lims=[-np.inf, np.inf], dims=(2,))
-        interval = latency
+        window = latency
 
-    # --- determine overall (all trials) histogram shape ---
+    if not vartriallen:
+        # trial idx for whole dataset
+        trl_idx = np.arange(len(data.trials))
+        bmask = (trl_starts <= window[0]) & (trl_ends >= window[1])
 
-    # get average trial size for auto-binning (no selection respected)
-    av_trl_size = data.data.shape[0] / len(data.trials)
+        # trials which fit completely into window
+        fit_trl_idx = trl_idx[bmask]
+        if fit_trl_idx.size == 0:
+            lgl = 'at least one trial covering the latency window'
+            act = 'no trial that completely covers the latency window'
+            raise SPYValueError(lgl, varname='latency/vartriallen', actual=act)
+
+        # the easy part, no selection so we make one
+        if data.selection is None:
+            data.selectdata(trials=fit_trl_idx, inplace=True)
+            # redefinition needed
+            trl_def = data.selection.trialdefinition
+            sinfo = data.selection.trialdefinition[:, :2]
+            trials = Indexer(map(data._get_trial, data.selection.trials),
+                             sinfo.shape[0])
+            numDiscard = len(trl_idx) - len(fit_trl_idx)
+        else:
+            # match fitting trials with selected ones
+            fit_trl_idx = np.intersect1d(data.selection.trials, fit_trl_idx)
+            numDiscard = len(data.selection.trials) - len(fit_trl_idx)
+
+            if fit_trl_idx.size == 0:
+                lgl = 'at least one trial covering the latency window'
+                act = 'no trial that completely covers the latency window'
+                raise SPYValueError(lgl, varname='latency/vartriallen', actual=act)
+
+            # now modify and re-apply selection
+            select = data.selection.select.copy()
+            select['trials'] = fit_trl_idx
+            data.selectdata(select, inplace=True)
+            # now redefine local variables
+            trl_def = data.selection.trialdefinition
+            sinfo = data.selection.trialdefinition[:, :2]
+            trials = Indexer(map(data._get_trial, data.selection.trials),
+                             sinfo.shape[0])
+        msg = f"Discarded {numDiscard} trials which did not fit into latency window"
+        SPYInfo(msg)
+    else:
+        numDiscard = 0
+
+    # --- determine overall (all selected trials) histogram shape ---
+
+    # get average trial size for auto-binning
+    av_trl_size = np.diff(sinfo).sum() / len(trials)
 
     if binsize in available_binsizes:
         nBins = available_binsizes[binsize](av_trl_size)
-        bins = np.linspace(*interval, nBins)
+        bins = np.linspace(*window, nBins)
     else:
-        scalar_parser(binsize, varname='binsize', lims=[0, np.inf])
+        # make sure we have at least 2 bins
+        scalar_parser(binsize, varname='binsize', lims=[0, np.diff(window).squeeze()])
         # include rightmost bin edge
-        bins = np.arange(interval[0], interval[1] + binsize, binsize)
+        bins = np.arange(window[0], window[1] + binsize, binsize)
         nBins = len(bins)
 
     # it's a sequential loop to get an array of [chan, unit] indices
     combs = get_chan_unit_combs(trials)
 
-    # right away create the output labels for the channel axis
-    chan_labels = [f'channel{i}_unit{j}' for i, j in combs]
-
     # now we have our global (single-trial, avg, std,..) histogram shape
-    h_shape = (nBins, len(combs))
+    # h_shape = (nBins, len(combs))
 
     # --- populate the log
 
     log_dict = {'bins': bins,
-                'latency': latency
+                'binsize': binsize,
+                'latency': latency,
+                'vartriallen': vartriallen,
+                'numDiscard': numDiscard
                 }
 
     # --- set up CR ---
