@@ -37,6 +37,8 @@ def psth(trl_dat,
         An array of monotonically increasing PSTH bin edges
         in seconds including the rightmost edge
         Defaults with `None` to the Rice rule
+    samplerate : float
+        Samplerate in Hz
 
     Returns
     -------
