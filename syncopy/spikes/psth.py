@@ -3,10 +3,11 @@ from scipy.stats import iqr
 
 
 def psth(trl_dat,
-         cu_combos,
-         trl_start=0,
-         onset=0,
-         bins=None,
+         trl_start,
+         onset,
+         trl_end,
+         chan_unit_combs=None,
+         tbins=None,
          samplerate=1000):
 
     """
@@ -21,18 +22,23 @@ def psth(trl_dat,
     ----------
     trl_dat : :class:`~np.ndarray`
         Single trial spike data with shape (nEvents x 3)
-    cu_combos : :class:`~np.ndarray`
-        All (sorted) numeric channel-unit combinations to bin for
-        arangend in a (N, 2) shaped array, where each row is
-        one unique combination (say [4, 1] for channel4 - unit1)
     trl_start : int
         Start of the trial in sample units
     onset : int
         Trigger onset in samples units
-    bins: :class:`~numpy.array` or None
+    trl_end : int
+        End of the trial in sample units
+    chan_unit_combs : :class:`~np.ndarray`
+        All (sorted) numeric channel-unit combinations to bin for
+        arangend in a (N, 2) shaped array, where each row is
+        one unique combination (say [4, 1] for channel4 - unit1)
+        If `None` will infer from the supplied SpikeData array.
+    tbins: :class:`~numpy.array` or None
         An array of monotonically increasing PSTH bin edges
         in seconds including the rightmost edge
         Defaults with `None` to the Rice rule
+    samplerate : float
+        Samplerate in Hz
 
     Returns
     -------
@@ -45,40 +51,48 @@ def psth(trl_dat,
     `Rice Rule <https://en.wikipedia.org/wiki/Histogram#Rice_Rule>`_ on Wikipedia
     """
 
-
     # for readability
     samples = trl_dat[:, 0]
     channels = trl_dat[:, 1]
     units = trl_dat[:, 2]
 
-    # get relative spike times, no time-sorting needed for histograms!
+    # get relative spike times for all events in trial
     times = _calc_time(samples, trl_start, onset, samplerate)
 
-    # Auto-select bin widths
-    if bins is None:
+    # Auto-select bin widths as backend fallback
+    if tbins is None:
         nBins = Rice_rule(len(times))
-        bins = np.linspace(times.min(), times.max(), nBins + 1)
+        tbins = np.linspace(times.min(), times.max(), nBins + 1)
     else:
-        nBins = len(bins) - 1
+        nBins = len(tbins) - 1
 
     # this could mean here [chan1, chan5, chan10]!
     chan_vec = np.unique(channels)
     # now the ith channel bin maps to the ith available channel
     # (0, 1, 2) -> (1, 5, 10)
-    bins = [bins, np.arange(chan_vec.size + 1)]
+    bins = [tbins, np.arange(chan_vec.size + 1)]
+
+    # inference here from a single trial is just a fallback
+    # for testing etc.
+    if chan_unit_combs is None:
+        chan_unit_combs = get_chan_unit_combs([trl_dat])
 
     # this is the global(!) output shape - some columns may be filled with 0s
     # -> no firing for that chan-unit combo in this specific trial
-    counts = np.zeros((nBins, len(cu_combos)))
+    counts = np.zeros((nBins, len(chan_unit_combs)))
 
     # available units in this trial
     unique_units = np.unique(units)
 
     # create boolean mapping of all trial specific combinations
     # into global output shape
-    map_cu = lambda c, u: np.all(cu_combos == [c, u], axis=1)
+    map_cu = lambda c, u: np.all(chan_unit_combs == [c, u], axis=1)
+
     # now map with respect to unit for all single trial channels (-bins)
     map_unit = {u: np.logical_or.reduce([map_cu(c, u) for c in chan_vec]) for u in unique_units}
+
+    # map into histogram time x channel dimensions
+    map_unit_hist = {u: [np.any(map_cu(c, u)) for c in chan_vec] for u in unique_units}
 
     for i, iunit in enumerate(unique_units):
         unit_idx = (units == iunit)
@@ -88,10 +102,28 @@ def psth(trl_dat,
             unit_counts = np.histogram2d(times[unit_idx],
                                          channels[unit_idx],
                                          bins=bins)[0]
+
             # get indices to inject the results
             # at the right position
             cu_idx = map_unit[iunit]
-            counts[:, cu_idx] = unit_counts
+
+            # masks non-existent combinations in histogram
+            chan_hist_idx = map_unit_hist[iunit]
+            counts[:, cu_idx] = unit_counts[:, chan_hist_idx].astype(np.float32)
+
+    # --- mask time bins which are outside of this trial ---
+    # in trigger relative (timelocked) time
+    trl_start_reltime = onset / samplerate
+    trl_end_reltime = (trl_end - trl_start + onset) / samplerate
+
+    # indices along the time bin axis
+    min_idx = np.argmin(trl_start_reltime > tbins)
+    max_idx = np.argmin(trl_end_reltime > tbins)
+
+    if min_idx != 0:
+        counts[:min_idx - 1] = np.nan
+    if max_idx != 0:
+        counts[max_idx:] = np.nan
 
     return counts, bins
 
@@ -100,12 +132,28 @@ def _calc_time(samples, trl_start, onset, samplerate):
 
     """
     Calculates the event times relative to the trigger
-    from sample numbers of individual events.
+    from sample numbers of individual events (the `samples`).
     """
-
     times = (samples - trl_start + onset) / samplerate
 
     return times
+
+
+def get_chan_unit_combs(trials):
+
+    """
+    Get all channelX-unitY indice combinations with at least one event
+    by checking every single trial array sequentially in `trials`.
+    """
+    combs = []
+
+    # the straightforward way would be: np.unique(data.data[:, 1:], axis=0)
+    # however this loads 66% the size of the total data into memory
+    for trial in trials:
+        combs.append(np.unique(trial[:, 1:], axis=0))
+
+    combs = np.unique(np.concatenate(combs), axis=0)
+    return combs
 
 
 # --- Bin selection rules ---

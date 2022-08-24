@@ -9,18 +9,23 @@ import numpy as np
 from numpy.lib import stride_tricks
 
 # backend method imports
-from .psth import psth, Rice_rule
+from .psth import psth
 
 # syncopy imports
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import unwrap_io
+from syncopy.shared.kwarg_decorators import process_io
 
 
-@unwrap_io
+@process_io
 def psth_cF(trl_dat,
+            trl_start,
+            onset,
+            trl_end,
+            chan_unit_combs=None,
+            tbins=None,
+            samplerate=1000,
             noCompute=False,
-            chunkShape=None,
-            method_kwargs=None):
+            chunkShape=None):
 
     """
     Peristimulus time histogram
@@ -33,15 +38,28 @@ def psth_cF(trl_dat,
     ----------
     trl_dat : 2D :class:`numpy.ndarray`
         Single trial spike data with shape (nEvents x 3)
+    trl_start : int
+        Start of the trial in sample units
+    onset : int
+        Trigger onset in samples units
+    trl_end : int
+        End of the trial in sample units
+    chan_unit_combs : :class:`~np.ndarray`
+        All (sorted) numeric channel-unit combinations to bin for
+        arangend in a (N, 2) shaped array, where each row is
+        one unique combination (say [4, 1] for channel4 - unit1)
+        If `None` will infer from the supplied SpikeData array.
+    tbins: :class:`~numpy.array` or None
+        An array of monotonically increasing PSTH bin edges
+        in seconds including the rightmost edge
+        Defaults with `None` to the Rice rule
+
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
         array.
     chunkShape : None or tuple
         If not `None`, represents shape of output `tl_data`
-    method_kwargs : dict
-        Keyword arguments passed to :func:`~syncopy.spikes.psth.psth`
-        controlling the actual spike analysis method
 
     Returns
     -------
@@ -68,22 +86,19 @@ def psth_cF(trl_dat,
 
     """
 
-    nUnits = np.unique(trl_dat)[2]
-    nChannels = np.unique(trl_dat)[2]
-    nBins = len(method_kwargs['bins']) - 1
+    nChanUnit = len(chan_unit_combs)
+    nBins = len(tbins) - 1
 
     # For initialization of computational routine,
     # just return output shape and dtype
     if noCompute:
-        outShape = (nBins, nUnits * nChannels)
-        return outShape, np.int32
+        outShape = (nBins, nChanUnit)
+        return outShape, np.float32
 
     # call backend method
-    # counts has shape (nBins, nUnits, nChannels)
-    counts, bins = psth(trl_dat, **method_kwargs)
-
-    # split out channel counts along the units axis
-    counts.shape = (nBins, nUnits * nChannels)
+    counts, bins = psth(trl_dat, trl_start, onset, trl_end,
+                        chan_unit_combs=chan_unit_combs,
+                        tbins=tbins, samplerate=samplerate)
 
     return counts
 
@@ -109,35 +124,35 @@ class PSTH(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Get trialdef array + channels from source
-        if data.selection is not None:
-            chanSec = data.selection.channel
-        else:
-            chanSec = slice(None)
-
-        # Get trialdef array + units from source
-        if data.selection is not None:
-            unitSec = data.selection.unit
-        else:
-            unitSec = slice(None)
-
+        tbins = self.cfg['tbins']
         # compute new time axis / samplerate
-        bin_midpoints = stride_tricks.sliding_window_view(self.cfg['bins'], (2,)).mean(axis=1)
+        bin_midpoints = stride_tricks.sliding_window_view(tbins, (2,)).mean(axis=1)
         srate = 1 / np.diff(bin_midpoints).mean()
 
         # each trial has the same length
         # for "timelocked" (same bins) psth data
-        trl_len = len(self.cfg['bins']) - 1
-        nTrials = len(self.data.trials)
+        trl_len = len(tbins) - 1
+        if data.selection is not None:
+            nTrials = len(data.selection.trials)
+        else:
+            nTrials = len(data.trials)
 
-        # create trialdefinition, offsets are all 0
+        # create trialdefinition, offsets are all equal
         # for timelocked data
         trl = np.zeros((nTrials, 3))
         sample_idx = np.arange(0, nTrials * trl_len + 1, trl_len)
         trl[:, :2] = stride_tricks.sliding_window_view(sample_idx, (2,))
+        # negative relative time is pre-stimulus!
+        offsets = np.rint(tbins[0] * srate)
+        trl[:, 2] = offsets
 
         # Attach meta-data
-        out.trialdefinition = trl
+        if self.keeptrials:
+            out.trialdefinition = trl
+        else:
+            out.trialdefinition = trl[[0], :]
+
         out.samplerate = srate
         # join labels for final unitX_channelY channel labels
-        out.channel = [u + '_' + c for u in data.unit[unitSec] for c in data.channel[chanSec]]
+        chan_str = "channel{}_unit{}"
+        out.channel = [chan_str.format(c, u) for c, u in self.cfg['chan_unit_combs']]

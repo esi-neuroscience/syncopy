@@ -23,7 +23,7 @@ from syncopy.shared.tools import best_match
 from syncopy.plotting import sp_plotting, mp_plotting
 
 
-__all__ = ["AnalogData", "SpectralData", "CrossSpectralData"]
+__all__ = ["AnalogData", "SpectralData", "CrossSpectralData", "TimeLockData"]
 
 
 class ContinuousData(BaseData, ABC):
@@ -745,6 +745,7 @@ class TimeLockData(ContinuousData):
     Multi-channel, uniformly-sampled, time-locked data.
     """
 
+    _infoFileProperties = ContinuousData._infoFileProperties
     _defaultDimord = ["time", "channel"]
     _stackingDimLabel = "time"
 
@@ -780,14 +781,11 @@ class TimeLockData(ContinuousData):
 
             """
 
-        if data is not None and dimord is None:
+        if dimord is None:
             dimord = self._defaultDimord
 
         self._avg = None
         self._var = None
-
-        # for stacking, we would have to
-        # re-define the trialdefinition here?!
 
         # Call parent initializer
         # trialdefinition has to come from a CR!
@@ -852,10 +850,10 @@ class TimeLockData(ContinuousData):
         _definetrial(self, trialdefinition=trl)
 
         # now check for additional conditions
-        if not np.all(trl[:, 2] == 0):
+        if not np.unique(trl[:, 2]).size == 1:
             self.trialdefinition = None
-            lgl = "no offsets for timelocked data"
-            act = "non-zero offsets"
+            lgl = "equal offsets for timelocked data"
+            act = "different offsets"
             raise SPYValueError(lgl, varname="trialdefinition", actual=act)
 
         # diff-diff should give 0 -> same number of samples for each trial
@@ -864,3 +862,5 @@ class TimeLockData(ContinuousData):
             lgl = "all trials/entities of same length for timelocked data"
             act = "non-equally sized trials defined"
             raise SPYValueError(lgl, varname="trialdefinition", actual=act)
+
+    # TODO - overload `time` property, as there is only one by definition!
