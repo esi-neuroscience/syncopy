@@ -155,6 +155,19 @@ class BaseData(ABC):
         except Exception as exc:
             raise exc
 
+    def _register_dataset(self, dset_name):
+        """
+        Register a new dataset, so that it is handled during saving and other operations.
+
+        Parameters
+        ----------
+            dset_name : str
+                The name for the new dataset, this will be used as the dataset name in the hdf5 container when saving.
+        """
+        if dset_name in self._hdfFileDatasetProperties:
+            raise SPYValueError(lgl="dataset name which does not yet exist for this container", actual=f"dataset with name '{dset_name}' already exists", varname="dset_name")
+        self._hdfFileDatasetProperties = self._hdfFileDatasetProperties + (dset_name,)
+
     def _set_dataset_property(self, dataIn, propertyName, ndim=None):
         """Set property that is streamed from HDF dataset ('dataset property')
 
@@ -541,7 +554,7 @@ class BaseData(ABC):
             md = "r+"
 
         # If data is already attached to the object, flush and close. All
-        # datasets need to be close before the file can be re-opened with a
+        # datasets need to be closed before the file can be re-opened with a
         # different mode.
         for propertyName in self._hdfFileDatasetProperties:
             prop = getattr(self, propertyName)
