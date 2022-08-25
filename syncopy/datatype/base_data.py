@@ -26,11 +26,17 @@ from .methods.arithmetic import _process_operator
 from .methods.selectdata import selectdata
 from .methods.show import show
 from syncopy.shared.tools import SerializableDict
-from syncopy.shared.parsers import (scalar_parser, array_parser, io_parser,
-                                    filename_parser, data_parser)
+from syncopy.shared.parsers import (
+    scalar_parser,
+    array_parser,
+    io_parser,
+    filename_parser,
+    data_parser,
+)
 from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError
 from syncopy.datatype.methods.definetrial import definetrial as _definetrial
 from syncopy import __version__, __storage__, __acme__, __sessionid__, __storagelimit__
+
 if __acme__:
     import acme
     import dask
@@ -58,7 +64,11 @@ class BaseData(ABC):
 
     #: properties that are written into the JSON file and HDF5 attributes upon save
     _infoFileProperties = ("dimord", "_version", "_log", "cfg", "info")
-    _hdfFileAttributeProperties = ("dimord", "_version", "_log",)
+    _hdfFileAttributeProperties = (
+        "dimord",
+        "_version",
+        "_log",
+    )
 
     #: properties that are mapped onto HDF5 datasets
     _hdfFileDatasetProperties = ()
@@ -82,22 +92,26 @@ class BaseData(ABC):
     _trialdefinition = None
     _dimord = None
     _mode = None
-    _lhd = "\n\t\t>>> SyNCopy v. {ver:s} <<< \n\n" +\
-           "Created: {timestamp:s} \n\n" +\
-           "System Profile: \n" +\
-           "{sysver:s} \n" +\
-           "ACME:  {acver:s}\n" +\
-           "Dask:  {daver:s}\n" +\
-           "NumPy: {npver:s}\n" +\
-           "SciPy: {spver:s}\n\n" +\
-           "--- LOG ---"
-    _log_header = _lhd.format(ver=__version__,
-                              timestamp=time.asctime(),
-                              sysver=sys.version,
-                              acver=acme.__version__ if __acme__ else "--",
-                              daver=dask.__version__ if __acme__ else "--",
-                              npver=np.__version__,
-                              spver=sp.__version__)
+    _lhd = (
+        "\n\t\t>>> SyNCopy v. {ver:s} <<< \n\n"
+        + "Created: {timestamp:s} \n\n"
+        + "System Profile: \n"
+        + "{sysver:s} \n"
+        + "ACME:  {acver:s}\n"
+        + "Dask:  {daver:s}\n"
+        + "NumPy: {npver:s}\n"
+        + "SciPy: {spver:s}\n\n"
+        + "--- LOG ---"
+    )
+    _log_header = _lhd.format(
+        ver=__version__,
+        timestamp=time.asctime(),
+        sysver=sys.version,
+        acver=acme.__version__ if __acme__ else "--",
+        daver=dask.__version__ if __acme__ else "--",
+        npver=np.__version__,
+        spver=sp.__version__,
+    )
     _log = ""
 
     @property
@@ -155,7 +169,7 @@ class BaseData(ABC):
         except Exception as exc:
             raise exc
 
-    def _register_dataset(self, dset_name):
+    def _register_dataset(self, dset_name, in_data):
         """
         Register a new dataset, so that it is handled during saving and other operations.
 
@@ -163,10 +177,20 @@ class BaseData(ABC):
         ----------
             dset_name : str
                 The name for the new dataset, this will be used as the dataset name in the hdf5 container when saving.
+                It will be added as an attribute named `'_' + dset_name` to this SyncopyData object.
+            in_data : np.ndarray
+                The data to store.
         """
         if dset_name in self._hdfFileDatasetProperties:
-            raise SPYValueError(lgl="dataset name which does not yet exist for this container", actual=f"dataset with name '{dset_name}' already exists", varname="dset_name")
+            raise SPYValueError(
+                lgl="dataset name which does not yet exist for this container",
+                actual=f"dataset with name '{dset_name}' already exists",
+                varname="dset_name"
+            )
+        if not isinstance(in_data, np.ndarray):
+            raise SPYValueError(lgl="object of type 'np.ndarray'", varname="in_data")
         self._hdfFileDatasetProperties = self._hdfFileDatasetProperties + (dset_name,)
+        self._set_dataset_property_with_ndarray(in_data, dset_name, in_data.ndim)
 
     def _set_dataset_property(self, dataIn, propertyName, ndim=None):
         """Set property that is streamed from HDF dataset ('dataset property')
@@ -195,7 +219,7 @@ class BaseData(ABC):
             str: self._set_dataset_property_with_str,
             np.ndarray: self._set_dataset_property_with_ndarray,
             h5py.Dataset: self._set_dataset_property_with_dataset,
-            type(None): self._set_dataset_property_with_none
+            type(None): self._set_dataset_property_with_none,
         }
         try:
             supportedSetters[type(dataIn)](dataIn, propertyName, ndim=ndim)
@@ -223,7 +247,9 @@ class BaseData(ABC):
                 Number of expected array dimensions.
         """
         try:
-            fpath, fname = io_parser(filename, varname="filename", isfile=True, exists=True)
+            fpath, fname = io_parser(
+                filename, varname="filename", isfile=True, exists=True
+            )
         except Exception as exc:
             raise exc
         filename = os.path.join(fpath, fname)  # ensure `filename` is absolute path
@@ -239,14 +265,15 @@ class BaseData(ABC):
         except OSError as exc:
             err = "HDF5: " + str(exc)
         if not isHdf:
-            raise SPYValueError("accessible HDF5 file",
-                                actual=err, varname="data")
+            raise SPYValueError("accessible HDF5 file", actual=err, varname="data")
 
         h5keys = list(h5f.keys())
         if propertyName not in h5keys and len(h5keys) != 1:
             lgl = "HDF5 file with only one 'data' dataset or single dataset of arbitrary name"
             act = "HDF5 file holding {} data-objects"
-            raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname=propertyName)
+            raise SPYValueError(
+                legal=lgl, actual=act.format(str(len(h5keys))), varname=propertyName
+            )
         if len(h5keys) == 1:
             setattr(self, propertyName, h5f[h5keys[0]])
         else:
@@ -270,10 +297,7 @@ class BaseData(ABC):
         """
 
         # Ensure array has right no. of dimensions
-        try:
-            array_parser(inData, varname="data", dims=ndim)
-        except Exception as exc:
-            raise exc
+        array_parser(inData, varname="data", dims=ndim)
 
         # Gymnastics for `DiscreteData` objects w/non-standard `dimord`s
         self._check_dataset_property_discretedata(inData)
@@ -304,7 +328,9 @@ class BaseData(ABC):
             md = self.mode
             if md == "w":
                 md = "r+"
-            setattr(self, "_" + propertyName, h5py.File(self.filename, md)[propertyName])
+            setattr(
+                self, "_" + propertyName, h5py.File(self.filename, md)[propertyName]
+            )
 
     def _set_dataset_property_with_dataset(self, inData, propertyName, ndim):
         """Set a dataset property with an already loaded HDF5 dataset
@@ -380,13 +406,15 @@ class BaseData(ABC):
             # Ensure all arrays have shape `(N, nCol)``
             if self.__class__.__name__ == "SpikeData":
                 nCol = 3
-            else: # EventData
+            else:  # EventData
                 nCol = inData[0].shape[1]
             if any(val.shape[1] != nCol for val in inData):
                 lgl = "NumPy 2d-arrays with {} columns".format(nCol)
                 act = "NumPy arrays of different shape"
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
-            trialLens = [np.nanmax(val[:, self.dimord.index("sample")]) for val in inData]
+            trialLens = [
+                np.nanmax(val[:, self.dimord.index("sample")]) for val in inData
+            ]
 
         # Now the shaky stuff: if not provided, use determined trial lengths to
         # cook up a (completely fictional) samplerate: we aim for `smax` Hz and
@@ -396,13 +424,15 @@ class BaseData(ABC):
         if self.samplerate is None:
             sround = 50
             smax = 1000
-            srate = min(max(min(smax, tlen / 2) // sround * sround, 1) for tlen in trialLens)
+            srate = min(
+                max(min(smax, tlen / 2) // sround * sround, 1) for tlen in trialLens
+            )
             self.samplerate = srate
             msg2 = ", samplerate = {srate} Hz (rounded to {sround} Hz with max of {smax} Hz)"
             msg2 = msg2.format(srate=srate, sround=sround, smax=smax)
         t0 = -self.samplerate
         msg = "Artificially generated trial-layout: trigger offset = {t0} sec" + msg2
-        SPYInfo(msg.format(t0=t0/self.samplerate), caller="data")
+        SPYInfo(msg.format(t0=t0 / self.samplerate), caller="data")
 
         # Use constructed quantities to set up trial layout matrix
         accumSamples = np.cumsum(trialLens)
@@ -436,8 +466,9 @@ class BaseData(ABC):
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
 
     def _is_empty(self):
-        return all([getattr(self, attr) is None
-                    for attr in self._hdfFileDatasetProperties])
+        return all(
+            [getattr(self, attr) is None for attr in self._hdfFileDatasetProperties]
+        )
 
     @property
     def dimord(self):
@@ -447,7 +478,7 @@ class BaseData(ABC):
     @dimord.setter
     def dimord(self, dims):
 
-       # ensure `dims` can be safely compared to potentially existing `self._dimord`
+        # ensure `dims` can be safely compared to potentially existing `self._dimord`
         if dims is not None:
             try:
                 array_parser(dims, varname="dims", ntype="str", dims=1)
@@ -455,8 +486,10 @@ class BaseData(ABC):
                 raise exc
 
         if self._dimord is not None and not dims == self._dimord:
-            print("Syncopy core - dimord: Cannot change `dimord` of object. " +\
-                  "Functionality currently not supported")
+            print(
+                "Syncopy core - dimord: Cannot change `dimord` of object. "
+                + "Functionality currently not supported"
+            )
 
         if dims is None:
             self._dimord = None
@@ -465,7 +498,9 @@ class BaseData(ABC):
         # this enforces the _defaultDimord
         if set(dims) != set(self._defaultDimord):
             base = "dimensional labels {}"
-            lgl = base.format("'" + "' x '".join(str(dim) for dim in self._defaultDimord) + "'")
+            lgl = base.format(
+                "'" + "' x '".join(str(dim) for dim in self._defaultDimord) + "'"
+            )
             act = base.format("'" + "' x '".join(str(dim) for dim in dims) + "'")
             raise SPYValueError(legal=lgl, varname="dimord", actual=act)
 
@@ -510,11 +545,15 @@ class BaseData(ABC):
         clr = sys._getframe().f_back.f_code.co_name
         if clr.startswith("_") and not clr.startswith("__"):
             clr = clr[1:]
-        self._log += prefix.format(user=getpass.getuser(),
-                                   host=socket.gethostname(),
-                                   time=time.asctime(),
-                                   caller=clr + ": " if clr != "<module>" else "")\
+        self._log += (
+            prefix.format(
+                user=getpass.getuser(),
+                host=socket.gethostname(),
+                time=time.asctime(),
+                caller=clr + ": " if clr != "<module>" else "",
+            )
             + msg
+        )
 
     @property
     def mode(self):
@@ -567,8 +606,9 @@ class BaseData(ABC):
         # Re-attach datasets
         for propertyName in self._hdfFileDatasetProperties:
             if prop is not None:
-                setattr(self, propertyName,
-                        h5py.File(self.filename, mode=md)[propertyName])
+                setattr(
+                    self, propertyName, h5py.File(self.filename, mode=md)[propertyName]
+                )
         self._mode = md
 
     @property
@@ -602,7 +642,9 @@ class BaseData(ABC):
 
     @sampleinfo.setter
     def sampleinfo(self, sinfo):
-        raise SPYError("Cannot set sampleinfo. Use `BaseData._trialdefinition` instead.")
+        raise SPYError(
+            "Cannot set sampleinfo. Use `BaseData._trialdefinition` instead."
+        )
 
     @property
     def _t0(self):
@@ -615,8 +657,15 @@ class BaseData(ABC):
     @property
     def trials(self):
         """list-like array of trials"""
-        return Indexer(map(self._get_trial, range(self.sampleinfo.shape[0])),
-                       self.sampleinfo.shape[0]) if self.sampleinfo is not None else None
+        return (
+            Indexer(
+                map(self._get_trial, range(self.sampleinfo.shape[0])),
+                self.sampleinfo.shape[0],
+            )
+            if self.sampleinfo is not None
+            else None
+        )
+
     @property
     def trialinfo(self):
         """nTrials x M :class:`numpy.ndarray` with numeric information about each trial
@@ -636,7 +685,9 @@ class BaseData(ABC):
 
     @trialinfo.setter
     def trialinfo(self, trl):
-        raise SPYError("Cannot set trialinfo. Use `BaseData._trialdefinition` or `syncopy.definetrial` instead.")
+        raise SPYError(
+            "Cannot set trialinfo. Use `BaseData._trialdefinition` or `syncopy.definetrial` instead."
+        )
 
     # Helper function that grabs a single trial
     @abstractmethod
@@ -737,33 +788,41 @@ class BaseData(ABC):
         # Ensure `obj.save()` simply overwrites on-disk representation of object
         if container is None and tag is None and filename is None:
             if self.container is None:
-                raise SPYError("Cannot create spy container in temporary " +\
-                               "storage {} - please provide explicit path. ".format(__storage__))
+                raise SPYError(
+                    "Cannot create spy container in temporary "
+                    + "storage {} - please provide explicit path. ".format(__storage__)
+                )
             overwrite = True
             filename = self.filename
 
         # Support `obj.save(tag="newtag")`
         if container is None and filename is None:
             if self.container is None:
-                raise SPYError("Object is not associated to an existing spy container - " +\
-                               "please save object first using an explicit path. ")
+                raise SPYError(
+                    "Object is not associated to an existing spy container - "
+                    + "please save object first using an explicit path. "
+                )
             container = filename_parser(self.filename)["folder"]
 
-        spy.save(self, filename=filename, container=container, tag=tag,
-                 overwrite=overwrite)
+        spy.save(
+            self, filename=filename, container=container, tag=tag, overwrite=overwrite
+        )
 
     # Helper function generating pseudo-random temp file-names
     def _gen_filename(self):
-        fname_hsh = blake2b(digest_size=4,
-                            salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
-        return os.path.join(__storage__,
-                            "spy_{sess:s}_{hash:s}{ext:s}".format(
-                                sess=__sessionid__, hash=fname_hsh,
-                                ext=self._classname_to_extension()))
+        fname_hsh = blake2b(
+            digest_size=4, salt=os.urandom(blake2b.SALT_SIZE)
+        ).hexdigest()
+        return os.path.join(
+            __storage__,
+            "spy_{sess:s}_{hash:s}{ext:s}".format(
+                sess=__sessionid__, hash=fname_hsh, ext=self._classname_to_extension()
+            ),
+        )
 
     # Helper function converting object class-name to usable file extension
     def _classname_to_extension(self):
-        return "." + self.__class__.__name__.split('Data')[0].lower()
+        return "." + self.__class__.__name__.split("Data")[0].lower()
 
     # Legacy support
     def __repr__(self):
@@ -793,8 +852,7 @@ class BaseData(ABC):
                     del prop
             if __storage__ in self.filename and os.path.exists(self.filename):
                 os.unlink(self.filename)
-                shutil.rmtree(os.path.splitext(self.filename)[0],
-                              ignore_errors=True)
+                shutil.rmtree(os.path.splitext(self.filename)[0], ignore_errors=True)
 
     # Support for basic arithmetic operations (no in-place computations supported yet)
     def __add__(self, other):
@@ -853,7 +911,9 @@ class BaseData(ABC):
         # Use `_infoFileProperties` to fetch dimensional object props: remove `dimord`
         # (has already been checked by `data_parser` above) and remove `cfg` (two
         # objects might be identical even if their history deviates)
-        dimProps = [prop for prop in self._infoFileProperties if not prop.startswith("_")]
+        dimProps = [
+            prop for prop in self._infoFileProperties if not prop.startswith("_")
+        ]
         dimProps = list(set(dimProps).difference(["dimord", "cfg"]))
         for prop in dimProps:
             val = getattr(self, prop)
@@ -924,8 +984,15 @@ class BaseData(ABC):
 
         # If any dataset property contains data and no dimord is set, use the
         # default dimord
-        if any([key in self._hdfFileDatasetProperties and value is not None
-                for key, value in kwargs.items()]) and dimord is None:
+        if (
+            any(
+                [
+                    key in self._hdfFileDatasetProperties and value is not None
+                    for key, value in kwargs.items()
+                ]
+            )
+            and dimord is None
+        ):
             self.dimord = self._defaultDimord
         else:
             self.dimord = dimord
@@ -948,7 +1015,7 @@ class BaseData(ABC):
         self._version = __version__
 
 
-class Indexer():
+class Indexer:
 
     __slots__ = ["_iterobj", "_iterlen"]
 
@@ -965,8 +1032,9 @@ class Indexer():
     def __getitem__(self, idx):
         if np.issubdtype(type(idx), np.number):
             try:
-                scalar_parser(idx, varname="idx", ntype="int_like",
-                              lims=[0, self._iterlen - 1])
+                scalar_parser(
+                    idx, varname="idx", ntype="int_like", lims=[0, self._iterlen - 1]
+                )
             except Exception as exc:
                 raise exc
             return next(islice(self._iterobj, idx, idx + 1))
@@ -977,18 +1045,32 @@ class Indexer():
             if idx.stop is None:
                 stop = self._iterlen
             index = slice(start, stop, idx.step)
-            if not(0 <= index.start < self._iterlen) or not (0 < index.stop <= self._iterlen):
+            if not (0 <= index.start < self._iterlen) or not (
+                0 < index.stop <= self._iterlen
+            ):
                 err = "value between {lb:s} and {ub:s}"
-                raise SPYValueError(err.format(lb="0", ub=str(self._iterlen)),
-                                    varname="idx", actual=str(index))
+                raise SPYValueError(
+                    err.format(lb="0", ub=str(self._iterlen)),
+                    varname="idx",
+                    actual=str(index),
+                )
             return np.hstack(islice(self._iterobj, index.start, index.stop, index.step))
         elif isinstance(idx, (list, np.ndarray)):
             try:
-                array_parser(idx, varname="idx", ntype="int_like", hasnan=False,
-                             hasinf=False, lims=[0, self._iterlen], dims=1)
+                array_parser(
+                    idx,
+                    varname="idx",
+                    ntype="int_like",
+                    hasnan=False,
+                    hasinf=False,
+                    lims=[0, self._iterlen],
+                    dims=1,
+                )
             except Exception as exc:
                 raise exc
-            return np.hstack([next(islice(self._iterobj, int(ix), int(ix + 1))) for ix in idx])
+            return np.hstack(
+                [next(islice(self._iterobj, int(ix), int(ix + 1))) for ix in idx]
+            )
         else:
             raise SPYTypeError(idx, varname="idx", expected="int_like or slice")
 
@@ -1002,7 +1084,7 @@ class Indexer():
         return "{} element iterable".format(self._iterlen)
 
 
-class SessionLogger():
+class SessionLogger:
 
     __slots__ = ["sessionfile", "_rm"]
 
@@ -1013,30 +1095,39 @@ class SessionLogger():
             try:
                 os.mkdir(__storage__)
             except Exception as exc:
-                err = "Syncopy core: cannot create temporary storage directory {}. " +\
-                    "Original error message below\n{}"
-                raise IOError(err.format( __storage__, str(exc)))
+                err = (
+                    "Syncopy core: cannot create temporary storage directory {}. "
+                    + "Original error message below\n{}"
+                )
+                raise IOError(err.format(__storage__, str(exc)))
 
         # Check for upper bound of temp directory size
         with os.scandir(__storage__) as scan:
-            st_fles = [fle.stat().st_size/1024**3 for fle in scan]
+            st_fles = [fle.stat().st_size / 1024 ** 3 for fle in scan]
             st_size = sum(st_fles)
             if st_size > __storagelimit__:
-                msg = "\nSyncopy <core> WARNING: Temporary storage folder {tmpdir:s} " +\
-                    "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n" +\
-                    "Consider running `spy.cleanup()` to free up disk space."
+                msg = (
+                    "\nSyncopy <core> WARNING: Temporary storage folder {tmpdir:s} "
+                    + "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n"
+                    + "Consider running `spy.cleanup()` to free up disk space."
+                )
                 print(msg.format(tmpdir=__storage__, nfs=len(st_fles), sze=st_size))
 
         # If we made it to this point, (attempt to) write the session file
         sess_log = "{user:s}@{host:s}: <{time:s}> started session {sess:s}"
-        self.sessionfile = os.path.join(__storage__,
-                                        "session_{}_log.id".format(__sessionid__))
+        self.sessionfile = os.path.join(
+            __storage__, "session_{}_log.id".format(__sessionid__)
+        )
         try:
             with open(self.sessionfile, "w") as fid:
-                fid.write(sess_log.format(user=getpass.getuser(),
-                                        host=socket.gethostname(),
-                                        time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                        sess=__sessionid__))
+                fid.write(
+                    sess_log.format(
+                        user=getpass.getuser(),
+                        host=socket.gethostname(),
+                        time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        sess=__sessionid__,
+                    )
+                )
         except Exception as exc:
             err = "Syncopy core: cannot access {}. Original error message below\n{}"
             raise IOError(err.format(self.sessionfile, str(exc)))
@@ -1057,7 +1148,7 @@ class SessionLogger():
             pass
 
 
-class FauxTrial():
+class FauxTrial:
     """
     Stand-in mockup of NumPy arrays representing trial data
 
@@ -1118,10 +1209,12 @@ class FauxTrial():
         Return a new `FauxTrial` instance with reversed dimensions
         (parroting the NumPy original :func:`numpy.transpose`)
         """
-        return FauxTrial(self.shape[::-1], self.idx[::-1], self.dtype, self.dimord[::-1])
+        return FauxTrial(
+            self.shape[::-1], self.idx[::-1], self.dtype, self.dimord[::-1]
+        )
 
 
-class Selector():
+class Selector:
     """
     Auxiliary class for data selection
 
@@ -1251,8 +1344,9 @@ class Selector():
             if select == "all":
                 select = {}
             else:
-                raise SPYValueError(legal="'all' or `None` or dict",
-                                    varname="select", actual=select)
+                raise SPYValueError(
+                    legal="'all' or `None` or dict", varname="select", actual=select
+                )
         if not isinstance(select, dict):
             raise SPYTypeError(select, "select", expected="dict")
 
@@ -1263,10 +1357,13 @@ class Selector():
         # supported = ["trials", "channel", "channel_i", "channel_j", "toi",
         #              "toilim", "foi", "foilim", "taper", "unit", "eventid"]
         if not set(select.keys()).issubset(supported):
-            lgl = "dict with one or all of the following keys: '" +\
-                  "'".join(opt + "', " for opt in supported)[:-2]
-            act = "dict with keys '" +\
-                  "'".join(key + "', " for key in select.keys())[:-2]
+            lgl = (
+                "dict with one or all of the following keys: '"
+                + "'".join(opt + "', " for opt in supported)[:-2]
+            )
+            act = (
+                "dict with keys '" + "'".join(key + "', " for key in select.keys())[:-2]
+            )
             raise SPYValueError(legal=lgl, varname="select", actual=act)
 
         # Save class of input object for posterity
@@ -1274,7 +1371,16 @@ class Selector():
 
         # Set up lists of (a) all selectable properties (b) trial-dependent ones
         # and (c) selectors independent from trials
-        self._allProps = ["channel", "channel_i", "channel_j", "time", "freq", "taper", "unit", "eventid"]
+        self._allProps = [
+            "channel",
+            "channel_i",
+            "channel_j",
+            "time",
+            "freq",
+            "taper",
+            "unit",
+            "eventid",
+        ]
         self._byTrialProps = ["time", "unit", "eventid"]
         self._dimProps = list(self._allProps)
         for prop in self._byTrialProps:
@@ -1293,7 +1399,9 @@ class Selector():
             setattr(self, "_{}".format(prop), None)
         self._useFancy = False  # flag indicating whether fancy indexing is necessary
         self._samplerate = None  # for objects supporting time-selections
-        self._timeShuffle = False  # flag indicating whether time-points are repeated/unordered
+        self._timeShuffle = (
+            False  # flag indicating whether time-points are repeated/unordered
+        )
 
         # We first need to know which trials are of interest here (assuming
         # that any valid input object *must* have a `trials` attribute)
@@ -1329,14 +1437,22 @@ class Selector():
             if trials == "all":
                 trials = None
             else:
-                raise SPYValueError(legal="'all' or `None` or list/array",
-                                    varname=vname, actual=trials)
+                raise SPYValueError(
+                    legal="'all' or `None` or list/array", varname=vname, actual=trials
+                )
         if trials is not None:
             if np.issubdtype(type(trials), np.number):
                 trials = [trials]
             try:
-                array_parser(trials, varname=vname, ntype="int_like", hasinf=False,
-                            hasnan=False, lims=[0, len(data.trials)], dims=1)
+                array_parser(
+                    trials,
+                    varname=vname,
+                    ntype="int_like",
+                    hasinf=False,
+                    hasnan=False,
+                    lims=[0, len(data.trials)],
+                    dims=1,
+                )
             except Exception as exc:
                 raise exc
             if not set(trials).issubset(trlList):
@@ -1345,7 +1461,7 @@ class Selector():
                 raise SPYValueError(legal=lgl, varname=vname, actual=act)
         else:
             trials = trlList
-        self._trials = list(trials) # ensure `trials` is a list cf. #180
+        self._trials = list(trials)  # ensure `trials` is a list cf. #180
 
     @property
     def channel(self):
@@ -1359,7 +1475,9 @@ class Selector():
         if self._dataClass == "CrossSpectralData":
             if chanSpec is not None:
                 lgl = "`channel_i` and/or `channel_j` selectors for `CrossSpectralData`"
-                raise SPYValueError(legal=lgl, varname="select: channel", actual=data.__class__.__name__)
+                raise SPYValueError(
+                    legal=lgl, varname="select: channel", actual=data.__class__.__name__
+                )
             else:
                 return
         self._selection_setter(data, select, "channel")
@@ -1410,7 +1528,9 @@ class Selector():
         hasTime = hasattr(data, "time") or hasattr(data, "trialtime")
         if timeSpec is not None and hasTime is False:
             lgl = "Syncopy data object with time-dimension"
-            raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
+            raise SPYValueError(
+                legal=lgl, varname=vname, actual=data.__class__.__name__
+            )
 
         # If `data` has a `time` property, fill up `self.time`
         if hasTime:
@@ -1420,34 +1540,47 @@ class Selector():
                     select["toi"] = None
                     select["toilim"] = None
                 else:
-                    raise SPYValueError(legal="'all' or `None` or list/array",
-                                        varname=vname, actual=timeSpec)
+                    raise SPYValueError(
+                        legal="'all' or `None` or list/array",
+                        varname=vname,
+                        actual=timeSpec,
+                    )
             if timeSpec is not None:
                 if np.issubdtype(type(timeSpec), np.number):
                     timeSpec = [timeSpec]
                 try:
-                    array_parser(timeSpec, varname=vname, hasinf=checkInf, hasnan=False, dims=1)
+                    array_parser(
+                        timeSpec, varname=vname, hasinf=checkInf, hasnan=False, dims=1
+                    )
                 except Exception as exc:
                     raise exc
                 if checkLim:
                     if len(timeSpec) != 2:
                         lgl = "`select: toilim` selection with two components"
-                        act = "`select: toilim` with {} components".format(len(timeSpec))
+                        act = "`select: toilim` with {} components".format(
+                            len(timeSpec)
+                        )
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
                     if timeSpec[0] >= timeSpec[1]:
-                        lgl = "`select: toilim` selection with `toilim[0]` < `toilim[1]`"
-                        act = "selection range from {} to {}".format(timeSpec[0], timeSpec[1])
+                        lgl = (
+                            "`select: toilim` selection with `toilim[0]` < `toilim[1]`"
+                        )
+                        act = "selection range from {} to {}".format(
+                            timeSpec[0], timeSpec[1]
+                        )
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
-            timing = data._get_time(self.trials, toi=select.get("toi"), toilim=select.get("toilim"))
+            timing = data._get_time(
+                self.trials, toi=select.get("toi"), toilim=select.get("toilim")
+            )
 
             # Determine, whether time-selection is unordered/contains repetitions
             # and set `self._timeShuffle` accordingly
             if timeSpec is not None:  # saves time for `timeSpec = None` "selections"
                 for tsel in timing:
                     if isinstance(tsel, list) and len(tsel) > 1:
-                            if np.diff(tsel).min() <= 0:
-                                self._timeShuffle = True
-                                break
+                        if np.diff(tsel).min() <= 0:
+                            self._timeShuffle = True
+                            break
 
             # Assign timing selection and copy over samplerate from source object
             self._time = timing
@@ -1491,7 +1624,7 @@ class Selector():
                             stop = trlTime.stop
                     if step is None:
                         step = 1
-                    nSamples = (stop - start)/step
+                    nSamples = (stop - start) / step
                     endSample = stop + data._t0[trlno]
                     t0 = int(endSample - nSamples)
                 else:
@@ -1522,8 +1655,13 @@ class Selector():
         """len(self.trials) list of lists encoding actual (not sample indices!)
         timing information of unordered `toi` selections"""
         if self._timeShuffle:
-            return [[(tvec[tp] + self.trialdefinition[tk, 2]) / self._samplerate
-                     for tp in range(len(tvec))] for tk, tvec in enumerate(self.time)]
+            return [
+                [
+                    (tvec[tp] + self.trialdefinition[tk, 2]) / self._samplerate
+                    for tp in range(len(tvec))
+                ]
+                for tk, tvec in enumerate(self.time)
+            ]
 
     @property
     def freq(self):
@@ -1551,7 +1689,9 @@ class Selector():
         hasFreq = hasattr(data, "freq")
         if freqSpec is not None and hasFreq is False:
             lgl = "Syncopy data object with freq-dimension"
-            raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
+            raise SPYValueError(
+                legal=lgl, varname=vname, actual=data.__class__.__name__
+            )
 
         # If `data` has a `freq` property, fill up `self.freq`
         if hasFreq:
@@ -1561,26 +1701,43 @@ class Selector():
                     select["foi"] = None
                     select["foilim"] = None
                 else:
-                    raise SPYValueError(legal="'all' or `None` or list/array",
-                                        varname=vname, actual=freqSpec)
+                    raise SPYValueError(
+                        legal="'all' or `None` or list/array",
+                        varname=vname,
+                        actual=freqSpec,
+                    )
             if freqSpec is not None:
                 if np.issubdtype(type(freqSpec), np.number):
                     freqSpec = [freqSpec]
                 try:
-                    array_parser(freqSpec, varname=vname, hasinf=checkInf, hasnan=False,
-                                lims=[data.freq.min(), data.freq.max()], dims=1)
+                    array_parser(
+                        freqSpec,
+                        varname=vname,
+                        hasinf=checkInf,
+                        hasnan=False,
+                        lims=[data.freq.min(), data.freq.max()],
+                        dims=1,
+                    )
                 except Exception as exc:
                     raise exc
                 if checkLim:
                     if len(freqSpec) != 2:
                         lgl = "`select: foilim` selection with two components"
-                        act = "`select: foilim` with {} components".format(len(freqSpec))
+                        act = "`select: foilim` with {} components".format(
+                            len(freqSpec)
+                        )
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
                     if freqSpec[0] >= freqSpec[1]:
-                        lgl = "`select: foilim` selection with `foilim[0]` < `foilim[1]`"
-                        act = "selection range from {} to {}".format(freqSpec[0], freqSpec[1])
+                        lgl = (
+                            "`select: foilim` selection with `foilim[0]` < `foilim[1]`"
+                        )
+                        act = "selection range from {} to {}".format(
+                            freqSpec[0], freqSpec[1]
+                        )
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
-            self._freq = data._get_freq(foi=select.get("foi"), foilim=select.get("foilim"))
+            self._freq = data._get_freq(
+                foi=select.get("foi"), foilim=select.get("foilim")
+            )
         else:
             return
 
@@ -1657,7 +1814,9 @@ class Selector():
         vname = "select: {}".format(selectkey)
         if selection is not None and target is None:
             lgl = "Syncopy data object with {}".format(selectkey)
-            raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
+            raise SPYValueError(
+                legal=lgl, varname=vname, actual=data.__class__.__name__
+            )
 
         if target is not None:
 
@@ -1701,11 +1860,15 @@ class Selector():
                     act = "selection range from {} to {}".format(selLims[0], selLims[1])
                     raise SPYValueError(legal=lgl, varname=vname, actual=act)
                 # check slice/range boundaries: take care of things like `slice(-10, -3)`
-                if np.isfinite(selLims[0]) and (selLims[0] < -slcLims[1] or selLims[0] >= slcLims[1]):
+                if np.isfinite(selLims[0]) and (
+                    selLims[0] < -slcLims[1] or selLims[0] >= slcLims[1]
+                ):
                     lgl = "selection range with min >= {}".format(slcLims[0])
                     act = "selection range starting at {}".format(selLims[0])
                     raise SPYValueError(legal=lgl, varname=vname, actual=act)
-                if np.isfinite(selLims[1]) and (selLims[1] > slcLims[1] or selLims[1] < -slcLims[1]):
+                if np.isfinite(selLims[1]) and (
+                    selLims[1] > slcLims[1] or selLims[1] < -slcLims[1]
+                ):
                     lgl = "selection range with max <= {}".format(slcLims[1])
                     act = "selection range ending at {}".format(selLims[1])
                     raise SPYValueError(legal=lgl, varname=vname, actual=act)
@@ -1714,7 +1877,9 @@ class Selector():
                 # performed by the respective `_get_unit` and `_get_eventid` class methods
                 if selectkey in ["unit", "eventid"]:
                     if selection.start is selection.stop is None:
-                        setattr(self, selector, [slice(None, None, 1)] * len(self.trials))
+                        setattr(
+                            self, selector, [slice(None, None, 1)] * len(self.trials)
+                        )
                     else:
                         if isinstance(selection, slice):
                             if np.issubdtype(target.dtype, np.dtype("str").type):
@@ -1722,7 +1887,11 @@ class Selector():
                             selection = list(target[selection])
                         else:
                             selection = list(selection)
-                        setattr(self, selector, getattr(data, "_get_" + selectkey)(self.trials, selection))
+                        setattr(
+                            self,
+                            selector,
+                            getattr(data, "_get_" + selectkey)(self.trials, selection),
+                        )
                 else:
                     if selection.start is selection.stop is None:
                         setattr(self, selector, slice(None, None, 1))
@@ -1731,13 +1900,21 @@ class Selector():
                             step = 1
                         else:
                             step = selection.step
-                        setattr(self, selector, slice(selection.start, selection.stop, step))
+                        setattr(
+                            self, selector, slice(selection.start, selection.stop, step)
+                        )
 
             # Selection is either a valid list/array or bust
             else:
                 try:
-                    array_parser(selection, varname=vname, hasinf=hasinf,
-                                 hasnan=hasnan, lims=arrLims, dims=1)
+                    array_parser(
+                        selection,
+                        varname=vname,
+                        hasinf=hasinf,
+                        hasnan=hasnan,
+                        lims=arrLims,
+                        dims=1,
+                    )
                 except Exception as exc:
                     raise exc
                 selection = np.array(selection)
@@ -1755,7 +1932,11 @@ class Selector():
                     idxList += list(np.where(targetArr == sel)[0])
 
                 if selectkey in ["unit", "eventid"]:
-                    setattr(self, selector, getattr(data, "_get_" + selectkey)(self.trials, idxList))
+                    setattr(
+                        self,
+                        selector,
+                        getattr(data, "_get_" + selectkey)(self.trials, idxList),
+                    )
                 else:
                     # if possible, convert range-arrays (`[0, 1, 2, 3]`) to slices for better performance
                     if len(idxList) > 1:
@@ -1765,7 +1946,10 @@ class Selector():
 
                     # be careful w/pairwise list-channel selections in `CrossSpectralData` objects
                     # (that could not be converted to slices above)
-                    if isinstance(idxList, list) and selectkey in ["channel_i", "channel_j"]:
+                    if isinstance(idxList, list) and selectkey in [
+                        "channel_i",
+                        "channel_j",
+                    ]:
                         if len(idxList) > 1:
                             err = "Multi-channel-pair selections not supported"
                             raise NotImplementedError(err)
@@ -1841,21 +2025,32 @@ class Selector():
                 combiOrder = np.argsort(areShuffled)[::-1]
                 combinedSelect = byTrialSelections[combiOrder[0]]
                 for combIdx in combiOrder:
-                    combinedSelect = [elem for elem in combinedSelect
-                                      if elem in byTrialSelections[combIdx]]
+                    combinedSelect = [
+                        elem
+                        for elem in combinedSelect
+                        if elem in byTrialSelections[combIdx]
+                    ]
 
                 # Keep record of channels present in trials vs. selected channels
                 if self._dataClass == "SpikeData":
                     rawChanInTrial = data.data[data.trialid == trialno, chanIdx]
-                    chanTrlIdx = [ck for ck, chan in enumerate(rawChanInTrial) if chan in wantedChannels]
-                    combinedSelect = [elem for elem in combinedSelect if elem in chanTrlIdx]
+                    chanTrlIdx = [
+                        ck
+                        for ck, chan in enumerate(rawChanInTrial)
+                        if chan in wantedChannels
+                    ]
+                    combinedSelect = [
+                        elem for elem in combinedSelect if elem in chanTrlIdx
+                    ]
                     chanPerTrial.append(rawChanInTrial[combinedSelect])
 
                 # The usual list -> slice conversion (if possible)
                 if len(combinedSelect) > 1:
                     selSteps = np.diff(combinedSelect)
                     if selSteps.min() == selSteps.max() == 1:
-                        combinedSelect = slice(combinedSelect[0], combinedSelect[-1] + 1, 1)
+                        combinedSelect = slice(
+                            combinedSelect[0], combinedSelect[-1] + 1, 1
+                        )
 
                 # Update selector properties
                 for selection in actualSelections:
@@ -1865,11 +2060,15 @@ class Selector():
             # `self.channel` with what is actually available in selected trials
             if self._dataClass == "SpikeData":
                 availChannels = reduce(np.union1d, chanPerTrial)
-                chanSelection = [chan for chan in wantedChannels if chan in availChannels]
+                chanSelection = [
+                    chan for chan in wantedChannels if chan in availChannels
+                ]
                 if len(chanSelection) > 1:
                     selSteps = np.diff(chanSelection)
                     if selSteps.min() == selSteps.max() == 1:
-                        chanSelection = slice(chanSelection[0], chanSelection[-1] + 1, 1)
+                        chanSelection = slice(
+                            chanSelection[0], chanSelection[-1] + 1, 1
+                        )
                 self._channel = chanSelection
 
             # Finally, prepare new `trialdefinition` array
@@ -1921,18 +2120,21 @@ class Selector():
                 val = val[0]
             if isinstance(val, slice):
                 if val.start is val.stop is None:
-                    ppdict[attr] = "all {}{}, ".format(attr,
-                                                       "s" if not attr.endswith("s") else "")
+                    ppdict[attr] = "all {}{}, ".format(
+                        attr, "s" if not attr.endswith("s") else ""
+                    )
                 elif val.start is None or val.stop is None:
                     ppdict[attr] = "{}-range, ".format(attr)
                 else:
-                    ppdict[attr] = "{0:d} {1:s}{2:s}, ".format(int(np.ceil((val.stop - val.start) / val.step)),
-                                                               attr,
-                                                               "s" if not attr.endswith("s") else "")
+                    ppdict[attr] = "{0:d} {1:s}{2:s}, ".format(
+                        int(np.ceil((val.stop - val.start) / val.step)),
+                        attr,
+                        "s" if not attr.endswith("s") else "",
+                    )
             elif isinstance(val, list):
-                ppdict[attr] = "{0:d} {1:s}{2:s}, ".format(len(val),
-                                                           attr,
-                                                           "s" if not attr.endswith("s") else "")
+                ppdict[attr] = "{0:d} {1:s}{2:s}, ".format(
+                    len(val), attr, "s" if not attr.endswith("s") else ""
+                )
             elif np.issubdtype(type(val), np.number):
                 ppdict[attr] = "one {0:s}, ".format(attr)
             else:
