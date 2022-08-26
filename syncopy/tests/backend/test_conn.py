@@ -205,7 +205,7 @@ def test_wilson():
 
     # --- factorize CSD with Wilson's algorithm ---
 
-    H, Sigma, conv = wilson_sf(CSDav, rtol=1e-6)
+    H, Sigma, conv, err = wilson_sf(CSDav, rtol=1e-6)
     # converged - \Psi \Psi^* \approx CSD,
     # with relative error <= rtol?
     assert conv
@@ -289,7 +289,7 @@ def test_granger():
     CSDav /= nTrials
     # with only 2 channels this CSD is well conditioned
     assert np.linalg.cond(CSDav).max() < 1e2
-    H, Sigma, conv = wilson_sf(CSDav, direct_inversion=True)
+    H, Sigma, conv, err = wilson_sf(CSDav, direct_inversion=True)
 
     G = granger(CSDav, H, Sigma)
     assert G.shape == CSDav.shape
@@ -311,7 +311,7 @@ def test_granger():
     assert G[freq_idx, 1, 0] > 0.7
 
     # repeat test with least-square solution
-    H, Sigma, conv = wilson_sf(CSDav, direct_inversion=False)
+    H, Sigma, conv, err = wilson_sf(CSDav, direct_inversion=False)
     G2 = granger(CSDav, H, Sigma)
 
     # check low to no causality for 1->2

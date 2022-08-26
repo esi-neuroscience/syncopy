@@ -6,7 +6,6 @@ import numpy as np
 from syncopy.shared.errors import (SPYTypeError, SPYValueError, SPYWarning)
 
 
-
 def metadata_from_hdf5_file(h5py_filename, delete_afterwards=True):
     """
     Extract metadata from h5py file.
@@ -234,5 +233,31 @@ def extract_md_group(md):
     """
     metadata = dict()
     for k, v in md.attrs.items():
-        metadata[k] = v.copy() # copy the numpy array
+        metadata[k] = v.copy()  # copy the numpy array
     return metadata
+
+
+def cast_0array(rule, arr):
+
+    """
+    Helper routine to "unpack" hdf5 0-dim attribute arrays,
+    as even though they are effectively scalar,
+    they can't be directly serialized.
+    """
+
+    rules = {'float': lambda x: float(x),
+             'int': lambda x: int(x),
+             'bool': lambda x: bool(x),
+             'str': lambda x: str(x)
+             }
+
+    if rule not in rules:
+        lgl = f"one of {rules.keys()}"
+        raise SPYValueError(lgl, "rule", rule)
+
+    if arr.ndim != 0:
+        lgl = "0-dim numpy array"
+        act = f"{arr.ndim}-dim array"
+        raise SPYValueError(lgl, "arr", act)
+
+    return rules[rule](arr)

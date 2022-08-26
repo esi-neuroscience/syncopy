@@ -22,6 +22,7 @@ from .granger import granger
 # syncopy imports
 from syncopy.shared.const_def import spectralDTypes
 from syncopy.shared.computational_routine import ComputationalRoutine
+from syncopy.shared.metadata import metadata_from_hdf5_file, cast_0array
 from syncopy.shared.kwarg_decorators import process_io
 from syncopy.shared.errors import (
     SPYValueError,
@@ -316,7 +317,7 @@ class NormalizeCrossCov(ComputationalRoutine):
 
 @process_io
 def granger_cF(csd_av_dat,
-               rtol=1e-8,
+               rtol=1e-6,
                nIter=100,
                cond_max=1e4,
                chunkShape=None,
@@ -420,17 +421,25 @@ def granger_cF(csd_av_dat,
     CSD = csd_av_dat[0]
 
     # auto-regularize to `cond_max` condition number
-    # maximal regularization factor is 1e-3, raises a ValueError
-    # if this is not enough!
-    CSDreg, factor = regularize_csd(CSD, cond_max=cond_max, eps_max=1e-3)
+    # maximal regularization factor is 1e-3
+    CSDreg, factor, ini_cn = regularize_csd(CSD, cond_max=cond_max, eps_max=1e-3)
     # call Wilson
-    H, Sigma, conv = wilson_sf(CSDreg, nIter=nIter, rtol=rtol)
+    H, Sigma, conv, err = wilson_sf(CSDreg, nIter=nIter, rtol=rtol)
 
     # calculate G-causality
     Granger = granger(CSDreg, H, Sigma)
 
+    metadata = {'converged--bool': np.array(conv),
+                'max rel. err--float': np.array(err),
+                'reg. factor--float': np.array(factor),
+                'initial cond. num--float': np.array(ini_cn)
+                }
+
+    for key, val in metadata.items():
+        print("cF", key, type(val))
+
     # reattach dummy time axis
-    return Granger[None, ...]
+    return Granger[None, ...], metadata
 
 
 class GrangerCausality(ComputationalRoutine):
@@ -503,3 +512,13 @@ class GrangerCausality(ComputationalRoutine):
         out.channel_i = np.array(data.channel_i[chanSec_i])
         out.channel_j = np.array(data.channel_j[chanSec_j])
         out.freq = data.freq
+
+        # digest metadata
+        mdata = metadata_from_hdf5_file(out.filename)
+
+        for key, value in mdata.items():
+            # we always have a (single) trial average here
+            label_cast = key.split('__')[0]
+            # learn how to serialize
+            label, cast = label_cast.split('--')
+            out.info[label] = cast_0array(cast, value)
