@@ -242,7 +242,7 @@ def cast_0array(rule, arr):
     """
     Helper routine to "unpack" hdf5 0-dim attribute arrays,
     as even though they are effectively scalar,
-    they can't be directly serialized.
+    they can't be directly serialized to go into .info
     """
 
     rules = {'float': lambda x: float(x),
