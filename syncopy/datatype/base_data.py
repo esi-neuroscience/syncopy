@@ -498,7 +498,7 @@ class BaseData(ABC):
 
     def _is_empty(self):
         return all(
-            [getattr(self, attr) is None for attr in self._hdfFileDatasetProperties]
+            [getattr(self, "_" + attr) is None for attr in self._hdfFileDatasetProperties]
         )
 
     @property
@@ -626,13 +626,13 @@ class BaseData(ABC):
         # If data is already attached to the object, flush and close. All
         # datasets need to be closed before the file can be re-opened with a
         # different mode.
-        for propertyName in self._hdfFileDatasetProperties:
-            prop = getattr(self, propertyName)
+        #for propertyName in self._hdfFileDatasetProperties:
+        prop = getattr(self, "data")
 
-            # flush data to disk and from memory
-            if prop is not None:
-                prop.flush()
-                prop.file.close()
+        # flush data to disk and from memory
+        if prop is not None:
+            prop.flush()
+            prop.file.close()
 
         # Re-attach datasets
         for propertyName in self._hdfFileDatasetProperties:
