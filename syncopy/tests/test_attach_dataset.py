@@ -40,9 +40,9 @@ class TestAttachDataset:
         some_local_func()
         assert not 'spkd' in locals()
 
-    def test_comparison(self):
+    def test_comparison_with_and_without_extra_dset(self):
         """
-        Test comparison operator.
+        Test comparison operator: if one instance has an extra dataset, they should not be equal.
         """
         spkd1 = get_spike_data()
         spkd2 = spkd1.copy()
@@ -51,6 +51,34 @@ class TestAttachDataset:
 
         extra_data = np.zeros((3, 3), dtype=np.float64)
         spkd2._register_seq_dataset("dset_mean", extra_data)
+
+        assert spkd1 != spkd2
+
+    def test_copy(self):
+        """
+        Test copy: copying should copy the extra attribute and dataset.
+        """
+        spkd1 = get_spike_data()
+        extra_data = np.zeros((3, 3), dtype=np.float64)
+        spkd1._register_seq_dataset("dset_mean", extra_data)
+
+        spkd2 = spkd1.copy()
+
+        assert hasattr(spkd2, "_dset_mean")
+        assert isinstance(spkd2._dset_mean, h5py.Dataset)
+
+    def test_comparison_of_values(self):
+
+        spkd1 = get_spike_data()
+        spkd2 = spkd1.copy()
+
+        assert spkd1 == spkd2
+
+        extra_data1 = np.zeros((3, 3), dtype=np.float64)
+        spkd1._register_seq_dataset("dset_mean", extra_data1)
+
+        extra_data2 = np.zeros((3, 3), dtype=np.float64)
+        spkd2._register_seq_dataset("dset_mean", extra_data2)
 
         assert spkd1 != spkd2
 
