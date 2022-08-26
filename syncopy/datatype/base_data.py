@@ -246,12 +246,10 @@ class BaseData(ABC):
             ndim : int
                 Number of expected array dimensions.
         """
-        try:
-            fpath, fname = io_parser(
-                filename, varname="filename", isfile=True, exists=True
-            )
-        except Exception as exc:
-            raise exc
+
+        fpath, fname = io_parser(
+            filename, varname="filename", isfile=True, exists=True
+        )
         filename = os.path.join(fpath, fname)  # ensure `filename` is absolute path
 
         md = self.mode
