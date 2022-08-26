@@ -291,7 +291,7 @@ class BaseData(ABC):
             inData : numpy.ndarray
                 NumPy array to be stored in property of name `propertyName`
             propertyName : str
-                Name of the property to be filled with `inData`
+                Name of the property to be filled with `inData`. Will get an underscore (`'_'`) prefix added, so do not include that.
             ndim : int
                 Number of expected array dimensions.
         """
@@ -310,11 +310,11 @@ class BaseData(ABC):
                 act = "read-only file"
                 raise SPYValueError(legal=lgl, varname="mode", actual=act)
             if prop.shape != inData.shape:
-                lgl = "HDF5 dataset with shape {}".format(str(self.data.shape))
+                lgl = "HDF5 dataset with shape {}".format(str(prop.shape))
                 act = "data with shape {}".format(str(inData.shape))
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             if prop.dtype != inData.dtype:
-                lgl = "HDF5 dataset of type {}".format(self.data.dtype.name)
+                lgl = "HDF5 dataset of type {}".format(prop.dtype.name)
                 act = "data of type {}".format(inData.dtype.name)
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             prop[...] = inData
@@ -331,6 +331,7 @@ class BaseData(ABC):
             setattr(
                 self, "_" + propertyName, h5py.File(self.filename, md)[propertyName]
             )
+
 
     def _set_dataset_property_with_dataset(self, inData, propertyName, ndim):
         """Set a dataset property with an already loaded HDF5 dataset
