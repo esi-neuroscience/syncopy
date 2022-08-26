@@ -9,23 +9,28 @@ import numpy as np
 import syncopy as spy
 from syncopy.tests import synth_data as sd
 
+def get_spike_data(nTrials = 10):
+    return sd.poisson_noise(nTrials,
+                           nUnits=4,
+                           nChannels=2,
+                           nSpikes=10000,
+                           samplerate=10000)
+def get_spike_cfg():
+    cfg = spy.StructDict()
+    cfg.binsize = 0.3
+    cfg.latency = [-.5, 1.5]
+    return cfg
+
 
 # === THIS IS A STUB ===
 class TestPSTH:
 
     # synthetic spike data
-    nTrials = 10
-    spd = sd.poisson_noise(nTrials,
-                           nUnits=4,
-                           nChannels=2,
-                           nSpikes=10000,
-                           samplerate=10000)
+    spd = get_spike_data()
 
     def test_psth(self):
 
-        cfg = spy.StructDict()
-        cfg.binsize = 0.3
-        cfg.latency = [-.5, 1.5]
+        cfg = get_spike_cfg()
 
         counts = spy.spike_psth(self.spd,
                                 cfg,
