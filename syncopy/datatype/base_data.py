@@ -169,30 +169,30 @@ class BaseData(ABC):
         except Exception as exc:
             raise exc
 
-    def _register_dataset(self, dset_name, in_data):
+    def _register_dataset(self, propertyName, inData):
         """
         Register a new dataset, so that it is handled during saving and other operations.
+        This dataset is not managed in any way during parallel operations and is intended for
+        things like sequential statistics. Thus it is NOT safe to use this in a
+        multi-threaded/parallel context, like in a compute function (cF).
 
         Parameters
         ----------
-            dset_name : str
+            propertyName : str
                 The name for the new dataset, this will be used as the dataset name in the hdf5 container when saving.
-                It will be added as an attribute named `'_' + dset_name` to this SyncopyData object.
+                It will be added as an attribute named `'_' + propertyName` to this SyncopyData object.
+                Note that this means that your propertyName must not clash with other attribute names of syncopy data objects.
+                To ensure the latter, it is recommended to use names with a prefix like `'dset_'`.
             in_data : np.ndarray
-                The data to store.
+                The data to store. Must have the final number of dimensions you want.
         """
-        if dset_name in self._hdfFileDatasetProperties:
-            raise SPYValueError(
-                lgl="dataset name which does not yet exist for this container",
-                actual=f"dataset with name '{dset_name}' already exists",
-                varname="dset_name"
-            )
-        if not isinstance(in_data, np.ndarray):
-            raise SPYValueError(lgl="object of type 'np.ndarray'", varname="in_data")
-        self._hdfFileDatasetProperties = self._hdfFileDatasetProperties + (dset_name,)
-        self._set_dataset_property_with_ndarray(in_data, dset_name, in_data.ndim)
+        if not isinstance(inData, np.ndarray):
+            raise SPYValueError(lgl="object of type 'np.ndarray'", varname="inData")
+        if not propertyName in self._hdfFileDatasetProperties:
+            self._hdfFileDatasetProperties = self._hdfFileDatasetProperties + (propertyName,)
+        self._set_dataset_property_with_ndarray(inData, propertyName, inData.ndim)
 
-    def _set_dataset_property(self, dataIn, propertyName, ndim=None):
+    def _set_dataset_property(self, inData, propertyName, ndim=None):
         """Set property that is streamed from HDF dataset ('dataset property')
 
         This method automatically selects the appropriate set method
@@ -222,14 +222,14 @@ class BaseData(ABC):
             type(None): self._set_dataset_property_with_none,
         }
         try:
-            supportedSetters[type(dataIn)](dataIn, propertyName, ndim=ndim)
+            supportedSetters[type(inData)](inData, propertyName, ndim=ndim)
         except KeyError:
             msg = "filename of HDF5 file, HDF5 dataset, or NumPy array"
-            raise SPYTypeError(dataIn, varname="data", expected=msg)
+            raise SPYTypeError(inData, varname="data", expected=msg)
         except Exception as exc:
             raise exc
 
-    def _set_dataset_property_with_none(self, dataIn, propertyName, ndim):
+    def _set_dataset_property_with_none(self, inData, propertyName, ndim):
         """Set a dataset property to None"""
         setattr(self, "_" + propertyName, None)
 
@@ -302,6 +302,9 @@ class BaseData(ABC):
         # for additional, sequential datasets which people may attach.
         if propertyName == "data":
             self._check_dataset_property_discretedata(inData)
+        else:
+            if not hasattr(self, "_" + propertyName):
+                setattr(self, "_" + propertyName, None) # Prevent error on gettattr call below.
 
         # If there is existing data, replace values if shape and type match
         if isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
@@ -322,6 +325,11 @@ class BaseData(ABC):
 
         # or create backing file on disk
         else:
+            if propertyName != "data":
+                # Prevent accidental destruction of SyncopyData object by overwriting
+                # other attributes due to name clashes of new datasets.
+                if getattr(self, "_" + propertyName) is not None:
+                    raise SPYValueError(lgl="propertyName that does not clash with existing attributes")
             if self.filename is None:
                 self.filename = self._gen_filename()
             with h5py.File(self.filename, "w") as h5f:
