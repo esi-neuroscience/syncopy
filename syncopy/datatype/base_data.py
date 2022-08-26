@@ -739,7 +739,7 @@ class BaseData(ABC):
         Calls `flush` method of HDF5 dataset.
         """
         for propName in self._hdfFileDatasetProperties:
-            dsetProp = getattr(self, propName)
+            dsetProp = getattr(self, "_" + propName)
             if dsetProp is not None:
                 dsetProp.flush()
         return
@@ -922,6 +922,8 @@ class BaseData(ABC):
             SPYInfo("Not a Syncopy object")
             return False
 
+        print("checking equality")
+
         # Check if two Syncopy objects of same type/dimord are present
         try:
             data_parser(other, dimord=self.dimord, dataclass=self.__class__.__name__)
@@ -935,6 +937,8 @@ class BaseData(ABC):
                 SPYInfo("Empty and non-empty Syncopy object")
                 return False
             return True
+
+        print("checking equality, not empty")
 
         # If in-place selections are present, abort
         if self.selection is not None or other.selection is not None:
@@ -965,22 +969,46 @@ class BaseData(ABC):
 
         # If an object is compared to itself (or its shallow copy), don't bother
         # juggling NumPy arrays but simply perform a quick dataset/filename comparison
+        print(f"checking equality, at filenames. they are '{self.filename}' and '{other.filename}'")
+
+        both_hdfFileDatasetProperties = self._hdfFileDatasetProperties + other._hdfFileDatasetProperties
+
         isEqual = True
         if self.filename == other.filename:
-            for dsetName in self._hdfFileDatasetProperties:
-                val = getattr(self, dsetName)
-                if isinstance(val, h5py.Dataset):
-                    isEqual = val == getattr(other, dsetName)
+            print("checking _hdfFileDatasetProperties ...")
+            for dsetName in both_hdfFileDatasetProperties:
+                if hasattr(self, "_" + dsetName) and hasattr(other, "_" + dsetName):
+                    val = getattr(self, "_" + dsetName)
+                    if isinstance(val, h5py.Dataset):
+                        isEqual = val == getattr(other, "_" + dsetName)
+                    else:
+                        isEqual = np.allclose(val, getattr(other, "_" + dsetName))
+                    if not isEqual:
+                        SPYInfo(f"HDF dataset '{dsetName}' mismatch for type '{type(val)}'")
+                        return False
                 else:
-                    isEqual = np.allclose(val, getattr(other, dsetName))
-            if not isEqual:
-                SPYInfo("HDF dataset mismatch")
-                return False
-            return True
+                    SPYInfo(f"HDF dataset mismatch: extra dataset '{dsetName}' in one instance")
+                    return False
+        else:
+            for dsetName in both_hdfFileDatasetProperties:
+                if dsetName != "data":
+                    if hasattr(self, "_" + dsetName) and hasattr(other, "_" + dsetName):
+                        val = getattr(self, "_" + dsetName)
+                        if isinstance(val, h5py.Dataset):
+                            isEqual = val == getattr(other, "_" + dsetName)
+                        else:
+                            isEqual = np.allclose(val, getattr(other, "_" + dsetName))
+                        if not isEqual:
+                            SPYInfo(f"HDF dataset '{dsetName}' mismatch for type '{type(val)}'")
+                            return False
+                    else:
+                        SPYInfo(f"HDF dataset mismatch: extra dataset '{dsetName}' in one instance")
+                        return False
 
         # The other object really is a standalone Syncopy class instance and
         # everything but the data itself aligns; now the most expensive part:
         # trial by trial data comparison
+        print(f"checking equality, after filenames. this dataset has {len(self.trials)} trials")
         for tk in range(len(self.trials)):
             if not np.allclose(self.trials[tk], other.trials[tk]):
                 SPYInfo("Mismatch in trial #{}".format(tk))

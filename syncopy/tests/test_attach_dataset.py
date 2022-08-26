@@ -40,6 +40,20 @@ class TestAttachDataset:
         some_local_func()
         assert not 'spkd' in locals()
 
+    def test_comparison(self):
+        """
+        Test comparison operator.
+        """
+        spkd1 = get_spike_data()
+        spkd2 = spkd1.copy()
+
+        assert spkd1 == spkd2
+
+        extra_data = np.zeros((3, 3), dtype=np.float64)
+        spkd2._register_seq_dataset("dset_mean", extra_data)
+
+        assert spkd1 != spkd2
+
     def test_run_psth_with_attached_dset(self):
         """
         Test that we can run a cF on a Syncopy Data Object without any
