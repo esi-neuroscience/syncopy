@@ -868,7 +868,7 @@ class BaseData(ABC):
     def __del__(self):
         if self.filename is not None:
             for propertyName in self._hdfFileDatasetProperties:
-                prop = getattr(self, propertyName)
+                prop = getattr(self, "_" + propertyName)
                 try:
                     if isinstance(prop, h5py.Dataset):
                         try:
