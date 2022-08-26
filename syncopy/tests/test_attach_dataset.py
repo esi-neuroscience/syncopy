@@ -15,11 +15,10 @@ class TestAttachDataset:
 
     cfg = get_spike_cfg()
 
-    def test_attache_to_spikedata(self):
+    def test_attach_to_spikedata(self):
         """
         Test that we can run attach an extra sequential dataset to Syncopy SpikeData Object.
         """
-
         spkd = get_spike_data()
 
         extra_data = np.zeros((3, 3), dtype=np.float64)
@@ -27,6 +26,19 @@ class TestAttachDataset:
 
         assert hasattr(spkd, "_dset_mean")
         assert isinstance(spkd._dset_mean, h5py.Dataset)
+
+    def test_destruction(self):
+        """
+        Test destructor: there should be no exceptions/errors on destruction.
+        """
+        def some_local_func():
+            spkd = get_spike_data()
+            extra_data = np.zeros((3, 3), dtype=np.float64)
+            spkd._register_seq_dataset("dset_mean", extra_data)
+            # Let spkd get out of scope to call destructor.
+
+        some_local_func()
+        assert not 'spkd' in locals()
 
     def test_run_psth_with_attached_dset(self):
         """
