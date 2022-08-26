@@ -299,8 +299,11 @@ class BaseData(ABC):
         # Ensure array has right no. of dimensions
         array_parser(inData, varname="data", dims=ndim)
 
-        # Gymnastics for `DiscreteData` objects w/non-standard `dimord`s
-        self._check_dataset_property_discretedata(inData)
+        # Gymnastics for `DiscreteData` objects w/non-standard `dimord`s.
+        # This only applies to the 'main' dataset called 'data'. The checks are not needed
+        # for additional, sequential datasets which people may attach.
+        if propertyName == "data":
+            self._check_dataset_property_discretedata(inData)
 
         # If there is existing data, replace values if shape and type match
         if isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
