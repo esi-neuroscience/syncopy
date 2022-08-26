@@ -626,7 +626,9 @@ class BaseData(ABC):
         # If data is already attached to the object, flush and close. All
         # datasets need to be closed before the file can be re-opened with a
         # different mode.
-        #for propertyName in self._hdfFileDatasetProperties:
+
+        # This assumes that all datasets attached as properties are stored in
+        #  the same hdf5 file, and thus closing the file for 'data' handles all others.
         prop = getattr(self, "data")
 
         # flush data to disk and from memory
