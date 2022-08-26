@@ -922,7 +922,7 @@ class BaseData(ABC):
             SPYInfo("Not a Syncopy object")
             return False
 
-        print("checking equality")
+        print("BaseData.__eq__: checking equality")
 
         # Check if two Syncopy objects of same type/dimord are present
         try:
@@ -938,7 +938,7 @@ class BaseData(ABC):
                 return False
             return True
 
-        print("checking equality, not empty")
+        print("BaseData.__eq__: checking equality, not empty")
 
         # If in-place selections are present, abort
         if self.selection is not None or other.selection is not None:
@@ -969,13 +969,15 @@ class BaseData(ABC):
 
         # If an object is compared to itself (or its shallow copy), don't bother
         # juggling NumPy arrays but simply perform a quick dataset/filename comparison
-        print(f"checking equality, at filenames. they are '{self.filename}' and '{other.filename}'")
+        print(f"BaseData.__eq__: checking equality, at filenames. they are '{self.filename}' and '{other.filename}'")
 
         both_hdfFileDatasetProperties = self._hdfFileDatasetProperties + other._hdfFileDatasetProperties
 
         isEqual = True
         if self.filename == other.filename:
-            print("checking _hdfFileDatasetProperties ...")
+            # TODO: This branch should not be hit anymore, as copy() now always does a deep copy.
+            # We should try removing it.
+            print("BaseData.__eq__: checking _hdfFileDatasetProperties ... of shallow copies")
             for dsetName in both_hdfFileDatasetProperties:
                 if hasattr(self, "_" + dsetName) and hasattr(other, "_" + dsetName):
                     val = getattr(self, "_" + dsetName)
@@ -992,6 +994,7 @@ class BaseData(ABC):
         else:
             for dsetName in both_hdfFileDatasetProperties:
                 if dsetName != "data":
+                    print(f"Comparing dataset '{dsetName}' between different instances (not shallow)")
                     if hasattr(self, "_" + dsetName) and hasattr(other, "_" + dsetName):
                         val = getattr(self, "_" + dsetName)
                         if isinstance(val, h5py.Dataset):
