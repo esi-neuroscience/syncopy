@@ -308,7 +308,7 @@ class BaseData(ABC):
 
         # If there is existing data, replace values if shape and type match
         if isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
-            print(f"existing hdf5 dataset: updating property '{propertyName}' from ndarray")
+            print(f"_set_dataset_property_with_ndarray: existing hdf5 dataset: updating property '{propertyName}' from ndarray")
             prop = getattr(self, "_" + propertyName)
             if self.mode == "r":
                 lgl = "HDF5 dataset with write or copy-on-write access"
@@ -330,38 +330,26 @@ class BaseData(ABC):
                 self.filename = self._gen_filename()
 
             if propertyName == "data":
-                print(f"opening hdf5 file: setting default dataset '{propertyName}' from ndarray ")
+                print(f"_set_dataset_property_with_ndarray: opening hdf5 file: setting default dataset '{propertyName}' from ndarray ")
                 # We are creating the standard dataset, and need to open the hdf5 file first.
                 with h5py.File(self.filename, "w") as h5f:
                     h5f.create_dataset(propertyName, data=inData)
             else:
-                print(f"using open hdf5 file: adding new dataset '{propertyName}' from ndarray ")
+                print(f"_set_dataset_property_with_ndarray: using open hdf5 file: adding new dataset '{propertyName}' from ndarray ")
                 # Prevent accidental destruction of SyncopyData object by overwriting
                 # other attributes due to name clashes of new datasets.
                 if getattr(self, "_" + propertyName) is not None:
                     raise SPYValueError(lgl="propertyName that does not clash with existing attributes")
                 # We are attaching an extra dataset, so the hdf5 file is already open and available at `self._data.file`.
-                self._data.file.create_dataset(propertyName, data=inData)
+                print(f"_set_dataset_property_with_ndarray: adding new dataset '{propertyName}' in mode '{self.mode}' to file '{self._data.file}'.")
+                dset = self._data.file.create_dataset(propertyName, data=inData)
+                dset.flush()
 
             md = self.mode
             if md == "w":
                 md = "r+"
-            setattr(
-                self, "_" + propertyName, h5py.File(self.filename, md)[propertyName]
-            )
+            setattr(self, "_" + propertyName, h5py.File(self.filename, md)[propertyName])
 
-    def _backing_hdf5_file_is_open(self, propertyName="data"):
-        """
-        Check whether the backing HDF5 file of the given dset_name is open.
-
-        Parameters
-        ----------
-        propertyName: str
-            Name of the dataset, without the `_` attribute prefix. An attribute named `'_' + propertyName` must exist
-            on `self`, and its type must be `h5py.Dataset`.
-        """
-        dset = getattr(self, "_" + propertyName)
-        return dset.id.valid == 1
 
     def _set_dataset_property_with_dataset(self, inData, propertyName, ndim):
         """Set a dataset property with an already loaded HDF5 dataset
@@ -629,11 +617,13 @@ class BaseData(ABC):
 
         # This assumes that all datasets attached as properties are stored in
         #  the same hdf5 file, and thus closing the file for 'data' handles all others.
-        prop = getattr(self, "data")
 
-        # flush data to disk and from memory
+        for prop in self._hdfFileDatasetProperties:
+            if isinstance(prop, h5py.Dataset):
+                prop.flush()
+
+        prop = getattr(self, "data")
         if prop is not None:
-            prop.flush()
             prop.file.close()
 
         # Re-attach datasets
