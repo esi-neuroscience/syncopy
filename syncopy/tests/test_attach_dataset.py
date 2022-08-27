@@ -116,6 +116,16 @@ class TestAttachDataset:
         # Make sure we did not interfere with the PSTH computation.
         assert np.allclose(np.diff(counts.time[0]), self.cfg.binsize)
 
+        # Make sure the extra data set is there.
+        assert hasattr(spkd, "_dset_mean")
+
+        # TODO: Do we require the extra dataset to exist in the output as well?
+        #       If so, we need to move it over in 'process_metadata', but that is
+        #       not done yet, so this is commented out. We need to discuss, so this
+        #       is left here as a reminder for the review.
+        # assert hasattr(counts, "_dset_mean")
+        # assert np.array_equal(counts._dset_mean[()], extra_data)
+
 
 if __name__ == '__main__':
     T1 = TestAttachDataset()
