@@ -74,11 +74,15 @@ class TestAttachDataset:
         assert np.array_equal(spkd2._dset_mean[()], extra_data)
 
     def test_comparison_of_values(self):
+        """
+        Test more details of equality.
+        """
 
         spkd1 = get_spike_data()
         spkd2 = spkd1.copy()
         spkd3 = spkd1.copy()
 
+        # Copies should be equal.
         assert spkd1 == spkd2
 
         extra_data1 = np.zeros((3, 3), dtype=np.float64)
@@ -87,12 +91,12 @@ class TestAttachDataset:
         extra_data2 = np.zeros((3, 4), dtype=np.float64)
         spkd2._register_seq_dataset("dset_mean", extra_data2)
 
+        # Copies, with different extra seq data attached to them after copying, should NOT be equal.
         assert spkd1 != spkd2
 
+        # Copies, with identical extra seq data attached to them after copying, should be equal.
         spkd3._register_seq_dataset("dset_mean", extra_data1)
-        assert spkd1 != spkd3
-
-
+        assert spkd1 == spkd3
 
     def test_run_psth_with_attached_dset(self):
         """
