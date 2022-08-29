@@ -215,9 +215,9 @@ def cross_covariance_cF(trl_dat,
                         polyremoval=0,
                         timeAxis=0,
                         norm=False,
+                        fullOutput=False,
                         chunkShape=None,
-                        noCompute=False,
-                        fullOutput=False):
+                        noCompute=False):
 
     """
     Single trial covariance estimates between all channels

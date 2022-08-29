@@ -56,7 +56,7 @@ class TestSpfooof():
 
     def test_output_fooof_single_channel(self, freqs=freqs, powers=powers):
         """
-        Tests spfooof with output 'fooof' and a single input signal/channel.
+        Tests spfooof with output 'fooof' and a single input spectrum/channel.
         This will return the full, fooofed spectrum.
         """
         spectra, details = fooofspy(powers, freqs, out_type='fooof', fooof_opt={'peak_width_limits': (1.0, 12.0)})

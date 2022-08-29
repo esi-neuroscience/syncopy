@@ -48,8 +48,7 @@ def test_coherence():
         # process every trial individually
         CSD, freqs = csd.csd(trl_dat, fs,
                              taper='hann',
-                             norm=False, # this is important!
-                             fullOutput=True)
+                             norm=False)  # this is important!
 
         assert avCSD.shape == CSD.shape
         avCSD += CSD
@@ -69,7 +68,7 @@ def test_coherence():
     fig, ax = ppl.subplots(figsize=(6, 4), num=None)
     ax.set_xlabel('frequency (Hz)')
     ax.set_ylabel('coherence')
-    ax.set_ylim((-.02,1.05))
+    ax.set_ylim((-.02, 1.05))
     ax.set_title(f'{nTrials} trials averaged coherence,  SNR=1')
 
     ax.plot(freqs, coh, lw=1.5, alpha=0.8, c='cornflowerblue')
@@ -112,25 +111,24 @@ def test_csd():
     data = np.array(data).T
     data = np.array(data) + np.random.randn(nSamples, len(phase_shifts))
 
-    bw = 8 #Hz
+    bw = 8  # Hz
     NW = nSamples * bw / (2 * fs)
-    Kmax = int(2 * NW - 1) # multiple tapers for single trial coherence
+    Kmax = int(2 * NW - 1)   # multiple tapers for single trial coherence
     CSD, freqs = csd.csd(data, fs,
                          taper='dpss',
-                         taper_opt={'Kmax' : Kmax, 'NW' : NW},
-                         norm=True,
-                         fullOutput=True)
+                         taper_opt={'Kmax': Kmax, 'NW': NW},
+                         norm=True)
 
-    # output has shape (1, nFreq, nChannels, nChannels)
+    # output has shape (nFreq, nChannels, nChannels)
     assert CSD.shape == (len(freqs), data.shape[1], data.shape[1])
 
     # single trial coherence between channel 0 and 1
     coh = np.abs(CSD[:, 0, 1])
 
-    fig, ax = ppl.subplots(figsize=(6,4), num=None)
+    fig, ax = ppl.subplots(figsize=(6, 4), num=None)
     ax.set_xlabel('frequency (Hz)')
     ax.set_ylabel('coherence')
-    ax.set_ylim((-.02,1.05))
+    ax.set_ylim((-.02, 1.05))
     ax.set_title(f'MTM coherence, {Kmax} tapers, SNR=1')
 
     ax.plot(freqs, coh, lw=1.5, alpha=0.8, c='cornflowerblue')
@@ -197,8 +195,8 @@ def test_wilson():
         # --- get the (single trial) CSD ---
 
         CSD, freqs = csd.csd(sol, fs,
-                             norm=False,
-                             fullOutput=True)
+                             norm=False)
+
         CSDav += CSD
 
     CSDav /= nTrials
@@ -236,15 +234,13 @@ def test_regularization():
         A = np.random.randn(50)
         CSD += np.outer(A, A)
 
-    # get CSD condition number, which is way too large!
-    CN = np.linalg.cond(CSD).max()
-    print(CN)
-    cmax = 1e6
-    assert CN > cmax
-
     # --- regularize CSD ---
 
-    CSDreg, fac = regularize_csd(CSD, cond_max=cmax, nSteps=25)
+    cmax = 1e4
+    CSDreg, fac, iniCN = regularize_csd(CSD, cond_max=cmax, nSteps=25)
+    # get initial CSD condition number, which is way too large!
+    print(iniCN)
+    assert iniCN > cmax
 
     CNreg = np.linalg.cond(CSDreg).max()
     assert CNreg < 1e6
@@ -281,7 +277,6 @@ def test_granger():
         CSD, freqs = csd.csd(sol, fs,
                              taper='dpss',
                              taper_opt={'Kmax': Kmax, 'NW': NW},
-                             fullOutput=True,
                              demean_taper=True)
 
         CSDav += CSD
