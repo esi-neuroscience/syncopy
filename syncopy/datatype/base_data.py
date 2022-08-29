@@ -615,13 +615,13 @@ class BaseData(ABC):
         # datasets need to be closed before the file can be re-opened with a
         # different mode.
 
-        for propertyName in self._hdfFileDatasetProperties:
-            prop = getattr(self, "_" + propertyName)
+        # This assumes that all datasets attached as properties are stored in
+        #  the same hdf5 file, and thus closing the file for 'data' handles all others.
+
+        for prop in self._hdfFileDatasetProperties:
             if isinstance(prop, h5py.Dataset):
                 prop.flush()
 
-        # This assumes that all datasets attached as properties are stored in
-        #  the same hdf5 file, and thus closing the file for 'data' handles all others
         prop = getattr(self, "data")
         if prop is not None:
             prop.file.close()
@@ -630,7 +630,7 @@ class BaseData(ABC):
         for propertyName in self._hdfFileDatasetProperties:
             if prop is not None:
                 setattr(
-                    self, "_" + propertyName, h5py.File(self.filename, mode=md)[propertyName]
+                    self, propertyName, h5py.File(self.filename, mode=md)[propertyName]
                 )
         self._mode = md
 
@@ -966,7 +966,8 @@ class BaseData(ABC):
 
         isEqual = True
         if self.filename == other.filename:
-            # This branch (identical file name/shallow copy) is still used on instantiation.
+            # TODO: This branch should not be hit anymore, as copy() now always does a deep copy.
+            # We should try removing it.
             print("BaseData.__eq__: checking _hdfFileDatasetProperties ... of shallow copies")
             for dsetName in both_hdfFileDatasetProperties:
                 if hasattr(self, "_" + dsetName) and hasattr(other, "_" + dsetName):
@@ -1060,7 +1061,7 @@ class BaseData(ABC):
 
         # Attach dataset properties and let set methods do error checking
         for propertyName in self._hdfFileDatasetProperties:
-            setattr(self, "_" + propertyName, kwargs[propertyName])
+            setattr(self, propertyName, kwargs[propertyName])
 
         # Write initial log entry
         self.log = "created {clname:s} object".format(clname=self.__class__.__name__)
