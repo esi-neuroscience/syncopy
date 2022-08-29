@@ -308,7 +308,7 @@ class BaseData(ABC):
 
         # If there is existing data, replace values if shape and type match
         if isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
-            print(f"existing hdf5 dataset: updating property '{propertyName}' from ndarray")
+            print(f"_set_dataset_property_with_ndarray: existing hdf5 dataset: updating property '{propertyName}' from ndarray")
             prop = getattr(self, "_" + propertyName)
             if self.mode == "r":
                 lgl = "HDF5 dataset with write or copy-on-write access"
@@ -330,38 +330,26 @@ class BaseData(ABC):
                 self.filename = self._gen_filename()
 
             if propertyName == "data":
-                print(f"opening hdf5 file: setting default dataset '{propertyName}' from ndarray ")
+                print(f"_set_dataset_property_with_ndarray: opening hdf5 file: setting default dataset '{propertyName}' from ndarray ")
                 # We are creating the standard dataset, and need to open the hdf5 file first.
                 with h5py.File(self.filename, "w") as h5f:
                     h5f.create_dataset(propertyName, data=inData)
             else:
-                print(f"using open hdf5 file: adding new dataset '{propertyName}' from ndarray ")
+                print(f"_set_dataset_property_with_ndarray: using open hdf5 file: adding new dataset '{propertyName}' from ndarray ")
                 # Prevent accidental destruction of SyncopyData object by overwriting
                 # other attributes due to name clashes of new datasets.
                 if getattr(self, "_" + propertyName) is not None:
                     raise SPYValueError(lgl="propertyName that does not clash with existing attributes")
                 # We are attaching an extra dataset, so the hdf5 file is already open and available at `self._data.file`.
-                self._data.file.create_dataset(propertyName, data=inData)
+                print(f"_set_dataset_property_with_ndarray: adding new dataset '{propertyName}' in mode '{self.mode}' to file '{self._data.file}'.")
+                dset = self._data.file.create_dataset(propertyName, data=inData)
+                dset.flush()
 
             md = self.mode
             if md == "w":
                 md = "r+"
-            setattr(
-                self, "_" + propertyName, h5py.File(self.filename, md)[propertyName]
-            )
+            setattr(self, "_" + propertyName, h5py.File(self.filename, md)[propertyName])
 
-    def _backing_hdf5_file_is_open(self, propertyName="data"):
-        """
-        Check whether the backing HDF5 file of the given dset_name is open.
-
-        Parameters
-        ----------
-        propertyName: str
-            Name of the dataset, without the `_` attribute prefix. An attribute named `'_' + propertyName` must exist
-            on `self`, and its type must be `h5py.Dataset`.
-        """
-        dset = getattr(self, "_" + propertyName)
-        return dset.id.valid == 1
 
     def _set_dataset_property_with_dataset(self, inData, propertyName, ndim):
         """Set a dataset property with an already loaded HDF5 dataset
@@ -626,13 +614,17 @@ class BaseData(ABC):
         # If data is already attached to the object, flush and close. All
         # datasets need to be closed before the file can be re-opened with a
         # different mode.
+
         for propertyName in self._hdfFileDatasetProperties:
             prop = getattr(self, "_" + propertyName)
-
-            # flush data to disk and from memory
-            if prop is not None:
+            if isinstance(prop, h5py.Dataset):
                 prop.flush()
-                prop.file.close()
+
+        # This assumes that all datasets attached as properties are stored in
+        #  the same hdf5 file, and thus closing the file for 'data' handles all others
+        prop = getattr(self, "data")
+        if prop is not None:
+            prop.file.close()
 
         # Re-attach datasets
         for propertyName in self._hdfFileDatasetProperties:
@@ -920,6 +912,8 @@ class BaseData(ABC):
             SPYInfo("Not a Syncopy object")
             return False
 
+        print("BaseData.__eq__: checking equality")
+
         # Check if two Syncopy objects of same type/dimord are present
         try:
             data_parser(other, dimord=self.dimord, dataclass=self.__class__.__name__)
@@ -933,6 +927,8 @@ class BaseData(ABC):
                 SPYInfo("Empty and non-empty Syncopy object")
                 return False
             return True
+
+        print("BaseData.__eq__: checking equality, not empty")
 
         # If in-place selections are present, abort
         if self.selection is not None or other.selection is not None:
@@ -963,22 +959,48 @@ class BaseData(ABC):
 
         # If an object is compared to itself (or its shallow copy), don't bother
         # juggling NumPy arrays but simply perform a quick dataset/filename comparison
+        print(f"BaseData.__eq__: checking equality, at filenames. they are '{self.filename}' and '{other.filename}'")
+
+        both_hdfFileDatasetProperties = self._hdfFileDatasetProperties + other._hdfFileDatasetProperties
+
         isEqual = True
         if self.filename == other.filename:
-            for dsetName in self._hdfFileDatasetProperties:
-                val = getattr(self, "_" + dsetName)
-                if isinstance(val, h5py.Dataset):
-                    isEqual = val == getattr(other, "_" + dsetName)
+            # This branch (identical file name/shallow copy) is still used on instantiation.
+            print("BaseData.__eq__: checking _hdfFileDatasetProperties ... of shallow copies")
+            for dsetName in both_hdfFileDatasetProperties:
+                if hasattr(self, "_" + dsetName) and hasattr(other, "_" + dsetName):
+                    val = getattr(self, "_" + dsetName)
+                    if isinstance(val, h5py.Dataset):
+                        isEqual = val == getattr(other, "_" + dsetName)
+                    else:
+                        isEqual = np.allclose(val, getattr(other, "_" + dsetName))
+                    if not isEqual:
+                        SPYInfo(f"HDF dataset '{dsetName}' mismatch for type '{type(val)}'")
+                        return False
                 else:
-                    isEqual = np.allclose(val, getattr(other, "_" + dsetName))
-            if not isEqual:
-                SPYInfo("HDF dataset mismatch")
-                return False
-            return True
+                    SPYInfo(f"HDF dataset mismatch: extra dataset '{dsetName}' in one instance")
+                    return False
+        else:
+            for dsetName in both_hdfFileDatasetProperties:
+                if dsetName != "data":
+                    print(f"Comparing dataset '{dsetName}' between different instances (not shallow)")
+                    if hasattr(self, "_" + dsetName) and hasattr(other, "_" + dsetName):
+                        val = getattr(self, "_" + dsetName)
+                        if isinstance(val, h5py.Dataset):
+                            isEqual = val == getattr(other, "_" + dsetName)
+                        else:
+                            isEqual = np.allclose(val, getattr(other, "_" + dsetName))
+                        if not isEqual:
+                            SPYInfo(f"HDF dataset '{dsetName}' mismatch for type '{type(val)}'")
+                            return False
+                    else:
+                        SPYInfo(f"HDF dataset mismatch: extra dataset '{dsetName}' in one instance")
+                        return False
 
         # The other object really is a standalone Syncopy class instance and
         # everything but the data itself aligns; now the most expensive part:
         # trial by trial data comparison
+        print(f"checking equality, after filenames. this dataset has {len(self.trials)} trials")
         for tk in range(len(self.trials)):
             if not np.allclose(self.trials[tk], other.trials[tk]):
                 SPYInfo("Mismatch in trial #{}".format(tk))

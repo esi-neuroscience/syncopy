@@ -61,16 +61,21 @@ def copy(data):
 
     # copy data on disk
     shutil.copyfile(data.filename, filename)
+    print(f"copy: the SOURCE h5py file has entries: {h5py.File(data.filename, mode='r').keys()}")
+    print(f"copy: the copied H5py file has entries: {h5py.File(filename, mode='r').keys()}")
 
     # reattach properties
     for propertyName in data._hdfFileDatasetProperties:
-        prop = getattr(data, propertyName)
+        prop = getattr(data, "_" + propertyName)
         if isinstance(prop, h5py.Dataset):
-            sourceName = getattr(data, propertyName).name
-            setattr(cpy, propertyName,
+            sourceName = prop.name
+            print(f"copy: reattaching '{propertyName}': >>> hdf5 with sourceName '{sourceName}'")
+            print(f"copy: reattaching '{propertyName}': >>>  the copied H5py file has entries: {h5py.File(filename, mode=cpy.mode).keys()}")
+            setattr(cpy, "_" + propertyName,
                     h5py.File(filename, mode=cpy.mode)[sourceName])
-        else:
-            setattr(cpy, propertyName, prop)
+        else:   # What could this be?
+            print(f"copy: reattaching '{propertyName}': >>> NOT hdf5 with sourceName '{sourceName}'")
+            setattr(cpy, "_" + propertyName, prop)
 
     cpy.filename = filename
     return cpy
