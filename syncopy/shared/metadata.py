@@ -1,4 +1,4 @@
-#  Function for handling additional return values from backend functions.
+#  Function for handling additional return values from compute functions
 
 import h5py
 import numpy as np
@@ -260,4 +260,5 @@ def cast_0array(rule, arr):
         act = f"{arr.ndim}-dim array"
         raise SPYValueError(lgl, "arr", act)
 
+    # return cast directly
     return rules[rule](arr)

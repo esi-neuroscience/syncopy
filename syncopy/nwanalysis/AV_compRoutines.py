@@ -134,7 +134,7 @@ class NormalizeCrossSpectra(ComputationalRoutine):
 
     computeFunction = staticmethod(normalize_csd_cF)
 
-    method = "" # there is no backend
+    method = ""  # there is no backend
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(normalize_csd_cF).parameters.keys())[1:]
 
@@ -275,7 +275,7 @@ class NormalizeCrossCov(ComputationalRoutine):
 
     computeFunction = staticmethod(normalize_ccov_cF)
 
-    method = "" # there is no backend
+    method = ""   # there is no backend
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(normalize_ccov_cF).parameters.keys())[1:]
 
@@ -429,14 +429,12 @@ def granger_cF(csd_av_dat,
     # calculate G-causality
     Granger = granger(CSDreg, H, Sigma)
 
+    # format is 'label--cast'
     metadata = {'converged--bool': np.array(conv),
                 'max rel. err--float': np.array(err),
                 'reg. factor--float': np.array(factor),
                 'initial cond. num--float': np.array(ini_cn)
                 }
-
-    for key, val in metadata.items():
-        print("cF", key, type(val))
 
     # reattach dummy time axis
     return Granger[None, ...], metadata
@@ -462,7 +460,7 @@ class GrangerCausality(ComputationalRoutine):
 
     computeFunction = staticmethod(granger_cF)
 
-    method = "" # there is no backend
+    method = ""   # there is no backend
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(granger_cF).parameters.keys())[1:]
 
@@ -513,7 +511,7 @@ class GrangerCausality(ComputationalRoutine):
         out.channel_j = np.array(data.channel_j[chanSec_j])
         out.freq = data.freq
 
-        # digest metadata
+        # digest metadata and attach to .info property
         mdata = metadata_from_hdf5_file(out.filename)
 
         for key, value in mdata.items():
