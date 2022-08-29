@@ -54,32 +54,28 @@ def copy(spdata):
            f"to create new {spdata.__class__.__name__} object on disk")
     SPYInfo(msg)
 
-    # shallow copy, captures also non-default/temporary attributes
+    # Shallow copy, captures also non-default/temporary attributes.
     copy_spdata = py_copy(spdata)
     spdata.clear()
     copy_filename = spdata._gen_filename()
     copy_spdata.filename = copy_filename
     copy_spdata.clear()
 
-    print(f"copy: shallow-copied spdata object. old one has ._hdfFileDatasetProperties: {spdata._hdfFileDatasetProperties}")
-    print(f"copy: shallow-copied spdata object. new one has ._hdfFileDatasetProperties: {copy_spdata._hdfFileDatasetProperties}")
-
-    # copy data on disk
+    # Copy data on disk.
     shutil.copyfile(spdata.filename, copy_filename, follow_symlinks=False)
-    #shutil.copy2(spdata.filename, copy_filename, follow_symlinks=False)
+
+    # Copying the data on disk does, for some reason, not copy the extra dataset.
+    # Maybe the 'clear()' data flushes the HDF5 buffer, but not the O/S buffer.
+    # Whatever the reason is, we need to manually copy the extra datasets.
 
     #print(f"copy: copied file. the SOURCE h5py file has entries: {h5py.File(spdata.filename, mode='r').keys()}")
     #print(f"copy: copied file. the copied H5py file has entries: {h5py.File(copy_spdata.filename, mode='r').keys()}")
 
-    print(f"copy: copying extra datasets manually with hdf5")
+    # Copy extra datasets manually with hdf5.
     for propertyName in spdata._hdfFileDatasetProperties:
-        src_h5py_file = spdata._data.file
-        #dst_h5py_file = copy_spdata._data.file # No! This is still the old file, due to shallow copy.
-        with h5py.File(copy_spdata.filename, mode='r+') as dst_h5py_file:
-            assert isinstance(src_h5py_file, h5py.File)
-            assert isinstance(dst_h5py_file, h5py.File)
-            print(f"copying manually from file {src_h5py_file} to {dst_h5py_file}")
-            if propertyName != "data":
+        if propertyName != "data":
+            src_h5py_file = spdata._data.file
+            with h5py.File(copy_spdata.filename, mode='r+') as dst_h5py_file:
                 src_h5py_file.copy(src_h5py_file[propertyName], dst_h5py_file["/"], propertyName)
 
 
@@ -89,13 +85,9 @@ def copy(spdata):
         prop = getattr(spdata, "_" + propertyName)
         if isinstance(prop, h5py.Dataset):
             sourceName = prop.name
-            print(f"copy: reattaching '{propertyName}': >>> hdf5 with sourceName '{sourceName}'")
-            print(f"copy: reattaching '{propertyName}': >>>  the source H5py file has entries: {h5py.File(spdata.filename, mode=copy_spdata.mode).keys()}")
-            print(f"copy: reattaching '{propertyName}': >>>  the copied H5py file has entries: {h5py.File(copy_filename, mode=copy_spdata.mode).keys()}")
             setattr(copy_spdata, "_" + propertyName,
                     h5py.File(copy_filename, mode=copy_spdata.mode)[sourceName])
-        else:   # np.ndarray?
-            print(f"copy: reattaching '{propertyName}': >>> NOT hdf5 with sourceName '{sourceName}', type is {type(propertyName)}.")
+        else:   # np.ndarray
             setattr(copy_spdata, "_" + propertyName, prop)
 
     return copy_spdata
