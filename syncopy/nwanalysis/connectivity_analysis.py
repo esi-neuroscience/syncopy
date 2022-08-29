@@ -256,7 +256,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
         # Match desired frequencies as close as possible to
         # actually attainable freqs
-        # these are the frequencies attached to the SpectralData by the CR!
+        # these are the frequencies attached to the CrossSpectralData by the CR!
         if foi is not None:
             foi, _ = best_match(freqs, foi, squash_duplicates=True)
         elif foilim is not None:

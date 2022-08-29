@@ -197,22 +197,11 @@ class ST_CrossSpectra(ComputationalRoutine):
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
             chanSec = data.selection.channel
-            trl = data.selection.trialdefinition
-            for row in range(trl.shape[0]):
-                trl[row, :2] = [row, row + 1]
         else:
             chanSec = slice(None)
-            time = np.arange(len(data.trials))
-            time = time.reshape((time.size, 1))
-            trl = np.hstack((time, time + 1,
-                             np.zeros((len(data.trials), 1)),
-                             np.array(data.trialinfo)))
 
-        # Attach constructed trialdef-array (if even necessary)
-        if self.keeptrials:
-            out.trialdefinition = trl
-        else:
-            out.trialdefinition = np.array([[0, 1, 0]])
+        # there is always trial averaging
+        out.trialdefinition = np.array([[0, 1, 0]])
 
         # Attach remaining meta-data
         out.samplerate = data.samplerate
