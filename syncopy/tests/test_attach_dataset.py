@@ -104,6 +104,30 @@ class TestAttachDataset:
         spkd3._register_seq_dataset("dset_mean", extra_data1)
         assert spkd3 != spkd1  # Even though they are copies, with identical `np.ndarrays` attached as `h5py.Datasets`!
 
+    def test_detach(self):
+        """
+        Test that we can attach and detach an extra sequential dataset to Syncopy SpikeData Object.
+        """
+        spkd = get_spike_data()
+
+        extra_data = np.zeros((3, 3), dtype=np.float64)
+        spkd._register_seq_dataset("dset_mean", extra_data)
+
+        assert hasattr(spkd, "_dset_mean")
+        assert isinstance(spkd._dset_mean, h5py.Dataset)
+        assert isinstance(spkd._dset_mean.file, h5py.File)
+        assert np.array_equal(spkd._dset_mean[()], extra_data)
+
+        spkd._unregister_seq_dataset("dset_mean", del_from_file=False)
+        assert not hasattr(spkd, "_dset_mean")
+        assert "dset_mean" in h5py.File(spkd.filename, "r").keys()
+        assert "data" in h5py.File(spkd.filename, "r").keys()
+
+        spkd._unregister_seq_dataset("dset_mean", del_from_file=True)
+        assert not hasattr(spkd, "_dset_mean")
+        assert not "dset_mean" in h5py.File(spkd.filename, "r").keys()
+        assert "data" in h5py.File(spkd.filename, "r").keys()
+
     def test_run_psth_with_attached_dset(self):
         """
         Test that we can run a cF on a Syncopy Data Object without any

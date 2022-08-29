@@ -171,7 +171,7 @@ class BaseData(ABC):
 
     def _register_seq_dataset(self, propertyName, inData):
         """
-        Register a new dataset, so that it is handled during saving and other operations.
+        Register a new dataset, so that it is handled during saving, comparison, copy and other operations.
         This dataset is not managed in any way during parallel operations and is intended for
         things like sequential statistics. Thus it is NOT safe to use this in a
         multi-threaded/parallel context, like in a compute function (cF).
@@ -182,7 +182,7 @@ class BaseData(ABC):
                 The name for the new dataset, this will be used as the dataset name in the hdf5 container when saving.
                 It will be added as an attribute named `'_' + propertyName` to this SyncopyData object.
                 Note that this means that your propertyName must not clash with other attribute names of syncopy data objects.
-                To ensure the latter, it is recommended to use names with a prefix like `'dset_'`.
+                To ensure the latter, it is recommended to use names with a prefix like `'dset_'`. Clashes will be detected and result in errors.
             in_data : np.ndarray
                 The data to store. Must have the final number of dimensions you want.
         """
@@ -191,6 +191,33 @@ class BaseData(ABC):
         if not propertyName in self._hdfFileDatasetProperties:
             self._hdfFileDatasetProperties = self._hdfFileDatasetProperties + (propertyName,)
         self._set_dataset_property_with_ndarray(inData, propertyName, inData.ndim)
+
+    def _unregister_seq_dataset(self, propertyName, del_from_file=True):
+        """
+        Unregister and delete a sequential dataset from memory, and optionally delete it from the backing hdf5 file.
+
+        Assumes that the backing h5py file is open in writeable mode.
+
+        Parameters
+        ----------
+            propertyName : str
+                The name of the entry in `self._hdfFileDatasetProperties` to remove.
+                The attribute named `'_' + propertyName` of this SyncopyData object will be deleted.
+            del_from_file: bool
+                Whether to also remove the dataset named 'propertyName' from the backing hdf5 file on disk.
+        """
+        if propertyName in self._hdfFileDatasetProperties:
+            tmp_list = list(self._hdfFileDatasetProperties)
+            tmp_list.remove(propertyName)
+            self._hdfFileDatasetProperties = tuple(tmp_list)
+        if hasattr(self, "_" + propertyName):
+            delattr(self, "_" + propertyName)
+        if del_from_file:
+            if isinstance(self._data, h5py.Dataset):
+                if isinstance(self._data.file, h5py.File):
+                    if propertyName in self._data.file.keys():
+                        del self._data.file[propertyName]
+
 
     def _set_dataset_property(self, inData, propertyName, ndim=None):
         """Set property that is streamed from HDF dataset ('dataset property')
