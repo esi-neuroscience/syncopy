@@ -23,7 +23,7 @@ def _power_spectrum(freq_range=[3, 40],
     # the Gaussians: Mean (Center Frequency), height (Power), and standard deviation (Bandwidth).
     periodic_params = [[10, 0.2, 1.25], [30, 0.15, 2]]
 
-    noise_level = 0.005
+    noise_level = 0.001
     freqs, powers = gen_power_spectrum(freq_range, aperiodic_params,
                                        periodic_params, nlv=noise_level, freq_res=freq_res)
     return freqs, powers
