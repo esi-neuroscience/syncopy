@@ -213,6 +213,10 @@ class BaseData(ABC):
         if hasattr(self, "_" + propertyName):
             delattr(self, "_" + propertyName)
         if del_from_file:
+            if self.mode == "r":
+                lgl = "HDF5 dataset with write or copy-on-write access"
+                act = "read-only file"
+                raise SPYValueError(legal=lgl, varname="mode", actual=act)
             if isinstance(self._data, h5py.Dataset):
                 if isinstance(self._data.file, h5py.File):
                     if propertyName in self._data.file.keys():
@@ -363,7 +367,8 @@ class BaseData(ABC):
                 # Prevent accidental destruction of SyncopyData object by overwriting
                 # other attributes due to name clashes of new datasets.
                 if getattr(self, "_" + propertyName) is not None:
-                    raise SPYValueError(lgl="propertyName that does not clash with existing attributes")
+                    raise SPYValueError(lgl="propertyName that does not clash with existing attributes",
+                                        varname=propertyName, actual=propertyName)
                 # We are attaching an extra dataset, so the hdf5 file is already open and available at `self._data.file`.
                 dset = self._data.file.create_dataset(propertyName, data=inData)
                 dset.flush()

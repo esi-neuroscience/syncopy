@@ -29,6 +29,32 @@ class TestAttachDataset:
         assert isinstance(spkd._dset_mean.file, h5py.File)
         assert np.array_equal(spkd._dset_mean[()], extra_data)
 
+    def test_attach_and_update(self):
+        """
+        Test that we can run attach an extra sequential dataset to Syncopy SpikeData Object
+        and later update it with an ndarray of identical dimensions.
+        """
+        spkd = get_spike_data()
+
+        extra_data = np.zeros((3, 3), dtype=np.float64)
+        spkd._register_seq_dataset("dset_mean", extra_data)
+
+        assert hasattr(spkd, "_dset_mean")
+        assert isinstance(spkd._dset_mean, h5py.Dataset)
+        assert isinstance(spkd._dset_mean.file, h5py.File)
+        assert np.array_equal(spkd._dset_mean[()], extra_data)
+
+        extra_data2 = np.zeros((3, 3), dtype=np.float64) + 2
+
+        spkd._register_seq_dataset("dset_mean", extra_data2)
+        assert hasattr(spkd, "_dset_mean")
+        assert isinstance(spkd._dset_mean, h5py.Dataset)
+        assert isinstance(spkd._dset_mean.file, h5py.File)
+        assert np.array_equal(spkd._dset_mean[()], extra_data2)
+
+
+
+
     def test_destruction(self):
         """
         Test destructor: there should be no exceptions/errors on destruction.
