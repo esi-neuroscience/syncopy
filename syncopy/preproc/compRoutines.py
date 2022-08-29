@@ -10,7 +10,7 @@ import scipy.signal as sci
 from inspect import signature
 
 # syncopy imports
-from syncopy.shared.computational_routine import ComputationalRoutine, propagate_metadata
+from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
 from syncopy.shared.const_def import spectralConversions, spectralDTypes
 from syncopy.shared.kwarg_decorators import process_io
 
@@ -155,7 +155,7 @@ class SincFiltering(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 @process_io
@@ -278,7 +278,7 @@ class ButFiltering(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 @process_io
@@ -340,7 +340,7 @@ class Rectify(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 @process_io
@@ -812,7 +812,7 @@ class Standardize(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 def _resampling_trl_definition(orig_trl, factor):

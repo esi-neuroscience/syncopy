@@ -227,7 +227,6 @@ class TestCoherence:
                                                 *self.time_span)
 
         for sel_dct in selections:
-
             result = cafunc(self.data, method='coh', select=sel_dct)
 
             # check here just for finiteness and positivity

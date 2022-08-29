@@ -19,7 +19,6 @@
 # method: backend method name
 
 # Builtin/3rd party package imports
-from hmac import compare_digest
 from inspect import signature
 import numpy as np
 from hashlib import blake2b
@@ -37,9 +36,15 @@ from .fooofspy import fooofspy
 # Local imports
 from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.tools import best_match
-from syncopy.shared.computational_routine import ComputationalRoutine
+from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
 from syncopy.shared.kwarg_decorators import process_io
-from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, metadata_from_hdf5_file
+from syncopy.shared.metadata import (
+    encode_unique_md_label,
+    decode_unique_md_label,
+    metadata_from_hdf5_file,
+    check_freq_hashes
+)
+
 from syncopy.shared.const_def import (
     spectralConversions,
     spectralDTypes
@@ -48,6 +53,7 @@ from syncopy.shared.const_def import (
 # -----------------------
 # MultiTaper FFT
 # -----------------------
+
 
 @process_io
 def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
@@ -202,52 +208,15 @@ class MultiTaperFFT(ComputationalRoutine):
         # General-purpose loading of metadata.
         metadata = metadata_from_hdf5_file(out.filename)
 
-        # check individual freq. axis hashes
-        ref_hash, ref_id = None, None
-        trl_mismatches = []
-        for md_label, fhash in metadata.items():
-            _, trl_id, chk_id = decode_unique_md_label(md_label)
-            if ref_hash is None:
-                ref_hash = fhash
-                ref_id = trl_id
-            else:
-                if not compare_digest(ref_hash, fhash):
-                    trl_mismatches.append(trl_id)
-        # some freq axis were different
-        if trl_mismatches:
-            msg = (f"Frequency axes hashes mismatched for {len(trl_mismatches)} trials: "
-                   f"{trl_mismatches} against reference hash from first trial {ref_id}.")
-            SPYWarning(msg)
-            out.log = msg
-            out.info['mismatched freq. axis trl ids'] = trl_mismatches
+        check_freq_hashes(metadata, out)
 
         # attached to `out` only here for testing of
         # the whole machinery (see test_metadata.TestMetadataUsingMtmfft)
         out.metadata = metadata
 
-        # Some index gymnastics to get trial begin/end "samples"
-        if data.selection is not None:
-            chanSec = data.selection.channel
-            trl = data.selection.trialdefinition
-            for row in range(trl.shape[0]):
-                trl[row, :2] = [row, row + 1]
-        else:
-            chanSec = slice(None)
-            time = np.arange(len(data.trials))
-            time = time.reshape((time.size, 1))
-            trl = np.hstack((time, time + 1,
-                             np.zeros((len(data.trials), 1)),
-                             np.array(data.trialinfo)))
-
-        # Attach constructed trialdef-array (if even necessary)
-        if self.keeptrials:
-            out.trialdefinition = trl
-        else:
-            out.trialdefinition = np.array([[0, 1, 0]])
-
-        # Attach remaining meta-data
-        out.samplerate = data.samplerate
-        out.channel = np.array(data.channel[chanSec])
+        # channels, trialdefinition and so on..
+        propagate_properties(data, out, self.keeptrials)
+        
         if self.cfg["method_kwargs"]["taper"] is None:
             out.taper = np.array(['None'])
         else:

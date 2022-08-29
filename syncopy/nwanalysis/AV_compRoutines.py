@@ -21,7 +21,7 @@ from .granger import granger
 
 # syncopy imports
 from syncopy.shared.const_def import spectralDTypes
-from syncopy.shared.computational_routine import ComputationalRoutine
+from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
 from syncopy.shared.metadata import metadata_from_hdf5_file, cast_0array
 from syncopy.shared.kwarg_decorators import process_io
 from syncopy.shared.errors import (
@@ -157,32 +157,7 @@ class NormalizeCrossSpectra(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Some index gymnastics to get trial begin/end "samples"
-        if data.selection is not None:
-            chanSec_i = data.selection.channel_i
-            chanSec_j = data.selection.channel_j
-            trl = data.selection.trialdefinition
-            for row in range(trl.shape[0]):
-                trl[row, :2] = [row, row + 1]
-        else:
-            chanSec_i = slice(None)
-            chanSec_j = slice(None)
-            time = np.arange(len(data.trials))
-            time = time.reshape((time.size, 1))
-            trl = np.hstack((time, time + 1,
-                             np.zeros((len(data.trials), 1)),
-                             np.array(data.trialinfo)))
-
-        # Attach constructed trialdef-array (if even necessary)
-        if self.keeptrials:
-            out.trialdefinition = trl
-        else:
-            out.trialdefinition = np.array([[0, 1, 0]])
-
-        # Attach remaining meta-data
-        out.samplerate = data.samplerate
-        out.channel_i = np.array(data.channel_i[chanSec_i])
-        out.channel_j = np.array(data.channel_j[chanSec_j])
+        propagate_properties(data, out, self.keeptrials)
         out.freq = data.freq
 
 
@@ -483,32 +458,7 @@ class GrangerCausality(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Some index gymnastics to get trial begin/end "samples"
-        if data.selection is not None:
-            chanSec_i = data.selection.channel_i
-            chanSec_j = data.selection.channel_j
-            trl = data.selection.trialdefinition
-            for row in range(trl.shape[0]):
-                trl[row, :2] = [row, row + 1]
-        else:
-            chanSec_i = slice(None)
-            chanSec_j = slice(None)
-            time = np.arange(len(data.trials))
-            time = time.reshape((time.size, 1))
-            trl = np.hstack((time, time + 1,
-                             np.zeros((len(data.trials), 1)),
-                             np.array(data.trialinfo)))
-
-        # Attach constructed trialdef-array (if even necessary)
-        if self.keeptrials:
-            out.trialdefinition = trl
-        else:
-            out.trialdefinition = np.array([[0, 1, 0]])
-
-        # Attach remaining meta-data
-        out.samplerate = data.samplerate
-        out.channel_i = np.array(data.channel_i[chanSec_i])
-        out.channel_j = np.array(data.channel_j[chanSec_j])
+        propagate_properties(data, out, self.keeptrials)
         out.freq = data.freq
 
         # digest metadata and attach to .info property

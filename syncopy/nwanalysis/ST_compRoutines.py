@@ -9,6 +9,7 @@
 import numpy as np
 from scipy.signal import fftconvolve, detrend
 from inspect import signature
+from hashlib import blake2b
 
 # backend method imports
 from .csd import csd
@@ -16,7 +17,8 @@ from .csd import csd
 # syncopy imports
 from syncopy.shared.const_def import spectralDTypes
 from syncopy.shared.tools import best_match
-from syncopy.shared.computational_routine import ComputationalRoutine
+from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
+from syncopy.shared.metadata import metadata_from_hdf5_file, check_freq_hashes
 from syncopy.shared.kwarg_decorators import process_io
 
 
@@ -155,16 +157,18 @@ def cross_spectra_cF(trl_dat,
     elif polyremoval == 1:
         dat = detrend(dat, type='linear', axis=0, overwrite_data=True)
 
-    CS_ij = csd(dat,
-                samplerate,
-                nSamples,
-                taper=taper,
-                taper_opt=taper_opt,
-                demean_taper=demean_taper)
+    CS_ij, freqs = csd(dat,
+                       samplerate,
+                       nSamples,
+                       taper=taper,
+                       taper_opt=taper_opt,
+                       demean_taper=demean_taper)
 
-    # where does freqs go/come from -
-    # we will eventually solve this issue..
-    return CS_ij[None, freq_idx, ...]
+    # Hash the freqs and add to second return value.
+    freqs_hash = blake2b(freqs).hexdigest().encode('utf-8')
+    metadata = {'freqs_hash': np.array(freqs_hash)}  # Will have dtype='|S128'
+
+    return CS_ij[None, freq_idx, ...], metadata
 
 
 class ST_CrossSpectra(ComputationalRoutine):
@@ -172,6 +176,8 @@ class ST_CrossSpectra(ComputationalRoutine):
     """
     Compute class that calculates single-trial (multi-)tapered cross spectra
     of :class:`~syncopy.AnalogData` objects
+    For coherence computation, `keeptrials` is set to `False` to right away
+    average the single-trial cross-spectra
 
     Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
     see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
@@ -194,19 +200,12 @@ class ST_CrossSpectra(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Some index gymnastics to get trial begin/end "samples"
-        if data.selection is not None:
-            chanSec = data.selection.channel
-        else:
-            chanSec = slice(None)
+        propagate_properties(data, out, self.keeptrials)
 
-        # there is always trial averaging
-        out.trialdefinition = np.array([[0, 1, 0]])
+        # General-purpose loading of metadata.
+        metadata = metadata_from_hdf5_file(out.filename)
+        check_freq_hashes(metadata, out)
 
-        # Attach remaining meta-data
-        out.samplerate = data.samplerate
-        out.channel_i = np.array(data.channel[chanSec])
-        out.channel_j = np.array(data.channel[chanSec])
         out.freq = self.cfg['foi']
 
 
