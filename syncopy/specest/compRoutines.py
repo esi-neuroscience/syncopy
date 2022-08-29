@@ -165,7 +165,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
 
     # Hash the freqs and add to second return value.
     freqs_hash = blake2b(freqs).hexdigest().encode('utf-8')
-    metadata = { 'freqs_hash': np.array(freqs_hash) }  # Will have dtype='|S128'
+    metadata = {'freqs_hash': np.array(freqs_hash)}  # Will have dtype='|S128'
 
     # Average across tapers if wanted
     # averaging is only valid spectral estimate
@@ -200,7 +200,30 @@ class MultiTaperFFT(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # General-purpose loading of metadata.
-        out.metadata = metadata_from_hdf5_file(out.filename)
+        metadata = metadata_from_hdf5_file(out.filename)
+
+        # check individual freq. axis hashes
+        ref_hash, ref_id = None, None
+        trl_mismatches = []
+        for md_label, fhash in metadata.items():
+            _, trl_id, chk_id = decode_unique_md_label(md_label)
+            if ref_hash is None:
+                ref_hash = fhash
+                ref_id = trl_id
+            else:
+                if not compare_digest(ref_hash, fhash):
+                    trl_mismatches.append(trl_id)
+        # some freq axis were different
+        if trl_mismatches:
+            msg = (f"Frequency axes hashes mismatched for {len(trl_mismatches)} trials: "
+                   f"{trl_mismatches} against reference hash from first trial {ref_id}.")
+            SPYWarning(msg)
+            out.log = msg
+            out.info['mismatched freq. axis trl ids'] = trl_mismatches
+
+        # attached to `out` only here for testing of
+        # the whole machinery (see test_metadata.TestMetadataUsingMtmfft)
+        out.metadata = metadata
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
