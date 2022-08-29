@@ -418,7 +418,7 @@ class Hilbert(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 @process_io
@@ -721,7 +721,7 @@ class Detrending(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 @process_io
