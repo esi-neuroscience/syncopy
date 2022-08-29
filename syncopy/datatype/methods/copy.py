@@ -75,15 +75,12 @@ def copy(spdata):
     for propertyName in spdata._hdfFileDatasetProperties:
         src_h5py_file = spdata._data.file
         #dst_h5py_file = copy_spdata._data.file # No! This is still the old file, due to shallow copy.
-        dst_h5py_file = h5py.File(copy_spdata.filename, mode='r+')
-        assert isinstance(src_h5py_file, h5py.File)
-        assert isinstance(dst_h5py_file, h5py.File)
-        print(f"copying manually from file {src_h5py_file} to {dst_h5py_file}")
-        if propertyName != "data":
-            #with h5py.File(copy_spdata.filename, 'w') as f_dest:
-            #    with h5py.File(src_h5py_file.filename, 'r') as f_src:
-            #       f_src.copy(f_src["/" + propertyName], f_dest["/" + propertyName])
-            src_h5py_file.copy(src_h5py_file[propertyName], dst_h5py_file["/"], propertyName)
+        with h5py.File(copy_spdata.filename, mode='r+') as dst_h5py_file:
+            assert isinstance(src_h5py_file, h5py.File)
+            assert isinstance(dst_h5py_file, h5py.File)
+            print(f"copying manually from file {src_h5py_file} to {dst_h5py_file}")
+            if propertyName != "data":
+                src_h5py_file.copy(src_h5py_file[propertyName], dst_h5py_file["/"], propertyName)
 
 
 
