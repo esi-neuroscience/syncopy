@@ -10,6 +10,7 @@ import h5py
 import syncopy as spy
 from syncopy.tests import synth_data as sd
 from syncopy.tests.test_spike_psth import get_spike_data, get_spike_cfg
+from syncopy.tests.test_metadata import _get_fooof_signal
 
 class TestAttachDataset:
 
@@ -20,6 +21,7 @@ class TestAttachDataset:
         Test that we can run attach an extra sequential dataset to Syncopy SpikeData Object.
         """
         spkd = get_spike_data()
+        assert isinstance(spkd, spy.SpikeData)
 
         extra_data = np.zeros((3, 3), dtype=np.float64)
         spkd._register_seq_dataset("dset_mean", extra_data)
@@ -153,6 +155,43 @@ class TestAttachDataset:
         assert not hasattr(spkd, "_dset_mean")
         assert not "dset_mean" in h5py.File(spkd.filename, "r").keys()
         assert "data" in h5py.File(spkd.filename, "r").keys()
+
+    def test_with_analog_data(self):
+        """
+        Test that we can run attach, update and detach an extra sequential
+        dataset to Syncopy AnalogData Object.
+        """
+        def some_local_func():
+            adt = _get_fooof_signal()
+            assert isinstance(adt, spy.AnalogData)
+
+            # Copying
+            adt2 = adt.copy()
+
+            extra_data = np.zeros((3, 3), dtype=np.float64)
+            adt._register_seq_dataset("dset_mean", extra_data)
+
+            # Equality testing
+            assert adt != adt2
+
+            assert hasattr(adt, "_dset_mean")
+            assert isinstance(adt._dset_mean, h5py.Dataset)
+            assert isinstance(adt._dset_mean.file, h5py.File)
+            assert np.array_equal(adt._dset_mean[()], extra_data)
+
+            # Update
+            extra_data2 = np.zeros((3, 3), dtype=np.float64) + 2
+            adt._register_seq_dataset("dset_mean", extra_data2)
+
+            # Unregister
+            adt._unregister_seq_dataset("dset_mean", del_from_file=True)
+            assert not hasattr(adt, "_dset_mean")
+            assert not "dset_mean" in h5py.File(adt.filename, "r").keys()
+            assert "data" in h5py.File(adt.filename, "r").keys()
+            # Let it get out of scope to call destructor.
+
+        some_local_func()
+        assert not 'adt' in locals()
 
     def test_run_psth_with_attached_dset(self):
         """
