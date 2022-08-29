@@ -84,6 +84,7 @@ class TestAttachDataset:
 
         # Copies should be equal.
         assert spkd1 == spkd2
+        assert spkd1 == spkd3
 
         extra_data1 = np.zeros((3, 3), dtype=np.float64)
         spkd1._register_seq_dataset("dset_mean", extra_data1)
@@ -94,9 +95,9 @@ class TestAttachDataset:
         # Copies, with different extra seq data attached to them after copying, should NOT be equal.
         assert spkd1 != spkd2
 
-        # Copies, with identical extra seq data attached to them after copying, should be equal.
-        spkd3._register_seq_dataset("dset_mean", extra_data1)
-        assert spkd1 == spkd3
+        # Note that copies, with *identical* extra seq data attached to them after copying,
+        # are also not equal. This is due to the implementation of h5py.Dataset equality in h5py, which
+        # is based on the id of the dataset. See https://github.com/h5py/h5py/blob/master/h5py/_hl/base.py#L348
 
     def test_run_psth_with_attached_dset(self):
         """
