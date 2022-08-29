@@ -731,6 +731,7 @@ class BaseData(ABC):
         for propName in self._hdfFileDatasetProperties:
             dsetProp = getattr(self, "_" + propName)
             if dsetProp is not None:
+                print(f"Flushing hdf5 dataset '{dsetProp}'")
                 dsetProp.flush()
         return
 
