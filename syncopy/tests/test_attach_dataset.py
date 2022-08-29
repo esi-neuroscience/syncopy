@@ -73,6 +73,8 @@ class TestAttachDataset:
         assert isinstance(spkd2._dset_mean.file, h5py.File)
         assert np.array_equal(spkd2._dset_mean[()], extra_data)
 
+        assert spkd1._data.file != spkd2._data.file
+
     def test_comparison_of_values(self):
         """
         Test more details of equality.
