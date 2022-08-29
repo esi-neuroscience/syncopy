@@ -99,14 +99,21 @@ class TestAttachDataset:
 
         # Note that copies, with *identical* extra seq data attached to them after copying,
         # are also not equal. This is due to the implementation of h5py.Dataset equality in h5py, which
-        # is based on the id of the dataset. See https://github.com/h5py/h5py/blob/master/h5py/_hl/base.py#L348
+        # is based on the `id` of the dataset. See https://github.com/h5py/h5py/blob/master/h5py/_hl/base.py#L348
+        # We show this here, and one should keep it in mind:
+        spkd3._register_seq_dataset("dset_mean", extra_data1)
+        assert spkd3 != spkd1  # Even though they are copies, with identical `np.ndarrays` attached as `h5py.Datasets`!
 
     def test_run_psth_with_attached_dset(self):
         """
         Test that we can run a cF on a Syncopy Data Object without any
         side effects, i.e., the cF should just run and leave the extra dataset alone.
-        """
 
+        We do NOT expect the cF to interact with the extra dataset in any way! This also
+        means that the extra dataset will NOT show up in the result of the cF (the output SyncopyData object),
+        as that is a new object and we would explicitely need to move the extra dataset over to it
+        in 'process_metadata'.
+        """
         spkd = get_spike_data()
 
         extra_data = np.zeros((3, 3), dtype=np.float64)
@@ -122,12 +129,8 @@ class TestAttachDataset:
         # Make sure the extra data set is there.
         assert hasattr(spkd, "_dset_mean")
 
-        # TODO: Do we require the extra dataset to exist in the output as well?
-        #       If so, we need to move it over in 'process_metadata', but that is
-        #       not done yet, so this is commented out. We need to discuss, so this
-        #       is left here as a reminder for the review.
-        # assert hasattr(counts, "_dset_mean")
-        # assert np.array_equal(counts._dset_mean[()], extra_data)
+        # Make clear that we do NOT expect the extra dataset in the output.
+        assert not hasattr(counts, "_dset_mean")
 
 
 if __name__ == '__main__':
