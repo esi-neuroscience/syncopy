@@ -498,7 +498,7 @@ class BaseData(ABC):
 
     def _is_empty(self):
         return all(
-            [getattr(self, attr) is None for attr in self._hdfFileDatasetProperties]
+            [getattr(self, "_" + attr) is None for attr in self._hdfFileDatasetProperties]
         )
 
     @property
@@ -627,7 +627,7 @@ class BaseData(ABC):
         # datasets need to be closed before the file can be re-opened with a
         # different mode.
         for propertyName in self._hdfFileDatasetProperties:
-            prop = getattr(self, propertyName)
+            prop = getattr(self, "_" + propertyName)
 
             # flush data to disk and from memory
             if prop is not None:
@@ -638,7 +638,7 @@ class BaseData(ABC):
         for propertyName in self._hdfFileDatasetProperties:
             if prop is not None:
                 setattr(
-                    self, propertyName, h5py.File(self.filename, mode=md)[propertyName]
+                    self, "_" + propertyName, h5py.File(self.filename, mode=md)[propertyName]
                 )
         self._mode = md
 
@@ -737,7 +737,7 @@ class BaseData(ABC):
         Calls `flush` method of HDF5 dataset.
         """
         for propName in self._hdfFileDatasetProperties:
-            dsetProp = getattr(self, propName)
+            dsetProp = getattr(self, "_" + propName)
             if dsetProp is not None:
                 dsetProp.flush()
         return
@@ -966,11 +966,11 @@ class BaseData(ABC):
         isEqual = True
         if self.filename == other.filename:
             for dsetName in self._hdfFileDatasetProperties:
-                val = getattr(self, dsetName)
+                val = getattr(self, "_" + dsetName)
                 if isinstance(val, h5py.Dataset):
-                    isEqual = val == getattr(other, dsetName)
+                    isEqual = val == getattr(other, "_" + dsetName)
                 else:
-                    isEqual = np.allclose(val, getattr(other, dsetName))
+                    isEqual = np.allclose(val, getattr(other, "_" + dsetName))
             if not isEqual:
                 SPYInfo("HDF dataset mismatch")
                 return False
@@ -1037,7 +1037,7 @@ class BaseData(ABC):
 
         # Attach dataset properties and let set methods do error checking
         for propertyName in self._hdfFileDatasetProperties:
-            setattr(self, propertyName, kwargs[propertyName])
+            setattr(self, "_" + propertyName, kwargs[propertyName])
 
         # Write initial log entry
         self.log = "created {clname:s} object".format(clname=self.__class__.__name__)
