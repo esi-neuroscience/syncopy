@@ -73,12 +73,18 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     "granger" : Spectral Granger-Geweke causality
         Computes linear causality estimates between
         all channel combinations. The intermediate cross-spectral
-        densities can be computed via multi-tapering.
+        densities can be computed also with multi-tapering.
 
         * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : (optional, not recommended) number of slepian tapers
         * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
+
+        After the computation, information about the convergence and potential
+        regularization of the cross-spectral densities can be obtained
+        by inspecting the ``.info`` property of the resulting :class:~`syncopy.CrossSpectralData`
+        object. Keys of that info-dict are:
+            {'converged', 'max rel. err', 'reg. factor', 'initial cond. num'}
 
     Parameters
     ----------

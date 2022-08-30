@@ -5,6 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### NEW
+- Added additional .info entries for Granger analysis, indicating details about the computation
+- Added additional .info entries for FoooF results, e.i. Gaussian fit parameters
+
+### CHANGED
+- Maximal brute force regularization parameter for Granger increased to 1e-1
 
 ## [2022.08] - 2022-08-10
 

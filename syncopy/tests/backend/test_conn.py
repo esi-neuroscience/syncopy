@@ -228,24 +228,32 @@ def test_wilson():
 
 def test_regularization():
 
-    # dyadic product of random matrices has rank 1
-    CSD = np.zeros((50, 50))
-    for _ in range(40):
-        A = np.random.randn(50)
+    """
+    The dyadic product of single random matrices has rank 1
+    and condition number --> np.inf.
+    By averaging "many trials" we interestingly "fill the space" and
+    one can achieve full rank for white noise.
+    However here purposefully we ill-condition to test the regularization,
+    """
+    nChannels = 20
+    nTrials = 10
+    CSD = np.zeros((nChannels, nChannels))
+    for _ in range(nTrials):
+        A = np.random.randn(nChannels)
         CSD += np.outer(A, A)
 
     # --- regularize CSD ---
 
     cmax = 1e4
-    CSDreg, fac, iniCN = regularize_csd(CSD, cond_max=cmax, nSteps=25)
-    # get initial CSD condition number, which is way too large!
-    print(iniCN)
-    assert iniCN > cmax
+    eps_max = 1e-1
+    CSDreg, fac, iniCN = regularize_csd(CSD, cond_max=cmax, eps_max=eps_max)
+    # check initial CSD condition number, which is way too large!
+    assert iniCN > cmax, f"intial condition number is {iniCN}"
 
     CNreg = np.linalg.cond(CSDreg).max()
-    assert CNreg < 1e6
+    assert CNreg < cmax, f"regularized condition number is {CNreg}"
     # check that 'small' regularization factor is enough
-    assert fac < 1e-3
+    assert fac < eps_max
 
 
 def test_granger():
