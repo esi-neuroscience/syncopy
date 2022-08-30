@@ -5,12 +5,14 @@
 
 import numpy as np
 import h5py
+import pytest
 
 # syncopy imports
 import syncopy as spy
 from syncopy.tests import synth_data as sd
 from syncopy.tests.test_spike_psth import get_spike_data, get_spike_cfg
 from syncopy.tests.test_metadata import _get_fooof_signal
+from syncopy.shared.errors import SPYValueError
 
 class TestAttachDataset:
 
@@ -220,6 +222,25 @@ class TestAttachDataset:
 
         # Make clear that we do NOT expect the extra dataset in the output.
         assert not hasattr(counts, "_dset_mean")
+
+    def test_errors_reattach_wrong_shape_or_type(self):
+
+        spkd = get_spike_data()
+        extra_data = np.zeros((3, 3), dtype=np.float64)
+        spkd._register_seq_dataset("dset_mean", extra_data)
+
+        extra_data_diff_type = np.zeros((3, 3), dtype=np.int32)
+        with pytest.raises(SPYValueError, match="dataset of type"):
+            spkd._register_seq_dataset("dset_mean", extra_data_diff_type)
+
+        extra_data_diff_shape = np.zeros((3, 3, 5), dtype=np.float64)
+        with pytest.raises(SPYValueError, match="dataset with shape"):
+            spkd._register_seq_dataset("dset_mean", extra_data_diff_shape)
+
+        # Show that we can delete the old one, and attach a new one with different shape.
+        spkd._unregister_seq_dataset("dset_mean")
+        spkd._register_seq_dataset("dset_mean", extra_data_diff_type) # Fine this time, it's new.
+
 
 
 if __name__ == '__main__':
