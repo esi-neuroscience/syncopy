@@ -61,51 +61,13 @@ def copy(spydata):
     copy_filename = spydata._gen_filename()
     copy_spydata.filename = copy_filename
     spydata.clear()
-    #copy_spydata.clear()
-
-
-    is_backing_hdf5_file_open = spydata._data.id.valid != 0
-    print(f"copy: spydata hdf5 file open: {is_backing_hdf5_file_open}")
 
     spydata._close()
-
-    is_backing_hdf5_file_open = spydata._data.id.valid != 0
-    print(f"copy: hdf5 file open: {is_backing_hdf5_file_open}")
 
     # Copy data on disk.
     shutil.copyfile(spydata.filename, copy_filename, follow_symlinks=False)
 
-    sfile = h5py.File(spydata.filename, mode="r")
-    source_keys = [k for k in sfile.keys()]
-    sfile.close()
-
-    cfile = h5py.File(copy_filename, mode="r")
-    copy_keys = [k for k in cfile.keys()]
-    cfile.close()
-    print(f"source_keys: {source_keys}")
-    print(f"copy_keys: {copy_keys}")
-
     spydata._reopen()
-
-    is_backing_hdf5_file_open = spydata._data.id.valid != 0
-    print(f"copy: hdf5 file open: {is_backing_hdf5_file_open}")
-
-
-
-    # Copying the data on disk does, for some reason, not copy the extra dataset.
-    # Maybe the 'clear()' data flushes the HDF5 buffer, but not the O/S buffer.
-    # Whatever the reason is, we need to manually copy the extra datasets.
-
-    # Copy extra datasets manually with hdf5.
-    do_copy_with_hdf5 = False
-    if do_copy_with_hdf5:
-        for propertyName in spydata._hdfFileDatasetProperties:
-            if propertyName != "data":
-                src_h5py_file = spydata._data.file
-                with h5py.File(copy_spydata.filename, mode="r+") as dst_h5py_file:
-                    src_h5py_file.copy(
-                        src_h5py_file[propertyName], dst_h5py_file["/"], propertyName
-                    )
 
     # Reattach properties
     for propertyName in spydata._hdfFileDatasetProperties:

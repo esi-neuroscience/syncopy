@@ -763,6 +763,7 @@ class BaseData(ABC):
         return
 
     def _close(self):
+        """Close backing hdf5 files."""
         self.clear()
         for propertyName in self._hdfFileDatasetProperties:
             dsetProp = getattr(self, "_" + propertyName)
@@ -773,19 +774,16 @@ class BaseData(ABC):
                     #break
 
     def _reopen(self):
-        # Reattach properties
+        """ Reattach datasets from backing hdf5 files."""
         for propertyName in self._hdfFileDatasetProperties:
             dsetProp = getattr(self, "_" + propertyName)
             if isinstance(dsetProp, h5py.Dataset):
-                print(f" _reopen: Attaching {dsetProp} based on property {propertyName} from file {self.filename}")
                 setattr(self, "_" + propertyName, h5py.File(self.filename, mode=self.mode)[propertyName])
 
 
-    # Return a deep copy of the current class instance
     def copy(self):
-
         """
-        Create a copy of the entire object on disk
+        Create a copy of the entire object on disk.
 
         Returns
         -------
