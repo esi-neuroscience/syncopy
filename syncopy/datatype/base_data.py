@@ -1004,7 +1004,7 @@ class BaseData(ABC):
             for dsetName in both_hdfFileDatasetProperties:
                 if hasattr(self, "_" + dsetName) and hasattr(other, "_" + dsetName):
                     val_this = getattr(self, "_" + dsetName)
-                    val_other = getattr(self, "_" + dsetName)
+                    val_other = getattr(other, "_" + dsetName)
                     if isinstance(val_this, h5py.Dataset):
                         isEqual = val_this == val_other
                     else:
