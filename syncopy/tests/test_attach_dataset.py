@@ -256,6 +256,7 @@ class TestAttachDataset:
             spy.save(spkd, filename=tmp_spy_filename)
             spkd2 = spy.load(filename=tmp_spy_filename)
             assert spkd == spkd2
+            assert isinstance(spkd2._dsetmean, h5py.Dataset)
 
 
 
