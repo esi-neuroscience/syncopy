@@ -182,7 +182,7 @@ def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None
     if not isinstance(checksum, bool):
         raise SPYTypeError(checksum, varname="checksum", expected="bool")
 
-    # Abuse `AnalogData.mode`-setter to vet `mode`
+    # Abuse `AnalogData.mode`-setter to check `mode`
     try:
         spd.AnalogData().mode = mode
     except Exception as exc:
@@ -287,8 +287,9 @@ def _load(filename, checksum, mode, out):
 
     # Access data on disk (error checking is done by setters)
     out.mode = mode
+    out._hdfFileDatasetProperties = tuple(jsonDict.pop("_hdfFileDatasetProperties"))
     for datasetProperty in out._hdfFileDatasetProperties:
-        setattr(out, datasetProperty, h5py.File(hdfFile, mode="r")[datasetProperty])
+        setattr(out, "_" + datasetProperty, h5py.File(hdfFile, mode="r")[datasetProperty])
 
 
     # Abuse ``definetrial`` to set trial-related props

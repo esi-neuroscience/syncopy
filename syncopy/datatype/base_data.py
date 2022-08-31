@@ -514,7 +514,7 @@ class BaseData(ABC):
 
     def _is_empty(self):
         return all(
-            [getattr(self, "_" + attr) is None for attr in self._hdfFileDatasetProperties]
+            [getattr(self, "_" + attr, None) is None for attr in self._hdfFileDatasetProperties]
         )
 
     @property
@@ -981,11 +981,11 @@ class BaseData(ABC):
         ]
         dimProps = list(set(dimProps).difference(["dimord", "cfg"]))
         for prop in dimProps:
-            val = getattr(self, prop)
-            if isinstance(val, np.ndarray):
-                isEqual = val.tolist() == getattr(other, prop).tolist()
+            val_this = getattr(self, prop)
+            if isinstance(val_this, np.ndarray):
+                isEqual = val_this.tolist() == getattr(other, prop).tolist()
             else:
-                isEqual = val == getattr(other, prop)
+                isEqual = val_this == getattr(other, prop)
             if not isEqual:
                 SPYInfo("Mismatch in {}".format(prop))
                 return False
@@ -1003,13 +1003,15 @@ class BaseData(ABC):
         if self.filename == other.filename:
             for dsetName in both_hdfFileDatasetProperties:
                 if hasattr(self, "_" + dsetName) and hasattr(other, "_" + dsetName):
-                    val = getattr(self, "_" + dsetName)
-                    if isinstance(val, h5py.Dataset):
-                        isEqual = val == getattr(other, "_" + dsetName)
+                    val_this = getattr(self, "_" + dsetName)
+                    val_other = getattr(self, "_" + dsetName)
+                    if isinstance(val_this, h5py.Dataset):
+                        isEqual = val_this == val_other
                     else:
-                        isEqual = np.allclose(val, getattr(other, "_" + dsetName))
+                        isEqual = np.allclose(val_this, val_other)
+
                     if not isEqual:
-                        SPYInfo(f"HDF dataset '{dsetName}' mismatch for type '{type(val)}'")
+                        SPYInfo(f"HDF dataset '{dsetName}' mismatch for types '{type(val_this)}' and '{type(val_other)}'")
                         return False
                 else:
                     SPYInfo(f"HDF dataset mismatch: extra dataset '{dsetName}' in one instance")
@@ -1018,13 +1020,15 @@ class BaseData(ABC):
             for dsetName in both_hdfFileDatasetProperties:
                 if dsetName != "data":
                     if hasattr(self, "_" + dsetName) and hasattr(other, "_" + dsetName):
-                        val = getattr(self, "_" + dsetName)
-                        if isinstance(val, h5py.Dataset):
-                            isEqual = val == getattr(other, "_" + dsetName)
+                        val_this = getattr(self, "_" + dsetName)
+                        val_other = getattr(other, "_" + dsetName)
+                        if isinstance(val_this, h5py.Dataset):
+                            isEqual = True  # This case gets checked by trial below.
                         else:
-                            isEqual = np.allclose(val, getattr(other, "_" + dsetName))
+                            isEqual = np.allclose(val_this, val_other)
+
                         if not isEqual:
-                            SPYInfo(f"HDF dataset '{dsetName}' mismatch for type '{type(val)}'")
+                            SPYInfo(f"HDF dataset '{dsetName}' mismatch for types '{type(val_this)}' and '{type(val_other)}'")
                             return False
                     else:
                         SPYInfo(f"HDF dataset mismatch: extra dataset '{dsetName}' in one instance")

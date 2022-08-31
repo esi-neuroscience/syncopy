@@ -6,13 +6,15 @@
 import numpy as np
 import h5py
 import pytest
+import tempfile
+import os
 
 # syncopy imports
 import syncopy as spy
-from syncopy.tests import synth_data as sd
 from syncopy.tests.test_spike_psth import get_spike_data, get_spike_cfg
 from syncopy.tests.test_metadata import _get_fooof_signal
 from syncopy.shared.errors import SPYValueError
+
 
 class TestAttachDataset:
 
@@ -224,6 +226,7 @@ class TestAttachDataset:
         assert not hasattr(counts, "_dset_mean")
 
     def test_errors_reattach_wrong_shape_or_type(self):
+        """Test that errors are raised when we try to update with data with different dims."""
 
         spkd = get_spike_data()
         extra_data = np.zeros((3, 3), dtype=np.float64)
@@ -240,6 +243,21 @@ class TestAttachDataset:
         # Show that we can delete the old one, and attach a new one with different shape.
         spkd._unregister_seq_dataset("dset_mean")
         spkd._register_seq_dataset("dset_mean", extra_data_diff_type) # Fine this time, it's new.
+
+    def test_save_load(self):
+        """Test that saving and loading with attached seq datasets works."""
+
+        spkd = get_spike_data()
+        extra_data = np.zeros((3, 3), dtype=np.float64)
+        spkd._register_seq_dataset("dset_mean", extra_data)
+
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            tmp_spy_filename = os.path.join(tmpdirname, "myfile.spike")
+            spy.save(spkd, filename=tmp_spy_filename)
+            spkd2 = spy.load(filename=tmp_spy_filename)
+            assert spkd == spkd2
+
+
 
 
 
