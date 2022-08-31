@@ -769,9 +769,7 @@ class BaseData(ABC):
             dsetProp = getattr(self, "_" + propertyName)
             if isinstance(dsetProp, h5py.Dataset):
                 if dsetProp.id.valid != 0:  # Check whether backing HDF5 file is open.
-                    print(f"Closing file {dsetProp.file} based on property {propertyName}")
                     dsetProp.file.close()
-                    #break
 
     def _reopen(self):
         """ Reattach datasets from backing hdf5 files."""
@@ -779,7 +777,6 @@ class BaseData(ABC):
             dsetProp = getattr(self, "_" + propertyName)
             if isinstance(dsetProp, h5py.Dataset):
                 setattr(self, "_" + propertyName, h5py.File(self.filename, mode=self.mode)[propertyName])
-
 
     def copy(self):
         """
