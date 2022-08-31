@@ -762,6 +762,25 @@ class BaseData(ABC):
                 dsetProp.flush()
         return
 
+    def _close(self):
+        self.clear()
+        for propertyName in self._hdfFileDatasetProperties:
+            dsetProp = getattr(self, "_" + propertyName)
+            if isinstance(dsetProp, h5py.Dataset):
+                if dsetProp.id.valid != 0:  # Check whether backing HDF5 file is open.
+                    print(f"Closing file {dsetProp.file} based on property {propertyName}")
+                    dsetProp.file.close()
+                    #break
+
+    def _reopen(self):
+        # Reattach properties
+        for propertyName in self._hdfFileDatasetProperties:
+            dsetProp = getattr(self, "_" + propertyName)
+            if isinstance(dsetProp, h5py.Dataset):
+                print(f" _reopen: Attaching {dsetProp} based on property {propertyName} from file {self.filename}")
+                setattr(self, "_" + propertyName, h5py.File(self.filename, mode=self.mode)[propertyName])
+
+
     # Return a deep copy of the current class instance
     def copy(self):
 
