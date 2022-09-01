@@ -141,10 +141,13 @@ def psth(trl_dat,
     if output == 'rate':
         tbin_width = np.diff(tbins)[0]
         counts *= 1 / tbin_width
-    # normalize only along 1d time axis
+
+    # normalize only along time axis for 1d time-histograms
+    # `density=True` normalized the full 2d-histogram
     elif output == 'proportion':
         norm = np.nansum(counts, axis=0)[None, :]
-        print(norm)
+        # deal with potential 0's
+        norm[norm == 0] = 1
         counts /= norm
 
     return counts, bins
