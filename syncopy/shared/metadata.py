@@ -1,10 +1,11 @@
-#  Function for handling additional return values from backend functions.
+#  Function for handling additional return values from compute functions
 
 import h5py
+from hmac import compare_digest
+from numbers import Number
 import numpy as np
 
 from syncopy.shared.errors import (SPYTypeError, SPYValueError, SPYWarning)
-
 
 
 def metadata_from_hdf5_file(h5py_filename, delete_afterwards=True):
@@ -183,7 +184,7 @@ def h5_add_metadata(h5fout, metadata, unique_key_suffix=""):
         close_file = True # We openend it, we close it.
         h5fout = h5py.File(h5fout, mode="w")
 
-    if isinstance(unique_key_suffix, int):
+    if isinstance(unique_key_suffix, Number):
         unique_key_suffix = "__" + str(unique_key_suffix) + "_0"
 
     grp = h5fout.require_group("metadata")
@@ -234,5 +235,55 @@ def extract_md_group(md):
     """
     metadata = dict()
     for k, v in md.attrs.items():
-        metadata[k] = v.copy() # copy the numpy array
+        metadata[k] = v.copy()  # copy the numpy array
     return metadata
+
+
+def cast_0array(rule, arr):
+
+    """
+    Helper routine to "unpack" hdf5 0-dim attribute arrays,
+    as even though they are effectively scalar,
+    they can't be directly serialized to go into .info
+    """
+
+    rules = {'float': lambda x: float(x),
+             'int': lambda x: int(x),
+             'bool': lambda x: bool(x),
+             'str': lambda x: str(x)
+             }
+
+    if rule not in rules:
+        lgl = f"one of {rules.keys()}"
+        raise SPYValueError(lgl, "rule", rule)
+
+    if arr.ndim != 0:
+        lgl = "0-dim numpy array"
+        act = f"{arr.ndim}-dim array"
+        raise SPYValueError(lgl, "arr", act)
+
+    # return cast directly
+    return rules[rule](arr)
+
+
+def check_freq_hashes(metadata, out):
+
+    # check individual freq. axis hashes
+    ref_hash, ref_id = None, None
+    trl_mismatches = []
+    for md_label, fhash in metadata.items():
+        _, trl_id, chk_id = decode_unique_md_label(md_label)
+        if ref_hash is None:
+            ref_hash = fhash
+            ref_id = trl_id
+        else:
+            if not compare_digest(ref_hash, fhash):
+                trl_mismatches.append(trl_id)
+    # some freq axis were different
+    if trl_mismatches:
+        msg = (f"Frequency axes hashes mismatched for {len(trl_mismatches)} trials: "
+               f"{trl_mismatches} against reference hash from first trial {ref_id}.")
+        SPYWarning(msg)
+        out.log = msg
+        out.info['mismatched freq. axis trial ids'] = trl_mismatches
+    

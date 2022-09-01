@@ -51,7 +51,7 @@ def granger(CSD, Hfunc, Sigma):
 
     nChannels = CSD.shape[1]
     auto_spectra = CSD.transpose(1, 2, 0).diagonal()
-    auto_spectra = np.abs(auto_spectra) # auto-spectra are real
+    auto_spectra = np.abs(auto_spectra)  # auto-spectra are real
 
     # we need the stacked auto-spectra of the form (nChannel=3):
     #           S_11 S_22 S_33

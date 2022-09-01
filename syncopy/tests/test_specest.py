@@ -1404,3 +1404,4 @@ class TestSuperlet():
 
 if __name__ == '__main__':
     T1 = TestMTMConvol()
+    T2 = TestMTMFFT()

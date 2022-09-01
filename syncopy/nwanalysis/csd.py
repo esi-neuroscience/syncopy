@@ -20,8 +20,7 @@ def csd(trl_dat,
         taper="hann",
         taper_opt=None,
         demean_taper=False,
-        norm=False,
-        fullOutput=False):
+        norm=False):
 
     """
     Single trial Fourier cross spectral estimates between all channels
@@ -69,9 +68,6 @@ def csd(trl_dat,
         Set to `True` to normalize for a single-trial coherence measure.
         Only meaningful in a multi-taper (``taper = "dpss"``) setup and if no
         additional (trial-)averaging is performed afterwards.
-    fullOutput : bool
-        For backend testing or stand-alone applications, set to `True`
-        to return also the `freqs` array.
 
     Returns
     -------
@@ -80,7 +76,7 @@ def csd(trl_dat,
         `K` corresponds to number of input channels.
 
     freqs : (nFreq,) :class:`numpy.ndarray`
-        The Fourier frequencies if ``fullOutput = True``
+        The Fourier frequencies
 
     See also
     --------
@@ -115,10 +111,7 @@ def csd(trl_dat,
         Ciijj = np.sqrt(diag[:, :, None] * diag[:, None, :]).T
         CS_ij = CS_ij / Ciijj
 
-    if fullOutput:
-        return CS_ij.transpose(2, 0, 1), freqs
-    else:
-        return CS_ij.transpose(2, 0, 1)
+    return CS_ij.transpose(2, 0, 1), freqs
 
 
 def normalize_csd(csd_av_dat,
