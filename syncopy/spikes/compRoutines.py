@@ -23,6 +23,7 @@ def psth_cF(trl_dat,
             trl_end,
             chan_unit_combs=None,
             tbins=None,
+            output='rate',
             samplerate=1000,
             noCompute=False,
             chunkShape=None):
@@ -53,7 +54,7 @@ def psth_cF(trl_dat,
         An array of monotonically increasing PSTH bin edges
         in seconds including the rightmost edge
         Defaults with `None` to the Rice rule
-
+    output : {'rate', 'spikecount', 'proportion'}, optional
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
@@ -98,7 +99,7 @@ def psth_cF(trl_dat,
     # call backend method
     counts, bins = psth(trl_dat, trl_start, onset, trl_end,
                         chan_unit_combs=chan_unit_combs,
-                        tbins=tbins, samplerate=samplerate)
+                        tbins=tbins, samplerate=samplerate, output=output)
 
     return counts
 

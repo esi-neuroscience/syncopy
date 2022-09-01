@@ -56,7 +56,8 @@ def spike_psth(data,
     output : {'rate', 'spikecount', 'proportion'}, optional
         Set to `'rate'` to convert the output to firing rates (spikes/sec),
         'spikecount' to count the number spikes per trial or
-        'proportion' to normalize the area under the PSTH to 1.
+        'proportion' to normalize the area under the PSTH to 1
+        Defaults to `'rate'`
     vartriallen : bool, optional
         `True` (default): accept variable trial lengths and use all
         available trials and the samples in every trial.
@@ -228,6 +229,7 @@ def spike_psth(data,
     log_dict = {'bins': bins,
                 'binsize': binsize,
                 'latency': latency,
+                'output': output,
                 'vartriallen': vartriallen,
                 'numDiscard': numDiscard
                 }
@@ -243,6 +245,7 @@ def spike_psth(data,
                    trl_ends,
                    chan_unit_combs=combs,
                    tbins=bins,
+                   output=output,
                    samplerate=data.samplerate
                    )
 

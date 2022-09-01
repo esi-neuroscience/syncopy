@@ -10,7 +10,6 @@ import syncopy as spy
 from syncopy.tests import synth_data as sd
 
 
-# === THIS IS A STUB ===
 class TestPSTH:
 
     # synthetic spike data
