@@ -126,6 +126,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
         filename = os.path.join(fileInfo["folder"],
                                 fileInfo["container"],
                                 fileInfo["basename"])
+        print(f"save: constructed filename {filename}")
         # handle tag
         if tag is not None:
             if not isinstance(tag, str):

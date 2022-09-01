@@ -258,7 +258,7 @@ class TestComputationalRoutine():
                 fname = os.path.join(tdir, "dummy")
                 out.save(fname)
                 dummy = load(fname)
-                #assert out.filename == dummy.filename   # Do we really want this?
+                assert out.filename == dummy.filename
                 if select is None:
                     reference = self.orig
                 else:
@@ -457,7 +457,7 @@ class TestComputationalRoutine():
                     fname = os.path.join(tdir, "dummy")
                     out.save(fname)
                     dummy = load(fname)
-                    #assert out.filename == dummy.filename
+                    assert out.filename == dummy.filename
                     assert not out.data.is_virtual
                     if select is None:
                         reference = self.orig
