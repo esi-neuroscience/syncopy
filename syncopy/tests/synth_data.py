@@ -283,14 +283,24 @@ def poisson_noise(nTrials=10,
                   ):
 
     """
-    Poisson (Shot-) noise generator
+    Poisson (Shot-)noise generator
 
-    The (mean) number of spikes `nSpikes`
-    divided by the poisson intensity gives the
-    total sampling time over all trials.
+    The expected trial length in samples is given by:
 
-    The distribution of the spikes along channels and units
-    has randomized weights, meaning that typically
+        ``nSpikes`` / (``intensity`` * ``nTrials``)
+
+    Dividing again by the ``samplerate` gives the
+    expected trial length in seconds.
+
+    Individual trial lengths get randomly
+    shortened by up to 10% of this expected length.
+
+    The trigger offsets are also
+    randomized between 5% and 20% of the shortest
+    trial length.
+
+    Lastly, the distribution of the Poisson ``intensity`` along channels and units
+    has uniformly randomized weights, meaning that typically
     you get very active channels/units and some which are almost quiet.
 
     Parameters
@@ -298,13 +308,13 @@ def poisson_noise(nTrials=10,
     nTrials : int
         Number of trials
     nSpikes : int
-        The total number of spikes to generate
+        The total number of spikes over all trials to generate
     nChannels : int
         Number of channels
     nUnits : int
         Number of units
     intensity : int
-        Average number of spikes per sampling interval
+        Expected number of spikes per sampling interval
     samplerate : float
         Sampling rate in Hz
 
@@ -319,11 +329,14 @@ def poisson_noise(nTrials=10,
 
     """
 
+    # uniform random weights
     def get_rdm_weights(size):
         pvec = np.random.uniform(size=size)
         return pvec / pvec.sum()
 
-    T_max = int(1 / intensity * nSpikes)
+    # total length of all trials combined
+    T_max = int(nSpikes / intensity)
+
     spike_samples = np.sort(random.sample(range(T_max), nSpikes))
     channels = np.random.choice(
         np.arange(nChannels), p=get_rdm_weights(nChannels),
@@ -334,7 +347,7 @@ def poisson_noise(nTrials=10,
     pvec = get_rdm_weights(nUnits)
     units = np.random.choice(uvec, p=pvec, size=nSpikes, replace=True)
 
-    # fixed trial size
+    # originally fixed trial size
     step = T_max // nTrials
     trl_intervals = np.arange(T_max + 1, step=step)
 
@@ -342,11 +355,12 @@ def poisson_noise(nTrials=10,
     idx_start = trl_intervals[:-1]
     idx_end = trl_intervals[1:] - 1
 
-    # now randomize a bit, max 10% size difference
-    idx_end -= np.r_[np.random.randint(step // 10, size=nTrials - 1), 0]
+    # now randomize trial length a bit, max 10% size difference
+    idx_end = idx_end - np.r_[np.random.randint(step // 10, size=nTrials - 1), 0]
 
+    shortest_trial = np.min(idx_end - idx_start)
     idx_offset = -np.random.choice(
-        np.arange(1, 0.2 * np.min(idx_end - idx_start)), size=nTrials, replace=True
+        np.arange(0.05 * shortest_trial, 0.2 * shortest_trial), size=nTrials, replace=True
     )
 
     trldef = np.vstack([idx_start, idx_end, idx_offset]).T
