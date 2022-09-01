@@ -13,7 +13,7 @@
 import numpy as np
 
 
-def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
+def wilson_sf(CSD, nIter=100, rtol=1e-6, direct_inversion=True):
     """
     Wilsons spectral matrix factorization ("analytic method")
 
@@ -50,6 +50,9 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
         Indicates wether the algorithm converged.
         If `False` result was returned after `nIter`
         iterations.
+    err : float
+        Maximal final relative error
+        between input CSD and factorized CSD
     """
 
     nFreq = CSD.shape[0]
@@ -102,6 +105,7 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
         # max relative error
         CSDfac = psi @ psi.conj().transpose(0, 2, 1)
         err = max_rel_err(CSD, CSDfac)
+
         # converged
         if err < rtol:
             converged = True
@@ -114,7 +118,7 @@ def wilson_sf(CSD, nIter=100, rtol=1e-9, direct_inversion=True):
     psi0_inv = np.linalg.inv(psi0)
     Hfunc = psi @ psi0_inv
 
-    return Hfunc[:nFreq], Sigma, converged
+    return Hfunc[:nFreq], Sigma, converged, err
 
 
 def _psi0_initial(CSD):
@@ -191,17 +195,17 @@ def max_rel_err(A, B):
     return err
 
 
-def regularize_csd(CSD, cond_max=1e6, eps_max=1e-3, nSteps=15):
+def regularize_csd(CSD, cond_max=1e3, eps_max=1e-3, nSteps=15):
 
     """
     Brute force regularization of CSD matrix
     by inspecting the maximal condition number
     along the frequency axis.
-    Multiply with different ``epsilon * I``,
-    starting with ``epsilon = 1e-10`` until the
-    condition number is smaller than `cond_max`.
-    Raises a `ValueError` if the maximal regularization
-    factor `epx_max` was reached but `cond_max` still not met.
+    Multiply with ``epsilon * I``, starting with ``epsilon = 1e-10``
+    up to ``epsilon = eps_max`` on a log-scale of size ``nSteps``
+    until the condition number is smaller than `cond_max`.
+    If that can not be achieved, return the last regularization
+    result and `-1` as factor for downstream (error/warning) handling.
 
 
     Parameters
@@ -225,6 +229,8 @@ def regularize_csd(CSD, cond_max=1e6, eps_max=1e-3, nSteps=15):
         condition number of `cond_max`
     eps : float
         The regularization factor used
+    iniCondNum : float
+        The initial condition number of the CSD
 
     """
 
@@ -232,17 +238,18 @@ def regularize_csd(CSD, cond_max=1e6, eps_max=1e-3, nSteps=15):
     I = np.eye(CSD.shape[1])
 
     CondNum = np.linalg.cond(CSD).max()
-
+    iniCondNum = CondNum
+    
     # nothing to be done
     if CondNum < cond_max:
-        return CSD, 0
+        return CSD, 0, iniCondNum
 
     for eps in epsilons:
         CSDreg = CSD + eps * I
         CondNum = np.linalg.cond(CSDreg).max()
 
         if CondNum < cond_max:
-            return CSDreg, eps
+            return CSDreg, eps, iniCondNum
 
-    msg = f"CSD matrix not regularizable with a max epsilon of {eps_max}!"
-    raise ValueError(msg)
+    # regularization goal not achieved
+    return CSDreg, -1, iniCondNum

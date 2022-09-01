@@ -1019,15 +1019,14 @@ class ComputationalRoutine(ABC):
 
 # --- metadata helper functions ---
 
-def propagate_metadata(in_data, out_data):
+def propagate_properties(in_data, out_data, keeptrials=True):
 
     """
-    Propagating metadata/selections (channels, trials, time, ...)
+    Propagating data class properties (channels, trials, time, ...)
     from the input object `in_data` to the output
-    object `out_data` is the task of
-    concrete (overloaded) `process_metadata` implementations.
+    object `out_data` and respecting selections.
 
-    Depending on the concrete CR, different propagations are needed.
+    Depending on the CR in question, different propagations are needed.
     For example
 
         AnalogData -> CrossSpectralData (connectivityanalysis)
@@ -1038,12 +1037,12 @@ def propagate_metadata(in_data, out_data):
 
         AnalogData -> AnalogData (preprocessing)
 
-    directly propagates all (including selections)
-    attributes from the input to the output
-    (same channels, time and so on)
+    directly propagates the properties from the input to the output
+    (same channels, trialdefinition/time and so on)
 
     This function is a general approach to unify the
-    propagation / adaptation of all needed attributes.
+    propagation / manipulation of all needed properties
+    done in the `process_metadata` implementations.
 
     Parameters
     ----------
@@ -1054,10 +1053,12 @@ def propagate_metadata(in_data, out_data):
     """
 
     # instance checkers
-    is_AD = lambda data: isinstance(data, spy.AnalogData)
+    is_Analog = lambda data: isinstance(data, spy.AnalogData)
+    is_Spectral = lambda data: isinstance(data, spy.SpectralData)
+    is_CrossSpectral = lambda data: isinstance(data, spy.CrossSpectralData)
 
     # simplest case, direct propagation between two AnalogData objects
-    if is_AD(in_data) and is_AD(out_data):
+    if is_Analog(in_data) and is_Analog(out_data):
 
         # get channels and trial selections
         if in_data.selection is not None:
@@ -1071,6 +1072,70 @@ def propagate_metadata(in_data, out_data):
         out_data.trialdefinition = trl
         out_data.channel = np.array(in_data.channel[chanSec])
         out_data.samplerate = in_data.samplerate
+
+    # this is for (cross-) spectral data with empty time axis (MultiTaperFFT / CSD)
+    elif is_Analog(in_data) and (is_Spectral(out_data) or is_CrossSpectral(out_data)):
+
+        # Some index gymnastics to get trial begin/end "samples"
+        if in_data.selection is not None:
+            chanSec = in_data.selection.channel
+            trl = in_data.selection.trialdefinition
+            for row in range(trl.shape[0]):
+                trl[row, :2] = [row, row + 1]
+        else:
+            chanSec = slice(None)
+            time = np.arange(len(in_data.trials))
+            time = time.reshape((time.size, 1))
+            trl = np.hstack((time, time + 1,
+                             np.zeros((len(in_data.trials), 1)),
+                             np.array(in_data.trialinfo)))
+
+        # Attach constructed trialdef-array (if even necessary)
+        # Note that here the `time` axis is only(!) used as stacking dimension
+        if keeptrials:
+            out_data.trialdefinition = trl
+        else:
+            # only single trial on the time stacking dim.
+            out_data.trialdefinition = np.array([[0, 1, 0]])
+
+        # Attach remaining meta-data
+        out_data.samplerate = in_data.samplerate
+
+        if is_Spectral(out_data):
+            out_data.channel = np.array(in_data.channel[chanSec])
+
+        elif is_CrossSpectral(out_data):
+            out_data.channel_i = np.array(in_data.channel[chanSec])
+            out_data.channel_j = np.array(in_data.channel[chanSec])
+
+    # for the AV_compRoutines
+    elif is_CrossSpectral(in_data) and is_CrossSpectral(out_data):
+        # Some index gymnastics to get trial begin/end "samples"
+        if in_data.selection is not None:
+            chanSec_i = in_data.selection.channel_i
+            chanSec_j = in_data.selection.channel_j
+            trl = in_data.selection.trialdefinition
+            for row in range(trl.shape[0]):
+                trl[row, :2] = [row, row + 1]
+        else:
+            chanSec_i = slice(None)
+            chanSec_j = slice(None)
+            time = np.arange(len(in_data.trials))
+            time = time.reshape((time.size, 1))
+            trl = np.hstack((time, time + 1,
+                             np.zeros((len(in_data.trials), 1)),
+                             np.array(in_data.trialinfo)))
+
+        # Attach constructed trialdef-array (if even necessary)
+        if keeptrials:
+            out_data.trialdefinition = trl
+        else:
+            out_data.trialdefinition = np.array([[0, 1, 0]])
+
+        # Attach remaining meta-data
+        out_data.samplerate = in_data.samplerate
+        out_data.channel_i = np.array(in_data.channel_i[chanSec_i])
+        out_data.channel_j = np.array(in_data.channel_j[chanSec_j])
 
     # nothing else supported atm
     else:

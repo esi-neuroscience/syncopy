@@ -19,7 +19,6 @@
 # method: backend method name
 
 # Builtin/3rd party package imports
-from hmac import compare_digest
 from inspect import signature
 import numpy as np
 from hashlib import blake2b
@@ -37,9 +36,15 @@ from .fooofspy import fooofspy
 # Local imports
 from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.tools import best_match
-from syncopy.shared.computational_routine import ComputationalRoutine
+from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
 from syncopy.shared.kwarg_decorators import process_io
-from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, metadata_from_hdf5_file
+from syncopy.shared.metadata import (
+    encode_unique_md_label,
+    decode_unique_md_label,
+    metadata_from_hdf5_file,
+    check_freq_hashes
+)
+
 from syncopy.shared.const_def import (
     spectralConversions,
     spectralDTypes
@@ -48,6 +53,7 @@ from syncopy.shared.const_def import (
 # -----------------------
 # MultiTaper FFT
 # -----------------------
+
 
 @process_io
 def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
@@ -165,7 +171,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
 
     # Hash the freqs and add to second return value.
     freqs_hash = blake2b(freqs).hexdigest().encode('utf-8')
-    metadata = { 'freqs_hash': np.array(freqs_hash) }  # Will have dtype='|S128'
+    metadata = {'freqs_hash': np.array(freqs_hash)}  # Will have dtype='|S128'
 
     # Average across tapers if wanted
     # averaging is only valid spectral estimate
@@ -200,31 +206,17 @@ class MultiTaperFFT(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # General-purpose loading of metadata.
-        out.metadata = metadata_from_hdf5_file(out.filename)
+        metadata = metadata_from_hdf5_file(out.filename)
 
-        # Some index gymnastics to get trial begin/end "samples"
-        if data.selection is not None:
-            chanSec = data.selection.channel
-            trl = data.selection.trialdefinition
-            for row in range(trl.shape[0]):
-                trl[row, :2] = [row, row + 1]
-        else:
-            chanSec = slice(None)
-            time = np.arange(len(data.trials))
-            time = time.reshape((time.size, 1))
-            trl = np.hstack((time, time + 1,
-                             np.zeros((len(data.trials), 1)),
-                             np.array(data.trialinfo)))
+        check_freq_hashes(metadata, out)
 
-        # Attach constructed trialdef-array (if even necessary)
-        if self.keeptrials:
-            out.trialdefinition = trl
-        else:
-            out.trialdefinition = np.array([[0, 1, 0]])
+        # attached to `out` only here for testing of
+        # the whole machinery (see test_metadata.TestMetadataUsingMtmfft)
+        out.metadata = metadata
 
-        # Attach remaining meta-data
-        out.samplerate = data.samplerate
-        out.channel = np.array(data.channel[chanSec])
+        # channels, trialdefinition and so on..
+        propagate_properties(data, out, self.keeptrials)
+        
         if self.cfg["method_kwargs"]["taper"] is None:
             out.taper = np.array(['None'])
         else:

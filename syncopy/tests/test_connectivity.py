@@ -34,8 +34,8 @@ skip_low_mem = pytest.mark.skipif(availMem < minRAM * 1024**3, reason=f"less tha
 
 class TestGranger:
 
-    nTrials = 100
-    nChannels = 5
+    nTrials = 150
+    nChannels = 4
     nSamples = 1000
     fs = 200
 
@@ -45,8 +45,7 @@ class TestGranger:
     # the adjacency matrix
     # encodes coupling strength directly
     AdjMat = np.zeros((nChannels, nChannels))
-    AdjMat[0, 4] = 0.15
-    AdjMat[3, 4] = 0.15
+    AdjMat[3, 1] = 0.15
     AdjMat[3, 2] = 0.25
     AdjMat[1, 0] = 0.25
 
@@ -66,7 +65,7 @@ class TestGranger:
     def test_gr_solution(self, **kwargs):
 
         Gcaus = cafunc(self.data, method='granger',
-                       tapsmofrq=3, foi=None, **kwargs)
+                       tapsmofrq=1, foi=None, **kwargs)
 
         # check all channel combinations with coupling
         for i, j in zip(*self.cpl_idx):
@@ -86,6 +85,13 @@ class TestGranger:
             if len(kwargs) == 0:
                 plot_Granger(Gcaus, i, j)
                 ppl.legend()
+
+        # check .info for default test
+        if len(kwargs) == 0:
+            assert Gcaus.info['converged']
+            assert Gcaus.info['max rel. err'] < 1e-5
+            assert Gcaus.info['reg. factor'] == 0
+            assert Gcaus.info['initial cond. num'] > 10
 
     def test_gr_selections(self):
 
@@ -221,7 +227,6 @@ class TestCoherence:
                                                 *self.time_span)
 
         for sel_dct in selections:
-
             result = cafunc(self.data, method='coh', select=sel_dct)
 
             # check here just for finiteness and positivity

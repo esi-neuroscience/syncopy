@@ -73,12 +73,18 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     "granger" : Spectral Granger-Geweke causality
         Computes linear causality estimates between
         all channel combinations. The intermediate cross-spectral
-        densities can be computed via multi-tapering.
+        densities can be computed also with multi-tapering.
 
         * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : (optional, not recommended) number of slepian tapers
         * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
+
+        After the computation, information about the convergence and potential
+        regularization of the cross-spectral densities can be obtained
+        by inspecting the ``.info`` property of the resulting :class:~`syncopy.CrossSpectralData`
+        object. Keys of that info-dict are:
+            {'converged', 'max rel. err', 'reg. factor', 'initial cond. num'}
 
     Parameters
     ----------
@@ -256,7 +262,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
         # Match desired frequencies as close as possible to
         # actually attainable freqs
-        # these are the frequencies attached to the SpectralData by the CR!
+        # these are the frequencies attached to the CrossSpectralData by the CR!
         if foi is not None:
             foi, _ = best_match(freqs, foi, squash_duplicates=True)
         elif foilim is not None:
@@ -307,14 +313,14 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             lgl = f"one of {coh_outputs}"
             raise SPYValueError(lgl, varname="output", actual=output)
         log_dict['output'] = output
-        
+
         # final normalization after trial averaging
         av_compRoutine = NormalizeCrossSpectra(output=output)
 
     if method == 'granger':
         # after trial averaging
         # hardcoded numerical parameters
-        av_compRoutine = GrangerCausality(rtol=1e-8,
+        av_compRoutine = GrangerCausality(rtol=1e-6,
                                           nIter=100,
                                           cond_max=1e4
                                           )
