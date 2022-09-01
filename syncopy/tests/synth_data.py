@@ -189,7 +189,6 @@ def AR2_network(AdjMat=None, nSamples=1000, alphas=[0.55, -0.8]):
         solution of the network dynamics
     """
 
-
     # default system layout as in Dhamala 2008:
     # unidirectional (2->1) coupling
     if AdjMat is None:
@@ -252,7 +251,6 @@ def mk_RandomAdjMat(nChannels=3, conn_thresh=0.25, max_coupling=0.25):
         `nChannels` x `nChannels` adjacency matrix where
     """
 
-
     # random numbers in [0,1)
     AdjMat = np.random.random_sample((nChannels, nChannels))
 
@@ -279,7 +277,7 @@ def poisson_noise(nTrials=10,
                   nChannels=3,
                   nUnits=10,
                   intensity=.1,
-                  samplerate=30000
+                  samplerate=10000
                   ):
 
     """
@@ -326,6 +324,20 @@ def poisson_noise(nTrials=10,
     Notes
     -----
     Originally conceived by `Alejandro Tlaie Boria https://github.com/atlaie_`
+
+    Examples
+    --------
+    With `nSpikes=20_000`, `samplerate=10_000`, `nTrials=10` and the default `intensity=0.1`
+    we can expect a trial length of about 2 seconds:
+
+    >>> spike_data = poisson_noise(nTrials=10, nSpikes=20_000, samplerate=10_000)
+
+    Example output of the 1st trial lengths in seconds:
+
+    >>> spike_data.time[0][0], spike_data.time[0][-1]
+    >>> (-0.3004, 1.6459)
+
+    Which is close to 2 seconds.
 
     """
 
