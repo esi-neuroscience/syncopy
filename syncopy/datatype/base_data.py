@@ -869,21 +869,25 @@ class BaseData(ABC):
                 )
             container = filename_parser(self.filename)["folder"]
 
+        print(f"basedaa.save: calling spy.save with filename={filename}, container={container}, tag={tag}, overwrite={overwrite}")
         spy.save(
             self, filename=filename, container=container, tag=tag, overwrite=overwrite
         )
 
     # Helper function generating pseudo-random temp file-names
     def _gen_filename(self):
+
         fname_hsh = blake2b(
             digest_size=4, salt=os.urandom(blake2b.SALT_SIZE)
         ).hexdigest()
-        return os.path.join(
+        fname = os.path.join(
             __storage__,
             "spy_{sess:s}_{hash:s}{ext:s}".format(
                 sess=__sessionid__, hash=fname_hsh, ext=self._classname_to_extension()
             ),
         )
+        print(f"basedata._gen_filename: generating new file name {fname}")
+        return fname
 
     # Helper function converting object class-name to usable file extension
     def _classname_to_extension(self):
@@ -1092,6 +1096,7 @@ class BaseData(ABC):
             self.filename = filename
         else:
             self.filename = self._gen_filename()
+            print(f"baseData:init: generated new filename {self.filename}")
 
         # Attach dataset properties and let set methods do error checking
         for propertyName in self._hdfFileDatasetProperties:
