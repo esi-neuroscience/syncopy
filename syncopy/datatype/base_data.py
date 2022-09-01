@@ -358,6 +358,7 @@ class BaseData(ABC):
         else:
             if self.filename is None:
                 self.filename = self._gen_filename()
+                print(f"_set_dataset_property_with_ndarray: dataset '{propertyName}: 'Generated new file name '{self.filename}'")
 
             if propertyName == "data":
                 # We are creating the standard dataset, and need to open the hdf5 file first.
