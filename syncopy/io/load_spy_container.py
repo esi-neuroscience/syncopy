@@ -287,7 +287,13 @@ def _load(filename, checksum, mode, out):
 
     # Access data on disk (error checking is done by setters)
     out.mode = mode
-    out._hdfFileDatasetProperties = tuple(jsonDict.pop("_hdfFileDatasetProperties"))
+
+    # If the JSON contains `_hdfFileDatasetProperties`, load all datasets listed in there. Otherwise, load the ones
+    # already defined by `out._hdfFileDatasetProperties` and defined in the respective data class.
+    # This is needed to load both new files with, and legacy files without the `_hdfFileDatasetProperties` in the JSON.
+    json_hdfFileDatasetProperties = jsonDict.pop("_hdfFileDatasetProperties", None) # They may not be in there for legacy files, so allow None.
+    if json_hdfFileDatasetProperties is not None:
+        out._hdfFileDatasetProperties = tuple(json_hdfFileDatasetProperties) # It's a list in the JSON, so convert to tuple.
     for datasetProperty in out._hdfFileDatasetProperties:
         setattr(out, "_" + datasetProperty, h5py.File(hdfFile, mode="r")[datasetProperty])
 

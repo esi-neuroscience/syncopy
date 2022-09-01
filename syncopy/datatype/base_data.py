@@ -849,7 +849,6 @@ class BaseData(ABC):
         >>> # --> os.getcwd()/container.spy/session1_someTag.<dataclass>.info
 
         """
-
         # Ensure `obj.save()` simply overwrites on-disk representation of object
         if container is None and tag is None and filename is None:
             if self.container is None:

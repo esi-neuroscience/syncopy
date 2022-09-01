@@ -258,7 +258,7 @@ class TestComputationalRoutine():
                 fname = os.path.join(tdir, "dummy")
                 out.save(fname)
                 dummy = load(fname)
-                assert out.filename == dummy.filename
+                assert out.filename == dummy.filename, f"expected '{out.filename}' == {dummy.filename}."  # Do we really want this?
                 if select is None:
                     reference = self.orig
                 else:
@@ -482,3 +482,7 @@ class TestComputationalRoutine():
                     del dummy, dummy2, out, out_sel
 
         client.close()
+
+if __name__ == "__main__":
+    T1 = TestComputationalRoutine()
+
