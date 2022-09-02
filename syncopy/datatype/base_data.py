@@ -1030,7 +1030,8 @@ class BaseData(ABC):
                         val_this = getattr(self, "_" + dsetName)
                         val_other = getattr(other, "_" + dsetName)
                         if isinstance(val_this, h5py.Dataset):
-                            isEqual = True  # This case gets checked by trial below.
+                            #isEqual = True  # This case gets checked by trial below.
+                            isEqual = val_this == val_other
                         else:
                             isEqual = np.allclose(val_this, val_other)
 

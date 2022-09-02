@@ -255,8 +255,8 @@ class TestAttachDataset:
             tmp_spy_filename = os.path.join(tmpdirname, "myfile.spike")
             spy.save(spkd, filename=tmp_spy_filename)
             spkd2 = spy.load(filename=tmp_spy_filename)
-            assert spkd == spkd2
-            assert isinstance(spkd2._dsetmean, h5py.Dataset)
+            assert isinstance(spkd2._dset_mean, h5py.Dataset)
+            assert np.array_equal(spkd._dset_mean[()], spkd2._dset_mean[()])
 
 
 
