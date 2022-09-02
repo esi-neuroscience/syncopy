@@ -592,8 +592,20 @@ class BaseData(ABC):
         raise SPYError("Cannot set sampleinfo. Use `BaseData._trialdefinition` instead.")
 
     @property
+    def trialintervals(self):
+        """nTrials x 2 :class:`numpy.ndarray` of [start, end] times in seconds """
+        if self._trialdefinition is not None and self._samplerate is not None:
+            # trial lengths in samples
+            start_end = self.sampleinfo - self.sampleinfo[:, 0][:, None]
+            # add offset and convert to seconds
+            start_end = (start_end + self._t0[:, None]) / self._samplerate
+            return start_end
+        else:
+            return None
+
+    @property
     def _t0(self):
-        """ These are the trigger offsets """
+        """ These are the (trigger) offsets """
         if self._trialdefinition is not None:
             return self._trialdefinition[:, 2]
         else:
@@ -1503,6 +1515,18 @@ class Selector():
     @sampleinfo.setter
     def sampleinfo(self, sinfo):
         raise SPYError("Cannot set sampleinfo. Use `Selector.trialdefinition` instead.")
+
+    @property
+    def trialintervals(self):
+        """nTrials x 2 :class:`numpy.ndarray` of [start, end] times in seconds """
+        if self._trialdefinition is not None and self._samplerate is not None:
+            # trial lengths in samples
+            start_end = self.sampleinfo - self.sampleinfo[:, 0][:, None]
+            # add offset and convert to seconds
+            start_end = (start_end + self.trialdefinition[:, 2][:, None]) / self._samplerate
+            return start_end
+        else:
+            return None
 
     @property
     def timepoints(self):

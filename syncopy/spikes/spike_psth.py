@@ -105,22 +105,19 @@ def spike_psth(data,
         # why is this not directly data.selection.trials?!
         trials = Indexer(map(data._get_trial, data.selection.trials),
                          sinfo.shape[0])
+        trl_ivl = data.selection.trialintervals
+        # beginnings and ends of all (selected) trials in trigger-relative time
+        trl_starts, trl_ends = trl_ivl[:, 0], trl_ivl[:, 1]
+
     else:
         trl_def = data.trialdefinition
         sinfo = data.sampleinfo
         trials = data.trials
+        # beginnings and ends of all (selected) trials in trigger-relative time
+        trl_starts, trl_ends = data.trialintervals[:, 0], data.trialintervals[:, 1]
 
     # --- parse and digest `latency` (time window of analysis) ---
 
-    # beginnings and ends of all (selected) trials in trigger-relative time
-
-    # length in samples
-    beg_ends = sinfo - sinfo[:, 0][:, None]
-    # add offset and transform to seconds
-    beg_ends = (beg_ends + trl_def[:, 2][:, None]) / data.samplerate
-
-    trl_starts = beg_ends[:, 0]
-    trl_ends = beg_ends[:, 1]
     # just for sanity checks atm
     # tmin, tmax = trl_starts.min(), trl_ends.max()
 

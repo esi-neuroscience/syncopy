@@ -181,28 +181,6 @@ class ContinuousData(BaseData, ABC):
             return [(np.arange(0, stop - start) + self._t0[tk]) / self.samplerate \
                     for tk, (start, stop) in enumerate(self.sampleinfo)]
 
-    # # Helper function that reads a single trial into memory
-    # @staticmethod
-    # def _copy_trial(trialno, filename, dimord, sampleinfo):
-    #     """
-    #     # FIXME: currently unused - check back to see if we need this functionality
-    #     """
-    #     idx = [slice(None)] * len(dimord)
-    #     idx[dimord.index("time")] = slice(int(sampleinfo[trialno, 0]), int(sampleinfo[trialno, 1]))
-    #     idx = tuple(idx)
-    #     try:
-    #         with h5py.File(filename, mode="r") as h5f:
-    #             h5keys = list(h5f.keys())
-    #             cnt = [h5keys.count(dclass) for dclass in spy.datatype.__all__
-    #                    if not inspect.isfunction(getattr(spy.datatype, dclass))]
-    #             if len(h5keys) == 1:
-    #                 arr = h5f[h5keys[0]][idx]
-    #             else:
-    #                 arr = h5f[spy.datatype.__all__[cnt.index(1)]][idx]
-    #     except:
-    #         raise SPYIOError(filename)
-    #     return arr
-
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
         idx = [slice(None)] * len(self.dimord)
