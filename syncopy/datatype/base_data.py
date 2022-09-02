@@ -169,7 +169,7 @@ class BaseData(ABC):
         except Exception as exc:
             raise exc
 
-    def _register_seq_dataset(self, propertyName, inData):
+    def _register_seq_dataset(self, propertyName, inData=None):
         """
         Register a new dataset, so that it is handled during saving, comparison, copy and other operations.
         This dataset is not managed in any way during parallel operations and is intended for

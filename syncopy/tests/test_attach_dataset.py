@@ -197,7 +197,7 @@ class TestAttachDataset:
         some_local_func()
         assert not 'adt' in locals()
 
-    def test_attch_None_to_analog_data(self):
+    def test_attach_None_to_analog_data(self):
         """
         Test that we can run attach, update and detach an extra sequential
         dataset with None data to Syncopy AnalogData Object.

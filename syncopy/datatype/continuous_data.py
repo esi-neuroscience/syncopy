@@ -793,9 +793,9 @@ class TimeLockData(ContinuousData):
         if dimord is None:
             dimord = self._defaultDimord
 
-        self._register_seq_dataset("avg", np.zeros((0, 0), dtype=np.float64))
-        self._register_seq_dataset("var", np.zeros((0, 0), dtype=np.float64))
-        self._register_seq_dataset("cov", np.zeros((0, 0), dtype=np.float64))
+        self._register_seq_dataset("avg")
+        self._register_seq_dataset("var")
+        self._register_seq_dataset("cov")
 
         # Call parent initializer
         # trialdefinition has to come from a CR!
