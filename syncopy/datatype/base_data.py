@@ -225,6 +225,11 @@ class BaseData(ABC):
                     if propertyName in self._data.file.keys():
                         del self._data.file[propertyName]
 
+    def _update_seq_dataset(self, propertyName, inData=None):
+        if getattr(self, "_" + propertyName) is not None:
+            self._unregister_seq_dataset(propertyName)
+        self._register_seq_dataset(propertyName, inData)
+
 
     def _set_dataset_property(self, inData, propertyName, ndim=None):
         """Set property that is streamed from HDF dataset ('dataset property')
@@ -243,10 +248,11 @@ class BaseData(ABC):
                 Number of expected array dimensions.
 
         """
-        if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
-            ndim = 2
-        if ndim is None:
-            ndim = len(self._defaultDimord)
+        if propertyName == "data":
+            if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
+                ndim = 2
+            if ndim is None:
+                ndim = len(self._defaultDimord)
 
         supportedSetters = {
             list: self._set_dataset_property_with_list,
@@ -344,15 +350,15 @@ class BaseData(ABC):
         if isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
             prop = getattr(self, "_" + propertyName)
             if self.mode == "r":
-                lgl = "HDF5 dataset with write or copy-on-write access"
+                lgl = "dataset with write or copy-on-write access"
                 act = "read-only file"
                 raise SPYValueError(legal=lgl, varname="mode", actual=act)
             if prop.shape != inData.shape:
-                lgl = "HDF5 dataset with shape {}".format(str(prop.shape))
+                lgl = "dataset with shape {}".format(str(prop.shape))
                 act = "data with shape {}".format(str(inData.shape))
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             if prop.dtype != inData.dtype:
-                lgl = "HDF5 dataset of type {}".format(prop.dtype.name)
+                lgl = "dataset of type {}".format(prop.dtype.name)
                 act = "data of type {}".format(inData.dtype.name)
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             prop[...] = inData
@@ -774,7 +780,7 @@ class BaseData(ABC):
                     dsetProp.file.close()
 
     def _get_backing_hdf5_file_handle(self):
-        """Get handle to `h5py.File` instance of backing HDF5 file in given mode.
+        """Get handle to `h5py.File` instance of backing HDF5 file
 
         Checks all datasets in `self._hdfFileDatasetProperties` for valid handles, returns `None` if none found.
 
@@ -788,7 +794,7 @@ class BaseData(ABC):
         return None
 
     def _reopen(self):
-        """ Reattach datasets from backing hdf5 file."""
+        """ Reattach datasets from backing hdf5 file. Respects current `self.mode`."""
         for propertyName in self._hdfFileDatasetProperties:
             dsetProp = getattr(self, "_" + propertyName)
             if isinstance(dsetProp, h5py.Dataset):
