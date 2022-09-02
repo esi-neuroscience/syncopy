@@ -183,14 +183,17 @@ class BaseData(ABC):
                 It will be added as an attribute named `'_' + propertyName` to this SyncopyData object.
                 Note that this means that your propertyName must not clash with other attribute names of syncopy data objects.
                 To ensure the latter, it is recommended to use names with a prefix like `'dset_'`. Clashes will be detected and result in errors.
-            in_data : np.ndarray
+            in_data : None or np.ndarray
                 The data to store. Must have the final number of dimensions you want.
         """
-        if not isinstance(inData, np.ndarray):
-            raise SPYValueError(lgl="object of type 'np.ndarray'", varname="inData")
         if not propertyName in self._hdfFileDatasetProperties:
             self._hdfFileDatasetProperties = self._hdfFileDatasetProperties + (propertyName,)
-        self._set_dataset_property_with_ndarray(inData, propertyName, inData.ndim)
+        if inData is None:
+            setattr(self, "_" + propertyName, None)
+        else:
+            if not isinstance(inData, np.ndarray):
+                raise SPYValueError(lgl="object of type 'np.ndarray' or None", varname="inData")
+            self._set_dataset_property_with_ndarray(inData, propertyName, inData.ndim)
 
     def _unregister_seq_dataset(self, propertyName, del_from_file=True):
         """

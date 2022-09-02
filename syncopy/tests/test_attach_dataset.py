@@ -197,6 +197,41 @@ class TestAttachDataset:
         some_local_func()
         assert not 'adt' in locals()
 
+    def test_attch_None_to_analog_data(self):
+        """
+        Test that we can run attach, update and detach an extra sequential
+        dataset with None data to Syncopy AnalogData Object.
+        """
+        def some_local_func():
+            adt = _get_fooof_signal()
+            assert isinstance(adt, spy.AnalogData)
+
+            # Copying
+            adt2 = adt.copy()
+
+            adt._register_seq_dataset("dset_mean", None)
+
+            # Equality testing
+            assert adt != adt2
+
+            assert hasattr(adt, "_dset_mean")
+            assert adt._dset_mean is None
+
+            # Update
+            adt._register_seq_dataset("dset_mean", None)
+            assert hasattr(adt, "_dset_mean")
+            assert adt._dset_mean is None
+
+            # Unregister
+            adt._unregister_seq_dataset("dset_mean", del_from_file=True)
+            assert not hasattr(adt, "_dset_mean")
+            assert not "dset_mean" in h5py.File(adt.filename, "r").keys()
+            assert "data" in h5py.File(adt.filename, "r").keys()
+            # Let it get out of scope to call destructor.
+
+        some_local_func()
+        assert not 'adt' in locals()
+
     def test_run_psth_with_attached_dset(self):
         """
         Test that we can run a cF on a Syncopy Data Object without any

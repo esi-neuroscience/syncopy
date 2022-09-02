@@ -749,6 +749,15 @@ class TimeLockData(ContinuousData):
     _defaultDimord = ["time", "channel"]
     _stackingDimLabel = "time"
 
+    # A `h5py.Dataset` holding the average of `data`, or `None` if not computed yet.
+    _avg = None
+
+    # A `h5py.Dataset` holding variance of `data`, or `None` if not computed yet.
+    _var = None
+
+    # A `h5py.Dataset` holding covariance of `data`, or `None` if not computed yet.
+    _cov = None
+
     # "Constructor"
     def __init__(self,
                  data=None,
@@ -784,8 +793,9 @@ class TimeLockData(ContinuousData):
         if dimord is None:
             dimord = self._defaultDimord
 
-        self._avg = None
-        self._var = None
+        self._register_seq_dataset("avg", np.zeros((0, 0), dtype=np.float64))
+        self._register_seq_dataset("var", np.zeros((0, 0), dtype=np.float64))
+        self._register_seq_dataset("cov", np.zeros((0, 0), dtype=np.float64))
 
         # Call parent initializer
         # trialdefinition has to come from a CR!
@@ -798,39 +808,15 @@ class TimeLockData(ContinuousData):
 
     @property
     def avg(self):
-        """
-        The 'single trial' sized trial average stacked at the second last
-        position (which could be the first if no single trials are stored)"""
-
-        # stacking stub
-        # if self._avg is None and self._data is not None:
-        #     # all channels
-        #     nStacked = len(self.trials)
-        #     self._avg = self._get_trial(nStacked - 2)
-
         return self._avg
-
-    @avg.setter
-    def avg(self, trl_av):
-
-        """
-        :class:`numpy.ndarray`: time x nChannel/nUnits
-        Set single-trial sized average """
-        pass
 
     @property
     def var(self):
-        """ :class:`numpy.ndarray`: time x nChannel / nUnits
-        The 'single trial' sized variance over trials stacked at the last
-        position (which could be the 2nd if no single trials are stored)"""
-
-        # stacking stub
-        # if self._var is None and self._data is not None:
-        #     # all channels
-        #     nStacked = len(self.trials)
-        #     self._var = self._get_trial(nStacked - 1)
-
         return self._var
+
+    @property
+    def cov(self):
+        return self._cov
 
     @ContinuousData.trialdefinition.setter
     def trialdefinition(self, trl):
