@@ -362,22 +362,23 @@ class BaseData(ABC):
             if self.filename is None:
                 self.filename = self._gen_filename()
 
-            if propertyName == "data":
+            if propertyName not in self._hdfFileDatasetProperties:
+                if getattr(self, "_" + propertyName) is not None and not isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
+                    raise SPYValueError(lgl="propertyName that does not clash with existing attributes",
+                                        varname=propertyName, actual=propertyName)
+
+            h5f = self._get_backing_hdf5_file_handle()
+            if h5f is None:
                 with h5py.File(self.filename, "w") as h5f:
                     h5f.create_dataset(propertyName, data=inData)
             else:
-                if getattr(self, "_" + propertyName) is not None:
-                    raise SPYValueError(lgl="propertyName that does not clash with existing attributes",
-                                        varname=propertyName, actual=propertyName)
-                # We are attaching an extra dataset, so the hdf5 file is already open and available at `self._data.file`.
-                dset = self._data.file.create_dataset(propertyName, data=inData)
-                dset.flush()
+                h5f.create_dataset(propertyName, data=inData)
 
 
-            md = self.mode
-            if md == "w":
-                md = "r+"
-            setattr(self, "_" + propertyName, h5py.File(self.filename, md)[propertyName])
+        md = self.mode
+        if md == "w":
+            md = "r+"
+        setattr(self, "_" + propertyName, h5py.File(self.filename, md)[propertyName])
 
 
     def _set_dataset_property_with_dataset(self, inData, propertyName, ndim):
@@ -651,7 +652,7 @@ class BaseData(ABC):
             if isinstance(prop, h5py.Dataset):
                 prop.flush()
 
-        prop = getattr(self, "data")
+        prop = getattr(self, self._hdfFileDatasetProperties[0])
         if prop is not None:
             prop.file.close()
 
@@ -771,6 +772,20 @@ class BaseData(ABC):
             if isinstance(dsetProp, h5py.Dataset):
                 if dsetProp.id.valid != 0:  # Check whether backing HDF5 file is open.
                     dsetProp.file.close()
+
+    def _get_backing_hdf5_file_handle(self):
+        """Get handle to `h5py.File` instance of backing HDF5 file in given mode.
+
+        Checks all datasets in `self._hdfFileDatasetProperties` for valid handles, returns `None` if none found.
+
+           Note that the mode of the returned instance depends on the current value of `self.mode`.
+        """
+        for propertyName in self._hdfFileDatasetProperties:
+            dsetProp = getattr(self, "_" + propertyName)
+            if isinstance(dsetProp, h5py.Dataset):
+                if dsetProp.id.valid != 0:
+                    return dsetProp.file
+        return None
 
     def _reopen(self):
         """ Reattach datasets from backing hdf5 file."""
