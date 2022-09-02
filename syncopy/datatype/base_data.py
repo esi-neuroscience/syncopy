@@ -33,7 +33,7 @@ from syncopy.shared.parsers import (
     filename_parser,
     data_parser,
 )
-from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError
+from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError, SPYWarning
 from syncopy.datatype.methods.definetrial import definetrial as _definetrial
 from syncopy import __version__, __storage__, __acme__, __sessionid__, __storagelimit__
 
@@ -224,6 +224,8 @@ class BaseData(ABC):
                 if isinstance(self._data.file, h5py.File):
                     if propertyName in self._data.file.keys():
                         del self._data.file[propertyName]
+                else:
+                    SPYWarning("Could not delete dataset from file.")
 
     def _update_seq_dataset(self, propertyName, inData=None):
         if getattr(self, "_" + propertyName) is not None:
@@ -1077,6 +1079,8 @@ class BaseData(ABC):
         1. filename + data = create HDF5 file at filename with data in it
         2. data only
 
+        Keys of kwargs are the datasets from _hdfFileDatasetProperties, and
+        kwargs must *only* include datasets for which a setter exists.
         """
 
         # each instance needs its own cfg!
@@ -1117,9 +1121,10 @@ class BaseData(ABC):
         else:
             self.filename = self._gen_filename()
 
-        # Attach dataset properties and let set methods do error checking
+        # Attach dataset properties and let set methods do error checking.
         for propertyName in self._hdfFileDatasetProperties:
-            setattr(self, propertyName, kwargs[propertyName])
+            if propertyName in kwargs:
+                setattr(self, propertyName, kwargs[propertyName])
 
         # Write initial log entry
         self.log = "created {clname:s} object".format(clname=self.__class__.__name__)

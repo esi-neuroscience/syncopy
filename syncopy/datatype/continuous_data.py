@@ -766,10 +766,7 @@ class TimeLockData(ContinuousData):
                  trialdefinition=None,
                  samplerate=None,
                  channel=None,
-                 dimord=None,
-                 avg=None,
-                 var=None,
-                 cov=None):
+                 dimord=None):
 
         """Initialize an :class:`TimeLockData` object.
 
@@ -804,34 +801,19 @@ class TimeLockData(ContinuousData):
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          channel=channel,
-                         dimord=dimord,
-                         avg=avg,
-                         var=var,
-                         cov=cov)
+                         dimord=dimord)
 
     @property
     def avg(self):
         return self._avg
 
-    @avg.setter
-    def avg(self, inData):
-        self._set_dataset_property(inData, "avg")
-
     @property
     def var(self):
         return self._var
 
-    @var.setter
-    def var(self, inData):
-        self._set_dataset_property(inData, "var")
-
     @property
     def cov(self):
         return self._cov
-
-    @cov.setter
-    def cov(self, inData):
-        self._set_dataset_property(inData, "cov")
 
     @ContinuousData.trialdefinition.setter
     def trialdefinition(self, trl):
