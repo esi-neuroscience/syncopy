@@ -358,7 +358,6 @@ class BaseData(ABC):
         else:
             if self.filename is None:
                 self.filename = self._gen_filename()
-                print(f"_set_dataset_property_with_ndarray: dataset '{propertyName}: 'Generated new file name '{self.filename}'")
 
             if propertyName == "data":
                 # We are creating the standard dataset, and need to open the hdf5 file first.
@@ -514,11 +513,9 @@ class BaseData(ABC):
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
 
     def _is_empty(self):
-        is_e = all(
+        return all(
             [getattr(self, "_" + attr, None) is None for attr in self._hdfFileDatasetProperties]
         )
-        print(f"_is_empty: result = {is_e} for {[getattr(self, '_' + attr, None) is None for attr in self._hdfFileDatasetProperties]} for dsets {self._hdfFileDatasetProperties}")
-        return is_e
 
     @property
     def dimord(self):
@@ -871,7 +868,6 @@ class BaseData(ABC):
                 )
             container = filename_parser(self.filename)["folder"]
 
-        print(f"basedaa.save: calling spy.save with filename={filename}, container={container}, tag={tag}, overwrite={overwrite}")
         spy.save(
             self, filename=filename, container=container, tag=tag, overwrite=overwrite
         )
@@ -888,7 +884,6 @@ class BaseData(ABC):
                 sess=__sessionid__, hash=fname_hsh, ext=self._classname_to_extension()
             ),
         )
-        print(f"basedata._gen_filename: generating new file name {fname}")
         return fname
 
     # Helper function converting object class-name to usable file extension
@@ -954,7 +949,6 @@ class BaseData(ABC):
         return _process_operator(self, other, "**")
 
     def __eq__(self, other):
-        print(f"basedata.__eq__ called")
 
         # If other object is not a Syncopy data-class, get out
         if not "BaseData" in str(other.__class__.__mro__):
@@ -1100,7 +1094,6 @@ class BaseData(ABC):
             self.filename = filename
         else:
             self.filename = self._gen_filename()
-            print(f"baseData:init: generated new filename {self.filename}")
 
         # Attach dataset properties and let set methods do error checking
         for propertyName in self._hdfFileDatasetProperties:

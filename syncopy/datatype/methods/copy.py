@@ -18,7 +18,6 @@ __all__ = ["copy"]
 
 # Return a deep copy of the current class instance
 def copy(spydata):
-    print(f"#### COPY CALLED####")
     """
     Create a copy of the entire Syncopy object `data` on disk
 

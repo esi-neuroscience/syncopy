@@ -141,12 +141,10 @@ def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None
     if not isinstance(filename, str):
         raise SPYTypeError(filename, varname="filename", expected="str")
     if len(os.path.splitext(os.path.abspath(os.path.expanduser(filename)))[1]) == 0:
-        print(f"expanind filename {filename} to {filename + FILE_EXT['dir']}")
         filename += FILE_EXT["dir"]
 
     try:
         fileInfo = filename_parser(filename)
-        print(f"fileInfo = {fileInfo}")
     except Exception as exc:
         raise exc
 
@@ -186,26 +184,21 @@ def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None
         raise SPYTypeError(checksum, varname="checksum", expected="bool")
 
     # Abuse `AnalogData.mode`-setter to check `mode`
-    print(f"load: creating temporary analogdata for mode abuse")
     try:
         spd.AnalogData().mode = mode
     except Exception as exc:
         raise exc
-    print(f"load: done creating temporary analogdata for mode abuse")
 
     # If `filename` points to a spy container, `glob` what's inside, otherwise just load
     if fileInfo["filename"] is None:
-        print(f"fileinfo is None!")
 
         if dataclass is None:
-            print(f"dataclass is None!")
             extensions = FILE_EXT["data"]
         container = os.path.join(fileInfo["folder"], fileInfo["container"])
         fileList = []
         for ext in extensions:
             for tag in tags:
                 fileList.extend(glob(os.path.join(container, tag + ext)))
-        print(f"fileList: {fileList} with length {len(fileList)}")
         if len(fileList) == 0:
             fsloc = os.path.join(container, "" + \
                                  "or ".join(tag + " " for tag in tags) + \
@@ -242,7 +235,6 @@ def _load(filename, checksum, mode, out):
     fileInfo = filename_parser(filename)
     hdfFile = os.path.join(fileInfo["folder"], fileInfo["filename"])
     jsonFile = hdfFile + FILE_EXT["info"]
-    print(f"_load: fileInfo = {fileInfo}")
 
     try:
         _ = io_parser(hdfFile, varname="hdfFile", isfile=True, exists=True)
@@ -252,8 +244,6 @@ def _load(filename, checksum, mode, out):
 
     with open(jsonFile, "r") as file:
         jsonDict = json.load(file)
-
-    print(f"load: loaded jsonDict {jsonDict} from file {jsonFile}")
 
     if "dataclass" not in jsonDict.keys():
         raise SPYError("Info file {} does not contain a dataclass field".format(jsonFile))
@@ -271,8 +261,6 @@ def _load(filename, checksum, mode, out):
                            .format(field=key,
                                    cls=dataclass.__name__,
                                    file=jsonFile))
-
-    print(f"requiredFields={requiredFields}")
 
     # FIXME: add version comparison (syncopy.__version__ vs jsonDict["_version"])
 
@@ -294,11 +282,8 @@ def _load(filename, checksum, mode, out):
             raise exc
         new_out = False
         out.dimord = dimord
-        print("_load: loading into existing instance")
     else:
-        print("_load: creating new instance...")
         out = dataclass(dimord=dimord)
-        print("_load: creating new instance DONE")
         new_out = True
 
     # Access data on disk (error checking is done by setters)
@@ -309,23 +294,18 @@ def _load(filename, checksum, mode, out):
     # This is needed to load both new files with, and legacy files without the `_hdfFileDatasetProperties` in the JSON.
     json_hdfFileDatasetProperties = jsonDict.pop("_hdfFileDatasetProperties", None) # They may not be in there for legacy files, so allow None.
     if json_hdfFileDatasetProperties is not None:
-        print(f"replacing old props: {out._hdfFileDatasetProperties} with new ones {tuple(json_hdfFileDatasetProperties)}")
         out._hdfFileDatasetProperties = tuple(json_hdfFileDatasetProperties) # It's a list in the JSON, so convert to tuple.
     for datasetProperty in out._hdfFileDatasetProperties:
         targetProperty = datasetProperty if datasetProperty == "data" else "_" + datasetProperty
         setattr(out, targetProperty, h5py.File(hdfFile, mode="r")[datasetProperty])
-
 
     # Abuse ``definetrial`` to set trial-related props
     trialdef = h5py.File(hdfFile, mode="r")["trialdefinition"][()]
     out.definetrial(trialdef)
 
     # Assign metadata
-    print(f"_load: assigning metadata. dataclass._infoFileProperties={dataclass._infoFileProperties}")
     for key in [prop for prop in dataclass._infoFileProperties if
-    #for key in [prop for prop in requiredFields if
                 prop != "dimord" and prop in jsonDict.keys()]:
-        print(f"_load: setting prop {key} from dataclass._infoFileProperties to '{jsonDict[key]}'")
         setattr(out, key, jsonDict[key])
 
     thisMethod = sys._getframe().f_code.co_name.replace("_", "")

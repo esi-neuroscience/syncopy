@@ -126,7 +126,6 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
         filename = os.path.join(fileInfo["folder"],
                                 fileInfo["container"],
                                 fileInfo["basename"])
-        print(f"save: constructed filename {filename}")
         # handle tag
         if tag is not None:
             if not isinstance(tag, str):
@@ -159,8 +158,6 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
         replace = True
     else:
         replace = False
-
-    print(f"save: replace is {replace}")
 
     # Prevent `out` from trying to re-create its own data file
     if replace:
@@ -213,7 +210,6 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
     # Assemble dict for JSON output: order things by their "readability"
     outDict = OrderedDict(startInfoDict)
     outDict["filename"] = fileInfo["filename"]
-    print(f"save: writing filename '{outDict['filename']}' to JSON dict. dataFile={dataFile}")
     outDict["dataclass"] = out.__class__.__name__
     outDict["data_dtype"] = dat.dtype.name
     outDict["data_shape"] = dat.shape
@@ -267,8 +263,6 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
 
     # Compute checksum and finally write JSON (automatically overwrites existing)
     outDict["file_checksum"] = hash_file(dataFile)
-
-    print(f"save: checking again in the end. wrote filename '{outDict['filename']}' to JSON dict. dataFile={dataFile}")
 
     with open(infoFile, 'w') as out_json:
         json.dump(outDict, out_json, indent=4)
