@@ -514,9 +514,11 @@ class BaseData(ABC):
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
 
     def _is_empty(self):
-        return all(
+        is_e = all(
             [getattr(self, "_" + attr, None) is None for attr in self._hdfFileDatasetProperties]
         )
+        print(f"_is_empty: result = {is_e} for {[getattr(self, '_' + attr, None) is None for attr in self._hdfFileDatasetProperties]} for dsets {self._hdfFileDatasetProperties}")
+        return is_e
 
     @property
     def dimord(self):
@@ -764,7 +766,7 @@ class BaseData(ABC):
         return
 
     def _close(self):
-        """Close backing hdf5 files."""
+        """Close backing hdf5 file."""
         self.clear()
         for propertyName in self._hdfFileDatasetProperties:
             dsetProp = getattr(self, "_" + propertyName)
@@ -773,7 +775,7 @@ class BaseData(ABC):
                     dsetProp.file.close()
 
     def _reopen(self):
-        """ Reattach datasets from backing hdf5 files."""
+        """ Reattach datasets from backing hdf5 file."""
         for propertyName in self._hdfFileDatasetProperties:
             dsetProp = getattr(self, "_" + propertyName)
             if isinstance(dsetProp, h5py.Dataset):
@@ -952,6 +954,7 @@ class BaseData(ABC):
         return _process_operator(self, other, "**")
 
     def __eq__(self, other):
+        print(f"basedata.__eq__ called")
 
         # If other object is not a Syncopy data-class, get out
         if not "BaseData" in str(other.__class__.__mro__):
