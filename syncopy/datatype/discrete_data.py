@@ -49,11 +49,7 @@ class DiscreteData(BaseData, ABC):
 
     @data.setter
     def data(self, inData):
-
         self._set_dataset_property(inData, "data")
-
-        if inData is None:
-            return
 
     def __str__(self):
         # Get list of print-worthy attributes

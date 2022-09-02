@@ -810,13 +810,25 @@ class TimeLockData(ContinuousData):
     def avg(self):
         return self._avg
 
+    @avg.setter
+    def avg(self, inData):
+        self._set_dataset_property(inData, "avg")
+
     @property
     def var(self):
         return self._var
 
+    @var.setter
+    def var(self, inData):
+        self._set_dataset_property(inData, "var")
+
     @property
     def cov(self):
         return self._cov
+
+    @cov.setter
+    def cov(self, inData):
+        self._set_dataset_property(inData, "cov")
 
     @ContinuousData.trialdefinition.setter
     def trialdefinition(self, trl):
