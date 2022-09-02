@@ -1176,7 +1176,7 @@ class TestTimeLockData:
     """Tests for the `TimeLockData` data type, which is derived from `ContinuousData`."""
 
     def test_create(self):
-        """Test instantiation, and that expected attributes specific to this data type exists."""
+        """Test instantiation, and that expected properties specific to this data type exist."""
         tld = TimeLockData()
 
         assert hasattr(tld, '_avg')
@@ -1185,6 +1185,13 @@ class TestTimeLockData:
         assert tld.avg is None
         assert tld.var is None
         assert tld.cov is None
+
+    def test_modify_properties(self):
+        tld = TimeLockData()
+
+        avg_data = np.zeros((3,3), dtype=np.float64)
+        tld.avg = avg_data # uses setter
+        assert np.array_equal(avg_data, tld.avg)
 
 
 

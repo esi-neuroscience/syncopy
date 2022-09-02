@@ -363,18 +363,16 @@ class BaseData(ABC):
                 self.filename = self._gen_filename()
 
             if propertyName == "data":
-                # We are creating the standard dataset, and need to open the hdf5 file first.
                 with h5py.File(self.filename, "w") as h5f:
                     h5f.create_dataset(propertyName, data=inData)
             else:
-                # Prevent accidental destruction of SyncopyData object by overwriting
-                # other attributes due to name clashes of new datasets.
                 if getattr(self, "_" + propertyName) is not None:
                     raise SPYValueError(lgl="propertyName that does not clash with existing attributes",
                                         varname=propertyName, actual=propertyName)
                 # We are attaching an extra dataset, so the hdf5 file is already open and available at `self._data.file`.
                 dset = self._data.file.create_dataset(propertyName, data=inData)
                 dset.flush()
+
 
             md = self.mode
             if md == "w":
