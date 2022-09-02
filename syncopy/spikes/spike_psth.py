@@ -20,12 +20,13 @@ from syncopy.shared.kwarg_decorators import (
 from syncopy.shared.input_processors import check_passed_kwargs
 
 
-# method specific imports - they should go when
-# we have multiple returns
-from syncopy.spikes.psth import Rice_rule, sqrt_rule, get_chan_unit_combs
+# dev
+from syncopy.tests import synth_data as sd
+spd = sd.poisson_noise(10, nUnits=3, nChannels=10, nSpikes=10000, samplerate=10000)
 
 # Local imports
 from syncopy.spikes.compRoutines import PSTH
+from syncopy.spikes.psth import Rice_rule, sqrt_rule, get_chan_unit_combs
 
 available_binsizes = {'rice': Rice_rule, 'sqrt': sqrt_rule}
 available_outputs = ['rate', 'spikecount', 'proportion']
@@ -111,9 +112,12 @@ def spike_psth(data,
 
     # --- parse and digest `latency` (time window of analysis) ---
 
-    # beginnings and ends of all (selected) trials in relative time
-    beg_ends = sinfo + trl_def[:, 2][:, None]
-    beg_ends = (beg_ends - sinfo[:, 0][:, None]) / data.samplerate
+    # beginnings and ends of all (selected) trials in trigger-relative time
+
+    # length in samples
+    beg_ends = sinfo - sinfo[:, 0][:, None]
+    # add offset and transform to seconds
+    beg_ends = (beg_ends + trl_def[:, 2][:, None]) / data.samplerate
 
     trl_starts = beg_ends[:, 0]
     trl_ends = beg_ends[:, 1]
@@ -161,6 +165,8 @@ def spike_psth(data,
     if not vartriallen:
         # trial idx for whole dataset
         trl_idx = np.arange(len(data.trials))
+        print(trl_starts)
+        print(trl_ends)
         bmask = (trl_starts <= window[0]) & (trl_ends >= window[1])
 
         # trials which fit completely into window
