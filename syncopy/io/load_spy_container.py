@@ -312,7 +312,8 @@ def _load(filename, checksum, mode, out):
         print(f"replacing old props: {out._hdfFileDatasetProperties} with new ones {tuple(json_hdfFileDatasetProperties)}")
         out._hdfFileDatasetProperties = tuple(json_hdfFileDatasetProperties) # It's a list in the JSON, so convert to tuple.
     for datasetProperty in out._hdfFileDatasetProperties:
-        setattr(out, "_" + datasetProperty, h5py.File(hdfFile, mode="r")[datasetProperty])
+        targetProperty = datasetProperty if datasetProperty == "data" else "_" + datasetProperty
+        setattr(out, targetProperty, h5py.File(hdfFile, mode="r")[datasetProperty])
 
 
     # Abuse ``definetrial`` to set trial-related props
