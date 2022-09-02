@@ -332,10 +332,10 @@ def poisson_noise(nTrials=10,
 
     >>> spike_data = poisson_noise(nTrials=10, nSpikes=20_000, samplerate=10_000)
 
-    Example output of the 1st trial lengths in seconds:
+    Example output of the 1st trial [start, end] in seconds:
 
-    >>> spike_data.time[0][0], spike_data.time[0][-1]
-    >>> (-0.3004, 1.6459)
+    >>> spike_data.trialintervals[0]
+    >>> array([-0.3004, 1.6459])
 
     Which is close to 2 seconds.
 
@@ -372,7 +372,7 @@ def poisson_noise(nTrials=10,
 
     shortest_trial = np.min(idx_end - idx_start)
     idx_offset = -np.random.choice(
-        np.arange(0.05 * shortest_trial, 0.2 * shortest_trial), size=nTrials, replace=True
+        np.arange(0.05 * shortest_trial, 0.2 * shortest_trial, dtype=int), size=nTrials, replace=True
     )
 
     trldef = np.vstack([idx_start, idx_end, idx_offset]).T

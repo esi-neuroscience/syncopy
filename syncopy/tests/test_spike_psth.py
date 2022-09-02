@@ -64,25 +64,16 @@ class TestPSTH:
         # directly in seconds
         cfg.binsize = 0.1
 
-        sinfo = self.spd.sampleinfo
-        trl_def = self.spd.trialdefinition
-        # get trial starting and end times
-        beg_ends = sinfo + trl_def[:, 2][:, None]
-        beg_ends = (beg_ends - sinfo[:, 0][:, None]) / self.spd.samplerate
-
-        trl_starts = beg_ends[:, 0]
-        trl_ends = beg_ends[:, 1]
-
-        return beg_ends
-        
+        trl_starts = self.spd.trialintervals[:, 0]
+        trl_ends = self.spd.trialintervals[:, 1]
         # bins stretch over the largest common time window
         cfg.latency = 'maxperiod'  # default
-
-
         counts = spy.spike_psth(self.spd,
                                 cfg,
                                 keeptrials=True)
-        
+
+        return counts
+
 
 
 if __name__ == '__main__':

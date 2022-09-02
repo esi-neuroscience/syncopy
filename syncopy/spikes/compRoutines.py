@@ -129,7 +129,7 @@ class PSTH(ComputationalRoutine):
         # compute new time axis / samplerate
         bin_midpoints = stride_tricks.sliding_window_view(tbins, (2,)).mean(axis=1)
         srate = 1 / np.diff(bin_midpoints).mean()
-
+        print(bin_midpoints)
         # each trial has the same length
         # for "timelocked" (same bins) psth data
         trl_len = len(tbins) - 1
@@ -144,7 +144,9 @@ class PSTH(ComputationalRoutine):
         sample_idx = np.arange(0, nTrials * trl_len + 1, trl_len)
         trl[:, :2] = stride_tricks.sliding_window_view(sample_idx, (2,))
         # negative relative time is pre-stimulus!
-        offsets = np.rint(tbins[0] * srate)
+        # note that bin edges are set on the original (high-res) time axis
+        # we can only approximate atm with the new 1/srate time steps
+        offsets = np.rint(bin_midpoints[0] * srate)
         trl[:, 2] = offsets
 
         # Attach meta-data
