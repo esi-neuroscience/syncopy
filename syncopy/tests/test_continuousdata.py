@@ -13,7 +13,7 @@ import numbers
 import numpy as np
 
 # Local imports
-from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, padding
+from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, TimeLockData, padding
 from syncopy.io import save, load
 from syncopy.datatype.base_data import Selector
 from syncopy.datatype.methods.selectdata import selectdata
@@ -1171,5 +1171,23 @@ class TestCrossSpectralData():
             flush_local_cluster(testcluster)
         client.close()
 
+
+class TestTimeLockData:
+    """Tests for the `TimeLockData` data type, which is derived from `ContinuousData`."""
+
+    def test_create(self):
+        """Test instantiation, and that expected attributes specific to this data type exists."""
+        tld = TimeLockData()
+
+        assert hasattr(tld, '_avg')
+        assert hasattr(tld, '_var')
+        assert hasattr(tld, '_cov')
+        assert tld.avg is None
+        assert tld.var is None
+        assert tld.cov is None
+
+
+
 if __name__ == '__main__':
     T1 = TestCrossSpectralData()
+    T2 = TestTimeLockData()

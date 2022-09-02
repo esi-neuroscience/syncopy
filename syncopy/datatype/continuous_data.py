@@ -746,6 +746,7 @@ class TimeLockData(ContinuousData):
     """
 
     _infoFileProperties = ContinuousData._infoFileProperties
+    _hdfFileDatasetProperties = ContinuousData._hdfFileDatasetProperties + ("avg", "var", "cov",)
     _defaultDimord = ["time", "channel"]
     _stackingDimLabel = "time"
 
@@ -765,7 +766,10 @@ class TimeLockData(ContinuousData):
                  trialdefinition=None,
                  samplerate=None,
                  channel=None,
-                 dimord=None):
+                 dimord=None,
+                 avg=None,
+                 var=None,
+                 cov=None):
 
         """Initialize an :class:`TimeLockData` object.
 
@@ -793,10 +797,6 @@ class TimeLockData(ContinuousData):
         if dimord is None:
             dimord = self._defaultDimord
 
-        self._register_seq_dataset("avg")
-        self._register_seq_dataset("var")
-        self._register_seq_dataset("cov")
-
         # Call parent initializer
         # trialdefinition has to come from a CR!
         super().__init__(data=data,
@@ -804,7 +804,10 @@ class TimeLockData(ContinuousData):
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          channel=channel,
-                         dimord=dimord)
+                         dimord=dimord,
+                         avg=avg,
+                         var=var,
+                         cov=cov)
 
     @property
     def avg(self):
