@@ -98,6 +98,7 @@ def _make_tf_signal(nChannels, nTrials, seed, fadeIn=None, fadeOut=None, short=F
 
 class TestMTMFFT():
 
+
     # Construct simple trigonometric signal to check FFT consistency: each
     # channel is a sine wave of frequency `freqs[nchan]` with single unique
     # amplitude `amp` and sampling frequency `fs`
@@ -157,6 +158,11 @@ class TestMTMFFT():
             self.sigdataSelections.pop(random.choice([-1, 1]))
             self.artdataSelections.pop(random.choice([-1, 1]))
 
+    @staticmethod
+    def get_adata():
+        return AnalogData(data=TestMTMFFT.sig, samplerate=TestMTMFFT.fs,
+                       trialdefinition=TestMTMFFT.trialdefinition)
+
     def test_output(self):
         # ensure that output type specification is respected
         for select in self.sigdataSelections:
@@ -196,23 +202,23 @@ class TestMTMFFT():
 
             # `foi` lims outside valid bounds
             with pytest.raises(SPYValueError):
-                freqanalysis(self.adata, method="mtmfft", taper="hann",
+                freqanalysis(TestMTMFFT.get_adata(), method="mtmfft", taper="hann",
                              foi=[-0.5, self.fs / 3], select=select)
             with pytest.raises(SPYValueError):
-                freqanalysis(self.adata, method="mtmfft", taper="hann",
+                freqanalysis(TestMTMFFT.get_adata(), method="mtmfft", taper="hann",
                              foi=[1, self.fs], select=select)
 
             foi = self.fband[1:int(self.fband.size / 3)]
 
             # offset `foi` by 0.1 Hz - resulting freqs must be unaffected
             ftmp = foi + 0.1
-            spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
+            spec = freqanalysis(TestMTMFFT.get_adata(), method="mtmfft", taper="hann",
                                 pad="nextpow2", foi=ftmp, select=select)
             assert np.all(spec.freq == foi)
 
             # unsorted, duplicate entries in `foi` - result must stay the same
             ftmp = np.hstack([foi, np.full(20, foi[0])])
-            spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
+            spec = freqanalysis(TestMTMFFT.get_adata(), method="mtmfft", taper="hann",
                                 pad="nextpow2", foi=ftmp, select=select)
             assert np.all(spec.freq == foi)
 
@@ -418,6 +424,12 @@ class TestMTMConvol():
     fadeOut = None
     tfData, modulators, even, odd, fader = _make_tf_signal(nChannels, nTrials, seed,
                                                            fadeIn=fadeIn, fadeOut=fadeOut)
+
+    @staticmethod
+    def get_tfdata_mtmconvol():
+        return _make_tf_signal(TestMTMConvol.nChannels, TestMTMConvol.nTrials, TestMTMConvol.seed,
+                                                           fadeIn=TestMTMConvol.fadeIn, fadeOut=TestMTMConvol.fadeOut)
+
 
     # Data selection dict for the above object
     dataSelections = [None,
@@ -631,7 +643,7 @@ class TestMTMConvol():
         # Use `toi` array outside trial boundaries
         cfg.toi = self.tfData.time[0][:10]
         with pytest.raises(SPYError) as spyval:
-            freqanalysis(cfg, _get_tf_data())
+            freqanalysis(cfg, _get_tf_data_superlet())
             errmsg = "Invalid value of `toi`: expected all array elements to be bounded by {} and {}"
             assert errmsg.format(*cfg.select["toilim"]) in str(spyval.value)
 
@@ -820,6 +832,11 @@ class TestWavelet():
     tfData, modulators, even, odd, fader = _make_tf_signal(nChannels, nTrials, seed,
                                                            fadeIn=fadeIn, fadeOut=fadeOut)
 
+    @staticmethod
+    def get_tfdata_wavelet():
+        return(_make_tf_signal(TestWavelet.nChannels, TestWavelet.nTrials, TestWavelet.seed,
+                                                           fadeIn=TestWavelet.fadeIn, fadeOut=TestWavelet.fadeOut)[0])
+
     # Set up in-place data-selection dicts for the constructed object
     dataSelections = [None,
                       {"trials": [1, 2, 0],
@@ -875,7 +892,7 @@ class TestWavelet():
 
             # Compute TF objects w\w/o`foi`/`foilim`
             cfg.select = select
-            tfSpec = freqanalysis(cfg, self.tfData)
+            tfSpec = freqanalysis(cfg, _get_tf_data_superlet())
             cfg.foi = maxFreqs
             tfSpecFoi = freqanalysis(cfg, self.tfData)
             cfg.foi = None
@@ -993,8 +1010,8 @@ class TestWavelet():
 
         # Unsorted `toi` array
         cfg.toi = [0.3, -0.1, 0.2]
-        with pytest.raises(SPYValueError, match="Invalid value of `toi`: 'unsorted list/array'"):
-            freqanalysis(cfg, _get_tf_data())
+        with pytest.raises(SPYValueError):
+            freqanalysis(cfg, _get_tf_data_superlet())
 
     def test_wav_irregular_trials(self):
         # Set up wavelet to compute "full" TF spectrum for all time-points
@@ -1106,7 +1123,7 @@ class TestWavelet():
 
         client.close()
 
-def _get_tf_data():
+def _get_tf_data_superlet():
     return _make_tf_signal(TestSuperlet.nChannels, TestSuperlet.nTrials, TestSuperlet.seed,
                                                            fadeIn=TestSuperlet.fadeIn, fadeOut=TestSuperlet.fadeOut)[0]
 
@@ -1281,14 +1298,14 @@ class TestSuperlet():
         # Use `toi` array outside trial boundaries
         cfg.toi = self.tfData.time[0][:10]
         with pytest.raises(SPYValueError) as spyval:
-            freqanalysis(cfg, _get_tf_data())
+            freqanalysis(cfg, _get_tf_data_superlet())
             errmsg = "Invalid value of `toi`: expected all array elements to be bounded by {} and {}"
             assert errmsg.format(*cfg.select["toilim"]) in str(spyval.value)
 
         # Unsorted `toi` array
         cfg.toi = [0.3, -0.1, 0.2]
         with pytest.raises(SPYValueError) as spyval:
-            freqanalysis(cfg, _get_tf_data())
+            freqanalysis(cfg, _get_tf_data_superlet())
             assert "Invalid value of `toi`: 'unsorted list/array'" in str(spyval.value)
 
     def test_slet_irregular_trials(self, fulltests):
