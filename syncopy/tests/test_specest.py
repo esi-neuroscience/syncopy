@@ -644,7 +644,7 @@ class TestMTMConvol():
         # Use `toi` array outside trial boundaries
         cfg.toi = self.tfData.time[0][:10]
         with pytest.raises(SPYError) as spyval:
-            freqanalysis(cfg, _get_tf_data_superlet())
+            freqanalysis(cfg, TestSuperlet._get_tf_data_superlet())
             errmsg = "Invalid value of `toi`: expected all array elements to be bounded by {} and {}"
             assert errmsg.format(*cfg.select["toilim"]) in str(spyval.value)
 
@@ -892,7 +892,7 @@ class TestWavelet():
 
             # Compute TF objects w\w/o`foi`/`foilim`
             cfg.select = select
-            tfSpec = freqanalysis(cfg, _get_tf_data_superlet())
+            tfSpec = freqanalysis(cfg, TestSuperlet._get_tf_data_superlet())
             cfg.foi = maxFreqs
             tfSpecFoi = freqanalysis(cfg, TestWavelet.get_tfdata_wavelet())
             cfg.foi = None
@@ -1011,7 +1011,7 @@ class TestWavelet():
         # Unsorted `toi` array
         cfg.toi = [0.3, -0.1, 0.2]
         with pytest.raises(SPYValueError):
-            freqanalysis(cfg, _get_tf_data_superlet())
+            freqanalysis(cfg, TestSuperlet._get_tf_data_superlet())
 
     def test_wav_irregular_trials(self):
         # Set up wavelet to compute "full" TF spectrum for all time-points
@@ -1123,11 +1123,13 @@ class TestWavelet():
 
         client.close()
 
-def _get_tf_data_superlet():
-    return _make_tf_signal(TestSuperlet.nChannels, TestSuperlet.nTrials, TestSuperlet.seed,
+class TestSuperlet():
+
+    @staticmethod
+    def _get_tf_data_superlet():
+        return _make_tf_signal(TestSuperlet.nChannels, TestSuperlet.nTrials, TestSuperlet.seed,
                                                            fadeIn=TestSuperlet.fadeIn, fadeOut=TestSuperlet.fadeOut)[0]
 
-class TestSuperlet():
 
     # Prepare testing signal: ensure `fadeIn` and `fadeOut` are compatible w/`toilim`
     # selection below
@@ -1298,14 +1300,14 @@ class TestSuperlet():
         # Use `toi` array outside trial boundaries
         cfg.toi = self.tfData.time[0][:10]
         with pytest.raises(SPYValueError) as spyval:
-            freqanalysis(cfg, _get_tf_data_superlet())
+            freqanalysis(cfg, TestSuperlet._get_tf_data_superlet())
             errmsg = "Invalid value of `toi`: expected all array elements to be bounded by {} and {}"
             assert errmsg.format(*cfg.select["toilim"]) in str(spyval.value)
 
         # Unsorted `toi` array
         cfg.toi = [0.3, -0.1, 0.2]
         with pytest.raises(SPYValueError) as spyval:
-            freqanalysis(cfg, _get_tf_data_superlet())
+            freqanalysis(cfg, TestSuperlet._get_tf_data_superlet())
             assert "Invalid value of `toi`: 'unsorted list/array'" in str(spyval.value)
 
     def test_slet_irregular_trials(self, fulltests):
