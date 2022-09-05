@@ -14,7 +14,8 @@ from syncopy.tests.misc import flush_local_cluster
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.datatype.base_data import Selector
 from syncopy.datatype.methods.selectdata import selectdata
-from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.shared.errors import SPYError, SPYValueError, SPYTypeError
+import syncopy as spy
 from syncopy import __acme__
 if __acme__:
     import dask.distributed as dd
@@ -816,3 +817,75 @@ class TestSelector():
             getattr(self, test)()
             flush_local_cluster(testcluster)
         client.close()
+
+from syncopy.tests.test_specest_fooof import _get_fooof_signal
+from syncopy.shared.tools import StructDict
+from syncopy import freqanalysis
+
+def _get_mtmfft_cfg_without_selection():
+    cfg = StructDict()
+    cfg.out = "pow"
+    cfg.method = "mtmfft"
+    cfg.taper = "hann"
+    cfg.keeptrials = True
+    return cfg
+
+class TestSelectionBug332():
+    def test_cF_no_selections(self):
+        data_len = 501 # length of spectral signal
+        nTrials = 20
+        nChannels = 1
+        adt = _get_fooof_signal(nTrials=nTrials, nChannels=nChannels)
+        assert adt.selection is None
+        cfg = _get_mtmfft_cfg_without_selection()
+        assert not 'select' in cfg
+        out = freqanalysis(cfg, adt)
+        assert out.data.shape == (nTrials, 1, data_len, nChannels), f"expected shape {(nTrials, 1, data_len, nChannels)} but found out.data.shape={out.data.shape}"
+
+    def test_cF_selection_in_cfg(self):
+        data_len = 501 # length of spectral signal
+        nTrials = 20
+        nChannels = 1
+        adt = _get_fooof_signal(nTrials=nTrials, nChannels=nChannels)
+        assert adt.selection is None
+        cfg = _get_mtmfft_cfg_without_selection()
+        selected_trials = [3, 5, 7]
+
+        cfg.select = { 'trials': selected_trials } # Add selection to cfg.
+        assert 'select' in cfg
+        out = freqanalysis(cfg, adt)
+        assert out.data.shape == (len(selected_trials), 1, data_len, nChannels), f"expected shape {(len(selected_trials), 1, data_len, nChannels)} but found out.data.shape={out.data.shape}"
+
+    def test_cF_inplace_selection_in_data(self):
+        data_len = 501 # length of spectral signal
+        nTrials = 20
+        nChannels = 1
+        adt = _get_fooof_signal(nTrials=nTrials, nChannels=nChannels)
+        cfg = _get_mtmfft_cfg_without_selection()
+        assert not 'select' in cfg
+        selected_trials = [3, 5, 7]
+
+        assert adt.selection is None
+        spy.selectdata(adt, trials=selected_trials, inplace=True)  # Add in-place selection to input data.
+        assert adt.selection is not None
+
+        out = freqanalysis(cfg, adt)
+        assert out.data.shape == (len(selected_trials), 1, data_len, nChannels), f"expected shape {(len(selected_trials), 1, data_len, nChannels)} but found out.data.shape={out.data.shape}"
+
+    def test_selections_in_both_not_allowed(self):
+        data_len = 501 # length of spectral signal
+        nTrials = 20
+        nChannels = 1
+        adt = _get_fooof_signal(nTrials=nTrials, nChannels=nChannels)
+        cfg = _get_mtmfft_cfg_without_selection()
+        selected_trials = [3, 5, 7]
+
+        cfg.select = { 'trials': selected_trials }
+        spy.selectdata(adt, trials=selected_trials, inplace=True)  # Add in-place selection to input data.
+
+        assert adt.selection is not None
+        assert 'select' in cfg
+
+        with pytest.raises(SPYError, match="Selection found both"):
+            out = freqanalysis(cfg, adt)
+        #assert out.data.shape == (len(selected_trials), 1, data_len, nChannels), f"expected shape {(len(selected_trials), 1, data_len, nChannels)} but found out.data.shape={out.data.shape}"

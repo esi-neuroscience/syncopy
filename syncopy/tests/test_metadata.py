@@ -28,7 +28,7 @@ if __acme__:
 skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 
 
-def _get_fooof_signal(nTrials=100, nChannels = 1):
+def _get_fooof_signal(nTrials=100, nChannels = 1, nSamples = 1000):
     """
     Produce suitable test signal for fooof, with peaks at 30 and 50 Hz.
 
@@ -37,7 +37,6 @@ def _get_fooof_signal(nTrials=100, nChannels = 1):
 
     Returns AnalogData instance.
     """
-    nSamples = 1000
     samplerate = 1000
     ar1_part = AR2_network(AdjMat=np.zeros(nChannels), nSamples=nSamples, alphas=[0.9, 0], nTrials=nTrials)
     pd1 = phase_diffusion(freq=30., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
