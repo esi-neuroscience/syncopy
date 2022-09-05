@@ -162,8 +162,6 @@ def spike_psth(data,
     if not vartriallen:
         # trial idx for whole dataset
         trl_idx = np.arange(len(data.trials))
-        print(trl_starts)
-        print(trl_ends)
         bmask = (trl_starts <= window[0]) & (trl_ends >= window[1])
 
         # trials which fit completely into window
