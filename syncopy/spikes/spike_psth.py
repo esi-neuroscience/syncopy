@@ -11,18 +11,13 @@ from syncopy.shared.tools import get_defaults, get_frontend_cfg
 from syncopy.datatype import TimeLockData
 from syncopy.datatype.base_data import Indexer
 
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo
 from syncopy.shared.kwarg_decorators import (
     unwrap_cfg,
     unwrap_select,
     detect_parallel_client
 )
 from syncopy.shared.input_processors import check_passed_kwargs
-
-
-# dev
-from syncopy.tests import synth_data as sd
-spd = sd.poisson_noise(10, nUnits=3, nChannels=10, nSpikes=10000, samplerate=10000)
 
 # Local imports
 from syncopy.spikes.compRoutines import PSTH
@@ -116,10 +111,19 @@ def spike_psth(data,
         # beginnings and ends of all (selected) trials in trigger-relative time
         trl_starts, trl_ends = data.trialintervals[:, 0], data.trialintervals[:, 1]
 
-    # --- parse and digest `latency` (time window of analysis) ---
+    # validate output parameter
+    if output not in available_outputs:
+        lgl = f"one of {available_outputs}"
+        act = output
+        raise SPYValueError(lgl, 'output', act)
 
-    # just for sanity checks atm
-    # tmin, tmax = trl_starts.min(), trl_ends.max()
+    if isinstance(binsize, str):
+        if binsize not in available_binsizes:
+            lgl = f"one of {available_binsizes}"
+            act = output
+            raise SPYValueError(lgl, 'output', act)
+
+    # --- parse and digest `latency` (time window of analysis) ---
 
     if isinstance(latency, str):
         if latency not in available_latencies:
@@ -157,6 +161,21 @@ def spike_psth(data,
     # explicit time window in seconds
     else:
         array_parser(latency, lims=[-np.inf, np.inf], dims=(2,))
+        # check that at least some events are covered
+        if latency[0] > trl_ends.max():
+            lgl = "start of latency window before at least one trial ends"
+            act = latency[0]
+            raise SPYValueError(lgl, 'latency[0]', act)
+
+        if latency[1] < trl_starts.min():
+            lgl = "end of latency window after at least one trial starts"
+            act = latency[1]
+            raise SPYValueError(lgl, 'latency[1]', act)
+
+        if latency[0] > latency[1]:
+            lgl = "start < end latency window"
+            act = f"start={latency[0]}, end={latency[1]}"
+            raise SPYValueError(lgl, "latency", act)
         window = latency
 
     if not vartriallen:
@@ -221,9 +240,6 @@ def spike_psth(data,
 
     # it's a sequential loop to get an array of [chan, unit] indices
     combs = get_chan_unit_combs(trials)
-
-    # now we have our global (single-trial, avg, std,..) histogram shape
-    # h_shape = (nBins, len(combs))
 
     # --- populate the log
 

@@ -129,8 +129,18 @@ def psth(trl_dat,
     trl_end_reltime = (trl_end - trl_start + onset) / samplerate
 
     # mask indices along the time bin axis
-    min_idx = np.argmin(tbins < trl_start_reltime)
-    max_idx = np.argmin(tbins <= trl_end_reltime)
+    # which are completely outside of latency window
+    # mask all
+    if np.all(tbins < trl_start_reltime):
+        min_idx = len(counts)
+    else:
+        min_idx = np.argmin(tbins < trl_start_reltime)
+    # mask all
+    if np.all(tbins > trl_end_reltime):
+        min_idx = len(counts)
+        max_idx = 0
+    else:
+        max_idx = np.argmin(tbins <= trl_end_reltime)
 
     if min_idx != 0:
         counts[:min_idx] = np.nan
