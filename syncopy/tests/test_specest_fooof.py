@@ -198,7 +198,7 @@ class TestFooofSpy():
         cfg.output = "fooof_peaks"
         cfg.pop('fooof_opt', None)
         fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
-        spec_dt = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
+        spec_dt = freqanalysis(cfg, _get_fooof_signal(), fooof_opt=fooof_opt)
         assert spec_dt.data.ndim == 4
         assert "fooof" in spec_dt._log
         assert "fooof_method = fooof_peaks" in spec_dt._log
