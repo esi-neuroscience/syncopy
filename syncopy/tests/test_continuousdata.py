@@ -1193,14 +1193,20 @@ class TestTimeLockData:
         tld._update_seq_dataset("avg", avg_data)
         assert np.array_equal(avg_data, tld.avg)
 
-        # now try to overwrite data with different dimension and type
+        # Try to overwrite data via setter, which should not work.
         avg_data2 = np.zeros((4, 4, 4), dtype=np.float32)
         with pytest.raises(AttributeError, match="can't set attribute"):
             tld.avg = avg_data2
 
-        # but we can do it with _update_seq_dataset:
+        # But we can do it with _update_seq_dataset:
         tld._update_seq_dataset("avg", avg_data2)
         assert np.array_equal(avg_data2, tld.avg)
+
+        # ... or of course, directly using '_avg':
+        tld2 = TimeLockData()
+        avg_data3 = np.zeros((2, 2), dtype=np.float32)
+        tld2._avg = avg_data3
+        assert np.array_equal(avg_data3, tld2.avg)
 
 
 

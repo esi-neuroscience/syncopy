@@ -279,19 +279,27 @@ class TestAttachDataset:
         spkd._unregister_seq_dataset("dset_mean")
         spkd._register_seq_dataset("dset_mean", extra_data_diff_type) # Fine this time, it's new.
 
-    def test_save_load(self):
-        """Test that saving and loading with attached seq datasets works."""
+    def test_save_load_unregister(self):
+        """Test that saving and loading with attached seq datasets works.
+           Also tests that the attached datasets gets deleted from the
+           backing HDF5 file when calling `_unregister_seq_dataset()`.
+        """
 
         spkd = get_spike_data()
         extra_data = np.zeros((3, 3), dtype=np.float64)
         spkd._register_seq_dataset("dset_mean", extra_data)
 
         with tempfile.TemporaryDirectory() as tmpdirname:
+            # Test save and load.
             tmp_spy_filename = os.path.join(tmpdirname, "myfile.spike")
             spy.save(spkd, filename=tmp_spy_filename)
             spkd2 = spy.load(filename=tmp_spy_filename)
             assert isinstance(spkd2._dset_mean, h5py.Dataset)
             assert np.array_equal(spkd._dset_mean[()], spkd2._dset_mean[()])
+
+            # Test delete/unregister.
+            spkd2._unregister_seq_dataset("dset_mean")
+            assert "dset_mean" not in h5py.File(tmp_spy_filename, mode="r").keys()
 
 
 
