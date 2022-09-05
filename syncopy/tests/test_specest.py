@@ -649,9 +649,8 @@ class TestMTMConvol():
 
         # Unsorted `toi` array
         cfg.toi = [0.3, -0.1, 0.2]
-        with pytest.raises(SPYValueError) as spyval:
+        with pytest.raises(SPYError) as spyval:
             freqanalysis(cfg, self.tfData)
-            assert "Invalid value of `toi`: 'unsorted list/array'" in str(spyval.value)
 
     def test_tf_irregular_trials(self, fulltests):
         # Settings for computing "full" non-overlapping TF-spectrum with DPSS tapers:
@@ -894,10 +893,10 @@ class TestWavelet():
             cfg.select = select
             tfSpec = freqanalysis(cfg, _get_tf_data_superlet())
             cfg.foi = maxFreqs
-            tfSpecFoi = freqanalysis(cfg, self.tfData)
+            tfSpecFoi = freqanalysis(cfg, TestWavelet.get_tfdata_wavelet())
             cfg.foi = None
             cfg.foilim = [maxFreqs.min(), maxFreqs.max()]
-            tfSpecFoiLim = freqanalysis(cfg, self.tfData)
+            tfSpecFoiLim = freqanalysis(cfg, TestWavelet.get_tfdata_wavelet())
             cfg.foilim = None
 
             # Ensure TF objects contain expected/requested frequencies
@@ -997,7 +996,7 @@ class TestWavelet():
         # to not overflow memory here)
         cfg.select = {"trials": [0], "channel": [0], "toilim": [-0.5, 0.5]}
         cfg.toi = "all"
-        tfSpec = freqanalysis(cfg, self.tfData)
+        tfSpec = freqanalysis(cfg, TestWavelet.get_tfdata_wavelet())
         dt = 1/self.tfData.samplerate
         timeArr = np.arange(cfg.select["toilim"][0], cfg.select["toilim"][1] + dt, dt)
         assert np.allclose(tfSpec.time[0], timeArr)
@@ -1005,7 +1004,7 @@ class TestWavelet():
         # Use `toi` array outside trial boundaries
         cfg.toi = self.tfData.time[0][:10]
         with pytest.raises(SPYValueError) as spyval:
-            freqanalysis(cfg, self.tfData)
+            freqanalysis(cfg, TestWavelet.get_tfdata_wavelet())
 
 
         # Unsorted `toi` array
