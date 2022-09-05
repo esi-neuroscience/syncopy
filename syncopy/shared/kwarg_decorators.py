@@ -376,6 +376,7 @@ def unwrap_select(func):
                     obj.selection = select_kw
                 else:
                     if select_kw is not None:
+                        print(f"obj.selection is not None: {obj.selection}")
                         raise SPYValueError("Selection can be passed in SyncopyData instance or as kword argument, not both.")
 
 
