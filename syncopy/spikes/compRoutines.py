@@ -154,12 +154,14 @@ class PSTH(ComputationalRoutine):
             out.trialdefinition = trl
         else:
             out.trialdefinition = trl[[0], :]
-            # the ad-hoc averaging does not work well here
-            # so we rather delete the data to 'not keep the trials'
-            out.data = None
-            # TODO: add real average operator here
 
         out.samplerate = srate
         # join labels for final unitX_channelY channel labels
         chan_str = "channel{}_unit{}"
         out.channel = [chan_str.format(c, u) for c, u in self.cfg['chan_unit_combs']]
+
+        if not self.keeptrials:
+            # the ad-hoc averaging does not work well here because of NaNs
+            # so we rather delete the data to 'not keep the trials'
+            out.data = None
+            # TODO: add real average operator here

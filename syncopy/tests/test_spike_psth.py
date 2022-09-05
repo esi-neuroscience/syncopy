@@ -306,8 +306,14 @@ class TestPSTH:
 
         # check that counts for remaining channel/units are unchanged
         for chan in pruned_counts.channel:
-            assert np.all(counts.show(trials=4, channel=chan) == pruned_counts.show(trials=4, channel=chan))
+            assert np.array_equal(counts.show(trials=4, channel=chan),
+                                  pruned_counts.show(trials=4, channel=chan),
+                                  equal_nan=True)
 
+    def test_parallel_selection(self):
+
+        pass
+        # TODO: allow channel selection
 
 if __name__ == '__main__':
     T1 = TestPSTH()
