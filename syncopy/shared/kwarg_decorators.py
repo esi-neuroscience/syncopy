@@ -373,10 +373,12 @@ def unwrap_select(func):
         select = kwargs.get("select", None)
         for obj in args:
             if hasattr(obj, "selection"):
-                if obj.selection is not None:
+                if obj.selection is None:
+                    obj.selection = select
+                else:
                     if select is not None:
                         raise SPYError(f"Selection found both in kwarg 'selection' ({select}) and in passed Syncopy Data object of type '{type(obj)}' ({obj.selection})")
-                obj.selection = select
+
 
         # Call function with modified data object(s)
         res = func(*args, **kwargs)
