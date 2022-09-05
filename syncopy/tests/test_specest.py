@@ -630,8 +630,8 @@ class TestMTMConvol():
 
         # Use `toi` array outside trial boundaries
         cfg.toi = self.tfData.time[0][:10]
-        with pytest.raises(SPYValueError) as spyval:
-            freqanalysis(cfg, self.tfData)
+        with pytest.raises(SPYError) as spyval:
+            freqanalysis(cfg, _get_tf_data())
             errmsg = "Invalid value of `toi`: expected all array elements to be bounded by {} and {}"
             assert errmsg.format(*cfg.select["toilim"]) in str(spyval.value)
 
@@ -993,9 +993,8 @@ class TestWavelet():
 
         # Unsorted `toi` array
         cfg.toi = [0.3, -0.1, 0.2]
-        with pytest.raises(SPYError) as spyval:
-            freqanalysis(cfg, self.tfData)
-
+        with pytest.raises(SPYValueError, match="Invalid value of `toi`: 'unsorted list/array'"):
+            freqanalysis(cfg, _get_tf_data())
 
     def test_wav_irregular_trials(self):
         # Set up wavelet to compute "full" TF spectrum for all time-points
