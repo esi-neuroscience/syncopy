@@ -17,7 +17,7 @@ if __acme__:
 # Local imports
 from syncopy.tests.misc import generate_artificial_data, flush_local_cluster
 from syncopy import freqanalysis
-from syncopy.shared.errors import SPYValueError
+from syncopy.shared.errors import SPYValueError, SPYError
 from syncopy.datatype.base_data import Selector
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.shared.tools import StructDict, get_defaults
@@ -989,14 +989,13 @@ class TestWavelet():
         cfg.toi = self.tfData.time[0][:10]
         with pytest.raises(SPYValueError) as spyval:
             freqanalysis(cfg, self.tfData)
-            errmsg = "Invalid value of `toi`: expected all array elements to be bounded by {} and {}"
-            assert errmsg.format(*cfg.select["toilim"]) in str(spyval.value)
+
 
         # Unsorted `toi` array
         cfg.toi = [0.3, -0.1, 0.2]
-        with pytest.raises(SPYValueError) as spyval:
+        with pytest.raises(SPYError) as spyval:
             freqanalysis(cfg, self.tfData)
-            assert "Invalid value of `toi`: 'unsorted list/array'" in str(spyval.value)
+
 
     def test_wav_irregular_trials(self):
         # Set up wavelet to compute "full" TF spectrum for all time-points
