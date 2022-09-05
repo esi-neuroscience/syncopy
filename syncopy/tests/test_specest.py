@@ -428,7 +428,7 @@ class TestMTMConvol():
     @staticmethod
     def get_tfdata_mtmconvol():
         return _make_tf_signal(TestMTMConvol.nChannels, TestMTMConvol.nTrials, TestMTMConvol.seed,
-                                                           fadeIn=TestMTMConvol.fadeIn, fadeOut=TestMTMConvol.fadeOut)
+                                                           fadeIn=TestMTMConvol.fadeIn, fadeOut=TestMTMConvol.fadeOut)[0]
 
 
     # Data selection dict for the above object
@@ -496,12 +496,12 @@ class TestMTMConvol():
 
             # Compute TF objects w\w/o`foi`/`foilim`
             cfg.select = select
-            tfSpec = freqanalysis(cfg, self.tfData)
+            tfSpec = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
             cfg.foi = maxFreqs
-            tfSpecFoi = freqanalysis(cfg, self.tfData)
+            tfSpecFoi = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
             cfg.foi = None
             cfg.foilim = [maxFreqs.min(), maxFreqs.max()]
-            tfSpecFoiLim = freqanalysis(cfg, self.tfData)
+            tfSpecFoiLim = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
             cfg.foilim = None
 
             # Ensure TF objects contain expected/requested frequencies
@@ -510,17 +510,18 @@ class TestMTMConvol():
             assert np.array_equal(tfSpecFoiLim.freq, foilimFreqs)
 
             for tk, trlArr in enumerate(tfSpec.trials):
+                tfData = TestMTMConvol.get_tfdata_mtmconvol()
 
                 # Compute expected timing array depending on `toilim`
                 trlNo = tk
-                timeArr = np.arange(self.tfData.time[trlNo][0], self.tfData.time[trlNo][-1])
+                timeArr = np.arange(tfData.time[trlNo][0], tfData.time[trlNo][-1])
                 timeSelection = slice(None)
                 if select:
                     trlNo = select["trials"][tk]
                     if "toilim" in select.keys():
                         timeArr = np.arange(*select["toilim"])
-                        timeStart = int(select['toilim'][0] * self.tfData.samplerate - self.tfData._t0[trlNo])
-                        timeStop = int(select['toilim'][1] * self.tfData.samplerate - self.tfData._t0[trlNo])
+                        timeStart = int(select['toilim'][0] * tfData.samplerate - tfData._t0[trlNo])
+                        timeStop = int(select['toilim'][1] * tfData.samplerate - tfData._t0[trlNo])
                         timeSelection = slice(timeStart, timeStop)
 
                 # Ensure timing array was computed correctly and independent of `foi`/`foilim`
@@ -534,7 +535,7 @@ class TestMTMConvol():
                     chanNo = chan
                     if select:
                         if "toilim" not in select.keys():
-                            chanNo = np.where(self.tfData.channel == select["channel"][chan])[0][0]
+                            chanNo = np.where(tfData.channel == select["channel"][chan])[0][0]
                     if chanNo % 2:
                         modIdx = self.odd[(-1)**trlNo]
                     else:
@@ -598,7 +599,7 @@ class TestMTMConvol():
                 cfg.t_ftimwin = winsize
                 for toi in toiVals:
                     cfg.toi = toi
-                    tfSpec = freqanalysis(cfg, self.tfData)
+                    tfSpec = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
                     tStep = winsize - toi * winsize
                     timeArr = np.arange(tStart, tStop, tStep)
                     assert np.allclose(timeArr, tfSpec.time[0])
@@ -608,13 +609,13 @@ class TestMTMConvol():
                 cfg.t_ftimwin = 0.05
                 for toi in toiArrs:
                     cfg.toi = toi
-                    tfSpec = freqanalysis(cfg, self.tfData)
+                    tfSpec = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
                     assert np.allclose(cfg.toi, tfSpec.time[0])
                     assert tfSpec.samplerate == 1/(toi[1] - toi[0])
 
                 # Unevenly sampled array: timing currently in lala-land, but sizes must match
                 cfg.toi = [-1, 2, 6]
-                tfSpec = freqanalysis(cfg, self.tfData)
+                tfSpec = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
                 assert tfSpec.time[0].size == len(cfg.toi)
 
         # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
@@ -624,19 +625,19 @@ class TestMTMConvol():
         cfg.select = {"trials": [0], "channel": [0], "toilim": [-0.5, 0.5]}
         cfg.toi = "all"
         cfg.t_ftimwin = 0.05
-        tfSpec = freqanalysis(cfg, self.tfData)
+        tfSpec = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
         assert tfSpec.taper.size >= 1
         dt = 1 / self.tfData.samplerate
         timeArr = np.arange(cfg.select["toilim"][0], cfg.select["toilim"][1] + dt, dt)
         assert np.allclose(tfSpec.time[0], timeArr)
         cfg.toi = 1.0
-        tfSpec = freqanalysis(cfg, self.tfData)
+        tfSpec = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
         assert np.allclose(tfSpec.time[0], timeArr)
 
         # Use a window-size larger than the pre-selected interval defined above
         cfg.t_ftimwin = 5.0
         with pytest.raises(SPYValueError) as spyval:
-            freqanalysis(cfg, self.tfData)
+            freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
             assert "Invalid value of `t_ftimwin`" in str(spyval.value)
         cfg.t_ftimwin = 0.05
 
@@ -650,7 +651,7 @@ class TestMTMConvol():
         # Unsorted `toi` array
         cfg.toi = [0.3, -0.1, 0.2]
         with pytest.raises(SPYError) as spyval:
-            freqanalysis(cfg, self.tfData)
+            freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
 
     def test_tf_irregular_trials(self, fulltests):
         # Settings for computing "full" non-overlapping TF-spectrum with DPSS tapers:
