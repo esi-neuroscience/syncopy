@@ -217,7 +217,7 @@ class TestFooofSpy():
         assert 27 < out_fooof_peaks.freq[f1_ind] < 33
 
         plot_data = {"Raw input data": np.ravel(out_fft.data), "Fooofed spectrum": np.ravel(out_fooof.data), "Fooof aperiodic fit": np.ravel(out_fooof_aperiodic.data), "Fooof peaks fit": np.ravel(out_fooof_peaks.data)}
-        _plot_powerspec_linear(freqs, powers=plot_data, title="Outputs from different fooof methods for ar1 data (linear scale)")
+        #_plot_powerspec_linear(freqs, powers=plot_data, title="Outputs from different fooof methods for ar1 data (linear scale)")
 
     def test_frontend_settings_are_merged_with_defaults_used_in_backend(self):
         cfg = TestFooofSpy.get_fooof_cfg()
