@@ -1382,15 +1382,15 @@ class Selector():
 
             # now massage/validate it such that we can use it to
             # directly index the hdf5 dataset
-            # tuple elements can only be lists or slices, see concrete
+            # tuple elements can only be lists or ordered slices, see concrete
             # `_preview_trial` implementations which generate those idx tuples
             # maybe TODO: allow fancy indexing like in the CR
             for i, dim_idx in enumerate(trl_idx):
                 if isinstance(dim_idx, list):
                     # no fancy indexing, no repetitions
                     if len(set(dim_idx)) != len(dim_idx):
-                        lgl = "Simple selections w/o repetitions"
-                        act = f"Fancy selection with repetitions for selector {data.dimord[i]}"
+                        lgl = "simple selections w/o repetitions"
+                        act = f"fancy selection with repetitions for selector {data.dimord[i]}"
                         raise SPYValueError(lgl, "Selector.trials", act)
 
                     # DiscreteData selections inherently re-order the sample dim. idx
@@ -1399,13 +1399,8 @@ class Selector():
                         # sorts in place!
                         dim_idx.sort()
                     elif np.any(np.diff(dim_idx) < 0):
-                        lgl = "Simple selection in ascending order"
-                        act = f"Fancy non-ordered selection of selector {data.dimord[i]}"
-                        raise SPYValueError(lgl, "Selector.trials", act)
-                elif isinstance(dim_idx, slice):
-                    if dim_idx.step is not None and dim_idx.step < 0:
-                        lgl = "Simple selection in ascending order"
-                        act = f"Descending selection of selector {data.dimord[i]}"
+                        lgl = "simple selection in ascending order"
+                        act = f"fancy non-ordered selection of selector {data.dimord[i]}"
                         raise SPYValueError(lgl, "Selector.trials", act)
             # if we landed here all is good and we take
             # a leap of faith into the hdf5 dataset
