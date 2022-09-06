@@ -258,7 +258,7 @@ class TestMTMFFT():
             elif "toi" in select:
                 nSamples = len(select["toi"])
             else:
-                nSamples = artdata.time[sel.trials[0]][sel.time[0]].size
+                nSamples = artdata.time[sel.trial_ids[0]][sel.time[0]].size
             freqs = np.fft.rfftfreq(nSamples, 1 / artdata.samplerate)
             assert spec.freq.size == freqs.size
             assert np.max(spec.freq - freqs) < self.ftol
@@ -288,7 +288,7 @@ class TestMTMFFT():
             elif "toi" in select:
                 nSamples = len(select["toi"])
             else:
-                nSamples = cfg.data.time[sel.trials[0]][sel.time[0]].size
+                nSamples = cfg.data.time[sel.trial_ids[0]][sel.time[0]].size
             freqs = np.fft.rfftfreq(nSamples, 1 / cfg.data.samplerate)
             assert spec.freq.size == freqs.size
             assert np.max(spec.freq - freqs) < self.ftol
@@ -321,7 +321,7 @@ class TestMTMFFT():
             elif "toi" in select:
                 nSamples = len(select["toi"])
             else:
-                nSamples = cfg.data.time[sel.trials[0]][sel.time[0]].size
+                nSamples = cfg.data.time[sel.trial_ids[0]][sel.time[0]].size
             freqs = np.fft.rfftfreq(nSamples, 1 / cfg.data.samplerate)
             assert spec.freq.size == freqs.size
             assert np.max(spec.freq - freqs) < self.ftol
