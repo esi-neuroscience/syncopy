@@ -1287,6 +1287,7 @@ class Selector():
         # Assign defaults (trials are not a "real" property, handle it separately,
         # same goes for `trialdefinition`)
         self._trials = None
+        self._trial_ids = None
         self._trialdefinition = None
         for prop in self._allProps:
             setattr(self, "_{}".format(prop), None)
@@ -1344,7 +1345,7 @@ class Selector():
                 raise SPYValueError(legal=lgl, varname=vname, actual=act)
         else:
             trials = trlList
-        self._trials = list(trials) # ensure `trials` is a list cf. #180
+        self._trial_ids = list(trials) # ensure `trials` is a list cf. #180
 
     @property
     def channel(self):
@@ -1385,7 +1386,7 @@ class Selector():
 
     @property
     def time(self):
-        """len(self.trials) list of lists/slices of by-trial time-selections"""
+        """len(self.trial_ids) list of lists/slices of by-trial time-selections"""
         return self._time
 
     @time.setter
@@ -1437,7 +1438,7 @@ class Selector():
                         lgl = "`select: toilim` selection with `toilim[0]` < `toilim[1]`"
                         act = "selection range from {} to {}".format(timeSpec[0], timeSpec[1])
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
-            timing = data._get_time(self.trials, toi=select.get("toi"), toilim=select.get("toilim"))
+            timing = data._get_time(self.trial_ids, toi=select.get("toi"), toilim=select.get("toilim"))
 
             # Determine, whether time-selection is unordered/contains repetitions
             # and set `self._timeShuffle` accordingly
@@ -1457,7 +1458,7 @@ class Selector():
 
     @property
     def trialdefinition(self):
-        """len(self.trials)-by-(3+) :class:`numpy.ndarray` encoding trial-information of selection"""
+        """len(self.trial_ids)-by-(3+) :class:`numpy.ndarray` encoding trial-information of selection"""
         return self._trialdefinition
 
     @trialdefinition.setter
@@ -1469,11 +1470,11 @@ class Selector():
         # `DiscreteData`: simply copy relevant sample-count -> trial assignments,
         # for other classes build new trialdefinition array using `t0`-offsets
         if self._dataClass in ["SpikeData", "EventData"]:
-            trlDef = trl[self.trials, :]
+            trlDef = trl[self.trial_ids, :]
         else:
-            trlDef = np.zeros((len(self.trials), trl.shape[1]))
+            trlDef = np.zeros((len(self.trial_ids), trl.shape[1]))
             counter = 0
-            for tk, trlno in enumerate(self.trials):
+            for tk, trlno in enumerate(self.trial_ids):
                 tsel = self.time[tk]
                 if isinstance(tsel, slice):
                     start, stop, step = tsel.start, tsel.stop, tsel.step
@@ -1530,7 +1531,7 @@ class Selector():
 
     @property
     def timepoints(self):
-        """len(self.trials) list of lists encoding actual (not sample indices!)
+        """len(self.trial_ids) list of lists encoding actual (not sample indices!)
         timing information of unordered `toi` selections"""
         if self._timeShuffle:
             return [[(tvec[tp] + self.trialdefinition[tk, 2]) / self._samplerate
@@ -1607,7 +1608,7 @@ class Selector():
 
     @property
     def unit(self):
-        """len(self.trials) list of lists/slices of by-trial unit-selections"""
+        """len(self.trial_ids) list of lists/slices of by-trial unit-selections"""
         return self._unit
 
     @unit.setter
@@ -1696,7 +1697,7 @@ class Selector():
             # Take entire inventory sitting in `selectkey`
             if selection is None:
                 if selectkey in ["unit", "eventid"]:
-                    setattr(self, selector, [slice(None, None, 1)] * len(self.trials))
+                    setattr(self, selector, [slice(None, None, 1)] * len(self.trial_ids))
                 else:
                     setattr(self, selector, slice(None, None, 1))
 
@@ -1725,7 +1726,7 @@ class Selector():
                 # performed by the respective `_get_unit` and `_get_eventid` class methods
                 if selectkey in ["unit", "eventid"]:
                     if selection.start is selection.stop is None:
-                        setattr(self, selector, [slice(None, None, 1)] * len(self.trials))
+                        setattr(self, selector, [slice(None, None, 1)] * len(self.trial_ids))
                     else:
                         if isinstance(selection, slice):
                             if np.issubdtype(target.dtype, np.dtype("str").type):
@@ -1733,7 +1734,7 @@ class Selector():
                             selection = list(target[selection])
                         else:
                             selection = list(selection)
-                        setattr(self, selector, getattr(data, "_get_" + selectkey)(self.trials, selection))
+                        setattr(self, selector, getattr(data, "_get_" + selectkey)(self.trial_ids, selection))
                 else:
                     if selection.start is selection.stop is None:
                         setattr(self, selector, slice(None, None, 1))
@@ -1766,7 +1767,7 @@ class Selector():
                     idxList += list(np.where(targetArr == sel)[0])
 
                 if selectkey in ["unit", "eventid"]:
-                    setattr(self, selector, getattr(data, "_get_" + selectkey)(self.trials, idxList))
+                    setattr(self, selector, getattr(data, "_get_" + selectkey)(self.trial_ids, idxList))
                 else:
                     # if possible, convert range-arrays (`[0, 1, 2, 3]`) to slices for better performance
                     if len(idxList) > 1:
@@ -1841,7 +1842,7 @@ class Selector():
                 wantedChannels = np.unique(data.data[:, chanIdx])[self.channel]
                 chanPerTrial = []
 
-            for tk, trialno in enumerate(self.trials):
+            for tk, trialno in enumerate(self.trial_ids):
                 trialArr = np.arange(np.sum(data.trialid == trialno))
                 byTrialSelections = []
                 for selection in actualSelections:
