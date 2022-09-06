@@ -399,7 +399,7 @@ class ComputationalRoutine(ABC):
             sourceLayout.append(trial.idx)
             sourceShapes.append(trial.shape)
 
-        # Construct dimensional layout of output
+        # Construct dimensional layout of output and append remaining trials to input layout
         stacking = targetLayout[0][stackingDim].stop
         for tk in range(1, self.numTrials):
             trial = trials[tk]
@@ -445,7 +445,7 @@ class ComputationalRoutine(ABC):
         # In this case `sourceLayout` uses ABSOLUTE indices (indices wrt to size
         # of ENTIRE DATASET) that are SORTED W/O REPS to extract a NumPy array
         # of appropriate size from HDF5.
-        # Then `sourceLayout` uses RELATIVE indices (indices wrt to size of CURRENT
+        # Then `sourceSelectors` uses RELATIVE indices (indices wrt to size of CURRENT
         # TRIAL) that can be UNSORTED W/REPS to actually perform the requested
         # selection on the NumPy array extracted w/`sourceLayout`.
         for grd in sourceLayout:
