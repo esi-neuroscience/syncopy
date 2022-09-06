@@ -21,8 +21,8 @@ class TestPSTH:
     spd = sd.poisson_noise(nTrials,
                            nUnits=3,
                            nChannels=2,
-                           nSpikes=1000,
-                           samplerate=10000)
+                           nSpikes=10_000,
+                           samplerate=10_000)
 
     def test_psth_binsize(self):
 
