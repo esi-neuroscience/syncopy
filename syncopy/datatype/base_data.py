@@ -1353,16 +1353,19 @@ class Selector():
 
     @property
     def trials(self):
-        """Returns a single trial array respecting existing selections"""
-        return self._trl_indexer
+        """
+        Returns an Indexer indexing single trial arrays respecting the selection
+        Indices are RELATIVE with respect to existing trial selections:
 
-    @trials.setter
-    def trials(self, dataselect):
+        >>> selection.trials[2]
+
+        indexes the 3rd trial of `selection.trial_ids`
+
+        Selections must be "simple": ordered and without repetitions
         """
-        Gets only set once during Selector init and creates
-        an Indexer akin to BaseData.trials
-        """
-        pass
+
+        return Indexer(map(self._get_trial, self.trial_ids),
+                       len(self.trial_ids)) if self.trial_ids is not None else None
 
     def create_get_trial(self, data):
         """ Closure to allow emulation of BaseData._get_trial"""
@@ -1373,7 +1376,6 @@ class Selector():
                 lgl = "a trial part of the selection"
                 act = trl_id
                 raise SPYValueError(lgl, "Selector.trials", act)
-
             # extract the selection respecting FauxTrial idx tuple
             # which has length len(data.dimord) or 2 if `data` is a DiscreteData instance
             trl_idx = data._preview_trial(trl_id).idx
