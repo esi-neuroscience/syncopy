@@ -248,7 +248,7 @@ class TestComputationalRoutine():
                 selected = self.sigdata.selectdata(**select)
             out_sel = filter_manager(selected, self.b, self.a,
                                      log_dict={"a": "this is a", "b": "this is b"})
-            assert len(out.trials) == len(out_sel.trial_ids)
+            assert len(out.trials) == len(out_sel.trials)
             assert "lowpass" in out._log
             assert "a = this is a" in out._log
             assert "b = this is b" in out._log

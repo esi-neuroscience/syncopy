@@ -178,7 +178,7 @@ class TestMTMFFT():
                                 pad="nextpow2", output="pow", select=select)
 
             chanList = np.arange(self.nChannels)[sel.channel]
-            amps = np.empty((len(sel.trials) * len(chanList),))
+            amps = np.empty((len(sel.trial_ids) * len(chanList),))
             k = 0
             for nchan, chan in enumerate(chanList):
                 for ntrial in range(len(spec.trials)):
