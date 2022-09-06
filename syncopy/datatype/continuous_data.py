@@ -230,7 +230,7 @@ class ContinuousData(BaseData, ABC):
         if self.selection is not None:
 
             # time-selection is most delicate due to trial-offset
-            tsel = self.selection.time[self.selection.trials.index(trialno)]
+            tsel = self.selection.time[self.selection.trial_ids.index(trialno)]
             if isinstance(tsel, slice):
                 if tsel.start is not None:
                     tstart = tsel.start

@@ -456,7 +456,7 @@ class TestSelector():
 
             # test trial selection
             selection = Selector(dummy, {"trials": [3, 1]})
-            assert selection.trials == [3, 1]
+            assert selection.trial_ids == [3, 1]
             selected = selectdata(dummy, trials=[3, 1])
             assert np.array_equal(selected.trials[0], dummy.trials[3])
             assert np.array_equal(selected.trials[1], dummy.trials[1])
@@ -465,7 +465,7 @@ class TestSelector():
 
             # scalar selection
             selection = Selector(dummy, {"trials": 2})
-            assert selection.trials == [2]
+            assert selection.trial_ids == [2]
             selected = selectdata(dummy, trials=2)
             assert np.array_equal(selected.trials[0], dummy.trials[2])
             assert selected.trialdefinition.shape == (1, 4)
@@ -473,7 +473,7 @@ class TestSelector():
 
             # array selection
             selection = Selector(dummy, {"trials": np.array([3, 1])})
-            assert selection.trials == [3, 1]
+            assert selection.trial_ids == [3, 1]
             selected = selectdata(dummy, trials=[3, 1])
             assert np.array_equal(selected.trials[0], dummy.trials[3])
             assert np.array_equal(selected.trials[1], dummy.trials[1])
@@ -483,7 +483,7 @@ class TestSelector():
             # select all
             for trlSec in [None, "all"]:
                 selection = Selector(dummy, {"trials": trlSec})
-                assert selection.trials == list(range(len(dummy.trials)))
+                assert selection.trial_ids == list(range(len(dummy.trials)))
                 selected = selectdata(dummy, trials=trlSec)
                 for tk, trl in enumerate(selected.trials):
                     assert np.array_equal(trl, dummy.trials[tk])

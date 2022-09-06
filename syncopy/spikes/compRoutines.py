@@ -134,7 +134,7 @@ class PSTH(ComputationalRoutine):
         # for "timelocked" (same bins) psth data
         trl_len = len(tbins) - 1
         if data.selection is not None:
-            nTrials = len(data.selection.trials)
+            nTrials = len(data.selection.trial_ids)
         else:
             nTrials = len(data.trials)
 

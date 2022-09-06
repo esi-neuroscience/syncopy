@@ -1159,7 +1159,7 @@ class Selector():
         to be used as (fancy) indexing tuples. Note that the properties `time`,
         `unit` and `eventid` are **by-trial** selections, i.e., list of lists
         and/or slices encoding per-trial sample-indices, e.g., ``selection.time[0]``
-        is intended to be used with ``data.trials[selection.trials[0]]``.
+        is intended to be used with ``data.trials[selection.trial_ids[0]]``.
         Addditional class attributes of note:
 
         * `_useFancy` : bool
@@ -1296,7 +1296,7 @@ class Selector():
 
         # We first need to know which trials are of interest here (assuming
         # that any valid input object *must* have a `trials` attribute)
-        self.trials = (data, select)
+        self.trial_ids = (data, select)
 
         # Now set any possible selection attribute (depending on type of `data`)
         # Note: `trialdefinition` is set *after* harmonizing indexing selections
@@ -1313,12 +1313,12 @@ class Selector():
         self.select = select
 
     @property
-    def trials(self):
+    def trial_ids(self):
         """Index list of selected trials"""
-        return self._trials
+        return self._trial_ids
 
-    @trials.setter
-    def trials(self, dataselect):
+    @trial_ids.setter
+    def trial_ids(self, dataselect):
         data, select = dataselect
         trlList = list(range(len(data.trials)))
         trials = select.get("trials", None)
