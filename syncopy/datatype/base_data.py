@@ -616,6 +616,7 @@ class BaseData(ABC):
         """list-like array of trials"""
         return Indexer(map(self._get_trial, range(self.sampleinfo.shape[0])),
                        self.sampleinfo.shape[0]) if self.sampleinfo is not None else None
+
     @property
     def trialinfo(self):
         """nTrials x M :class:`numpy.ndarray` with numeric information about each trial
@@ -1313,6 +1314,9 @@ class Selector():
         # store for later re-application/modification
         self.select = select
 
+        # create the Selector._get_trial helper
+        self.create_get_trial(data)
+
     @property
     def trial_ids(self):
         """Index list of selected trials"""
@@ -1346,6 +1350,67 @@ class Selector():
         else:
             trials = trlList
         self._trial_ids = list(trials) # ensure `trials` is a list cf. #180
+
+    @property
+    def trials(self):
+        """Returns a single trial array respecting existing selections"""
+        return self._trl_indexer
+
+    @trials.setter
+    def trials(self, dataselect):
+        """
+        Gets only set once during Selector init and creates
+        an Indexer akin to BaseData.trials
+        """
+        pass
+
+    def create_get_trial(self, data):
+        """ Closure to allow emulation of BaseData._get_trial"""
+
+        # trl_id has to be part of selection for coherence
+        def _get_trial(trl_id):
+            if trl_id not in self.trial_ids:
+                lgl = "a trial part of the selection"
+                act = trl_id
+                raise SPYValueError(lgl, "Selector.trials", act)
+
+            # extract the selection respecting FauxTrial idx tuple
+            # which has length len(data.dimord) or 2 if `data` is a DiscreteData instance
+            trl_idx = data._preview_trial(trl_id).idx
+
+            # now massage/validate it such that we can use it to
+            # directly index the hdf5 dataset
+            # tuple elements can only be lists or slices, see concrete
+            # `_preview_trial` implementations which generate those idx tuples
+            # maybe TODO: allow fancy indexing like in the CR
+            for i, dim_idx in enumerate(trl_idx):
+                if isinstance(dim_idx, list):
+                    # no fancy indexing, no repetitions
+                    if len(set(dim_idx)) != len(dim_idx):
+                        lgl = "Simple selections w/o repetitions"
+                        act = f"Fancy selection with repetitions for selector {data.dimord[i]}"
+                        raise SPYValueError(lgl, "Selector.trials", act)
+
+                    # DiscreteData selections inherently re-order the sample dim. idx
+                    # so these we sort, all others we need ordered
+                    if 'discrete_data' in str(data.__class__):
+                        # sorts in place!
+                        dim_idx.sort()
+                    elif np.any(np.diff(dim_idx) < 0):
+                        lgl = "Simple selection in ascending order"
+                        act = f"Fancy non-ordered selection of selector {data.dimord[i]}"
+                        raise SPYValueError(lgl, "Selector.trials", act)
+                elif isinstance(dim_idx, slice):
+                    if dim_idx.step is not None and dim_idx.step < 0:
+                        lgl = "Simple selection in ascending order"
+                        act = f"Descending selection of selector {data.dimord[i]}"
+                        raise SPYValueError(lgl, "Selector.trials", act)
+            # if we landed here all is good and we take
+            # a leap of faith into the hdf5 dataset
+            return data.data[trl_idx]
+
+        # finally bind it to the Selector instance
+        self._get_trial = _get_trial
 
     @property
     def channel(self):

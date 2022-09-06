@@ -21,7 +21,7 @@ class TestPSTH:
     spd = sd.poisson_noise(nTrials,
                            nUnits=3,
                            nChannels=2,
-                           nSpikes=10000,
+                           nSpikes=1000,
                            samplerate=10000)
 
     def test_psth_binsize(self):
@@ -317,3 +317,7 @@ class TestPSTH:
 
 if __name__ == '__main__':
     T1 = TestPSTH()
+    spd = T1.spd
+    trl0 = spd.trials[0]
+    spd.selectdata(unit=[0,2], inplace=True)
+    arr1 = spd.selection._get_trial(1)
