@@ -93,13 +93,10 @@ def spike_psth(data,
     new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
 
     # digest selections
-
     if data.selection is not None:
         trl_def = data.selection.trialdefinition
         sinfo = data.selection.trialdefinition[:, :2]
-        # why is this not directly data.selection.trials?!
-        trials = Indexer(map(data._get_trial, data.selection.trial_ids),
-                         sinfo.shape[0])
+        trials = data.selection.trials
         trl_ivl = data.selection.trialintervals
         # beginnings and ends of all (selected) trials in trigger-relative time
         trl_starts, trl_ends = trl_ivl[:, 0], trl_ivl[:, 1]
@@ -194,10 +191,6 @@ def spike_psth(data,
         if data.selection is None:
             data.selectdata(trials=fit_trl_idx, inplace=True)
             # redefinition needed
-            trl_def = data.selection.trialdefinition
-            sinfo = data.selection.trialdefinition[:, :2]
-            trials = Indexer(map(data._get_trial, data.selection.trial_ids),
-                             sinfo.shape[0])
             numDiscard = len(trl_idx) - len(fit_trl_idx)
         else:
             # match fitting trials with selected ones
@@ -213,11 +206,12 @@ def spike_psth(data,
             select = data.selection.select.copy()
             select['trials'] = fit_trl_idx
             data.selectdata(select, inplace=True)
-            # now redefine local variables
-            trl_def = data.selection.trialdefinition
-            sinfo = data.selection.trialdefinition[:, :2]
-            trials = Indexer(map(data._get_trial, data.selection.trial_ids),
-                             sinfo.shape[0])
+
+        # now redefine local variables
+        trl_def = data.selection.trialdefinition
+        sinfo = data.selection.trialdefinition[:, :2]
+        trials = data.selection.trials
+
         msg = f"Discarded {numDiscard} trials which did not fit into latency window"
         SPYInfo(msg)
     else:

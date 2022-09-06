@@ -8,6 +8,10 @@ import numpy as np
 import pytest
 
 # syncopy imports
+from syncopy import __acme__
+if __acme__:
+    import dask.distributed as dd
+
 import syncopy as spy
 from syncopy.shared.errors import SPYValueError
 from syncopy.tests import synth_data as sd
@@ -292,6 +296,8 @@ class TestPSTH:
         # check that unit 1 really is there
         assert np.any(self.spd.data[:, 2] == 1)
         counts = spy.spike_psth(self.spd, output='spikecount')
+        assert 'channel0_unit1' in counts.channel
+        assert 'channel1_unit1' in counts.channel
 
         # get rid of unit 1
         pruned_spd = self.spd.selectdata(unit=[0, 2])
@@ -310,10 +316,50 @@ class TestPSTH:
                                   pruned_counts.show(trials=4, channel=chan),
                                   equal_nan=True)
 
-    def test_parallel_selection(self):
+        # now the same with an active in-place selection
+        # Already fixed: #332
+        # get rid of unit 1
+        # self.spd.selectdata(unit=[0, 2], inplace=True)
 
-        pass
-        # TODO: allow channel selection
+        pruned_counts2 = spy.spike_psth(self.spd, output='spikecount', select={'unit': [0, 2]})
+
+        # check that unit 1 really is gone
+        assert len(pruned_counts2.channel) < len(counts.channel)
+        assert 'channel0_unit1' not in pruned_counts2.channel
+        assert 'channel1_unit1' not in pruned_counts2.channel
+        # check that counts for remaining channel/units are unchanged
+        for chan in pruned_counts2.channel:
+            assert np.array_equal(counts.show(trials=4, channel=chan),
+                                  pruned_counts2.show(trials=4, channel=chan),
+                                  equal_nan=True)
+
+    def test_parallel_selection(self, testcluster=None):
+
+        cfg = spy.StructDict()
+        cfg.latency = 'minperiod'
+        cfg.parallel = True
+
+        client = dd.Client(testcluster)
+
+        # test standard run
+        counts = spy.spike_psth(self.spd, cfg)
+        # check that there are NO NaNs as all trials
+        # have data in `minperiod` by definition
+        assert not np.any(np.isnan(counts.data[:]))
+
+        # test channel selection
+        cfg.select = {'channel': 0}
+        counts = spy.spike_psth(self.spd, cfg)
+        assert all(['channel1' not in chan for chan in counts.channel])
+
+        # test toilim selection
+        # FIXME: Not supported atm, see #348
+        # cfg.select['toilim'] = [0.1, 0.2]
+        # counts = spy.spike_psth(self.spd, cfg)
+        # assert all(['channel1' not in chan for chan in counts.channel])
+
+        client.close()
+
 
 if __name__ == '__main__':
     T1 = TestPSTH()
