@@ -51,13 +51,24 @@ For general inquiries please contact syncopy (at) esi-frankfurt.de.
 Installation
 ============
 
-We recommend to install SynCoPy into a conda environment:
+We recommend to install SynCoPy into a new conda environment:
+
+ 1. Install the `Anaconda Distribution for your Operating System <https://www.anaconda.com/products/distribution>`_ if you do not yet have it.
+ 2. Start a new terminal.
+    - You can do this by starting `Anaconda navigator`, selecting `Environments` in the left tab, selecting
+     the `base (root)` environment, and clicking the green play button and then `Open Terminal`.
+    - Alternatively, under Linux, you can just type `bash` in your active terminal to start a new session.
+
+You should see a terminal with a command prompt that starts with `(base)`, indicating that you are
+in the conda `base` environment.
+
+Now we create a new environment named `syncopy` and install syncopy into this environment:
 
 .. code-block:: bash
 
    conda create -y --name syncopy python=3.8
    conda activate syncopy
-   conda install -c conda-forge esi-syncopy
+   conda install -y -c conda-forge esi-syncopy
 
 
 To get the latest development version, please clone our GitHub repository:
@@ -73,7 +84,7 @@ To check which version of SynCoPy you have installed in the current environment,
 
 .. code-block:: bash
 
-   conda activate sycopy
+   conda activate syncopy
    python -c 'import syncopy; print(syncopy.__version__)'
 
 
