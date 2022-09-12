@@ -360,7 +360,7 @@ def _get_selection_size(data):
     """
     Local helper routine for computing the on-disk size of an active data-selection
     """
-    fauxTrials = [data._preview_trial(trlno) for trlno in data.selection.trials]
+    fauxTrials = [data._preview_trial(trlno) for trlno in data.selection.trial_ids]
     fauxSizes = [np.prod(ftrl.shape)*ftrl.dtype.itemsize for ftrl in fauxTrials]
     return sum(fauxSizes) / 1024**2
 
