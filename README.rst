@@ -55,8 +55,9 @@ We recommend to install SynCoPy into a new conda environment:
 
 #. Install the `Anaconda Distribution for your Operating System <https://www.anaconda.com/products/distribution>`_ if you do not yet have it.
 #. Start a new terminal.
-    * You can do this by starting ```Anaconda navigator```, selecting ```Environments``` in the left tab, selecting the ```base (root)``` environment, and clicking the green play button and then ```Open Terminal```.
-    * Alternatively, under Linux, you can just type ```bash``` in your active terminal to start a new session.
+
+   * You can do this by starting ```Anaconda navigator```, selecting ```Environments``` in the left tab, selecting the ```base (root)``` environment, and clicking the green play button and then ```Open Terminal```.
+   * Alternatively, under Linux, you can just type ```bash``` in your active terminal to start a new session.
 
 You should see a terminal with a command prompt that starts with ```(base)```, indicating that you are
 in the conda ```base``` environment.
