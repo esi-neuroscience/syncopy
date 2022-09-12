@@ -50,17 +50,15 @@ For general inquiries please contact syncopy (at) esi-frankfurt.de.
 
 Installation
 ============
-Syncopy is available on pip
+
+We recommend to install SynCoPy into a conda environment:
 
 .. code-block:: bash
 
-   pip install esi-syncopy
+   conda create -y --name syncopy python=3.8
+   conda activate syncopy
+   conda install -c conda-forge esi-syncopy
 
-For using SynCoPy's parallel processing capabilities, `ACME <https://github.com/esi-neuroscience/acme>`_ is required
-
-.. code-block:: bash
-
-   conda install -c conda-forge esi-acme
 
 To get the latest development version, please clone our GitHub repository:
 
@@ -69,6 +67,15 @@ To get the latest development version, please clone our GitHub repository:
    git clone https://github.com/esi-neuroscience/syncopy.git
    cd syncopy/
    pip install -e .
+
+
+To check which version of SynCoPy you have installed in the current environment, run:
+
+.. code-block:: bash
+
+   conda activate sycopy
+   python -c 'import syncopy; print(syncopy.__version__)'
+
 
 Getting Started
 ===============
