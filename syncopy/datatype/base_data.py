@@ -730,7 +730,6 @@ class BaseData(ABC):
     @property
     def trials(self):
         """list-like array of trials"""
-<<<<<<< HEAD
         return (
             Indexer(
                 map(self._get_trial, range(self.sampleinfo.shape[0])),
@@ -739,10 +738,6 @@ class BaseData(ABC):
             if self.sampleinfo is not None
             else None
         )
-=======
-        return Indexer(map(self._get_trial, range(self.sampleinfo.shape[0])),
-                       self.sampleinfo.shape[0]) if self.sampleinfo is not None else None
->>>>>>> dev
 
     @property
     def trialinfo(self):
@@ -1600,9 +1595,6 @@ class Selector:
                 raise SPYValueError(legal=lgl, varname=vname, actual=act)
         else:
             trials = trlList
-<<<<<<< HEAD
-        self._trials = list(trials)  # ensure `trials` is a list cf. #180
-=======
         self._trial_ids = list(trials) # ensure `trials` is a list cf. #180
 
     @property
@@ -1662,7 +1654,6 @@ class Selector:
 
         # finally bind it to the Selector instance
         self._get_trial = _get_trial
->>>>>>> dev
 
     @property
     def channel(self):
@@ -1770,13 +1761,7 @@ class Selector:
                             timeSpec[0], timeSpec[1]
                         )
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
-<<<<<<< HEAD
-            timing = data._get_time(
-                self.trials, toi=select.get("toi"), toilim=select.get("toilim")
-            )
-=======
             timing = data._get_time(self.trial_ids, toi=select.get("toi"), toilim=select.get("toilim"))
->>>>>>> dev
 
             # Determine, whether time-selection is unordered/contains repetitions
             # and set `self._timeShuffle` accordingly
@@ -2094,13 +2079,7 @@ class Selector:
                 # performed by the respective `_get_unit` and `_get_eventid` class methods
                 if selectkey in ["unit", "eventid"]:
                     if selection.start is selection.stop is None:
-<<<<<<< HEAD
-                        setattr(
-                            self, selector, [slice(None, None, 1)] * len(self.trials)
-                        )
-=======
                         setattr(self, selector, [slice(None, None, 1)] * len(self.trial_ids))
->>>>>>> dev
                     else:
                         if isinstance(selection, slice):
                             if np.issubdtype(target.dtype, np.dtype("str").type):
@@ -2108,64 +2087,12 @@ class Selector:
                             selection = list(target[selection])
                         else:
                             selection = list(selection)
-<<<<<<< HEAD
-                        setattr(
-                            self,
-                            selector,
-                            getattr(data, "_get_" + selectkey)(self.trials, selection),
-                        )
-=======
                         setattr(self, selector, getattr(data, "_get_" + selectkey)(self.trial_ids, selection))
->>>>>>> dev
-                else:
-                    if selection.start is selection.stop is None:
-                        setattr(self, selector, slice(None, None, 1))
-                    else:
-                        if selection.step is None:
-                            step = 1
-                        else:
-                            step = selection.step
-                        setattr(
-                            self, selector, slice(selection.start, selection.stop, step)
-                        )
-
-            # Selection is either a valid list/array or bust
-            else:
-                try:
-                    array_parser(
-                        selection,
-                        varname=vname,
-                        hasinf=hasinf,
-                        hasnan=hasnan,
-                        lims=arrLims,
-                        dims=1,
-                    )
-                except Exception as exc:
-                    raise exc
-                selection = np.array(selection)
-                if np.issubdtype(selection.dtype, np.dtype("str").type):
-                    targetArr = target
-                else:
-                    targetArr = np.arange(target.size)
-                if not set(selection).issubset(targetArr):
-                    lgl = "list/array of {} existing names or indices".format(selectkey)
-                    raise SPYValueError(legal=lgl, varname=vname)
-
-                # Preserve order and duplicates of selection - don't use `np.isin` here!
-                idxList = []
-                for sel in selection:
-                    idxList += list(np.where(targetArr == sel)[0])
-
-                if selectkey in ["unit", "eventid"]:
-<<<<<<< HEAD
                     setattr(
                         self,
                         selector,
                         getattr(data, "_get_" + selectkey)(self.trials, idxList),
                     )
-=======
-                    setattr(self, selector, getattr(data, "_get_" + selectkey)(self.trial_ids, idxList))
->>>>>>> dev
                 else:
                     # if possible, convert range-arrays (`[0, 1, 2, 3]`) to slices for better performance
                     if len(idxList) > 1:
