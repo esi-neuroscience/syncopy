@@ -53,16 +53,15 @@ Installation
 
 We recommend to install SynCoPy into a new conda environment:
 
- 1. Install the `Anaconda Distribution for your Operating System <https://www.anaconda.com/products/distribution>`_ if you do not yet have it.
- 2. Start a new terminal.
-    - You can do this by starting `Anaconda navigator`, selecting `Environments` in the left tab, selecting
-     the `base (root)` environment, and clicking the green play button and then `Open Terminal`.
-    - Alternatively, under Linux, you can just type `bash` in your active terminal to start a new session.
+#. Install the `Anaconda Distribution for your Operating System <https://www.anaconda.com/products/distribution>`_ if you do not yet have it.
+#. Start a new terminal.
+    * You can do this by starting ```Anaconda navigator```, selecting ```Environments``` in the left tab, selecting the ```base (root)``` environment, and clicking the green play button and then ```Open Terminal```.
+    * Alternatively, under Linux, you can just type ```bash``` in your active terminal to start a new session.
 
-You should see a terminal with a command prompt that starts with `(base)`, indicating that you are
-in the conda `base` environment.
+You should see a terminal with a command prompt that starts with ```(base)```, indicating that you are
+in the conda ```base``` environment.
 
-Now we create a new environment named `syncopy` and install syncopy into this environment:
+Now we create a new environment named ```syncopy``` and install syncopy into this environment:
 
 .. code-block:: bash
 
@@ -70,6 +69,9 @@ Now we create a new environment named `syncopy` and install syncopy into this en
    conda activate syncopy
    conda install -y -c conda-forge esi-syncopy
 
+
+Developer Installation
+-----------------------
 
 To get the latest development version, please clone our GitHub repository:
 
@@ -79,6 +81,8 @@ To get the latest development version, please clone our GitHub repository:
    cd syncopy/
    pip install -e .
 
+Checking your SyCoPy version
+-----------------------------
 
 To check which version of SynCoPy you have installed in the current environment, run:
 
