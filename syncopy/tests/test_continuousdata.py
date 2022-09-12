@@ -600,7 +600,7 @@ class TestAnalogData():
                         time.sleep(0.001)
                         selector = Selector(obj, kwdict)
                         idx[chanIdx] = selector.channel
-                        for tk, trialno in enumerate(selector.trials):
+                        for tk, trialno in enumerate(selector.trial_ids):
                             idx[timeIdx] = selector.time[tk]
                             assert np.array_equal(selected.trials[tk].squeeze(),
                                                   obj.trials[trialno][idx[0], :][:, idx[1]].squeeze())
@@ -838,7 +838,7 @@ class TestSpectralData():
                                 idx[chanIdx] = selector.channel
                                 idx[freqIdx] = selector.freq
                                 idx[taperIdx] = selector.taper
-                                for tk, trialno in enumerate(selector.trials):
+                                for tk, trialno in enumerate(selector.trial_ids):
                                     idx[timeIdx] = selector.time[tk]
                                     indexed = obj.trials[trialno][idx[0], ...][:, idx[1], ...][:, :, idx[2], :][..., idx[3]]
                                     assert np.array_equal(selected.trials[tk].squeeze(),
@@ -1086,7 +1086,7 @@ class TestCrossSpectralData():
                                 idx[freqIdx] = selector.freq
                                 jdx = [[elem] if np.issubdtype(type(elem), np.number) else elem for elem in idx]
                                 idx = jdx
-                                for tk, trialno in enumerate(selector.trials):
+                                for tk, trialno in enumerate(selector.trial_ids):
                                     idx[timeIdx] = selector.time[tk]
                                     indexed = obj.trials[trialno][idx[0], ...][:, idx[1], ...][:, :, idx[2], :][..., idx[3]]
                                     assert np.array_equal(selected.trials[tk].squeeze(),

@@ -147,7 +147,7 @@ class TestComputationalRoutine():
                 reference = self.orig
             else:
                 ref = []
-                for tk, trlno in enumerate(sel.trials):
+                for tk, trlno in enumerate(sel.trial_ids):
                     ref.append(self.origdata.trials[trlno][sel.time[tk], sel.channel])
                     # check for correct time selection
                     assert np.array_equal(out.time[tk], self.sigdata.time[trlno][sel.time[tk]])
@@ -172,11 +172,11 @@ class TestComputationalRoutine():
                 reference = self.orig[:self.t.size, :]
             else:
                 ref = np.zeros(out.trials[0].shape)
-                for tk, trlno in enumerate(sel.trials):
+                for tk, trlno in enumerate(sel.trial_ids):
                     ref += self.origdata.trials[trlno][sel.time[tk], sel.channel]
                     # check for correct time selection (accounting for trial-averaging)
                     assert np.array_equal(out.time[0], self.sigdata.time[0][sel.time[0]])
-                reference = ref / len(sel.trials)
+                reference = ref / len(sel.trial_ids)
             assert self.metrix[sk](np.abs(out.data - reference)) < self.tols[sk]
             assert np.array_equal(out.channel, self.sigdata.channel[sel.channel])
 
@@ -208,7 +208,7 @@ class TestComputationalRoutine():
 
                 # compare expected w/actual shape of computed data
                 reference = 0
-                for tk, trlno in enumerate(sel.trials):
+                for tk, trlno in enumerate(sel.trial_ids):
                     reference += nonequidata.trials[trlno][sel.time[tk]].shape[0]
                     # check for correct time selection
                     # FIXME: remove `if` below as soon as `time` prop for lists is fixed
@@ -235,7 +235,7 @@ class TestComputationalRoutine():
             out = filter_manager(self.sigdata, self.b, self.a, select=select,
                                  log_dict={"a": "this is a", "b": "this is b"})
 
-            assert len(out.trials) == len(sel.trials)
+            assert len(out.trials) == len(sel.trial_ids)
             # ensure our `log_dict` specification was respected
             assert "lowpass" in out._log
             assert "a = this is a" in out._log
@@ -263,7 +263,7 @@ class TestComputationalRoutine():
                     reference = self.orig
                 else:
                     ref = []
-                    for tk, trlno in enumerate(sel.trials):
+                    for tk, trlno in enumerate(sel.trial_ids):
                         ref.append(self.origdata.trials[trlno][sel.time[tk], sel.channel])
                         assert np.array_equal(dummy.time[tk], self.sigdata.time[trlno][sel.time[tk]])
                     reference = np.vstack(ref)
@@ -302,7 +302,7 @@ class TestComputationalRoutine():
                         reference = self.orig
                     else:
                         ref = []
-                        for tk, trlno in enumerate(sel.trials):
+                        for tk, trlno in enumerate(sel.trial_ids):
                             ref.append(self.origdata.trials[trlno][sel.time[tk], sel.channel])
                             # check for correct time selection
                             assert np.array_equal(out.time[tk], self.sigdata.time[trlno][sel.time[tk]])
@@ -314,9 +314,9 @@ class TestComputationalRoutine():
                     if parallel_store:
                         nfiles = len(glob(os.path.join(os.path.splitext(out.filename)[0], "*.h5")))
                         if chan_per_worker is None:
-                            assert nfiles == len(sel.trials)
+                            assert nfiles == len(sel.trial_ids)
                         else:
-                            assert nfiles == len(sel.trials) * (int(out.channel.size /
+                            assert nfiles == len(sel.trial_ids) * (int(out.channel.size /
                                                                     chan_per_worker) +
                                                                 int(out.channel.size % chan_per_worker > 0))
 
@@ -341,11 +341,11 @@ class TestComputationalRoutine():
                         reference = self.orig[:self.t.size, :]
                     else:
                         ref = np.zeros(out.trials[0].shape)
-                        for tk, trlno in enumerate(sel.trials):
+                        for tk, trlno in enumerate(sel.trial_ids):
                             ref += self.origdata.trials[trlno][sel.time[tk], sel.channel]
                             # check for correct time selection (accounting for trial-averaging)
                             assert np.array_equal(out.time[0], self.sigdata.time[0][sel.time[0]])
-                        reference = ref / len(sel.trials)
+                        reference = ref / len(sel.trial_ids)
                     assert self.metrix[sk](np.abs(out.data - reference)) < self.tols[sk]
                     assert np.array_equal(out.channel, self.sigdata.channel[sel.channel])
                     assert out.data.is_virtual == False
@@ -387,7 +387,7 @@ class TestComputationalRoutine():
 
                         # compare expected w/actual shape of computed data
                         reference = 0
-                        for tk, trlno in enumerate(sel.trials):
+                        for tk, trlno in enumerate(sel.trial_ids):
                             reference += nonequidata.trials[trlno][sel.time[tk]].shape[0]
                             # check for correct time selection
                             # FIXME: remove `if` below as soon as `time` prop for lists is fixed
@@ -400,9 +400,9 @@ class TestComputationalRoutine():
                         if parallel_store:
                             nfiles = len(glob(os.path.join(os.path.splitext(out.filename)[0], "*.h5")))
                             if chan_per_worker is None:
-                                assert nfiles == len(sel.trials)
+                                assert nfiles == len(sel.trial_ids)
                             else:
-                                assert nfiles == len(sel.trials) * (int(out.channel.size /
+                                assert nfiles == len(sel.trial_ids) * (int(out.channel.size /
                                                                         chan_per_worker) +
                                                                     int(out.channel.size % chan_per_worker > 0))
 
@@ -431,7 +431,7 @@ class TestComputationalRoutine():
                                      log_dict={"a": "this is a", "b": "this is b"},
                                      parallel=True, parallel_store=parallel_store)
 
-                assert len(out.trials) == len(sel.trials)
+                assert len(out.trials) == len(sel.trial_ids)
                 # ensure our `log_dict` specification was respected
                 assert "lowpass" in out._log
                 assert "a = this is a" in out._log
@@ -446,7 +446,7 @@ class TestComputationalRoutine():
                                          log_dict={"a": "this is a", "b": "this is b"},
                                          parallel=True, parallel_store=parallel_store)
                 # only keyword args (`a` in this case here) are stored in `cfg`
-                assert len(out.trials) == len(sel.trials)
+                assert len(out.trials) == len(sel.trial_ids)
                 # ensure our `log_dict` specification was respected
                 assert "lowpass" in out._log
                 assert "a = this is a" in out._log
@@ -463,7 +463,7 @@ class TestComputationalRoutine():
                         reference = self.orig
                     else:
                         ref = []
-                        for tk, trlno in enumerate(sel.trials):
+                        for tk, trlno in enumerate(sel.trial_ids):
                             ref.append(self.origdata.trials[trlno][sel.time[tk], sel.channel])
                             assert np.array_equal(dummy.time[tk], self.sigdata.time[trlno][sel.time[tk]])
                         reference = np.vstack(ref)

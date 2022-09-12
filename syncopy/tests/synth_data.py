@@ -189,7 +189,6 @@ def AR2_network(AdjMat=None, nSamples=1000, alphas=[0.55, -0.8]):
         solution of the network dynamics
     """
 
-
     # default system layout as in Dhamala 2008:
     # unidirectional (2->1) coupling
     if AdjMat is None:
@@ -252,7 +251,6 @@ def mk_RandomAdjMat(nChannels=3, conn_thresh=0.25, max_coupling=0.25):
         `nChannels` x `nChannels` adjacency matrix where
     """
 
-
     # random numbers in [0,1)
     AdjMat = np.random.random_sample((nChannels, nChannels))
 
@@ -279,18 +277,28 @@ def poisson_noise(nTrials=10,
                   nChannels=3,
                   nUnits=10,
                   intensity=.1,
-                  samplerate=30000
+                  samplerate=10000
                   ):
 
     """
-    Poisson (Shot-) noise generator
+    Poisson (Shot-)noise generator
 
-    The (mean) number of spikes `nSpikes`
-    divided by the poisson intensity gives the
-    total sampling time over all trials.
+    The expected trial length in samples is given by:
 
-    The distribution of the spikes along channels and units
-    has randomized weights, meaning that typically
+        ``nSpikes`` / (``intensity`` * ``nTrials``)
+
+    Dividing again by the ``samplerate` gives the
+    expected trial length in seconds.
+
+    Individual trial lengths get randomly
+    shortened by up to 10% of this expected length.
+
+    The trigger offsets are also
+    randomized between 5% and 20% of the shortest
+    trial length.
+
+    Lastly, the distribution of the Poisson ``intensity`` along channels and units
+    has uniformly randomized weights, meaning that typically
     you get very active channels/units and some which are almost quiet.
 
     Parameters
@@ -298,13 +306,13 @@ def poisson_noise(nTrials=10,
     nTrials : int
         Number of trials
     nSpikes : int
-        The total number of spikes to generate
+        The total number of spikes over all trials to generate
     nChannels : int
         Number of channels
     nUnits : int
         Number of units
     intensity : int
-        Average number of spikes per sampling interval
+        Expected number of spikes per sampling interval
     samplerate : float
         Sampling rate in Hz
 
@@ -317,13 +325,30 @@ def poisson_noise(nTrials=10,
     -----
     Originally conceived by `Alejandro Tlaie Boria https://github.com/atlaie_`
 
+    Examples
+    --------
+    With `nSpikes=20_000`, `samplerate=10_000`, `nTrials=10` and the default `intensity=0.1`
+    we can expect a trial length of about 2 seconds:
+
+    >>> spike_data = poisson_noise(nTrials=10, nSpikes=20_000, samplerate=10_000)
+
+    Example output of the 1st trial [start, end] in seconds:
+
+    >>> spike_data.trialintervals[0]
+    >>> array([-0.3004, 1.6459])
+
+    Which is close to 2 seconds.
+
     """
 
+    # uniform random weights
     def get_rdm_weights(size):
         pvec = np.random.uniform(size=size)
         return pvec / pvec.sum()
 
-    T_max = int(1 / intensity * nSpikes)
+    # total length of all trials combined
+    T_max = int(nSpikes / intensity)
+
     spike_samples = np.sort(random.sample(range(T_max), nSpikes))
     channels = np.random.choice(
         np.arange(nChannels), p=get_rdm_weights(nChannels),
@@ -334,7 +359,7 @@ def poisson_noise(nTrials=10,
     pvec = get_rdm_weights(nUnits)
     units = np.random.choice(uvec, p=pvec, size=nSpikes, replace=True)
 
-    # fixed trial size
+    # originally fixed trial size
     step = T_max // nTrials
     trl_intervals = np.arange(T_max + 1, step=step)
 
@@ -342,11 +367,12 @@ def poisson_noise(nTrials=10,
     idx_start = trl_intervals[:-1]
     idx_end = trl_intervals[1:] - 1
 
-    # now randomize a bit, max 10% size difference
-    idx_end -= np.r_[np.random.randint(step // 10, size=nTrials - 1), 0]
+    # now randomize trial length a bit, max 10% size difference
+    idx_end = idx_end - np.r_[np.random.randint(step // 10, size=nTrials - 1), 0]
 
+    shortest_trial = np.min(idx_end - idx_start)
     idx_offset = -np.random.choice(
-        np.arange(1, 0.2 * np.min(idx_end - idx_start)), size=nTrials, replace=True
+        np.arange(0.05 * shortest_trial, 0.2 * shortest_trial, dtype=int), size=nTrials, replace=True
     )
 
     trldef = np.vstack([idx_start, idx_end, idx_offset]).T
