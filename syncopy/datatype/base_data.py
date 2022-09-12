@@ -1973,11 +1973,10 @@ class Selector:
         data, select = dataselect
         self._selection_setter(data, select, "eventid")
 
-    # Helper function to process provided selections
+        # Helper function to process provided selections
     def _selection_setter(self, data, select, selectkey):
         """
         Converts user-provided selection key-words to indexing lists/slices
-
         Parameters
         ----------
         data : Syncopy data object
@@ -1989,7 +1988,6 @@ class Selector:
         selectkey : str
             Name of key in `select` holding selection pertinent to identically
             named property in `data`
-
         Returns
         -------
         Nothing : None
@@ -2003,7 +2001,6 @@ class Selector:
         include repetitions but must match exactly, be finite and not NaN.
         Converted selections are stored in the respective (hidden) class
         attributes (e.g., ``self._channel``, ``self._unit`` etc.).
-
         See also
         --------
         syncopy.selectdata : extract data selections from Syncopy objects
@@ -2016,9 +2013,7 @@ class Selector:
         vname = "select: {}".format(selectkey)
         if selection is not None and target is None:
             lgl = "Syncopy data object with {}".format(selectkey)
-            raise SPYValueError(
-                legal=lgl, varname=vname, actual=data.__class__.__name__
-            )
+            raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
 
         if target is not None:
 
@@ -2062,15 +2057,11 @@ class Selector:
                     act = "selection range from {} to {}".format(selLims[0], selLims[1])
                     raise SPYValueError(legal=lgl, varname=vname, actual=act)
                 # check slice/range boundaries: take care of things like `slice(-10, -3)`
-                if np.isfinite(selLims[0]) and (
-                    selLims[0] < -slcLims[1] or selLims[0] >= slcLims[1]
-                ):
+                if np.isfinite(selLims[0]) and (selLims[0] < -slcLims[1] or selLims[0] >= slcLims[1]):
                     lgl = "selection range with min >= {}".format(slcLims[0])
                     act = "selection range starting at {}".format(selLims[0])
                     raise SPYValueError(legal=lgl, varname=vname, actual=act)
-                if np.isfinite(selLims[1]) and (
-                    selLims[1] > slcLims[1] or selLims[1] < -slcLims[1]
-                ):
+                if np.isfinite(selLims[1]) and (selLims[1] > slcLims[1] or selLims[1] < -slcLims[1]):
                     lgl = "selection range with max <= {}".format(slcLims[1])
                     act = "selection range ending at {}".format(selLims[1])
                     raise SPYValueError(legal=lgl, varname=vname, actual=act)
@@ -2088,11 +2079,39 @@ class Selector:
                         else:
                             selection = list(selection)
                         setattr(self, selector, getattr(data, "_get_" + selectkey)(self.trial_ids, selection))
-                    setattr(
-                        self,
-                        selector,
-                        getattr(data, "_get_" + selectkey)(self.trials, idxList),
-                    )
+                else:
+                    if selection.start is selection.stop is None:
+                        setattr(self, selector, slice(None, None, 1))
+                    else:
+                        if selection.step is None:
+                            step = 1
+                        else:
+                            step = selection.step
+
+
+            # Selection is either a valid list/array or bust
+            else:
+                try:
+                    array_parser(selection, varname=vname, hasinf=hasinf,
+                                 hasnan=hasnan, lims=arrLims, dims=1)
+                except Exception as exc:
+                    raise exc
+                selection = np.array(selection)
+                if np.issubdtype(selection.dtype, np.dtype("str").type):
+                    targetArr = target
+                else:
+                    targetArr = np.arange(target.size)
+                if not set(selection).issubset(targetArr):
+                    lgl = "list/array of {} existing names or indices".format(selectkey)
+                    raise SPYValueError(legal=lgl, varname=vname)
+
+                # Preserve order and duplicates of selection - don't use `np.isin` here!
+                idxList = []
+                for sel in selection:
+                    idxList += list(np.where(targetArr == sel)[0])
+
+                if selectkey in ["unit", "eventid"]:
+                    setattr(self, selector, getattr(data, "_get_" + selectkey)(self.trial_ids, idxList))
                 else:
                     # if possible, convert range-arrays (`[0, 1, 2, 3]`) to slices for better performance
                     if len(idxList) > 1:
@@ -2102,10 +2121,7 @@ class Selector:
 
                     # be careful w/pairwise list-channel selections in `CrossSpectralData` objects
                     # (that could not be converted to slices above)
-                    if isinstance(idxList, list) and selectkey in [
-                        "channel_i",
-                        "channel_j",
-                    ]:
+                    if isinstance(idxList, list) and selectkey in ["channel_i", "channel_j"]:
                         if len(idxList) > 1:
                             err = "Multi-channel-pair selections not supported"
                             raise NotImplementedError(err)
@@ -2115,6 +2131,9 @@ class Selector:
 
         else:
             return
+
+
+
 
     # Local helper that converts slice selectors to lists (if necessary)
     def _make_consistent(self, data):
