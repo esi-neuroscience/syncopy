@@ -23,7 +23,6 @@ def psth_cF(trl_dat,
             trl_end,
             chan_unit_combs=None,
             tbins=None,
-            output='rate',
             samplerate=1000,
             noCompute=False,
             chunkShape=None):
@@ -54,7 +53,7 @@ def psth_cF(trl_dat,
         An array of monotonically increasing PSTH bin edges
         in seconds including the rightmost edge
         Defaults with `None` to the Rice rule
-    output : {'rate', 'spikecount', 'proportion'}, optional
+
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
@@ -99,7 +98,7 @@ def psth_cF(trl_dat,
     # call backend method
     counts, bins = psth(trl_dat, trl_start, onset, trl_end,
                         chan_unit_combs=chan_unit_combs,
-                        tbins=tbins, samplerate=samplerate, output=output)
+                        tbins=tbins, samplerate=samplerate)
 
     return counts
 
@@ -134,7 +133,7 @@ class PSTH(ComputationalRoutine):
         # for "timelocked" (same bins) psth data
         trl_len = len(tbins) - 1
         if data.selection is not None:
-            nTrials = len(data.selection.trial_ids)
+            nTrials = len(data.selection.trials)
         else:
             nTrials = len(data.trials)
 
@@ -144,9 +143,7 @@ class PSTH(ComputationalRoutine):
         sample_idx = np.arange(0, nTrials * trl_len + 1, trl_len)
         trl[:, :2] = stride_tricks.sliding_window_view(sample_idx, (2,))
         # negative relative time is pre-stimulus!
-        # note that bin edges are set on the input data (high-res) time axis
-        # we can only approximate atm with the new 1/srate time steps
-        offsets = np.rint(bin_midpoints[0] * srate)
+        offsets = np.rint(tbins[0] * srate)
         trl[:, 2] = offsets
 
         # Attach meta-data
@@ -159,9 +156,3 @@ class PSTH(ComputationalRoutine):
         # join labels for final unitX_channelY channel labels
         chan_str = "channel{}_unit{}"
         out.channel = [chan_str.format(c, u) for c, u in self.cfg['chan_unit_combs']]
-
-        if not self.keeptrials:
-            # the ad-hoc averaging does not work well here because of NaNs
-            # so we rather delete the data to 'not keep the trials'
-            out.data = None
-            # TODO: add real average operator here

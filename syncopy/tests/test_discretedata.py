@@ -223,7 +223,7 @@ class TestSpikeData():
                             selected = obj.selectdata(**kwdict)
                             selector = Selector(obj, kwdict)
                             tk = 0
-                            for trialno in selector.trial_ids:
+                            for trialno in selector.trials:
                                 if selector.time[tk]:
                                     assert np.array_equal(obj.trials[trialno][selector.time[tk], :],
                                                           selected.trials[tk])
@@ -580,7 +580,7 @@ class TestEventData():
                         selected = obj.selectdata(**kwdict)
                         selector = Selector(obj, kwdict)
                         tk = 0
-                        for trialno in selector.trial_ids:
+                        for trialno in selector.trials:
                             if selector.time[tk]:
                                 assert np.array_equal(obj.trials[trialno][selector.time[tk], :],
                                                       selected.trials[tk])

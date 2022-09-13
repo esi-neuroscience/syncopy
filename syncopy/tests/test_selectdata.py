@@ -456,7 +456,7 @@ class TestSelector():
 
             # test trial selection
             selection = Selector(dummy, {"trials": [3, 1]})
-            assert selection.trial_ids == [3, 1]
+            assert selection.trials == [3, 1]
             selected = selectdata(dummy, trials=[3, 1])
             assert np.array_equal(selected.trials[0], dummy.trials[3])
             assert np.array_equal(selected.trials[1], dummy.trials[1])
@@ -465,7 +465,7 @@ class TestSelector():
 
             # scalar selection
             selection = Selector(dummy, {"trials": 2})
-            assert selection.trial_ids == [2]
+            assert selection.trials == [2]
             selected = selectdata(dummy, trials=2)
             assert np.array_equal(selected.trials[0], dummy.trials[2])
             assert selected.trialdefinition.shape == (1, 4)
@@ -473,7 +473,7 @@ class TestSelector():
 
             # array selection
             selection = Selector(dummy, {"trials": np.array([3, 1])})
-            assert selection.trial_ids == [3, 1]
+            assert selection.trials == [3, 1]
             selected = selectdata(dummy, trials=[3, 1])
             assert np.array_equal(selected.trials[0], dummy.trials[3])
             assert np.array_equal(selected.trials[1], dummy.trials[1])
@@ -483,7 +483,7 @@ class TestSelector():
             # select all
             for trlSec in [None, "all"]:
                 selection = Selector(dummy, {"trials": trlSec})
-                assert selection.trial_ids == list(range(len(dummy.trials)))
+                assert selection.trials == list(range(len(dummy.trials)))
                 selected = selectdata(dummy, trials=trlSec)
                 for tk, trl in enumerate(selected.trials):
                     assert np.array_equal(trl, dummy.trials[tk])
@@ -806,50 +806,6 @@ class TestSelector():
                     assert np.array_equal(selected.trials[trialno],
                                           spc.trials[trialno][tuple(spcIdx)])
 
-    def test_selector_trials(self):
-
-        ang = AnalogData(data=self.data["AnalogData"],
-                         trialdefinition=self.trl["AnalogData"],
-                         samplerate=self.samplerate)
-
-        # check original shapes
-        assert all([trl.shape[1] == self.nChannels for trl in ang.trials])
-        assert all([trl.shape[0] == self.lenTrial for trl in ang.trials])
-
-        # test inplace channel, trial and toilim selection
-        # ang.time[0] = array([0.5, 1. , 1.5, 2. , 2.5])
-        # this toilim selection hence takes the last two samples
-        select = {'channel': [2, 7, 9], 'trials': [0, 3, 5], 'toilim': [2, 3]}
-        ang.selectdata(**select, inplace=True)
-
-        # now check shapes and number of trials returned by Selector
-        # checks channel axis
-        assert all([trl.shape[1] == 3 for trl in ang.selection.trials])
-        # checks time axis
-        assert all([trl.shape[0] == 2 for trl in ang.selection.trials])
-        assert len(ang.selection.trials) == 3
-
-        # test for non-existing trials, trial indices are relative here!
-        select = {'trials': [0, 3, 5]}
-        ang.selectdata(**select, inplace=True)
-        assert ang.selection.trial_ids[2] == 5
-        # this returns original trial 6 (with index 5)
-        assert np.array_equal(ang.selection.trials[2], ang.trials[5])
-        # we only have 3 trials selected here, so max. relative index is 2
-        with pytest.raises(SPYValueError, match='less or equals 2'):
-            ang.selection.trials[5]
-
-        # Fancy indexing is not allowed so far
-        select = {'channel': [7, 7, 8]}
-        ang.selectdata(**select, inplace=True)
-        with pytest.raises(SPYValueError, match='fancy selection with repetition'):
-            ang.selection.trials[0]
-        select = {'channel': [7, 3, 8]}
-        ang.selectdata(**select, inplace=True)
-        with pytest.raises(SPYValueError, match='fancy non-ordered selection'):
-            ang.selection.trials[0]
-
-
     @skip_without_acme
     def test_parallel(self, testcluster):
         # collect all tests of current class and repeat them in parallel
@@ -860,7 +816,3 @@ class TestSelector():
             getattr(self, test)()
             flush_local_cluster(testcluster)
         client.close()
-
-
-if __name__ == '__main__':
-    T1 = TestSelector()

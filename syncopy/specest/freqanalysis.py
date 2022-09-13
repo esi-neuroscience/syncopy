@@ -356,7 +356,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
             lgl = "no `toi` specification due to active in-place time-selection in input dataset"
             raise SPYValueError(legal=lgl, varname="toi", actual=toi)
         sinfo = data.selection.trialdefinition[:, :2]
-        trialList = data.selection.trial_ids
+        trialList = data.selection.trials
     else:
         trialList = list(range(len(data.trials)))
         sinfo = data.sampleinfo

@@ -140,7 +140,7 @@ def _parse_input(obj1, obj2, operator):
     if baseObj.selection is None:
         baseObj.selectdata(inplace=True)
         baseObj.selection._cleanup = True
-    baseTrialList = baseObj.selection.trial_ids
+    baseTrialList = baseObj.selection.trials
 
     # Use the `_preview_trial` functionality of Syncopy objects to get each trial's
     # shape and dtype (existing selections are taken care of automatically)
@@ -218,7 +218,7 @@ def _parse_input(obj1, obj2, operator):
             wrng = "Found existing in-place selection in operand. " +\
                 "Shapes and trial counts of base and operand objects have to match up!"
             SPYWarning(wrng, caller=operator)
-            opndTrialList = operand.selection.trial_ids
+            opndTrialList = operand.selection.trials
         else:
             opndTrialList = list(range(len(operand.trials)))
 

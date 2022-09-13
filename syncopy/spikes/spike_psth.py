@@ -11,7 +11,7 @@ from syncopy.shared.tools import get_defaults, get_frontend_cfg
 from syncopy.datatype import TimeLockData
 from syncopy.datatype.base_data import Indexer
 
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
 from syncopy.shared.kwarg_decorators import (
     unwrap_cfg,
     unwrap_select,
@@ -19,9 +19,13 @@ from syncopy.shared.kwarg_decorators import (
 )
 from syncopy.shared.input_processors import check_passed_kwargs
 
+
+# method specific imports - they should go when
+# we have multiple returns
+from syncopy.spikes.psth import Rice_rule, sqrt_rule, get_chan_unit_combs
+
 # Local imports
 from syncopy.spikes.compRoutines import PSTH
-from syncopy.spikes.psth import Rice_rule, sqrt_rule, get_chan_unit_combs
 
 available_binsizes = {'rice': Rice_rule, 'sqrt': sqrt_rule}
 available_outputs = ['rate', 'spikecount', 'proportion']
@@ -52,8 +56,7 @@ def spike_psth(data,
     output : {'rate', 'spikecount', 'proportion'}, optional
         Set to `'rate'` to convert the output to firing rates (spikes/sec),
         'spikecount' to count the number spikes per trial or
-        'proportion' to normalize the area under the PSTH to 1
-        Defaults to `'rate'`
+        'proportion' to normalize the area under the PSTH to 1.
     vartriallen : bool, optional
         `True` (default): accept variable trial lengths and use all
         available trials and the samples in every trial.
@@ -93,34 +96,28 @@ def spike_psth(data,
     new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
 
     # digest selections
+
     if data.selection is not None:
         trl_def = data.selection.trialdefinition
         sinfo = data.selection.trialdefinition[:, :2]
-        trials = data.selection.trials
-        trl_ivl = data.selection.trialintervals
-        # beginnings and ends of all (selected) trials in trigger-relative time
-        trl_starts, trl_ends = trl_ivl[:, 0], trl_ivl[:, 1]
-
+        # why is this not directly data.selection.trials?!
+        trials = Indexer(map(data._get_trial, data.selection.trials),
+                         sinfo.shape[0])
     else:
         trl_def = data.trialdefinition
         sinfo = data.sampleinfo
         trials = data.trials
-        # beginnings and ends of all (selected) trials in trigger-relative time
-        trl_starts, trl_ends = data.trialintervals[:, 0], data.trialintervals[:, 1]
-
-    # validate output parameter
-    if output not in available_outputs:
-        lgl = f"one of {available_outputs}"
-        act = output
-        raise SPYValueError(lgl, 'output', act)
-
-    if isinstance(binsize, str):
-        if binsize not in available_binsizes:
-            lgl = f"one of {available_binsizes}"
-            act = output
-            raise SPYValueError(lgl, 'output', act)
 
     # --- parse and digest `latency` (time window of analysis) ---
+
+    # beginnings and ends of all (selected) trials in relative time
+    beg_ends = sinfo + trl_def[:, 2][:, None]
+    beg_ends = (beg_ends - sinfo[:, 0][:, None]) / data.samplerate
+
+    trl_starts = beg_ends[:, 0]
+    trl_ends = beg_ends[:, 1]
+    # just for sanity checks atm
+    # tmin, tmax = trl_starts.min(), trl_ends.max()
 
     if isinstance(latency, str):
         if latency not in available_latencies:
@@ -158,21 +155,6 @@ def spike_psth(data,
     # explicit time window in seconds
     else:
         array_parser(latency, lims=[-np.inf, np.inf], dims=(2,))
-        # check that at least some events are covered
-        if latency[0] > trl_ends.max():
-            lgl = "start of latency window before at least one trial ends"
-            act = latency[0]
-            raise SPYValueError(lgl, 'latency[0]', act)
-
-        if latency[1] < trl_starts.min():
-            lgl = "end of latency window after at least one trial starts"
-            act = latency[1]
-            raise SPYValueError(lgl, 'latency[1]', act)
-
-        if latency[0] > latency[1]:
-            lgl = "start < end latency window"
-            act = f"start={latency[0]}, end={latency[1]}"
-            raise SPYValueError(lgl, "latency", act)
         window = latency
 
     if not vartriallen:
@@ -191,11 +173,15 @@ def spike_psth(data,
         if data.selection is None:
             data.selectdata(trials=fit_trl_idx, inplace=True)
             # redefinition needed
+            trl_def = data.selection.trialdefinition
+            sinfo = data.selection.trialdefinition[:, :2]
+            trials = Indexer(map(data._get_trial, data.selection.trials),
+                             sinfo.shape[0])
             numDiscard = len(trl_idx) - len(fit_trl_idx)
         else:
             # match fitting trials with selected ones
-            fit_trl_idx = np.intersect1d(data.selection.trial_ids, fit_trl_idx)
-            numDiscard = len(data.selection.trial_ids) - len(fit_trl_idx)
+            fit_trl_idx = np.intersect1d(data.selection.trials, fit_trl_idx)
+            numDiscard = len(data.selection.trials) - len(fit_trl_idx)
 
             if fit_trl_idx.size == 0:
                 lgl = 'at least one trial covering the latency window'
@@ -206,12 +192,11 @@ def spike_psth(data,
             select = data.selection.select.copy()
             select['trials'] = fit_trl_idx
             data.selectdata(select, inplace=True)
-
-        # now redefine local variables
-        trl_def = data.selection.trialdefinition
-        sinfo = data.selection.trialdefinition[:, :2]
-        trials = data.selection.trials
-
+            # now redefine local variables
+            trl_def = data.selection.trialdefinition
+            sinfo = data.selection.trialdefinition[:, :2]
+            trials = Indexer(map(data._get_trial, data.selection.trials),
+                             sinfo.shape[0])
         msg = f"Discarded {numDiscard} trials which did not fit into latency window"
         SPYInfo(msg)
     else:
@@ -235,12 +220,14 @@ def spike_psth(data,
     # it's a sequential loop to get an array of [chan, unit] indices
     combs = get_chan_unit_combs(trials)
 
+    # now we have our global (single-trial, avg, std,..) histogram shape
+    # h_shape = (nBins, len(combs))
+
     # --- populate the log
 
     log_dict = {'bins': bins,
                 'binsize': binsize,
                 'latency': latency,
-                'output': output,
                 'vartriallen': vartriallen,
                 'numDiscard': numDiscard
                 }
@@ -256,7 +243,6 @@ def spike_psth(data,
                    trl_ends,
                    chan_unit_combs=combs,
                    tbins=bins,
-                   output=output,
                    samplerate=data.samplerate
                    )
 
