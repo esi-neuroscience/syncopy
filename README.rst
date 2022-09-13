@@ -71,18 +71,7 @@ Now we create a new environment named ```syncopy``` and install syncopy into thi
    conda install -y -c conda-forge esi-syncopy
 
 
-Developer Installation
------------------------
-
-To get the latest development version, please clone our GitHub repository:
-
-.. code-block:: bash
-
-   git clone https://github.com/esi-neuroscience/syncopy.git
-   cd syncopy/
-   pip install -e .
-
-Checking your SyCoPy version
+Checking your SyNCoPy version
 -----------------------------
 
 To check which version of SynCoPy you have installed in the current environment, run:
@@ -96,3 +85,14 @@ To check which version of SynCoPy you have installed in the current environment,
 Getting Started
 ===============
 Please visit our `online documentation <http://syncopy.org>`_.
+
+Developer Installation
+-----------------------
+
+To get the latest development version, please clone our GitHub repository:
+
+.. code-block:: bash
+
+   git clone https://github.com/esi-neuroscience/syncopy.git
+   cd syncopy/
+   pip install -e .
