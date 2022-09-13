@@ -297,7 +297,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     # quantities in tmp attributes (all prefixed by `'_pad'`)
     if is_spydata:
         if data.selection is not None:
-            trialList = data.selection.trial_ids
+            trialList = data.selection.trials
             data._pad_sinfo = np.zeros((len(trialList), 2))
             data._pad_t0 = np.zeros((len(trialList),))
             for tk, trlno in enumerate(trialList):
