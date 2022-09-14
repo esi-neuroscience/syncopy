@@ -667,9 +667,13 @@ class BaseData(ABC):
         # Re-attach datasets
         for propertyName in self._hdfFileDatasetProperties:
             if prop is not None:
-                setattr(
-                    self, propertyName, h5py.File(self.filename, mode=md)[propertyName]
-                )
+                try:
+                    prop_value = h5py.File(self.filename, mode=md)[propertyName]
+                except:
+                    SPYInfo(f"Could not retrieve dataset '{propertyName}' from HDF5 file.")
+                    prop_value = None
+                prop_name = propertyName if propertyName == "data" else "_" + propertyName
+                setattr(self, prop_name, prop_value)
         self._mode = md
 
     @property
@@ -1057,6 +1061,8 @@ class BaseData(ABC):
                         if isinstance(val_this, h5py.Dataset):
                             #isEqual = True  # This case gets checked by trial below.
                             isEqual = val_this == val_other
+                        elif val_this is None and val_other is None:
+                            isEqual = True
                         else:
                             isEqual = np.allclose(val_this, val_other)
 
@@ -1649,7 +1655,7 @@ class Selector:
 
         # finally bind it to the Selector instance
         self._get_trial = _get_trial
-        
+
 
     @property
     def channel(self):

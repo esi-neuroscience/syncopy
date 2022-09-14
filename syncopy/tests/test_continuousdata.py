@@ -1211,7 +1211,6 @@ class TestTimeLockData:
         tld2._avg = avg_data3
         assert np.array_equal(avg_data3, tld2.avg)
 
-
 if __name__ == '__main__':
     T1 = TestCrossSpectralData()
     T2 = TestTimeLockData()
