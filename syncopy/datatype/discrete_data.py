@@ -218,7 +218,7 @@ class DiscreteData(BaseData, ABC):
         nCol = len(self.dimord)
         idx = [trialIdx.tolist(), slice(0, nCol)]
         if self.selection is not None: # selections are harmonized, just take `.time`
-            idx[0] = trialIdx[self.selection.time[self.selection.trials.index(trialno)]].tolist()
+            idx[0] = trialIdx[self.selection.time[self.selection.trial_ids.index(trialno)]].tolist()
         shp = [len(idx[0]), nCol]
 
         return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)

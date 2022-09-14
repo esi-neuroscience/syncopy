@@ -163,7 +163,7 @@ def show(data, squeeze=True, **kwargs):
 
     # Use an object's `_preview_trial` method fetch required indexing tuples
     idxList = []
-    for trlno in data.selection.trials:
+    for trlno in data.selection.trial_ids:
         # each dim has an entry
         idxs = data._preview_trial(trlno).idx
 

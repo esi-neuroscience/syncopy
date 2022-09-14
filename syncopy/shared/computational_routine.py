@@ -140,7 +140,7 @@ class ComputationalRoutine(ABC):
         # numerical type of output dataset
         self.dtype = None
 
-        # list of trial numbers to process (either `data.trials` or `data.selection.trials`)
+        # list of trial numbers to process (either list(range(len(`data.trials`))) or `data.selection.trial_ids`)
         self.trialList = None
 
         # number of trials to process (shortcut for `len(self.trialList)`)
@@ -268,7 +268,7 @@ class ComputationalRoutine(ABC):
         # Determine if data-selection was provided; if so, extract trials and check
         # whether selection requires fancy array indexing
         if data.selection is not None:
-            self.trialList = data.selection.trials
+            self.trialList = data.selection.trial_ids
             self.useFancyIdx = data.selection._useFancy
         else:
             self.trialList = list(range(len(data.trials)))
@@ -399,7 +399,7 @@ class ComputationalRoutine(ABC):
             sourceLayout.append(trial.idx)
             sourceShapes.append(trial.shape)
 
-        # Construct dimensional layout of output
+        # Construct dimensional layout of output and append remaining trials to input layout
         stacking = targetLayout[0][stackingDim].stop
         for tk in range(1, self.numTrials):
             trial = trials[tk]
@@ -445,7 +445,7 @@ class ComputationalRoutine(ABC):
         # In this case `sourceLayout` uses ABSOLUTE indices (indices wrt to size
         # of ENTIRE DATASET) that are SORTED W/O REPS to extract a NumPy array
         # of appropriate size from HDF5.
-        # Then `sourceLayout` uses RELATIVE indices (indices wrt to size of CURRENT
+        # Then `sourceSelectors` uses RELATIVE indices (indices wrt to size of CURRENT
         # TRIAL) that can be UNSORTED W/REPS to actually perform the requested
         # selection on the NumPy array extracted w/`sourceLayout`.
         for grd in sourceLayout:
@@ -610,7 +610,7 @@ class ComputationalRoutine(ABC):
             # parallel case, `trl_dat` is a dictionary!
 
             # Use the trial IDs from the selection, so we have absolute trial indices.
-            trial_ids = data.selection.trials if data.selection is not None else range(self.numTrials)
+            trial_ids = data.selection.trial_ids if data.selection is not None else range(self.numTrials)
 
             # Use trial_ids and chunk_ids to turn into a unique index.
             if self.numBlocksPerTrial == 1:  # The simple case: 1 call per trial. We add a chunk id (the trailing `_0` to be consistent with
@@ -924,7 +924,7 @@ class ComputationalRoutine(ABC):
                     # (use an explicit `shape` assignment here to avoid copies)
                     res.shape = self.targetShapes[nblock]
 
-                    trial_idx = data.selection.trials[nblock] if data.selection is not None else nblock
+                    trial_idx = data.selection.trial_ids[nblock] if data.selection is not None else nblock
 
                     h5_add_metadata(h5fout, details, unique_key_suffix=trial_idx)
 

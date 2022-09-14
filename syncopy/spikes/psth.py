@@ -8,6 +8,7 @@ def psth(trl_dat,
          trl_end,
          chan_unit_combs=None,
          tbins=None,
+         output='rate',
          samplerate=1000):
 
     """
@@ -37,6 +38,11 @@ def psth(trl_dat,
         An array of monotonically increasing PSTH bin edges
         in seconds including the rightmost edge
         Defaults with `None` to the Rice rule
+    output : {'rate', 'spikecount', 'proportion'}, optional
+        Set to `'rate'` to convert the output to firing rates (spikes/sec),
+        'spikecount' to count the number spikes per trial or
+        'proportion' to normalize the area under the PSTH to 1
+        Defaults to `'rate'`
     samplerate : float
         Samplerate in Hz
 
@@ -94,6 +100,12 @@ def psth(trl_dat,
     # map into histogram time x channel dimensions
     map_unit_hist = {u: [np.any(map_cu(c, u)) for c in chan_vec] for u in unique_units}
 
+    # configure output
+    if output in ['rate', 'spikecount']:
+        density = False
+    elif output == 'proportion':
+        density = True
+
     for i, iunit in enumerate(unique_units):
         unit_idx = (units == iunit)
 
@@ -101,13 +113,13 @@ def psth(trl_dat,
             # over all channels, so this counts different units actually
             unit_counts = np.histogram2d(times[unit_idx],
                                          channels[unit_idx],
-                                         bins=bins)[0]
+                                         bins=bins, density=density)[0]
 
             # get indices to inject the results
             # at the right position
             cu_idx = map_unit[iunit]
 
-            # masks non-existent combinations in histogram
+            # de-selects non-existent combinations in histogram
             chan_hist_idx = map_unit_hist[iunit]
             counts[:, cu_idx] = unit_counts[:, chan_hist_idx].astype(np.float32)
 
@@ -116,14 +128,37 @@ def psth(trl_dat,
     trl_start_reltime = onset / samplerate
     trl_end_reltime = (trl_end - trl_start + onset) / samplerate
 
-    # indices along the time bin axis
-    min_idx = np.argmin(trl_start_reltime > tbins)
-    max_idx = np.argmin(trl_end_reltime > tbins)
+    # mask indices along the time bin axis
+    # which are completely outside of latency window
+    # mask all
+    if np.all(tbins < trl_start_reltime):
+        min_idx = len(counts)
+    else:
+        min_idx = np.argmin(tbins < trl_start_reltime)
+    # mask all
+    if np.all(tbins > trl_end_reltime):
+        min_idx = len(counts)
+        max_idx = 0
+    else:
+        max_idx = np.argmin(tbins <= trl_end_reltime)
 
     if min_idx != 0:
-        counts[:min_idx - 1] = np.nan
+        counts[:min_idx] = np.nan
     if max_idx != 0:
         counts[max_idx:] = np.nan
+
+    # normalize to counts per second
+    if output == 'rate':
+        tbin_width = np.diff(tbins)[0]
+        counts *= 1 / tbin_width
+
+    # normalize only along time axis for 1d time-histograms
+    # `density=True` normalized the full 2d-histogram
+    elif output == 'proportion':
+        norm = np.nansum(counts, axis=0)[None, :]
+        # deal with potential 0's
+        norm[norm == 0] = 1
+        counts /= norm
 
     return counts, bins
 
