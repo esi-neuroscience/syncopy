@@ -728,15 +728,6 @@ class TimeLockData(ContinuousData):
     _defaultDimord = ["time", "channel"]
     _stackingDimLabel = "time"
 
-    # A `h5py.Dataset` holding the average of `data`, or `None` if not computed yet.
-    _avg = None
-
-    # A `h5py.Dataset` holding variance of `data`, or `None` if not computed yet.
-    _var = None
-
-    # A `h5py.Dataset` holding covariance of `data`, or `None` if not computed yet.
-    _cov = None
-
     # "Constructor"
     def __init__(self,
                  data=None,
@@ -780,6 +771,15 @@ class TimeLockData(ContinuousData):
                          samplerate=samplerate,
                          channel=channel,
                          dimord=dimord)
+
+        # A `h5py.Dataset` holding the average of `data`, or `None` if not computed yet.
+        self._avg = None
+
+        # A `h5py.Dataset` holding variance of `data`, or `None` if not computed yet.
+        self._var = None
+
+        # A `h5py.Dataset` holding covariance of `data`, or `None` if not computed yet.
+        self._cov = None
 
     @property
     def avg(self):
