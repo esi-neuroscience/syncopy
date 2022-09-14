@@ -595,21 +595,23 @@ class TestMTMConvol():
 
             # Test TF calculation w/different window-size/-centroids: ensure
             # resulting timing arrays are correct
+            dt = TestMTMConvol.get_tfdata_mtmconvol()
             for winsize in winSizes:
                 cfg.t_ftimwin = winsize
                 for toi in toiVals:
                     cfg.toi = toi
-                    tfSpec = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
+                    tfSpec = freqanalysis(cfg, dt)
                     tStep = winsize - toi * winsize
                     timeArr = np.arange(tStart, tStop, tStep)
                     assert np.allclose(timeArr, tfSpec.time[0])
 
             # Test window-centroids specified as time-point arrays
+            dt = TestMTMConvol.get_tfdata_mtmconvol()
             if select is not None and "toilim" not in select.keys():
                 cfg.t_ftimwin = 0.05
                 for toi in toiArrs:
                     cfg.toi = toi
-                    tfSpec = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
+                    tfSpec = freqanalysis(cfg, dt)
                     assert np.allclose(cfg.toi, tfSpec.time[0])
                     assert tfSpec.samplerate == 1/(toi[1] - toi[0])
 
