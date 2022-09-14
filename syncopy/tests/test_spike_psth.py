@@ -17,16 +17,23 @@ from syncopy.shared.errors import SPYValueError
 from syncopy.tests import synth_data as sd
 from syncopy.spikes.spike_psth import available_outputs, available_latencies
 
-
-class TestPSTH:
-
-    # synthetic spike data
-    nTrials = 10
-    spd = sd.poisson_noise(nTrials,
+def get_spike_data(nTrials = 10):
+    return sd.poisson_noise(nTrials,
                            nUnits=3,
                            nChannels=2,
                            nSpikes=10_000,
                            samplerate=10_000)
+def get_spike_cfg():
+    cfg = spy.StructDict()
+    cfg.binsize = 0.3
+    cfg.latency = [-.5, 1.5]
+    return cfg
+
+
+class TestPSTH:
+
+    # synthetic spike data
+    spd = get_spike_data()
 
     def test_psth_binsize(self):
 

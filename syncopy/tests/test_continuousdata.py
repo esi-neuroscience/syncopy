@@ -11,9 +11,10 @@ import pytest
 import random
 import numbers
 import numpy as np
+import h5py
 
 # Local imports
-from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, padding
+from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, TimeLockData, padding
 from syncopy.io import save, load
 from syncopy.datatype.base_data import Selector
 from syncopy.datatype.methods.selectdata import selectdata
@@ -1171,5 +1172,45 @@ class TestCrossSpectralData():
             flush_local_cluster(testcluster)
         client.close()
 
+
+class TestTimeLockData:
+    """Tests for the `TimeLockData` data type, which is derived from `ContinuousData`."""
+
+    def test_create(self):
+        """Test instantiation, and that expected properties/datasets specific to this data type exist."""
+        tld = TimeLockData()
+
+        assert hasattr(tld, '_avg')
+        assert hasattr(tld, '_var')
+        assert hasattr(tld, '_cov')
+        assert tld.avg is None
+        assert tld.var is None
+        assert tld.cov is None
+
+    def test_modify_properties(self):
+        """Test modification of the extra datasets avg, var, cov."""
+        tld = TimeLockData()
+
+        avg_data = np.zeros((3, 3), dtype=np.float64)
+        tld._update_seq_dataset("avg", avg_data)
+        assert isinstance(tld.avg, h5py.Dataset)
+        assert np.array_equal(avg_data, tld.avg)
+
+        # Try to overwrite data via setter, which should not work.
+        avg_data2 = np.zeros((4, 4, 4), dtype=np.float32)
+        with pytest.raises(AttributeError, match="can't set attribute"):
+            tld.avg = avg_data2
+
+        # But we can do it with _update_seq_dataset:
+        tld._update_seq_dataset("avg", avg_data2)
+        assert np.array_equal(avg_data2, tld.avg)
+
+        # ... or of course, directly using '_avg':
+        tld2 = TimeLockData()
+        avg_data3 = np.zeros((2, 2), dtype=np.float32)
+        tld2._avg = avg_data3
+        assert np.array_equal(avg_data3, tld2.avg)
+
 if __name__ == '__main__':
     T1 = TestCrossSpectralData()
+    T2 = TestTimeLockData()

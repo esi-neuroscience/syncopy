@@ -255,10 +255,14 @@ class TestComputationalRoutine():
 
             # save and re-load result, ensure nothing funky happens
             with tempfile.TemporaryDirectory() as tdir:
+
                 fname = os.path.join(tdir, "dummy")
+                print(f"test_computationalroutine: saving to {fname}")
                 out.save(fname)
+                print(f"test_computationalroutine: loading...")
                 dummy = load(fname)
-                assert out.filename == dummy.filename
+                print(f"test_computationalroutine: loading done")
+                assert out.filename == dummy.filename, f"save: expected out.filename '{out.filename}' == dummy.filename '{dummy.filename}'."
                 if select is None:
                     reference = self.orig
                 else:
@@ -482,3 +486,7 @@ class TestComputationalRoutine():
                     del dummy, dummy2, out, out_sel
 
         client.close()
+
+if __name__ == "__main__":
+    T1 = TestComputationalRoutine()
+

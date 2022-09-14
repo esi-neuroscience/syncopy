@@ -142,6 +142,7 @@ def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None
         raise SPYTypeError(filename, varname="filename", expected="str")
     if len(os.path.splitext(os.path.abspath(os.path.expanduser(filename)))[1]) == 0:
         filename += FILE_EXT["dir"]
+
     try:
         fileInfo = filename_parser(filename)
     except Exception as exc:
@@ -182,7 +183,7 @@ def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None
     if not isinstance(checksum, bool):
         raise SPYTypeError(checksum, varname="checksum", expected="bool")
 
-    # Abuse `AnalogData.mode`-setter to vet `mode`
+    # Abuse `AnalogData.mode`-setter to check `mode`
     try:
         spd.AnalogData().mode = mode
     except Exception as exc:
@@ -287,9 +288,16 @@ def _load(filename, checksum, mode, out):
 
     # Access data on disk (error checking is done by setters)
     out.mode = mode
-    for datasetProperty in out._hdfFileDatasetProperties:
-        setattr(out, datasetProperty, h5py.File(hdfFile, mode="r")[datasetProperty])
 
+    # If the JSON contains `_hdfFileDatasetProperties`, load all datasets listed in there. Otherwise, load the ones
+    # already defined by `out._hdfFileDatasetProperties` and defined in the respective data class.
+    # This is needed to load both new files with, and legacy files without the `_hdfFileDatasetProperties` in the JSON.
+    json_hdfFileDatasetProperties = jsonDict.pop("_hdfFileDatasetProperties", None) # They may not be in there for legacy files, so allow None.
+    if json_hdfFileDatasetProperties is not None:
+        out._hdfFileDatasetProperties = tuple(json_hdfFileDatasetProperties) # It's a list in the JSON, so convert to tuple.
+    for datasetProperty in out._hdfFileDatasetProperties:
+        targetProperty = datasetProperty if datasetProperty == "data" else "_" + datasetProperty
+        setattr(out, targetProperty, h5py.File(hdfFile, mode="r")[datasetProperty])
 
     # Abuse ``definetrial`` to set trial-related props
     trialdef = h5py.File(hdfFile, mode="r")["trialdefinition"][()]

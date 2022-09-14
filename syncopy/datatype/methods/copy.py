@@ -17,13 +17,13 @@ __all__ = ["copy"]
 
 
 # Return a deep copy of the current class instance
-def copy(data):
+def copy(spydata):
     """
     Create a copy of the entire Syncopy object `data` on disk
 
     Parameters
     ----------
-    data : Syncopy data object
+    spydata : Syncopy data object
         Object to be copied on disk
 
     Returns
@@ -47,30 +47,39 @@ def copy(data):
     """
 
     # Make sure `data` is a valid Syncopy data object
-    data_parser(data, varname="data", writable=None, empty=False)
+    data_parser(spydata, varname="data", writable=None, empty=False)
 
-    dsize = np.prod(data.data.shape) * data.data.dtype.itemsize / 1024**2
-    msg = (f"Copying {dsize:.2f} MB of data "
-           f"to create new {data.__class__.__name__} object on disk")
+    dsize = np.prod(spydata.data.shape) * spydata.data.dtype.itemsize / 1024 ** 2
+    msg = (
+        f"Copying {dsize:.2f} MB of data "
+        f"to create new {spydata.__class__.__name__} object on disk"
+    )
     SPYInfo(msg)
 
-    # shallow copy, captures also non-default/temporary attributes
-    cpy = py_copy(data)
-    data.clear()
-    filename = data._gen_filename()
+    # Shallow copy, captures also non-default/temporary attributes.
+    copy_spydata = py_copy(spydata)
+    copy_filename = spydata._gen_filename()
+    copy_spydata.filename = copy_filename
+    spydata.clear()
 
-    # copy data on disk
-    shutil.copyfile(data.filename, filename)
+    spydata._close()
 
-    # reattach properties
-    for propertyName in data._hdfFileDatasetProperties:
-        prop = getattr(data, propertyName)
+    # Copy data on disk.
+    shutil.copyfile(spydata.filename, copy_filename, follow_symlinks=False)
+
+    spydata._reopen()
+
+    # Reattach properties
+    for propertyName in spydata._hdfFileDatasetProperties:
+        prop = getattr(spydata, "_" + propertyName)
         if isinstance(prop, h5py.Dataset):
-            sourceName = getattr(data, propertyName).name
-            setattr(cpy, propertyName,
-                    h5py.File(filename, mode=cpy.mode)[sourceName])
-        else:
-            setattr(cpy, propertyName, prop)
+            sourceName = prop.name
+            setattr(
+                copy_spydata,
+                "_" + propertyName,
+                h5py.File(copy_filename, mode=copy_spydata.mode)[sourceName],
+            )
+        else:  # np.ndarray
+            setattr(copy_spydata, "_" + propertyName, prop)
 
-    cpy.filename = filename
-    return cpy
+    return copy_spydata
