@@ -3,15 +3,14 @@ Install Syncopy
 
 Syncopy can be installed using `conda <https://anaconda.org>`_:
 
-.. code-block:: bash
-
-    conda install -c conda-forge esi-syncopy
-
-Alternatively it is also available on `Pip <https://pypi.org/project/pip/>`_:
+We recommend to install SynCoPy into a new conda environment:
 
 .. code-block:: bash
 
-    pip install esi-syncopy
+   conda create -y --name syncopy python=3.8
+   conda activate syncopy
+   conda install -y -c conda-forge esi-syncopy
+
 
 If you're working on the ESI cluster installing Syncopy is only necessary if
 you create your own Conda environment.
@@ -52,6 +51,14 @@ accessed with the ``spy.`` prefix, e.g.
 .. code-block:: python
 
     spy.load("~/testdata.spy")
+
+
+To display your Syncopy version, run:
+
+.. code-block:: python
+
+    spy.__version__
+
 
 .. _start_parallel:
 
