@@ -2302,7 +2302,7 @@ class Selector:
         # If (on a by-trial basis) we have two or more lists, we need fancy indexing
         if listCount >= 2:
             self._useFancy = True
-            raise SPYValueError("Selection that includes not more than 1 scalar non-trial selection.")
+            #raise SPYValueError("Selection that includes not more than 1 scalar non-trial selection.")
 
         # Check for more
 
