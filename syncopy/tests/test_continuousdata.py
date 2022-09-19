@@ -52,7 +52,7 @@ chanSelections = [
 toiSelections = [
     "all",  # non-type-conform string
     0.6,  # single inexact match
-    [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
+    [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetitions
 ]
 toilimSelections = [
     [0.5, 1.5],  # regular range

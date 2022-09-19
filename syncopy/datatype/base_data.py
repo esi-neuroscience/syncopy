@@ -4,6 +4,7 @@
 #
 
 # Builtin/3rd party package imports
+from builtins import isinstance, staticmethod
 import getpass
 import socket
 import time
@@ -1316,10 +1317,21 @@ class FauxTrial:
         self.idx = tuple(idx)
         self.dtype = dtype
         self.dimord = dimord
+        FauxTrial._validate_idx(self.idx, self.dimord)
 
     def __str__(self):
         msg = "Trial placeholder of shape {} and datatype {}"
         return msg.format(str(self.shape), str(self.dtype))
+
+    @staticmethod
+    def _validate_idx(idx, dimord):
+        """Catch scalar indexing with more than 1 dimension."""
+        if idx is not None:
+            list_indices = np.where([isinstance(x, list) for x in idx])[0]
+            if list_indices.size >= 2:
+                raise SPYValueError(legal="Selection that includes not more than 1 scalar non-trial selection.", actual=f"Selection with {list_indices.size} scalar non-trial selections in dimensions: {np.array(dimord)[list_indices]}.")
+
+
 
     def __repr__(self):
         return self.__str__()
@@ -2290,6 +2302,9 @@ class Selector:
         # If (on a by-trial basis) we have two or more lists, we need fancy indexing
         if listCount >= 2:
             self._useFancy = True
+            raise SPYValueError("Selection that includes not more than 1 scalar non-trial selection.")
+
+        # Check for more
 
         # Finally, prepare new `trialdefinition` array for objects with `time` dimensions
         if self.time is not None:

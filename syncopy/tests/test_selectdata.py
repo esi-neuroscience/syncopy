@@ -935,5 +935,37 @@ class TestSelectionBug332():
             out = freqanalysis(cfg, adt)
         #assert out.data.shape == (len(selected_trials), 1, data_len, nChannels), f"expected shape {(len(selected_trials), 1, data_len, nChannels)} but found out.data.shape={out.data.shape}"
 
+class TestSelectionBug331():
+    """
+    Test whether invalid selections that contains more than 1 scalar
+    dim selection (e.g., 'foi=2, channel=0') are caught and lead to exceptions.
+
+    Note that they work for trial selections.
+    """
+    def test_caught_on_show(self):
+
+        spec = spy.SpectralData(data=np.ones((10,10,10,10)), samplerate=1)
+        # Test that it gets caught on 'show.'
+        with pytest.raises(SPYValueError, match="Selection that includes not more than 1 scalar non-trial selection"):
+            spec.show(foi=2, channel=0)
+
+    def test_caught_on_selectdata(self):
+
+        # Test that it gets caught even earlier, when creating a new instance.
+        spec = spy.SpectralData(data=np.ones((10,10,10,10)), samplerate=1)
+        with pytest.raises(SPYValueError, match="Selection that includes not more than 1 scalar non-trial selection"):
+            spec.selectdata(foi=2, channel=0)
+
+    def test_caught_on_selectdata_inplace(self):
+        # Test that it gets caught in case of in-place selections.
+        spec = spy.SpectralData(data=np.ones((10,10,10,10)), samplerate=1)
+        with pytest.raises(SPYValueError, match="Selection that includes not more than 1 scalar non-trial selection"):
+            spec.selectdata(foi=2, channel=0, inplace=True)
+
+    def test_trial_works(self):
+        # Test that these selections still work when including trials.
+        spec = spy.SpectralData(data=np.ones((10,10,10,10)), samplerate=1)
+        spec.selectdata(foi=2, trials=0)
+
 if __name__ == '__main__':
     T1 = TestSelector()

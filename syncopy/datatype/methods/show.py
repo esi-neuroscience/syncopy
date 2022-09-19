@@ -159,7 +159,7 @@ def show(data, squeeze=True, **kwargs):
     SPYInfo("Showing{}".format(msg))
 
     # catch totally out of range toi selection
-    has_time = True if 'time' in data.dimord else False
+    has_time = 'time' in data.dimord
 
     # Use an object's `_preview_trial` method fetch required indexing tuples
     idxList = []
