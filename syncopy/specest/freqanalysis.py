@@ -84,10 +84,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
         * **keeptapers** : return individual tapers or average
         * **pad**: either pad to an absolute length or set to `'nextpow2'`
 
-        Post-processing of the resulting spectra with FOOOOF is available
+        Post-processing of the resulting spectra with FOOOF is available
         via setting `output` to one of `'fooof'`, `'fooof_aperiodic'` or
         `'fooof_peaks'`, see below for details. The returned spectrum represents
-        the full foofed spectrum for `'fooof'`, the aperiodic
+        the full fooofed spectrum for `'fooof'`, the aperiodic
         fit for `'fooof_aperiodic'`, and the peaks (Gaussians fit to them) for
         `'fooof_peaks'`. Returned data is in linear scale. Noisy input
         data will most likely lead to fitting issues with fooof, always inspect
@@ -909,7 +909,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         #  - the output_fmt must be one of 'fooof', 'fooof_aperiodic',
         #    or 'fooof_peaks'.
         #  - everything passed as method_kwargs is passed as arguments
-        #    to the foooof.FOOOF() constructor or functions, the other args are
+        #    to the fooof.FOOOF() constructor or functions, the other args are
         #    used elsewhere.
         fooofMethod = FooofSpy(output_fmt=output_fooof, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)
 

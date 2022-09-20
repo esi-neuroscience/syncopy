@@ -124,7 +124,7 @@ class TestFooofSpy():
         """
         cfg = TestFooofSpy.get_fooof_cfg()
         cfg.pop('fooof_opt', None)
-        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
         spec_dt = freqanalysis(cfg, _get_fooof_signal(), fooof_opt=fooof_opt)
 
         # check frequency axis
@@ -157,7 +157,7 @@ class TestFooofSpy():
         cfg = TestFooofSpy.get_fooof_cfg()
         cfg.output = "fooof_aperiodic"
         cfg.pop('fooof_opt', None)
-        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
         spec_dt = freqanalysis(cfg, _get_fooof_signal(), fooof_opt=fooof_opt)
 
         # log
@@ -175,7 +175,7 @@ class TestFooofSpy():
         cfg = TestFooofSpy.get_fooof_cfg()
         cfg.output = "fooof_peaks"
         cfg.pop('fooof_opt', None)
-        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
         spec_dt = freqanalysis(cfg, _get_fooof_signal(), fooof_opt=fooof_opt)
         assert spec_dt.data.ndim == 4
         assert "fooof" in spec_dt._log
@@ -189,7 +189,7 @@ class TestFooofSpy():
         cfg['foilim'] = [10, 70]
         cfg.pop('fooof_opt', None)
         fooof_opt = {'peak_width_limits': (6.0, 12.0),
-                     'min_peak_height': 0.2}  # Increase lower limit to avoid foooof warning.
+                     'min_peak_height': 0.2}  # Increase lower limit to avoid fooof warning.
 
         out_fft = freqanalysis(cfg, _get_fooof_signal())
         cfg['output'] = "fooof"
