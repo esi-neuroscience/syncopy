@@ -10,6 +10,7 @@ import functools
 import random
 
 from syncopy import AnalogData, SpikeData
+from syncopy.shared.errors import SPYInfo, SPYValueError
 
 _2pi = np.pi * 2
 
@@ -29,17 +30,32 @@ def collect_trials(trial_generator):
     If the underlying trial generating function also accepts
     a `samplerate`, forward this directly.
 
+    If the underlying trial generating function also accepts
+    a `seed`, forward this directly. One can pass a single seed,
+    to be used for all trials, or a list/np.ndarray of seeds with
+    len/size equal to nTrials, with one seed per trial. Leaving
+    at the default value, None, will select a random seed each time,
+    (and it will differ between trials).
+
     The default `nTrials=None` is the identity wrapper and
     just returns the output of the trial generating function
     directly, so a single trial :class:`numpy.ndarray`.
     """
 
     @functools.wraps(trial_generator)
-    def wrapper_synth(nTrials=None, samplerate=1000, **tg_kwargs):
+    def wrapper_synth(nTrials=None, samplerate=1000, seed=None, **tg_kwargs):
 
         # append samplerate parameter if also needed by the generator
         if 'samplerate' in signature(trial_generator).parameters.keys():
             tg_kwargs['samplerate'] = samplerate
+
+        seed_per_trial = isinstance(seed, (list, np.ndarray))
+        if 'seed' in signature(trial_generator).parameters.keys():
+            if not seed_per_trial:
+                tg_kwargs['seed'] = seed
+        else:
+            if seed_per_trial:
+                SPYInfo(f"Ignoring seed list/array, trial_generator does not support 'seed' parameter.")
 
         # do nothing
         if nTrials is None:
@@ -48,7 +64,13 @@ def collect_trials(trial_generator):
         else:
             trl_list = []
 
-            for _ in range(nTrials):
+            if seed_per_trial:
+                if not np.array(seed).size == nTrials:
+                    raise SPYValueError(legal=f"Seed list/array with length equal to nTrials ({nTrials}).", actual=f"Seed list/array of length {np.array(seed).size}.")
+
+            for trial_idx in range(nTrials):
+                if 'seed' in signature(trial_generator).parameters.keys() and seed_per_trial:
+                    tg_kwargs['seed'] = seed[trial_idx]
                 trl_arr = trial_generator(**tg_kwargs)
                 trl_list.append(trl_arr)
 
@@ -62,17 +84,16 @@ def collect_trials(trial_generator):
 
 
 @collect_trials
-def white_noise(nSamples=1000, nChannels=2):
-
+def white_noise(nSamples=1000, nChannels=2, seed=None):
     """
     Plain white noise with unity standard deviation
     """
-    return np.random.randn(nSamples, nChannels)
+    rng = np.random.default_rng(seed)
+    return rng.random((nSamples, nChannels))
 
 
 @collect_trials
 def linear_trend(y_max, nSamples=1000, nChannels=2):
-
     """
     A linear trend  on all channels from 0 to `y_max` in `nSamples`
     """
@@ -155,7 +176,7 @@ def phase_diffusion(freq,
 
 
 @collect_trials
-def AR2_network(AdjMat=None, nSamples=1000, alphas=[0.55, -0.8]):
+def AR2_network(AdjMat=None, nSamples=1000, alphas=[0.55, -0.8], seed=None):
 
     """
     Simulation of a network of coupled AR(2) processes
@@ -169,6 +190,9 @@ def AR2_network(AdjMat=None, nSamples=1000, alphas=[0.55, -0.8]):
           and dense (many connections) systems will
           almost surely lead to an unstable system
 
+    NOTE: One can set the number of channels via the shape
+          of the supplied `AdjMat`. Defaults to 2.
+
     Parameters
     ----------
     AdjMat : np.ndarray or None
@@ -177,10 +201,13 @@ def AR2_network(AdjMat=None, nSamples=1000, alphas=[0.55, -0.8]):
         from channel ``i -> j``.
         If left at `None`, the default 2 Channel system
         with unidirectional ``2 -> 1`` coupling is generated.
+        See also `mk_RandomAdjMat`.
     nSamples : int, optional
         Number of samples in time
     alphas : 2-element sequence, optional
         The AR(2) parameters for lag1 and lag2
+    seed : None, int or others supported by `np.random.default_rng`
+        Random seed to init random number generator. Passed on to `np.random.default_rng` function.
 
     Returns
     -------
@@ -202,22 +229,20 @@ def AR2_network(AdjMat=None, nSamples=1000, alphas=[0.55, -0.8]):
 
     sol = np.zeros((nSamples, nChannels))
     # pick the 1st values at random
-    sol[:2, :] = np.random.randn(2, nChannels)
+    rng = np.random.default_rng(seed)
+    sol[:2, :] = rng.randn(2, nChannels)
 
     for i in range(2, nSamples):
-
         sol[i, :] = (DiagMat + AdjMat.T) @ sol[i - 1, :] + alpha2 * sol[i - 2, :]
-        sol[i, :] += np.random.randn(nChannels)
+        sol[i, :] += rng.randn(nChannels)
 
     return sol
 
 
 def AR2_peak_freq(a1, a2, fs=1):
-
     """
     Helper function to tune spectral peak of AR(2) process
     """
-
     if np.any((a1**2 + 4 * a2) > 0):
         raise ValueError("No complex roots!")
 
