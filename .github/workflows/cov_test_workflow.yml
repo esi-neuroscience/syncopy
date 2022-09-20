@@ -24,7 +24,7 @@ jobs:
         python-version: 3.8
     - name: Install poetry
       run: |
-        pip install -Iv poetry==1.1.7
+        pip install poetry
     - name: Install SyNCoPy
       run: |
         poetry install
