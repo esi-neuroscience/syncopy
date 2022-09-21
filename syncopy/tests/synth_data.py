@@ -53,9 +53,6 @@ def collect_trials(trial_generator):
         if 'seed' in signature(trial_generator).parameters.keys():
             if not seed_per_trial:
                 tg_kwargs['seed'] = seed
-        else:
-            if seed_per_trial:
-                SPYInfo(f"Ignoring seed list/array, trial_generator does not support 'seed' parameter.")
 
         # do nothing
         if nTrials is None:
@@ -71,6 +68,7 @@ def collect_trials(trial_generator):
             for trial_idx in range(nTrials):
                 if 'seed' in signature(trial_generator).parameters.keys() and seed_per_trial:
                     tg_kwargs['seed'] = seed[trial_idx]
+                print(f"[collect_trials] Calling {trial_generator.__name__} with kwargs: {tg_kwargs}")
                 trl_arr = trial_generator(**tg_kwargs)
                 trl_list.append(trl_arr)
 
@@ -121,7 +119,7 @@ def phase_diffusion(freq,
                     nChannels=2,
                     nSamples=1000,
                     return_phase=False,
-                    seed=None):
+                    ):
 
     """
     Linear (harmonic) phase evolution + a Brownian noise term
@@ -160,8 +158,7 @@ def phase_diffusion(freq,
     """
 
     # white noise
-    rng = np.random.default_rng(seed)
-    wn = rng.random((nSamples, nChannels))
+    wn = white_noise(nSamples=1000, nChannels=2, seed=seed)
 
     delta_ts = np.ones(nSamples) * 1 / fs
     omega0 = 2 * np.pi * freq
