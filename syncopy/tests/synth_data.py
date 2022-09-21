@@ -122,7 +122,8 @@ def phase_diffusion(freq,
                     fs=1000,
                     nChannels=2,
                     nSamples=1000,
-                    return_phase=False):
+                    return_phase=False,
+                    seed=None):
 
     """
     Linear (harmonic) phase evolution + a Brownian noise term
