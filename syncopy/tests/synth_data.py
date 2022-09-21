@@ -97,14 +97,12 @@ def linear_trend(y_max, nSamples=1000, nChannels=2):
     """
     A linear trend  on all channels from 0 to `y_max` in `nSamples`
     """
-
     trend = np.linspace(0, y_max, nSamples)
     return np.column_stack([trend for _ in range(nChannels)])
 
 
 @collect_trials
 def harmonic(freq, samplerate, nSamples=1000, nChannels=2):
-
     """
     A harmonic with frequency `freq`
     """
@@ -162,7 +160,8 @@ def phase_diffusion(freq,
     """
 
     # white noise
-    wn = np.random.randn(nSamples, nChannels)
+    rng = np.random.default_rng(seed)
+    wn = rng.random((nSamples, nChannels))
 
     delta_ts = np.ones(nSamples) * 1 / fs
     omega0 = 2 * np.pi * freq
@@ -308,7 +307,8 @@ def poisson_noise(nTrials=10,
                   nChannels=3,
                   nUnits=10,
                   intensity=.1,
-                  samplerate=10000
+                  samplerate=10000,
+                  seed=None
                   ):
 
     """
