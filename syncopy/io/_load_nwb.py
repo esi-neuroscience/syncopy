@@ -235,16 +235,13 @@ def load_nwb(filename, memuse=3000):
         # If channel-specific gains are set, load them now
         if acqValue.channel_conversion is not None:
             gains = acqValue.channel_conversion[()]
-
-        # Write data block-wise to `angDset` (use `del` to wipe blocks from memory)
-        # Use 'unsafe' casting to allow `tmp` array conversion int -> float
+            
         endChan = chanCounter + acqValue.data.shape[1]
         for m, M in enumerate(tqdm(blockList, desc=pbarDesc, position=1, leave=False)):
-            tmp = acqValue.data[m * nSamp: m * nSamp + M, :]
+            st_samp, end_samp = m * nSamp, m * nSamp + M
+            angDset[st_samp : end_samp, chanCounter : endChan] = acqValue.data[st_samp : end_samp, :]
             if acqValue.channel_conversion is not None:
-                np.multiply(tmp, gains, out=tmp, casting="unsafe")
-            angDset[m * nSamp: m * nSamp + M, chanCounter : endChan] = tmp
-            del tmp
+                angDset[st_samp : end_samp, chanCounter : endChan] *= gains
 
         # Update channel counter for next `acqValue``
         chanCounter += acqValue.data.shape[1]
