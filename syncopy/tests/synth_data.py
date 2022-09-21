@@ -370,22 +370,24 @@ def poisson_noise(nTrials=10,
     """
 
     # uniform random weights
-    def get_rdm_weights(size):
-        pvec = np.random.uniform(size=size)
+    def get_rdm_weights(size, seed=seed):
+        rng = np.random.default_rng(seed)
+        pvec = rng.uniform(size=size)
         return pvec / pvec.sum()
 
     # total length of all trials combined
+    rng = np.random.default_rng(seed)
     T_max = int(nSpikes / intensity)
 
-    spike_samples = np.sort(random.sample(range(T_max), nSpikes))
-    channels = np.random.choice(
+    spike_samples = np.sort(rng.random(size=(range(T_max), nSpikes)))
+    channels = rng.choice(
         np.arange(nChannels), p=get_rdm_weights(nChannels),
         size=nSpikes, replace=True
     )
 
     uvec = np.arange(nUnits)
     pvec = get_rdm_weights(nUnits)
-    units = np.random.choice(uvec, p=pvec, size=nSpikes, replace=True)
+    units = rng.choice(uvec, p=pvec, size=nSpikes, replace=True)
 
     # originally fixed trial size
     step = T_max // nTrials
@@ -396,10 +398,10 @@ def poisson_noise(nTrials=10,
     idx_end = trl_intervals[1:] - 1
 
     # now randomize trial length a bit, max 10% size difference
-    idx_end = idx_end - np.r_[np.random.randint(step // 10, size=nTrials - 1), 0]
+    idx_end = idx_end - np.r_[rng.integers(step // 10, size=nTrials - 1), 0]
 
     shortest_trial = np.min(idx_end - idx_start)
-    idx_offset = -np.random.choice(
+    idx_offset = -rng.choice(
         np.arange(0.05 * shortest_trial, 0.2 * shortest_trial, dtype=int), size=nTrials, replace=True
     )
 
