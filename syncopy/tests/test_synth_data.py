@@ -93,8 +93,8 @@ class TestSynthData:
         arn2 = AR2_network(nSamples=self.nSamples)
         assert isinstance(arn1, np.ndarray)
         assert isinstance(arn2, np.ndarray)
-        assert arn1.shape == (2, num_channels)
-        assert arn2.shape == (2, num_channels)
+        assert arn1.shape == (self.nSamples, num_channels)
+        assert arn2.shape == (self.nSamples, num_channels)
 
         assert not np.allclose(arn1, arn2)
 
