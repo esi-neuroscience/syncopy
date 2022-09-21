@@ -379,7 +379,7 @@ def poisson_noise(nTrials=10,
     rng = np.random.default_rng(seed)
     T_max = int(nSpikes / intensity)
 
-    spike_samples = np.sort(rng.random(size=(range(T_max), nSpikes)))
+    spike_samples = np.sort(rng.choice(range(T_max), size=nSpikes, replace=False))
     channels = rng.choice(
         np.arange(nChannels), p=get_rdm_weights(nChannels),
         size=nSpikes, replace=True
