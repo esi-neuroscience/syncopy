@@ -231,11 +231,11 @@ def AR2_network(AdjMat=None, nSamples=1000, alphas=[0.55, -0.8], seed=None):
     sol = np.zeros((nSamples, nChannels))
     # pick the 1st values at random
     rng = np.random.default_rng(seed)
-    sol[:2, :] = rng.randn(2, nChannels)
+    sol[:2, :] = rng.random((2, nChannels))
 
     for i in range(2, nSamples):
         sol[i, :] = (DiagMat + AdjMat.T) @ sol[i - 1, :] + alpha2 * sol[i - 2, :]
-        sol[i, :] += rng.randn(nChannels)
+        sol[i, :] += rng.random((nChannels))
 
     return sol
 
