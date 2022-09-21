@@ -158,7 +158,7 @@ def phase_diffusion(freq,
     """
 
     # white noise
-    wn = white_noise(nSamples=1000, nChannels=2)
+    wn = white_noise(nSamples=nSamples, nChannels=nChannels)
 
     delta_ts = np.ones(nSamples) * 1 / fs
     omega0 = 2 * np.pi * freq
