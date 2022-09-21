@@ -102,7 +102,6 @@ class TestSynthData:
         """With seed set, the data should be identical.
            Note: This does not use collect trials.
         """
-        num_channels = 2
         seed = 42
         arn1 = AR2_network(nSamples=self.nSamples, seed=seed)
         arn2 = AR2_network(nSamples=self.nSamples, seed=seed)
