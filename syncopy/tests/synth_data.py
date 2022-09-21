@@ -305,8 +305,7 @@ def poisson_noise(nTrials=10,
                   nUnits=10,
                   intensity=.1,
                   samplerate=10000,
-                  seed=None
-                  ):
+                  seed=None):
 
     """
     Poisson (Shot-)noise generator
