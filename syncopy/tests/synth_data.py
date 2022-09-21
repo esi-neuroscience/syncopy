@@ -233,7 +233,7 @@ def AR2_network(AdjMat=None, nSamples=1000, alphas=[0.55, -0.8], seed=None):
 
     for i in range(2, nSamples):
         sol[i, :] = (DiagMat + AdjMat.T) @ sol[i - 1, :] + alpha2 * sol[i - 2, :]
-        sol[i, :] += rng.random((nChannels))
+        sol[i, :] += rng.normal(size=(nChannels))
 
     return sol
 
