@@ -37,7 +37,7 @@ class TestSynthData:
 
     def test_collect_trials_seed_array(self):
         # Trials must differ within an object if seed is a list/ndarray:
-        seed = np.random.RandomState(0).randn(self.nTrials)
+        seed = np.random.randint(10000, size=self.nTrials)
         wn1 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, nTrials=self.nTrials, seed=seed)
         assert isinstance(wn1, spy.AnalogData)
         assert not np.allclose(wn1.show(trials=0), wn1.show(trials=1))
