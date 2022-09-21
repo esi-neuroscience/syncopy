@@ -87,7 +87,7 @@ def white_noise(nSamples=1000, nChannels=2, seed=None):
     Plain white noise with unity standard deviation
     """
     rng = np.random.default_rng(seed)
-    return rng.random((nSamples, nChannels))
+    return rng.normal(size=(nSamples, nChannels))
 
 
 @collect_trials
