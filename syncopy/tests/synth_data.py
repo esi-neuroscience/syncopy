@@ -46,7 +46,7 @@ def collect_trials(trial_generator):
     def wrapper_synth(nTrials=None, samplerate=1000, seed=None, seed_per_trial=True, **tg_kwargs):
 
         use_seed_per_trial = False
-        if seed is not None and seed_per_trial:  # Use the single seed to create one seed per trial.
+        if nTrials is not None and seed is not None and seed_per_trial:  # Use the single seed to create one seed per trial.
             rng = np.random.default_rng(seed)
             seed = rng.integers(1000000, size=nTrials)
             use_seed_per_trial = True
@@ -55,12 +55,10 @@ def collect_trials(trial_generator):
         if 'samplerate' in signature(trial_generator).parameters.keys():
             tg_kwargs['samplerate'] = samplerate
 
-        if 'seed' in signature(trial_generator).parameters.keys():
-            if not use_seed_per_trial:
-                tg_kwargs['seed'] = seed
-
         # do nothing (may pass on the scalar seed if the function supports it)
         if nTrials is None:
+            if 'seed' in signature(trial_generator).parameters.keys():
+                tg_kwargs['seed'] = seed
             return trial_generator(**tg_kwargs)
         # collect trials
         else:
