@@ -65,8 +65,11 @@ def collect_trials(trial_generator):
             trl_list = []
 
             for trial_idx in range(nTrials):
-                if 'seed' in signature(trial_generator).parameters.keys() and use_seed_per_trial:
-                    tg_kwargs['seed'] = seed[trial_idx]
+                if 'seed' in signature(trial_generator).parameters.keys():
+                    if use_seed_per_trial:
+                        tg_kwargs['seed'] = seed[trial_idx]
+                    else:
+                        tg_kwargs['seed'] = seed
                 print(f"[collect_trials] use_seed_per_trial={use_seed_per_trial}. Calling {trial_generator.__name__} with kwargs: {tg_kwargs}")
                 trl_arr = trial_generator(**tg_kwargs)
                 trl_list.append(trl_arr)
