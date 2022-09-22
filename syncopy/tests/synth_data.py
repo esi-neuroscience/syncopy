@@ -121,7 +121,7 @@ def phase_diffusion(freq,
                     nChannels=2,
                     nSamples=1000,
                     return_phase=False,
-                    ):
+                    seed = None):
 
     """
     Linear (harmonic) phase evolution + a Brownian noise term
@@ -160,7 +160,7 @@ def phase_diffusion(freq,
     """
 
     # white noise
-    wn = white_noise(nSamples=nSamples, nChannels=nChannels)
+    wn = white_noise(nSamples=nSamples, nChannels=nChannels, seed=seed)
 
     delta_ts = np.ones(nSamples) * 1 / fs
     omega0 = 2 * np.pi * freq
