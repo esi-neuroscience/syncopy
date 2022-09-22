@@ -31,7 +31,7 @@ class TestSynthData:
 
     def test_white_noise_with_seed(self):
         """With seed set, the data should be identical.
-           Note: This does not use collect trials.
+           Note: This does not use @collect_trials.
         """
         seed = 42
         wn1 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, seed=seed)
@@ -42,8 +42,9 @@ class TestSynthData:
         assert np.allclose(wn1, wn2)
 
     def test_collect_trials_wn_seed_array(self):
-        # Trials must differ within an object if seed is a list/ndarray:
-        seed = np.random.randint(10000, size=self.nTrials)
+        """Uses @collect_trials."""
+        # Trials must differ within an object if seed_per_trial is left at default (true):
+        seed = 42
         wn1 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, nTrials=self.nTrials, seed=seed)
         assert isinstance(wn1, spy.AnalogData)
         assert not np.allclose(wn1.show(trials=0), wn1.show(trials=1))
@@ -54,18 +55,20 @@ class TestSynthData:
         assert np.allclose(wn1.show(trials=1), wn2.show(trials=1))
 
     def test_collect_trials_wn_seed_scalar(self):
-        # Trials must be identical within an object if seed is a single scalar.
+        """Uses @collect_trials."""
+        # Trials must be identical within an object if seed_per_trial is False (and a seed is used).
         seed = 42
-        wn1 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, nTrials=self.nTrials, seed=seed)
+        wn1 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, nTrials=self.nTrials, seed=seed, seed_per_trial=False)
         assert isinstance(wn1, spy.AnalogData)
         assert np.allclose(wn1.show(trials=0), wn1.show(trials=1))
 
         # And also, using the same scalar seed again should lead to an identical object.
-        wn2 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, nTrials=self.nTrials, seed=seed)
+        wn2 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, nTrials=self.nTrials, seed=seed, seed_per_trial=False)
         assert np.allclose(wn1.show(trials=0), wn2.show(trials=0))
         assert np.allclose(wn1.show(trials=1), wn2.show(trials=1))
 
     def test_collect_trials_wn_no_seed(self):
+        """Uses @collect_trials."""
         # Trials must differ within an object if seed is None:
         seed = None
         wn1 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, nTrials=self.nTrials, seed=seed)
@@ -77,10 +80,6 @@ class TestSynthData:
         assert not np.allclose(wn1.show(trials=0), wn2.show(trials=0))
         assert not np.allclose(wn1.show(trials=1), wn2.show(trials=1))
 
-
-    def test_collect_trials_wn_raise_wrong_seed(self):
-        with pytest.raises(SPYValueError, match="Seed list/array with length equal to nTrials"):
-            white_noise(nSamples=self.nSamples, nChannels=self.nChannels, nTrials=20, seed=np.arange(21))
 
     #### Tests for AR2_network
 
@@ -103,8 +102,8 @@ class TestSynthData:
            Note: This does not use collect trials.
         """
         seed = 42
-        arn1 = AR2_network(nSamples=self.nSamples, seed=seed)
-        arn2 = AR2_network(nSamples=self.nSamples, seed=seed)
+        arn1 = AR2_network(nSamples=self.nSamples, seed=seed, seed_per_trial=False)
+        arn2 = AR2_network(nSamples=self.nSamples, seed=seed, seed_per_trial=False)
 
         assert np.allclose(arn1, arn2)
 

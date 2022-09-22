@@ -43,32 +43,33 @@ def collect_trials(trial_generator):
     """
 
     @functools.wraps(trial_generator)
-    def wrapper_synth(nTrials=None, samplerate=1000, seed=None, **tg_kwargs):
+    def wrapper_synth(nTrials=None, samplerate=1000, seed=None, seed_per_trial=True, **tg_kwargs):
+
+        use_seed_per_trial = False
+        if seed is not None and seed_per_trial:  # Use the single seed to create one seed per trial.
+            rng = np.random.default_rng(seed)
+            seed = rng.integers(1000000, size=nTrials)
+            use_seed_per_trial = True
 
         # append samplerate parameter if also needed by the generator
         if 'samplerate' in signature(trial_generator).parameters.keys():
             tg_kwargs['samplerate'] = samplerate
 
-        seed_per_trial = isinstance(seed, (list, np.ndarray))
         if 'seed' in signature(trial_generator).parameters.keys():
-            if not seed_per_trial:
+            if not use_seed_per_trial:
                 tg_kwargs['seed'] = seed
 
-        # do nothing
+        # do nothing (may pass on the scalar seed if the function supports it)
         if nTrials is None:
             return trial_generator(**tg_kwargs)
         # collect trials
         else:
             trl_list = []
 
-            if seed_per_trial:
-                if not np.array(seed).size == nTrials:
-                    raise SPYValueError(legal=f"Seed list/array with length equal to nTrials ({nTrials}).", actual=f"Seed list/array of length {np.array(seed).size}.")
-
             for trial_idx in range(nTrials):
-                if 'seed' in signature(trial_generator).parameters.keys() and seed_per_trial:
+                if 'seed' in signature(trial_generator).parameters.keys() and use_seed_per_trial:
                     tg_kwargs['seed'] = seed[trial_idx]
-                print(f"[collect_trials] Calling {trial_generator.__name__} with kwargs: {tg_kwargs}")
+                print(f"[collect_trials] use_seed_per_trial={use_seed_per_trial}. Calling {trial_generator.__name__} with kwargs: {tg_kwargs}")
                 trl_arr = trial_generator(**tg_kwargs)
                 trl_list.append(trl_arr)
 
@@ -205,8 +206,11 @@ def AR2_network(AdjMat=None, nSamples=1000, alphas=[0.55, -0.8], seed=None):
         Number of samples in time
     alphas : 2-element sequence, optional
         The AR(2) parameters for lag1 and lag2
-    seed : None, int or others supported by `np.random.default_rng`
-        Random seed to init random number generator. Passed on to `np.random.default_rng` function.
+    seed : None or int.
+        Random seed to init random number generator, passed on to `np.random.default_rng` function.
+        When using this function with an `nTrials` argument (`@collect_trials` wrapper), and you *do*
+        want the data of all trials to be identical (and reproducible),
+        pass a single scalar seed and set 'seed_per_trial=False'.
 
     Returns
     -------
@@ -342,6 +346,8 @@ def poisson_noise(nTrials=10,
         Expected number of spikes per sampling interval
     samplerate : float
         Sampling rate in Hz
+    seed: None or int, passed on to `np.random.default_rng`.
+          Set to an int to get reproducible results.
 
     Returns
     -------
