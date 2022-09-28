@@ -216,7 +216,7 @@ class MultiTaperFFT(ComputationalRoutine):
 
         # channels, trialdefinition and so on..
         propagate_properties(data, out, self.keeptrials)
-        
+
         if self.cfg["method_kwargs"]["taper"] is None:
             out.taper = np.array(['None'])
         else:
@@ -971,11 +971,43 @@ class FooofSpy(ComputationalRoutine):
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ["fooof_settings"]
 
+    @staticmethod
+    def metadata_nest_keys_by_label(metadata):
+        """
+        Nest md dictionary keys with identical label prefixes into sub dictionaries.
+
+        Put another way, this will add a layer of new dictionaries, which are the unique label
+        names of the keys of the original dictionary. The unique label names of the keys are computed
+        by running `decode_unique_md_label` on each key and considering the unique first return values.
+        E.g., ```metadata = { 'ap__0_0': 1, 'ap__0_1': 2, 'pp__0_0': 3, 'pp__0_1': 4}``` becomes
+        ```metadata_nested = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': {'pp__0_0': 3, 'pp__0_1': 4}}```.
+
+        Parameters
+        ----------
+        metadata: dict
+            Dictionary with metadata keys that can be handled by `decode_unique_md_label`.
+
+        Returns
+        -------
+        metadata_nested: dict
+            Nested version of the dict.
+        """
+        metadata_nested = dict()
+        for unique_attr_label, v in metadata.items():
+            label, trial_idx, call_idx = decode_unique_md_label(unique_attr_label)
+            if label in metadata_nested and not isinstance(metadata_nested[label], dict):
+                raise ValueError(f"Cannot create new nested key '{label}', non-dict entry with that name already exists.")
+            if not label in metadata_nested:
+                metadata_nested[label] = dict()
+            metadata_nested[label][unique_attr_label] = v
+        return metadata_nested
+
+
     # To attach metadata to the output of the CF
     def process_metadata(self, data, out):
 
         # General-purpose loading of metadata.
-        out.metadata = metadata_from_hdf5_file(out.filename)
+        mdata = metadata_from_hdf5_file(out.filename)
 
         # Note that FOOOF never sees absolute trial indices if a selection was
         # made in the call to `freqanalysis`, because the mtmfft run before will have
@@ -983,7 +1015,7 @@ class FooofSpy(ComputationalRoutine):
 
         # Backend-specific post-processing. May or may not be needed, depending on what
         # you need to do in the cF to fit the return values into hdf5.
-        out.metadata = FooofSpy.decode_metadata_fooof_alltrials_from_hdf5(out.metadata)
+        out.metadata = FooofSpy.decode_metadata_fooof_alltrials_from_hdf5(mdata)
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -1030,8 +1062,8 @@ class FooofSpy(ComputationalRoutine):
         - that function prepares data from a single backend function call,
         while this function has to unpack the data from *all* cF function calls.
         - the input metadata to this function is a standard dict that has already
-        been pre-processed, including the split into 'attrs' and 'dsets',
-        by the general-purpose metadata extraction function `metadata_from_hdf5_file()`.
+        been pre-processed by the general-purpose metadata extraction
+        function `metadata_from_hdf5_file()`.
         """
         for unique_attr_label, v in metadata_fooof_hdf5.items():
             label, trial_idx, call_idx = decode_unique_md_label(unique_attr_label)
