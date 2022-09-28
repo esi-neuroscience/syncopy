@@ -972,7 +972,7 @@ class FooofSpy(ComputationalRoutine):
     valid_kws += ["fooof_settings"]
 
     @staticmethod
-    def metadata_nest_keys_by_label(metadata):
+    def metadata_nest(metadata):
         """
         Nest md dictionary keys with identical label prefixes into sub dictionaries.
 
@@ -991,6 +991,10 @@ class FooofSpy(ComputationalRoutine):
         -------
         metadata_nested: dict
             Nested version of the dict.
+
+        See also
+        --------
+        metadata_unnest: performs the reverse operation of this function.
         """
         metadata_nested = dict()
         for unique_attr_label, v in metadata.items():
@@ -1001,6 +1005,36 @@ class FooofSpy(ComputationalRoutine):
                 metadata_nested[label] = dict()
             metadata_nested[label][unique_attr_label] = v
         return metadata_nested
+
+    @staticmethod
+    def metadata_unnest(metadata):
+        """
+        Unnest md dictionary.
+
+        E.g., ```metadata_nested = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': {'pp__0_0': 3, 'pp__0_1': 4}}``` becomes
+        ```metadata = { 'ap__0_0': 1, 'ap__0_1': 2, 'pp__0_0': 3, 'pp__0_1': 4}```.
+
+        Parameters
+        ----------
+        metadata: dict
+            Dictionary with nested metadata keys.
+
+        Returns
+        -------
+        metadata_unnested: dict
+            Unnested version of the dict.
+
+        See also
+        --------
+        metadata_nest: performs the reverse operation of this function.
+        """
+        metadata_unnested = dict()
+        for nested_category, v in metadata.items():
+            if not isinstance(v, dict):
+                raise ValueError(f"Parameter 'metadata' value at key '{nested_category}' is not a dict, invalid input.")
+            for unique_attr_label, v in nested_category.items():
+                metadata_unnested[unique_attr_label] = v
+        return metadata_unnested
 
 
     # To attach metadata to the output of the CF
