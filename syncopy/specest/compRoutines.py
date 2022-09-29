@@ -972,6 +972,8 @@ class FooofSpy(ComputationalRoutine):
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ["fooof_settings"]
 
+    """The keys available in the metadata returned by this function."""
+    metadata_keys = ('aperiodic_params', 'error', 'gaussian_params', 'n_peaks', 'peak_params', 'r_squared',)
 
     # To attach metadata to the output of the CF
     def process_metadata(self, data, out):
