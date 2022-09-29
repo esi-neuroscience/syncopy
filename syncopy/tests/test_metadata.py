@@ -17,7 +17,7 @@ from syncopy import freqanalysis
 from syncopy.datatype.methods.copy import copy
 from syncopy.shared.tools import get_defaults
 from syncopy.tests.synth_data import AR2_network, phase_diffusion
-from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, parse_cF_returns, _parse_backend_metadata, _merge_md_list, metadata_from_hdf5_file
+from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, parse_cF_returns, _parse_backend_metadata, _merge_md_list, metadata_from_hdf5_file, metadata_nest, metadata_unnest
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 import syncopy as spy
 from syncopy import __acme__
@@ -144,6 +144,22 @@ class TestMetadataHelpers():
 
         # Test that warning is raised for large data
         _parse_backend_metadata({'attr1': np.arange(100000)})
+
+    def test_metadata_nest(self):
+        # Test with valid input
+        md = { 'ap__0_0': 1, 'ap__0_1': 2, 'pp__0_0': 3, 'pp__0_1': 4}
+        md_nested = metadata_nest(md)
+        expected = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': {'pp__0_0': 3, 'pp__0_1': 4}}
+        assert md_nested == expected
+
+    def test_metadata_unnest(self):
+        # Test with valid input
+        md_nested = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': {'pp__0_0': 3, 'pp__0_1': 4}}
+        md_unnested = metadata_unnest(md_nested)
+        expected = { 'ap__0_0': 1, 'ap__0_1': 2, 'pp__0_0': 3, 'pp__0_1': 4}
+
+        assert md_unnested == expected
+
 
 class TestMetadataUsingFooof():
     """

@@ -286,4 +286,70 @@ def check_freq_hashes(metadata, out):
         SPYWarning(msg)
         out.log = msg
         out.info['mismatched freq. axis trial ids'] = trl_mismatches
-    
+
+
+def metadata_nest(metadata):
+    """
+    Nest md dictionary keys with identical label prefixes into sub dictionaries.
+
+    Put another way, this will add a layer of new dictionaries, which are the unique label
+    names of the keys of the original dictionary. The unique label names of the keys are computed
+    by running `decode_unique_md_label` on each key and considering the unique first return values.
+    E.g., ```metadata = { 'ap__0_0': 1, 'ap__0_1': 2, 'pp__0_0': 3, 'pp__0_1': 4}``` becomes
+    ```metadata_nested = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': {'pp__0_0': 3, 'pp__0_1': 4}}```.
+
+    Parameters
+    ----------
+    metadata: dict
+        Dictionary with metadata keys that can be handled by `decode_unique_md_label`.
+
+    Returns
+    -------
+    metadata_nested: dict
+        Nested version of the dict.
+
+    See also
+    --------
+    metadata_unnest: performs the reverse operation of this function.
+    """
+    metadata_nested = dict()
+    for unique_attr_label, v in metadata.items():
+        label, trial_idx, call_idx = decode_unique_md_label(unique_attr_label)
+        if label in metadata_nested and not isinstance(metadata_nested[label], dict):
+            raise ValueError(f"Cannot create new nested key '{label}', non-dict entry with that name already exists.")
+        if not label in metadata_nested:
+            metadata_nested[label] = dict()
+        metadata_nested[label][unique_attr_label] = v
+    return metadata_nested
+
+
+def metadata_unnest(metadata):
+    """
+    Unnest md dictionary.
+
+    E.g., ```metadata_nested = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': {'pp__0_0': 3, 'pp__0_1': 4}}``` becomes
+    ```metadata = { 'ap__0_0': 1, 'ap__0_1': 2, 'pp__0_0': 3, 'pp__0_1': 4}```.
+
+    Parameters
+    ----------
+    metadata: dict
+        Dictionary with nested metadata keys.
+
+    Returns
+    -------
+    metadata_unnested: dict
+        Unnested version of the dict.
+
+    See also
+    --------
+    metadata_nest: performs the reverse operation of this function.
+    """
+    metadata_unnested = dict()
+    for nested_category, v in metadata.items():
+        if not isinstance(v, dict):
+            raise ValueError(f"Parameter 'metadata' value at key '{nested_category}' is not a dict, invalid input.")
+        for unique_attr_label, v in nested_category.items():
+            metadata_unnested[unique_attr_label] = v
+    return metadata_unnested
+
+
