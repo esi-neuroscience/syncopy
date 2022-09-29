@@ -152,13 +152,29 @@ class TestMetadataHelpers():
         expected = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': {'pp__0_0': 3, 'pp__0_1': 4}}
         assert md_nested == expected
 
+        # Test exc: key with name identical to unique_label_part of another key already in dict.
+        # This leads to an error because the key with name identical to unique_label_part cannot conform
+        # to the format expected by the function that splits it into label, trial_idx, chunk_idx.
+        md_dupl = { 'ap__0_0': 1, 'ap__0_1': 2, 'pp__0_0': 3, 'pp__0_1': 4, 'pp' : 3}
+        with pytest.raises(SPYValueError, match="input string in format `<label>__<trial_idx>_<chunk_idx>'"):
+            _ = metadata_nest(md_dupl)
+
     def test_metadata_unnest(self):
         # Test with valid input
         md_nested = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': {'pp__0_0': 3, 'pp__0_1': 4}}
         md_unnested = metadata_unnest(md_nested)
         expected = { 'ap__0_0': 1, 'ap__0_1': 2, 'pp__0_0': 3, 'pp__0_1': 4}
-
         assert md_unnested == expected
+
+        # Test exc: with duplicate key in several nested dicts.
+        md_nested_dupl_key = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': {'ap__0_0': 3, 'pp__0_1': 4}}
+        with pytest.raises(SPYValueError, match="Duplicate key"):
+            _ = metadata_unnest(md_nested_dupl_key)
+
+        # Test exc: input not a nested dict
+        md_not_nested = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': 1 }
+        with pytest.raises(SPYValueError, match="is not a dict, invalid"):
+            _ = metadata_unnest(md_not_nested)
 
 
 class TestMetadataUsingFooof():

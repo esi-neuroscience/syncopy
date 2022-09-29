@@ -5,7 +5,7 @@ from hmac import compare_digest
 from numbers import Number
 import numpy as np
 
-from syncopy.shared.errors import (SPYTypeError, SPYValueError, SPYWarning)
+from syncopy.shared.errors import (SPYInfo, SPYTypeError, SPYValueError, SPYWarning)
 
 
 def metadata_from_hdf5_file(h5py_filename, delete_afterwards=True):
@@ -215,10 +215,16 @@ def decode_unique_md_label(unique_label):
     -------
     tuple of `str`: the `'label'`, `'trial_idx'` and `'chunk_idx'`.
     """
-    lab_ind = unique_label.rsplit("__")
-    label = lab_ind[0]
-    trialidx_callidx = lab_ind[1].rsplit("_")
-    return label, trialidx_callidx[0], trialidx_callidx[1]
+    try:
+        lab_ind = unique_label.rsplit("__")
+        label = lab_ind[0]
+        trialidx_callidx = lab_ind[1].rsplit("_")
+        trialidx = trialidx_callidx[0]
+        callidx = trialidx_callidx[1]
+    except Exception as ex:
+        raise SPYValueError(f"Could not decode metadata key '{unique_label}' into label, trial_index and chunk index. Expected input string in format `<label>__<trial_idx>_<chunk_idx>', e.g. 'pp__0_0': '{str(ex)}'")
+
+    return label, trialidx ,callidx
 
 
 def extract_md_group(md):
@@ -315,8 +321,6 @@ def metadata_nest(metadata):
     metadata_nested = dict()
     for unique_attr_label, v in metadata.items():
         label, trial_idx, call_idx = decode_unique_md_label(unique_attr_label)
-        if label in metadata_nested and not isinstance(metadata_nested[label], dict):
-            raise ValueError(f"Cannot create new nested key '{label}', non-dict entry with that name already exists.")
         if not label in metadata_nested:
             metadata_nested[label] = dict()
         metadata_nested[label][unique_attr_label] = v
@@ -347,10 +351,10 @@ def metadata_unnest(metadata):
     metadata_unnested = dict()
     for nested_category_name, nested_dict in metadata.items():
         if not isinstance(nested_dict, dict):
-            raise ValueError(f"Parameter 'metadata' value at key '{nested_category_name}' is not a dict, invalid input.")
+            raise SPYValueError(f"Parameter 'metadata' value at key '{nested_category_name}' is not a dict, invalid input.")
         for unique_attr_label, nested_value in nested_dict.items():
             if unique_attr_label in metadata_unnested:  # It's already in there, from a previous dict!
-                raise ValueError(f"Duplicate key '{unique_attr_label}': more than one of the nested dictionaries contains key '{unique_attr_label}', cannot unnest without losing data.")
+                raise SPYValueError(f"Duplicate key '{unique_attr_label}': more than one of the nested dictionaries contains key '{unique_attr_label}', cannot unnest without losing data.")
             metadata_unnested[unique_attr_label] = nested_value
     return metadata_unnested
 
