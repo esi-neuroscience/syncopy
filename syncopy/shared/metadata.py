@@ -345,11 +345,13 @@ def metadata_unnest(metadata):
     metadata_nest: performs the reverse operation of this function.
     """
     metadata_unnested = dict()
-    for nested_category, v in metadata.items():
-        if not isinstance(v, dict):
-            raise ValueError(f"Parameter 'metadata' value at key '{nested_category}' is not a dict, invalid input.")
-        for unique_attr_label, v in nested_category.items():
-            metadata_unnested[unique_attr_label] = v
+    for nested_category_name, nested_dict in metadata.items():
+        if not isinstance(nested_dict, dict):
+            raise ValueError(f"Parameter 'metadata' value at key '{nested_category_name}' is not a dict, invalid input.")
+        for unique_attr_label, nested_value in nested_dict.items():
+            if unique_attr_label in metadata_unnested:  # It's already in there, from a previous dict!
+                raise ValueError(f"Duplicate key '{unique_attr_label}': more than one of the nested dictionaries contains key '{unique_attr_label}', cannot unnest without losing data.")
+            metadata_unnested[unique_attr_label] = nested_value
     return metadata_unnested
 
 
