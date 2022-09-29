@@ -173,7 +173,7 @@ class TestMetadataHelpers():
 
         # Test exc: input not a nested dict
         md_not_nested = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': 1 }
-        with pytest.raises(SPYValueError, match="is not a dict, invalid"):
+        with pytest.raises(SPYValueError, match="is not a dict"):
             _ = metadata_unnest(md_not_nested)
 
 

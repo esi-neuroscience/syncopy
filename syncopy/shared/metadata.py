@@ -351,10 +351,10 @@ def metadata_unnest(metadata):
     metadata_unnested = dict()
     for nested_category_name, nested_dict in metadata.items():
         if not isinstance(nested_dict, dict):
-            raise SPYValueError(f"Parameter 'metadata' value at key '{nested_category_name}' is not a dict, invalid input.")
+            raise SPYValueError(legal="Dict containing only other dictionaries at first level.", varname="metadata", actual=f"Value at key '{nested_category_name}' is not a dict.")
         for unique_attr_label, nested_value in nested_dict.items():
             if unique_attr_label in metadata_unnested:  # It's already in there, from a previous dict!
-                raise SPYValueError(f"Duplicate key '{unique_attr_label}': more than one of the nested dictionaries contains key '{unique_attr_label}', cannot unnest without losing data.")
+                raise SPYValueError(legal="Dict containing no duplicated keys in nested sub dictionaries at first level.", varname="metadata", actual=f"Duplicate key '{unique_attr_label}': cannot unnest without losing data.")
             metadata_unnested[unique_attr_label] = nested_value
     return metadata_unnested
 
