@@ -403,10 +403,14 @@ class TestMetadataUsingFooof():
         assert spec_dt.metadata is not None
         assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
         num_metadata_attrs = len(spec_dt.metadata.keys())
-        assert num_metadata_attrs == 6 * num_trials_fooof * calls_per_trial
+        expected_metadata_keys = spy.specest.compRoutines.FooofSpy.metadata_keys # ('aperiodic_params', 'error', 'gaussian_params', 'n_peaks', 'peak_params', 'r_squared',)
+        expected_num_metadata_keys = len(expected_metadata_keys)
+        spec_dt_metadata_unnested = metadata_unnest(spec_dt.metadata)
+        assert num_metadata_attrs == expected_num_metadata_keys
+        assert len(spec_dt_metadata_unnested.keys()) == expected_num_metadata_keys * num_trials_fooof * calls_per_trial
         for kv in keys_unique:
-            assert kv in spec_dt.metadata.keys()
-            assert isinstance(spec_dt.metadata.get(kv), (list, np.ndarray))
+            assert kv in spec_dt_metadata_unnested.keys()
+            assert isinstance(spec_dt_metadata_unnested.get(kv), (list, np.ndarray))
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
