@@ -416,8 +416,8 @@ class TestMetadataUsingFooof():
         num_metadata_attrs = len(spec_dt.metadata.keys())
 
         spec_dt_metadata_unnested = metadata_unnest(spec_dt.metadata)
-        assert num_metadata_attrs == self.expected_num_metadata_keys
-        assert len(spec_dt_metadata_unnested.keys()) == self.expected_num_metadata_keys * num_trials_fooof * calls_per_trial
+        assert num_metadata_attrs == self.num_expected_metadata_keys
+        assert len(spec_dt_metadata_unnested.keys()) == self.num_expected_metadata_keys * num_trials_fooof * calls_per_trial
         for kv in keys_unique:
             assert kv in spec_dt_metadata_unnested.keys()
             assert isinstance(spec_dt_metadata_unnested.get(kv), (list, np.ndarray))
