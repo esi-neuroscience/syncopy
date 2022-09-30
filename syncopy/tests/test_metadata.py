@@ -362,10 +362,12 @@ class TestMetadataUsingFooof():
         assert spec_dt.metadata is not None
         assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
         num_metadata_attrs = len(spec_dt.metadata.keys())
-        assert num_metadata_attrs == 6 * num_trials_fooof_selected
+        assert num_metadata_attrs == self.num_expected_fooof_dict_entries
+        spec_dt_metadata_unnested = metadata_unnest(spec_dt.metadata)
+        assert len(spec_dt_metadata_unnested.keys()) == self.num_expected_fooof_dict_entries * num_trials_fooof_selected
         for kv in keys_unique:
-            assert (kv) in spec_dt.metadata.keys()
-            assert isinstance(spec_dt.metadata.get(kv), (list, np.ndarray))
+            assert (kv) in spec_dt_metadata_unnested.keys()
+            assert isinstance(spec_dt_metadata_unnested.get(kv), (list, np.ndarray))
 
     def test_channel_par(self):
         """
