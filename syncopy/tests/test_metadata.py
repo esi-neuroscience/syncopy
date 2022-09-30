@@ -184,6 +184,7 @@ class TestMetadataUsingFooof():
 
     tfData = _get_fooof_signal()
     expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
+    num_expected_fooof_dict_entries = len(expected_fooof_dict_entries)
 
     @staticmethod
     def get_fooof_cfg():
@@ -220,12 +221,13 @@ class TestMetadataUsingFooof():
         assert spec_dt.metadata is not None
         assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
         num_metadata_attrs = len(spec_dt.metadata.keys())  # Get keys of dict
-        assert num_metadata_attrs == 6
+        assert num_metadata_attrs == self.num_expected_fooof_dict_entries
+        spec_dt_metadata_unnested = metadata_unnest(spec_dt.metadata)
         for kv in keys_unique:
-            assert kv in spec_dt.metadata.keys()
+            assert kv in spec_dt_metadata_unnested.keys()
             # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
             # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
-        assert isinstance(spec_dt.metadata.get(kv), (list, np.ndarray))
+            assert isinstance(spec_dt_metadata_unnested.get(kv), (list, np.ndarray))
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
@@ -256,16 +258,20 @@ class TestMetadataUsingFooof():
         # check metadata from 2nd cF return value, added to the hdf5 dataset as attribute.
         keys_unique = [kv + "__0_0" for kv in self.expected_fooof_dict_entries]
 
+        expected_metadata_keys = spy.specest.compRoutines.FooofSpy.metadata_keys # ('aperiodic_params', 'error', 'gaussian_params', 'n_peaks', 'peak_params', 'r_squared',)
+        expected_num_metadata_keys = len(expected_metadata_keys)
+        spec_dt_metadata_unnested = metadata_unnest(spec_dt.metadata)
+
         # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
         assert spec_dt.metadata is not None
         assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
         num_metadata_attrs = len(spec_dt.metadata.keys())
-        assert num_metadata_attrs == 6
+        assert num_metadata_attrs == expected_num_metadata_keys
         for kv in keys_unique:
-            assert kv in spec_dt.metadata.keys()
+            assert kv in spec_dt_metadata_unnested.keys()
             # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
             # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
-            assert isinstance(spec_dt.metadata.get(kv), list) or isinstance(spec_dt.metadata.get(kv), np.ndarray)
+            assert isinstance(spec_dt_metadata_unnested.get(kv), list) or isinstance(spec_dt_metadata_unnested.get(kv), np.ndarray)
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
@@ -302,12 +308,16 @@ class TestMetadataUsingFooof():
         assert spec_dt.metadata is not None
         assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
         num_metadata_attrs = len(spec_dt.metadata.keys())
-        assert num_metadata_attrs == 6 * num_trials_fooof
+        expected_metadata_keys = spy.specest.compRoutines.FooofSpy.metadata_keys # ('aperiodic_params', 'error', 'gaussian_params', 'n_peaks', 'peak_params', 'r_squared',)
+        expected_num_metadata_keys = len(expected_metadata_keys)
+        spec_dt_metadata_unnested = metadata_unnest(spec_dt.metadata)
+        assert num_metadata_attrs == expected_num_metadata_keys
+        assert len(spec_dt_metadata_unnested.keys()) == expected_num_metadata_keys * num_trials_fooof
         for kv in keys_unique:
-            assert (kv) in spec_dt.metadata.keys()
+            assert (kv) in spec_dt_metadata_unnested.keys()
             # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
             # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
-            assert isinstance(spec_dt.metadata.get(kv), list) or isinstance(spec_dt.metadata.get(kv), np.ndarray)
+            assert isinstance(spec_dt_metadata_unnested.get(kv), list) or isinstance(spec_dt_metadata_unnested.get(kv), np.ndarray)
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
