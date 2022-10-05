@@ -79,7 +79,7 @@ To check which version of SynCoPy you have installed in the current environment,
 .. code-block:: bash
 
    conda activate syncopy
-   python -c 'import syncopy; print(syncopy.__version__)'
+   python -c "import syncopy; print(syncopy.__version__)"
 
 
 Getting Started
