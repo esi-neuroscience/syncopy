@@ -159,7 +159,7 @@ def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None
         if fileInfo["filename"] is not None:
             raise SPYError("Only containers can be loaded with `tag` keyword!")
         for tk in range(len(tags)):
-            tags[tk] = "*" + tags[tk] + "*"
+            tags[tk] = "*" + tags[tk] + ".*"
     else:
         tags = "*"
 
