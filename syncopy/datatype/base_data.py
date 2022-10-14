@@ -1050,7 +1050,6 @@ class BaseData(ABC):
                 else:
                     SPYInfo(f"HDF dataset mismatch: extra dataset '{dsetName}' in one instance")
                     return False
-                return True
         else:
             for dsetName in both_hdfFileDatasetProperties:
                 if dsetName != "data":
@@ -1070,13 +1069,13 @@ class BaseData(ABC):
                         SPYInfo(f"HDF dataset mismatch: extra dataset '{dsetName}' in one instance")
                         return False
 
-        # The other object really is a standalone Syncopy class instance and
-        # everything but the data itself aligns; now the most expensive part:
-        # trial by trial data comparison
-        for tk in range(len(self.trials)):
-            if not np.allclose(self.trials[tk], other.trials[tk]):
-                SPYInfo("Mismatch in trial #{}".format(tk))
-                return False
+            # The other object really is a standalone Syncopy class instance and
+            # everything but the data itself aligns; now the most expensive part:
+            # trial by trial data comparison
+            for tk in range(len(self.trials)):
+                if not np.allclose(self.trials[tk], other.trials[tk]):
+                    SPYInfo("Mismatch in trial #{}".format(tk))
+                    return False
 
         # If we made it this far, `self` and `other` really seem to be identical
         return True
