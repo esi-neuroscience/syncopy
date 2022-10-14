@@ -67,7 +67,7 @@ def collect_trials(trial_generator):
             for trial_idx in range(nTrials):
                 if 'seed' in signature(trial_generator).parameters.keys():
                     if seed_array is not None:
-                        tg_kwargs['seed'] = seed[trial_idx]
+                        tg_kwargs['seed'] = seed_array[trial_idx]
                     else:
                         tg_kwargs['seed'] = seed
                 trl_arr = trial_generator(**tg_kwargs)
