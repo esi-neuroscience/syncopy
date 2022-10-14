@@ -22,8 +22,8 @@ class TestSynthData:
         """Without seed set, the data should not be identical.
            Note: This does not use collect trials.
         """
-        wn1 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels)
-        wn2 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels)
+        wn1 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, seed=None)
+        wn2 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, seed=None)
         assert isinstance(wn1, np.ndarray)
         assert isinstance(wn2, np.ndarray)
 
@@ -88,8 +88,8 @@ class TestSynthData:
            Note: This does not use collect trials.
         """
         num_channels = 2
-        arn1 = AR2_network(nSamples=self.nSamples)  # 2 channels, via default adj matrix
-        arn2 = AR2_network(nSamples=self.nSamples)
+        arn1 = AR2_network(nSamples=self.nSamples, seed=None)  # 2 channels, via default adj matrix
+        arn2 = AR2_network(nSamples=self.nSamples, seed=None)
         assert isinstance(arn1, np.ndarray)
         assert isinstance(arn2, np.ndarray)
         assert arn1.shape == (self.nSamples, num_channels)
