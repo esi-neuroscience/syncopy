@@ -31,10 +31,12 @@ def collect_trials(trial_generator):
     a `samplerate`, forward this directly.
 
     If the underlying trial generating function also accepts
-    a `seed`, forward this directly. One can pass a single seed,
-    to be used for all trials, or a list/np.ndarray of seeds with
-    len/size equal to nTrials, with one seed per trial. Leaving
-    at the default value, None, will select a random seed each time,
+    a `seed`, forward this directly. One can set `seed_per_trial=False` to use
+    the same seed for all trials, or leave `seed_per_trial=True` (the default),
+    to have this function internally generate a list
+    of seeds with len equal to `nTrials` from the given seed, with one seed per trial.
+
+    One can set the `seed` to `None`, which will select a random seed each time,
     (and it will differ between trials).
 
     The default `nTrials=None` is the identity wrapper and
@@ -43,7 +45,7 @@ def collect_trials(trial_generator):
     """
 
     @functools.wraps(trial_generator)
-    def wrapper_synth(nTrials=None, samplerate=1000, seed=None, seed_per_trial=True, **tg_kwargs):
+    def wrapper_synth(nTrials=None, samplerate=1000, seed=42, seed_per_trial=True, **tg_kwargs):
 
         use_seed_per_trial = False
         if nTrials is not None and seed is not None and seed_per_trial:  # Use the single seed to create one seed per trial.
@@ -70,7 +72,6 @@ def collect_trials(trial_generator):
                         tg_kwargs['seed'] = seed[trial_idx]
                     else:
                         tg_kwargs['seed'] = seed
-                print(f"[collect_trials] use_seed_per_trial={use_seed_per_trial}. Calling {trial_generator.__name__} with kwargs: {tg_kwargs}")
                 trl_arr = trial_generator(**tg_kwargs)
                 trl_list.append(trl_arr)
 
