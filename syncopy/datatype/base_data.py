@@ -1043,8 +1043,6 @@ class BaseData(ABC):
                     val_other = getattr(other, "_" + dsetName)
                     if isinstance(val_this, h5py.Dataset):
                         isEqual = val_this == val_other
-                    else:
-                        isEqual = np.allclose(val_this, val_other)
 
                     if not isEqual:
                         SPYInfo(f"HDF dataset '{dsetName}' mismatch for types '{type(val_this)}' and '{type(val_other)}'")
@@ -1063,8 +1061,6 @@ class BaseData(ABC):
                             isEqual = val_this == val_other
                         elif val_this is None and val_other is None:
                             isEqual = True
-                        else:
-                            isEqual = np.allclose(val_this, val_other)
 
                         if not isEqual:
                             SPYInfo(f"HDF dataset '{dsetName}' mismatch for types '{type(val_this)}' and '{type(val_other)}'")
@@ -1073,13 +1069,13 @@ class BaseData(ABC):
                         SPYInfo(f"HDF dataset mismatch: extra dataset '{dsetName}' in one instance")
                         return False
 
-        # The other object really is a standalone Syncopy class instance and
-        # everything but the data itself aligns; now the most expensive part:
-        # trial by trial data comparison
-        for tk in range(len(self.trials)):
-            if not np.allclose(self.trials[tk], other.trials[tk]):
-                SPYInfo("Mismatch in trial #{}".format(tk))
-                return False
+            # The other object really is a standalone Syncopy class instance and
+            # everything but the data itself aligns; now the most expensive part:
+            # trial by trial data comparison
+            for tk in range(len(self.trials)):
+                if not np.allclose(self.trials[tk], other.trials[tk]):
+                    SPYInfo("Mismatch in trial #{}".format(tk))
+                    return False
 
         # If we made it this far, `self` and `other` really seem to be identical
         return True
