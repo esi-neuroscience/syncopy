@@ -39,8 +39,8 @@ def _get_fooof_signal(nTrials=100, nChannels = 1, nSamples = 1000, seed=None):
     """
     samplerate = 1000
     ar1_part = AR2_network(AdjMat=np.zeros(nChannels), nSamples=nSamples, alphas=[0.9, 0], nTrials=nTrials, seed=seed)
-    pd1 = phase_diffusion(freq=30., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials, seed=seed)
-    pd2 = phase_diffusion(freq=50., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials, seed=seed)
+    pd1 = phase_diffusion(freq=30., eps=.1, samplerate=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials, seed=seed)
+    pd2 = phase_diffusion(freq=50., eps=.1, samplerate=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials, seed=seed)
     signal = ar1_part + .8 * pd1 + 0.6 * pd2
     return signal
 
