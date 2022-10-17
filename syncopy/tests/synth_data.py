@@ -122,7 +122,7 @@ def harmonic(freq, samplerate, nSamples=1000, nChannels=2):
 @collect_trials
 def phase_diffusion(freq,
                     eps=.1,
-                    fs=1000,
+                    samplerate=1000,
                     nChannels=2,
                     nSamples=1000,
                     return_phase=False,
@@ -133,7 +133,7 @@ def phase_diffusion(freq,
     inducing phase diffusion around the deterministic phase drift with
     slope ``2pi * freq`` (angular frequency).
 
-    The linear phase increments are given by ``dPhase = 2pi * freq/fs``,
+    The linear phase increments are given by ``dPhase = 2pi * freq/samplerate``,
     the Brownian increments are scaled with `eps` relative to these
     phase increments.
 
@@ -146,7 +146,7 @@ def phase_diffusion(freq,
         `1` means the single Wiener step
         has on average the size of the
         harmonic increments
-    fs : float
+    samplerate : float
         Sampling rate in Hz
     nChannels : int
         Number of channels
@@ -168,12 +168,12 @@ def phase_diffusion(freq,
     # white noise
     wn = white_noise(nSamples=nSamples, nChannels=nChannels, seed=seed)
 
-    delta_ts = np.ones(nSamples) * 1 / fs
+    delta_ts = np.ones(nSamples) * 1 / samplerate
     omega0 = 2 * np.pi * freq
     lin_incr = np.tile(omega0 * delta_ts, (nChannels, 1)).T
 
     # relative Brownian increments
-    rel_eps = np.sqrt(omega0 / fs * eps)
+    rel_eps = np.sqrt(omega0 / samplerate * eps)
     brown_incr = rel_eps * wn
     phases = np.cumsum(lin_incr + brown_incr, axis=0)
     if not return_phase:
@@ -250,14 +250,14 @@ def AR2_network(AdjMat=None, nSamples=1000, alphas=[0.55, -0.8], seed=None):
     return sol
 
 
-def AR2_peak_freq(a1, a2, fs=1):
+def AR2_peak_freq(a1, a2, samplerate=1):
     """
     Helper function to tune spectral peak of AR(2) process
     """
     if np.any((a1**2 + 4 * a2) > 0):
         raise ValueError("No complex roots!")
 
-    return np.arccos(a1 * (a2 - 1) / (4 * a2)) * 1 / _2pi * fs
+    return np.arccos(a1 * (a2 - 1) / (4 * a2)) * 1 / _2pi * samplerate
 
 
 def mk_RandomAdjMat(nChannels=3, conn_thresh=0.25, max_coupling=0.25, seed=None):
