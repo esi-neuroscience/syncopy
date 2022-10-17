@@ -58,7 +58,8 @@ class TestGranger:
     data = synth_data.AR2_network(nTrials,
                                   AdjMat=AdjMat,
                                   nSamples=nSamples,
-                                  samplerate=fs)
+                                  samplerate=fs,
+                                  seed=42)
     time_span = [-1, nSamples / fs - 1]   # -1s offset
     foi = np.arange(5, 75)   # in Hz
 

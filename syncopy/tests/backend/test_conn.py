@@ -191,7 +191,7 @@ def test_wilson():
     CSDav = np.zeros((nSamples // 2 + 1, nChannels, nChannels), dtype=np.complex64)
     for _ in range(nTrials):
 
-        sol = synth_data.AR2_network(nSamples=nSamples)
+        sol = synth_data.AR2_network(nSamples=nSamples, seed=None)
         # --- get the (single trial) CSD ---
 
         CSD, freqs = csd.csd(sol, fs,
