@@ -264,14 +264,24 @@ def freqanalysis(data, method='mtmfft', output='pow',
         Please refer to the
         `FOOOF docs <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_
         for the meanings and the defaults.
-        The FOOOF reference is: Donoghue et al. 2020, DOI 10.1038/s41593-020-00744-x.
+        The FOOOF reference is: `Donoghue et al. 2020, DOI 10.1038/s41593-020-00744-x`.
     out : Must be `None`.
 
 
     Returns
     -------
     spec : :class:`~syncopy.SpectralData`
-        (Time-)frequency spectrum of input data
+        (Time-)frequency spectrum of input data.
+
+
+    Result Metadata by method
+    -------------------------
+    The result may contain additional metadata, based on the `method` used to compute it.
+
+    * for `method='mtmfft'` when`output` is  one of
+        `'fooof'`, `'fooof_aperiodic'`, or `'fooof_peaks'`, the `spec.info` property containes
+        the following keys: :data:~syncopy.specest.compRoutines.FooofSpy.metadata_keys;
+
 
     Notes
     -----
