@@ -279,8 +279,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
     The result may contain additional metadata, based on the `method` used to compute it.
 
     * for `method='mtmfft'` when`output` is  one of
-        `'fooof'`, `'fooof_aperiodic'`, or `'fooof_peaks'`, the `spec.info` property containes
-        the following keys: :data:~syncopy.specest.compRoutines.FooofSpy.metadata_keys;
+        `'fooof'`, `'fooof_aperiodic'`, or `'fooof_peaks'`, the `spec.info` property contains
+        the keys listed in :data:`~syncopy.specest.compRoutines.FooofSpy.metadata_keys`
 
 
     Notes

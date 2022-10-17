@@ -652,7 +652,7 @@ def superlet_cF(
     preselect : slice
         Begin- to end-samples to perform analysis on (trim data to interval).
         See Notes for details.
-    postselect : list of slices or list of 1D NumPy arrays
+    postselect : list of slices or list of 1D numpy arrays
         Actual time-points of interest within interval defined by `preselect`
         See Notes for details.
     toi : 1D :class:`numpy.ndarray` or str
@@ -678,7 +678,7 @@ def superlet_cF(
         If not `None`, represents shape of output object `gmean_spec`
         (respecting provided values of `scales`, `preselect`, `postselect` etc.)
     method_kwargs : dict
-        Keyword arguments passed to :func:`~syncopy.specest.superlet.superlet
+        Keyword arguments passed to :func:`~syncopy.specest.superlet.superlet`
         controlling the spectral estimation method
 
     Returns
@@ -972,8 +972,9 @@ class FooofSpy(ComputationalRoutine):
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ["fooof_settings"]
 
-    """The keys available in the metadata returned by this function."""
+    #: The keys available in the metadata returned by this function.
     metadata_keys = ('aperiodic_params', 'error', 'gaussian_params', 'n_peaks', 'peak_params', 'r_squared',)
+
 
     # To attach metadata to the output of the CF
     def process_metadata(self, data, out):
