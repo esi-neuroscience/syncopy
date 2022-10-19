@@ -27,7 +27,9 @@ def process_padding(pad, lenTrials, samplerate):
     padding has to be done **after** tapering!
 
     This function returns a number indicating the total
-    length in sample-count of all trials after padding.
+    length in samples of all trials after padding. When
+    inputted into fft related methods, the actual padding
+    is then performed there.
 
     Parameters
     ----------
@@ -291,6 +293,13 @@ def process_taper(taper,
         minBw = 2 * samplerate / nSamples
         # -----------------------------------
 
+        # --- maximal smoothing bandwidth ---
+        # --- such that Kmax < nSamples and NW < nSamples / 2
+        maxBw = np.min([samplerate / 2 - 1 / nSamples,
+                        samplerate * (nSamples + 1) / (2 * nSamples)])
+        # -----------------------------------
+        
+
         try:
             scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[0, np.inf])
         except Exception:
@@ -302,10 +311,20 @@ def process_taper(taper,
             SPYInfo(msg)
             tapsmofrq = minBw
 
+        if tapsmofrq > maxBw:
+            msg = f'Setting tapsmofrq to the maximal attainable bandwidth of {maxBw:.2f}Hz'
+            SPYInfo(msg)
+            SPYInfo(msg)
+            tapsmofrq = maxBw
+            
         # --------------------------------------------------------------
         # set parameters for scipy.signal.windows.dpss
         NW, Kmax = _get_dpss_pars(tapsmofrq, nSamples, samplerate)
         # --------------------------------------------------------------
+        print(NW, Kmax)
+        
+        # tapsmofrq too large
+        # if Kmax > nSamples or NW > nSamples / 2:
 
         # the recommended way:
         # set nTaper automatically to achieve exact effective smoothing bandwidth

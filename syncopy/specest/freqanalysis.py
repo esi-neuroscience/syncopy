@@ -527,7 +527,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
                                          samplerate=data.samplerate,
                                          nSamples=minSampleNum,
                                          output=output)
-
+        print(taper_opt)
         # Update `log_dct` w/method-specific options
         log_dct["taper"] = taper
         if taper_opt and taper == 'dpss':

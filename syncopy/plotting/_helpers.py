@@ -74,7 +74,7 @@ def parse_toi(dataobject, trl, show_kwargs):
     dataobject.selectdata(inplace=True, **show_kwargs)
 
     # still have to index the single trial
-    idx = dataobject.selection.time[0]
+    idx = dataobject.selection.time[trl]
 
     # index selection, again the single trial
     time = dataobject.time[trl][idx]

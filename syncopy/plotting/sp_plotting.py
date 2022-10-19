@@ -52,6 +52,9 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
 
     # get the data to plot
     data_y = data.show(**show_kwargs)
+    # 'time' and 'channel' are the only axes
+    if data._defaultDimord != data.dimord:
+        data_y = data_y.T
     if data_y.size == 0:
         lgl = "Selection with non-zero size"
         act = "got zero samples"
@@ -103,10 +106,15 @@ def plot_SpectralData(data, **show_kwargs):
     if method in ('wavelet', 'superlet', 'mtmconvol'):
         # multiple channels?
         label = plot_helpers.parse_channel(data, show_kwargs)
-        if not isinstance(label, str):
-            SPYWarning("Please select a single channel for plotting!")
+        # only relevant for mtmconvol
+        if 'taper' in show_kwargs:
+            SPYWarning("Taper selection not supported for time-frequency spectra!\nAbort plotting..")
             return
 
+        if not isinstance(label, str):
+            SPYWarning("Please select a single channel for plotting!\nAbort plotting..")
+            return
+        
         # here we always need a new axes
         fig, ax = _plotting.mk_img_figax()
 
@@ -115,6 +123,7 @@ def plot_SpectralData(data, **show_kwargs):
         time = plot_helpers.parse_toi(data, trl, show_kwargs)
         freqs = plot_helpers.parse_foi(data, show_kwargs)
 
+        # custom dimords for SpectralData not supported atm        
         # dimord is time x taper x freq x channel
         # need freq x time for plotting
         data_yx = data.show(**show_kwargs).T
