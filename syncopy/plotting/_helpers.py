@@ -147,6 +147,21 @@ def get_method(dataobject):
         return meth_str
 
 
+def get_output(dataobject):
+
+    """
+    Returns the method string from
+    the log of a Syncopy data object
+    """
+
+    # get the method string in a capture group
+    pattern = re.compile(r'[\s\w\D]+output = (\w+)')
+    match = pattern.match(dataobject._log)
+    if match:
+        output_str = match.group(1)
+        return output_str
+
+
 def calc_multi_layout(nAx):
 
     """

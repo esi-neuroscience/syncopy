@@ -130,6 +130,7 @@ def plot_SpectralData(data, **show_kwargs):
         _plotting.plot_tfreq(ax, data_yx, time, freqs)
         ax.set_title(label, fontsize=pltConfig['sTitleSize'])
         fig.tight_layout()
+
     # just a line plot
     else:
 
@@ -147,13 +148,24 @@ def plot_SpectralData(data, **show_kwargs):
 
         # get the data to plot
         data_x = plot_helpers.parse_foi(data, show_kwargs)
-        data_y = np.log10(data.show(**show_kwargs))
+        output = plot_helpers.get_output(data)
+
+        # only log10 the absolute squared spectra
+        if output == 'pow':
+            data_y = np.log10(data.show(**show_kwargs))
+            ylabel = 'power (dB)'
+        elif output in ['fourier', 'complex']:
+            SPYWarning("Can't plot complex valued spectra, choose 'real' or 'imag' as output!\nAbort plotting..")
+            return
+        else:
+            data_y = data.show(**show_kwargs)
+            ylabel = f'{output}'
 
         # multiple channels?
         labels = plot_helpers.parse_channel(data, show_kwargs)
 
         fig, ax = _plotting.mk_line_figax(xlabel='frequency (Hz)',
-                                          ylabel='power (dB)')
+                                          ylabel=ylabel)
 
         _plotting.plot_lines(ax, data_x, data_y, label=labels)
         fig.tight_layout()
@@ -206,6 +218,8 @@ def plot_CrossSpectralData(data, **show_kwargs):
 
     # what data do we have?
     method = plot_helpers.get_method(data)
+    output = plot_helpers.get_output(data)
+
     if method == 'granger':
         xlabel = 'frequency (Hz)'
         ylabel = 'Granger causality'
@@ -213,7 +227,7 @@ def plot_CrossSpectralData(data, **show_kwargs):
         data_x = plot_helpers.parse_foi(data, show_kwargs)
     elif method == 'coh':
         xlabel = 'frequency (Hz)'
-        ylabel = 'coherence'
+        ylabel = f'{output} coherence'
         label = rf"{chi_label} - {chj_label}"
         data_x = plot_helpers.parse_foi(data, show_kwargs)
     elif method == 'corr':
@@ -239,7 +253,7 @@ def plot_CrossSpectralData(data, **show_kwargs):
         data.fig, data.ax = _plotting.mk_line_figax(xlabel, ylabel)
     _plotting.plot_lines(data.ax, data_x, data_y, label=label)
     # format axes
-    if method in ['granger', 'coh']:
+    if method in ['granger', 'coh'] and output in ['pow', 'abs']:
         data.ax.set_ylim((-.02, 1.02))
     elif method == 'corr':
         data.ax.set_ylim((-1.02, 1.02))

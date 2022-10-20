@@ -218,6 +218,8 @@ def plot_CrossSpectralData(data, **show_kwargs):
 
     # what data do we have?
     method = plot_helpers.get_method(data)
+    output = plot_helpers.get_output(data)
+
     if method == 'granger':
         xlabel = 'frequency (Hz)'
         ylabel = 'Granger causality'
@@ -225,7 +227,7 @@ def plot_CrossSpectralData(data, **show_kwargs):
         data_x = plot_helpers.parse_foi(data, show_kwargs)
     elif method == 'coh':
         xlabel = 'frequency (Hz)'
-        ylabel = 'coherence'
+        ylabel = f'{output} coherence'
         label = rf"channel{chi} - channel{chj}"
         data_x = plot_helpers.parse_foi(data, show_kwargs)
     elif method == 'corr':

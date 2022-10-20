@@ -191,6 +191,11 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
         raise SPYValueError(legal=lgl, varname="method", actual=method)
 
+    # output selection is only valid for coherence
+    if method != 'coh' and output != defaults['output']:
+        msg = f"Setting `output` for method {method} has not effect!"
+        SPYWarning(msg)
+
     # if a subset selection is present
     # get sampleinfo and check for equidistancy
     if data.selection is not None:
@@ -242,7 +247,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             raise SPYValueError(lgl, 'foi/foilim', actual)
 
         nChannels = len(data.channel)
-        nTrials = len(lenTrials)
+        nTrials = np.size(lenTrials)
         # warn user if this ratio is not small
         if nChannels / nTrials > 0.1:
             msg = "Multi-channel Granger analysis can be numerically unstable, it is recommended to have at least 10 times the number of trials compared to the number of channels. Try calculating in sub-groups of fewer channels!"
