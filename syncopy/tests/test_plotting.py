@@ -155,6 +155,8 @@ class TestSpectralPlotting():
     toi_min, toi_max = adata.time[0][0], adata.time[0][-1]
 
     spec_fft = spy.freqanalysis(adata, tapsmofrq=1)
+    spec_fft_imag = spy.freqanalysis(adata, output='imag')
+
     spec_wlet = spy.freqanalysis(adata, method='wavelet',
                                  foi=np.arange(0, 400, step=4))
 
@@ -175,6 +177,9 @@ class TestSpectralPlotting():
             # this simulates the interactive plotting
             fig1, ax1 = self.spec_fft.singlepanelplot(**kwargs)
             fig2, axs = self.spec_fft.multipanelplot(**kwargs)
+
+            _, _ = self.spec_fft_imag.singlepanelplot(**kwargs)
+            _, _ = self.spec_fft_imag.multipanelplot(**kwargs)
 
             fig3, ax2 = self.spec_wlet.singlepanelplot(channel=0, **kwargs)
             fig4, axs = self.spec_wlet.multipanelplot(**kwargs)
@@ -273,6 +278,8 @@ class TestCrossSpectralPlotting():
     toi_min, toi_max = adata.time[0][0], adata.time[0][-1]
 
     coh = spy.connectivityanalysis(adata, method='coh', tapsmofrq=1)
+    coh_imag = spy.connectivityanalysis(adata, method='coh', tapsmofrq=1, output='imag')
+
     corr = spy.connectivityanalysis(adata, method='corr')
     granger = spy.connectivityanalysis(adata, method='granger', tapsmofrq=1)
 
@@ -290,6 +297,8 @@ class TestCrossSpectralPlotting():
             self.coh.singlepanelplot(channel_i=0, channel_j=1, foilim=[50, 320])
             self.coh.singlepanelplot(channel_i=1, channel_j=2, foilim=[50, 320])
             self.coh.singlepanelplot(channel_i=2, channel_j=3, foilim=[50, 320])
+
+            self.coh_imag.singlepanelplot(channel_i=1, channel_j=2, foilim=[50, 320])
 
             self.corr.singlepanelplot(channel_i=0, channel_j=1, toilim=[0, .1])
             self.corr.singlepanelplot(channel_i=1, channel_j=0, toilim=[0, .1])

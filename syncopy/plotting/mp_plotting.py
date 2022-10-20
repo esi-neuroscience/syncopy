@@ -169,10 +169,21 @@ def plot_SpectralData(data, **show_kwargs):
 
         # get the data to plot
         data_x = plot_helpers.parse_foi(data, show_kwargs)
-        data_y = np.log10(data.show(**show_kwargs))
+        output = plot_helpers.get_output(data)
+
+        # only log10 the absolute squared spectra
+        if output == 'pow':
+            data_y = np.log10(data.show(**show_kwargs))
+            ylabel = 'power (dB)'
+        elif output in ['fourier', 'complex']:
+            SPYWarning("Can't plot complex valued spectra, choose 'real' or 'imag' as output!\nAbort plotting..")
+            return
+        else:
+            data_y = data.show(**show_kwargs)
+            ylabel = f'{output}'
 
         fig, axs = _plotting.mk_multi_line_figax(nrows, ncols, xlabel='frequency (Hz)',
-                                                 ylabel='power (dB)')
+                                                 ylabel=ylabel)
 
         for chan_dat, ax, label in zip(data_y.T, axs.flatten(), labels):
             _plotting.plot_lines(ax, data_x, chan_dat, label=label, leg_fontsize=pltConfig['mLegendSize'])
