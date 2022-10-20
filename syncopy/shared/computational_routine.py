@@ -1074,7 +1074,7 @@ def propagate_properties(in_data, out_data, keeptrials=True):
         out_data.samplerate = in_data.samplerate
 
     # this is for (cross-) spectral data with empty time axis (MultiTaperFFT / CSD)
-    elif is_Analog(in_data) and (is_Spectral(out_data) or is_CrossSpectral(out_data)):
+    elif (is_Analog(in_data) or is_Spectral(in_data)) and (is_Spectral(out_data) or is_CrossSpectral(out_data)):
 
         # Some index gymnastics to get trial begin/end "samples"
         if in_data.selection is not None:
@@ -1107,6 +1107,10 @@ def propagate_properties(in_data, out_data, keeptrials=True):
         elif is_CrossSpectral(out_data):
             out_data.channel_i = np.array(in_data.channel[chanSec])
             out_data.channel_j = np.array(in_data.channel[chanSec])
+
+        # no further foi manipulation after original freqanalysis!
+        if is_Spectral(in_data):
+            out_data.freq = in_data.freq
 
     # for the AV_compRoutines
     elif is_CrossSpectral(in_data) and is_CrossSpectral(out_data):

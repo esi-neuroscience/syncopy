@@ -24,7 +24,7 @@ from syncopy.shared.input_processors import (
     check_passed_kwargs
 )
 
-from syncopy.nwanalysis.ST_compRoutines import ST_CrossSpectra, ST_CrossCovariance
+from syncopy.nwanalysis.ST_compRoutines import CrossSpectra, CrossCovariance, SpectralDyadicProduct
 from syncopy.nwanalysis.AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov, GrangerCausality
 
 
@@ -51,7 +51,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
         ('foi', 'foilim', 'pad', 'tapsmofrq', 'nTaper', 'taper', 'taper_opt', 'polyremoval')
 
-    If the input is already in the spectral domain, so ``data`` is of class :class:`~syncopy.SpectralData`, 
+    If the input is already in the spectral domain, so ``data`` is of class :class:`~syncopy.SpectralData`,
     no additional modification of the spectra is performed, and all parameters above to control
     the spectral estimation have no effect.
 
@@ -254,7 +254,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         if lcls['foi'] is not None:
             msg = 'Parameter `foi` has no effect for method `corr`'
             SPYWarning(msg)
-        check_effective_parameters(ST_CrossCovariance, defaults, lcls)
+        check_effective_parameters(CrossCovariance, defaults, lcls)
 
         # single trial cross-correlations
         if keeptrials:
@@ -265,41 +265,58 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             norm = False
 
         # parallel computation over trials
-        st_compRoutine = ST_CrossCovariance(samplerate=data.samplerate,
+        st_compRoutine = CrossCovariance(samplerate=data.samplerate,
                                             polyremoval=polyremoval,
                                             timeAxis=timeAxis,
                                             norm=norm)
         # hard coded as class attribute
-        st_dimord = ST_CrossCovariance.dimord
+        st_dimord = CrossCovariance.dimord
 
     elif method in ['coh', 'granger']:
-        
+
         if keeptrials is not False:
             lgl = "False, trial averaging needed!"
             act = keeptrials
             raise SPYValueError(lgl, varname="keeptrials", actual=act)
 
-        # AnalogData - we have to setup implicit spectral analysis (mtmfft)        
+        # AnalogData - we have to setup implicit spectral analysis (mtmfft)
         if isinstance(data, AnalogData):
             # the actual number of samples in case of later padding
             nSamples = process_padding(pad, lenTrials, data.samplerate)
 
-            check_effective_parameters(ST_CrossSpectra, defaults, lcls)
+            check_effective_parameters(CrossSpectra, defaults, lcls)
 
-            st_compRoutine, st_dimord = ad_input(data, method, nSamples,
-                                                 foi, foilim, tapsmofrq,
-                                                 nTaper, taper, taper_opt,
-                                                 polyremoval, log_dict, timeAxis)
-            # SpectralData input
+            st_compRoutine, st_dimord = cross_spectra(data, method, nSamples,
+                                                      foi, foilim, tapsmofrq,
+                                                      nTaper, taper, taper_opt,
+                                                      polyremoval, log_dict, timeAxis)
+        # SpectralData input
         elif isinstance(data, SpectralData):
             nTrials = len(data.trials)
             if nTrials == 1:
-                msg = ("Found only one trial, connectivity measures critically" 
+                msg = ("Found only one trial, connectivity measures critically"
                        "depend on trial averaging of single trial cross-spectra. "
                        "Maybe try `spy.freqanalysis` with `keeptrials=True`?!")
                 SPYWarning(msg)
-            
-            
+
+            # cross-spectra need complex input spectra
+            if data.cfg['freqanalysis']['output'] != 'fourier':
+                lgl = "`output='fourier'` in previous spectral analysis"
+                act = f"{data.cfg['freqanalysis']['output']} spectra"
+                raise SPYValueError(lgl, 'data', act)
+
+            # multi-tapering?
+            if 'dpss' in data.taper and not data.cfg['freqanalysis']['keeptapers']:
+                lgl = "no taper average in previous spectral analysis!"
+                act = "multi-taper average"
+                raise SPYValueError(lgl, 'data', act)
+
+            check_effective_parameters(SpectralDyadicProduct, defaults, lcls)
+            # there are no free parameters here,
+            # everything had to be setup during freqanalysis!
+            st_compRoutine = SpectralDyadicProduct()
+            st_dimord = SpectralDyadicProduct.dimord
+
     # --- Set up of computation of trial-averaged CSDs is complete ---
 
     if method == 'coh':
@@ -358,10 +375,10 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     return out
 
 
-def ad_input(data, method, nSamples,
-             foi, foilim, tapsmofrq,
-             nTaper, taper, taper_opt,
-             polyremoval, log_dict, timeAxis):
+def cross_spectra(data, method, nSamples,
+                  foi, foilim, tapsmofrq,
+                  nTaper, taper, taper_opt,
+                  polyremoval, log_dict, timeAxis):
 
     '''
     Calculates the single trial cross-spectral densities from AnalogData
@@ -432,7 +449,7 @@ def ad_input(data, method, nSamples,
             log_dict["taper_opt"] = taper_opt
 
         # parallel computation over trials
-        st_compRoutine = ST_CrossSpectra(samplerate=data.samplerate,
+        st_compRoutine = CrossSpectra(samplerate=data.samplerate,
                                          nSamples=nSamples,
                                          taper=taper,
                                          taper_opt=taper_opt,
@@ -441,6 +458,6 @@ def ad_input(data, method, nSamples,
                                          timeAxis=timeAxis,
                                          foi=foi)
         # hard coded as class attribute
-        st_dimord = ST_CrossSpectra.dimord
+        st_dimord = CrossSpectra.dimord
 
         return st_compRoutine, st_dimord

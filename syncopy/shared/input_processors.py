@@ -283,8 +283,9 @@ def process_taper(taper,
 
         # direct mtm estimate (averaging) only valid for spectral power
         if not keeptapers and output != "pow":
-            lgl = "'pow', the only valid option for taper averaging"
-            raise SPYValueError(legal=lgl, varname="output", actual=output)
+            lgl = (f"'pow'|False or 'fourier'|True, taper averaging with"
+                   "`keeptapers=False` only possible with `output='pow'`!")
+            raise SPYValueError(legal=lgl, varname="output|keeptapers", actual=f"'{output}'|{keeptapers}")
 
         # --- minimal smoothing bandwidth ---
         # --- such that Kmax/nTaper is at least 1
