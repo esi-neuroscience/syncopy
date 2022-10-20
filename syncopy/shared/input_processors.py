@@ -321,7 +321,6 @@ def process_taper(taper,
         # set parameters for scipy.signal.windows.dpss
         NW, Kmax = _get_dpss_pars(tapsmofrq, nSamples, samplerate)
         # --------------------------------------------------------------
-        print(NW, Kmax)
         
         # tapsmofrq too large
         # if Kmax > nSamples or NW > nSamples / 2:

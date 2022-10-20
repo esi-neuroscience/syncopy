@@ -46,8 +46,11 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
         trl = 0
 
     # get the data to plot
-    data_x = plot_helpers.parse_toi(data, trl, show_kwargs)
+    data_x = plot_helpers.parse_toi(data, trl, show_kwargs)    
     data_y = data.show(**show_kwargs)
+    # 'time' and 'channel' are the only axes
+    if data._defaultDimord != data.dimord:
+        data_y = data_y.T
 
     if data_y.size == 0:
         lgl = "Selection with non-zero size"
@@ -63,7 +66,7 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
         return
 
     elif nAx > pltConfig['mMaxAxes']:
-        SPYWarning("Please select max. {pltConfig['mMaxAxes']} channels for a multipanelplot!")
+        SPYWarning(f"Please select max. {pltConfig['mMaxAxes']} channels for a multipanelplot!")
         return
     else:
         # determine axes layout, prefer columns over rows due to display aspect ratio

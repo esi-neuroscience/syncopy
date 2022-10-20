@@ -23,12 +23,14 @@ class TestAnalogPlotting():
     nSamples = 300
     adata = synth_data.AR2_network(nTrials=nTrials,
                                    AdjMat=np.zeros(nChannels),
-                                   nSamples=nSamples)
+                                   nSamples=nSamples,
+                                   seed=helpers.test_seed)
 
     adata += 0.3 * synth_data.linear_trend(nTrials=nTrials,
                                            y_max=nSamples / 20,
                                            nSamples=nSamples,
                                            nChannels=nChannels)
+
 
     # add an offset
     adata = adata + 5
@@ -105,6 +107,18 @@ class TestAnalogPlotting():
             self.test_ad_plotting(trials=self.nTrials + 1)
             assert "select: trials" in str(err)
 
+    def test_ad_dimord(self):
+        # create new mockup data
+        rng = np.random.default_rng(helpers.test_seed)
+        nSamples = 100
+        nChannels = 4
+        # single trial with ('channel', 'time') dimord
+        ad = spy.AnalogData([rng.standard_normal((nChannels, nSamples))], dimord=['channel', 'time'])
+        for chan in ad.channel:
+            fig, ax = ad.singlepanelplot(channel=chan)
+        # check that the right axis is the time axis
+        xleft, xright = ax.get_xlim()
+        assert xright - xleft >= nSamples / ad.samplerate
 
 class TestSpectralPlotting():
 
