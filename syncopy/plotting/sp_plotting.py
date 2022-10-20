@@ -114,7 +114,7 @@ def plot_SpectralData(data, **show_kwargs):
         if not isinstance(label, str):
             SPYWarning("Please select a single channel for plotting!\nAbort plotting..")
             return
-        
+
         # here we always need a new axes
         fig, ax = _plotting.mk_img_figax()
 
@@ -123,7 +123,7 @@ def plot_SpectralData(data, **show_kwargs):
         time = plot_helpers.parse_toi(data, trl, show_kwargs)
         freqs = plot_helpers.parse_foi(data, show_kwargs)
 
-        # custom dimords for SpectralData not supported atm        
+        # custom dimords for SpectralData not supported atm
         # dimord is time x taper x freq x channel
         # need freq x time for plotting
         data_yx = data.show(**show_kwargs).T
@@ -246,3 +246,5 @@ def plot_CrossSpectralData(data, **show_kwargs):
     data.ax.legend(ncol=1)
 
     data.fig.tight_layout()
+
+    return data.fig, data.ax

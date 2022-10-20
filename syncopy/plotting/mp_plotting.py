@@ -46,7 +46,7 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
         trl = 0
 
     # get the data to plot
-    data_x = plot_helpers.parse_toi(data, trl, show_kwargs)    
+    data_x = plot_helpers.parse_toi(data, trl, show_kwargs)
     data_y = data.show(**show_kwargs)
     # 'time' and 'channel' are the only axes
     if data._defaultDimord != data.dimord:
@@ -241,8 +241,10 @@ def plot_CrossSpectralData(data, **show_kwargs):
     data_y = data.show(**show_kwargs)
 
     # create the axes and figure if needed
-    # persisten axes allows for plotting different
+    # persistent axes allows for plotting different
     # channel combinations into the same figure
     if not hasattr(data, 'ax'):
         fig, data.ax = _plotting.mk_line_figax(xlabel, ylabel)
     _plotting.plot_lines(data.ax, data_x, data_y, label=label)
+
+    return fig, data.ax

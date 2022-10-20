@@ -114,11 +114,23 @@ class TestAnalogPlotting():
         nChannels = 4
         # single trial with ('channel', 'time') dimord
         ad = spy.AnalogData([rng.standard_normal((nChannels, nSamples))], dimord=['channel', 'time'])
+
         for chan in ad.channel:
             fig, ax = ad.singlepanelplot(channel=chan)
         # check that the right axis is the time axis
         xleft, xright = ax.get_xlim()
         assert xright - xleft >= nSamples / ad.samplerate
+
+        # test multipanelplot
+        fig, axs = ad.multipanelplot()
+        # check that we have indeed nChannels axes
+        assert axs.size == nChannels
+
+        xleft, xright = axs[0,0].get_xlim()
+        # check that the right axis is the time axis
+        xleft, xright = ax.get_xlim()
+        assert xright - xleft >= nSamples / ad.samplerate
+
 
 class TestSpectralPlotting():
 
