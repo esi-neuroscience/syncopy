@@ -156,6 +156,7 @@ class TestSpectralPlotting():
 
     spec_fft = spy.freqanalysis(adata, tapsmofrq=1)
     spec_fft_imag = spy.freqanalysis(adata, output='imag')
+    spec_fft_complex = spy.freqanalysis(adata, output='fourier')
 
     spec_wlet = spy.freqanalysis(adata, method='wavelet',
                                  foi=np.arange(0, 400, step=4))
@@ -181,6 +182,12 @@ class TestSpectralPlotting():
             _, _ = self.spec_fft_imag.singlepanelplot(**kwargs)
             _, _ = self.spec_fft_imag.multipanelplot(**kwargs)
 
+            res = self.spec_fft_complex.singlepanelplot(**kwargs)
+            # no plot of complex valued spectra
+            assert res is None
+            res = self.spec_fft_complex.multipanelplot(**kwargs)
+            assert res is None
+            
             fig3, ax2 = self.spec_wlet.singlepanelplot(channel=0, **kwargs)
             fig4, axs = self.spec_wlet.multipanelplot(**kwargs)
 

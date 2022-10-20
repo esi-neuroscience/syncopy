@@ -314,7 +314,6 @@ def process_taper(taper,
         if tapsmofrq > maxBw:
             msg = f'Setting tapsmofrq to the maximal attainable bandwidth of {maxBw:.2f}Hz'
             SPYInfo(msg)
-            SPYInfo(msg)
             tapsmofrq = maxBw
             
         # --------------------------------------------------------------
