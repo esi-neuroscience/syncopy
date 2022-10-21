@@ -32,6 +32,61 @@ availMem = psutil.virtual_memory().total
 minRAM = 5
 skip_low_mem = pytest.mark.skipif(availMem < minRAM * 1024**3, reason=f"less than {minRAM}GB RAM available")
 
+class TestSpectralInput:
+    """
+    When inputting SpectralData directly into connectivityanalysis, it has to fulfill
+    certain conditions: be complex (output='fourier'), multi-trial (no premature trial averaging)
+    and in a multi-taper setting, the tapers can't be averaged before.
+    """
+
+    # mockup data
+    ad = AnalogData([np.ones((5, 10)) for _ in range(2)], samplerate=200)
+
+    def test_spectral_output(self):
+        for wrong_output in ['pow', 'abs']:  # add once #365 got merged, 'imag', 'real']:
+            spec = spy.freqanalysis(self.ad, output=wrong_output)
+
+            with pytest.raises(SPYValueError) as err:
+                cafunc(spec, method='granger')
+            assert "expected `output='fourier'`" in str(err.value)
+
+            with pytest.raises(SPYValueError) as err:
+                cafunc(spec, method='coh')
+            assert "expected `output='fourier'`" in str(err.value)
+
+    def test_spectral_multitaper(self):
+
+        # default with needed output='fourier' does not work already in freqanalysis
+        # -> taper averaging with keeptapers=False not meaningful with fourier output
+        with pytest.raises(SPYValueError) as err:
+            spec = spy.freqanalysis(self.ad, tapsmofrq=0.1, output='fourier')
+        assert "expected 'pow'|False" in str(err.value)
+
+        # single trial /  trial averaging makes no sense
+        spec = spy.freqanalysis(self.ad, tapsmofrq=0.1, keeptrials=False,
+                                output='fourier', keeptapers=True)
+        with pytest.raises(SPYValueError) as err:
+            cafunc(spec, method='coh')
+        assert "expected multi-trial input data" in str(err.value)
+
+    def test_spectral_corr(self):
+
+        # method='corr' does not work with SpectralData
+        spec = spy.freqanalysis(self.ad, tapsmofrq=0.1,
+                                output='fourier', keeptapers=True)
+        with pytest.raises(SPYValueError) as err:
+            cafunc(spec, method='corr')
+        assert "expected AnalogData" in str(err.value)
+
+    def test_tf_input(self):
+        """ No time-resolved spectral connectivity implemented yet """
+        spec = spy.freqanalysis(self.ad, method='mtmconvol',
+                                t_ftimwin=0.01, output='fourier')
+
+        with pytest.raises(SPYValueError) as err:
+            cafunc(spec, method='coh')
+        assert "expected line spectra" in str(err.value)
+
 
 class TestGranger:
 
@@ -584,3 +639,4 @@ if __name__ == '__main__':
     T1 = TestGranger()
     T2 = TestCoherence()
     T3 = TestCorrelation()
+    T4 = TestSpectralInput()

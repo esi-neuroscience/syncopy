@@ -198,6 +198,14 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         raise SPYValueError(lgg, 'data', act)
     timeAxis = data.dimord.index("time")
 
+    # check that for SpectralData input, we have empty time axes
+    # no time-resolved connectivity supported atm
+    if isinstance(data, SpectralData):
+        if data.data.shape[data.dimord.index('time')] != len(data.trials):
+            lgl = "line spectra without time axis (mtmfft or time average)"
+            act = "time-frequency result"
+            raise SPYValueError(lgl, 'data', act)
+
     # Get everything of interest in local namespace
     defaults = get_defaults(connectivityanalysis)
     lcls = locals()
@@ -274,8 +282,14 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
     elif method in ['coh', 'granger']:
 
+        nTrials = len(data.trials)
+        if nTrials == 1:
+            lgl = "multi-trial input data, spectral connectivity measures critically depend on trial averaging!"
+            act = "only one trial"
+            raise SPYValueError(lgl, 'data', act)
+
         if keeptrials is not False:
-            lgl = "False, trial averaging needed!"
+            lgl = "False, trial averaging needed for 'coh' and 'granger'!"
             act = keeptrials
             raise SPYValueError(lgl, varname="keeptrials", actual=act)
 
@@ -292,12 +306,6 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                                                       polyremoval, log_dict, timeAxis)
         # SpectralData input
         elif isinstance(data, SpectralData):
-            nTrials = len(data.trials)
-            if nTrials == 1:
-                msg = ("Found only one trial, connectivity measures critically"
-                       "depend on trial averaging of single trial cross-spectra. "
-                       "Maybe try `spy.freqanalysis` with `keeptrials=True`?!")
-                SPYWarning(msg)
 
             # cross-spectra need complex input spectra
             if data.cfg['freqanalysis']['output'] != 'fourier':
@@ -305,11 +313,8 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                 act = f"{data.cfg['freqanalysis']['output']} spectra"
                 raise SPYValueError(lgl, 'data', act)
 
-            # multi-tapering?
-            if 'dpss' in data.taper and not data.cfg['freqanalysis']['keeptapers']:
-                lgl = "no taper average in previous spectral analysis!"
-                act = "multi-taper average"
-                raise SPYValueError(lgl, 'data', act)
+            # by constraining to output='fourier', detrimental taper averaging
+            # gets already catched by freqanalysis!
 
             check_effective_parameters(SpectralDyadicProduct, defaults, lcls)
             # there are no free parameters here,
