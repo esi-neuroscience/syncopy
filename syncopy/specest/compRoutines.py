@@ -57,7 +57,7 @@ from syncopy.shared.const_def import (
 
 @process_io
 def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
-              polyremoval=None, output_fmt="pow",
+              polyremoval=None, output="pow",
               noCompute=False, chunkShape=None, method_kwargs=None):
 
     """
@@ -76,7 +76,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
     keeptapers : bool
         If `True`, return spectral estimates for each taper.
         Otherwise power spectrum is averaged across tapers,
-        only valid spectral estimate if `output_fmt` is `pow`.
+        only valid spectral estimate if `output` is `pow`.
     pad : str
         Padding mode; one of `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
         See :func:`syncopy.padding` for more information.
@@ -93,7 +93,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
         ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
         least squares fit of a linear polynomial).
         If `polyremoval` is `None`, no de-trending is performed.
-    output_fmt : str
+    output : str
         Output of spectral estimation; one of :data:`~syncopy.specest.const_def.availableOutputs`
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
@@ -154,7 +154,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
     # For initialization of computational routine,
     # just return output shape and dtype
     if noCompute:
-        return outShape, spectralDTypes[output_fmt]
+        return outShape, spectralDTypes[output]
 
     # detrend, does not work with 'FauxTrial' data..
     if polyremoval == 0:
@@ -165,9 +165,9 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
     # call actual specest method
     res, freqs = mtmfft(dat, **method_kwargs)
 
-    # attach time-axis and convert to output_fmt
+    # attach time-axis and convert to output
     spec = res[np.newaxis, :, freq_idx, :]
-    spec = spectralConversions[output_fmt](spec)
+    spec = spectralConversions[output](spec)
 
     # Hash the freqs and add to second return value.
     freqs_hash = blake2b(freqs).hexdigest().encode('utf-8')
@@ -175,7 +175,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
 
     # Average across tapers if wanted
     # averaging is only valid spectral estimate
-    # if output_fmt == 'pow'! (gets checked in parent meta)
+    # if output == 'pow'! (gets checked in parent meta)
     if not keeptapers:
         return spec.mean(axis=1, keepdims=True), metadata
 
@@ -216,7 +216,7 @@ class MultiTaperFFT(ComputationalRoutine):
 
         # channels, trialdefinition and so on..
         propagate_properties(data, out, self.keeptrials)
-        
+
         if self.cfg["method_kwargs"]["taper"] is None:
             out.taper = np.array(['None'])
         else:
@@ -239,7 +239,7 @@ def mtmconvol_cF(
         toi=None,
         foi=None,
         nTaper=1, tapsmofrq=None, timeAxis=0,
-        keeptapers=True, polyremoval=0, output_fmt="pow",
+        keeptapers=True, polyremoval=0, output="pow",
         noCompute=False, chunkShape=None, method_kwargs=None):
     """
     Perform time-frequency analysis on multi-channel time series data using a sliding window FFT
@@ -291,7 +291,7 @@ def mtmconvol_cF(
         ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
         least squares fit of a linear polynomial). Detrending is done on each segment!
         If `polyremoval` is `None`, no de-trending is performed.
-    output_fmt : str
+    output : str
         Output of spectral estimation; one of :data:`~syncopy.specest.const_def.availableOutputs`
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
@@ -352,7 +352,7 @@ def mtmconvol_cF(
         nTaper = taper_opt.get("Kmax", 1)
     outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
     if noCompute:
-        return outShape, spectralDTypes[output_fmt]
+        return outShape, spectralDTypes[output]
 
     # detrending options for each segment
     if polyremoval == 0:
@@ -371,7 +371,7 @@ def mtmconvol_cF(
         ftr, freqs = mtmconvol(dat[soi, :], **method_kwargs)
         _, fIdx = best_match(freqs, foi, squash_duplicates=True)
         spec = ftr[postselect, :, fIdx, :]
-        spec = spectralConversions[output_fmt](spec)
+        spec = spectralConversions[output](spec)
 
     else:
         # in this case only a single window gets centered on
@@ -381,18 +381,18 @@ def mtmconvol_cF(
 
         # In case tapers aren't preserved allocate `spec` "too big"
         # and average afterwards
-        spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
+        spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output])
 
         ftr, freqs = mtmfft(dat[soi[0], :], samplerate, taper=taper, taper_opt=taper_opt)
         _, fIdx = best_match(freqs, foi, squash_duplicates=True)
-        spec[0, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
+        spec[0, ...] = spectralConversions[output](ftr[:, fIdx, :])
         # loop over remaining soi to center windows on
         for tk in range(1, len(soi)):
             ftr, freqs = mtmfft(dat[soi[tk], :], samplerate, taper=taper, taper_opt=taper_opt)
-            spec[tk, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
+            spec[tk, ...] = spectralConversions[output](ftr[:, fIdx, :])
 
     # Average across tapers if wanted
-    # only valid if output_fmt='pow' !
+    # only valid if output='pow' !
     if not keeptapers:
         return np.nanmean(spec, axis=1, keepdims=True)
     return spec
@@ -463,7 +463,7 @@ def wavelet_cF(
     toi=None,
     timeAxis=0,
     polyremoval=0,
-    output_fmt="pow",
+    output="pow",
     noCompute=False,
     chunkShape=None,
     method_kwargs=None,
@@ -494,7 +494,7 @@ def wavelet_cF(
         ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
         least squares fit of a linear polynomial).
         If `polyremoval` is `None`, no de-trending is performed.
-    output_fmt : str
+    output : str
         Output of spectral estimation; one of :data:`~syncopy.specest.const_def.availableOutputs`
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
@@ -552,7 +552,7 @@ def wavelet_cF(
     nScales = method_kwargs["scales"].size
     outShape = (nTime, 1, nScales, nChannels)
     if noCompute:
-        return outShape, spectralDTypes[output_fmt]
+        return outShape, spectralDTypes[output]
 
     # detrend, does not work with 'FauxTrial' data..
     if polyremoval == 0:
@@ -568,7 +568,7 @@ def wavelet_cF(
     # the cwt stacks the scales on the 1st axis, move to 2nd
     spec = spec.transpose(1, 0, 2)[postselect, :, :]
 
-    return spectralConversions[output_fmt](spec[:, np.newaxis, :, :])
+    return spectralConversions[output](spec[:, np.newaxis, :, :])
 
 
 class WaveletTransform(ComputationalRoutine):
@@ -634,7 +634,7 @@ def superlet_cF(
     toi=None,
     timeAxis=0,
     polyremoval=0,
-    output_fmt="pow",
+    output="pow",
     noCompute=False,
     chunkShape=None,
     method_kwargs=None,
@@ -666,7 +666,7 @@ def superlet_cF(
         ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
         least squares fit of a linear polynomial).
         If `polyremoval` is `None`, no de-trending is performed.
-    output_fmt : str
+    output : str
         Output of spectral estimation; one of
         :data:`~syncopy.specest.const_def.availableOutputs`
     noCompute : bool
@@ -719,7 +719,7 @@ def superlet_cF(
     nScales = method_kwargs["scales"].size
     outShape = (nTime, 1, nScales, nChannels)
     if noCompute:
-        return outShape, spectralDTypes[output_fmt]
+        return outShape, spectralDTypes[output]
 
     # detrend, does not work with 'FauxTrial' data..
     if polyremoval == 0:
@@ -734,7 +734,7 @@ def superlet_cF(
     # the cwtSL stacks the scales on the 1st axis
     gmean_spec = gmean_spec.transpose(1, 0, 2)[postselect, :, :]
 
-    return spectralConversions[output_fmt](gmean_spec[:, np.newaxis, :, :])
+    return spectralConversions[output](gmean_spec[:, np.newaxis, :, :])
 
 
 class SuperletTransform(ComputationalRoutine):
@@ -878,7 +878,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
 
 @process_io
 def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
-                output_fmt='fooof', fooof_settings=None, noCompute=False, chunkShape=None, method_kwargs=None):
+                output='fooof', fooof_settings=None, noCompute=False, chunkShape=None, method_kwargs=None):
     """
     Run FOOOF
 
@@ -892,7 +892,7 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
         data length and padding) are used.
     timeAxis : int
         Index of running time axis in `trl_dat` (0 or 1)
-    output_fmt : str
+    output : str
         Output of FOOOF; one of :data:`~syncopy.specest.const_def.availableFOOOFOutputs`
     fooof_settings: dict or None
         Can contain keys `'in_freqs'` (the frequency axis for the data) and `'freq_range'` (post-processing range for fooofed spectrum).
@@ -935,7 +935,7 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
         return outShape, spectralDTypes['pow']
 
     # Call actual fooof method
-    res, metadata = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
+    res, metadata = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output,
                       fooof_opt=method_kwargs)
 
     if 'settings_used' in metadata:
@@ -1052,4 +1052,3 @@ class FooofSpy(ComputationalRoutine):
                 metadata_fooof_hdf5[unique_attr_label_gaussian_params] = gaussian_params_out
                 metadata_fooof_hdf5[unique_attr_label_peak_params] = peak_params_out
         return metadata_fooof_hdf5
-

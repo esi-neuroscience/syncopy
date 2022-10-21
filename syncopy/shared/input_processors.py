@@ -362,7 +362,7 @@ def check_effective_parameters(CR, defaults, lcls, besides=None):
 
     for name in relevant:
         if name not in expected and (lcls[name] != defaults[name]):
-            msg = f"option `{name}` has no effect in method `{CR.__name__}`!"
+            msg = f"option `{name}` has no effect for `{CR.__name__}`!"
             SPYWarning(msg, caller=__name__.split('.')[-1])
 
 

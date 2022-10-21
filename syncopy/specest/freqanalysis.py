@@ -558,7 +558,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
             timeAxis=timeAxis,
             keeptapers=keeptapers,
             polyremoval=polyremoval,
-            output_fmt=output,
+            output=output,
             method_kwargs=method_kwargs)
 
     elif method == "mtmconvol":
@@ -698,7 +698,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
             timeAxis=timeAxis,
             keeptapers=keeptapers,
             polyremoval=polyremoval,
-            output_fmt=output,
+            output=output,
             method_kwargs=method_kwargs)
 
     elif method == "wavelet":
@@ -783,7 +783,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
             toi=toi,
             timeAxis=timeAxis,
             polyremoval=polyremoval,
-            output_fmt=output,
+            output=output,
             method_kwargs=method_kwargs)
 
     elif method == "superlet":
@@ -862,7 +862,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
             toi=toi,
             timeAxis=timeAxis,
             polyremoval=polyremoval,
-            output_fmt=output,
+            output=output,
             method_kwargs=method_kwargs)
 
     # -------------------------------------------------
@@ -906,12 +906,12 @@ def freqanalysis(data, method='mtmfft', output='pow',
             raise SPYValueError(legal="a frequency range that does not include zero. Use 'foi' or 'foilim' to restrict.", varname="foi/foilim", actual="Frequency range from {} to {}.".format(min(fooof_data.freq), max(fooof_data.freq)))
 
         # Set up compute-class
-        #  - the output_fmt must be one of 'fooof', 'fooof_aperiodic',
+        #  - the output must be one of 'fooof', 'fooof_aperiodic',
         #    or 'fooof_peaks'.
         #  - everything passed as method_kwargs is passed as arguments
         #    to the fooof.FOOOF() constructor or functions, the other args are
         #    used elsewhere.
-        fooofMethod = FooofSpy(output_fmt=output_fooof, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)
+        fooofMethod = FooofSpy(output=output_fooof, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)
 
         # Update `log_dct` w/method-specific options
         log_dct["fooof_method"] = output_fooof

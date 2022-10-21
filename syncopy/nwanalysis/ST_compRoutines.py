@@ -82,7 +82,7 @@ def spectral_dyadic_product_cF(trl_dat,
     specs = trl_dat[0, ...]
     # dyadic product along channel axes
     # result has shape (nTapers x nFreq x nChannels x nChannels)
-    CS_ij = specs[:, :, np.newaxis, :] * specs[:, :, :, np.newaxis].conj()
+    CS_ij = specs[:, :, :, np.newaxis] * specs[:, :, np.newaxis, :].conj()
 
     # now average tapers and attach dummy time axis
     # result has shape (1 x nFreq x nChannels x nChannels)
@@ -115,6 +115,7 @@ class SpectralDyadicProduct(ComputationalRoutine):
 
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(spectral_dyadic_product_cF).parameters.keys())[1:]
+    valid_kws += ['output']
 
     def process_metadata(self, data, out):
 
@@ -295,7 +296,7 @@ class CrossSpectra(ComputationalRoutine):
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(cross_spectra_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
-    valid_kws += ['tapsmofrq', 'nTaper', 'pad']
+    valid_kws += ['tapsmofrq', 'nTaper', 'pad', 'output']
 
     def process_metadata(self, data, out):
 

@@ -37,7 +37,7 @@ coh_outputs = {"abs", "pow", "complex", "fourier", "angle", "real", "imag"}
 @detect_parallel_client
 def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                          foi=None, foilim=None, pad='maxperlen',
-                         polyremoval=None, tapsmofrq=None, nTaper=None,
+                         polyremoval=0, tapsmofrq=None, nTaper=None,
                          taper="hann", taper_opt=None, **kwargs):
 
     """
@@ -330,6 +330,11 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         av_compRoutine = NormalizeCrossSpectra(output=output)
 
     if method == 'granger':
+
+        # spectral analysis only possible with AnalogData
+        besides = ['tapsmofrq'] if isinstance(data, AnalogData) else None
+        check_effective_parameters(GrangerCausality, defaults, lcls, besides=besides)
+
         # after trial averaging
         # hardcoded numerical parameters
         av_compRoutine = GrangerCausality(rtol=1e-6,
@@ -402,7 +407,7 @@ def cross_spectra(data, method, nSamples,
             raise SPYValueError(lgl, 'foi/foilim', actual)
 
         nChannels = len(data.channel)
-        nTrials = len(lenTrials)
+        nTrials = len(data.trials)
         # warn user if this ratio is not small
         if nChannels / nTrials > 0.1:
             msg = "Multi-channel Granger analysis can be numerically unstable, it is recommended to have at least 10 times the number of trials compared to the number of channels. Try calculating in sub-groups of fewer channels!"
@@ -450,13 +455,13 @@ def cross_spectra(data, method, nSamples,
 
         # parallel computation over trials
         st_compRoutine = CrossSpectra(samplerate=data.samplerate,
-                                         nSamples=nSamples,
-                                         taper=taper,
-                                         taper_opt=taper_opt,
-                                         demean_taper=method == 'granger',
-                                         polyremoval=polyremoval,
-                                         timeAxis=timeAxis,
-                                         foi=foi)
+                                      nSamples=nSamples,
+                                      taper=taper,
+                                      taper_opt=taper_opt,
+                                      demean_taper=method == 'granger',
+                                      polyremoval=polyremoval,
+                                      timeAxis=timeAxis,
+                                      foi=foi)
         # hard coded as class attribute
         st_dimord = CrossSpectra.dimord
 
