@@ -195,7 +195,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     if not isinstance(data, (AnalogData, SpectralData)):
         lgl = "either AnalogData or SpectralData as input"
         act = f"{data.__class__.__name__}"
-        raise SPYValueError(lgg, 'data', act)
+        raise SPYValueError(lgl, 'data', act)
     timeAxis = data.dimord.index("time")
 
     # check that for SpectralData input, we have empty time axes
