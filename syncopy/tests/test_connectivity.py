@@ -48,11 +48,11 @@ class TestSpectralInput:
 
             with pytest.raises(SPYValueError) as err:
                 cafunc(spec, method='granger')
-            assert "expected `output='fourier'`" in str(err.value)
+            assert "expected complex valued" in str(err.value)
 
             with pytest.raises(SPYValueError) as err:
                 cafunc(spec, method='coh')
-            assert "expected `output='fourier'`" in str(err.value)
+            assert "expected complex valued" in str(err.value)
 
     def test_spectral_multitaper(self):
 

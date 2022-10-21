@@ -308,9 +308,9 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         elif isinstance(data, SpectralData):
 
             # cross-spectra need complex input spectra
-            if data.cfg['freqanalysis']['output'] != 'fourier':
-                lgl = "`output='fourier'` in previous spectral analysis"
-                act = f"{data.cfg['freqanalysis']['output']} spectra"
+            if data.data.dtype != np.complex64 and data.data.dtype != np.complex128:
+                lgl = "complex valued spectra, set `output='fourier` in spy.freqanalysis!"
+                act = f"real valued spectral data"
                 raise SPYValueError(lgl, 'data', act)
 
             # by constraining to output='fourier', detrimental taper averaging
