@@ -51,7 +51,7 @@ availableMethods = ("mtmfft", "mtmconvol", "wavelet", "superlet")
 @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='pow',
                  keeptrials=True, foi=None, foilim=None,
-                 pad='maxperlen', polyremoval=0, taper="hann",
+                 pad='maxperlen', polyremoval=0, taper="hann", demean_taper=False,
                  taper_opt=None, tapsmofrq=None, nTaper=None, keeptapers=False,
                  toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
@@ -185,9 +185,12 @@ def freqanalysis(data, method='mtmfft', output='pow',
         Number of orthogonal tapers to use for multi-tapering. It is not recommended to set the number
         of tapers manually! Leave at `None` for the optimal number to be set automatically.
     taper : str or None, optional
-        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. Windowing function,
+        Only valid if ``method`` is ``'mtmfft'`` or ``'mtmconvol'``. Windowing function,
         one of :data:`~syncopy.shared.const_def.availableTapers`
         For multi-tapering with slepian tapers use `tapsmofrq` directly.
+    demean_taper : bool
+        Set to `True` to perform de-meaning after tapering. Recommended for later Granger
+        analysis with :func:`~syncopy.connectivityanalysis`. Only valid for ``method='mtmfft'``.
     taper_opt : dict or None
         Dictionary with keys for additional taper parameters.
         For example :func:`~scipy.signal.windows.kaiser` has
@@ -344,7 +347,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         raise SPYValueError(legal=lgl, varname="output", actual=output)
 
     # Parse all Boolean keyword arguments
-    for vname in ["keeptrials", "keeptapers"]:
+    for vname in ["keeptrials", "keeptapers", "demean_taper"]:
         if not isinstance(lcls[vname], bool):
             raise SPYTypeError(lcls[vname], varname=vname, expected="Bool")
 
@@ -549,7 +552,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
             'samplerate': data.samplerate,
             'taper': taper,
             'taper_opt': taper_opt,
-            'nSamples': minSampleNum
+            'nSamples': minSampleNum,
+            'demean_taper': demean_taper
         }
 
         # Set up compute-class

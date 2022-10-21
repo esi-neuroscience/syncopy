@@ -16,7 +16,8 @@ from syncopy import __acme__
 if __acme__:
     import dask.distributed as dd
 
-from syncopy import AnalogData
+import syncopy as spy
+from syncopy import AnalogData, SpectralData
 import syncopy.nwanalysis.connectivity_analysis as ca
 from syncopy import connectivityanalysis as cafunc
 import syncopy.tests.synth_data as synth_data
@@ -60,39 +61,66 @@ class TestGranger:
                                   nSamples=nSamples,
                                   samplerate=fs,
                                   seed=42)
+
     time_span = [-1, nSamples / fs - 1]   # -1s offset
-    foi = np.arange(5, 75)   # in Hz
+
+    cfg = spy.StructDict()
+    cfg.tapsmofrq = 1
+    cfg.foi = None
+    # better for granger
+    cfg.demean_taper = True
+    spec = spy.freqanalysis(data, cfg, output='fourier', keeptapers=True)
 
     def test_gr_solution(self, **kwargs):
 
-        Gcaus = cafunc(self.data, method='granger',
-                       tapsmofrq=1, foi=None, **kwargs)
+        # re-run spectral analysis
+        if len(kwargs) != 0:
+            spec = spy.freqanalysis(self.data, self.cfg, output='fourier',
+                                    keeptapers=True, **kwargs)
+        else:
+            spec = self.spec
 
-        # check all channel combinations with coupling
-        for i, j in zip(*self.cpl_idx):
-            peak = Gcaus.data[0, :, i, j].max()
-            peak_frq = Gcaus.freq[Gcaus.data[0, :, i, j].argmax()]
-            cval = self.AdjMat[i, j]
+        # sanity check
+        assert isinstance(self.data, AnalogData)
+        assert isinstance(spec, SpectralData)
 
-            dbg_str = f"{peak:.2f}\t{self.AdjMat[i,j]:.2f}\t {peak_frq:.2f}\t"
-            print(dbg_str, f'\t {i}', f' {j}')
+        # from SpectralData
+        Gcaus_spec = cafunc(spec, method='granger', **kwargs)
 
-            # test for directional coupling
-            # at the right frequency range
-            assert peak >= cval
-            assert 35 < peak_frq < 45
+        # from AnalogData directly, needs cfg for spectral analyis
+        Gcaus_ad = cafunc(self.data, method='granger',
+                       cfg=self.cfg, **kwargs)
 
-            # only plot with defaults
+        # same results on all channels and freqs
+        assert np.allclose(Gcaus_ad.trials[0], Gcaus_spec.trials[0], atol=1e-3)
+
+        for Gcaus in [Gcaus_spec, Gcaus_ad]:
+            # check all channel combinations with coupling
+            for i, j in zip(*self.cpl_idx):
+                peak = Gcaus.data[0, :, i, j].max()
+                peak_frq = Gcaus.freq[Gcaus.data[0, :, i, j].argmax()]
+                cval = self.AdjMat[i, j]
+
+                dbg_str = f"{peak:.2f}\t{self.AdjMat[i,j]:.2f}\t {peak_frq:.2f}\t"
+                print(dbg_str, f'\t {i}', f' {j}')
+
+                # test for directional coupling
+                # at the right frequency range
+                assert peak >= cval
+                assert 35 < peak_frq < 45
+
+                # only plot with defaults
+                if len(kwargs) == 0:
+                    Gcaus.singlepanelplot(channel_i=i, channel_j=j)
+                    # plot_Granger(Gcaus, i, j)
+                    # ppl.legend()
+
+            # check .info for default test
             if len(kwargs) == 0:
-                plot_Granger(Gcaus, i, j)
-                ppl.legend()
-
-        # check .info for default test
-        if len(kwargs) == 0:
-            assert Gcaus.info['converged']
-            assert Gcaus.info['max rel. err'] < 1e-5
-            assert Gcaus.info['reg. factor'] == 0
-            assert Gcaus.info['initial cond. num'] > 10
+                assert Gcaus.info['converged']
+                assert Gcaus.info['max rel. err'] < 1e-5
+                assert Gcaus.info['reg. factor'] == 0
+                assert Gcaus.info['initial cond. num'] > 10
 
     def test_gr_selections(self):
 
@@ -102,11 +130,27 @@ class TestGranger:
                                                 *self.time_span)
 
         for sel_dct in selections:
-            Gcaus = cafunc(self.data, method='granger', select=sel_dct)
+            Gcaus_ad = cafunc(self.data, self.cfg, method='granger', select=sel_dct)
+
+            # selections act on spectral analysis
+            spec = spy.freqanalysis(self.data, self.cfg, output='fourier',
+                                    keeptapers=True, select=sel_dct)
+
+            Gcaus_spec = cafunc(spec, method='granger')
 
             # check here just for finiteness and positivity
-            assert np.all(np.isfinite(Gcaus.data))
-            assert np.all(Gcaus.data[0, ...] >= -1e-10)
+            assert np.all(np.isfinite(Gcaus_ad.data))
+            assert np.all(Gcaus_ad.data[0, ...] >= -1e-10)
+
+            # same results
+            assert np.allclose(Gcaus_ad.trials[0], Gcaus_spec.trials[0], atol=1e-3)
+
+        # test one final selection into a result
+        # obtained via orignal SpectralData input
+        result_ad = cafunc(self.data, self.cfg, method='granger', select=selections[0])
+        result_spec = cafunc(self.spec, method='granger', select=selections[0])
+        assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=1e-3)
+
 
     def test_gr_foi(self):
 
@@ -192,34 +236,61 @@ class TestCoherence:
     data.samplerate = fs
     time_span = [-1, nSamples / fs - 1]   # -1s offset
 
+    # spectral analysis
+    cfg = spy.StructDict()
+    cfg.tapsmofrq = 1.5
+    cfg.foilim = [5, 60]
+    # better for coherence
+    cfg.demean_taper = False
+
+    spec = spy.freqanalysis(data, cfg, output='fourier', keeptapers=True)
+
     def test_coh_solution(self, **kwargs):
 
-        res = cafunc(data=self.data,
-                     method='coh',
-                     foilim=[5, 60],
-                     tapsmofrq=1.5,
-                     **kwargs)
+        # re-run spectral analysis
+        if len(kwargs) != 0:
+            spec = spy.freqanalysis(self.data, self.cfg, output='fourier',
+                                    keeptapers=True, **kwargs)
+        else:
+            spec = self.spec
+        # sanity check
+        assert isinstance(self.data, AnalogData)
+        assert isinstance(spec, SpectralData)
 
-        # coherence at the harmonic frequencies
-        idx_f1 = np.argmin(res.freq < self.f1)
-        peak_f1 = res.data[0, idx_f1, 0, 1]
-        idx_f2 = np.argmin(res.freq < self.f2)
-        peak_f2 = res.data[0, idx_f2, 0, 1]
+        res_spec = cafunc(data=spec,
+                          method='coh',
+                          **kwargs)
 
-        # check low phase diffusion has high coherence
-        assert peak_f2 > 0.5
-        # check that with higher phase diffusion the
-        # coherence is lower
-        assert peak_f1 < peak_f2
+        # needs same cfg for spectral analysis
+        res_ad = cafunc(data=self.data,
+                        method='coh',
+                        cfg=self.cfg,
+                        **kwargs)
 
-        # check that 5Hz away from the harmonics there
-        # is low coherence
-        null_idx = (res.freq < self.f1 - 5) | (res.freq > self.f1 + 5)
-        null_idx *= (res.freq < self.f2 - 5) | (res.freq > self.f2 + 5)
-        assert np.all(res.data[0, null_idx, 0, 1] < 0.2)
+        # same results on all channels and freqs
+        assert np.allclose(res_spec.trials[0], res_ad.trials[0])
 
-        if kwargs is None:
-            res.singlepanelplot(channel_i=0, channel_j=1)
+        for res in [res_spec, res_ad]:
+            # coherence at the harmonic frequencies
+            idx_f1 = np.argmin(res.freq < self.f1)
+            peak_f1 = res.data[0, idx_f1, 0, 1]
+            idx_f2 = np.argmin(res.freq < self.f2)
+            peak_f2 = res.data[0, idx_f2, 0, 1]
+
+            # check low phase diffusion has high coherence
+            assert peak_f2 > 0.5
+            # check that with higher phase diffusion the
+            # coherence is lower
+            assert peak_f1 < peak_f2
+
+            # check that 5Hz away from the harmonics there
+            # is low coherence
+            null_idx = (res.freq < self.f1 - 5) | (res.freq > self.f1 + 5)
+            null_idx *= (res.freq < self.f2 - 5) | (res.freq > self.f2 + 5)
+            assert np.all(res.data[0, null_idx, 0, 1] < 0.2)
+
+            if len(kwargs) == 0:
+                res.singlepanelplot(channel_i=0, channel_j=1)
 
     def test_coh_selections(self):
 
@@ -228,11 +299,27 @@ class TestCoherence:
                                                 *self.time_span)
 
         for sel_dct in selections:
-            result = cafunc(self.data, method='coh', select=sel_dct)
+            result = cafunc(self.data, self.cfg, method='coh', select=sel_dct)
+
+            # re-run spectral analysis with selection
+            spec = spy.freqanalysis(self.data, self.cfg, output='fourier',
+                                    keeptapers=True, select=sel_dct)
+
+            result_spec = cafunc(spec, method='coh')
 
             # check here just for finiteness and positivity
             assert np.all(np.isfinite(result.data))
             assert np.all(result.data[0, ...] >= -1e-10)
+
+            # same results
+            assert np.allclose(result.trials[0], result_spec.trials[0], atol=1e-3)
+
+        # test one final selection into a result
+        # obtained via orignal SpectralData input
+        result_ad = cafunc(self.data, self.cfg, method='coh', select=selections[0])
+        result_spec = cafunc(self.spec, method='coh', select=selections[0])
+        assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=1e-3)
+
 
     def test_coh_foi(self):
 

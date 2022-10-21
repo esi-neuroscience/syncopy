@@ -394,10 +394,6 @@ def cross_spectra(data, method, nSamples,
 
     foi, foilim = process_foi(foi, foilim, data.samplerate)
 
-    # only now set foi array for foilim in 1Hz steps
-    if foilim is not None:
-        foi = np.arange(foilim[0], foilim[1] + 1, dtype=float)
-
     # --- Setting up specific Methods ---
     if method == 'granger':
 
