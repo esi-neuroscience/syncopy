@@ -205,13 +205,6 @@ class TestSpectralPlotting():
                 self.spec_wlet.singlepanelplot(channel=chan, **kwargs)
             ppl.close('all')
 
-    def test_spectral_warnings(self, capsys):
-        # Invalid: taper
-        res1, res2 = self.spec_wlet.singlepanelplot(channel=0, taper=0)
-        captured = capsys.readouterr()
-        assert "select a single trial for" in captured.out
-        assert res1 is None and res2 is None
-
     def test_spectral_selections(self):
 
         # trial, channel and toi selections
@@ -264,15 +257,6 @@ class TestSpectralPlotting():
             self.test_spectral_plotting(trials=0, foi=[-1, 0])
             assert "foi/foilim" in str(err)
             assert "bounded by" in str(err)
-
-    def test_spectral_warnings(self, capsys):
-
-        # Invalid trial selection: several trials selected (and available)
-        #  with spectral plotting.
-        self.test_spectral_plotting(trials=[0, 1])
-        captured = capsys.readouterr()
-        assert "select a single trial for" in captured.out
-
 
 class TestCrossSpectralPlotting():
 
