@@ -239,13 +239,18 @@ class TestMTMFFT():
                                 tapsmofrq=7, keeptapers=True, select=select)
             assert spec.channel.size == len(chanList)
 
+            # trigger capture of too large tapsmofrq (edge case)
+            spec = freqanalysis(self.adata, method="mtmfft",
+                                tapsmofrq=3000, output="pow", select=select)
+            
+
         # non-equidistant data w/multiple tapers
         artdata = generate_artificial_data(nTrials=5, nChannels=16,
                                            equidistant=False, inmemory=False)
         timeAxis = artdata.dimord.index("time")
         cfg = StructDict()
         cfg.method = "mtmfft"
-        cfg.tapsmofrq = 9.3
+        cfg.tapsmofrq = 3.3
         cfg.output = "pow"
 
         for select in self.artdataSelections:

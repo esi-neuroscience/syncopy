@@ -8,8 +8,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ## [Unreleased]
 
 ### NEW
-- Added additional .info entries for Granger analysis, indicating details about the computation
-- Added additional .info entries for FoooF results, e.i. Gaussian fit parameters
+- Added additional .info entries for Granger analysis, indicating details about the computation.
+- Added additional .info entries for FoooF results, e.g. Gaussian fit parameters.
+- Fix bug #365, plotting supports custom dimords now.
 
 ### CHANGED
 - Maximal brute force regularization parameter for Granger increased to 1e-1
