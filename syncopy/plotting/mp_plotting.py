@@ -176,7 +176,7 @@ def plot_SpectralData(data, **show_kwargs):
             data_y = np.log10(data.show(**show_kwargs))
             ylabel = 'power (dB)'
         elif output in ['fourier', 'complex']:
-            SPYWarning("Can't plot complex valued spectra, choose 'real' or 'imag' as output!\nAbort plotting..")
+            SPYWarning("Can't plot complex valued spectra, choose 'real' or 'imag' as output! Aborting plotting.")
             return
         else:
             data_y = data.show(**show_kwargs)
