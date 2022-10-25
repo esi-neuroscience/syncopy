@@ -182,12 +182,12 @@ class TestSpectralPlotting():
             _, _ = self.spec_fft_imag.singlepanelplot(**kwargs)
             _, _ = self.spec_fft_imag.multipanelplot(**kwargs)
 
-            res = self.spec_fft_complex.singlepanelplot(**kwargs)
+            res, res2 = self.spec_fft_complex.singlepanelplot(**kwargs)
             # no plot of complex valued spectra
-            assert res is None
+            assert res is None and res2 is None
             res = self.spec_fft_complex.multipanelplot(**kwargs)
             assert res is None
-            
+
             fig3, ax2 = self.spec_wlet.singlepanelplot(channel=0, **kwargs)
             fig4, axs = self.spec_wlet.multipanelplot(**kwargs)
 
