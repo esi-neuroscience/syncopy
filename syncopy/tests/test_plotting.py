@@ -202,7 +202,7 @@ class TestSpectralPlotting():
             # take the 1st random channel for 2d spectra
             if 'channel' in kwargs:
                 chan = kwargs.pop('channel')[0]
-            self.spec_wlet.singlepanelplot(channel=chan, **kwargs)
+                self.spec_wlet.singlepanelplot(channel=chan, **kwargs)
             ppl.close('all')
 
     def test_spectral_selections(self):
@@ -257,6 +257,14 @@ class TestSpectralPlotting():
             self.test_spectral_plotting(trials=0, foi=[-1, 0])
             assert "foi/foilim" in str(err)
             assert "bounded by" in str(err)
+
+    def test_spectral_warnings(self, capsys):
+
+        # Invalid trial selection: several trials selected (and available)
+        #  with spectral plotting.
+        self.test_spectral_plotting(trials=[0, 1])
+        captured = capsys.readouterr()
+        assert "select a single trial for" in captured.out
 
 
 class TestCrossSpectralPlotting():
