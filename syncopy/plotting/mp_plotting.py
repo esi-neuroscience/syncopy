@@ -253,9 +253,9 @@ def plot_CrossSpectralData(data, **show_kwargs):
     # get the data to plot
     data_y = data.show(**show_kwargs)
 
-    # create the axes and figure if needed
-    # persistent axes allows for plotting different
-    # channel combinations into the same figure
+    # Create the axes and figure if needed.
+    # Persistent axes allow for plotting different
+    # channel combinations into the same figure.
     if not hasattr(data, 'ax'):
         fig, data.ax = _plotting.mk_line_figax(xlabel, ylabel)
     _plotting.plot_lines(data.ax, data_x, data_y, label=label)
