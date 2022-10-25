@@ -111,6 +111,7 @@ def _get_dpss_pars(tapsmofrq, nSamples, samplerate):
 
     """ Helper function to retrieve dpss parameters from tapsmofrq """
 
+    # taper width parameter in sample units
     NW = tapsmofrq * nSamples / samplerate
     # from the minBw setting NW always is at least 1
     Kmax = int(2 * NW - 1)  # optimal number of tapers

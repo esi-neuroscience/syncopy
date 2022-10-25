@@ -23,12 +23,14 @@ class TestAnalogPlotting():
     nSamples = 300
     adata = synth_data.AR2_network(nTrials=nTrials,
                                    AdjMat=np.zeros(nChannels),
-                                   nSamples=nSamples)
+                                   nSamples=nSamples,
+                                   seed=helpers.test_seed)
 
     adata += 0.3 * synth_data.linear_trend(nTrials=nTrials,
                                            y_max=nSamples / 20,
                                            nSamples=nSamples,
                                            nChannels=nChannels)
+
 
     # add an offset
     adata = adata + 5
@@ -105,6 +107,30 @@ class TestAnalogPlotting():
             self.test_ad_plotting(trials=self.nTrials + 1)
             assert "select: trials" in str(err)
 
+    def test_ad_dimord(self):
+        # create new mockup data
+        rng = np.random.default_rng(helpers.test_seed)
+        nSamples = 100
+        nChannels = 4
+        # single trial with ('channel', 'time') dimord
+        ad = spy.AnalogData([rng.standard_normal((nChannels, nSamples))], dimord=['channel', 'time'])
+
+        for chan in ad.channel:
+            fig, ax = ad.singlepanelplot(channel=chan)
+        # check that the right axis is the time axis
+        xleft, xright = ax.get_xlim()
+        assert xright - xleft >= nSamples / ad.samplerate
+
+        # test multipanelplot
+        fig, axs = ad.multipanelplot()
+        # check that we have indeed nChannels axes
+        assert axs.size == nChannels
+
+        xleft, xright = axs[0,0].get_xlim()
+        # check that the right axis is the time axis
+        xleft, xright = ax.get_xlim()
+        assert xright - xleft >= nSamples / ad.samplerate
+
 
 class TestSpectralPlotting():
 
@@ -129,6 +155,9 @@ class TestSpectralPlotting():
     toi_min, toi_max = adata.time[0][0], adata.time[0][-1]
 
     spec_fft = spy.freqanalysis(adata, tapsmofrq=1)
+    spec_fft_imag = spy.freqanalysis(adata, output='imag')
+    spec_fft_complex = spy.freqanalysis(adata, output='fourier')
+
     spec_wlet = spy.freqanalysis(adata, method='wavelet',
                                  foi=np.arange(0, 400, step=4))
 
@@ -150,6 +179,15 @@ class TestSpectralPlotting():
             fig1, ax1 = self.spec_fft.singlepanelplot(**kwargs)
             fig2, axs = self.spec_fft.multipanelplot(**kwargs)
 
+            _, _ = self.spec_fft_imag.singlepanelplot(**kwargs)
+            _, _ = self.spec_fft_imag.multipanelplot(**kwargs)
+
+            res, res2 = self.spec_fft_complex.singlepanelplot(**kwargs)
+            # no plot of complex valued spectra
+            assert res is None and res2 is None
+            res = self.spec_fft_complex.multipanelplot(**kwargs)
+            assert res is None
+
             fig3, ax2 = self.spec_wlet.singlepanelplot(channel=0, **kwargs)
             fig4, axs = self.spec_wlet.multipanelplot(**kwargs)
 
@@ -164,7 +202,7 @@ class TestSpectralPlotting():
             # take the 1st random channel for 2d spectra
             if 'channel' in kwargs:
                 chan = kwargs.pop('channel')[0]
-            self.spec_wlet.singlepanelplot(channel=chan, **kwargs)
+                self.spec_wlet.singlepanelplot(channel=chan, **kwargs)
             ppl.close('all')
 
     def test_spectral_selections(self):
@@ -220,7 +258,6 @@ class TestSpectralPlotting():
             assert "foi/foilim" in str(err)
             assert "bounded by" in str(err)
 
-
 class TestCrossSpectralPlotting():
 
     nTrials = 40
@@ -247,6 +284,8 @@ class TestCrossSpectralPlotting():
     toi_min, toi_max = adata.time[0][0], adata.time[0][-1]
 
     coh = spy.connectivityanalysis(adata, method='coh', tapsmofrq=1)
+    coh_imag = spy.connectivityanalysis(adata, method='coh', tapsmofrq=1, output='imag')
+
     corr = spy.connectivityanalysis(adata, method='corr')
     granger = spy.connectivityanalysis(adata, method='granger', tapsmofrq=1)
 
@@ -264,6 +303,8 @@ class TestCrossSpectralPlotting():
             self.coh.singlepanelplot(channel_i=0, channel_j=1, foilim=[50, 320])
             self.coh.singlepanelplot(channel_i=1, channel_j=2, foilim=[50, 320])
             self.coh.singlepanelplot(channel_i=2, channel_j=3, foilim=[50, 320])
+
+            self.coh_imag.singlepanelplot(channel_i=1, channel_j=2, foilim=[50, 320])
 
             self.corr.singlepanelplot(channel_i=0, channel_j=1, toilim=[0, .1])
             self.corr.singlepanelplot(channel_i=1, channel_j=0, toilim=[0, .1])

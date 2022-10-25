@@ -13,7 +13,7 @@ import numpy as np
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 
 # fix random generators
-np.random.seed(40203)
+test_seed = 42
 
 
 def run_padding_test(method_call, pad_length):
@@ -128,7 +128,7 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
     """
     Takes 5 numbers, the last three descibing a `toilim/toi` time-interval
     and creates cartesian product like `select` keyword
-    arguments.
+    arguments. One random selection per toi/toilim is enough!
 
     Returns
     -------
@@ -143,9 +143,9 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
     # at least 250ms
     assert (toi_max - toi_min) > 0.25
 
-    # create 3 random trial and channel selections
+    # create 1 random trial and channel selections
     trials, channels = [], []
-    for _ in range(3):
+    for _ in range(1):
 
         sizeTr = np.random.randint(10, nTrials + 1)
         trials.append(list(np.random.choice(
@@ -168,9 +168,9 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
                                          channels,
                                          tois)
 
-    # 2 random toilims
+    # 1 random toilim
     toilims = []
-    while len(toilims) < 2:
+    while len(toilims) < 1:
 
         toil = np.sort(np.random.rand(2)) * (toi_max - toi_min) + toi_min
         # at least min_len (250ms)
