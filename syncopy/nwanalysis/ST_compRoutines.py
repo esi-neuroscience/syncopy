@@ -108,12 +108,12 @@ class SpectralDyadicProduct(ComputationalRoutine):
     syncopy.connectivityanalysis : parent metafunction
     """
 
-    # the hard wired dimord of the cF
+    # The hard wired dimord of the cF
     dimord = ['time', 'freq', 'channel_i', 'channel_j']
 
     computeFunction = staticmethod(spectral_dyadic_product_cF)
 
-    # 1st argument,the data, gets omitted
+    # 1st argument, the data, gets omitted.
     valid_kws = list(signature(spectral_dyadic_product_cF).parameters.keys())[1:]
     valid_kws += ['output']
 
@@ -149,16 +149,16 @@ def cross_spectra_cF(trl_dat,
     elements on the main diagonal (`CS_ii`) are the (real) auto-spectra.
 
     This is NOT the same as what is commonly referred to as
-    "cross spectral density" as there is no (time) averaging!!
+    "cross spectral density" as there is no (time) averaging!
     Multi-tapering alone is not necessarily sufficient to get enough
-    statitstical power for a robust csd estimate. Yet for completeness
-    and testing the option `norm=True` will output a single-trial
+    statistical power for a robust csd estimate. Still, for completeness
+    and testing the option `norm=True`, this function does output a single-trial
     coherence estimate.
 
     Parameters
     ----------
     trl_dat : (K, N) :class:`numpy.ndarray`
-        Uniformly sampled multi-channel time-series data
+        Uniformly sampled multi-channel time-series data.
         The 1st dimension is interpreted as the time axis,
         columns represent individual channels.
         Dimensions can be transposed to `(N, K)` with the `timeAxis` parameter.
@@ -172,7 +172,7 @@ def cross_spectra_cF(trl_dat,
         cannot be matched exactly the closest possible frequencies (respecting
         data length and padding) are used.
     taper : str or None
-        Taper function to use, one of scipy.signal.windows
+        Taper function to use, one of `scipy.signal.windows`.
         Set to `None` for no tapering.
     taper_opt : dict, optional
         Additional keyword arguments passed to the `taper` function.
@@ -275,9 +275,9 @@ class CrossSpectra(ComputationalRoutine):
 
     """
     Compute class that calculates single-trial (multi-)tapered cross spectra
-    of :class:`~syncopy.AnalogData` objects
+    of :class:`~syncopy.AnalogData` objects.
     For coherence computation, `keeptrials` is set to `False` to right away
-    average the single-trial cross-spectra
+    average the single-trial cross-spectra.
 
     Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
     see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
