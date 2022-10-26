@@ -43,7 +43,7 @@ class TestSpectralInput:
     ad = AnalogData([np.ones((5, 10)) for _ in range(2)], samplerate=200)
 
     def test_spectral_output(self):
-        for wrong_output in ['pow', 'abs']:  # add once #365 got merged, 'imag', 'real']:
+        for wrong_output in ['pow', 'abs', 'imag', 'real']:
             spec = spy.freqanalysis(self.ad, output=wrong_output)
 
             with pytest.raises(SPYValueError) as err:
