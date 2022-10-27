@@ -276,9 +276,6 @@ def freqanalysis(data, method='mtmfft', output='pow',
     spec : :class:`~syncopy.SpectralData`
         (Time-)frequency spectrum of input data.
 
-
-    Result Metadata by method
-    -------------------------
     The result may contain additional metadata, based on the `method` used to compute it.
 
     * for `method='mtmfft'` when`output` is  one of
