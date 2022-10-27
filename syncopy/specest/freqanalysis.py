@@ -51,7 +51,7 @@ availableMethods = ("mtmfft", "mtmconvol", "wavelet", "superlet")
 @detect_parallel_client
 def freqanalysis(data, method='mtmfft', output='pow',
                  keeptrials=True, foi=None, foilim=None,
-                 pad='maxperlen', polyremoval=0, taper="hann",
+                 pad='maxperlen', polyremoval=0, taper="hann", demean_taper=False,
                  taper_opt=None, tapsmofrq=None, nTaper=None, keeptapers=False,
                  toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
@@ -84,10 +84,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
         * **keeptapers** : return individual tapers or average
         * **pad**: either pad to an absolute length or set to `'nextpow2'`
 
-        Post-processing of the resulting spectra with FOOOOF is available
+        Post-processing of the resulting spectra with FOOOF is available
         via setting `output` to one of `'fooof'`, `'fooof_aperiodic'` or
         `'fooof_peaks'`, see below for details. The returned spectrum represents
-        the full foofed spectrum for `'fooof'`, the aperiodic
+        the full fooofed spectrum for `'fooof'`, the aperiodic
         fit for `'fooof_aperiodic'`, and the peaks (Gaussians fit to them) for
         `'fooof_peaks'`. Returned data is in linear scale. Noisy input
         data will most likely lead to fitting issues with fooof, always inspect
@@ -185,9 +185,12 @@ def freqanalysis(data, method='mtmfft', output='pow',
         Number of orthogonal tapers to use for multi-tapering. It is not recommended to set the number
         of tapers manually! Leave at `None` for the optimal number to be set automatically.
     taper : str or None, optional
-        Only valid if `method` is `'mtmfft'` or `'mtmconvol'`. Windowing function,
+        Only valid if ``method`` is ``'mtmfft'`` or ``'mtmconvol'``. Windowing function,
         one of :data:`~syncopy.shared.const_def.availableTapers`
         For multi-tapering with slepian tapers use `tapsmofrq` directly.
+    demean_taper : bool
+        Set to `True` to perform de-meaning after tapering. Recommended for later Granger
+        analysis with :func:`~syncopy.connectivityanalysis`. Only valid for ``method='mtmfft'``.
     taper_opt : dict or None
         Dictionary with keys for additional taper parameters.
         For example :func:`~scipy.signal.windows.kaiser` has
@@ -354,7 +357,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         raise SPYValueError(legal=lgl, varname="output", actual=output)
 
     # Parse all Boolean keyword arguments
-    for vname in ["keeptrials", "keeptapers"]:
+    for vname in ["keeptrials", "keeptapers", "demean_taper"]:
         if not isinstance(lcls[vname], bool):
             raise SPYTypeError(lcls[vname], varname=vname, expected="Bool")
 
@@ -559,7 +562,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
             'samplerate': data.samplerate,
             'taper': taper,
             'taper_opt': taper_opt,
-            'nSamples': minSampleNum
+            'nSamples': minSampleNum,
+            'demean_taper': demean_taper
         }
 
         # Set up compute-class
@@ -568,7 +572,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
             timeAxis=timeAxis,
             keeptapers=keeptapers,
             polyremoval=polyremoval,
-            output_fmt=output,
+            output=output,
             method_kwargs=method_kwargs)
 
     elif method == "mtmconvol":
@@ -708,7 +712,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
             timeAxis=timeAxis,
             keeptapers=keeptapers,
             polyremoval=polyremoval,
-            output_fmt=output,
+            output=output,
             method_kwargs=method_kwargs)
 
     elif method == "wavelet":
@@ -793,7 +797,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
             toi=toi,
             timeAxis=timeAxis,
             polyremoval=polyremoval,
-            output_fmt=output,
+            output=output,
             method_kwargs=method_kwargs)
 
     elif method == "superlet":
@@ -872,7 +876,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
             toi=toi,
             timeAxis=timeAxis,
             polyremoval=polyremoval,
-            output_fmt=output,
+            output=output,
             method_kwargs=method_kwargs)
 
     # -------------------------------------------------
@@ -916,12 +920,12 @@ def freqanalysis(data, method='mtmfft', output='pow',
             raise SPYValueError(legal="a frequency range that does not include zero. Use 'foi' or 'foilim' to restrict.", varname="foi/foilim", actual="Frequency range from {} to {}.".format(min(fooof_data.freq), max(fooof_data.freq)))
 
         # Set up compute-class
-        #  - the output_fmt must be one of 'fooof', 'fooof_aperiodic',
+        #  - the output must be one of 'fooof', 'fooof_aperiodic',
         #    or 'fooof_peaks'.
         #  - everything passed as method_kwargs is passed as arguments
-        #    to the foooof.FOOOF() constructor or functions, the other args are
+        #    to the fooof.FOOOF() constructor or functions, the other args are
         #    used elsewhere.
-        fooofMethod = FooofSpy(output_fmt=output_fooof, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)
+        fooofMethod = FooofSpy(output=output_fooof, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)
 
         # Update `log_dct` w/method-specific options
         log_dct["fooof_method"] = output_fooof

@@ -55,7 +55,7 @@ def normalize_csd_cF(csd_av_dat,
     csd_av_dat : (1, nFreq, N, N) :class:`numpy.ndarray`
         Cross-spectral densities for `N` x `N` channels
         and `nFreq` frequencies averaged over trials.
-    output : {'abs', 'pow', 'fourier'}, default: 'abs'
+    output : {'abs', 'pow', 'fourier', 'real', 'imag'}, default: 'abs'
         Also after normalization the coherency is still complex (`'complex'`),
         to get the real valued coherence ``0 < C_ij(f) < 1`` one can either take the
         absolute (`'abs'`) or the absolute squared (`'pow'`) values of the

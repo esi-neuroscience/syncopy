@@ -73,7 +73,7 @@ def parse_toi(dataobject, trl, show_kwargs):
     # apply the selection
     dataobject.selectdata(inplace=True, **show_kwargs)
 
-    # still have to index the single trial
+    # still have to index the only and single trial
     idx = dataobject.selection.time[0]
 
     # index selection, again the single trial
@@ -145,6 +145,21 @@ def get_method(dataobject):
     if match:
         meth_str = match.group(1)
         return meth_str
+
+
+def get_output(dataobject):
+
+    """
+    Returns the method string from
+    the log of a Syncopy data object
+    """
+
+    # get the method string in a capture group
+    pattern = re.compile(r'[\s\w\D]+output = (\w+)')
+    match = pattern.match(dataobject._log)
+    if match:
+        output_str = match.group(1)
+        return output_str
 
 
 def calc_multi_layout(nAx):

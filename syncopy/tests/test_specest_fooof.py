@@ -88,7 +88,8 @@ class TestFooofSpy():
     one of the available FOOOF output types.
     """
 
-    tfData = _get_fooof_signal()
+    seed = 42
+    tfData = _get_fooof_signal(seed=seed)
 
     @staticmethod
     def get_fooof_cfg():
@@ -112,7 +113,7 @@ class TestFooofSpy():
         cfg = TestFooofSpy.get_fooof_cfg()
         cfg['foilim'] = [0., 100.]    # Include the zero in tfData.
         with pytest.raises(SPYValueError) as err:
-            _ = freqanalysis(cfg, _get_fooof_signal())  # tfData contains zero.
+            _ = freqanalysis(cfg, _get_fooof_signal(seed=self.seed))  # tfData contains zero.
         assert "a frequency range that does not include zero" in str(err.value)
 
     def test_output_fooof_works_with_freq_zero_in_data_after_setting_foilim(self):
@@ -124,8 +125,8 @@ class TestFooofSpy():
         """
         cfg = TestFooofSpy.get_fooof_cfg()
         cfg.pop('fooof_opt', None)
-        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
-        spec_dt = freqanalysis(cfg, _get_fooof_signal(), fooof_opt=fooof_opt)
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
+        spec_dt = freqanalysis(cfg, _get_fooof_signal(seed=self.seed), fooof_opt=fooof_opt)
 
         # check frequency axis
         assert spec_dt.freq.size == 100
@@ -157,8 +158,8 @@ class TestFooofSpy():
         cfg = TestFooofSpy.get_fooof_cfg()
         cfg.output = "fooof_aperiodic"
         cfg.pop('fooof_opt', None)
-        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
-        spec_dt = freqanalysis(cfg, _get_fooof_signal(), fooof_opt=fooof_opt)
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
+        spec_dt = freqanalysis(cfg, _get_fooof_signal(seed=self.seed), fooof_opt=fooof_opt)
 
         # log
         assert "fooof" in spec_dt._log  # from the method
@@ -175,8 +176,8 @@ class TestFooofSpy():
         cfg = TestFooofSpy.get_fooof_cfg()
         cfg.output = "fooof_peaks"
         cfg.pop('fooof_opt', None)
-        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
-        spec_dt = freqanalysis(cfg, _get_fooof_signal(), fooof_opt=fooof_opt)
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
+        spec_dt = freqanalysis(cfg, _get_fooof_signal(seed=self.seed), fooof_opt=fooof_opt)
         assert spec_dt.data.ndim == 4
         assert "fooof" in spec_dt._log
         assert "fooof_method = fooof_peaks" in spec_dt._log
@@ -189,15 +190,15 @@ class TestFooofSpy():
         cfg['foilim'] = [10, 70]
         cfg.pop('fooof_opt', None)
         fooof_opt = {'peak_width_limits': (6.0, 12.0),
-                     'min_peak_height': 0.2}  # Increase lower limit to avoid foooof warning.
+                     'min_peak_height': 0.2}  # Increase lower limit to avoid fooof warning.
 
-        out_fft = freqanalysis(cfg, _get_fooof_signal())
+        out_fft = freqanalysis(cfg, _get_fooof_signal(seed=self.seed))
         cfg['output'] = "fooof"
-        out_fooof = freqanalysis(cfg, _get_fooof_signal(), fooof_opt=fooof_opt)
+        out_fooof = freqanalysis(cfg, _get_fooof_signal(seed=self.seed), fooof_opt=fooof_opt)
         cfg['output'] = "fooof_aperiodic"
-        out_fooof_aperiodic = freqanalysis(cfg, _get_fooof_signal(), fooof_opt=fooof_opt)
+        out_fooof_aperiodic = freqanalysis(cfg, _get_fooof_signal(seed=self.seed), fooof_opt=fooof_opt)
         cfg['output'] = "fooof_peaks"
-        out_fooof_peaks = freqanalysis(cfg, _get_fooof_signal(), fooof_opt=fooof_opt)
+        out_fooof_peaks = freqanalysis(cfg, _get_fooof_signal(seed=self.seed), fooof_opt=fooof_opt)
 
         assert (out_fooof.freq == out_fooof_aperiodic.freq).all()
         assert (out_fooof.freq == out_fooof_peaks.freq).all()
@@ -217,7 +218,7 @@ class TestFooofSpy():
         cfg.output = "fooof_peaks"
         cfg.pop('fooof_opt', None)
         fooof_opt = {'max_n_peaks': 8, 'peak_width_limits': (1.0, 12.0)}
-        spec_dt = freqanalysis(cfg, _get_fooof_signal(), fooof_opt=fooof_opt)
+        spec_dt = freqanalysis(cfg, _get_fooof_signal(seed=self.seed), fooof_opt=fooof_opt)
 
         assert spec_dt.data.ndim == 4
 

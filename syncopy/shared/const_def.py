@@ -7,21 +7,29 @@
 import numpy as np
 from scipy.signal import windows
 
+
 # Module-wide output specs
 spectralDTypes = {"pow": np.float32,
+                  "abs": np.float32,
+                  "real": np.float32,
+                  "imag": np.float32,
+                  "angle": np.float32,
+                  "absreal": np.float32,
+                  "absimag": np.float32,
                   "fourier": np.complex64,
-                  "abs": np.float32}
+                  "complex": np.complex64
+                  }
 
 #: output conversion of complex fourier coefficients
 spectralConversions = {
-    'abs': lambda x: (np.absolute(x)).real.astype(np.float32),
-    'pow': lambda x: (x * np.conj(x)).real.astype(np.float32),
-    'fourier': lambda x: x.astype(np.complex64),
-    'real': lambda x: np.real(x),
-    'imag': lambda x: np.imag(x),
-    'angle': lambda x: np.angle(x),
-    'absreal': lambda x: np.abs(np.real(x)),
-    'absimag': lambda x: np.abs(np.imag(x)),
+    'pow': lambda x: (x * np.conj(x)).real.astype(spectralDTypes['pow']),
+    'abs': lambda x: (np.absolute(x)).real.astype(spectralDTypes['abs']),
+    'fourier': lambda x: x.astype(spectralDTypes['fourier']),
+    'real': lambda x: np.real(x).astype(spectralDTypes['real']),
+    'imag': lambda x: np.imag(x).astype(spectralDTypes['imag']),
+    'angle': lambda x: np.angle(x).astype(spectralDTypes['angle']),
+    'absreal': lambda x: np.abs(np.real(x)).astype(spectralDTypes['absreal']),
+    'absimag': lambda x: np.abs(np.imag(x)).astype(spectralDTypes['absimag'])
 }
 
 # FT compat
@@ -38,5 +46,5 @@ availableTapers = all_windows
 availablePaddingOpt = ['maxperlen', 'nextpow2']
 
 #: general, method agnostic, parameters for our CRs
-generalParameters = ("method", "output", "keeptrials", "samplerate",
-                     "foi", "foilim", "polyremoval", "out", "pad_to_length")
+generalParameters = ("method", "keeptrials", "samplerate",
+                     "foi", "foilim", "polyremoval", "out", "pad")
