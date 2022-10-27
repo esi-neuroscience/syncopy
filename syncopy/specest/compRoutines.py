@@ -1021,7 +1021,7 @@ class FooofSpy(ComputationalRoutine):
 
     @staticmethod
     def decode_metadata_fooof_alltrials_from_hdf5(metadata_fooof_hdf5):
-        """This reverts and special packaging applied to the fooof backend
+        """This reverts the special packaging applied to the fooof backend
         function return values to fit them into the hdf5 container.
 
         In the case of FOOOF, we had to `np.vstack` the `gaussian_params`
