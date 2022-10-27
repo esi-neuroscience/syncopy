@@ -23,6 +23,106 @@ from syncopy.shared.kwarg_decorators import process_io
 
 
 @process_io
+def spectral_dyadic_product_cF(trl_dat,
+                               chunkShape=None,
+                               noCompute=False):
+    """
+    Single trial cross spectra directly from power spectra,
+    hence no Fourier transforms are needed and all what is
+    left to do is to take the outer product along the channel axis.
+
+    In case the spectral input has a taper axis, those get averaged
+    out after the cross products are calculated.
+
+    Parameters
+    ----------
+    trl_dat: (K, N) :class:`numpy.ndarray`
+        Complex and frequency aligned multi-channel spectral data.
+        The 1st dimension is interpreted as the frequency axis,
+        `N` columns represent individual channels.
+    noCompute : bool
+        Preprocessing flag. If `True`, do not perform actual calculation but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+
+    Returns
+    -------
+    CS_ij : (1, len(K), N, N) :class:`numpy.ndarray`
+        Complex cross spectra for all channel combinations ``i,j``.
+        `N` corresponds to number of input channels.
+
+    Notes
+    -----
+    This method is intended to be used as
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+
+    See also
+    --------
+    normalize_csd : :func:`~syncopy.connectivity.csd.normalize_csd`
+             Coherence from trial averages
+
+    """
+
+    # default dimord for SpectralData is ['time', 'taper', 'freq', 'channel']
+    nFreq = trl_dat.shape[2]
+    nChannels = trl_dat.shape[3]
+
+    # we always average over tapers here
+    outShape = (1, nFreq, nChannels, nChannels)
+
+    # cross spectra are complex, input gets checked in frontend!
+    if noCompute:
+        return outShape, spectralDTypes["fourier"]
+
+    # split off empty time axis, shape is now (nTapers, nFreq, nChannel)
+    specs = trl_dat[0, ...]
+    # dyadic product along channel axes
+    # result has shape (nTapers x nFreq x nChannels x nChannels)
+    CS_ij = specs[:, :, :, np.newaxis] * specs[:, :, np.newaxis, :].conj()
+
+    # now average tapers and attach dummy time axis
+    # result has shape (1 x nFreq x nChannels x nChannels)
+    CS_ij = CS_ij.mean(axis=0)[np.newaxis, ...]
+    return CS_ij
+
+
+class SpectralDyadicProduct(ComputationalRoutine):
+
+    """
+    Compute class that calculates single-trial cross spectra
+    from :class:`~syncopy.SpectralData` objects, which in the end
+    is just the dyadic (outer) product between channels.
+    For coherence computation, `keeptrials` is set to `False` to right away
+    average the single-trial cross-spectra
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.connectivityanalysis : parent metafunction
+    """
+
+    # The hard wired dimord of the cF
+    dimord = ['time', 'freq', 'channel_i', 'channel_j']
+
+    computeFunction = staticmethod(spectral_dyadic_product_cF)
+
+    # 1st argument, the data, gets omitted.
+    valid_kws = list(signature(spectral_dyadic_product_cF).parameters.keys())[1:]
+    valid_kws += ['output']
+
+    def process_metadata(self, data, out):
+
+        propagate_properties(data, out, self.keeptrials)
+
+
+@process_io
 def cross_spectra_cF(trl_dat,
                      samplerate=1,
                      nSamples=None,
@@ -49,16 +149,16 @@ def cross_spectra_cF(trl_dat,
     elements on the main diagonal (`CS_ii`) are the (real) auto-spectra.
 
     This is NOT the same as what is commonly referred to as
-    "cross spectral density" as there is no (time) averaging!!
+    "cross spectral density" as there is no (time) averaging!
     Multi-tapering alone is not necessarily sufficient to get enough
-    statitstical power for a robust csd estimate. Yet for completeness
-    and testing the option `norm=True` will output a single-trial
+    statistical power for a robust csd estimate. Still, for completeness
+    and testing the option `norm=True`, this function does output a single-trial
     coherence estimate.
 
     Parameters
     ----------
     trl_dat : (K, N) :class:`numpy.ndarray`
-        Uniformly sampled multi-channel time-series data
+        Uniformly sampled multi-channel time-series data.
         The 1st dimension is interpreted as the time axis,
         columns represent individual channels.
         Dimensions can be transposed to `(N, K)` with the `timeAxis` parameter.
@@ -72,7 +172,7 @@ def cross_spectra_cF(trl_dat,
         cannot be matched exactly the closest possible frequencies (respecting
         data length and padding) are used.
     taper : str or None
-        Taper function to use, one of scipy.signal.windows
+        Taper function to use, one of `scipy.signal.windows`.
         Set to `None` for no tapering.
     taper_opt : dict, optional
         Additional keyword arguments passed to the `taper` function.
@@ -168,16 +268,16 @@ def cross_spectra_cF(trl_dat,
     freqs_hash = blake2b(freqs).hexdigest().encode('utf-8')
     metadata = {'freqs_hash': np.array(freqs_hash)}  # Will have dtype='|S128'
 
-    return CS_ij[None, freq_idx, ...], metadata
+    return CS_ij[np.newaxis, freq_idx, ...], metadata
 
 
-class ST_CrossSpectra(ComputationalRoutine):
+class CrossSpectra(ComputationalRoutine):
 
     """
     Compute class that calculates single-trial (multi-)tapered cross spectra
-    of :class:`~syncopy.AnalogData` objects
+    of :class:`~syncopy.AnalogData` objects.
     For coherence computation, `keeptrials` is set to `False` to right away
-    average the single-trial cross-spectra
+    average the single-trial cross-spectra.
 
     Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
     see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
@@ -196,7 +296,7 @@ class ST_CrossSpectra(ComputationalRoutine):
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(cross_spectra_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
-    valid_kws += ['tapsmofrq', 'nTaper', 'pad_to_length']
+    valid_kws += ['tapsmofrq', 'nTaper', 'pad', 'output']
 
     def process_metadata(self, data, out):
 
@@ -329,7 +429,7 @@ def cross_covariance_cF(trl_dat,
         return CC, lags
 
 
-class ST_CrossCovariance(ComputationalRoutine):
+class CrossCovariance(ComputationalRoutine):
 
     """
     Compute class that calculates single-trial cross-covariances

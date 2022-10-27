@@ -285,8 +285,9 @@ def process_taper(taper,
 
         # direct mtm estimate (averaging) only valid for spectral power
         if not keeptapers and output != "pow":
-            lgl = "'pow', the only valid option for taper averaging"
-            raise SPYValueError(legal=lgl, varname="output", actual=output)
+            lgl = (f"'pow'|False or '{output}'|True, set keeptapers=True"
+                   "OR `output='pow'`!")
+            raise SPYValueError(legal=lgl, varname="output|keeptapers", actual=f"'{output}'|{keeptapers}")
 
         # --- minimal smoothing bandwidth ---
         # --- such that Kmax/nTaper is at least 1
@@ -378,7 +379,7 @@ def check_effective_parameters(CR, defaults, lcls, besides=None):
 
     for name in relevant:
         if name not in expected and (lcls[name] != defaults[name]):
-            msg = f"option `{name}` has no effect in method `{CR.__name__}`!"
+            msg = f"option `{name}` has no effect for `{CR.__name__}`!"
             SPYWarning(msg, caller=__name__.split('.')[-1])
 
 

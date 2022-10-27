@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 #
-# computeFunctions and -Routines for parallel calculation
-# of single trial measures needed for the averaged
-# measures like cross spectral densities
+# Backend functions for calculating cross spectral densities
+#
 #
 
 # Builtin/3rd party package imports

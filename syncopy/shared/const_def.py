@@ -46,5 +46,5 @@ availableTapers = all_windows
 availablePaddingOpt = ['maxperlen', 'nextpow2']
 
 #: general, method agnostic, parameters for our CRs
-generalParameters = ("method", "output", "keeptrials", "samplerate",
-                     "foi", "foilim", "polyremoval", "out", "pad_to_length")
+generalParameters = ("method", "keeptrials", "samplerate",
+                     "foi", "foilim", "polyremoval", "out", "pad")
