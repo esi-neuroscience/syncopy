@@ -99,7 +99,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         regularization of the cross-spectral densities can be obtained
         by inspecting the ``.info`` property of the resulting :class:~`syncopy.CrossSpectralData`
         object. Keys of that info-dict are:
-            {'converged', 'max rel. err', 'reg. factor', 'initial cond. num'}
+        ```{'converged', 'max rel. err', 'reg. factor', 'initial cond. num'}```.
 
     Parameters
     ----------
@@ -258,7 +258,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # --- method specific processing ---
 
     if method == 'corr':
-      
+
         if not isinstance(data, AnalogData):
             lgl = f"AnalogData instance as input for method {method}"
             actual = f"{data.__class__.__name__}"
@@ -274,7 +274,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         if nChannels / nTrials > 0.1:
             msg = "Multi-channel Granger analysis can be numerically unstable, it is recommended to have at least 10 times the number of trials compared to the number of channels. Try calculating in sub-groups of fewer channels!"
             SPYWarning(msg)
-            
+
         check_effective_parameters(CrossCovariance, defaults, lcls)
 
         # single trial cross-correlations
