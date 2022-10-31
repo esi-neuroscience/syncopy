@@ -25,6 +25,7 @@ import syncopy as spy
 from .methods.arithmetic import _process_operator
 from .methods.selectdata import selectdata
 from .methods.show import show
+from .methods import statistics
 from syncopy.shared.tools import SerializableDict
 from syncopy.shared.parsers import (
     scalar_parser,
@@ -1079,6 +1080,35 @@ class BaseData(ABC):
 
         # If we made it this far, `self` and `other` really seem to be identical
         return True
+
+    def average(self, dim, keeptrials=True, **kwargs):
+        """
+        Averaging operator, calculates averages along arbitrary
+        dimensions as long as the selected ``dim`` is contained
+        within the ``dimord`` of the Syncopy object.
+
+        Additional trial averaging can be performed with ``keeptrials=False``.
+        Standalone (only) trial averaging can only be done sequentially
+        and requires ``dim='trials'``.
+
+        Parameters
+        ----------
+        dim : str
+            Dimension over which to average. Must be present in the ``spy_data`` object,
+            e.g. 'channel' or 'trials'
+        keeptrials : bool, optional
+            Return individual trials with ``keeptrials=False``
+            or trial average with ``keeptrials=True``. Has no
+            effect if ``dim='trials'``.
+
+        Returns
+        -------
+        res : Syncopy data object
+            New object with the desired dimension averaged out
+
+        """
+
+        return statistics.average(self, dim, keeptrials, **kwargs)
 
     # Class "constructor"
     def __init__(self, filename=None, dimord=None, mode="r+", **kwargs):
