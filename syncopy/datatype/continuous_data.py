@@ -17,6 +17,7 @@ from collections.abc import Iterator
 # Local imports
 from .base_data import BaseData, FauxTrial, _definetrial
 from .methods.definetrial import definetrial
+from .methods import statistics
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.tools import best_match
@@ -367,6 +368,27 @@ class ContinuousData(BaseData, ABC):
 
     def multipanelplot(self):
         raise NotImplementedError
+
+    # statistics
+    @statistics._attach_stat_doc(statistics.average.__doc__)
+    def average(self, dim, keeptrials=True, **kwargs):
+
+        return statistics.average(self, dim, keeptrials, **kwargs)
+
+    @statistics._attach_stat_doc(statistics.std.__doc__)
+    def std(self, dim, keeptrials=True, **kwargs):
+
+        return statistics.std(self, dim, keeptrials, **kwargs)
+
+    @statistics._attach_stat_doc(statistics.var.__doc__)    
+    def var(self, dim, keeptrials=True, **kwargs):
+
+        return statistics.var(self, dim, keeptrials, **kwargs)
+
+    @statistics._attach_stat_doc(statistics.median.__doc__)        
+    def median(self, dim, keeptrials=True, **kwargs):
+
+        return statistics.median(self, dim, keeptrials, **kwargs)
 
 
 class AnalogData(ContinuousData):

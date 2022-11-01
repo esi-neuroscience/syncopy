@@ -267,9 +267,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         Please refer to the
         `FOOOF docs <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_
         for the meanings and the defaults.
-        The FOOOF reference is: Donoghue et al. 2020, DOI 10.1038/s41593-020-00744-x.
-    out : Must be `None`.
-
+        See the FOOOF reference [Donoghue2020]_ for details.
 
     Returns
     -------
@@ -280,7 +278,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     -----
     .. [Moca2021] Moca, Vasile V., et al. "Time-frequency super-resolution with superlets."
        Nature communications 12.1 (2021): 1-18.
-
+    .. [Donoghue2020] Donoghue et al. 2020, DOI 10.1038/s41593-020-00744-x.
     **Options**
 
     .. autodata:: syncopy.specest.freqanalysis.availableMethods
