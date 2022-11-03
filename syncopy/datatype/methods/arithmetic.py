@@ -297,7 +297,6 @@ def _check_complex_operand(baseTrials, operand, opDimType, operator):
 
 
 # Invoke `ComputationalRoutine` to compute arithmetic operation
-@detect_parallel_client
 def _perform_computation(baseObj,
                          operand,
                          operand_dat,

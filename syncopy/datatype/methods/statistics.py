@@ -38,6 +38,7 @@ def average(spy_data, dim, keeptrials=True, **kwargs):
         e.g. 'channel' or 'trials'
     keeptrials : bool
         Set to ``False`` to trigger additional trial averaging
+        Has no effect if ``dim='trials'``.
 
     Returns
     -------
@@ -73,7 +74,8 @@ def std(spy_data, dim, keeptrials=True, **kwargs):
         Must be present in the ``spy_data`` object,
         e.g. 'channel' or 'trials'
     keeptrials : bool
-        Set to ``False`` to trigger additional trial averaging
+        Set to ``False`` to trigger additional trial averagin
+        Has no effect if ``dim='trials'``.
 
     Returns
     -------
@@ -110,6 +112,7 @@ def var(spy_data, dim, keeptrials=True, **kwargs):
         e.g. 'channel' or 'trials'
     keeptrials : bool
         Set to ``False`` to trigger additional trial averaging
+        Has no effect if ``dim='trials'``.
 
     Returns
     -------
@@ -139,13 +142,14 @@ def median(spy_data, dim, keeptrials=True, **kwargs):
     Parameters
     ----------
     spy_data : Syncopy data object
-        The object where a median is to be computed
+        The object where a median is to be computed.
     dim : str
         Dimension label over which to calculate the statistic.
         Must be present in the ``spy_data`` object,
         e.g. 'channel' or 'trials'
     keeptrials : bool
-        Set to ``False`` to trigger additional trial averaging
+        Set to ``False`` to trigger additional trial averaging.
+        Has no effect if ``dim='trials'``.
 
     Returns
     -------
@@ -166,12 +170,13 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
     """
     Entry point to calculate simple statistics (mean, std, ...) along arbitrary
     dimensions as long as the selected ``dim`` is contained
-    within the ``dimord`` of the ``spy_data``. Additional trial averaging
-    can be triggered as usual with ``keeptrials=False``.
+    within the ``dimord`` of the ``spy_data`` or ``dim='trials'``.
+    Additional trial averaging can be triggered as usual with ``keeptrials=False``.
 
     For statistics over trials (``dim='trials'``), this function branches into the trial statistics
     function, which is NOT a CR as we need summary operations over trials,
-    which is out of scope of the ComputationalRoutines.
+    which is always sequential and out of scope of the ComputationalRoutines. However, as we require
+    matching shapes for trial statistics, allocating the output shape is trivial.
 
     Parameters
     ----------
@@ -189,12 +194,16 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
     res : Syncopy data object
         New object with the desired dimension averaged out
 
+    See also
+    --------
+    NumpyStatDim: Compute class for parallel computation of trial-by-trial statistics
+    _trial_statistics: Sequential computation of statistics over trials
     """
 
     # check that we have a non-empty Syncopy data object
     data_parser(spy_data, varname='spy_data', empty=False)
 
-    if dim != 'trials' or dim not in spy_data.dimord:
+    if dim != 'trials' and dim not in spy_data.dimord:
         lgl = f"one of {spy_data.dimord} or 'trials'"
         act = dim
         raise SPYValueError(lgl, 'dim', act)
@@ -209,10 +218,20 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
     if spy_data.selection is None:
         spy_data.selectdata(inplace=True)
         spy_data.selection._cleanup = True
+    else:
+        # log also possible selections
+        log_dict['selection'] = getattr(spy_data.selection, dim)
 
     # trial statistics
     if dim == 'trials':
-        raise NotImplementedError
+        if kwargs.get('parallel'):
+            msg = "Trial statistics can be only computed sequentially, ignoring `parallel` keyword"
+            SPYWarning(msg)
+        if keeptrials:
+            msg = "`keeptrials` has no effect for statistics over trials!"
+            SPYWarning(msg)
+
+        out = _trial_statistics(spy_data, operation)
 
     # any other statistic
     else:
@@ -223,22 +242,20 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
             SPYWarning(msg)
             chan_per_worker=None
 
-        # log also possible selections
-        log_dict['selection'] = getattr(spy_data.selection, dim)
 
         axis = spy_data.dimord.index(dim)
         avCR = NumpyStatDim(operation=operation, axis=axis)
 
-    # ---------------------------------
-    # Initialize output and call the CR
-    # ---------------------------------
+        # ---------------------------------
+        # Initialize output and call the CR
+        # ---------------------------------
 
-    # initialize output object of same datatype
-    out = spy_data.__class__(dimord=spy_data.dimord)
+        # initialize output object of same datatype
+        out = spy_data.__class__(dimord=spy_data.dimord)
 
-    avCR.initialize(spy_data, spy_data._stackingDim,
-                    keeptrials=keeptrials, chan_per_worker=chan_per_worker)
-    avCR.compute(spy_data, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
+        avCR.initialize(spy_data, spy_data._stackingDim,
+                        keeptrials=keeptrials, chan_per_worker=chan_per_worker)
+        avCR.compute(spy_data, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
     # revert helper all-to-all selection
     if hasattr(spy_data.selection, '_cleanup'):
@@ -296,13 +313,17 @@ class NumpyStatDim(ComputationalRoutine):
     Notes
     -----
     If ``keeptrials`` is set to False, a trial average is additionally computed
-    as in any other CR. For a standalone trial average use the AverageTrials CR.
+    as in any other CR. For a standalone trial average use the _trial_statistics function.
+
+    See also
+    --------
+    _trial_statistics: Sequential computation of statistics over trials
     """
 
-    methods = {'mean': np.mean,
-               'std': np.std,
-               'var': np.var,
-               'median': np.median
+    methods = {'mean': np.nanmean,
+               'std': np.nanstd,
+               'var': np.nanvar,
+               'median': np.nanmedian
                }
 
     computeFunction = staticmethod(npstats_cF)
@@ -342,6 +363,8 @@ class NumpyStatDim(ComputationalRoutine):
         # Get/set dimensional attributes changed by selection
         for prop in in_data.selection._dimProps:
             selection = getattr(in_data.selection, prop)
+            # due to fallback all-to-all selection this captures
+            # all existing dimensions
             if selection is not None:
                 # propagate without change
                 if not dim in prop:
@@ -355,6 +378,121 @@ class NumpyStatDim(ComputationalRoutine):
                         out_data.freq = None
                     else:
                         setattr(out_data, prop, [self.cfg['operation']])
+
+
+def _trial_statistics(in_data, operation='mean'):
+    """
+    Calculates simple statistics (mean, std, ...) over trials. No trivial
+    parallilization is possible here, hence we fallback to good ol' sequential
+    computing. For this to work, the shapes of all trials have to match exactly.
+
+    To be still memory safe, the computations stream new data on a trial-by-trial
+    basis and then 'manually' accumulate trial-by-trial to the result.
+    """
+
+    # If no active selection is present, create a "fake" all-to-all selection
+    # to harmonize processing down the road (and attach `_cleanup` attribute for later removal)
+    if in_data.selection is None:
+        in_data.selectdata(inplace=True)
+        in_data.selection._cleanup = True
+
+    # we always have at least one (all-to-all) trial selection
+    out_shape = in_data.selection.trials[0].shape
+
+    # now look at the other ones
+    for trl in in_data.selection.trials:
+        if trl.shape != out_shape:
+            lgl = "all trials to have the same shape"
+            act = f"found trials of different shape: {out_shape} and {trl.shape}"
+            raise SPYValueError(lgl, 'in_data', act)
+
+    # this is the target array, such that we will have
+    # the data of 2 trials concurrently in memory
+    result = np.zeros(out_shape, dtype=in_data.data.dtype.type)
+
+    # --- now we can compute the desired statistic ---
+
+    if operation == 'mean':
+        result = _trial_average(in_data, result)
+    elif operation == 'var':
+        result = _trial_var(in_data, result)
+    elif operation == 'std':
+        result = np.sqrt(_trial_var(in_data, result))
+    # there is no apparent clever way to achieve
+    # this efficiently over multiple dimensions
+    elif operation == 'median':
+        raise NotImplementedError("Trial median not supported at the moment")
+
+    # --- Consctruct the single-trial(!) Syncopy output object
+
+    out_data = in_data.__class__(data=result,
+                                 dimord=in_data.dimord,
+                                 samplerate=in_data.samplerate)
+
+    # only 1 trial left, all trials had to have the same shape
+    # so just copy from the 1st
+    out_data.trialdefinition = in_data.trialdefinition[0, :][None, :]
+
+    # propagate the rest of the properties
+    for prop in in_data.selection._dimProps:
+        selection = getattr(in_data.selection, prop)
+        if selection is not None:
+            if np.issubdtype(type(selection), np.number):
+                selection = [selection]
+            setattr(out_data, prop, getattr(in_data, prop)[selection])
+
+    return out_data
+
+
+def _trial_average(in_data, out_arr):
+    """
+    Straigthforward sequential trial average. Shape checking
+    and dealing with selections is done in _trial_statistics.
+
+    Parameters
+    ----------
+    in_data : Syncopy data object
+        To get a fresh trial indexer instance, pointing to the trial arrays
+    out_arr : np.ndarray
+        The empty NumPy array of correct shape to collect the results
+    """
+
+    trials = in_data.selection.trials
+    for trl in trials:
+        out_arr = np.nansum([out_arr, trl], axis=0)
+
+    # normalize
+    out_arr /= len(trials)
+
+    return out_arr
+
+
+def _trial_var(in_data, out_arr):
+    """
+    Sequential variance over trials. Shape checking
+    and dealing with selections is done in _trial_statistics.
+
+    Parameters
+    ----------
+    in_data : Syncopy data object
+        To get a fresh trial indexer instance, pointing to the trial arrays
+    out_arr : np.ndarray
+        The empty NumPy array of correct shape to collect the results
+    """
+
+    # first we need the trial average
+    average = np.zeros(out_arr.shape, dtype=out_arr.dtype)
+    average = _trial_average(in_data, average)
+
+    trials = in_data.selection.trials
+    for trl in trials:
+        # absolute value for complex numbers
+        out_arr = np.sum([out_arr, (np.abs(trl - average))**2], axis=0)
+
+    # normalize
+    out_arr /= len(trials)
+
+    return out_arr
 
 
 def _attach_stat_doc(orig_doc):

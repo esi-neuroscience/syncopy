@@ -230,15 +230,18 @@ def AR2_network(AdjMat=None, nSamples=1000, alphas=[0.55, -0.8], seed=None):
     # default system layout as in Dhamala 2008:
     # unidirectional (2->1) coupling
     if AdjMat is None:
-        AdjMat = np.zeros((2, 2))
+        AdjMat = np.zeros((2, 2), dtype=np.float32)
         AdjMat[1, 0] = .25
+    else:
+        # cast to our standard type
+        AdjMat = AdjMat.astype(np.float32)
 
     nChannels = AdjMat.shape[0]
     alpha1, alpha2 = alphas
     # diagonal 'self-interaction' with lag 1
     DiagMat = np.diag(nChannels * [alpha1])
 
-    sol = np.zeros((nSamples, nChannels))
+    sol = np.zeros((nSamples, nChannels), dtype=np.float32)
     # pick the 1st values at random
     rng = np.random.default_rng(seed)
     sol[:2, :] = rng.normal(size=(2, nChannels))
