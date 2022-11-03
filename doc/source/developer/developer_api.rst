@@ -67,6 +67,7 @@ syncopy.specest
     syncopy.specest.compRoutines._make_trialdef
     syncopy.specest.superlet.superlet
     syncopy.specest.wavelet.get_optimal_wavelet_scales
+    syncopy.specest.compRoutines.FooofSpy
 
 syncopy.plotting
 ^^^^^^^^^^^^^^^^

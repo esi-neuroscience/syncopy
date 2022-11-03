@@ -972,7 +972,12 @@ class FooofSpy(ComputationalRoutine):
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ["fooof_settings"]
 
-    #: The keys available in the metadata returned by this function.
+    #: The keys available in the metadata returned by this function. These come from `fooof` and correspond
+    #: to the attributes of the `fooof.FOOOF` instance (with an `'_'` suffix in `fooof`, e.g., `aperiodic_params` corresponds
+    #: to `fooof.FOOOF.aperiodic_params_`).
+    #: Please
+    #: refer to the `FOOOF docs <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_
+    #: for the meanings.
     metadata_keys = ('aperiodic_params', 'error', 'gaussian_params', 'n_peaks', 'peak_params', 'r_squared',)
 
 
