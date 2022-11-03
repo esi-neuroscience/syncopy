@@ -66,7 +66,7 @@ is by using the `parallel` keyword supported by all Syncopy meta-functions, i.e.
 
 .. code-block:: python
       
-    spec = spy.freqanalysis(data, method="mtmfft", foilim=[1, 150], output="pow", taper="dpss", tapsmofrq=10, parallel=True)
+    spec = spy.freqanalysis(data, method="mtmfft", foilim=[1, 150], tapsmofrq=10, parallel=True)
 
 or 
 
@@ -75,12 +75,27 @@ or
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmfft'
     cfg.foilim = [1, 150]
-    cfg.output = 'pow'
-    cfg.taper = 'dpss'
     cfg.tapsmofrq = 10
     cfg.parallel = True
     spec = spy.freqanalysis(cfg, data)
 
+Default parallelization is over trials, additional parallelization over channels can be achieved by using the `chan_per_worker` keyword:
+
+.. code-block:: python
+
+    spec = spy.freqanalysis(data,
+		            method="mtmfft",
+			    foilim=[1, 150],
+			    tapsmofrq=10,
+			    parallel=True,
+			    chan_per_worker=40)
+
+This would allocate the computation for each trial and 40 channel chunk to an independent computing process. Note that the number of parallel processes is generally limited, depending on the computing resources available. Hence setting ``chan_per_worker=1`` can be actually quite inefficient when the data has say 200 channels but only 4 parallel processes are available at any given time. In general, if there are only few trials, it is safe and even recommended to set `chan_per_worker` to a fairly low number. On the other hand, depending on the compute cluster setup, being to greedy here might also spawn a lot of jobs and hence might induce long waiting times. 
+
+    
+Manual Cluster Setup
+~~~~~~~~~~~~~~~~~~~~
+    
 More fine-grained control over allocated resources and load-balancer options is available 
 via the routine :func:`~syncopy.esi_cluster_setup`. It permits to launch a custom-tailored 
 "cluster" of parallel workers (corresponding to CPU cores if run on a single machine, i.e., 
