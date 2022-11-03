@@ -21,9 +21,8 @@ __all__ = ['average', 'std', 'var', 'median']
 @detect_parallel_client
 def average(spy_data, dim, keeptrials=True, **kwargs):
     """
-    Calculates the average along arbitrary
-    dimensions as long as the selected ``dim`` is contained
-    within the ``dimord`` of the Syncopy object ``spy_data``.
+    Calculates the average along arbitrary dimensions of a Syncopy
+    data object ``spy_data``.
 
     Additional trial averaging can be performed with ``keeptrials=False``.
     Standalone (only) trial averaging can only be done sequentially
@@ -59,9 +58,8 @@ def average(spy_data, dim, keeptrials=True, **kwargs):
 @detect_parallel_client
 def std(spy_data, dim, keeptrials=True, **kwargs):
     """
-    Calculates the standard deviation along arbitrary
-    dimensions as long as the selected ``dim`` is contained
-    within the ``dimord`` of the Syncopy object ``spy_data``.
+    Calculates the standard deviation along arbitrary dimensions
+    of a Syncopy data object ``spy_data``.
 
     Additional trial averaging can be performed with ``keeptrials=False``
     after the standard deviation got calculated.
@@ -96,9 +94,8 @@ def std(spy_data, dim, keeptrials=True, **kwargs):
 @detect_parallel_client
 def var(spy_data, dim, keeptrials=True, **kwargs):
     """
-    Calculates the variance along arbitrary
-    dimensions as long as the selected ``dim`` is contained
-    within the ``dimord`` of the Syncopy object ``spy_data``.
+    Calculates the variance along arbitrary dimensions of a Syncopy
+    data object ``spy_data``.
 
     Additional trial averaging can be performed with ``keeptrials=False``
     after the variance got calculated.
@@ -133,9 +130,8 @@ def var(spy_data, dim, keeptrials=True, **kwargs):
 @detect_parallel_client
 def median(spy_data, dim, keeptrials=True, **kwargs):
     """
-    Calculates the median along arbitrary
-    dimensions as long as the selected ``dim`` is contained
-    within the ``dimord`` of the Syncopy object ``spy_data``.
+    Calculates the median along arbitrary dimensions of a
+    Syncopy data object ``spy_data``.
 
     Additional trial averaging can be performed with ``keeptrials=False``
     after the median got calculated.
@@ -170,11 +166,12 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
     """
     Entry point to calculate simple statistics (mean, std, ...) along arbitrary
     dimensions as long as the selected ``dim`` is contained
-    within the ``dimord`` of the ``spy_data``.
+    within the ``dimord`` of the ``spy_data``. Additional trial averaging
+    can be triggered as usual with ``keeptrials=False``.
 
-    Additional trial averaging can be performed with ``keeptrials=False``.
-    Standalone (only) trial averaging can only be done sequentially
-    and requires ``dim='trials'``.
+    For statistics over trials (``dim='trials'``), this function branches into the trial statistics
+    function, which is NOT a CR as we need summary operations over trials,
+    which is out of scope of the ComputationalRoutines.
 
     Parameters
     ----------
@@ -194,6 +191,14 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
 
     """
 
+    # check that we have a non-empty Syncopy data object
+    data_parser(spy_data, varname='spy_data', empty=False)
+
+    if dim != 'trials' or dim not in spy_data.dimord:
+        lgl = f"one of {spy_data.dimord} or 'trials'"
+        act = dim
+        raise SPYValueError(lgl, 'dim', act)
+
     log_dict = {'input': spy_data.filename,
                 'operation': operation,
                 'dim': dim,
@@ -209,12 +214,8 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
     if dim == 'trials':
         raise NotImplementedError
 
-    # any other average
+    # any other statistic
     else:
-        if dim not in spy_data.dimord:
-            lgl = f"one of {spy_data.dimord}"
-            act = dim
-            raise SPYValueError(lgl, 'dim', act)
 
         chan_per_worker = kwargs.get('chan_per_worker')
         if chan_per_worker is not None and 'channel' in dim:
@@ -361,12 +362,15 @@ def _attach_stat_doc(orig_doc):
     This is a helper to attach the full doc to the statistical methods in ContinuousData.
     Including the `select` and `parallel` sections from the kwarg decorators,
     which can/should only be applied once.
+
+    It critically depends on the Syncopy object to be named ``spy_data`` and the
+    dimension parameter to be named ``dim``
     """
 
     # the wrapper
     def _attach_doc(func):
         # delete the `spy_data` entries which
-        # are not needed (got self)
+        # are not needed (got self in the methods)
         doc = orig_doc.replace(' ``spy_data``', '')
         idx1 = doc.find('spy_data')
         idx2 = doc.find('dim', idx1)
