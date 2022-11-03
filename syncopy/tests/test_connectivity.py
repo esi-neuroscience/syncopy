@@ -185,6 +185,13 @@ class TestGranger:
                 assert Gcaus.info['reg. factor'] == 0
                 assert Gcaus.info['initial cond. num'] > 10
 
+            # Test that 'metadata_keys' in the Granger ComputationalRoutine is up-to-date. All listed
+            #  keys should exist...
+            for k in spy.nwanalysis.AV_compRoutines.GrangerCausality.metadata_keys:
+                assert k in Gcaus.info
+            # ... and no unmentioned extra keys should be in there.
+            assert len(Gcaus.info) == len(spy.nwanalysis.AV_compRoutines.GrangerCausality.metadata_keys)
+
     def test_gr_selections(self):
 
         # trial, channel and toi selections
