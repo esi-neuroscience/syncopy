@@ -430,6 +430,9 @@ class GrangerCausality(ComputationalRoutine):
     syncopy.connectivityanalysis : parent metafunction
     """
 
+    #: The keys available in the `info` property of the returned data instance.
+    metadata_keys = ("converged", "max rel. err", "reg. factor", "initial cond. num",)
+
     # the hard wired dimord of the cF
     dimord = ['time', 'freq', 'channel_i', 'channel_j']
 
