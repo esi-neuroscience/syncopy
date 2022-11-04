@@ -993,7 +993,11 @@ class FooofSpy(ComputationalRoutine):
 
         # Backend-specific post-processing. May or may not be needed, depending on what
         # you need to do in the cF to fit the return values into hdf5.
-        out.metadata = metadata_nest(FooofSpy.decode_metadata_fooof_alltrials_from_hdf5(mdata))
+        mdata = metadata_nest(FooofSpy.decode_metadata_fooof_alltrials_from_hdf5(mdata))
+
+        for k in mdata:
+            out.info[k] = mdata[k]
+
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:

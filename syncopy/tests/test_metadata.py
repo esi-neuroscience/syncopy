@@ -217,12 +217,12 @@ class TestMetadataUsingFooof():
         # check metadata from 2nd cF return value, added to the hdf5 dataset as attribute.
         keys_unique = [kv + "__0_0" for kv in self.expected_metadata_keys]
 
-        # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
-        assert spec_dt.metadata is not None
-        assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
-        num_metadata_attrs = len(spec_dt.metadata.keys())  # Get keys of dict
+        # Now for the metadata. This got attached to the syncopy data instance in the 'info' attribute.
+        assert spec_dt.info is not None
+        assert isinstance(spec_dt.info, dict)  # Make sure it is a standard dict, not a hdf5 group.
+        num_metadata_attrs = len(spec_dt.info.keys())  # Get keys of dict
         assert num_metadata_attrs == self.num_expected_metadata_keys
-        spec_dt_metadata_unnested = metadata_unnest(spec_dt.metadata)
+        spec_dt_metadata_unnested = metadata_unnest(spec_dt.info)
         for kv in keys_unique:
             assert kv in spec_dt_metadata_unnested.keys()
             # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
@@ -234,8 +234,8 @@ class TestMetadataUsingFooof():
 
         # Test the metadata_keys entry of the CR:
         for k in spy.specest.compRoutines.FooofSpy.metadata_keys:
-            assert k in spec_dt.metadata
-        assert len(spec_dt.metadata) == len(spy.specest.compRoutines.FooofSpy.metadata_keys)
+            assert k in spec_dt.info
+        assert len(spec_dt.info) == len(spy.specest.compRoutines.FooofSpy.metadata_keys)
 
 
     def test_par_compute_with_sequential_storage(self):
