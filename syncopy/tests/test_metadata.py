@@ -234,8 +234,8 @@ class TestMetadataUsingFooof():
 
         # Test the metadata_keys entry of the CR:
         for k in spy.specest.compRoutines.FooofSpy.metadata_keys:
-            assert k in metadata_unnest(spec_dt.metadata)
-        assert len(metadata_unnest(spec_dt.metadata)) == len(spy.specest.compRoutines.FooofSpy.metadata_keys)
+            assert k in spec_dt.metadata
+        assert len(spec_dt.metadata) == len(spy.specest.compRoutines.FooofSpy.metadata_keys)
 
 
     def test_par_compute_with_sequential_storage(self):
