@@ -6,16 +6,16 @@
 
 # Builtin/3rd party package imports
 import numpy as np
-import h5py
 
 # Local imports
 # from .selectdata import _get_selection_size
 from syncopy.shared.parsers import data_parser
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
-from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
+from syncopy.shared.errors import SPYValueError, SPYWarning
+from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import process_io, unwrap_select, detect_parallel_client
 
 __all__ = ['average', 'std', 'var', 'median']
+
 
 @unwrap_select
 @detect_parallel_client
@@ -165,6 +165,7 @@ def median(spy_data, dim, keeptrials=True, **kwargs):
                        keeptrials=keeptrials,
                        **kwargs)
 
+
 def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
 
     """
@@ -240,8 +241,7 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
         if chan_per_worker is not None and 'channel' in dim:
             msg = "Parallelization over channels not possible for channel averages"
             SPYWarning(msg)
-            chan_per_worker=None
-
+            chan_per_worker = None
 
         axis = spy_data.dimord.index(dim)
         avCR = NumpyStatDim(operation=operation, axis=axis)
@@ -262,6 +262,7 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
         spy_data.selection = None
 
     return out
+
 
 @process_io
 def npstats_cF(trl_dat, operation='mean', axis=0, noCompute=False, chunkShape=None):
@@ -367,7 +368,7 @@ class NumpyStatDim(ComputationalRoutine):
             # all existing dimensions
             if selection is not None:
                 # propagate without change
-                if not dim in prop:
+                if dim not in prop:
                     if np.issubdtype(type(selection), np.number):
                         selection = [selection]
                     setattr(out_data, prop, getattr(in_data, prop)[selection])
@@ -520,7 +521,7 @@ def _attach_stat_doc(orig_doc):
     return _attach_doc
 
 
-def seq_contraction(dataset, axis, component_op = None):
+def seq_contraction(dataset, axis, component_op=None):
     """
 
     THIS IS A STUB - would be needed if more memory efficiency is needed (all-to-all trialdef)
@@ -540,7 +541,7 @@ def seq_contraction(dataset, axis, component_op = None):
     res = np.zeros(np.array(dataset.shape[shape_idx]))
 
     # the number of summations along the contracting axis
-    nSum =dataset.shape[axis]
+    nSum = dataset.shape[axis]
 
     # identity operation
     if component_op is None:
