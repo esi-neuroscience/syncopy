@@ -1216,7 +1216,7 @@ class TestTimeLockData:
 
 class TestStatistics:
 
-    #initialize rng instance
+    # initialize rng instance
     rng = np.random.default_rng(helpers.test_seed)
 
     # lognormal distribution parameters
@@ -1239,45 +1239,16 @@ class TestStatistics:
 
     data_types = [adata, spec_data, crossspec_data]
 
-
     def test_dim_statistics(self):
         """
         Tests statistics over dimensions, not trials
         """
-
-        def _check_trial(operation, spy_res, npy_res, show_kwarg, trial=1):
-            """
-            Test that direct numpy stats give the same results
-            for a single trial
-            """
-
-            # show returns list of trials, pick only one
-            trial_result_spy = spy_res.show(**show_kwarg)[trial]
-            assert np.allclose(trial_result_spy, npy_res)
-
-            # check the dimension label
-            if dim not in ['freq', 'time']:
-                assert getattr(spy_res, dim) == operation
-            # numerical dimension labels get set to 0
-            elif dim == 'time':
-                assert spy_res.time[trial] == 0
-            elif dim == 'freq':
-                assert spy_res.freq == 0
 
         # check only 2nd trial
         test_trial = 1
 
         for spy_data in self.data_types:
             for dim in spy_data.dimord:
-                print(dim)
-                # to extract the singleton array (the dimension over
-                # which the statistic got computed) for comparison
-                if dim == 'time':
-                    show_kwarg = {'toi': 0}
-                elif dim == 'freq':
-                    show_kwarg = {'foi': 0}
-                else:
-                    show_kwarg = {f'{dim}': 0}
 
                 # get index of dimension
                 axis = spy_data.dimord.index(dim)
@@ -1291,8 +1262,8 @@ class TestStatistics:
                 # check only one trial
                 npy_res = np.mean(spy_data.trials[test_trial], axis=axis)
 
-                _check_trial('mean', spy_res1, npy_res, show_kwarg, trial=test_trial)
-                _check_trial('mean', spy_res2, npy_res, show_kwarg, trial=test_trial)
+                self._check_trial('mean', dim, spy_res1, npy_res, trial=test_trial)
+                self._check_trial('mean', dim, spy_res2, npy_res, trial=test_trial)
 
                 # --- test variance ---
 
@@ -1300,11 +1271,11 @@ class TestStatistics:
                 spy_res1 = spy_data.var(dim=dim)
                 # top-level function
                 spy_res2 = spy.var(spy_data, dim=dim)
-                # check only 2nd trial
-                npy_res = np.var(spy_data.trials[1], axis=axis)
+                # check only one trial
+                npy_res = np.var(spy_data.trials[test_trial], axis=axis)
 
-                _check_trial('var', spy_res1, npy_res, show_kwarg, trial=test_trial)
-                _check_trial('var', spy_res2, npy_res, show_kwarg, trial=test_trial)
+                self._check_trial('var', dim, spy_res1, npy_res, trial=test_trial)
+                self._check_trial('var', dim, spy_res2, npy_res, trial=test_trial)
 
                 # --- test standard deviation ---
 
@@ -1312,11 +1283,11 @@ class TestStatistics:
                 spy_res1 = spy_data.std(dim=dim)
                 # top-level function
                 spy_res2 = spy.std(spy_data, dim=dim)
-                # check only 2nd trial
-                npy_res = np.std(spy_data.trials[1], axis=axis)
+                # check only one trial
+                npy_res = np.std(spy_data.trials[test_trial], axis=axis)
 
-                _check_trial('std', spy_res1, npy_res, show_kwarg, trial=test_trial)
-                _check_trial('std', spy_res2, npy_res, show_kwarg, trial=test_trial)
+                self._check_trial('std', dim, spy_res1, npy_res, trial=test_trial)
+                self._check_trial('std', dim, spy_res2, npy_res, trial=test_trial)
 
                 # --- test median ---
 
@@ -1324,13 +1295,142 @@ class TestStatistics:
                 spy_res1 = spy_data.median(dim=dim)
                 # top-level function
                 spy_res2 = spy.median(spy_data, dim=dim)
-                # check only 2nd trial
-                npy_res = np.median(spy_data.trials[1], axis=axis)
+                # check only one trial
+                npy_res = np.median(spy_data.trials[test_trial], axis=axis)
 
-                _check_trial('median', spy_res1, npy_res, show_kwarg, trial=test_trial)
-                _check_trial('median', spy_res2, npy_res, show_kwarg, trial=test_trial)
-                
+                self._check_trial('median', dim, spy_res1, npy_res, trial=test_trial)
+                self._check_trial('median', dim, spy_res2, npy_res, trial=test_trial)
 
+    def _check_trial(self, operation, dim, spy_res, npy_res, trial=1):
+        """
+        Test that direct numpy stats give the same results
+        for a single trial
+        """
+
+        # show returns list of trials, pick only one
+        # show also squeezes out the singleton dimension
+        # which remains after the statistic got computed!
+        trial_result_spy = spy_res.show()[trial]
+        assert np.allclose(trial_result_spy, npy_res)
+
+        # check the dimension label was set to the statistical operation
+        if dim not in ['freq', 'time']:
+            assert getattr(spy_res, dim) == operation
+        # numerical dimension labels get set to 0 (axis is gone)
+        elif dim == 'time':
+            assert spy_res.time[trial] == 0
+        elif dim == 'freq':
+            assert spy_res.freq == 0
+
+    def test_trial_statistics(self):
+        """
+        Test statistics over trials
+        """
+
+        # --- test statistics trial average against CR trial average ---
+
+        spec = spy.freqanalysis(self.adata, keeptrials=True)
+        # trigger trial average after spectral estimation
+        spec1 = spec.mean(dim='trials')
+        spec1a = spy.mean(spec, dim='trials')
+
+        # trial average via CR keeptrials
+        spec2 = spy.freqanalysis(self.adata, keeptrials=False)
+
+        assert len(spec1.trials) == 1
+        assert np.allclose(spec1.data, spec2.data)
+        assert np.allclose(spec1a.data, spec2.data)
+
+        # --- test trial var and std ---
+        for spy_data in self.data_types:
+
+            spy_var = spy_data.var(dim='trials')
+
+            # reshape to get rid of trial stacking along time axis
+            # array has shape (nTrials, nSamples, ..rest-of-dims..)
+            arr = spy_data.data[()].reshape(self.nTrials, self.nSamples, *spy_data.data.shape[1:])
+            # now compute directly over the trial axis
+            npy_var = np.var(arr, axis=0)
+
+            assert len(spy_var.trials) == 1
+            assert np.allclose(npy_var, spy_var.data)
+
+            spy_std = spy_data.std(dim='trials')
+
+            # reshape to get rid of trial stacking along time axis
+            # array has shape (nTrials, nSamples, ..rest-of-dims..)
+            arr = spy_data.data[()].reshape(self.nTrials, self.nSamples, *spy_data.data.shape[1:])
+            # now compute directly over the trial axis
+            npy_std = np.std(arr, axis=0)
+
+            assert len(spy_var.trials) == 1
+            assert np.allclose(npy_std, spy_std.data)
+
+    def test_selections(self):
+
+        # got 10 samples with 1s samplerate,so time is [-1, ..., 8]
+        sdict1 = {'trials': [1, 3], 'toilim': [2, 6]}
+        res = self.adata.mean(dim='channel', select=sdict1)
+        assert len(res.trials) == 2
+        assert self.adata.time[0].min() == -1
+        assert res.time[0].min() == 2
+        assert self.adata.time[0].max() == 8
+        assert res.time[0].max() == 6
+
+        # freq axis is [0, ..., 9]
+        sdict2 = {'channel': [0, 2], 'foilim': [1, 5]}
+        res = self.spec_data.var(dim='trials', select=sdict2)
+        assert np.all(res.channel == np.array(['channel1', 'channel3']))
+        assert np.all(res.freq == np.arange(1, 6))
+
+        # check at least a few times that the statistics are indeed
+        # computed correctly on the trimmed down data
+        sdict3 = {'trials': [1, 3]}
+        res = spy.mean(self.crossspec_data, dim='trials', select=sdict3)
+        # reshape to extract trial separated arrays
+        arr = self.crossspec_data.data[()].reshape(self.nTrials, self.nSamples,
+                                                   self.nFreq, self.nChannels, self.nChannels)
+        # now cut out the same 2 trials and average
+        npy_res = arr[1::2].mean(axis=0)
+        assert np.allclose(npy_res, res.data)
+
+        sdict4 = {'channel': [0, 2]}
+        res = spy.mean(self.spec_data, dim='channel', select=sdict4)
+        # now cut out the same 2 channels and average, dimord is (time, taper, freq, channel)
+        npy_res = self.spec_data.data[..., ::2].mean(axis=-1)
+        # check only 1st trial
+        assert np.allclose(npy_res[:self.nSamples], res.show(trials=0))
+
+        # one last time for the freq axis
+        sdict5 = {'foilim': [1, 4]}
+        res = spy.median(self.spec_data, dim='freq', select=sdict5)
+        # cut out same frequencies directly from the dataset array
+        npy_res = np.median(self.spec_data.data[..., 1:5, :], axis=2)
+        # check only 2nd trial
+        assert np.allclose(npy_res[self.nSamples:2 * self.nSamples], res.show(trials=1))
+
+    def test_exceptions(self):
+
+        with pytest.raises(SPYValueError) as err:
+            spy.mean(self.adata, dim='sth')
+        assert "expected one of ['time', 'channel']" in str(err.value)
+
+        # unequal trials and trial average can't work
+        with pytest.raises(SPYValueError) as err:
+            # to not screw sth up
+            adata_cpy = spy.copy(self.adata)
+            trldef = adata_cpy.trialdefinition
+            trldef[2] = [21, 25, -1]
+            adata_cpy.trialdefinition = trldef
+            spy.mean(adata_cpy, dim='trials')
+        assert "found trials of different shape" in str(err.value)
+
+    @skip_without_acme
+    def test_stat_parallel(self, testcluster=None):
+        client = dd.Client(testcluster)
+        self.test_selections()
+        # should have no effect here
+        self.test_trial_statistics()
 
 
 if __name__ == '__main__':

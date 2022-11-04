@@ -228,9 +228,6 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
         if kwargs.get('parallel'):
             msg = "Trial statistics can be only computed sequentially, ignoring `parallel` keyword"
             SPYWarning(msg)
-        if keeptrials:
-            msg = "`keeptrials` has no effect for statistics over trials!"
-            SPYWarning(msg)
 
         out = _trial_statistics(spy_data, operation)
 
