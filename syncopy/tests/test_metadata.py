@@ -232,6 +232,12 @@ class TestMetadataUsingFooof():
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
 
+        # Test the metadata_keys entry of the CR:
+        for k in spy.specest.compRoutines.FooofSpy.metadata_keys:
+            assert k in metadata_unnest(spec_dt.metadata)
+        assert len(metadata_unnest(spec_dt.metadata)) == len(spy.specest.compRoutines.FooofSpy.metadata_keys)
+
+
     def test_par_compute_with_sequential_storage(self):
         """
         Test metadata propagation in with parallel compute and sequential storage.
