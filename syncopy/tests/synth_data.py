@@ -7,10 +7,9 @@
 from inspect import signature
 import numpy as np
 import functools
-import random
 
 from syncopy import AnalogData, SpikeData
-from syncopy.shared.errors import SPYInfo, SPYValueError
+
 
 _2pi = np.pi * 2
 

@@ -14,6 +14,7 @@ import numpy as np
 import h5py
 
 # Local imports
+import syncopy as spy
 from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, TimeLockData, padding
 from syncopy.io import save, load
 from syncopy.datatype.base_data import Selector
@@ -21,6 +22,7 @@ from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.tools import StructDict
 from syncopy.tests.misc import flush_local_cluster, generate_artificial_data, construct_spy_filename
+from syncopy.tests import helpers
 from syncopy import __acme__
 if __acme__:
     import dask.distributed as dd
@@ -1211,6 +1213,127 @@ class TestTimeLockData:
         tld2._avg = avg_data3
         assert np.array_equal(avg_data3, tld2.avg)
 
+
+class TestStatistics:
+
+    #initialize rng instance
+    rng = np.random.default_rng(helpers.test_seed)
+
+    # lognormal distribution parameters
+    mu, sigma = 2, .5
+
+    nTrials = 4
+    nChannels = 3
+    nSamples = 10
+    nFreq = 10
+    nTaper = 2
+
+    ln_samples = rng.lognormal(mu, sigma, size=(nTrials, nSamples, nChannels))
+    adata = AnalogData(data=[trl for trl in ln_samples], samplerate=1)
+
+    ln_samples = rng.lognormal(mu, sigma, size=(nTrials, nSamples, nTaper, nFreq, nChannels))
+    spec_data = SpectralData(data=[trl for trl in ln_samples], samplerate=1)
+
+    ln_samples = rng.lognormal(mu, sigma, size=(nTrials, nSamples, nFreq, nChannels, nChannels))
+    crossspec_data = CrossSpectralData(data=[trl for trl in ln_samples], samplerate=1)
+
+    data_types = [adata, spec_data, crossspec_data]
+
+
+    def test_dim_statistics(self):
+        """
+        Tests statistics over dimensions, not trials
+        """
+
+        def _check_trial(operation, spy_res, npy_res, show_kwarg, trial=1):
+            """
+            Test that direct numpy stats give the same results
+            for a single trial
+            """
+
+            # show returns list of trials, pick only one
+            trial_result_spy = spy_res.show(**show_kwarg)[trial]
+            assert np.allclose(trial_result_spy, npy_res)
+
+            # check the dimension label
+            if dim not in ['freq', 'time']:
+                assert getattr(spy_res, dim) == operation
+            # numerical dimension labels get set to 0
+            elif dim == 'time':
+                assert spy_res.time[trial] == 0
+            elif dim == 'freq':
+                assert spy_res.freq == 0
+
+        # check only 2nd trial
+        test_trial = 1
+
+        for spy_data in self.data_types:
+            for dim in spy_data.dimord:
+                print(dim)
+                # to extract the singleton array (the dimension over
+                # which the statistic got computed) for comparison
+                if dim == 'time':
+                    show_kwarg = {'toi': 0}
+                elif dim == 'freq':
+                    show_kwarg = {'foi': 0}
+                else:
+                    show_kwarg = {f'{dim}': 0}
+
+                # get index of dimension
+                axis = spy_data.dimord.index(dim)
+
+                # -- test average --
+
+                # data class method
+                spy_res1 = spy_data.mean(dim=dim)
+                # top-level function
+                spy_res2 = spy.mean(spy_data, dim=dim)
+                # check only one trial
+                npy_res = np.mean(spy_data.trials[test_trial], axis=axis)
+
+                _check_trial('mean', spy_res1, npy_res, show_kwarg, trial=test_trial)
+                _check_trial('mean', spy_res2, npy_res, show_kwarg, trial=test_trial)
+
+                # --- test variance ---
+
+                # data class method
+                spy_res1 = spy_data.var(dim=dim)
+                # top-level function
+                spy_res2 = spy.var(spy_data, dim=dim)
+                # check only 2nd trial
+                npy_res = np.var(spy_data.trials[1], axis=axis)
+
+                _check_trial('var', spy_res1, npy_res, show_kwarg, trial=test_trial)
+                _check_trial('var', spy_res2, npy_res, show_kwarg, trial=test_trial)
+
+                # --- test standard deviation ---
+
+                # data class method
+                spy_res1 = spy_data.std(dim=dim)
+                # top-level function
+                spy_res2 = spy.std(spy_data, dim=dim)
+                # check only 2nd trial
+                npy_res = np.std(spy_data.trials[1], axis=axis)
+
+                _check_trial('std', spy_res1, npy_res, show_kwarg, trial=test_trial)
+                _check_trial('std', spy_res2, npy_res, show_kwarg, trial=test_trial)
+
+                # --- test median ---
+
+                # data class method
+                spy_res1 = spy_data.median(dim=dim)
+                # top-level function
+                spy_res2 = spy.median(spy_data, dim=dim)
+                # check only 2nd trial
+                npy_res = np.median(spy_data.trials[1], axis=axis)
+
+                _check_trial('median', spy_res1, npy_res, show_kwarg, trial=test_trial)
+                _check_trial('median', spy_res2, npy_res, show_kwarg, trial=test_trial)
+                
+
+
+
 if __name__ == '__main__':
     T1 = TestCrossSpectralData()
     T2 = TestTimeLockData()
+    T3 = TestStatistics()

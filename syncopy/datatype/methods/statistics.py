@@ -14,12 +14,12 @@ from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import process_io, unwrap_select, detect_parallel_client
 
-__all__ = ['average', 'std', 'var', 'median']
+__all__ = ['mean', 'std', 'var', 'median']
 
 
 @unwrap_select
 @detect_parallel_client
-def average(spy_data, dim, keeptrials=True, **kwargs):
+def mean(spy_data, dim, keeptrials=True, **kwargs):
     """
     Calculates the average along arbitrary dimensions of a Syncopy
     data object ``spy_data``.
