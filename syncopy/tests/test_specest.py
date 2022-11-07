@@ -10,9 +10,7 @@ import psutil
 import pytest
 import numpy as np
 import scipy.signal as scisig
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
+import dask.distributed as dd
 
 # Local imports
 from syncopy.tests.misc import generate_artificial_data, flush_local_cluster
@@ -21,9 +19,6 @@ from syncopy.shared.errors import SPYValueError, SPYError
 from syncopy.datatype.base_data import Selector
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.shared.tools import StructDict, get_defaults
-
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 
 # Decorator to decide whether or not to run memory-intensive tests
 availMem = psutil.virtual_memory().total
@@ -338,7 +333,6 @@ class TestMTMFFT():
             assert np.max(spec.freq - freqs) < self.ftol
             assert spec.taper.size == 1
 
-    @skip_without_acme
     @skip_low_mem
     def test_parallel(self, testcluster):
         # collect all tests of current class and repeat them using dask
@@ -742,7 +736,6 @@ class TestMTMConvol():
         for tk, trl_time in enumerate(tfSpec.time):
             assert np.allclose(np.ceil(artdata.time[tk].size / artdata.samplerate / cfg.t_ftimwin), trl_time.size)
 
-    @skip_without_acme
     @skip_low_mem
     def test_tf_parallel(self, testcluster, fulltests):
         # collect all tests of current class and repeat them running concurrently
@@ -1059,7 +1052,6 @@ class TestWavelet():
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
-    @skip_without_acme
     @skip_low_mem
     def test_wav_parallel(self, testcluster, fulltests):
         # collect all tests of current class and repeat them running concurrently
@@ -1364,7 +1356,6 @@ class TestSuperlet():
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
-    @skip_without_acme
     @skip_low_mem
     def test_slet_parallel(self, testcluster, fulltests):
         # collect all tests of current class and repeat them running concurrently

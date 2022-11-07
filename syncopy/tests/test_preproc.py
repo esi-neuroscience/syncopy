@@ -11,9 +11,7 @@ import numpy as np
 import matplotlib.pyplot as ppl
 
 # Local imports
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
+import dask.distributed as dd
 
 from syncopy import preprocessing as ppfunc
 from syncopy import AnalogData, freqanalysis
@@ -24,8 +22,6 @@ from syncopy.tests import synth_data as sd
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults, best_match
 
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 # Decorator to decide whether or not to run memory-intensive tests
 availMem = psutil.virtual_memory().total
 minRAM = 5
@@ -191,7 +187,6 @@ class TestButterworth:
         # check here just for finiteness
         assert np.all(np.isfinite(result.data))
 
-    @skip_without_acme
     def test_but_parallel(self, testcluster=None):
 
         ppl.ioff()
@@ -398,7 +393,6 @@ class TestFIRWS:
         # check here just for finiteness
         assert np.all(np.isfinite(result.data))
 
-    @skip_without_acme
     def test_firws_parallel(self, testcluster=None):
 
         ppl.ioff()
@@ -500,7 +494,6 @@ class TestDetrending:
         with pytest.raises(SPYValueError, match='expected value to be greater'):
             ppfunc(self.AData, filter_class=None, polyremoval=2)
 
-    @skip_without_acme
     def test_detr_parallel(self, testcluster=None):
 
         client = dd.Client(testcluster)
@@ -568,7 +561,6 @@ class TestStandardize:
         with pytest.raises(SPYValueError, match='expected either `True` or `False`'):
             ppfunc(self.AData, filter_class=None, zscore=2)
 
-    @skip_without_acme
     def test_zscore_parallel(self, testcluster=None):
 
         client = dd.Client(testcluster)

@@ -12,6 +12,7 @@ import random
 import numbers
 import numpy as np
 import h5py
+import dask.distributed as dd
 
 # Local imports
 from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, TimeLockData, padding
@@ -21,13 +22,6 @@ from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.tools import StructDict
 from syncopy.tests.misc import flush_local_cluster, generate_artificial_data, construct_spy_filename
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
-
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(
-    not __acme__, reason="acme not available")
 
 # Collect all supported binary arithmetic operators
 arithmetics = [lambda x, y: x + y,
@@ -667,7 +661,6 @@ class TestAnalogData():
             assert np.array_equal(trl,
                                   (dummy.trials[tk] + dummy2.trials[tk]) / dummy.trials[tk] ** 3)
 
-    @skip_without_acme
     def test_parallel(self, testcluster, fulltests):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
@@ -922,7 +915,6 @@ class TestSpectralData():
             assert np.array_equal(trl,
                                   (dummy.trials[tk] + dummy2.trials[tk]) / dummy.trials[tk] ** 3)
 
-    @skip_without_acme
     def test_sd_parallel(self, testcluster, fulltests):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
@@ -1162,7 +1154,6 @@ class TestCrossSpectralData():
             assert np.array_equal(trl,
                                   (dummy.trials[tk] + dummy2.trials[tk]) / dummy.trials[tk] ** 3)
 
-    @skip_without_acme
     def test_csd_parallel(self, testcluster, fulltests):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)

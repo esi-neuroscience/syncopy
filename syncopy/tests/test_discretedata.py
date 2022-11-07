@@ -10,6 +10,7 @@ import time
 import random
 import pytest
 import numpy as np
+import dask.distributed as dd
 
 # Local imports
 from syncopy.datatype import AnalogData, SpikeData, EventData
@@ -19,13 +20,6 @@ from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.io import save, load
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests.misc import construct_spy_filename, flush_local_cluster
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
-
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(
-    not __acme__, reason="acme not available")
 
 
 class TestSpikeData():
@@ -239,7 +233,6 @@ class TestSpikeData():
                             assert np.array_equal(out.unit, selected.unit)
                             assert np.array_equal(out.data, selected.data)
 
-    @skip_without_acme
     def test_parallel(self, testcluster, fulltests):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
@@ -593,7 +586,6 @@ class TestEventData():
                         assert np.array_equal(out.eventid, selected.eventid)
                         assert np.array_equal(out.data, selected.data)
 
-    @skip_without_acme
     def test_ed_parallel(self, testcluster, fulltests):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)

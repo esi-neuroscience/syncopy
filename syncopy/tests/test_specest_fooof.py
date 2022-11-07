@@ -8,6 +8,7 @@ import numpy as np
 import inspect
 import os
 import matplotlib.pyplot as plt
+import dask.distributed as dd
 
 # Local imports
 from syncopy import freqanalysis
@@ -15,12 +16,6 @@ from syncopy.shared.tools import get_defaults
 from syncopy.shared.errors import SPYValueError
 from syncopy.tests.test_metadata import _get_fooof_signal
 import syncopy as spy
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
-
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 
 
 def _plot_powerspec_linear(freqs, powers, title="Power spectrum"):
@@ -224,8 +219,6 @@ class TestFooofSpy():
 
         assert spec_dt.data.ndim == 4
 
-
-    @skip_without_acme
     def test_parallel(self, testcluster=None):
 
         plt.ioff()
