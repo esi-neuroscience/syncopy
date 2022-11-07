@@ -189,6 +189,7 @@ def spike_psth(data,
 
         # the easy part, no selection so we make one
         if data.selection is None:
+            select_backup = None  # just wipe at the end
             data.selectdata(trials=fit_trl_idx, inplace=True)
             # redefinition needed
             numDiscard = len(trl_idx) - len(fit_trl_idx)
@@ -204,6 +205,8 @@ def spike_psth(data,
 
             # now modify and re-apply selection
             select = data.selection.select.copy()
+            # to restore later
+            select_backup = select.copy()
             select['trials'] = fit_trl_idx
             data.selectdata(select, inplace=True)
 
@@ -274,4 +277,11 @@ def spike_psth(data,
     # propagate old cfg and attach this one
     psth_results.cfg.update(data.cfg)
     psth_results.cfg.update({'spike_psth': new_cfg})
+
+    # finally revert possible in-place selections
+    if select_backup is None:
+        data.selection = None
+    else:
+        data.selectdata(select_backup, inplace=True)
+
     return psth_results
