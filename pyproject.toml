@@ -22,8 +22,10 @@ authors = ["Stefan Fürtinger <sfuerti@esi-frankfurt.de>", "Tim Schäfer <tim.sc
 
 [tool.poetry.dependencies]
 # acme needs hard python version pinning
-python = "^3.8, <3.9"
+python = "^3.8"
 h5py = ">=2.9"
+dask = {version=">=2022.6", extras=["distributed"]}
+dask-jobqueue = ">=0.8"
 numpy = ">=1.10"
 scipy = ">=1.5"
 matplotlib = ">=3.5"
@@ -31,10 +33,10 @@ tqdm = ">=4.31"
 natsort = "^8.1.0"
 psutil = ">=5.9"
 fooof = ">=1.0"
-esi-acme = "2022.7"
 ipdb = "^0.13.9"
 memory-profiler = "^0.60.0"
 numpydoc = "^1.4.0"
+
 
 [tool.poetry.dev-dependencies]
 black = "^22.6.0"

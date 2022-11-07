@@ -10,18 +10,13 @@ import numpy as np
 import matplotlib.pyplot as ppl
 
 # Local imports
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
+import dask.distributed as dd
 
 from syncopy import resampledata, freqanalysis
 import syncopy.tests.synth_data as synth_data
 import syncopy.tests.helpers as helpers
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults
-
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 
 # availableFilterTypes = ('lp', 'hp', 'bp', 'bs')
 
@@ -151,7 +146,6 @@ class TestDownsampling:
         # with aa filter power does not change
         assert np.allclose(self.pow_orig, pow_ds, rtol=.5e-1)
 
-    @skip_without_acme
     def test_ds_parallel(self, testcluster=None):
 
         ppl.ioff()
@@ -252,7 +246,6 @@ class TestResampling:
             assert np.all(np.isfinite(spec_rs.data))
             assert pow_rs >= 0.9 * self.pow_orig
 
-    @skip_without_acme
     def test_rs_parallel(self, testcluster=None):
 
         ppl.ioff()

@@ -8,6 +8,7 @@ import functools
 import h5py
 import inspect
 import numpy as np
+import dask.distributed as dd
 
 # Local imports
 from syncopy.shared.errors import (SPYTypeError, SPYValueError,
@@ -15,9 +16,6 @@ from syncopy.shared.errors import (SPYTypeError, SPYValueError,
 from syncopy.shared.tools import StructDict
 from syncopy.shared.metadata import h5_add_metadata, parse_cF_returns
 import syncopy as spy
-if spy.__acme__:
-    import dask.distributed as dd
-    from acme.dask_helpers import esi_cluster_setup, cluster_cleanup
 
 __all__ = []
 
@@ -402,6 +400,23 @@ def detect_parallel_client(func):
     """
     Decorator for handling parallelization via `parallel` keyword/client detection
 
+    Any already initialized Dask cluster always takes precedence
+    with both `parallel=True` and `parallel=None`. This gets checked via `dd.get_client()`,
+    and hence if a dd.Client() was set up before, Syncopy (and als ACME later) will just
+    pass-through this one to the compute classes.
+    In case no cluster is running, only a dedicated `parallel=True` will spawn either a new
+    Dask cluster down the road via ACME or a new LocalCluster as a default fallback.
+
+    If `parallel` is `True` or `None`:
+        First attempts to connect to a running dask parallel processing client. If successful,
+        `parallel` is set to `True` and updated in `func`'s keyword argument dict.
+        If no client is found `parallel` is set to `False`
+    If `parallel` is True and ACME is installed:
+        Do nothing and forward all the parallelization setup with `parallel=True`
+        to the CR and ultimately ACME
+    If `parallel` is True and ACME is NOT installed:
+        Fire up a standard dask LocalCluster and forward `parallel=True` to func
+
     Parameters
     ----------
     func : callable
@@ -411,13 +426,9 @@ def detect_parallel_client(func):
     -------
     parallel_client_detector : callable
         Wrapped function; `parallel_client_detector` attempts to extract `parallel`
-        from keywords provided to `func`. If `parallel` is `True` or `None`
-        (i.e., was not provided) and dask is available, `parallel_client_detector`
-        attempts to connect to a running dask parallel processing client. If successful,
-        `parallel` is set to `True` and updated in `func`'s keyword argument dict.
-        If no client is found or dask is not available, a corresponding warning
-        message is printed and `parallel` is set to `False` and updated in `func`'s
-        keyword argument dict. After successfully calling `func` with the modified
+        from keywords provided to `func`.
+
+        After successfully calling `func` with the modified
         input arguments, `parallel_client_detector` modifies `func` itself:
 
         1. The "Parameters" section in the docstring of `func` is amended by an
@@ -448,23 +459,26 @@ def detect_parallel_client(func):
         # Extract `parallel` keyword: if `parallel` is `False`, nothing happens
         parallel = kwargs.get("parallel")
 
-        # If parallel processing was requested but ACME is not installed, show
-        # warning but keep going
-        if parallel is True and not spy.__acme__:
-            wrng = "ACME seems not to be installed on this system. " +\
-                   "Parallel processing capabilities cannot be used. "
-            SPYWarning(wrng)
-            parallel = False
-
-        # If ACME is available but `parallel` was not set *and* no active
-        # dask client is found, set `parallel` to`False` (i.e., sequential
-        # processing as default)
-        if parallel is None and spy.__acme__:
+        # This effectively searches for a global dask client, and sets
+        # parallel=True if one was found.
+        if parallel is None:
             try:
                 dd.get_client()
                 parallel = True
             except ValueError:
                 parallel = False
+
+        # If parallel processing was requested but ACME is not installed,
+        # and no other Dask cluster is running, initialize a local dask cluster
+        elif parallel is True and not spy.__acme__:
+            # if already one cluster is reachable do nothing
+            try:
+                dd.get_client()
+            except ValueError:
+                # spawn default cluster
+                cluster = dd.LocalCluster()
+                # starts 'global' local cluster
+                dd.Client(cluster)
 
         # Add/update `parallel` to/in keyword args
         kwargs["parallel"] = parallel

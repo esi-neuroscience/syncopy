@@ -7,6 +7,7 @@
 import os
 import sys
 import subprocess
+import socket
 import getpass
 import numpy as np
 from hashlib import blake2b, sha1
@@ -32,6 +33,15 @@ except PackageNotFoundError:
             out = "-999"
     __version__ = out.rstrip("\n")
 
+# --- Greeting ---
+msg = f"""
+Syncopy {__version__}
+
+See https://syncopy.org for the online documentation.
+For bug reports etc. please send an email to syncopy.list@gwdg.de
+"""
+print(msg)
+
 # Set up sensible printing options for NumPy arrays
 np.set_printoptions(suppress=True, precision=4, linewidth=80)
 
@@ -44,12 +54,17 @@ try:
     __acme__ = True
 except ImportError:
     __acme__ = False
-    msg = "\nSyncopy <core> WARNING: Could not import Syncopy's parallel processing engine ACME. \n" +\
-        "Please consider installing it via conda: \n" +\
-        "\tconda install -c conda-forge esi-acme\n" +\
-        "or using pip:\n" +\
-        "\tpip install esi-acme"
-    print(msg)
+    # ACME is critical on ESI infrastructure
+    if socket.gethostname().startswith('esi-sv'):
+        msg = "\nSyncopy <core> WARNING: Could not import Syncopy's parallel processing engine ACME. \n" +\
+            "Please consider installing it via conda: \n" +\
+            "\tconda install -c conda-forge esi-acme\n" +\
+            "or using pip:\n" +\
+            "\tpip install esi-acme"
+        print(msg)
+    else:
+        msg = f"\nACME installed: {__acme__}"
+        print(msg)
 
 # (Try to) set up visualization environment
 try:
