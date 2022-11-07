@@ -663,7 +663,6 @@ class ComputationalRoutine(ABC):
                 self.inargs = (workerDicts, )
             else:
                 self.inargs = (workerDicts, *ArgV)
-
             # Store provided debugging state for ACME
             self.parallelDebug = parallel_debug
 
@@ -860,7 +859,25 @@ class ComputationalRoutine(ABC):
 
         # use our own client and map over workerdicts + cfg
         else:
-            futures = client.map(self.computeFunction, *self.inargs, **self.cfg)
+            # we have to prepare an iterable where for each call n
+            # we have a tuple (wdict[n], *argv[n]) passed to the cF
+            # by the mapping
+            workerDicts = self.inargs[0]
+            if len(self.inargs) > 1:
+                iterables = []
+                ArgV = self.inargs[1:]
+                for nblock, wdict in enumerate(workerDicts):
+                    argv = tuple(arg[nblock]
+                                 if isinstance(arg, (list, tuple, np.ndarray)) and
+                                 len(arg) == len(workerDicts)
+                                 else arg for arg in ArgV)
+
+                    iterables.append((wdict, *argv))
+            # no *args for the cF
+            else:
+                iterables = workerDicts
+
+            futures = client.map(self.computeFunction, iterables, **self.cfg)
             # similar to tqdm progress bar
             dd.progress(futures)
             # actual results get handled by hdf5 operations inside `process_io`

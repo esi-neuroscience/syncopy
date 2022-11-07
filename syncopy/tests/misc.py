@@ -11,6 +11,7 @@ import h5py
 import tempfile
 import time
 import numpy as np
+import dask.distributed as dd
 
 # Local imports
 from syncopy.datatype import AnalogData

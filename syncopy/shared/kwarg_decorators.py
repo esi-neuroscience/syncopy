@@ -565,11 +565,17 @@ def process_io(func):
 
         # `trl_dat` is a NumPy array or `FauxTrial` object: execute the wrapped
         # function and return its result
-        if not isinstance(trl_dat, dict):
+        if not isinstance(trl_dat, (dict, tuple)):
             # Adding the metadata is done in compute_sequential(), nothing to do here.
             # Note that the return value of 'func' in the next line may be a tuple containing
             # both the ndarray for 'data', and the 'details'.
             return func(trl_dat, *wrkargs, **kwargs)
+
+        # compatibility to adhere to the inargs the CRs produces: ill-formatted tuples
+        # which mix dicts, lists and even slices
+        if isinstance(trl_dat, tuple):
+            wrkargs = trl_dat[1:]
+            trl_dat = trl_dat[0]
 
         # The fun part: `trl_dat` is a dictionary holding components for parallelization
         keeptrials = trl_dat["keeptrials"]
