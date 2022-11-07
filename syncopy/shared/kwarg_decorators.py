@@ -58,9 +58,9 @@ def unwrap_cfg(func):
         4. Perform the actual unwrapping: at this point, a provided `cfg` only
            contains keyword arguments of `func`. If the (first) input object `data`
            was provided as `cfg` entry, it already exists in the local namespace.
-           If not, then by convention, `data` makes up the first elements of the
+           If not, then by convention, `data` is the first element of the
            (remaining) positional argument list. Thus, the metafunction can now
-           be called via ``func(*data, *args, **kwargs)``.
+           be called via ``func(data, *args, **kwargs)``.
         5. Amend the docstring of `func`: add a one-liner mentioning the possibility
            of using `cfg` when calling `func` to the header of its docstring.
            Append a paragraph to the docstrings' "Notes" section illustrating
@@ -81,20 +81,13 @@ def unwrap_cfg(func):
     * ``func(cfg, data)``: `cfg` exclusively contains keyword arguments of `func`,
       `data` is a Syncopy data object.
     * ``func(data, cfg)``: same as above
-    * ``func(data1, data2, data3, cfg)``: same as above with multiple Syncopy
-      data objects. **Note**: the `cfg` object has to be valid for *all* provided
-      input objects!
     * ``func(data, cfg=cfg)``: same as above, but `cfg` itself is provided as
       keyword argument
-    * ``func(data1, data2, cfg=cfg)``: same as above, but `cfg` itself is provided as
-      keyword argument for multiple input objects.
     * ``func(cfg)``: `cfg` contains a field `data` or `dataset` (not both!)
       holding one or more Syncopy data objects used as input of `func`
     * ``func(cfg=cfg)``: same as above with `cfg` being provided as keyword
     * ``func(data, kw1=val1, kw2=val2)``: standard Python call style with keywords
       being provided explicitly
-    * ``func(data1, data2, kw1=val1, kw2=val2)``: same as above with multiple input
-      objects
     * ``func(data, cfg, kw2=val2)``: valid if `cfg` does NOT contain `'kw2'`
 
 
@@ -102,8 +95,6 @@ def unwrap_cfg(func):
 
     * ``func(data, cfg, cfg=cfg)``: `cfg` must not be provided as positional and
       keyword argument
-    * ``func(data, cfg, kw1=val1)``: if `cfg` is provided, any non-default
-      keyword-values must be provided as `cfg` entries
     * ``func(cfg, {})``: every dict in `func`'s positional argument list is interpreted
       as `cfg` "structure"
     * ``func(data, cfg=value)``: `cfg` must be a Python dict or :class:`~syncopy.StructDict`
@@ -233,35 +224,35 @@ def unwrap_cfg(func):
         # args (besides `cfg`) do *not* contain add'l objects; ensure `data` exclusively
         # contains Syncopy data objects. Finally, rename remaining positional arguments
         if data:
-            if not isinstance(data, (tuple, list)):
-                data = [data]
             if any([isinstance(arg, spy.datatype.base_data.BaseData) for arg in args]):
-                lgl = "Syncopy data object(s) provided either via `cfg`/keyword or " +\
+                lgl = "Syncopy data object provided either via `cfg`/keyword or " +\
                     "positional arguments, not both"
                 raise SPYValueError(legal=lgl, varname="cfg/data")
             if kwargs.get("data") or kwargs.get("dataset"):
-                lgl = "Syncopy data object(s) provided either via `cfg` or as " +\
+                lgl = "Syncopy data object provided either via `cfg` or as " +\
                     "keyword argument, not both"
                 raise SPYValueError(legal=lgl, varname="cfg.data")
-            if any([not isinstance(obj, spy.datatype.base_data.BaseData) for obj in data]):
-                raise SPYError("`data` must be Syncopy data object(s)!")
+            if not isinstance(data, spy.datatype.base_data.BaseData):
+                raise SPYError("`data` must be Syncopy data object!")
             posargs = args
 
         # If `data` was not provided via `cfg` or as kw-arg, parse positional arguments
         if data is None:
-            data = []
             posargs = []
             while args:
                 arg = args.pop(0)
+                if data is not None and isinstance(arg, spy.datatype.base_data.BaseData):
+                    lgl = "only one Syncopy data object"
+                    raise SPYValueError(lgl, varname='data')
                 if isinstance(arg, spy.datatype.base_data.BaseData):
-                    data.append(arg)
+                    data = arg
                 else:
                     posargs.append(arg)
 
         # Call function with unfolded `data` + modified positional/keyword args
-        return func(*data, *posargs, **cfg)
+        return func(data, *posargs, **cfg)
 
-    # Append one-liner to docstring header mentioning the use of `cfg`
+    # Append two-liner to docstring header mentioning the use of `cfg`
     introEntry = \
     "    \n" +\
     "    The parameters listed below can be provided as is or a via a `cfg`\n" +\
@@ -368,13 +359,18 @@ def unwrap_select(func):
     def wrapper_select(*args, **kwargs):
 
         # Either extract `select` from input kws and cycle through positional
-        # argument to apply in-place selection to all Syncopy objects, or clean
-        # any unintended leftovers in `selection` if no `select` keyword was provided
+        # argument to apply in-place selection to the Syncopy object, or raise
+        # an error if a selection is already present and `select` is not None
         select = kwargs.get("select", None)
+        attached_selection = False
         for obj in args:
+            # this hits all Syncopy data objects
             if hasattr(obj, "selection"):
-                if obj.selection is None:
+                if obj.selection is None and select is not None:
                     obj.selection = select
+                    attached_selection = True
+                    # we have one and only one input data object
+                    break
                 else:
                     if select is not None:
                         raise SPYError(f"Selection found both in kwarg 'selection' ({select}) and in passed Syncopy Data object of type '{type(obj)}' ({obj.selection})")
@@ -384,8 +380,9 @@ def unwrap_select(func):
         res = func(*args, **kwargs)
 
         # Wipe data-selection slot to not alter user objects
+        # if the selection got attached by this wrapper here
         for obj in args:
-            if hasattr(obj, "selection"):
+            if hasattr(obj, "selection") and attached_selection:
                 obj.selection = None
 
         return res
@@ -451,17 +448,6 @@ def detect_parallel_client(func):
         # Extract `parallel` keyword: if `parallel` is `False`, nothing happens
         parallel = kwargs.get("parallel")
 
-        # Determine if multiple or a single object was supplied for processing
-        objList = []
-        argList = list(args)
-        nTrials = 0
-        for arg in args:
-            if hasattr(arg, "trials"):
-                objList.append(arg)
-                nTrials = max(nTrials, len(arg.trials))
-                argList.remove(arg)
-        nObs = len(objList)
-
         # If parallel processing was requested but ACME is not installed, show
         # warning but keep going
         if parallel is True and not spy.__acme__:
@@ -473,40 +459,17 @@ def detect_parallel_client(func):
         # If ACME is available but `parallel` was not set *and* no active
         # dask client is found, set `parallel` to`False` (i.e., sequential
         # processing as default)
-        clientRunning = False
         if parallel is None and spy.__acme__:
             try:
                 dd.get_client()
                 parallel = True
-                clientRunning = True
             except ValueError:
                 parallel = False
-
-        # If only one object was supplied, a dask client is set up in `ComputationalRoutine`;
-        # for multiple objects, count the total number of trials and start a "global"
-        # computing client with `n_jobs = nTrials` in here (unless a client is already running)
-        cleanup = False
-        if parallel and not clientRunning and nObs > 1:
-            msg = "Syncopy <{fname:s}> Launching parallel computing client " +\
-                    "to process {no:d} objects..."
-            print(msg.format(fname=func.__name__, no=nObs))
-            client = esi_cluster_setup(n_jobs=nTrials, interactive=False)
-            cleanup = True
 
         # Add/update `parallel` to/in keyword args
         kwargs["parallel"] = parallel
 
-        # Process provided object(s)
-        if nObs <= 1:
-            results = func(*args, **kwargs)
-        else:
-            results = []
-            for obj in objList:
-                results.append(func(obj, *argList, **kwargs))
-
-        # Kill "global" cluster started in here
-        if cleanup:
-            cluster_cleanup(client=client)
+        results = func(*args, **kwargs)
 
         return results
 
