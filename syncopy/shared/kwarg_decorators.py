@@ -12,7 +12,7 @@ import dask.distributed as dd
 
 # Local imports
 from syncopy.shared.errors import (SPYTypeError, SPYValueError,
-                                   SPYError, SPYWarning)
+                                   SPYError, SPYWarning, SPYInfo)
 from syncopy.shared.tools import StructDict
 from syncopy.shared.metadata import h5_add_metadata, parse_cF_returns
 import syncopy as spy
@@ -375,7 +375,7 @@ def unwrap_select(func):
                     break
                 else:
                     if select is not None:
-                        raise SPYError(f"Selection found both in kwarg 'selection' ({select}) and in passed Syncopy Data object of type '{type(obj)}' ({obj.selection})")
+                        raise SPYError(f"Selection found both in kwarg 'selection' ({select}) and in \npassed Syncopy Data object of type '{type(obj)}' ({obj.selection})")
 
 
         # Call function with modified data object(s)
@@ -406,10 +406,11 @@ def detect_parallel_client(func):
 
     Any already initialized Dask cluster always takes precedence
     with both `parallel=True` and `parallel=None`. This gets checked via `dd.get_client()`,
-    and hence if a dd.Client() was set up before, Syncopy (and als ACME later) will just
+    and hence if a Dask cluster was set up before, Syncopy (and als ACME later) will just
     pass-through this one to the compute classes.
     In case no cluster is running, only a dedicated `parallel=True` will spawn either a new
     Dask cluster down the road via ACME or a new LocalCluster as a default fallback.
+    The LocalCluster gets closed again after the wrapped function exited.
 
     If `parallel` is `True` or `None`:
         First attempts to connect to a running dask parallel processing client. If successful,
@@ -462,9 +463,11 @@ def detect_parallel_client(func):
 
         # Extract `parallel` keyword: if `parallel` is `False`, nothing happens
         parallel = kwargs.get("parallel")
+        kill_spawn = False
 
-        # This effectively searches for a global dask client, and sets
-        # parallel=True if one was found.
+        # This effectively searches for a global dask cluster, and sets
+        # parallel=True if one was found. If no cluster was found, parallel is set to False,
+        # so no automatic spawing of a LocalCluster, this needs explicit `parallel=True`.
         if parallel is None:
             try:
                 dd.get_client()
@@ -479,15 +482,24 @@ def detect_parallel_client(func):
             try:
                 dd.get_client()
             except ValueError:
-                # spawn default cluster
+                # spawn fallback local cluster
                 cluster = dd.LocalCluster()
-                # starts 'global' local cluster
+                # attaches to 'global' local cluster
                 dd.Client(cluster)
+                kill_spawn = True
+                SPYInfo(f"Created local Dask cluster: \n{cluster.scheduler}")
 
         # Add/update `parallel` to/in keyword args
         kwargs["parallel"] = parallel
 
         results = func(*args, **kwargs)
+
+        # kill local cluster
+        if kill_spawn:
+            # disconnect
+            dd.get_client().close()
+            # and kill
+            cluster.close()
 
         return results
 
@@ -601,14 +613,14 @@ def process_io(func):
         # Catch empty source-array selections; this workaround is not
         # necessary for h5py version 2.10+ (see https://github.com/h5py/h5py/pull/1174)
         if any([not sel for sel in ingrid]):
-            res = np.empty(outshape, dtype=outdtype)
+            res, details = np.empty(outshape, dtype=outdtype), {}
         else:
             try:
                 with h5py.File(infilename, mode="r") as h5fin:
-                        if fancy:
-                            arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
-                        else:
-                            arr = np.array(h5fin[indset][ingrid])
+                    if fancy:
+                        arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
+                    else:
+                        arr = np.array(h5fin[indset][ingrid])
             except Exception as exc:  # TODO: aren't these 2 lines superfluous?
                 raise exc
 
@@ -622,11 +634,12 @@ def process_io(func):
             # Put new outputs here!
             res, details = parse_cF_returns(func(arr, *wrkargs, **kwargs))
             # User-supplied cFs may return a single numpy.ndarray, or a 2-tuple of type (ndarray, sdict) where
-            # 'ndarray' is a numpy.ndarray containing computation results to be stored in the Syncopy data type (like AnalogData),
-            #  and 'sdict' is a shallow dictionary containing meta data that will be temporarily attached to the hdf5 container(s)
-            # during the compute run, but removed/collected and returned as separate return values to the user in the frontend.
-
-            assert isinstance(res, np.ndarray)
+            # 'ndarray' is a numpy.ndarray containing computation results to be stored in the Syncopy
+            # data type (like AnalogData),
+            #  and 'sdict' is a shallow dictionary containing meta data that will be temporarily
+            # attached to the hdf5 container(s)
+            # during the compute run, but removed/collected and returned as separate return values
+            # to the user in the frontend.
 
             # In case scalar selections have been performed, explicitly assign
             # desired output shape to re-create "lost" singleton dimensions

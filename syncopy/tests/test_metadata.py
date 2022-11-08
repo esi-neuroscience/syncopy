@@ -293,7 +293,7 @@ class TestMetadataUsingFooof():
         data = self.tfData.copy()
 
         selected_trials = [3, 5, 7]
-        cfg.select = { 'trials': selected_trials }
+        cfg.select = {'trials': selected_trials }
 
         spec_dt = freqanalysis(cfg, data, fooof_opt=fooof_opt)
 

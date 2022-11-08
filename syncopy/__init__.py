@@ -12,6 +12,7 @@ import getpass
 import numpy as np
 from hashlib import blake2b, sha1
 from importlib.metadata import version, PackageNotFoundError
+import dask.distributed as dd
 
 # Get package version: either via meta-information from egg or via latest git commit
 try:
@@ -34,13 +35,18 @@ except PackageNotFoundError:
     __version__ = out.rstrip("\n")
 
 # --- Greeting ---
+
 msg = f"""
 Syncopy {__version__}
 
 See https://syncopy.org for the online documentation.
-For bug reports etc. please send an email to syncopy.list@gwdg.de
+For bug reports etc. please send an email to syncopy@esi-frankfurt.de
 """
-print(msg)
+# to not spam via worker imports
+try:
+    dd.get_client()
+except ValueError:
+    print(msg)
 
 # Set up sensible printing options for NumPy arrays
 np.set_printoptions(suppress=True, precision=4, linewidth=80)
@@ -49,7 +55,6 @@ np.set_printoptions(suppress=True, precision=4, linewidth=80)
 # Import `esi_cluster_setup` and `cluster_cleanup` from acme to make the routines
 # available in the `spy` package namespace
 try:
-    # so here we pin acme to the esi cluster?
     from acme import esi_cluster_setup, cluster_cleanup
     __acme__ = True
 except ImportError:
@@ -61,9 +66,6 @@ except ImportError:
             "\tconda install -c conda-forge esi-acme\n" +\
             "or using pip:\n" +\
             "\tpip install esi-acme"
-        print(msg)
-    else:
-        msg = f"\nACME installed: {__acme__}"
         print(msg)
 
 # (Try to) set up visualization environment

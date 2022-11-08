@@ -21,7 +21,6 @@ description = "A toolkit for user-friendly large-scale electrophysiology data an
 authors = ["Stefan Fürtinger <sfuerti@esi-frankfurt.de>", "Tim Schäfer <tim.schaefer@esi-frankfurt.de>", "Joscha Schmiedt <schmiedt@uni-bremen.de>", "Gregor Mönke <gregor.moenke@esi-frankfurt.de>"]
 
 [tool.poetry.dependencies]
-# acme needs hard python version pinning
 python = "^3.8"
 h5py = ">=2.9"
 dask = {version=">=2022.6", extras=["distributed"]}
@@ -36,7 +35,6 @@ fooof = ">=1.0"
 ipdb = "^0.13.9"
 memory-profiler = "^0.60.0"
 numpydoc = "^1.4.0"
-
 
 [tool.poetry.dev-dependencies]
 black = "^22.6.0"
