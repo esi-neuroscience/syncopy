@@ -14,7 +14,7 @@ background = '#fcfcfc'  # hint of gray
 
 if __plt__:
     import matplotlib as mpl
-    mpl.style.use('seaborn-colorblind')
+    mpl.style.use('seaborn-v0_8-colorblind')
     # a hint of gray
     rc_props = {
         'patch.edgecolor': foreground,
