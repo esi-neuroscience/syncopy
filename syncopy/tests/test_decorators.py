@@ -4,8 +4,10 @@
 #
 
 # Builtin/3rd party package imports
+import numpy as np
 import string
 import pytest
+
 from syncopy.shared.kwarg_decorators import unwrap_cfg, unwrap_select
 from syncopy.tests.misc import generate_artificial_data
 from syncopy.shared.tools import StructDict
@@ -162,6 +164,13 @@ class TestSpyCalls():
         with pytest.raises(SPYTypeError)as exc:
             group_objects(cfg="invalid")
         assert "Wrong type of `cfg`: expected dictionary-like" in str(exc.value)
+
+        # input is just a numpy array
+        data = np.arange(2)
+        with pytest.raises(SPYError) as exc:
+            group_objects(data)
+        assert "Found no Syncopy data object as input" in str(exc.value)
+
 
     def test_varargin(self):
         """

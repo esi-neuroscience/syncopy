@@ -247,6 +247,10 @@ def unwrap_cfg(func):
                 else:
                     posargs.append(arg)
 
+        # if there was no Syncopy data found at this point, we have to give up
+        if data is None:
+            raise SPYError("Found no Syncopy data object as input")
+
         # Call function with unfolded `data` + modified positional/keyword args
         return func(data, *posargs, **cfg)
 
