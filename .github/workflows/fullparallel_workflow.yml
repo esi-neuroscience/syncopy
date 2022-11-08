@@ -30,11 +30,11 @@ jobs:
     - name: Test sequential with pytest
       run: |
         cd syncopy/tests
-        # run sequential tests
+        # run all sequential tests
         poetry run pytest -ra --color=yes -k 'not parallel'
     - name: Test basic parallel with pytest
       run: |
         cd syncopy/tests
-        # run basic parallel tests
+        # run all parallel tests
         poetry run pytest --disable-warnings --color=yes  -k 'parallel'
 
