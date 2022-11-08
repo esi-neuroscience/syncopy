@@ -191,6 +191,7 @@ class TestButterworth:
 
         ppl.ioff()
         client = dd.Client(testcluster)
+        print(client)
         all_tests = [attr for attr in self.__dir__()
                      if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
 

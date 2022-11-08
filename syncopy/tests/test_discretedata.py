@@ -148,7 +148,7 @@ class TestSpikeData():
             time.sleep(0.1)
 
     # test data-selection via class method
-    def test_dataselection(self, fulltests):
+    def test_dataselection(self):
 
         # Create testing objects (regular and swapped dimords)
         dummy = SpikeData(data=self.data,
@@ -187,17 +187,10 @@ class TestSpikeData():
         timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
             + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
 
-        # Randomly pick one selection unless tests are run with `--full`
-        if fulltests:
-            trialSels = trialSelections
-            chanSels = chanSelections
-            unitSels = unitSelections
-            timeSels = timeSelections
-        else:
-            trialSels = [random.choice(trialSelections)]
-            chanSels = [random.choice(chanSelections)]
-            unitSels = [random.choice(unitSelections)]
-            timeSels = [random.choice(timeSelections)]
+        trialSels = [random.choice(trialSelections)]
+        chanSels = [random.choice(chanSelections)]
+        unitSels = [random.choice(unitSelections)]
+        timeSels = [random.choice(timeSelections)]
 
         for obj in [dummy, ymmud]:
             chanIdx = obj.dimord.index("channel")
@@ -233,12 +226,12 @@ class TestSpikeData():
                             assert np.array_equal(out.unit, selected.unit)
                             assert np.array_equal(out.data, selected.data)
 
-    def test_parallel(self, testcluster, fulltests):
+    def test_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
         par_tests = ["test_dataselection"]
         for test in par_tests:
-            getattr(self, test)(fulltests)
+            getattr(self, test)()
             flush_local_cluster(testcluster)
         client.close()
 
@@ -516,7 +509,7 @@ class TestEventData():
             ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
 
     # test data-selection via class method
-    def test_ed_dataselection(self, fulltests):
+    def test_ed_dataselection(self):
 
         # Create testing objects (regular and swapped dimords)
         dummy = EventData(data=np.hstack([self.data, self.data]),
@@ -549,15 +542,9 @@ class TestEventData():
         timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
             + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
 
-        # Randomly pick one selection unless tests are run with `--full`
-        if fulltests:
-            trialSels = trialSelections
-            eventidSels = eventidSelections
-            timeSels = timeSelections
-        else:
-            trialSels = [random.choice(trialSelections)]
-            eventidSels = [random.choice(eventidSelections)]
-            timeSels = [random.choice(timeSelections)]
+        trialSels = [random.choice(trialSelections)]
+        eventidSels = [random.choice(eventidSelections)]
+        timeSels = [random.choice(timeSelections)]
 
         for obj in [dummy, ymmud]:
             eventidIdx = obj.dimord.index("eventid")
@@ -586,11 +573,11 @@ class TestEventData():
                         assert np.array_equal(out.eventid, selected.eventid)
                         assert np.array_equal(out.data, selected.data)
 
-    def test_ed_parallel(self, testcluster, fulltests):
+    def test_ed_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
         par_tests = ["test_ed_dataselection"]
         for test in par_tests:
-            getattr(self, test)(fulltests)
+            getattr(self, test)()
             flush_local_cluster(testcluster)
         client.close()

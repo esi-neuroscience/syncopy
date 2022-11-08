@@ -28,8 +28,9 @@ if __acme__:
                                     timeout=360, interactive=False,
                                     start_client=False)
     else:
-        cluster = dd.LocalCluster(n_workers=2)
+        cluster = dd.LocalCluster(n_workers=4)
 else:
+    # this also spawns a LocalCluster via dd.Client(None)
     cluster = None
 
 # Set up a pytest fixture `testcluster` that uses the constructed cluster object
@@ -55,16 +56,3 @@ def pytest_collection_modifyitems(items):
 
     # Save potentially re-ordered test sequence
     items[:] = [items[idx] for idx in newOrder]
-
-# Define custom command-line argument `--full`
-def pytest_addoption(parser):
-    parser.addoption(
-        "--full",
-        action="store_true",
-        help="run exhaustive test suite",
-    )
-
-# Build corresponding fixture for `--full`
-@pytest.fixture
-def fulltests(request):
-    return request.config.getoption("--full")

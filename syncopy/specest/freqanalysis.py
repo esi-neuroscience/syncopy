@@ -375,7 +375,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # --- Padding ---
 
     # Sliding window FFT does not support "fancy" padding
-    if method == "mtmconvol" and isinstance(pad, str):
+    if method == "mtmconvol" and isinstance(pad, str) and pad != defaults['pad']:
         msg = "method 'mtmconvol' only supports in-place padding for windows " +\
             "exceeding trial boundaries. Your choice of `pad = '{}'` will be ignored. "
         SPYWarning(msg.format(pad))
