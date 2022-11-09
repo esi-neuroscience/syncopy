@@ -87,6 +87,7 @@ class TestSpectralInput:
             cafunc(spec, method='granger')
         assert "Granger causality from tf-spectra" in str(err.value)
 
+
 class TestGranger:
 
     nTrials = 150

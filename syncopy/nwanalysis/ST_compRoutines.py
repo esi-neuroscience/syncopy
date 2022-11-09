@@ -83,7 +83,7 @@ def spectral_dyadic_product_cF(specs,
     # result has shape (nTime, nTapers x nFreq x nChannels x nChannels)
     CS_ij = specs[..., np.newaxis] * specs[..., np.newaxis, :].conj()
 
-    # now average tapers and attach dummy time axis
+    # now average tapers
     # result has shape (nTime x nFreq x nChannels x nChannels)
     CS_ij = CS_ij.mean(axis=1)
     return CS_ij

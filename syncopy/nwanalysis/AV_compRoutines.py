@@ -109,8 +109,7 @@ def normalize_csd_cF(csd_av_dat,
 
     CS_ij = normalize_csd(csd_av_dat, output)
 
-    # re-attach dummy time axis
-    return CS_ij[None, ...]
+    return CS_ij
 
 
 class NormalizeCrossSpectra(ComputationalRoutine):
