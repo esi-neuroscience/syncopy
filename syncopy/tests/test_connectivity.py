@@ -79,13 +79,13 @@ class TestSpectralInput:
         assert "expected AnalogData" in str(err.value)
 
     def test_tf_input(self):
-        """ No time-resolved spectral connectivity implemented yet """
+        """ No time-resolved Granger implemented yet """
         spec = spy.freqanalysis(self.ad, method='mtmconvol',
                                 t_ftimwin=0.01, output='fourier')
 
-        with pytest.raises(SPYValueError) as err:
-            cafunc(spec, method='coh')
-        assert "expected line spectra" in str(err.value)
+        with pytest.raises(NotImplementedError) as err:
+            cafunc(spec, method='granger')
+        assert "Granger causality from tf-spectra" in str(err.value)
 
 class TestGranger:
 
