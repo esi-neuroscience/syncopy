@@ -370,10 +370,10 @@ class ContinuousData(BaseData, ABC):
         raise NotImplementedError
 
     # statistics
-    @statistics._attach_stat_doc(statistics.average.__doc__)
-    def average(self, dim, keeptrials=True, **kwargs):
+    @statistics._attach_stat_doc(statistics.mean.__doc__)
+    def mean(self, dim, keeptrials=True, **kwargs):
 
-        return statistics.average(self, dim, keeptrials, **kwargs)
+        return statistics.mean(self, dim, keeptrials, **kwargs)
 
     @statistics._attach_stat_doc(statistics.std.__doc__)
     def std(self, dim, keeptrials=True, **kwargs):
