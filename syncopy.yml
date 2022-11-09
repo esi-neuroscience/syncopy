@@ -3,11 +3,11 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  # SyNCoPy runtime requirements
+  # this is to comply with acme 2022.8  
   - python >= 3.8  
-  - h5py >= 2.9
-  - dask[distributed] >= 2022.6
-  - dask-jobqueue >= 0.8
+  - dask[distributed] < 2022.6
+  - dask-jobqueue >= 0.7.1, < 0.8
+  - h5py < 4  
   - numpy >= 1.10, < 2.0
   - scipy >= 1.5  
   - matplotlib >= 3.5

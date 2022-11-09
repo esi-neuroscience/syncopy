@@ -4,6 +4,7 @@
 #
 
 from syncopy import __plt__
+from packaging.version import parse
 
 foreground = "#2E3440"  # nord0
 background = '#fcfcfc'  # hint of gray
@@ -14,7 +15,11 @@ background = '#fcfcfc'  # hint of gray
 
 if __plt__:
     import matplotlib as mpl
-    mpl.style.use('seaborn-v0_8-colorblind')
+    # to allow both older and newer matplotlib versions
+    if parse(mpl.__version__) < parse("3.6"):
+        mpl.style.use('seaborn-colorblind')
+    else:
+        mpl.style.use('seaborn-v0_8-colorblind')
     # a hint of gray
     rc_props = {
         'patch.edgecolor': foreground,
