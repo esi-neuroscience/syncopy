@@ -383,7 +383,7 @@ class NumpyStatDim(ComputationalRoutine):
 def _trial_statistics(in_data, operation='mean'):
     """
     Calculates simple statistics (mean, std, ...) over trials. No trivial
-    parallilization is possible here, hence we fallback to good ol' sequential
+    parallelization is possible here, hence we fallback to good ol' sequential
     computing. For this to work, the shapes of all trials have to match exactly.
 
     To be still memory safe, the computations stream new data on a trial-by-trial
@@ -527,7 +527,7 @@ def seq_contraction(dataset, axis, component_op = None):
 
     Sequential tensor contraction of D dimensional hdf5 datasets along the indicated axis.
     Working principle is to stream sequentially each required D-1 dimensional component,
-    apply ``component_op`` (e.i. squaring for std) and adding up slice by slice..
+    apply ``component_op`` (e.g., squaring for std) and adding up slice by slice..
 
     Note that due to the mixing of trial and time axis within syncopy's datasets,
     this function assumes to operate on single trials. Trial averaging itself
