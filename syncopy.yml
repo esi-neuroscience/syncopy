@@ -3,10 +3,10 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  # this is to comply with acme 2022.8  
-  - python >= 3.8  
-  - dask[distributed] < 2022.6
-  - dask-jobqueue >= 0.7.1, < 0.8
+  # this is to comply with acme 2022.11
+  - python <3.11, >=3.7
+  - dask[distributed] < 2022.11
+  - dask-jobqueue >= 0.7.1, < 0.9
   - h5py < 4  
   - numpy >= 1.10, < 2.0
   - scipy >= 1.5  
