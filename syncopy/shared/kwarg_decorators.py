@@ -496,10 +496,11 @@ def detect_parallel_client(func):
                 msg = ("No running Dask cluster found, created a local instance:\n"
                        f"\t {cluster.scheduler}")
                 SPYInfo(msg)
-        # we are on a HPC but ACME is missing, LocalCluster gets still created
+
+        # we are on a HPC but ACME is missing, LocalCluster still got created
         # but a warning is issued
-        elif parallel is True and has_slurm and not spy.__acme__:
-            msg = ("We are on a slurm cluster but Syncopy does not provide an\s"
+        if parallel is True and has_slurm and not spy.__acme__:
+            msg = ("We are apparently on a slurm cluster but Syncopy does not provide an\s"
                    "automatic Dask SLURMCluster on its own!"
                    "\nPlease consider using ACME (https://github.com/esi-neuroscience/acme)"
                    "\nor configure your own cluster via `dask_jobqueue.SLURMCluster()`"
