@@ -210,7 +210,7 @@ class MultiTaperFFT(ComputationalRoutine):
 
         check_freq_hashes(metadata, out)
 
-        # channels, trialdefinition and so on..
+        # channels and trialdefinition
         propagate_properties(data, out, self.keeptrials)
 
         taper_kw = self.cfg["method_kwargs"]["taper"]

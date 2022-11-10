@@ -342,7 +342,7 @@ class NumpyStatDim(ComputationalRoutine):
 
         # trial average, needs equal trial lengths.. just copy from 1st
         elif dim != 'time' and not self.keeptrials:
-            trldef = in_data.trialdefinition[0, :][None, :]
+            trldef = in_data.selection.trialdefinition[0, :][None, :]
 
         # each trial has empty time axis, so we attach trivial trialdefinition:
         # 1 sample per trial for stacking

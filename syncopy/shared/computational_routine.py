@@ -1019,7 +1019,7 @@ class ComputationalRoutine(ABC):
 
 # --- metadata helper functions ---
 
-def propagate_properties(in_data, out_data, keeptrials=True):
+def propagate_properties(in_data, out_data, keeptrials=True, time_axis=False):
 
     """
     Propagating data class properties (channels, trials, time, ...)
@@ -1042,7 +1042,7 @@ def propagate_properties(in_data, out_data, keeptrials=True):
 
     This function is a general approach to unify the
     propagation / manipulation of all needed properties
-    done in the `process_metadata` implementations of the 
+    done in the `process_metadata` implementations of the
     respective ComputationalRoutines.
 
     Parameters
@@ -1051,6 +1051,9 @@ def propagate_properties(in_data, out_data, keeptrials=True):
         Input object to get attributes from
     out_data : Syncopy data object
         Output object to set attributes
+    keeptrials : bool
+    time_axis : bool
+        If `True` `out_data` has a time axis (not just trial stacking)
     """
 
     # instance checkers
@@ -1058,90 +1061,71 @@ def propagate_properties(in_data, out_data, keeptrials=True):
     is_Spectral = lambda data: isinstance(data, spy.SpectralData)
     is_CrossSpectral = lambda data: isinstance(data, spy.CrossSpectralData)
 
-    # simplest case, direct propagation between two AnalogData objects
-    if is_Analog(in_data) and is_Analog(out_data):
+    
+    # attach a dummy selection for easier propagation
+    selection_cleanup = False
+    if in_data.selection is None:
+        in_data.selectdata(inplace=True)
+        selection_cleanup = True
 
-        # get channels and trial selections
-        if in_data.selection is not None:
-            chanSec = in_data.selection.channel
-            # captures toi selections
-            trldef = in_data.selection.trialdefinition
+    # if preserving the data type, propagation is straightforward
+    if in_data.__class__ == out_data.__class__:
+
+        # Get/set dimensional attributes changed by selection
+        for prop in in_data.selection._dimProps:
+            selection = getattr(in_data.selection, prop)
+            if selection is not None:
+                if np.issubdtype(type(selection), np.number):
+                    selection = [selection]
+                setattr(out_data, prop, getattr(in_data, prop)[selection])
+
+        if keeptrials:
+            out_data.trialdefinition = in_data.selection.trialdefinition
         else:
-            chanSec = slice(None)
-            trldef = in_data.trialdefinition
+            # trial average requires equal length trials, so just copy the 1st
+            out_data.trialsdefinition = in_data.trialdefinition[0, :][None, :]
 
-        out_data.trialdefinition = trldef
-        out_data.channel = np.array(in_data.channel[chanSec])
         out_data.samplerate = in_data.samplerate
+        return
 
-    # this is for (cross-) spectral data with empty time axis (MultiTaperFFT / CSD)
-    elif (is_Analog(in_data) or is_Spectral(in_data)) and (is_Spectral(out_data) or is_CrossSpectral(out_data)):
+    # --- propagate only channels and deal with the rest below---
 
-        # Some index gymnastics to get trial begin/end "samples"
-        if in_data.selection is not None:
-            chanSec = in_data.selection.channel
+    elif is_Spectral(out_data):
+        chanSec = in_data.selection.channel
+        out_data.channel = np.array(in_data.channel[chanSec])
+
+    # from one channel to cross-channel data
+    elif (is_Analog(in_data) or is_Spectral(in_data)) and is_CrossSpectral(out_data):
+        chanSec = in_data.selection.channel
+        out_data.channel_i = np.array(in_data.channel[chanSec])
+        out_data.channel_j = np.array(in_data.channel[chanSec])
+
+    # --- time and trialdefinition ---
+
+    if not time_axis:
+        # Note that here the `time` axis is only(!) used as stacking dimension
+        if keeptrials:
             trldef = in_data.selection.trialdefinition
             for row in range(trldef.shape[0]):
                 trldef[row, :2] = [row, row + 1]
-        else:
-            chanSec = slice(None)
-            time = np.arange(len(in_data.trials))
-            time = time.reshape((time.size, 1))
-            trldef = np.hstack((time, time + 1,
-                                np.zeros((len(in_data.trials), 1)),
-                                np.array(in_data.trialinfo)))
-
-        # Attach constructed trialdef-array (if even necessary)
-        # Note that here the `time` axis is only(!) used as stacking dimension
-        if keeptrials:
             out_data.trialdefinition = trldef
+
         else:
             # only single trial on the time stacking dim.
             out_data.trialdefinition = np.array([[0, 1, 0]])
 
-        # Attach remaining meta-data
         out_data.samplerate = in_data.samplerate
 
-        if is_Spectral(out_data):
-            out_data.channel = np.array(in_data.channel[chanSec])
-
-        elif is_CrossSpectral(out_data):
-            out_data.channel_i = np.array(in_data.channel[chanSec])
-            out_data.channel_j = np.array(in_data.channel[chanSec])
-
-        # no further foi manipulation after original freqanalysis!
-        if is_Spectral(in_data):
-            out_data.freq = in_data.freq
-
-    # for the AV_compRoutines and statistics
-    elif is_CrossSpectral(in_data) and is_CrossSpectral(out_data):
-        # Some index gymnastics to get trial begin/end "samples"
-        if in_data.selection is not None:
-            chanSec_i = in_data.selection.channel_i
-            chanSec_j = in_data.selection.channel_j
-            trl = in_data.selection.trialdefinition
-            for row in range(trl.shape[0]):
-                trl[row, :2] = [row, row + 1]
-        else:
-            chanSec_i = slice(None)
-            chanSec_j = slice(None)
-            time = np.arange(len(in_data.trials))
-            time = time.reshape((time.size, 1))
-            trl = np.hstack((time, time + 1,
-                             np.zeros((len(in_data.trials), 1)),
-                             np.array(in_data.trialinfo)))
-
-        # Attach constructed trialdef-array (if even necessary)
-        if keeptrials:
-            out_data.trialdefinition = trl
-        else:
-            out_data.trialdefinition = np.array([[0, 1, 0]])
-
-        # Attach remaining meta-data
-        out_data.samplerate = in_data.samplerate
-        out_data.channel_i = np.array(in_data.channel_i[chanSec_i])
-        out_data.channel_j = np.array(in_data.channel_j[chanSec_j])
-
-    # nothing else supported atm
+    # this captures active in-place selections on the time axis
     else:
-        raise NotImplementedError
+        if keeptrials:
+            out_data.trialdefinition = in_data.selection.trialdefinition
+        # just copy 1st trial, have to be all equal anyways
+        else:
+            out_data.trialdefinition = in_data.selection.trialdefinition[0, :][None, :]
+
+        # this might bite us
+        out_data.samplerate = in_data.samplerate
+            
+    if selection_cleanup:
+        in_data.selection = None

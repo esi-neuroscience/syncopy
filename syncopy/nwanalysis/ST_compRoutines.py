@@ -118,9 +118,16 @@ class SpectralDyadicProduct(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_properties(data, out, self.keeptrials)
+        # time dependent coherence needs SpectralData input
+        if 'Spectral' in data.__class__.__name__:
+            time_axis = np.any(np.diff(data.trialdefinition)[:,0] != 1)
+        else:
+            time_axis = False
 
+        propagate_properties(data, out, self.keeptrials, time_axis)
+        out.freq = data.freq
 
+        
 @process_io
 def cross_spectra_cF(trl_dat,
                      samplerate=1,

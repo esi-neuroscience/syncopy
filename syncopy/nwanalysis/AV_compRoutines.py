@@ -156,7 +156,9 @@ class NormalizeCrossSpectra(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_properties(data, out, self.keeptrials)
+        time_axis = np.any(np.diff(data.trialdefinition)[:,0] != 1)
+
+        propagate_properties(data, out, self.keeptrials, time_axis)
         out.freq = data.freq
 
 
