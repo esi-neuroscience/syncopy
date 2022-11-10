@@ -1373,7 +1373,6 @@ class TestStatistics:
             spy.mean(adata_cpy, dim='trials')
         assert "found trials of different shape" in str(err.value)
 
-    @skip_without_acme
     def test_stat_parallel(self, testcluster=None):
         client = dd.Client(testcluster)
         self.test_selections()
@@ -1387,4 +1386,3 @@ if __name__ == '__main__':
     T2 = TestTimeLockData()
     T3 = TestStatistics()
     T4 = TestCrossSpectralData()
-
