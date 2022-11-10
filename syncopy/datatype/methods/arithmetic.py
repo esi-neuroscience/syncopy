@@ -13,8 +13,8 @@ from .selectdata import _get_selection_size
 from syncopy.shared.parsers import data_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import process_io
-from syncopy.shared.computational_routine import ComputationalRoutine
+from syncopy.shared.kwarg_decorators import process_io, detect_parallel_client
+
 if __acme__:
     import dask.distributed as dd
 
