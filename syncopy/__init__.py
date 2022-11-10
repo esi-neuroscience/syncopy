@@ -42,7 +42,7 @@ Syncopy {__version__}
 See https://syncopy.org for the online documentation.
 For bug reports etc. please send an email to syncopy@esi-frankfurt.de
 """
-# to not spam via worker imports
+# do not spam via worker imports
 try:
     dd.get_client()
 except ValueError:
@@ -66,7 +66,11 @@ except ImportError:
             "\tconda install -c conda-forge esi-acme\n" +\
             "or using pip:\n" +\
             "\tpip install esi-acme"
-        print(msg)
+        # do not spam via worker imports
+        try:
+            dd.get_client()
+        except ValueError:
+            print(msg)
 
 # (Try to) set up visualization environment
 try:
