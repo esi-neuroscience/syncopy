@@ -287,9 +287,9 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
         # parallel computation over trials
         st_compRoutine = CrossCovariance(samplerate=data.samplerate,
-                                            polyremoval=polyremoval,
-                                            timeAxis=timeAxis,
-                                            norm=norm)
+                                         polyremoval=polyremoval,
+                                         timeAxis=timeAxis,
+                                         norm=norm)
         # hard coded as class attribute
         st_dimord = CrossCovariance.dimord
 
@@ -323,7 +323,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             # cross-spectra need complex input spectra
             if data.data.dtype != np.complex64 and data.data.dtype != np.complex128:
                 lgl = "complex valued spectra, set `output='fourier` in spy.freqanalysis!"
-                act = f"real valued spectral data"
+                act = "real valued spectral data"
                 raise SPYValueError(lgl, 'data', act)
 
             # by constraining to output='fourier', detrimental taper averaging

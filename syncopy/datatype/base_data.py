@@ -473,30 +473,18 @@ class BaseData(ABC):
                 np.nanmax(val[:, self.dimord.index("sample")]) for val in inData
             ]
 
-        # Now the shaky stuff: if not provided, use determined trial lengths to
-        # cook up a (completely fictional) samplerate: we aim for `smax` Hz and
-        # round down to `sround` Hz
         nTrials = len(trialLens)
-        msg2 = ""
-        if self.samplerate is None:
-            sround = 50
-            smax = 1000
-            srate = min(
-                max(min(smax, tlen / 2) // sround * sround, 1) for tlen in trialLens
-            )
-            self.samplerate = srate
-            msg2 = ", samplerate = {srate} Hz (rounded to {sround} Hz with max of {smax} Hz)"
-            msg2 = msg2.format(srate=srate, sround=sround, smax=smax)
-        t0 = -self.samplerate
-        msg = "Artificially generated trial-layout: trigger offset = {t0} sec" + msg2
-        SPYInfo(msg.format(t0=t0 / self.samplerate), caller="data")
 
         # Use constructed quantities to set up trial layout matrix
         accumSamples = np.cumsum(trialLens)
         trialdefinition = np.zeros((nTrials, 3))
         trialdefinition[1:, 0] = accumSamples[:-1]
         trialdefinition[:, 1] = accumSamples
-        trialdefinition[:, 2] = t0
+        if self.samplerate is not None:
+            # set standard offset to -1s
+            trialdefinition[:, 2] = -self.samplerate
+        else:
+            trialdefinition[:, 2] = 0
 
         # Finally, concatenate provided arrays and let corresponding setting method
         # perform the actual HDF magic
