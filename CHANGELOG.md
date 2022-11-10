@@ -8,6 +8,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ## [Unreleased]
 
 ### NEW
+- Added time dependent coherence analysis #287
 - Added basic statistics (mean, std, var and median) for Syncopy data objects
 - Added additional .info entries for Granger analysis, indicating details about the computation.
 - Added additional .info entries for FoooF results, e.g. Gaussian fit parameters.

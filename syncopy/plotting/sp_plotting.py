@@ -262,26 +262,49 @@ def plot_CrossSpectralData(data, **show_kwargs):
     else:
         raise NotImplementedError
 
-    # get the data to plot
-    data_y = data.show(**show_kwargs)
-    if data_y.size == 0:
-        lgl = "Selection with non-zero size"
-        act = "got zero samples"
-        raise SPYValueError(lgl, varname="show_kwargs", actual=act)
+    # -- check if it is a time-frequency spectrum ----------
+    is_tf = np.any(np.diff(data.trialdefinition)[:, 0] != 1)
+    # ------------------------------------------------------
 
-    # create the axes and figure if needed
-    # persistent axes allows for plotting different
-    # channel combinations into the same figure
-    if not hasattr(data, 'fig') or not _plotting.ppl.fignum_exists(data.fig.number):
-        data.fig, data.ax = _plotting.mk_line_figax(xlabel, ylabel)
-    _plotting.plot_lines(data.ax, data_x, data_y, label=label)
-    # format axes
-    if method in ['granger', 'coh'] and output in ['pow', 'abs']:
-        data.ax.set_ylim((-.02, 1.02))
-    elif method == 'corr':
-        data.ax.set_ylim((-1.02, 1.02))
-    data.ax.legend(ncol=1)
+    # time dependent coherence
+    if method == 'coh' and is_tf:
+        # here we always need a new axes
+        fig, ax = _plotting.mk_img_figax()
 
-    data.fig.tight_layout()
+        time = plot_helpers.parse_toi(data, trl, show_kwargs)
+        freqs = plot_helpers.parse_foi(data, show_kwargs)
 
-    return data.fig, data.ax
+        # custom dimords for SpectralData not supported atm
+        # dimord is time x freq x channel_i x channel_j
+        # need freq x time for plotting
+        data_yx = data.show(**show_kwargs).T
+        _plotting.plot_tfreq(ax, data_yx, time, freqs)
+        ax.set_title(f"{method}: " + label, fontsize=pltConfig['sTitleSize'])
+        fig.tight_layout()
+
+        return fig, ax
+        
+    else:
+        # get the data to plot
+        data_y = data.show(**show_kwargs)
+        if data_y.size == 0:
+            lgl = "Selection with non-zero size"
+            act = "got zero samples"
+            raise SPYValueError(lgl, varname="show_kwargs", actual=act)
+
+        # create the axes and figure if needed
+        # persistent axes allows for plotting different
+        # channel combinations into the same figure
+        if not hasattr(data, 'fig') or not _plotting.ppl.fignum_exists(data.fig.number):
+            data.fig, data.ax = _plotting.mk_line_figax(xlabel, ylabel)
+        _plotting.plot_lines(data.ax, data_x, data_y, label=label)
+        # format axes
+        if method in ['granger', 'coh'] and output in ['pow', 'abs']:
+            data.ax.set_ylim((-.02, 1.02))
+        elif method == 'corr':
+            data.ax.set_ylim((-1.02, 1.02))
+        data.ax.legend(ncol=1)
+
+        data.fig.tight_layout()
+
+        return data.fig, data.ax
