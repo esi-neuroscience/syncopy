@@ -469,6 +469,17 @@ def detect_parallel_client(func):
         kill_spawn = False
         has_slurm = check_slurm_available()
 
+        # we are on a HPC but ACME is missing, LocalCluster still got created
+        # but a warning is issued
+        if parallel is True and has_slurm and not spy.__acme__:
+            msg = ("We are apparently on a slurm cluster but Syncopy does not provide an "
+                   "automatic Dask SLURMCluster on its own!"
+                   "\nPlease consider using ACME (https://github.com/esi-neuroscience/acme)"
+                   "\nor configure your own cluster via `dask_jobqueue.SLURMCluster()`"
+                   "\n\nCreating a LocalCluster as fallback.."
+                   )
+            SPYWarning(msg)
+
         # This effectively searches for a global dask cluster, and sets
         # parallel=True if one was found. If no cluster was found, parallel is set to False,
         # so no automatic spawing of a LocalCluster or SLURMCluster via ACME,
@@ -496,17 +507,6 @@ def detect_parallel_client(func):
                 msg = ("No running Dask cluster found, created a local instance:\n"
                        f"\t {cluster.scheduler}")
                 SPYInfo(msg)
-
-        # we are on a HPC but ACME is missing, LocalCluster still got created
-        # but a warning is issued
-        if parallel is True and has_slurm and not spy.__acme__:
-            msg = ("We are apparently on a slurm cluster but Syncopy does not provide an\s"
-                   "automatic Dask SLURMCluster on its own!"
-                   "\nPlease consider using ACME (https://github.com/esi-neuroscience/acme)"
-                   "\nor configure your own cluster via `dask_jobqueue.SLURMCluster()`"
-                   "\n\n Created a LocalCluster fallback instance"
-                   )
-            SPYWarning(msg)
 
         # Add/update `parallel` to/in keyword args
         kwargs["parallel"] = parallel
