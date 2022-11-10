@@ -100,11 +100,11 @@ def plot_SpectralData(data, **show_kwargs):
     elif len(data.trials) == 1:
         trl = 0
 
-    # -- how got the spectrum computed --
-    method = plot_helpers.get_method(data)
-    # -----------------------------------
+    # -- check if it is a time-frequency spectrum ----------
+    is_tf = np.any(np.diff(data.trialdefinition)[:, 0] != 1)
+    # ------------------------------------------------------
 
-    if method in ('wavelet', 'superlet', 'mtmconvol'):
+    if is_tf:
         # multiple channels?
         label = plot_helpers.parse_channel(data, show_kwargs)
         # only relevant for mtmconvol
@@ -119,8 +119,6 @@ def plot_SpectralData(data, **show_kwargs):
         # here we always need a new axes
         fig, ax = _plotting.mk_img_figax()
 
-        # this could be more elegantly solve by
-        # an in-place selection?!
         time = plot_helpers.parse_toi(data, trl, show_kwargs)
         freqs = plot_helpers.parse_foi(data, show_kwargs)
 
@@ -147,6 +145,24 @@ def plot_SpectralData(data, **show_kwargs):
                    "ignoring `toi/toilim` selection!")
             SPYWarning(msg)
 
+        # multiple channels?
+        channels = plot_helpers.parse_channel(data, show_kwargs)
+
+        # just multiple tapers or multiple channels in one plot
+        if len(data.taper) != 1:
+            taper = show_kwargs.get('taper')
+            if not isinstance(taper, (Number, str)) and not isinstance(channels, str):
+                msg = "Please select a single taper or a single channel \nfor plotting multi-taper spectra.. aborting plotting\n"
+                SPYWarning(msg)
+                return None, None
+            # single channel, multiple tapers
+            elif isinstance(channels, str):
+                labels = data.taper
+            # single taper, multiple channels
+            elif isinstance(taper, (Number, str)):
+                labels = channels
+        else:
+            labels = channels
         # get the data to plot
         data_x = plot_helpers.parse_foi(data, show_kwargs)
         output = plot_helpers.get_output(data)
@@ -156,14 +172,15 @@ def plot_SpectralData(data, **show_kwargs):
             data_y = np.log10(data.show(**show_kwargs))
             ylabel = 'power (dB)'
         elif output in ['fourier', 'complex']:
-            SPYWarning("Can't plot complex valued spectra, choose 'real' or 'imag' as output. Aborting plotting.")
+            SPYWarning("Can't plot complex valued spectra, choose 'real' or 'imag' as freqanalysis output.. aborting plotting")
             return None, None
         else:
             data_y = data.show(**show_kwargs)
             ylabel = f'{output}'
 
-        # multiple channels?
-        labels = plot_helpers.parse_channel(data, show_kwargs)
+        # flip if required
+        if data_y.shape[1] == len(data_x):
+            data_y = data_y.T
 
         fig, ax = _plotting.mk_line_figax(xlabel='frequency (Hz)',
                                           ylabel=ylabel)

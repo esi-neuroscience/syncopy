@@ -150,7 +150,7 @@ def get_method(dataobject):
 def get_output(dataobject):
 
     """
-    Returns the method string from
+    Returns the output string from
     the log of a Syncopy data object
     """
 
