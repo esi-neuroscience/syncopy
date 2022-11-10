@@ -250,7 +250,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # --- method specific processing ---
 
     if method == 'corr':
-      
+
         if not isinstance(data, AnalogData):
             lgl = f"AnalogData instance as input for method {method}"
             actual = f"{data.__class__.__name__}"
@@ -260,13 +260,6 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             msg = 'Parameter `foi` has no effect for method `corr`'
             SPYWarning(msg)
 
-        nChannels = len(data.channel)
-        nTrials = np.size(lenTrials)
-        # warn user if this ratio is not small
-        if nChannels / nTrials > 0.1:
-            msg = "Multi-channel Granger analysis can be numerically unstable, it is recommended to have at least 10 times the number of trials compared to the number of channels. Try calculating in sub-groups of fewer channels!"
-            SPYWarning(msg)
-            
         check_effective_parameters(CrossCovariance, defaults, lcls)
 
         # single trial cross-correlations
@@ -279,9 +272,9 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
         # parallel computation over trials
         st_compRoutine = CrossCovariance(samplerate=data.samplerate,
-                                            polyremoval=polyremoval,
-                                            timeAxis=timeAxis,
-                                            norm=norm)
+                                         polyremoval=polyremoval,
+                                         timeAxis=timeAxis,
+                                         norm=norm)
         # hard coded as class attribute
         st_dimord = CrossCovariance.dimord
 
@@ -315,7 +308,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             # cross-spectra need complex input spectra
             if data.data.dtype != np.complex64 and data.data.dtype != np.complex128:
                 lgl = "complex valued spectra, set `output='fourier` in spy.freqanalysis!"
-                act = f"real valued spectral data"
+                act = "real valued spectral data"
                 raise SPYValueError(lgl, 'data', act)
 
             if method == 'granger':
