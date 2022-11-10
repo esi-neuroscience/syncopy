@@ -516,33 +516,3 @@ def _attach_stat_doc(orig_doc):
         return func
 
     return _attach_doc
-
-
-def seq_contraction(dataset, axis, component_op=None):
-    """
-
-    THIS IS A STUB - would be needed if more memory efficiency is needed (all-to-all trialdef)
-
-    Sequential tensor contraction of D dimensional hdf5 datasets along the indicated axis.
-    Working principle is to stream sequentially each required D-1 dimensional component,
-    apply ``component_op`` (e.g., squaring for std) and adding up slice by slice..
-
-    Note that due to the mixing of trial and time axis within syncopy's datasets,
-    this function assumes to operate on single trials. Trial averaging itself
-    uses the `AverageTrials` CR.
-    """
-
-    # initialize result array
-    shape_idx = np.ones(dataset.ndim, dtype=bool)
-    shape_idx[axis] = False   # this axis will be summed over
-    res = np.zeros(np.array(dataset.shape[shape_idx]))
-
-    # the number of summations along the contracting axis
-    nSum = dataset.shape[axis]
-
-    # identity operation
-    if component_op is None:
-        component_op = lambda x: x
-
-    for idx in range(nSum):
-        res += dataset[()]   # correct slcing is missing
