@@ -109,11 +109,11 @@ def plot_SpectralData(data, **show_kwargs):
         label = plot_helpers.parse_channel(data, show_kwargs)
         # only relevant for mtmconvol
         if 'taper' in show_kwargs:
-            SPYWarning("Taper selection not supported for time-frequency spectra! Aborting plotting.")
+            SPYWarning("Taper selection not supported for time-frequency spectra!\nSkipping plot..")
             return None, None
 
         if not isinstance(label, str):
-            SPYWarning("Please select a single channel for plotting! Aborting plotting.")
+            SPYWarning("Please select a single channel for plotting!\nSkipping plot..")
             return None, None
 
         # here we always need a new axes

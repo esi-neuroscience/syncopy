@@ -113,7 +113,7 @@ class TestAnalogPlotting():
         nSamples = 100
         nChannels = 4
         # single trial with ('channel', 'time') dimord
-        ad = spy.AnalogData([rng.standard_normal((nChannels, nSamples))], dimord=['channel', 'time'])
+        ad = spy.AnalogData([rng.standard_normal((nChannels, nSamples))], dimord=['channel', 'time'], samplerate=200)
 
         for chan in ad.channel:
             fig, ax = ad.singlepanelplot(channel=chan)

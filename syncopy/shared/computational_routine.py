@@ -1080,7 +1080,8 @@ def propagate_properties(in_data, out_data, keeptrials=True):
 
     This function is a general approach to unify the
     propagation / manipulation of all needed properties
-    done in the `process_metadata` implementations.
+    done in the `process_metadata` implementations of the 
+    respective ComputationalRoutines.
 
     Parameters
     ----------
@@ -1102,12 +1103,12 @@ def propagate_properties(in_data, out_data, keeptrials=True):
         if in_data.selection is not None:
             chanSec = in_data.selection.channel
             # captures toi selections
-            trl = in_data.selection.trialdefinition
+            trldef = in_data.selection.trialdefinition
         else:
             chanSec = slice(None)
-            trl = in_data.trialdefinition
+            trldef = in_data.trialdefinition
 
-        out_data.trialdefinition = trl
+        out_data.trialdefinition = trldef
         out_data.channel = np.array(in_data.channel[chanSec])
         out_data.samplerate = in_data.samplerate
 
@@ -1117,21 +1118,21 @@ def propagate_properties(in_data, out_data, keeptrials=True):
         # Some index gymnastics to get trial begin/end "samples"
         if in_data.selection is not None:
             chanSec = in_data.selection.channel
-            trl = in_data.selection.trialdefinition
-            for row in range(trl.shape[0]):
-                trl[row, :2] = [row, row + 1]
+            trldef = in_data.selection.trialdefinition
+            for row in range(trldef.shape[0]):
+                trldef[row, :2] = [row, row + 1]
         else:
             chanSec = slice(None)
             time = np.arange(len(in_data.trials))
             time = time.reshape((time.size, 1))
-            trl = np.hstack((time, time + 1,
-                             np.zeros((len(in_data.trials), 1)),
-                             np.array(in_data.trialinfo)))
+            trldef = np.hstack((time, time + 1,
+                                np.zeros((len(in_data.trials), 1)),
+                                np.array(in_data.trialinfo)))
 
         # Attach constructed trialdef-array (if even necessary)
         # Note that here the `time` axis is only(!) used as stacking dimension
         if keeptrials:
-            out_data.trialdefinition = trl
+            out_data.trialdefinition = trldef
         else:
             # only single trial on the time stacking dim.
             out_data.trialdefinition = np.array([[0, 1, 0]])
@@ -1150,7 +1151,7 @@ def propagate_properties(in_data, out_data, keeptrials=True):
         if is_Spectral(in_data):
             out_data.freq = in_data.freq
 
-    # for the AV_compRoutines
+    # for the AV_compRoutines and statistics
     elif is_CrossSpectral(in_data) and is_CrossSpectral(out_data):
         # Some index gymnastics to get trial begin/end "samples"
         if in_data.selection is not None:

@@ -396,7 +396,7 @@ def unwrap_select(func):
     selectDocEntry = \
     "    select : dict or :class:`~syncopy.shared.tools.StructDict` or str\n" +\
     "        In-place selection of subset of input data for processing. Please refer\n" +\
-    "        to :func:`syncopy.selectdata` for further usage details. \n"
+    "        to :func:`syncopy.selectdata` for further usage details."
     wrapper_select.__doc__ = _append_docstring(func, selectDocEntry)
     wrapper_select.__signature__ = _append_signature(func, "select")
 
@@ -529,7 +529,7 @@ def detect_parallel_client(func):
     "        a dask parallel processing client is running and available. \n" +\
     "        Parallel processing can be manually disabled by setting `parallel` \n" +\
     "        to `False`. If `parallel` is `True` but no parallel processing client\n" +\
-    "        is running, computing will be performed sequentially. \n"
+    "        is running, computing will be performed sequentially."
     parallel_client_detector.__doc__ = _append_docstring(func, parallelDocEntry)
     parallel_client_detector.__signature__ = _append_signature(func, "parallel")
 
@@ -737,6 +737,9 @@ def _append_docstring(func, supplement, insert_in="Parameters", at_end=True):
     if func.__doc__ is None:
         return
 
+    # these are the 4 whitespaces right in front of every doc string line
+    space4 = '    '
+
     # "Header" insertions always work (an empty docstring is enough to do this).
     # Otherwise ensure the provided `insert_in` section already exists, i.e.,
     # partitioned `sectionHeading` == queried `sectionTitle`
@@ -750,18 +753,25 @@ def _append_docstring(func, supplement, insert_in="Parameters", at_end=True):
         if sectionHeading != sectionTitle:  # `insert_in` was not found in docstring
             return func.__doc__
         sectionText, sectionDivider, rest = textAfter.partition("\n\n")
-    sectionText = sectionText.splitlines(keepends=True)
+    sectionTextList = sectionText.splitlines(keepends=True)
 
     if at_end:
         insertAtLine = -1
-        while sectionText[insertAtLine].isspace():
+        while sectionTextList[insertAtLine].isspace():
             insertAtLine -= 1
         insertAtLine = min(-1, insertAtLine + 1)
+
+        # to avoid clipping the last line of a parameter description
+        if sectionTextList[-1] != space4:
+            sectionTextList.append('\n')
+            sectionTextList.append(space4)
     else:
+        # this is the 1st line break or the '    --------'
         insertAtLine = 1
-    sectionText = "".join(sectionText[:insertAtLine]) +\
-                  supplement +\
-                  "".join(sectionText[insertAtLine:])
+
+    sectionText = "".join(sectionTextList[:insertAtLine])
+    sectionText += supplement
+    sectionText += "".join(sectionTextList[insertAtLine:])
 
     newDocString = textBefore +\
                    sectionHeading +\
