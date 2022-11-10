@@ -21,10 +21,10 @@ if sys.platform == "win32":
 
 import dask.distributed as dd
 import dask_jobqueue as dj
-    
+
 # Local imports
 import syncopy as spy
-from .tools import get_defaults
+from .tools import get_defaults, check_slurm_available
 from syncopy import __storage__, __acme__
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYParallelError, SPYWarning
 if __acme__:
@@ -793,7 +793,7 @@ class ComputationalRoutine(ABC):
 
         # Let ACME take care of argument distribution and memory checks: note
         # that `cfg` is trial-independent, i.e., we can simply throw it in here!        
-        if __acme__:
+        if __acme__ and check_slurm_available():
 
             self.pmap = ParallelMap(self.computeFunction,
                                     *self.inargs,
@@ -827,6 +827,7 @@ class ComputationalRoutine(ABC):
 
         # fallback to any client we can connect to
         else:
+            self.pmap = None
             try:
                 client = dd.get_client()
             except ValueError:
@@ -845,33 +846,28 @@ class ComputationalRoutine(ABC):
                 msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
                     "worker memory ({1:2.2f} GB) currently not supported"
                 raise SPYParallelError(msg.format(self.chunkMem, workerMemMax))
-        else:
-            msg = "`ComputationalRoutine` only supports `LocalCluster` and " +\
-                "`SLURMCluster` dask cluster objects. Proceed with caution. "
-            SPYWarning(msg)
 
         # --- trigger actual computation ---
 
-        if __acme__:
+        if self.pmap is not None:
             # Let ACME do the heavy lifting
             with self.pmap as pm:
                 pm.compute(debug=self.parallelDebug)
 
         # use our own client and map over workerdicts + cfg
         else:
-            # we have to prepare an iterable where for each call n
-            # we have a tuple (wdict[n], *argv[n]) passed to the cF
-            # by the mapping
+            # we have to prepare a well behaved iterable where for each call n
+            # we have a tuple like (wdict[n], argv1_seq[n], argv2) passed to the cF
+            # by the Dask client mapping
             workerDicts = self.inargs[0]
             if len(self.inargs) > 1:
                 iterables = []
                 ArgV = self.inargs[1:]
                 for nblock, wdict in enumerate(workerDicts):
                     argv = tuple(arg[nblock]
-                                 if isinstance(arg, (list, tuple, np.ndarray)) and
-                                 len(arg) == len(workerDicts)
+                                 if isinstance(arg, (list, tuple, np.ndarray)) and  # these are the argv_seq
+                                 len(arg) == len(workerDicts)  # each call gets one element of a sequence type argv
                                  else arg for arg in ArgV)
-
                     iterables.append((wdict, *argv))
             # no *args for the cF
             else:
@@ -884,6 +880,7 @@ class ComputationalRoutine(ABC):
             client.gather(futures)
 
         # When writing concurrently, now's the time to finally create the virtual dataset
+        # by referencing the individual hdf5 datasets created by the IO decorator
         if self.virtualDatasetDir is not None:
             with h5py.File(out.filename, mode="w") as h5f:
                 h5f.create_virtual_dataset(self.outDatasetName, self.VirtualDatasetLayout)
