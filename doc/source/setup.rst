@@ -69,7 +69,7 @@ concurrent processing hardware is to use the `parallel` keyword, e.g.,
 This will allocate a parallel worker for each trial defined in `data`. If your code
 is running on the ESI cluster, Syncopy will automatically use the existing SLURM
 scheduler, in a single-machine setup, any available local multi-processing resources
-will be utilized. More details can be found in the :doc:`Data Analysis Guide <user/processing>`
+will be utilized. More details can be found in the :doc:`Data Analysis Guide <user/data>`
 
 .. _setup_env:
 

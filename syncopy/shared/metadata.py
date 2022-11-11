@@ -5,7 +5,7 @@ from hmac import compare_digest
 from numbers import Number
 import numpy as np
 
-from syncopy.shared.errors import (SPYTypeError, SPYValueError, SPYWarning)
+from syncopy.shared.errors import (SPYInfo, SPYTypeError, SPYValueError, SPYWarning)
 
 
 def metadata_from_hdf5_file(h5py_filename, delete_afterwards=True):
@@ -215,10 +215,16 @@ def decode_unique_md_label(unique_label):
     -------
     tuple of `str`: the `'label'`, `'trial_idx'` and `'chunk_idx'`.
     """
-    lab_ind = unique_label.rsplit("__")
-    label = lab_ind[0]
-    trialidx_callidx = lab_ind[1].rsplit("_")
-    return label, trialidx_callidx[0], trialidx_callidx[1]
+    try:
+        lab_ind = unique_label.rsplit("__")
+        label = lab_ind[0]
+        trialidx_callidx = lab_ind[1].rsplit("_")
+        trialidx = trialidx_callidx[0]
+        callidx = trialidx_callidx[1]
+    except Exception as ex:
+        raise SPYValueError(f"Could not decode metadata key '{unique_label}' into label, trial_index and chunk index. Expected input string in format `<label>__<trial_idx>_<chunk_idx>', e.g. 'pp__0_0': '{str(ex)}'")
+
+    return label, trialidx ,callidx
 
 
 def extract_md_group(md):
@@ -286,4 +292,70 @@ def check_freq_hashes(metadata, out):
         SPYWarning(msg)
         out.log = msg
         out.info['mismatched freq. axis trial ids'] = trl_mismatches
-    
+
+
+def metadata_nest(metadata):
+    """
+    Nest md dictionary keys with identical label prefixes into sub dictionaries.
+
+    Put another way, this will add a layer of new dictionaries, which are the unique label
+    names of the keys of the original dictionary. The unique label names of the keys are computed
+    by running `decode_unique_md_label` on each key and considering the unique first return values.
+    E.g., ```metadata = { 'ap__0_0': 1, 'ap__0_1': 2, 'pp__0_0': 3, 'pp__0_1': 4}``` becomes
+    ```metadata_nested = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': {'pp__0_0': 3, 'pp__0_1': 4}}```.
+
+    Parameters
+    ----------
+    metadata: dict
+        Dictionary with metadata keys that can be handled by `decode_unique_md_label`.
+
+    Returns
+    -------
+    metadata_nested: dict
+        Nested version of the dict.
+
+    See also
+    --------
+    metadata_unnest: performs the reverse operation of this function.
+    """
+    metadata_nested = dict()
+    for unique_attr_label, v in metadata.items():
+        label, trial_idx, call_idx = decode_unique_md_label(unique_attr_label)
+        if not label in metadata_nested:
+            metadata_nested[label] = dict()
+        metadata_nested[label][unique_attr_label] = v
+    return metadata_nested
+
+
+def metadata_unnest(metadata):
+    """
+    Unnest md dictionary.
+
+    E.g., ```metadata_nested = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': {'pp__0_0': 3, 'pp__0_1': 4}}``` becomes
+    ```metadata = { 'ap__0_0': 1, 'ap__0_1': 2, 'pp__0_0': 3, 'pp__0_1': 4}```.
+
+    Parameters
+    ----------
+    metadata: dict
+        Dictionary with nested metadata keys.
+
+    Returns
+    -------
+    metadata_unnested: dict
+        Unnested version of the dict.
+
+    See also
+    --------
+    metadata_nest: performs the reverse operation of this function.
+    """
+    metadata_unnested = dict()
+    for nested_category_name, nested_dict in metadata.items():
+        if not isinstance(nested_dict, dict):
+            raise SPYValueError(legal="Dict containing only other dictionaries at first level.", varname="metadata", actual=f"Value at key '{nested_category_name}' is not a dict.")
+        for unique_attr_label, nested_value in nested_dict.items():
+            if unique_attr_label in metadata_unnested:  # It's already in there, from a previous dict!
+                raise SPYValueError(legal="Dict containing no duplicated keys in nested sub dictionaries at first level.", varname="metadata", actual=f"Duplicate key '{unique_attr_label}': cannot unnest without losing data.")
+            metadata_unnested[unique_attr_label] = nested_value
+    return metadata_unnested
+
+
