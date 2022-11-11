@@ -69,6 +69,15 @@ syncopy.specest
     syncopy.specest.wavelet.get_optimal_wavelet_scales
     syncopy.specest.compRoutines.FooofSpy
 
+syncopy.nwanalysis
+^^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+    :toctree: _stubs
+
+    syncopy.nwanalysis.AV_compRoutines.GrangerCausality
+
+
 syncopy.plotting
 ^^^^^^^^^^^^^^^^
 
