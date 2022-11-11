@@ -272,13 +272,6 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             msg = 'Parameter `foi` has no effect for method `corr`'
             SPYWarning(msg)
 
-        nChannels = len(data.channel)
-        nTrials = np.size(lenTrials)
-        # warn user if this ratio is not small
-        if nChannels / nTrials > 0.1:
-            msg = "Multi-channel Granger analysis can be numerically unstable, it is recommended to have at least 10 times the number of trials compared to the number of channels. Try calculating in sub-groups of fewer channels!"
-            SPYWarning(msg)
-
         check_effective_parameters(CrossCovariance, defaults, lcls)
 
         # single trial cross-correlations
