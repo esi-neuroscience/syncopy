@@ -278,7 +278,7 @@ def plot_CrossSpectralData(data, **show_kwargs):
         # dimord is time x freq x channel_i x channel_j
         # need freq x time for plotting
         data_yx = data.show(**show_kwargs).T
-        _plotting.plot_tfreq(ax, data_yx, time, freqs)
+        _plotting.plot_tfreq(ax, data_yx, time, freqs, cmap='cividis')
         ax.set_title(f"{method}: " + label, fontsize=pltConfig['sTitleSize'])
         fig.tight_layout()
 
