@@ -272,13 +272,12 @@ def freqanalysis(data, method='mtmfft', output='pow',
     Returns
     -------
     spec : :class:`~syncopy.SpectralData`
-        (Time-)frequency spectrum of input data.
+        (Time-)frequency spectrum of input data. The `spec` may contain additional metadata,
+        based on the `method` used to compute it:
 
-    The result may contain additional metadata, based on the `method` used to compute it.
-
-    * for `method='mtmfft'` when`output` is  one of
-        `'fooof'`, `'fooof_aperiodic'`, or `'fooof_peaks'`, the `spec.info` property contains
-        the keys listed in :data:`~syncopy.specest.compRoutines.FooofSpy.metadata_keys`.
+        * For `method='mtmfft'` when `output` is one of
+          `'fooof'`, `'fooof_aperiodic'`, or `'fooof_peaks'`, the `spec.info` property contains
+          the keys listed and explained in :data:`~syncopy.specest.compRoutines.FooofSpy.metadata_keys`.
 
 
     Notes
