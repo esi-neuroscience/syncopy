@@ -22,10 +22,10 @@ from syncopy.shared.input_processors import check_passed_kwargs
 # Local imports
 from syncopy.statistics.compRoutines import PSTH
 from syncopy.statistics.psth import Rice_rule, sqrt_rule, get_chan_unit_combs
+from syncopy.statistics.misc import get_analysis_window
 
 available_binsizes = {'rice': Rice_rule, 'sqrt': sqrt_rule}
 available_outputs = ['rate', 'spikecount', 'proportion']
-available_latencies = ['maxperiod', 'minperiod', 'prestim', 'poststim']
 
 
 @unwrap_cfg
@@ -97,15 +97,11 @@ def spike_psth(data,
         trl_def = data.selection.trialdefinition
         sinfo = data.selection.trialdefinition[:, :2]
         trials = data.selection.trials
-        trl_ivl = data.selection.trialintervals
-        # beginnings and ends of all (selected) trials in trigger-relative time
-        trl_starts, trl_ends = trl_ivl[:, 0], trl_ivl[:, 1]
 
     else:
         trl_def = data.trialdefinition
         sinfo = data.sampleinfo
         trials = data.trials
-        # beginnings and ends of all (selected) trials in trigger-relative time
         trl_starts, trl_ends = data.trialintervals[:, 0], data.trialintervals[:, 1]
 
     # validate output parameter
@@ -122,58 +118,7 @@ def spike_psth(data,
 
     # --- parse and digest `latency` (time window of analysis) ---
 
-    if isinstance(latency, str):
-        if latency not in available_latencies:
-            lgl = f"one of {available_latencies}"
-            act = latency
-            raise SPYValueError(lgl, varname='latency', actual=act)
-
-        # find overlapping window (timelocked time axis borders) for all trials
-        if latency == 'minperiod':
-            # latest start and earliest finish
-            window = [np.max(trl_starts), np.min(trl_ends)]
-            if window[0] > window[1]:
-                lgl = 'overlapping trials'
-                act = f"{latency} - no common time window for all trials"
-                raise SPYValueError(lgl, 'latency', act)
-
-        # cover maximal time window where
-        # there is still some data in at least 1 trial
-        elif latency == 'maxperiod':
-            window = [np.min(trl_starts), np.max(trl_ends)]
-
-        elif latency == 'prestim':
-            if not np.any(trl_starts < 0):
-                lgl = "pre-stimulus recordings"
-                act = "no pre-stimulus (t < 0) events"
-                raise SPYValueError(lgl, 'latency', act)
-            window = [np.min(trl_starts), 0]
-
-        elif latency == 'poststim':
-            if not np.any(trl_ends > 0):
-                lgl = "post-stimulus recordings"
-                act = "no post-stimulus (t > 0) events"
-                raise SPYValueError(lgl, 'latency', act)
-            window = [0, np.max(trl_ends)]
-    # explicit time window in seconds
-    else:
-        array_parser(latency, lims=[-np.inf, np.inf], dims=(2,))
-        # check that at least some events are covered
-        if latency[0] > trl_ends.max():
-            lgl = "start of latency window before at least one trial ends"
-            act = latency[0]
-            raise SPYValueError(lgl, 'latency[0]', act)
-
-        if latency[1] < trl_starts.min():
-            lgl = "end of latency window after at least one trial starts"
-            act = latency[1]
-            raise SPYValueError(lgl, 'latency[1]', act)
-
-        if latency[0] > latency[1]:
-            lgl = "start < end latency window"
-            act = f"start={latency[0]}, end={latency[1]}"
-            raise SPYValueError(lgl, "latency", act)
-        window = latency
+    window = get_analysis_window(latency, data)
 
     if not vartriallen:
         # trial idx for whole dataset
