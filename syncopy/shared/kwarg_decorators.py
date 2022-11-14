@@ -8,7 +8,6 @@ import functools
 import h5py
 import inspect
 import numpy as np
-import subprocess
 import dask.distributed as dd
 
 
@@ -501,7 +500,7 @@ def detect_parallel_client(func):
             except ValueError:
                 # spawn fallback local cluster
                 cluster = dd.LocalCluster()
-                # attaches to local cluster residing in global namespace 
+                # attaches to local cluster residing in global namespace
                 dd.Client(cluster)
                 kill_spawn = True
                 msg = ("No running Dask cluster found, created a local instance:\n"
