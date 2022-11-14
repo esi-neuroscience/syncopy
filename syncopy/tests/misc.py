@@ -65,7 +65,7 @@ def is_slurm_node():
         return False
 
 
-def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=None,
+def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=42,
                              overlapping=False, inmemory=True, dimord="default"):
     """
     Create :class:`~syncopy.AnalogData` object with synthetic harmonic signal(s)

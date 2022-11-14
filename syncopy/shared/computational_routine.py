@@ -1098,6 +1098,7 @@ def propagate_properties(in_data, out_data, keeptrials=True):
 
     # simplest case, direct propagation between two AnalogData objects
     if is_Analog(in_data) and is_Analog(out_data):
+        print(f"Propagating properties AnalogData -> AnalogData")
 
         # get channels and trial selections
         if in_data.selection is not None:

@@ -18,7 +18,7 @@ from syncopy import freqanalysis
 from syncopy.datatype.methods.copy import copy
 from syncopy.shared.tools import get_defaults
 from syncopy.tests.synth_data import AR2_network, phase_diffusion
-from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, parse_cF_returns, _parse_backend_metadata, _merge_md_list, metadata_from_hdf5_file
+from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, parse_cF_returns, _parse_backend_metadata, _merge_md_list, metadata_from_hdf5_file, metadata_nest, metadata_unnest
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 import syncopy as spy
 
@@ -140,13 +140,46 @@ class TestMetadataHelpers():
         # Test that warning is raised for large data
         _parse_backend_metadata({'attr1': np.arange(100000)})
 
+    def test_metadata_nest(self):
+        # Test with valid input
+        md = { 'ap__0_0': 1, 'ap__0_1': 2, 'pp__0_0': 3, 'pp__0_1': 4}
+        md_nested = metadata_nest(md)
+        expected = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': {'pp__0_0': 3, 'pp__0_1': 4}}
+        assert md_nested == expected
+
+        # Test exc: key with name identical to unique_label_part of another key already in dict.
+        # This leads to an error because the key with name identical to unique_label_part cannot conform
+        # to the format expected by the function that splits it into label, trial_idx, chunk_idx.
+        md_dupl = { 'ap__0_0': 1, 'ap__0_1': 2, 'pp__0_0': 3, 'pp__0_1': 4, 'pp' : 3}
+        with pytest.raises(SPYValueError, match="input string in format `<label>__<trial_idx>_<chunk_idx>'"):
+            _ = metadata_nest(md_dupl)
+
+    def test_metadata_unnest(self):
+        # Test with valid input
+        md_nested = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': {'pp__0_0': 3, 'pp__0_1': 4}}
+        md_unnested = metadata_unnest(md_nested)
+        expected = { 'ap__0_0': 1, 'ap__0_1': 2, 'pp__0_0': 3, 'pp__0_1': 4}
+        assert md_unnested == expected
+
+        # Test exc: with duplicate key in several nested dicts.
+        md_nested_dupl_key = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': {'ap__0_0': 3, 'pp__0_1': 4}}
+        with pytest.raises(SPYValueError, match="Duplicate key"):
+            _ = metadata_unnest(md_nested_dupl_key)
+
+        # Test exc: input not a nested dict
+        md_not_nested = { 'ap' : { 'ap__0_0': 1, 'ap__0_1': 2}, 'pp': 1 }
+        with pytest.raises(SPYValueError, match="is not a dict"):
+            _ = metadata_unnest(md_not_nested)
+
+
 class TestMetadataUsingFooof():
     """
     Test 2nd cF function return value, with FOOOF as example compute method.
     """
 
     tfData = _get_fooof_signal()
-    expected_fooof_dict_entries = ["aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error"]
+    expected_metadata_keys = spy.specest.compRoutines.FooofSpy.metadata_keys  # ("aperiodic_params", "gaussian_params", "peak_params", "n_peaks", "r_squared", "error",)
+    num_expected_metadata_keys = len(expected_metadata_keys)
 
     @staticmethod
     def get_fooof_cfg():
@@ -177,21 +210,28 @@ class TestMetadataUsingFooof():
         assert spec_dt.data.shape == (num_trials_fooof, 1, data_size, 1)
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset as attribute.
-        keys_unique = [kv + "__0_0" for kv in self.expected_fooof_dict_entries]
+        keys_unique = [kv + "__0_0" for kv in self.expected_metadata_keys]
 
         # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
         assert spec_dt.metadata is not None
         assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
         num_metadata_attrs = len(spec_dt.metadata.keys())  # Get keys of dict
-        assert num_metadata_attrs == 6
+        assert num_metadata_attrs == self.num_expected_metadata_keys
+        spec_dt_metadata_unnested = metadata_unnest(spec_dt.metadata)
         for kv in keys_unique:
-            assert kv in spec_dt.metadata.keys()
+            assert kv in spec_dt_metadata_unnested.keys()
             # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
             # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
-        assert isinstance(spec_dt.metadata.get(kv), (list, np.ndarray))
+            assert isinstance(spec_dt_metadata_unnested.get(kv), (list, np.ndarray))
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
+
+        # Test the metadata_keys entry of the CR:
+        for k in spy.specest.compRoutines.FooofSpy.metadata_keys:
+            assert k in spec_dt.metadata
+        assert len(spec_dt.metadata) == len(spy.specest.compRoutines.FooofSpy.metadata_keys)
+
 
     def test_par_compute_with_sequential_storage(self):
         """
@@ -217,18 +257,21 @@ class TestMetadataUsingFooof():
         assert not np.isnan(spec_dt.data).any()
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset as attribute.
-        keys_unique = [kv + "__0_0" for kv in self.expected_fooof_dict_entries]
+        keys_unique = [kv + "__0_0" for kv in self.expected_metadata_keys]
+
+        expected_num_metadata_keys = len(self.expected_metadata_keys)
+        spec_dt_metadata_unnested = metadata_unnest(spec_dt.metadata)
 
         # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
         assert spec_dt.metadata is not None
         assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
         num_metadata_attrs = len(spec_dt.metadata.keys())
-        assert num_metadata_attrs == 6
+        assert num_metadata_attrs == expected_num_metadata_keys
         for kv in keys_unique:
-            assert kv in spec_dt.metadata.keys()
+            assert kv in spec_dt_metadata_unnested.keys()
             # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
             # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
-            assert isinstance(spec_dt.metadata.get(kv), list) or isinstance(spec_dt.metadata.get(kv), np.ndarray)
+            assert isinstance(spec_dt_metadata_unnested.get(kv), list) or isinstance(spec_dt_metadata_unnested.get(kv), np.ndarray)
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
@@ -259,18 +302,22 @@ class TestMetadataUsingFooof():
         assert not np.isnan(spec_dt.data).any()
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset 'data' as attributes.
-        keys_unique = [kv + "__0_0" for kv in self.expected_fooof_dict_entries]
+        keys_unique = [kv + "__0_0" for kv in self.expected_metadata_keys]
 
         # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
         assert spec_dt.metadata is not None
         assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
         num_metadata_attrs = len(spec_dt.metadata.keys())
-        assert num_metadata_attrs == 6 * num_trials_fooof
+
+        expected_num_metadata_keys = len(self.expected_metadata_keys)
+        spec_dt_metadata_unnested = metadata_unnest(spec_dt.metadata)
+        assert num_metadata_attrs == expected_num_metadata_keys
+        assert len(spec_dt_metadata_unnested.keys()) == expected_num_metadata_keys * num_trials_fooof
         for kv in keys_unique:
-            assert (kv) in spec_dt.metadata.keys()
+            assert (kv) in spec_dt_metadata_unnested.keys()
             # Note that the cF-specific unpacking may convert ndarray values into something else. In case of fooof, we convert
             # some ndarrays (all the peak_params__n_m and gaussian_params__n_m) to list, so we accept both types here.
-            assert isinstance(spec_dt.metadata.get(kv), list) or isinstance(spec_dt.metadata.get(kv), np.ndarray)
+            assert isinstance(spec_dt_metadata_unnested.get(kv), list) or isinstance(spec_dt_metadata_unnested.get(kv), np.ndarray)
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
@@ -309,16 +356,18 @@ class TestMetadataUsingFooof():
         assert spec_dt.data.shape == (num_trials_fooof_selected, 1, data_size, 1)
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset 'data' as attributes.
-        keys_unique = [kv + "__0_0" for kv in self.expected_fooof_dict_entries]
+        keys_unique = [kv + "__0_0" for kv in self.expected_metadata_keys]
 
         # Now for the metadata. This got attached to the syncopy data instance as the 'metadata' attribute. It is a hdf5 group.
         assert spec_dt.metadata is not None
         assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
         num_metadata_attrs = len(spec_dt.metadata.keys())
-        assert num_metadata_attrs == 6 * num_trials_fooof_selected
+        assert num_metadata_attrs == self.num_expected_metadata_keys
+        spec_dt_metadata_unnested = metadata_unnest(spec_dt.metadata)
+        assert len(spec_dt_metadata_unnested.keys()) == self.num_expected_metadata_keys * num_trials_fooof_selected
         for kv in keys_unique:
-            assert (kv) in spec_dt.metadata.keys()
-            assert isinstance(spec_dt.metadata.get(kv), (list, np.ndarray))
+            assert (kv) in spec_dt_metadata_unnested.keys()
+            assert isinstance(spec_dt_metadata_unnested.get(kv), (list, np.ndarray))
 
     def test_channel_par(self):
         """
@@ -358,7 +407,7 @@ class TestMetadataUsingFooof():
 
         # check metadata from 2nd cF return value, added to the hdf5 dataset 'data' as attributes.
         keys_unique = list()
-        for fde in self.expected_fooof_dict_entries:
+        for fde in self.expected_metadata_keys:
             for trial_idx in range(num_trials_fooof):
                 for call_idx in range(calls_per_trial):
                     keys_unique.append(encode_unique_md_label(fde, trial_idx, call_idx))
@@ -366,10 +415,13 @@ class TestMetadataUsingFooof():
         assert spec_dt.metadata is not None
         assert isinstance(spec_dt.metadata, dict)  # Make sure it is a standard dict, not a hdf5 group.
         num_metadata_attrs = len(spec_dt.metadata.keys())
-        assert num_metadata_attrs == 6 * num_trials_fooof * calls_per_trial
+
+        spec_dt_metadata_unnested = metadata_unnest(spec_dt.metadata)
+        assert num_metadata_attrs == self.num_expected_metadata_keys
+        assert len(spec_dt_metadata_unnested.keys()) == self.num_expected_metadata_keys * num_trials_fooof * calls_per_trial
         for kv in keys_unique:
-            assert kv in spec_dt.metadata.keys()
-            assert isinstance(spec_dt.metadata.get(kv), (list, np.ndarray))
+            assert kv in spec_dt_metadata_unnested.keys()
+            assert isinstance(spec_dt_metadata_unnested.get(kv), (list, np.ndarray))
 
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'

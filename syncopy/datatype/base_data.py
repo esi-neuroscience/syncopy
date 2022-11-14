@@ -192,7 +192,7 @@ class BaseData(ABC):
             setattr(self, "_" + propertyName, None)
         else:
             if not isinstance(inData, np.ndarray):
-                raise SPYValueError(lgl="object of type 'np.ndarray' or None", varname="inData")
+                raise SPYValueError(legal="object of type 'np.ndarray' or None", varname="inData")
             self._set_dataset_property_with_ndarray(inData, propertyName, inData.ndim)
 
     def _unregister_seq_dataset(self, propertyName, del_from_file=True):
@@ -372,7 +372,7 @@ class BaseData(ABC):
 
             if propertyName not in self._hdfFileDatasetProperties:
                 if getattr(self, "_" + propertyName) is not None and not isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
-                    raise SPYValueError(lgl="propertyName that does not clash with existing attributes",
+                    raise SPYValueError(legal="propertyName that does not clash with existing attributes",
                                         varname=propertyName, actual=propertyName)
 
             h5f = self._get_backing_hdf5_file_handle()
