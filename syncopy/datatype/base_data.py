@@ -410,12 +410,12 @@ class BaseData(ABC):
 
         Parameters
         ----------
-            inData : h5py.Dataset
-                HDF5 dataset to be stored in property of name `propertyName`
-            propertyName : str
-                Name of the property to be filled with the dataset
-            ndim : int
-                Number of expected array dimensions.
+        inData : h5py.Dataset
+            HDF5 dataset to be stored in property of name `propertyName`
+        propertyName : str
+            Name of the property to be filled with the dataset
+        ndim : int
+            Number of expected array dimensions.
         """
 
         if inData.id.valid == 0:
@@ -431,13 +431,13 @@ class BaseData(ABC):
 
         if propertyName == "data":
             self._check_dataset_property_discretedata(inData)
-            self._mode = inData.file.mode
-            self.filename = inData.file.filename            
+            self.filename = inData.file.filename
         else:
             # creates hidden attribute behind the property on the fly
             if not hasattr(self, "_" + propertyName):
-                setattr(self, "_" + propertyName, None)  # Prevent error on gettattr call below.
+                setattr(self, "_" + propertyName, None)
 
+        self._mode = inData.file.mode
         setattr(self, "_" + propertyName, inData)
 
     def _set_dataset_property_with_list(self, inData, propertyName, ndim):
@@ -1010,6 +1010,10 @@ class BaseData(ABC):
                 SPYInfo("Empty and non-empty Syncopy object")
                 return False
             return True
+        elif not self._is_empty():
+            if other._is_empty():
+                SPYInfo("Non-empty and empty Syncopy object")
+                return False
 
         # If in-place selections are present, abort
         if self.selection is not None or other.selection is not None:
@@ -1025,10 +1029,16 @@ class BaseData(ABC):
         dimProps = list(set(dimProps).difference(["dimord", "cfg"]))
         for prop in dimProps:
             val_this = getattr(self, prop)
-            if isinstance(val_this, np.ndarray):
-                isEqual = val_this.tolist() == getattr(other, prop).tolist()
+            val_other = getattr(other, prop)
+            if isinstance(val_this, np.ndarray) and isinstance(val_other, np.ndarray):
+                isEqual = val_this.tolist() == val_other.tolist()
+            # catch None
+            elif val_this is None and val_other is not None:
+                isEqual = False
+            elif val_this is not None and val_other is None:
+                isEqual = False
             else:
-                isEqual = val_this == getattr(other, prop)
+                isEqual = val_this == val_other
             if not isEqual:
                 SPYInfo("Mismatch in {}".format(prop))
                 return False

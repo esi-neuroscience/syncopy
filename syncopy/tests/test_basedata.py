@@ -178,13 +178,14 @@ class TestBaseData():
         # test (deep) copies HDF5 files
         with tempfile.TemporaryDirectory() as tdir:
             for dclass in self.classes:
+
                 hname = os.path.join(tdir, "dummy.h5")
                 h5f = h5py.File(hname, mode="w")
-                h5f.create_dataset("dummy", data=self.data[dclass])
+                h5f.create_dataset("data", data=self.data[dclass])
                 h5f.close()
 
                 # hash-matching of shallow-copied HDF5 dataset
-                dummy = getattr(spd, dclass)(data=h5py.File(hname, 'r')["dummy"],
+                dummy = getattr(spd, dclass)(data=h5py.File(hname, 'r')["data"],
                                              samplerate=self.samplerate)
 
                 # attach some aux. info
@@ -362,3 +363,7 @@ class TestBaseData():
                                          trialdefinition=self.trl[dclass],
                                          samplerate=self.samplerate)
             assert dummy != ymmud
+
+
+if __name__ == '__main__':
+    T1 = TestBaseData()
