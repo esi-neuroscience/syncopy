@@ -22,7 +22,7 @@ from syncopy.shared.input_processors import check_passed_kwargs
 # Local imports
 from syncopy.statistics.compRoutines import PSTH
 from syncopy.statistics.psth import Rice_rule, sqrt_rule, get_chan_unit_combs
-from syncopy.statistics.misc import get_analysis_window
+from syncopy.statistics.misc import get_analysis_window, discard_trials_via_selection
 
 available_binsizes = {'rice': Rice_rule, 'sqrt': sqrt_rule}
 available_outputs = ['rate', 'spikecount', 'proportion']
@@ -118,47 +118,19 @@ def spike_psth(data,
 
     # --- parse and digest `latency` (time window of analysis) ---
 
-    window = get_analysis_window(latency, data)
+    window = get_analysis_window(data, latency)
 
     if not vartriallen:
-        # trial idx for whole dataset
-        trl_idx = np.arange(len(data.trials))
-        bmask = (trl_starts <= window[0]) & (trl_ends >= window[1])
+        # this will add/ammend a selection
+        numDiscard = discard_trials_via_selection(data, window)
 
-        # trials which fit completely into window
-        fit_trl_idx = trl_idx[bmask]
-        if fit_trl_idx.size == 0:
-            lgl = 'at least one trial covering the latency window'
-            act = 'no trial that completely covers the latency window'
-            raise SPYValueError(lgl, varname='latency/vartriallen', actual=act)
-
-        # the easy part, no selection so we make one
-        if data.selection is None:
-            data.selectdata(trials=fit_trl_idx, inplace=True)
-            # redefinition needed
-            numDiscard = len(trl_idx) - len(fit_trl_idx)
-        else:
-            # match fitting trials with selected ones
-            fit_trl_idx = np.intersect1d(data.selection.trial_ids, fit_trl_idx)
-            numDiscard = len(data.selection.trial_ids) - len(fit_trl_idx)
-
-            if fit_trl_idx.size == 0:
-                lgl = 'at least one trial covering the latency window'
-                act = 'no trial that completely covers the latency window'
-                raise SPYValueError(lgl, varname='latency/vartriallen', actual=act)
-
-            # now modify and re-apply selection
-            select = data.selection.select.copy()
-            select['trials'] = fit_trl_idx
-            data.selectdata(select, inplace=True)
+        msg = f"Discarded {numDiscard} trials which did not fit into latency window"
+        SPYInfo(msg)
 
         # now redefine local variables
         trl_def = data.selection.trialdefinition
         sinfo = data.selection.trialdefinition[:, :2]
         trials = data.selection.trials
-
-        msg = f"Discarded {numDiscard} trials which did not fit into latency window"
-        SPYInfo(msg)
     else:
         numDiscard = 0
 

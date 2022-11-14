@@ -17,7 +17,10 @@ from syncopy.shared.input_processors import (
     check_passed_kwargs
 )
 from syncopy.shared.tools import get_defaults, get_frontend_cfg
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, SPYWarning
+
+# local imports
+from syncopy.statistics.misc import get_analysis_window, discard_trials_via_selection
 
 __all__ = ["timelockanalysis"]
 
@@ -56,7 +59,7 @@ def timelockanalysis(data, latency='maxperiod', covariance=False, trials='all', 
 
     try:
         data_parser(data, varname="data", empty=False,
-                    dataclass=spy.AnalogData)
+                    dataclass="AnalogData")
     except Exception as exc:
         raise exc
 
@@ -89,4 +92,17 @@ def timelockanalysis(data, latency='maxperiod', covariance=False, trials='all', 
         trl_starts, trl_ends = data.trialintervals[:, 0], data.trialintervals[:, 1]
 
     # --- parse and digest `latency` (time window of analysis) ---
-        
+
+    window = get_analysis_window(data, latency)
+
+    # this will add/ammend a selection
+    numDiscard = discard_trials_via_selection(data, window)
+
+    if numDiscard > 0:
+        msg = f"Discarded {numDiscard} trials which did not fit into latency window"
+        SPYWarning(msg)
+
+    print(data.selection)
+    # now calculate via standard statistics
+    avg = spy.mean(data, dim='trials')
+    var = spy.var(data, dim='trials')
