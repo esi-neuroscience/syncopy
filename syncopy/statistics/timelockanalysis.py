@@ -99,10 +99,9 @@ def timelockanalysis(data, latency='maxperiod', covariance=False, trials='all', 
     numDiscard = discard_trials_via_selection(data, window)
 
     if numDiscard > 0:
-        msg = f"Discarded {numDiscard} trials which did not fit into latency window"
+        msg = f"Discarded {numDiscard} trial(s) which did not fit into latency window"
         SPYWarning(msg)
 
-    print(data.selection)
     # now calculate via standard statistics
     avg = spy.mean(data, dim='trials')
-    var = spy.var(data, dim='trials')
+    # var = spy.var(data, dim='trials')

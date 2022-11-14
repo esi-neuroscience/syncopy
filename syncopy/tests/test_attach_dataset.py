@@ -165,15 +165,16 @@ class TestAttachDataset:
         Test that we can run attach, update and detach an extra sequential
         dataset to Syncopy AnalogData Object.
         """
-        def some_local_func():
-            adt = _get_fooof_signal()
+
+        adt = _get_fooof_signal()
+
+        def some_local_func(data1, data2):
             assert isinstance(adt, spy.AnalogData)
 
             # Copying
             adt2 = adt.copy()
 
-            extra_data = np.zeros((3, 3), dtype=np.float64)
-            adt._register_seq_dataset("dset_mean", extra_data)
+            adt._register_seq_dataset("dset_mean", data1)
 
             # Equality testing
             assert adt != adt2
@@ -181,11 +182,10 @@ class TestAttachDataset:
             assert hasattr(adt, "_dset_mean")
             assert isinstance(adt._dset_mean, h5py.Dataset)
             assert isinstance(adt._dset_mean.file, h5py.File)
-            assert np.array_equal(adt._dset_mean[()], extra_data)
+            assert np.array_equal(adt._dset_mean[()], data1)
 
             # Update
-            extra_data2 = np.zeros((3, 3), dtype=np.float64) + 2
-            adt._register_seq_dataset("dset_mean", extra_data2)
+            adt._register_seq_dataset("dset_mean", data2)
 
             # Unregister
             adt._unregister_seq_dataset("dset_mean", del_from_file=True)
@@ -193,9 +193,18 @@ class TestAttachDataset:
             assert not "dset_mean" in h5py.File(adt.filename, "r").keys()
             assert "data" in h5py.File(adt.filename, "r").keys()
             # Let it get out of scope to call destructor.
+            del adt2
 
-        some_local_func()
+        extra_data1 = np.zeros((3, 3), dtype=np.float64)
+        extra_data2 = np.zeros((3, 3), dtype=np.float64) + 2
+        some_local_func(extra_data1, extra_data2)
         assert not 'adt' in locals()
+
+        # repeat with hdf5 datasets
+        with tempfile.TemporaryDirectory() as tdir:
+            file1 = h5py.File(os.path.join(tdir, "dummy1.h5", 'w'))
+            file2 = h5py.File(os.path.join(tdir, "dummy2.h5", 'w'))
+            file1.create_dataset
 
     def test_attach_None_to_analog_data(self):
         """

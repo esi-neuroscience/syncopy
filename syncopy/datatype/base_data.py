@@ -173,31 +173,46 @@ class BaseData(ABC):
         """
         Register a new dataset, so that it is handled during saving, comparison, copy and other operations.
         This dataset is not managed in any way during parallel operations and is intended for
-        things like sequential statistics. Thus it is NOT safe to use this in a
+        holding additional data things like statistics. Thus it is NOT safe to use this in a
         multi-threaded/parallel context, like in a compute function (cF).
 
         Parameters
         ----------
-            propertyName : str
-                The name for the new dataset, this will be used as the dataset name in the hdf5 container when saving.
-                It will be added as an attribute named `'_' + propertyName` to this SyncopyData object.
-                Note that this means that your propertyName must not clash with other attribute names of syncopy data objects.
-                To ensure the latter, it is recommended to use names with a prefix like `'dset_'`. Clashes will be detected and result in errors.
-            in_data : None or np.ndarray
-                The data to store. Must have the final number of dimensions you want.
+        propertyName : str
+            The name for the new dataset, this will be used as the dataset name in the hdf5 container
+            when saving. It will be added as an attribute named `'_' + propertyName` to this SyncopyData object.
+            Note that this means that your propertyName must not clash with other attribute names of 
+            syncopy data objects. To ensure the latter, it is recommended to use names with a prefix like 
+            `'dset_'`. Clashes will be detected and result in errors.
+        in_data : None or np.ndarray or h5py.Dataset
+            The data to store. Must have the final number of dimensions you want.
         """
         if not propertyName in self._hdfFileDatasetProperties:
             self._hdfFileDatasetProperties = self._hdfFileDatasetProperties + (propertyName,)
+
+        # trivial case
         if inData is None:
             setattr(self, "_" + propertyName, None)
-        else:
-            if not isinstance(inData, np.ndarray):
-                raise SPYValueError(lgl="object of type 'np.ndarray' or None", varname="inData")
-            self._set_dataset_property_with_ndarray(inData, propertyName, inData.ndim)
+            return
+
+        supportedSetters = {
+            np.ndarray: self._set_dataset_property_with_ndarray,
+            h5py.Dataset: self._set_dataset_property_with_dataset,
+        }
+
+        try:
+            # same attribute for both ndarray and hdf5 dataset
+            ndim = inData.ndim
+        except AttributeError:
+            msg = "HDF5 dataset, or NumPy array"
+            raise SPYTypeError(inData, varname="data", expected=msg)
+
+        supportedSetters[type(inData)](inData, propertyName, ndim=ndim)
 
     def _unregister_seq_dataset(self, propertyName, del_from_file=True):
         """
-        Unregister and delete a sequential dataset from memory, and optionally delete it from the backing hdf5 file.
+        Unregister and delete an additional dataset from the Syncopy data object,
+        and optionally delete it from the backing hdf5 file.
 
         Assumes that the backing h5py file is open in writeable mode.
 
@@ -228,10 +243,13 @@ class BaseData(ABC):
                     SPYWarning("Could not delete dataset from file.")
 
     def _update_seq_dataset(self, propertyName, inData=None):
+        """
+        Resets an additional dataset which was already registered via
+        ``_register_seq_dataset`` to ``inData``.
+        """
         if getattr(self, "_" + propertyName) is not None:
             self._unregister_seq_dataset(propertyName)
         self._register_seq_dataset(propertyName, inData)
-
 
     def _set_dataset_property(self, inData, propertyName, ndim=None):
         """Set property that is streamed from HDF dataset ('dataset property')
@@ -268,8 +286,6 @@ class BaseData(ABC):
         except KeyError:
             msg = "filename of HDF5 file, HDF5 dataset, or NumPy array"
             raise SPYTypeError(inData, varname="data", expected=msg)
-        except Exception as exc:
-            raise exc
 
     def _set_dataset_property_with_none(self, inData, propertyName, ndim):
         """Set a dataset property to None"""
@@ -331,13 +347,13 @@ class BaseData(ABC):
             inData : numpy.ndarray
                 NumPy array to be stored in property of name `propertyName`
             propertyName : str
-                Name of the property to be filled with `inData`. Will get an underscore (`'_'`) prefix added, so do not include that.
+                Name of the property to be filled with `inData`. Will get an underscore (`'_'`) prefix added, 
+                so do not include that.
             ndim : int
                 Number of expected array dimensions.
         """
-
         # Ensure array has right no. of dimensions
-        array_parser(inData, varname="data", dims=ndim)
+        array_parser(inData, varname=f"{propertyaName}", dims=ndim)
 
         # Gymnastics for `DiscreteData` objects w/non-standard `dimord`s.
         # This only applies to the 'main' dataset called 'data'. The checks are not needed
@@ -346,7 +362,7 @@ class BaseData(ABC):
             self._check_dataset_property_discretedata(inData)
         else:
             if not hasattr(self, "_" + propertyName):
-                setattr(self, "_" + propertyName, None) # Prevent error on gettattr call below.
+                setattr(self, "_" + propertyName, None)  # Prevent error on gettattr call below.
 
         # If there is existing data, replace values if shape and type match
         if isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
@@ -413,11 +429,14 @@ class BaseData(ABC):
             act = "{}-dimensional HDF5 dataset".format(inData.ndim)
             raise SPYValueError(legal=lgl, varname="data", actual=act)
 
-        # Gymnastics for `DiscreteData` objects w/non-standard `dimord`s
-        self._check_dataset_property_discretedata(inData)
-
-        self._mode = inData.file.mode
-        self.filename = inData.file.filename
+        if propertyName == "data":
+            self._check_dataset_property_discretedata(inData)
+            self._mode = inData.file.mode
+            self.filename = inData.file.filename            
+        else:
+            # creates hidden attribute behind the property on the fly
+            if not hasattr(self, "_" + propertyName):
+                setattr(self, "_" + propertyName, None)  # Prevent error on gettattr call below.
 
         setattr(self, "_" + propertyName, inData)
 
