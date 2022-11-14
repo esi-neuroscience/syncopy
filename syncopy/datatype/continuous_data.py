@@ -443,7 +443,7 @@ class AnalogData(ContinuousData):
 
         # FIXME: I think escalating `dimord` to `BaseData` should be sufficient so that
         # the `if any(key...) loop in `BaseData.__init__()` takes care of assigning a default dimord
-        if data is not None and dimord is None:
+        if dimord is None:
             dimord = self._defaultDimord
 
         # Call parent initializer
@@ -574,7 +574,7 @@ class SpectralData(ContinuousData):
         self._freq = None
 
         # FIXME: See similar comment above in `AnalogData.__init__()`
-        if data is not None and dimord is None:
+        if dimord is None:
             dimord = self._defaultDimord
 
         # Call parent initializer
@@ -759,28 +759,25 @@ class TimeLockData(ContinuousData):
                  channel=None,
                  dimord=None):
 
-        """Initialize an :class:`TimeLockData` object.
+        """
+        Initialize an :class:`TimeLockData` object.
 
-            Parameters
-            ----------
-                data : 2D :class:numpy.ndarray or HDF5 dataset
-                    multi-channel time series data with uniform sampling
-                filename : str
-                    path to target filename that should be used for writing
-                samplerate : float
-                    sampling rate in Hz
-                channel : str or list/array(str)
-                dimord : list(str)
-                    ordered list of dimension labels
+        Parameters
+        ----------
+        data : 2D :class:numpy.ndarray or HDF5 dataset
+            multi-channel time series data with uniform sampling
+        filename : str
+            path to target filename that should be used for writing
+        samplerate : float
+            sampling rate in Hz
+        channel : str or list/array(str)
+        dimord : list(str)
+            ordered list of dimension labels
 
-            1. `filename` + `data` : create hdf dataset incl. sampleinfo @filename
-            2. just `data` : try to attach data (error checking done by :meth:`AnalogData.data.setter`)
-
-            See also
-            --------
-            :func:`syncopy.definetrial`
-
-            """
+        See also
+        --------
+        :func:`syncopy.definetrial`
+        """
 
         if dimord is None:
             dimord = self._defaultDimord
@@ -821,11 +818,11 @@ class TimeLockData(ContinuousData):
         Override trialdefinition setter, which is special for time-locked data:
         all trials have to have the same length and relative timings.
 
-        So the trialdefinition has 0 offsets everywhere, and it has the general
+        So the trialdefinition has the same offsets everywhere, and it has the general
         simple structure:
-                              [[0, nTime, 0],
-                              [nTime, 2 * nTime, 0],
-                              [2 * nTime, 3 * nTime, 0],
+                              [[0, nSamples, offset],
+                              [nSamples, 2 * nSamples, offset],
+                              [2 * nSamples, 3 * nSamples, offset],
                               ...]
         """
 

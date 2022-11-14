@@ -204,7 +204,6 @@ class TestAnalogData():
     def test_empty(self):
         dummy = AnalogData()
         assert len(dummy.cfg) == 0
-        assert dummy.dimord is None
         for attr in ["channel", "data", "sampleinfo", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
@@ -705,7 +704,6 @@ class TestSpectralData():
     def test_sd_empty(self):
         dummy = SpectralData()
         assert len(dummy.cfg) == 0
-        assert dummy.dimord is None
         for attr in ["channel", "data", "freq", "sampleinfo", "taper", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
