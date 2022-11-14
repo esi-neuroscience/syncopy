@@ -2290,6 +2290,8 @@ class Selector:
 
         # Get list of print-worthy attributes
         ppattrs = [attr for attr in self.__dir__() if not attr.startswith("_")]
+        # legacy, we have proper `Selector.trials` now
+        ppattrs.remove('trial_ids')
         ppattrs.sort()
 
         # Construct dict of pretty-printable property info
@@ -2311,7 +2313,7 @@ class Selector:
                         attr,
                         "s" if not attr.endswith("s") else "",
                     )
-            elif isinstance(val, list):
+            elif isinstance(val, (list, Indexer)):
                 ppdict[attr] = "{0:d} {1:s}{2:s}, ".format(
                     len(val), attr, "s" if not attr.endswith("s") else ""
                 )
