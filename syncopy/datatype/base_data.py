@@ -353,7 +353,7 @@ class BaseData(ABC):
                 Number of expected array dimensions.
         """
         # Ensure array has right no. of dimensions
-        array_parser(inData, varname=f"{propertyaName}", dims=ndim)
+        array_parser(inData, varname=f"{propertyName}", dims=ndim)
 
         # Gymnastics for `DiscreteData` objects w/non-standard `dimord`s.
         # This only applies to the 'main' dataset called 'data'. The checks are not needed

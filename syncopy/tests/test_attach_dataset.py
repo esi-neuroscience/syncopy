@@ -166,9 +166,9 @@ class TestAttachDataset:
         dataset to Syncopy AnalogData Object.
         """
 
-        adt = _get_fooof_signal()
-
         def some_local_func(data1, data2):
+
+            adt = _get_fooof_signal()
             assert isinstance(adt, spy.AnalogData)
 
             # Copying
@@ -185,7 +185,7 @@ class TestAttachDataset:
             assert np.array_equal(adt._dset_mean[()], data1)
 
             # Update
-            adt._register_seq_dataset("dset_mean", data2)
+            adt._update_seq_dataset("dset_mean", data2)
 
             # Unregister
             adt._unregister_seq_dataset("dset_mean", del_from_file=True)
@@ -193,18 +193,26 @@ class TestAttachDataset:
             assert not "dset_mean" in h5py.File(adt.filename, "r").keys()
             assert "data" in h5py.File(adt.filename, "r").keys()
             # Let it get out of scope to call destructor.
+            del adt
             del adt2
 
         extra_data1 = np.zeros((3, 3), dtype=np.float64)
         extra_data2 = np.zeros((3, 3), dtype=np.float64) + 2
         some_local_func(extra_data1, extra_data2)
-        assert not 'adt' in locals()
+        assert 'adt' not in locals()
 
         # repeat with hdf5 datasets
         with tempfile.TemporaryDirectory() as tdir:
-            file1 = h5py.File(os.path.join(tdir, "dummy1.h5", 'w'))
-            file2 = h5py.File(os.path.join(tdir, "dummy2.h5", 'w'))
-            file1.create_dataset
+            file1 = h5py.File(os.path.join(tdir, "dummy1.h5"), 'w')
+            extra_ds1 = file1.create_dataset("d1", extra_data1.shape)
+            extra_ds1[()] = extra_data1
+
+            file2 = h5py.File(os.path.join(tdir, "dummy2.h5"), 'w')
+            extra_ds2 = file2.create_dataset("d2", extra_data2.shape)
+            extra_ds2[()] = extra_data2
+
+            some_local_func(extra_ds1, extra_ds2)
+            assert 'adt' not in locals()
 
     def test_attach_None_to_analog_data(self):
         """
@@ -310,7 +318,27 @@ class TestAttachDataset:
             spkd2._unregister_seq_dataset("dset_mean")
             assert "dset_mean" not in h5py.File(tmp_spy_filename, mode="r").keys()
 
+        spkd = get_spike_data()
 
+        # repeat with hdf5 datasets
+        with tempfile.TemporaryDirectory() as tdir:
+
+            file1 = h5py.File(os.path.join(tdir, "dummy.h5"), 'w')
+            extra_dset = file1.create_dataset("d1", extra_data.shape)
+            extra_dset[()] = extra_data
+
+            spkd._register_seq_dataset("dset_mean", extra_dset)
+
+            # Test save and load.
+            tmp_spy_filename = os.path.join(tmpdirname, "myfile.spike")
+            spy.save(spkd, filename=tmp_spy_filename)
+            spkd2 = spy.load(filename=tmp_spy_filename)
+            assert isinstance(spkd2._dset_mean, h5py.Dataset)
+            assert np.array_equal(spkd._dset_mean[()], spkd2._dset_mean[()])
+
+            # Test delete/unregister.
+            spkd2._unregister_seq_dataset("dset_mean")
+            assert "dset_mean" not in h5py.File(tmp_spy_filename, mode="r").keys()
 
 
 
