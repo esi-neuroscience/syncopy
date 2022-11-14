@@ -633,14 +633,11 @@ def process_io(func):
         if any([not sel for sel in ingrid]):
             res, details = np.empty(outshape, dtype=outdtype), {}
         else:
-            try:
-                with h5py.File(infilename, mode="r") as h5fin:
-                    if fancy:
-                        arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
-                    else:
-                        arr = np.array(h5fin[indset][ingrid])
-            except Exception as exc:  # TODO: aren't these 2 lines superfluous?
-                raise exc
+            with h5py.File(infilename, mode="r") as h5fin:
+                if fancy:
+                    arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
+                else:
+                    arr = np.array(h5fin[indset][ingrid])
 
             # === STEP 2 === perform computation
             # Ensure input array shape was not inflated by scalar selection
