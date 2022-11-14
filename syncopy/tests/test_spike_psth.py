@@ -15,7 +15,7 @@ if __acme__:
 import syncopy as spy
 from syncopy.shared.errors import SPYValueError
 from syncopy.tests import synth_data as sd
-from syncopy.spikes.spike_psth import available_outputs, available_latencies
+from syncopy.statistics.spike_psth import available_outputs, available_latencies
 
 def get_spike_data(nTrials = 10, seed=None):
     return sd.poisson_noise(nTrials,

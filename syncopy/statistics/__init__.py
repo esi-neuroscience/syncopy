@@ -4,9 +4,8 @@
 # 
 
 # Import __all__ routines from local modules
-from .timelockanalysis import *
-from .timelockanalysis import __all__ as _all_
+from .spike_psth import spike_psth
+from .timelockanalysis import timelockanalysis
 
 # Populate local __all__ namespace
-__all__ = []
-__all__.extend(_all_)
+__all__ = ['spike_psth', 'timelockanalysis']

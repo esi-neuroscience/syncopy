@@ -20,8 +20,8 @@ from syncopy.shared.kwarg_decorators import (
 from syncopy.shared.input_processors import check_passed_kwargs
 
 # Local imports
-from syncopy.spikes.compRoutines import PSTH
-from syncopy.spikes.psth import Rice_rule, sqrt_rule, get_chan_unit_combs
+from syncopy.statistics.compRoutines import PSTH
+from syncopy.statistics.psth import Rice_rule, sqrt_rule, get_chan_unit_combs
 
 available_binsizes = {'rice': Rice_rule, 'sqrt': sqrt_rule}
 available_outputs = ['rate', 'spikecount', 'proportion']
