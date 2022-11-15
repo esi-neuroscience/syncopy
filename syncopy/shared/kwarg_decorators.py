@@ -468,17 +468,6 @@ def detect_parallel_client(func):
         kill_spawn = False
         has_slurm = check_slurm_available()
 
-        # we are on a HPC but ACME is missing, LocalCluster still got created
-        # but a warning is issued
-        if parallel is True and has_slurm and not spy.__acme__:
-            msg = ("We are apparently on a slurm cluster but Syncopy does not provide an "
-                   "automatic Dask SLURMCluster on its own!"
-                   "\nPlease consider using ACME (https://github.com/esi-neuroscience/acme)"
-                   "\nor configure your own cluster via `dask_jobqueue.SLURMCluster()`"
-                   "\n\nCreating a LocalCluster as fallback.."
-                   )
-            SPYWarning(msg)
-
         # This effectively searches for a global dask cluster, and sets
         # parallel=True if one was found. If no cluster was found, parallel is set to False,
         # so no automatic spawing of a LocalCluster or SLURMCluster via ACME,
@@ -498,6 +487,18 @@ def detect_parallel_client(func):
             try:
                 dd.get_client()
             except ValueError:
+                # we are on a HPC but ACME is missing, LocalCluster still got created
+                # but a warning is issued
+                if has_slurm and not spy.__acme__:
+                    msg = ("We are apparently on a slurm cluster but could not find a Dask client.\n"
+                           "Syncopy does not provide an "
+                           "automatic Dask SLURMCluster on its own!"
+                           "\nPlease consider using ACME (https://github.com/esi-neuroscience/acme)"
+                           "\nor configure your own cluster via `dask_jobqueue.SLURMCluster()`"
+                           "\n\nCreating a LocalCluster as fallback.."
+                           )
+                    SPYWarning(msg)
+
                 # spawn fallback local cluster
                 cluster = dd.LocalCluster()
                 # attaches to local cluster residing in global namespace
