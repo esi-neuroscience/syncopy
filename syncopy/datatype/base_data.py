@@ -388,7 +388,7 @@ class BaseData(ABC):
 
             if propertyName not in self._hdfFileDatasetProperties:
                 if getattr(self, "_" + propertyName) is not None and not isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
-                    raise SPYValueError(lgl="propertyName that does not clash with existing attributes",
+                    raise SPYValueError(legal="propertyName that does not clash with existing attributes",
                                         varname=propertyName, actual=propertyName)
 
             h5f = self._get_backing_hdf5_file_handle()
