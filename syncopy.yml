@@ -3,20 +3,21 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  # SyNCoPy runtime requirements
-  - h5py >= 2.9, < 3
+  # this is to comply with acme 2022.11
+  - python <3.11, >=3.7
+  - dask[distributed] < 2022.11
+  - dask-jobqueue >= 0.7.1, < 0.9
+  - h5py < 4  
+  - numpy >= 1.10, < 2.0
+  - scipy >= 1.5  
   - matplotlib >= 3.5
   - tqdm >= 4.31
   - natsort
-  - numpy >= 1.10, < 2.0
   - pip
   - psutil
-  - python >= 3.8, < 3.9
-  - scipy >= 1.5
   - tqdm >= 4.31
   - fooof >= 1.0
   # Optional packages required for running the test-suite and building the HTML docs
-  - esi-acme
   - ipdb
   - memory_profiler
   - numpydoc

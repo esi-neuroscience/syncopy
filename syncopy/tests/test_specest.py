@@ -10,9 +10,7 @@ import psutil
 import pytest
 import numpy as np
 import scipy.signal as scisig
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
+import dask.distributed as dd
 
 # Local imports
 from syncopy.tests.misc import generate_artificial_data, flush_local_cluster
@@ -21,9 +19,6 @@ from syncopy.shared.errors import SPYValueError, SPYError
 from syncopy.datatype.base_data import Selector
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.shared.tools import StructDict, get_defaults
-
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 
 # Decorator to decide whether or not to run memory-intensive tests
 availMem = psutil.virtual_memory().total
@@ -153,10 +148,9 @@ class TestMTMFFT():
     ftol = 0.25
 
     # Helper function that reduces dataselections (keep `None` selection no matter what)
-    def test_cut_selections(self, fulltests):
-        if not fulltests:
-            self.sigdataSelections.pop(random.choice([-1, 1]))
-            self.artdataSelections.pop(random.choice([-1, 1]))
+    def test_cut_selections(self):
+        self.sigdataSelections.pop(random.choice([-1, 1]))
+        self.artdataSelections.pop(random.choice([-1, 1]))
 
     @staticmethod
     def get_adata():
@@ -338,7 +332,6 @@ class TestMTMFFT():
             assert np.max(spec.freq - freqs) < self.ftol
             assert spec.taper.size == 1
 
-    @skip_without_acme
     @skip_low_mem
     def test_parallel(self, testcluster):
         # collect all tests of current class and repeat them using dask
@@ -446,11 +439,10 @@ class TestMTMConvol():
                     #    "toilim": [-20, 60.8]}] FIXME
 
     # Helper function that reduces dataselections (keep `None` selection no matter what)
-    def test_tf_cut_selections(self, fulltests):
-        if not fulltests:
-            self.dataSelections.pop(random.choice([-1, 1]))
+    def test_tf_cut_selections(self):
+        self.dataSelections.pop(random.choice([-1, 1]))
 
-    def test_tf_output(self, fulltests):
+    def test_tf_output(self):
         # Set up basic TF analysis parameters to not slow down things too much
         cfg = get_defaults(freqanalysis)
         cfg.method = "mtmconvol"
@@ -460,23 +452,15 @@ class TestMTMConvol():
         outputDict = {"fourier": "complex", "abs": "float", "pow": "float"}
 
         for select in self.dataSelections:
-            if fulltests:
-                cfg.select = select
-                if select is not None and "toilim" in cfg.select.keys():
-                    with pytest.raises(SPYValueError) as err:
-                        freqanalysis(cfg, self.tfData)
-                        assert "expected no `toi` specification due to active in-place time-selection" in str(err)
-                    continue
-                for key, value in outputDict.items():
-                    cfg.output = key
-                    tfSpec = freqanalysis(cfg, self.tfData)
-                    assert value in tfSpec.data.dtype.name
-            else:  # randomly pick from 'fourier', 'abs' and 'pow' and work w/smaller signal
-                cfg.select = {"trials" : 0, "channel" : 1}
-                cfg.output = random.choice(list(outputDict.keys()))
-                cfg.toi = np.linspace(-2, 6, 5)
-                tfSpec = freqanalysis(cfg, _make_tf_signal(2, 2, self.seed, fadeIn=self.fadeIn, fadeOut=self.fadeOut)[0])
-                assert outputDict[cfg.output] in tfSpec.data.dtype.name
+            cfg.select = select
+            if select is not None and ("toilim" in cfg.select.keys() or "toi" in cfg.select.keys()):
+                with pytest.raises(SPYValueError) as err:
+                    freqanalysis(cfg, self.tfData)
+                continue
+            for key, value in outputDict.items():
+                cfg.output = key
+                tfSpec = freqanalysis(cfg, self.tfData)
+                assert value in tfSpec.data.dtype.name
 
     def test_tf_solution(self):
         # Compute "full" non-overlapping TF spectrum, i.e., center analysis windows
@@ -660,7 +644,7 @@ class TestMTMConvol():
         with pytest.raises(SPYError) as spyval:
             freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
 
-    def test_tf_irregular_trials(self, fulltests):
+    def test_tf_irregular_trials(self):
         # Settings for computing "full" non-overlapping TF-spectrum with DPSS tapers:
         # ensure non-equidistant/overlapping trials are processed (padded) correctly
         # also make sure ``toi = "all"`` works under any circumstance
@@ -671,13 +655,8 @@ class TestMTMConvol():
         cfg.output = "pow"
         cfg.keeptapers = True
 
-        # Reduce test-data size for quick test runs
-        if fulltests:
-            nTrials = 5
-            nChannels = 8
-        else:
-            nTrials = 2
-            nChannels = 2
+        nTrials = 2
+        nChannels = 2
 
         # start harmless: equidistant trials w/multiple tapers
         cfg.toi = 0.0
@@ -742,9 +721,8 @@ class TestMTMConvol():
         for tk, trl_time in enumerate(tfSpec.time):
             assert np.allclose(np.ceil(artdata.time[tk].size / artdata.samplerate / cfg.t_ftimwin), trl_time.size)
 
-    @skip_without_acme
     @skip_low_mem
-    def test_tf_parallel(self, testcluster, fulltests):
+    def test_tf_parallel(self, testcluster):
         # collect all tests of current class and repeat them running concurrently
         client = dd.Client(testcluster)
         quick_tests = [attr for attr in self.__dir__()
@@ -756,7 +734,7 @@ class TestMTMConvol():
             getattr(self, test)()
             flush_local_cluster(testcluster)
         for test in slow_tests:
-            getattr(self, test)(fulltests)
+            getattr(self, test)()
             flush_local_cluster(testcluster)
 
         # now create uniform `cfg` for remaining SLURM tests
@@ -767,13 +745,8 @@ class TestMTMConvol():
         cfg.toi = 0
         cfg.output = "pow"
 
-        # reduce test dataset size unless we're in `--full` mode
-        if fulltests:
-            nChannels = self.nChannels
-            nTrials = self.nTrials
-        else:
-            nChannels = 3
-            nTrials = 2
+        nChannels = 3
+        nTrials = 2
 
         # no. of HDF5 files that will make up virtual data-set in case of channel-chunking
         chanPerWrkr = 2
@@ -853,9 +826,8 @@ class TestWavelet():
                        "toilim": [-2, 6.8]}]
 
     # Helper function that reduces dataselections (keep `None` selection no matter what)
-    def test_wav_cut_selections(self, fulltests):
-        if not fulltests:
-            self.dataSelections.pop(random.choice([-1, 1]))
+    def test_wav_cut_selections(self):
+        self.dataSelections.pop(random.choice([-1, 1]))
 
     @skip_low_mem
     def test_wav_solution(self):
@@ -1059,9 +1031,8 @@ class TestWavelet():
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
-    @skip_without_acme
     @skip_low_mem
-    def test_wav_parallel(self, testcluster, fulltests):
+    def test_wav_parallel(self, testcluster):
         # collect all tests of current class and repeat them running concurrently
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()
@@ -1077,13 +1048,8 @@ class TestWavelet():
         cfg.output = "pow"
         cfg.toi = "all"
 
-        # reduce test dataset size unless we're in `--full` mode
-        if fulltests:
-            nChannels = self.nChannels
-            nTrials = self.nTrials
-        else:
-            nChannels = 3
-            nTrials = 2
+        nChannels = 3
+        nTrials = 2
 
         # no. of HDF5 files that will make up virtual data-set in case of channel-chunking
         chanPerWrkr = 2
@@ -1157,12 +1123,11 @@ class TestSuperlet():
                        "toilim": [-2, 6.8]}]
 
     # Helper function that reduces dataselections (keep `None` selection no matter what)
-    def test_slet_cut_selections(self, fulltests):
-        if not fulltests:
-            self.dataSelections.pop(random.choice([-1, 1]))
+    def test_slet_cut_selections(self):
+        self.dataSelections.pop(random.choice([-1, 1]))
 
     @skip_low_mem
-    def test_slet_solution(self, fulltests):
+    def test_slet_solution(self):
 
         # Compute TF specturm across entire time-interval (use integer-valued
         # time-points as wavelet centroids)
@@ -1210,11 +1175,11 @@ class TestSuperlet():
             tfSpecFoiLim = freqanalysis(cfg, self.tfData)
             cfg.foilim = None
             assert np.allclose(tfSpecFoiLim.freq, foilimFreqs)
-            if fulltests:
-                tfSpec = freqanalysis(cfg, self.tfData)
-                assert 0.02 > tfSpec.freq.min() > 0
-                assert tfSpec.freq.max() == (self.tfData.samplerate / 2)
-                assert tfSpec.freq.size > 50
+
+            tfSpec = freqanalysis(cfg, self.tfData)
+            assert 0.02 > tfSpec.freq.min() > 0
+            assert tfSpec.freq.max() == (self.tfData.samplerate / 2)
+            assert tfSpec.freq.size > 50
 
             for tk, _ in enumerate(tfSpecFoi.trials):
 
@@ -1226,9 +1191,8 @@ class TestSuperlet():
                 # Ensure timing array was computed correctly and independent of `foi`/`foilim`
                 assert np.array_equal(timeArr, tfSpecFoi.time[tk])
                 assert np.array_equal(tfSpecFoi.time[tk], tfSpecFoiLim.time[tk])
-                if fulltests:
-                    assert np.array_equal(timeArr, tfSpec.time[tk])
-                    assert np.array_equal(tfSpec.time[tk], tfSpecFoi.time[tk])
+                assert np.array_equal(timeArr, tfSpec.time[tk])
+                assert np.array_equal(tfSpec.time[tk], tfSpecFoi.time[tk])
 
                 for chan in range(tfSpecFoi.channel.size):
 
@@ -1267,7 +1231,7 @@ class TestSuperlet():
                     # Be more lenient w/`tfSpec`: don't scan for min/max freq, but all peaks at once
                     # (auto-scale resolution potentially too coarse to differentiate b/w min/max);
 
-    def test_slet_toi(self, fulltests):
+    def test_slet_toi(self):
         # Don't keep trials to speed things up a bit
         cfg = get_defaults(freqanalysis)
         cfg.method = "superlet"
@@ -1281,9 +1245,7 @@ class TestSuperlet():
                    np.arange(-1, 6, 1/self.tfData.samplerate),
                    np.arange(1, 6, 2)]
 
-        # Just pick one `toi` at random for quickly running tests
-        if not fulltests:
-            toiArrs = [random.choice(toiArrs)]
+        toiArrs = [random.choice(toiArrs)]
 
         # Combine `toi`-testing w/in-place data-pre-selection
         for select in self.dataSelections:
@@ -1317,7 +1279,7 @@ class TestSuperlet():
             freqanalysis(cfg, TestSuperlet._get_tf_data_superlet())
             assert "Invalid value of `toi`: 'unsorted list/array'" in str(spyval.value)
 
-    def test_slet_irregular_trials(self, fulltests):
+    def test_slet_irregular_trials(self):
         # Set up wavelet to compute "full" TF spectrum for all time-points
         cfg = get_defaults(freqanalysis)
         cfg.method = "superlet"
@@ -1325,13 +1287,8 @@ class TestSuperlet():
         cfg.output = "pow"
         cfg.toi = "all"
 
-        # Reduce test-data size for quick test runs
-        if fulltests:
-            nTrials = 5
-            nChannels = 16
-        else:
-            nTrials = 2
-            nChannels = 2
+        nTrials = 2
+        nChannels = 2
 
         # start harmless: equidistant trials w/multiple tapers
         artdata = generate_artificial_data(nTrials=nTrials, nChannels=nChannels,
@@ -1364,15 +1321,14 @@ class TestSuperlet():
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
-    @skip_without_acme
     @skip_low_mem
-    def test_slet_parallel(self, testcluster, fulltests):
+    def test_slet_parallel(self, testcluster):
         # collect all tests of current class and repeat them running concurrently
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()
                      if (inspect.ismethod(getattr(self, attr)) and attr not in ["test_slet_parallel", "test_cut_slet_selections"])]
         for test in all_tests:
-            getattr(self, test)(fulltests)
+            getattr(self, test)()
             flush_local_cluster(testcluster)
 
         # now create uniform `cfg` for remaining SLURM tests

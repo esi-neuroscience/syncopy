@@ -7,6 +7,7 @@
 import pytest
 import numpy as np
 import inspect
+import dask.distributed as dd
 
 # Local imports
 import syncopy.datatype as spd
@@ -20,14 +21,6 @@ from syncopy.shared.tools import StructDict
 from syncopy import freqanalysis
 
 import syncopy as spy
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
-
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(
-    not __acme__, reason="acme not available")
-
 
 # The procedure here is:
 # (1) test if `Selector` instance was constructed correctly (i.e., indexing tuples
@@ -854,8 +847,6 @@ class TestSelector():
         with pytest.raises(SPYValueError, match='fancy non-ordered selection'):
             ang.selection.trials[0]
 
-
-    @skip_without_acme
     def test_parallel(self, testcluster):
         # collect all tests of current class and repeat them in parallel
         client = dd.Client(testcluster)
