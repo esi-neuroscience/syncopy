@@ -1125,6 +1125,8 @@ def propagate_properties(in_data, out_data, keeptrials=True, time_axis=False):
             out_data.trialsdefinition = in_data.trialdefinition[0, :][None, :]
 
         out_data.samplerate = in_data.samplerate
+        if selection_cleanup:
+            in_data.selection = None
         return
 
     # --- propagate only channels and deal with the rest below---
@@ -1165,6 +1167,6 @@ def propagate_properties(in_data, out_data, keeptrials=True, time_axis=False):
 
         # this might bite us
         out_data.samplerate = in_data.samplerate
-            
+
     if selection_cleanup:
         in_data.selection = None
