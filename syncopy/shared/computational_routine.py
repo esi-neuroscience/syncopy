@@ -24,7 +24,8 @@ import dask_jobqueue as dj
 
 # Local imports
 import syncopy as spy
-from .tools import get_defaults, check_slurm_available
+from .tools import get_defaults
+from .dask_helpers import check_slurm_available
 from syncopy import __storage__, __acme__
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYParallelError, SPYWarning
 if __acme__:
@@ -32,6 +33,7 @@ if __acme__:
     # # In case of problems w/worker-stealing, uncomment the following lines
     # import dask
     # dask.config.set(distributed__scheduler__work_stealing=False)
+
 from syncopy.shared.metadata import parse_cF_returns, h5_add_metadata
 
 __all__ = []

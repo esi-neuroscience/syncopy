@@ -272,22 +272,4 @@ def get_defaults(obj):
     return StructDict(dct)
 
 
-def check_slurm_available():
-    """
-    Returns `True` if a SLURM instance could be reached via
-    a `sinfo` call, `False` otherwise.
-    """
-
-    # Check if SLURM's `sinfo` can be accessed
-    proc = subprocess.Popen("sinfo",
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            text=True, shell=True)
-    _, err = proc.communicate()
-    # Any non-zero return-code means SLURM is not available
-    # so we disable ACME
-    if proc.returncode != 0:
-        has_slurm = False
-    else:
-        has_slurm = True
-
-    return has_slurm
+    
