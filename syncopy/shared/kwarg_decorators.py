@@ -485,7 +485,9 @@ def detect_parallel_client(func):
         elif parallel is True and (not has_slurm or not spy.__acme__):
             # if already one cluster is reachable do nothing
             try:
-                dd.get_client()
+                client = dd.get_client()
+                msg = f"..attaching to running Dask client:\n{client}"
+                SPYInfo(msg)
             except ValueError:
                 # we are on a HPC but ACME is missing, LocalCluster still got created
                 # but a warning is issued
