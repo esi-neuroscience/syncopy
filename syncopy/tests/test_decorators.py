@@ -203,18 +203,18 @@ class TestSpyCalls():
             cfg = StructDict()
             cfg.groupbychan = letter
             fnameList = [group_objects(data, cfg) for data in self.dataObjs]
-            fnameList = [el for el in groupList if el is not None]
+            fnameList = [el for el in fnameList if el is not None]
 
             assert groupList == fnameList
 
             # 1. cfg positional, 2. data positional
             fnameList = [group_objects(cfg, data) for data in self.dataObjs]
-            fnameList = [el for el in groupList if el is not None]
+            fnameList = [el for el in fnameList if el is not None]
             assert groupList == fnameList
 
             # data positional, cfg as keyword
             fnameList = [group_objects(data, cfg=cfg) for data in self.dataObjs]
-            fnameList = [el for el in groupList if el is not None]
+            fnameList = [el for el in fnameList if el is not None]
             assert groupList == fnameList
 
             # cfg w/data + keyword
@@ -226,14 +226,14 @@ class TestSpyCalls():
 
             # data positional + select keyword
             fnameList = [group_objects(data, select={"channel": [letter]}) for data in self.dataObjs[:letterIdx + 1]]
-            fnameList = [el for el in groupList if el is not None]
+            fnameList = [el for el in fnameList if el is not None]
             assert groupList == fnameList
 
             # data positional + cfg w/select
             cfg = StructDict()
             cfg.select = {"channel": [letter]}
             fnameList = [group_objects(data, cfg) for data in self.dataObjs[:letterIdx + 1]]
-            fnameList = [el for el in groupList if el is not None]
+            fnameList = [el for el in fnameList if el is not None]
 
             assert groupList == fnameList
 
