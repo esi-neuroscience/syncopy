@@ -11,6 +11,7 @@ import math
 import h5py
 import tempfile
 import os
+import dask.distributed as dd
 
 # Local imports
 from syncopy import freqanalysis
@@ -20,12 +21,6 @@ from syncopy.tests.synth_data import AR2_network, phase_diffusion
 from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, parse_cF_returns, _parse_backend_metadata, _merge_md_list, metadata_from_hdf5_file, metadata_nest, metadata_unnest
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 import syncopy as spy
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
-
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 
 
 def _get_fooof_signal(nTrials=100, nChannels = 1, nSamples = 1000, seed=None):
@@ -345,7 +340,7 @@ class TestMetadataUsingFooof():
         data = self.tfData.copy()
 
         selected_trials = [3, 5, 7]
-        cfg.select = { 'trials': selected_trials }
+        cfg.select = {'trials': selected_trials }
 
         spec_dt = freqanalysis(cfg, data, fooof_opt=fooof_opt)
 
@@ -431,7 +426,6 @@ class TestMetadataUsingFooof():
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
 
-    @skip_without_acme
     def test_metadata_parallel(self, testcluster=None):
 
         plt.ioff()

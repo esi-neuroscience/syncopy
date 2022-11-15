@@ -19,15 +19,16 @@ if sys.platform == "win32":
     colorama.deinit()
     colorama.init(strip=False)
 
+import dask.distributed as dd
+import dask_jobqueue as dj
+
 # Local imports
 import syncopy as spy
-from .tools import get_defaults
+from .tools import get_defaults, check_slurm_available
 from syncopy import __storage__, __acme__
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYParallelError, SPYWarning
 if __acme__:
     from acme import ParallelMap
-    import dask.distributed as dd
-    import dask_jobqueue as dj
     # # In case of problems w/worker-stealing, uncomment the following lines
     # import dask
     # dask.config.set(distributed__scheduler__work_stealing=False)
@@ -656,65 +657,17 @@ class ComputationalRoutine(ABC):
                         if len(arg.squeeze().shape) == 1 and arg.squeeze().size == self.numTrials:
                             ArgV[ak] = np.array(chain.from_iterable([[ag] * self.numBlocksPerTrial for ag in arg]))
 
-            # Positional args for computeFunctions consist of `trl_dat` + others
+            # Positional args for `process_io` wrapped computeFunctions consist of `trl_dat` + others
             # (stored in `ArgV`). Account for this when seeting up `ParallelMap`
             if len(ArgV) == 0:
-                inargs = (workerDicts, )
+                self.inargs = (workerDicts, )
             else:
-                inargs = (workerDicts, *ArgV)
-
-            # Concurrent processing requires some additional prep-work...
-
-
-            # Let ACME take care of argument distribution and memory checks: note
-            # that `cfg` is trial-independent, i.e., we can simply throw it in here!
-            self.pmap = ParallelMap(self.computeFunction,
-                                    *inargs,
-                                    n_inputs=self.numCalls,
-                                    write_worker_results=False,
-                                    write_pickle=False,
-                                    partition="auto",
-                                    n_jobs="auto",
-                                    mem_per_job="auto",
-                                    setup_timeout=60,
-                                    setup_interactive=False,
-                                    stop_client="auto",
-                                    verbose=None,
-                                    logfile=None,
-                                    **self.cfg)
-
-            # Edge-case correction: if by chance, any array-like element `x` of `cfg`
-            # satisfies `len(x) = numCalls`, `ParallelMap` attempts to tear open `x` and
-            # distribute its elements across workers. Prevent this!
-            if self.numCalls > 1:
-                for key, value in self.pmap.kwargv.items():
-                    if isinstance(value, (list, tuple)):
-                        if len(value) == self.numCalls:
-                            self.pmap.kwargv[key] = [value]
-                    elif isinstance(value, np.ndarray):
-                        if len(value.squeeze().shape) == 1 and value.squeeze().size == self.numCalls:
-                            self.pmap.kwargv[key] = [value]
-
-            # Check if trials actually fit into memory before we start computation
-            client = self.pmap.daemon.client
-            if isinstance(client.cluster, (dd.LocalCluster, dj.SLURMCluster)):
-                workerMem = [w["memory_limit"] for w in client.cluster.scheduler_info["workers"].values()]
-                if len(workerMem) == 0:
-                    raise SPYParallelError("no online workers found", client=client)
-                workerMemMax = max(workerMem)
-                if self.chunkMem >= mem_thresh * workerMemMax:
-                    self.chunkMem /= 1024**3
-                    workerMemMax /= 1000**3
-                    msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
-                        "worker memory ({1:2.2f} GB) currently not supported"
-                    raise NotImplementedError(msg.format(self.chunkMem, workerMemMax))
-            else:
-                msg = "`ComputationalRoutine` only supports `LocalCluster` and " +\
-                    "`SLURMCluster` dask cluster objects. Proceed with caution. "
-                SPYWarning(msg)
-
-            # Store provided debugging state
+                self.inargs = (workerDicts, *ArgV)
+            # Store provided debugging state for ACME
             self.parallelDebug = parallel_debug
+
+            # store mem_thresh
+            self.mem_thresh = mem_thresh
 
         # Now for the sequential processing case.
         else:
@@ -838,11 +791,96 @@ class ComputationalRoutine(ABC):
         compute_sequential : serial processing counterpart of this method
         """
 
-        # Let ACME do the heavy lifting
-        with self.pmap as pm:
-            pm.compute(debug=self.parallelDebug)
+        # Let ACME take care of argument distribution and memory checks: note
+        # that `cfg` is trial-independent, i.e., we can simply throw it in here!        
+        if __acme__ and check_slurm_available():
+
+            self.pmap = ParallelMap(self.computeFunction,
+                                    *self.inargs,
+                                    n_inputs=self.numCalls,
+                                    write_worker_results=False,
+                                    write_pickle=False,
+                                    partition="auto",
+                                    n_jobs="auto",
+                                    mem_per_job="auto",
+                                    setup_timeout=60,
+                                    setup_interactive=False,
+                                    stop_client="auto",
+                                    verbose=None,
+                                    logfile=None,
+                                    **self.cfg)
+
+            # Edge-case correction: if by chance, any array-like element `x` of `cfg`
+            # satisfies `len(x) = numCalls`, `ParallelMap` attempts to tear open `x` and
+            # distribute its elements across workers. Prevent this!
+            if self.numCalls > 1:
+                for key, value in self.pmap.kwargv.items():
+                    if isinstance(value, (list, tuple)):
+                        if len(value) == self.numCalls:
+                            self.pmap.kwargv[key] = [value]
+                    elif isinstance(value, np.ndarray):
+                        if len(value.squeeze().shape) == 1 and value.squeeze().size == self.numCalls:
+                            self.pmap.kwargv[key] = [value]
+
+            # Check if trials actually fit into memory before we start computation
+            client = self.pmap.daemon.client
+
+        # fallback to any client we can connect to
+        else:
+            self.pmap = None
+            try:
+                client = dd.get_client()
+            except ValueError:
+                raise SPYParallelError("Could not connect to a running Dask client")
+
+        # --- some sanity checks before computations ---
+
+        if isinstance(client.cluster, (dd.LocalCluster, dj.SLURMCluster)):
+            workerMem = [w["memory_limit"] for w in client.cluster.scheduler_info["workers"].values()]
+            if len(workerMem) == 0:
+                raise SPYParallelError("no online workers found", client=client)
+            workerMemMax = max(workerMem)
+            if self.chunkMem >= self.mem_thresh * workerMemMax:
+                self.chunkMem /= 1024**3
+                workerMemMax /= 1000**3
+                msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
+                    "worker memory ({1:2.2f} GB) currently not supported"
+                raise SPYParallelError(msg.format(self.chunkMem, workerMemMax))
+
+        # --- trigger actual computation ---
+
+        if self.pmap is not None:
+            # Let ACME do the heavy lifting
+            with self.pmap as pm:
+                pm.compute(debug=self.parallelDebug)
+
+        # use our own client and map over workerdicts + cfg
+        else:
+            # we have to prepare a well behaved iterable where for each call n
+            # we have a tuple like (wdict[n], argv1_seq[n], argv2) passed to the cF
+            # by the Dask client mapping
+            workerDicts = self.inargs[0]
+            if len(self.inargs) > 1:
+                iterables = []
+                ArgV = self.inargs[1:]
+                for nblock, wdict in enumerate(workerDicts):
+                    argv = tuple(arg[nblock]
+                                 if isinstance(arg, (list, tuple, np.ndarray)) and  # these are the argv_seq
+                                 len(arg) == len(workerDicts)  # each call gets one element of a sequence type argv
+                                 else arg for arg in ArgV)
+                    iterables.append((wdict, *argv))
+            # no *args for the cF
+            else:
+                iterables = workerDicts
+
+            futures = client.map(self.computeFunction, iterables, **self.cfg)
+            # similar to tqdm progress bar
+            dd.progress(futures)
+            # actual results get handled by hdf5 operations inside `process_io`
+            client.gather(futures)
 
         # When writing concurrently, now's the time to finally create the virtual dataset
+        # by referencing the individual hdf5 datasets created by the IO decorator
         if self.virtualDatasetDir is not None:
             with h5py.File(out.filename, mode="w") as h5f:
                 h5f.create_virtual_dataset(self.outDatasetName, self.VirtualDatasetLayout)
