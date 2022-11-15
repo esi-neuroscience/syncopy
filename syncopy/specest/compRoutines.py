@@ -42,7 +42,8 @@ from syncopy.shared.metadata import (
     encode_unique_md_label,
     decode_unique_md_label,
     metadata_from_hdf5_file,
-    check_freq_hashes
+    check_freq_hashes,
+    metadata_nest
 )
 
 from syncopy.shared.const_def import (
@@ -662,7 +663,7 @@ def superlet_cF(
     preselect : slice
         Begin- to end-samples to perform analysis on (trim data to interval).
         See Notes for details.
-    postselect : list of slices or list of 1D NumPy arrays
+    postselect : list of slices or list of 1D numpy arrays
         Actual time-points of interest within interval defined by `preselect`
         See Notes for details.
     toi : 1D :class:`numpy.ndarray` or str
@@ -688,7 +689,7 @@ def superlet_cF(
         If not `None`, represents shape of output object `gmean_spec`
         (respecting provided values of `scales`, `preselect`, `postselect` etc.)
     method_kwargs : dict
-        Keyword arguments passed to :func:`~syncopy.specest.superlet.superlet
+        Keyword arguments passed to :func:`~syncopy.specest.superlet.superlet`
         controlling the spectral estimation method
 
     Returns
@@ -983,11 +984,20 @@ class FooofSpy(ComputationalRoutine):
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ["fooof_settings"]
 
+    #: The keys available in the metadata returned by this function. These come from `fooof` and correspond
+    #: to the attributes of the `fooof.FOOOF` instance (with an `'_'` suffix in `fooof`, e.g., `aperiodic_params` corresponds
+    #: to `fooof.FOOOF.aperiodic_params_`).
+    #: Please
+    #: refer to the `FOOOF docs <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_
+    #: for the meanings.
+    metadata_keys = ('aperiodic_params', 'error', 'gaussian_params', 'n_peaks', 'peak_params', 'r_squared',)
+
+
     # To attach metadata to the output of the CF
     def process_metadata(self, data, out):
 
         # General-purpose loading of metadata.
-        out.metadata = metadata_from_hdf5_file(out.filename)
+        mdata = metadata_from_hdf5_file(out.filename)
 
         # Note that FOOOF never sees absolute trial indices if a selection was
         # made in the call to `freqanalysis`, because the mtmfft run before will have
@@ -995,7 +1005,7 @@ class FooofSpy(ComputationalRoutine):
 
         # Backend-specific post-processing. May or may not be needed, depending on what
         # you need to do in the cF to fit the return values into hdf5.
-        out.metadata = FooofSpy.decode_metadata_fooof_alltrials_from_hdf5(out.metadata)
+        out.metadata = metadata_nest(FooofSpy.decode_metadata_fooof_alltrials_from_hdf5(mdata))
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -1028,7 +1038,7 @@ class FooofSpy(ComputationalRoutine):
 
     @staticmethod
     def decode_metadata_fooof_alltrials_from_hdf5(metadata_fooof_hdf5):
-        """This reverts and special packaging applied to the fooof backend
+        """This reverts the special packaging applied to the fooof backend
         function return values to fit them into the hdf5 container.
 
         In the case of FOOOF, we had to `np.vstack` the `gaussian_params`
@@ -1042,8 +1052,8 @@ class FooofSpy(ComputationalRoutine):
         - that function prepares data from a single backend function call,
         while this function has to unpack the data from *all* cF function calls.
         - the input metadata to this function is a standard dict that has already
-        been pre-processed, including the split into 'attrs' and 'dsets',
-        by the general-purpose metadata extraction function `metadata_from_hdf5_file()`.
+        been pre-processed by the general-purpose metadata extraction
+        function `metadata_from_hdf5_file()`.
         """
         for unique_attr_label, v in metadata_fooof_hdf5.items():
             label, trial_idx, call_idx = decode_unique_md_label(unique_attr_label)

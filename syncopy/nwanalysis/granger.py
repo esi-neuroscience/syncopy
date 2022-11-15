@@ -36,14 +36,14 @@ def granger(CSD, Hfunc, Sigma):
 
     See also
     --------
-    wilson_sf : :func:`~syncopy.connectivity.wilson_sf.wilson_sf
+    wilson_sf : :func:`~syncopy.connectivity.wilson_sf.wilson_sf`
              Spectral matrix factorization that yields the
              transfer functions and noise covariances
              from a cross spectral density.
 
     Notes
     -----
-    .. [1] Dhamala, Mukeshwar, Govindan Rangarajan, and Mingzhou Ding.
+    .. [1] Dhamala Mukeshwar, Govindan Rangarajan, and Mingzhou Ding.
        "Estimating Granger causality from Fourier and wavelet transforms
         of time series data." Physical review letters 100.1 (2008): 018701.
 

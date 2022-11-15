@@ -1061,6 +1061,7 @@ def propagate_properties(in_data, out_data, keeptrials=True, time_axis=False):
     is_Spectral = lambda data: isinstance(data, spy.SpectralData)
     is_CrossSpectral = lambda data: isinstance(data, spy.CrossSpectralData)
 
+
     
     # attach a dummy selection for easier propagation
     selection_cleanup = False

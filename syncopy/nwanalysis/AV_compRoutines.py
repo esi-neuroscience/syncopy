@@ -431,6 +431,17 @@ class GrangerCausality(ComputationalRoutine):
     syncopy.connectivityanalysis : parent metafunction
     """
 
+    #: The keys available in the `info` property of the returned data instance.
+    #:
+    #: 'converged' : bool, ``True`` if the algoritm converged successfully
+    #:
+    #: 'max rel, err' : float, maximum relative error between the input CSD and the spectral factorization
+    #:
+    #: 'reg. factor' : float, brute force regularization factor in case the CSD is nearly singular
+    #:
+    #: 'initial cond. num' : float, condition number of the CSD, regularization kicks in if that is too high
+    metadata_keys = ("converged", "max rel. err", "reg. factor", "initial cond. num",)
+
     # the hard wired dimord of the cF
     dimord = ['time', 'freq', 'channel_i', 'channel_j']
 

@@ -99,7 +99,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         regularization of the cross-spectral densities can be obtained
         by inspecting the ``.info`` property of the resulting :class:~`syncopy.CrossSpectralData`
         object. Keys of that info-dict are:
-            {'converged', 'max rel. err', 'reg. factor', 'initial cond. num'}
+        ```{'converged', 'max rel. err', 'reg. factor', 'initial cond. num'}```.
 
     Parameters
     ----------
@@ -154,7 +154,11 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     Returns
     -------
     out : `~syncopy.CrossSpectralData`
-        The analyis result with dims ['time', 'freq', 'channel_i', channel_j']
+        The analyis result with dims ['time', 'freq', 'channel_i', channel_j']. The `out` may contain additional metadata,
+        based on the `method` used to compute it:
+
+        * For `method='granger'`, the `out.info` property contains
+          the keys listed and explained in :data:`~syncopy.nwanalysis.AV_compRoutines.GrangerCausality.metadata_keys`.
 
     Examples
     --------

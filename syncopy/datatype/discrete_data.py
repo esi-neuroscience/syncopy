@@ -21,7 +21,8 @@ __all__ = ["SpikeData", "EventData"]
 
 
 class DiscreteData(BaseData, ABC):
-    """Abstract class for non-uniformly sampled data where only time-stamps are recorded
+    """
+    Abstract class for non-uniformly sampled data where only time-stamps are recorded.
 
     Notes
     -----
@@ -34,7 +35,8 @@ class DiscreteData(BaseData, ABC):
 
     @property
     def data(self):
-        """array-like object representing data without trials
+        """
+        Array-like object representing data without trials.
 
         Trials are concatenated along the time axis.
         """
@@ -117,7 +119,7 @@ class DiscreteData(BaseData, ABC):
 
     @property
     def samplerate(self):
-        """float: underlying sampling rate of non-uniformly data acquisition"""
+        """float: underlying sampling rate of non-uniform data acquisition"""
         return self._samplerate
 
     @samplerate.setter
@@ -226,16 +228,16 @@ class DiscreteData(BaseData, ABC):
     # Helper function that extracts by-trial timing-related indices
     def _get_time(self, trials, toi=None, toilim=None):
         """
-        Get relative by-trial indices of time-selections
+        Get relative by-trial indices of time-selections.
 
         Parameters
         ----------
         trials : list
-            List of trial-indices to perform selection on
+            List of trial-indices to perform selection on.
         toi : None or list
             Time-points to be selected (in seconds) on a by-trial scale.
         toilim : None or list
-            Time-window to be selected (in seconds) on a by-trial scale
+            Time-window to be selected (in seconds) on a by-trial scale.
 
         Returns
         -------
