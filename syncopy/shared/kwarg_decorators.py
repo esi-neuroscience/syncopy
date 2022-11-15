@@ -467,6 +467,8 @@ def detect_parallel_client(func):
         parallel = kwargs.get("parallel")
         kill_spawn = False
         has_slurm = check_slurm_available()
+        # warning only emitted if slurm available but no ACME or Dask client
+        slurm_msg = ""
 
         # This effectively searches for a global dask cluster, and sets
         # parallel=True if one was found. If no cluster was found, parallel is set to False,
@@ -495,7 +497,6 @@ def detect_parallel_client(func):
             except ValueError:
                 # we are on a HPC but ACME and Dask client are missing,
                 # LocalCluster still gets created
-                slurm_msg = ""
                 if has_slurm and not spy.__acme__:
                     slurm_msg = ("We are apparently on a slurm cluster but\n"
                                  "Syncopy could not find a Dask client.\n"
