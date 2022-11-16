@@ -38,13 +38,14 @@ def check_workers_available(cluster):
     """
     
     totalWorkers = len(cluster.requested)    
-    sec = 1
+    sec = 0
     workers = cluster.scheduler_info['workers']
 
     while len(workers) != totalWorkers:
         SPYInfo(f"{len(workers)}/{totalWorkers} workers available, waiting.. {sec}s")
         sleep(1)
-        sec += 1
+        sec += 2
         workers = cluster.scheduler_info['workers']
-    
+    # wait a little more to get consistent client print out
+    sleep(0.3)
     

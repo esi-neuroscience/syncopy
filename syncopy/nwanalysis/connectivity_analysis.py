@@ -384,7 +384,8 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # now take the trial average from the single trial CR as input
     av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
     av_compRoutine.pre_check()   # make sure we got a trial_average
-    av_compRoutine.compute(st_out, out, parallel=False, log_dict=log_dict)
+    av_compRoutine.compute(st_out, out, parallel=kwargs.get("parallel"),
+                           log_dict=log_dict)
 
     # attach potential older cfg's from the input
     # to support chained frontend calls..
