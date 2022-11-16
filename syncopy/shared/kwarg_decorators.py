@@ -694,7 +694,7 @@ def process_io(func):
                 if keeptrials:
                     main_dset[outgrid] = res
                 else:
-                    main_dset[()] = np.nansum([main_dset, res], axis=0)
+                    main_dset[()] = np.sum([main_dset, res], axis=0)
 
                 h5_add_metadata(h5fout, details, unique_key_suffix=call_id)
                 h5fout.flush()

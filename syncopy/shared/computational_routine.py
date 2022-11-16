@@ -972,7 +972,7 @@ class ComputationalRoutine(ABC):
                 if self.keeptrials:
                     target[outgrid] = res
                 else:
-                    target[()] = np.nansum([target, res], axis=0)
+                    target[()] = np.sum([target, res], axis=0)
 
                 # Flush every iteration to avoid memory leakage
                 h5fout.flush()
