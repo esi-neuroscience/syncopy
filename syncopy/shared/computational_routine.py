@@ -679,9 +679,10 @@ class ComputationalRoutine(ABC):
             if self.chunkMem >= mem_thresh * memSize:
                 self.chunkMem /= 1024**3
                 memSize /= 1024**3
-                msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
-                      "memory ({1:2.2f} GB) currently not supported"
-                raise NotImplementedError(msg.format(self.chunkMem, memSize))
+                msg = ("Single-trial processing requires {0:2.2f} GB of memory "
+                       "which is larger than the available "
+                       "memory ({1:2.2f} GB)")
+                raise SPYParallelError(msg.format(2 * self.chunkMem, memSize))
 
         # The `method` keyword can be used to override the `parallel` flag
         if method is None:
@@ -845,9 +846,10 @@ class ComputationalRoutine(ABC):
             if self.chunkMem >= self.mem_thresh * workerMemMax:
                 self.chunkMem /= 1024**3
                 workerMemMax /= 1000**3
-                msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
-                    "worker memory ({1:2.2f} GB) currently not supported"
-                raise SPYParallelError(msg.format(self.chunkMem, workerMemMax))
+                msg = ("Single-trial processing requires {0:2.2f} GB of memory "
+                       "which is larger than the available "
+                       "worker memory ({1:2.2f} GB)")
+                raise SPYParallelError(msg.format(2 * self.chunkMem, workerMemMax))
 
         # --- trigger actual computation ---
 
