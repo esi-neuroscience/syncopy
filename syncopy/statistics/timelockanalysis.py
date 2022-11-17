@@ -121,15 +121,18 @@ def timelockanalysis(data, latency='maxperiod', covariance=False, trials='all', 
                            trialdefinition=dummy.trialdefinition)
     # del dummy
     dummy.data = None  # this is a trick to keep the hdf5 dataset alive
-    return tld
-    # now calculate via standard statistics
-    avg = spy.mean(data, dim='trials')
-    var = spy.var(data, dim='trials')
 
+    # now calculate via standard statistics
+    avg = spy.mean(tld, dim='trials')
+    var = spy.var(tld, dim='trials')
+
+    # and attach to TimeLockData
     tld._update_seq_dataset('avg', avg.data)
     tld._update_seq_dataset('var', var.data)
 
     # delete unneded objects
+    avg.data = None
+    var.data = None
     del avg, var
 
     # restore initial selection
