@@ -974,7 +974,7 @@ class ComputationalRoutine(ABC):
                 if self.keeptrials:
                     target[outgrid] = res
                 else:
-                    target[()] = np.sum([target, res], axis=0)
+                    target[()] = target + res
 
                 # Flush every iteration to avoid memory leakage
                 h5fout.flush()
