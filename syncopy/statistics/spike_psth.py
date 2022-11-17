@@ -120,6 +120,9 @@ def spike_psth(data,
 
     window = get_analysis_window(data, latency)
 
+    # to restore later
+    select_backup = None if data.selection is None else data.selection.select.copy()
+
     if not vartriallen:
         # this will add/ammend a selection
         numDiscard = discard_trials_via_selection(data, window)
@@ -191,4 +194,11 @@ def spike_psth(data,
     # propagate old cfg and attach this one
     psth_results.cfg.update(data.cfg)
     psth_results.cfg.update({'spike_psth': new_cfg})
+
+    # finally revert possible in-place selections
+    if select_backup is None:
+        data.selection = None
+    else:
+        data.selectdata(select_backup, inplace=True)
+
     return psth_results

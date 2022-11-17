@@ -8,19 +8,14 @@ import numpy as np
 import inspect
 import tempfile
 import os
+import dask.distributed as dd
 
 # Local imports
 import syncopy as spy
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
 
 import syncopy.tests.synth_data as synth_data
 from syncopy.shared.tools import StructDict
 
-
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 
 availableFrontend_cfgs = {'freqanalysis': {'method': 'mtmconvol', 't_ftimwin': 0.1},
                           'preprocessing': {'freq': 10, 'filter_class': 'firws', 'filter_type': 'hp'},
@@ -151,7 +146,6 @@ class TestCfg:
         assert np.allclose(res.data[:], res2.data[:])
         assert res.cfg == res2.cfg
 
-    @skip_without_acme
     def test_parallel(self, testcluster=None):
 
         client = dd.Client(testcluster)

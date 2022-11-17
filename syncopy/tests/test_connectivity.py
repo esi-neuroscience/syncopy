@@ -9,12 +9,9 @@ import pytest
 import inspect
 import numpy as np
 import matplotlib.pyplot as ppl
+import dask.distributed as dd
 
 # Local imports
-
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
 
 import syncopy as spy
 from syncopy import AnalogData, SpectralData
@@ -25,8 +22,6 @@ import syncopy.tests.helpers as helpers
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults
 
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 # Decorator to decide whether or not to run memory-intensive tests
 availMem = psutil.virtual_memory().total
 minRAM = 5
@@ -246,7 +241,6 @@ class TestGranger:
         run_cfg_test(call, method='granger',
                      cfg=get_defaults(cafunc))
 
-    @skip_without_acme
     @skip_low_mem
     def test_gr_parallel(self, testcluster=None):
 
@@ -406,7 +400,6 @@ class TestCoherence:
         run_cfg_test(call, method='coh',
                      cfg=get_defaults(cafunc))
 
-    @skip_without_acme
     @skip_low_mem
     def test_coh_parallel(self, testcluster=None):
 
@@ -581,7 +574,6 @@ class TestCorrelation:
                      positivity=False,
                      cfg=get_defaults(cafunc))
 
-    @skip_without_acme
     @skip_low_mem
     def test_corr_parallel(self, testcluster=None):
 

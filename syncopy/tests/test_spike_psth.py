@@ -6,16 +6,14 @@
 import matplotlib.pyplot as ppl
 import numpy as np
 import pytest
+import dask.distributed as dd
 
 # syncopy imports
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
-
 import syncopy as spy
 from syncopy.shared.errors import SPYValueError
 from syncopy.tests import synth_data as sd
 from syncopy.statistics.spike_psth import available_outputs
+
 
 def get_spike_data(nTrials = 10, seed=None):
     return sd.poisson_noise(nTrials,
@@ -24,6 +22,8 @@ def get_spike_data(nTrials = 10, seed=None):
                            nSpikes=10_000,
                            samplerate=10_000,
                            seed=seed)
+
+
 def get_spike_cfg():
     cfg = spy.StructDict()
     cfg.binsize = 0.3

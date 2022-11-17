@@ -11,20 +11,15 @@ import pytest
 import numpy as np
 from glob import glob
 from scipy import signal
+import dask.distributed as dd
 
 # Local imports
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
 from syncopy.datatype import AnalogData
 from syncopy.datatype.base_data import Selector
 from syncopy.io import load
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import process_io, unwrap_cfg, unwrap_select
 from syncopy.tests.misc import generate_artificial_data
-
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 
 
 @process_io
@@ -285,7 +280,6 @@ class TestComputationalRoutine():
                 assert np.array_equal(dummy.time, dummy2.time)
                 del dummy, dummy2, out_sel
 
-    @skip_without_acme
     def test_parallel_equidistant(self, testcluster):
         client = dd.Client(testcluster)
         for parallel_store in [True, False]:
@@ -364,7 +358,6 @@ class TestComputationalRoutine():
 
         client.close()
 
-    @skip_without_acme
     def test_parallel_nonequidistant(self, testcluster):
         client = dd.Client(testcluster)
         for overlapping in [False, True]:
@@ -425,7 +418,6 @@ class TestComputationalRoutine():
 
         client.close()
 
-    @skip_without_acme
     def test_parallel_saveload(self, testcluster):
         client = dd.Client(testcluster)
         for parallel_store in [True, False]:

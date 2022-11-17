@@ -370,19 +370,6 @@ def _perform_computation(baseObj,
     else:
         raise SPYValueError("supported arithmetic operator", actual=operator)
 
-    # Inform about the amount of data is about to be moved around
-    operandSize = _get_selection_size(baseObj)
-    sUnit = "MB"
-    if operandSize > 1000:
-        operandSize /= 1024
-        sUnit = "GB"
-    msg = "Allocating {dsize:3.2f} {dunit:s} {objkind:s} object on disk for " +\
-        "result of {op:s} operation"
-    SPYInfo(msg.format(dsize=operandSize,
-                       dunit=sUnit,
-                       objkind=out.__class__.__name__,
-                       op=operator), caller=operator)
-
     # If ACME is available, try to attach (already running) parallel computing client
     parallel = False
     if __acme__:
