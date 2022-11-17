@@ -17,6 +17,16 @@ def get_analysis_window(data, latency):
     """
     Given the frontend `latency` parameter determine the
     analysis time window [start, end] in seconds
+
+    Parameters
+    ----------
+    data : Syncopy data object
+    latency : {'maxperiod', 'minperiod', 'prestim', 'poststim'} or array like
+
+    Returns
+    -------
+    window : list
+        [start, end] in seconds
     """
 
     # beginnings and ends of all (selected) trials in trigger-relative time in seconds
@@ -77,7 +87,7 @@ def get_analysis_window(data, latency):
             lgl = "start < end latency window"
             act = f"start={latency[0]}, end={latency[1]}"
             raise SPYValueError(lgl, "latency", act)
-        window = latency
+        window = list(latency)
 
     return window
 

@@ -93,15 +93,47 @@ def timelockanalysis(data, latency='maxperiod', covariance=False, trials='all', 
 
     # --- parse and digest `latency` (time window of analysis) ---
 
+    # parses str and sequence arguments and returns window as toilim
     window = get_analysis_window(data, latency)
 
-    # this will add/ammend a selection
+    # to restore later
+    select_backup = None if data.selection is None else data.selection.select.copy()
+
+    # this will add/ammend the selection, respecting the latency window
     numDiscard = discard_trials_via_selection(data, window)
 
     if numDiscard > 0:
         msg = f"Discarded {numDiscard} trial(s) which did not fit into latency window"
         SPYWarning(msg)
+    
+    # apply latency window and create TimeLockData
+    # via dummy AnalogData
+    if data.selection is not None:
+        select = data.selection.select.copy()
+        select['toilim'] = window
+        dummy = data.selectdata(select)
+    else:
+        dummy = data.selectdata(toilim=window)
 
+    # no copy here
+    tld = spy.TimeLockData(data=dummy.data,
+                           samplerate=data.samplerate,
+                           trialdefinition=dummy.trialdefinition)
+    # del dummy
+    dummy.data = None  # this is a trick to keep the hdf5 dataset alive
+    return tld
     # now calculate via standard statistics
     avg = spy.mean(data, dim='trials')
-    # var = spy.var(data, dim='trials')
+    var = spy.var(data, dim='trials')
+
+    tld._update_seq_dataset('avg', avg.data)
+    tld._update_seq_dataset('var', var.data)
+
+    # delete unneded objects
+    del avg, var
+
+    # restore initial selection
+    if select_backup:
+        data.selectdata(select_backup, inplace=True)
+
+    return tld
