@@ -429,7 +429,7 @@ def _trial_statistics(in_data, operation='mean'):
 
     # only 1 trial left, all trials had to have the same shape
     # so just copy from the 1st
-    out_data.trialdefinition = in_data.trialdefinition[0, :][None, :]
+    out_data.trialdefinition = in_data.selection.trialdefinition[0, :][None, :]
 
     # propagate the rest of the properties
     for prop in in_data.selection._dimProps:
