@@ -325,13 +325,12 @@ def selectdata(data,
 
     # Inform the user what's about to happen
     selectionSize = _get_selection_size(data)
-    sUnit = "MB"
     if selectionSize > 1000:
         selectionSize /= 1024
         sUnit = "GB"
-    msg = "Copying {dsize:3.2f} {dunit:s} of data based on selection " +\
-        "to create new {objkind:s} object on disk"
-    SPYInfo(msg.format(dsize=selectionSize, dunit=sUnit, objkind=data.__class__.__name__))
+        msg = "Copying {dsize:3.2f} {dunit:s} of data based on selection " +\
+            "to create new {objkind:s} object on disk"
+        SPYInfo(msg.format(dsize=selectionSize, dunit=sUnit, objkind=data.__class__.__name__))
 
     # Create inventory of all available selectors and actually provided values
     # to create a bookkeeping dict for logging

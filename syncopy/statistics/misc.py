@@ -102,11 +102,12 @@ def discard_trials_via_selection(data, window):
     # beginnings and ends of all (selected) trials in trigger-relative time in seconds
     if data.selection is not None:
         trl_starts, trl_ends = data.selection.trialintervals[:, 0], data.selection.trialintervals[:, 1]
+        trl_idx = np.arange(len(data.selection.trials))
     else:
         trl_starts, trl_ends = data.trialintervals[:, 0], data.trialintervals[:, 1]
+        trl_idx = np.arange(len(data.trials))
 
     # trial idx for whole dataset
-    trl_idx = np.arange(len(data.trials))
     bmask = (trl_starts <= window[0]) & (trl_ends >= window[1])
 
     # trials which fit completely into window

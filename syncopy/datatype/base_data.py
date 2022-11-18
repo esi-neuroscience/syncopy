@@ -344,13 +344,13 @@ class BaseData(ABC):
 
         Parameters
         ----------
-            inData : numpy.ndarray
-                NumPy array to be stored in property of name `propertyName`
-            propertyName : str
-                Name of the property to be filled with `inData`. Will get an underscore (`'_'`) prefix added, 
-                so do not include that.
-            ndim : int
-                Number of expected array dimensions.
+        inData : numpy.ndarray
+            NumPy array to be stored in property of name `propertyName`
+        propertyName : str
+            Name of the property to be filled with `inData`. Will get an underscore (`'_'`) prefix added,
+            so do not include that.
+        ndim : int
+            Number of expected array dimensions.
         """
         # Ensure array has right no. of dimensions
         array_parser(inData, varname=f"{propertyName}", dims=ndim)

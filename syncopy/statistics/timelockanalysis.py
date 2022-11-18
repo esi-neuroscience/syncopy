@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Syncopy timelock-analysis methods
-# 
+#
 
 import os
 import numpy as np
+import h5py
 
 # Syncopy imports
 
@@ -21,6 +22,7 @@ from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, SPYWarni
 
 # local imports
 from syncopy.statistics.misc import get_analysis_window, discard_trials_via_selection
+from syncopy.statistics.compRoutines import Covariance
 
 __all__ = ["timelockanalysis"]
 
@@ -28,7 +30,12 @@ __all__ = ["timelockanalysis"]
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
-def timelockanalysis(data, latency='maxperiod', covariance=False, trials='all', **kwargs):
+def timelockanalysis(data,
+                     latency='maxperiod',
+                     covariance=False,
+                     ddof=None,
+                     trials='all',
+                     **kwargs):
     """
     Average, variance and covariance for :class:`~syncopy.AnalogData` objects across trials
 
@@ -44,9 +51,11 @@ def timelockanalysis(data, latency='maxperiod', covariance=False, trials='all', 
         FieldTrip note: this also sets `covarianceWindow`
     covariance : bool
         Set to ``True`` to also compute covariance over channels
+    ddof : int or None
+        Degrees of freedom for covariance estimation, defaults to ``N - 1``
     trials : 'all' or sequence
-        Trial selection for FieldTrip compatibilty, alternatively use 
-        standard Syncopy ``select`` dictionary which  also allows additional 
+        Trial selection for FieldTrip compatibility, alternatively use
+        standard Syncopy ``select`` dictionary which  also allows additional
         selections over channels.
 
     Returns
@@ -75,8 +84,32 @@ def timelockanalysis(data, latency='maxperiod', covariance=False, trials='all', 
     # save frontend call in cfg
     new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
 
+    log_dict = {'latency': latency,
+                'covariance': covariance,
+                'ddof': ddof,
+                'trials': trials
+                }
+
+    # to restore later
+    select_backup = None if data.selection is None else data.selection.select.copy()
+
+    if data.selection is not None:
+        if trials != 'all' and data.selection.select['trials'] is not None:
+            lgl = "either `trials != 'all'` or selection"
+            act = "trial keyword and trial selection"
+            raise SPYValueError(lgl, 'trials', act)
+        # evaluate legacy `trials` keyword value as selection
+        elif trials != 'all':
+            select = data.selection.select
+            select['trials'] = trials
+            data.selectdata(select, inplace=True)
+    elif trials != 'all':
+        # error handling done here
+        data.selectdata(trials=trials, inplace=True)
+
     # digest selections
     if data.selection is not None:
+        # select trials either via selection of keyword:        
         trl_def = data.selection.trialdefinition
         sinfo = data.selection.trialdefinition[:, :2]
         trials = data.selection.trials
@@ -96,31 +129,32 @@ def timelockanalysis(data, latency='maxperiod', covariance=False, trials='all', 
     # parses str and sequence arguments and returns window as toilim
     window = get_analysis_window(data, latency)
 
-    # to restore later
-    select_backup = None if data.selection is None else data.selection.select.copy()
-
     # this will add/ammend the selection, respecting the latency window
     numDiscard = discard_trials_via_selection(data, window)
 
     if numDiscard > 0:
         msg = f"Discarded {numDiscard} trial(s) which did not fit into latency window"
         SPYWarning(msg)
-    
+
     # apply latency window and create TimeLockData
-    # via dummy AnalogData
     if data.selection is not None:
         select = data.selection.select.copy()
         select['toilim'] = window
-        dummy = data.selectdata(select)
+        data.selectdata(select, inplace=True)
     else:
-        dummy = data.selectdata(toilim=window)
+        data.selectdata(toilim=window, inplace=True)
+
+    # start empty
+    tld = spy.TimeLockData(samplerate=data.samplerate)
+
+    # stream cut/selected trials into new dataset
+    dset = _dataset_from_trials(data,
+                                dset_name='data',
+                                filename=tld._gen_filename())
 
     # no copy here
-    tld = spy.TimeLockData(data=dummy.data,
-                           samplerate=data.samplerate,
-                           trialdefinition=dummy.trialdefinition)
-    # del dummy
-    dummy.data = None  # this is a trick to keep the hdf5 dataset alive
+    tld.data = dset
+    tld.trialdefinition = data.selection.trialdefinition
 
     # now calculate via standard statistics
     avg = spy.mean(tld, dim='trials')
@@ -135,8 +169,71 @@ def timelockanalysis(data, latency='maxperiod', covariance=False, trials='all', 
     var.data = None
     del avg, var
 
+    # -- set up covariance CR --
+
+    covCR = Covariance(ddof=ddof, statAxis=data.dimord.index('time'))
+    out = spy.CrossSpectralData(dimord=spy.CrossSpectralData._defaultDimord)
+    covCR.initialize(
+        data,
+        out._stackingDim,
+        keeptrials=False,
+    )
+    # and compute
+    covCR.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
+
+    # attach computed cov as array
+    tld._update_seq_dataset('cov', out.data[0, 0, ...])
+
     # restore initial selection
     if select_backup:
         data.selectdata(select_backup, inplace=True)
 
     return tld
+
+
+def _dataset_from_trials(spy_data, dset_name='new_data', filename=None):
+    """
+    Helper to construct a new dataset from
+    a trial Indexer, respecting selections
+    """
+
+    stackDim = spy_data._stackingDim
+    # re-initialize the Indexer
+    def trials():
+        if spy_data.selection is None:
+            return spy_data.trials
+        else:
+            return spy_data.selection.trials
+
+    # shapes have to match except for stacking dim
+    # which is guaranteed by the source trials Indexer
+    stackingDimSize = sum([trl.shape[stackDim] for trl in trials()])
+
+    new_shape = list(trials()[0].shape)
+    # plug in stacking dimension
+    new_shape[stackDim] = stackingDimSize
+
+    if filename is None:
+        # generates new name with same extension
+        filename = spy_data._gen_filename()
+
+    # create new hdf5 File and dataset
+    with h5py.File(filename, mode='w') as h5f:
+        new_ds = h5f.create_dataset(dset_name, shape=new_shape)
+
+        # all-to-all indexer
+        idx = [slice(None) for _ in range(len(new_shape))]
+        # stacking dim chunk size counter
+        stacking = 0
+        # now stream the trials into the new dataset
+        for trl in trials():
+            # length along stacking dimension
+            trl_len = trl.shape[stackDim]
+            # define the chunk and increment stacking dim indexer
+            idx[stackDim] = slice(stacking, trl_len)
+            stacking += trl_len
+            # insert the trial
+            new_ds[tuple(idx)] = trl
+
+    # open again for reading and return dataset directly
+    return h5py.File(filename, mode='r+')[dset_name]
