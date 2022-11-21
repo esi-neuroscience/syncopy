@@ -66,14 +66,21 @@ def timelockanalysis(data,
 
     """
 
-    try:
-        data_parser(data, varname="data", empty=False,
-                    dataclass="AnalogData")
-    except Exception as exc:
-        raise exc
+    # -- check user input --
+
+    data_parser(data, varname="data", empty=False,
+                dataclass="AnalogData")
+
+    if ddof is not None:
+        if not isinstance(ddof, int) or ddof < 0:
+            lgl = "positve integer value"
+            act = ddof
+            raise SPYValueError(lgl, 'ddof', act)
 
     if not isinstance(covariance, bool):
         raise SPYTypeError(covariance, varname='covariance', expected='Bool')
+
+    # latency gets checked withing `misc.get_analysis_window`
 
     # -- standard block to check and store provided kwargs/cfg --
 
@@ -147,7 +154,7 @@ def timelockanalysis(data,
     # start empty
     tld = spy.TimeLockData(samplerate=data.samplerate)
 
-    # stream cut/selected trials into new dataset
+    # stream cut/selected trials/time window into new dataset
     dset = _dataset_from_trials(data,
                                 dset_name='data',
                                 filename=tld._gen_filename())
@@ -164,15 +171,18 @@ def timelockanalysis(data,
     tld._update_seq_dataset('avg', avg.data)
     tld._update_seq_dataset('var', var.data)
 
-    # delete unneded objects
-    avg.data = None
+    # delete unneeded objects
+    avg.data = None  # to keep the dataset alive
     var.data = None
     del avg, var
 
     # -- set up covariance CR --
 
+    check_effective_parameters(Covariance, defaults, lcls, besides=['covariance', 'trials', 'latency'])
     covCR = Covariance(ddof=ddof, statAxis=data.dimord.index('time'))
+    # dimord is time x freq x channel x channel
     out = spy.CrossSpectralData(dimord=spy.CrossSpectralData._defaultDimord)
+
     covCR.initialize(
         data,
         out._stackingDim,
@@ -184,9 +194,11 @@ def timelockanalysis(data,
     # attach computed cov as array
     tld._update_seq_dataset('cov', out.data[0, 0, ...])
 
-    # restore initial selection
+    # restore initial selection or wipe
     if select_backup:
         data.selectdata(select_backup, inplace=True)
+    else:
+        data.selection = None
 
     return tld
 
