@@ -694,7 +694,7 @@ def process_io(func):
                 if keeptrials:
                     main_dset[outgrid] = res
                 else:
-                    main_dset[()] = main_dset + res
+                    main_dset[()] += res
 
                 h5_add_metadata(h5fout, details, unique_key_suffix=call_id)
                 h5fout.flush()
