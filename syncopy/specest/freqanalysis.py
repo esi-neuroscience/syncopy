@@ -108,6 +108,17 @@ def freqanalysis(data, method='mtmfft', output='pow',
           a window on every sample in the data.
         * **t_ftimwin** : sliding window length (in sec)
 
+    "welch" : Welch's method for the estimation of power spectra.
+        See [Welch1967]_ for details.
+
+        * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
+        * **toi** : time-points of interest; can be either an array representing
+          analysis window centroids (in sec), a scalar between 0 and 1 encoding
+          the percentage of overlap between adjacent windows or "all" to center
+          a window on every sample in the data.
+        * **t_ftimwin** : sliding window length (in sec)
+
+
     "wavelet" : (Continuous non-orthogonal) wavelet transform
         Perform time-frequency analysis on time-series trial data using a non-orthogonal
         continuous wavelet transform.
@@ -276,7 +287,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         based on the `method` used to compute it:
 
         * For `method='mtmfft'` when `output` is one of
-          `'fooof'`, `'fooof_aperiodic'`, or `'fooof_peaks'`, the `spec.info` property contains
+          `'fooof'`, `'fooof_aperiodic'`, or `'fooof_peaks'`, the `spec.metadata` property contains
           the keys listed and explained in :data:`~syncopy.specest.compRoutines.FooofSpy.metadata_keys`.
 
 
@@ -285,6 +296,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     .. [Moca2021] Moca, Vasile V., et al. "Time-frequency super-resolution with superlets."
        Nature communications 12.1 (2021): 1-18.
     .. [Donoghue2020] Donoghue et al. 2020, DOI 10.1038/s41593-020-00744-x.
+    .. [Welch1967] Welch. 1976, DOI 10.1109/TAU.1967.1161901
 
     **Options**
 
