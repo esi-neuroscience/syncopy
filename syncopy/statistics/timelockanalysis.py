@@ -35,6 +35,7 @@ def timelockanalysis(data,
                      covariance=False,
                      ddof=None,
                      trials='all',
+                     keeptrials=False,
                      **kwargs):
     """
     Average, variance and covariance for :class:`~syncopy.AnalogData` objects across trials
@@ -59,6 +60,8 @@ def timelockanalysis(data,
         Trial selection for FieldTrip compatibility, alternatively use
         standard Syncopy ``select`` dictionary which  also allows additional
         selections over channels.
+    keeptrials : bool
+        Set to ``False`` to get single trial covariances in ``out.cov``
 
     Returns
     -------
@@ -82,7 +85,10 @@ def timelockanalysis(data,
     if not isinstance(covariance, bool):
         raise SPYTypeError(covariance, varname='covariance', expected='Bool')
 
-    # latency gets checked withing `misc.get_analysis_window`
+    if not isinstance(keeptrials, bool):
+        raise SPYTypeError(covariance, varname='keeptrials', expected='Bool')
+
+    # latency gets checked within `get_analysis_window`
 
     # -- standard block to check and store provided kwargs/cfg --
 
@@ -183,23 +189,25 @@ def timelockanalysis(data,
 
     # -- set up covariance CR --
 
-    check_effective_parameters(Covariance, defaults, lcls, besides=['covariance', 'trials', 'latency'])
-    covCR = Covariance(ddof=ddof, statAxis=data.dimord.index('time'))
-    # dimord is time x freq x channel x channel
-    out = spy.CrossSpectralData(dimord=spy.CrossSpectralData._defaultDimord)
+    if covariance:
+        check_effective_parameters(Covariance, defaults, lcls, besides=['covariance', 'trials', 'latency'])
+        covCR = Covariance(ddof=ddof, statAxis=data.dimord.index('time'))
+        # dimord is time x freq x channel x channel
+        out = spy.CrossSpectralData(dimord=spy.CrossSpectralData._defaultDimord)
 
-    covCR.initialize(
-        data,
-        out._stackingDim,
-        keeptrials=False,
-    )
-    # and compute
-    covCR.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
+        covCR.initialize(
+            data,
+            out._stackingDim,
+            keeptrials=keeptrials,
+        )
+        # and compute
+        covCR.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
-    # attach computed cov as array
-    tld._update_seq_dataset('cov', out.data[0, 0, ...])
+        # attach computed cov as array
+        tld._update_seq_dataset('cov', out.data[:, 0, ...].squeeze())
 
-    # restore initial selection or wipe
+    # -- restore initial selection or wipe --
+
     if select_backup:
         data.selectdata(select_backup, inplace=True)
     else:

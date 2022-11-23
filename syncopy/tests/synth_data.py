@@ -124,8 +124,9 @@ def phase_diffusion(freq,
                     samplerate=1000,
                     nChannels=2,
                     nSamples=1000,
+                    rand_ini=True,
                     return_phase=False,
-                    seed = None):
+                    seed=None):
 
     """
     Linear (harmonic) phase evolution + a Brownian noise term
@@ -151,6 +152,9 @@ def phase_diffusion(freq,
         Number of channels
     nSamples : int
         Number of samples in time
+    rand_ini : bool, optional
+        If set to ``False`` all channels will have the same
+        initial phase
     return_phase : bool, optional
         If set to true returns the phases in radians
     seed: None or int, passed on to `np.random.default_rng`.
@@ -167,14 +171,22 @@ def phase_diffusion(freq,
     # white noise
     wn = white_noise(nSamples=nSamples, nChannels=nChannels, seed=seed)
 
-    delta_ts = np.ones(nSamples) * 1 / samplerate
+    tvec = np.linspace(0, nSamples / samplerate, nSamples)
     omega0 = 2 * np.pi * freq
-    lin_incr = np.tile(omega0 * delta_ts, (nChannels, 1)).T
+    lin_phase = np.tile(omega0 * tvec, (nChannels, 1)).T
+
+    # randomize initial phase
+    if rand_ini:
+        rng = np.random.default_rng(seed)
+        ps0 = 2 * np.pi * rng.uniform(size=nChannels)
+        lin_phase += ps0
 
     # relative Brownian increments
     rel_eps = np.sqrt(omega0 / samplerate * eps)
     brown_incr = rel_eps * wn
-    phases = np.cumsum(lin_incr + brown_incr, axis=0)
+
+    # combine harmonic and diffusive dyncamics
+    phases = lin_phase + np.cumsum(brown_incr, axis=0)
     if not return_phase:
         return np.cos(phases)
     else:
