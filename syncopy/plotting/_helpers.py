@@ -18,13 +18,22 @@ def revert_selection(plotter):
     perspective) selections. To return to a clean slate
     we revert/delete it afterwards.
 
-    All plotting routines must have `data` as 1st (*arg) argument!
+    All plotting routines must have `data` as 1st argument!
     """
     @functools.wraps(plotter)
-    def wrapper_plot(*args, **kwargs):
+    def wrapper_plot(data, *args, **kwargs):
 
-        res = plotter(*args, **kwargs)
-        args[0].selection = None
+        # to restore
+        select_backup = None if data.selection is None else data.selection.select.copy()
+
+        res = plotter(data, *args, **kwargs)
+
+        # restore initial selection or wipe
+        if select_backup:
+            data.selectdata(select_backup, inplace=True)
+        else:
+            data.selection = None
+
         return res
 
     return wrapper_plot
