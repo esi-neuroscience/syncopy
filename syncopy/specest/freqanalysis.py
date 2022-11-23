@@ -43,7 +43,7 @@ from .compRoutines import (
 availableFooofOutputs = ['fooof', 'fooof_aperiodic', 'fooof_peaks']
 availableOutputs = tuple(spectralConversions.keys())
 availableWavelets = ("Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat")
-availableMethods = ("mtmfft", "mtmconvol", "wavelet", "superlet")
+availableMethods = ("mtmfft", "mtmconvol", "wavelet", "superlet", "welch")
 
 
 @unwrap_cfg
@@ -117,7 +117,6 @@ def freqanalysis(data, method='mtmfft', output='pow',
           the percentage of overlap between adjacent windows or "all" to center
           a window on every sample in the data.
         * **t_ftimwin** : sliding window length (in sec)
-
 
     "wavelet" : (Continuous non-orthogonal) wavelet transform
         Perform time-frequency analysis on time-series trial data using a non-orthogonal
@@ -296,7 +295,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     .. [Moca2021] Moca, Vasile V., et al. "Time-frequency super-resolution with superlets."
        Nature communications 12.1 (2021): 1-18.
     .. [Donoghue2020] Donoghue et al. 2020, DOI 10.1038/s41593-020-00744-x.
-    .. [Welch1967] Welch. 1976, DOI 10.1109/TAU.1967.1161901
+    .. [Welch1967] Welch. "The use of fast Fourier transform for the estimation of power spectra: A method based on time averaging over short, modified periodograms.", 1976, DOI 10.1109/TAU.1967.1161901
 
     **Options**
 
@@ -392,8 +391,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # --- Padding ---
 
     # Sliding window FFT does not support "fancy" padding
-    if method == "mtmconvol" and isinstance(pad, str) and pad != defaults['pad']:
-        msg = "method 'mtmconvol' only supports in-place padding for windows " +\
+    if method in ["mtmconvol", "welch"] and isinstance(pad, str) and pad != defaults['pad']:
+        msg = "methods 'mtmconvol' and 'welch' only support in-place padding for windows " +\
             "exceeding trial boundaries. Your choice of `pad = '{}'` will be ignored. "
         SPYWarning(msg.format(pad))
 
@@ -432,7 +431,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # to prepare/sanitize `toi`
     # --------------------------------
 
-    if method in ["mtmconvol", "wavelet", "superlet"]:
+    if method in ["mtmconvol", "wavelet", "superlet", "welch"]:
 
         # Get start/end timing info respecting potential in-place selection
         if toi is None:
@@ -500,9 +499,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # (particularly tapers and foi/freqs alignment)
     # --------------------------------------------
 
-    if "mtm" in method:
+    if "mtm" in method or method == "welch":
 
-        if method == "mtmconvol":
+        if method in ["mtmconvol", "welch"]:
             # get the sliding window size
             try:
                 scalar_parser(t_ftimwin, varname="t_ftimwin",
@@ -513,6 +512,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
             # this is the effective sliding window FFT sample size
             minSampleNum = int(t_ftimwin * data.samplerate)
+
+            if method == "welch":
+                if tapsmofrq is not None:
+                    raise ValueError(f"Parameter 'tapsmofrq' must be None for method='welch'.")
 
         # Construct array of maximally attainable frequencies
         freqs = np.fft.rfftfreq(minSampleNum, dt)
