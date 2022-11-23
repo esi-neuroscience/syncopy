@@ -38,6 +38,8 @@ def timelockanalysis(data,
                      **kwargs):
     """
     Average, variance and covariance for :class:`~syncopy.AnalogData` objects across trials
+    If input ``data`` is not timelocked already, toilim and trial selections will be
+    applied according to the ``latency`` setting.
 
     Parameters
     ----------
@@ -245,7 +247,7 @@ def _dataset_from_trials(spy_data, dset_name='new_data', filename=None):
             # length along stacking dimension
             trl_len = trl.shape[stackDim]
             # define the chunk and increment stacking dim indexer
-            idx[stackDim] = slice(stacking, trl_len)
+            idx[stackDim] = slice(stacking, stacking + trl_len)
             stacking += trl_len
             # insert the trial
             new_ds[tuple(idx)] = trl
