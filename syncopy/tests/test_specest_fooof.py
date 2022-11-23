@@ -6,7 +6,6 @@
 import pytest
 import numpy as np
 import inspect
-import os
 import matplotlib.pyplot as plt
 import dask.distributed as dd
 
