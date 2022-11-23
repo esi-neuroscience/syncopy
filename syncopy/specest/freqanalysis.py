@@ -37,7 +37,8 @@ from .compRoutines import (
     WaveletTransform,
     MultiTaperFFT,
     MultiTaperFFTConvol,
-    FooofSpy
+    FooofSpy,
+    Welch
 )
 
 availableFooofOutputs = ['fooof', 'fooof_aperiodic', 'fooof_peaks']
@@ -515,7 +516,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
             if method == "welch":
                 if tapsmofrq is not None:
-                    raise ValueError(f"Parameter 'tapsmofrq' must be None for method='welch'.")
+                    raise SPYValueError(legal="None", varname="tapsmofrq", actual=tapsmofrq)
 
         # Construct array of maximally attainable frequencies
         freqs = np.fft.rfftfreq(minSampleNum, dt)
@@ -585,7 +586,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
             output=output,
             method_kwargs=method_kwargs)
 
-    elif method == "mtmconvol":
+    elif method in ["mtmconvol", "welch"]:
 
         check_effective_parameters(MultiTaperFFTConvol, defaults, lcls)
 
@@ -915,7 +916,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
             fooof_opt = default_fooof_opt
 
         # These go into the FOOOF constructor, so we keep them separate from the fooof_settings below.
-        fooof_kwargs = {**default_fooof_opt, **fooof_opt}  # Join the ones from fooof_opt (the user) into fooof_kwargs.
+        fooof_kwargs = {**default_fooof_opt, **fooof_opt}  # Join the ones from fooof_opt (the user) into the default fooof_kwargs.
 
         # Settings used during the FOOOF analysis (that are NOT passed to FOOOF constructor).
         # The user cannot influence these: in_freqs is derived from mtmfft output, freq_range is always None (=full mtmfft output spectrum).
@@ -949,10 +950,27 @@ def freqanalysis(data, method='mtmfft', output='pow',
         fooofMethod.compute(fooof_data, fooof_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
         out = fooof_out
 
-     # attach potential older cfg's from the input
-    # to support chained frontend calls..
+    # Perform mtmconvolv post-processing for `method='welch'`.
+    if method == "welch":
+        welch_data = out
+        welch_out = SpectralData(dimord=SpectralData._defaultDimord)
+        output_welch = output
+        welch_kwargs = kwargs
+
+        welchMethod = Welch(output=output_welch, welch_kwargs=welch_kwargs)
+        fooofMethod.initialize(welch_data,
+                               welch_out._stackingDim,
+                               chan_per_worker=kwargs.get("chan_per_worker"),
+                               keeptrials=keeptrials)
+        fooofMethod.compute(welch_data, welch_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
+        log_dct["welch_output"] = output_welch
+        log_dct["welch_kwargs"] = welch_kwargs
+        out = welch_out
+
+    # Attach potential older cfg's from the input
+    # to support chained frontend calls.
     out.cfg.update(data.cfg)
 
-    # attach frontend parameters for replay
+    # Attach frontend parameters for replay.
     out.cfg.update({'freqanalysis': new_cfg})
     return out

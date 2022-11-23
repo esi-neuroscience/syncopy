@@ -31,6 +31,7 @@ from .mtmconvol import mtmconvol
 from .superlet import superlet
 from .wavelet import wavelet
 from .fooofspy import fooofspy
+from .welch import welch
 
 
 # Local imports
@@ -397,6 +398,41 @@ def mtmconvol_cF(
     if not keeptapers:
         return np.nanmean(spec, axis=1, keepdims=True)
     return spec
+
+
+
+@process_io
+def welch_cF(
+        trl_dat,
+        soi,
+        postselect,
+        equidistant=True,
+        toi=None,
+        foi=None,
+        nTaper=1, timeAxis=0,
+        keeptapers=True, polyremoval=0, output="pow",
+        noCompute=False, chunkShape=None, method_kwargs=None):
+        pass
+
+
+class Welch(ComputationalRoutine):
+    """
+    Compute class that implements Welch's method as post-processing of mtmconvolv.
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.freqanalysis : parent metafunction
+    """
+    computeFunction = staticmethod(welch_cF)
+    metadata_keys = ()
+
+    # To attach metadata to the output of the CF.
+    def process_metadata(self, data, out):
+        pass
 
 
 class MultiTaperFFTConvol(ComputationalRoutine):
