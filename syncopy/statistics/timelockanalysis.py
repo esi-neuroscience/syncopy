@@ -19,9 +19,9 @@ from syncopy.shared.input_processors import (
 )
 from syncopy.shared.tools import get_defaults, get_frontend_cfg
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, SPYWarning
+from syncopy.shared.latency import get_analysis_window, create_trial_selection
 
 # local imports
-from syncopy.statistics.misc import get_analysis_window, discard_trials_via_selection
 from syncopy.statistics.compRoutines import Covariance
 
 __all__ = ["timelockanalysis"]
@@ -116,7 +116,7 @@ def timelockanalysis(data,
 
     # digest selections
     if data.selection is not None:
-        # select trials either via selection of keyword:        
+        # select trials either via selection of keyword:
         trl_def = data.selection.trialdefinition
         sinfo = data.selection.trialdefinition[:, :2]
         trials = data.selection.trials
@@ -136,8 +136,11 @@ def timelockanalysis(data,
     # parses str and sequence arguments and returns window as toilim
     window = get_analysis_window(data, latency)
 
-    # this will add/ammend the selection, respecting the latency window
-    numDiscard = discard_trials_via_selection(data, window)
+    # this will create/ammend the selection, respecting the latency window
+    trl_select, numDiscard = create_trial_selection(data, window)
+
+    # apply the updated selection
+    data.selectdata(trl_select, inplace=True)
 
     if numDiscard > 0:
         msg = f"Discarded {numDiscard} trial(s) which did not fit into latency window"

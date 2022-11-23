@@ -18,11 +18,11 @@ from syncopy.shared.kwarg_decorators import (
     detect_parallel_client
 )
 from syncopy.shared.input_processors import check_passed_kwargs
+from syncopy.shared.latency import get_analysis_window, create_trial_selection
 
 # Local imports
 from syncopy.statistics.compRoutines import PSTH
 from syncopy.statistics.psth import Rice_rule, sqrt_rule, get_chan_unit_combs
-from syncopy.statistics.misc import get_analysis_window, discard_trials_via_selection
 
 available_binsizes = {'rice': Rice_rule, 'sqrt': sqrt_rule}
 available_outputs = ['rate', 'spikecount', 'proportion']
@@ -124,12 +124,16 @@ def spike_psth(data,
     select_backup = None if data.selection is None else data.selection.select.copy()
 
     if not vartriallen:
-        # this will add/ammend a selection
-        numDiscard = discard_trials_via_selection(data, window)
+
+        # this will create/ammend the selection, respecting the latency window
+        select, numDiscard = create_trial_selection(data, window)
 
         msg = f"Discarded {numDiscard} trials which did not fit into latency window"
         SPYInfo(msg)
 
+        # apply the updated selection
+        data.selectdata(select, inplace=True)
+        
         # now redefine local variables
         trl_def = data.selection.trialdefinition
         sinfo = data.selection.trialdefinition[:, :2]
