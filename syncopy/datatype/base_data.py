@@ -169,7 +169,7 @@ class BaseData(ABC):
         except Exception as exc:
             raise exc
 
-    def _register_seq_dataset(self, propertyName, inData=None):
+    def _register_dataset(self, propertyName, inData=None):
         """
         Register a new dataset, so that it is handled during saving, comparison, copy and other operations.
         This dataset is not managed in any way during parallel operations and is intended for
@@ -209,7 +209,7 @@ class BaseData(ABC):
 
         supportedSetters[type(inData)](inData, propertyName, ndim=ndim)
 
-    def _unregister_seq_dataset(self, propertyName, del_from_file=True):
+    def _unregister_dataset(self, propertyName, del_from_file=True):
         """
         Unregister and delete an additional dataset from the Syncopy data object,
         and optionally delete it from the backing hdf5 file.
@@ -242,14 +242,14 @@ class BaseData(ABC):
                 else:
                     SPYWarning("Could not delete dataset from file.")
 
-    def _update_seq_dataset(self, propertyName, inData=None):
+    def _update_dataset(self, propertyName, inData=None):
         """
         Resets an additional dataset which was already registered via
-        ``_register_seq_dataset`` to ``inData``.
+        ``_register_dataset`` to ``inData``.
         """
         if getattr(self, "_" + propertyName) is not None:
-            self._unregister_seq_dataset(propertyName)
-        self._register_seq_dataset(propertyName, inData)
+            self._unregister_dataset(propertyName)
+        self._register_dataset(propertyName, inData)
 
     def _set_dataset_property(self, inData, propertyName, ndim=None):
         """Set property that is streamed from HDF dataset ('dataset property')

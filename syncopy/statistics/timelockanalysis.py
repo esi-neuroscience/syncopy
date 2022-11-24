@@ -178,14 +178,18 @@ def timelockanalysis(data,
     avg = spy.mean(tld, dim='trials')
     var = spy.var(tld, dim='trials')
 
-    # and attach to TimeLockData
+    # attach data to TimeLockData
     tld._update_seq_dataset('avg', avg.data)
     tld._update_seq_dataset('var', var.data)
 
-    # delete unneeded objects
-    avg.data = None  # to keep the dataset alive
-    var.data = None
+    # unregister datasets to detach from objects
+    avg._unregister_seq_dataset("data", del_from_file=False)
+    var._unregister_seq_dataset("data", del_from_file=False)
+
+    # scramble filenames and delete unneeded objects
+    avg.filename, var.filename = '', ''
     del avg, var
+
 
     # -- set up covariance CR --
 

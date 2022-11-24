@@ -37,7 +37,6 @@ class ContinuousData(BaseData, ABC):
     """
 
     _infoFileProperties = BaseData._infoFileProperties + ("samplerate", "channel",)
-    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate", "channel",)
     _hdfFileDatasetProperties = BaseData._hdfFileDatasetProperties + ("data",)
 
     @property
@@ -454,6 +453,9 @@ class AnalogData(ContinuousData):
                          channel=channel,
                          dimord=dimord)
 
+        # set as instance attribute to allow modification
+        self._hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate", "channel",)
+
     # implement plotting
     def singlepanelplot(self, shifted=True, **show_kwargs):
 
@@ -587,6 +589,9 @@ class SpectralData(ContinuousData):
                          freq=freq,
                          dimord=dimord)
 
+        self._hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties +\
+        ("samplerate", "channel", "freq",)
+
         # If __init__ attached data, be careful
         if self.data is not None:
 
@@ -626,8 +631,6 @@ class CrossSpectralData(ContinuousData):
 
     # Adapt `infoFileProperties` and `hdfFileAttributeProperties` from `ContinuousData`
     _infoFileProperties = BaseData._infoFileProperties +\
-        ("samplerate", "channel_i", "channel_j", "freq", )
-    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties +\
         ("samplerate", "channel_i", "channel_j", "freq", )
     _defaultDimord = ["time", "freq", "channel_i", "channel_j"]
     _stackingDimLabel = "time"
@@ -734,6 +737,10 @@ class CrossSpectralData(ContinuousData):
                          freq=freq,
                          dimord=dimord)
 
+        # set as instance attribute to allow modification
+        self._hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties +\
+        ("samplerate", "channel_i", "channel_j", "freq", )
+
     def singlepanelplot(self, **show_kwargs):
 
         sp_plotting.plot_CrossSpectralData(self, **show_kwargs)
@@ -746,7 +753,6 @@ class TimeLockData(ContinuousData):
     """
 
     _infoFileProperties = ContinuousData._infoFileProperties
-    _hdfFileDatasetProperties = ContinuousData._hdfFileDatasetProperties + ("avg", "var", "cov",)
     _defaultDimord = ["time", "channel"]
     _stackingDimLabel = "time"
 
@@ -799,6 +805,9 @@ class TimeLockData(ContinuousData):
 
         # A `h5py.Dataset` holding covariance of `data`, or `None` if not computed yet.
         self._cov = None
+
+        # set as instance attribute to allow modification
+        self._hdfFileDatasetProperties = ContinuousData._hdfFileDatasetProperties + ("avg", "var", "cov",)
 
     @property
     def avg(self):

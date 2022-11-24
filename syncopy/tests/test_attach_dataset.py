@@ -28,7 +28,7 @@ class TestAttachDataset:
         assert isinstance(spkd, spy.SpikeData)
 
         extra_data = np.zeros((3, 3), dtype=np.float64)
-        spkd._register_seq_dataset("dset_mean", extra_data)
+        spkd._register_dataset("dset_mean", extra_data)
 
         assert hasattr(spkd, "_dset_mean")
         assert isinstance(spkd._dset_mean, h5py.Dataset)
@@ -43,7 +43,7 @@ class TestAttachDataset:
         spkd = get_spike_data()
 
         extra_data = np.zeros((3, 3), dtype=np.float64)
-        spkd._register_seq_dataset("dset_mean", extra_data)
+        spkd._register_dataset("dset_mean", extra_data)
 
         assert hasattr(spkd, "_dset_mean")
         assert isinstance(spkd._dset_mean, h5py.Dataset)
@@ -52,7 +52,7 @@ class TestAttachDataset:
 
         extra_data2 = np.zeros((3, 3), dtype=np.float64) + 2
 
-        spkd._register_seq_dataset("dset_mean", extra_data2)
+        spkd._register_dataset("dset_mean", extra_data2)
         assert hasattr(spkd, "_dset_mean")
         assert isinstance(spkd._dset_mean, h5py.Dataset)
         assert isinstance(spkd._dset_mean.file, h5py.File)
@@ -68,7 +68,7 @@ class TestAttachDataset:
         def some_local_func():
             spkd = get_spike_data()
             extra_data = np.zeros((3, 3), dtype=np.float64)
-            spkd._register_seq_dataset("dset_mean", extra_data)
+            spkd._register_dataset("dset_mean", extra_data)
             # Let spkd get out of scope to call destructor.
 
         some_local_func()
@@ -84,7 +84,7 @@ class TestAttachDataset:
         assert spkd1 == spkd2
 
         extra_data = np.zeros((3, 3), dtype=np.float64)
-        spkd2._register_seq_dataset("dset_mean", extra_data)
+        spkd2._register_dataset("dset_mean", extra_data)
 
         assert spkd1 != spkd2
 
@@ -94,7 +94,7 @@ class TestAttachDataset:
         """
         spkd1 = get_spike_data()
         extra_data = np.zeros((3, 3), dtype=np.float64)
-        spkd1._register_seq_dataset("dset_mean", extra_data)
+        spkd1._register_dataset("dset_mean", extra_data)
         assert isinstance(spkd1._dset_mean.file, h5py.File)
         assert np.array_equal(spkd1._dset_mean[()], extra_data)
 
@@ -121,10 +121,10 @@ class TestAttachDataset:
         assert spkd1 == spkd3
 
         extra_data1 = np.zeros((3, 3), dtype=np.float64)
-        spkd1._register_seq_dataset("dset_mean", extra_data1)
+        spkd1._register_dataset("dset_mean", extra_data1)
 
         extra_data2 = np.zeros((3, 4), dtype=np.float64)
-        spkd2._register_seq_dataset("dset_mean", extra_data2)
+        spkd2._register_dataset("dset_mean", extra_data2)
 
         # Copies, with different extra seq data attached to them after copying, should NOT be equal.
         assert spkd1 != spkd2
@@ -133,7 +133,7 @@ class TestAttachDataset:
         # are also not equal. This is due to the implementation of h5py.Dataset equality in h5py, which
         # is based on the `id` of the dataset. See https://github.com/h5py/h5py/blob/master/h5py/_hl/base.py#L348
         # We show this here, and one should keep it in mind:
-        spkd3._register_seq_dataset("dset_mean", extra_data1)
+        spkd3._register_dataset("dset_mean", extra_data1)
         assert spkd3 != spkd1  # Even though they are copies, with identical `np.ndarrays` attached as `h5py.Datasets`!
 
     def test_detach(self):
@@ -143,19 +143,19 @@ class TestAttachDataset:
         spkd = get_spike_data()
 
         extra_data = np.zeros((3, 3), dtype=np.float64)
-        spkd._register_seq_dataset("dset_mean", extra_data)
+        spkd._register_dataset("dset_mean", extra_data)
 
         assert hasattr(spkd, "_dset_mean")
         assert isinstance(spkd._dset_mean, h5py.Dataset)
         assert isinstance(spkd._dset_mean.file, h5py.File)
         assert np.array_equal(spkd._dset_mean[()], extra_data)
 
-        spkd._unregister_seq_dataset("dset_mean", del_from_file=False)
+        spkd._unregister_dataset("dset_mean", del_from_file=False)
         assert not hasattr(spkd, "_dset_mean")
         assert "dset_mean" in h5py.File(spkd.filename, "r").keys()
         assert "data" in h5py.File(spkd.filename, "r").keys()
 
-        spkd._unregister_seq_dataset("dset_mean", del_from_file=True)
+        spkd._unregister_dataset("dset_mean", del_from_file=True)
         assert not hasattr(spkd, "_dset_mean")
         assert not "dset_mean" in h5py.File(spkd.filename, "r").keys()
         assert "data" in h5py.File(spkd.filename, "r").keys()
@@ -174,7 +174,7 @@ class TestAttachDataset:
             # Copying
             adt2 = adt.copy()
 
-            adt._register_seq_dataset("dset_mean", data1)
+            adt._register_dataset("dset_mean", data1)
 
             # Equality testing
             assert adt != adt2
@@ -185,10 +185,10 @@ class TestAttachDataset:
             assert np.array_equal(adt._dset_mean[()], data1)
 
             # Update
-            adt._update_seq_dataset("dset_mean", data2)
+            adt._update_dataset("dset_mean", data2)
 
             # Unregister
-            adt._unregister_seq_dataset("dset_mean", del_from_file=True)
+            adt._unregister_dataset("dset_mean", del_from_file=True)
             assert not hasattr(adt, "_dset_mean")
             assert not "dset_mean" in h5py.File(adt.filename, "r").keys()
             assert "data" in h5py.File(adt.filename, "r").keys()
@@ -226,7 +226,7 @@ class TestAttachDataset:
             # Copying
             adt2 = adt.copy()
 
-            adt._register_seq_dataset("dset_mean", None)
+            adt._register_dataset("dset_mean", None)
 
             # Equality testing
             assert adt != adt2
@@ -235,12 +235,12 @@ class TestAttachDataset:
             assert adt._dset_mean is None
 
             # Update
-            adt._register_seq_dataset("dset_mean", None)
+            adt._register_dataset("dset_mean", None)
             assert hasattr(adt, "_dset_mean")
             assert adt._dset_mean is None
 
             # Unregister
-            adt._unregister_seq_dataset("dset_mean", del_from_file=True)
+            adt._unregister_dataset("dset_mean", del_from_file=True)
             assert not hasattr(adt, "_dset_mean")
             assert not "dset_mean" in h5py.File(adt.filename, "r").keys()
             assert "data" in h5py.File(adt.filename, "r").keys()
@@ -262,7 +262,7 @@ class TestAttachDataset:
         spkd = get_spike_data()
 
         extra_data = np.zeros((3, 3), dtype=np.float64)
-        spkd._register_seq_dataset("dset_mean", extra_data)
+        spkd._register_dataset("dset_mean", extra_data)
 
         counts = spy.spike_psth(spkd,
                                 self.cfg,
@@ -282,29 +282,29 @@ class TestAttachDataset:
 
         spkd = get_spike_data()
         extra_data = np.zeros((3, 3), dtype=np.float64)
-        spkd._register_seq_dataset("dset_mean", extra_data)
+        spkd._register_dataset("dset_mean", extra_data)
 
         extra_data_diff_type = np.zeros((3, 3), dtype=np.int32)
         with pytest.raises(SPYValueError, match="dataset of type"):
-            spkd._register_seq_dataset("dset_mean", extra_data_diff_type)
+            spkd._register_dataset("dset_mean", extra_data_diff_type)
 
         extra_data_diff_shape = np.zeros((3, 3, 5), dtype=np.float64)
         with pytest.raises(SPYValueError, match="dataset with shape"):
-            spkd._register_seq_dataset("dset_mean", extra_data_diff_shape)
+            spkd._register_dataset("dset_mean", extra_data_diff_shape)
 
         # Show that we can delete the old one, and attach a new one with different shape.
-        spkd._unregister_seq_dataset("dset_mean")
-        spkd._register_seq_dataset("dset_mean", extra_data_diff_type) # Fine this time, it's new.
+        spkd._unregister_dataset("dset_mean")
+        spkd._register_dataset("dset_mean", extra_data_diff_type) # Fine this time, it's new.
 
     def test_save_load_unregister(self):
         """Test that saving and loading with attached seq datasets works.
            Also tests that the attached datasets gets deleted from the
-           backing HDF5 file when calling `_unregister_seq_dataset()`.
+           backing HDF5 file when calling `_unregister_dataset()`.
         """
 
         spkd = get_spike_data()
         extra_data = np.zeros((3, 3), dtype=np.float64)
-        spkd._register_seq_dataset("dset_mean", extra_data)
+        spkd._register_dataset("dset_mean", extra_data)
 
         with tempfile.TemporaryDirectory() as tmpdirname:
             # Test save and load.
@@ -315,7 +315,7 @@ class TestAttachDataset:
             assert np.array_equal(spkd._dset_mean[()], spkd2._dset_mean[()])
 
             # Test delete/unregister.
-            spkd2._unregister_seq_dataset("dset_mean")
+            spkd2._unregister_dataset("dset_mean")
             assert "dset_mean" not in h5py.File(tmp_spy_filename, mode="r").keys()
 
         spkd = get_spike_data()
@@ -327,7 +327,7 @@ class TestAttachDataset:
             extra_dset = file1.create_dataset("d1", extra_data.shape)
             extra_dset[()] = extra_data
 
-            spkd._register_seq_dataset("dset_mean", extra_dset)
+            spkd._register_dataset("dset_mean", extra_dset)
 
             # Test save and load.
             tmp_spy_filename = os.path.join(tmpdirname, "myfile.spike")
@@ -337,7 +337,7 @@ class TestAttachDataset:
             assert np.array_equal(spkd._dset_mean[()], spkd2._dset_mean[()])
 
             # Test delete/unregister.
-            spkd2._unregister_seq_dataset("dset_mean")
+            spkd2._unregister_dataset("dset_mean")
             assert "dset_mean" not in h5py.File(tmp_spy_filename, mode="r").keys()
 
 
