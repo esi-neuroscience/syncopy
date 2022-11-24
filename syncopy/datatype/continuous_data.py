@@ -822,7 +822,7 @@ class TimeLockData(ContinuousData):
         return self._cov
 
     @ContinuousData.trialdefinition.setter
-    def trialdefinition(self, trl):
+    def trialdefinition(self, trldef):
         """
         Override trialdefinition setter, which is special for time-locked data:
         all trials have to have the same length and relative timings.
@@ -836,20 +836,21 @@ class TimeLockData(ContinuousData):
         """
 
         # first harness all parsers here
-        _definetrial(self, trialdefinition=trl)
+        _definetrial(self, trialdefinition=trldef)
 
         # now check for additional conditions
-        if not np.unique(trl[:, 2]).size == 1:
-            self.trialdefinition = None
-            lgl = "equal offsets for timelocked data"
-            act = "different offsets"
-            raise SPYValueError(lgl, varname="trialdefinition", actual=act)
+
+        # FIXME: not clear, is timelocked data to be expected
+        # to have same offsets?!
+        # if not np.unique(trldef[:, 2]).size == 1:
+        #     lgl = "equal offsets for timelocked data"
+        #     act = "different offsets"
+        #     raise SPYValueError(lgl, varname="trialdefinition", actual=act)
 
         # diff-diff should give 0 -> same number of samples for each trial
-        if not np.all(np.diff(trl, axis=0, n=2) == 0):
-            self.trialdefinition = None
-            lgl = "all trials/entities of same length for timelocked data"
-            act = "non-equally sized trials defined"
+        if not np.all(np.diff(trldef, axis=0, n=2) == 0):
+            lgl = "all trials of same length for timelocked data"
+            act = "unequal sized trials defined"
             raise SPYValueError(lgl, varname="trialdefinition", actual=act)
 
     # TODO - overload `time` property, as there is only one by definition!

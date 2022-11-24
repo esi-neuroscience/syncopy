@@ -78,17 +78,17 @@ def timelockanalysis(data,
 
     if ddof is not None:
         if not isinstance(ddof, int) or ddof < 0:
-            lgl = "positve integer value"
+            lgl = "positive integer value"
             act = ddof
             raise SPYValueError(lgl, 'ddof', act)
 
     if not isinstance(covariance, bool):
-        raise SPYTypeError(covariance, varname='covariance', expected='Bool')
+        raise SPYTypeError(covariance, varname='covariance', expected='bool')
 
     if not isinstance(keeptrials, bool):
-        raise SPYTypeError(covariance, varname='keeptrials', expected='Bool')
+        raise SPYTypeError(covariance, varname='keeptrials', expected='bool')
 
-    # latency gets checked within `get_analysis_window`
+    # latency gets checked within selectdata(latency=...)
 
     # -- standard block to check and store provided kwargs/cfg --
 
@@ -109,7 +109,7 @@ def timelockanalysis(data,
     select_backup = None if data.selection is None else data.selection.select.copy()
 
     if data.selection is not None:
-        if trials != 'all' and data.selection.select['trials'] is not None:
+        if trials != 'all' and data.selection.select.get('trials') is not None:
             lgl = "either `trials != 'all'` or selection"
             act = "trial keyword and trial selection"
             raise SPYValueError(lgl, 'trials', act)
@@ -139,33 +139,21 @@ def timelockanalysis(data,
         # beginnings and ends of all (selected) trials in trigger-relative time
         trl_starts, trl_ends = data.trialintervals[:, 0], data.trialintervals[:, 1]
 
-    # --- parse and digest `latency` (time window of analysis) ---
+    # --- apply `latency` (time window of analysis) ---
 
-    # parses str and sequence arguments and returns window as toilim
-    window = get_analysis_window(data, latency)
-
-    # this will create/ammend the selection, respecting the latency window
-    trl_select, numDiscard = create_trial_selection(data, window)
-
-    # apply the updated selection
-    data.selectdata(trl_select, inplace=True)
-
-    if numDiscard > 0:
-        msg = f"Discarded {numDiscard} trial(s) which did not fit into latency window"
-        SPYWarning(msg)
-
-    # apply latency window and create TimeLockData
     if data.selection is not None:
         select = data.selection.select.copy()
-        select['toilim'] = window
-        data.selectdata(select, inplace=True)
+        # update selection
+        data.selectdata(select, latency=latency, inplace=True)
     else:
-        data.selectdata(toilim=window, inplace=True)
+        # create new selection
+        data.selectdata(latency=latency, inplace=True)
 
     # start empty
     tld = spy.TimeLockData(samplerate=data.samplerate)
 
-    # stream cut/selected trials/time window into new dataset
+    # stream copy cut/selected trials/time window into new dataset
+    # by exploiting the in place selection
     dset = _dataset_from_trials(data,
                                 dset_name='data',
                                 filename=tld._gen_filename())
@@ -175,21 +163,20 @@ def timelockanalysis(data,
     tld.trialdefinition = data.selection.trialdefinition
 
     # now calculate via standard statistics
-    avg = spy.mean(tld, dim='trials')
-    var = spy.var(tld, dim='trials')
+    avg = spy.mean(tld, dim='trials', parallel=False)
+    var = spy.var(tld, dim='trials', parallel=False)
 
     # attach data to TimeLockData
-    tld._update_seq_dataset('avg', avg.data)
-    tld._update_seq_dataset('var', var.data)
+    tld._update_dataset('avg', avg.data)
+    tld._update_dataset('var', var.data)
 
     # unregister datasets to detach from objects
-    avg._unregister_seq_dataset("data", del_from_file=False)
-    var._unregister_seq_dataset("data", del_from_file=False)
+    avg._unregister_dataset("data", del_from_file=False)
+    var._unregister_dataset("data", del_from_file=False)
 
     # scramble filenames and delete unneeded objects
     avg.filename, var.filename = '', ''
     del avg, var
-
 
     # -- set up covariance CR --
 
@@ -208,7 +195,7 @@ def timelockanalysis(data,
         covCR.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
         # attach computed cov as array
-        tld._update_seq_dataset('cov', out.data[:, 0, ...].squeeze())
+        tld._update_dataset('cov', out.data[:, 0, ...].squeeze())
 
     # -- restore initial selection or wipe --
 
@@ -224,9 +211,15 @@ def _dataset_from_trials(spy_data, dset_name='new_data', filename=None):
     """
     Helper to construct a new dataset from
     a trial Indexer, respecting selections
+
+    This function is only needed if a dataset is to be tranferred
+    between two different Syncopy data classes, for the 
+    same data class a standard ``new = old.selectdata(..., inplace=False)``
+    does the trick.
     """
 
     stackDim = spy_data._stackingDim
+
     # re-initialize the Indexer
     def trials():
         if spy_data.selection is None:

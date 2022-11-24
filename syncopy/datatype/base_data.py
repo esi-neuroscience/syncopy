@@ -724,7 +724,8 @@ class BaseData(ABC):
         if self._trialdefinition is not None and self._samplerate is not None:
             # trial lengths in samples
             start_end = self.sampleinfo - self.sampleinfo[:, 0][:, None]
-            # add offset and convert to seconds
+            start_end[:, 1] -= 1  # account for last time point
+           # add offset and convert to seconds
             start_end = (start_end + self._t0[:, None]) / self._samplerate
             return start_end
         else:
@@ -1862,6 +1863,7 @@ class Selector:
         if self._trialdefinition is not None and self._samplerate is not None:
             # trial lengths in samples
             start_end = self.sampleinfo - self.sampleinfo[:, 0][:, None]
+            start_end[:, 1] -= 1  # account for last time point
             # add offset and convert to seconds
             start_end = (start_end + self.trialdefinition[:, 2][:, None]) / self._samplerate
             return start_end

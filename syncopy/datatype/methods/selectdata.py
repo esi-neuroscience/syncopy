@@ -292,9 +292,7 @@ def selectdata(data,
         if toi is not None or toilim is not None:
             SPYWarning("toi/toilim settings ignored if `latency` is set")
 
-        # sanity check done here
-        toilim = get_analysis_window(data, latency)
-        toi = None
+        toi, toilim = None, None
 
     # Collect provided selection keywords in dict
     selectDict = {"trials": trials,
@@ -340,6 +338,9 @@ def selectdata(data,
 
     if latency is not None:
 
+        # sanity check done here
+        toilim = get_analysis_window(data, latency)
+
         # this respects active inplace selections and
         # might update the trial selection
         selectDict, numDiscard = create_trial_selection(data, toilim)
@@ -347,8 +348,10 @@ def selectdata(data,
         if numDiscard > 0:
             msg = f"Discarded {numDiscard} trial(s) which did not fit into latency window"
             SPYInfo(msg)
-            # update inplace selection
-            data.selection = selectDict
+
+        # update inplace selection
+        selectDict['toilim'] = toilim        
+        data.selection = selectDict
 
     # If an in-place selection was requested we're done
     if inplace:
