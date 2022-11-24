@@ -124,7 +124,7 @@ def phase_diffusion(freq,
                     samplerate=1000,
                     nChannels=2,
                     nSamples=1000,
-                    rand_ini=True,
+                    rand_ini=False,
                     return_phase=False,
                     seed=None):
 
@@ -153,8 +153,7 @@ def phase_diffusion(freq,
     nSamples : int
         Number of samples in time
     rand_ini : bool, optional
-        If set to ``False`` all channels will have the same
-        initial phase
+        If set to ``True`` initial phases are randomized
     return_phase : bool, optional
         If set to true returns the phases in radians
     seed: None or int, passed on to `np.random.default_rng`.

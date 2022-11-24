@@ -1140,7 +1140,7 @@ class TestTimeLockData:
         tld = TimeLockData()
 
         avg_data = np.zeros((3, 3), dtype=np.float64)
-        tld._update_seq_dataset("avg", avg_data)
+        tld._update_dataset("avg", avg_data)
         assert isinstance(tld.avg, h5py.Dataset)
         assert np.array_equal(avg_data, tld.avg)
 
@@ -1149,8 +1149,8 @@ class TestTimeLockData:
         with pytest.raises(AttributeError, match="can't set attribute"):
             tld.avg = avg_data2
 
-        # But we can do it with _update_seq_dataset:
-        tld._update_seq_dataset("avg", avg_data2)
+        # But we can do it with _update_dataset:
+        tld._update_dataset("avg", avg_data2)
         assert np.array_equal(avg_data2, tld.avg)
 
         # ... or of course, directly using '_avg':

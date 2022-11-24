@@ -27,6 +27,7 @@ availMem = psutil.virtual_memory().total
 minRAM = 5
 skip_low_mem = pytest.mark.skipif(availMem < minRAM * 1024**3, reason=f"less than {minRAM}GB RAM available")
 
+
 class TestSpectralInput:
     """
     When inputting SpectralData directly into connectivityanalysis, it has to fulfill
@@ -288,11 +289,13 @@ class TestCoherence:
                                     eps=.01,
                                     nChannels=nChannels,
                                     nSamples=nSamples)
+
     # little diffusion in the 40Hz band
     s2 = synth_data.phase_diffusion(nTrials, freq=f2,
                                     eps=.001,
                                     nChannels=nChannels,
                                     nSamples=nSamples)
+
     wn = synth_data.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples)
 
     # superposition
