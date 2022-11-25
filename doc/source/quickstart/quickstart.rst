@@ -52,7 +52,7 @@ which gives nicely formatted output:
             cfg : dictionary with keys ''
         channel : [2] element <class 'numpy.ndarray'>
       container : None
-           data : 50 trials of length 1000.0 defined on [50000 x 2] float64 Dataset of size 1.14 MB
+           data : 50 trials of length 1000.0 defined on [50000 x 2] float32 Dataset of size 1.14 MB
          dimord : time by channel
        filename : /xxx/xxx/.spy/spy_910e_572582c9.analog
            mode : r+

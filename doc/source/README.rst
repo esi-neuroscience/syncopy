@@ -36,6 +36,7 @@ In depth Guides and Tutorials
 * :doc:`Basic Concepts <user/concepts>`
 * :doc:`Syncopy for FieldTrip Users <user/fieldtrip>`
 * :doc:`Handling Data <user/data>`
+* :doc:`Selections <user/selectdata>`
 * :doc:`Fooof <tutorials/fooof>`
 * :doc:`Resampling <tutorials/resampling>`
 
@@ -65,6 +66,7 @@ For general inquiries please contact syncopy (at) esi-frankfurt.de.
    user/concepts.rst
    user/fieldtrip.rst
    user/data.rst
+   user/selectdata.rst
    user/user_api.rst
    tutorials/fooof.rst
    tutorials/resampling.rst

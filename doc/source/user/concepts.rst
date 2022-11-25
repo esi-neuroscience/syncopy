@@ -32,6 +32,7 @@ Memory Management
 
 One of the key concepts of Syncopy is mindful computing resource management, especially keeping a low **memory footprint**. In the depicted workflow, data processed :blue:`on disc` is indicated in :blue:`blue`, whereas potentially :red:`memory exhausting operations` are indicated in :red:`red`. So care has to be taken when using :func:`~syncopy.show` or the plotting routines :func:`~syncopy.singlepanelplot` and :func:`~syncopy.multipanelplot`, as these potentially pipe the whole dataset into the systems memory. It is advised to either perform some averaging beforehand, or cautiously only selecting a few channels/trials for these operations.
 
+.. _meta_functions:
       
 Syncopy Meta-Functions
 ----------------------
