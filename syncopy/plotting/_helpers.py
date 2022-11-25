@@ -150,11 +150,11 @@ def get_method(dataobject):
 def get_output(dataobject):
 
     """
-    Returns the method string from
+    Returns the output string from
     the log of a Syncopy data object
     """
 
-    # get the method string in a capture group
+    # get the output string in a capture group
     pattern = re.compile(r'[\s\w\D]+output = (\w+)')
     match = pattern.match(dataobject._log)
     if match:
@@ -197,3 +197,14 @@ def calc_multi_layout(nAx):
         nrows, ncols = 1, 2
 
     return nrows, ncols
+
+
+def check_if_time_freq(data):
+    """
+    Looks into the first column of the trialdefinition
+    to determine if there is a real time axis, or it is
+    just trial stacking.
+    """
+    is_tf = np.any(np.diff(data.trialdefinition)[:, 0] != 1)
+
+    return is_tf

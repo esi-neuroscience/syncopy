@@ -133,7 +133,7 @@ def normalize_csd(csd_av_dat,
 
     Parameters
     ----------
-    csd_av_dat : (nFreq, N, N) :class:`numpy.ndarray`
+    csd_av_dat : (nTime, nFreq, N, N) :class:`numpy.ndarray`
         Averaged cross-spectral densities for `N` x `N` channels
         and `nFreq` frequencies averaged over trials.
     output : {'abs', 'pow', 'fourier', 'complex', 'angle', 'imag' or 'real'}, default: 'abs'
@@ -146,7 +146,7 @@ def normalize_csd(csd_av_dat,
 
     Returns
     -------
-    CS_ij : (nFreq, N, N) :class:`numpy.ndarray`
+    CS_ij : (nTime, nFreq, N, N) :class:`numpy.ndarray`
         Coherence for all channel combinations ``i,j``.
         `N` corresponds to number of input channels.
 
@@ -156,17 +156,16 @@ def normalize_csd(csd_av_dat,
           data using the imaginary part of coherency."
           Clinical neurophysiology 115.10 (2004): 2292-2307.
     """
-    # re-shape to (nChannels x nChannels x nFreq)
-    CS_ij = csd_av_dat.transpose(1, 2, 0)
 
-    # main diagonal has shape (nFreq x nChannels): the auto spectra
-    diag = CS_ij.diagonal()
+    CS_ij = csd_av_dat.view()
+
+    # channel diagonal has shape (nTime x nFreq x nChannels): the auto spectra
+    diag = CS_ij.diagonal(axis1=-2, axis2=-1)
 
     # get the needed product pairs of the autospectra
-    Ciijj = np.sqrt(diag[:, :, None] * diag[:, None, :]).T
+    Ciijj = np.sqrt(diag[..., None] * diag[..., None, :])
     CS_ij = CS_ij / Ciijj
 
     CS_ij = spectralConversions[output](CS_ij)
 
-    # re-shape to original form
-    return CS_ij.transpose(2, 0, 1)
+    return CS_ij

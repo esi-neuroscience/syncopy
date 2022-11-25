@@ -212,17 +212,19 @@ class MultiTaperFFT(ComputationalRoutine):
 
         check_freq_hashes(metadata, out)
 
-        # attached to `out` only here for testing of
-        # the whole machinery (see test_metadata.TestMetadataUsingMtmfft)
-        out.metadata = metadata
-
-        # channels, trialdefinition and so on..
+        # channels and trialdefinition
         propagate_properties(data, out, self.keeptrials)
 
-        if self.cfg["method_kwargs"]["taper"] is None:
+        taper_kw = self.cfg["method_kwargs"]["taper"]
+        if taper_kw is None:
             out.taper = np.array(['None'])
+        # multi-tapering
+        elif taper_kw == 'dpss':
+            nTaper =  self.outputShape[out.dimord.index("taper")]
+            out.taper = np.array([taper_kw + str(i) for i in range(nTaper)])
+        # just a single taper
         else:
-            out.taper = np.array([self.cfg["method_kwargs"]["taper"]] * self.outputShape[out.dimord.index("taper")])
+            out.taper = np.array([taper_kw])
         out.freq = self.cfg["foi"]
 
 
@@ -480,10 +482,18 @@ class MultiTaperFFTConvol(ComputationalRoutine):
         out.trialdefinition = trl
         out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
-        if self.cfg["method_kwargs"]["taper"] is None:
+
+        taper_kw = self.cfg["method_kwargs"]["taper"]
+        if taper_kw is None:
             out.taper = np.array(['None'])
+        # multi-tapering
+        elif taper_kw == 'dpss':
+            nTaper =  self.outputShape[out.dimord.index("taper")]
+            out.taper = np.array([taper_kw + str(i) for i in range(nTaper)])
+        # just a single taper
         else:
-            out.taper = np.array([self.cfg["method_kwargs"]["taper"]] * self.outputShape[out.dimord.index("taper")])
+            out.taper = np.array([taper_kw])
+
         out.freq = self.cfg["foi"]
 
 
@@ -656,6 +666,7 @@ class WaveletTransform(ComputationalRoutine):
         out.freq = 1 / self.cfg["method_kwargs"]["wavelet"].fourier_period(
             self.cfg["method_kwargs"]["scales"]
         )
+        out.taper = np.array(['None'])
 
 
 # -----------------
@@ -819,6 +830,7 @@ class SuperletTransform(ComputationalRoutine):
         out.channel = np.array(data.channel[chanSec])
         # for the SL Morlets the conversion is straightforward
         out.freq = 1 / (2 * np.pi * self.cfg["method_kwargs"]["scales"])
+        out.taper = np.array(['None'])
 
 
 def _make_trialdef(cfg, trialdefinition, samplerate):

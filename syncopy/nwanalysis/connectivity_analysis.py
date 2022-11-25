@@ -202,14 +202,6 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         raise SPYValueError(lgl, 'data', act)
     timeAxis = data.dimord.index("time")
 
-    # check that for SpectralData input, we have empty time axes
-    # no time-resolved connectivity supported atm
-    if isinstance(data, SpectralData):
-        if data.data.shape[data.dimord.index('time')] != len(data.trials):
-            lgl = "line spectra without time axis (mtmfft or time average)"
-            act = "time-frequency result"
-            raise SPYValueError(lgl, 'data', act)
-
     # Get everything of interest in local namespace
     defaults = get_defaults(connectivityanalysis)
     lcls = locals()
@@ -323,6 +315,13 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                 act = "real valued spectral data"
                 raise SPYValueError(lgl, 'data', act)
 
+            if method == 'granger':
+                # check that for SpectralData input, we have empty time axes
+                # no time-resolved Granger supported atm
+                if isinstance(data, SpectralData):
+                    if data.data.shape[data.dimord.index('time')] != len(data.trials):
+                        raise NotImplementedError("Time resolved Granger causality from tf-spectra not available atm")
+
             # by constraining to output='fourier', detrimental taper averaging
             # gets already catched by freqanalysis!
 
@@ -385,7 +384,8 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # now take the trial average from the single trial CR as input
     av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
     av_compRoutine.pre_check()   # make sure we got a trial_average
-    av_compRoutine.compute(st_out, out, parallel=False, log_dict=log_dict)
+    av_compRoutine.compute(st_out, out, parallel=kwargs.get("parallel"),
+                           log_dict=log_dict)
 
     # attach potential older cfg's from the input
     # to support chained frontend calls..
