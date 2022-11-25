@@ -100,9 +100,7 @@ def plot_SpectralData(data, **show_kwargs):
     elif len(data.trials) == 1:
         trl = 0
 
-    # -- check if it is a time-frequency spectrum ----------
-    is_tf = np.any(np.diff(data.trialdefinition)[:, 0] != 1)
-    # ------------------------------------------------------
+    is_tf = plot_helpers.check_if_time_freq(data)
 
     if is_tf:
         # multiple channels?
@@ -262,9 +260,7 @@ def plot_CrossSpectralData(data, **show_kwargs):
     else:
         raise NotImplementedError
 
-    # -- check if it is a time-frequency spectrum ----------
-    is_tf = np.any(np.diff(data.trialdefinition)[:, 0] != 1)
-    # ------------------------------------------------------
+    is_tf = plot_helpers.check_if_time_freq(data)
 
     # time dependent coherence
     if method == 'coh' and is_tf:
