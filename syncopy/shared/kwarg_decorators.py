@@ -16,7 +16,7 @@ from syncopy.shared.errors import (SPYTypeError, SPYValueError,
                                    SPYError, SPYWarning, SPYInfo)
 from syncopy.shared.tools import StructDict
 from syncopy.shared.metadata import h5_add_metadata, parse_cF_returns
-from .tools import check_slurm_available
+from .dask_helpers import check_slurm_available, check_workers_available
 import syncopy as spy
 
 __all__ = []
@@ -467,17 +467,8 @@ def detect_parallel_client(func):
         parallel = kwargs.get("parallel")
         kill_spawn = False
         has_slurm = check_slurm_available()
-
-        # we are on a HPC but ACME is missing, LocalCluster still got created
-        # but a warning is issued
-        if parallel is True and has_slurm and not spy.__acme__:
-            msg = ("We are apparently on a slurm cluster but Syncopy does not provide an "
-                   "automatic Dask SLURMCluster on its own!"
-                   "\nPlease consider using ACME (https://github.com/esi-neuroscience/acme)"
-                   "\nor configure your own cluster via `dask_jobqueue.SLURMCluster()`"
-                   "\n\nCreating a LocalCluster as fallback.."
-                   )
-            SPYWarning(msg)
+        # warning only emitted if slurm available but no ACME or Dask client
+        slurm_msg = ""
 
         # This effectively searches for a global dask cluster, and sets
         # parallel=True if one was found. If no cluster was found, parallel is set to False,
@@ -485,7 +476,10 @@ def detect_parallel_client(func):
         # this needs explicit `parallel=True`.
         if parallel is None:
             try:
-                dd.get_client()
+                client = dd.get_client()
+                check_workers_available(client.cluster)
+                msg = f"..attaching to running Dask client:\n{client}"
+                SPYInfo(msg)
                 parallel = True
             except ValueError:
                 parallel = False
@@ -496,9 +490,26 @@ def detect_parallel_client(func):
         elif parallel is True and (not has_slurm or not spy.__acme__):
             # if already one cluster is reachable do nothing
             try:
-                dd.get_client()
+                client = dd.get_client()
+                check_workers_available(client.cluster)
+                msg = f"..attaching to running Dask client:\n{client}"
+                SPYInfo(msg)
             except ValueError:
-                # spawn fallback local cluster
+                # we are on a HPC but ACME and Dask client are missing,
+                # LocalCluster still gets created
+                if has_slurm and not spy.__acme__:
+                    slurm_msg = ("We are apparently on a slurm cluster but\n"
+                                 "Syncopy could not find a Dask client.\n"
+                                 "Syncopy does not provide an "
+                                 "automatic Dask SLURMCluster on its own!"
+                                 "\nPlease consider using ACME (https://github.com/esi-neuroscience/acme)"
+                                 "\nor configure your own cluster via `dask_jobqueue.SLURMCluster()`"
+                                 "\n\nCreating a LocalCluster as fallback.."
+                           )
+                    SPYWarning(slurm_msg)
+
+                # -- spawn fallback local cluster --
+
                 cluster = dd.LocalCluster()
                 # attaches to local cluster residing in global namespace
                 dd.Client(cluster)
@@ -518,6 +529,9 @@ def detect_parallel_client(func):
             dd.get_client().close()
             # and kill
             cluster.close()
+        # print again in case it got drowned
+        if slurm_msg:
+            SPYWarning(slurm_msg)
 
         return results
 
@@ -680,7 +694,7 @@ def process_io(func):
                 if keeptrials:
                     main_dset[outgrid] = res
                 else:
-                    main_dset[()] = np.nansum([main_dset, res], axis=0)
+                    main_dset[()] += res
 
                 h5_add_metadata(h5fout, details, unique_key_suffix=call_id)
                 h5fout.flush()

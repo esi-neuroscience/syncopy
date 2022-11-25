@@ -100,11 +100,9 @@ def plot_SpectralData(data, **show_kwargs):
     elif len(data.trials) == 1:
         trl = 0
 
-    # -- how got the spectrum computed --
-    method = plot_helpers.get_method(data)
-    # -----------------------------------
+    is_tf = plot_helpers.check_if_time_freq(data)
 
-    if method in ('wavelet', 'superlet', 'mtmconvol'):
+    if is_tf:
         # multiple channels?
         label = plot_helpers.parse_channel(data, show_kwargs)
         # only relevant for mtmconvol
@@ -119,8 +117,6 @@ def plot_SpectralData(data, **show_kwargs):
         # here we always need a new axes
         fig, ax = _plotting.mk_img_figax()
 
-        # this could be more elegantly solve by
-        # an in-place selection?!
         time = plot_helpers.parse_toi(data, trl, show_kwargs)
         freqs = plot_helpers.parse_foi(data, show_kwargs)
 
@@ -147,6 +143,24 @@ def plot_SpectralData(data, **show_kwargs):
                    "ignoring `toi/toilim` selection!")
             SPYWarning(msg)
 
+        # multiple channels?
+        channels = plot_helpers.parse_channel(data, show_kwargs)
+
+        # just multiple tapers or multiple channels in one plot
+        if len(data.taper) != 1:
+            taper = show_kwargs.get('taper')
+            if not isinstance(taper, (Number, str)) and not isinstance(channels, str):
+                msg = "Please select a single taper or a single channel \nfor plotting multi-taper spectra.. aborting plotting\n"
+                SPYWarning(msg)
+                return None, None
+            # single channel, multiple tapers
+            elif isinstance(channels, str):
+                labels = data.taper
+            # single taper, multiple channels
+            elif isinstance(taper, (Number, str)):
+                labels = channels
+        else:
+            labels = channels
         # get the data to plot
         data_x = plot_helpers.parse_foi(data, show_kwargs)
         output = plot_helpers.get_output(data)
@@ -156,14 +170,15 @@ def plot_SpectralData(data, **show_kwargs):
             data_y = np.log10(data.show(**show_kwargs))
             ylabel = 'power (dB)'
         elif output in ['fourier', 'complex']:
-            SPYWarning("Can't plot complex valued spectra, choose 'real' or 'imag' as output. Aborting plotting.")
+            SPYWarning("Can't plot complex valued spectra, choose 'real' or 'imag' as freqanalysis output.. aborting plotting")
             return None, None
         else:
             data_y = data.show(**show_kwargs)
             ylabel = f'{output}'
 
-        # multiple channels?
-        labels = plot_helpers.parse_channel(data, show_kwargs)
+        # flip if required
+        if data_y.shape[1] == len(data_x):
+            data_y = data_y.T
 
         fig, ax = _plotting.mk_line_figax(xlabel='frequency (Hz)',
                                           ylabel=ylabel)
@@ -245,26 +260,47 @@ def plot_CrossSpectralData(data, **show_kwargs):
     else:
         raise NotImplementedError
 
-    # get the data to plot
-    data_y = data.show(**show_kwargs)
-    if data_y.size == 0:
-        lgl = "Selection with non-zero size"
-        act = "got zero samples"
-        raise SPYValueError(lgl, varname="show_kwargs", actual=act)
+    is_tf = plot_helpers.check_if_time_freq(data)
 
-    # create the axes and figure if needed
-    # persistent axes allows for plotting different
-    # channel combinations into the same figure
-    if not hasattr(data, 'fig') or not _plotting.ppl.fignum_exists(data.fig.number):
-        data.fig, data.ax = _plotting.mk_line_figax(xlabel, ylabel)
-    _plotting.plot_lines(data.ax, data_x, data_y, label=label)
-    # format axes
-    if method in ['granger', 'coh'] and output in ['pow', 'abs']:
-        data.ax.set_ylim((-.02, 1.02))
-    elif method == 'corr':
-        data.ax.set_ylim((-1.02, 1.02))
-    data.ax.legend(ncol=1)
+    # time dependent coherence
+    if method == 'coh' and is_tf:
+        # here we always need a new axes
+        fig, ax = _plotting.mk_img_figax()
 
-    data.fig.tight_layout()
+        time = plot_helpers.parse_toi(data, trl, show_kwargs)
+        freqs = plot_helpers.parse_foi(data, show_kwargs)
 
-    return data.fig, data.ax
+        # custom dimords for SpectralData not supported atm
+        # dimord is time x freq x channel_i x channel_j
+        # need freq x time for plotting
+        data_yx = data.show(**show_kwargs).T
+        _plotting.plot_tfreq(ax, data_yx, time, freqs, cmap='cividis')
+        ax.set_title(f"{method}: " + label, fontsize=pltConfig['sTitleSize'])
+        fig.tight_layout()
+
+        return fig, ax
+        
+    else:
+        # get the data to plot
+        data_y = data.show(**show_kwargs)
+        if data_y.size == 0:
+            lgl = "Selection with non-zero size"
+            act = "got zero samples"
+            raise SPYValueError(lgl, varname="show_kwargs", actual=act)
+
+        # create the axes and figure if needed
+        # persistent axes allows for plotting different
+        # channel combinations into the same figure
+        if not hasattr(data, 'fig') or not _plotting.ppl.fignum_exists(data.fig.number):
+            data.fig, data.ax = _plotting.mk_line_figax(xlabel, ylabel)
+        _plotting.plot_lines(data.ax, data_x, data_y, label=label)
+        # format axes
+        if method in ['granger', 'coh'] and output in ['pow', 'abs']:
+            data.ax.set_ylim((-.02, 1.02))
+        elif method == 'corr':
+            data.ax.set_ylim((-1.02, 1.02))
+        data.ax.legend(ncol=1)
+
+        data.fig.tight_layout()
+
+        return data.fig, data.ax

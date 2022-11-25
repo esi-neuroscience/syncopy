@@ -183,5 +183,6 @@ def plot_tfreq(ax, data_yx, times, freqs, **pkwargs):
     extent = [times[0], times[-1],
               freqs[0] - df / 2, freqs[-1] - df / 2]
 
-    ax.imshow(data_yx[::-1], aspect='auto', cmap=pltConfig['cmap'],
+    cmap = pkwargs.pop('cmap', pltConfig['cmap'])
+    ax.imshow(data_yx[::-1], aspect='auto', cmap=cmap,
               extent=extent, **pkwargs)

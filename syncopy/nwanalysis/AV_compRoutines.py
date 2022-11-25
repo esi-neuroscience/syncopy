@@ -52,7 +52,7 @@ def normalize_csd_cF(csd_av_dat,
 
     Parameters
     ----------
-    csd_av_dat : (1, nFreq, N, N) :class:`numpy.ndarray`
+    csd_av_dat : (nTime, nFreq, N, N) :class:`numpy.ndarray`
         Cross-spectral densities for `N` x `N` channels
         and `nFreq` frequencies averaged over trials.
     output : {'abs', 'pow', 'fourier', 'real', 'imag'}, default: 'abs'
@@ -69,7 +69,7 @@ def normalize_csd_cF(csd_av_dat,
 
     Returns
     -------
-    CS_ij : (1, nFreq, N, N) :class:`numpy.ndarray`
+    CS_ij : (nTime, nFreq, N, N) :class:`numpy.ndarray`
         Coherence for all channel combinations ``i,j``.
         `N` corresponds to number of input channels.
 
@@ -107,10 +107,9 @@ def normalize_csd_cF(csd_av_dat,
     if noCompute:
         return outShape, fmt
 
-    CS_ij = normalize_csd(csd_av_dat[0], output)
+    CS_ij = normalize_csd(csd_av_dat, output)
 
-    # re-attach dummy time axis
-    return CS_ij[None, ...]
+    return CS_ij
 
 
 class NormalizeCrossSpectra(ComputationalRoutine):
@@ -157,7 +156,9 @@ class NormalizeCrossSpectra(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_properties(data, out, self.keeptrials)
+        time_axis = np.any(np.diff(data.trialdefinition)[:,0] != 1)
+
+        propagate_properties(data, out, self.keeptrials, time_axis)
         out.freq = data.freq
 
 
