@@ -8,6 +8,6 @@ import numpy as np
 
 def welch(data_arr):
     """
-    Welch method backeend function.
+    Welch method backend function, works on a single trial.
     """
     return data_arr
