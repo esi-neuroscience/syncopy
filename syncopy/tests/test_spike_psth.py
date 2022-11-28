@@ -17,11 +17,11 @@ from syncopy.statistics.spike_psth import available_outputs
 
 def get_spike_data(nTrials = 10, seed=None):
     return sd.poisson_noise(nTrials,
-                           nUnits=3,
-                           nChannels=2,
-                           nSpikes=10_000,
-                           samplerate=10_000,
-                           seed=seed)
+                            nUnits=3,
+                            nChannels=2,
+                            nSpikes=10_000,
+                            samplerate=10_000,
+                            seed=seed)
 
 
 def get_spike_cfg():
@@ -194,15 +194,36 @@ class TestPSTH:
 
         counts = spy.spike_psth(self.spd, cfg)
 
-        # shows that each channel-unit combination
-        # has a flat distribution as expected for poisson noise
-        # however the absolute intensity differs: we have more and less
-        # active channels/units by synthetic data costruction
+        # -- plot single trial statistics --
+        # single trials have high variance, see below
+
         last_data = np.zeros(counts.time[0].size)
         for chan in counts.channel:
             bars = counts.show(trials=5, channel=chan)
             ppl.bar(counts.time[0], bars, alpha=0.7, bottom=last_data,
                     width=0.9 / counts.samplerate, label=chan)
+            # for stacking
+            last_data += bars
+        ppl.legend()
+        ppl.xlabel('time (s)')
+        ppl.ylabel('spike counts')
+        ppl.show()
+
+        # -- plot mean and variance --
+
+        # shows that each channel-unit combination
+        # has a flat distribution as expected for poisson noise
+        # however the absolute intensity differs: we have more and less
+        # active channels/units by synthetic data costruction
+
+        ppl.figure()
+        ppl.title("Trial statistics")
+        last_data = np.zeros(len(counts.time[0]))
+        for chan in range(len(counts.channel)):
+            bars = counts.avg[:, chan]
+            yerr = counts.var[:, chan]
+            ppl.bar(counts.time[0], bars, alpha=0.7, bottom=last_data,
+                    width=0.9 / counts.samplerate, label=chan, yerr=yerr, capsize=2)
             # for stacking
             last_data += bars
         ppl.legend()

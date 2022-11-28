@@ -6,6 +6,7 @@
 import numpy as np
 
 # Syncopy imports
+import syncopy as spy
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.tools import get_defaults, get_frontend_cfg
 from syncopy.datatype import TimeLockData
@@ -195,7 +196,24 @@ def spike_psth(data,
                     parallel=kwargs.get("parallel"),
                     log_dict=log_dict)
 
-    # propagate old cfg and attach this one
+
+    # calculate trial average and variance
+    avg = spy.mean(psth_results, dim='trials', parallel=False)
+    var = spy.var(psth_results, dim='trials', parallel=False)
+
+    # attach data to TimeLockData
+    psth_results._update_dataset('avg', avg.data)
+    psth_results._update_dataset('var', var.data)
+
+    # unregister datasets to detach from objects
+    avg._unregister_dataset("data", del_from_file=False)
+    var._unregister_dataset("data", del_from_file=False)
+
+    # scramble filenames and delete unneeded objects
+    avg.filename, var.filename = '', ''
+    del avg, var
+
+    # -- propagate old cfg and attach this one --
     psth_results.cfg.update(data.cfg)
     psth_results.cfg.update({'spike_psth': new_cfg})
 
