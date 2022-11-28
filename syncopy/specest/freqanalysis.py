@@ -958,11 +958,11 @@ def freqanalysis(data, method='mtmfft', output='pow',
         welch_kwargs = kwargs
 
         welchMethod = Welch(output=output_welch, welch_kwargs=welch_kwargs)
-        fooofMethod.initialize(welch_data,
+        welchMethod.initialize(welch_data,
                                welch_out._stackingDim,
                                chan_per_worker=kwargs.get("chan_per_worker"),
                                keeptrials=keeptrials)
-        fooofMethod.compute(welch_data, welch_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
+        welchMethod.compute(welch_data, welch_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
         log_dct["welch_output"] = output_welch
         log_dct["welch_kwargs"] = welch_kwargs
         out = welch_out
