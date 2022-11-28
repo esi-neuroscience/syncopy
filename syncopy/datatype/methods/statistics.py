@@ -256,6 +256,7 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
 
     # revert helper all-to-all selection
     if hasattr(spy_data.selection, '_cleanup'):
+        spy_data.cfg.pop('selectdata')
         spy_data.selection = None
 
     return out
@@ -438,6 +439,11 @@ def _trial_statistics(in_data, operation='mean'):
             if np.issubdtype(type(selection), np.number):
                 selection = [selection]
             setattr(out_data, prop, getattr(in_data, prop)[selection])
+
+    # revert helper all-to-all selection
+    if hasattr(in_data.selection, '_cleanup'):
+        in_data.cfg.pop('selectdata')
+        in_data.selection = None
 
     return out_data
 

@@ -105,7 +105,16 @@ def timelockanalysis(data,
                 'trials': trials
                 }
 
-    # to restore later
+    # -- create outtput object --
+
+    # start empty, data gets added later
+    tld = spy.TimeLockData(samplerate=data.samplerate)
+
+    # -- propagate old cfg and attach this one --
+    tld.cfg.update(data.cfg)
+    tld.cfg.update({'timelockanalysis': new_cfg})
+
+    # to restore later as we apply selection inside here
     select_backup = None if data.selection is None else data.selection.select.copy()
 
     if data.selection is not None:
@@ -140,7 +149,6 @@ def timelockanalysis(data,
         trl_starts, trl_ends = data.trialintervals[:, 0], data.trialintervals[:, 1]
 
     # --- apply `latency` (time window of analysis) ---
-
     if data.selection is not None:
         select = data.selection.select.copy()
         # update selection
@@ -148,9 +156,6 @@ def timelockanalysis(data,
     else:
         # create new selection
         data.selectdata(latency=latency, inplace=True)
-
-    # start empty
-    tld = spy.TimeLockData(samplerate=data.samplerate)
 
     # stream copy cut/selected trials/time window into new dataset
     # by exploiting the in place selection
@@ -200,9 +205,12 @@ def timelockanalysis(data,
     # -- restore initial selection or wipe --
 
     if select_backup:
+        # this rewrites the cfg
         data.selectdata(select_backup, inplace=True)
     else:
         data.selection = None
+        # erase local selection entry
+        data.cfg.pop('selectdata')
 
     return tld
 
@@ -213,7 +221,7 @@ def _dataset_from_trials(spy_data, dset_name='new_data', filename=None):
     a trial Indexer, respecting selections
 
     This function is only needed if a dataset is to be tranferred
-    between two different Syncopy data classes, for the 
+    between two different Syncopy data classes, for the
     same data class a standard ``new = old.selectdata(..., inplace=False)``
     does the trick.
     """
