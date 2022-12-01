@@ -74,29 +74,6 @@ def run_polyremoval_test(method_call):
         assert 'Wrong type of `polyremoval`' in str(err)
 
 
-def run_foi_test(method_call, frequency, positivity=True):
-
-    # only positive frequencies
-    assert np.min(frequency) >= 0
-    assert np.max(frequency) <= 500
-
-    # 2 frequencies
-    frequencies = [[2, 60], [7.65, 45.1234], None]
-    for foil in frequencies:
-        result = method_call(latency=foil)
-        # check here just for finiteness and positivity
-        assert np.all(np.isfinite(result.data))
-        if positivity:
-            assert np.all(result.data[0, ...] >= -1e-10)
-
-    # make sure out-of-range latenecy selections are detected
-    try:
-        result = method_call(latency=[-1, 70])
-    except SPYValueError as err:
-        assert 'latency' in str(err)
-        assert 'start of' in str(err)
-
-
 def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
 
     """

@@ -196,9 +196,11 @@ class TestGranger:
                                                 *self.time_span)
 
         for sel_dct in selections:
+            print(sel_dct)
             Gcaus_ad = cafunc(self.data, self.cfg, method='granger', select=sel_dct)
 
-            # selections act on spectral analysis
+            # selections act on spectral analysis, remove latency
+            # sel_dct.pop('latency')
             spec = spy.freqanalysis(self.data, self.cfg, output='fourier',
                                     keeptapers=True, select=sel_dct)
 
@@ -213,6 +215,7 @@ class TestGranger:
 
         # test one final selection into a result
         # obtained via orignal SpectralData input
+        selections[0].pop('latency')        
         result_ad = cafunc(self.data, self.cfg, method='granger', select=selections[0])
         result_spec = cafunc(self.spec, method='granger', select=selections[0])
         assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=1e-3)
@@ -383,6 +386,7 @@ class TestCoherence:
 
         # test one final selection into a result
         # obtained via orignal SpectralData input
+        selections[0].pop('latency')        
         result_ad = cafunc(self.data, self.cfg, method='coh', select=selections[0])
         result_spec = cafunc(self.spec, method='coh', select=selections[0])
         assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=1e-3)
@@ -390,12 +394,11 @@ class TestCoherence:
 
     def test_coh_foi(self):
 
-        call = lambda foi, foilim: cafunc(self.data,
-                                          method='coh',
-                                          foi=foi,
-                                          foilim=foilim)
+        call = lambda foilim: cafunc(self.data,
+                                     method='coh',
+                                     foilim=foilim)
 
-        helpers.run_foi_test(call, foilim=[0, 70])
+        run_foi_test(call, frequency=[0, 70])
 
     def test_coh_cfg(self):
 
@@ -601,7 +604,7 @@ def run_cfg_test(method_call, method, cfg, positivity=True):
 
     cfg.method = method
     if method != 'granger':
-        cfg.foilim = [0, 70]
+        cfg.frequency = [0, 70]
     # test general tapers with
     # additional parameters
     cfg.taper = 'kaiser'
@@ -644,6 +647,25 @@ def plot_corr(res, i, j, label=''):
     ax.plot(res.time[0], res.data[:, 0, i, j], label=label)
     ax.legend()
 
+
+def run_foi_test(method_call, frequency, positivity=True):
+
+    # only positive frequencies
+    assert np.min(frequency) >= 0
+    assert np.max(frequency) <= 500
+
+    # 2 frequencies
+    frequencies = [[2, 60], [7.65, 45.1234], None]
+    for foil in frequencies:
+        result = method_call(foil)
+        # check here just for finiteness and positivity
+        assert np.all(np.isfinite(result.data))
+        if positivity:
+            assert np.all(result.data[0, ...] >= -1e-10)
+
+    # make sure out-of-range foi selections are detected
+    with pytest.raises(SPYValueError, match='foilim'):
+        result = method_call([-1, 70])
 
 if __name__ == '__main__':
     T1 = TestGranger()

@@ -204,7 +204,7 @@ class TestMetadataUsingFooof():
 
         # These are known from the input data and cfg.
         data_size = 100  # Number of samples (per trial) seen by fooof. The full signal returned by _get_fooof_signal() is
-                         # larger, but the cfg.foilim setting (in get_fooof_cfg()) limits to 100 samples.
+                         # larger, but the cfg.frequency setting (in get_fooof_cfg()) limits to 100 samples.
         num_trials_fooof = 1 # Because of keeptrials = False in cfg.
 
         assert spec_dt.data.shape == (num_trials_fooof, 1, data_size, 1)
@@ -460,7 +460,7 @@ class TestMetadataUsingMtmfft():
         """
         # These are known from the input data and cfg.
         data_size = 100  # Number of samples (per trial) seen by mtmfftm. The full signal returned by _get_fooof_signal() is
-                         # larger, but the cfg.foilim setting (in get_fooof_cfg()) limits to 100 samples.
+                         # larger, but the cfg.frequency setting (in get_fooof_cfg()) limits to 100 samples.
         num_trials_out = 1 # Because of keeptrials = False in cfg.
 
         cfg = TestMetadataUsingMtmfft.get_mtmfft_cfg()
@@ -509,7 +509,7 @@ class TestMetadataUsingMtmfft():
         """
         # These are known from the input data and cfg.
         data_size = 100  # Number of samples (per trial) seen by mtmfftm. The full signal returned by _get_fooof_signal() is
-                         # larger, but the cfg.foilim setting (in get_fooof_cfg()) limits to 100 samples.
+                         # larger, but the cfg.frequency setting (in get_fooof_cfg()) limits to 100 samples.
 
 
         cfg = TestMetadataUsingMtmfft.get_mtmfft_cfg()
@@ -538,7 +538,6 @@ class TestMetadataUsingMtmfft():
             assert ti in selected_trials, f"Expected trial index '{ti}' not found in selected_trials"
 
 
-
     def test_par_mtmfft_with_selections(self):
         """
         Test metadata propagation with mtmfft in with parallel compute and parallel storage,
@@ -550,7 +549,7 @@ class TestMetadataUsingMtmfft():
         """
         # These are known from the input data and cfg.
         data_size = 100  # Number of samples (per trial) seen by mtmfftm. The full signal returned by _get_fooof_signal() is
-                         # larger, but the cfg.foilim setting (in get_fooof_cfg()) limits to 100 samples.
+                         # larger, but the cfg.frequency setting (in get_fooof_cfg()) limits to 100 samples.
 
         cfg = TestMetadataUsingMtmfft.get_mtmfft_cfg()
         cfg.parallel = True  # Enable parallel computation
