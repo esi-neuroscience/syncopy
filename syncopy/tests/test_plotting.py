@@ -50,12 +50,11 @@ class TestAnalogPlotting():
             # interactive plotting
             ppl.ion()
             def_kwargs = {'trials': 1,
-                          'toilim': [self.toi_min, 0.75 * self.toi_max]}
-            kwargs = def_kwargs
+                          'latency': [self.toi_min, 1.2 * self.toi_max]}
 
-            fig1, ax1 = self.adata.singlepanelplot(**kwargs)
-            fig2, ax2 = self.adata.singlepanelplot(**kwargs, shifted=False)
-            fig3, axs = self.adata.multipanelplot(**kwargs)
+            fig1, ax1 = self.adata.singlepanelplot(**def_kwargs)
+            fig2, ax2 = self.adata.singlepanelplot(**def_kwargs, shifted=False)
+            fig3, axs = self.adata.multipanelplot(**def_kwargs)
 
             # check axes/figure references work
             ax1.set_title('Shifted signals')
@@ -94,7 +93,7 @@ class TestAnalogPlotting():
         # empty arrays get returned for empty time selection
         with pytest.raises(SPYValueError) as err:
             self.test_ad_plotting(trials=0,
-                                  toilim=[self.toi_max + 1, self.toi_max + 2])
+                                  latency=[self.toi_max + 1, self.toi_max + 2])
             assert "zero size" in str(err)
 
         # invalid channel selection
@@ -149,7 +148,7 @@ class TestSpectralPlotting():
                                                  alphas=[0.8, 0])
 
     # some interesting range
-    foilim = [1, 400]
+    frequency = [1, 400]
 
     # all trials are equal
     toi_min, toi_max = adata.time[0][0], adata.time[0][-1]
@@ -171,7 +170,7 @@ class TestSpectralPlotting():
 
         if def_test:
             ppl.ion()
-            kwargs = {'trials': self.nTrials - 1, 'foilim': [5, 300]}
+            kwargs = {'trials': self.nTrials - 1, 'frequency': [5, 300]}
             # to visually compare
             self.adata.singlepanelplot(trials=self.nTrials - 1, channel=0)
 
@@ -194,11 +193,12 @@ class TestSpectralPlotting():
             ax1.set_title('AR(1) + AR(2)')
             fig2.suptitle('AR(1) + AR(2)')
         else:
-            print(kwargs)
+            self.spec_wlet.multipanelplot(**kwargs)
+            # latency makes no sense for line plots
+            kwargs.pop('latency')
             self.spec_fft.singlepanelplot(**kwargs)
             self.spec_fft.multipanelplot(**kwargs)
 
-            self.spec_wlet.multipanelplot(**kwargs)
             # take the 1st random channel for 2d spectra
             if 'channel' in kwargs:
                 chan = kwargs.pop('channel')[0]
@@ -212,10 +212,6 @@ class TestSpectralPlotting():
                                                 self.nChannels - 1,
                                                 toi_min=self.toi_min,
                                                 toi_max=self.toi_max)
-
-        # add a foi selection
-        # FIXME: show() and foi selections   #291
-        # selections[0]['foi'] = np.arange(5, 300, step=2)
 
         # test all combinations
         for sel_dict in selections:
@@ -233,7 +229,7 @@ class TestSpectralPlotting():
         # empty arrays get returned for empty time selection
         with pytest.raises(SPYValueError) as err:
             self.test_spectral_plotting(trials=0,
-                                        toilim=[self.toi_max + 1, self.toi_max + 2])
+                                        latency=[self.toi_max + 1, self.toi_max + 2])
             assert "zero size" in str(err)
 
         # invalid channel selection
@@ -248,15 +244,9 @@ class TestSpectralPlotting():
 
         # invalid foi selection
         with pytest.raises(SPYValueError) as err:
-            self.test_spectral_plotting(trials=0, foilim=[-1, 0])
-            assert "foi/foilim" in str(err)
-            assert "bounded by" in str(err)
+            self.test_spectral_plotting(trials=0, frequency=[-1, 0])
+            assert "frequency" in str(err)
 
-        # invalid foi selection
-        with pytest.raises(SPYValueError) as err:
-            self.test_spectral_plotting(trials=0, foi=[-1, 0])
-            assert "foi/foilim" in str(err)
-            assert "bounded by" in str(err)
 
 class TestCrossSpectralPlotting():
 
@@ -278,7 +268,7 @@ class TestCrossSpectralPlotting():
                                                 alphas=[0.8, 0])
 
     # some interesting range
-    foilim = [1, 400]
+    frequency = [1, 400]
 
     # all trials are equal
     toi_min, toi_max = adata.time[0][0], adata.time[0][-1]
@@ -300,22 +290,22 @@ class TestCrossSpectralPlotting():
         if def_test:
             ppl.ion()
 
-            self.coh.singlepanelplot(channel_i=0, channel_j=1, foilim=[50, 320])
-            self.coh.singlepanelplot(channel_i=1, channel_j=2, foilim=[50, 320])
-            self.coh.singlepanelplot(channel_i=2, channel_j=3, foilim=[50, 320])
+            self.coh.singlepanelplot(channel_i=0, channel_j=1, frequency=[50, 320])
+            self.coh.singlepanelplot(channel_i=1, channel_j=2, frequency=[50, 320])
+            self.coh.singlepanelplot(channel_i=2, channel_j=3, frequency=[50, 320])
 
-            self.coh_imag.singlepanelplot(channel_i=1, channel_j=2, foilim=[50, 320])
+            self.coh_imag.singlepanelplot(channel_i=1, channel_j=2, frequency=[50, 320])
 
-            self.corr.singlepanelplot(channel_i=0, channel_j=1, toilim=[0, .1])
-            self.corr.singlepanelplot(channel_i=1, channel_j=0, toilim=[0, .1])
-            self.corr.singlepanelplot(channel_i=2, channel_j=3, toilim=[0, .1])
+            self.corr.singlepanelplot(channel_i=0, channel_j=1, latency=[0, .1])
+            self.corr.singlepanelplot(channel_i=1, channel_j=0, latency=[0, .1])
+            self.corr.singlepanelplot(channel_i=2, channel_j=3, latency=[0, .1])
 
-            self.granger.singlepanelplot(channel_i=0, channel_j=1, foilim=[50, 320])
-            self.granger.singlepanelplot(channel_i=3, channel_j=2, foilim=[50, 320])
-            self.granger.singlepanelplot(channel_i=2, channel_j=3, foilim=[50, 320])
+            self.granger.singlepanelplot(channel_i=0, channel_j=1, frequency=[50, 320])
+            self.granger.singlepanelplot(channel_i=3, channel_j=2, frequency=[50, 320])
+            self.granger.singlepanelplot(channel_i=2, channel_j=3, frequency=[50, 320])
 
-        elif 'toilim' in kwargs:
-
+        elif 'latency' in kwargs:
+            print(kwargs, self.toi_max, self.toi_min)
             self.corr.singlepanelplot(**kwargs)
             self.corr.singlepanelplot(**kwargs)
             self.corr.singlepanelplot(**kwargs)
@@ -337,20 +327,20 @@ class TestCrossSpectralPlotting():
         chans = itertools.product(self.coh.channel_i[:self.nTrials - 1],
                                   self.coh.channel_j[1:])
 
-        # out of range toi selections are allowed..
-        toilim = ([0, .1], [-1, 1], 'all')
-        toilim_comb = itertools.product(chans, toilim)
+        # out of range toi selections are no longer allowed..
+        latency = ([0, .1], 'all')
+        toilim_comb = itertools.product(chans, latency)
 
         # out of range foi selections are NOT allowed..
-        foilim = ([10., 82.31], 'all')
-        foilim_comb = itertools.product(chans, foilim)
+        frequency = ([10., 82.31], 'all')
+        foilim_comb = itertools.product(chans, frequency)
 
         for comb in toilim_comb:
             sel_dct = {}
             c1, c2 = comb[0]
             sel_dct['channel_i'] = c1
             sel_dct['channel_j'] = c2
-            sel_dct['toilim'] = comb[1]
+            sel_dct['latency'] = comb[1]
             self.test_cs_plotting(**sel_dct)
 
         for comb in foilim_comb:
@@ -358,7 +348,7 @@ class TestCrossSpectralPlotting():
             c1, c2 = comb[0]
             sel_dct['channel_i'] = c1
             sel_dct['channel_j'] = c2
-            sel_dct['foilim'] = comb[1]
+            sel_dct['frequency'] = comb[1]
             self.test_cs_plotting(**sel_dct)
 
     def test_cs_exceptions(self):
@@ -367,7 +357,7 @@ class TestCrossSpectralPlotting():
         # empty arrays get returned for empty time selection
         with pytest.raises(SPYValueError) as err:
             self.test_cs_plotting(trials=0,
-                                  toilim=[self.toi_max + 1, self.toi_max + 2],
+                                  latency=[self.toi_max + 1, self.toi_max + 2],
                                   **chan_sel)
             assert "zero size" in str(err)
 
@@ -383,15 +373,8 @@ class TestCrossSpectralPlotting():
 
         # invalid foi selection
         with pytest.raises(SPYValueError) as err:
-            self.test_cs_plotting(trials=0, foilim=[-1, 0], **chan_sel)
-            assert "foi/foilim" in str(err)
-            assert "bounded by" in str(err)
-
-        # invalid foi selection
-        with pytest.raises(SPYValueError) as err:
-            self.test_cs_plotting(trials=0, foi=[-1, 0], **chan_sel)
-            assert "foi/foilim" in str(err)
-            assert "bounded by" in str(err)
+            self.test_cs_plotting(trials=0, frequency=[-1, 0], **chan_sel)
+            assert "frequency" in str(err)
 
 
 if __name__ == '__main__':
