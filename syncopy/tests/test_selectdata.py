@@ -525,7 +525,7 @@ class TestSelector():
                 for ik, isel in enumerate(self.selectDict["latency"]["invalid"]):
                     print(ik, isel, selection)
                     with pytest.raises(self.selectDict["latency"]["errors"][ik]):
-                        Selector(dummy, {"latency": isel})
+                        spy.selectdata(dummy, {"latency": isel})
             else:
                 # ensure objects that don't have `time` props complain properly
                 with pytest.raises(SPYValueError):

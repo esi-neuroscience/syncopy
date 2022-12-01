@@ -1928,7 +1928,7 @@ class Selector:
                         act = "`select: frequency` with {} components".format(
                             len(freqSpec)
                         )
-                        raise SPYValueError(legal=lgl, varname=vname, actual=act)
+                        raise SPYValueError(legal=lgl, varname='frequency', actual=act)
                     if freqSpec[0] >= freqSpec[1]:
                         lgl = (
                             "`select: frequency` selection with `frequency[0]` < `frequency[1]`"
@@ -1936,7 +1936,7 @@ class Selector:
                         act = "selection range from {} to {}".format(
                             freqSpec[0], freqSpec[1]
                         )
-                        raise SPYValueError(legal=lgl, varname=vname, actual=act)
+                        raise SPYValueError(legal=lgl, varname='frequency', actual=act)
             self._freq = data._get_freq(
                 foi=None, foilim=select.get("frequency")
             )

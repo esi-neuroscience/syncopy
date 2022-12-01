@@ -483,7 +483,7 @@ class SpectralData(ContinuousData):
     _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
     _defaultDimord = ["time", "taper", "freq", "channel"]
     _stackingDimLabel = "time"
-    _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel', 'frequency',)   
+    _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel', 'frequency', 'taper',)
 
     @property
     def taper(self):
