@@ -1119,7 +1119,8 @@ def propagate_properties(in_data, out_data, keeptrials=True):
         # Some index gymnastics to get trial begin/end "samples"
         if in_data.selection is not None:
             chanSec = in_data.selection.channel
-            trldef = in_data.selection.trialdefinition
+            # without copy, the source trialdefinition gets overwritten!
+            trldef = in_data.selection.trialdefinition.copy()
             for row in range(trldef.shape[0]):
                 trldef[row, :2] = [row, row + 1]
         else:
@@ -1158,7 +1159,7 @@ def propagate_properties(in_data, out_data, keeptrials=True):
         if in_data.selection is not None:
             chanSec_i = in_data.selection.channel_i
             chanSec_j = in_data.selection.channel_j
-            trl = in_data.selection.trialdefinition
+            trl = in_data.selection.trialdefinition.copy()
             for row in range(trl.shape[0]):
                 trl[row, :2] = [row, row + 1]
         else:
