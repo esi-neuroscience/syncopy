@@ -1749,7 +1749,7 @@ class Selector:
                     array_parser(
                         timeSpec, varname=vname, hasinf=checkInf, hasnan=False, dims=1
                     )
-                # can only be 2-sequence now
+                # can only be 2-sequence [start, end]
                 else:
                     if len(timeSpec) != 2:
                         lgl = "`select: latency` selection with two components"
