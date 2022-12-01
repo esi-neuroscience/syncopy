@@ -760,6 +760,7 @@ class TimeLockData(ContinuousData):
 
     _infoFileProperties = ContinuousData._infoFileProperties
     _defaultDimord = ["time", "channel"]
+    _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel',)
     _stackingDimLabel = "time"
 
     # "Constructor"
