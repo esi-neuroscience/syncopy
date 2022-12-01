@@ -69,7 +69,8 @@ class BaseData(ABC):
         "_version",
         "_log",
     )
-
+    # all data types have a `trials` property
+    _selectionKeyWords = ('trials',)
     #: properties that are mapped onto HDF5 datasets
     _hdfFileDatasetProperties = ()
 
@@ -1496,11 +1497,9 @@ class Selector:
             raise SPYTypeError(select, "select", expected="dict")
 
         # Keep list of supported selectors in sync w/supported keywords of `selectdata`
-        supported = list(signature(selectdata).parameters.keys())
-        for key in ["data", "inplace", "clear", "parallel", "kwargs"]:
-            supported.remove(key)
-        # supported = ["trials", "channel", "channel_i", "channel_j", "toi",
-        #              "toilim", "foi", "foilim", "taper", "unit", "eventid"]
+        supported = data._selectionKeyWords
+        # `selectdata` already throws out not supported keywords
+        # so this is just a hard check when setting a selection via assignment
         if not set(select.keys()).issubset(supported):
             lgl = (
                 "dict with one or all of the following keys: '"
@@ -1720,19 +1719,11 @@ class Selector:
 
         # Unpack input and perform error-checking
         data, select = dataselect
-        timeSpec = select.get("toi", None)
-        checkLim = False
-        checkInf = False
-        vname = "select: toi/toilim"
-        if timeSpec is None:
-            timeSpec = select.get("toilim")
-            checkLim = True
-            checkInf = None
-        else:
-            if select.get("toilim") is not None:
-                lgl = "either `toi` or `toilim` specification"
-                act = "both"
-                raise SPYValueError(legal=lgl, varname=vname, actual=act)
+        timeSpec = select.get("latency", None)
+        checkLim = True
+        checkInf = None
+        vname = "select: latency"
+
         hasTime = hasattr(data, "time") or hasattr(data, "trialtime")
         if timeSpec is not None and hasTime is False:
             lgl = "Syncopy data object with time-dimension"
@@ -1745,8 +1736,7 @@ class Selector:
             if isinstance(timeSpec, str):
                 if timeSpec == "all":
                     timeSpec = None
-                    select["toi"] = None
-                    select["toilim"] = None
+                    select["latency"] = None
                 else:
                     raise SPYValueError(
                         legal="'all' or `None` or list/array",
@@ -1756,29 +1746,31 @@ class Selector:
             if timeSpec is not None:
                 if np.issubdtype(type(timeSpec), np.number):
                     timeSpec = [timeSpec]
-                try:
                     array_parser(
                         timeSpec, varname=vname, hasinf=checkInf, hasnan=False, dims=1
                     )
-                except Exception as exc:
-                    raise exc
-                if checkLim:
+                # can only be 2-sequence now
+                else:
                     if len(timeSpec) != 2:
-                        lgl = "`select: toilim` selection with two components"
-                        act = "`select: toilim` with {} components".format(
+                        lgl = "`select: latency` selection with two components"
+                        act = "`select: latency` with {} components".format(
                             len(timeSpec)
                         )
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
                     if timeSpec[0] >= timeSpec[1]:
                         lgl = (
-                            "`select: toilim` selection with `toilim[0]` < `toilim[1]`"
+                            "`select: latency` selection with `latency[0]` < `latency[1]`"
                         )
                         act = "selection range from {} to {}".format(
                             timeSpec[0], timeSpec[1]
                         )
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
-            timing = data._get_time(self.trial_ids, toi=select.get("toi"), toilim=select.get("toilim"))
+            timing = data._get_time(self.trial_ids, toi=None, toilim=select.get("latency"))
 
+            # ---------------------------------------------------------------------------
+            # this is legacy, might be needed later if ppl really want to "time shuffle"
+            # to destroy any correlations and produce white noise from their data..
+            # .. which is questionable
 
             # Determine, whether time-selection is unordered/contains repetitions
             # and set `self._timeShuffle` accordingly
@@ -1788,6 +1780,7 @@ class Selector:
                         if np.diff(tsel).min() <= 0:
                             self._timeShuffle = True
                             break
+            # ---------------------------------------------------------------------------
 
             # Assign timing selection and copy over samplerate from source object
             self._time = timing
@@ -1893,24 +1886,14 @@ class Selector:
 
         # Unpack input and perform error-checking
         data, select = dataselect
-        freqSpec = select.get("foi")
-        checkLim = False
-        checkInf = False
-        vname = "select: foi/foilim"
-        if freqSpec is None:
-            freqSpec = select.get("foilim")
-            checkLim = True
-            checkInf = None
-        else:
-            if select.get("foilim") is not None:
-                lgl = "either `foi` or `foilim` specification"
-                act = "both"
-                raise SPYValueError(legal=lgl, varname=vname, actual=act)
+        freqSpec = select.get("frequency")
+        checkLim = True
+        checkInf = None
         hasFreq = hasattr(data, "freq")
         if freqSpec is not None and hasFreq is False:
             lgl = "Syncopy data object with freq-dimension"
             raise SPYValueError(
-                legal=lgl, varname=vname, actual=data.__class__.__name__
+                legal=lgl, varname="frequency", actual=data.__class__.__name__
             )
 
         # If `data` has a `freq` property, fill up `self.freq`
@@ -1918,12 +1901,11 @@ class Selector:
             if isinstance(freqSpec, str):
                 if freqSpec == "all":
                     freqSpec = None
-                    select["foi"] = None
-                    select["foilim"] = None
+                    select["frequency"] = None
                 else:
                     raise SPYValueError(
                         legal="'all' or `None` or list/array",
-                        varname=vname,
+                        varname="frequency",
                         actual=freqSpec,
                     )
             if freqSpec is not None:
@@ -1932,7 +1914,7 @@ class Selector:
                 try:
                     array_parser(
                         freqSpec,
-                        varname=vname,
+                        varname="frequency",
                         hasinf=checkInf,
                         hasnan=False,
                         lims=[data.freq.min(), data.freq.max()],
@@ -1942,21 +1924,21 @@ class Selector:
                     raise exc
                 if checkLim:
                     if len(freqSpec) != 2:
-                        lgl = "`select: foilim` selection with two components"
-                        act = "`select: foilim` with {} components".format(
+                        lgl = "`select: frequency` selection with two components"
+                        act = "`select: frequency` with {} components".format(
                             len(freqSpec)
                         )
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
                     if freqSpec[0] >= freqSpec[1]:
                         lgl = (
-                            "`select: foilim` selection with `foilim[0]` < `foilim[1]`"
+                            "`select: frequency` selection with `frequency[0]` < `frequency[1]`"
                         )
                         act = "selection range from {} to {}".format(
                             freqSpec[0], freqSpec[1]
                         )
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
             self._freq = data._get_freq(
-                foi=select.get("foi"), foilim=select.get("foilim")
+                foi=None, foilim=select.get("frequency")
             )
         else:
             return

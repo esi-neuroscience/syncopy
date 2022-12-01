@@ -29,6 +29,8 @@ import syncopy as spy
 #     property contents and actual numeric data arrays)
 # Multi-selections are not tested here but in the respective class tests (e.g.,
 # "time" + "channel" + "trial" `AnalogData` selections etc.)
+
+
 class TestSelector():
 
     # Set up "global" parameters for data objects to be tested (we only test
@@ -231,24 +233,7 @@ class TestSelector():
                                         SPYValueError,
                                         SPYValueError)}
 
-    # in the general test routine, only check correct handling of invalid `toi`/`toilim`
-    # and `foi`/`foilim` selections - valid selectors are strongly object-dependent
-    # and thus tested in separate methods below
-    selectDict["toi"] = {"invalid": (["notnumeric", "stillnotnumeric"],
-                                     tuple("wrongtype"),
-                                     "notall",
-                                     range(0, 10),
-                                     slice(0, 5),
-                                     [0, np.inf],
-                                     [np.nan, 1]),
-                         "errors": (SPYValueError,
-                                    SPYTypeError,
-                                    SPYValueError,
-                                    SPYTypeError,
-                                    SPYTypeError,
-                                    SPYValueError,
-                                    SPYValueError)}
-    selectDict["toilim"] = {"invalid": (["notnumeric", "stillnotnumeric"],
+    selectDict["latency"] = {"invalid": (["notnumeric", "stillnotnumeric"],
                                         tuple("wrongtype"),
                                         "notall",
                                         range(0, 10),
@@ -264,25 +249,7 @@ class TestSelector():
                                        SPYValueError,
                                        SPYValueError,
                                        SPYValueError)}
-    selectDict["foi"] = {"invalid": (["notnumeric", "stillnotnumeric"],
-                                     tuple("wrongtype"),
-                                     "notall",
-                                     range(0, 10),
-                                     slice(0, 5),
-                                     [0, np.inf],
-                                     [np.nan, 1],
-                                     [-1, 2],  # out of bounds
-                                     [2, 900]),  # out of bounds
-                         "errors": (SPYValueError,
-                                    SPYTypeError,
-                                    SPYValueError,
-                                    SPYTypeError,
-                                    SPYTypeError,
-                                    SPYValueError,
-                                    SPYValueError,
-                                    SPYValueError,
-                                    SPYValueError)}
-    selectDict["foilim"] = {"invalid": (["notnumeric", "stillnotnumeric"],
+    selectDict["frequency"] = {"invalid": (["notnumeric", "stillnotnumeric"],
                                         tuple("wrongtype"),
                                         "notall",
                                         range(0, 10),
@@ -425,23 +392,15 @@ class TestSelector():
         # multiple trials get returned in a list
         assert [len(trl.shape) == 2 for trl in ang.show(channel=0, squeeze=False)]
 
-        # test toi/toilim returns arrays for single trial and
+        # test latency returns arrays for single trial and
         # lists for multiple trial selections
-        assert isinstance(ang.show(trials=0, toi=[0, 1]), np.ndarray)
-        assert isinstance(ang.show(trials=0, toilim=[0, 1]), np.ndarray)
-        assert isinstance(ang.show(trials=[0, 1], toi=[0, 1]), list)
-        assert isinstance(ang.show(trials=[0, 1], toilim=[0, 1]), list)
+        assert isinstance(ang.show(trials=0, latency=[0.5, 1]), np.ndarray)
+        assert isinstance(ang.show(trials=[0, 1], latency=[1, 2]), list)
 
         # test invalid indexing for .show operations
         with pytest.raises(SPYValueError) as err:
             ang.show(trials=[1, 0])
             assert "expected unique and sorted" in str(err)
-        with pytest.raises(SPYValueError) as err:
-            ang.show(trials=[0, 1], toi=[1, 1])
-            assert "expected unique and sorted" in str(err)
-        with pytest.raises(SPYValueError) as err:
-            ang.show(trials=[0, 1], toi=[9999, 99999])
-            assert "expected valid `toi` selection" in str(err)
 
         # go through all data-classes defined above
         for dset in self.data.keys():
@@ -561,61 +520,36 @@ class TestSelector():
                     with pytest.raises(SPYValueError):
                         Selector(dummy, {prop : [0]})
 
-            # ensure invalid `toi` + `toilim` specifications trigger expected errors
-            if hasattr(dummy, "time") or hasattr(dummy, "trialtime"):
-                for selection in ["toi", "toilim"]:
-                    for ik, isel in enumerate(self.selectDict[selection]["invalid"]):
-                        with pytest.raises(self.selectDict[selection]["errors"][ik]):
-                            Selector(dummy, {selection: isel})
-                # provide both `toi` and `toilim`
-                with pytest.raises(SPYValueError):
-                    Selector(dummy, {"toi": [0], "toilim": [0, 1]})
+            # ensure invalid `latency` specifications trigger expected errors
+            if hasattr(dummy, "time") or hasattr(dummy, "trialtime"):                
+                for ik, isel in enumerate(self.selectDict["latency"]["invalid"]):
+                    print(ik, isel, selection)
+                    with pytest.raises(self.selectDict["latency"]["errors"][ik]):
+                        Selector(dummy, {"latency": isel})
             else:
                 # ensure objects that don't have `time` props complain properly
                 with pytest.raises(SPYValueError):
-                    Selector(dummy, {"toi": [0]})
-                with pytest.raises(SPYValueError):
-                    Selector(dummy, {"toilim": [0]})
+                    Selector(dummy, {"latency": [0]})
 
-            # ensure invalid `foi` + `foilim` specifications trigger expected errors
+            # ensure invalid `frequency` specifications trigger expected errors
             if hasattr(dummy, "freq"):
-                for selection in ["foi", "foilim"]:
-                    for ik, isel in enumerate(self.selectDict[selection]["invalid"]):
-                        with pytest.raises(self.selectDict[selection]["errors"][ik]):
-                            Selector(dummy, {selection: isel})
-                # provide both `foi` and `foilim`
-                with pytest.raises(SPYValueError):
-                    Selector(dummy, {"foi": [0], "foilim": [0, 1]})
+                for ik, isel in enumerate(self.selectDict['frequency']["invalid"]):
+                    with pytest.raises(self.selectDict['frequency']["errors"][ik]):
+                        Selector(dummy, {'frequency': isel})
             else:
                 # ensure objects without `freq` property complain properly
                 with pytest.raises(SPYValueError):
-                    Selector(dummy, {"foi": [0]})
-                with pytest.raises(SPYValueError):
-                    Selector(dummy, {"foilim": [0]})
+                    Selector(dummy, {"frequency": [0]})
 
-    def test_continuous_toitoilim(self):
+    def test_continuous_latency(self):
 
         # this only works w/the equidistant trials constructed above!!!
-        selDict = {"toi": (None,  # trivial "selection" of entire contents
-                           "all", # trivial "selection" of entire contents
-                           [0.5],  # single entry lists
-                           [0.6],  # inexact match
-                           [1.0, 2.5],  # two disjoint time-points
-                           [1.2, 2.7],  # inexact from above
-                           [1.9, 2.4],  # inexact from below
-                           [0.4, 2.1],  # inexact from below, inexact from above
-                           [1.6, 1.9],  # inexact from above, inexact from below
-                           [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.],  # alternating madness
-                           [2.0, 0.5, 2.5],  # unsorted list
-                           [1.0, 0.5, 0.5, 1.5],  # repetition
-                           [0.5, 0.5, 1.0, 1.5], # preserve repetition, don't convert to slice
-                           [0.5, 1.0, 1.5]),  # sorted list (should be converted to slice-selection)
-                   "toilim": (None,  # trivial "selection" of entire contents
-                              "all",  # trivial "selection" of entire contents
-                              [0.5, 1.5],  # regular range
-                              [1.5, 2.0],  # minimal range (just two-time points)
-                              [1.0, np.inf],  # unbounded from above
-                              [-np.inf, 1.0])}  # unbounded from below
+        selDict = {"latency": (None,  # trivial "selection" of entire contents
+                               "all",  # trivial "selection" of entire contents
+                               [0.5, 1.5],  # regular range
+                               [1.5, 2.0],  # minimal range (just two-time points)
+                               [1.0, np.inf],  # unbounded from above
+                               [-np.inf, 1.0])}  # unbounded from below
 
         # all trials have same time-scale: take 1st one as reference
         trlTime = (np.arange(0, self.trl["AnalogData"][0, 1] - self.trl["AnalogData"][0, 0])
@@ -628,65 +562,44 @@ class TestSelector():
         timeIdx = ang.dimord.index("time")
 
         # the below check only works for equidistant trials!
-        for tselect in ["toi", "toilim"]:
-            for timeSel in selDict[tselect]:
-                sel = Selector(ang, {tselect: timeSel}).time
-                if timeSel is None or timeSel == "all":
-                    idx = slice(None)
-                else:
-                    if tselect == "toi":
-                        idx = []
-                        for tp in timeSel:
-                            idx.append(np.abs(trlTime - tp).argmin())
-                    else:
-                        idx = np.intersect1d(np.where(trlTime >= timeSel[0])[0],
-                                             np.where(trlTime <= timeSel[1])[0])
+        for timeSel in selDict['latency']:
+            sel = Selector(ang, {'latency': timeSel}).time
+            if timeSel is None or timeSel == "all":
+                idx = slice(None)
+            else:
+                idx = np.intersect1d(np.where(trlTime >= timeSel[0])[0],
+                                     np.where(trlTime <= timeSel[1])[0])
 
-                # check that correct data was selected (all trials identical, just take 1st one)
-                assert np.array_equal(ang.trials[0][idx, :],
-                                      ang.trials[0][sel[0], :])
-                if not isinstance(idx, slice) and len(idx) > 1:
-                    timeSteps = np.diff(idx)
-                    if timeSteps.min() == timeSteps.max() == 1:
-                        idx = slice(idx[0], idx[-1] + 1, 1)
-                result = [idx] * len(ang.trials)
+            # check that correct data was selected (all trials identical, just take 1st one)
+            assert np.array_equal(ang.trials[0][idx, :],
+                                  ang.trials[0][sel[0], :])
+            if not isinstance(idx, slice) and len(idx) > 1:
+                timeSteps = np.diff(idx)
+                if timeSteps.min() == timeSteps.max() == 1:
+                    idx = slice(idx[0], idx[-1] + 1, 1)
+            result = [idx] * len(ang.trials)
 
-                # check correct format of selector (list -> slice etc.)
-                assert np.array_equal(result, sel)
+            # check correct format of selector (list -> slice etc.)
+            assert np.array_equal(result, sel)
 
-                # perform actual data-selection and ensure identity of results
-                selected = selectdata(ang, {tselect: timeSel})
-                for trialno in range(len(ang.trials)):
-                    angIdx[timeIdx] = result[trialno]
-                    assert np.array_equal(selected.trials[trialno],
-                                          ang.trials[trialno][tuple(angIdx)])
+            # perform actual data-selection and ensure identity of results
+            selected = selectdata(ang, {'latency': timeSel})
+            for trialno in range(len(ang.trials)):
+                angIdx[timeIdx] = result[trialno]
+                assert np.array_equal(selected.trials[trialno],
+                                      ang.trials[trialno][tuple(angIdx)])
 
-    # test `toi`/`toilim` selection w/`SpikeData` and `EventData`
-    def test_discrete_toitoilim(self):
+    # test `latency` selection w/`SpikeData` and `EventData`
+    def test_discrete_latency(self):
 
-        # this only works w/the equidistant trials constructed above!!!
-        selDict = {"toi": (None,  # trivial "selection" of entire contents
-                           "all",  # trivial "selection" of entire contents
-                           [0.5],  # single entry lists
-                           [0.6],  # inexact match
-                           [1.0, 2.5],  # two disjoint time-points
-                           [1.2, 2.7],  # inexact from above
-                           [1.9, 2.4],  # inexact from below
-                           [0.4, 2.1],  # inexact from below, inexact from above
-                           [1.6, 1.9],  # inexact from above, inexact from below
-                           [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.],  # alternating madness
-                           [2.0, 0.5, 2.5],  # unsorted list
-                           [1.0, 0.5, 0.5, 1.5],  # repetition
-                           [0.5, 0.5, 1.0, 1.5], # preserve repetition, don't convert to slice
-                           [0.5, 1.0, 1.5]),  # sorted list
-                   "toilim": (None,  # trivial "selection" of entire contents
+        selDict = {"latency": (None,  # trivial "selection" of entire contents
                               "all",  # trivial "selection" of entire contents
                               [0.5, 1.5],  # regular range
                               [1.5, 2.0],  # minimal range (just two-time points)
                               [1.0, np.inf],  # unbounded from above
                               [-np.inf, 1.0])}  # unbounded from below
 
-        # the below method of extracting spikes satisfying `toi`/`toilim` only works w/equidistant trials!
+        # the below method of extracting spikes satisfying `latency` only works w/equidistant trials!
         for dset in ["SpikeData", "EventData", "EventDataDimord"]:
             dclass = "".join(dset.partition("Data")[:2])
             dimord = self.customEvtDimord if dset == "EventDataDimord" else None
@@ -694,76 +607,47 @@ class TestSelector():
                                             trialdefinition=self.trl[dclass],
                                             samplerate=self.samplerate,
                                             dimord=dimord)
-            for tselect in ["toi", "toilim"]:
-                for timeSel in selDict[tselect]:
-                    sel = Selector(discrete, {tselect: timeSel}).time
-                    result = []
+            for timeSel in selDict["latency"]:
+                sel = Selector(discrete, {'latency': timeSel}).time
+                result = []
 
-                    # compute sel by hand
-                    for trlno in range(len(discrete.trials)):
-                        trlTime = discrete.time[trlno]
-                        if timeSel is None or timeSel == "all":
-                            idx = np.arange(trlTime.size).tolist()
-                        else:
-                            if tselect == "toi":
-                                idx = []
-                                for tp in timeSel:
-                                    idx.append(np.abs(trlTime - tp).argmin())
-                                # remove duplicates
-                                arrayIdx = np.array(idx)
-                                _, xdi = np.unique(arrayIdx.astype(np.intp), return_index=True)
-                                arrayIdx = arrayIdx[np.sort(xdi)]
+                # compute sel by hand
+                for trlno in range(len(discrete.trials)):
+                    trlTime = discrete.time[trlno]
+                    if timeSel is None or timeSel == "all":
+                        idx = np.arange(trlTime.size).tolist()
+                    else:
+                        idx = np.intersect1d(np.where(trlTime >= timeSel[0])[0],
+                                             np.where(trlTime <= timeSel[1])[0]).tolist()
 
-                                # check for repeats
-                                idx = []
-                                for closest in arrayIdx:
-                                    idx += np.where(trlTime == trlTime[closest])[0].tolist()
-                            else:
-                                idx = np.intersect1d(np.where(trlTime >= timeSel[0])[0],
-                                                    np.where(trlTime <= timeSel[1])[0]).tolist()
+                    # check that correct data was selected
+                    assert np.array_equal(discrete.trials[trlno][idx, :],
+                                        discrete.trials[trlno][sel[trlno], :])
+                    if not isinstance(idx, slice) and len(idx) > 1:
+                        timeSteps = np.diff(idx)
+                        if timeSteps.min() == timeSteps.max() == 1:
+                            idx = slice(idx[0], idx[-1] + 1, 1)
+                    result.append(idx)
 
-                        # check that correct data was selected
-                        assert np.array_equal(discrete.trials[trlno][idx, :],
-                                            discrete.trials[trlno][sel[trlno], :])
-                        if not isinstance(idx, slice) and len(idx) > 1:
-                            timeSteps = np.diff(idx)
-                            if timeSteps.min() == timeSteps.max() == 1:
-                                idx = slice(idx[0], idx[-1] + 1, 1)
-                        result.append(idx)
+                # check correct format of selector (list -> slice etc.)
+                assert np.array_equal(result, sel)
 
-                    # check correct format of selector (list -> slice etc.)
-                    assert np.array_equal(result, sel)
+                # perform actual data-selection and ensure identity of results
+                selected = selectdata(discrete, {'latency': timeSel})
+                assert selected.dimord == discrete.dimord
+                for trialno in range(len(discrete.trials)):
+                    assert np.array_equal(selected.trials[trialno],
+                                        discrete.trials[trialno][result[trialno],:])
 
-                    # perform actual data-selection and ensure identity of results
-                    selected = selectdata(discrete, {tselect: timeSel})
-                    assert selected.dimord == discrete.dimord
-                    for trialno in range(len(discrete.trials)):
-                        assert np.array_equal(selected.trials[trialno],
-                                            discrete.trials[trialno][result[trialno],:])
-
-    def test_spectral_foifoilim(self):
+    def test_spectral_frequency(self):
 
         # this selection only works w/the dummy frequency data constructed above!!!
-        selDict = {"foi": (None,  # trivial "selection" of entire contents,
-                           "all",  # trivial "selection" of entire contents
-                           [1],  # single entry lists
-                           [2.6],  # inexact match
-                           [2, 9],  # two disjoint frequencies
-                           [7.2, 8.3],  # inexact from above
-                           [6.8, 11.9],  # inexact from below
-                           [0.4, 13.1],  # inexact from below, inexact from above
-                           [1.2, 2.9],  # inexact from above, inexact from below
-                           [1.1, 1.9, 2.1, 3.9, 9.2, 11.8, 12.9, 5.1, 13.8],  # alternating madness
-                           [2, 1, 11],  # unsorted list
-                           [5, 2, 2, 3],  # repetition
-                           [1, 1, 2, 3], # preserve repetition, don't convert to slice
-                           [2, 3, 4]),  # sorted list (should be converted to slice-selection)
-                   "foilim": (None,  # trivial "selection" of entire contents,
-                              "all",  # trivial "selection" of entire contents
-                              [2, 11],  # regular range
-                              [1, 2],  # minimal range (just two-time points)
-                              [1.0, np.inf],  # unbounded from above
-                              [-np.inf, 12])}  # unbounded from below
+        selDict = {"frequency": (None,  # trivial "selection" of entire contents,
+                                 "all",  # trivial "selection" of entire contents
+                                 [2, 11],  # regular range
+                                 [1, 2],  # minimal range (just two-time points)
+                                 [1.0, np.inf],  # unbounded from above
+                                 [-np.inf, 12])}  # unbounded from below
 
         spc = SpectralData(data=self.data['SpectralData'],
                            trialdefinition=self.trl['SpectralData'],
@@ -772,37 +656,31 @@ class TestSelector():
         spcIdx = [slice(None)] * len(spc.dimord)
         freqIdx = spc.dimord.index("freq")
 
-        for fselect in ["foi", "foilim"]:
-            for freqSel in selDict[fselect]:
-                sel = Selector(spc, {fselect: freqSel}).freq
-                if freqSel is None or freqSel == "all":
-                    idx = slice(None)
-                else:
-                    if fselect == "foi":
-                        idx = []
-                        for fq in freqSel:
-                            idx.append(np.abs(allFreqs - fq).argmin())
-                    else:
-                        idx = np.intersect1d(np.where(allFreqs >= freqSel[0])[0],
-                                             np.where(allFreqs <= freqSel[1])[0])
+        for freqSel in selDict["frequency"]:
+            sel = Selector(spc, {"frequency": freqSel}).freq
+            if freqSel is None or freqSel == "all":
+                idx = slice(None)
+            else:
+                idx = np.intersect1d(np.where(allFreqs >= freqSel[0])[0],
+                                     np.where(allFreqs <= freqSel[1])[0])
 
-                # check that correct data was selected (all trials identical, just take 1st one)
-                assert np.array_equal(spc.freq[idx], spc.freq[sel])
-                if not isinstance(idx, slice) and len(idx) > 1:
-                    freqSteps = np.diff(idx)
-                    if freqSteps.min() == freqSteps.max() == 1:
-                        idx = slice(idx[0], idx[-1] + 1, 1)
+            # check that correct data was selected (all trials identical, just take 1st one)
+            assert np.array_equal(spc.freq[idx], spc.freq[sel])
+            if not isinstance(idx, slice) and len(idx) > 1:
+                freqSteps = np.diff(idx)
+                if freqSteps.min() == freqSteps.max() == 1:
+                    idx = slice(idx[0], idx[-1] + 1, 1)
 
-                # check correct format of selector (list -> slice etc.)
-                assert np.array_equal(idx, sel)
+            # check correct format of selector (list -> slice etc.)
+            assert np.array_equal(idx, sel)
 
-                # perform actual data-selection and ensure identity of results
-                selected = selectdata(spc, {fselect: freqSel})
-                spcIdx[freqIdx] = idx
-                assert np.array_equal(selected.freq, spc.freq[sel])
-                for trialno in range(len(spc.trials)):
-                    assert np.array_equal(selected.trials[trialno],
-                                          spc.trials[trialno][tuple(spcIdx)])
+            # perform actual data-selection and ensure identity of results
+            selected = selectdata(spc, {"frequency": freqSel})
+            spcIdx[freqIdx] = idx
+            assert np.array_equal(selected.freq, spc.freq[sel])
+            for trialno in range(len(spc.trials)):
+                assert np.array_equal(selected.trials[trialno],
+                                      spc.trials[trialno][tuple(spcIdx)])
 
     def test_selector_trials(self):
 
@@ -814,10 +692,10 @@ class TestSelector():
         assert all([trl.shape[1] == self.nChannels for trl in ang.trials])
         assert all([trl.shape[0] == self.lenTrial for trl in ang.trials])
 
-        # test inplace channel, trial and toilim selection
+        # test inplace channel, trial and latency selection
         # ang.time[0] = array([0.5, 1. , 1.5, 2. , 2.5])
-        # this toilim selection hence takes the last two samples
-        select = {'channel': [2, 7, 9], 'trials': [0, 3, 5], 'toilim': [2, 3]}
+        # this latency selection hence takes the last two samples
+        select = {'channel': [2, 7, 9], 'trials': [0, 3, 5], 'latency': [2, 3]}
         ang.selectdata(**select, inplace=True)
 
         # now check shapes and number of trials returned by Selector
