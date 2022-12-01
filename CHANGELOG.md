@@ -10,10 +10,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### NEW
 - Added time dependent coherence analysis #287
 - Added basic statistics (mean, std, var and median) for Syncopy data objects
+- Added timelockanalysis and new TimeLockData data type
+- Added PSTH method for SpikeData
+- Support added for performing connectivity analysis from SpectralData (#364).
 - Added additional .info entries for Granger analysis, indicating details about the computation.
 - Added additional .info entries for FoooF results, e.g. Gaussian fit parameters.
 - Fix bug #365, plotting supports custom dimords now.
-- Support starting a connectivity analysis from a SpectralData instance (#364).
+
 
 ### CHANGED
 - Maximal brute force regularization parameter for Granger increased to 1e-1

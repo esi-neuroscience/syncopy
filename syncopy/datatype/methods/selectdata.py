@@ -9,9 +9,10 @@ import numpy as np
 # Local imports
 from syncopy.shared.tools import get_frontend_cfg, get_defaults
 from syncopy.shared.parsers import data_parser
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, SPYWarning
 from syncopy.shared.kwarg_decorators import unwrap_cfg, process_io, detect_parallel_client
 from syncopy.shared.computational_routine import ComputationalRoutine
+from syncopy.shared.latency import get_analysis_window, create_trial_selection
 
 __all__ = ["selectdata"]
 
@@ -25,6 +26,7 @@ def selectdata(data,
                channel_j=None,
                toi=None,
                toilim=None,
+               latency=None,
                foi=None,
                foilim=None,
                taper=None,
@@ -143,6 +145,13 @@ def selectdata(data,
         `tmin` and `tmax` are included in the selection.
         If `toilim` is `None` or ``toilim = "all"``, the entire time-span in each
         trial is selected.
+    latency : [begin, end], {'maxperiod', 'minperiod', 'prestim', 'poststim'} or None
+        Either set desired time window (`[begin, end]`) in
+        seconds, 'maxperiod' (default) for the maximum period
+        available or `'minperiod' for minimal time-window all trials share,
+        or `'prestim'` (all t < 0) or `'poststim'` (all t > 0)
+        If set this will precede any toi/toilim setting and will apply a selection
+        which is timelocked, meaning non-fitting (too short) trials will be excluded
     foi : list (floats), float, None or "all"
         Frequencies to be selected (in Hz). Selections can be approximate, unsorted
         and may include repetitions but must be finite and not NaN. Fuzzy matching
@@ -278,6 +287,13 @@ def selectdata(data,
     if not inplace:
         out = data.__class__(dimord=data.dimord)
 
+    # set toilim from latency
+    if latency is not None:
+        if toi is not None or toilim is not None:
+            SPYWarning("toi/toilim settings ignored if `latency` is set")
+
+        toi, toilim = None, None
+
     # Collect provided selection keywords in dict
     selectDict = {"trials": trials,
                   "channel": channel,
@@ -315,7 +331,27 @@ def selectdata(data,
         return
 
     # Pass provided selections on to `Selector` class which performs error checking
+    # this is an in-place selection!
     data.selection = selectDict
+
+    # -- sort out trials if latency is set --
+
+    if latency is not None:
+
+        # sanity check done here
+        toilim = get_analysis_window(data, latency)
+
+        # this respects active inplace selections and
+        # might update the trial selection
+        selectDict, numDiscard = create_trial_selection(data, toilim)
+
+        if numDiscard > 0:
+            msg = f"Discarded {numDiscard} trial(s) which did not fit into latency window"
+            SPYInfo(msg)
+
+        # update inplace selection
+        selectDict['toilim'] = toilim        
+        data.selection = selectDict
 
     # If an in-place selection was requested we're done
     if inplace:
@@ -325,17 +361,16 @@ def selectdata(data,
 
     # Inform the user what's about to happen
     selectionSize = _get_selection_size(data)
-    sUnit = "MB"
     if selectionSize > 1000:
         selectionSize /= 1024
         sUnit = "GB"
-    msg = "Copying {dsize:3.2f} {dunit:s} of data based on selection " +\
-        "to create new {objkind:s} object on disk"
-    SPYInfo(msg.format(dsize=selectionSize, dunit=sUnit, objkind=data.__class__.__name__))
+        msg = "Copying {dsize:3.2f} {dunit:s} of data based on selection " +\
+            "to create new {objkind:s} object on disk"
+        SPYInfo(msg.format(dsize=selectionSize, dunit=sUnit, objkind=data.__class__.__name__))
 
     # Create inventory of all available selectors and actually provided values
     # to create a bookkeeping dict for logging
-    log_dct = {"inplace": inplace, "clear": clear}
+    log_dct = {"inplace": inplace, "clear": clear, "latency": latency}
     log_dct.update(selectDict)
     log_dct.update(**kwargs)
 
@@ -361,7 +396,7 @@ def _get_selection_size(data):
     Local helper routine for computing the on-disk size of an active data-selection
     """
     fauxTrials = [data._preview_trial(trlno) for trlno in data.selection.trial_ids]
-    fauxSizes = [np.prod(ftrl.shape)*ftrl.dtype.itemsize for ftrl in fauxTrials]
+    fauxSizes = [np.prod(ftrl.shape) * ftrl.dtype.itemsize for ftrl in fauxTrials]
     return sum(fauxSizes) / 1024**2
 
 

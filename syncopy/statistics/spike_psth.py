@@ -6,6 +6,7 @@
 import numpy as np
 
 # Syncopy imports
+import syncopy as spy
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.tools import get_defaults, get_frontend_cfg
 from syncopy.datatype import TimeLockData
@@ -18,14 +19,14 @@ from syncopy.shared.kwarg_decorators import (
     detect_parallel_client
 )
 from syncopy.shared.input_processors import check_passed_kwargs
+from syncopy.shared.latency import get_analysis_window, create_trial_selection
 
 # Local imports
-from syncopy.spikes.compRoutines import PSTH
-from syncopy.spikes.psth import Rice_rule, sqrt_rule, get_chan_unit_combs
+from syncopy.statistics.compRoutines import PSTH
+from syncopy.statistics.psth import Rice_rule, sqrt_rule, get_chan_unit_combs
 
 available_binsizes = {'rice': Rice_rule, 'sqrt': sqrt_rule}
 available_outputs = ['rate', 'spikecount', 'proportion']
-available_latencies = ['maxperiod', 'minperiod', 'prestim', 'poststim']
 
 
 @unwrap_cfg
@@ -97,15 +98,11 @@ def spike_psth(data,
         trl_def = data.selection.trialdefinition
         sinfo = data.selection.trialdefinition[:, :2]
         trials = data.selection.trials
-        trl_ivl = data.selection.trialintervals
-        # beginnings and ends of all (selected) trials in trigger-relative time
-        trl_starts, trl_ends = trl_ivl[:, 0], trl_ivl[:, 1]
 
     else:
         trl_def = data.trialdefinition
         sinfo = data.sampleinfo
         trials = data.trials
-        # beginnings and ends of all (selected) trials in trigger-relative time
         trl_starts, trl_ends = data.trialintervals[:, 0], data.trialintervals[:, 1]
 
     # validate output parameter
@@ -122,101 +119,26 @@ def spike_psth(data,
 
     # --- parse and digest `latency` (time window of analysis) ---
 
-    if isinstance(latency, str):
-        if latency not in available_latencies:
-            lgl = f"one of {available_latencies}"
-            act = latency
-            raise SPYValueError(lgl, varname='latency', actual=act)
-
-        # find overlapping window (timelocked time axis borders) for all trials
-        if latency == 'minperiod':
-            # latest start and earliest finish
-            window = [np.max(trl_starts), np.min(trl_ends)]
-            if window[0] > window[1]:
-                lgl = 'overlapping trials'
-                act = f"{latency} - no common time window for all trials"
-                raise SPYValueError(lgl, 'latency', act)
-
-        # cover maximal time window where
-        # there is still some data in at least 1 trial
-        elif latency == 'maxperiod':
-            window = [np.min(trl_starts), np.max(trl_ends)]
-
-        elif latency == 'prestim':
-            if not np.any(trl_starts < 0):
-                lgl = "pre-stimulus recordings"
-                act = "no pre-stimulus (t < 0) events"
-                raise SPYValueError(lgl, 'latency', act)
-            window = [np.min(trl_starts), 0]
-
-        elif latency == 'poststim':
-            if not np.any(trl_ends > 0):
-                lgl = "post-stimulus recordings"
-                act = "no post-stimulus (t > 0) events"
-                raise SPYValueError(lgl, 'latency', act)
-            window = [0, np.max(trl_ends)]
-    # explicit time window in seconds
-    else:
-        array_parser(latency, lims=[-np.inf, np.inf], dims=(2,))
-        # check that at least some events are covered
-        if latency[0] > trl_ends.max():
-            lgl = "start of latency window before at least one trial ends"
-            act = latency[0]
-            raise SPYValueError(lgl, 'latency[0]', act)
-
-        if latency[1] < trl_starts.min():
-            lgl = "end of latency window after at least one trial starts"
-            act = latency[1]
-            raise SPYValueError(lgl, 'latency[1]', act)
-
-        if latency[0] > latency[1]:
-            lgl = "start < end latency window"
-            act = f"start={latency[0]}, end={latency[1]}"
-            raise SPYValueError(lgl, "latency", act)
-        window = latency
+    window = get_analysis_window(data, latency)
 
     # to restore later
     select_backup = None if data.selection is None else data.selection.select.copy()
 
     if not vartriallen:
-        # trial idx for whole dataset
-        trl_idx = np.arange(len(data.trials))
-        bmask = (trl_starts <= window[0]) & (trl_ends >= window[1])
 
-        # trials which fit completely into window
-        fit_trl_idx = trl_idx[bmask]
-        if fit_trl_idx.size == 0:
-            lgl = 'at least one trial covering the latency window'
-            act = 'no trial that completely covers the latency window'
-            raise SPYValueError(lgl, varname='latency/vartriallen', actual=act)
+        # this will create/ammend the selection, respecting the latency window
+        select, numDiscard = create_trial_selection(data, window)
 
-        # the easy part, no selection so we make one
-        if data.selection is None:
-            data.selectdata(trials=fit_trl_idx, inplace=True)
-            # redefinition needed
-            numDiscard = len(trl_idx) - len(fit_trl_idx)
-        else:
-            # match fitting trials with selected ones
-            fit_trl_idx = np.intersect1d(data.selection.trial_ids, fit_trl_idx)
-            numDiscard = len(data.selection.trial_ids) - len(fit_trl_idx)
+        msg = f"Discarded {numDiscard} trials which did not fit into latency window"
+        SPYInfo(msg)
 
-            if fit_trl_idx.size == 0:
-                lgl = 'at least one trial covering the latency window'
-                act = 'no trial that completely covers the latency window'
-                raise SPYValueError(lgl, varname='latency/vartriallen', actual=act)
-
-            # now modify and re-apply selection
-            select = data.selection.select.copy()
-            select['trials'] = fit_trl_idx
-            data.selectdata(select, inplace=True)
-
+        # apply the updated selection
+        data.selectdata(select, inplace=True)
+        
         # now redefine local variables
         trl_def = data.selection.trialdefinition
         sinfo = data.selection.trialdefinition[:, :2]
         trials = data.selection.trials
-
-        msg = f"Discarded {numDiscard} trials which did not fit into latency window"
-        SPYInfo(msg)
     else:
         numDiscard = 0
 
@@ -274,7 +196,24 @@ def spike_psth(data,
                     parallel=kwargs.get("parallel"),
                     log_dict=log_dict)
 
-    # propagate old cfg and attach this one
+
+    # calculate trial average and variance
+    avg = spy.mean(psth_results, dim='trials', parallel=False)
+    var = spy.var(psth_results, dim='trials', parallel=False)
+
+    # attach data to TimeLockData
+    psth_results._update_dataset('avg', avg.data)
+    psth_results._update_dataset('var', var.data)
+
+    # unregister datasets to detach from objects
+    avg._unregister_dataset("data", del_from_file=False)
+    var._unregister_dataset("data", del_from_file=False)
+
+    # scramble filenames and delete unneeded objects
+    avg.filename, var.filename = '', ''
+    del avg, var
+
+    # -- propagate old cfg and attach this one --
     psth_results.cfg.update(data.cfg)
     psth_results.cfg.update({'spike_psth': new_cfg})
 

@@ -290,11 +290,13 @@ class TestCoherence:
                                     eps=.01,
                                     nChannels=nChannels,
                                     nSamples=nSamples)
+
     # little diffusion in the 40Hz band
     s2 = synth_data.phase_diffusion(nTrials, freq=f2,
                                     eps=.001,
                                     nChannels=nChannels,
                                     nSamples=nSamples)
+
     wn = synth_data.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples)
 
     # superposition
