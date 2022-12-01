@@ -126,13 +126,13 @@ def selectdata(data,
         be unsorted and may include repetitions but must match exactly, be finite
         and not NaN. If `channel` is `None`, or ``channel = "all"`` all channels
         are selected.
-    latency : [begin, end], {'maxperiod', 'minperiod', 'prestim', 'poststim'} or None
+    latency : [begin, end], {'maxperiod', 'minperiod', 'prestim', 'poststim', 'all'} or None
         Either set desired time window (`[begin, end]`) in
         seconds, 'maxperiod' (default) for the maximum period
         available or `'minperiod' for minimal time-window all trials share,
         or `'prestim'` (all t < 0) or `'poststim'` (all t > 0)
-        If set this will apply a selection which is timelocked, 
-        meaning non-fitting (too short) trials will be excluded
+        If set this will apply a selection which is timelocked,
+        meaning non-fitting (effectively too short) trials will be excluded
     frequency : list (floats [fmin, fmax]) or None or "all"
         Frequency-window ``[fmin, fmax]`` (in Hz) to be extracted. Window
         specifications must be sorted (e.g., ``[90, 70]`` is invalid) and not NaN
@@ -316,7 +316,7 @@ def selectdata(data,
 
     # -- sort out trials if latency is set --
 
-    if latency is not None:
+    if latency is not None and latency != 'all':
 
         # sanity check done here, converts str arguments
         # ('maxperiod' and so on) into time window [start, end] of analysis

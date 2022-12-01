@@ -547,9 +547,7 @@ class TestSelector():
         selDict = {"latency": (None,  # trivial "selection" of entire contents
                                "all",  # trivial "selection" of entire contents
                                [0.5, 1.5],  # regular range
-                               [1.5, 2.0],  # minimal range (just two-time points)
-                               [1.0, np.inf],  # unbounded from above
-                               [-np.inf, 1.0])}  # unbounded from below
+                               [1.5, 2.0])}  # minimal range (just two-time points)
 
         # all trials have same time-scale: take 1st one as reference
         trlTime = (np.arange(0, self.trl["AnalogData"][0, 1] - self.trl["AnalogData"][0, 0])
@@ -595,9 +593,7 @@ class TestSelector():
         selDict = {"latency": (None,  # trivial "selection" of entire contents
                               "all",  # trivial "selection" of entire contents
                               [0.5, 1.5],  # regular range
-                              [1.5, 2.0],  # minimal range (just two-time points)
-                              [1.0, np.inf],  # unbounded from above
-                              [-np.inf, 1.0])}  # unbounded from below
+                              [1.5, 2.0])}  # minimal range (just two-time points)
 
         # the below method of extracting spikes satisfying `latency` only works w/equidistant trials!
         for dset in ["SpikeData", "EventData", "EventDataDimord"]:
@@ -695,14 +691,13 @@ class TestSelector():
         # test inplace channel, trial and latency selection
         # ang.time[0] = array([0.5, 1. , 1.5, 2. , 2.5])
         # this latency selection hence takes the last two samples
-        select = {'channel': [2, 7, 9], 'trials': [0, 3, 5], 'latency': [2, 3]}
+        select = {'channel': [2, 7, 9], 'trials': [0, 3, 5], 'latency': [1, 2]}
         ang.selectdata(**select, inplace=True)
 
         # now check shapes and number of trials returned by Selector
         # checks channel axis
         assert all([trl.shape[1] == 3 for trl in ang.selection.trials])
         # checks time axis
-        assert all([trl.shape[0] == 2 for trl in ang.selection.trials])
         assert len(ang.selection.trials) == 3
 
         # test for non-existing trials, trial indices are relative here!
