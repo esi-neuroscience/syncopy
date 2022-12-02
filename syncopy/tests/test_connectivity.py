@@ -356,7 +356,7 @@ class TestCoherence:
         assert np.all(coh.time[0] == test_data.time[0])
 
         # not exactly beautiful but it makes the point
-        coh.singlepanelplot(channel_i=0, channel_j=1, frequency=[0, 60])
+        coh.singlepanelplot(channel_i=0, channel_j=1, frequency=[7, 60])
 
         # plot the coherence over time just along three different frequency bands
         ppl.figure()

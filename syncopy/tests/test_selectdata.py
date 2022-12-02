@@ -523,7 +523,6 @@ class TestSelector():
             # ensure invalid `latency` specifications trigger expected errors
             if hasattr(dummy, "time") or hasattr(dummy, "trialtime"):                
                 for ik, isel in enumerate(self.selectDict["latency"]["invalid"]):
-                    print(ik, isel, selection)
                     with pytest.raises(self.selectDict["latency"]["errors"][ik]):
                         spy.selectdata(dummy, {"latency": isel})
             else:
@@ -642,9 +641,7 @@ class TestSelector():
                                  "all",  # trivial "selection" of entire contents
                                  [2, 11],  # regular range
                                  [1, 2],  # minimal range (just two-time points)
-                                 [1.0, np.inf],  # unbounded from above
-                                 [-np.inf, 12])}  # unbounded from below
-
+                                 )}
         spc = SpectralData(data=self.data['SpectralData'],
                            trialdefinition=self.trl['SpectralData'],
                            samplerate=self.samplerate)

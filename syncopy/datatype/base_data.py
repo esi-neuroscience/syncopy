@@ -1919,21 +1919,23 @@ class Selector:
                     array_parser(
                         freqSpec,
                         varname="frequency",
-                        hasinf=checkInf,
+                        hasinf=False,
                         hasnan=False,
                         lims=[data.freq.min(), data.freq.max()],
-                        dims=1,
+                        dims=(1,),
                     )
                     # single frequency
                     self._freq = data._get_freq(foi=freqSpec)
                 # frequency range [fmin, fmax]
                 else:
-                    if len(freqSpec) != 2:
-                        lgl = "`select: frequency` selection with two components"
-                        act = "`select: frequency` with {} components".format(
-                            len(freqSpec)
-                        )
-                        raise SPYValueError(legal=lgl, varname='frequency', actual=act)
+                    array_parser(
+                        freqSpec,
+                        ntype="numeric",
+                        varname="frequency",
+                        hasnan=False,
+                        lims=[data.freq.min(), data.freq.max()],
+                        dims=(2,),
+                    )
                     if freqSpec[0] >= freqSpec[1]:
                         lgl = (
                             "`select: frequency` selection with `frequency[0]` < `frequency[1]`"
@@ -1942,6 +1944,7 @@ class Selector:
                             freqSpec[0], freqSpec[1]
                         )
                         raise SPYValueError(legal=lgl, varname='frequency', actual=act)
+
                     self._freq = data._get_freq(foi=None, foilim=freqSpec)
 
     @property
