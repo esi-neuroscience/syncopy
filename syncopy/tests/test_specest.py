@@ -310,8 +310,6 @@ class TestMTMFFT():
             if select is None:
                 maxtrlno = np.diff(cfg.data.sampleinfo).argmax()
                 nSamples = cfg.data.trials[maxtrlno].shape[timeAxis]
-            elif "toi" in select:
-                nSamples = len(select["toi"])
             else:
                 nSamples = max([trl.shape[timeAxis] for trl in sel.trials])
 
@@ -441,10 +439,13 @@ class TestMTMConvol():
 
         for select in self.dataSelections:
             cfg.select = select
-            if select is not None and ("latency" in cfg.select.keys() or "toi" in cfg.select.keys()):
-                with pytest.raises(SPYValueError) as err:
+            if select is not None and "latency" in cfg.select.keys():
+                with pytest.raises(SPYValueError):
                     freqanalysis(cfg, self.tfData)
+
+                self.tfData.selection = None
                 continue
+
             for key, value in outputDict.items():
                 cfg.output = key
                 tfSpec = freqanalysis(cfg, self.tfData)
