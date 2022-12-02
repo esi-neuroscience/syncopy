@@ -312,7 +312,7 @@ class TestCrossSpectralPlotting():
             self.granger.singlepanelplot(channel_i=2, channel_j=3, frequency=[50, 320])
 
         elif 'latency' in kwargs:
-            print(kwargs, self.toi_max, self.toi_min)
+
             self.corr.singlepanelplot(**kwargs)
             self.corr.singlepanelplot(**kwargs)
             self.corr.singlepanelplot(**kwargs)
@@ -380,7 +380,7 @@ class TestCrossSpectralPlotting():
 
         # invalid foi selection
         with pytest.raises(SPYValueError) as err:
-            self.test_cs_plotting(trials=0, frequency=[-1, 0], **chan_sel)
+            self.test_cs_plotting(trials=0, frequency=[-1, -0.2], **chan_sel)
             assert "frequency" in str(err)
 
 
