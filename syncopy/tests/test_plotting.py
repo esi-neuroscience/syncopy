@@ -155,6 +155,7 @@ class TestSpectralPlotting():
 
     spec_fft = spy.freqanalysis(adata, tapsmofrq=1)
     spec_fft_imag = spy.freqanalysis(adata, output='imag')
+    spec_fft_mtm = spy.freqanalysis(adata, tapsmofrq=1, keeptapers=True)
     spec_fft_complex = spy.freqanalysis(adata, output='fourier')
 
     spec_wlet = spy.freqanalysis(adata, method='wavelet',
@@ -177,6 +178,12 @@ class TestSpectralPlotting():
             # this simulates the interactive plotting
             fig1, ax1 = self.spec_fft.singlepanelplot(**kwargs)
             fig2, axs = self.spec_fft.multipanelplot(**kwargs)
+
+            # multi taper
+            assert self.spec_fft_mtm.taper.size > 1
+            _, _ = self.spec_fft_mtm.singlepanelplot(channel=3, **kwargs)
+            _, _ = self.spec_fft_mtm.singlepanelplot(taper=1, **kwargs)
+            _, _ = self.spec_fft_mtm.multipanelplot(**kwargs)
 
             _, _ = self.spec_fft_imag.singlepanelplot(**kwargs)
             _, _ = self.spec_fft_imag.multipanelplot(**kwargs)

@@ -75,13 +75,14 @@ class TestSpectralInput:
         assert "expected AnalogData" in str(err.value)
 
     def test_tf_input(self):
-        """ No time-resolved spectral connectivity implemented yet """
+        """ No time-resolved Granger implemented yet """
         spec = spy.freqanalysis(self.ad, method='mtmconvol',
                                 t_ftimwin=0.01, output='fourier')
 
-        with pytest.raises(SPYValueError) as err:
-            cafunc(spec, method='coh')
-        assert "expected line spectra" in str(err.value)
+        with pytest.raises(NotImplementedError) as err:
+            cafunc(spec, method='granger')
+        assert "Granger causality from tf-spectra" in str(err.value)
+
 
 class TestGranger:
 
@@ -279,8 +280,8 @@ class TestGranger:
 
 class TestCoherence:
 
-    nSamples = 1500
-    nChannels = 6
+    nSamples = 1400
+    nChannels = 4
     nTrials = 100
     fs = 1000
 
@@ -314,6 +315,80 @@ class TestCoherence:
     cfg.demean_taper = False
 
     spec = spy.freqanalysis(data, cfg, output='fourier', keeptapers=True)
+
+    def test_timedep_coh(self):
+        """
+        stack together different phase diffusing signals
+        with increasing diffusion strength to emulate non-stationarity
+        """
+
+        trls = []        
+        for _ in range(self.nTrials):
+            pds = []
+            for eps in [1e-3, 1e-2, 1e-1, 2e-1]:
+                pds.append(synth_data.phase_diffusion(freq=self.f2,
+                                                      eps=eps,
+                                                      nChannels=self.nChannels,
+                                                      nSamples=self.nSamples // 8,
+                                                      seed=None)
+                           + .5 * synth_data.white_noise(nChannels=self.nChannels,
+                                                           nSamples=self.nSamples // 8,
+                                                           seed=None)
+                           )
+
+            trial_dat = np.concatenate(pds)
+            trls.append(trial_dat)
+
+        test_data = spy.AnalogData(trls, samplerate=self.fs)
+        # check number of samples
+        nSamples = self.nSamples // 8 * 4
+        assert test_data.time[0].size == nSamples
+
+        # get time-frequency spec for the non-stationary signal
+        spec_tf = spy.freqanalysis(test_data, method='mtmconvol',
+                                   t_ftimwin=0.3, foilim=[5, 100],
+                                   output='fourier')
+
+        # check that we have still the same time axis
+        assert np.all(spec_tf.time[0] == test_data.time[0])
+
+        # abs spectra for plotting
+        spec_tf_abs = spy.SpectralData(data=np.abs(spec_tf.data),
+                                       samplerate=self.fs,
+                                       trialdefinition=spec_tf.trialdefinition)
+        spec_tf_abs.freq = spec_tf.freq
+        spec_tf_abs.multipanelplot(trials=0)
+
+        # rough check that the power indeed drops over time along the 40Hz band
+        profile_40 = spec_tf_abs.show(foi=self.f2, trials=2)[:,1]
+        assert profile_40.argmax() < profile_40.argmin()
+
+        # compute time dependent coherence
+        coh = cafunc(data=spec_tf, method='coh')
+
+        # check that we have still the same time axis
+        assert np.all(coh.time[0] == test_data.time[0])
+
+        # not exactly beautiful but it makes the point
+        coh.singlepanelplot(channel_i=0, channel_j=1)
+
+        # plot the coherence over time just along two different frequency bands        
+        ppl.figure()
+        cprofile40 = coh.show(foi=40, channel_i=0, channel_j=1)
+        ppl.plot(cprofile40, label='40Hz')
+        # here is nothing
+        cprofile10 = coh.show(foi=10, channel_i=0, channel_j=1)
+        ppl.plot(cprofile10, label='10Hz')
+        ppl.xlabel('samples')
+        ppl.ylabel('coherence')
+        ppl.legend()
+
+        # check that the 40 Hz band has high coherence only in the beginning
+        assert cprofile40.max() > 0.9
+        # later coherence goes down
+        assert cprofile40[int(0.8 * nSamples):].max() < 0.4
+        # side band never has high coherence
+        assert cprofile10.max() < 0.4
 
     def test_coh_solution(self, **kwargs):
 

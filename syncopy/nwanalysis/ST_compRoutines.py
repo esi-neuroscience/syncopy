@@ -23,7 +23,7 @@ from syncopy.shared.kwarg_decorators import process_io
 
 
 @process_io
-def spectral_dyadic_product_cF(trl_dat,
+def spectral_dyadic_product_cF(specs,
                                chunkShape=None,
                                noCompute=False):
     """
@@ -36,8 +36,8 @@ def spectral_dyadic_product_cF(trl_dat,
 
     Parameters
     ----------
-    trl_dat: (K, N) :class:`numpy.ndarray`
-        Complex and frequency aligned multi-channel spectral data.
+    specs: (K, N) :class:`numpy.ndarray`
+        Complex and frequency aligned multi-channel single-trial spectral data.
         The 1st dimension is interpreted as the frequency axis,
         `N` columns represent individual channels.
     noCompute : bool
@@ -68,25 +68,24 @@ def spectral_dyadic_product_cF(trl_dat,
     """
 
     # default dimord for SpectralData is ['time', 'taper', 'freq', 'channel']
-    nFreq = trl_dat.shape[2]
-    nChannels = trl_dat.shape[3]
+    nTime = specs.shape[0]
+    nFreq = specs.shape[2]
+    nChannels = specs.shape[3]
 
     # we always average over tapers here
-    outShape = (1, nFreq, nChannels, nChannels)
+    outShape = (nTime, nFreq, nChannels, nChannels)
 
     # cross spectra are complex, input gets checked in frontend!
     if noCompute:
         return outShape, spectralDTypes["fourier"]
 
-    # split off empty time axis, shape is now (nTapers, nFreq, nChannel)
-    specs = trl_dat[0, ...]
     # dyadic product along channel axes
-    # result has shape (nTapers x nFreq x nChannels x nChannels)
-    CS_ij = specs[:, :, :, np.newaxis] * specs[:, :, np.newaxis, :].conj()
+    # result has shape (nTime, nTapers x nFreq x nChannels x nChannels)
+    CS_ij = specs[..., np.newaxis] * specs[..., np.newaxis, :].conj()
 
-    # now average tapers and attach dummy time axis
-    # result has shape (1 x nFreq x nChannels x nChannels)
-    CS_ij = CS_ij.mean(axis=0)[np.newaxis, ...]
+    # now average tapers
+    # result has shape (nTime x nFreq x nChannels x nChannels)
+    CS_ij = CS_ij.mean(axis=1)
     return CS_ij
 
 
@@ -119,9 +118,16 @@ class SpectralDyadicProduct(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_properties(data, out, self.keeptrials)
+        # time dependent coherence needs SpectralData input
+        if 'Spectral' in data.__class__.__name__:
+            time_axis = np.any(np.diff(data.trialdefinition)[:,0] != 1)
+        else:
+            time_axis = False
 
+        propagate_properties(data, out, self.keeptrials, time_axis)
+        out.freq = data.freq
 
+        
 @process_io
 def cross_spectra_cF(trl_dat,
                      samplerate=1,

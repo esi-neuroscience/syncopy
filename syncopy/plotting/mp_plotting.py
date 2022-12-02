@@ -115,8 +115,8 @@ def plot_SpectralData(data, **show_kwargs):
     elif len(data.trials) == 1:
         trl = 0
 
-    labels = plot_helpers.parse_channel(data, show_kwargs)
-    nAx = 1 if isinstance(labels, str) else len(labels)
+    channels = plot_helpers.parse_channel(data, show_kwargs)
+    nAx = 1 if isinstance(channels, str) else len(channels)
 
     if nAx < 2:
         SPYWarning("Please select at least two channels for a multipanelplot!")
@@ -128,9 +128,10 @@ def plot_SpectralData(data, **show_kwargs):
         # determine axes layout, prefer columns over rows due to display aspect ratio
         nrows, ncols = plot_helpers.calc_multi_layout(nAx)
 
-    # how got the spectrum computed
-    method = plot_helpers.get_method(data)
-    if method in ('wavelet', 'superlet', 'mtmconvol'):
+    # -- check if it is a time-frequency spectrum ----------
+    is_tf = np.any(np.diff(data.trialdefinition)[:, 0] != 1)
+    # ------------------------------------------------------
+    if is_tf:
         fig, axs = _plotting.mk_multi_img_figax(nrows, ncols)
 
         # this could be more elegantly solve by
@@ -147,7 +148,7 @@ def plot_SpectralData(data, **show_kwargs):
             raise SPYValueError(lgl, varname="show_kwargs", actual=act)
 
         maxP = data_cyx.max()
-        for data_yx, ax, label in zip(data_cyx, axs.flatten(), labels):
+        for data_yx, ax, label in zip(data_cyx, axs.flatten(), channels):
             _plotting.plot_tfreq(ax, data_yx, time, freqs, vmax=maxP)
             ax.set_title(label, fontsize=pltConfig['mTitleSize'])
         fig.tight_layout()
@@ -182,11 +183,22 @@ def plot_SpectralData(data, **show_kwargs):
             data_y = data.show(**show_kwargs)
             ylabel = f'{output}'
 
+        taper_labels = None
+        if len(data.taper) != 1:   
+            taper = show_kwargs.get('taper')
+            # multiple tapers are to be plotted
+            if not isinstance(taper, (Number, str)):
+                taper_labels = data.taper
+
         fig, axs = _plotting.mk_multi_line_figax(nrows, ncols, xlabel='frequency (Hz)',
                                                  ylabel=ylabel)
 
-        for chan_dat, ax, label in zip(data_y.T, axs.flatten(), labels):
-            _plotting.plot_lines(ax, data_x, chan_dat, label=label, leg_fontsize=pltConfig['mLegendSize'])
+        for chan_dat, ax, label in zip(data_y.T, axs.flatten(), channels):
+            if taper_labels is not None:
+                _plotting.plot_lines(ax, data_x, chan_dat, label=taper_labels, leg_fontsize=pltConfig['mLegendSize'])
+            else:
+                _plotting.plot_lines(ax, data_x, chan_dat)
+            ax.set_title(label, fontsize=pltConfig['mTitleSize'])
 
         # delete empty plot due to grid extension
         # because of prime nAx -> can be maximally 1 plot
