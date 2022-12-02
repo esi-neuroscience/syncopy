@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Computational Routines for the spike analysis methods
+# Computational Routines for statstical methods
 #
 
 # Builtin/3rd party package imports
@@ -12,8 +12,104 @@ from numpy.lib import stride_tricks
 from .psth import psth
 
 # syncopy imports
-from syncopy.shared.computational_routine import ComputationalRoutine
+from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
 from syncopy.shared.kwarg_decorators import process_io
+
+
+@process_io
+def cov_cF(trl_dat,
+           ddof=None,
+           statAxis=0,
+           noCompute=False,
+           chunkShape=None):
+
+    """
+    Covariance between channels via ``np.cov``
+
+    Parameters
+    ----------
+    trl_dat : :class:`numpy.ndarray`
+        Single trial multi-channel data
+    ddof : int, optional
+        Degrees of freedom
+    statAxis : int, optional
+        Index of axis holding the observations in `trl_dat` (0 or 1)
+    """
+
+    # our variables are put in columns (rowvar=False)
+    if statAxis != 0:
+        dat = trl_dat.T
+    else:
+        dat = trl_dat
+
+    nChannels = dat.shape[1]
+
+    # mockup CrossSpectralData shape
+    outShape = (1, 1, nChannels, nChannels)
+
+    # For initialization of computational routine,
+    # just return output shape and dtype
+    if noCompute:
+        return outShape, np.float32
+
+    cov = np.cov(trl_dat, ddof=ddof, rowvar=False)
+
+    # attach dummy time and freq axes
+    return cov[None, None, ...]
+
+
+class Covariance(ComputationalRoutine):
+
+    """
+    Compute class that calculates covariance of :class:`~syncopy.AnalogData` objects
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    Notes
+    -----
+    Outputs a :class:`~syncopy.CrossSpectralData` object with singleton time and freq
+    axis. The backing hdf5 dataset then gets stripped of the empty axes and attached
+    as additional ``.cov`` dataset to a :class:`~syncopy.TimeLockData` object in 
+    the respective frontend.
+
+    See also
+    --------
+    syncopy.timelockanalysis : parent metafunction
+    """
+
+    computeFunction = staticmethod(cov_cF)
+
+    # 1st argument,the data, gets omitted
+    valid_kws = list(signature(cov_cF).parameters.keys())[1:-1]
+
+    def process_metadata(self, data, out):
+
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trldef = data.selection.trialdefinition
+            for row in range(trldef.shape[0]):
+                trldef[row, :2] = [row, row + 1]
+        else:
+            chanSec = slice(None)
+            time = np.arange(len(data.trials))
+            time = time.reshape((time.size, 1))
+            trldef = np.hstack((time, time + 1,
+                                np.zeros((len(data.trials), 1)),
+                                np.array(data.trialinfo)))
+
+        # Attach constructed trialdef-array, time axis is gone 
+        if self.keeptrials:
+            out.trialdefinition = trldef
+        else:
+            out.trialdefinition = np.array([[0, 1, 0]])
+
+        # Attach remaining meta-data
+        out.samplerate = data.samplerate
+        out.channel_i = np.array(data.channel[chanSec])
+        out.channel_j = np.array(data.channel[chanSec])
+        
 
 
 @process_io

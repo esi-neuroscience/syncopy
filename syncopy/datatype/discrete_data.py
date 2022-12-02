@@ -327,7 +327,6 @@ class SpikeData(DiscreteData):
     """
 
     _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
-    _hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel",)
     _defaultDimord = ["sample", "channel", "unit"]
     _stackingDimLabel = "sample"
 
@@ -490,6 +489,9 @@ class SpikeData(DiscreteData):
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          dimord=dimord)
+        
+        # instance attribute to allow modification
+        self._hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel",)
 
         self.channel = channel
         self.unit = unit
@@ -575,16 +577,16 @@ class EventData(DiscreteData):
 
         Parameters
         ----------
-            data : [nEvents x 2] :class:`numpy.ndarray`
+        data : [nEvents x 2] :class:`numpy.ndarray`
 
-            filename : str
-                path to filename or folder (spy container)
-            trialdefinition : :class:`EventData` object or nTrials x 3 array
-                [start, stop, trigger_offset] sample indices for `M` trials
-            samplerate : float
-                sampling rate in Hz
-            dimord : list(str)
-                ordered list of dimension labels
+        filename : str
+            path to filename or folder (spy container)
+        trialdefinition : :class:`EventData` object or nTrials x 3 array
+            [start, stop, trigger_offset] sample indices for `M` trials
+        samplerate : float
+            sampling rate in Hz
+        dimord : list(str)
+            ordered list of dimension labels
 
         1. `filename` + `data` : create hdf dataset incl. sampleinfo @filename
         2. `filename` no `data` : read from file(spy, hdf5)
@@ -612,3 +614,5 @@ class EventData(DiscreteData):
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          dimord=dimord)
+
+        self._hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate",)
