@@ -109,7 +109,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
           a window on every sample in the data.
         * **t_ftimwin** : sliding window length (in sec)
 
-    "welch" : Welch's method for the estimation of power spectra.
+    "welch" : Welch's method for the estimation of power spectra based on
+        time-averaging over short, modified periodograms.
         See [Welch1967]_ for details.
 
         * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
