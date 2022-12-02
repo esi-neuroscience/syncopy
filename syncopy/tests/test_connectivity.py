@@ -322,27 +322,12 @@ class TestCoherence:
         with increasing diffusion strength to emulate non-stationarity
         """
 
-        trls = []        
-        for _ in range(self.nTrials):
-            pds = []
-            for eps in [1e-3, 1e-2, 1e-1, 2e-1]:
-                pds.append(synth_data.phase_diffusion(freq=self.f2,
-                                                      eps=eps,
-                                                      nChannels=self.nChannels,
-                                                      nSamples=self.nSamples // 8,
-                                                      seed=None)
-                           + .5 * synth_data.white_noise(nChannels=self.nChannels,
-                                                           nSamples=self.nSamples // 8,
-                                                           seed=None)
-                           )
-
-            trial_dat = np.concatenate(pds)
-            trls.append(trial_dat)
-
-        test_data = spy.AnalogData(trls, samplerate=self.fs)
+        # 20Hz band has strong diffusion so coherence
+        # will go down noticably over the observation time
+        test_data = self.data
         # check number of samples
-        nSamples = self.nSamples // 8 * 4
-        assert test_data.time[0].size == nSamples
+        nSamples = self.nSamples
+        # assert test_data.time[0].size == nSamples
 
         # get time-frequency spec for the non-stationary signal
         spec_tf = spy.freqanalysis(test_data, method='mtmconvol',
@@ -359,9 +344,10 @@ class TestCoherence:
         spec_tf_abs.freq = spec_tf.freq
         spec_tf_abs.multipanelplot(trials=0)
 
-        # rough check that the power indeed drops over time along the 40Hz band
-        profile_40 = spec_tf_abs.show(foi=self.f2, trials=2)[:,1]
-        assert profile_40.argmax() < profile_40.argmin()
+        # rough check that the power indeed drops over time
+        # along the 20Hz band which has stronger phase diffusion
+        profile_20 = spec_tf_abs.show(frequency=self.f1, trials=2)[:, 1]
+        assert profile_20.argmax() < profile_20.argmin()
 
         # compute time dependent coherence
         coh = cafunc(data=spec_tf, method='coh')
@@ -370,25 +356,30 @@ class TestCoherence:
         assert np.all(coh.time[0] == test_data.time[0])
 
         # not exactly beautiful but it makes the point
-        coh.singlepanelplot(channel_i=0, channel_j=1)
+        coh.singlepanelplot(channel_i=0, channel_j=1, frequency=[0, 60])
 
-        # plot the coherence over time just along two different frequency bands        
+        # plot the coherence over time just along three different frequency bands
         ppl.figure()
-        cprofile40 = coh.show(foi=40, channel_i=0, channel_j=1)
+        cprofile20 = coh.show(frequency=self.f1, channel_i=0, channel_j=1)
+        ppl.plot(cprofile20, label='20Hz')
+
+        # coherence goes down more slowly
+        cprofile40 = coh.show(frequency=self.f2, channel_i=0, channel_j=1)
         ppl.plot(cprofile40, label='40Hz')
+
         # here is nothing
-        cprofile10 = coh.show(foi=10, channel_i=0, channel_j=1)
+        cprofile10 = coh.show(frequency=10, channel_i=0, channel_j=1)
         ppl.plot(cprofile10, label='10Hz')
         ppl.xlabel('samples')
         ppl.ylabel('coherence')
         ppl.legend()
 
-        # check that the 40 Hz band has high coherence only in the beginning
-        assert cprofile40.max() > 0.9
+        # check that the 20 Hz band has high coherence only in the beginning
+        assert cprofile20.max() > 0.9
         # later coherence goes down
-        assert cprofile40[int(0.8 * nSamples):].max() < 0.4
-        # side band never has high coherence
-        assert cprofile10.max() < 0.4
+        assert cprofile20[int(0.9 * nSamples):].max() < 0.4
+        # side band never has high coherence except for the very beginning
+        assert cprofile10.max() < 0.5
 
     def test_coh_solution(self, **kwargs):
 
@@ -469,11 +460,17 @@ class TestCoherence:
 
     def test_coh_foi(self):
 
-        call = lambda foilim: cafunc(self.data,
-                                     method='coh',
-                                     foilim=foilim)
+        # 2 frequencies
+        foilim = [[2, 60], [7.65, 45.1234], None]
+        for foil in foilim:
+            result = cafunc(self.data, method='coh', foilim=foil)
+            # check here just for finiteness and positivity
+            assert np.all(np.isfinite(result.data))
+            assert np.all(result.data[0, ...] >= -1e-10)
 
-        run_foi_test(call, frequency=[0, 70])
+        # make sure out-of-range foi selections are detected
+        with pytest.raises(SPYValueError, match='foilim'):
+            result = cafunc(self.data, method='coh', foilim=[-1, 70])
 
     def test_coh_cfg(self):
 
@@ -723,24 +720,6 @@ def plot_corr(res, i, j, label=''):
     ax.legend()
 
 
-def run_foi_test(method_call, frequency, positivity=True):
-
-    # only positive frequencies
-    assert np.min(frequency) >= 0
-    assert np.max(frequency) <= 500
-
-    # 2 frequencies
-    frequencies = [[2, 60], [7.65, 45.1234], None]
-    for foil in frequencies:
-        result = method_call(foil)
-        # check here just for finiteness and positivity
-        assert np.all(np.isfinite(result.data))
-        if positivity:
-            assert np.all(result.data[0, ...] >= -1e-10)
-
-    # make sure out-of-range foi selections are detected
-    with pytest.raises(SPYValueError, match='foilim'):
-        result = method_call([-1, 70])
 
 if __name__ == '__main__':
     T1 = TestGranger()

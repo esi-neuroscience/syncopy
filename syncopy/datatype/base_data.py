@@ -1904,14 +1904,18 @@ class Selector:
                     select["frequency"] = None
                 else:
                     raise SPYValueError(
-                        legal="'all' or `None` or list/array",
+                        legal="'all' or `None` or float or list/array",
                         varname="frequency",
                         actual=freqSpec,
                     )
-            if freqSpec is not None:
+            if freqSpec is None:
+                # select all
+                self._freq = data._get_freq()
+
+            else:
                 if np.issubdtype(type(freqSpec), np.number):
                     freqSpec = [freqSpec]
-                try:
+
                     array_parser(
                         freqSpec,
                         varname="frequency",
@@ -1920,9 +1924,10 @@ class Selector:
                         lims=[data.freq.min(), data.freq.max()],
                         dims=1,
                     )
-                except Exception as exc:
-                    raise exc
-                if checkLim:
+                    # single frequency
+                    self._freq = data._get_freq(foi=freqSpec)
+                # frequency range [fmin, fmax]
+                else:
                     if len(freqSpec) != 2:
                         lgl = "`select: frequency` selection with two components"
                         act = "`select: frequency` with {} components".format(
@@ -1937,11 +1942,7 @@ class Selector:
                             freqSpec[0], freqSpec[1]
                         )
                         raise SPYValueError(legal=lgl, varname='frequency', actual=act)
-            self._freq = data._get_freq(
-                foi=None, foilim=select.get("frequency")
-            )
-        else:
-            return
+                    self._freq = data._get_freq(foi=None, foilim=freqSpec)
 
     @property
     def taper(self):
