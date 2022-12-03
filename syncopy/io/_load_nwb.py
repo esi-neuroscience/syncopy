@@ -33,7 +33,7 @@ nwbErrMsg = "\nSyncopy <core> WARNING: Could not import 'pynwb'. \n" +\
 __all__ = ["load_nwb"]
 
 
-def load_nwb(filename, memuse=3000):
+def load_nwb(filename, memuse=3000, container=None):
     """
     Read contents of NWB files
 
@@ -43,15 +43,18 @@ def load_nwb(filename, memuse=3000):
         Name of (may include full path to) NWB file (e.g., `"/path/to/mydata.nwb"`).
     memuse : scalar
         Approximate in-memory cache size (in MB) for reading data from disk
+    container : str
+        Name of syncopy container folder to create the syncopy data in
 
     Returns
     -------
-    angData : syncopy.AnalogData
+    objdict : dict
         Any NWB `TimeSeries`-like data is imported into an :class:`~syncopy.AnalogData`
-        object
-    evtData : syncopy.EventData
+            object
         If the NWB file contains TTL pulse data, an additional :class:`~syncopy.EventData`
-        object is instantiated
+            object is instantiated
+        The syncopy objects are returned as a dictionary whose keys are the base-names 
+            (sans path) of the corresponding files.
     """
 
     # Abort if NWB is not installed
@@ -159,7 +162,17 @@ def load_nwb(filename, memuse=3000):
 
     # Print status update to inform user
     SPYInfo(msg)
-    SPYInfo("Creating AnalogData object...")
+    
+    # Check for filename
+    if container is not None:
+        if not isinstance(container, str):
+            raise SPYTypeError(container, varname="container", expected="str")
+        if not os.path.splitext(container)[1] == ".spy":
+            container += ".spy"
+        fileInfo = filename_parser(container)
+        filebase = os.path.join(fileInfo["folder"],
+                                fileInfo["container"],
+                                fileInfo["basename"])
 
     # If TTL data was found, ensure we have exactly one set of values and associated
     # channel markers
@@ -178,7 +191,12 @@ def load_nwb(filename, memuse=3000):
     if len(ttlVals) > 0:
         msg = "Creating separate EventData object for embedded TTL pulse data..."
         SPYInfo(msg)
-        evtData = EventData(dimord=["sample","eventid","chans"])
+        if container is not None:
+            filename = filebase + ".event"
+        else:
+            filename = None
+            
+        evtData = EventData(dimord=["sample","eventid","chans"], filename=filename)
         h5evt = h5py.File(evtData.filename, mode="w")
         evtDset = h5evt.create_dataset("data", dtype=np.result_type(*ttlDtypes),
                                        shape=(ttlVals[0].data.size, 3))
@@ -214,7 +232,12 @@ def load_nwb(filename, memuse=3000):
         
         # Allocate `AnalogData` object and use generated HDF5 file-name to manually
         # allocate a target dataset for reading the NWB data
-        angData = AnalogData(dimord=AnalogData._defaultDimord)
+        if container is not None:
+            filename = filebase + "_" + acqValue.name + ".analog"
+        else:
+            filename = None
+            
+        angData = AnalogData(dimord=AnalogData._defaultDimord, filename=filename)
         angShape = [None, None]
         angShape[angData.dimord.index("time")] = acqValue.data.shape[0]
         angShape[angData.dimord.index("channel")] = acqValue.data.shape[1]
