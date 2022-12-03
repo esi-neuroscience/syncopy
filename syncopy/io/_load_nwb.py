@@ -228,7 +228,7 @@ def load_nwb(filename, memuse=3000):
         # `nSamp` is the no. of samples that can be loaded into memory without exceeding `memuse`
         # `rem` is the no. of remaining samples, s. t. ``nSamp + rem = angDset.shape[0]`
         # `blockList` is a list of samples to load per swipe, i.e., `[nSamp, nSamp, ..., rem]`
-        nSamp = int(memuse / (np.prod(angDset.shape[1:]) * angDset.dtype.itemsize))
+        nSamp = int(memuse / (acqValue.data.shape[1] * angDset.dtype.itemsize))
         rem = int(angDset.shape[0] % nSamp)
         blockList = [nSamp] * int(angDset.shape[0] // nSamp) + [rem] * int(rem > 0)
 
