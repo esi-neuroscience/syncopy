@@ -90,7 +90,7 @@ class TestCfg:
 
     def test_selection(self):
 
-        select = {'toilim': self.time_span, 'trials': [1, 2, 3], 'channel': [2, 0]}
+        select = {'latency': self.time_span, 'trials': [1, 2, 3], 'channel': [2, 0]}
         for frontend in availableFrontend_cfgs.keys():
             # select kw for selectdata makes no direct sense
             if frontend == 'selectdata':
@@ -132,7 +132,7 @@ class TestCfg:
         res_pp = spy.preprocessing(self.adata, cfg=availableFrontend_cfgs['preprocessing'])
 
         frontend = 'freqanalysis'
-        frontend_cfg = {'method': 'mtmfft', 'output': 'fooof', 'foilim' : [0.5, 100.]}
+        frontend_cfg = {'method': 'mtmfft', 'output': 'fooof', 'foilim': [0.5, 100.]}
 
         res = getattr(spy, frontend)(res_pp,
                                         cfg=frontend_cfg)

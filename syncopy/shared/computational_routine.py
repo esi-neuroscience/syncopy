@@ -1102,8 +1102,6 @@ def propagate_properties(in_data, out_data, keeptrials=True, time_axis=False):
     is_Analog = lambda data: isinstance(data, spy.AnalogData)
     is_Spectral = lambda data: isinstance(data, spy.SpectralData)
     is_CrossSpectral = lambda data: isinstance(data, spy.CrossSpectralData)
-
-
     
     # attach a dummy selection for easier propagation
     selection_cleanup = False
@@ -1151,6 +1149,7 @@ def propagate_properties(in_data, out_data, keeptrials=True, time_axis=False):
         # Note that here the `time` axis is only(!) used as stacking dimension
         if keeptrials:
             trldef = in_data.selection.trialdefinition
+
             for row in range(trldef.shape[0]):
                 trldef[row, :2] = [row, row + 1]
             out_data.trialdefinition = trldef

@@ -38,6 +38,8 @@ class ContinuousData(BaseData, ABC):
 
     _infoFileProperties = BaseData._infoFileProperties + ("samplerate", "channel",)
     _hdfFileDatasetProperties = BaseData._hdfFileDatasetProperties + ("data",)
+    # all continuous data types have a time axis
+    _selectionKeyWords = BaseData._selectionKeyWords + ('latency',)
 
     @property
     def data(self):
@@ -284,6 +286,7 @@ class ContinuousData(BaseData, ABC):
     def _get_time(self, trials, toi=None, toilim=None):
         """
         Get relative by-trial indices of time-selections
+        `toi` is legacy.. `toilim ` is used by selections via `latency`
 
         Parameters
         ----------
@@ -406,6 +409,7 @@ class AnalogData(ContinuousData):
     _infoFileProperties = ContinuousData._infoFileProperties
     _defaultDimord = ["time", "channel"]
     _stackingDimLabel = "time"
+    _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel',)
 
     # "Constructor"
     def __init__(self,
@@ -479,6 +483,7 @@ class SpectralData(ContinuousData):
     _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
     _defaultDimord = ["time", "taper", "freq", "channel"]
     _stackingDimLabel = "time"
+    _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel', 'frequency', 'taper',)
 
     @property
     def taper(self):
@@ -539,7 +544,7 @@ class SpectralData(ContinuousData):
     # Helper function that extracts frequency-related indices
     def _get_freq(self, foi=None, foilim=None):
         """
-        Coming soon...
+        `foi` is legacy, we use `foilim` for frequency selection
         Error checking is performed by `Selector` class
         """
         if foilim is not None:
@@ -634,6 +639,7 @@ class CrossSpectralData(ContinuousData):
         ("samplerate", "channel_i", "channel_j", "freq", )
     _defaultDimord = ["time", "freq", "channel_i", "channel_j"]
     _stackingDimLabel = "time"
+    _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel_i', 'channel_j', 'frequency',)
     _channel_i = None
     _channel_j = None
     _samplerate = None
@@ -754,6 +760,7 @@ class TimeLockData(ContinuousData):
 
     _infoFileProperties = ContinuousData._infoFileProperties
     _defaultDimord = ["time", "channel"]
+    _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel',)
     _stackingDimLabel = "time"
 
     # "Constructor"

@@ -15,7 +15,7 @@ __all__ = ["definetrial"]
 
 
 def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
-                  trigger=None, stop=None, clip_edges=False):
+                trigger=None, stop=None, clip_edges=False):
     """(Re-)define trials of a Syncopy data object
 
     Data can be structured into trials based on timestamps of a start, trigger
@@ -335,15 +335,20 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
 
         # Compute trial-IDs by matching data samples with provided trial-bounds
         samples = tgt.data[:, tgt.dimord.index("sample")]
-        starts = tgt.sampleinfo[:, 0]
-        ends = tgt.sampleinfo[:, 1]
-        startids = np.searchsorted(starts, samples, side="right")
-        endids = np.searchsorted(ends, samples, side="left")
-        mask = startids == endids
-        startids -= 1
-        # Samples not belonging into any trial get a trial-ID of -1
-        startids[mask] = int(startids.min() <= 0) * (-1)
-        tgt.trialid = startids
+        if np.size(samples) > 0:
+            starts = tgt.sampleinfo[:, 0]
+            ends = tgt.sampleinfo[:, 1]
+            startids = np.searchsorted(starts, samples, side="right")
+            endids = np.searchsorted(ends, samples, side="left")
+            mask = startids == endids
+            startids -= 1
+            # Samples not belonging into any trial get a trial-ID of -1
+            startids[mask] = int(startids.min() <= 0) * (-1)
+            tgt.trialid = startids
+        # no data - empty object, can happen due to a selection
+        else:
+            tgt.trialid = None
+            tgt._trialdefinition = None
 
     # Write log entry
     if ref == tgt:

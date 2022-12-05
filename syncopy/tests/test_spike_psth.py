@@ -381,12 +381,6 @@ class TestPSTH:
         counts = spy.spike_psth(self.spd, cfg)
         assert all(['channel1' not in chan for chan in counts.channel])
 
-        # test toilim selection
-        # FIXME: Not supported atm, see #348
-        # cfg.select['toilim'] = [0.1, 0.2]
-        # counts = spy.spike_psth(self.spd, cfg)
-        # assert all(['channel1' not in chan for chan in counts.channel])
-
         client.close()
 
 
