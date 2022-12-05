@@ -22,6 +22,7 @@ class TestWelch():
         cfg = spy.get_defaults(spy.freqanalysis)
         cfg.method = "welch"
         cfg.t_ftimwin = 0.5
+        cfg.toi = 0.0
         spec_dt = spy.freqanalysis(cfg, self.adata)
         assert spec_dt.data.ndim == 4
 
@@ -29,6 +30,7 @@ class TestWelch():
         cfg = spy.get_defaults(spy.freqanalysis)
         cfg.method = "welch"
         cfg.t_ftimwin = 0.5
+        cfg.toi = 0.0
         cfg.tapsmofrq = 2  # Activate multi-tapering, which is not allowed.
         with pytest.raises(SPYValueError, match="tapsmofrq"):
             spec_dt = spy.freqanalysis(cfg, self.adata)
@@ -38,9 +40,10 @@ class TestWelch():
         cfg.method = "welch"
         cfg.t_ftimwin = 0.5
 
-        cfg.toi = 'all'
-        with pytest.raises(SPYValueError, match="toi"):
-            spec_dt = spy.freqanalysis(cfg, self.adata)
+        for toi in ['all', np.linspace(0, 1, 5)]:
+            cfg.toi = toi
+            with pytest.raises(SPYValueError, match="toi"):
+                spec_dt = spy.freqanalysis(cfg, self.adata)
 
     def test_welch_rejects_invalid_output(self):
         cfg = spy.get_defaults(spy.freqanalysis)
@@ -53,7 +56,6 @@ class TestWelch():
                 cfg.output = output
                 with pytest.raises(SPYValueError, match="output"):
                     spec_dt = spy.freqanalysis(cfg, self.adata)
-
 
 
 if __name__ == '__main__':
