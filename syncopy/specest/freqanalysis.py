@@ -110,14 +110,13 @@ def freqanalysis(data, method='mtmfft', output='pow',
         * **t_ftimwin** : sliding window length (in sec)
 
     "welch" : Welch's method for the estimation of power spectra based on
-        time-averaging over short, modified periodograms.
+        time-averaging over short, modified periodograms. Here, *modified* means that
+        a taper is applied.
         See [Welch1967]_ for details.
 
         * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
-        * **toi** : time-points of interest; can be either an array representing
-          analysis window centroids (in sec), a scalar between 0 and 1 encoding
-          the percentage of overlap between adjacent windows or "all" to center
-          a window on every sample in the data.
+        * **toi** : time-points of interest; a scalar between 0 and 1 encoding
+          the percentage of overlap between adjacent windows.
         * **t_ftimwin** : sliding window length (in sec)
 
     "wavelet" : (Continuous non-orthogonal) wavelet transform
@@ -519,6 +518,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
                 if tapsmofrq is not None:
                     raise SPYValueError(legal="None", varname="tapsmofrq", actual=tapsmofrq)
 
+                if output != "pow":
+                    raise SPYValueError(legal="output='pow' for method='welch'", varname="output", actual=output)
+
         # Construct array of maximally attainable frequencies
         freqs = np.fft.rfftfreq(minSampleNum, dt)
 
@@ -601,6 +603,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
         # overlap = None
         if isinstance(toi, str):
+            if method == "welch":
+                lgl = "toi to be a float in range [0, 1] for method='welch'"
+                raise SPYValueError(legal=lgl, varname="toi", actual=toi)
             if toi != "all":
                 lgl = "`toi = 'all'` to center analysis windows on all time-points"
                 raise SPYValueError(legal=lgl, varname="toi", actual=toi)
@@ -608,20 +613,18 @@ def freqanalysis(data, method='mtmfft', output='pow',
             overlap = np.inf
 
         elif np.issubdtype(type(toi), np.number):
-            try:
-                scalar_parser(toi, varname="toi", lims=[0, 1])
-            except Exception as exc:
-                raise exc
+            scalar_parser(toi, varname="toi", lims=[0, 1])
             overlap = toi
             equidistant = True
         # this captures all other cases, e.i. toi is of sequence type
         else:
+            if method == "welch":
+                lgl = "toi to be a float in range [0, 1] for method='welch'"
+                raise SPYValueError(legal=lgl, varname="toi", actual=toi)
+
             overlap = -1
-            try:
-                array_parser(toi, varname="toi", hasinf=False, hasnan=False,
+            array_parser(toi, varname="toi", hasinf=False, hasnan=False,
                              lims=[tStart.min(), tEnd.max()], dims=(None,))
-            except Exception as exc:
-                raise exc
             toi = np.array(toi)
             tSteps = np.diff(toi)
             if (tSteps < 0).any():
