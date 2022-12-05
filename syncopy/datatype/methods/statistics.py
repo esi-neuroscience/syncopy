@@ -463,7 +463,7 @@ def _trial_average(in_data, out_arr):
 
     trials = in_data.selection.trials
     for trl in trials:
-        out_arr = np.nansum([out_arr, trl], axis=0)
+        out_arr += trl
 
     # normalize
     out_arr /= len(trials)
@@ -491,7 +491,7 @@ def _trial_var(in_data, out_arr):
     trials = in_data.selection.trials
     for trl in trials:
         # absolute value for complex numbers
-        out_arr = np.sum([out_arr, (np.abs(trl - average))**2], axis=0)
+        out_arr += np.abs(trl - average)**2
 
     # normalize
     out_arr /= len(trials)
