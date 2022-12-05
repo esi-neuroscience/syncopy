@@ -224,7 +224,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         methods (`"wavelet"` or `"superlet"`) toi needs to be either an
         equidistant array of time points or "all".
     t_ftimwin : positive float
-        Only valid if `method` is `'mtmconvol'`. Sliding window length (in seconds).
+        Only valid if `method` is `'mtmconvol'` or `'welch'`. Sliding window length (in seconds).
     wavelet : str
         Only valid if `method` is `'wavelet'`. Wavelet function to use, one of
         :data:`~syncopy.specest.freqanalysis.availableWavelets` (see below).
