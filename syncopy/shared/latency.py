@@ -74,12 +74,12 @@ def get_analysis_window(data, latency):
         array_parser(latency, lims=[-np.inf, np.inf], dims=(2,))
         # check that at least some events are covered
         if latency[0] > trl_ends.max():
-            lgl = "start of latency window before at least one trial ends"
+            lgl = f"start of latency window < {trl_ends.max()}s"
             act = latency[0]
             raise SPYValueError(lgl, 'latency[0]', act)
 
         if latency[1] < trl_starts.min():
-            lgl = "end of latency window after at least one trial starts"
+            lgl = f"end of latency window > {trl_starts.min()}s"
             act = latency[1]
             raise SPYValueError(lgl, 'latency[1]', act)
 

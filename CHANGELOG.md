@@ -1,25 +1,26 @@
 # Changelog of SyNCoPy
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 
 ## [Unreleased]
 
 ### NEW
-- Added time dependent coherence analysis #287
-- Added basic statistics (mean, std, var and median) for Syncopy data objects
-- Added timelockanalysis and new TimeLockData data type
-- Added PSTH method for SpikeData
-- Support added for performing connectivity analysis from SpectralData (#364).
-- Added additional .info entries for Granger analysis, indicating details about the computation.
-- Added additional .info entries for FoooF results, e.g. Gaussian fit parameters.
-- Fix bug #365, plotting supports custom dimords now.
-
+- time dependent coherence analysis #287
+- basic statistics (mean, std, var and median) for Syncopy data objects
+- timelockanalysis and new TimeLockData data type
+- PSTH method for SpikeData
+- support for performing connectivity analysis from SpectralData (#364).
+- additional .info entries for Granger analysis, indicating details about the computation.
+- additional .info entries for FoooF results, e.g. Gaussian fit parameters.
 
 ### CHANGED
-- Maximal brute force regularization parameter for Granger increased to 1e-1
+- selectdata now has 'frequency' and 'latency' parameters instead of toi/toilim and foi/foilim
+- a 'latency' selection will always either return a timelocked data selection or an error
+- maximal brute force regularization parameter for Granger increased to 1e-1
+
+### Fixed
+- improved memory footprint of trial averaging (#380)
+- bug #365, plotting supports custom dimords now
 
 ## [2022.08] - 2022-08-10
 

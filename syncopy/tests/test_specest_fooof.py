@@ -111,10 +111,10 @@ class TestFooofSpy():
             _ = freqanalysis(cfg, _get_fooof_signal(seed=self.seed))  # tfData contains zero.
         assert "a frequency range that does not include zero" in str(err.value)
 
-    def test_output_fooof_works_with_freq_zero_in_data_after_setting_foilim(self):
+    def test_output_fooof_works_with_freq_zero_in_data_after_setting_frequency(self):
         """
         This tests the intended operation with output type 'fooof': with an input that does not
-        include zero, ensured by using the 'foilim' argument/setting when calling freqanalysis.
+        include zero, ensured by using the 'frequency' argument/setting when calling freqanalysis.
 
         This returns the full, fooofed spectrum.
         """

@@ -24,11 +24,8 @@ def selectdata(data,
                channel=None,
                channel_i=None,
                channel_j=None,
-               toi=None,
-               toilim=None,
                latency=None,
-               foi=None,
-               foilim=None,
+               frequency=None,
                taper=None,
                unit=None,
                eventid=None,
@@ -129,37 +126,14 @@ def selectdata(data,
         be unsorted and may include repetitions but must match exactly, be finite
         and not NaN. If `channel` is `None`, or ``channel = "all"`` all channels
         are selected.
-    toi : list (floats), float, None or "all"
-        Time-points to be selected (in seconds) in each trial. Timing is expected
-        to be on a by-trial basis (e.g., relative to trigger onsets). Selections
-        can be approximate, unsorted and may include repetitions but must be
-        finite and not NaN. Fuzzy matching is performed for approximate selections
-        (i.e., selected time-points are close but not identical to timing information
-        found in `data`) using a nearest-neighbor search for elements of `toi`.
-        If `toi` is `None` or ``toi = "all"``, the entire time-span in each trial
-        is selected.
-    toilim : list (floats [tmin, tmax]) or None or "all"
-        Time-window ``[tmin, tmax]`` (in seconds) to be extracted from each trial.
-        Window specifications must be sorted (e.g., ``[2.2, 1.1]`` is invalid)
-        and not NaN but may be unbounded (e.g., ``[1.1, np.inf]`` is valid). Edges
-        `tmin` and `tmax` are included in the selection.
-        If `toilim` is `None` or ``toilim = "all"``, the entire time-span in each
-        trial is selected.
-    latency : [begin, end], {'maxperiod', 'minperiod', 'prestim', 'poststim'} or None
+    latency : [begin, end], {'maxperiod', 'minperiod', 'prestim', 'poststim', 'all'} or None
         Either set desired time window (`[begin, end]`) in
         seconds, 'maxperiod' (default) for the maximum period
         available or `'minperiod' for minimal time-window all trials share,
         or `'prestim'` (all t < 0) or `'poststim'` (all t > 0)
-        If set this will precede any toi/toilim setting and will apply a selection
-        which is timelocked, meaning non-fitting (too short) trials will be excluded
-    foi : list (floats), float, None or "all"
-        Frequencies to be selected (in Hz). Selections can be approximate, unsorted
-        and may include repetitions but must be finite and not NaN. Fuzzy matching
-        is performed for approximate selections (i.e., selected frequencies are
-        close but not identical to frequencies found in `data`) using a nearest-
-        neighbor search for elements of `foi` in `data.freq`. If `foi` is `None`
-        or ``foi = "all"``, all frequencies are selected.
-    foilim : list (floats [fmin, fmax]) or None or "all"
+        If set this will apply a selection which is timelocked,
+        meaning non-fitting (effectively too short) trials will be excluded
+    frequency : list (floats [fmin, fmax]) or None or "all"
         Frequency-window ``[fmin, fmax]`` (in Hz) to be extracted. Window
         specifications must be sorted (e.g., ``[90, 70]`` is invalid) and not NaN
         but may be unbounded (e.g., ``[-np.inf, 60.5]`` is valid). Edges `fmin`
@@ -283,40 +257,41 @@ def selectdata(data,
     # get input arguments into cfg dict
     new_cfg = get_frontend_cfg(get_defaults(selectdata), locals(), kwargs)
 
-    # If provided, make sure output object is appropriate
     if not inplace:
         out = data.__class__(dimord=data.dimord)
 
-    # set toilim from latency
-    if latency is not None:
-        if toi is not None or toilim is not None:
-            SPYWarning("toi/toilim settings ignored if `latency` is set")
-
-        toi, toilim = None, None
-
-    # Collect provided selection keywords in dict
+    # First collect all available keyword values into a dict
     selectDict = {"trials": trials,
                   "channel": channel,
                   "channel_i": channel_i,
                   "channel_j": channel_j,
-                  "toi": toi,
-                  "toilim": toilim,
-                  "foi": foi,
-                  "foilim": foilim,
+                  "latency": latency,
+                  "frequency": frequency,
                   "taper": taper,
                   "unit": unit,
                   "eventid": eventid}
 
-    # The only valid anonymous kw is "parallel" (i.e., filter out typos like 'trails' etc.)
+    # relevant selection keywords for the type of `data`
+    expected = list(data._selectionKeyWords)
+
+    # filter out typos like 'trails'
     if len(kwargs) > 0:
-        if list(kwargs.keys()) != ["parallel"]:
-            kwargs.pop("parallel", None)
-            expected = list(selectDict.keys()) + ["out", "inplace", "clear", "parallel"]
-            lgl = "dict with one or all of the following keys: '" +\
-                  "'".join(opt + "', " for opt in expected)[:-2]
+        kwargs.pop("parallel", None)
+        if any([key not in expected for key in kwargs]):
+            lgl = f"the following keywords for {data.__class__.__name__}: '" +\
+                "'".join(opt + "', " for opt in expected)[:-2]
+            lgl += " and 'inplace', 'clear', 'parallel'"
             act = "dict with keys '" +\
                   "'".join(key + "', " for key in kwargs.keys())[:-2]
-            raise SPYValueError(legal=lgl, varname="kwargs", actual=act)
+            raise SPYValueError(legal=lgl, varname="selection kwargs", actual=act)
+
+    # warn the user for ineffective selection keywords, e.g. 'frequency' for AnalogData
+    for key, value in selectDict.items():
+        if key not in expected and value is not None:
+            SPYWarning(f"No {key} selection available for {data.__class__.__name__}")
+
+    # now just keep going with the selection keys relevant for that particular data type
+    selectDict = {key: selectDict[key] for key in data._selectionKeyWords}
 
     # First simplest case: determine whether we just need to clear an existing selection
     if clear:
@@ -330,27 +305,33 @@ def selectdata(data,
             SPYInfo("In-place selection cleared")
         return
 
+    # first do a selection without latency as a possible subselection
+    # of trials needs to be applied before the latency digesting functions
+    # can be called (if the user by himself throws out non-fitting trials)
+    selectDict.pop('latency')
+
     # Pass provided selections on to `Selector` class which performs error checking
     # this is an in-place selection!
     data.selection = selectDict
 
     # -- sort out trials if latency is set --
 
-    if latency is not None:
+    if latency is not None and latency != 'all':
 
-        # sanity check done here
-        toilim = get_analysis_window(data, latency)
+        # sanity check done here, converts str arguments
+        # ('maxperiod' and so on) into time window [start, end] of analysis
+        window = get_analysis_window(data, latency)
 
         # this respects active inplace selections and
-        # might update the trial selection
-        selectDict, numDiscard = create_trial_selection(data, toilim)
+        # might update the trial selection to exclude non-fitting trials
+        selectDict, numDiscard = create_trial_selection(data, window)
 
         if numDiscard > 0:
             msg = f"Discarded {numDiscard} trial(s) which did not fit into latency window"
             SPYInfo(msg)
 
         # update inplace selection
-        selectDict['toilim'] = toilim        
+        selectDict['latency'] = window
         data.selection = selectDict
 
     # If an in-place selection was requested we're done

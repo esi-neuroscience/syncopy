@@ -49,25 +49,16 @@ chanSelections = [
     "channel02",  # str selection
     1  # scalar selection
 ]
-toiSelections = [
-    "all",  # non-type-conform string
-    0.6,  # single inexact match
-    [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
+latencySelections = [
+    'all',
+    'minperiod',
+    [0.5, 1.5],  # regular range - 'maxperiod'
+    [1., 1.5],
 ]
-toilimSelections = [
-    [0.5, 1.5],  # regular range
-    [1.5, 2.0],  # minimal range (just two-time points)
-    [1.0, np.inf]  # unbounded from above
-]
-foiSelections = [
-    "all",  # non-type-conform string
-    2.6,  # single inexact match
-    [1.1, 1.9, 2.1, 3.9, 9.2, 11.8, 12.9, 5.1, 13.8]  # unordered, inexact, repetions
-]
-foilimSelections = [
+frequencySelections = [
     [2, 11],  # regular range
     [1, 2.0],  # minimal range (just two-time points)
-    [1.0, np.inf]  # unbounded from above
+    # [1.0, np.inf]  # unbounded from above, dropped support
 ]
 taperSelections = [
     ["TestTaper_03", "TestTaper_01", "TestTaper_01", "TestTaper_02"],  # string selection w/repetition + unordered
@@ -77,10 +68,8 @@ taperSelections = [
     range(2, 5),  # narrow range
     slice(0, 5, 2),  # slice w/non-unitary step-size
 ]
-timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
-    + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
-freqSelections = list(zip(["foi"] * len(foiSelections), foiSelections)) \
-    + list(zip(["foilim"] * len(foilimSelections), foilimSelections))
+timeSelections = list(zip(["latency"] * len(latencySelections), latencySelections))
+freqSelections = list(zip(["frequency"] * len(frequencySelections), frequencySelections))
 
 
 # Local helper function for performing basic arithmetic tests
@@ -615,7 +604,8 @@ class TestAnalogData():
                         # data selection via class-method + `Selector` instance for indexing
                         selected = obj.selectdata(**kwdict)
                         time.sleep(0.001)
-                        selector = Selector(obj, kwdict)
+                        spy.selectdata(obj, kwdict, inplace=True)
+                        selector = obj.selection
                         idx[chanIdx] = selector.channel
                         for tk, trialno in enumerate(selector.trial_ids):
                             idx[timeIdx] = selector.time[tk]
@@ -660,7 +650,7 @@ class TestAnalogData():
             kwdict = {}
             kwdict["trials"] = trialSelections[1]
             kwdict["channel"] = chanSelections[3]
-            kwdict[timeSelections[4][0]] = timeSelections[4][1]
+            kwdict[timeSelections[2][0]] = timeSelections[2][1]
             _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
@@ -822,7 +812,8 @@ class TestSpectralData():
                                 # data selection via class-method + `Selector` instance for indexing
                                 selected = obj.selectdata(**kwdict)
                                 time.sleep(0.001)
-                                selector = Selector(obj, kwdict)
+                                spy.selectdata(obj, kwdict, inplace=True)
+                                selector = obj.selection
                                 idx[chanIdx] = selector.channel
                                 idx[freqIdx] = selector.freq
                                 idx[taperIdx] = selector.taper
@@ -881,8 +872,8 @@ class TestSpectralData():
             kwdict = {}
             kwdict["trials"] = trialSelections[1]
             kwdict["channel"] = chanSelections[3]
-            kwdict[timeSelections[4][0]] = timeSelections[4][1]
-            kwdict[freqSelections[4][0]] = freqSelections[4][1]
+            kwdict[timeSelections[2][0]] = timeSelections[2][1]
+            kwdict[freqSelections[1][0]] = freqSelections[1][1]
             kwdict["taper"] = taperSelections[2]
             _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
@@ -1044,7 +1035,8 @@ class TestCrossSpectralData():
                                 # data selection via class-method + `Selector` instance for indexing
                                 selected = obj.selectdata(**kwdict)
                                 time.sleep(0.001)
-                                selector = Selector(obj, kwdict)
+                                spy.selectdata(obj, kwdict, inplace=True)
+                                selector = obj.selection
                                 idx[chanIdx] = selector.channel_i
                                 idx[chanJdx] = selector.channel_j
                                 idx[freqIdx] = selector.freq
@@ -1101,8 +1093,8 @@ class TestCrossSpectralData():
             kwdict["trials"] = trialSelections[1]
             kwdict["channel_i"] = chanSelections[3]
             kwdict["channel_j"] = chanSelections[4]
-            kwdict[timeSelections[4][0]] = timeSelections[4][1]
-            kwdict[freqSelections[4][0]] = freqSelections[4][1]
+            kwdict[timeSelections[2][0]] = timeSelections[2][1]
+            kwdict[freqSelections[1][0]] = freqSelections[1][1]
             _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
@@ -1315,7 +1307,7 @@ class TestStatistics:
     def test_selections(self):
 
         # got 10 samples with 1s samplerate,so time is [-1, ..., 8]
-        sdict1 = {'trials': [1, 3], 'toilim': [2, 6]}
+        sdict1 = {'trials': [1, 3], 'latency': [2, 6]}
         res = self.adata.mean(dim='channel', select=sdict1)
         assert len(res.trials) == 2
         assert self.adata.time[0].min() == -1
@@ -1324,7 +1316,7 @@ class TestStatistics:
         assert res.time[0].max() == 6
 
         # freq axis is [0, ..., 9]
-        sdict2 = {'channel': [0, 2], 'foilim': [1, 5]}
+        sdict2 = {'channel': [0, 2], 'frequency': [1, 5]}
         res = self.spec_data.var(dim='trials', select=sdict2)
         assert np.all(res.channel == np.array(['channel1', 'channel3']))
         assert np.all(res.freq == np.arange(1, 6))
@@ -1348,7 +1340,7 @@ class TestStatistics:
         assert np.allclose(npy_res[:self.nSamples], res.show(trials=0))
 
         # one last time for the freq axis
-        sdict5 = {'foilim': [1, 4]}
+        sdict5 = {'frequency': [1, 4]}
         res = spy.median(self.spec_data, dim='freq', select=sdict5)
         # cut out same frequencies directly from the dataset array
         npy_res = np.median(self.spec_data.data[..., 1:5, :], axis=2)
@@ -1380,7 +1372,8 @@ class TestStatistics:
 
 if __name__ == '__main__':
 
-    T1 = TestCrossSpectralData()
+    T0 = TestAnalogData()
+    T1 = TestSpectralData()
     T2 = TestTimeLockData()
     T3 = TestStatistics()
     T4 = TestCrossSpectralData()

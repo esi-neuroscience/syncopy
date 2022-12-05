@@ -31,7 +31,7 @@ class DiscreteData(BaseData, ABC):
 
     _infoFileProperties = BaseData._infoFileProperties + ("samplerate", )
     _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate",)
-    _hdfFileDatasetProperties = BaseData._hdfFileDatasetProperties + ("data",)
+    _selectionKeyWords = BaseData._selectionKeyWords + ('latency',)
 
     @property
     def data(self):
@@ -295,6 +295,9 @@ class DiscreteData(BaseData, ABC):
 
     def __init__(self, data=None, samplerate=None, trialid=None, **kwargs):
 
+        # set as instance attribute to allow (un-)registering of additional datasets
+        self._hdfFileDatasetProperties = BaseData._hdfFileDatasetProperties + ("data",)
+
         # Assign (default) values
         self._trialid = None
         self._samplerate = None
@@ -329,6 +332,7 @@ class SpikeData(DiscreteData):
     _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
     _defaultDimord = ["sample", "channel", "unit"]
     _stackingDimLabel = "sample"
+    _selectionKeyWords = DiscreteData._selectionKeyWords + ('channel', 'unit',)
 
     @property
     def channel(self):
@@ -509,6 +513,7 @@ class EventData(DiscreteData):
 
     _defaultDimord = ["sample", "eventid"]
     _stackingDimLabel = "sample"
+    _selectionKeyWords = DiscreteData._selectionKeyWords + ('eventid',)
 
     @property
     def eventid(self):

@@ -279,13 +279,13 @@ def plot_CrossSpectralData(data, **show_kwargs):
         fig.tight_layout()
 
         return fig, ax
-        
+
     else:
         # get the data to plot
         data_y = data.show(**show_kwargs)
         if data_y.size == 0:
             lgl = "Selection with non-zero size"
-            act = "got zero samples"
+            act = f"{show_kwargs}, got zero samples"
             raise SPYValueError(lgl, varname="show_kwargs", actual=act)
 
         # create the axes and figure if needed

@@ -206,7 +206,7 @@ class TestResampling:
         # all channels are equal,
         # avoid the nose with 3Hz away from the cut-off
         pow_rs = spec_rs.show(channel=0,
-                              foilim=[0, kwargs['resamplefs'] / 2 - 3]).mean()
+                              frequency=[0, kwargs['resamplefs'] / 2 - 3]).mean()
 
         if def_test:
             # here we have aa filtering built in,

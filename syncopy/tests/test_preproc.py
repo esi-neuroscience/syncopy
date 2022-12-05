@@ -101,7 +101,7 @@ class TestButterworth:
                 foilim = self.freq_kw[ftype]
 
             # remaining power after filtering
-            pow_fil = spec_f.show(channel=0, foilim=foilim).sum()
+            pow_fil = spec_f.show(channel=0, frequency=foilim).sum()
             _, idx = best_match(spec_f.freq, foilim, span=True)
             # ratio of pass-band to total freqency band
             ratio = len(idx) / nFreq
@@ -313,7 +313,7 @@ class TestFIRWS:
                 foilim = self.freq_kw[ftype]
 
             # remaining power after filtering
-            pow_fil = spec_f.show(channel=0, foilim=foilim).sum()
+            pow_fil = spec_f.show(channel=0, frequency=foilim).sum()
             _, idx = best_match(spec_f.freq, foilim, span=True)
             # ratio of pass-band to total freqency band
             ratio = len(idx) / nFreq
