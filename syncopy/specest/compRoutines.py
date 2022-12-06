@@ -408,13 +408,22 @@ def welch_cF(
         trl_dat,
         timeAxis=0,
         output="pow",
-        noCompute=False, chunkShape=None, method_kwargs=None):
-        pass
+        noCompute=False, chunkShape=None, method_kwargs={'average':'mean'}):
+
+    outShape = trl_dat.shape
+
+    if noCompute:
+        return outShape, spectralDTypes['pow']
+
+    return welch(trl_dat, axis=timeAxis, output=output, **method_kwargs)
+
 
 
 class Welch(ComputationalRoutine):
     """
     Compute class that implements Welch's method as post-processing of mtmconvolv.
+    After the mtmconvolv that gives us the modified periodograms, all that's left
+    is to average.
 
     Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
     see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
@@ -425,17 +434,14 @@ class Welch(ComputationalRoutine):
     syncopy.freqanalysis : parent metafunction
     """
     computeFunction = staticmethod(welch_cF)
-    metadata_keys = ()
-
+    metadata_keys = ()  # Intentionally left empty, we do not have extra return values for Welch.
 
     valid_kws = list(signature(welch).parameters.keys())[1:]       # Omit 1st argument, the data.
     valid_kws += list(signature(welch_cF).parameters.keys())[1:]   # Same here.
-    # Parameter names passed directly to freqanalysis, which got digested by the frontend:
-    valid_kws += ['t_ftimwin']
 
-    # To attach metadata to the output of the CF.
+    # Attach metadata to the output of the CF.
     def process_metadata(self, data, out):
-        pass
+        propagate_properties(data, out, keeptrials=True, time_axis=True)
 
 
 class MultiTaperFFTConvol(ComputationalRoutine):

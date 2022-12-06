@@ -25,9 +25,16 @@ class TestWelch():
         """
         cfg = spy.get_defaults(spy.freqanalysis)
         cfg.method = "welch"
-        cfg.t_ftimwin = 0.5
-        cfg.toi = 0.0
+        cfg.t_ftimwin = 0.5  # Window length in seconds.
+        cfg.toi = 0.0        # Overlap between periodograms (0.5 = 50 percent overlap).
         return cfg
+
+    def _get_mtmconvolv_res(self):
+        """Internal function for debuggin only. Ignore, will be deleted."""
+        cfg = TestWelch.get_welch_cfg()
+        cfg.method = "mtmconvol"
+        return spy.freqanalysis(cfg, self.adata)
+
 
     def test_welch_simple(self):
         cfg = TestWelch.get_welch_cfg()
@@ -42,7 +49,7 @@ class TestWelch():
 
     def test_welch_rejects_invalid_tois(self):
         cfg = TestWelch.get_welch_cfg()
-        for toi in ['all', np.linspace(0, 1, 5)]:
+        for toi in ['all', np.linspace(0.0, 1.0, 5)]:
             cfg.toi = toi
             with pytest.raises(SPYValueError, match="toi"):
                 _ = spy.freqanalysis(cfg, self.adata)
