@@ -961,7 +961,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     if method == "welch":
         welch_data = out
         welch_out = SpectralData(dimord=SpectralData._defaultDimord)
-        output_welch = output
+        output_welch = output  # 'pow'
         welch_kwargs = kwargs
 
         welchMethod = Welch(output=output_welch, welch_kwargs=welch_kwargs)

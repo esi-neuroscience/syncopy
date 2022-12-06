@@ -406,13 +406,8 @@ def mtmconvol_cF(
 @process_io
 def welch_cF(
         trl_dat,
-        soi,
-        postselect,
-        equidistant=True,
-        toi=None,
-        foi=None,
-        nTaper=1, timeAxis=0,
-        keeptapers=True, polyremoval=0, output="pow",
+        timeAxis=0,
+        output="pow",
         noCompute=False, chunkShape=None, method_kwargs=None):
         pass
 
