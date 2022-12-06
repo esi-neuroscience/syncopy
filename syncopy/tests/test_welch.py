@@ -30,7 +30,7 @@ class TestWelch():
         return cfg
 
     def _get_mtmconvolv_res(self):
-        """Internal function for debuggin only. Ignore, will be deleted."""
+        """Internal function for interactive debugging only. Ignore, will be deleted."""
         cfg = TestWelch.get_welch_cfg()
         cfg.method = "mtmconvol"
         return spy.freqanalysis(cfg, self.adata)
