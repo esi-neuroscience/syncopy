@@ -169,6 +169,8 @@ def load_nwb(filename, memuse=3000, container=None):
             raise SPYTypeError(container, varname="container", expected="str")
         if not os.path.splitext(container)[1] == ".spy":
             container += ".spy"
+        if not os.path.isdir(container):
+            os.makedirs(container)
         fileInfo = filename_parser(container)
         filebase = os.path.join(fileInfo["folder"],
                                 fileInfo["container"],
@@ -223,6 +225,10 @@ def load_nwb(filename, memuse=3000, container=None):
         log_msg = "Read data from NWB file {}".format(nwbFullName)
         evtData.log = log_msg
         objectDict[os.path.basename(evtData.filename)] = evtData
+        
+    # Compute actually available memory 
+    pbarDesc = "Reading data in blocks of {} GB".format(round(memuse / 1000, 2))
+    memuse *= 1024**2 
     
     # Process analog time series data and convert stuff block by block (if necessary)
     pbar = tqdm(angSeries, position=0)
@@ -242,29 +248,28 @@ def load_nwb(filename, memuse=3000, container=None):
         angShape[angData.dimord.index("time")] = acqValue.data.shape[0]
         angShape[angData.dimord.index("channel")] = acqValue.data.shape[1]
         h5ang = h5py.File(angData.filename, mode="w")
-        angDset = h5ang.create_dataset("data", dtype=np.result_type(*dTypes), shape=angShape, data=acqValue.data[:,:])
+        angDset = h5ang.create_dataset("data", dtype=np.result_type(*dTypes), shape=angShape)
         
         # If channel-specific gains are set, load them now
         if acqValue.channel_conversion is not None:
             gains = acqValue.channel_conversion[()]
             if np.all(gains ==  gains[0]):
                 gains = gains[0]
-
-            # Compute actually available memory 
-            pbarDesc = "Converting data in blocks of {} GB".format(round(memuse / 1000, 2))
-            memuse *= 1024**2 
-            # Given memory cap, compute how many data blocks can be grabbed per swipe:
-            # `nSamp` is the no. of samples that can be loaded into memory without exceeding `memuse`
-            # `rem` is the no. of remaining samples, s. t. ``nSamp + rem = angDset.shape[0]`
-            # `blockList` is a list of samples to load per swipe, i.e., `[nSamp, nSamp, ..., rem]`
-            nSamp = int(memuse / (acqValue.data.shape[1] * angDset.dtype.itemsize))
-            rem = int(angDset.shape[0] % nSamp)
-            blockList = [nSamp] * int(angDset.shape[0] // nSamp) + [rem] * int(rem > 0)
-            
-            for m, M in enumerate(tqdm(blockList, desc=pbarDesc, position=1, leave=False)):
-                st_samp, end_samp = m * nSamp, m * nSamp + M
+                
+        # Given memory cap, compute how many data blocks can be grabbed per swipe:
+        # `nSamp` is the no. of samples that can be loaded into memory without exceeding `memuse`
+        # `rem` is the no. of remaining samples, s. t. ``nSamp + rem = angDset.shape[0]`
+        # `blockList` is a list of samples to load per swipe, i.e., `[nSamp, nSamp, ..., rem]`
+        nSamp = int(memuse / (acqValue.data.shape[1] * angDset.dtype.itemsize))
+        rem = int(angDset.shape[0] % nSamp)
+        blockList = [nSamp] * int(angDset.shape[0] // nSamp) + [rem] * int(rem > 0)
+        
+        for m, M in enumerate(tqdm(blockList, desc=pbarDesc, position=1, leave=False)):
+            st_samp, end_samp = m * nSamp, m * nSamp + M
+            angDset[st_samp : end_samp, :] = acqValue.data[st_samp : end_samp, :]
+            if acqValue.channel_conversion is not None:
                 angDset[st_samp : end_samp, :] *= gains
-
+            
         # Finalize angData
         angData.data = angDset
         angData.channel = acqValue.electrodes[:].location.to_list()
