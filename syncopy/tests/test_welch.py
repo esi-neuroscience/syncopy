@@ -18,44 +18,49 @@ class TestWelch():
 
     adata = TestMTMConvol.get_tfdata_mtmconvol()
 
-    def test_welch_simple(self):
+    @staticmethod
+    def get_welch_cfg():
+        """
+        Get a reasonable Welch cfg for testing purposes.
+        """
         cfg = spy.get_defaults(spy.freqanalysis)
         cfg.method = "welch"
         cfg.t_ftimwin = 0.5
         cfg.toi = 0.0
+        return cfg
+
+    def test_welch_simple(self):
+        cfg = TestWelch.get_welch_cfg()
         spec_dt = spy.freqanalysis(cfg, self.adata)
         assert spec_dt.data.ndim == 4
 
     def test_welch_rejects_multitaper(self):
-        cfg = spy.get_defaults(spy.freqanalysis)
-        cfg.method = "welch"
-        cfg.t_ftimwin = 0.5
-        cfg.toi = 0.0
+        cfg = TestWelch.get_welch_cfg()
         cfg.tapsmofrq = 2  # Activate multi-tapering, which is not allowed.
         with pytest.raises(SPYValueError, match="tapsmofrq"):
-            spec_dt = spy.freqanalysis(cfg, self.adata)
+            _ = spy.freqanalysis(cfg, self.adata)
 
     def test_welch_rejects_invalid_tois(self):
-        cfg = spy.get_defaults(spy.freqanalysis)
-        cfg.method = "welch"
-        cfg.t_ftimwin = 0.5
-
+        cfg = TestWelch.get_welch_cfg()
         for toi in ['all', np.linspace(0, 1, 5)]:
             cfg.toi = toi
             with pytest.raises(SPYValueError, match="toi"):
-                spec_dt = spy.freqanalysis(cfg, self.adata)
+                _ = spy.freqanalysis(cfg, self.adata)
 
     def test_welch_rejects_invalid_output(self):
-        cfg = spy.get_defaults(spy.freqanalysis)
-        cfg.method = "welch"
-        cfg.t_ftimwin = 0.5
-        cfg.toi = 0.0
+        cfg = TestWelch.get_welch_cfg()
 
         for output in spectralConversions.keys():
             if output != "pow":
                 cfg.output = output
                 with pytest.raises(SPYValueError, match="output"):
-                    spec_dt = spy.freqanalysis(cfg, self.adata)
+                    _ = spy.freqanalysis(cfg, self.adata)
+
+    def test_welch_rejects_trial_averaging(self):
+        cfg = TestWelch.get_welch_cfg()
+        cfg.keeptrials = False
+        with pytest.raises(SPYValueError, match="keeptrials"):
+                    _ = spy.freqanalysis(cfg, self.adata)
 
 
 if __name__ == '__main__':

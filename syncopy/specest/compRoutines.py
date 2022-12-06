@@ -432,6 +432,12 @@ class Welch(ComputationalRoutine):
     computeFunction = staticmethod(welch_cF)
     metadata_keys = ()
 
+
+    valid_kws = list(signature(welch).parameters.keys())[1:]       # Omit 1st argument, the data.
+    valid_kws += list(signature(welch_cF).parameters.keys())[1:]   # Same here.
+    # Parameter names passed directly to freqanalysis, which got digested by the frontend:
+    valid_kws += ['t_ftimwin']
+
     # To attach metadata to the output of the CF.
     def process_metadata(self, data, out):
         pass

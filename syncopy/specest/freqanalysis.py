@@ -521,6 +521,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
                 if output != "pow":
                     raise SPYValueError(legal="output='pow' for method='welch'", varname="output", actual=output)
 
+                if not keeptrials:
+                    raise SPYValueError(legal="keeptrials=True for method='welch'", varname="keeptrials", actual=keeptrials)
+
         # Construct array of maximally attainable frequencies
         freqs = np.fft.rfftfreq(minSampleNum, dt)
 
