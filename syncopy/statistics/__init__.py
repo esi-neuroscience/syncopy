@@ -4,6 +4,7 @@
 # 
 
 # Import __all__ routines from local modules
+from . import summary_stats
 from .spike_psth import spike_psth
 from .timelockanalysis import timelockanalysis
 from .summary_stats import (
