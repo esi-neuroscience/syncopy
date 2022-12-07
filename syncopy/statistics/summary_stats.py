@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Syncopy object simple statistics (mean, std, ...)
+# Syncopy object simple summary statistics (mean, std, ...)
 #
 
 
@@ -501,6 +501,8 @@ def _trial_var(in_data, out_arr):
 
 def _attach_stat_doc(orig_doc):
     """
+    NOT USED ATM - could be useful for other method doc strings
+
     This is a helper to attach the full doc to the statistical methods in ContinuousData.
     Including the `select` and `parallel` sections from the kwarg decorators,
     which can/should only be applied once.
