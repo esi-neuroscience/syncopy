@@ -7,6 +7,7 @@
 import pytest
 import numpy as np
 import dask.distributed as dd
+import matplotlib.pyplot as ppl
 
 # Local imports
 import syncopy as spy
@@ -14,7 +15,7 @@ from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, TimeLo
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.tools import StructDict
 from syncopy.tests import helpers
-
+from syncopy.tests import synth_data as sd
 
 class TestStatistics:
 
@@ -219,6 +220,55 @@ class TestStatistics:
         # should have no effect here
         self.test_trial_statistics()
 
+    def test_itc(self):
+
+        adata = sd.white_noise(100,
+                               nSamples=1000,
+                               nChannels=2,
+                               samplerate=500)
+
+        # add simple 60Hz armonic
+        adata += sd.harmonic(100,
+                             freq=60,
+                             nSamples=1000,
+                             nChannels=2,
+                             samplerate=500)
+
+        trials = []
+        # add frequency drift along trials
+        # note same initial phase
+        # so ITC will be 1 at time 0
+        freq = 30
+        dfreq = 1 / 100  # frequency difference
+        for trl in adata.trials:
+            # start at 0s
+            dat = np.cos(2 * np.pi * freq * (adata.time[0] + 1))
+            trials.append(trl + np.c_[dat, dat])
+            freq += dfreq
+        adata = spy.AnalogData(data=trials, samplerate=500)
+
+        tf_spec = spy.freqanalysis(adata, method='mtmconvol',
+                                   t_ftimwin=0.5,
+                                   output='fourier',
+                                   foilim=[0, 100])
+
+        # plot power spectrum
+        # after 500 samples / 1s
+        fig, ax = ppl.subplots()
+        for idx in [0, 50, 99]:
+            power500 = np.abs(tf_spec.trials[idx][500, 0, :, 0])
+            ax.plot(tf_spec.freq, power500, label=f"trial {idx}")
+        # note that the 30Hz peak wandered to ~35Hz
+        # hence the phases will decorrelate over time
+        ax.legend()
+        ax.set_xlabel('frequency (Hz)')
+
+        itc = spy.itc(tf_spec)
+        itc.singlepanelplot(channel=1)
+
+        # fig, ax = ppl.subplots()
+
+        return itc
 
 if __name__ == '__main__':
 

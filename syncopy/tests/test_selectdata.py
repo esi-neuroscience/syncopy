@@ -505,6 +505,9 @@ class TestSelector():
                         else:
                             idx = [slice(None)] * len(dummy.dimord)
                             idx[dummy.dimord.index(prop)] = solution
+                            print(idx, solution, prop)
+                            print(np.array(dummy.data)[tuple(idx)])
+                            print(selected.data[()])
                             assert np.array_equal(np.array(dummy.data)[tuple(idx)],
                                                   selected.data)
                             assert np.array_equal(getattr(selected, prop),
