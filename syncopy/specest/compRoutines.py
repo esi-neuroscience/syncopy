@@ -407,15 +407,16 @@ def mtmconvol_cF(
 def welch_cF(
         trl_dat,
         timeAxis=0,
-        output="pow",
         noCompute=False, chunkShape=None, method_kwargs={'average':'mean'}):
 
-    outShape = trl_dat.shape
+    outShape = list(trl_dat.shape)
+    outShape[timeAxis] = 1
+    outShape = tuple(outShape)
 
     if noCompute:
         return outShape, spectralDTypes['pow']
 
-    return welch(trl_dat, axis=timeAxis, output=output, **method_kwargs)
+    return welch(trl_dat, axis=timeAxis, **method_kwargs)
 
 
 
