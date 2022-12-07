@@ -15,7 +15,7 @@ from tqdm import tqdm
 from syncopy import __nwb__
 from syncopy.datatype.continuous_data import AnalogData
 from syncopy.datatype.discrete_data import EventData
-from syncopy.shared.errors import SPYError, SPYValueError, SPYWarning, SPYInfo
+from syncopy.shared.errors import SPYError, SPYTypeError, SPYValueError, SPYWarning, SPYInfo
 from syncopy.shared.parsers import io_parser, scalar_parser, filename_parser
 
 # Conditional imports
