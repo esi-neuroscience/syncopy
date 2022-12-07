@@ -201,6 +201,12 @@ def itc(spec_data, **kwargs):
                 dataclass='SpectralData',
                 empty=False)
 
+    if spec_data.data.dtype != np.complex64 and spec_data.data.dtype != np.complex128:
+        lgl = "complex valued spectra, set `output='fourier` in spy.freqanalysis!"
+        act = "real valued spectral data"
+        raise SPYValueError(lgl, 'spec_data', act)
+
+    # takes care of remaining checks
     res = _trial_statistics(spec_data, operation='itc')
 
     return res

@@ -17,6 +17,7 @@ from syncopy.shared.tools import StructDict
 from syncopy.tests import helpers
 from syncopy.tests import synth_data as sd
 
+
 class TestStatistics:
 
     # initialize rng instance
@@ -220,7 +221,7 @@ class TestStatistics:
         # should have no effect here
         self.test_trial_statistics()
 
-    def test_itc(self):
+    def test_itc(self, do_plot=True):
 
         adata = sd.white_noise(100,
                                nSamples=1000,
@@ -237,9 +238,9 @@ class TestStatistics:
         trials = []
         # add frequency drift along trials
         # note same initial phase
-        # so ITC will be 1 at time 0
+        # so ITC will be ~1 at time 0
         freq = 30
-        dfreq = 1 / 100  # frequency difference
+        dfreq = 2 / 100  # frequency difference
         for trl in adata.trials:
             # start at 0s
             dat = np.cos(2 * np.pi * freq * (adata.time[0] + 1))
@@ -252,23 +253,56 @@ class TestStatistics:
                                    output='fourier',
                                    foilim=[0, 100])
 
-        # plot power spectrum
-        # after 500 samples / 1s
-        fig, ax = ppl.subplots()
-        for idx in [0, 50, 99]:
-            power500 = np.abs(tf_spec.trials[idx][500, 0, :, 0])
-            ax.plot(tf_spec.freq, power500, label=f"trial {idx}")
-        # note that the 30Hz peak wandered to ~35Hz
-        # hence the phases will decorrelate over time
-        ax.legend()
-        ax.set_xlabel('frequency (Hz)')
+        spec = spy.freqanalysis(adata, foilim=[0, 100], output='fourier')
 
-        itc = spy.itc(tf_spec)
-        itc.singlepanelplot(channel=1)
+        # -- calculate itc --
+        itc = spy.itc(spec)
+        tf_itc = spy.itc(tf_spec)
 
-        # fig, ax = ppl.subplots()
+        assert isinstance(tf_itc, spy.SpectralData)
 
-        return itc
+        assert np.all(np.imag(itc.data[()]) == 0)
+        assert itc.data[()].max() <= 1
+        assert itc.data[()].min() >= 0
+
+        # high itc around the in phase 60Hz
+        assert np.all(itc.show(frequency=60) > 0.99)
+        # low (time averaged) itc around the drifters
+        assert np.all(itc.show(frequency=30) < 0.4)
+
+        assert np.all(np.imag(tf_itc.data[()]) == 0)
+        assert tf_itc.data[()].max() <= 1
+        assert tf_itc.data[()].min() >= 0        
+        assert np.allclose(tf_itc.time[0], tf_spec.time[0])
+
+        if do_plot:
+
+            # plot tf power spectrum
+            # after 500 samples / 1s
+            fig, ax = ppl.subplots()
+            for idx in [0, 50, 99]:
+                power500 = np.abs(tf_spec.trials[idx][500, 0, :, 0])
+                ax.plot(tf_spec.freq, power500, label=f"trial {idx}")
+            # note that the 30Hz peak wandered to ~31Hz
+            # hence the phases will decorrelate over time
+            ax.legend()
+            ax.set_xlabel('frequency (Hz)')
+
+            # plot ITCs
+            itc.singlepanelplot(channel=1)
+            tf_itc.singlepanelplot(channel=1)
+
+            # plot tf ITC time profiles
+            fig, ax = ppl.subplots()
+            ax.set_xlabel('time (s)')
+            for frq in [31, 60, 10]:
+                itc_profile = tf_itc.show(frequency=frq, channel=0)
+                ax.plot(tf_itc.time[0], itc_profile, label=f"{frq}Hz")
+            ax.legend()
+            ax.set_title("time dependent ITC")
+
+        return itc, spec
+
 
 if __name__ == '__main__':
 
