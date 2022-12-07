@@ -50,11 +50,10 @@ def load_nwb(filename, memuse=3000, container=None):
     -------
     objdict : dict
         Any NWB `TimeSeries`-like data is imported into an :class:`~syncopy.AnalogData`
-            object
-        If the NWB file contains TTL pulse data, an additional :class:`~syncopy.EventData`
-            object is instantiated
-        The syncopy objects are returned as a dictionary whose keys are the base-names 
-            (sans path) of the corresponding files.
+        object. If the NWB file contains TTL pulse data, an additional
+        :class:`~syncopy.EventData` object is instantiated. The syncopy
+        objects are returned as a dictionary whose keys are the base-names
+        (sans path) of the corresponding files.
     """
 
     # Abort if NWB is not installed
@@ -162,7 +161,7 @@ def load_nwb(filename, memuse=3000, container=None):
 
     # Print status update to inform user
     SPYInfo(msg)
-    
+
     # Check for filename
     if container is not None:
         if not isinstance(container, str):
@@ -197,7 +196,7 @@ def load_nwb(filename, memuse=3000, container=None):
             filename = filebase + ".event"
         else:
             filename = None
-            
+
         evtData = EventData(dimord=["sample","eventid","chans"], filename=filename)
         h5evt = h5py.File(evtData.filename, mode="w")
         evtDset = h5evt.create_dataset("data", dtype=np.result_type(*ttlDtypes),
@@ -220,42 +219,42 @@ def load_nwb(filename, memuse=3000, container=None):
         else:
             evtData.trialdefinition = np.array([[np.nanmin(evtDset[:,0]), np.nanmax(evtDset[:,0]), 0]])
             msg = "No trial information found. Proceeding with single all-encompassing trial"
-            
+
         # Write logs
         log_msg = "Read data from NWB file {}".format(nwbFullName)
         evtData.log = log_msg
         objectDict[os.path.basename(evtData.filename)] = evtData
-        
-    # Compute actually available memory 
+
+    # Compute actually available memory
     pbarDesc = "Reading data in blocks of {} GB".format(round(memuse / 1000, 2))
-    memuse *= 1024**2 
-    
+    memuse *= 1024**2
+
     # Process analog time series data and convert stuff block by block (if necessary)
     pbar = tqdm(angSeries, position=0)
     for acqValue in pbar:
         # Show dataset name in progress bar label
         pbar.set_description("Loading {} from disk".format(acqValue.name))
-        
+
         # Allocate `AnalogData` object and use generated HDF5 file-name to manually
         # allocate a target dataset for reading the NWB data
         if container is not None:
             filename = filebase + "_" + acqValue.name + ".analog"
         else:
             filename = None
-            
+
         angData = AnalogData(dimord=AnalogData._defaultDimord, filename=filename)
         angShape = [None, None]
         angShape[angData.dimord.index("time")] = acqValue.data.shape[0]
         angShape[angData.dimord.index("channel")] = acqValue.data.shape[1]
         h5ang = h5py.File(angData.filename, mode="w")
         angDset = h5ang.create_dataset("data", dtype=np.result_type(*dTypes), shape=angShape)
-        
+
         # If channel-specific gains are set, load them now
         if acqValue.channel_conversion is not None:
             gains = acqValue.channel_conversion[()]
             if np.all(gains ==  gains[0]):
                 gains = gains[0]
-                
+
         # Given memory cap, compute how many data blocks can be grabbed per swipe:
         # `nSamp` is the no. of samples that can be loaded into memory without exceeding `memuse`
         # `rem` is the no. of remaining samples, s. t. ``nSamp + rem = angDset.shape[0]`
@@ -263,13 +262,13 @@ def load_nwb(filename, memuse=3000, container=None):
         nSamp = int(memuse / (acqValue.data.shape[1] * angDset.dtype.itemsize))
         rem = int(angDset.shape[0] % nSamp)
         blockList = [nSamp] * int(angDset.shape[0] // nSamp) + [rem] * int(rem > 0)
-        
+
         for m, M in enumerate(tqdm(blockList, desc=pbarDesc, position=1, leave=False)):
             st_samp, end_samp = m * nSamp, m * nSamp + M
             angDset[st_samp : end_samp, :] = acqValue.data[st_samp : end_samp, :]
             if acqValue.channel_conversion is not None:
                 angDset[st_samp : end_samp, :] *= gains
-            
+
         # Finalize angData
         angData.data = angDset
         angData.channel = acqValue.electrodes[:].location.to_list()
