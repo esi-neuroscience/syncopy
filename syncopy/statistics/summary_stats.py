@@ -174,7 +174,7 @@ def itc(spec_data, **kwargs):
     The ITC of N trials is given by the length
     of the complex mean of vectors z_i(f):
 
-        1/N \sum z_i / |z|
+        1/N \sum z_i / |z_i|
 
     and have therefore values between 0 and 1.
     In the literature this measure is also often
