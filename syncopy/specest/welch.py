@@ -8,7 +8,7 @@
 import numpy as np
 
 
-def welch(data_arr, axis=0, average="mean", output="pow"):
+def welch(data_arr, axis=0, average="mean"):
     """
     Welch method backend function, works on a single trial.
 
@@ -25,14 +25,10 @@ def welch(data_arr, axis=0, average="mean", output="pow"):
         The axis along which to average.
     average: str, `{'mean', 'median'}`
         The averaging method to use.
-    output: str
-        Currently ignored. Could be used to implement scaling parameter from `scipy.signal.welch`.
     """
     if average == "mean":
         res = np.mean(data_arr, axis=axis, keepdims=True)
     else:
         res = np.median(data_arr, axis=axis, keepdims=True)
-
-    # TODO: use 'output' to implement the 'scaling' parameter from `scipy.signal.welch`?
 
     return res
