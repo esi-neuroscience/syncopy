@@ -454,7 +454,12 @@ class Welch(ComputationalRoutine):
         out.channel = np.array(data.channel[chanSec])
         out.taper = data.taper
         out.freq = data.freq
-        #out.trialdefinition = trl
+
+        num_trials = trl.shape[0]
+        td = np.zeros((num_trials, 3), dtype=float)
+        td[:, 0] = np.arange(num_trials)
+        td[:, 1] = np.arange(num_trials)+1
+        out.trialdefinition = td
 
 
 class MultiTaperFFTConvol(ComputationalRoutine):

@@ -48,12 +48,15 @@ class TestWelch():
         assert res.data.shape[res.dimord.index('time')] == 80
         assert res.data.shape[res.dimord.index('taper')] == 1
         assert res.data.shape[res.dimord.index('channel')] == 3
+
+        #res.singlepanelplot(trials=0, channel=0)
         return res
 
     def test_welch_basic(self):
         cfg = TestWelch.get_welch_cfg()
         spec_dt = spy.freqanalysis(cfg, self.adata)
         assert len(spec_dt.data.shape) == 4
+        #spec_dt.singlepanelplot(trials=0)
         return spec_dt
 
     def test_welch_overlap_effect(self):
