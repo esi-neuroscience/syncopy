@@ -11,6 +11,7 @@ from .summary_stats import (
     var,
     std,
     median,
+    itc,
 )
 
 # Populate local __all__ namespace
