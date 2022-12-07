@@ -85,7 +85,6 @@ def load_nwb(filename, memuse=3000, container=None):
     # Allocate lists for storing temporary NWB info: IMPORTANT use lists to preserve
     # order of data chunks/channels
     nSamples = 0
-    nChannels = 0
     tStarts = []
     sRates = []
     dTypes = []
@@ -114,7 +113,6 @@ def load_nwb(filename, memuse=3000, container=None):
 
             tStarts.append(acqValue.starting_time)
             sRates.append(acqValue.rate)
-            nChannels += acqValue.data.shape[1]
             nSamples = max(nSamples, acqValue.data.shape[0])
             angSeries.append(acqValue)
 
