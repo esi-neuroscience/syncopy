@@ -37,27 +37,49 @@ class TestWelch():
         cfg.method = "mtmconvol"
         res = spy.freqanalysis(cfg, self.adata)
 
+        # Test basic output properties.
         assert len(res.dimord) == 4
+        assert len(res.data.shape) == 4
         assert res.dimord.index('time') == 0
         assert res.dimord.index('taper') == 1
         assert res.dimord.index('freq') == 2
         assert res.dimord.index('channel') == 3
 
+        # Test ouput shape:
         # 20.000 samples per trial at 1000 samplerate => 20 sec of data. With window length of
         # 0.5 sec and no overlap, we should get 40 periodograms per trial, so 80 in total.
         assert res.data.shape[res.dimord.index('time')] == 80
         assert res.data.shape[res.dimord.index('taper')] == 1
         assert res.data.shape[res.dimord.index('channel')] == 3
 
+        # Test output trialdefinition
+        assert res.trialdefinition.shape[0] == 2  # nTrials
+
         #res.singlepanelplot(trials=0, channel=0)
         return res
 
     def test_welch_basic(self):
         cfg = TestWelch.get_welch_cfg()
-        spec_dt = spy.freqanalysis(cfg, self.adata)
-        assert len(spec_dt.data.shape) == 4
-        #spec_dt.singlepanelplot(trials=0)
-        return spec_dt
+        res = spy.freqanalysis(cfg, self.adata)
+
+        # Test basic output properties. Same as for mtmconvolv.
+        assert len(res.dimord) == 4
+        assert len(res.data.shape) == 4
+        assert res.dimord.index('time') == 0
+        assert res.dimord.index('taper') == 1
+        assert res.dimord.index('freq') == 2
+        assert res.dimord.index('channel') == 3
+
+        # Test ouput shape:
+        assert res.data.shape[res.dimord.index('time')] == 2  # 1 averaged periodogram per trial left, so 2 periodograms for the 2 trials.
+        assert res.data.shape[res.dimord.index('taper')] == 1
+        assert res.data.shape[res.dimord.index('channel')] == 3
+
+        # Test output trialdefinition
+        assert res.trialdefinition.shape[0] == 2  # nTrials
+
+        #res.singlepanelplot(trials=0)
+        return res
 
     def test_welch_overlap_effect(self):
         cfg_no_overlap = TestWelch.get_welch_cfg()
