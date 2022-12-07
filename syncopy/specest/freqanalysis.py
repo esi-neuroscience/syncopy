@@ -964,6 +964,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
         output_welch = output  # 'pow'
         welch_kwargs = kwargs
 
+        # TODO: call spy.mean on welch_data here.
+
         welchMethod = Welch(output=output_welch, welch_kwargs=welch_kwargs)
         welchMethod.initialize(welch_data,
                                welch_out._stackingDim,

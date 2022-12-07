@@ -86,44 +86,72 @@ class TestWelch():
             ax.set_title("Welch result.")
         return res
 
-    def test_welch_overlap_effect(self):
+    def test_mtmconvolv_overlap_effect(self):
+        """Test variance between windows, depending on windows len and overlap."""
+        foilim = [10, 70]
+
         cfg_no_overlap = TestWelch.get_welch_cfg()
         cfg_no_overlap.method = "mtmconvol"
-        cfg_no_overlap.toi = 0.0
-        # TODO: select a suitable foi here?
+        cfg_no_overlap.toi = 0.0        # overlap [0, 1]
+        cfg_no_overlap.t_ftimwin = 0.25   # window length in sec
+        cfg_no_overlap.foilim = foilim
+        cfg_no_overlap.output = "abs"
 
         cfg_half_overlap = TestWelch.get_welch_cfg()
         cfg_half_overlap.method = "mtmconvol"
-        cfg_half_overlap.toi = 0.5
-        # TODO: select a suitable foi here?
+        cfg_half_overlap.toi = 0.8
+        cfg_half_overlap.t_ftimwin = 2.0
+        cfg_half_overlap.foilim = foilim
+        cfg_half_overlap.output = "abs"
 
-        wn_short = synth_data.white_noise(nTrials=2, nChannels=3, nSamples=1000, samplerate=1000)
-        wn_long = synth_data.white_noise(nTrials=2, nChannels=3, nSamples=40000, samplerate=1000)
+        wn_short = synth_data.white_noise(nTrials=2, nChannels=3, nSamples=30000, samplerate=1000)
+        #wn_long = synth_data.white_noise(nTrials=2, nChannels=3, nSamples=30000, samplerate=1000)
 
         spec_short_no_overlap = spy.freqanalysis(cfg_no_overlap, wn_short)
         spec_short_half_overlap = spy.freqanalysis(cfg_half_overlap, wn_short)
-        spec_long_no_overlap = spy.freqanalysis(cfg_no_overlap, wn_long)
-        spec_long_half_overlap = spy.freqanalysis(cfg_half_overlap, wn_long)
+        #spec_long_no_overlap = spy.freqanalysis(cfg_no_overlap, wn_long)
+        #spec_long_half_overlap = spy.freqanalysis(cfg_half_overlap, wn_long)
 
         var_dim='time'
         var_short_no_overlap = spy.var(spec_short_no_overlap, dim=var_dim)
         var_short_half_overlap = spy.var(spec_short_half_overlap, dim=var_dim)
-        var_long_no_overlap = spy.var(spec_long_no_overlap, dim=var_dim)
-        var_long_half_overlap = spy.var(spec_long_half_overlap, dim=var_dim)
+        #var_long_no_overlap = spy.var(spec_long_no_overlap, dim=var_dim)
+        #var_long_half_overlap = spy.var(spec_long_half_overlap, dim=var_dim)
 
         if self.do_plot:
-            plot_trial=0
+            plot_trial=0  # Does not matter.
             _, ax0 = var_short_no_overlap.singlepanelplot(trials=plot_trial)
-            ax0.set_title("Var for short data, no overlap.")
+            ax0.set_title("Var for no overlap.")
             _, ax1 = var_short_half_overlap.singlepanelplot(trials=plot_trial)
-            ax1.set_title("Var for short data, half overlap.")
-            _, ax2 = var_long_no_overlap.singlepanelplot(trials=plot_trial)
-            ax2.set_title("Var for long data, no overlap.")
-            _, ax3 = var_long_half_overlap.singlepanelplot(trials=plot_trial)
-            ax3.set_title("Var for long data, half overlap.")
+            ax1.set_title("Var with overlap.")
+            #_, ax2 = var_long_no_overlap.singlepanelplot(trials=plot_trial)
+            #ax2.set_title("Var for long data, no overlap.")
+            #_, ax3 = var_long_half_overlap.singlepanelplot(trials=plot_trial)
+            #ax3.set_title("Var for long data, half overlap.")
+
+    def test_welch_overlap_effect(self):
+        """
+        Plot variance over different Welch estimations. Variance can be computed along trials.
+
+        Do once with short dataset and once for long dataset.
+
+        1) Vergleichbarkeit: mit langem Signal ohne Overlap, sowie kurzem Signal mit Overlap
+        auf gleiche Anzahl Fenster kommen. Dann Varianz des Welch-Estimates berechnen. Sollte
+        höher sein für das lange Signal.
+
+        2) Sweet-Spot für overlap in Abhängigkeit von der Signallänge? Evtl später.
+        """
+        pass
+
+    def test_welch_replay(self):
+        """
+        TODO: test that replay works with Welch.
+        """
+        pass
 
 
     def test_welch_rejects_multitaper(self):
+        # TODO: allow multi-taper, but enforce keeptapers=False
         cfg = TestWelch.get_welch_cfg()
         cfg.tapsmofrq = 2  # Activate multi-tapering, which is not allowed.
         with pytest.raises(SPYValueError, match="tapsmofrq"):
@@ -146,6 +174,7 @@ class TestWelch():
                     _ = spy.freqanalysis(cfg, self.adata)
 
     def test_welch_rejects_trial_averaging(self):
+        # We can allow this, and only spy.mean
         cfg = TestWelch.get_welch_cfg()
         cfg.keeptrials = False
         with pytest.raises(SPYValueError, match="keeptrials"):
