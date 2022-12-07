@@ -57,7 +57,7 @@ class TestWelch():
         assert res.trialdefinition.shape[0] == 2  # nTrials
 
         if self.do_plot:
-            fig, ax = res.singlepanelplot(trials=0, channel=0)
+            _, ax = res.singlepanelplot(trials=0, channel=0)
             ax.set_title("mtmconvolv result.")
         return res
 
@@ -82,7 +82,7 @@ class TestWelch():
         assert res.trialdefinition.shape[0] == 2  # nTrials
 
         if self.do_plot:
-            fig, ax = res.singlepanelplot(trials=0)
+            _, ax = res.singlepanelplot(trials=0)
             ax.set_title("Welch result.")
         return res
 
@@ -113,14 +113,14 @@ class TestWelch():
 
         if self.do_plot:
             plot_trial=0
-            fig0, ax0 = var_short_no_overlap.singlepanelplot(trials=plot_trial)
-            ax0.set_title("Short data, no overlap.")
-            fig1, ax1 = var_short_half_overlap.singlepanelplot(trials=plot_trial)
-            ax0.set_title("Short data, half overlap.")
-            fig2, ax2 = var_long_no_overlap.singlepanelplot(trials=plot_trial)
-            ax0.set_title("Long data, no overlap.")
-            fig3, ax3 = var_long_half_overlap.singlepanelplot(trials=plot_trial)
-            ax0.set_title("Long data, half overlap.")
+            _, ax0 = var_short_no_overlap.singlepanelplot(trials=plot_trial)
+            ax0.set_title("Var for short data, no overlap.")
+            _, ax1 = var_short_half_overlap.singlepanelplot(trials=plot_trial)
+            ax1.set_title("Var for short data, half overlap.")
+            _, ax2 = var_long_no_overlap.singlepanelplot(trials=plot_trial)
+            ax2.set_title("Var for long data, no overlap.")
+            _, ax3 = var_long_half_overlap.singlepanelplot(trials=plot_trial)
+            ax3.set_title("Var for long data, half overlap.")
 
 
     def test_welch_rejects_multitaper(self):
