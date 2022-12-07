@@ -164,8 +164,8 @@ def show(data, squeeze=True, **kwargs):
     # Use an object's `_preview_trial` method fetch required indexing tuples
     idxList = []
     for trlno in data.selection.trial_ids:
-        # each dim has an entry
-        idxs = data._preview_trial(trlno).idx
+        # each dim has an entry, list only needed for mutability
+        idxs = list(data._preview_trial(trlno).idx)
 
         # time/toi is a special case, all other dims get checked
         # beforehand, e.g. foi, channel, ... but out of range toi's get mapped
@@ -177,7 +177,12 @@ def show(data, squeeze=True, **kwargs):
                 lgl = "valid `toi` selection"
                 act = sel
                 raise SPYValueError(lgl, 'show kwargs', act)
-        idxList.append(idxs)
+
+        for i, prop_idx in enumerate(idxs):            
+            if isinstance(prop_idx, list) and len(prop_idx) == 1:
+                idxs[i] = prop_idx[0]
+            
+        idxList.append(tuple(idxs))
 
     # Reset in-place subset selection
     data.selection = None
