@@ -423,7 +423,7 @@ def welch_cF(
 class Welch(ComputationalRoutine):
     """
     Compute class that implements Welch's method as post-processing of mtmconvolv.
-    After the mtmconvolv that gives us the modified periodograms, all that's left
+    After the mtmconvolv that gives us the modified periodograms, all that's left to do
     is to average.
 
     Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
@@ -442,7 +442,19 @@ class Welch(ComputationalRoutine):
 
     # Attach metadata to the output of the CF.
     def process_metadata(self, data, out):
-        propagate_properties(data, out, keeptrials=True, time_axis=True)
+        # Get trialdef array + channels from source
+        if data.selection is not None:
+            chanSec = data.selection.channel
+            trl = data.selection.trialdefinition
+        else:
+            chanSec = slice(None)
+            trl = data.trialdefinition
+
+        out.samplerate = data.samplerate
+        out.channel = np.array(data.channel[chanSec])
+        out.taper = data.taper
+        out.freq = data.freq
+        #out.trialdefinition = trl
 
 
 class MultiTaperFFTConvol(ComputationalRoutine):
@@ -851,7 +863,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
     cfg : dict
         Config dictionary attribute of `ComputationalRoutine` subclass
     trialdefinition : 2D :class:`numpy.ndarray`
-        Provisional trialdefnition array either directly copied from the
+        Provisional trialdefinition array either directly copied from the
         :class:`~syncopy.AnalogData` input object or computed by the
         :class:`~syncopy.datatype.base_data.Selector` class.
     samplerate : float
