@@ -271,7 +271,12 @@ def load_nwb(filename, memuse=3000, container=None):
 
         # Finalize angData
         angData.data = angDset
-        angData.channel = acqValue.electrodes[:].location.to_list()
+        channels = acqValue.electrodes[:].location
+        if channels.unique().size == 1:
+            SPYWarning("No channel names found for {}".format(acqName))
+            angData.channel = None
+        else:
+            angData.channel = channels.to_list()
         angData.samplerate = sRates[0]
         angData.trialdefinition = trl
         angData.info = {'starting_time' : tStarts[0]}
