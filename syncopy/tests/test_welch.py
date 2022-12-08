@@ -237,7 +237,7 @@ class TestWelch():
         cfg = TestWelch.get_welch_cfg()
         cfg.tapsmofrq = 2  # Activate multi-tapering, which is fine.
         cfg.keeptapers = True  # Disable averaging over tapers (taper dimension), which is NOT allowed with Welsh.
-        with pytest.raises(SPYValueError, match="keeptaper"):
+        with pytest.raises(SPYValueError, match="keeptapers"):
             _ = spy.freqanalysis(cfg, self.adata)
 
     def test_welch_rejects_invalid_tois(self):
