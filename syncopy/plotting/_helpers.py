@@ -171,6 +171,20 @@ def get_output(dataobject):
         return output_str
 
 
+def _rewrite_log_output(dataobject, to="abs"):
+    """
+    Rewrite output string in the log
+    of a Syncopy data object. Useful hack for plotting.
+    """
+    # get the output string in a capture group
+    pattern = re.compile(r'[\s\w\D]+output = (\w+)')
+    match = pattern.match(dataobject._log)
+    if match:
+        dataobject._log = pattern.sub(to, dataobject._log)
+
+
+
+
 def calc_multi_layout(nAx):
 
     """
