@@ -233,10 +233,10 @@ class TestWelch():
             ax.set_title("Welsh result with trial averaging.")
 
 
-    def test_welch_rejects_keeptaper_with_multitaper(self):
+    def test_welch_rejects_keeptaper(self):
         cfg = TestWelch.get_welch_cfg()
         cfg.tapsmofrq = 2  # Activate multi-tapering, which is fine.
-        cfg.keeptaper = True  # Disable averaging over tapers (taper dimension), which is NOT allowed with Welsh.
+        cfg.keeptapers = True  # Disable averaging over tapers (taper dimension), which is NOT allowed with Welsh.
         with pytest.raises(SPYValueError, match="keeptaper"):
             _ = spy.freqanalysis(cfg, self.adata)
 

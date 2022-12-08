@@ -31,7 +31,6 @@ from .mtmconvol import mtmconvol
 from .superlet import superlet
 from .wavelet import wavelet
 from .fooofspy import fooofspy
-from .welch import welch
 
 
 # Local imports
@@ -400,67 +399,6 @@ def mtmconvol_cF(
     if not keeptapers:
         return np.nanmean(spec, axis=1, keepdims=True)
     return spec
-
-
-
-@process_io
-def welch_cF(
-        trl_dat,
-        timeAxis=0,
-        noCompute=False, chunkShape=None, method_kwargs={'average':'mean'}):
-
-    outShape = list(trl_dat.shape)
-    outShape[timeAxis] = 1
-    outShape = tuple(outShape)
-
-    if noCompute:
-        return outShape, spectralDTypes['pow']
-
-    return welch(trl_dat, axis=timeAxis, **method_kwargs)
-
-
-
-class Welch(ComputationalRoutine):
-    """
-    Compute class that implements Welch's method as post-processing of mtmconvolv.
-    After the mtmconvolv that gives us the modified periodograms, all that's left to do
-    is to average.
-
-    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
-    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
-    classes and metafunctions.
-
-    See also
-    --------
-    syncopy.freqanalysis : parent metafunction
-    """
-    computeFunction = staticmethod(welch_cF)
-    metadata_keys = ()  # Intentionally left empty, we do not have extra return values for Welch.
-
-    valid_kws = list(signature(welch).parameters.keys())[1:]       # Omit 1st argument, the data.
-    valid_kws += list(signature(welch_cF).parameters.keys())[1:]   # Same here.
-
-    # Attach metadata to the output of the CF.
-    def process_metadata(self, data, out):
-        # Get trialdef array + channels from source
-        if data.selection is not None:
-            chanSec = data.selection.channel
-            trl = data.selection.trialdefinition
-        else:
-            chanSec = slice(None)
-            trl = data.trialdefinition
-
-        out.samplerate = data.samplerate
-        out.channel = np.array(data.channel[chanSec])
-        out.taper = data.taper
-        out.freq = data.freq
-
-        num_trials = trl.shape[0]
-        td = np.zeros((num_trials, 3), dtype=float)
-        td[:, 0] = np.arange(num_trials)
-        td[:, 1] = np.arange(num_trials)+1
-        out.trialdefinition = td
-
 
 class MultiTaperFFTConvol(ComputationalRoutine):
     """

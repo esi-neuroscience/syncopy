@@ -38,8 +38,7 @@ from .compRoutines import (
     WaveletTransform,
     MultiTaperFFT,
     MultiTaperFFTConvol,
-    FooofSpy,
-    Welch
+    FooofSpy
 )
 
 availableFooofOutputs = ['fooof', 'fooof_aperiodic', 'fooof_peaks']
