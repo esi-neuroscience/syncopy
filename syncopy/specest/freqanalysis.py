@@ -515,14 +515,12 @@ def freqanalysis(data, method='mtmfft', output='pow',
             minSampleNum = int(t_ftimwin * data.samplerate)
 
             if method == "welch":
-                if tapsmofrq is not None:
-                    raise SPYValueError(legal="None", varname="tapsmofrq", actual=tapsmofrq)
+                if keeptapers:
+                    raise SPYValueError(legal="keeptapers='False' with method='welch'", varname="keeptapers", actual=keeptapers)
 
                 if output != "pow":
-                    raise SPYValueError(legal="output='pow' for method='welch'", varname="output", actual=output)
+                    raise SPYValueError(legal="output='pow' with method='welch'", varname="output", actual=output)
 
-                if not keeptrials:
-                    raise SPYValueError(legal="keeptrials=True for method='welch'", varname="keeptrials", actual=keeptrials)
 
         # Construct array of maximally attainable frequencies
         freqs = np.fft.rfftfreq(minSampleNum, dt)

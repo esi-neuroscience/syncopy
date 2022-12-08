@@ -150,11 +150,11 @@ class TestWelch():
         pass
 
 
-    def test_welch_rejects_multitaper(self):
-        # TODO: allow multi-taper, but enforce keeptapers=False
+    def test_welch_rejects_keeptaper_with_multitaper(self):
         cfg = TestWelch.get_welch_cfg()
-        cfg.tapsmofrq = 2  # Activate multi-tapering, which is not allowed.
-        with pytest.raises(SPYValueError, match="tapsmofrq"):
+        cfg.tapsmofrq = 2  # Activate multi-tapering, which is fine.
+        cfg.keeptaper = True  # Disable averaging over tapers (keep taper dimension), which is NOT allowed with Welsh.
+        with pytest.raises(SPYValueError, match="keeptaper"):
             _ = spy.freqanalysis(cfg, self.adata)
 
     def test_welch_rejects_invalid_tois(self):
@@ -166,7 +166,6 @@ class TestWelch():
 
     def test_welch_rejects_invalid_output(self):
         cfg = TestWelch.get_welch_cfg()
-
         for output in spectralConversions.keys():
             if output != "pow":
                 cfg.output = output
