@@ -46,7 +46,8 @@ class TestWelch():
         assert res.dimord.index('freq') == 2
         assert res.dimord.index('channel') == 3
 
-        # Test ouput shape:
+        # Test ouput shape.
+        # The 'time' dimension is the important difference between mtmconvolv and Welch:
         # 20.000 samples per trial at 1000 samplerate => 20 sec of data. With window length of
         # 0.5 sec and no overlap, we should get 40 periodograms per trial, so 80 in total.
         assert res.data.shape[res.dimord.index('time')] == 80
@@ -62,6 +63,9 @@ class TestWelch():
         return res
 
     def test_welch_basic(self):
+        """
+        Tests with standard settings, nothing special, no trial averaging.
+        """
         cfg = TestWelch.get_welch_cfg()
         res = spy.freqanalysis(cfg, self.adata)
 
@@ -149,11 +153,38 @@ class TestWelch():
         """
         pass
 
+    def test_welch_trial_averaging(self):
+        cfg = TestWelch.get_welch_cfg()
+        cfg.keeptrials = False  # Activate trial averaging. This happens during mtmfftconvolv, Welch just gets less input.
+
+        res = spy.freqanalysis(cfg, self.adata)
+        # Test basic output properties.
+        assert len(res.dimord) == 4
+        assert len(res.data.shape) == 4
+        assert res.dimord.index('time') == 0
+        assert res.dimord.index('taper') == 1
+        assert res.dimord.index('freq') == 2
+        assert res.dimord.index('channel') == 3
+
+        # Test ouput shape:
+        # The time dimensions is the important thing, trial averaging of the 2 trials leads to only 1 left:
+        # 0.5 sec and no overlap, we should get 40 periodograms per trial, so 80 in total.
+        assert res.data.shape[res.dimord.index('time')] == 1
+        assert res.data.shape[res.dimord.index('taper')] == 1
+        assert res.data.shape[res.dimord.index('channel')] == 3
+
+        # The most relevant test: trialdefinition
+        assert res.trialdefinition.shape[0] == 1  # trial averaging has been performed, so only 1 trial left.
+
+        if self.do_plot:
+            _, ax = res.singlepanelplot(trials=0, channel=0)
+            ax.set_title("Welsh result with trial averaging.")
+
 
     def test_welch_rejects_keeptaper_with_multitaper(self):
         cfg = TestWelch.get_welch_cfg()
         cfg.tapsmofrq = 2  # Activate multi-tapering, which is fine.
-        cfg.keeptaper = True  # Disable averaging over tapers (keep taper dimension), which is NOT allowed with Welsh.
+        cfg.keeptaper = True  # Disable averaging over tapers (taper dimension), which is NOT allowed with Welsh.
         with pytest.raises(SPYValueError, match="keeptaper"):
             _ = spy.freqanalysis(cfg, self.adata)
 
@@ -170,13 +201,6 @@ class TestWelch():
             if output != "pow":
                 cfg.output = output
                 with pytest.raises(SPYValueError, match="output"):
-                    _ = spy.freqanalysis(cfg, self.adata)
-
-    def test_welch_rejects_trial_averaging(self):
-        # We can allow this, and only spy.mean
-        cfg = TestWelch.get_welch_cfg()
-        cfg.keeptrials = False
-        with pytest.raises(SPYValueError, match="keeptrials"):
                     _ = spy.freqanalysis(cfg, self.adata)
 
 

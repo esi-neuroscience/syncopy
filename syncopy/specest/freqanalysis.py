@@ -15,6 +15,7 @@ from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.tools import best_match
 from syncopy.shared.const_def import spectralConversions
+import syncopy as spy
 
 from syncopy.shared.input_processors import (
     process_taper,
@@ -115,6 +116,11 @@ def freqanalysis(data, method='mtmfft', output='pow',
         See [Welch1967]_ for details.
 
         * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
+        * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
+        * **nTaper** : number of orthogonal tapers for slepian tapers
+        * **keeptapers** : must be `False` with Welch. For multi-tapering,
+          taper averaging happens as part of the modified periodogram computation,
+           i.e., before the window averaging performed by Welch.
         * **toi** : time-points of interest; a scalar between 0 and 1 encoding
           the percentage of overlap between adjacent windows.
         * **t_ftimwin** : sliding window length (in sec)
@@ -958,20 +964,21 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # Perform mtmconvolv post-processing for `method='welch'`.
     if method == "welch":
         welch_data = out
-        welch_out = SpectralData(dimord=SpectralData._defaultDimord)
+        #welch_out = SpectralData(dimord=SpectralData._defaultDimord)
         output_welch = output  # 'pow'
-        welch_kwargs = kwargs
+        #welch_kwargs = kwargs
 
         # TODO: call spy.mean on welch_data here.
 
-        welchMethod = Welch(output=output_welch, welch_kwargs=welch_kwargs)
-        welchMethod.initialize(welch_data,
-                               welch_out._stackingDim,
-                               chan_per_worker=kwargs.get("chan_per_worker"),
-                               keeptrials=keeptrials)
-        welchMethod.compute(welch_data, welch_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
+        welch_out = spy.mean(welch_data, dim='time')
+
+        #welchMethod = Welch(output=output_welch, welch_kwargs=welch_kwargs)
+        #welchMethod.initialize(welch_data,
+        #                       welch_out._stackingDim,
+        #                       chan_per_worker=kwargs.get("chan_per_worker"),
+        #                       keeptrials=keeptrials)
+        #welchMethod.compute(welch_data, welch_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
         log_dct["welch_output"] = output_welch
-        log_dct["welch_kwargs"] = welch_kwargs
         out = welch_out
 
     # Attach potential older cfg's from the input
