@@ -95,7 +95,7 @@ class TestWelch():
         return res
 
     def test_mtmconvolv_overlap_effect(self):
-        """Test variance between windows, depending on windows len and overlap.
+        """Test variance between windows of different length.
 
         We use the same data for both cases, but run (a) with no overlap and short
         windows, and (b) with overlap but longer windows.
@@ -126,7 +126,7 @@ class TestWelch():
         spec_short_windows = spy.freqanalysis(cfg_no_overlap, wn)
         spec_long_windows = spy.freqanalysis(cfg_with_overlap, wn)
 
-        # Check number of windows, we want something similar.
+        # Check number of windows, we want something similar/comparable.
         assert spec_short_windows.dimord.index('time') == spec_long_windows.dimord.index('time')
         ti = spec_short_windows.dimord.index('time')
         assert spec_short_windows.data.shape[ti] == 120, f"Window count without overlap is: {spec_short_windows.data.shape[ti]} (shape: {spec_short_windows.data.shape})"
