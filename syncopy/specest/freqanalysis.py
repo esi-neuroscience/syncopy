@@ -963,22 +963,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # Perform mtmconvolv post-processing for `method='welch'`.
     if method == "welch":
         welch_data = out
-        #welch_out = SpectralData(dimord=SpectralData._defaultDimord)
-        output_welch = output  # 'pow'
-        #welch_kwargs = kwargs
-
-        # TODO: call spy.mean on welch_data here.
-
-        welch_out = spy.mean(welch_data, dim='time')
-
-        #welchMethod = Welch(output=output_welch, welch_kwargs=welch_kwargs)
-        #welchMethod.initialize(welch_data,
-        #                       welch_out._stackingDim,
-        #                       chan_per_worker=kwargs.get("chan_per_worker"),
-        #                       keeptrials=keeptrials)
-        #welchMethod.compute(welch_data, welch_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
-        log_dct["welch_output"] = output_welch
-        out = welch_out
+        out = spy.mean(welch_data, dim='time')
 
     # Attach potential older cfg's from the input
     # to support chained frontend calls.

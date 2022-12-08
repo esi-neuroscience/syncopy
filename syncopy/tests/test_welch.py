@@ -89,7 +89,7 @@ class TestWelch():
         if self.do_plot:
             _rewrite_log_output(res, to="abs")  # Disable log-scale plotting.
             _, ax = res.singlepanelplot(trials=0)
-            ax.set_title("Welch result.")
+            ax.set_title("Welch result")
             ax.set_ylabel("Power")
             ax.set_ylabel("Frequency")
         return res
@@ -164,40 +164,39 @@ class TestWelch():
 
         2) Sweet-Spot für overlap in Abhängigkeit von der Signallänge? Evtl später.
         """
-        foilim = [10, 70]
 
-        cfg_no_overlap = TestWelch.get_welch_cfg()
-        cfg_no_overlap.method = "mtmconvol"
-        cfg_no_overlap.toi = 0.0        # overlap [0, 1]
-        cfg_no_overlap.t_ftimwin = 0.25   # window length in sec
-        cfg_no_overlap.foilim = foilim
-        cfg_no_overlap.output = "abs"
 
-        cfg_with_overlap = TestWelch.get_welch_cfg()
-        cfg_with_overlap.method = "mtmconvol"
-        cfg_with_overlap.toi = 0.8
-        cfg_with_overlap.t_ftimwin = 2.0
-        cfg_with_overlap.foilim = foilim
-        cfg_with_overlap.output = "abs"
+        wn_long = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=10000, samplerate=1000) # 10 seconds of signal
+        wn_short = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=1000, samplerate=1000) # 1  second of signal
 
-        wn_short = synth_data.white_noise(nTrials=2, nChannels=3, nSamples=30000, samplerate=1000)
-        #wn_long = synth_data.white_noise(nTrials=2, nChannels=3, nSamples=30000, samplerate=1000)
+        foilim = [10, 70]  # Shared between cases.
 
-        spec_no_overlap = spy.freqanalysis(cfg_no_overlap, wn_short)
-        spec_with_overlap = spy.freqanalysis(cfg_with_overlap, wn_short)
-        #spec_long_no_overlap = spy.freqanalysis(cfg_no_overlap, wn_long)
-        #spec_long_half_overlap = spy.freqanalysis(cfg_half_overlap, wn_long)
+        cfg_long_no_overlap = TestWelch.get_welch_cfg()  # Results in 100 windows of length 100.
+        cfg_long_no_overlap.toi = 0.0         # overlap [0, 1]
+        cfg_long_no_overlap.t_ftimwin = 0.1   # window length in sec
+        cfg_long_no_overlap.foilim = foilim
 
-        assert spec_no_overlap.dimord.index('freq') == spec_with_overlap.dimord.index('freq')
-        fi = spec_no_overlap.dimord.index('freq')
-        assert spec_no_overlap.data.shape[fi] == 251, f"Window length without overlap is: {spec_no_overlap.data.shape[fi]} (shape: {spec_no_overlap.data.shape})"
-        assert spec_with_overlap.data.shape[fi] == 251, f"Window length with overlap is: {spec_with_overlap.data.shape[fi]} (shape: {spec_with_overlap.data.shape})"
+        cfg_short_with_overlap = TestWelch.get_welch_cfg()  # Results in 100 windows of length 20, with 50% overlap.
+        cfg_short_with_overlap.toi = 0.5
+        cfg_short_with_overlap.t_ftimwin = 0.02
+        cfg_short_with_overlap.foilim = foilim
 
-        var_dim='time'
-        var_no_overlap = spy.var(spec_no_overlap, dim=var_dim)
-        var_with_overlap = spy.var(spec_with_overlap, dim=var_dim)
-        #var_long_no_overlap = spy.var(spec_long_no_overlap, dim=var_dim)
-        #var_long_half_overlap = spy.var(spec_long_half_overlap, dim=var_dim)
+
+        spec_long_no_overlap = spy.freqanalysis(cfg_long_no_overlap, wn_long)
+        spec_short_with_overlap = spy.freqanalysis(cfg_short_with_overlap, wn_short)
+
+        var_dim='trials'
+        var_no_overlap = spy.var(spec_long_no_overlap, dim=var_dim)
+        var_with_overlap = spy.var(spec_short_with_overlap, dim=var_dim)
+
+        if self.do_plot:
+            _rewrite_log_output(var_no_overlap, to="abs")  # Disable log-scale plotting.
+            _rewrite_log_output(var_with_overlap, to="abs")  # Disable log-scale plotting.
+            plot_trial=0  # Does not matter.
+            _, ax0 = var_no_overlap.singlepanelplot(trials=plot_trial)
+            ax0.set_title("Var for long signal, no overlap.")
+            _, ax1 = var_with_overlap.singlepanelplot(trials=plot_trial)
+            ax1.set_title("Var for short signal, with overlap.")
 
 
     def test_welch_replay(self):
