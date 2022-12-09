@@ -70,7 +70,7 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
 
 
 @plot_helpers.revert_selection
-def plot_SpectralData(data, **show_kwargs):
+def plot_SpectralData(data, logscale=True, **show_kwargs):
     """
     Plot either a 2d-line plot in case of
     singleton time axis or an image plot
@@ -79,6 +79,9 @@ def plot_SpectralData(data, **show_kwargs):
     Parameters
     ----------
     data : :class:`~syncopy.datatype.SpectralData`
+    logscale : bool
+        If `True` the log10 of the power spectra (output='pow') values
+        is plotted.
     show_kwargs : :func:`~syncopy.datatype.methods.show.show` arguments
 
     Returns
@@ -166,9 +169,12 @@ def plot_SpectralData(data, **show_kwargs):
         output = plot_helpers.get_output(data)
 
         # only log10 the absolute squared spectra
-        if output == 'pow':
+        if output == 'pow' and logscale:
             data_y = np.log10(data.show(**show_kwargs))
             ylabel = 'power (dB)'
+        elif output == 'pow' and not logscale:
+            data_y = data.show(**show_kwargs)
+            ylabel = r'power (mV^2)'
         elif output in ['fourier', 'complex']:
             SPYWarning("Can't plot complex valued spectra, choose 'real' or 'imag' as freqanalysis output.. aborting plotting")
             return None, None
@@ -177,11 +183,8 @@ def plot_SpectralData(data, **show_kwargs):
             ylabel = f'{output}'
 
         # flip if required
-        try:
-            if data_y.shape[1] == len(data_x):
-                data_y = data_y.T
-        except Exception as ex:
-            pass
+        if data_y.shape[1] == len(data_x):
+            data_y = data_y.T
 
         fig, ax = _plotting.mk_line_figax(xlabel='frequency (Hz)',
                                           ylabel=ylabel)

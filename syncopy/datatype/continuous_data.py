@@ -615,9 +615,9 @@ class SpectralData(ContinuousData):
                 self.taper = ['taper']
 
     # implement plotting
-    def singlepanelplot(self, **show_kwargs):
+    def singlepanelplot(self, logscale=True, **show_kwargs):
 
-        figax = sp_plotting.plot_SpectralData(self, **show_kwargs)
+        figax = sp_plotting.plot_SpectralData(self, logscale, **show_kwargs)
         return figax
 
     def multipanelplot(self, **show_kwargs):

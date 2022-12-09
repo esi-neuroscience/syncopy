@@ -114,15 +114,15 @@ def freqanalysis(data, method='mtmfft', output='pow',
         a taper is applied.
         See [Welch1967]_ for details.
 
+        * **toi** : time-points of interest; a scalar between 0 and 1 encoding
+          the percentage of overlap between adjacent windows.
+        * **t_ftimwin** : sliding window length (in sec)
         * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : number of orthogonal tapers for slepian tapers
         * **keeptapers** : must be `False` with Welch. For multi-tapering,
           taper averaging happens as part of the modified periodogram computation,
            i.e., before the window averaging performed by Welch.
-        * **toi** : time-points of interest; a scalar between 0 and 1 encoding
-          the percentage of overlap between adjacent windows.
-        * **t_ftimwin** : sliding window length (in sec)
 
     "wavelet" : (Continuous non-orthogonal) wavelet transform
         Perform time-frequency analysis on time-series trial data using a non-orthogonal

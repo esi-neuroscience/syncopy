@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.const_def import spectralConversions
 import syncopy.tests.synth_data as synth_data
-from syncopy.plotting._helpers import _rewrite_log_output
 
 
 class TestWelch():
@@ -94,11 +93,10 @@ class TestWelch():
         assert res.trialdefinition.shape[0] == 2  # nTrials should be left intact, as we did not set trial averaging.
 
         if self.do_plot:
-            _rewrite_log_output(res, to="abs")  # Disable log-scale plotting.
-            _, ax = res.singlepanelplot(trials=0)
+            _, ax = res.singlepanelplot(trials=0, logscale=False)
             ax.set_title("Welch result")
-            ax.set_ylabel("Power")
-            ax.set_ylabel("Frequency")
+            # ax.set_ylabel("Power")
+            ax.set_xlabel("Frequency")
         return res
 
     def test_mtmconvolv_overlap_effect(self):
@@ -151,19 +149,17 @@ class TestWelch():
 
         if self.do_plot:
             plot_trial=0  # Which one does not matter, they are all white noise.
-            _rewrite_log_output(var_short_windows, to="abs")  # Disable log-scale plotting.
-            _rewrite_log_output(var_long_windows, to="abs")  # Disable log-scale plotting.
-            _, ax0 = var_short_windows.singlepanelplot(trials=plot_trial)
+            _, ax0 = var_short_windows.singlepanelplot(trials=plot_trial, logscale=False)
             ax0.set_title(f"mtmconvolv overlap effect: Windows without overlap\n(toi={cfg_no_overlap.toi}, f_timwin={cfg_no_overlap.t_ftimwin}).")
             ax0.set_ylabel("Variance")
-            _, ax1 = var_long_windows.singlepanelplot(trials=plot_trial)
+            _, ax1 = var_long_windows.singlepanelplot(trials=plot_trial, logscale=False)
             ax1.set_title(f"mtmconvolv overlap effect: Windows with overlap\n(toi={cfg_with_overlap.toi}, f_timwin={cfg_with_overlap.t_ftimwin}).")
             ax1.set_ylabel("Variance")
 
         chan=0
         assert np.mean(var_short_windows.show(channel=chan)) > np.mean(var_long_windows.show(channel=chan))
 
-    def test_welch_overlap_effect(self):
+    def test_welch_size_effect(self):
         """
         Compare variance over different Welch estimates based on signal length and overlap.
 
@@ -210,33 +206,35 @@ class TestWelch():
         # We got one Welch estimate per trial so far. Now compute the variance over trials:
         var_dim='trials'
         var_longsig_no_overlap = spy.var(spec_long_no_overlap, dim=var_dim)
-        var_sortsig_with_overlap = spy.var(spec_short_with_overlap, dim=var_dim)
+        var_shortsig_with_overlap = spy.var(spec_short_with_overlap, dim=var_dim)
 
         assert var_longsig_no_overlap.dimord.index('time') == 0
         assert var_longsig_no_overlap.data.shape[0] == 1
-        assert var_sortsig_with_overlap.data.shape[0] == 1
+        assert var_shortsig_with_overlap.data.shape[0] == 1
 
         print(f"var_no_overlap shape: {var_longsig_no_overlap.data.shape} with dimord {var_longsig_no_overlap.dimord}")
-        print(f"var_with_overlap shape: {var_sortsig_with_overlap.data.shape} with dimord {var_sortsig_with_overlap.dimord}")
+        print(f"var_with_overlap shape: {var_shortsig_with_overlap.data.shape} with dimord {var_shortsig_with_overlap.dimord}")
 
         if self.do_plot:
-            _rewrite_log_output(var_longsig_no_overlap, to="abs")  # Disable log-scale plotting.
-            _rewrite_log_output(var_sortsig_with_overlap, to="abs")  # Disable log-scale plotting.
             plot_trial=0  # Only one left after variance computation along trials.
-            _, ax0 = var_longsig_no_overlap.singlepanelplot(trials=plot_trial)
-            ax0.set_title(f"Welch overlap effect: Long signal, no overlap.\n(toi={cfg_long_no_overlap.toi}, f_timwin={cfg_long_no_overlap.t_ftimwin})")
-            ax0.set_ylabel("Variance")
+            mn_long, var_long = np.mean(var_longsig_no_overlap.show(trials=0)), np.var(var_longsig_no_overlap.show(trials=0))
 
-            _, ax1 = var_sortsig_with_overlap.singlepanelplot(trials=plot_trial)
-            ax1.set_title(f"Welch overlap effect: Short signal, with overlap.\n(toi={cfg_short_with_overlap.toi}, f_timwin={cfg_short_with_overlap.t_ftimwin})")
-            ax1.set_ylabel("Variance")
-
+            mn_short, var_short = np.mean(var_shortsig_with_overlap.show(trials=0)), np.var(var_shortsig_with_overlap.show(trials=0))
+            print(var_short, var_long)
+            fig, ax = plt.subplots()
+            title = f"Long signal: (toi={cfg_long_no_overlap.toi}, f_timwin={cfg_long_no_overlap.t_ftimwin})\n"
+            title += f"Short signal: (toi={cfg_short_with_overlap.toi}, f_timwin={cfg_short_with_overlap.t_ftimwin})"
+            ax.bar([1, 2], [mn_long, mn_short], yerr=[var_long, var_short], width=0.5, capsize=2)
+            ax.set_title(title)
+            ax.set_ylabel("Variance")
+            ax.set_xlabel('')
+            ax.set_xticklabels(['long', 'short'])
         chan=0
-        assert np.mean(var_longsig_no_overlap.show(channel=chan)) < np.mean(var_sortsig_with_overlap.show(channel=chan))
+        assert np.mean(var_longsig_no_overlap.show(channel=chan)) < np.mean(var_shortsig_with_overlap.show(channel=chan))
 
-    def test_welch_overlap_effect_same_sig_length(self):
+    def test_welch_overlap_effect(self):
 
-        sig_lengths = np.linspace(1000, 20000, num=10, dtype=int)
+        sig_lengths = np.linspace(1000, 4000, num=4, dtype=int)
         overlaps = np.linspace(0.0, 0.99, num=10)
         variances = np.zeros((sig_lengths.size, overlaps.size), dtype=float)  # Filled in loop below.
 
