@@ -105,13 +105,13 @@ def var(spy_data, dim, keeptrials=True, **kwargs):
     Parameters
     ----------
     spy_data : Syncopy data object
-        The object where a variance is to be computed
+        The object where a variance is to be computed.
     dim : str
         Dimension label over which to calculate the statistic.
         Must be present in the ``spy_data`` object,
-        e.g. 'channel' or 'trials'
+        e.g. 'channel' or 'trials'.
     keeptrials : bool
-        Set to ``False`` to trigger additional trial averaging
+        Set to ``False`` to trigger additional trial averaging.
         Has no effect if ``dim='trials'``.
 
     Returns

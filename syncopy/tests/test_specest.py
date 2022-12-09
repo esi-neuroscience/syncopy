@@ -411,6 +411,9 @@ class TestMTMConvol():
 
     @staticmethod
     def get_tfdata_mtmconvol():
+        """
+        High-frequency signal modulated by slow oscillating cosine and time-decaying noise.
+        """
         return _make_tf_signal(TestMTMConvol.nChannels, TestMTMConvol.nTrials, TestMTMConvol.seed,
                                                            fadeIn=TestMTMConvol.fadeIn, fadeOut=TestMTMConvol.fadeOut)[0]
 

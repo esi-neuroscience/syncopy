@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - support for performing connectivity analysis from SpectralData (#364).
 - additional .info entries for Granger analysis, indicating details about the computation.
 - additional .info entries for FoooF results, e.g. Gaussian fit parameters.
+- implement Welch's method in freqanalysis
 
 ### CHANGED
 - selectdata now has 'frequency' and 'latency' parameters instead of toi/toilim and foi/foilim
