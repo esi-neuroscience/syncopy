@@ -102,23 +102,19 @@ available, which each can accept a variety of Python datatypes like ``int``, ``s
 |                   |                       |                       |                       |                                     |
 |                   |                       |                       |     |channelEx4|      | :class:`~syncopy.SpikeData`         |
 +-------------------+-----------------------+-----------------------+-----------------------+-------------------------------------+
-|    toi            |     |toiDesc|         |     |toiVals|         |     |toiEx1|          | :class:`~syncopy.AnalogData`        |
+|    latency        |     |latDesc|         |     |latVals|         |     |latEx1|          | :class:`~syncopy.AnalogData`        |
 |                   |                       |                       |                       |                                     |
-|                   |                       |                       |     |toiEx2|          | :class:`~syncopy.SpectralData`      |
+|                   |                       |                       |     |latEx2|          | :class:`~syncopy.SpectralData`      |
 |                   |                       |                       |                       |                                     |
-|                   |                       |                       |     |toiEx3|          | :class:`~syncopy.CrossSpectralData` |
+|                   |                       |                       |     |latEx3|          | :class:`~syncopy.CrossSpectralData` |
 |                   |                       |                       |                       |                                     |
 |                   |                       |                       |                       | :class:`~syncopy.SpikeData`         |
-+-------------------+-----------------------+-----------------------+-----------------------+-------------------------------------+	
-|    toilim         |     |toilimDesc|      |     |toilimVals|      |     |toilimEx1|       |   *as above*                        |
 +-------------------+-----------------------+-----------------------+-----------------------+-------------------------------------+
-|    foi            |     |foiDesc|         |     |foiVals|         |     |foiEx1|          |                                     |
+|    frequency      |     |freqDesc|        |     |freqVals|        |     |freqEx1|         |                                     |
 |                   |                       |                       |                       |                                     |
-|                   |                       |                       |     |foiEx2|          | :class:`~syncopy.SpectralData`      |
+|                   |                       |                       |     |freqEx2|         | :class:`~syncopy.SpectralData`      |
 |                   |                       |                       |                       |                                     |
-|                   |                       |                       |     |foiEx3|          | :class:`~syncopy.CrossSpectralData` |
-+-------------------+-----------------------+-----------------------+-----------------------+-------------------------------------+
-|    foilim         |     |foilimDesc|      |     |foilimVals|      |     |foilimEx1|       |   *as above*                        |
+|                   |                       |                       |                       | :class:`~syncopy.CrossSpectralData` |
 +-------------------+-----------------------+-----------------------+-----------------------+-------------------------------------+
 |    unit           |     |unitDesc|        |     |unitVals|        |     |unitEx1|         | :class:`~syncopy.SpikeData`         |
 |                   |                       |                       |                       |                                     |
@@ -139,40 +135,31 @@ available, which each can accept a variety of Python datatypes like ``int``, ``s
 
 			  
 .. |channelDesc| replace:: *channel selection*
-.. |channelVals| replace:: *int, str, array, list, slice*
+.. |channelVals| replace:: *int, str, list, array*
 .. |channelEx1| replace:: ``selectdata(channel=7)`` 
 .. |channelEx2| replace:: ``selectdata(channel=[11, 16])``			  
 .. |channelEx3| replace:: ``selectdata(channel=np.arange(2, 10))``
 .. |channelEx4| replace:: ``selectdata(channel=["V1-11, "V2-12"])``
 
-.. |toiDesc| replace:: *time points of interest in seconds*
-.. |toiVals| replace:: *float, array, list*
-.. |toiEx1| replace:: ``selectdata(toi=0.2)`` 
-.. |toiEx2| replace:: ``selectdata(toi=[0, 0.1, 0.2, 0.5])`` 
-.. |toiEx3| replace:: ``selectdata(toi=np.linspace(0, 1, 100))`` 
+.. |latDesc| replace:: *time interval of interest in seconds*
+.. |latVals| replace:: *list, float, 'maxperiod', 'minperiod', 'prestim', 'poststim'*
+.. |latEx1| replace:: ``selectdata(latency=[0.2, 1.])`` 
+.. |latEx3| replace:: ``selectdata(latency='minperiod')``
+.. |latEx2| replace:: ``selectdata(latency=0.5)`` 
 
-.. |toilimDesc| replace:: *time interval of interest in seconds*
-.. |toilimVals| replace:: *float [tmin, tmax]*
-.. |toilimEx1| replace:: ``selectdata(toilim=[-.1, 1])`` 
-
-.. |foiDesc| replace:: *frequencies of interest in Hz*
-.. |foiVals| replace:: *float, array, list*
-.. |foiEx1| replace:: ``selectdata(foi=20.5)`` 
-.. |foiEx2| replace:: ``selectdata(foi=[5, 10, 15])`` 
-.. |foiEx3| replace:: ``selectdata(foi=np.linspace(1, 60, 100))`` 
-
-.. |foilimDesc| replace:: *frequency interval of interest in Hz*
-.. |foilimVals| replace:: *float [fmin, fmax]*
-.. |foilimEx1| replace:: ``selectdata(foilim=[10, 60])`` 
+.. |freqDesc| replace:: *frequencies of interest in Hz*
+.. |freqVals| replace:: *float, list*
+.. |freqEx1| replace:: ``selectdata(frequency=20.5)`` 
+.. |freqEx2| replace:: ``selectdata(frequency=[5, 10, 15])`` 
 
 .. |unitDesc| replace:: *unit selection*
-.. |unitVals| replace:: *int, str, list, slice*
+.. |unitVals| replace:: *int, str, list, array*
 .. |unitEx1| replace:: ``selectdata(unit=7)``
 .. |unitEx2| replace:: ``selectdata(unit=[11, 16, 32])``			  
 .. |unitEx3| replace:: ``selectdata(unit=["unit17", "unit3"])``
 
 .. |eventidDesc| replace:: *eventid selection*
-.. |eventidVals| replace:: *int, list, slice*
+.. |eventidVals| replace:: *int, list, array*
 .. |eventidEx1| replace:: ``selectdata(eventid=2)``
 .. |eventidEx2| replace:: ``selectdata(eventid=[2, 0, 1])``
 
@@ -199,10 +186,10 @@ Phase diffusing signals decorrelate over time, hence if we wait long enough we c
 Explicit inplace Selection
 --------------------------
 
-To see if maybe for a shorter time period in the beginning of "the recording" the signals were actually more phase locked, we can use an **in place toilim selection**::
+To see if maybe for a shorter time period in the beginning of "the recording" the signals were actually more phase locked, we can use an **in place latency selection**::
 
   # note there is no return value here
-  spy.selectdata(adata, toilim=[-1, 0], inplace=True)
+  spy.selectdata(adata, latency=[-1, 0], inplace=True)
   
 Inspecting the dataset:
 
@@ -259,7 +246,7 @@ Inplace selection via ``select`` keyword
 Alternatively, we can also give a dictionary of selection parameters directly to every Syncopy meta-function. These will then internally apply an inplace selection before performing the analysis::
 
   # coherence only for selected time points
-  coh3 = spy.connectivityanalysis(adata, method='coh', select={'toilim': [-1, 0]})
+  coh3 = spy.connectivityanalysis(adata, method='coh', select={'latency': [-1, 0]})
 
   # plot coherence of channel1 vs channel2
   coh3.singlepanelplot(channel_i='channel1', channel_j='channel2')
