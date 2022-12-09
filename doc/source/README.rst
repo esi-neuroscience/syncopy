@@ -36,6 +36,7 @@ In depth Guides and Tutorials
 * :doc:`Basic Concepts <user/concepts>`
 * :doc:`Syncopy for FieldTrip Users <user/fieldtrip>`
 * :doc:`Handling Data <user/data>`
+* :doc:`Parallel Processing <user/parallel>`  
 * :doc:`Selections <user/selectdata>`
 * :doc:`Fooof <tutorials/fooof>`
 * :doc:`Resampling <tutorials/resampling>`
@@ -64,6 +65,7 @@ For general inquiries please contact syncopy (at) esi-frankfurt.de.
    quickstart/quickstart.rst
    setup
    user/concepts.rst
+   user/parallel.rst
    user/fieldtrip.rst
    user/data.rst
    user/selectdata.rst
