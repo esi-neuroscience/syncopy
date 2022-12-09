@@ -36,7 +36,12 @@ class TestWelch():
         return cfg
 
     def test_mtmconvolv_res(self):
-        """Internal function for interactive debugging purposes only, to better see what we are working with."""
+        """Internal function mainly for interactive debugging purposes,
+           to better see what we are working with.
+
+           Welch is implemented as a post-processing of mtmfftconvolv, so it
+           is helpful to be sure about its input.
+        """
         cfg = TestWelch.get_welch_cfg()
         cfg.method = "mtmconvol"
         res = spy.freqanalysis(cfg, self.adata)
@@ -160,7 +165,7 @@ class TestWelch():
 
     def test_welch_overlap_effect(self):
         """
-        Comparre variance over different Welch estimates based on signal length and overlap.
+        Compare variance over different Welch estimates based on signal length and overlap.
 
         (Variance can be computed along trials.)
 
@@ -172,7 +177,7 @@ class TestWelch():
         wn_long = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=10000, samplerate=1000) # 10 seconds of signal
         wn_short = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=1000, samplerate=1000) # 1  second of signal
 
-        foilim = [10, 70]  # Shared between cases.
+        foilim = [5, 200]  # Shared between cases.
 
         cfg_long_no_overlap = TestWelch.get_welch_cfg()  # Results in 100 windows of length 100.
         cfg_long_no_overlap.toi = 0.0         # overlap [0, 1[
@@ -192,27 +197,30 @@ class TestWelch():
         print(f"spec_short_with_overlap shape: {spec_short_with_overlap.data.shape} with dimord {spec_short_with_overlap.dimord}")
 
         var_dim='trials'
-        var_no_overlap = spy.var(spec_long_no_overlap, dim=var_dim)
-        var_with_overlap = spy.var(spec_short_with_overlap, dim=var_dim)
+        var_longsig_no_overlap = spy.var(spec_long_no_overlap, dim=var_dim)
+        var_sortsig_with_overlap = spy.var(spec_short_with_overlap, dim=var_dim)
 
-        assert var_no_overlap.dimord.index('time') == 0
-        assert var_no_overlap.data.shape[0] == 1
-        assert var_with_overlap.data.shape[0] == 1
+        assert var_longsig_no_overlap.dimord.index('time') == 0
+        assert var_longsig_no_overlap.data.shape[0] == 1
+        assert var_sortsig_with_overlap.data.shape[0] == 1
 
-        print(f"var_no_overlap shape: {var_no_overlap.data.shape} with dimord {var_no_overlap.dimord}")
-        print(f"var_with_overlap shape: {var_with_overlap.data.shape} with dimord {var_with_overlap.dimord}")
+        print(f"var_no_overlap shape: {var_longsig_no_overlap.data.shape} with dimord {var_longsig_no_overlap.dimord}")
+        print(f"var_with_overlap shape: {var_sortsig_with_overlap.data.shape} with dimord {var_sortsig_with_overlap.dimord}")
 
         if self.do_plot:
-            _rewrite_log_output(var_no_overlap, to="abs")  # Disable log-scale plotting.
-            _rewrite_log_output(var_with_overlap, to="abs")  # Disable log-scale plotting.
+            _rewrite_log_output(var_longsig_no_overlap, to="abs")  # Disable log-scale plotting.
+            _rewrite_log_output(var_sortsig_with_overlap, to="abs")  # Disable log-scale plotting.
             plot_trial=0  # Only one left after variance computation along trials.
-            _, ax0 = var_no_overlap.singlepanelplot(trials=plot_trial)
+            _, ax0 = var_longsig_no_overlap.singlepanelplot(trials=plot_trial)
             ax0.set_title(f"Welch overlap effect: Long signal, no overlap.\n(toi={cfg_long_no_overlap.toi}, f_timwin={cfg_long_no_overlap.t_ftimwin})")
             ax0.set_ylabel("Variance")
 
-            _, ax1 = var_with_overlap.singlepanelplot(trials=plot_trial)
+            _, ax1 = var_sortsig_with_overlap.singlepanelplot(trials=plot_trial)
             ax1.set_title(f"Welch overlap effect: Short signal, with overlap.\n(toi={cfg_short_with_overlap.toi}, f_timwin={cfg_short_with_overlap.t_ftimwin})")
             ax1.set_ylabel("Variance")
+
+        chan=0
+        assert np.mean(var_longsig_no_overlap.show(channel=chan)) < np.mean(var_sortsig_with_overlap.show(channel=chan))
 
 
     def test_welch_replay(self):
