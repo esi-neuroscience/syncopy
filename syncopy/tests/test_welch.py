@@ -262,11 +262,12 @@ class TestWelch():
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
         for row_idx in range(variances.shape[0]):
-            ax.scatter(np.tile(sig_lengths[row_idx], overlaps.size), overlaps, variances[row_idx, :])
+            ax.scatter(np.tile(sig_lengths[row_idx], overlaps.size), overlaps, variances[row_idx, :], label=f"Signal len {sig_lengths[row_idx]}")
         ax.set_xlabel('Signal length (number of samples)')
         ax.set_ylabel('Window overlap')
         ax.set_zlabel('Mean variance of the Welch estimate')
-        plt.show()
+        ax.set_title('Variance of Welsh estimate as a function of signal length and overlap.\nColors represent different signal lengths.')
+        plt.show()  # We could run 'plt.legend()' before this line, but it's a bit large.
 
 
     def test_welch_replay(self):
