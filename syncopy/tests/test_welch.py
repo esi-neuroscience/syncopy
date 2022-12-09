@@ -215,10 +215,18 @@ class TestWelch():
 
 
     def test_welch_replay(self):
-        """
-        TODO: test that replay works with Welch.
-        """
-        pass
+        """Test replay with settings from output cfg."""
+        # only preprocessing makes sense to chain atm
+        first_cfg = TestWelch.get_welch_cfg()
+        first_res = spy.freqanalysis(self.adata, cfg=first_cfg)
+
+        # Now replay with cfg from preceding frontend call:
+        replay_res = spy.freqanalysis(self.adata, cfg=first_res.cfg)
+
+        # same results
+        assert np.allclose(first_res.data[:], replay_res.data[:])
+        assert first_res.cfg == replay_res.cfg
+
 
     def test_welch_trial_averaging(self):
         cfg = TestWelch.get_welch_cfg()
