@@ -176,9 +176,14 @@ def plot_SpectralData(data, **show_kwargs):
             data_y = data.show(**show_kwargs)
             ylabel = f'{output}'
 
+        # for itc.. needs to be improved
+        if output is None:
+            ylabel = ''
+
         # flip if required
-        if data_y.shape[1] == len(data_x):
-            data_y = data_y.T
+        if data_y.ndim > 1:
+            if data_y.shape[1] == len(data_x):
+                data_y = data_y.T
 
         fig, ax = _plotting.mk_line_figax(xlabel='frequency (Hz)',
                                           ylabel=ylabel)
