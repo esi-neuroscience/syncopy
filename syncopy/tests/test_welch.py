@@ -8,6 +8,7 @@ import syncopy as spy
 import numpy as np
 import inspect
 import dask.distributed as dd
+import matplotlib.pyplot as plt
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.const_def import spectralConversions
 import syncopy.tests.synth_data as synth_data
