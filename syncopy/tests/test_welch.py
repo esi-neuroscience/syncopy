@@ -6,7 +6,8 @@
 import pytest
 import syncopy as spy
 import numpy as np
-from syncopy.tests.test_specest import TestMTMConvol
+import inspect
+import dask.distributed as dd
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.const_def import spectralConversions
 import syncopy.tests.synth_data as synth_data
@@ -253,6 +254,18 @@ class TestWelch():
         res = spy.freqanalysis(cfg, self.adata)
         assert res.data.shape[res.dimord.index('taper')] == 1  # Averaging over tapers expected.
         assert res.data.shape[res.dimord.index('channel')] == 3  # Nothing special expected here.
+
+    def test_parallel(self, testcluster=None):
+        plt.ioff()
+        client = dd.Client(testcluster)
+        all_tests = [attr for attr in self.__dir__()
+                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
+
+        for test in all_tests:
+            test_method = getattr(self, test)
+            test_method()
+        client.close()
+        plt.ion()
 
 
     def test_welch_rejects_keeptaper(self):
