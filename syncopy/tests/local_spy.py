@@ -57,9 +57,9 @@ if __name__ == "__main__":
     specf2 = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False, foi=foi,
                               output="fooof_peaks", fooof_opt={'max_n_peaks': 2})
 
-    print("Start: Testing parallel computation of mtmfft")
-    spec4 = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=True, foi=foi, parallel=True, output="pow")
-    print("End: Testing parallel computation of mtmfft")
+    # print("Start: Testing parallel computation of mtmfft")
+    # spec4 = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=True, foi=foi, parallel=True, output="pow")
+    # print("End: Testing parallel computation of mtmfft")
 
     #spec.singlepanelplot()
     #specf.singlepanelplot()

@@ -1,14 +1,14 @@
 # Changelog of SyNCoPy
 All notable changes to this project will be documented in this file.
 
-
-## [Unreleased]
+## [2022.12]
 
 ### NEW
-- time dependent coherence analysis #287
-- basic statistics (mean, std, var and median) for Syncopy data objects
-- timelockanalysis and new TimeLockData data type
-- PSTH method for SpikeData
+- time dependent coherence analysis
+- basic statistics (`spy.mean`, `spy.std`, `spy.var` and `spy.median`) for Syncopy data objects
+- `spy.timelockanalysis` and new `TimeLockData` data type
+- PSTH method for SpikeData - `spy.spike_psth`
+- inter trial coherence measure `spy.itc`
 - support for performing connectivity analysis from SpectralData (#364).
 - additional .info entries for Granger analysis, indicating details about the computation.
 - additional .info entries for FoooF results, e.g. Gaussian fit parameters.
