@@ -269,6 +269,16 @@ class TestWelch():
         ax.set_title('Variance of Welsh estimate as a function of signal length and overlap.\nColors represent different signal lengths.')
         plt.show()  # We could run 'plt.legend()' before this line, but it's a bit large.
 
+        # Now for the tests.
+        # For a fixed overlap, the variance should decrease with signal length:
+        for overlap_idx in range(variances.shape[1]):
+            for siglen_idx in range(1, variances.shape[0]):
+                assert variances[siglen_idx, overlap_idx] < variances[siglen_idx - 1, overlap_idx]
+
+        # For short signals, there is a benefit in using medium overlap:
+        assert np.argmin(variances[0, :]) == overlaps.size // 2, f"Expected {overlaps.size // 2}, got {np.argmin(variances[0, :])}."
+        # Note: For humans, looking at the plot above will illustrate this a lot better.
+
 
     def test_welch_replay(self):
         """Test replay with settings from output cfg."""
