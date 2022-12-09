@@ -22,12 +22,12 @@ To start with a clean slate, let's construct a synthetic dataset consisting of a
 
 With this we have a dataset of type :class:`~syncopy.AnalogData`, which is intended for holding time-series data like electrophys. measurements. Let's have a look at a small snippet of the 1st trial::
 
-  data.singlepanelplot(trials=0, toilim=[0, 0.5])
+  data.singlepanelplot(trials=0, latency=[0, 0.5])
 
 .. image:: damped_signals.png
    :height: 220px
 
-By construction, we made the (white) noise of the same strength as the signal, hence by eye the oscillations present in channel1 are hardly visible. The parameter ``toilim`` stands for *time of interest limits* and defines a time-interval selection.
+By construction, we made the (white) noise of the same strength as the signal, hence by eye the oscillations present in channel1 are hardly visible. The parameter ``latency``  defines a time-interval selection.
 
 To recap: we have generated a synthetic dataset white noise on both channels, and channel1 additionally carries the damped harmonic signal.
 
@@ -232,7 +232,7 @@ To have a synthetic albeit meaningful dataset to illustrate the different method
 We also right away calculated the respective power spectra ``spec``.
 We can quickly have a look at a snippet of the generated signals::
   
-  data.singlepanelplot(trials=0, toilim=[0, 0.5])
+  data.singlepanelplot(trials=0, latency=[0, 0.5])
 
 
 .. image:: ar2_signals.png
