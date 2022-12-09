@@ -189,6 +189,17 @@ class TestWelch():
         cfg_short_with_overlap.t_ftimwin = 0.02
         cfg_short_with_overlap.foilim = foilim
 
+        # Check the number of windows that Welch will average over.
+        # To do this, we run mtmconvol and check the output size.
+        # This is to verify that the number of windows is equal, and as expected.
+        cfg_mtm_long = spy.StructDict(cfg_long_no_overlap.copy())
+        cfg_mtm_long.method = "mtmconvol"
+        cfg_mtm_short = spy.StructDict(cfg_short_with_overlap.copy())
+        cfg_mtm_short.method = "mtmconvol"
+        num_windows_long = np.ravel(np.diff(spy.freqanalysis(cfg_mtm_long, wn_long).sampleinfo))[0]
+        num_windows_short = np.ravel(np.diff(spy.freqanalysis(cfg_mtm_short, wn_short).sampleinfo))[0]
+        assert num_windows_long == 100, f"Expected 100 windows for long, got {num_windows_long}."
+        assert num_windows_short == 100, f"Expected 100 windows for short, got {num_windows_short}."
 
         spec_long_no_overlap = spy.freqanalysis(cfg_long_no_overlap, wn_long)
         spec_short_with_overlap = spy.freqanalysis(cfg_short_with_overlap, wn_short)
@@ -196,6 +207,7 @@ class TestWelch():
         print(f"spec_long_no_overlap shape: {spec_long_no_overlap.data.shape} with dimord {spec_long_no_overlap.dimord}")
         print(f"spec_short_with_overlap shape: {spec_short_with_overlap.data.shape} with dimord {spec_short_with_overlap.dimord}")
 
+        # We got one Welch estimate per trial so far. Now compute the variance over trials:
         var_dim='trials'
         var_longsig_no_overlap = spy.var(spec_long_no_overlap, dim=var_dim)
         var_sortsig_with_overlap = spy.var(spec_short_with_overlap, dim=var_dim)
