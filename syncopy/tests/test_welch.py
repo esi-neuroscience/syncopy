@@ -234,6 +234,40 @@ class TestWelch():
         chan=0
         assert np.mean(var_longsig_no_overlap.show(channel=chan)) < np.mean(var_sortsig_with_overlap.show(channel=chan))
 
+    def test_welch_overlap_effect_same_sig_length(self):
+
+        sig_lengths = np.linspace(1000, 20000, num=10, dtype=int)
+        overlaps = np.linspace(0.0, 0.99, num=10)
+        variances = np.zeros((sig_lengths.size, overlaps.size), dtype=float)  # Filled in loop below.
+
+        foilim = [5, 200]  # Shared between cases.
+        f_timwin = 0.2
+
+        for sigl_idx, sig_len in enumerate(sig_lengths):
+            for overl_idx, overlap in enumerate(overlaps):
+                wn = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=sig_len, samplerate=1000)
+
+                cfg = TestWelch.get_welch_cfg()  # Results in 100 windows of length 100.
+                cfg.toi = overlap
+                cfg.t_ftimwin = f_timwin
+                cfg.foilim = foilim
+
+                spec = spy.freqanalysis(cfg, wn)
+
+                # We got one Welch estimate per trial so far. Now compute the variance over trials:
+                spec_var = spy.var(spec, dim='trials')
+                mvar = np.mean(spec_var.show(channel=0))
+                variances[sigl_idx, overl_idx] = mvar
+
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        for row_idx in range(variances.shape[0]):
+            ax.scatter(np.tile(sig_lengths[row_idx], overlaps.size), overlaps, variances[row_idx, :])
+        ax.set_xlabel('Signal length (number of samples)')
+        ax.set_ylabel('Window overlap')
+        ax.set_zlabel('Mean variance of the Welch estimate')
+        plt.show()
+
 
     def test_welch_replay(self):
         """Test replay with settings from output cfg."""
