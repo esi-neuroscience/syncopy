@@ -143,7 +143,7 @@ class TestWelch():
         var_long_windows = spy.var(spec_long_windows, dim=var_dim)
 
         if self.do_plot:
-            plot_trial=0  # Does not matter.
+            plot_trial=0  # Which one does not matter, they are all white noise.
             _rewrite_log_output(var_short_windows, to="abs")  # Disable log-scale plotting.
             _rewrite_log_output(var_long_windows, to="abs")  # Disable log-scale plotting.
             _, ax0 = var_short_windows.singlepanelplot(trials=plot_trial)
@@ -158,18 +158,15 @@ class TestWelch():
 
     def test_welch_overlap_effect(self):
         """
-        Plot variance over different Welch estimates. Variance can be computed along trials.
+        Comparre variance over different Welch estimates based on signal length and overlap.
 
-        Do once with short dataset and once for long dataset.
+        (Variance can be computed along trials.)
 
-        1) Vergleichbarkeit: mit langem Signal ohne Overlap, sowie kurzem Signal mit Overlap
-        auf gleiche Anzahl Fenster kommen. Dann Varianz des Welch-Estimates berechnen. Sollte
-        höher sein für das kurze Signal.
+        Compare a long signal without overlap versus a short signal with overlap, that result in the
+        same window count. We expect to see higher variance for the shorter signal.
 
-        2) Sweet-Spot für overlap in Abhängigkeit von der Signallänge? Evtl später.
+        Potential nice-to-have for later: investigate sweet spot for the overlap parameter as a function of signal length.
         """
-
-
         wn_long = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=10000, samplerate=1000) # 10 seconds of signal
         wn_short = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=1000, samplerate=1000) # 1  second of signal
 
