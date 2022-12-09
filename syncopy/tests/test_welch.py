@@ -144,10 +144,14 @@ class TestWelch():
 
         if self.do_plot:
             plot_trial=0  # Does not matter.
+            _rewrite_log_output(var_short_windows, to="abs")  # Disable log-scale plotting.
+            _rewrite_log_output(var_long_windows, to="abs")  # Disable log-scale plotting.
             _, ax0 = var_short_windows.singlepanelplot(trials=plot_trial)
-            ax0.set_title("Var for no overlap.")
+            ax0.set_title(f"mtmconvolv overlap effect: Windows without overlap\n(toi={cfg_no_overlap.toi}, f_timwin={cfg_no_overlap.t_ftimwin}).")
+            ax0.set_ylabel("Variance")
             _, ax1 = var_long_windows.singlepanelplot(trials=plot_trial)
-            ax1.set_title("Var with overlap.")
+            ax1.set_title(f"mtmconvolv overlap effect: Windows with overlap\n(toi={cfg_with_overlap.toi}, f_timwin={cfg_with_overlap.t_ftimwin}).")
+            ax1.set_ylabel("Variance")
 
         chan=0
         assert np.mean(var_short_windows.show(channel=chan)) > np.mean(var_long_windows.show(channel=chan))
@@ -160,7 +164,7 @@ class TestWelch():
 
         1) Vergleichbarkeit: mit langem Signal ohne Overlap, sowie kurzem Signal mit Overlap
         auf gleiche Anzahl Fenster kommen. Dann Varianz des Welch-Estimates berechnen. Sollte
-        höher sein für das lange Signal.
+        höher sein für das kurze Signal.
 
         2) Sweet-Spot für overlap in Abhängigkeit von der Signallänge? Evtl später.
         """
@@ -194,9 +198,12 @@ class TestWelch():
             _rewrite_log_output(var_with_overlap, to="abs")  # Disable log-scale plotting.
             plot_trial=0  # Does not matter.
             _, ax0 = var_no_overlap.singlepanelplot(trials=plot_trial)
-            ax0.set_title("Var for long signal, no overlap.")
+            ax0.set_title(f"Welch overlap effect: Long signal, no overlap.\n(toi={cfg_long_no_overlap.toi}, f_timwin={cfg_long_no_overlap.t_ftimwin})")
+            ax0.set_ylabel("Variance")
+
             _, ax1 = var_with_overlap.singlepanelplot(trials=plot_trial)
-            ax1.set_title("Var for short signal, with overlap.")
+            ax1.set_title(f"Welch overlap effect: Short signal, with overlap.\n(toi={cfg_short_with_overlap.toi}, f_timwin={cfg_short_with_overlap.t_ftimwin})")
+            ax1.set_ylabel("Variance")
 
 
     def test_welch_replay(self):
