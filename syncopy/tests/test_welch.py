@@ -173,7 +173,7 @@ class TestWelch():
         foilim = [10, 70]  # Shared between cases.
 
         cfg_long_no_overlap = TestWelch.get_welch_cfg()  # Results in 100 windows of length 100.
-        cfg_long_no_overlap.toi = 0.0         # overlap [0, 1]
+        cfg_long_no_overlap.toi = 0.0         # overlap [0, 1[
         cfg_long_no_overlap.t_ftimwin = 0.1   # window length in sec
         cfg_long_no_overlap.foilim = foilim
 
@@ -186,14 +186,24 @@ class TestWelch():
         spec_long_no_overlap = spy.freqanalysis(cfg_long_no_overlap, wn_long)
         spec_short_with_overlap = spy.freqanalysis(cfg_short_with_overlap, wn_short)
 
+        print(f"spec_long_no_overlap shape: {spec_long_no_overlap.data.shape} with dimord {spec_long_no_overlap.dimord}")
+        print(f"spec_short_with_overlap shape: {spec_short_with_overlap.data.shape} with dimord {spec_short_with_overlap.dimord}")
+
         var_dim='trials'
         var_no_overlap = spy.var(spec_long_no_overlap, dim=var_dim)
         var_with_overlap = spy.var(spec_short_with_overlap, dim=var_dim)
 
+        assert var_no_overlap.dimord.index('time') == 0
+        assert var_no_overlap.data.shape[0] == 1
+        assert var_with_overlap.data.shape[0] == 1
+
+        print(f"var_no_overlap shape: {var_no_overlap.data.shape} with dimord {var_no_overlap.dimord}")
+        print(f"var_with_overlap shape: {var_with_overlap.data.shape} with dimord {var_with_overlap.dimord}")
+
         if self.do_plot:
             _rewrite_log_output(var_no_overlap, to="abs")  # Disable log-scale plotting.
             _rewrite_log_output(var_with_overlap, to="abs")  # Disable log-scale plotting.
-            plot_trial=0  # Does not matter.
+            plot_trial=0  # Only one left after variance computation along trials.
             _, ax0 = var_no_overlap.singlepanelplot(trials=plot_trial)
             ax0.set_title(f"Welch overlap effect: Long signal, no overlap.\n(toi={cfg_long_no_overlap.toi}, f_timwin={cfg_long_no_overlap.t_ftimwin})")
             ax0.set_ylabel("Variance")
@@ -234,6 +244,15 @@ class TestWelch():
         if self.do_plot:
             _, ax = res.singlepanelplot(trials=0, channel=0)
             ax.set_title("Welsh result with trial averaging.")
+
+    def test_welch_with_multitaper(self):
+        cfg = TestWelch.get_welch_cfg()
+        cfg.tapsmofrq = 2  # Activate multi-tapering, which is fine.
+        cfg.keeptapers = False  # Disable averaging over tapers (taper dimension), which is NOT allowed with Welsh.
+
+        res = spy.freqanalysis(cfg, self.adata)
+        assert res.data.shape[res.dimord.index('taper')] == 1  # Averaging over tapers expected.
+        assert res.data.shape[res.dimord.index('channel')] == 3  # Nothing special expected here.
 
 
     def test_welch_rejects_keeptaper(self):
