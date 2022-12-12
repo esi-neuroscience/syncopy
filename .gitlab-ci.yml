@@ -117,7 +117,29 @@ slurmtest:
     - cd $TEST_DIR
     - srun -p DEV --mem=8000m pytest -ra test_specest.py
     - srun -p DEV --mem=8000m pytest -ra test_connectivity.py
-    - srun -p 8GBL pytest -ra --ignore=test_specest.py --ignore=test_connectivity.py
+    - srun -p DEV pytest -ra --ignore=test_specest.py --ignore=test_connectivity.py
+    
+slurmtest-acme:
+    stage: slurm
+    allow_failure: true
+    tags:
+    - slurm
+    only:
+    - master
+    - dev
+    variables:
+        PYTEST_ADDOPTS: "--color=yes --tb=short --verbose"
+        GIT_FETCH_EXTRA_FLAGS: --tags
+    script:
+    - source /opt/conda/etc/profile.d/conda.sh
+    - conda env update -f syncopy.yml --prune
+    - conda activate syncopy
+    - conda install esi-acme=2022.11
+    - export PYTHONPATH=$CI_PROJECT_DIR
+    - cd $TEST_DIR
+    - srun -p DEV --mem=8000m pytest -ra test_specest.py
+    - srun -p DEV --mem=8000m pytest -ra test_connectivity.py
+    - srun -p DEV pytest -ra --ignore=test_specest.py --ignore=test_connectivity.py
 
 pypitest:
     stage: upload
