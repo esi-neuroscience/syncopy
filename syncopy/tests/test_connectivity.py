@@ -152,7 +152,7 @@ class TestGranger:
                        cfg=self.cfg, **kwargs)
 
         # same results on all channels and freqs
-        assert np.allclose(Gcaus_ad.trials[0], Gcaus_spec.trials[0], atol=1e-3)
+        assert np.allclose(Gcaus_ad.trials[0], Gcaus_spec.trials[0], rtol=1e-2)
 
         for Gcaus in [Gcaus_spec, Gcaus_ad]:
             # check all channel combinations with coupling
