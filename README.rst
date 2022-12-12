@@ -50,17 +50,44 @@ For general inquiries please contact syncopy (at) esi-frankfurt.de.
 
 Installation
 ============
-Syncopy is available on pip
+
+We recommend to install SynCoPy into a new conda environment:
+
+#. Install the `Anaconda Distribution for your Operating System <https://www.anaconda.com/products/distribution>`_ if you do not yet have it.
+#. Start a new terminal.
+
+   * You can do this by starting ```Anaconda navigator```, selecting ```Environments``` in the left tab, selecting the ```base (root)``` environment, and clicking the green play button and then ```Open Terminal```.
+   * Alternatively, under Linux, you can just type ```bash``` in your active terminal to start a new session.
+
+You should see a terminal with a command prompt that starts with ```(base)```, indicating that you are
+in the conda ```base``` environment.
+
+Now we create a new environment named ```syncopy``` and install syncopy into this environment:
 
 .. code-block:: bash
 
-   pip install esi-syncopy
+   conda create -y --name syncopy python=3.8
+   conda activate syncopy
+   conda install -y -c conda-forge esi-syncopy
 
-For using SynCoPy's parallel processing capabilities, `ACME <https://github.com/esi-neuroscience/acme>`_ is required
+
+Checking your SyNCoPy version
+-----------------------------
+
+To check which version of SynCoPy you have installed in the current environment, run:
 
 .. code-block:: bash
 
-   conda install -c conda-forge esi-acme
+   conda activate syncopy
+   python -c "import syncopy; print(syncopy.__version__)"
+
+
+Getting Started
+===============
+Please visit our `online documentation <http://syncopy.org>`_.
+
+Developer Installation
+-----------------------
 
 To get the latest development version, please clone our GitHub repository:
 
@@ -69,7 +96,3 @@ To get the latest development version, please clone our GitHub repository:
    git clone https://github.com/esi-neuroscience/syncopy.git
    cd syncopy/
    pip install -e .
-
-Getting Started
-===============
-Please visit our `online documentation <http://syncopy.org>`_.
