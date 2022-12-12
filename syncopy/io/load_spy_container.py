@@ -38,7 +38,7 @@ def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None
     Parameters
     ----------
     filename : str
-        Either path to Syncopy container folder (\*.spy, if omitted, the extension
+        Either path to Syncopy container folder (`*.spy`, if omitted, the extension
         '.spy' will be appended) or name of data or metadata file. If `filename`
         points to a container and no further specifications are provided, the
         entire contents of the container is loaded. Otherwise, specific objects

@@ -470,7 +470,7 @@ def _get_Matlab_version(filename):
 
     # matches for example 'MATLAB 5.01'
     # with the version as only capture group
-    pattern = re.compile("^MATLAB\s(\d*\.\d*)")
+    pattern = re.compile(r"^MATLAB\s(\d*\.\d*)")
     match = pattern.match(header)
 
     if not match:

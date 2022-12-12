@@ -1,22 +1,28 @@
 # Changelog of SyNCoPy
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-
-## [Unreleased]
+## [2022.12]
 
 ### NEW
-- Added time dependent coherence analysis #287
-- Added basic statistics (mean, std, var and median) for Syncopy data objects
-- Added additional .info entries for Granger analysis, indicating details about the computation.
-- Added additional .info entries for FoooF results, e.g. Gaussian fit parameters.
-- Fix bug #365, plotting supports custom dimords now.
-- Support starting a connectivity analysis from a SpectralData instance (#364).
+- time dependent coherence analysis
+- basic statistics (`spy.mean`, `spy.std`, `spy.var` and `spy.median`) for Syncopy data objects
+- `spy.timelockanalysis` and new `TimeLockData` data type
+- PSTH method for SpikeData - `spy.spike_psth`
+- Welch's method for `spy.freqanalysis`
+- inter trial coherence measure `spy.itc`
+- support for performing connectivity analysis from SpectralData (#364).
+- additional .info entries for Granger analysis, indicating details about the computation.
+- additional .info entries for FoooF results, e.g. Gaussian fit parameters.
 
 ### CHANGED
-- Maximal brute force regularization parameter for Granger increased to 1e-1
+- selectdata now has 'frequency' and 'latency' parameters instead of toi/toilim and foi/foilim
+- a 'latency' selection will always either return a timelocked data selection or an error
+- maximal brute force regularization parameter for Granger increased to 1e-1
+
+### Fixed
+- improved memory footprint of trial averaging (#380)
+- bug #365, plotting supports custom dimords now
+- support Python >=3.8
 
 ## [2022.08] - 2022-08-10
 

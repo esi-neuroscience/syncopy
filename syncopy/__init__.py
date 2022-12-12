@@ -125,7 +125,6 @@ from .nwanalysis import *
 from .statistics import *
 from .plotting import *
 from .preproc import *
-from .spikes import *
 
 # Register session
 __session__ = datatype.base_data.SessionLogger()
@@ -151,4 +150,3 @@ __all__.extend(nwanalysis.__all__)
 __all__.extend(statistics.__all__)
 __all__.extend(plotting.__all__)
 __all__.extend(preproc.__all__)
-__all__.extend(spikes.__all__)

@@ -114,18 +114,17 @@ class TestComputationalRoutine():
                           "channel": ["channel" + str(i) for i in range(12, 28)][::-1]},
                          {"trials": [0, 1, 2],
                           "channel": range(0, int(nChannels / 2)),
-                          "toilim": [-0.25, 0.25]}]
+                          "latency": [-0.25, 0.25]}]
 
     # Data selections to be tested w/`artdata` generated below (use fixed but arbitrary
-    # random number seed to randomly select time-points for `toi` (with repetitions)
     seed = np.random.RandomState(13)
     artdataSelections = [None,
                          {"trials": [3, 1, 0],
                           "channel": ["channel" + str(i) for i in range(12, 28)][::-1],
-                          "toi": None},
+                          "latency": None},
                          {"trials": [0, 1, 2],
                           "channel": range(0, int(nChannels / 2)),
-                          "toilim": [-0.5, 0.6]}]
+                          "latency": [-0.5, 0.6]}]
 
     # Error tolerances and respective quality metrics (depend on data selection!)
     tols = [1e-6, 1e-6, 1e-2]
@@ -192,10 +191,6 @@ class TestComputationalRoutine():
                                                    equidistant=False,
                                                    overlapping=overlapping,
                                                    inmemory=False)
-
-            # unsorted, w/repetitions
-            toi = self.seed.choice(nonequidata.time[0], int(nonequidata.time[0].size))
-            self.artdataSelections[1]["toi"] = toi
 
             for select in self.artdataSelections:
                 sel = Selector(nonequidata, select)
@@ -366,10 +361,6 @@ class TestComputationalRoutine():
                                                     equidistant=False,
                                                     overlapping=overlapping,
                                                     inmemory=False)
-
-            # unsorted, w/repetitions
-            toi = self.seed.choice(nonequidata.time[0], int(nonequidata.time[0].size))
-            self.artdataSelections[1]["toi"] = toi
 
             for parallel_store in [True, False]:
                 for chan_per_worker in [None, self.chanPerWrkr]:

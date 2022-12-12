@@ -69,7 +69,8 @@ class BaseData(ABC):
         "_version",
         "_log",
     )
-
+    # all data types have a `trials` property
+    _selectionKeyWords = ('trials',)
     #: properties that are mapped onto HDF5 datasets
     _hdfFileDatasetProperties = ()
 
@@ -169,35 +170,50 @@ class BaseData(ABC):
         except Exception as exc:
             raise exc
 
-    def _register_seq_dataset(self, propertyName, inData=None):
+    def _register_dataset(self, propertyName, inData=None):
         """
         Register a new dataset, so that it is handled during saving, comparison, copy and other operations.
         This dataset is not managed in any way during parallel operations and is intended for
-        things like sequential statistics. Thus it is NOT safe to use this in a
+        holding additional data things like statistics. Thus it is NOT safe to use this in a
         multi-threaded/parallel context, like in a compute function (cF).
 
         Parameters
         ----------
-            propertyName : str
-                The name for the new dataset, this will be used as the dataset name in the hdf5 container when saving.
-                It will be added as an attribute named `'_' + propertyName` to this SyncopyData object.
-                Note that this means that your propertyName must not clash with other attribute names of syncopy data objects.
-                To ensure the latter, it is recommended to use names with a prefix like `'dset_'`. Clashes will be detected and result in errors.
-            in_data : None or np.ndarray
-                The data to store. Must have the final number of dimensions you want.
+        propertyName : str
+            The name for the new dataset, this will be used as the dataset name in the hdf5 container
+            when saving. It will be added as an attribute named `'_' + propertyName` to this SyncopyData object.
+            Note that this means that your propertyName must not clash with other attribute names of 
+            syncopy data objects. To ensure the latter, it is recommended to use names with a prefix like 
+            `'dset_'`. Clashes will be detected and result in errors.
+        in_data : None or np.ndarray or h5py.Dataset
+            The data to store. Must have the final number of dimensions you want.
         """
         if not propertyName in self._hdfFileDatasetProperties:
             self._hdfFileDatasetProperties = self._hdfFileDatasetProperties + (propertyName,)
+
+        # trivial case
         if inData is None:
             setattr(self, "_" + propertyName, None)
-        else:
-            if not isinstance(inData, np.ndarray):
-                raise SPYValueError(legal="object of type 'np.ndarray' or None", varname="inData")
-            self._set_dataset_property_with_ndarray(inData, propertyName, inData.ndim)
+            return
 
-    def _unregister_seq_dataset(self, propertyName, del_from_file=True):
+        supportedSetters = {
+            np.ndarray: self._set_dataset_property_with_ndarray,
+            h5py.Dataset: self._set_dataset_property_with_dataset,
+        }
+
+        try:
+            # same attribute for both ndarray and hdf5 dataset
+            ndim = inData.ndim
+        except AttributeError:
+            msg = "HDF5 dataset, or NumPy array"
+            raise SPYTypeError(inData, varname="data", expected=msg)
+
+        supportedSetters[type(inData)](inData, propertyName, ndim=ndim)
+
+    def _unregister_dataset(self, propertyName, del_from_file=True):
         """
-        Unregister and delete a sequential dataset from memory, and optionally delete it from the backing hdf5 file.
+        Unregister and delete an additional dataset from the Syncopy data object,
+        and optionally delete it from the backing hdf5 file.
 
         Assumes that the backing h5py file is open in writeable mode.
 
@@ -227,11 +243,14 @@ class BaseData(ABC):
                 else:
                     SPYWarning("Could not delete dataset from file.")
 
-    def _update_seq_dataset(self, propertyName, inData=None):
+    def _update_dataset(self, propertyName, inData=None):
+        """
+        Resets an additional dataset which was already registered via
+        ``_register_dataset`` to ``inData``.
+        """
         if getattr(self, "_" + propertyName) is not None:
-            self._unregister_seq_dataset(propertyName)
-        self._register_seq_dataset(propertyName, inData)
-
+            self._unregister_dataset(propertyName)
+        self._register_dataset(propertyName, inData)
 
     def _set_dataset_property(self, inData, propertyName, ndim=None):
         """Set property that is streamed from HDF dataset ('dataset property')
@@ -268,8 +287,6 @@ class BaseData(ABC):
         except KeyError:
             msg = "filename of HDF5 file, HDF5 dataset, or NumPy array"
             raise SPYTypeError(inData, varname="data", expected=msg)
-        except Exception as exc:
-            raise exc
 
     def _set_dataset_property_with_none(self, inData, propertyName, ndim):
         """Set a dataset property to None"""
@@ -328,16 +345,16 @@ class BaseData(ABC):
 
         Parameters
         ----------
-            inData : numpy.ndarray
-                NumPy array to be stored in property of name `propertyName`
-            propertyName : str
-                Name of the property to be filled with `inData`. Will get an underscore (`'_'`) prefix added, so do not include that.
-            ndim : int
-                Number of expected array dimensions.
+        inData : numpy.ndarray
+            NumPy array to be stored in property of name `propertyName`
+        propertyName : str
+            Name of the property to be filled with `inData`. Will get an underscore (`'_'`) prefix added,
+            so do not include that.
+        ndim : int
+            Number of expected array dimensions.
         """
-
         # Ensure array has right no. of dimensions
-        array_parser(inData, varname="data", dims=ndim)
+        array_parser(inData, varname=f"{propertyName}", dims=ndim)
 
         # Gymnastics for `DiscreteData` objects w/non-standard `dimord`s.
         # This only applies to the 'main' dataset called 'data'. The checks are not needed
@@ -346,7 +363,7 @@ class BaseData(ABC):
             self._check_dataset_property_discretedata(inData)
         else:
             if not hasattr(self, "_" + propertyName):
-                setattr(self, "_" + propertyName, None) # Prevent error on gettattr call below.
+                setattr(self, "_" + propertyName, None)  # Prevent error on gettattr call below.
 
         # If there is existing data, replace values if shape and type match
         if isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
@@ -394,12 +411,12 @@ class BaseData(ABC):
 
         Parameters
         ----------
-            inData : h5py.Dataset
-                HDF5 dataset to be stored in property of name `propertyName`
-            propertyName : str
-                Name of the property to be filled with the dataset
-            ndim : int
-                Number of expected array dimensions.
+        inData : h5py.Dataset
+            HDF5 dataset to be stored in property of name `propertyName`
+        propertyName : str
+            Name of the property to be filled with the dataset
+        ndim : int
+            Number of expected array dimensions.
         """
 
         if inData.id.valid == 0:
@@ -413,12 +430,15 @@ class BaseData(ABC):
             act = "{}-dimensional HDF5 dataset".format(inData.ndim)
             raise SPYValueError(legal=lgl, varname="data", actual=act)
 
-        # Gymnastics for `DiscreteData` objects w/non-standard `dimord`s
-        self._check_dataset_property_discretedata(inData)
+        if propertyName == "data":
+            self._check_dataset_property_discretedata(inData)
+            self.filename = inData.file.filename
+        else:
+            # creates hidden attribute behind the property on the fly
+            if not hasattr(self, "_" + propertyName):
+                setattr(self, "_" + propertyName, None)
 
         self._mode = inData.file.mode
-        self.filename = inData.file.filename
-
         setattr(self, "_" + propertyName, inData)
 
     def _set_dataset_property_with_list(self, inData, propertyName, ndim):
@@ -705,7 +725,8 @@ class BaseData(ABC):
         if self._trialdefinition is not None and self._samplerate is not None:
             # trial lengths in samples
             start_end = self.sampleinfo - self.sampleinfo[:, 0][:, None]
-            # add offset and convert to seconds
+            start_end[:, 1] -= 1  # account for last time point
+           # add offset and convert to seconds
             start_end = (start_end + self._t0[:, None]) / self._samplerate
             return start_end
         else:
@@ -991,6 +1012,10 @@ class BaseData(ABC):
                 SPYInfo("Empty and non-empty Syncopy object")
                 return False
             return True
+        elif not self._is_empty():
+            if other._is_empty():
+                SPYInfo("Non-empty and empty Syncopy object")
+                return False
 
         # If in-place selections are present, abort
         if self.selection is not None or other.selection is not None:
@@ -1006,10 +1031,16 @@ class BaseData(ABC):
         dimProps = list(set(dimProps).difference(["dimord", "cfg"]))
         for prop in dimProps:
             val_this = getattr(self, prop)
-            if isinstance(val_this, np.ndarray):
-                isEqual = val_this.tolist() == getattr(other, prop).tolist()
+            val_other = getattr(other, prop)
+            if isinstance(val_this, np.ndarray) and isinstance(val_other, np.ndarray):
+                isEqual = val_this.tolist() == val_other.tolist()
+            # catch None
+            elif val_this is None and val_other is not None:
+                isEqual = False
+            elif val_this is not None and val_other is None:
+                isEqual = False
             else:
-                isEqual = val_this == getattr(other, prop)
+                isEqual = val_this == val_other
             if not isEqual:
                 SPYInfo("Mismatch in {}".format(prop))
                 return False
@@ -1466,11 +1497,9 @@ class Selector:
             raise SPYTypeError(select, "select", expected="dict")
 
         # Keep list of supported selectors in sync w/supported keywords of `selectdata`
-        supported = list(signature(selectdata).parameters.keys())
-        for key in ["data", "inplace", "clear", "parallel", "kwargs"]:
-            supported.remove(key)
-        # supported = ["trials", "channel", "channel_i", "channel_j", "toi",
-        #              "toilim", "foi", "foilim", "taper", "unit", "eventid"]
+        supported = data._selectionKeyWords
+        # `selectdata` already throws out not supported keywords
+        # so this is just a hard check when setting a selection via assignment
         if not set(select.keys()).issubset(supported):
             lgl = (
                 "dict with one or all of the following keys: '"
@@ -1690,19 +1719,11 @@ class Selector:
 
         # Unpack input and perform error-checking
         data, select = dataselect
-        timeSpec = select.get("toi", None)
-        checkLim = False
-        checkInf = False
-        vname = "select: toi/toilim"
-        if timeSpec is None:
-            timeSpec = select.get("toilim")
-            checkLim = True
-            checkInf = None
-        else:
-            if select.get("toilim") is not None:
-                lgl = "either `toi` or `toilim` specification"
-                act = "both"
-                raise SPYValueError(legal=lgl, varname=vname, actual=act)
+        timeSpec = select.get("latency", None)
+        checkLim = True
+        checkInf = None
+        vname = "select: latency"
+
         hasTime = hasattr(data, "time") or hasattr(data, "trialtime")
         if timeSpec is not None and hasTime is False:
             lgl = "Syncopy data object with time-dimension"
@@ -1715,8 +1736,7 @@ class Selector:
             if isinstance(timeSpec, str):
                 if timeSpec == "all":
                     timeSpec = None
-                    select["toi"] = None
-                    select["toilim"] = None
+                    select["latency"] = None
                 else:
                     raise SPYValueError(
                         legal="'all' or `None` or list/array",
@@ -1726,29 +1746,31 @@ class Selector:
             if timeSpec is not None:
                 if np.issubdtype(type(timeSpec), np.number):
                     timeSpec = [timeSpec]
-                try:
                     array_parser(
                         timeSpec, varname=vname, hasinf=checkInf, hasnan=False, dims=1
                     )
-                except Exception as exc:
-                    raise exc
-                if checkLim:
+                # can only be 2-sequence [start, end]
+                else:
                     if len(timeSpec) != 2:
-                        lgl = "`select: toilim` selection with two components"
-                        act = "`select: toilim` with {} components".format(
+                        lgl = "`select: latency` selection with two components"
+                        act = "`select: latency` with {} components".format(
                             len(timeSpec)
                         )
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
                     if timeSpec[0] >= timeSpec[1]:
                         lgl = (
-                            "`select: toilim` selection with `toilim[0]` < `toilim[1]`"
+                            "`select: latency` selection with `latency[0]` < `latency[1]`"
                         )
                         act = "selection range from {} to {}".format(
                             timeSpec[0], timeSpec[1]
                         )
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
-            timing = data._get_time(self.trial_ids, toi=select.get("toi"), toilim=select.get("toilim"))
+            timing = data._get_time(self.trial_ids, toi=None, toilim=select.get("latency"))
 
+            # ---------------------------------------------------------------------------
+            # this is legacy, might be needed later if ppl really want to "time shuffle"
+            # to destroy any correlations and produce white noise from their data..
+            # .. which is questionable
 
             # Determine, whether time-selection is unordered/contains repetitions
             # and set `self._timeShuffle` accordingly
@@ -1758,6 +1780,7 @@ class Selector:
                         if np.diff(tsel).min() <= 0:
                             self._timeShuffle = True
                             break
+            # ---------------------------------------------------------------------------
 
             # Assign timing selection and copy over samplerate from source object
             self._time = timing
@@ -1833,6 +1856,7 @@ class Selector:
         if self._trialdefinition is not None and self._samplerate is not None:
             # trial lengths in samples
             start_end = self.sampleinfo - self.sampleinfo[:, 0][:, None]
+            start_end[:, 1] -= 1  # account for last time point
             # add offset and convert to seconds
             start_end = (start_end + self.trialdefinition[:, 2][:, None]) / self._samplerate
             return start_end
@@ -1862,24 +1886,14 @@ class Selector:
 
         # Unpack input and perform error-checking
         data, select = dataselect
-        freqSpec = select.get("foi")
-        checkLim = False
-        checkInf = False
-        vname = "select: foi/foilim"
-        if freqSpec is None:
-            freqSpec = select.get("foilim")
-            checkLim = True
-            checkInf = None
-        else:
-            if select.get("foilim") is not None:
-                lgl = "either `foi` or `foilim` specification"
-                act = "both"
-                raise SPYValueError(legal=lgl, varname=vname, actual=act)
+        freqSpec = select.get("frequency")
+        checkLim = True
+        checkInf = None
         hasFreq = hasattr(data, "freq")
         if freqSpec is not None and hasFreq is False:
             lgl = "Syncopy data object with freq-dimension"
             raise SPYValueError(
-                legal=lgl, varname=vname, actual=data.__class__.__name__
+                legal=lgl, varname="frequency", actual=data.__class__.__name__
             )
 
         # If `data` has a `freq` property, fill up `self.freq`
@@ -1887,48 +1901,51 @@ class Selector:
             if isinstance(freqSpec, str):
                 if freqSpec == "all":
                     freqSpec = None
-                    select["foi"] = None
-                    select["foilim"] = None
+                    select["frequency"] = None
                 else:
                     raise SPYValueError(
-                        legal="'all' or `None` or list/array",
-                        varname=vname,
+                        legal="'all' or `None` or float or list/array",
+                        varname="frequency",
                         actual=freqSpec,
                     )
-            if freqSpec is not None:
+            if freqSpec is None:
+                # select all
+                self._freq = data._get_freq()
+
+            else:
                 if np.issubdtype(type(freqSpec), np.number):
                     freqSpec = [freqSpec]
-                try:
+
                     array_parser(
                         freqSpec,
-                        varname=vname,
-                        hasinf=checkInf,
+                        varname="frequency",
+                        hasinf=False,
                         hasnan=False,
                         lims=[data.freq.min(), data.freq.max()],
-                        dims=1,
+                        dims=(1,),
                     )
-                except Exception as exc:
-                    raise exc
-                if checkLim:
-                    if len(freqSpec) != 2:
-                        lgl = "`select: foilim` selection with two components"
-                        act = "`select: foilim` with {} components".format(
-                            len(freqSpec)
-                        )
-                        raise SPYValueError(legal=lgl, varname=vname, actual=act)
+                    # single frequency
+                    self._freq = data._get_freq(foi=freqSpec)
+                # frequency range [fmin, fmax]
+                else:
+                    array_parser(
+                        freqSpec,
+                        ntype="numeric",
+                        varname="frequency",
+                        hasnan=False,
+                        lims=[data.freq.min(), data.freq.max()],
+                        dims=(2,),
+                    )
                     if freqSpec[0] >= freqSpec[1]:
                         lgl = (
-                            "`select: foilim` selection with `foilim[0]` < `foilim[1]`"
+                            "`select: frequency` selection with `frequency[0]` < `frequency[1]`"
                         )
                         act = "selection range from {} to {}".format(
                             freqSpec[0], freqSpec[1]
                         )
-                        raise SPYValueError(legal=lgl, varname=vname, actual=act)
-            self._freq = data._get_freq(
-                foi=select.get("foi"), foilim=select.get("foilim")
-            )
-        else:
-            return
+                        raise SPYValueError(legal=lgl, varname='frequency', actual=act)
+
+                    self._freq = data._get_freq(foi=None, foilim=freqSpec)
 
     @property
     def taper(self):
@@ -2290,6 +2307,8 @@ class Selector:
 
         # Get list of print-worthy attributes
         ppattrs = [attr for attr in self.__dir__() if not attr.startswith("_")]
+        # legacy, we have proper `Selector.trials` now
+        ppattrs.remove('trial_ids')
         ppattrs.sort()
 
         # Construct dict of pretty-printable property info
@@ -2311,7 +2330,7 @@ class Selector:
                         attr,
                         "s" if not attr.endswith("s") else "",
                     )
-            elif isinstance(val, list):
+            elif isinstance(val, (list, Indexer)):
                 ppdict[attr] = "{0:d} {1:s}{2:s}, ".format(
                     len(val), attr, "s" if not attr.endswith("s") else ""
                 )

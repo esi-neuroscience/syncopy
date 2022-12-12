@@ -17,7 +17,6 @@ from collections.abc import Iterator
 # Local imports
 from .base_data import BaseData, FauxTrial, _definetrial
 from .methods.definetrial import definetrial
-from .methods import statistics
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.tools import best_match
@@ -37,8 +36,9 @@ class ContinuousData(BaseData, ABC):
     """
 
     _infoFileProperties = BaseData._infoFileProperties + ("samplerate", "channel",)
-    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate", "channel",)
     _hdfFileDatasetProperties = BaseData._hdfFileDatasetProperties + ("data",)
+    # all continuous data types have a time axis
+    _selectionKeyWords = BaseData._selectionKeyWords + ('latency',)
 
     @property
     def data(self):
@@ -285,6 +285,7 @@ class ContinuousData(BaseData, ABC):
     def _get_time(self, trials, toi=None, toilim=None):
         """
         Get relative by-trial indices of time-selections
+        `toi` is legacy.. `toilim ` is used by selections via `latency`
 
         Parameters
         ----------
@@ -369,27 +370,6 @@ class ContinuousData(BaseData, ABC):
     def multipanelplot(self):
         raise NotImplementedError
 
-    # statistics
-    @statistics._attach_stat_doc(statistics.mean.__doc__)
-    def mean(self, dim, keeptrials=True, **kwargs):
-
-        return statistics.mean(self, dim, keeptrials, **kwargs)
-
-    @statistics._attach_stat_doc(statistics.std.__doc__)
-    def std(self, dim, keeptrials=True, **kwargs):
-
-        return statistics.std(self, dim, keeptrials, **kwargs)
-
-    @statistics._attach_stat_doc(statistics.var.__doc__)    
-    def var(self, dim, keeptrials=True, **kwargs):
-
-        return statistics.var(self, dim, keeptrials, **kwargs)
-
-    @statistics._attach_stat_doc(statistics.median.__doc__)        
-    def median(self, dim, keeptrials=True, **kwargs):
-
-        return statistics.median(self, dim, keeptrials, **kwargs)
-
 
 class AnalogData(ContinuousData):
     """Multi-channel, uniformly-sampled, analog (real float) data
@@ -407,6 +387,7 @@ class AnalogData(ContinuousData):
     _infoFileProperties = ContinuousData._infoFileProperties
     _defaultDimord = ["time", "channel"]
     _stackingDimLabel = "time"
+    _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel',)
 
     # "Constructor"
     def __init__(self,
@@ -443,7 +424,7 @@ class AnalogData(ContinuousData):
 
         # FIXME: I think escalating `dimord` to `BaseData` should be sufficient so that
         # the `if any(key...) loop in `BaseData.__init__()` takes care of assigning a default dimord
-        if data is not None and dimord is None:
+        if dimord is None:
             dimord = self._defaultDimord
 
         # Call parent initializer
@@ -453,6 +434,9 @@ class AnalogData(ContinuousData):
                          samplerate=samplerate,
                          channel=channel,
                          dimord=dimord)
+
+        # set as instance attribute to allow modification
+        self._hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate", "channel",)
 
     # implement plotting
     def singlepanelplot(self, shifted=True, **show_kwargs):
@@ -477,6 +461,7 @@ class SpectralData(ContinuousData):
     _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
     _defaultDimord = ["time", "taper", "freq", "channel"]
     _stackingDimLabel = "time"
+    _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel', 'frequency', 'taper',)
 
     @property
     def taper(self):
@@ -537,7 +522,7 @@ class SpectralData(ContinuousData):
     # Helper function that extracts frequency-related indices
     def _get_freq(self, foi=None, foilim=None):
         """
-        Coming soon...
+        `foi` is legacy, we use `foilim` for frequency selection
         Error checking is performed by `Selector` class
         """
         if foilim is not None:
@@ -574,7 +559,7 @@ class SpectralData(ContinuousData):
         self._freq = None
 
         # FIXME: See similar comment above in `AnalogData.__init__()`
-        if data is not None and dimord is None:
+        if dimord is None:
             dimord = self._defaultDimord
 
         # Call parent initializer
@@ -586,6 +571,9 @@ class SpectralData(ContinuousData):
                          taper=taper,
                          freq=freq,
                          dimord=dimord)
+
+        self._hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties +\
+        ("samplerate", "channel", "freq",)
 
         # If __init__ attached data, be careful
         if self.data is not None:
@@ -605,9 +593,9 @@ class SpectralData(ContinuousData):
                 self.taper = ['taper']
 
     # implement plotting
-    def singlepanelplot(self, **show_kwargs):
+    def singlepanelplot(self, logscale=True, **show_kwargs):
 
-        figax = sp_plotting.plot_SpectralData(self, **show_kwargs)
+        figax = sp_plotting.plot_SpectralData(self, logscale, **show_kwargs)
         return figax
 
     def multipanelplot(self, **show_kwargs):
@@ -627,10 +615,9 @@ class CrossSpectralData(ContinuousData):
     # Adapt `infoFileProperties` and `hdfFileAttributeProperties` from `ContinuousData`
     _infoFileProperties = BaseData._infoFileProperties +\
         ("samplerate", "channel_i", "channel_j", "freq", )
-    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties +\
-        ("samplerate", "channel_i", "channel_j", "freq", )
     _defaultDimord = ["time", "freq", "channel_i", "channel_j"]
     _stackingDimLabel = "time"
+    _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel_i', 'channel_j', 'frequency',)
     _channel_i = None
     _channel_j = None
     _samplerate = None
@@ -734,6 +721,10 @@ class CrossSpectralData(ContinuousData):
                          freq=freq,
                          dimord=dimord)
 
+        # set as instance attribute to allow modification
+        self._hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties +\
+        ("samplerate", "channel_i", "channel_j", "freq", )
+
     def singlepanelplot(self, **show_kwargs):
 
         sp_plotting.plot_CrossSpectralData(self, **show_kwargs)
@@ -746,8 +737,8 @@ class TimeLockData(ContinuousData):
     """
 
     _infoFileProperties = ContinuousData._infoFileProperties
-    _hdfFileDatasetProperties = ContinuousData._hdfFileDatasetProperties + ("avg", "var", "cov",)
     _defaultDimord = ["time", "channel"]
+    _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel',)
     _stackingDimLabel = "time"
 
     # "Constructor"
@@ -759,28 +750,25 @@ class TimeLockData(ContinuousData):
                  channel=None,
                  dimord=None):
 
-        """Initialize an :class:`TimeLockData` object.
+        """
+        Initialize an :class:`TimeLockData` object.
 
-            Parameters
-            ----------
-                data : 2D :class:numpy.ndarray or HDF5 dataset
-                    multi-channel time series data with uniform sampling
-                filename : str
-                    path to target filename that should be used for writing
-                samplerate : float
-                    sampling rate in Hz
-                channel : str or list/array(str)
-                dimord : list(str)
-                    ordered list of dimension labels
+        Parameters
+        ----------
+        data : 2D :class:numpy.ndarray or HDF5 dataset
+            multi-channel time series data with uniform sampling
+        filename : str
+            path to target filename that should be used for writing
+        samplerate : float
+            sampling rate in Hz
+        channel : str or list/array(str)
+        dimord : list(str)
+            ordered list of dimension labels
 
-            1. `filename` + `data` : create hdf dataset incl. sampleinfo @filename
-            2. just `data` : try to attach data (error checking done by :meth:`AnalogData.data.setter`)
-
-            See also
-            --------
-            :func:`syncopy.definetrial`
-
-            """
+        See also
+        --------
+        :func:`syncopy.definetrial`
+        """
 
         if dimord is None:
             dimord = self._defaultDimord
@@ -803,6 +791,9 @@ class TimeLockData(ContinuousData):
         # A `h5py.Dataset` holding covariance of `data`, or `None` if not computed yet.
         self._cov = None
 
+        # set as instance attribute to allow modification
+        self._hdfFileDatasetProperties = ContinuousData._hdfFileDatasetProperties + ("avg", "var", "cov",)
+
     @property
     def avg(self):
         return self._avg
@@ -816,34 +807,46 @@ class TimeLockData(ContinuousData):
         return self._cov
 
     @ContinuousData.trialdefinition.setter
-    def trialdefinition(self, trl):
+    def trialdefinition(self, trldef):
         """
         Override trialdefinition setter, which is special for time-locked data:
         all trials have to have the same length and relative timings.
 
-        So the trialdefinition has 0 offsets everywhere, and it has the general
+        So the trialdefinition has the same offsets everywhere, and it has the general
         simple structure:
-                              [[0, nTime, 0],
-                              [nTime, 2 * nTime, 0],
-                              [2 * nTime, 3 * nTime, 0],
+                              [[0, nSamples, offset],
+                              [nSamples, 2 * nSamples, offset],
+                              [2 * nSamples, 3 * nSamples, offset],
                               ...]
         """
 
         # first harness all parsers here
-        _definetrial(self, trialdefinition=trl)
+        _definetrial(self, trialdefinition=trldef)
 
         # now check for additional conditions
-        if not np.unique(trl[:, 2]).size == 1:
-            self.trialdefinition = None
-            lgl = "equal offsets for timelocked data"
-            act = "different offsets"
-            raise SPYValueError(lgl, varname="trialdefinition", actual=act)
+
+        # FIXME: not clear, is timelocked data to be expected
+        # to have same offsets?!
+        # if not np.unique(trldef[:, 2]).size == 1:
+        #     lgl = "equal offsets for timelocked data"
+        #     act = "different offsets"
+        #     raise SPYValueError(lgl, varname="trialdefinition", actual=act)
 
         # diff-diff should give 0 -> same number of samples for each trial
-        if not np.all(np.diff(trl, axis=0, n=2) == 0):
-            self.trialdefinition = None
-            lgl = "all trials/entities of same length for timelocked data"
-            act = "non-equally sized trials defined"
+        if not np.all(np.diff(trldef, axis=0, n=2) == 0):
+            lgl = "all trials of same length for timelocked data"
+            act = "unequal sized trials defined"
             raise SPYValueError(lgl, varname="trialdefinition", actual=act)
 
     # TODO - overload `time` property, as there is only one by definition!
+
+    # implement plotting
+    def singlepanelplot(self, shifted=True, **show_kwargs):
+
+        figax = sp_plotting.plot_AnalogData(self, shifted, **show_kwargs)
+        return figax
+
+    def multipanelplot(self, **show_kwargs):
+
+        figax = mp_plotting.plot_AnalogData(self, **show_kwargs)
+        return figax

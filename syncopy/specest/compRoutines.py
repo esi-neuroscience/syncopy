@@ -400,7 +400,6 @@ def mtmconvol_cF(
         return np.nanmean(spec, axis=1, keepdims=True)
     return spec
 
-
 class MultiTaperFFTConvol(ComputationalRoutine):
     """
     Compute class that performs time-frequency analysis of :class:`~syncopy.AnalogData` objects
@@ -807,7 +806,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
     cfg : dict
         Config dictionary attribute of `ComputationalRoutine` subclass
     trialdefinition : 2D :class:`numpy.ndarray`
-        Provisional trialdefnition array either directly copied from the
+        Provisional trialdefinition array either directly copied from the
         :class:`~syncopy.AnalogData` input object or computed by the
         :class:`~syncopy.datatype.base_data.Selector` class.
     samplerate : float

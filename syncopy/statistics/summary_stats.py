@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Syncopy object simple statistics (mean, std, ...)
+# Syncopy object simple summary statistics (mean, std, ...)
 #
 
 
@@ -14,7 +14,7 @@ from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import process_io, unwrap_select, detect_parallel_client
 
-__all__ = ['mean', 'std', 'var', 'median']
+__all__ = ['mean', 'std', 'var', 'median', 'itc']
 
 
 @unwrap_select
@@ -105,13 +105,13 @@ def var(spy_data, dim, keeptrials=True, **kwargs):
     Parameters
     ----------
     spy_data : Syncopy data object
-        The object where a variance is to be computed
+        The object where a variance is to be computed.
     dim : str
         Dimension label over which to calculate the statistic.
         Must be present in the ``spy_data`` object,
-        e.g. 'channel' or 'trials'
+        e.g. 'channel' or 'trials'.
     keeptrials : bool
-        Set to ``False`` to trigger additional trial averaging
+        Set to ``False`` to trigger additional trial averaging.
         Has no effect if ``dim='trials'``.
 
     Returns
@@ -154,7 +154,7 @@ def median(spy_data, dim, keeptrials=True, **kwargs):
     Returns
     -------
     res : Syncopy data object
-        New object with the desired dimension averaged out
+        New object with the median of the desired dimension
 
     """
 
@@ -164,6 +164,52 @@ def median(spy_data, dim, keeptrials=True, **kwargs):
                        dim=dim,
                        keeptrials=keeptrials,
                        **kwargs)
+
+@unwrap_select
+def itc(spec_data, **kwargs):
+    """
+    Calculates the inter trial coherence for a
+    SpectralData ``spec_data`` object, the input
+    spectrum needs to be complex.
+    The ITC of N trials is given by the length
+    of the complex mean of vectors z_i(f):
+
+        1/N \sum z_i / |z_i|
+
+    and have therefore values between 0 and 1.
+    In the literature this measure is also often
+    called the `Kuramoto order parameter`.
+
+    For time-frequency spectra the trial sizes
+    have to match exactly, and the output will
+    be also additionally time dependent.
+
+    Parameters
+    ----------
+    spec_data : :class:`~syncopy.SpectralData`
+        The input spectrum, needs at least 2 trials
+
+    Returns
+    -------
+    res  : :class:`~syncopy.SpectralData`
+        The frequency dependent order parameters,
+        the inter trial coherence
+    """
+
+    data_parser(spec_data,
+                varname='spec_data',
+                dataclass='SpectralData',
+                empty=False)
+
+    if spec_data.data.dtype != np.complex64 and spec_data.data.dtype != np.complex128:
+        lgl = "complex valued spectra, set `output='fourier` in spy.freqanalysis!"
+        act = "real valued spectral data"
+        raise SPYValueError(lgl, 'spec_data', act)
+
+    # takes care of remaining checks
+    res = _trial_statistics(spec_data, operation='itc')
+
+    return res
 
 
 def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
@@ -256,6 +302,7 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
 
     # revert helper all-to-all selection
     if hasattr(spy_data.selection, '_cleanup'):
+        spy_data.cfg.pop('selectdata')
         spy_data.selection = None
 
     return out
@@ -394,6 +441,12 @@ def _trial_statistics(in_data, operation='mean'):
         in_data.selectdata(inplace=True)
         in_data.selection._cleanup = True
 
+    nTrials = len(in_data.selection.trials)
+    if nTrials <= 1:
+        lgl = "at least 2 trials"
+        act = f"got {nTrials} trials"
+        raise SPYValueError(lgl, 'in_data', act)
+
     # we always have at least one (all-to-all) trial selection
     out_shape = in_data.selection.trials[0].shape
 
@@ -416,6 +469,9 @@ def _trial_statistics(in_data, operation='mean'):
         result = _trial_var(in_data, result)
     elif operation == 'std':
         result = np.sqrt(_trial_var(in_data, result))
+    elif operation == 'itc':
+        result = np.abs(_trial_circ_average(in_data, result))
+
     # there is no apparent clever way to achieve
     # this efficiently over multiple dimensions
     elif operation == 'median':
@@ -429,7 +485,7 @@ def _trial_statistics(in_data, operation='mean'):
 
     # only 1 trial left, all trials had to have the same shape
     # so just copy from the 1st
-    out_data.trialdefinition = in_data.trialdefinition[0, :][None, :]
+    out_data.trialdefinition = in_data.selection.trialdefinition[0, :][None, :]
 
     # propagate the rest of the properties
     for prop in in_data.selection._dimProps:
@@ -438,6 +494,11 @@ def _trial_statistics(in_data, operation='mean'):
             if np.issubdtype(type(selection), np.number):
                 selection = [selection]
             setattr(out_data, prop, getattr(in_data, prop)[selection])
+
+    # revert helper all-to-all selection
+    if hasattr(in_data.selection, '_cleanup'):
+        in_data.cfg.pop('selectdata')
+        in_data.selection = None
 
     return out_data
 
@@ -457,7 +518,7 @@ def _trial_average(in_data, out_arr):
 
     trials = in_data.selection.trials
     for trl in trials:
-        out_arr = np.nansum([out_arr, trl], axis=0)
+        out_arr += trl
 
     # normalize
     out_arr /= len(trials)
@@ -485,7 +546,7 @@ def _trial_var(in_data, out_arr):
     trials = in_data.selection.trials
     for trl in trials:
         # absolute value for complex numbers
-        out_arr = np.sum([out_arr, (np.abs(trl - average))**2], axis=0)
+        out_arr += np.abs(trl - average)**2
 
     # normalize
     out_arr /= len(trials)
@@ -493,8 +554,37 @@ def _trial_var(in_data, out_arr):
     return out_arr
 
 
+def _trial_circ_average(in_data, out_arr):
+    """
+    Sequential complex average, can be used for
+    inter trial coherence (order parameter) or mean phase estimation.
+    Shape checking and dealing with selections is done in `_trial_statistics`.
+
+    Parameters
+    ----------
+    in_data : Syncopy data object
+        To get a fresh trial indexer instance, pointing to the trial arrays
+    out_arr : np.ndarray
+        The empty NumPy array of correct shape to collect the results
+    """
+
+    trials = in_data.selection.trials
+    for trl in trials:
+        # add cartesian unit vectors
+        out_arr += trl / np.abs(trl)
+
+    # normalize
+    out_arr /= len(trials)
+
+    # and return complex resultant vector
+
+    return out_arr
+
+
 def _attach_stat_doc(orig_doc):
     """
+    NOT USED ATM - could be useful for other method doc strings
+
     This is a helper to attach the full doc to the statistical methods in ContinuousData.
     Including the `select` and `parallel` sections from the kwarg decorators,
     which can/should only be applied once.

@@ -49,25 +49,16 @@ chanSelections = [
     "channel02",  # str selection
     1  # scalar selection
 ]
-toiSelections = [
-    "all",  # non-type-conform string
-    0.6,  # single inexact match
-    [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
+latencySelections = [
+    'all',
+    'minperiod',
+    [0.5, 1.5],  # regular range - 'maxperiod'
+    [1., 1.5],
 ]
-toilimSelections = [
-    [0.5, 1.5],  # regular range
-    [1.5, 2.0],  # minimal range (just two-time points)
-    [1.0, np.inf]  # unbounded from above
-]
-foiSelections = [
-    "all",  # non-type-conform string
-    2.6,  # single inexact match
-    [1.1, 1.9, 2.1, 3.9, 9.2, 11.8, 12.9, 5.1, 13.8]  # unordered, inexact, repetions
-]
-foilimSelections = [
+frequencySelections = [
     [2, 11],  # regular range
     [1, 2.0],  # minimal range (just two-time points)
-    [1.0, np.inf]  # unbounded from above
+    # [1.0, np.inf]  # unbounded from above, dropped support
 ]
 taperSelections = [
     ["TestTaper_03", "TestTaper_01", "TestTaper_01", "TestTaper_02"],  # string selection w/repetition + unordered
@@ -77,10 +68,8 @@ taperSelections = [
     range(2, 5),  # narrow range
     slice(0, 5, 2),  # slice w/non-unitary step-size
 ]
-timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
-    + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
-freqSelections = list(zip(["foi"] * len(foiSelections), foiSelections)) \
-    + list(zip(["foilim"] * len(foilimSelections), foilimSelections))
+timeSelections = list(zip(["latency"] * len(latencySelections), latencySelections))
+freqSelections = list(zip(["frequency"] * len(frequencySelections), frequencySelections))
 
 
 # Local helper function for performing basic arithmetic tests
@@ -202,7 +191,6 @@ class TestAnalogData():
     def test_empty(self):
         dummy = AnalogData()
         assert len(dummy.cfg) == 0
-        assert dummy.dimord is None
         for attr in ["channel", "data", "sampleinfo", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
@@ -616,7 +604,8 @@ class TestAnalogData():
                         # data selection via class-method + `Selector` instance for indexing
                         selected = obj.selectdata(**kwdict)
                         time.sleep(0.001)
-                        selector = Selector(obj, kwdict)
+                        spy.selectdata(obj, kwdict, inplace=True)
+                        selector = obj.selection
                         idx[chanIdx] = selector.channel
                         for tk, trialno in enumerate(selector.trial_ids):
                             idx[timeIdx] = selector.time[tk]
@@ -661,7 +650,7 @@ class TestAnalogData():
             kwdict = {}
             kwdict["trials"] = trialSelections[1]
             kwdict["channel"] = chanSelections[3]
-            kwdict[timeSelections[4][0]] = timeSelections[4][1]
+            kwdict[timeSelections[2][0]] = timeSelections[2][1]
             _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
@@ -699,7 +688,6 @@ class TestSpectralData():
     def test_sd_empty(self):
         dummy = SpectralData()
         assert len(dummy.cfg) == 0
-        assert dummy.dimord is None
         for attr in ["channel", "data", "freq", "sampleinfo", "taper", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
@@ -824,7 +812,8 @@ class TestSpectralData():
                                 # data selection via class-method + `Selector` instance for indexing
                                 selected = obj.selectdata(**kwdict)
                                 time.sleep(0.001)
-                                selector = Selector(obj, kwdict)
+                                spy.selectdata(obj, kwdict, inplace=True)
+                                selector = obj.selection
                                 idx[chanIdx] = selector.channel
                                 idx[freqIdx] = selector.freq
                                 idx[taperIdx] = selector.taper
@@ -883,8 +872,8 @@ class TestSpectralData():
             kwdict = {}
             kwdict["trials"] = trialSelections[1]
             kwdict["channel"] = chanSelections[3]
-            kwdict[timeSelections[4][0]] = timeSelections[4][1]
-            kwdict[freqSelections[4][0]] = freqSelections[4][1]
+            kwdict[timeSelections[2][0]] = timeSelections[2][1]
+            kwdict[freqSelections[1][0]] = freqSelections[1][1]
             kwdict["taper"] = taperSelections[2]
             _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
@@ -1046,7 +1035,8 @@ class TestCrossSpectralData():
                                 # data selection via class-method + `Selector` instance for indexing
                                 selected = obj.selectdata(**kwdict)
                                 time.sleep(0.001)
-                                selector = Selector(obj, kwdict)
+                                spy.selectdata(obj, kwdict, inplace=True)
+                                selector = obj.selection
                                 idx[chanIdx] = selector.channel_i
                                 idx[chanJdx] = selector.channel_j
                                 idx[freqIdx] = selector.freq
@@ -1103,8 +1093,8 @@ class TestCrossSpectralData():
             kwdict["trials"] = trialSelections[1]
             kwdict["channel_i"] = chanSelections[3]
             kwdict["channel_j"] = chanSelections[4]
-            kwdict[timeSelections[4][0]] = timeSelections[4][1]
-            kwdict[freqSelections[4][0]] = freqSelections[4][1]
+            kwdict[timeSelections[2][0]] = timeSelections[2][1]
+            kwdict[freqSelections[1][0]] = freqSelections[1][1]
             _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
@@ -1142,7 +1132,7 @@ class TestTimeLockData:
         tld = TimeLockData()
 
         avg_data = np.zeros((3, 3), dtype=np.float64)
-        tld._update_seq_dataset("avg", avg_data)
+        tld._update_dataset("avg", avg_data)
         assert isinstance(tld.avg, h5py.Dataset)
         assert np.array_equal(avg_data, tld.avg)
 
@@ -1151,8 +1141,8 @@ class TestTimeLockData:
         with pytest.raises(AttributeError, match="can't set attribute"):
             tld.avg = avg_data2
 
-        # But we can do it with _update_seq_dataset:
-        tld._update_seq_dataset("avg", avg_data2)
+        # But we can do it with _update_dataset:
+        tld._update_dataset("avg", avg_data2)
         assert np.array_equal(avg_data2, tld.avg)
 
         # ... or of course, directly using '_avg':
@@ -1162,227 +1152,9 @@ class TestTimeLockData:
         assert np.array_equal(avg_data3, tld2.avg)
 
 
-class TestStatistics:
-
-    # initialize rng instance
-    rng = np.random.default_rng(helpers.test_seed)
-
-    # lognormal distribution parameters
-    mu, sigma = 2, .5
-
-    nTrials = 4
-    nChannels = 3
-    nSamples = 10
-    nFreq = 10
-    nTaper = 2
-
-    ln_samples = rng.lognormal(mu, sigma, size=(nTrials, nSamples, nChannels))
-    adata = AnalogData(data=[trl for trl in ln_samples], samplerate=1)
-
-    ln_samples = rng.lognormal(mu, sigma, size=(nTrials, nSamples, nTaper, nFreq, nChannels))
-    spec_data = SpectralData(data=[trl for trl in ln_samples], samplerate=1)
-
-    ln_samples = rng.lognormal(mu, sigma, size=(nTrials, nSamples, nFreq, nChannels, nChannels))
-    crossspec_data = CrossSpectralData(data=[trl for trl in ln_samples], samplerate=1)
-
-    data_types = [adata, spec_data, crossspec_data]
-
-    def test_dim_statistics(self):
-        """
-        Tests statistics over dimensions, not trials
-        """
-
-        # check only 2nd trial
-        test_trial = 1
-
-        for spy_data in self.data_types:
-            for dim in spy_data.dimord:
-
-                # get index of dimension
-                axis = spy_data.dimord.index(dim)
-
-                # -- test average --
-
-                # data class method
-                spy_res1 = spy_data.mean(dim=dim)
-                # top-level function
-                spy_res2 = spy.mean(spy_data, dim=dim)
-                # check only one trial
-                npy_res = np.mean(spy_data.trials[test_trial], axis=axis)
-
-                self._check_trial('mean', dim, spy_res1, npy_res, trial=test_trial)
-                self._check_trial('mean', dim, spy_res2, npy_res, trial=test_trial)
-
-                # --- test variance ---
-
-                # data class method
-                spy_res1 = spy_data.var(dim=dim)
-                # top-level function
-                spy_res2 = spy.var(spy_data, dim=dim)
-                # check only one trial
-                npy_res = np.var(spy_data.trials[test_trial], axis=axis)
-
-                self._check_trial('var', dim, spy_res1, npy_res, trial=test_trial)
-                self._check_trial('var', dim, spy_res2, npy_res, trial=test_trial)
-
-                # --- test standard deviation ---
-
-                # data class method
-                spy_res1 = spy_data.std(dim=dim)
-                # top-level function
-                spy_res2 = spy.std(spy_data, dim=dim)
-                # check only one trial
-                npy_res = np.std(spy_data.trials[test_trial], axis=axis)
-
-                self._check_trial('std', dim, spy_res1, npy_res, trial=test_trial)
-                self._check_trial('std', dim, spy_res2, npy_res, trial=test_trial)
-
-                # --- test median ---
-
-                # data class method
-                spy_res1 = spy_data.median(dim=dim)
-                # top-level function
-                spy_res2 = spy.median(spy_data, dim=dim)
-                # check only one trial
-                npy_res = np.median(spy_data.trials[test_trial], axis=axis)
-
-                self._check_trial('median', dim, spy_res1, npy_res, trial=test_trial)
-                self._check_trial('median', dim, spy_res2, npy_res, trial=test_trial)
-
-    def _check_trial(self, operation, dim, spy_res, npy_res, trial=1):
-        """
-        Test that direct numpy stats give the same results
-        for a single trial
-        """
-
-        # show returns list of trials, pick only one
-        # show also squeezes out the singleton dimension
-        # which remains after the statistic got computed!
-        trial_result_spy = spy_res.show()[trial]
-        assert np.allclose(trial_result_spy, npy_res)
-
-        # check the dimension label was set to the statistical operation
-        if dim not in ['freq', 'time']:
-            assert getattr(spy_res, dim) == operation
-        # numerical dimension labels get set to 0 (axis is gone)
-        elif dim == 'time':
-            assert spy_res.time[trial] == 0
-        elif dim == 'freq':
-            assert spy_res.freq == 0
-
-    def test_trial_statistics(self):
-        """
-        Test statistics over trials
-        """
-
-        # --- test statistics trial average against CR trial average ---
-
-        spec = spy.freqanalysis(self.adata, keeptrials=True)
-        # trigger trial average after spectral estimation
-        spec1 = spec.mean(dim='trials')
-        spec1a = spy.mean(spec, dim='trials')
-
-        # trial average via CR keeptrials
-        spec2 = spy.freqanalysis(self.adata, keeptrials=False)
-
-        assert len(spec1.trials) == 1
-        assert np.allclose(spec1.data, spec2.data)
-        assert np.allclose(spec1a.data, spec2.data)
-
-        # --- test trial var and std ---
-        for spy_data in self.data_types:
-
-            spy_var = spy_data.var(dim='trials')
-
-            # reshape to get rid of trial stacking along time axis
-            # array has shape (nTrials, nSamples, ..rest-of-dims..)
-            arr = spy_data.data[()].reshape(self.nTrials, self.nSamples, *spy_data.data.shape[1:])
-            # now compute directly over the trial axis
-            npy_var = np.var(arr, axis=0)
-
-            assert len(spy_var.trials) == 1
-            assert np.allclose(npy_var, spy_var.data)
-
-            spy_std = spy_data.std(dim='trials')
-
-            # reshape to get rid of trial stacking along time axis
-            # array has shape (nTrials, nSamples, ..rest-of-dims..)
-            arr = spy_data.data[()].reshape(self.nTrials, self.nSamples, *spy_data.data.shape[1:])
-            # now compute directly over the trial axis
-            npy_std = np.std(arr, axis=0)
-
-            assert len(spy_var.trials) == 1
-            assert np.allclose(npy_std, spy_std.data)
-
-    def test_selections(self):
-
-        # got 10 samples with 1s samplerate,so time is [-1, ..., 8]
-        sdict1 = {'trials': [1, 3], 'toilim': [2, 6]}
-        res = self.adata.mean(dim='channel', select=sdict1)
-        assert len(res.trials) == 2
-        assert self.adata.time[0].min() == -1
-        assert res.time[0].min() == 2
-        assert self.adata.time[0].max() == 8
-        assert res.time[0].max() == 6
-
-        # freq axis is [0, ..., 9]
-        sdict2 = {'channel': [0, 2], 'foilim': [1, 5]}
-        res = self.spec_data.var(dim='trials', select=sdict2)
-        assert np.all(res.channel == np.array(['channel1', 'channel3']))
-        assert np.all(res.freq == np.arange(1, 6))
-
-        # check at least a few times that the statistics are indeed
-        # computed correctly on the trimmed down data
-        sdict3 = {'trials': [1, 3]}
-        res = spy.mean(self.crossspec_data, dim='trials', select=sdict3)
-        # reshape to extract trial separated arrays
-        arr = self.crossspec_data.data[()].reshape(self.nTrials, self.nSamples,
-                                                   self.nFreq, self.nChannels, self.nChannels)
-        # now cut out the same 2 trials and average
-        npy_res = arr[1::2].mean(axis=0)
-        assert np.allclose(npy_res, res.data)
-
-        sdict4 = {'channel': [0, 2]}
-        res = spy.mean(self.spec_data, dim='channel', select=sdict4)
-        # now cut out the same 2 channels and average, dimord is (time, taper, freq, channel)
-        npy_res = self.spec_data.data[..., ::2].mean(axis=-1)
-        # check only 1st trial
-        assert np.allclose(npy_res[:self.nSamples], res.show(trials=0))
-
-        # one last time for the freq axis
-        sdict5 = {'foilim': [1, 4]}
-        res = spy.median(self.spec_data, dim='freq', select=sdict5)
-        # cut out same frequencies directly from the dataset array
-        npy_res = np.median(self.spec_data.data[..., 1:5, :], axis=2)
-        # check only 2nd trial
-        assert np.allclose(npy_res[self.nSamples:2 * self.nSamples], res.show(trials=1))
-
-    def test_exceptions(self):
-
-        with pytest.raises(SPYValueError) as err:
-            spy.mean(self.adata, dim='sth')
-        assert "expected one of ['time', 'channel']" in str(err.value)
-
-        # unequal trials and trial average can't work
-        with pytest.raises(SPYValueError) as err:
-            # to not screw sth up
-            adata_cpy = spy.copy(self.adata)
-            trldef = adata_cpy.trialdefinition
-            trldef[2] = [21, 25, -1]
-            adata_cpy.trialdefinition = trldef
-            spy.mean(adata_cpy, dim='trials')
-        assert "found trials of different shape" in str(err.value)
-
-    def test_stat_parallel(self, testcluster=None):
-        client = dd.Client(testcluster)
-        self.test_selections()
-        # should have no effect here
-        self.test_trial_statistics()
-
-
 if __name__ == '__main__':
 
-    T1 = TestCrossSpectralData()
-    T2 = TestTimeLockData()
-    T3 = TestStatistics()
+    T1 = TestAnalogData()
+    T2 = TestSpectralData()
+    T3 = TestTimeLockData()
     T4 = TestCrossSpectralData()
