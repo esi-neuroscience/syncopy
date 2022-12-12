@@ -78,7 +78,7 @@ def test_cleanup():
     process2 = subprocess.Popen([sys.executable, "-c", commandStr],
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                  text=True)
-    time.sleep(5)
+    time.sleep(10)
 
     # ensure `cleanup` call removed first instance's garbage but 2nd `AnalogData`
     # belonging to 2nd instance launched above is unharmed
