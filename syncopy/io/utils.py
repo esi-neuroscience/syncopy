@@ -297,8 +297,10 @@ def _rm_session(session_files):
     """
     Local helper for deleting tmp data of a given spy session
     """
-
-    [os.unlink(file) if os.path.isfile(file) else shutil.rmtree(file) \
-     for file in session_files]
+    for file in session_files:
+        try:
+            os.unlink(file) if os.path.isfile(file) else shutil.rmtree(file)
+        except Exception as ex:
+            pass
 
     return
