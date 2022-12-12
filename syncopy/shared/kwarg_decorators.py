@@ -8,15 +8,16 @@ import functools
 import h5py
 import inspect
 import numpy as np
+import dask.distributed as dd
+
 
 # Local imports
 from syncopy.shared.errors import (SPYTypeError, SPYValueError,
-                                   SPYError, SPYWarning)
+                                   SPYError, SPYWarning, SPYInfo)
 from syncopy.shared.tools import StructDict
+from syncopy.shared.metadata import h5_add_metadata, parse_cF_returns
+from .dask_helpers import check_slurm_available, check_workers_available
 import syncopy as spy
-if spy.__acme__:
-    import dask.distributed as dd
-    from acme.dask_helpers import esi_cluster_setup, cluster_cleanup
 
 __all__ = []
 
@@ -57,9 +58,9 @@ def unwrap_cfg(func):
         4. Perform the actual unwrapping: at this point, a provided `cfg` only
            contains keyword arguments of `func`. If the (first) input object `data`
            was provided as `cfg` entry, it already exists in the local namespace.
-           If not, then by convention, `data` makes up the first elements of the
+           If not, then by convention, `data` is the first element of the
            (remaining) positional argument list. Thus, the metafunction can now
-           be called via ``func(*data, *args, **kwargs)``.
+           be called via ``func(data, *args, **kwargs)``.
         5. Amend the docstring of `func`: add a one-liner mentioning the possibility
            of using `cfg` when calling `func` to the header of its docstring.
            Append a paragraph to the docstrings' "Notes" section illustrating
@@ -80,20 +81,13 @@ def unwrap_cfg(func):
     * ``func(cfg, data)``: `cfg` exclusively contains keyword arguments of `func`,
       `data` is a Syncopy data object.
     * ``func(data, cfg)``: same as above
-    * ``func(data1, data2, data3, cfg)``: same as above with multiple Syncopy
-      data objects. **Note**: the `cfg` object has to be valid for *all* provided
-      input objects!
     * ``func(data, cfg=cfg)``: same as above, but `cfg` itself is provided as
       keyword argument
-    * ``func(data1, data2, cfg=cfg)``: same as above, but `cfg` itself is provided as
-      keyword argument for multiple input objects.
     * ``func(cfg)``: `cfg` contains a field `data` or `dataset` (not both!)
       holding one or more Syncopy data objects used as input of `func`
     * ``func(cfg=cfg)``: same as above with `cfg` being provided as keyword
     * ``func(data, kw1=val1, kw2=val2)``: standard Python call style with keywords
       being provided explicitly
-    * ``func(data1, data2, kw1=val1, kw2=val2)``: same as above with multiple input
-      objects
     * ``func(data, cfg, kw2=val2)``: valid if `cfg` does NOT contain `'kw2'`
 
 
@@ -101,8 +95,6 @@ def unwrap_cfg(func):
 
     * ``func(data, cfg, cfg=cfg)``: `cfg` must not be provided as positional and
       keyword argument
-    * ``func(data, cfg, kw1=val1)``: if `cfg` is provided, any non-default
-      keyword-values must be provided as `cfg` entries
     * ``func(cfg, {})``: every dict in `func`'s positional argument list is interpreted
       as `cfg` "structure"
     * ``func(data, cfg=value)``: `cfg` must be a Python dict or :class:`~syncopy.StructDict`
@@ -232,35 +224,39 @@ def unwrap_cfg(func):
         # args (besides `cfg`) do *not* contain add'l objects; ensure `data` exclusively
         # contains Syncopy data objects. Finally, rename remaining positional arguments
         if data:
-            if not isinstance(data, (tuple, list)):
-                data = [data]
             if any([isinstance(arg, spy.datatype.base_data.BaseData) for arg in args]):
-                lgl = "Syncopy data object(s) provided either via `cfg`/keyword or " +\
+                lgl = "Syncopy data object provided either via `cfg`/keyword or " +\
                     "positional arguments, not both"
                 raise SPYValueError(legal=lgl, varname="cfg/data")
             if kwargs.get("data") or kwargs.get("dataset"):
-                lgl = "Syncopy data object(s) provided either via `cfg` or as " +\
+                lgl = "Syncopy data object provided either via `cfg` or as " +\
                     "keyword argument, not both"
                 raise SPYValueError(legal=lgl, varname="cfg.data")
-            if any([not isinstance(obj, spy.datatype.base_data.BaseData) for obj in data]):
-                raise SPYError("`data` must be Syncopy data object(s)!")
+            if not isinstance(data, spy.datatype.base_data.BaseData):
+                raise SPYError("`data` must be Syncopy data object!")
             posargs = args
 
         # If `data` was not provided via `cfg` or as kw-arg, parse positional arguments
         if data is None:
-            data = []
             posargs = []
             while args:
                 arg = args.pop(0)
+                if data is not None and isinstance(arg, spy.datatype.base_data.BaseData):
+                    lgl = "only one Syncopy data object"
+                    raise SPYValueError(lgl, varname='data')
                 if isinstance(arg, spy.datatype.base_data.BaseData):
-                    data.append(arg)
+                    data = arg
                 else:
                     posargs.append(arg)
 
-        # Call function with unfolded `data` + modified positional/keyword args
-        return func(*data, *posargs, **cfg)
+        # if there was no Syncopy data found at this point, we have to give up
+        if data is None:
+            raise SPYError("Found no Syncopy data object as input")
 
-    # Append one-liner to docstring header mentioning the use of `cfg`
+        # Call function with unfolded `data` + modified positional/keyword args
+        return func(data, *posargs, **cfg)
+
+    # Append two-liner to docstring header mentioning the use of `cfg`
     introEntry = \
     "    \n" +\
     "    The parameters listed below can be provided as is or a via a `cfg`\n" +\
@@ -367,19 +363,30 @@ def unwrap_select(func):
     def wrapper_select(*args, **kwargs):
 
         # Either extract `select` from input kws and cycle through positional
-        # argument to apply in-place selection to all Syncopy objects, or clean
-        # any unintended leftovers in `selection` if no `select` keyword was provided
+        # argument to apply in-place selection to the Syncopy object, or raise
+        # an error if a selection is already present and `select` is not None
         select = kwargs.get("select", None)
+        attached_selection = False
         for obj in args:
+            # this hits all Syncopy data objects
             if hasattr(obj, "selection"):
-                obj.selection = select
+                if obj.selection is None and select is not None:
+                    obj.selection = select
+                    attached_selection = True
+                    # we have one and only one input data object
+                    break
+                else:
+                    if select is not None:
+                        raise SPYError(f"Selection found both in kwarg 'selection' ({select}) and in \npassed Syncopy Data object of type '{type(obj)}' ({obj.selection})")
+
 
         # Call function with modified data object(s)
         res = func(*args, **kwargs)
 
         # Wipe data-selection slot to not alter user objects
+        # if the selection got attached by this wrapper here
         for obj in args:
-            if hasattr(obj, "selection"):
+            if hasattr(obj, "selection") and attached_selection:
                 obj.selection = None
 
         return res
@@ -388,7 +395,7 @@ def unwrap_select(func):
     selectDocEntry = \
     "    select : dict or :class:`~syncopy.shared.tools.StructDict` or str\n" +\
     "        In-place selection of subset of input data for processing. Please refer\n" +\
-    "        to :func:`syncopy.selectdata` for further usage details. \n"
+    "        to :func:`syncopy.selectdata` for further usage details."
     wrapper_select.__doc__ = _append_docstring(func, selectDocEntry)
     wrapper_select.__signature__ = _append_signature(func, "select")
 
@@ -399,6 +406,24 @@ def detect_parallel_client(func):
     """
     Decorator for handling parallelization via `parallel` keyword/client detection
 
+    Any already initialized Dask cluster always takes precedence
+    with both `parallel=True` and `parallel=None`. This gets checked via `dd.get_client()`,
+    and hence if a Dask cluster was set up before, Syncopy (and also potentially ACME later) will just
+    pass-through this one to the compute classes.
+    In case no cluster is running, only a dedicated `parallel=True` will spawn either a new
+    Dask cluster down the road via ACME (if on a slurm cluster) or a new LocalCluster as a default fallback.
+    The LocalCluster gets closed again after the wrapped function exited.
+
+    If `parallel` is `None`:
+        First attempts to connect to a running dask parallel processing client. If successful,
+        `parallel` is set to `True` and updated in `func`'s keyword argument dict.
+        If no client is found `parallel` is set to `False`
+    If `parallel` is True and ACME is installed AND we are on a slurm cluster:
+        Do nothing and forward all the parallelization setup with `parallel=True`
+        to the CR and ultimately ACME
+    If `parallel` is True and ACME is NOT installed OR we ar NOT on a slurm cluster:
+        Fire up a standard dask LocalCluster and forward `parallel=True` to func
+
     Parameters
     ----------
     func : callable
@@ -408,13 +433,9 @@ def detect_parallel_client(func):
     -------
     parallel_client_detector : callable
         Wrapped function; `parallel_client_detector` attempts to extract `parallel`
-        from keywords provided to `func`. If `parallel` is `True` or `None`
-        (i.e., was not provided) and dask is available, `parallel_client_detector`
-        attempts to connect to a running dask parallel processing client. If successful,
-        `parallel` is set to `True` and updated in `func`'s keyword argument dict.
-        If no client is found or dask is not available, a corresponding warning
-        message is printed and `parallel` is set to `False` and updated in `func`'s
-        keyword argument dict. After successfully calling `func` with the modified
+        from keywords provided to `func`.
+
+        After successfully calling `func` with the modified
         input arguments, `parallel_client_detector` modifies `func` itself:
 
         1. The "Parameters" section in the docstring of `func` is amended by an
@@ -444,63 +465,73 @@ def detect_parallel_client(func):
 
         # Extract `parallel` keyword: if `parallel` is `False`, nothing happens
         parallel = kwargs.get("parallel")
+        kill_spawn = False
+        has_slurm = check_slurm_available()
+        # warning only emitted if slurm available but no ACME or Dask client
+        slurm_msg = ""
 
-        # Determine if multiple or a single object was supplied for processing
-        objList = []
-        argList = list(args)
-        nTrials = 0
-        for arg in args:
-            if hasattr(arg, "trials"):
-                objList.append(arg)
-                nTrials = max(nTrials, len(arg.trials))
-                argList.remove(arg)
-        nObs = len(objList)
-
-        # If parallel processing was requested but ACME is not installed, show
-        # warning but keep going
-        if parallel is True and not spy.__acme__:
-            wrng = "ACME seems not to be installed on this system. " +\
-                   "Parallel processing capabilities cannot be used. "
-            SPYWarning(wrng)
-            parallel = False
-
-        # If ACME is available but `parallel` was not set *and* no active
-        # dask client is found, set `parallel` to`False` (i.e., sequential
-        # processing as default)
-        clientRunning = False
-        if parallel is None and spy.__acme__:
+        # This effectively searches for a global dask cluster, and sets
+        # parallel=True if one was found. If no cluster was found, parallel is set to False,
+        # so no automatic spawing of a LocalCluster or SLURMCluster via ACME,
+        # this needs explicit `parallel=True`.
+        if parallel is None:
             try:
-                dd.get_client()
+                client = dd.get_client()
+                check_workers_available(client.cluster)
+                msg = f"..attaching to running Dask client:\n{client}"
+                SPYInfo(msg)
                 parallel = True
-                clientRunning = True
             except ValueError:
                 parallel = False
 
-        # If only one object was supplied, a dask client is set up in `ComputationalRoutine`;
-        # for multiple objects, count the total number of trials and start a "global"
-        # computing client with `n_jobs = nTrials` in here (unless a client is already running)
-        cleanup = False
-        if parallel and not clientRunning and nObs > 1:
-            msg = "Syncopy <{fname:s}> Launching parallel computing client " +\
-                    "to process {no:d} objects..."
-            print(msg.format(fname=func.__name__, no=nObs))
-            client = esi_cluster_setup(n_jobs=nTrials, interactive=False)
-            cleanup = True
+        # If parallel processing was requested but ACME is not installed and/or
+        # we are not on a slurm cluster, and no other Dask cluster is running,
+        # initialize a local dask cluster
+        elif parallel is True and (not has_slurm or not spy.__acme__):
+            # if already one cluster is reachable do nothing
+            try:
+                client = dd.get_client()
+                check_workers_available(client.cluster)
+                msg = f"..attaching to running Dask client:\n{client}"
+                SPYInfo(msg)
+            except ValueError:
+                # we are on a HPC but ACME and Dask client are missing,
+                # LocalCluster still gets created
+                if has_slurm and not spy.__acme__:
+                    slurm_msg = ("We are apparently on a slurm cluster but\n"
+                                 "Syncopy could not find a Dask client.\n"
+                                 "Syncopy does not provide an "
+                                 "automatic Dask SLURMCluster on its own!"
+                                 "\nPlease consider using ACME (https://github.com/esi-neuroscience/acme)"
+                                 "\nor configure your own cluster via `dask_jobqueue.SLURMCluster()`"
+                                 "\n\nCreating a LocalCluster as fallback.."
+                           )
+                    SPYWarning(slurm_msg)
+
+                # -- spawn fallback local cluster --
+
+                cluster = dd.LocalCluster()
+                # attaches to local cluster residing in global namespace
+                dd.Client(cluster)
+                kill_spawn = True
+                msg = ("No running Dask cluster found, created a local instance:\n"
+                       f"\t {cluster.scheduler}")
+                SPYInfo(msg)
 
         # Add/update `parallel` to/in keyword args
         kwargs["parallel"] = parallel
 
-        # Process provided object(s)
-        if nObs <= 1:
-            results = func(*args, **kwargs)
-        else:
-            results = []
-            for obj in objList:
-                results.append(func(obj, *argList, **kwargs))
+        results = func(*args, **kwargs)
 
-        # Kill "global" cluster started in here
-        if cleanup:
-            cluster_cleanup(client=client)
+        # kill local cluster
+        if kill_spawn:
+            # disconnect
+            dd.get_client().close()
+            # and kill
+            cluster.close()
+        # print again in case it got drowned
+        if slurm_msg:
+            SPYWarning(slurm_msg)
 
         return results
 
@@ -512,7 +543,7 @@ def detect_parallel_client(func):
     "        a dask parallel processing client is running and available. \n" +\
     "        Parallel processing can be manually disabled by setting `parallel` \n" +\
     "        to `False`. If `parallel` is `True` but no parallel processing client\n" +\
-    "        is running, computing will be performed sequentially. \n"
+    "        is running, computing will be performed sequentially."
     parallel_client_detector.__doc__ = _append_docstring(func, parallelDocEntry)
     parallel_client_detector.__signature__ = _append_signature(func, "parallel")
 
@@ -582,11 +613,17 @@ def process_io(func):
 
         # `trl_dat` is a NumPy array or `FauxTrial` object: execute the wrapped
         # function and return its result
-        if not isinstance(trl_dat, dict):
+        if not isinstance(trl_dat, (dict, tuple)):
+            # Adding the metadata is done in compute_sequential(), nothing to do here.
+            # Note that the return value of 'func' in the next line may be a tuple containing
+            # both the ndarray for 'data', and the 'details'.
             return func(trl_dat, *wrkargs, **kwargs)
 
-        ### Idea: hook .compute_sequential() from CR into here
-
+        # compatibility to adhere to the inargs the CRs produces: ill-formatted tuples
+        # which mix dicts, lists and even slices
+        if isinstance(trl_dat, tuple):
+            wrkargs = trl_dat[1:]
+            trl_dat = trl_dat[0]
 
         # The fun part: `trl_dat` is a dictionary holding components for parallelization
         keeptrials = trl_dat["keeptrials"]
@@ -602,21 +639,19 @@ def process_io(func):
         outgrid = trl_dat["outgrid"]
         outshape = trl_dat["outshape"]
         outdtype = trl_dat["dtype"]
+        call_id = trl_dat["call_id"]
 
         # === STEP 1 === read data into memory
         # Catch empty source-array selections; this workaround is not
         # necessary for h5py version 2.10+ (see https://github.com/h5py/h5py/pull/1174)
         if any([not sel for sel in ingrid]):
-            res = np.empty(outshape, dtype=outdtype)
+            res, details = np.empty(outshape, dtype=outdtype), {}
         else:
-            try:
-                with h5py.File(infilename, mode="r") as h5fin:
-                        if fancy:
-                            arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
-                        else:
-                            arr = np.array(h5fin[indset][ingrid])
-            except Exception as exc:  # TODO: aren't these 2 lines superfluous?
-                raise exc
+            with h5py.File(infilename, mode="r") as h5fin:
+                if fancy:
+                    arr = np.array(h5fin[indset][ingrid])[np.ix_(*sigrid)]
+                else:
+                    arr = np.array(h5fin[indset][ingrid])
 
             # === STEP 2 === perform computation
             # Ensure input array shape was not inflated by scalar selection
@@ -626,7 +661,14 @@ def process_io(func):
 
             # Now, actually call wrapped function
             # Put new outputs here!
-            res = func(arr, *wrkargs, **kwargs)
+            res, details = parse_cF_returns(func(arr, *wrkargs, **kwargs))
+            # User-supplied cFs may return a single numpy.ndarray, or a 2-tuple of type (ndarray, sdict) where
+            # 'ndarray' is a numpy.ndarray containing computation results to be stored in the Syncopy
+            # data type (like AnalogData),
+            #  and 'sdict' is a shallow dictionary containing meta data that will be temporarily
+            # attached to the hdf5 container(s)
+            # during the compute run, but removed/collected and returned as separate return values
+            # to the user in the frontend.
 
             # In case scalar selections have been performed, explicitly assign
             # desired output shape to re-create "lost" singleton dimensions
@@ -639,24 +681,22 @@ def process_io(func):
         if vdsdir is not None:
             with h5py.File(outfilename, "w") as h5fout:
                 h5fout.create_dataset(outdset, data=res)
-                # add new dataset/attribute to capture new outputs
+                h5_add_metadata(h5fout, details, unique_key_suffix=call_id)
                 h5fout.flush()
         else:
 
             # Create distributed lock (use unique name so it's synced across workers)
             lock = dd.lock.Lock(name='sequential_write')
-
             # Either (continue to) compute average or write current chunk
             lock.acquire()
             with h5py.File(outfilename, "r+") as h5fout:
-                # get unique id (from outgrid?)
-                # to attach additional outputs
-                # to the one and only hdf5 container
-                target = h5fout[outdset]
+                main_dset = h5fout[outdset]
                 if keeptrials:
-                    target[outgrid] = res
+                    main_dset[outgrid] = res
                 else:
-                    target[()] = np.nansum([target, res], axis=0)
+                    main_dset[()] += res
+
+                h5_add_metadata(h5fout, details, unique_key_suffix=call_id)
                 h5fout.flush()
             lock.release()
 
@@ -708,6 +748,9 @@ def _append_docstring(func, supplement, insert_in="Parameters", at_end=True):
     if func.__doc__ is None:
         return
 
+    # these are the 4 whitespaces right in front of every doc string line
+    space4 = '    '
+
     # "Header" insertions always work (an empty docstring is enough to do this).
     # Otherwise ensure the provided `insert_in` section already exists, i.e.,
     # partitioned `sectionHeading` == queried `sectionTitle`
@@ -721,18 +764,25 @@ def _append_docstring(func, supplement, insert_in="Parameters", at_end=True):
         if sectionHeading != sectionTitle:  # `insert_in` was not found in docstring
             return func.__doc__
         sectionText, sectionDivider, rest = textAfter.partition("\n\n")
-    sectionText = sectionText.splitlines(keepends=True)
+    sectionTextList = sectionText.splitlines(keepends=True)
 
     if at_end:
         insertAtLine = -1
-        while sectionText[insertAtLine].isspace():
+        while sectionTextList[insertAtLine].isspace():
             insertAtLine -= 1
         insertAtLine = min(-1, insertAtLine + 1)
+
+        # to avoid clipping the last line of a parameter description
+        if sectionTextList[-1] != space4:
+            sectionTextList.append('\n')
+            sectionTextList.append(space4)
     else:
+        # this is the 1st line break or the '    --------'
         insertAtLine = 1
-    sectionText = "".join(sectionText[:insertAtLine]) +\
-                  supplement +\
-                  "".join(sectionText[insertAtLine:])
+
+    sectionText = "".join(sectionTextList[:insertAtLine])
+    sectionText += supplement
+    sectionText += "".join(sectionTextList[insertAtLine:])
 
     newDocString = textBefore +\
                    sectionHeading +\

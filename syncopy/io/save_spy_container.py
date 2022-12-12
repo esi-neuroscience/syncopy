@@ -148,9 +148,9 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
     # Parse filename for validity and construct full path to HDF5 file
     fileInfo = filename_parser(filename)
     if fileInfo["extension"] != out._classname_to_extension():
-        raise SPYError("""Extension in filename ({ext}) does not match data
-                    class ({dclass})""".format(ext=fileInfo["extension"],
-                                               dclass=out.__class__.__name__))
+        raise SPYError("""Extension in filename ('{ext}') does not match data
+                    class ({dclass}), expected '{exp}'.""".format(ext=fileInfo["extension"],
+                                               dclass=out.__class__.__name__, exp=out._classname_to_extension()))
     dataFile = os.path.join(fileInfo["folder"], fileInfo["filename"])
 
     # If `out` is to replace its own on-disk representation, be more careful
@@ -191,7 +191,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
 
         # Save each member of `_hdfFileDatasetProperties` in target HDF file
         for datasetName in out._hdfFileDatasetProperties:
-            dataset = getattr(out, datasetName)
+            dataset = getattr(out, "_" + datasetName)
             dat = h5f.create_dataset(datasetName, data=dataset)
 
     # Now write trial-related information
@@ -248,6 +248,10 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
                     filename.format(ext=FILE_EXT["info"])))
                 SPYWarning(msg.format(key, info_fle))
                 h5f.attrs[key] = [outDict[key][0], "...", outDict[key][-1]]
+
+    # Save the dataset names that should be loaded later into the JSON.
+    outDict['_hdfFileDatasetProperties'] = list(out._hdfFileDatasetProperties)
+
 
     # Re-assign filename after saving (and remove source in case it came from `__storage__`)
     if not replace:

@@ -7,6 +7,7 @@
 import numpy as np
 import inspect
 import json
+import subprocess
 
 # Local imports
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYTypeError
@@ -269,3 +270,6 @@ def get_defaults(obj):
     dct = {k: v.default for k, v in inspect.signature(obj).parameters.items()\
            if v.default != v.empty and v.name != "cfg"}
     return StructDict(dct)
+
+
+    

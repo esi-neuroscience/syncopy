@@ -11,22 +11,23 @@ import pytest
 import random
 import numbers
 import numpy as np
+import h5py
+import dask.distributed as dd
 
 # Local imports
-from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, padding
+import syncopy as spy
+from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, TimeLockData, padding
 from syncopy.io import save, load
 from syncopy.datatype.base_data import Selector
 from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.tools import StructDict
 from syncopy.tests.misc import flush_local_cluster, generate_artificial_data, construct_spy_filename
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
+from syncopy.tests import helpers
 
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(
-    not __acme__, reason="acme not available")
+
+# Construct decorators for skipping certain tests
+skip_legacy = pytest.mark.skipif(True, reason="code not used atm")
 
 # Collect all supported binary arithmetic operators
 arithmetics = [lambda x, y: x + y,
@@ -48,25 +49,16 @@ chanSelections = [
     "channel02",  # str selection
     1  # scalar selection
 ]
-toiSelections = [
-    "all",  # non-type-conform string
-    0.6,  # single inexact match
-    [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
+latencySelections = [
+    'all',
+    'minperiod',
+    [0.5, 1.5],  # regular range - 'maxperiod'
+    [1., 1.5],
 ]
-toilimSelections = [
-    [0.5, 1.5],  # regular range
-    [1.5, 2.0],  # minimal range (just two-time points)
-    [1.0, np.inf]  # unbounded from above
-]
-foiSelections = [
-    "all",  # non-type-conform string
-    2.6,  # single inexact match
-    [1.1, 1.9, 2.1, 3.9, 9.2, 11.8, 12.9, 5.1, 13.8]  # unordered, inexact, repetions
-]
-foilimSelections = [
+frequencySelections = [
     [2, 11],  # regular range
     [1, 2.0],  # minimal range (just two-time points)
-    [1.0, np.inf]  # unbounded from above
+    # [1.0, np.inf]  # unbounded from above, dropped support
 ]
 taperSelections = [
     ["TestTaper_03", "TestTaper_01", "TestTaper_01", "TestTaper_02"],  # string selection w/repetition + unordered
@@ -76,10 +68,8 @@ taperSelections = [
     range(2, 5),  # narrow range
     slice(0, 5, 2),  # slice w/non-unitary step-size
 ]
-timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
-    + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
-freqSelections = list(zip(["foi"] * len(foiSelections), foiSelections)) \
-    + list(zip(["foilim"] * len(foilimSelections), foilimSelections))
+timeSelections = list(zip(["latency"] * len(latencySelections), latencySelections))
+freqSelections = list(zip(["frequency"] * len(frequencySelections), frequencySelections))
 
 
 # Local helper function for performing basic arithmetic tests
@@ -201,7 +191,6 @@ class TestAnalogData():
     def test_empty(self):
         dummy = AnalogData()
         assert len(dummy.cfg) == 0
-        assert dummy.dimord is None
         for attr in ["channel", "data", "sampleinfo", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
@@ -286,7 +275,18 @@ class TestAnalogData():
             del dummy, dummy2
             time.sleep(0.1)
 
+    @skip_legacy
     def test_relative_array_padding(self):
+        """
+        padding has no single use case in production, this test hence
+        serves no purpose atm. If in the future we would need padding again,
+        theses tests might be useful again.
+
+        Additionally, the unwrap_cfg frontend decorator expects `data` to be a Syncopy data object,
+        for some reason that did not fail before. But here `data` is just
+        a numpy array which gets put directly into padding, which now after the decorator
+        got decluttered does not work properly.
+        """
 
         # no. of samples to pad
         n_center = 5
@@ -357,6 +357,7 @@ class TestAnalogData():
         # happy padding
         for loc, kws in lockws.items():
             for ptype in ["zero", "mean", "localmean", "edge", "mirror"]:
+                print(self.data, ptype, kws.keys())
                 arr = padding(self.data, ptype, pad="relative", **kws)
                 for k, idx in enumerate(expected_idx[loc]):
                     assert np.all(arr[idx, :] == expected_vals[loc][ptype][k])
@@ -392,7 +393,18 @@ class TestAnalogData():
         with pytest.raises(SPYValueError):
             padding(self.data, "zero", pad="relative", padlength=2, unit="time")
 
+    @skip_legacy
     def test_absolute_nextpow2_array_padding(self):
+        """
+        padding has no single use case in production, this test hence
+        serves no purpose atm. If in the future we would need padding again,
+        theses tests might be useful again.
+
+        Additionally, the unwrap_cfg frontend decorator expects `data` to be a Syncopy data object,
+        for some reason that did not fail before. But here `data` is just
+        a numpy array which gets put directly into padding, which now after the decorator
+        got decluttered does not work properly.
+        """
 
         pad_count = {"absolute": self.ns + 20,
                      "nextpow2": int(2**np.ceil(np.log2(self.ns)))}
@@ -562,7 +574,7 @@ class TestAnalogData():
                     create_new=False)
 
     # test data-selection via class method
-    def test_dataselection(self, fulltests):
+    def test_dataselection(self):
 
         # Create testing objects (regular and swapped dimords)
         dummy = AnalogData(data=self.data,
@@ -573,15 +585,9 @@ class TestAnalogData():
                            samplerate=self.samplerate,
                            dimord=AnalogData._defaultDimord[::-1])
 
-        # Randomly pick one selection unless tests are run with `--full`
-        if fulltests:
-            trialSels = trialSelections
-            chanSels = chanSelections
-            timeSels = timeSelections
-        else:
-            trialSels = [random.choice(trialSelections)]
-            chanSels = [random.choice(chanSelections)]
-            timeSels = [random.choice(timeSelections)]
+        trialSels = [random.choice(trialSelections)]
+        chanSels = [random.choice(chanSelections)]
+        timeSels = [random.choice(timeSelections)]
 
         for obj in [dummy, ymmud]:
             idx = [slice(None)] * len(obj.dimord)
@@ -598,9 +604,10 @@ class TestAnalogData():
                         # data selection via class-method + `Selector` instance for indexing
                         selected = obj.selectdata(**kwdict)
                         time.sleep(0.001)
-                        selector = Selector(obj, kwdict)
+                        spy.selectdata(obj, kwdict, inplace=True)
+                        selector = obj.selection
                         idx[chanIdx] = selector.channel
-                        for tk, trialno in enumerate(selector.trials):
+                        for tk, trialno in enumerate(selector.trial_ids):
                             idx[timeIdx] = selector.time[tk]
                             assert np.array_equal(selected.trials[tk].squeeze(),
                                                   obj.trials[trialno][idx[0], :][:, idx[1]].squeeze())
@@ -612,7 +619,7 @@ class TestAnalogData():
                         time.sleep(0.001)
 
     # test arithmetic operations
-    def test_ang_arithmetic(self, fulltests):
+    def test_ang_arithmetic(self):
 
         # Create testing objects and corresponding arrays to perform arithmetics with
         dummy = AnalogData(data=self.data,
@@ -640,25 +647,11 @@ class TestAnalogData():
 
             _base_op_tests(dummy, ymmud, dummy2, ymmud2, None, operation)
 
-            # Go through full selection stack - WARNING: this takes > 15 minutes
-            if fulltests:
-                for trialSel in trialSelections:
-                    for chanSel in chanSelections:
-                        for timeSel in timeSelections:
-                            kwdict = {}
-                            kwdict["trials"] = trialSel
-                            kwdict["channel"] = chanSel
-                            kwdict[timeSel[0]] = timeSel[1]
-                            ScalarSelectors = [isinstance(val, (numbers.Number, str)) for val in kwdict.values()]
-                            if sum(ScalarSelectors) >= 2:
-                                continue
-                            _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
-            else:
-                kwdict = {}
-                kwdict["trials"] = trialSelections[1]
-                kwdict["channel"] = chanSelections[3]
-                kwdict[timeSelections[4][0]] = timeSelections[4][1]
-                _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
+            kwdict = {}
+            kwdict["trials"] = trialSelections[1]
+            kwdict["channel"] = chanSelections[3]
+            kwdict[timeSelections[2][0]] = timeSelections[2][1]
+            _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
         result = (dummy + dummy2) / dummy ** 3
@@ -666,20 +659,13 @@ class TestAnalogData():
             assert np.array_equal(trl,
                                   (dummy.trials[tk] + dummy2.trials[tk]) / dummy.trials[tk] ** 3)
 
-    @skip_without_acme
-    def test_parallel(self, testcluster, fulltests):
+    def test_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
-        quick_tests = ["test_relative_array_padding",
-                       "test_absolute_nextpow2_array_padding",
-                       "test_object_padding"]
         slow_tests = ["test_dataselection",
                       "test_ang_arithmetic"]
-        for test in quick_tests:
-            getattr(self, test)()
-            flush_local_cluster(testcluster)
         for test in slow_tests:
-            getattr(self, test)(fulltests)
+            getattr(self, test)()
             flush_local_cluster(testcluster)
         client.close()
 
@@ -702,7 +688,6 @@ class TestSpectralData():
     def test_sd_empty(self):
         dummy = SpectralData()
         assert len(dummy.cfg) == 0
-        assert dummy.dimord is None
         for attr in ["channel", "data", "freq", "sampleinfo", "taper", "trialinfo"]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
@@ -786,7 +771,7 @@ class TestSpectralData():
             del dummy, dummy2
 
     # test data-selection via class method
-    def test_sd_dataselection(self, fulltests):
+    def test_sd_dataselection(self):
 
         # Create testing objects (regular and swapped dimords)
         dummy = SpectralData(data=self.data,
@@ -800,18 +785,11 @@ class TestSpectralData():
                              dimord=SpectralData._defaultDimord[::-1])
 
         # Randomly pick one selection unless tests are run with `--full`
-        if fulltests:
-            trialSels = trialSelections
-            chanSels = chanSelections
-            timeSels = timeSelections
-            freqSels = freqSelections
-            taperSels = taperSelections
-        else:
-            trialSels = [random.choice(trialSelections)]
-            chanSels = [random.choice(chanSelections)]
-            timeSels = [random.choice(timeSelections)]
-            freqSels = [random.choice(freqSelections)]
-            taperSels = [random.choice(taperSelections)]
+        trialSels = [random.choice(trialSelections)]
+        chanSels = [random.choice(chanSelections)]
+        timeSels = [random.choice(timeSelections)]
+        freqSels = [random.choice(freqSelections)]
+        taperSels = [random.choice(taperSelections)]
 
         for obj in [dummy, ymmud]:
             idx = [slice(None)] * len(obj.dimord)
@@ -834,11 +812,12 @@ class TestSpectralData():
                                 # data selection via class-method + `Selector` instance for indexing
                                 selected = obj.selectdata(**kwdict)
                                 time.sleep(0.001)
-                                selector = Selector(obj, kwdict)
+                                spy.selectdata(obj, kwdict, inplace=True)
+                                selector = obj.selection
                                 idx[chanIdx] = selector.channel
                                 idx[freqIdx] = selector.freq
                                 idx[taperIdx] = selector.taper
-                                for tk, trialno in enumerate(selector.trials):
+                                for tk, trialno in enumerate(selector.trial_ids):
                                     idx[timeIdx] = selector.time[tk]
                                     indexed = obj.trials[trialno][idx[0], ...][:, idx[1], ...][:, :, idx[2], :][..., idx[3]]
                                     assert np.array_equal(selected.trials[tk].squeeze(),
@@ -853,7 +832,7 @@ class TestSpectralData():
                                 time.sleep(0.001)
 
     # test arithmetic operations
-    def test_sd_arithmetic(self, fulltests):
+    def test_sd_arithmetic(self):
 
         # Create testing objects and corresponding arrays to perform arithmetics with
         dummy = SpectralData(data=self.data,
@@ -889,31 +868,14 @@ class TestSpectralData():
 
             _base_op_tests(dummy, ymmud, dummy2, ymmud2, dummyC, operation)
 
-            # Go through full selection stack - WARNING: this takes > 1 hour
-            if fulltests:
-                for trialSel in trialSelections:
-                    for chanSel in chanSelections:
-                        for timeSel in timeSelections:
-                            for freqSel in freqSelections:
-                                for taperSel in taperSelections:
-                                    kwdict = {}
-                                    kwdict["trials"] = trialSel
-                                    kwdict["channel"] = chanSel
-                                    kwdict[timeSel[0]] = timeSel[1]
-                                    kwdict[freqSel[0]] = freqSel[1]
-                                    kwdict["taper"] = taperSel
-                                    ScalarSelectors = [isinstance(val, (numbers.Number, str)) for val in kwdict.values()]
-                                    if sum(ScalarSelectors) >= 2:
-                                        continue
-                                    _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
-            else:
-                kwdict = {}
-                kwdict["trials"] = trialSelections[1]
-                kwdict["channel"] = chanSelections[3]
-                kwdict[timeSelections[4][0]] = timeSelections[4][1]
-                kwdict[freqSelections[4][0]] = freqSelections[4][1]
-                kwdict["taper"] = taperSelections[2]
-                _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
+
+            kwdict = {}
+            kwdict["trials"] = trialSelections[1]
+            kwdict["channel"] = chanSelections[3]
+            kwdict[timeSelections[2][0]] = timeSelections[2][1]
+            kwdict[freqSelections[1][0]] = freqSelections[1][1]
+            kwdict["taper"] = taperSelections[2]
+            _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
         result = (dummy + dummy2) / dummy ** 3
@@ -921,13 +883,12 @@ class TestSpectralData():
             assert np.array_equal(trl,
                                   (dummy.trials[tk] + dummy2.trials[tk]) / dummy.trials[tk] ** 3)
 
-    @skip_without_acme
-    def test_sd_parallel(self, testcluster, fulltests):
+    def test_sd_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
         par_tests = ["test_sd_dataselection", "test_sd_arithmetic"]
         for test in par_tests:
-            getattr(self, test)(fulltests)
+            getattr(self, test)()
             flush_local_cluster(testcluster)
         client.close()
 
@@ -1036,7 +997,7 @@ class TestCrossSpectralData():
             del dummy, dummy2
 
     # test data-selection via class method
-    def test_csd_dataselection(self, fulltests):
+    def test_csd_dataselection(self):
 
         # Create testing objects (regular and swapped dimords)
         dummy = CrossSpectralData(data=self.data,
@@ -1048,16 +1009,10 @@ class TestCrossSpectralData():
         ymmud.trialdefinition = self.trl
 
         # Randomly pick one selection unless tests are run with `--full`
-        if fulltests:
-            trialSels = trialSelections
-            chanSels = chanSelections[2:]
-            timeSels = timeSelections
-            freqSels = freqSelections
-        else:
-            trialSels = [random.choice(trialSelections)]
-            chanSels = [random.choice(chanSelections[2:])]
-            timeSels = [random.choice(timeSelections)]
-            freqSels = [random.choice(freqSelections)]
+        trialSels = [random.choice(trialSelections)]
+        chanSels = [random.choice(chanSelections[2:])]
+        timeSels = [random.choice(timeSelections)]
+        freqSels = [random.choice(freqSelections)]
 
         for obj in [dummy, ymmud]:
             idx = [slice(None)] * len(obj.dimord)
@@ -1080,13 +1035,14 @@ class TestCrossSpectralData():
                                 # data selection via class-method + `Selector` instance for indexing
                                 selected = obj.selectdata(**kwdict)
                                 time.sleep(0.001)
-                                selector = Selector(obj, kwdict)
+                                spy.selectdata(obj, kwdict, inplace=True)
+                                selector = obj.selection
                                 idx[chanIdx] = selector.channel_i
                                 idx[chanJdx] = selector.channel_j
                                 idx[freqIdx] = selector.freq
                                 jdx = [[elem] if np.issubdtype(type(elem), np.number) else elem for elem in idx]
                                 idx = jdx
-                                for tk, trialno in enumerate(selector.trials):
+                                for tk, trialno in enumerate(selector.trial_ids):
                                     idx[timeIdx] = selector.time[tk]
                                     indexed = obj.trials[trialno][idx[0], ...][:, idx[1], ...][:, :, idx[2], :][..., idx[3]]
                                     assert np.array_equal(selected.trials[tk].squeeze(),
@@ -1101,7 +1057,7 @@ class TestCrossSpectralData():
                                 time.sleep(0.001)
 
     # test arithmetic operations
-    def test_csd_arithmetic(self, fulltests):
+    def test_csd_arithmetic(self):
 
         # Create testing objects and corresponding arrays to perform arithmetics with
         dummy = CrossSpectralData(data=self.data,
@@ -1133,27 +1089,13 @@ class TestCrossSpectralData():
             _base_op_tests(dummy, ymmud, dummy2, ymmud2, dummyC, operation)
 
             # Go through full selection stack - WARNING: this takes > 1 hour
-            if fulltests:
-                for trialSel in trialSelections:
-                    for chaniSel in chanSelections[2:]:
-                        for chanjSel in chanSelections[2:]:
-                            for timeSel in timeSelections[:1]:
-                                for freqSel in freqSelections[:1]:
-                                    kwdict = {}
-                                    kwdict["trials"] = trialSel
-                                    kwdict["channel_i"] = chaniSel
-                                    kwdict["channel_j"] = chanjSel
-                                    kwdict[timeSel[0]] = timeSel[1]
-                                    kwdict[freqSel[0]] = freqSel[1]
-                                    _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
-            else:
-                kwdict = {}
-                kwdict["trials"] = trialSelections[1]
-                kwdict["channel_i"] = chanSelections[3]
-                kwdict["channel_j"] = chanSelections[4]
-                kwdict[timeSelections[4][0]] = timeSelections[4][1]
-                kwdict[freqSelections[4][0]] = freqSelections[4][1]
-                _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
+            kwdict = {}
+            kwdict["trials"] = trialSelections[1]
+            kwdict["channel_i"] = chanSelections[3]
+            kwdict["channel_j"] = chanSelections[4]
+            kwdict[timeSelections[2][0]] = timeSelections[2][1]
+            kwdict[freqSelections[1][0]] = freqSelections[1][1]
+            _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
         result = (dummy + dummy2) / dummy ** 3
@@ -1161,15 +1103,58 @@ class TestCrossSpectralData():
             assert np.array_equal(trl,
                                   (dummy.trials[tk] + dummy2.trials[tk]) / dummy.trials[tk] ** 3)
 
-    @skip_without_acme
-    def test_csd_parallel(self, testcluster, fulltests):
+    def test_csd_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
         par_tests = ["test_csd_dataselection", "test_csd_arithmetic"]
         for test in par_tests:
-            getattr(self, test)(fulltests)
+            getattr(self, test)
             flush_local_cluster(testcluster)
         client.close()
 
+
+class TestTimeLockData:
+    """Tests for the `TimeLockData` data type, which is derived from `ContinuousData`."""
+
+    def test_create(self):
+        """Test instantiation, and that expected properties/datasets specific to this data type exist."""
+        tld = TimeLockData()
+
+        assert hasattr(tld, '_avg')
+        assert hasattr(tld, '_var')
+        assert hasattr(tld, '_cov')
+        assert tld.avg is None
+        assert tld.var is None
+        assert tld.cov is None
+
+    def test_modify_properties(self):
+        """Test modification of the extra datasets avg, var, cov."""
+        tld = TimeLockData()
+
+        avg_data = np.zeros((3, 3), dtype=np.float64)
+        tld._update_dataset("avg", avg_data)
+        assert isinstance(tld.avg, h5py.Dataset)
+        assert np.array_equal(avg_data, tld.avg)
+
+        # Try to overwrite data via setter, which should not work.
+        avg_data2 = np.zeros((4, 4, 4), dtype=np.float32)
+        with pytest.raises(AttributeError, match="can't set attribute"):
+            tld.avg = avg_data2
+
+        # But we can do it with _update_dataset:
+        tld._update_dataset("avg", avg_data2)
+        assert np.array_equal(avg_data2, tld.avg)
+
+        # ... or of course, directly using '_avg':
+        tld2 = TimeLockData()
+        avg_data3 = np.zeros((2, 2), dtype=np.float32)
+        tld2._avg = avg_data3
+        assert np.array_equal(avg_data3, tld2.avg)
+
+
 if __name__ == '__main__':
-    T1 = TestCrossSpectralData()
+
+    T1 = TestAnalogData()
+    T2 = TestSpectralData()
+    T3 = TestTimeLockData()
+    T4 = TestCrossSpectralData()

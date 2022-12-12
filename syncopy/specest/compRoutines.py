@@ -21,6 +21,8 @@
 # Builtin/3rd party package imports
 from inspect import signature
 import numpy as np
+from hashlib import blake2b
+
 from scipy import signal
 
 # backend method imports
@@ -32,23 +34,31 @@ from .fooofspy import fooofspy
 
 
 # Local imports
-from syncopy.shared.errors import SPYWarning
+from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.shared.tools import best_match
-from syncopy.shared.computational_routine import ComputationalRoutine
+from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
 from syncopy.shared.kwarg_decorators import process_io
+from syncopy.shared.metadata import (
+    encode_unique_md_label,
+    decode_unique_md_label,
+    metadata_from_hdf5_file,
+    check_freq_hashes,
+    metadata_nest
+)
+
 from syncopy.shared.const_def import (
     spectralConversions,
     spectralDTypes
 )
 
-
 # -----------------------
 # MultiTaper FFT
 # -----------------------
 
+
 @process_io
 def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
-              polyremoval=None, output_fmt="pow",
+              polyremoval=None, output="pow",
               noCompute=False, chunkShape=None, method_kwargs=None):
 
     """
@@ -67,7 +77,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
     keeptapers : bool
         If `True`, return spectral estimates for each taper.
         Otherwise power spectrum is averaged across tapers,
-        only valid spectral estimate if `output_fmt` is `pow`.
+        only valid spectral estimate if `output` is `pow`.
     pad : str
         Padding mode; one of `'absolute'`, `'relative'`, `'maxlen'`, or `'nextpow2'`.
         See :func:`syncopy.padding` for more information.
@@ -84,7 +94,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
         ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
         least squares fit of a linear polynomial).
         If `polyremoval` is `None`, no de-trending is performed.
-    output_fmt : str
+    output : str
         Output of spectral estimation; one of :data:`~syncopy.specest.const_def.availableOutputs`
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
@@ -121,7 +131,6 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
                      that calls this method as :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     numpy.fft.rfft : NumPy's FFT implementation
     """
-
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
         dat = trl_dat.T       # does not copy but creates view of `trl_dat`
@@ -146,7 +155,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
     # For initialization of computational routine,
     # just return output shape and dtype
     if noCompute:
-        return outShape, spectralDTypes[output_fmt]
+        return outShape, spectralDTypes[output]
 
     # detrend, does not work with 'FauxTrial' data..
     if polyremoval == 0:
@@ -155,17 +164,23 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
         dat = signal.detrend(dat, type='linear', axis=0, overwrite_data=True)
 
     # call actual specest method
-    res, _ = mtmfft(dat, **method_kwargs)
+    res, freqs = mtmfft(dat, **method_kwargs)
 
-    # attach time-axis and convert to output_fmt
+    # attach time-axis and convert to output
     spec = res[np.newaxis, :, freq_idx, :]
-    spec = spectralConversions[output_fmt](spec)
+    spec = spectralConversions[output](spec)
+
+    # Hash the freqs and add to second return value.
+    freqs_hash = blake2b(freqs).hexdigest().encode('utf-8')
+    metadata = {'freqs_hash': np.array(freqs_hash)}  # Will have dtype='|S128'
+
     # Average across tapers if wanted
     # averaging is only valid spectral estimate
-    # if output_fmt == 'pow'! (gets checked in parent meta)
+    # if output == 'pow'! (gets checked in parent meta)
     if not keeptapers:
-        return spec.mean(axis=1, keepdims=True)
-    return spec
+        return spec.mean(axis=1, keepdims=True), metadata
+
+    return spec, metadata
 
 
 class MultiTaperFFT(ComputationalRoutine):
@@ -191,33 +206,24 @@ class MultiTaperFFT(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Some index gymnastics to get trial begin/end "samples"
-        if data.selection is not None:
-            chanSec = data.selection.channel
-            trl = data.selection.trialdefinition
-            for row in range(trl.shape[0]):
-                trl[row, :2] = [row, row + 1]
-        else:
-            chanSec = slice(None)
-            time = np.arange(len(data.trials))
-            time = time.reshape((time.size, 1))
-            trl = np.hstack((time, time + 1,
-                             np.zeros((len(data.trials), 1)),
-                             np.array(data.trialinfo)))
+        # General-purpose loading of metadata.
+        metadata = metadata_from_hdf5_file(out.filename)
 
-        # Attach constructed trialdef-array (if even necessary)
-        if self.keeptrials:
-            out.trialdefinition = trl
-        else:
-            out.trialdefinition = np.array([[0, 1, 0]])
+        check_freq_hashes(metadata, out)
 
-        # Attach remaining meta-data
-        out.samplerate = data.samplerate
-        out.channel = np.array(data.channel[chanSec])
-        if self.cfg["method_kwargs"]["taper"] is None:
+        # channels and trialdefinition
+        propagate_properties(data, out, self.keeptrials)
+
+        taper_kw = self.cfg["method_kwargs"]["taper"]
+        if taper_kw is None:
             out.taper = np.array(['None'])
+        # multi-tapering
+        elif taper_kw == 'dpss':
+            nTaper =  self.outputShape[out.dimord.index("taper")]
+            out.taper = np.array([taper_kw + str(i) for i in range(nTaper)])
+        # just a single taper
         else:
-            out.taper = np.array([self.cfg["method_kwargs"]["taper"]] * self.outputShape[out.dimord.index("taper")])
+            out.taper = np.array([taper_kw])
         out.freq = self.cfg["foi"]
 
 
@@ -236,7 +242,7 @@ def mtmconvol_cF(
         toi=None,
         foi=None,
         nTaper=1, tapsmofrq=None, timeAxis=0,
-        keeptapers=True, polyremoval=0, output_fmt="pow",
+        keeptapers=True, polyremoval=0, output="pow",
         noCompute=False, chunkShape=None, method_kwargs=None):
     """
     Perform time-frequency analysis on multi-channel time series data using a sliding window FFT
@@ -288,7 +294,7 @@ def mtmconvol_cF(
         ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
         least squares fit of a linear polynomial). Detrending is done on each segment!
         If `polyremoval` is `None`, no de-trending is performed.
-    output_fmt : str
+    output : str
         Output of spectral estimation; one of :data:`~syncopy.specest.const_def.availableOutputs`
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
@@ -349,7 +355,7 @@ def mtmconvol_cF(
         nTaper = taper_opt.get("Kmax", 1)
     outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
     if noCompute:
-        return outShape, spectralDTypes[output_fmt]
+        return outShape, spectralDTypes[output]
 
     # detrending options for each segment
     if polyremoval == 0:
@@ -368,7 +374,7 @@ def mtmconvol_cF(
         ftr, freqs = mtmconvol(dat[soi, :], **method_kwargs)
         _, fIdx = best_match(freqs, foi, squash_duplicates=True)
         spec = ftr[postselect, :, fIdx, :]
-        spec = spectralConversions[output_fmt](spec)
+        spec = spectralConversions[output](spec)
 
     else:
         # in this case only a single window gets centered on
@@ -378,22 +384,21 @@ def mtmconvol_cF(
 
         # In case tapers aren't preserved allocate `spec` "too big"
         # and average afterwards
-        spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output_fmt])
+        spec = np.full((nTime, nTaper, nFreq, nChannels), np.nan, dtype=spectralDTypes[output])
 
         ftr, freqs = mtmfft(dat[soi[0], :], samplerate, taper=taper, taper_opt=taper_opt)
         _, fIdx = best_match(freqs, foi, squash_duplicates=True)
-        spec[0, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
+        spec[0, ...] = spectralConversions[output](ftr[:, fIdx, :])
         # loop over remaining soi to center windows on
         for tk in range(1, len(soi)):
             ftr, freqs = mtmfft(dat[soi[tk], :], samplerate, taper=taper, taper_opt=taper_opt)
-            spec[tk, ...] = spectralConversions[output_fmt](ftr[:, fIdx, :])
+            spec[tk, ...] = spectralConversions[output](ftr[:, fIdx, :])
 
     # Average across tapers if wanted
-    # only valid if output_fmt='pow' !
+    # only valid if output='pow' !
     if not keeptapers:
         return np.nanmean(spec, axis=1, keepdims=True)
     return spec
-
 
 class MultiTaperFFTConvol(ComputationalRoutine):
     """
@@ -440,10 +445,18 @@ class MultiTaperFFTConvol(ComputationalRoutine):
         out.trialdefinition = trl
         out.samplerate = srate
         out.channel = np.array(data.channel[chanSec])
-        if self.cfg["method_kwargs"]["taper"] is None:
+
+        taper_kw = self.cfg["method_kwargs"]["taper"]
+        if taper_kw is None:
             out.taper = np.array(['None'])
+        # multi-tapering
+        elif taper_kw == 'dpss':
+            nTaper =  self.outputShape[out.dimord.index("taper")]
+            out.taper = np.array([taper_kw + str(i) for i in range(nTaper)])
+        # just a single taper
         else:
-            out.taper = np.array([self.cfg["method_kwargs"]["taper"]] * self.outputShape[out.dimord.index("taper")])
+            out.taper = np.array([taper_kw])
+
         out.freq = self.cfg["foi"]
 
 
@@ -460,7 +473,7 @@ def wavelet_cF(
     toi=None,
     timeAxis=0,
     polyremoval=0,
-    output_fmt="pow",
+    output="pow",
     noCompute=False,
     chunkShape=None,
     method_kwargs=None,
@@ -491,7 +504,7 @@ def wavelet_cF(
         ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
         least squares fit of a linear polynomial).
         If `polyremoval` is `None`, no de-trending is performed.
-    output_fmt : str
+    output : str
         Output of spectral estimation; one of :data:`~syncopy.specest.const_def.availableOutputs`
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
@@ -549,7 +562,7 @@ def wavelet_cF(
     nScales = method_kwargs["scales"].size
     outShape = (nTime, 1, nScales, nChannels)
     if noCompute:
-        return outShape, spectralDTypes[output_fmt]
+        return outShape, spectralDTypes[output]
 
     # detrend, does not work with 'FauxTrial' data..
     if polyremoval == 0:
@@ -565,7 +578,7 @@ def wavelet_cF(
     # the cwt stacks the scales on the 1st axis, move to 2nd
     spec = spec.transpose(1, 0, 2)[postselect, :, :]
 
-    return spectralConversions[output_fmt](spec[:, np.newaxis, :, :])
+    return spectralConversions[output](spec[:, np.newaxis, :, :])
 
 
 class WaveletTransform(ComputationalRoutine):
@@ -616,6 +629,7 @@ class WaveletTransform(ComputationalRoutine):
         out.freq = 1 / self.cfg["method_kwargs"]["wavelet"].fourier_period(
             self.cfg["method_kwargs"]["scales"]
         )
+        out.taper = np.array(['None'])
 
 
 # -----------------
@@ -631,7 +645,7 @@ def superlet_cF(
     toi=None,
     timeAxis=0,
     polyremoval=0,
-    output_fmt="pow",
+    output="pow",
     noCompute=False,
     chunkShape=None,
     method_kwargs=None,
@@ -648,7 +662,7 @@ def superlet_cF(
     preselect : slice
         Begin- to end-samples to perform analysis on (trim data to interval).
         See Notes for details.
-    postselect : list of slices or list of 1D NumPy arrays
+    postselect : list of slices or list of 1D numpy arrays
         Actual time-points of interest within interval defined by `preselect`
         See Notes for details.
     toi : 1D :class:`numpy.ndarray` or str
@@ -663,7 +677,7 @@ def superlet_cF(
         ("de-meaning"), ``polyremoval = 1`` removes linear trends (subtracting the
         least squares fit of a linear polynomial).
         If `polyremoval` is `None`, no de-trending is performed.
-    output_fmt : str
+    output : str
         Output of spectral estimation; one of
         :data:`~syncopy.specest.const_def.availableOutputs`
     noCompute : bool
@@ -674,7 +688,7 @@ def superlet_cF(
         If not `None`, represents shape of output object `gmean_spec`
         (respecting provided values of `scales`, `preselect`, `postselect` etc.)
     method_kwargs : dict
-        Keyword arguments passed to :func:`~syncopy.specest.superlet.superlet
+        Keyword arguments passed to :func:`~syncopy.specest.superlet.superlet`
         controlling the spectral estimation method
 
     Returns
@@ -716,7 +730,7 @@ def superlet_cF(
     nScales = method_kwargs["scales"].size
     outShape = (nTime, 1, nScales, nChannels)
     if noCompute:
-        return outShape, spectralDTypes[output_fmt]
+        return outShape, spectralDTypes[output]
 
     # detrend, does not work with 'FauxTrial' data..
     if polyremoval == 0:
@@ -731,7 +745,7 @@ def superlet_cF(
     # the cwtSL stacks the scales on the 1st axis
     gmean_spec = gmean_spec.transpose(1, 0, 2)[postselect, :, :]
 
-    return spectralConversions[output_fmt](gmean_spec[:, np.newaxis, :, :])
+    return spectralConversions[output](gmean_spec[:, np.newaxis, :, :])
 
 
 class SuperletTransform(ComputationalRoutine):
@@ -779,6 +793,7 @@ class SuperletTransform(ComputationalRoutine):
         out.channel = np.array(data.channel[chanSec])
         # for the SL Morlets the conversion is straightforward
         out.freq = 1 / (2 * np.pi * self.cfg["method_kwargs"]["scales"])
+        out.taper = np.array(['None'])
 
 
 def _make_trialdef(cfg, trialdefinition, samplerate):
@@ -791,7 +806,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
     cfg : dict
         Config dictionary attribute of `ComputationalRoutine` subclass
     trialdefinition : 2D :class:`numpy.ndarray`
-        Provisional trialdefnition array either directly copied from the
+        Provisional trialdefinition array either directly copied from the
         :class:`~syncopy.AnalogData` input object or computed by the
         :class:`~syncopy.datatype.base_data.Selector` class.
     samplerate : float
@@ -875,7 +890,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
 
 @process_io
 def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
-                output_fmt='fooof', fooof_settings=None, noCompute=False, chunkShape=None, method_kwargs=None):
+                output='fooof', fooof_settings=None, noCompute=False, chunkShape=None, method_kwargs=None):
     """
     Run FOOOF
 
@@ -889,7 +904,7 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
         data length and padding) are used.
     timeAxis : int
         Index of running time axis in `trl_dat` (0 or 1)
-    output_fmt : str
+    output : str
         Output of FOOOF; one of :data:`~syncopy.specest.const_def.availableFOOOFOutputs`
     fooof_settings: dict or None
         Can contain keys `'in_freqs'` (the frequency axis for the data) and `'freq_range'` (post-processing range for fooofed spectrum).
@@ -922,6 +937,9 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
     --------
     syncopy.freqanalysis : parent metafunction
     """
+    if timeAxis != 0:
+        raise SPYValueError("timeaxis of input spectral data to be 0. Non-standard axes not supported with FOOOF.", actual=timeAxis)
+
     outShape = trl_dat.shape
     # For initialization of computational routine,
     # just return output shape and dtype
@@ -929,15 +947,19 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
         return outShape, spectralDTypes['pow']
 
     # Call actual fooof method
-    res, _ = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output_fmt,
+    res, metadata = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output,
                       fooof_opt=method_kwargs)
 
-    # TODO (later): get the 'details' from the unused _ return
-    #  value and pass them on. This cannot be done right now due
-    #  to lack of support for several return values, see #140.
+    if 'settings_used' in metadata:
+        del metadata['settings_used']  # We like to keep this in the return value of the
+    # backend functions for now (the vast majority of unit tests rely on it), but
+    # nested dicts are not allowed in the additional return value of cFs, so we remove
+    # it before passing the return value on.
+
+    metadata = FooofSpy.encode_singletrial_metadata_fooof_for_hdf5(metadata)
 
     res = res[np.newaxis, np.newaxis, :, :]  # Re-add omitted axes.
-    return res
+    return res, metadata
 
 
 class FooofSpy(ComputationalRoutine):
@@ -961,8 +983,28 @@ class FooofSpy(ComputationalRoutine):
     # hardcode some parameter names which got digested from the frontend
     valid_kws += ["fooof_settings"]
 
+    #: The keys available in the metadata returned by this function. These come from `fooof` and correspond
+    #: to the attributes of the `fooof.FOOOF` instance (with an `'_'` suffix in `fooof`, e.g., `aperiodic_params` corresponds
+    #: to `fooof.FOOOF.aperiodic_params_`).
+    #: Please
+    #: refer to the `FOOOF docs <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_
+    #: for the meanings.
+    metadata_keys = ('aperiodic_params', 'error', 'gaussian_params', 'n_peaks', 'peak_params', 'r_squared',)
+
+
     # To attach metadata to the output of the CF
     def process_metadata(self, data, out):
+
+        # General-purpose loading of metadata.
+        mdata = metadata_from_hdf5_file(out.filename)
+
+        # Note that FOOOF never sees absolute trial indices if a selection was
+        # made in the call to `freqanalysis`, because the mtmfft run before will have
+        # consumed them. So the trial indices are always relative.
+
+        # Backend-specific post-processing. May or may not be needed, depending on what
+        # you need to do in the cF to fit the return values into hdf5.
+        out.metadata = metadata_nest(FooofSpy.decode_metadata_fooof_alltrials_from_hdf5(mdata))
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -975,3 +1017,59 @@ class FooofSpy(ComputationalRoutine):
         out.channel = np.array(data.channel[chanSec])
         out.freq = data.freq
         out._trialdefinition = data._trialdefinition
+
+    @staticmethod
+    def encode_singletrial_metadata_fooof_for_hdf5(metadata_fooof_backend):
+        """ Reformat the gaussian and peak params for inclusion in the 2nd return value and hdf5 file.
+
+        For several channels, the number of peaks may differ, and thus we cannot simply
+        call something like `np.array(gaussian_params)` in that case, as that will create
+        an array of dtype 'object', which is not supported by hdf5. We could use one return
+        value (entry in the `'metadata_fooof_backend'` dict below) per channel to solve that, but in this
+        case, we decided to `vstack` the arrays instead. When extracting the data again
+        (in `process_metadata()`), we need to revert this. That is possible because we can
+        see from the `n_peaks` return value how many (and thus which) rows belong to
+        which channel.
+        """
+        metadata_fooof_backend['gaussian_params'] = np.vstack(metadata_fooof_backend['gaussian_params'])
+        metadata_fooof_backend['peak_params'] = np.vstack(metadata_fooof_backend['peak_params'])
+        return metadata_fooof_backend
+
+    @staticmethod
+    def decode_metadata_fooof_alltrials_from_hdf5(metadata_fooof_hdf5):
+        """This reverts the special packaging applied to the fooof backend
+        function return values to fit them into the hdf5 container.
+
+        In the case of FOOOF, we had to `np.vstack` the `gaussian_params`
+        and `peak_params`, and we now revert this.
+
+        Of course, you do not have to undo things if you are fine
+        with passing them to the frontend the way they are stored in the hdf5.
+
+        Keep in mind that this is not directly the inverse of the
+        function called in the cF, because:
+        - that function prepares data from a single backend function call,
+        while this function has to unpack the data from *all* cF function calls.
+        - the input metadata to this function is a standard dict that has already
+        been pre-processed by the general-purpose metadata extraction
+        function `metadata_from_hdf5_file()`.
+        """
+        for unique_attr_label, v in metadata_fooof_hdf5.items():
+            label, trial_idx, call_idx = decode_unique_md_label(unique_attr_label)
+            if label == "n_peaks":
+                n_peaks = v
+                gaussian_params_out = list()
+                peak_params_out = list()
+                start_idx = 0
+                unique_attr_label_gaussian_params = encode_unique_md_label('gaussian_params', trial_idx, call_idx)
+                unique_attr_label_peak_params = encode_unique_md_label('peak_params', trial_idx, call_idx)
+                gaussian_params_in = metadata_fooof_hdf5[unique_attr_label_gaussian_params]
+                peak_params_in = metadata_fooof_hdf5[unique_attr_label_peak_params]
+                for trial_idx in range(len(n_peaks)):
+                    end_idx = start_idx + n_peaks[trial_idx]
+                    gaussian_params_out.append(gaussian_params_in[start_idx:end_idx, :])
+                    peak_params_out.append(peak_params_in[start_idx:end_idx, :])
+
+                metadata_fooof_hdf5[unique_attr_label_gaussian_params] = gaussian_params_out
+                metadata_fooof_hdf5[unique_attr_label_peak_params] = peak_params_out
+        return metadata_fooof_hdf5

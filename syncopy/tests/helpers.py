@@ -13,7 +13,7 @@ import numpy as np
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 
 # fix random generators
-np.random.seed(40203)
+test_seed = 42
 
 
 def run_padding_test(method_call, pad_length):
@@ -74,61 +74,12 @@ def run_polyremoval_test(method_call):
         assert 'Wrong type of `polyremoval`' in str(err)
 
 
-def run_foi_test(method_call, foilim, positivity=True):
-
-    # only positive frequencies
-    assert np.min(foilim) >= 0
-    assert np.max(foilim) <= 500
-
-    # fois
-    foi1 = np.arange(foilim[0], foilim[1])  # 1Hz steps
-    foi2 = np.arange(foilim[0], foilim[1], 0.25)  # 0.5Hz steps
-    foi3 = 'all'
-    fois = [foi1, foi2, foi3, None]
-
-    for foi in fois:
-        result = method_call(foi=foi, foilim=None)
-        # check here just for finiteness and positivity
-        assert np.all(np.isfinite(result.data))
-        if positivity:
-            assert np.all(result.data[0, ...] >= -1e-10)
-
-    # 2 foilims
-    foilims = [[2, 60], [7.65, 45.1234], None]
-    for foil in foilims:
-        result = method_call(foilim=foil, foi=None)
-        # check here just for finiteness and positivity
-        assert np.all(np.isfinite(result.data))
-        if positivity:
-            assert np.all(result.data[0, ...] >= -1e-10)
-
-    # make sure specification of both foi and foilim triggers a
-    # Syncopy ValueError
-    try:
-        result = method_call(foi=foi, foilim=foil)
-    except SPYValueError as err:
-        assert 'foi/foilim' in str(err)
-
-    # make sure out-of-range foi selections are detected
-    try:
-        result = method_call(foilim=[-1, 70], foi=None)
-    except SPYValueError as err:
-        assert 'foilim' in str(err)
-        assert 'bounded by' in str(err)
-
-    try:
-        result = method_call(foi=np.arange(550, 700), foilim=None)
-    except SPYValueError as err:
-        assert 'foi' in str(err)
-        assert 'bounded by' in str(err)
-
-
 def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
 
     """
-    Takes 5 numbers, the last three descibing a `toilim/toi` time-interval
+    Takes 5 numbers, the last three descibing a `latency` time-interval
     and creates cartesian product like `select` keyword
-    arguments.
+    arguments. One random selection is enough!
 
     Returns
     -------
@@ -136,7 +87,6 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
         The list of dicts holding the keys and values for
         Syncopy selections.
     """
-
     # at least 10 trials
     assert nTrials > 9
     # at least 2 channels
@@ -144,9 +94,9 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
     # at least 250ms
     assert (toi_max - toi_min) > 0.25
 
-    # create 3 random trial and channel selections
+    # create 1 random trial and channel selections
     trials, channels = [], []
-    for _ in range(3):
+    for _ in range(1):
 
         sizeTr = np.random.randint(10, nTrials + 1)
         trials.append(list(np.random.choice(
@@ -160,18 +110,9 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
                          np.random.choice(
                              nChannels, size=sizeCh, replace=False)])
 
-    # create toi selections, signal length is toi_max
-    # with -1s as offset (from synthetic data instantiation)
-    # subsampling does NOT WORK due to precision issues :/
-    # toi1 = np.linspace(-.4, 2, 100)
-    tois = [None, 'all']
-    toi_combinations = itertools.product(trials,
-                                         channels,
-                                         tois)
-
-    # 2 random toilims
+    # 1 random toilim
     toilims = []
-    while len(toilims) < 2:
+    while len(toilims) < 1:
 
         toil = np.sort(np.random.rand(2)) * (toi_max - toi_min) + toi_min
         # at least min_len (250ms)
@@ -187,21 +128,12 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
                                             toilims)
 
     selections = []
-    # digest generators to create all selection dictionaries
-    for comb in toi_combinations:
-
-        sel_dct = {}
-        sel_dct['trials'] = comb[0]
-        sel_dct['channel'] = comb[1]
-        sel_dct['toi'] = comb[2]
-        selections.append(sel_dct)
-
     for comb in toilim_combinations:
 
         sel_dct = {}
         sel_dct['trials'] = comb[0]
         sel_dct['channel'] = comb[1]
-        sel_dct['toilim'] = comb[2]
+        sel_dct['latency'] = comb[2]
         selections.append(sel_dct)
 
     return selections

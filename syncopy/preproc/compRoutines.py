@@ -10,7 +10,7 @@ import scipy.signal as sci
 from inspect import signature
 
 # syncopy imports
-from syncopy.shared.computational_routine import ComputationalRoutine, propagate_metadata
+from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
 from syncopy.shared.const_def import spectralConversions, spectralDTypes
 from syncopy.shared.kwarg_decorators import process_io
 
@@ -155,7 +155,7 @@ class SincFiltering(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 @process_io
@@ -278,7 +278,7 @@ class ButFiltering(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 @process_io
@@ -340,7 +340,7 @@ class Rectify(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 @process_io
@@ -418,7 +418,7 @@ class Hilbert(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 @process_io
@@ -501,14 +501,15 @@ class Downsample(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # we need to re-calculate the downsampling factor
-        factor = int(data.samplerate // self.cfg['new_samplerate'])
+        # that it actually is an 1 / integer gets checked in the frontend
+        factor = self.cfg['new_samplerate'] / data.samplerate
 
         if data.selection is not None:
             chanSec = data.selection.channel
-            trl = data.selection.trialdefinition // factor
+            trl = _resampling_trl_definition(data.selection.trialdefinition, factor)
         else:
             chanSec = slice(None)
-            trl = data.trialdefinition // factor
+            trl = _resampling_trl_definition(data.trialdefinition, factor)
 
         out.trialdefinition = trl
         # now set new samplerate
@@ -615,14 +616,14 @@ class Resample(ComputationalRoutine):
 
         # we need to re-calculate the resampling factor
         factor = self.cfg['new_samplerate'] / data.samplerate
-        trafo_trl = lambda trldef: np.ceil(trldef * factor)
+        trafo_trl = _resampling_trl_definition
 
         if data.selection is not None:
             chanSec = data.selection.channel
-            trl = trafo_trl(data.selection.trialdefinition)
+            trl = trafo_trl(data.selection.trialdefinition, factor)
         else:
             chanSec = slice(None)
-            trl = trafo_trl(data.trialdefinition)
+            trl = trafo_trl(data.trialdefinition, factor)
 
         out.trialdefinition = trl
 
@@ -720,7 +721,7 @@ class Detrending(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 @process_io
@@ -811,4 +812,32 @@ class Standardize(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
+
+
+def _resampling_trl_definition(orig_trl, factor):
+
+    """
+    Construct new trialdefinition from original
+    trialdefinition and the resampling factor
+    """
+
+    # start from input trial lengths and scale
+    # and ceil them to arrive at new trial lengths
+    # important is 1st diff then ceil..
+    sinfo = orig_trl[:, :2]
+    trl_len = np.ceil(np.diff(sinfo * factor, axis=1)).squeeze()
+
+    # use ceil again to define new trial start
+    # and offset samples
+    trl_scaled = np.ceil(orig_trl * factor)
+    trl_starts = trl_scaled[:, 0]
+    offsets = trl_scaled[:, 2]
+
+    # now add new trl_len to get new trial ends
+    trl_ends = trl_starts + trl_len
+
+    # finally stack everything back together
+    trldef = np.column_stack([trl_starts, trl_ends, offsets])
+
+    return trldef

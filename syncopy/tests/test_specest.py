@@ -10,20 +10,15 @@ import psutil
 import pytest
 import numpy as np
 import scipy.signal as scisig
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
+import dask.distributed as dd
 
 # Local imports
 from syncopy.tests.misc import generate_artificial_data, flush_local_cluster
-from syncopy import freqanalysis
-from syncopy.shared.errors import SPYValueError
+from syncopy import freqanalysis, selectdata
+from syncopy.shared.errors import SPYValueError, SPYError
 from syncopy.datatype.base_data import Selector
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.shared.tools import StructDict, get_defaults
-
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 
 # Decorator to decide whether or not to run memory-intensive tests
 availMem = psutil.virtual_memory().total
@@ -98,6 +93,7 @@ def _make_tf_signal(nChannels, nTrials, seed, fadeIn=None, fadeOut=None, short=F
 
 class TestMTMFFT():
 
+
     # Construct simple trigonometric signal to check FFT consistency: each
     # channel is a sine wave of frequency `freqs[nchan]` with single unique
     # amplitude `amp` and sampling frequency `fs`
@@ -132,18 +128,17 @@ class TestMTMFFT():
                           "channel": ["channel" + str(i) for i in range(12, 28)][::-1]},
                          {"trials": [0, 1, 2],
                           "channel": range(0, int(nChannels / 2)),
-                          "toilim": [0.25, 0.75]}]
+                          "latency": [0.25, 0.75]}]
 
     # Data selections to be tested w/`artdata` generated below (use fixed but arbitrary
     # random number seed to randomly select time-points for `toi` (with repetitions)
     seed = np.random.RandomState(13)
     artdataSelections = [None,
                          {"trials": [3, 1, 0],
-                          "channel": ["channel" + str(i) for i in range(10, 15)][::-1],
-                          "toi": None},
+                          "channel": ["channel" + str(i) for i in range(10, 15)][::-1]},
                          {"trials": [0, 1, 2],
                           "channel": range(0, 8),
-                          "toilim": [-0.5, 0.6]}]
+                          "latency": [-0.5, 0.6]}]
 
     # Error tolerances for target amplitudes (depend on data selection!)
     tols = [1, 1, 1.5]
@@ -152,10 +147,14 @@ class TestMTMFFT():
     ftol = 0.25
 
     # Helper function that reduces dataselections (keep `None` selection no matter what)
-    def test_cut_selections(self, fulltests):
-        if not fulltests:
-            self.sigdataSelections.pop(random.choice([-1, 1]))
-            self.artdataSelections.pop(random.choice([-1, 1]))
+    def test_cut_selections(self):
+        self.sigdataSelections.pop(random.choice([-1, 1]))
+        self.artdataSelections.pop(random.choice([-1, 1]))
+
+    @staticmethod
+    def get_adata():
+        return AnalogData(data=TestMTMFFT.sig, samplerate=TestMTMFFT.fs,
+                       trialdefinition=TestMTMFFT.trialdefinition)
 
     def test_output(self):
         # ensure that output type specification is respected
@@ -178,7 +177,7 @@ class TestMTMFFT():
                                 pad="nextpow2", output="pow", select=select)
 
             chanList = np.arange(self.nChannels)[sel.channel]
-            amps = np.empty((len(sel.trials) * len(chanList),))
+            amps = np.empty((len(sel.trial_ids) * len(chanList),))
             k = 0
             for nchan, chan in enumerate(chanList):
                 for ntrial in range(len(spec.trials)):
@@ -196,31 +195,34 @@ class TestMTMFFT():
 
             # `foi` lims outside valid bounds
             with pytest.raises(SPYValueError):
-                freqanalysis(self.adata, method="mtmfft", taper="hann",
+                freqanalysis(TestMTMFFT.get_adata(), method="mtmfft", taper="hann",
                              foi=[-0.5, self.fs / 3], select=select)
             with pytest.raises(SPYValueError):
-                freqanalysis(self.adata, method="mtmfft", taper="hann",
+                freqanalysis(TestMTMFFT.get_adata(), method="mtmfft", taper="hann",
                              foi=[1, self.fs], select=select)
 
             foi = self.fband[1:int(self.fband.size / 3)]
 
             # offset `foi` by 0.1 Hz - resulting freqs must be unaffected
             ftmp = foi + 0.1
-            spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
+            spec = freqanalysis(TestMTMFFT.get_adata(), method="mtmfft", taper="hann",
                                 pad="nextpow2", foi=ftmp, select=select)
             assert np.all(spec.freq == foi)
 
             # unsorted, duplicate entries in `foi` - result must stay the same
             ftmp = np.hstack([foi, np.full(20, foi[0])])
-            spec = freqanalysis(self.adata, method="mtmfft", taper="hann",
+            spec = freqanalysis(TestMTMFFT.get_adata(), method="mtmfft", taper="hann",
                                 pad="nextpow2", foi=ftmp, select=select)
             assert np.all(spec.freq == foi)
 
     def test_dpss(self):
 
         for select in self.sigdataSelections:
-            sel = Selector(self.adata, select)
+
+            self.adata.selectdata(select, inplace=True)
+            sel = self.adata.selection
             chanList = np.arange(self.nChannels)[sel.channel]
+            self.adata.selection = None
 
             # ensure default setting results in single taper
             spec = freqanalysis(self.adata, method="mtmfft",
@@ -233,21 +235,22 @@ class TestMTMFFT():
                                 tapsmofrq=7, keeptapers=True, select=select)
             assert spec.channel.size == len(chanList)
 
+            # trigger capture of too large tapsmofrq (edge case)
+            spec = freqanalysis(self.adata, method="mtmfft",
+                                tapsmofrq=2, output="pow", select=select)
+
         # non-equidistant data w/multiple tapers
         artdata = generate_artificial_data(nTrials=5, nChannels=16,
                                            equidistant=False, inmemory=False)
         timeAxis = artdata.dimord.index("time")
         cfg = StructDict()
         cfg.method = "mtmfft"
-        cfg.tapsmofrq = 9.3
+        cfg.tapsmofrq = 3.3
         cfg.output = "pow"
 
         for select in self.artdataSelections:
 
-            # unsorted, w/repetitions, do not pad
-            if select is not None and "toi" in select.keys():
-                select["toi"] = self.seed.choice(artdata.time[0], int(artdata.time[0].size))
-            sel = Selector(artdata, select)
+            sel = selectdata(artdata, select)
             cfg.select = select
             spec = freqanalysis(cfg, artdata)
 
@@ -255,10 +258,8 @@ class TestMTMFFT():
             if select is None:
                 maxtrlno = np.diff(artdata.sampleinfo).argmax()
                 nSamples = artdata.trials[maxtrlno].shape[timeAxis]
-            elif "toi" in select:
-                nSamples = len(select["toi"])
             else:
-                nSamples = artdata.time[sel.trials[0]][sel.time[0]].size
+                nSamples = max([trl.shape[0] for trl in sel.trials])
             freqs = np.fft.rfftfreq(nSamples, 1 / artdata.samplerate)
             assert spec.freq.size == freqs.size
             assert np.max(spec.freq - freqs) < self.ftol
@@ -272,11 +273,7 @@ class TestMTMFFT():
         cfg.keeptapers = True
 
         for select in self.artdataSelections:
-
-            # unsorted, w/repetitions, do not pad
-            if select is not None and "toi" in select.keys():
-                select["toi"] = self.seed.choice(cfg.data.time[0], int(cfg.data.time[0].size))
-            sel = Selector(cfg.data, select)
+            sel = selectdata(cfg.data, select)
             cfg.select = select
 
             spec = freqanalysis(cfg)
@@ -285,10 +282,9 @@ class TestMTMFFT():
             if select is None:
                 maxtrlno = np.diff(cfg.data.sampleinfo).argmax()
                 nSamples = cfg.data.trials[maxtrlno].shape[timeAxis]
-            elif "toi" in select:
-                nSamples = len(select["toi"])
             else:
-                nSamples = cfg.data.time[sel.trials[0]][sel.time[0]].size
+                nSamples = max([trl.shape[1] for trl in sel.trials])
+
             freqs = np.fft.rfftfreq(nSamples, 1 / cfg.data.samplerate)
             assert spec.freq.size == freqs.size
             assert np.max(spec.freq - freqs) < self.ftol
@@ -305,11 +301,7 @@ class TestMTMFFT():
 
         for select in self.artdataSelections:
 
-            # unsorted, w/repetitions, do not pad
-            # cfg.pop("pad", None)
-            if select is not None and "toi" in select.keys():
-                select["toi"] = self.seed.choice(cfg.data.time[0], int(cfg.data.time[0].size))
-            sel = Selector(cfg.data, select)
+            sel = selectdata(cfg.data, select)
             cfg.select = select
 
             spec = freqanalysis(cfg)
@@ -318,16 +310,14 @@ class TestMTMFFT():
             if select is None:
                 maxtrlno = np.diff(cfg.data.sampleinfo).argmax()
                 nSamples = cfg.data.trials[maxtrlno].shape[timeAxis]
-            elif "toi" in select:
-                nSamples = len(select["toi"])
             else:
-                nSamples = cfg.data.time[sel.trials[0]][sel.time[0]].size
+                nSamples = max([trl.shape[timeAxis] for trl in sel.trials])
+
             freqs = np.fft.rfftfreq(nSamples, 1 / cfg.data.samplerate)
             assert spec.freq.size == freqs.size
             assert np.max(spec.freq - freqs) < self.ftol
             assert spec.taper.size == 1
 
-    @skip_without_acme
     @skip_low_mem
     def test_parallel(self, testcluster):
         # collect all tests of current class and repeat them using dask
@@ -419,21 +409,29 @@ class TestMTMConvol():
     tfData, modulators, even, odd, fader = _make_tf_signal(nChannels, nTrials, seed,
                                                            fadeIn=fadeIn, fadeOut=fadeOut)
 
+    @staticmethod
+    def get_tfdata_mtmconvol():
+        """
+        High-frequency signal modulated by slow oscillating cosine and time-decaying noise.
+        """
+        return _make_tf_signal(TestMTMConvol.nChannels, TestMTMConvol.nTrials, TestMTMConvol.seed,
+                                                           fadeIn=TestMTMConvol.fadeIn, fadeOut=TestMTMConvol.fadeOut)[0]
+
+
     # Data selection dict for the above object
     dataSelections = [None,
                       {"trials": [1, 2, 0],
                        "channel": ["channel" + str(i) for i in range(2, 6)][::-1]},
                       {"trials": [0, 2],
                        "channel": range(0, nChan2),
-                       "toilim": [-2, 6.8]}]
-                    #    "toilim": [-20, 60.8]}] FIXME
+                       "latency": [-2, 6.8]}]
+                    #    "latency": [-20, 60.8]}] FIXME
 
     # Helper function that reduces dataselections (keep `None` selection no matter what)
-    def test_tf_cut_selections(self, fulltests):
-        if not fulltests:
-            self.dataSelections.pop(random.choice([-1, 1]))
+    def test_tf_cut_selections(self):
+        self.dataSelections.pop(random.choice([-1, 1]))
 
-    def test_tf_output(self, fulltests):
+    def test_tf_output(self):
         # Set up basic TF analysis parameters to not slow down things too much
         cfg = get_defaults(freqanalysis)
         cfg.method = "mtmconvol"
@@ -443,23 +441,18 @@ class TestMTMConvol():
         outputDict = {"fourier": "complex", "abs": "float", "pow": "float"}
 
         for select in self.dataSelections:
-            if fulltests:
-                cfg.select = select
-                if select is not None and "toilim" in cfg.select.keys():
-                    with pytest.raises(SPYValueError) as err:
-                        freqanalysis(cfg, self.tfData)
-                        assert "expected no `toi` specification due to active in-place time-selection" in str(err)
-                    continue
-                for key, value in outputDict.items():
-                    cfg.output = key
-                    tfSpec = freqanalysis(cfg, self.tfData)
-                    assert value in tfSpec.data.dtype.name
-            else:  # randomly pick from 'fourier', 'abs' and 'pow' and work w/smaller signal
-                cfg.select = {"trials" : 0, "channel" : 1}
-                cfg.output = random.choice(list(outputDict.keys()))
-                cfg.toi = np.linspace(-2, 6, 5)
-                tfSpec = freqanalysis(cfg, _make_tf_signal(2, 2, self.seed, fadeIn=self.fadeIn, fadeOut=self.fadeOut)[0])
-                assert outputDict[cfg.output] in tfSpec.data.dtype.name
+            cfg.select = select
+            if select is not None and "latency" in cfg.select.keys():
+                with pytest.raises(SPYValueError):
+                    freqanalysis(cfg, self.tfData)
+
+                self.tfData.selection = None
+                continue
+
+            for key, value in outputDict.items():
+                cfg.output = key
+                tfSpec = freqanalysis(cfg, self.tfData)
+                assert value in tfSpec.data.dtype.name
 
     def test_tf_solution(self):
         # Compute "full" non-overlapping TF spectrum, i.e., center analysis windows
@@ -484,12 +477,12 @@ class TestMTMConvol():
 
             # Compute TF objects w\w/o`foi`/`foilim`
             cfg.select = select
-            tfSpec = freqanalysis(cfg, self.tfData)
+            tfSpec = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
             cfg.foi = maxFreqs
-            tfSpecFoi = freqanalysis(cfg, self.tfData)
+            tfSpecFoi = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
             cfg.foi = None
             cfg.foilim = [maxFreqs.min(), maxFreqs.max()]
-            tfSpecFoiLim = freqanalysis(cfg, self.tfData)
+            tfSpecFoiLim = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
             cfg.foilim = None
 
             # Ensure TF objects contain expected/requested frequencies
@@ -498,17 +491,18 @@ class TestMTMConvol():
             assert np.array_equal(tfSpecFoiLim.freq, foilimFreqs)
 
             for tk, trlArr in enumerate(tfSpec.trials):
+                tfData = TestMTMConvol.get_tfdata_mtmconvol()
 
-                # Compute expected timing array depending on `toilim`
+                # Compute expected timing array depending on `latency`
                 trlNo = tk
-                timeArr = np.arange(self.tfData.time[trlNo][0], self.tfData.time[trlNo][-1])
+                timeArr = np.arange(tfData.time[trlNo][0], tfData.time[trlNo][-1])
                 timeSelection = slice(None)
                 if select:
                     trlNo = select["trials"][tk]
-                    if "toilim" in select.keys():
-                        timeArr = np.arange(*select["toilim"])
-                        timeStart = int(select['toilim'][0] * self.tfData.samplerate - self.tfData._t0[trlNo])
-                        timeStop = int(select['toilim'][1] * self.tfData.samplerate - self.tfData._t0[trlNo])
+                    if "latency" in select.keys():
+                        timeArr = np.arange(*select["latency"])
+                        timeStart = int(select['latency'][0] * tfData.samplerate - tfData._t0[trlNo])
+                        timeStop = int(select['latency'][1] * tfData.samplerate - tfData._t0[trlNo])
                         timeSelection = slice(timeStart, timeStop)
 
                 # Ensure timing array was computed correctly and independent of `foi`/`foilim`
@@ -521,8 +515,8 @@ class TestMTMConvol():
                     # Get reference channel in input object to determine underlying modulator
                     chanNo = chan
                     if select:
-                        if "toilim" not in select.keys():
-                            chanNo = np.where(self.tfData.channel == select["channel"][chan])[0][0]
+                        if "latency" not in select.keys():
+                            chanNo = np.where(tfData.channel == select["channel"][chan])[0][0]
                     if chanNo % 2:
                         modIdx = self.odd[(-1)**trlNo]
                     else:
@@ -576,72 +570,73 @@ class TestMTMConvol():
             tStart = self.tfData.time[0][0]
             tStop = self.tfData.time[0][-1]
             if select:
-                if "toilim" in select.keys():
-                    tStart = select["toilim"][0]
-                    tStop = select["toilim"][1]
+                if "latency" in select.keys():
+                    tStart = select["latency"][0]
+                    tStop = select["latency"][1]
 
             # Test TF calculation w/different window-size/-centroids: ensure
             # resulting timing arrays are correct
+            dt = TestMTMConvol.get_tfdata_mtmconvol()
             for winsize in winSizes:
                 cfg.t_ftimwin = winsize
                 for toi in toiVals:
                     cfg.toi = toi
-                    tfSpec = freqanalysis(cfg, self.tfData)
+                    tfSpec = freqanalysis(cfg, dt)
                     tStep = winsize - toi * winsize
                     timeArr = np.arange(tStart, tStop, tStep)
                     assert np.allclose(timeArr, tfSpec.time[0])
 
             # Test window-centroids specified as time-point arrays
-            if select is not None and "toilim" not in select.keys():
+            dt = TestMTMConvol.get_tfdata_mtmconvol()
+            if select is not None and "latency" not in select.keys():
                 cfg.t_ftimwin = 0.05
                 for toi in toiArrs:
                     cfg.toi = toi
-                    tfSpec = freqanalysis(cfg, self.tfData)
+                    tfSpec = freqanalysis(cfg, dt)
                     assert np.allclose(cfg.toi, tfSpec.time[0])
                     assert tfSpec.samplerate == 1/(toi[1] - toi[0])
 
                 # Unevenly sampled array: timing currently in lala-land, but sizes must match
                 cfg.toi = [-1, 2, 6]
-                tfSpec = freqanalysis(cfg, self.tfData)
+                tfSpec = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
                 assert tfSpec.time[0].size == len(cfg.toi)
 
         # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
         # to not overflow memory here); same for ``toi = 1.0```
         cfg.tapsmofrq = 10
         cfg.keeptapers = True
-        cfg.select = {"trials": [0], "channel": [0], "toilim": [-0.5, 0.5]}
+        cfg.select = {"trials": [0], "channel": [0], "latency": [-0.5, 0.5]}
         cfg.toi = "all"
         cfg.t_ftimwin = 0.05
-        tfSpec = freqanalysis(cfg, self.tfData)
+        tfSpec = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
         assert tfSpec.taper.size >= 1
         dt = 1 / self.tfData.samplerate
-        timeArr = np.arange(cfg.select["toilim"][0], cfg.select["toilim"][1] + dt, dt)
+        timeArr = np.arange(cfg.select["latency"][0], cfg.select["latency"][1] + dt, dt)
         assert np.allclose(tfSpec.time[0], timeArr)
         cfg.toi = 1.0
-        tfSpec = freqanalysis(cfg, self.tfData)
+        tfSpec = freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
         assert np.allclose(tfSpec.time[0], timeArr)
 
         # Use a window-size larger than the pre-selected interval defined above
         cfg.t_ftimwin = 5.0
         with pytest.raises(SPYValueError) as spyval:
-            freqanalysis(cfg, self.tfData)
+            freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
             assert "Invalid value of `t_ftimwin`" in str(spyval.value)
         cfg.t_ftimwin = 0.05
 
         # Use `toi` array outside trial boundaries
         cfg.toi = self.tfData.time[0][:10]
-        with pytest.raises(SPYValueError) as spyval:
-            freqanalysis(cfg, self.tfData)
+        with pytest.raises(SPYError) as spyval:
+            freqanalysis(cfg, TestSuperlet._get_tf_data_superlet())
             errmsg = "Invalid value of `toi`: expected all array elements to be bounded by {} and {}"
-            assert errmsg.format(*cfg.select["toilim"]) in str(spyval.value)
+            assert errmsg.format(*cfg.select["latency"]) in str(spyval.value)
 
         # Unsorted `toi` array
         cfg.toi = [0.3, -0.1, 0.2]
-        with pytest.raises(SPYValueError) as spyval:
-            freqanalysis(cfg, self.tfData)
-            assert "Invalid value of `toi`: 'unsorted list/array'" in str(spyval.value)
+        with pytest.raises(SPYError) as spyval:
+            freqanalysis(cfg, TestMTMConvol.get_tfdata_mtmconvol())
 
-    def test_tf_irregular_trials(self, fulltests):
+    def test_tf_irregular_trials(self):
         # Settings for computing "full" non-overlapping TF-spectrum with DPSS tapers:
         # ensure non-equidistant/overlapping trials are processed (padded) correctly
         # also make sure ``toi = "all"`` works under any circumstance
@@ -652,13 +647,8 @@ class TestMTMConvol():
         cfg.output = "pow"
         cfg.keeptapers = True
 
-        # Reduce test-data size for quick test runs
-        if fulltests:
-            nTrials = 5
-            nChannels = 8
-        else:
-            nTrials = 2
-            nChannels = 2
+        nTrials = 2
+        nChannels = 2
 
         # start harmless: equidistant trials w/multiple tapers
         cfg.toi = 0.0
@@ -676,7 +666,7 @@ class TestMTMConvol():
         artdata = generate_artificial_data(nTrials=nTrials, nChannels=nChannels,
                                            equidistant=True, inmemory=False)
         # reduce samples, otherwise the the memory usage explodes (nSamples x win_size x nFreq)
-        rdat = artdata.selectdata(toilim=[0, 0.5])
+        rdat = artdata.selectdata(latency=[0, 0.5])
         tfSpec = freqanalysis(rdat, **cfg)
         for tk, origTime in enumerate(rdat.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
@@ -692,7 +682,7 @@ class TestMTMConvol():
 
         cfg.toi = "all"
         # reduce samples, otherwise the the memory usage explodes (nSamples x win_size x nFreq)
-        rdat = artdata.selectdata(toilim=[0, 0.5])
+        rdat = artdata.selectdata(latency=[0, 0.5])
         tfSpec = freqanalysis(rdat, **cfg)
         for tk, origTime in enumerate(rdat.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
@@ -709,7 +699,7 @@ class TestMTMConvol():
 
         cfg.toi = "all"
         # reduce samples, otherwise the the memory usage explodes (nSamples x win_size x nFreq)
-        rdat = artdata.selectdata(toilim=[0, 0.5])
+        rdat = artdata.selectdata(latency=[0, 0.5])
         tfSpec = freqanalysis(rdat, cfg)
 
         # same + overlapping trials
@@ -723,9 +713,8 @@ class TestMTMConvol():
         for tk, trl_time in enumerate(tfSpec.time):
             assert np.allclose(np.ceil(artdata.time[tk].size / artdata.samplerate / cfg.t_ftimwin), trl_time.size)
 
-    @skip_without_acme
     @skip_low_mem
-    def test_tf_parallel(self, testcluster, fulltests):
+    def test_tf_parallel(self, testcluster):
         # collect all tests of current class and repeat them running concurrently
         client = dd.Client(testcluster)
         quick_tests = [attr for attr in self.__dir__()
@@ -737,7 +726,7 @@ class TestMTMConvol():
             getattr(self, test)()
             flush_local_cluster(testcluster)
         for test in slow_tests:
-            getattr(self, test)(fulltests)
+            getattr(self, test)()
             flush_local_cluster(testcluster)
 
         # now create uniform `cfg` for remaining SLURM tests
@@ -748,13 +737,8 @@ class TestMTMConvol():
         cfg.toi = 0
         cfg.output = "pow"
 
-        # reduce test dataset size unless we're in `--full` mode
-        if fulltests:
-            nChannels = self.nChannels
-            nTrials = self.nTrials
-        else:
-            nChannels = 3
-            nTrials = 2
+        nChannels = 3
+        nTrials = 2
 
         # no. of HDF5 files that will make up virtual data-set in case of channel-chunking
         chanPerWrkr = 2
@@ -810,7 +794,7 @@ class TestMTMConvol():
 
 class TestWavelet():
 
-    # Prepare testing signal: ensure `fadeIn` and `fadeOut` are compatible w/`toilim`
+    # Prepare testing signal: ensure `fadeIn` and `fadeOut` are compatible w/`latency`
     # selection below
     nChannels = 4
     nTrials = 3
@@ -820,18 +804,22 @@ class TestWavelet():
     tfData, modulators, even, odd, fader = _make_tf_signal(nChannels, nTrials, seed,
                                                            fadeIn=fadeIn, fadeOut=fadeOut)
 
+    @staticmethod
+    def get_tfdata_wavelet():
+        return(_make_tf_signal(TestWavelet.nChannels, TestWavelet.nTrials, TestWavelet.seed,
+                                                           fadeIn=TestWavelet.fadeIn, fadeOut=TestWavelet.fadeOut)[0])
+
     # Set up in-place data-selection dicts for the constructed object
     dataSelections = [None,
                       {"trials": [1, 2, 0],
                        "channel": ["channel" + str(i) for i in range(2, 4)][::-1]},
                       {"trials": [0, 2],
                        "channel": range(0, int(nChannels / 2)),
-                       "toilim": [-2, 6.8]}]
+                       "latency": [-2, 6.8]}]
 
     # Helper function that reduces dataselections (keep `None` selection no matter what)
-    def test_wav_cut_selections(self, fulltests):
-        if not fulltests:
-            self.dataSelections.pop(random.choice([-1, 1]))
+    def test_wav_cut_selections(self):
+        self.dataSelections.pop(random.choice([-1, 1]))
 
     @skip_low_mem
     def test_wav_solution(self):
@@ -863,11 +851,11 @@ class TestWavelet():
             # to be moved inside the `enumerate(tfSpec.trials)`-loop!
             timeArr = np.arange(self.tfData.time[0][0], self.tfData.time[0][-1])
             if select:
-                if "toilim" in select.keys():
+                if "latency" in select.keys():
                     continue
-                    timeArr = np.arange(*select["toilim"])
-                    timeStart = int(select['toilim'][0] * self.tfData.samplerate - self.tfData._t0[0])
-                    timeStop = int(select['toilim'][1] * self.tfData.samplerate - self.tfData._t0[0])
+                    timeArr = np.arange(*select["latency"])
+                    timeStart = int(select['latency'][0] * self.tfData.samplerate - self.tfData._t0[0])
+                    timeStop = int(select['latency'][1] * self.tfData.samplerate - self.tfData._t0[0])
                     timeSelection = slice(timeStart, timeStop)
             else:
                 timeSelection = np.where(self.fader == 1.0)[0]
@@ -875,12 +863,12 @@ class TestWavelet():
 
             # Compute TF objects w\w/o`foi`/`foilim`
             cfg.select = select
-            tfSpec = freqanalysis(cfg, self.tfData)
+            tfSpec = freqanalysis(cfg, TestSuperlet._get_tf_data_superlet())
             cfg.foi = maxFreqs
-            tfSpecFoi = freqanalysis(cfg, self.tfData)
+            tfSpecFoi = freqanalysis(cfg, TestWavelet.get_tfdata_wavelet())
             cfg.foi = None
             cfg.foilim = [maxFreqs.min(), maxFreqs.max()]
-            tfSpecFoiLim = freqanalysis(cfg, self.tfData)
+            tfSpecFoiLim = freqanalysis(cfg, TestWavelet.get_tfdata_wavelet())
             cfg.foilim = None
 
             # Ensure TF objects contain expected/requested frequencies
@@ -907,7 +895,7 @@ class TestWavelet():
                     # Get reference channel in input object to determine underlying modulator
                     chanNo = chan
                     if select:
-                        if "toilim" not in select.keys():
+                        if "latency" not in select.keys():
                             chanNo = np.where(self.tfData.channel == select["channel"][chan])[0][0]
                     if chanNo % 2:
                         modIdx = self.odd[(-1)**trlNo]
@@ -968,7 +956,7 @@ class TestWavelet():
 
         # Combine `toi`-testing w/in-place data-pre-selection
         for select in self.dataSelections:
-            if select is not None and "toilim" not in select.keys():
+            if select is not None and "latency" not in select.keys():
                 cfg.select = select
                 for toi in toiArrs:
                     cfg.toi = toi
@@ -978,25 +966,23 @@ class TestWavelet():
 
         # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
         # to not overflow memory here)
-        cfg.select = {"trials": [0], "channel": [0], "toilim": [-0.5, 0.5]}
+        cfg.select = {"trials": [0], "channel": [0], "latency": [-0.5, 0.5]}
         cfg.toi = "all"
-        tfSpec = freqanalysis(cfg, self.tfData)
+        tfSpec = freqanalysis(cfg, TestWavelet.get_tfdata_wavelet())
         dt = 1/self.tfData.samplerate
-        timeArr = np.arange(cfg.select["toilim"][0], cfg.select["toilim"][1] + dt, dt)
+        timeArr = np.arange(cfg.select["latency"][0], cfg.select["latency"][1] + dt, dt)
         assert np.allclose(tfSpec.time[0], timeArr)
 
         # Use `toi` array outside trial boundaries
         cfg.toi = self.tfData.time[0][:10]
         with pytest.raises(SPYValueError) as spyval:
-            freqanalysis(cfg, self.tfData)
-            errmsg = "Invalid value of `toi`: expected all array elements to be bounded by {} and {}"
-            assert errmsg.format(*cfg.select["toilim"]) in str(spyval.value)
+            freqanalysis(cfg, TestWavelet.get_tfdata_wavelet())
+
 
         # Unsorted `toi` array
         cfg.toi = [0.3, -0.1, 0.2]
-        with pytest.raises(SPYValueError) as spyval:
-            freqanalysis(cfg, self.tfData)
-            assert "Invalid value of `toi`: 'unsorted list/array'" in str(spyval.value)
+        with pytest.raises(SPYValueError):
+            freqanalysis(cfg, TestSuperlet._get_tf_data_superlet())
 
     def test_wav_irregular_trials(self):
         # Set up wavelet to compute "full" TF spectrum for all time-points
@@ -1037,9 +1023,8 @@ class TestWavelet():
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
-    @skip_without_acme
     @skip_low_mem
-    def test_wav_parallel(self, testcluster, fulltests):
+    def test_wav_parallel(self, testcluster):
         # collect all tests of current class and repeat them running concurrently
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()
@@ -1055,13 +1040,8 @@ class TestWavelet():
         cfg.output = "pow"
         cfg.toi = "all"
 
-        # reduce test dataset size unless we're in `--full` mode
-        if fulltests:
-            nChannels = self.nChannels
-            nTrials = self.nTrials
-        else:
-            nChannels = 3
-            nTrials = 2
+        nChannels = 3
+        nTrials = 2
 
         # no. of HDF5 files that will make up virtual data-set in case of channel-chunking
         chanPerWrkr = 2
@@ -1108,10 +1088,15 @@ class TestWavelet():
 
         client.close()
 
-
 class TestSuperlet():
 
-    # Prepare testing signal: ensure `fadeIn` and `fadeOut` are compatible w/`toilim`
+    @staticmethod
+    def _get_tf_data_superlet():
+        return _make_tf_signal(TestSuperlet.nChannels, TestSuperlet.nTrials, TestSuperlet.seed,
+                                                           fadeIn=TestSuperlet.fadeIn, fadeOut=TestSuperlet.fadeOut)[0]
+
+
+    # Prepare testing signal: ensure `fadeIn` and `fadeOut` are compatible w/`latency`
     # selection below
     nChannels = 4
     nTrials = 3
@@ -1127,15 +1112,14 @@ class TestSuperlet():
                        "channel": ["channel" + str(i) for i in range(2, 4)][::-1]},
                       {"trials": [0, 2],
                        "channel": range(0, int(nChannels / 2)),
-                       "toilim": [-2, 6.8]}]
+                       "latency": [-2, 6.8]}]
 
     # Helper function that reduces dataselections (keep `None` selection no matter what)
-    def test_slet_cut_selections(self, fulltests):
-        if not fulltests:
-            self.dataSelections.pop(random.choice([-1, 1]))
+    def test_slet_cut_selections(self):
+        self.dataSelections.pop(random.choice([-1, 1]))
 
     @skip_low_mem
-    def test_slet_solution(self, fulltests):
+    def test_slet_solution(self):
 
         # Compute TF specturm across entire time-interval (use integer-valued
         # time-points as wavelet centroids)
@@ -1160,17 +1144,17 @@ class TestSuperlet():
             # to be moved inside the `enumerate(tfSpec.trials)`-loop!
             timeArr = np.arange(self.tfData.time[0][0], self.tfData.time[0][-1])
             if select:
-                if "toilim" in select.keys():
-                    timeArr = np.arange(*select["toilim"])
-                    timeStart = int(select['toilim'][0] * self.tfData.samplerate - self.tfData._t0[0])
-                    timeStop = int(select['toilim'][1] * self.tfData.samplerate - self.tfData._t0[0])
+                if "latency" in select.keys():
+                    timeArr = np.arange(*select["latency"])
+                    timeStart = int(select['latency'][0] * self.tfData.samplerate - self.tfData._t0[0])
+                    timeStop = int(select['latency'][1] * self.tfData.samplerate - self.tfData._t0[0])
                     timeSelection = slice(timeStart, timeStop)
             else:
                 timeSelection = np.where(self.fader == 1.0)[0]
             cfg.toi = timeArr
 
             # Skip below tests if `toi` and an in-place time-selection clash
-            if select is not None and "toilim" in select.keys():
+            if select is not None and "latency" in select.keys():
                 continue
 
             # Compute TF objects w\w/o`foi`/`foilim`
@@ -1183,11 +1167,11 @@ class TestSuperlet():
             tfSpecFoiLim = freqanalysis(cfg, self.tfData)
             cfg.foilim = None
             assert np.allclose(tfSpecFoiLim.freq, foilimFreqs)
-            if fulltests:
-                tfSpec = freqanalysis(cfg, self.tfData)
-                assert 0.02 > tfSpec.freq.min() > 0
-                assert tfSpec.freq.max() == (self.tfData.samplerate / 2)
-                assert tfSpec.freq.size > 50
+
+            tfSpec = freqanalysis(cfg, self.tfData)
+            assert 0.02 > tfSpec.freq.min() > 0
+            assert tfSpec.freq.max() == (self.tfData.samplerate / 2)
+            assert tfSpec.freq.size > 50
 
             for tk, _ in enumerate(tfSpecFoi.trials):
 
@@ -1199,16 +1183,15 @@ class TestSuperlet():
                 # Ensure timing array was computed correctly and independent of `foi`/`foilim`
                 assert np.array_equal(timeArr, tfSpecFoi.time[tk])
                 assert np.array_equal(tfSpecFoi.time[tk], tfSpecFoiLim.time[tk])
-                if fulltests:
-                    assert np.array_equal(timeArr, tfSpec.time[tk])
-                    assert np.array_equal(tfSpec.time[tk], tfSpecFoi.time[tk])
+                assert np.array_equal(timeArr, tfSpec.time[tk])
+                assert np.array_equal(tfSpec.time[tk], tfSpecFoi.time[tk])
 
                 for chan in range(tfSpecFoi.channel.size):
 
                     # Get reference channel in input object to determine underlying modulator
                     chanNo = chan
                     if select:
-                        if "toilim" not in select.keys():
+                        if "latency" not in select.keys():
                             chanNo = np.where(self.tfData.channel == select["channel"][chan])[0][0]
                     if chanNo % 2:
                         modIdx = self.odd[(-1)**trlNo]
@@ -1240,7 +1223,7 @@ class TestSuperlet():
                     # Be more lenient w/`tfSpec`: don't scan for min/max freq, but all peaks at once
                     # (auto-scale resolution potentially too coarse to differentiate b/w min/max);
 
-    def test_slet_toi(self, fulltests):
+    def test_slet_toi(self):
         # Don't keep trials to speed things up a bit
         cfg = get_defaults(freqanalysis)
         cfg.method = "superlet"
@@ -1254,13 +1237,11 @@ class TestSuperlet():
                    np.arange(-1, 6, 1/self.tfData.samplerate),
                    np.arange(1, 6, 2)]
 
-        # Just pick one `toi` at random for quickly running tests
-        if not fulltests:
-            toiArrs = [random.choice(toiArrs)]
+        toiArrs = [random.choice(toiArrs)]
 
         # Combine `toi`-testing w/in-place data-pre-selection
         for select in self.dataSelections:
-            if select is not None and "toilim" not in select.keys():
+            if select is not None and "latency" not in select.keys():
                 cfg.select = select
                 for toi in toiArrs:
                     cfg.toi = toi
@@ -1270,27 +1251,27 @@ class TestSuperlet():
 
         # Test correct time-array assembly for ``toi = "all"`` (cut down data signifcantly
         # to not overflow memory here)
-        cfg.select = {"trials": [0], "channel": [0], "toilim": [-0.5, 0.5]}
+        cfg.select = {"trials": [0], "channel": [0], "latency": [-0.5, 0.5]}
         cfg.toi = "all"
         tfSpec = freqanalysis(cfg, self.tfData)
         dt = 1/self.tfData.samplerate
-        timeArr = np.arange(cfg.select["toilim"][0], cfg.select["toilim"][1] + dt, dt)
+        timeArr = np.arange(cfg.select["latency"][0], cfg.select["latency"][1] + dt, dt)
         assert np.allclose(tfSpec.time[0], timeArr)
 
         # Use `toi` array outside trial boundaries
         cfg.toi = self.tfData.time[0][:10]
         with pytest.raises(SPYValueError) as spyval:
-            freqanalysis(cfg, self.tfData)
+            freqanalysis(cfg, TestSuperlet._get_tf_data_superlet())
             errmsg = "Invalid value of `toi`: expected all array elements to be bounded by {} and {}"
-            assert errmsg.format(*cfg.select["toilim"]) in str(spyval.value)
+            assert errmsg.format(*cfg.select["latency"]) in str(spyval.value)
 
         # Unsorted `toi` array
         cfg.toi = [0.3, -0.1, 0.2]
         with pytest.raises(SPYValueError) as spyval:
-            freqanalysis(cfg, self.tfData)
+            freqanalysis(cfg, TestSuperlet._get_tf_data_superlet())
             assert "Invalid value of `toi`: 'unsorted list/array'" in str(spyval.value)
 
-    def test_slet_irregular_trials(self, fulltests):
+    def test_slet_irregular_trials(self):
         # Set up wavelet to compute "full" TF spectrum for all time-points
         cfg = get_defaults(freqanalysis)
         cfg.method = "superlet"
@@ -1298,13 +1279,8 @@ class TestSuperlet():
         cfg.output = "pow"
         cfg.toi = "all"
 
-        # Reduce test-data size for quick test runs
-        if fulltests:
-            nTrials = 5
-            nChannels = 16
-        else:
-            nTrials = 2
-            nChannels = 2
+        nTrials = 2
+        nChannels = 2
 
         # start harmless: equidistant trials w/multiple tapers
         artdata = generate_artificial_data(nTrials=nTrials, nChannels=nChannels,
@@ -1337,15 +1313,14 @@ class TestSuperlet():
         for tk, origTime in enumerate(cfg.data.time):
             assert np.array_equal(origTime, tfSpec.time[tk])
 
-    @skip_without_acme
     @skip_low_mem
-    def test_slet_parallel(self, testcluster, fulltests):
+    def test_slet_parallel(self, testcluster):
         # collect all tests of current class and repeat them running concurrently
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()
                      if (inspect.ismethod(getattr(self, attr)) and attr not in ["test_slet_parallel", "test_cut_slet_selections"])]
         for test in all_tests:
-            getattr(self, test)(fulltests)
+            getattr(self, test)()
             flush_local_cluster(testcluster)
 
         # now create uniform `cfg` for remaining SLURM tests
@@ -1404,3 +1379,4 @@ class TestSuperlet():
 
 if __name__ == '__main__':
     T1 = TestMTMConvol()
+    T2 = TestMTMFFT()

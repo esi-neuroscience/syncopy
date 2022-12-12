@@ -10,9 +10,7 @@ import numpy as np
 import matplotlib.pyplot as ppl
 
 # Local imports
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
+import dask.distributed as dd
 
 from syncopy import resampledata, freqanalysis
 import syncopy.tests.synth_data as synth_data
@@ -20,15 +18,12 @@ import syncopy.tests.helpers as helpers
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults
 
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
-
 # availableFilterTypes = ('lp', 'hp', 'bp', 'bs')
 
 
 class TestDownsampling:
 
-    nSamples = 1000
+    nSamples = 991
     nChannels = 4
     nTrials = 100
     fs = 200
@@ -61,6 +56,10 @@ class TestDownsampling:
         if def_test:
             kwargs = {'resamplefs': self.fs // 2}
         ds = resampledata(self.adata, method='downsample', **kwargs)
+        lenTrials = np.diff(ds.sampleinfo).squeeze()
+        # check for equal trials
+        assert np.unique(lenTrials).size == 1
+
         spec_ds = freqanalysis(ds, tapsmofrq=1, keeptrials=False)
 
         # all channels are equal, trim off 0-frequency dip
@@ -147,7 +146,6 @@ class TestDownsampling:
         # with aa filter power does not change
         assert np.allclose(self.pow_orig, pow_ds, rtol=.5e-1)
 
-    @skip_without_acme
     def test_ds_parallel(self, testcluster=None):
 
         ppl.ioff()
@@ -199,12 +197,16 @@ class TestResampling:
             kwargs = {'resamplefs': self.fs * 0.43, 'order': 5000}
 
         rs = resampledata(self.adata, method='resample', **kwargs)
+        lenTrials = np.diff(rs.sampleinfo).squeeze()
+        # check for equal trials
+        assert np.unique(lenTrials).size == 1
+
         spec_rs = freqanalysis(rs, tapsmofrq=1, keeptrials=False)
 
         # all channels are equal,
         # avoid the nose with 3Hz away from the cut-off
         pow_rs = spec_rs.show(channel=0,
-                              foilim=[0, kwargs['resamplefs'] / 2 - 3]).mean()
+                              frequency=[0, kwargs['resamplefs'] / 2 - 3]).mean()
 
         if def_test:
             # here we have aa filtering built in,
@@ -228,13 +230,14 @@ class TestResampling:
             resampledata(self.adata, method='nothing-real', resamplefs=self.fs // 2)
 
     def test_rs_selections(self):
-
+        np.random.seed(42)
         sel_dicts = helpers.mk_selection_dicts(nTrials=20,
                                                nChannels=2,
                                                toi_min=self.time_span[0],
                                                toi_max=self.time_span[1],
                                                min_len=3.5)
         for sd in sel_dicts:
+            print(sd)
             spec_rs = self.test_resampling(select=sd, resamplefs=self.fs / 2.1)
             # remove 3Hz window around the filter cut
             pow_rs = spec_rs.show(channel=0)[:-3].mean()
@@ -243,7 +246,6 @@ class TestResampling:
             assert np.all(np.isfinite(spec_rs.data))
             assert pow_rs >= 0.9 * self.pow_orig
 
-    @skip_without_acme
     def test_rs_parallel(self, testcluster=None):
 
         ppl.ioff()

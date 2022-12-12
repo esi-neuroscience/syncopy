@@ -8,19 +8,14 @@ import numpy as np
 import inspect
 import tempfile
 import os
+import dask.distributed as dd
 
 # Local imports
 import syncopy as spy
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
 
 import syncopy.tests.synth_data as synth_data
 from syncopy.shared.tools import StructDict
 
-
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 
 availableFrontend_cfgs = {'freqanalysis': {'method': 'mtmconvol', 't_ftimwin': 0.1},
                           'preprocessing': {'freq': 10, 'filter_class': 'firws', 'filter_type': 'hp'},
@@ -95,7 +90,7 @@ class TestCfg:
 
     def test_selection(self):
 
-        select = {'toilim': self.time_span, 'trials': [1, 2, 3], 'channel': [2, 0]}
+        select = {'latency': self.time_span, 'trials': [1, 2, 3], 'channel': [2, 0]}
         for frontend in availableFrontend_cfgs.keys():
             # select kw for selectdata makes no direct sense
             if frontend == 'selectdata':
@@ -137,7 +132,7 @@ class TestCfg:
         res_pp = spy.preprocessing(self.adata, cfg=availableFrontend_cfgs['preprocessing'])
 
         frontend = 'freqanalysis'
-        frontend_cfg = {'method': 'mtmfft', 'output': 'fooof', 'foilim' : [0.5, 100.]}
+        frontend_cfg = {'method': 'mtmfft', 'output': 'fooof', 'foilim': [0.5, 100.]}
 
         res = getattr(spy, frontend)(res_pp,
                                         cfg=frontend_cfg)
@@ -151,7 +146,6 @@ class TestCfg:
         assert np.allclose(res.data[:], res2.data[:])
         assert res.cfg == res2.cfg
 
-    @skip_without_acme
     def test_parallel(self, testcluster=None):
 
         client = dd.Client(testcluster)

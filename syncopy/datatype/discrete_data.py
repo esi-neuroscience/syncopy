@@ -21,7 +21,8 @@ __all__ = ["SpikeData", "EventData"]
 
 
 class DiscreteData(BaseData, ABC):
-    """Abstract class for non-uniformly sampled data where only time-stamps are recorded
+    """
+    Abstract class for non-uniformly sampled data where only time-stamps are recorded.
 
     Notes
     -----
@@ -30,11 +31,12 @@ class DiscreteData(BaseData, ABC):
 
     _infoFileProperties = BaseData._infoFileProperties + ("samplerate", )
     _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate",)
-    _hdfFileDatasetProperties = BaseData._hdfFileDatasetProperties + ("data",)
+    _selectionKeyWords = BaseData._selectionKeyWords + ('latency',)
 
     @property
     def data(self):
-        """array-like object representing data without trials
+        """
+        Array-like object representing data without trials.
 
         Trials are concatenated along the time axis.
         """
@@ -49,11 +51,7 @@ class DiscreteData(BaseData, ABC):
 
     @data.setter
     def data(self, inData):
-
         self._set_dataset_property(inData, "data")
-
-        if inData is None:
-            return
 
     def __str__(self):
         # Get list of print-worthy attributes
@@ -121,7 +119,7 @@ class DiscreteData(BaseData, ABC):
 
     @property
     def samplerate(self):
-        """float: underlying sampling rate of non-uniformly data acquisition"""
+        """float: underlying sampling rate of non-uniform data acquisition"""
         return self._samplerate
 
     @samplerate.setter
@@ -180,9 +178,9 @@ class DiscreteData(BaseData, ABC):
     def trialtime(self):
         """list(:class:`numpy.ndarray`): trigger-relative sample times in s"""
         if self.samplerate is not None and self.sampleinfo is not None:
-            sample0 = self.sampleinfo[:,0] - self._t0[:]
+            sample0 = self.sampleinfo[:, 0] - self._t0[:]
             sample0 = np.append(sample0, np.nan)[self.trialid]
-            return (self.data[:,self.dimord.index("sample")] - sample0)/self.samplerate
+            return (self.data[:, self.dimord.index("sample")] - sample0) / self.samplerate
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
@@ -222,7 +220,7 @@ class DiscreteData(BaseData, ABC):
         nCol = len(self.dimord)
         idx = [trialIdx.tolist(), slice(0, nCol)]
         if self.selection is not None: # selections are harmonized, just take `.time`
-            idx[0] = trialIdx[self.selection.time[self.selection.trials.index(trialno)]].tolist()
+            idx[0] = trialIdx[self.selection.time[self.selection.trial_ids.index(trialno)]].tolist()
         shp = [len(idx[0]), nCol]
 
         return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
@@ -230,16 +228,16 @@ class DiscreteData(BaseData, ABC):
     # Helper function that extracts by-trial timing-related indices
     def _get_time(self, trials, toi=None, toilim=None):
         """
-        Get relative by-trial indices of time-selections
+        Get relative by-trial indices of time-selections.
 
         Parameters
         ----------
         trials : list
-            List of trial-indices to perform selection on
+            List of trial-indices to perform selection on.
         toi : None or list
             Time-points to be selected (in seconds) on a by-trial scale.
         toilim : None or list
-            Time-window to be selected (in seconds) on a by-trial scale
+            Time-window to be selected (in seconds) on a by-trial scale.
 
         Returns
         -------
@@ -297,6 +295,9 @@ class DiscreteData(BaseData, ABC):
 
     def __init__(self, data=None, samplerate=None, trialid=None, **kwargs):
 
+        # set as instance attribute to allow (un-)registering of additional datasets
+        self._hdfFileDatasetProperties = BaseData._hdfFileDatasetProperties + ("data",)
+
         # Assign (default) values
         self._trialid = None
         self._samplerate = None
@@ -329,9 +330,9 @@ class SpikeData(DiscreteData):
     """
 
     _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
-    _hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel",)
     _defaultDimord = ["sample", "channel", "unit"]
     _stackingDimLabel = "sample"
+    _selectionKeyWords = DiscreteData._selectionKeyWords + ('channel', 'unit',)
 
     @property
     def channel(self):
@@ -492,6 +493,9 @@ class SpikeData(DiscreteData):
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          dimord=dimord)
+        
+        # instance attribute to allow modification
+        self._hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel",)
 
         self.channel = channel
         self.unit = unit
@@ -509,6 +513,7 @@ class EventData(DiscreteData):
 
     _defaultDimord = ["sample", "eventid"]
     _stackingDimLabel = "sample"
+    _selectionKeyWords = DiscreteData._selectionKeyWords + ('eventid',)
 
     @property
     def eventid(self):
@@ -577,16 +582,16 @@ class EventData(DiscreteData):
 
         Parameters
         ----------
-            data : [nEvents x 2] :class:`numpy.ndarray`
+        data : [nEvents x 2] :class:`numpy.ndarray`
 
-            filename : str
-                path to filename or folder (spy container)
-            trialdefinition : :class:`EventData` object or nTrials x 3 array
-                [start, stop, trigger_offset] sample indices for `M` trials
-            samplerate : float
-                sampling rate in Hz
-            dimord : list(str)
-                ordered list of dimension labels
+        filename : str
+            path to filename or folder (spy container)
+        trialdefinition : :class:`EventData` object or nTrials x 3 array
+            [start, stop, trigger_offset] sample indices for `M` trials
+        samplerate : float
+            sampling rate in Hz
+        dimord : list(str)
+            ordered list of dimension labels
 
         1. `filename` + `data` : create hdf dataset incl. sampleinfo @filename
         2. `filename` no `data` : read from file(spy, hdf5)
@@ -614,3 +619,5 @@ class EventData(DiscreteData):
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          dimord=dimord)
+
+        self._hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate",)

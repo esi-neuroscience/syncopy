@@ -18,13 +18,22 @@ def revert_selection(plotter):
     perspective) selections. To return to a clean slate
     we revert/delete it afterwards.
 
-    All plotting routines must have `data` as 1st (*arg) argument!
+    All plotting routines must have `data` as 1st argument!
     """
     @functools.wraps(plotter)
-    def wrapper_plot(*args, **kwargs):
+    def wrapper_plot(data, *args, **kwargs):
 
-        res = plotter(*args, **kwargs)
-        args[0].selection = None
+        # to restore
+        select_backup = None if data.selection is None else data.selection.select.copy()
+
+        res = plotter(data, *args, **kwargs)
+
+        # restore initial selection or wipe
+        if select_backup:
+            data.selectdata(select_backup, inplace=True)
+        else:
+            data.selection = None
+
         return res
 
     return wrapper_plot
@@ -73,7 +82,7 @@ def parse_toi(dataobject, trl, show_kwargs):
     # apply the selection
     dataobject.selectdata(inplace=True, **show_kwargs)
 
-    # still have to index the single trial
+    # still have to index the only and single trial
     idx = dataobject.selection.time[0]
 
     # index selection, again the single trial
@@ -147,6 +156,21 @@ def get_method(dataobject):
         return meth_str
 
 
+def get_output(dataobject):
+
+    """
+    Returns the output string from
+    the log of a Syncopy data object
+    """
+
+    # get the output string in a capture group
+    pattern = re.compile(r'[\s\w\D]+output = (\w+)')
+    match = pattern.match(dataobject._log)
+    if match:
+        output_str = match.group(1)
+        return output_str
+
+
 def calc_multi_layout(nAx):
 
     """
@@ -182,3 +206,14 @@ def calc_multi_layout(nAx):
         nrows, ncols = 1, 2
 
     return nrows, ncols
+
+
+def check_if_time_freq(data):
+    """
+    Looks into the first column of the trialdefinition
+    to determine if there is a real time axis, or it is
+    just trial stacking.
+    """
+    is_tf = np.any(np.diff(data.trialdefinition)[:, 0] != 1)
+
+    return is_tf

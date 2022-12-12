@@ -21,7 +21,8 @@ from .granger import granger
 
 # syncopy imports
 from syncopy.shared.const_def import spectralDTypes
-from syncopy.shared.computational_routine import ComputationalRoutine
+from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
+from syncopy.shared.metadata import metadata_from_hdf5_file, cast_0array
 from syncopy.shared.kwarg_decorators import process_io
 from syncopy.shared.errors import (
     SPYValueError,
@@ -51,10 +52,10 @@ def normalize_csd_cF(csd_av_dat,
 
     Parameters
     ----------
-    csd_av_dat : (1, nFreq, N, N) :class:`numpy.ndarray`
+    csd_av_dat : (nTime, nFreq, N, N) :class:`numpy.ndarray`
         Cross-spectral densities for `N` x `N` channels
         and `nFreq` frequencies averaged over trials.
-    output : {'abs', 'pow', 'fourier'}, default: 'abs'
+    output : {'abs', 'pow', 'fourier', 'real', 'imag'}, default: 'abs'
         Also after normalization the coherency is still complex (`'complex'`),
         to get the real valued coherence ``0 < C_ij(f) < 1`` one can either take the
         absolute (`'abs'`) or the absolute squared (`'pow'`) values of the
@@ -68,7 +69,7 @@ def normalize_csd_cF(csd_av_dat,
 
     Returns
     -------
-    CS_ij : (1, nFreq, N, N) :class:`numpy.ndarray`
+    CS_ij : (nTime, nFreq, N, N) :class:`numpy.ndarray`
         Coherence for all channel combinations ``i,j``.
         `N` corresponds to number of input channels.
 
@@ -106,10 +107,9 @@ def normalize_csd_cF(csd_av_dat,
     if noCompute:
         return outShape, fmt
 
-    CS_ij = normalize_csd(csd_av_dat[0], output)
+    CS_ij = normalize_csd(csd_av_dat, output)
 
-    # re-attach dummy time axis
-    return CS_ij[None, ...]
+    return CS_ij
 
 
 class NormalizeCrossSpectra(ComputationalRoutine):
@@ -133,7 +133,7 @@ class NormalizeCrossSpectra(ComputationalRoutine):
 
     computeFunction = staticmethod(normalize_csd_cF)
 
-    method = "" # there is no backend
+    method = ""  # there is no backend
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(normalize_csd_cF).parameters.keys())[1:]
 
@@ -156,32 +156,9 @@ class NormalizeCrossSpectra(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Some index gymnastics to get trial begin/end "samples"
-        if data.selection is not None:
-            chanSec_i = data.selection.channel_i
-            chanSec_j = data.selection.channel_j
-            trl = data.selection.trialdefinition
-            for row in range(trl.shape[0]):
-                trl[row, :2] = [row, row + 1]
-        else:
-            chanSec_i = slice(None)
-            chanSec_j = slice(None)
-            time = np.arange(len(data.trials))
-            time = time.reshape((time.size, 1))
-            trl = np.hstack((time, time + 1,
-                             np.zeros((len(data.trials), 1)),
-                             np.array(data.trialinfo)))
+        time_axis = np.any(np.diff(data.trialdefinition)[:,0] != 1)
 
-        # Attach constructed trialdef-array (if even necessary)
-        if self.keeptrials:
-            out.trialdefinition = trl
-        else:
-            out.trialdefinition = np.array([[0, 1, 0]])
-
-        # Attach remaining meta-data
-        out.samplerate = data.samplerate
-        out.channel_i = np.array(data.channel_i[chanSec_i])
-        out.channel_j = np.array(data.channel_j[chanSec_j])
+        propagate_properties(data, out, self.keeptrials, time_axis)
         out.freq = data.freq
 
 
@@ -274,7 +251,7 @@ class NormalizeCrossCov(ComputationalRoutine):
 
     computeFunction = staticmethod(normalize_ccov_cF)
 
-    method = "" # there is no backend
+    method = ""   # there is no backend
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(normalize_ccov_cF).parameters.keys())[1:]
 
@@ -316,7 +293,7 @@ class NormalizeCrossCov(ComputationalRoutine):
 
 @process_io
 def granger_cF(csd_av_dat,
-               rtol=1e-8,
+               rtol=1e-6,
                nIter=100,
                cond_max=1e4,
                chunkShape=None,
@@ -420,17 +397,23 @@ def granger_cF(csd_av_dat,
     CSD = csd_av_dat[0]
 
     # auto-regularize to `cond_max` condition number
-    # maximal regularization factor is 1e-3, raises a ValueError
-    # if this is not enough!
-    CSDreg, factor = regularize_csd(CSD, cond_max=cond_max, eps_max=1e-3)
+    # maximal regularization factor is 1e-1
+    CSDreg, factor, ini_cn = regularize_csd(CSD, cond_max=cond_max, eps_max=1e-1)
     # call Wilson
-    H, Sigma, conv = wilson_sf(CSDreg, nIter=nIter, rtol=rtol)
+    H, Sigma, conv, err = wilson_sf(CSDreg, nIter=nIter, rtol=rtol)
 
     # calculate G-causality
     Granger = granger(CSDreg, H, Sigma)
 
+    # format is 'label--cast'
+    metadata = {'converged--bool': np.array(conv),
+                'max rel. err--float': np.array(err),
+                'reg. factor--float': np.array(factor),
+                'initial cond. num--float': np.array(ini_cn)
+                }
+
     # reattach dummy time axis
-    return Granger[None, ...]
+    return Granger[None, ...], metadata
 
 
 class GrangerCausality(ComputationalRoutine):
@@ -448,12 +431,23 @@ class GrangerCausality(ComputationalRoutine):
     syncopy.connectivityanalysis : parent metafunction
     """
 
+    #: The keys available in the `info` property of the returned data instance.
+    #:
+    #: 'converged' : bool, ``True`` if the algoritm converged successfully
+    #:
+    #: 'max rel, err' : float, maximum relative error between the input CSD and the spectral factorization
+    #:
+    #: 'reg. factor' : float, brute force regularization factor in case the CSD is nearly singular
+    #:
+    #: 'initial cond. num' : float, condition number of the CSD, regularization kicks in if that is too high
+    metadata_keys = ("converged", "max rel. err", "reg. factor", "initial cond. num",)
+
     # the hard wired dimord of the cF
     dimord = ['time', 'freq', 'channel_i', 'channel_j']
 
     computeFunction = staticmethod(granger_cF)
 
-    method = "" # there is no backend
+    method = ""   # there is no backend
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(granger_cF).parameters.keys())[1:]
 
@@ -476,30 +470,15 @@ class GrangerCausality(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # Some index gymnastics to get trial begin/end "samples"
-        if data.selection is not None:
-            chanSec_i = data.selection.channel_i
-            chanSec_j = data.selection.channel_j
-            trl = data.selection.trialdefinition
-            for row in range(trl.shape[0]):
-                trl[row, :2] = [row, row + 1]
-        else:
-            chanSec_i = slice(None)
-            chanSec_j = slice(None)
-            time = np.arange(len(data.trials))
-            time = time.reshape((time.size, 1))
-            trl = np.hstack((time, time + 1,
-                             np.zeros((len(data.trials), 1)),
-                             np.array(data.trialinfo)))
-
-        # Attach constructed trialdef-array (if even necessary)
-        if self.keeptrials:
-            out.trialdefinition = trl
-        else:
-            out.trialdefinition = np.array([[0, 1, 0]])
-
-        # Attach remaining meta-data
-        out.samplerate = data.samplerate
-        out.channel_i = np.array(data.channel_i[chanSec_i])
-        out.channel_j = np.array(data.channel_j[chanSec_j])
+        propagate_properties(data, out, self.keeptrials)
         out.freq = data.freq
+
+        # digest metadata and attach to .info property
+        mdata = metadata_from_hdf5_file(out.filename)
+
+        for key, value in mdata.items():
+            # we always have a (single) trial average here
+            label_cast = key.split('__')[0]
+            # learn how to serialize
+            label, cast = label_cast.split('--')
+            out.info[label] = cast_0array(cast, value)

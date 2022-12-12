@@ -275,7 +275,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
         except Exception as exc:
             raise exc
         timeAxis = data.dimord.index("time")
-        spydata = True
+        is_spydata = True
     elif data.__class__.__name__ == "FauxTrial":
         if len(data.shape) != 2:
             lgl = "two-dimensional AnalogData trial segment"
@@ -283,21 +283,21 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
             raise SPYValueError(legal=lgl, varname="data",
                                 actual=act.format(len(data.shape)))
         timeAxis = data.dimord.index("time")
-        spydata = False
+        is_spydata = False
     else:
         try:
             array_parser(data, varname="data", dims=2)
         except Exception as exc:
             raise exc
         timeAxis = 0
-        spydata = False
+        is_spydata = False
 
     # If input is a syncopy object, fetch trial list and `sampleinfo` (thereby
     # accounting for in-place selections); to not repeat this later, save relevant
     # quantities in tmp attributes (all prefixed by `'_pad'`)
-    if spydata:
+    if is_spydata:
         if data.selection is not None:
-            trialList = data.selection.trials
+            trialList = data.selection.trial_ids
             data._pad_sinfo = np.zeros((len(trialList), 2))
             data._pad_t0 = np.zeros((len(trialList),))
             for tk, trlno in enumerate(trialList):
@@ -335,7 +335,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     if pad not in options:
         lgl = "'" + "or '".join(opt + "' " for opt in options)
         raise SPYValueError(legal=lgl, varname="pad", actual=pad)
-    if pad == "maxlen" and not spydata:
+    if pad == "maxlen" and not is_spydata:
         lgl = "syncopy data object when using option 'maxlen'"
         raise SPYValueError(legal=lgl,
                             varname="pad", actual="maxlen")
@@ -347,7 +347,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     if unit not in options:
         lgl = "'" + "or '".join(opt + "' " for opt in options)
         raise SPYValueError(legal=lgl, varname="unit", actual=unit)
-    if unit == "time" and not spydata:
+    if unit == "time" and not is_spydata:
         raise SPYValueError(legal="syncopy data object when using option 'time'",
                             varname="unit", actual="time")
 
@@ -357,7 +357,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
     # If we're padding up to an absolute bound or the max. length across
     # trials, compute lower bound for padding (in samples or seconds)
     if pad in ["absolute", "maxlen"]:
-        if spydata:
+        if is_spydata:
             maxTrialLen = np.diff(data._pad_sinfo).max()
         else:
             maxTrialLen = data.shape[timeAxis] # if `pad="absolute" and data is array
@@ -471,7 +471,7 @@ def padding(data, padtype, pad="absolute", padlength=None, prepadlength=None,
            "mirror": {"mode": "reflect"}}
 
     # If input was syncopy data object, padding is done on a per-trial basis
-    if spydata:
+    if is_spydata:
 
         # A list of input keywords for ``np.pad`` is constructed, no matter if
         # we actually want to build a new object or not

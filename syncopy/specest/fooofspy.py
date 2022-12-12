@@ -54,7 +54,7 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
         spectrum (for ``'fooof_aperiodic'``) or the peaks (for ``'fooof_peaks'``).
         Each row corresponds to a row in the input `data_arr`, i.e., a channel.
         The data is in linear space.
-    details : dictionary
+    metadata : dictionary
         Details on the model fit and settings used. Contains the following keys:
             `aperiodic_params` 2D :class:`numpy.ndarray`, the aperiodoc parameters of the fits, in log10.
             `gaussian_params` list of 2D nx3 :class:`numpy.ndarray`, the Gaussian parameters of the fits, in log10.
@@ -73,7 +73,7 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
     >>> from syncopy.specest.fooofspy import fooofspy
     >>> from fooof.sim.gen import gen_power_spectrum
     >>> freqs, powers = gen_power_spectrum([3, 40], [1, 1], [[10, 0.2, 1.25], [30, 0.15, 2]])
-    >>> spectra, details = fooofspy(powers, freqs, out_type='fooof')
+    >>> spectra, metadata = fooofspy(powers, freqs, out_type='fooof')
 
     References
     -----
@@ -157,6 +157,15 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
         peak_params.append(fm.peak_params_)
 
     settings_used = {'fooof_opt': fooof_opt, 'out_type': out_type, 'freq_range': freq_range}
-    details = {'aperiodic_params': aperiodic_params, 'gaussian_params': gaussian_params, 'peak_params': peak_params, 'n_peaks': n_peaks, 'r_squared': r_squared, 'error': error, 'settings_used': settings_used}
+    #  Note: we add the 'settings_used' here in the backend, but they get stripped in the middle layer
+    #       (in the 'compRoutines.py/fooofspy_cF()'), so they do not reach the frontend.
+    #        The reason for removing them there is that we/h5py do not support nested dicts as
+    #        dataset/group attributes, and thus we cannot encode them in hdf5. We could work around
+    #        that, but due to our log, we do not really need to.
+    #        Returning them from here still has the benefit that we can test for them in backend tests.
+    metadata = {'aperiodic_params': aperiodic_params, 'gaussian_params': gaussian_params,
+               'peak_params': peak_params, 'n_peaks': n_peaks, 'r_squared': r_squared,
+               'error': error, 'settings_used': settings_used}
 
-    return out_spectra, details
+    return out_spectra, metadata
+
