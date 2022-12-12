@@ -57,7 +57,7 @@ def hash_file(fname, bsize=65536):
     return hash.hexdigest()
 
 
-def cleanup(older_than=24, interactive=True, **kwargs):
+def cleanup(older_than=24, interactive=True):
     """
     Delete old files in temporary Syncopy folder
 
@@ -133,7 +133,7 @@ def cleanup(older_than=24, interactive=True, **kwargs):
                                        for dirpth, _, fnames in os.walk(file)
                                        for fname in fnames) for file in files))
             except OSError as ex:
-                print(f"Unable to open {fid}: {ex}", file=sys.stderr)
+                print(f"Unable to open {fid}: {ex}. (Maybe already deleted.)")
 
     # Farewell if nothing's to do here
     if not sesList and not dangling:
@@ -176,16 +176,19 @@ def cleanup(older_than=24, interactive=True, **kwargs):
         szdang = 0.0
         for file in dangling:
             try:
-                szfile = sum(os.path.getsize(file)/1024**3) if os.path.isfile(file) else \
-                                       sum(os.path.getsize(os.path.join(dirpth, fname))/1024**3) \
+                if os.path.isfile(file):
+                    szdang += os.path.getsize(file)/1024**3
+                    numdang += 1
+                elif os.path.isdir(file):
+                    szdang += sum(os.path.getsize(os.path.join(dirpth, fname)/1024**3) \
                                            for dirpth, _, fnames in os.walk(file) \
                                                for fname in fnames)
-                szdang += szfile
-                numdang += 1
+                    numdang += 1
+
             except OSError as ex:
-                print(f"Dangling file no longer")
+                print(f"Dangling file {file} no longer exists: {ex}. (Maybe already deleted.)")
         dangInfo = dangInfo.format(numdang=numdang, szdang=szdang)
-        
+
 
         dangOptions = \
             "[D]ANGLING FILE removal to delete anything not associated to sessions " +\
