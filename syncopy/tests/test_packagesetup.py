@@ -49,6 +49,21 @@ def test_cleanup():
     # in custom $SPYTMPDIR; force-kill the process after a few seconds preventing
     # Syncopy from cleaning up its temp storage folder
 
+    # this function assumes to be in the root directory of the repository
+    # if that is not the case we have to move there
+
+    cdir = os.getcwd()
+    while 'syncopy' in cdir:
+        head, tail = os.path.split(cdir)
+        if not 'syncopy' in head:
+            root_dir = os.path.join(head, tail)
+            os.chdir(root_dir)
+            break
+        cdir = head
+    # check that we are not entirely somewhere else
+    else:
+        assert False
+
     with tempfile.TemporaryDirectory() as tmpDir:
 
         os.environ["SPYTMPDIR"] = tmpDir
@@ -66,7 +81,7 @@ def test_cleanup():
 
         # get inventory of external Syncopy instance's temp storage
         spyGarbage = glob(os.path.join(tmpDir, "*"))
-        # print(spyGarbage)
+
         assert len(spyGarbage)
 
         # launch 2nd external instance with same $SPYTMPDIR, create 2nd `AnalogData`
