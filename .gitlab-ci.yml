@@ -134,7 +134,7 @@ slurmtest-acme:
     - source /opt/conda/etc/profile.d/conda.sh
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
-    - conda install esi-acme=2022.11
+    - conda install esi-acme=2022.11 -c conda-forge
     - export PYTHONPATH=$CI_PROJECT_DIR
     - cd $TEST_DIR
     - srun -p DEV --mem=8000m pytest -ra test_specest.py
