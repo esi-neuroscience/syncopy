@@ -118,7 +118,7 @@ class TestGranger:
     cfg = spy.StructDict()
     cfg.tapsmofrq = 1
     cfg.foi = None
-    spec = spy.freqanalysis(data, cfg, output='fourier', keeptapers=True)
+    spec = spy.freqanalysis(data, cfg, output='fourier', keeptapers=True, demean_taper=True)
 
     def test_spec_input_frontend(self):
         assert isinstance(self.spec, SpectralData)
@@ -127,13 +127,12 @@ class TestGranger:
         res = spy.connectivityanalysis(self.spec, method='granger', cfg=cfg)
         assert isinstance(res, spy.CrossSpectralData)
 
-
     def test_gr_solution(self, **kwargs):
 
         # re-run spectral analysis
         if len(kwargs) != 0:
             spec = spy.freqanalysis(self.data, self.cfg, output='fourier',
-                                    keeptapers=True, **kwargs)
+                                    keeptapers=True, demean_taper=True, **kwargs)
         else:
             spec = self.spec
 
@@ -146,8 +145,9 @@ class TestGranger:
 
         # from AnalogData directly, needs cfg for spectral analyis
         Gcaus_ad = cafunc(self.data, method='granger',
-                       cfg=self.cfg, **kwargs)
+                          cfg=self.cfg, **kwargs)
 
+        # return Gcaus_ad, Gcaus_spec
         # same results on all channels and freqs
         assert np.allclose(Gcaus_ad.trials[0], Gcaus_spec.trials[0], rtol=1e-2)
 
@@ -195,12 +195,13 @@ class TestGranger:
 
         for sel_dct in selections:
             print(sel_dct)
-            Gcaus_ad = cafunc(self.data, self.cfg, method='granger', select=sel_dct)
+            Gcaus_ad = cafunc(self.data, self.cfg,
+                              method='granger', select=sel_dct)
 
             # selections act on spectral analysis, remove latency
             # sel_dct.pop('latency')
             spec = spy.freqanalysis(self.data, self.cfg, output='fourier',
-                                    keeptapers=True, select=sel_dct)
+                                    keeptapers=True, select=sel_dct, demean_taper=True)
 
             Gcaus_spec = cafunc(spec, method='granger')
 
