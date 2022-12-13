@@ -118,14 +118,11 @@ class TestGranger:
     cfg = spy.StructDict()
     cfg.tapsmofrq = 1
     cfg.foi = None
-    # better for granger
-    cfg.demean_taper = True
     spec = spy.freqanalysis(data, cfg, output='fourier', keeptapers=True)
 
     def test_spec_input_frontend(self):
         assert isinstance(self.spec, SpectralData)
         cfg = self.cfg.copy()
-        cfg.pop("demean_taper", None)
         cfg.pop("tapsmofrq", None)
         res = spy.connectivityanalysis(self.spec, method='granger', cfg=cfg)
         assert isinstance(res, spy.CrossSpectralData)
@@ -311,8 +308,6 @@ class TestCoherence:
     cfg = spy.StructDict()
     cfg.tapsmofrq = 1.5
     cfg.foilim = [5, 60]
-    # better for coherence
-    cfg.demean_taper = False
 
     spec = spy.freqanalysis(data, cfg, output='fourier', keeptapers=True)
 
