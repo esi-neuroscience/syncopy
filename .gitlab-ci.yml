@@ -6,7 +6,8 @@ stages:
 
 variables:
     TEST_DIR: "$CI_PROJECT_DIR/syncopy/tests"
-
+    REL_TEST_DIR: "syncopy/tests"
+    
 intellinux:
     stage: single
     allow_failure: true
@@ -113,7 +114,7 @@ slurmtest:
     - export PYTHONPATH=$CI_PROJECT_DIR
     - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_specest.py
     - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_connectivity.py
-    - srun -p DEV pytest -ra --ignore=$TEST_DIR/test_specest.py --ignore=$TEST_DIR/test_connectivity.py
+    - srun -p DEV pytest -ra --ignore=$REL_TEST_DIR/test_specest.py --ignore=$REL_TEST_DIR/test_connectivity.py
     
 slurmtest-acme:
     stage: slurm
@@ -134,7 +135,7 @@ slurmtest-acme:
     - export PYTHONPATH=$CI_PROJECT_DIR
     - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_specest.py
     - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_connectivity.py
-    - srun -p DEV pytest -ra --ignore=$TEST_DIR/test_specest.py --ignore=$TEST_DIR/test_connectivity.py
+    - srun -p DEV pytest -ra --ignore=$REL_TEST_DIR/test_specest.py --ignore=$REL_TEST_DIR/test_connectivity.py
 
 pypitest:
     stage: upload
