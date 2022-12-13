@@ -8,15 +8,17 @@ import sys
 import pytest
 from syncopy import __acme__
 import syncopy.tests.test_packagesetup as setupTestModule
+import dask.distributed as dd
+import dask_jobqueue as dj
+from syncopy.tests.misc import is_slurm_node
 
-# If dask is available, either launch a SLURM cluster on a cluster node or
-# create a `LocalCluster` object if tests are run on a single machine. If dask
-# is not installed, return a dummy None-valued cluster object (tests will be
-# skipped anyway)
+# If acme is available, either launch a SLURM cluster on a cluster node or
+# create a `LocalCluster` object if tests are run on a single machine. If
+# acme is not available, launch a custom SLURM cluster or again just a local
+# cluster as fallback
+cluster = None
 if __acme__:
-    import dask.distributed as dd
     from acme.dask_helpers import esi_cluster_setup
-    from syncopy.tests.misc import is_slurm_node
     if sys.platform != "win32":
         import resource
         if max(resource.getrlimit(resource.RLIMIT_NOFILE)) < 1024:
@@ -24,14 +26,23 @@ if __acme__:
                 "the limit using, e.g., `ulimit -Sn 1024`"
             raise ValueError(msg)
     if is_slurm_node():
-        cluster = esi_cluster_setup(partition="8GB", n_jobs=10,
+        cluster = esi_cluster_setup(partition="8GB", n_jobs=4,
                                     timeout=360, interactive=False,
                                     start_client=False)
     else:
         cluster = dd.LocalCluster(n_workers=4)
 else:
-    # this also spawns a LocalCluster via dd.Client(None)
-    cluster = None
+    # manually start slurm cluster
+    if is_slurm_node():
+        n_jobs = 4
+        reqMem = 8 
+        ESIQueue = 'S'
+
+        cluster = dj.SLURMCluster(cores=1, memory=f'{reqMem} GB', processes=1,
+                                  queue=f'{reqMem}GB{ESIQueue}', python=sys.executable)
+        cluster.scale(n_jobs)
+    else:
+        cluster = dd.LocalCluster(n_workers=4)
 
 # Set up a pytest fixture `testcluster` that uses the constructed cluster object
 @pytest.fixture

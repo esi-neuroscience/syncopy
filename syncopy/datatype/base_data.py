@@ -182,8 +182,8 @@ class BaseData(ABC):
         propertyName : str
             The name for the new dataset, this will be used as the dataset name in the hdf5 container
             when saving. It will be added as an attribute named `'_' + propertyName` to this SyncopyData object.
-            Note that this means that your propertyName must not clash with other attribute names of 
-            syncopy data objects. To ensure the latter, it is recommended to use names with a prefix like 
+            Note that this means that your propertyName must not clash with other attribute names of
+            syncopy data objects. To ensure the latter, it is recommended to use names with a prefix like
             `'dset_'`. Clashes will be detected and result in errors.
         in_data : None or np.ndarray or h5py.Dataset
             The data to store. Must have the final number of dimensions you want.
@@ -1249,8 +1249,15 @@ class SessionLogger:
 
         # Check for upper bound of temp directory size
         with os.scandir(__storage__) as scan:
-            st_fles = [fle.stat().st_size / 1024 ** 3 for fle in scan]
-            st_size = sum(st_fles)
+            st_size = 0.0
+            st_fles = 0
+            for fle in scan:
+                try:
+                    st_size += fle.stat().st_size / 1024 ** 3
+                    st_fles += 1
+                except FileNotFoundError as ex:
+                    continue
+
             if st_size > __storagelimit__:
                 msg = (
                     "\nSyncopy <core> WARNING: Temporary storage folder {tmpdir:s} "
