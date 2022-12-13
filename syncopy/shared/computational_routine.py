@@ -795,7 +795,7 @@ class ComputationalRoutine(ABC):
         """
 
         # Let ACME take care of argument distribution and memory checks: note
-        # that `cfg` is trial-independent, i.e., we can simply throw it in here!        
+        # that `cfg` is trial-independent, i.e., we can simply throw it in here!
         if __acme__ and check_slurm_available():
 
             self.pmap = ParallelMap(self.computeFunction,
@@ -804,8 +804,8 @@ class ComputationalRoutine(ABC):
                                     write_worker_results=False,
                                     write_pickle=False,
                                     partition="auto",
-                                    n_jobs="auto",
-                                    mem_per_job="auto",
+                                    n_workers="auto",
+                                    mem_per_worker="auto",
                                     setup_timeout=60,
                                     setup_interactive=False,
                                     stop_client="auto",
