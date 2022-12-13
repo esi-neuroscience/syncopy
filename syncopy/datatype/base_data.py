@@ -1255,7 +1255,8 @@ class SessionLogger:
                 try:
                     st_size += fle.stat().st_size / 1024 ** 3
                     st_fles += 1
-                except FileNotFoundError as ex:
+                # this catches a cleanup by another process
+                except FileNotFoundError:
                     continue
 
             if st_size > __storagelimit__:
@@ -1264,7 +1265,7 @@ class SessionLogger:
                     + "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n"
                     + "Consider running `spy.cleanup()` to free up disk space."
                 )
-                print(msg.format(tmpdir=__storage__, nfs=len(st_fles), sze=st_size))
+                print(msg.format(tmpdir=__storage__, nfs=st_fles, sze=st_size))
 
         # If we made it to this point, (attempt to) write the session file
         sess_log = "{user:s}@{host:s}: <{time:s}> started session {sess:s}"
