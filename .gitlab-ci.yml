@@ -154,13 +154,14 @@ pypitest:
     script:
     - rm -rf dist/
     - source $HOME/miniconda/etc/profile.d/conda.sh
-    # get poetry with python 3.8
-    - conda activate spy38
+    # get poetry with python 3.10
+    - conda activate syncopy-deploy
     - poetry build
     # needs config pypi credentials on runner
     - poetry publish -r testpypi
     - sleep 300
-    - conda create --yes --name piptest python=3.8
+    # create clean new env and install the pypitest package
+    - conda create --yes --name piptest python=3.10
     - conda activate piptest
     - conda install --yes pip
     - version=$(grep 'version =' pyproject.toml | awk -F "\"" '{print $2}')
@@ -183,8 +184,8 @@ pypideploy:
     script:
     - rm -rf dist/
     - source $HOME/miniconda/etc/profile.d/conda.sh
-    # get poetry with python 3.8
-    - conda activate spy38
+    # get poetry with python 3.10
+    - conda activate syncopy-deploy
     - poetry build
     # needs config pypi credentials on runner
     - poetry publish -r pypi
