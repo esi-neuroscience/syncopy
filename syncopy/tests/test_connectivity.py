@@ -266,14 +266,8 @@ class TestGranger:
 
     def test_gr_polyremoval(self):
 
-        # add a constant to the signals
-        self.data = self.data + 10
-
         call = lambda polyremoval: self.test_gr_solution(polyremoval=polyremoval)
         helpers.run_polyremoval_test(call)
-
-        # remove the constant again
-        self.data = self.data - 10
 
 
 class TestCoherence:
