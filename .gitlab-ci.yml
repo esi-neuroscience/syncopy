@@ -26,7 +26,6 @@ intellinux:
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - export PYTHONPATH=$CI_PROJECT_DIR
-    - cd $TEST_DIR
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'
 
@@ -48,7 +47,6 @@ powerlinux:
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - export PYTHONPATH=$CI_PROJECT_DIR
-    - cd $TEST_DIR
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'
 
@@ -94,7 +92,6 @@ m1macos:
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - export PYTHONPATH=$CI_PROJECT_DIR
-    - cd $TEST_DIR
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'
 
@@ -114,9 +111,8 @@ slurmtest:
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - export PYTHONPATH=$CI_PROJECT_DIR
-    - cd $TEST_DIR
-    - srun -p DEV --mem=8000m pytest -ra test_specest.py
-    - srun -p DEV --mem=8000m pytest -ra test_connectivity.py
+    - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_specest.py
+    - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_connectivity.py
     - srun -p DEV pytest -ra --ignore=test_specest.py --ignore=test_connectivity.py
     
 slurmtest-acme:
@@ -136,9 +132,8 @@ slurmtest-acme:
     - conda activate syncopy
     - conda install esi-acme=2022.11 -c conda-forge
     - export PYTHONPATH=$CI_PROJECT_DIR
-    - cd $TEST_DIR
-    - srun -p DEV --mem=8000m pytest -ra test_specest.py
-    - srun -p DEV --mem=8000m pytest -ra test_connectivity.py
+    - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_specest.py
+    - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_connectivity.py
     - srun -p DEV pytest -ra --ignore=test_specest.py --ignore=test_connectivity.py
 
 pypitest:
