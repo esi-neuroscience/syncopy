@@ -162,7 +162,7 @@ class TestSpfooof():
         plt.ylabel('Power (Db)')
         plt.legend()
         plt.title("Comparison of raw data and fooof results, linear scale.")
-        plt.show()
+        # plt.show()
 
     def test_the_fooof_opt_settings_are_used(self, freqs=freqs, powers=powers):
         """
