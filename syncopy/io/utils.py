@@ -180,7 +180,7 @@ def cleanup(older_than=24, interactive=True):
                     szdang += os.path.getsize(file)/1024**3
                     numdang += 1
                 elif os.path.isdir(file):
-                    szdang += sum(os.path.getsize(os.path.join(dirpth, fname)/1024**3) \
+                    szdang += sum(os.path.getsize(os.path.join(dirpth, fname)) / 1024**3 \
                                            for dirpth, _, fnames in os.walk(file) \
                                                for fname in fnames)
                     numdang += 1

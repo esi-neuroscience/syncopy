@@ -48,7 +48,20 @@ def test_cleanup():
     # spawn new Python instance, which creates and saves an `AnalogData` object
     # in custom $SPYTMPDIR; force-kill the process after a few seconds preventing
     # Syncopy from cleaning up its temp storage folder
-    tmpDir = os.path.join(tempfile.gettempdir(), "spy_zombie")
+
+    # in case parallel tests try to do the same thing
+    rnd_end = str(time.time() % 21)[-4:]
+    tmpDir = os.path.join(tempfile.gettempdir(), "spy_zombie" + rnd_end)
+    
+    # wipe just in case
+    try:
+        shutil.rmtree(tmpDir)
+    except FileNotFoundError:
+        pass
+    
+    # and re-create
+    os.mkdir(tmpDir)
+
     os.environ["SPYTMPDIR"] = tmpDir
     commandStr = \
         "import os; " +\
@@ -59,11 +72,12 @@ def test_cleanup():
         "dummy.save(os.path.join(spy.__storage__, 'spy_dummy')); " +\
         "time.sleep(100)"
     process = subprocess.Popen([sys.executable, "-c", commandStr])
-    time.sleep(5.)
+    time.sleep(3.)
     process.kill()
 
     # get inventory of external Syncopy instance's temp storage
     spyGarbage = glob(os.path.join(tmpDir, "*"))
+    # print(spyGarbage)
     assert len(spyGarbage)
 
     # launch 2nd external instance with same $SPYTMPDIR, create 2nd `AnalogData`
@@ -78,7 +92,7 @@ def test_cleanup():
     process2 = subprocess.Popen([sys.executable, "-c", commandStr],
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                  text=True)
-    time.sleep(10)
+    time.sleep(3)
 
     # ensure `cleanup` call removed first instance's garbage but 2nd `AnalogData`
     # belonging to 2nd instance launched above is unharmed
