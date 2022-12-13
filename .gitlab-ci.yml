@@ -113,7 +113,7 @@ slurmtest:
     - export PYTHONPATH=$CI_PROJECT_DIR
     - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_specest.py
     - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_connectivity.py
-    - srun -p DEV pytest -ra --ignore=test_specest.py --ignore=test_connectivity.py
+    - srun -p DEV pytest -ra --ignore=$TEST_DIR/test_specest.py --ignore=$TEST_DIR/test_connectivity.py
     
 slurmtest-acme:
     stage: slurm
@@ -134,7 +134,7 @@ slurmtest-acme:
     - export PYTHONPATH=$CI_PROJECT_DIR
     - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_specest.py
     - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_connectivity.py
-    - srun -p DEV pytest -ra --ignore=test_specest.py --ignore=test_connectivity.py
+    - srun -p DEV pytest -ra --ignore=$TEST_DIR/test_specest.py --ignore=$TEST_DIR/test_connectivity.py
 
 pypitest:
     stage: upload
