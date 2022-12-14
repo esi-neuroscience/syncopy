@@ -34,12 +34,15 @@ if __acme__:
 else:
     # manually start slurm cluster
     if is_slurm_node():
-        n_jobs = 4
-        reqMem = 8 
+        n_jobs = 3
+        reqMem = 32
         ESIQueue = 'S'
+        slurm_wdir = "/cs/slurm/syncopy/"
 
         cluster = dj.SLURMCluster(cores=1, memory=f'{reqMem} GB', processes=1,
-                                  queue=f'{reqMem}GB{ESIQueue}', python=sys.executable)
+                                  local_directory=slurm_wdir,
+                                  queue=f'{reqMem}GB{ESIQueue}',
+                                  python=sys.executable)
         cluster.scale(n_jobs)
     else:
         cluster = dd.LocalCluster(n_workers=4)
