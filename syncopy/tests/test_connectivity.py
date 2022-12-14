@@ -209,7 +209,7 @@ class TestGranger:
             assert np.all(Gcaus_ad.data[0, ...] >= -1e-10)
 
             # same results
-            assert np.allclose(Gcaus_ad.trials[0], Gcaus_spec.trials[0], atol=1e-3)
+            assert np.allclose(Gcaus_ad.trials[0], Gcaus_spec.trials[0], atol=1e-2)
 
         # test one final selection into a result
         # obtained via orignal SpectralData input
