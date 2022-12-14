@@ -207,7 +207,6 @@ class TestPSTH:
         ppl.legend()
         ppl.xlabel('time (s)')
         ppl.ylabel('spike counts')
-        ppl.show()
 
         # -- plot mean and variance --
 
@@ -229,7 +228,6 @@ class TestPSTH:
         ppl.legend()
         ppl.xlabel('time (s)')
         ppl.ylabel('spike counts')
-        ppl.show()
 
         cfg.output = 'rate'  # the default
         rates = spy.spike_psth(self.spd, cfg)

@@ -36,7 +36,7 @@ def check_workers_available(cluster):
     Tries to see the Dask workers and waits
     until all requested workers are available
     """
-    
+
     totalWorkers = len(cluster.requested)    
     sec = 0
     workers = cluster.scheduler_info['workers']
@@ -47,5 +47,4 @@ def check_workers_available(cluster):
         sec += 2
         workers = cluster.scheduler_info['workers']
     # wait a little more to get consistent client print out
-    sleep(0.3)
-    
+    sleep(1)
