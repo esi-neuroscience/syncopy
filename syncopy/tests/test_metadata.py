@@ -63,12 +63,14 @@ class TestMetadataHelpers():
 
     def test_metadata_from_hdf5_file(self):
         # Test for correct error on hdf5 file without 'data' dataset.
-        _, h5py_filename = tempfile.mkstemp()
+        fd, h5py_filename = tempfile.mkstemp()
         with h5py.File(h5py_filename, "w") as f:
             f.create_dataset("mydataset", (100,), dtype='i')
 
         with pytest.raises(SPYValueError, match="dataset in hd5f file"):
             _ = metadata_from_hdf5_file(h5py_filename)
+
+        os.close(fd)
         os.remove(h5py_filename)
 
     def test_get_res_details(self):
