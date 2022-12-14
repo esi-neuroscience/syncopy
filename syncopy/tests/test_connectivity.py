@@ -86,7 +86,7 @@ class TestSpectralInput:
 
 class TestGranger:
 
-    nTrials = 150
+    nTrials = 200
     nChannels = 4
     nSamples = 1000
     fs = 200
@@ -147,9 +147,8 @@ class TestGranger:
         Gcaus_ad = cafunc(self.data, method='granger',
                           cfg=self.cfg, **kwargs)
 
-        # return Gcaus_ad, Gcaus_spec
-        # same results on all channels and freqs
-        assert np.allclose(Gcaus_ad.trials[0], Gcaus_spec.trials[0], rtol=1e-2)
+        # same results on all channels and freqs within 1%
+        assert np.allclose(Gcaus_ad.trials[0], Gcaus_spec.trials[0], atol=1e-2)
 
         for Gcaus in [Gcaus_spec, Gcaus_ad]:
             # check all channel combinations with coupling
