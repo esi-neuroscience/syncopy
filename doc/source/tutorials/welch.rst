@@ -2,12 +2,11 @@ Running Welch's method for the estimation of power spectra in Syncopy
 =====================================================================
 
 Welch's method for the estimation of power spectra based on time-averaging over short, modified periodograms
-is described in the following publication:
+is described in the following publication (`DOI link <https://doi.org/10.1109/TAU.1967.1161901>`_):
 
 `Welch, P. (1967). The use of fast Fourier transform for the estimation of power spectra:
 a method based on time averaging over short, modified periodograms.
-IEEE Transactions on Audio and Electroacoustics, 15(2), 70-73.
-https://doi.org/10.1109/TAU.1967.1161901`
+IEEE Transactions on Audio and Electroacoustics, 15(2), 70-73.`
 
 Generating Example Data
 -----------------------
