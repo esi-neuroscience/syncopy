@@ -33,8 +33,8 @@ a single channel here (see :ref:`the Synthetic data tutorial<synth_data>` for de
         nSamples = 1000
         samplerate = 1000
         ar1_part = AR2_network(AdjMat=np.zeros(1), nSamples=nSamples, alphas=[0.9, 0], nTrials=nTrials)
-        pd1 = phase_diffusion(freq=30., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
-        pd2 = phase_diffusion(freq=50., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
+        pd1 = phase_diffusion(freq=30., eps=.1, samplerate=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
+        pd2 = phase_diffusion(freq=50., eps=.1, samplerate=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
         signal = ar1_part + .8 * pd1 + 0.6 * pd2
         return signal
 
