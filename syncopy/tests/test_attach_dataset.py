@@ -202,7 +202,7 @@ class TestAttachDataset:
         assert 'adt' not in locals()
 
         # repeat with hdf5 datasets
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tdir:
+        with tempfile.TemporaryDirectory() as tdir:
             file1 = h5py.File(os.path.join(tdir, "dummy1.h5"), 'w')
             extra_ds1 = file1.create_dataset("d1", extra_data1.shape)
             extra_ds1[()] = extra_data1
@@ -306,7 +306,7 @@ class TestAttachDataset:
         extra_data = np.zeros((3, 3), dtype=np.float64)
         spkd._register_dataset("dset_mean", extra_data)
 
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdirname:
+        with tempfile.TemporaryDirectory() as tmpdirname:
             # Test save and load.
             tmp_spy_filename = os.path.join(tmpdirname, "myfile.spike")
             spy.save(spkd, filename=tmp_spy_filename)
@@ -321,7 +321,7 @@ class TestAttachDataset:
         spkd = get_spike_data()
 
         # repeat with hdf5 datasets
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tdir:
+        with tempfile.TemporaryDirectory() as tdir:
 
             file1 = h5py.File(os.path.join(tdir, "dummy.h5"), 'w')
             extra_dset = file1.create_dataset("d1", extra_data.shape)
