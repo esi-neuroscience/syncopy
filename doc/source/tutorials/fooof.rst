@@ -160,11 +160,16 @@ includes the following entries:
 Please see the `official FOOOF documentation <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_ for the meaning.
 
 Note that in Syncopy, FOOOF can be run several times in a single frontend call (e.g., if you have several trials and `cfg.keeptrials=True`).
-Therefore, you will see one instance of these fitting result *per FOOOF call* in the result. The trials (and chunk indices, if you used a non-default `chan_per_worker` setting)
-are encoded in the keys of the metadata sub dictionaries in format `<result>__<trial>_<chunk>`, e.g., `peak_params__0__0` would be the peak params for trial 0 (and chunk 0).
-In the example above, the typical use case of trial averaging (`cfg.keeptrials=False`) was demonstrated, so there is only one entry present.
+Therefore, you will see one instance of these fitting results *per FOOOF call* in the `metadata` dict. The trials (and chunk indices, if you used a non-default `chan_per_worker` setting)
+are encoded in the keys of the metadata sub dictionaries in format `<result>__<trial>_<chunk>`. E.g., `peak_params__2__0` would be the peak params for trial 2 (and chunk 0).
 
+In the example above, the typical use case of trial averaging (`cfg.keeptrials=False`) was demonstrated, so FOOOF was called on the trial-averaged data (i.e., on a single trial), and only one entry is present:
 
+.. code-block:: python
+    :linenos:
+
+    spec_fooof_tuned.metadata.aperiodic_params
+    # {'aperiodic_params': {'aperiodic_params__0_0': array([[0.8006], [1.4998]])}
 
 
 This concludes the tutorial on using FOOOF from Syncopy. Please do not forget to cite `Donoghue et al. 2020 <https://doi.org/10.1038/s41593-020-00744-x>`_ when using FOOOF.
