@@ -23,7 +23,19 @@ Let us first prepare suitable data, we use white noise here:
     wn = synth_data.white_noise(nTrials=2, nChannels=3, nSamples=20000, samplerate=1000)
 
 The return value `wn` is of type :class:`~syncopy.AnalogData` and contains 2 trials and 3 channels,
-each consisting of 20 seconds of white noise: 20000 samples at a sample rate of 1000 Hz.
+each consisting of 20 seconds of white noise: 20000 samples at a sample rate of 1000 Hz. We can show this easily:
+
+
+.. code-block:: python
+    :linenos:
+
+    wn.dimord       # ['time', 'channel']
+    wn.data.shape   # (40000, 3)
+    wn.trialdefinition # array([[    0., 20000., -1000.], [20000., 40000., -1000.]])
+
+
+Spectral Analysis using Welch's Method
+--------------------------------------
 
 We now create a config for running Welch's method and call `freqanalysis` with it:
 
@@ -44,16 +56,15 @@ Let's inspect the resulting `SpectralData` instance by looking at its dimensions
     :linenos:
 
     welch_res.dimord      # ('time', 'taper', 'freq', 'channel',)
-    welch_res.data.shape  # (2, 1, ?, 3)
+    welch_res.data.shape  # (2, 1, 251, 3)
 
-The `time` axis contains two entries, one per trial, because by default there is no trial averaging (`cfg.keeptrials` is `True`). With trial averaging,
-there would only be a single entry here.
+The shape is as expected:
 
-The `taper` axis will always have size 1 for Welch, even for multi-tapering, as taper averaging must be active for Welch (`cfg.keeptapers` must be `False`), as explained in the function documentation.
+* The `time` axis contains two entries, one per trial, because by default there is no trial averaging (`cfg.keeptrials` is `True`). With trial averaging, there would only be a single entry here.
+* The `taper` axis will always have size 1 for Welch, even for multi-tapering, as taper averaging must be active for Welch (`cfg.keeptapers` must be `False`), as explained in the function documentation.
+* The size of the frequency axis (`freq`, 512 here), i.e., the frequency resolution, depends on the signal length of the input windows and is thus a function of the input signal, `cfg.t_ftimwin`, `cfg.toi`, and potentially other settings (like a `foilim`, i.e. a frequency selection).
+* The channels are unchanged, as we receive one result per channel.
 
-The size of the frequency axis, i.e., the frequency resolution, depends on the length of the input windows and is thus a function of the input signal, `cfg.t_ftimwin`, `cfg.toi`, and potentially other settings (like a `foilim`).
-
-The channels are left as is.
 
 We can also visualize the power spectrum. Here we select the first of the two trials:
 
@@ -61,10 +72,12 @@ We can also visualize the power spectrum. Here we select the first of the two tr
     :linenos:
 
     _, ax = welch_res.singlepanelplot(trials=0, logscale=False)
-    ax.set_title("Welch result")
     ax.set_ylabel("Power")
     ax.set_xlabel("Frequency")
 
+.. image:: ../_static/welch_basic_power.png
 
 
-This concludes the tutorial on using FOOOF from Syncopy.
+We can see the estimated power spectrum for three channels of white noise.
+
+This concludes the tutorial on using Welch's method in Syncopy.

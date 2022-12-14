@@ -36,12 +36,13 @@ In depth Guides and Tutorials
 * :doc:`Basic Concepts <user/concepts>`
 * :doc:`Syncopy for FieldTrip Users <user/fieldtrip>`
 * :doc:`Handling Data <user/data>`
-* :doc:`Parallel Processing <user/parallel>`  
+* :doc:`Parallel Processing <user/parallel>`
 * :doc:`Selections <user/selectdata>`
 * :doc:`Fooof <tutorials/fooof>`
+* :doc:`Welch's Method <tutorials/welch>`
 * :doc:`Resampling <tutorials/resampling>`
 
-  
+
 Auto-generate API Docs
 -----------------------
 * :doc:`User API <user/user_api>`
@@ -71,5 +72,6 @@ For general inquiries please contact syncopy (at) esi-frankfurt.de.
    user/selectdata.rst
    user/user_api.rst
    tutorials/fooof.rst
+   tutorials/welch.rst
    tutorials/resampling.rst
    developer/developers.rst
