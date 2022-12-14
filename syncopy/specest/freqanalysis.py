@@ -329,7 +329,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     scipy.signal.stft : SciPy's Short Time Fourier Transform
     """
     if foilim is not None:
-       foilim = [float(f) for f in foilim]
+        foilim = [float(f) for f in foilim]
     # Make sure our one mandatory input object can be processed
     try:
         data_parser(data, varname="data", dataclass="AnalogData",
