@@ -76,7 +76,7 @@ def test_cleanup():
             "dummy.save(os.path.join(spy.__storage__, 'spy_dummy')); " +\
             "time.sleep(100)"
         process = subprocess.Popen([sys.executable, "-c", commandStr])
-        time.sleep(5)
+        time.sleep(8)
         process.kill()
 
         # get inventory of external Syncopy instance's temp storage
@@ -96,7 +96,7 @@ def test_cleanup():
         process2 = subprocess.Popen([sys.executable, "-c", commandStr],
                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                      text=True)
-        time.sleep(5)
+        time.sleep(8)
 
         # ensure `cleanup` call removed first instance's garbage but 2nd `AnalogData`
         # belonging to 2nd instance launched above is unharmed
