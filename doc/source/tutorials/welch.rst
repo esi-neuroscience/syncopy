@@ -8,6 +8,14 @@ is described in the following publication (`DOI link <https://doi.org/10.1109/TA
 a method based on time averaging over short, modified periodograms.
 IEEE Transactions on Audio and Electroacoustics, 15(2), 70-73.`
 
+In short, it splits the original time-domain signal into several, potentially overlapping, segments. A taper (window function) is then applied,
+and the data is transferred into the frequency domain by computing the FFT. Computing the squared magnitude results in one periodogram per segment.
+Welch refers to these as *modified periodograms* in the publication, because of the taper that has been applied. These
+powers are averaged over the windows to obtain the final estimate of the power spectrum.
+
+Due to the averaging, Welch's method works well with noisy data: the averaging reduces the variance of the estimator. The price to pay is a
+reduced frequency resolution due to the short input segments compared to the single, full-sized signal.
+
 Generating Example Data
 -----------------------
 
