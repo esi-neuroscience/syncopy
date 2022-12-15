@@ -1,4 +1,4 @@
-.. |icon| image:: https://raw.githubusercontent.com/esi-neuroscience/syncopy/master/doc/source/_static/syncopy_logo.png
+.. |icon| image:: https://raw.githubusercontent.com/esi-neuroscience/syncopy/master/doc/source/_static/syncopy_icon.png
 
 Systems Neuroscience Computing in Python |icon|
 ===============================================
