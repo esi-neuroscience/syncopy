@@ -1,7 +1,8 @@
-.. |icon| image:: https://raw.githubusercontent.com/esi-neuroscience/syncopy/master/doc/source/_static/syncopy_icon.png
+.. image:: https://raw.githubusercontent.com/esi-neuroscience/syncopy/master/doc/source/_static/syncopy_logo_small.png
+	   :alt: Syncopy-Logo
 
-Systems Neuroscience Computing in Python |icon|
-===============================================
+Systems Neuroscience Computing in Python
+========================================
 
 
 |Conda Version| |PyPi Version| |License|
