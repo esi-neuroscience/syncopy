@@ -138,6 +138,7 @@ def process_foi(foi, foilim, samplerate):
             foi = np.array(foi, dtype="float")
 
     if foilim is not None:
+        foilim = [float(f) for f in foilim]
         if isinstance(foilim, str):
             if foilim == "all":
                 foilim = None
