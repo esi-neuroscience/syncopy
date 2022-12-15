@@ -87,4 +87,21 @@ We can also visualize the power spectrum. Here we select the first of the two tr
 
 We can see the estimated power spectrum for three channels of white noise.
 
+
+Investigating the Effects of the Window Length and Overlap Parameters as a Function of Signal Length
+-----------------------------------------------------------------------------------------------------
+
+Many settings affect the outcome of a Welch run, including:
+
+
+* `cfg.t_ftimwin` : window length (a.k.a. segment length) in seconds.
+* `cfg.toi`       : overlap between windows, 0.5 = 50 percent overlap.
+* `cfg.taper` and `cfg.tapsmofrq` : for taper selection and multi-tapering. Note that in case of multi-tapering, the data in the windows will be averaged across the tapers first, then the Welch procedure will run.
+
+Data selections are also possible, like in all Syncopy functions. So you can use `cfg.foilim` to select only a specific frequency range, e.g., `cfg.foilim = [5.0, 100.0]` to select 5 to 100 Hz.
+
+Here, we want to illustrate the effects of two important parameters, the window length and the overlap between windows, on signals of different lengths.
+
+TODO: add plot here
+
 This concludes the tutorial on using Welch's method in Syncopy.
