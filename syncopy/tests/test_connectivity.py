@@ -86,7 +86,7 @@ class TestSpectralInput:
 
 class TestGranger:
 
-    nTrials = 200
+    nTrials = 150
     nChannels = 4
     nSamples = 1000
     fs = 200
