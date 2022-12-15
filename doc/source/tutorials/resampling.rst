@@ -51,7 +51,7 @@ Suppose we want to downsample our signal to 1kHz. The *original sampling rate* h
 
   ds_adata = spy.resampledata(adata, method='downsample', resamplefs=1000)
 
-Let's have a look at the new power spectrum::
+Let's have a look at the new power spectrum:
 
   ds_spec = spy.freqanalysis(adata, keeptrials=False)
   ds_spec.singlepanelplot(channel=0)

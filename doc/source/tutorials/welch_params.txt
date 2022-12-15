@@ -1,0 +1,3 @@
+import syncopy as spy
+
+# TODO: add plot code from Welch unit test here.
