@@ -293,7 +293,7 @@ class NormalizeCrossCov(ComputationalRoutine):
 
 @process_io
 def granger_cF(csd_av_dat,
-               rtol=1e-6,
+               rtol=5e-6,
                nIter=100,
                cond_max=1e4,
                chunkShape=None,
@@ -399,6 +399,9 @@ def granger_cF(csd_av_dat,
     # auto-regularize to `cond_max` condition number
     # maximal regularization factor is 1e-1
     CSDreg, factor, ini_cn = regularize_csd(CSD, cond_max=cond_max, eps_max=1e-1)
+    # cast to 64bit for better precision
+    CSDreg = CSDreg.astype(np.complex128)
+
     # call Wilson
     H, Sigma, conv, err = wilson_sf(CSDreg, nIter=nIter, rtol=rtol)
 

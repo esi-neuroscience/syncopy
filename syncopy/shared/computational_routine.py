@@ -795,7 +795,7 @@ class ComputationalRoutine(ABC):
         """
 
         # Let ACME take care of argument distribution and memory checks: note
-        # that `cfg` is trial-independent, i.e., we can simply throw it in here!        
+        # that `cfg` is trial-independent, i.e., we can simply throw it in here!
         if __acme__ and check_slurm_available():
 
             self.pmap = ParallelMap(self.computeFunction,
@@ -804,8 +804,8 @@ class ComputationalRoutine(ABC):
                                     write_worker_results=False,
                                     write_pickle=False,
                                     partition="auto",
-                                    n_jobs="auto",
-                                    mem_per_job="auto",
+                                    n_workers="auto",
+                                    mem_per_worker="auto",
                                     setup_timeout=60,
                                     setup_interactive=False,
                                     stop_client="auto",
@@ -1102,7 +1102,7 @@ def propagate_properties(in_data, out_data, keeptrials=True, time_axis=False):
     is_Analog = lambda data: isinstance(data, spy.AnalogData)
     is_Spectral = lambda data: isinstance(data, spy.SpectralData)
     is_CrossSpectral = lambda data: isinstance(data, spy.CrossSpectralData)
-    
+
     # attach a dummy selection for easier propagation
     selection_cleanup = False
     if in_data.selection is None:
@@ -1173,3 +1173,4 @@ def propagate_properties(in_data, out_data, keeptrials=True, time_axis=False):
 
     if selection_cleanup:
         in_data.selection = None
+        in_data.cfg.pop('selectdata')

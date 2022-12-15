@@ -265,7 +265,7 @@ class TestWelch():
         ax.set_ylabel('Window overlap')
         ax.set_zlabel('Mean variance of the Welch estimate')
         ax.set_title('Variance of Welsh estimate as a function of signal length and overlap.\nColors represent different signal lengths.')
-        plt.show()  # We could run 'plt.legend()' before this line, but it's a bit large.
+        # plt.show()  # We could run 'plt.legend()' before this line, but it's a bit large.
 
         # Now for the tests.
         # For a fixed overlap, the variance should decrease with signal length:

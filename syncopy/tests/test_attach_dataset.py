@@ -330,7 +330,7 @@ class TestAttachDataset:
             spkd._register_dataset("dset_mean", extra_dset)
 
             # Test save and load.
-            tmp_spy_filename = os.path.join(tmpdirname, "myfile.spike")
+            tmp_spy_filename = os.path.join(tmpdirname, "myfile2.spike")
             spy.save(spkd, filename=tmp_spy_filename)
             spkd2 = spy.load(filename=tmp_spy_filename)
             assert isinstance(spkd2._dset_mean, h5py.Dataset)

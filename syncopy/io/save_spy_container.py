@@ -258,7 +258,10 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
         h5f.close()
         if __storage__ in out.filename:
             out.data.file.close()
-            os.unlink(out.filename)
+            try:
+                os.unlink(out.filename)
+            except PermissionError as ex:
+                print(f"Could not delete file '{out.filename}': {str(ex)}.")
         out.data = dataFile
 
     # Compute checksum and finally write JSON (automatically overwrites existing)

@@ -351,7 +351,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
         # after trial averaging
         # hardcoded numerical parameters
-        av_compRoutine = GrangerCausality(rtol=1e-6,
+        av_compRoutine = GrangerCausality(rtol=5e-6,
                                           nIter=100,
                                           cond_max=1e4
                                           )
