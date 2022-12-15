@@ -446,7 +446,6 @@ class TestCoherence:
         result_spec = cafunc(self.spec, method='coh', select=selections[0])
         assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=1e-3)
 
-
     def test_coh_foi(self):
 
         # 2 frequencies
@@ -457,9 +456,16 @@ class TestCoherence:
             assert np.all(np.isfinite(result.data))
             assert np.all(result.data[0, ...] >= -1e-10)
 
-        # make sure out-of-range foi selections are detected
+        # make sure out-of-range foilim  are detected
         with pytest.raises(SPYValueError, match='foilim'):
             result = cafunc(self.data, method='coh', foilim=[-1, 70])
+
+        # make sure invalid foilim are detected
+        with pytest.raises(SPYValueError, match='foilim'):
+            result = cafunc(self.data, method='coh', foilim=[None, None])
+
+        with pytest.raises(SPYValueError, match='foilim'):
+            result = cafunc(self.data, method='coh', foilim='abc')
 
     def test_coh_cfg(self):
 

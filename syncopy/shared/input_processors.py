@@ -132,7 +132,7 @@ def process_foi(foi, foilim, samplerate):
         else:
             try:
                 array_parser(foi, varname="foi", hasinf=False, hasnan=False,
-                             lims=[0, samplerate/2], dims=(None,))
+                             lims=[0, samplerate / 2], dims=(None,))
             except Exception as exc:
                 raise exc
             foi = np.array(foi, dtype="float")
@@ -145,11 +145,12 @@ def process_foi(foi, foilim, samplerate):
                 raise SPYValueError(legal="'all' or `None` or `[fmin, fmax]`",
                                     varname="foilim", actual=foilim)
         else:
-            try:
-                array_parser(foilim, varname="foilim", hasinf=False, hasnan=False,
-                             lims=[0, samplerate/2], dims=(2,))
-            except Exception as exc:
-                raise exc
+            array_parser(foilim, varname="foilim", hasinf=False, hasnan=False,
+                         lims=[0, samplerate / 2], dims=(2,))
+
+            # QUICKFIX for #392
+            foilim = [float(f) for f in foilim]
+
             # foilim is of shape (2,)
             if foilim[0] > foilim[1]:
                 msg = "Sorting foilim low to high.."
@@ -174,7 +175,7 @@ def process_taper(taper,
 
     For multi-tapering with slepian tapers the default is to max out
     `nTaper` to achieve the desired frequency smoothing bandwidth.
-    For details about the Slepion settings see
+    For details about the Slepian settings see
 
     "The Effective Bandwidth of a Multitaper Spectral Estimator,
     A. T. Walden, E. J. McCoy and D. B. Percival"
@@ -299,7 +300,6 @@ def process_taper(taper,
         maxBw = np.min([samplerate / 2 - 1 / nSamples,
                         samplerate * (nSamples + 1) / (2 * nSamples)])
         # -----------------------------------
-        
 
         try:
             scalar_parser(tapsmofrq, varname="tapsmofrq", lims=[0, np.inf])
@@ -316,12 +316,12 @@ def process_taper(taper,
             msg = f'Setting tapsmofrq to the maximal attainable bandwidth of {maxBw:.2f}Hz'
             SPYInfo(msg)
             tapsmofrq = maxBw
-            
+
         # --------------------------------------------------------------
         # set parameters for scipy.signal.windows.dpss
         NW, Kmax = _get_dpss_pars(tapsmofrq, nSamples, samplerate)
         # --------------------------------------------------------------
-        
+
         # tapsmofrq too large
         # if Kmax > nSamples or NW > nSamples / 2:
 
