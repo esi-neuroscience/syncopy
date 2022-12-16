@@ -106,7 +106,7 @@ Data selections are also possible, like in all Syncopy functions. So you can use
 Investigating the Effects of the Overlap Parameter as a Function of Signal Length
 ---------------------------------------------------------------------------------
 
-Here, we want to illustrate the effects of the chosen overlap between windows (`cfg.toi`), on signals of different lengths.
+Here, we want to illustrate the effects of the chosen overlap between windows (`toi`), on signals of different lengths.
 
 For this, we investigate various combinations of signal length and overlap. For each combination, we realize several instantiations of white noise and run Welch's method to get an estimate of the power spectral density. We then compute the variance of the estimates. Here is a visualization of the result (`source <../_static/welch_params.txt>`_):
 
@@ -114,5 +114,7 @@ For this, we investigate various combinations of signal length and overlap. For 
 
 From this plot we can conclude several things. First, as expected, with all settings fixed, a longer signal (and thus an increased number of segments) reduces the variance of the estimate. Second, up to a certain level (somewhere around 0.5 to 0.6), increasing the overlap also reduces the variance of the
 estimator. However, if you go too high, the variance starts increasing again. The whole effect is most pronounced for short signals, but these are the typical case in neuroscience.
+
+The plot suggests that it may be helpful to try an overlap of around 0.5 for short signals, by setting ```cfg.toi=0.5```.
 
 This concludes the tutorial on using Welch's method in Syncopy.
