@@ -10,7 +10,6 @@ import inspect
 import dask.distributed as dd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import copy
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.const_def import spectralConversions
 import syncopy.tests.synth_data as synth_data
@@ -188,18 +187,10 @@ class TestWelch():
         # Check the number of windows that Welch will average over.
         # To do this, we run mtmconvol and check the output size.
         # This is to verify that the number of windows is equal, and as expected.
-        cfg_mtm_long = copy.copy(cfg_long_no_overlap)
+        cfg_mtm_long = cfg_long_no_overlap.copy()
         cfg_mtm_long.method = "mtmconvol"
-        cfg_mtm_short = copy.copy(cfg_short_with_overlap)
+        cfg_mtm_short = cfg_short_with_overlap.copy()
         cfg_mtm_short.method = "mtmconvol"
-        assert cfg_mtm_long.toi == 0.0
-        assert cfg_mtm_long.t_ftimwin == 0.1
-        assert cfg_mtm_short.toi == 0.5
-        assert cfg_mtm_short.t_ftimwin == 0.02
-        #num_windows_long = np.ravel(np.diff(spy.freqanalysis(cfg_mtm_long, wn_long).sampleinfo))[0]
-        #num_windows_short = np.ravel(np.diff(spy.freqanalysis(cfg_mtm_short, wn_short).sampleinfo))[0]
-        #assert num_windows_long == 100, f"Expected 100 windows for long, got {num_windows_long}."
-        #assert num_windows_short == 100, f"Expected 100 windows for short, got {num_windows_short}."
 
         spec_long_no_overlap = spy.freqanalysis(cfg_long_no_overlap, wn_long)
         spec_short_with_overlap = spy.freqanalysis(cfg_short_with_overlap, wn_short)
