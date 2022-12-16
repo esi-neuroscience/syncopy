@@ -195,9 +195,6 @@ class TestWelch():
         spec_long_no_overlap = spy.freqanalysis(cfg_long_no_overlap, wn_long)
         spec_short_with_overlap = spy.freqanalysis(cfg_short_with_overlap, wn_short)
 
-        print(f"spec_long_no_overlap shape: {spec_long_no_overlap.data.shape} with dimord {spec_long_no_overlap.dimord}")
-        print(f"spec_short_with_overlap shape: {spec_short_with_overlap.data.shape} with dimord {spec_short_with_overlap.dimord}")
-
         # We got one Welch estimate per trial so far. Now compute the variance over trials:
         var_dim='trials'
         var_longsig_no_overlap = spy.var(spec_long_no_overlap, dim=var_dim)
@@ -207,15 +204,11 @@ class TestWelch():
         assert var_longsig_no_overlap.data.shape[0] == 1
         assert var_shortsig_with_overlap.data.shape[0] == 1
 
-        print(f"var_no_overlap shape: {var_longsig_no_overlap.data.shape} with dimord {var_longsig_no_overlap.dimord}")
-        print(f"var_with_overlap shape: {var_shortsig_with_overlap.data.shape} with dimord {var_shortsig_with_overlap.dimord}")
-
         if self.do_plot:
             mn_long, var_long = np.mean(var_longsig_no_overlap.show(trials=0)), np.var(var_longsig_no_overlap.show(trials=0))
 
             mn_short, var_short = np.mean(var_shortsig_with_overlap.show(trials=0)), np.var(var_shortsig_with_overlap.show(trials=0))
-            print(var_short, var_long)
-            fig, ax = plt.subplots()
+            _, ax = plt.subplots()
             title = f"Long signal: (toi={cfg_long_no_overlap.toi}, f_timwin={cfg_long_no_overlap.t_ftimwin})\n"
             title += f"Short signal: (toi={cfg_short_with_overlap.toi}, f_timwin={cfg_short_with_overlap.t_ftimwin})"
             ax.bar([1, 2], [mn_long, mn_short], yerr=[var_long, var_short], width=0.5, capsize=2)
