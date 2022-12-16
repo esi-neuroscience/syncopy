@@ -69,7 +69,6 @@ class TestWelch():
         if self.do_plot:
             _, ax = res.singlepanelplot(trials=0, channel=0)
             ax.set_title("mtmconvolv result.")
-        return res
 
     def test_welch_basic(self):
         """
@@ -99,7 +98,6 @@ class TestWelch():
             ax.set_title("Welch result")
             # ax.set_ylabel("Power")
             ax.set_xlabel("Frequency")
-        return res
 
     def test_mtmconvolv_overlap_effect(self):
         """Test variance between windows of different length.
