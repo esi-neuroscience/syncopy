@@ -1,24 +1,32 @@
+.. _selections:
+
 ***********
 Selections
 ***********
 
-Basically every practical data analysis project involves working on subsets of the data. Syncopy offers the powerful :func:`syncopy.selectdata` function to achieve exactly that. There are two distinct ways to apply a selection, either *in place* or the chosen subset gets copied and returned as a new Syncopy data object. Additionally, every Syncopy *meta-function* (see :ref:`meta_functions`) supports the ``select`` keyword, which applies an in place selection on the fly when processing data.
+Basically every practical data analysis project involves working on subsets of the data. Syncopy offers the powerful :func:`~syncopy.selectdata` function to achieve exactly that. There are two distinct ways to apply a selection, either *in-place* or the chosen subset gets copied and returned as a new Syncopy data object. Additionally, every Syncopy *meta-function* (see :ref:`meta_functions`) supports the ``select`` keyword, which applies an in place selection on the fly when processing data.
+
+Selections are an important concept of Syncopy and are being re-used *under the hood* for plotting functions like :func:`~syncopy.singlepanelplot` and also for :func:`~syncopy.show`. Both plotting and numpy array extraction naturally operate on subsets of the data, and conveniently use the same selection criteria syntax as :func:`~syncopy.selectdata`.
 
 .. contents:: Topics covered
    :local:
 
 .. _workflow:
 
+
+
 Creating Selections
 ===================
 
-A new selection can be created by calling :func:`syncopy.selectdata`, here we want to select a single trial and two channels::
+Syncopy data objects can be best understood as n-dimensional arrays or matrices, with each dimension holding a certain property of the data. For an :class:`~syncopy.AnalogData` object these dimensions would be ``time``, ``channel`` and ``trials``. Now we can define sub-slices of the data by combining index sets for each of those axes.
+
+A new selection can be created by calling :func:`~syncopy.selectdata`, here we want to select a single trial and two channels::
 
   trial10 = AData.selectdata(trials=10, channel=["channel11", "channel17"])
   # alternatively
   trial10 = spy.selectdata(AData, trials=10, channel=["channel02", "channel06"])
 
-In this case if ``AData`` is an :class:`syncopy.AnalogData` object, the resulting
+``AData`` is an :class:`~syncopy.AnalogData` object, and hence the resulting
 ``trial10`` data object will also be of that same data type. Inspecting the original
 dataset by simply typing its name into the Python interpreter::
 
@@ -55,7 +63,9 @@ we see that we are left with 1 trial and 2 channels:
        ...
 
 
-Moreover by inspecting the ``.log`` (see also :ref:`logging`) we can see the selection settings used to create this dataset::
+As we did not specify any selection criteria for the time axis (via ``latency``) every sample was selected. This is true in general: whenever a certain dimension has no selection specification the complete axis is selected.
+
+Finally by inspecting the ``.log`` (see also :ref:`logging`) we can see the selection settings used to create this dataset::
 
   trials10.log
 
@@ -64,26 +74,19 @@ Moreover by inspecting the ``.log`` (see also :ref:`logging`) we can see the sel
 	write_log: computed _selectdata with settings
 	inplace = False
 	clear = False
+	latency=None	
 	trials = 10
 	channel = ['channel02', 'channel06']
-	channel_i = None
-	channel_j = None
-	toi = None
-	toilim = None
-	foi = None
-	foilim = None
-	taper = None
-	unit = None
-	eventid = None
-	parallel = False
 
-This log is persistent, meaning that when saving and later loading this reduced dataset the settings used for this selection can still be recovered.
+This log is persistent, meaning that when saving and later loading this reduced dataset the settings used for this selection can still be recovered. The table below summarizes all possible selection parameters and their availability for each datatype.
+
+.. _selections_table:
 
 Table of Selection Parameters
 =============================
 
 There are various selection parameters
-available, which each can accept a variety of Python datatypes like ``int``, ``str`` or ``list``: 
+available, which each can accept a variety of Python datatypes like ``int``, ``str`` or ``list``. Some selection parameters are only available for data types which have the corresponding dimension, like ``frequency`` for ``SpectralData`` and ``CrossSpectralData``.
 
 +-------------------+-----------------------+-----------------------+-----------------------+-------------------------------------+
 | **Parameter**     |   **Description**     |   **Accepted Types**  |   **Examples**        |   **Availability**                  |
@@ -165,13 +168,13 @@ available, which each can accept a variety of Python datatypes like ``int``, ``s
 
 .. note::
    Have a look at :doc:`Data Basics <data_basics>` for further details about Syncopy's data classes and interfaces
-
+  
 Inplace Selections
 ==================
 
-An in place selection can be understood as a mask being put onto the data. Meaning that the selected subset of the data is actually **not copied on disc**, but the selection criteria are applied *in place* to be used in a processing step. Inplace selections take two forms: either explicit via the ``inplace`` keyword ``selectdata(..., inplace=True)``, or implicit by passing a ``select`` keyword to a Syncopy meta-function.
+An in-place selection can be understood as a mask being put onto the data. Meaning that the selected subset of the data is actually **not copied on disc**, but the selection criteria are applied *in place* to be used in a processing step. Inplace selections take two forms: either explicit via the ``inplace`` keyword ``selectdata(..., inplace=True)``, or implicit by passing a ``select`` keyword to a Syncopy meta-function.
 
-To illustrate this mechanic, let's create a simulated dataset with :func:`syncopy.tests.synth_data.phase_diffusion` and compute the coherence for the full dataset:
+To illustrate this mechanic, let's create a simulated dataset with :func:`~syncopy.tests.synth_data.phase_diffusion` and compute the coherence for the full dataset:
 
 .. literalinclude:: /scripts/select_example.py
 
@@ -181,12 +184,12 @@ To illustrate this mechanic, let's create a simulated dataset with :func:`syncop
 Phase diffusing signals decorrelate over time, hence if we wait long enough we can't see any coherence.
 
 .. note::
-   As an exercise you could use :func:`~syncopy.freqanalysis` to confirm that there is oscillatory activity in the 40Hz band
+   As an exercise you could use :func:`~syncopy.freqanalysis` to confirm that there is indeed strong oscillatory activity in the 40Hz band
 
 Explicit inplace Selection
 --------------------------
 
-To see if maybe for a shorter time period in the beginning of "the recording" the signals were actually more phase locked, we can use an **in place latency selection**::
+To see if maybe for a shorter time period in the beginning of "the recording" the signals were actually more phase locked, we can use an **in-place latency selection**::
 
   # note there is no return value here
   spy.selectdata(adata, latency=[-1, 0], inplace=True)
@@ -220,7 +223,7 @@ we can see that now the ``selection`` entry is filled with information, telling 
 
 With that selection being active, let's repeat the connectivity analysis::
 
-  # coherence with active in place selection
+  # coherence with active in-place selection
   coh2 = spy.connectivityanalysis(adata, method='coh')
 
   # plot coherence of channel1 vs channel2
@@ -254,7 +257,7 @@ Alternatively, we can also give a dictionary of selection parameters directly to
 .. image:: /_static/select_example2.png
    :height: 220px
 
-Hopefully not surprisingly we get to exactly the same result as with an explicit in place selection above. The difference here however is, that after the analysis is done, there is no active in place selection present::
+Hopefully not surprisingly we get to exactly the same result as with an explicit in-place selection above. The difference here however is, that after the analysis is done, there is no active in-place selection present::
 
   adata.selection is None
   >>> True
@@ -262,3 +265,33 @@ Hopefully not surprisingly we get to exactly the same result as with an explicit
 Hence, it's important to note that implicit selections **get wiped automatically** after an analysis.
 
 In the end it is up to the user to decide which way of applying selections is most practical in their situation.
+
+Relation to :func:`~syncopy.show` and :func:`~syncopy.singlepanelplot`
+======================================================================
+
+As hinted on in the beginning of this chapter, both plotting and numpy array extraction adhere to the same syntax as :func:`~syncopy.selectdata`. Meaning that the following two arrays hold the same data::
+
+  # First explicitly select a subset
+  trial10 = spy.selectdata(AData, trials=10, channel=["channel02", "channel06"])
+  # show everything of the subset
+  # WARNING: don't do this with large datasets!
+  arr1 = trial10.show()
+
+  # calling show() with the same selection
+  # criteria directly on the original complete dataset
+  arr2 = AData.show(trials=10, channel=["channel02", "channel06"])
+
+  # this is True!
+  arr1 == arr2
+
+And in the same spirit, both plotting commands below will produce the same figure::
+
+  # First explicitly select a subset   
+  trial10 = spy.selectdata(AData, trials=10, channel=["channel02", "channel06"])
+  # plot everything: only 1 trial and 2 channels left
+  trial10.singlepanelplot()
+
+  # directly plot from full data set with same selection criteria
+  AData.singlepanelplot(trials=10, channel=["channel02", "channel06"])
+
+This works *under the hood* by applying temporary in-place selections onto the data before plotting and/or extracting the numpy arrays.
