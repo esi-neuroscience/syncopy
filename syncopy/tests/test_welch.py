@@ -8,7 +8,9 @@ import syncopy as spy
 import numpy as np
 import inspect
 import dask.distributed as dd
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+import copy
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.const_def import spectralConversions
 import syncopy.tests.synth_data as synth_data
@@ -188,9 +190,9 @@ class TestWelch():
         # Check the number of windows that Welch will average over.
         # To do this, we run mtmconvol and check the output size.
         # This is to verify that the number of windows is equal, and as expected.
-        cfg_mtm_long = cfg_long_no_overlap.copy()
+        cfg_mtm_long = copy.copy(cfg_long_no_overlap)
         cfg_mtm_long.method = "mtmconvol"
-        cfg_mtm_short = cfg_short_with_overlap.copy()
+        cfg_mtm_short = copy.copy(cfg_short_with_overlap)
         cfg_mtm_short.method = "mtmconvol"
         assert cfg_mtm_long.toi == 0.0
         assert cfg_mtm_long.t_ftimwin == 0.1
@@ -367,7 +369,9 @@ class TestWelch():
                     _ = spy.freqanalysis(cfg, self.adata)
 
     def teardown_class(cls):
-        plt.close('all')
+        """Close plot windows on CI run."""
+        if mpl.is_interactive():
+            plt.close('all')
 
 if __name__ == '__main__':
     if TestWelch.do_plot:
