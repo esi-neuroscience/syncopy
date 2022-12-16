@@ -192,6 +192,10 @@ class TestWelch():
         cfg_mtm_long.method = "mtmconvol"
         cfg_mtm_short = cfg_short_with_overlap.copy()
         cfg_mtm_short.method = "mtmconvol"
+        assert cfg_mtm_long.toi == 0.0
+        assert cfg_mtm_long.t_ftimwin == 0.1
+        assert cfg_mtm_short.toi == 0.5
+        assert cfg_mtm_short.t_ftimwin == 0.02
         num_windows_long = np.ravel(np.diff(spy.freqanalysis(cfg_mtm_long, wn_long).sampleinfo))[0]
         num_windows_short = np.ravel(np.diff(spy.freqanalysis(cfg_mtm_short, wn_short).sampleinfo))[0]
         assert num_windows_long == 100, f"Expected 100 windows for long, got {num_windows_long}."
