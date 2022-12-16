@@ -67,9 +67,9 @@ Let's inspect the resulting `SpectralData` instance by looking at its dimensions
 
 The shape is as expected:
 
-* The `time` axis contains two entries, one per trial, because by default there is no trial averaging (`cfg.keeptrials` is `True`). With trial averaging, there would only be a single entry here.
-* The `taper` axis will always have size 1 for Welch, even for multi-tapering, as taper averaging must be active for Welch (`cfg.keeptapers` must be `False`), as explained in the function documentation.
-* The size of the frequency axis (`freq`, 512 here), i.e., the frequency resolution, depends on the signal length of the input windows and is thus a function of the input signal, `cfg.t_ftimwin`, `cfg.toi`, and potentially other settings (like a `foilim`, i.e. a frequency selection).
+* The `time` axis contains two entries, one per trial, because by default there is no trial averaging (`keeptrials` is `True`). With trial averaging, there would only be a single entry here.
+* The `taper` axis will always have size 1 for Welch, even for multi-tapering, as taper averaging must be active for Welch (`keeptapers` must be `False`), as explained in the function documentation.
+* The size of the frequency axis (`freq`, 512 here), i.e., the frequency resolution, depends on the signal length of the input windows and is thus a function of the input signal, `t_ftimwin`, `toi`, and potentially other settings (like a `foilim`, i.e. a frequency selection).
 * The channels are unchanged, as we receive one result per channel.
 
 
@@ -95,9 +95,10 @@ Available Settings
 
 Many settings affect the outcome of a Welch run, including:
 
-* `cfg.t_ftimwin` : window length (a.k.a. segment length) in seconds.
-* `cfg.toi`       : overlap between windows, 0.5 = 50 percent overlap.
-* `cfg.taper` and `cfg.tapsmofrq` : for taper selection and multi-tapering. Note that in case of multi-tapering, the data in the windows will be averaged across the tapers first, then the Welch procedure will run.
+* `t_ftimwin` : window length (a.k.a. segment length) in seconds.
+* `toi`       : overlap between windows, 0.5 = 50 percent overlap.
+* `taper` and `tapsmofrq` : for taper selection and multi-tapering. Note that in case of multi-tapering, the data in the windows will be averaged across the tapers first, then the Welch procedure will run.
+* `keeptrials` : whether trials should be left as-is, or you want a trial-average. If `false`, and thus trial-averaging is requested, it will happen on the raw data in the time domain, before Welch is run.
 
 Data selections are also possible, like in all Syncopy functions. So you can use `cfg.foilim` to select only a specific frequency range, e.g., `cfg.foilim = [5.0, 100.0]` to select 5 to 100 Hz.
 
