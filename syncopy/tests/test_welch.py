@@ -366,6 +366,8 @@ class TestWelch():
                 with pytest.raises(SPYValueError, match="output"):
                     _ = spy.freqanalysis(cfg, self.adata)
 
+    def teardown_class(cls):
+        plt.close('all')
 
 if __name__ == '__main__':
     if TestWelch.do_plot:
