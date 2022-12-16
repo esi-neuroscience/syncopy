@@ -87,7 +87,7 @@ We can also visualize the power spectrum. Here we select the first of the two tr
 We can see the estimated power spectrum for three channels of white noise.
 
 .. note::
-   If you run the lines above in your Python interpreter but no plot window opens, you may need to configure matplotlib for interactive plotting like this first: ```import matplotlib.pyplot as plt; plt.ion()```.
+   If you run the lines above in your Python interpreter but no plot window opens, you may need to first configure matplotlib for interactive plotting like this: ```import matplotlib.pyplot as plt; plt.ion()```. Then re-run the plotting commmands.
 
 
 Available Settings
@@ -100,17 +100,17 @@ Many settings affect the outcome of a Welch run, including:
 * `taper` and `tapsmofrq` : for taper selection and multi-tapering. Note that in case of multi-tapering, the data in the windows will be averaged across the tapers first, then the Welch procedure will run.
 * `keeptrials` : whether trials should be left as-is, or you want a trial-average. If `false`, and thus trial-averaging is requested, it will happen on the raw data in the time domain, before Welch is run.
 
-Data selections are also possible, like in all Syncopy functions. So you can use `cfg.foilim` to select only a specific frequency range, e.g., `cfg.foilim = [5.0, 100.0]` to select 5 to 100 Hz.
+Data selections are also possible, like in all Syncopy functions. So you can use `foilim` to select only a specific frequency range, e.g., `cfg.foilim = [5.0, 100.0]` to select 5 to 100 Hz.
 
 
-Investigating the Effects of the 'Window Length' and 'Overlap' Parameters as a Function of Signal Length
----------------------------------------------------------------------------------------------------------
+Investigating the Effects of the Overlap Parameter as a Function of Signal Length
+---------------------------------------------------------------------------------
 
-Here, we want to illustrate the effects of two important parameters, the window length (`cfg.t_ftimwin`) and the overlap between windows (`cfg.toi`), on signals of different lengths.
+Here, we want to illustrate the effects of the chosen overlap between windows (`cfg.toi`), on signals of different lengths.
 
-For this, we investigate various combinations of signal length, window length and overlap. For each triplet, we realize several instantiations of white noise and run Welch's method to get an estimate of the power spectral density. We then compute the variance of the estimates. Here is a visualization of the result (`source <./welch_params.txt>`_):
+For this, we investigate various combinations of signal length and overlap. For each combination, we realize several instantiations of white noise and run Welch's method to get an estimate of the power spectral density. We then compute the variance of the estimates. Here is a visualization of the result (`source <../_static/welch_params.txt>`_):
 
-TODO: add plot here
+.. image:: ../_static/welch_params.png
 
 From this plot we can conclude several things. First, as expected, with all settings fixed, a longer signal (and thus an increased number of segments) reduces the variance of the estimate. Second, up to a certain level (somewhere around 0.5 to 0.6), increasing the overlap also reduces the variance of the
 estimator. However, if you go too high, the variance starts increasing again. The whole effect is most pronounced for short signals, but these are the typical case in neuroscience.
