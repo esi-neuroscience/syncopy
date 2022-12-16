@@ -7,7 +7,6 @@
 import numpy as np
 import inspect
 import json
-import copy
 
 # Local imports
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYTypeError
