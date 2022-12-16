@@ -100,7 +100,7 @@ Many settings affect the outcome of a Welch run, including:
 * `taper` and `tapsmofrq` : for taper selection and multi-tapering. Note that in case of multi-tapering, the data in the windows will be averaged across the tapers first, then the Welch procedure will run.
 * `keeptrials` : whether trials should be left as-is, or you want a trial-average. If `false`, and thus trial-averaging is requested, it will happen on the raw data in the time domain, before Welch is run.
 
-Data selections are also possible, like in all Syncopy functions. So you can use `foilim` to select only a specific frequency range, e.g., `cfg.foilim = [5.0, 100.0]` to select 5 to 100 Hz.
+Data selections are also possible, like in all Syncopy functions and explained in :doc:`Selections <../user/selectdata>`. So you can use `foilim` to select only a specific frequency range, e.g., `cfg.foilim = [5.0, 100.0]` to select 5 to 100 Hz.
 
 
 Investigating the Effects of the Overlap Parameter as a Function of Signal Length
