@@ -1,3 +1,48 @@
-import syncopy as spy
+#!/usr/bin/env python
 
-# TODO: add plot code from Welch unit test here.
+import syncopy as spy
+import syncopy.tests.synth_data as synth_data
+import numpy as np
+import matplotlib.pyplot as plt
+
+sig_lengths = np.linspace(1000, 4000, num=4, dtype=int)
+overlaps = np.linspace(0.0, 0.99, num=10)
+variances = np.zeros((sig_lengths.size, overlaps.size), dtype=float)  # Filled in loop below.
+
+foilim = [5, 200]  # Frequency selection, shared between cases.
+f_timwin = 0.2     # Window length in seconds, also shared.
+
+def get_welch_cfg():
+        """
+        Get a reasonable Welch cfg for testing purposes.
+        """
+        cfg = spy.get_defaults(spy.freqanalysis)
+        cfg.method = "welch"
+        cfg.t_ftimwin = 0.5  # Window length in seconds.
+        cfg.toi = 0.0        # Overlap between periodograms (0.5 = 50 percent overlap).
+        return cfg
+
+for sigl_idx, sig_len in enumerate(sig_lengths):
+    for overl_idx, overlap in enumerate(overlaps):
+        wn = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=sig_len, samplerate=1000)
+
+        cfg = get_welch_cfg()
+        cfg.toi = overlap
+        cfg.t_ftimwin = f_timwin
+        cfg.foilim = foilim
+
+        spec = spy.freqanalysis(cfg, wn)
+
+        # We got one Welch estimate per trial so far. Now compute the variance over trials:
+        spec_var = spy.var(spec, dim='trials')
+        mvar = np.mean(spec_var.show(channel=0)) # We get one variance per frequency bin, and average over those.
+        variances[sigl_idx, overl_idx] = mvar
+
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+for row_idx in range(variances.shape[0]):
+    ax.scatter(np.tile(sig_lengths[row_idx], overlaps.size), overlaps, variances[row_idx, :], label=f"Signal len {sig_lengths[row_idx]}")
+ax.set_xlabel('Signal length (number of samples)')
+ax.set_ylabel('Window overlap')
+ax.set_zlabel('var of Welch estimate')
+ax.set_title('Variance of Welsh estimate as a function of signal length and overlap.\nColors represent different signal lengths.')
