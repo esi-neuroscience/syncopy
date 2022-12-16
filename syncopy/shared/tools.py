@@ -7,7 +7,7 @@
 import numpy as np
 import inspect
 import json
-import subprocess
+import copy
 
 # Local imports
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYTypeError
@@ -47,6 +47,12 @@ class StructDict(dict):
         else:
             ppStr = "{}"
         return ppStr
+
+    def copy(self):
+        """Overwrite the .copy method of the parent 'dict' class, otherwise copy() will return a dict."""
+        obj = type(self).__new__(self.__class__)
+        obj.__dict__.update(self.__dict__)
+        return obj
 
 
 class SerializableDict(dict):
@@ -272,4 +278,4 @@ def get_defaults(obj):
     return StructDict(dct)
 
 
-    
+
