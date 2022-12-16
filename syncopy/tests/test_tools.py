@@ -50,6 +50,7 @@ class TestTools:
 
         cfg2 = cfg.copy()
         assert type(cfg2) == spy.shared.tools.StructDict
+        assert cfg2.b == "test"
 
     def test_copy_Welch_cfg(self):
         from syncopy.tests.test_welch import TestWelch
