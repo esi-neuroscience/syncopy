@@ -188,9 +188,9 @@ class TestWelch():
         # Check the number of windows that Welch will average over.
         # To do this, we run mtmconvol and check the output size.
         # This is to verify that the number of windows is equal, and as expected.
-        cfg_mtm_long = spy.StructDict(cfg_long_no_overlap.copy())
+        cfg_mtm_long = cfg_long_no_overlap.copy()
         cfg_mtm_long.method = "mtmconvol"
-        cfg_mtm_short = spy.StructDict(cfg_short_with_overlap.copy())
+        cfg_mtm_short = cfg_short_with_overlap.copy()
         cfg_mtm_short.method = "mtmconvol"
         num_windows_long = np.ravel(np.diff(spy.freqanalysis(cfg_mtm_long, wn_long).sampleinfo))[0]
         num_windows_short = np.ravel(np.diff(spy.freqanalysis(cfg_mtm_short, wn_short).sampleinfo))[0]
