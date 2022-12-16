@@ -32,8 +32,6 @@ class StructDict(dict):
         """
         super().__init__(*args, **kwargs)
         self.__dict__ = self
-        self._args = args
-        self._kwargs = kwargs
 
     def __repr__(self):
         return self.__str__()
@@ -56,14 +54,6 @@ class StructDict(dict):
         obj.__dict__.update(self.__dict__)
         return obj
 
-    def __deepcopy__(self, memo):
-        cls = self.__class__
-        result = cls.__new__(cls)
-        memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            setattr(result, k, copy.deepcopy(v, memo))
-        super(StructDict, result).__init__(*self._args, **self._kwargs)
-        return result
 
 
 class SerializableDict(dict):
