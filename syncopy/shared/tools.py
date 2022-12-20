@@ -56,10 +56,14 @@ class StructDict(dict):
 
     def deepcopy(self):
         """Offer a new deepcopy method."""
-        obj = type(self).__new__(self.__class__)
-        self_cp = deepcopy(self.__dict__)
-        obj.__dict__.update(self_cp)
-        return obj
+        return deepcopy(self)
+
+    def __deepcopy__(self, memo):
+        result = type(self).__new__(self.__class__)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            setattr(result, k, deepcopy(v, memo))
+        return result
 
 
 
