@@ -142,5 +142,4 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
 def teardown():
     """Cleanup to run at the end of a set of tests, typically at the end of a Test class."""
     # Close matplotlib plot windows:
-    if mpl.is_interactive():
-        plt.close('all')
+    plt.close('all')
