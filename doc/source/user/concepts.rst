@@ -18,7 +18,7 @@ General Workflow
 
 A typical analysis workflow with Syncopy might look like this:
 
-.. image:: workFlow.png
+.. image:: /_static/workFlow.png
 
 	  
 We start with data import (or simply loading if already in ``.spy`` format) which will create one of Syncopy's dataypes like :class:`~syncopy.AnalogData`. Then actual (parallel) processing of the data is triggered by calling a *meta-function* (see also below), for example :func:`~syncopy.freqanalysis`. An analysis output often results in a different datatype, e.g. :class:`~syncopy.SpectralData`. All indicated methods (:func:`~syncopy.show`, :func:`~syncopy.singlepanelplot` and :func:`~syncopy.save`) for data access are available for all of Syncopy's datatypes. Hence, at any processing step the data can be plotted, NumPy :class:`~numpy.ndarray`'s extracted or (intermediate) results saved to disc as ``.spy`` containers. 
