@@ -31,17 +31,26 @@ Want to contribute or just curious how the sausage
 is made? Take a look at our :doc:`Developer Guide <developer/developers>`.
 
 
-In depth Guides and Tutorials
------------------------------
-* :doc:`Basic Concepts <user/concepts>`
-* :doc:`Syncopy for FieldTrip Users <user/fieldtrip>`
-* :doc:`Handling Data <user/data>`
-* :doc:`Parallel Processing <user/parallel>`
-* :doc:`Selections <user/selectdata>`
-* :doc:`Fooof <tutorials/fooof>`
-* :doc:`Welch's Method <tutorials/welch>`
-* :doc:`Resampling <tutorials/resampling>`
+Tutorials
+---------
 
+.. toctree::
+   :maxdepth: 2
+
+   Resampling <tutorials/resampling>
+   Spectral Analysis <tutorials/freqanalysis>
+
+In depth Guides
+---------------
+
+.. toctree::
+   :maxdepth: 2
+   
+   Basic Concepts <user/concepts>
+   Syncopy for FieldTrip Users <user/fieldtrip>
+   Handling Data <user/data>
+   Parallel Processing <user/parallel>
+   Selections <user/selectdata>
 
 Auto-generate API Docs
 -----------------------
@@ -71,7 +80,6 @@ For general inquiries please contact syncopy (at) esi-frankfurt.de.
    user/data.rst
    user/selectdata.rst
    user/user_api.rst
-   tutorials/fooof.rst
-   tutorials/welch.rst
+   tutorials/freqanalysis.rst
    tutorials/resampling.rst
    developer/developers.rst
