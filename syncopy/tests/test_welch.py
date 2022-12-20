@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.const_def import spectralConversions
 import syncopy.tests.synth_data as synth_data
+from syncopy.tests.helpers import teardown
 
 
 class TestWelch():
@@ -350,9 +351,7 @@ class TestWelch():
                     _ = spy.freqanalysis(cfg, self.adata)
 
     def teardown_class(cls):
-        """Close plot windows on CI run."""
-        if mpl.is_interactive():
-            plt.close('all')
+        teardown()
 
 if __name__ == '__main__':
     if TestWelch.do_plot:
