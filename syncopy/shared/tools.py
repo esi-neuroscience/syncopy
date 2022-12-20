@@ -5,6 +5,7 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+from copy import deepcopy
 import inspect
 import json
 
@@ -51,6 +52,13 @@ class StructDict(dict):
         """Overwrite the .copy method of the parent 'dict' class, otherwise copy() will return a dict."""
         obj = type(self).__new__(self.__class__)
         obj.__dict__.update(self.__dict__)
+        return obj
+
+    def deepcopy(self):
+        """Offer a new deepcopy method."""
+        obj = type(self).__new__(self.__class__)
+        self_cp = deepcopy(self.__dict__)
+        obj.__dict__.update(self_cp)
         return obj
 
 
