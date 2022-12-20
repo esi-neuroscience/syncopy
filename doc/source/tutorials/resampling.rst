@@ -9,8 +9,8 @@ Changing the sampling rate of a dataset is a common task in digital signal proce
 .. contents:: Topics covered
    :local:
 
-Synthetic Data
---------------
+Create Example Data
+-------------------
 
 To start with a clean slate, let's construct a synthetic signal with two harmonics,
 one at 200Hz and one at 1300Hz:
@@ -51,14 +51,14 @@ Suppose we want to downsample our signal to 1kHz. The *original sampling rate* h
 
   ds_adata = spy.resampledata(adata, method='downsample', resamplefs=1000)
 
-Let's have a look at the new power spectrum:
+Let's have a look at the new power spectrum::
 
   ds_spec = spy.freqanalysis(adata, keeptrials=False)
   ds_spec.singlepanelplot(channel=0)
 
 .. image:: res_ds_spec.png
 
-What happened? First we have to note that the frequency axis now goes from 0Hz to only 500Hz, which is the *new Nyquist frequency* :math:`1000Hz / 2`. We still see our expected peak at 200Hz, but there is also another one at 300Hz even though our signal never contained such oscillations! This phenomenon is called `aliasing <https://en.wikipedia.org/wiki/Aliasing>`_, basically meaning that frequencies which are present in the signal yet are higher than the Nyquist limit (:math:`1300 Hz > 500Hz`) "wrap around" and re-appear as spurious low-frequency components. This is a common problem of *digitization* of analog signals, think audio processing. The formula for the alias frequencies is:
+What happened? First we have to note that the frequency axis now goes from 0Hz to only 500Hz, which is the *new Nyquist frequency* :math:`1000Hz / 2`. We still see our expected peak at 200Hz, but there is also another one at 300Hz even though our signal never contained such oscillations! This phenomenon is called `aliasing <https://en.wikipedia.org/wiki/Aliasing>`_, meaning that frequencies which are present in the signal yet are higher than the Nyquist limit (:math:`1300 Hz > 500Hz`) "wrap around" and re-appear as spurious low-frequency components. This is a common problem of *digitization* of analog signals, think audio processing. The formula for the alias frequencies is:
 
 .. math::
 

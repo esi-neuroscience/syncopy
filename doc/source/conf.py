@@ -110,34 +110,20 @@ pygments_style = None
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-#
-html_theme = 'bootstrap'
+
+# see https://sphinx-book-theme.readthedocs.io
+html_theme = 'sphinx_book_theme'
 
 html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-html_logo = "_static/syncopy_icon.png"
+html_logo = "_static/syncopy_logo.png"
 html_theme_options = {
-    "navbar_title": "Syncopy",
-    "navbar_site_name": "Documentation",
-    # Render the next and previous page links in navbar. (Default: true)
-    'navbar_sidebarrel': False,
-    # Render the current pages TOC in the navbar. (Default: true)
-    'navbar_pagenav': False,
-    # Tab name for the current pages TOC. (Default: "Page")
-    'navbar_pagenav_name': "Current Page",
+    "repository_url": "https://github.com/esi-neuroscience/syncopy",
+    "use_issues_button": True,
 
-    # Global TOC depth for "site" navbar tab. (Default: 1)
-    # Switching to -1 shows all levels.
-    'globaltoc_depth': 2,
-    # Currently, the supported themes are:
-    # - Bootstrap 3: https://bootswatch.com/3
-    'bootswatch_theme': "simplex",
-    'navbar_links': [
-        ("GitHub", "https://www.github.com/esi-neuroscience/syncopy", True),
-    ],
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,

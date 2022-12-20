@@ -38,8 +38,9 @@ def timelockanalysis(data,
                      keeptrials=False,
                      **kwargs):
     """
-    Average, variance and covariance for :class:`~syncopy.AnalogData` objects across trials
-    If input ``data`` is not timelocked already, toilim and trial selections will be
+    Average, variance and covariance for :class:`~syncopy.AnalogData` objects across trials.
+
+    If input ``data`` is not timelocked already, trial cutting and selections will be
     applied according to the ``latency`` setting.
 
     Parameters

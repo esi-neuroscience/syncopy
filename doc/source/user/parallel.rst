@@ -1,3 +1,5 @@
+.. _parallel:
+
 ------------------------------
 Serial and Parallel Processing
 ------------------------------

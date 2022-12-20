@@ -24,8 +24,13 @@ We strive to achieve the following goals:
 
 Getting Started
 ---------------
-- Prerequisites: :doc:`Install Syncopy </setup>`
-- Jumping right in: :doc:`Quickstart Guide <quickstart/quickstart>`
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Getting Started
+
+   Install Syncopy </setup>
+   Quickstart Guide <quickstart/quickstart>
 
 Want to contribute or just curious how the sausage
 is made? Take a look at our :doc:`Developer Guide <developer/developers>`.
@@ -36,6 +41,7 @@ Tutorials
 
 .. toctree::
    :maxdepth: 2
+   :caption: Tutorials
 
    Resampling <tutorials/resampling>
    Spectral Analysis <tutorials/freqanalysis>
@@ -45,6 +51,7 @@ In depth Guides
 
 .. toctree::
    :maxdepth: 2
+   :caption: Guides	      
    
    Basic Concepts <user/concepts>
    Syncopy for FieldTrip Users <user/fieldtrip>
@@ -52,34 +59,17 @@ In depth Guides
    Parallel Processing <user/parallel>
    Selections <user/selectdata>
 
-Auto-generate API Docs
------------------------
-* :doc:`User API <user/user_api>`
+API
+---
 
-Navigation
-----------
-* :doc:`Sitemap <sitemap>`
-* :ref:`genindex`
-* :ref:`search`
+.. toctree::
+   :maxdepth: 1
+   :caption: API Reference
+
+   User API <user/user_api>
+
 
 Contact
 -------
 To report bugs or ask questions please use our `GitHub issue tracker <https://github.com/esi-neuroscience/syncopy/issues>`_.
 For general inquiries please contact syncopy (at) esi-frankfurt.de.
-
-.. Any sections to be included in the Documentation dropdown menu have to be in the toctree
-
-.. toctree::
-   :hidden:
-
-   quickstart/quickstart.rst
-   setup
-   user/concepts.rst
-   user/parallel.rst
-   user/fieldtrip.rst
-   user/data.rst
-   user/selectdata.rst
-   user/user_api.rst
-   tutorials/freqanalysis.rst
-   tutorials/resampling.rst
-   developer/developers.rst
