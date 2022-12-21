@@ -49,13 +49,31 @@ class StructDict(dict):
         return ppStr
 
     def copy(self):
-        """Overwrite the .copy method of the parent 'dict' class, otherwise copy() will return a dict."""
+        """
+        Create a shallow-copy of this StructDict instance.
+
+        Note: Overwrites the `.copy` method of the parent `dict` class, otherwise `copy()` will return a `dict` instead of a `StructDict`.
+
+        Returns
+        -------
+        Shallow-copy of StructDict.
+
+        Notes
+        -----
+        Consider calling the `.deepcopy()` method to get a deep copy instead, which is typically what users want.
+        """
         obj = type(self).__new__(self.__class__)
         obj.__dict__.update(self.__dict__)
         return obj
 
     def deepcopy(self):
-        """Offer a new deepcopy method."""
+        """
+        Return a deep copy of this StructDict.
+
+        Notes
+        -----
+        Call the `.copy()` method instead to get a shallow copy, though that seems rather uncommon.
+        """
         return deepcopy(self)
 
     def __deepcopy__(self, memo):
