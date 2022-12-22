@@ -9,7 +9,8 @@
 # 3rd party imports
 import itertools
 import numpy as np
-
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 
 # fix random generators
@@ -137,3 +138,8 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
         selections.append(sel_dct)
 
     return selections
+
+def teardown():
+    """Cleanup to run at the end of a set of tests, typically at the end of a Test class."""
+    # Close matplotlib plot windows:
+    plt.close('all')

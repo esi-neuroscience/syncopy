@@ -8,10 +8,12 @@ import syncopy as spy
 import numpy as np
 import inspect
 import dask.distributed as dd
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.const_def import spectralConversions
 import syncopy.tests.synth_data as synth_data
+from syncopy.tests.helpers import teardown
 
 
 class TestWelch():
@@ -67,7 +69,6 @@ class TestWelch():
         if self.do_plot:
             _, ax = res.singlepanelplot(trials=0, channel=0)
             ax.set_title("mtmconvolv result.")
-        return res
 
     def test_welch_basic(self):
         """
@@ -97,7 +98,6 @@ class TestWelch():
             ax.set_title("Welch result")
             # ax.set_ylabel("Power")
             ax.set_xlabel("Frequency")
-        return res
 
     def test_mtmconvolv_overlap_effect(self):
         """Test variance between windows of different length.
@@ -188,20 +188,13 @@ class TestWelch():
         # Check the number of windows that Welch will average over.
         # To do this, we run mtmconvol and check the output size.
         # This is to verify that the number of windows is equal, and as expected.
-        cfg_mtm_long = spy.StructDict(cfg_long_no_overlap.copy())
+        cfg_mtm_long = cfg_long_no_overlap.copy()
         cfg_mtm_long.method = "mtmconvol"
-        cfg_mtm_short = spy.StructDict(cfg_short_with_overlap.copy())
+        cfg_mtm_short = cfg_short_with_overlap.copy()
         cfg_mtm_short.method = "mtmconvol"
-        num_windows_long = np.ravel(np.diff(spy.freqanalysis(cfg_mtm_long, wn_long).sampleinfo))[0]
-        num_windows_short = np.ravel(np.diff(spy.freqanalysis(cfg_mtm_short, wn_short).sampleinfo))[0]
-        assert num_windows_long == 100, f"Expected 100 windows for long, got {num_windows_long}."
-        assert num_windows_short == 100, f"Expected 100 windows for short, got {num_windows_short}."
 
         spec_long_no_overlap = spy.freqanalysis(cfg_long_no_overlap, wn_long)
         spec_short_with_overlap = spy.freqanalysis(cfg_short_with_overlap, wn_short)
-
-        print(f"spec_long_no_overlap shape: {spec_long_no_overlap.data.shape} with dimord {spec_long_no_overlap.dimord}")
-        print(f"spec_short_with_overlap shape: {spec_short_with_overlap.data.shape} with dimord {spec_short_with_overlap.dimord}")
 
         # We got one Welch estimate per trial so far. Now compute the variance over trials:
         var_dim='trials'
@@ -212,16 +205,11 @@ class TestWelch():
         assert var_longsig_no_overlap.data.shape[0] == 1
         assert var_shortsig_with_overlap.data.shape[0] == 1
 
-        print(f"var_no_overlap shape: {var_longsig_no_overlap.data.shape} with dimord {var_longsig_no_overlap.dimord}")
-        print(f"var_with_overlap shape: {var_shortsig_with_overlap.data.shape} with dimord {var_shortsig_with_overlap.dimord}")
-
         if self.do_plot:
-            plot_trial=0  # Only one left after variance computation along trials.
             mn_long, var_long = np.mean(var_longsig_no_overlap.show(trials=0)), np.var(var_longsig_no_overlap.show(trials=0))
 
             mn_short, var_short = np.mean(var_shortsig_with_overlap.show(trials=0)), np.var(var_shortsig_with_overlap.show(trials=0))
-            print(var_short, var_long)
-            fig, ax = plt.subplots()
+            _, ax = plt.subplots()
             title = f"Long signal: (toi={cfg_long_no_overlap.toi}, f_timwin={cfg_long_no_overlap.t_ftimwin})\n"
             title += f"Short signal: (toi={cfg_short_with_overlap.toi}, f_timwin={cfg_short_with_overlap.t_ftimwin})"
             ax.bar([1, 2], [mn_long, mn_short], yerr=[var_long, var_short], width=0.5, capsize=2)
@@ -362,6 +350,8 @@ class TestWelch():
                 with pytest.raises(SPYValueError, match="output"):
                     _ = spy.freqanalysis(cfg, self.adata)
 
+    def teardown_class(cls):
+        teardown()
 
 if __name__ == '__main__':
     if TestWelch.do_plot:

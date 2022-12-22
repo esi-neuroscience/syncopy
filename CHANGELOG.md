@@ -1,6 +1,15 @@
 # Changelog of SyNCoPy
 All notable changes to this project will be documented in this file.
 
+## Unreleased WIP
+
+### NEW
+
+### CHANGED
+
+### Fixed
+- fix bug #394 'Copying a spy.StructDict returns a dict'.
+
 ## [2022.12]
 
 ### NEW
