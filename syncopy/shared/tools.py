@@ -48,23 +48,27 @@ class StructDict(dict):
             ppStr = "{}"
         return ppStr
 
-    def copy(self):
+    def copy(self, deep=True):
         """
-        Create a shallow-copy of this StructDict instance.
+        Create a copy of this StructDict instance.
 
         Note: Overwrites the `.copy` method of the parent `dict` class, otherwise `copy()` will return a `dict` instead of a `StructDict`.
 
+        Parameters
+        ---------
+        deep: bool
+            Whether to produce a deep copy. Defaults to `True`.
+
         Returns
         -------
-        Shallow-copy of StructDict.
-
-        Notes
-        -----
-        Consider calling the `.deepcopy()` method to get a deep copy instead, which is typically what users want.
+        Copy of StructDict.
         """
-        obj = type(self).__new__(self.__class__)
-        obj.__dict__.update(self.__dict__)
-        return obj
+        if(deep):
+            return self.deepcopy()
+        else:
+            obj = type(self).__new__(self.__class__)
+            obj.__dict__.update(self.__dict__)
+            return obj
 
     def deepcopy(self):
         """

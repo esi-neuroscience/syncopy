@@ -16,7 +16,7 @@ class TestTools:
         cfg.c = [1, 2, 3]
         assert type(cfg) == spy.shared.tools.StructDict
 
-        cfg2 = cfg.copy()
+        cfg2 = cfg.copy(deep=False)
         _ = spy.StructDict()
 
         assert type(cfg2) == spy.shared.tools.StructDict
@@ -94,7 +94,7 @@ class TestTools:
         assert cfg2.c == [1,2,3]
         assert cfg.c == [1,2,3,4]
 
-    def test_structdict_deepcopy(self):
+    def test_structdict_deepcopy_ext(self):
         cfg = spy.StructDict()
         cfg.a = 0.5
         cfg.b = "test"
@@ -102,6 +102,58 @@ class TestTools:
         assert type(cfg) == spy.shared.tools.StructDict
 
         cfg2 = copy.deepcopy(cfg) # Use copy.deepcopy instead of cfg.deepcopy() this time.
+
+        assert type(cfg2) == spy.shared.tools.StructDict
+        assert cfg2.a == cfg.a
+        assert cfg2.b == cfg.b
+        assert cfg2.c == cfg.c
+
+        # Check the list was deep-copied.
+        cfg.c.append(4)
+        assert cfg2.c != cfg.c
+        assert 4 in cfg.c
+        assert 4 not in cfg2.c
+        assert cfg2.a == cfg.a
+        assert cfg2.b == cfg.b
+        assert cfg2.a == 0.5
+        assert cfg2.b == "test"
+        assert cfg2.c == [1,2,3]
+        assert cfg.c == [1,2,3,4]
+
+    def test_structdict_deepcopy_ext_with_explicit_deep(self):
+        cfg = spy.StructDict()
+        cfg.a = 0.5
+        cfg.b = "test"
+        cfg.c = [1, 2, 3]
+        assert type(cfg) == spy.shared.tools.StructDict
+
+        cfg2 = cfg.copy(deep=True) # Use copy.deepcopy instead of cfg.deepcopy() this time.
+
+        assert type(cfg2) == spy.shared.tools.StructDict
+        assert cfg2.a == cfg.a
+        assert cfg2.b == cfg.b
+        assert cfg2.c == cfg.c
+
+        # Check the list was deep-copied.
+        cfg.c.append(4)
+        assert cfg2.c != cfg.c
+        assert 4 in cfg.c
+        assert 4 not in cfg2.c
+        assert cfg2.a == cfg.a
+        assert cfg2.b == cfg.b
+        assert cfg2.a == 0.5
+        assert cfg2.b == "test"
+        assert cfg2.c == [1,2,3]
+        assert cfg.c == [1,2,3,4]
+
+    def test_structdict_deepcopy_ext_with_implicit_deep(self):
+        cfg = spy.StructDict()
+        cfg.a = 0.5
+        cfg.b = "test"
+        cfg.c = [1, 2, 3]
+        assert type(cfg) == spy.shared.tools.StructDict
+
+        cfg2 = cfg.copy() # Use copy.deepcopy instead of cfg.deepcopy() this time.
 
         assert type(cfg2) == spy.shared.tools.StructDict
         assert cfg2.a == cfg.a
