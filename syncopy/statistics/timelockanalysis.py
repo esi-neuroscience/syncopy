@@ -6,6 +6,7 @@
 import os
 import numpy as np
 import h5py
+from copy import deepcopy
 
 # Syncopy imports
 
@@ -115,7 +116,7 @@ def timelockanalysis(data,
     tld.cfg.update({'timelockanalysis': new_cfg})
 
     # to restore later as we apply selection inside here
-    select_backup = None if data.selection is None else data.selection.select.copy()
+    select_backup = None if data.selection is None else deepcopy(data.selection.select)
 
     if data.selection is not None:
         if trials != 'all' and data.selection.select.get('trials') is not None:
@@ -150,9 +151,8 @@ def timelockanalysis(data,
 
     # --- apply `latency` (time window of analysis) ---
     if data.selection is not None:
-        select = data.selection.select.copy()
         # update selection
-        data.selectdata(select, latency=latency, inplace=True)
+        data.selectdata(data.selection.select, latency=latency, inplace=True)
     else:
         # create new selection
         data.selectdata(latency=latency, inplace=True)

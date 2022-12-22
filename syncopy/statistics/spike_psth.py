@@ -4,6 +4,7 @@
 #
 
 import numpy as np
+from copy import deepcopy
 
 # Syncopy imports
 import syncopy as spy
@@ -122,7 +123,7 @@ def spike_psth(data,
     window = get_analysis_window(data, latency)
 
     # to restore later
-    select_backup = None if data.selection is None else data.selection.select.copy()
+    select_backup = None if data.selection is None else deepcopy(data.selection.select)
 
     if not vartriallen:
 
