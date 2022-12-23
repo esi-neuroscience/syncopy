@@ -1,20 +1,27 @@
 graph LR
     classDef MEM fill:#ff908a,stroke:#333,stroke-width:2px;
     classDef DISC fill:#78e4ff,stroke:#333,stroke-width:1px;
-    classDef default fill:#9cfcff,stroke:#333,stroke-width:1px;
-    
+    classDef Other fill:#9cfcff,stroke:#333,stroke-width:1px;
+
     spyRead[/.spy\] -->|load| Data
     FTread[/.mat\] -->|load_ft_raw| Data
     NWBread[/nwb\] -->|load_nwd| Data
     npInput[NumPy arrays] -.->|collect_trials| Data(AnalogData)
-        
-    Data -->|connectivityanalysis| CData(CrossSpectralData)
+
+    Data -->|freqanalysis| SData(SpectralData)
     Data -.-> |singlepanelplot|PlotD1[Figures]
     Data -.-> |show| ShowD1[NumPy arrays]
-    
-    CData -.-> |singlepanelplot|PlotD[Figures]
-    CData -.-> |show| ShowD2[NumPy arrays]
-    CData --> |save| SaveD2[/.spy\]
+
+    SData -.-> |singlepanelplot|PlotD[Figures]
+    SData -.-> |show| ShowD2[NumPy arrays]
+    SData --> |save| SaveD2[/.spy\]
+
     class npInput,PlotD,ShowD1,PlotD1,ShowD2,PlotD2 MEM;
-    class Data,CData DISC;
+    class Data,SData DISC;
+    class spyRead,FTread,NWBread,SaveD2 Other;
     linkStyle 4 stroke:#78e4ff,stroke-width:3px;
+
+    subgraph one [ Legend ]
+    disc[/on disc\]:::DISC
+    mem[in memory]:::MEM
+    end 

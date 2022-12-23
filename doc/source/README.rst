@@ -24,48 +24,52 @@ We strive to achieve the following goals:
 
 Getting Started
 ---------------
-- Prerequisites: :doc:`Install Syncopy </setup>`
-- Jumping right in: :doc:`Quickstart Guide <quickstart/quickstart>`
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Getting Started
+
+   Install Syncopy </setup>
+   Quickstart Guide <quickstart/quickstart>
 
 Want to contribute or just curious how the sausage
 is made? Take a look at our :doc:`Developer Guide <developer/developers>`.
 
 
-In depth Guides and Tutorials
------------------------------
-* :doc:`Basic Concepts <user/concepts>`
-* :doc:`Syncopy for FieldTrip Users <user/fieldtrip>`
-* :doc:`Handling Data <user/data>`
-* :doc:`Fooof <tutorials/fooof>`
-* :doc:`Resampling <tutorials/resampling>`
+Tutorials
+---------
 
-  
-Auto-generate API Docs
------------------------
-* :doc:`User API <user/user_api>`
+.. toctree::
+   :maxdepth: 2
+   :caption: Tutorials
 
-Navigation
-----------
-* :doc:`Sitemap <sitemap>`
-* :ref:`genindex`
-* :ref:`search`
+   Resampling <tutorials/resampling>
+   Spectral Analysis <tutorials/freqanalysis>
+
+In depth Guides
+---------------
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Guides	      
+   
+   Basic Concepts <user/concepts>
+   Syncopy for FieldTrip Users <user/fieldtrip>
+   Handling Data <user/data>
+   Parallel Processing <user/parallel>
+   Selections <user/selectdata>
+
+API
+---
+
+.. toctree::
+   :maxdepth: 1
+   :caption: API Reference
+
+   User API <user/user_api>
+
 
 Contact
 -------
 To report bugs or ask questions please use our `GitHub issue tracker <https://github.com/esi-neuroscience/syncopy/issues>`_.
 For general inquiries please contact syncopy (at) esi-frankfurt.de.
-
-.. Any sections to be included in the Documentation dropdown menu have to be in the toctree
-
-.. toctree::
-   :hidden:
-
-   quickstart/quickstart.rst
-   setup
-   user/concepts.rst
-   user/fieldtrip.rst
-   user/data.rst
-   user/user_api.rst
-   tutorials/fooof.rst
-   tutorials/resampling.rst
-   developer/developers.rst

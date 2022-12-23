@@ -41,7 +41,7 @@ black = "^22.6.0"
 pytest = "^7.0"
 ipython = "^8.0"
 pytest-cov = "^3.0.0"
-sphinx-bootstrap-theme = ">=0.8"
+sphinx-book-theme = "^0.3.3"
 sphinx-automodapi = "^0.14.1"
 flake8 = "^3.9"
 

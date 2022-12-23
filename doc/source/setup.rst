@@ -21,7 +21,7 @@ Installing parallel processing engine ACME
 --------------------------------------------
 
 To harness the parallel processing capabilities of Syncopy
-it is necessary to install `ACME <https://github.com/esi-neuroscience/acme>`_.
+it is helpful to install `ACME <https://github.com/esi-neuroscience/acme>`_.
 
 Again either via conda
 
@@ -35,6 +35,8 @@ or pip
 
     pip install esi-acme
 
+.. note::
+   See :ref:`parallel` for details about parallel processing setup
 
 Importing Syncopy
 -----------------
@@ -58,25 +60,6 @@ To display your Syncopy version, run:
 .. code-block:: python
 
     spy.__version__
-
-
-.. _start_parallel:
-
-Starting Up Parallel Workers
-----------------------------
-
-In Syncopy all computations are designed to run in parallel taking advantage of
-modern multi-core system architectures. The simplest way to leverage any available
-concurrent processing hardware is to use the `parallel` keyword, e.g.,
-
-.. code-block:: python
-
-    spy.freqanalysis(data, method="mtmfft", parallel=True)
-
-This will allocate a parallel worker for each trial defined in `data`. If your code
-is running on the ESI cluster, Syncopy will automatically use the existing SLURM
-scheduler, in a single-machine setup, any available local multi-processing resources
-will be utilized. More details can be found in the :doc:`Data Analysis Guide <user/data>`
 
 .. _setup_env:
 
