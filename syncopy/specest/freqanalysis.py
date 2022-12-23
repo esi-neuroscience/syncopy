@@ -337,9 +337,6 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     >>> _, ax = res.singlepanelplot(trials=0, logscale=False)
     >>> ax.set_title("Welch result")
-    >>> ax.set_ylabel("Power")
-    >>> ax.set_xlabel("Frequency")
-
 
     See also
     --------

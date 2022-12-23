@@ -49,12 +49,12 @@ We now create a config for running Welch's method and call `freqanalysis` with i
 .. code-block:: python
     :linenos:
 
-    cfg = spy.get_defaults(spy.freqanalysis)
+    cfg = spy.StructDict()
     cfg.method = "welch"
     cfg.t_ftimwin = 0.5  # Window length in seconds.
-    cfg.toi = 0.0        # Overlap between windows, 0.5 = 50 percent overlap.
+    cfg.toi = 0.5        # Overlap between windows, 0.5 = 50 percent overlap.
 
-    welch_res = spy.freqanalysis(cfg, wn)
+    welch_psd = spy.freqanalysis(cfg, wn)
 
 
 Let's inspect the resulting `SpectralData` instance by looking at its dimensions, and then visualize it:
@@ -62,8 +62,8 @@ Let's inspect the resulting `SpectralData` instance by looking at its dimensions
 .. code-block:: python
     :linenos:
 
-    welch_res.dimord      # ('time', 'taper', 'freq', 'channel',)
-    welch_res.data.shape  # (2, 1, 251, 3)
+    welch_psd.dimord      # ('time', 'taper', 'freq', 'channel',)
+    welch_psd.data.shape  # (2, 1, 251, 3)
 
 The shape is as expected:
 
@@ -78,13 +78,11 @@ We can also visualize the power spectrum. Here we select the first of the two tr
 .. code-block:: python
     :linenos:
 
-    _, ax = welch_res.singlepanelplot(trials=0, logscale=False)
-    ax.set_ylabel("Power")
-    ax.set_xlabel("Frequency")
+    _, ax = welch_psd.singlepanelplot(trials=0, logscale=False)
 
 .. image:: ../_static/welch_basic_power.png
 
-We can see the estimated power spectrum for three channels of white noise.
+We can see the estimated power flat spectrum for three channels of white noise.
 
 .. note::
    If you run the lines above in your Python interpreter but no plot window opens, you may need to first configure matplotlib for interactive plotting like this: ```import matplotlib.pyplot as plt; plt.ion()```. Then re-run the plotting commmands.
@@ -97,10 +95,9 @@ Many settings affect the outcome of a Welch run, including:
 
 * `t_ftimwin` : window length (a.k.a. segment length) in seconds.
 * `toi`       : overlap between windows, 0.5 = 50 percent overlap.
+* `foilim`    : frequencies of interest,  a specific frequency range, e.g. set to ``[5, 100]`` to get results between 5 to 100 Hz.
 * `taper` and `tapsmofrq` : for taper selection and multi-tapering. Note that in case of multi-tapering, the data in the windows will be averaged across the tapers first, then the Welch procedure will run.
 * `keeptrials` : whether trials should be left as-is, or you want a trial-average. If `false`, and thus trial-averaging is requested, it will happen on the raw data in the time domain, before Welch is run.
-
-Data selections are also possible, like in all Syncopy functions and explained in :doc:`Selections <../user/selectdata>`. So you can use `foilim` to select only a specific frequency range, e.g., `cfg.foilim = [5.0, 100.0]` to select 5 to 100 Hz.
 
 
 Investigating the Effects of the Overlap Parameter as a Function of Signal Length
