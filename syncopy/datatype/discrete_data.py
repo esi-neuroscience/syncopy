@@ -189,7 +189,7 @@ class DiscreteData(BaseData, ABC):
         if not np.any(this_trl):
             return self._data[None, :]
         st = this_trl.argmax()
-        end = len(this_trl) - this_trl[st:][::-1].argmax() - 1
+        end = len(this_trl) - this_trl[st:][::-1].argmax()
         return self._data[st:end, :][this_trl[st:end],:]
 
     # Helper function that spawns a `FauxTrial` object given actual trial information
