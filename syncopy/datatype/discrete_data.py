@@ -187,7 +187,7 @@ class DiscreteData(BaseData, ABC):
     def _get_trial(self, trialno):
         this_trl = self.trialid == trialno
         if not np.any(this_trl):
-            return self._data[None, :]
+            return self._data[0:0, :]
         st = this_trl.argmax()
         end = len(this_trl) - this_trl[st:][::-1].argmax()
         return self._data[st:end, :][this_trl[st:end],:]
