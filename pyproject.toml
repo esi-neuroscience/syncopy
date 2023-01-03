@@ -32,9 +32,6 @@ tqdm = ">=4.31"
 natsort = "^8.1.0"
 psutil = ">=5.9"
 fooof = ">=1.0"
-ipdb = "^0.13.9"
-memory-profiler = "^0.60.0"
-numpydoc = "^1.4.0"
 
 [tool.poetry.dev-dependencies]
 black = "^22.6.0"
@@ -43,6 +40,9 @@ ipython = "^8.0"
 pytest-cov = "^3.0.0"
 sphinx-book-theme = "^0.3.3"
 sphinx-automodapi = "^0.14.1"
+numpydoc = "^1.4.0"
+ipdb = "^0.13.9"
+memory-profiler = "^0.60.0"
 flake8 = "^3.9"
 
 [build-system]
