@@ -22,9 +22,6 @@ We strive to achieve the following goals:
    parallelism in mind.
 3. Syncopy is *compatible* with the MATLAB toolbox `FieldTrip <http://www.fieldtriptoolbox.org/>`_.
 
-Getting Started
----------------
-
 .. toctree::
    :maxdepth: 1
    :caption: Getting Started
@@ -36,8 +33,8 @@ Want to contribute or just curious how the sausage
 is made? Take a look at our :doc:`Developer Guide <developer/developers>`.
 
 
-Tutorials
----------
+Tutorials and in depth Guides
+-----------------------------
 
 .. toctree::
    :maxdepth: 2
@@ -46,8 +43,6 @@ Tutorials
    Resampling <tutorials/resampling>
    Spectral Analysis <tutorials/freqanalysis>
 
-In depth Guides
----------------
 
 .. toctree::
    :maxdepth: 2
