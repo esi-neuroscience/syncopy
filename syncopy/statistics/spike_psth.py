@@ -65,14 +65,38 @@ def spike_psth(data,
         window as specified by `latency` and discard
         those trials that do not.
     latency : array_like or {'maxperiod', 'minperiod', 'prestim', 'poststim'}
-        Either set desired time window (`[begin, end]`) for spike counting in
+        Either set desired time interval (`[begin, end]`) for spike counting in
         seconds, 'maxperiod' (default) for the maximum period
-        available or `'minperiod' for minimal time-window all trials share,
+        available or `'minperiod' for the minimal time interval all trials share,
         or `'prestim'` (all t < 0) or `'poststim'` (all t > 0)
     keeptrials : bool, optional
         If `True` the psth's of individual trials are returned, otherwise
         results are averaged across trials.
+    Returns
+    -------
+    out : :class:`~syncopy.TimeLockData`
+        Time locked data object, with additional datasets:
+        ``out.avg`` and ``out.var``
 
+    Examples
+    --------
+    `spd` is a :class:`~syncopy.SpikeData` object.
+
+    Computing the rate histogram with a 0.2 seconds bin size
+    and on the maximally available time interval, covering all events:
+
+    >>> spy.spike_psth(spd, binsize=0.2, latency='maxperiod')
+
+    Get the spike counts for the max. common time interval where there
+    is activity for all trials and use the square root bin size
+    selection rule:
+
+    >>> spy.spike_psth(spd, binsize='sqrt', latency='minperiod', output='spikecount')
+
+    Firing rates between 0.1 and 0.5 seconds in 50ms bins, discarding trials which do not
+    have events in every bin of the selected latency interval:
+
+    >>> spy.spike_psth(spd, binsize=0.05, latency=[0.1, 0.5], vartriallen=False)
     """
 
     # Make sure our one mandatory input object can be processed
