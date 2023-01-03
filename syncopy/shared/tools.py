@@ -112,7 +112,7 @@ class SerializableDict(dict):
             json.dumps(value)
         except TypeError:
             lgl = "serializable data type, e.g. floats, lists, tuples, ... "
-            raise SPYTypeError(value, f"value for key '{key}'", lgl)
+            raise SPYTypeError(value, f"value {value} for key '{key}'", lgl)
         try:
             json.dumps(key)
         except TypeError:
@@ -130,6 +130,9 @@ def _serialize_value(value):
     """
 
     if isinstance(value, np.ndarray):
+        value = value.tolist()
+
+    if isinstance(value, range):
         value = value.tolist()
 
     # unpack the list, if ppl mix types this will go wrong
@@ -189,22 +192,21 @@ def get_frontend_cfg(defaults, lcls, kwargs):
             value = _serialize_value(lcls[par_name])
             new_cfg[par_name] = value
 
-    # attach injected kwargs like parallel and select
+    # 'select' only allowed dictionary parameter within kwargs
+    sdict = kwargs.get('select', None)
+    if sdict is not None:
+        # serialized selection dict
+        ser_sdict = dict()
+        for sel_key in sdict:
+            ser_sdict[sel_key] = _serialize_value(sdict[sel_key])
+        new_cfg['select'] = ser_sdict
+
+    # should only be 'parallel' and 'chan_per_worker'
     for key in kwargs:
-        # only allowed dictionary within kwargs
-        if key == 'select':
-            sdict = kwargs[key]
-            # serialized selection dict
-            new_sel = dict()
-            for sel_key in sdict:
-                new_sel[key] = _serialize_value(sdict[sel_key])
-            new_cfg[key] = new_sel
-        # should only be 'parallel' and 'chan_per_worker'
-        else:
-            new_cfg[key] = kwargs[key]
+        new_cfg[key] = kwargs[key]
 
     # use instantiation for a final check
-    _ = SerializableDict(new_cfg)
+    SerializableDict(new_cfg)
 
     return new_cfg
 
