@@ -29,10 +29,14 @@ With this we have a dataset of type :class:`~syncopy.AnalogData`, which is inten
 
 By construction, we made the (white) noise of the same strength as the signal, hence by eye the oscillations present in channel1 are hardly visible. The parameter ``latency`` defines a time-interval selection here.
 
+.. hint::
+   How to plot and work with subsets of Syncopy data is described in :ref:`selections`.
+
 To recap: we have generated a synthetic dataset white noise on both channels, and channel1 additionally carries the damped harmonic signal.
 
 .. hint::
    Further details about artificial data generation can be found at the :ref:`synth_data` section.
+
 
 Data Object Inspection
 ======================
@@ -52,7 +56,7 @@ which gives nicely formatted output:
             cfg : dictionary with keys ''
         channel : [2] element <class 'numpy.ndarray'>
       container : None
-           data : 50 trials of length 1000.0 defined on [50000 x 2] float64 Dataset of size 1.14 MB
+           data : 50 trials of length 1000.0 defined on [50000 x 2] float32 Dataset of size 1.14 MB
          dimord : time by channel
        filename : /xxx/xxx/.spy/spy_910e_572582c9.analog
            mode : r+
@@ -231,7 +235,6 @@ To have a synthetic albeit meaningful dataset to illustrate the different method
 
 We also right away calculated the respective power spectra ``spec``.
 We can quickly have a look at a snippet of the generated signals::
-
   data.singlepanelplot(trials=0, latency=[0, 0.5])
 
 

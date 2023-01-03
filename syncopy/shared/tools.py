@@ -5,9 +5,9 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+from copy import deepcopy
 import inspect
 import json
-import subprocess
 
 # Local imports
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYTypeError
@@ -47,6 +47,46 @@ class StructDict(dict):
         else:
             ppStr = "{}"
         return ppStr
+
+    def copy(self, deep=True):
+        """
+        Create a copy of this StructDict instance.
+
+        Note: Overwrites the `.copy` method of the parent `dict` class, otherwise `copy()` will return a `dict` instead of a `StructDict`.
+
+        Parameters
+        ---------
+        deep: bool
+            Whether to produce a deep copy. Defaults to `True`.
+
+        Returns
+        -------
+        Copy of StructDict.
+        """
+        if(deep):
+            return self.deepcopy()
+        else:
+            obj = type(self).__new__(self.__class__)
+            obj.__dict__.update(self.__dict__)
+            return obj
+
+    def deepcopy(self):
+        """
+        Return a deep copy of this StructDict.
+
+        Notes
+        -----
+        Call the `.copy()` method instead to get a shallow copy, though that seems rather uncommon.
+        """
+        return deepcopy(self)
+
+    def __deepcopy__(self, memo):
+        result = type(self).__new__(self.__class__)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            setattr(result, k, deepcopy(v, memo))
+        return result
+
 
 
 class SerializableDict(dict):
@@ -272,4 +312,4 @@ def get_defaults(obj):
     return StructDict(dct)
 
 
-    
+

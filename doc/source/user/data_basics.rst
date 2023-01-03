@@ -42,10 +42,11 @@ Plotting Functions
 Importing Data into Syncopy
 ---------------------------
 
-Currently, Syncopy supports importing data from `FieldTrip raw data <https://www.fieldtriptoolbox.org/development/datastructure/>`_ format and from `NWB <https://www.nwb.org/>`_
+Currently, Syncopy supports importing data from `FieldTrip raw data <https://www.fieldtriptoolbox.org/development/datastructure/>`_ format, from `NWB <https://www.nwb.org/>`_ and `TDT <https://www.tdt.com/>`_: 
 
 .. autosummary::
 
     syncopy.io.load_ft_raw
     syncopy.io.load_nwb
+    syncopy.io.load_tdt
    

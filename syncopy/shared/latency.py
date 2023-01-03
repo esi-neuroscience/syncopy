@@ -5,6 +5,7 @@
 
 # 3rd party/built in imports
 import numpy as np
+from copy import deepcopy
 
 # Syncopy imports
 from syncopy.shared.parsers import array_parser
@@ -151,7 +152,7 @@ def create_trial_selection(data, window):
             raise SPYValueError(lgl, varname='latency/vartriallen', actual=act)
 
         # now modify 
-        select = data.selection.select.copy()
+        select = deepcopy(data.selection.select)
         select['trials'] = fit_trl_idx
 
     return select, numDiscard

@@ -33,8 +33,8 @@ a single channel here (see :ref:`the Synthetic data tutorial<synth_data>` for de
         nSamples = 1000
         samplerate = 1000
         ar1_part = AR2_network(AdjMat=np.zeros(1), nSamples=nSamples, alphas=[0.9, 0], nTrials=nTrials)
-        pd1 = phase_diffusion(freq=30., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
-        pd2 = phase_diffusion(freq=50., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
+        pd1 = phase_diffusion(freq=30., eps=.1, samplerate=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
+        pd2 = phase_diffusion(freq=50., eps=.1, samplerate=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
         signal = ar1_part + .8 * pd1 + 0.6 * pd2
         return signal
 
@@ -143,6 +143,34 @@ Once more, we look at the FOOOFed spectrum:
 .. image:: ../_static/fooof_out_tuned.png
 
 Note that the two tiny peaks have been removed.
+
+
+Programmatically accessing details on the FOOOF fit results
+-----------------------------------------------------------
+
+All fitting results returned by FOOOF can be found in the `metadata` attribute of the returned `SpectralData` instance, which is a `dict`. This
+includes the following entries:
+
+* aperiodic_params
+* error
+* gaussian_params
+* n_peaks
+* r_squared
+
+Please see the `official FOOOF documentation <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_ for the meaning.
+
+Note that in Syncopy, FOOOF can be run several times in a single frontend call (e.g., if you have several trials and `cfg.keeptrials=True`).
+Therefore, you will see one instance of these fitting results *per FOOOF call* in the `metadata` dict. The trials (and chunk indices, if you used a non-default `chan_per_worker` setting)
+are encoded in the keys of the metadata sub dictionaries in format `<result>__<trial>_<chunk>`. E.g., `peak_params__2__0` would be the peak params for trial 2 (and chunk 0).
+
+In the example above, the typical use case of trial averaging (`cfg.keeptrials=False`) was demonstrated, so FOOOF was called on the trial-averaged data (i.e., on a single trial), and only one entry is present:
+
+.. code-block:: python
+    :linenos:
+
+    spec_fooof_tuned.metadata.aperiodic_params
+    # {'aperiodic_params': {'aperiodic_params__0_0': array([[0.8006], [1.4998]])}
+
 
 This concludes the tutorial on using FOOOF from Syncopy. Please do not forget to cite `Donoghue et al. 2020 <https://doi.org/10.1038/s41593-020-00744-x>`_ when using FOOOF.
 

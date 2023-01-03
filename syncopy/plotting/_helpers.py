@@ -6,6 +6,7 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+from copy import deepcopy
 import re
 import functools
 
@@ -24,7 +25,7 @@ def revert_selection(plotter):
     def wrapper_plot(data, *args, **kwargs):
 
         # to restore
-        select_backup = None if data.selection is None else data.selection.select.copy()
+        select_backup = None if data.selection is None else deepcopy(data.selection.select)
 
         res = plotter(data, *args, **kwargs)
 

@@ -315,9 +315,28 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     Examples
     --------
-    Coming soon...
 
+    Generate 10 seconds of white noise, sampled at 1000 Hz:
 
+    >>> import syncopy.tests.synth_data as synth_data
+    >>> wn = synth_data.white_noise(nTrials=2, nChannels=3, nSamples=10000, samplerate=1000)
+
+    Configure Welch's method to estimate the power spectral density with a window length of 0.25 seconds
+    and an overlap of 50 percent between the windows:
+
+    >>> cfg = spy.get_defaults(spy.freqanalysis)
+    >>> cfg.method = "welch"
+    >>> cfg.t_ftimwin = 0.25  # Window length in seconds.
+    >>> cfg.toi = 0.5         # Overlap between periodograms (0.5 = 50 percent overlap).
+
+    Run Welch:
+
+    >>> psd = spy.freqanalysis(cfg, wn)
+
+    Visualize the result for the first trial:
+
+    >>> _, ax = res.singlepanelplot(trials=0, logscale=False)
+    >>> ax.set_title("Welch result")
 
     See also
     --------
