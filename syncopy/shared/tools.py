@@ -5,12 +5,14 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+from numbers import Number
 from copy import deepcopy
 import inspect
 import json
 
 # Local imports
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYTypeError
+from syncopy.shared.parsers import sequence_parser
 
 __all__ = ["StructDict", "get_defaults"]
 
@@ -88,7 +90,6 @@ class StructDict(dict):
         return result
 
 
-
 class SerializableDict(dict):
 
     """
@@ -119,10 +120,44 @@ class SerializableDict(dict):
             raise SPYTypeError(value, f"key '{key}'", lgl)
 
 
-def get_frontend_cfg(defaults, lcls, kwargs):
-
+def _serialize_value(value):
     """
-    Assemble cfg dict to allow direct replay of frontend calls
+    Helper to serialize 1-level deep sequences (lists, arrays) or
+    single numbers/strings as ``value``s.
+
+    Main task is to get rid of numpy data types which are not
+    serializable (e.i. np.int64).
+    """
+
+    if isinstance(value, np.ndarray):
+        value = value.tolist()
+
+    # unpack the list, if ppl mix types this will go wrong
+    if isinstance(value, list):
+        if hasattr(value[0], 'is_integer'):
+            value = [float(v) for v in value]
+        # should only be the integers
+        elif isinstance(value[0], Number) and not isinstance(value[0], bool):
+            value = [int(v) for v in value]
+
+    # singleton/non-sequence type entries
+    if isinstance(value, Number) and not isinstance(value, bool):
+        # all floating types have this method
+        if hasattr(value, 'is_integer'):
+            # get rid of np.int64 or np.float32
+            value = int(value) if value.is_integer() else float(value)
+        else:
+            value = int(value)
+
+    return value
+
+
+def get_frontend_cfg(defaults, lcls, kwargs):
+    """
+    Assemble serializable cfg dict to allow direct replay of frontend calls
+
+    Most parsing is done in the respective frontends, the config values
+    should be straightforward to serialize.
 
     Parameters
     ----------
@@ -147,13 +182,29 @@ def get_frontend_cfg(defaults, lcls, kwargs):
 
     # create new cfg dict
     new_cfg = StructDict()
+
     for par_name in defaults:
-        # check only needed for injected kwargs like `parallel`
+        # check only set parameters
         if par_name in lcls:
-            new_cfg[par_name] = lcls[par_name]
-    # attach additional kwargs (like select)
+            value = _serialize_value(lcls[par_name])
+            new_cfg[par_name] = value
+
+    # attach injected kwargs like parallel and select
     for key in kwargs:
-        new_cfg[key] = kwargs[key]
+        # only allowed dictionary within kwargs
+        if key == 'select':
+            sdict = kwargs[key]
+            # serialized selection dict
+            new_sel = dict()
+            for sel_key in sdict:
+                new_sel[key] = _serialize_value(sdict[sel_key])
+            new_cfg[key] = new_sel
+        # should only be 'parallel' and 'chan_per_worker'
+        else:
+            new_cfg[key] = kwargs[key]
+
+    # use instantiation for a final check
+    _ = SerializableDict(new_cfg)
 
     return new_cfg
 
