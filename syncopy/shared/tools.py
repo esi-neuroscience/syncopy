@@ -122,7 +122,7 @@ class SerializableDict(dict):
 
 def _serialize_value(value):
     """
-    Helper to serialize 1-level deep sequences (lists, arrays) or
+    Helper to serialize 1-level deep sequences (lists, arrays, ranges) or
     single numbers/strings as ``value``s.
 
     Main task is to get rid of numpy data types which are not
@@ -133,7 +133,7 @@ def _serialize_value(value):
         value = value.tolist()
 
     if isinstance(value, range):
-        value = value.tolist()
+        value = list(value)
 
     # unpack the list, if ppl mix types this will go wrong
     if isinstance(value, list):
@@ -203,7 +203,7 @@ def get_frontend_cfg(defaults, lcls, kwargs):
 
     # should only be 'parallel' and 'chan_per_worker'
     for key in kwargs:
-        new_cfg[key] = kwargs[key]
+        new_cfg[key] = _serialize_value(kwargs[key])
 
     # use instantiation for a final check
     SerializableDict(new_cfg)
