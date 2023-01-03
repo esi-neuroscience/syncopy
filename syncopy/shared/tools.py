@@ -193,7 +193,8 @@ def get_frontend_cfg(defaults, lcls, kwargs):
             new_cfg[par_name] = value
 
     # 'select' only allowed dictionary parameter within kwargs
-    sdict = kwargs.get('select', None)
+    # we can 'pop' here as selection got digested beforehand by @unwrap_select
+    sdict = kwargs.pop('select', None)
     if sdict is not None:
         # serialized selection dict
         ser_sdict = dict()
