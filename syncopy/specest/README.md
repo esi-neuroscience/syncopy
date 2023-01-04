@@ -17,4 +17,4 @@
 
 ## Sources
 
-- [Wavelet core library](./specest/wavelets/) from GitHub: https://github.com/aaren/wavelets
+- [Wavelet core library](./wavelets/) from GitHub: https://github.com/aaren/wavelets
