@@ -165,17 +165,6 @@ class DiscreteData(BaseData, ABC):
         self._trialid = np.array(trlid, dtype=int)
 
     @property
-    def trials(self):
-        """list-like([sample x (>=2)] :class:`numpy.ndarray`) : trial slices of :attr:`data` property"""
-        if self.trialid is not None:
-            valid_trls = np.unique(self.trialid)
-            valid_trls = valid_trls[valid_trls >= 0]
-            return Indexer(map(self._get_trial, valid_trls),
-                           valid_trls.size)
-        else:
-            return None
-
-    @property
     def trialtime(self):
         """list(:class:`numpy.ndarray`): trigger-relative sample times in s"""
         if self.samplerate is not None and self.sampleinfo is not None:
@@ -185,12 +174,7 @@ class DiscreteData(BaseData, ABC):
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
-        this_trl = self.trialid == trialno
-        if not np.any(this_trl):
-            return self._data[0:0, :]
-        st = this_trl.argmax()
-        end = len(this_trl) - this_trl[st:][::-1].argmax()
-        return self._data[st:end, :][this_trl[st:end],:]
+        return self._data[self._trialslice[trialno], :]
 
     # Helper function that spawns a `FauxTrial` object given actual trial information
     def _preview_trial(self, trialno):
