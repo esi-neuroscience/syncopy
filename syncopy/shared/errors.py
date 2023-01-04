@@ -18,6 +18,8 @@ ansiBold = "\033[1m"
 __all__ = []
 
 
+loggername = "syncopy"
+
 class SPYError(Exception):
     """
     Base class for SynCoPy errors
@@ -190,7 +192,8 @@ def SPYExceptionHandler(*excargs, **exckwargs):
                                         cols.Normal if isipy else "")
 
         # Show generated message and leave (or kick-off debugging in Jupyer/iPython if %pdb is on)
-        print(emsg)
+        logger = logging.getLogger(syncopy.shared.errors.loggername)
+        logger.error(emsg)
         if isipy:
             if ipy.call_pdb:
                 ipy.InteractiveTB.debugger()
