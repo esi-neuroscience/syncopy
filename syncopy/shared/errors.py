@@ -6,6 +6,7 @@
 # Builtin/3rd party package imports
 import sys
 import traceback
+import logging
 from collections import OrderedDict
 
 # Local imports
@@ -311,7 +312,8 @@ def SPYWarning(msg, caller=None):
     if caller is None:
         caller = sys._getframe().f_back.f_code.co_name
     PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} WARNING: {msg:s}{coloroff:s}"
-    print(PrintMsg.format(coloron=warnCol,
+    logger = logging.getLogger(syncopy.shared.errors.loggername)
+    logger.warning(PrintMsg.format(coloron=warnCol,
                           bold=boldEm,
                           caller=" <" + caller + ">" if len(caller) else caller,
                           msg=msg,
