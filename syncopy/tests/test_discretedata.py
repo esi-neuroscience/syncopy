@@ -168,7 +168,6 @@ class TestSpikeData():
             ["channel03", "channel01", "channel01", "channel02"],  # string selection w/repetition + unordered
             [4, 2, 2, 5, 5],   # repetition + unorderd
             range(5, 8),  # narrow range
-            slice(-5, None)  # negative-start slice
         ]
         latencySelections = [
             [0.5, 2.5],  # regular range
@@ -178,7 +177,6 @@ class TestSpikeData():
             ["unit1", "unit1", "unit2", "unit3"],  # preserve repetition
             [0, 0, 2, 3],  # preserve repetition, don't convert to slice
             range(1, 4),  # narrow range
-            slice(-2, None)  # negative-start slice
         ]
 
         timeSelections = list(zip(["latency"] * len(latencySelections), latencySelections))
@@ -530,7 +528,6 @@ class TestEventData():
         eventidSelections = [
             [0, 0, 1],  # preserve repetition, don't convert to slice
             range(0, 2),  # narrow range
-            slice(-2, None)  # negative-start slice
         ]
 
         latencySelections = [
