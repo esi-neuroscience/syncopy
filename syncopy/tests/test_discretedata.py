@@ -529,8 +529,7 @@ class TestEventData():
 
         eventidSelections = [
             [0, 0, 1],  # preserve repetition, don't convert to slice
-            range(0, 2)#,  # narrow range
-            #slice(-2, None)  # negative-start slice
+            range(0, 2)
         ]
 
         latencySelections = [
