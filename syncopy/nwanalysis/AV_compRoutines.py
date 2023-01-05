@@ -354,7 +354,6 @@ def granger_cF(csd_av_dat,
 
     Notes
     -----
-
     This method is intended to be used as
     :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
