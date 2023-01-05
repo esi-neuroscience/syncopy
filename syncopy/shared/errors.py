@@ -274,7 +274,8 @@ def SPYExceptionHandler(*excargs, **exckwargs):
 
 
     # Show generated message and get outta here
-    print(emsg)
+    logger = logging.getLogger(syncopy.shared.errors.loggername)
+    logger.critical(emsg)
 
     # Kick-start debugging in case %pdb is enabled in Jupyter/iPython
     if isipy:
@@ -358,7 +359,8 @@ def SPYInfo(msg, caller=None):
     if caller is None:
         caller = sys._getframe().f_back.f_code.co_name
     PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} INFO: {msg:s}{coloroff:s}"
-    print(PrintMsg.format(coloron=infoCol,
+    logger = logging.getLogger(syncopy.shared.errors.loggername)
+    logger.info(PrintMsg.format(coloron=infoCol,
                           bold=boldEm,
                           caller=" <" + caller + ">" if len(caller) else caller,
                           msg=msg,
