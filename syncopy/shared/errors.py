@@ -11,6 +11,7 @@ from collections import OrderedDict
 
 # Local imports
 from syncopy import __tbcount__
+import syncopy
 
 # Custom definition of bold ANSI for formatting errors/warnings in iPython/Jupyter
 ansiBold = "\033[1m"
