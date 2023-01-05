@@ -73,7 +73,7 @@ autosectionlabel_maxdepth = 2
 autosectionlabel_prefix_document = True
 automodsumm_inherited_members = True
 
-
+nitpicky = True
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
