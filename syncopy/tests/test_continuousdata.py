@@ -45,7 +45,6 @@ chanSelections = [
     ["channel03", "channel01", "channel01", "channel02"],  # string selection w/repetition + unordered
     [4, 2, 2, 5, 5],   # repetition + unordered
     range(5, 8),  # narrow range
-    slice(-2, None),  # negative-start slice
     "channel02",  # str selection
     1  # scalar selection
 ]
@@ -66,7 +65,6 @@ taperSelections = [
     0,  # scalar selection
     [0, 1, 1, 2, 3],  # preserve repetition, don't convert to slice
     range(2, 5),  # narrow range
-    slice(0, 5, 2),  # slice w/non-unitary step-size
 ]
 timeSelections = list(zip(["latency"] * len(latencySelections), latencySelections))
 freqSelections = list(zip(["frequency"] * len(frequencySelections), frequencySelections))

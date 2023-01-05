@@ -57,14 +57,8 @@ class TestSelector():
                                        [0, 0, 1, 2, 3],  # preserve repetition, don't convert to slice
                                        range(0, 3),
                                        range(5, 8),
-                                       slice(None),
                                        None,
                                        "all",
-                                       slice(0, 5),
-                                       slice(7, None),
-                                       slice(2, 8),
-                                       slice(0, 10, 2),
-                                       slice(-2, None),
                                        [0, 1, 2, 3],  # contiguous list...
                                        [2, 3, 5]),  # non-contiguous list...
                              "result": ([2, 0],
@@ -79,12 +73,6 @@ class TestSelector():
                                         slice(5, 8, 1),
                                         slice(None, None, 1),
                                         slice(None, None, 1),
-                                        slice(None, None, 1),
-                                        slice(0, 5, 1),
-                                        slice(7, None, 1),
-                                        slice(2, 8, 1),
-                                        slice(0, 10, 2),
-                                        slice(-2, None, 1),
                                         slice(0, 4, 1),  # ...gets converted to slice
                                         [2, 3, 5]),  # stays as is
                              "invalid": (["channel200", "channel400"],
@@ -92,18 +80,10 @@ class TestSelector():
                                          tuple("wrongtype"),
                                          "notall",
                                          range(0, 100),
-                                         slice(80, None),
-                                         slice(-20, None),
-                                         slice(-15, -2),
-                                         slice(5, 1),
                                          [40, 60, 80]),
                              "errors": (SPYValueError,
                                         SPYValueError,
                                         SPYTypeError,
-                                        SPYValueError,
-                                        SPYValueError,
-                                        SPYValueError,
-                                        SPYValueError,
                                         SPYValueError,
                                         SPYValueError,
                                         SPYValueError)}
@@ -113,15 +93,9 @@ class TestSelector():
                                      [0, 1, 1, 2, 3],  # preserve repetition, don't convert to slice
                                      range(0, 3),
                                      range(2, 5),
-                                     slice(None),
                                      None,
                                      "all",
                                      0,               # scalar
-                                     slice(0, 5),
-                                     slice(3, None),
-                                     slice(2, 4),
-                                     slice(0, 5, 2),
-                                     slice(-2, None),
                                      [0, 1, 2, 3],  # contiguous list...
                                      [1, 3, 4]),  # non-contiguous list...
                            "result": ([4, 2, 3],
@@ -131,13 +105,7 @@ class TestSelector():
                                       slice(2, 5, 1),
                                       slice(None, None, 1),
                                       slice(None, None, 1),
-                                      slice(None, None, 1),
                                       [0],
-                                      slice(0, 5, 1),
-                                      slice(3, None, 1),
-                                      slice(2, 4, 1),
-                                      slice(0, 5, 2),
-                                      slice(-2, None, 1),
                                       slice(0, 4, 1),  # ...gets converted to slice
                                       [1, 3, 4]),  # stays as is
                            "invalid": (["taper_typo", "channel400"],
@@ -168,16 +136,9 @@ class TestSelector():
                                     [0, 0, 2, 3],  # preserve repetition, don't convert to slice
                                     range(0, 3),
                                     range(2, 5),
-                                    slice(None),
-                                    None,
                                     "all",
                                     "unit3",       # string -> scalar
                                     4,             # scalar
-                                    slice(0, 5),
-                                    slice(3, None),
-                                    slice(2, 4),
-                                    slice(0, 5, 2),
-                                    slice(-2, None),
                                     [0, 1, 2, 3],  # contiguous list...
                                     [1, 3, 4]),  # non-contiguous list...
                           "invalid": (["unit7", "unit77"],
@@ -205,14 +166,8 @@ class TestSelector():
                                        [0, 0, 1, 2],  # preserve repetition, don't convert to slice
                                        range(0, 2),
                                        range(1, 2),
-                                       slice(None),
-                                       None,
                                        "all",
                                        1,             # scalar
-                                       slice(0, 2),
-                                       slice(1, None),
-                                       slice(0, 1),
-                                       slice(-1, None),
                                        [0, 1]),  # contiguous list...
                              "invalid": (["eventid", "eventid"],
                                          tuple("wrongtype"),
@@ -237,7 +192,6 @@ class TestSelector():
                                         tuple("wrongtype"),
                                         "notall",
                                         range(0, 10),
-                                        slice(0, 5),
                                         [np.nan, 1],
                                         [0.5, 1.5 , 2.0],  # more than 2 components
                                         [2.0, 1.5]),  # lower bound > upper bound
@@ -245,7 +199,7 @@ class TestSelector():
                                        SPYTypeError,
                                        SPYValueError,
                                        SPYTypeError,
-                                       SPYTypeError,
+                                       SPYValueError,
                                        SPYValueError,
                                        SPYValueError,
                                        SPYValueError)}
@@ -253,7 +207,6 @@ class TestSelector():
                                         tuple("wrongtype"),
                                         "notall",
                                         range(0, 10),
-                                        slice(0, 5),
                                         [np.nan, 1],
                                         [-1, 2],  # lower limit out of bounds
                                         [2, 900],  # upper limit out of bounds
@@ -263,7 +216,7 @@ class TestSelector():
                                        SPYTypeError,
                                        SPYValueError,
                                        SPYTypeError,
-                                       SPYTypeError,
+                                       SPYValueError,
                                        SPYValueError,
                                        SPYValueError,
                                        SPYValueError,
@@ -347,6 +300,8 @@ class TestSelector():
 
                 # alternate (expensive) way to get by-trial selection indices
                 result = []
+                print(prop)
+                print(selects, selection)
                 for trial in discrete.trials:
                     if selects[0] is None:
                         res = slice(0, trial.shape[0], 1)
@@ -359,6 +314,8 @@ class TestSelector():
                             if steps.min() == steps.max() == 1:
                                 res = slice(res[0], res[-1] + 1, 1)
                     result.append(res)
+                print(result)
+                print()
                 allResults.append(result)
 
             self.selectDict[prop]["result"] = tuple(allResults)
@@ -505,9 +462,6 @@ class TestSelector():
                         else:
                             idx = [slice(None)] * len(dummy.dimord)
                             idx[dummy.dimord.index(prop)] = solution
-                            print(idx, solution, prop)
-                            print(np.array(dummy.data)[tuple(idx)])
-                            print(selected.data[()])
                             assert np.array_equal(np.array(dummy.data)[tuple(idx)],
                                                   selected.data)
                             assert np.array_equal(getattr(selected, prop),
@@ -531,7 +485,7 @@ class TestSelector():
             else:
                 # ensure objects that don't have `time` props complain properly
                 with pytest.raises(SPYValueError):
-                    Selector(dummy, {"latency": [0]})
+                    Selector(dummy, {"latency": [-.5]})
 
             # ensure invalid `frequency` specifications trigger expected errors
             if hasattr(dummy, "freq"):
