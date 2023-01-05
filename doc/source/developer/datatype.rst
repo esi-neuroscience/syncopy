@@ -21,8 +21,8 @@ hierarchy, with shared properties inherited from the top level to the bottom
 classes (see also `Wikipedia
 <https://en.wikipedia.org/wiki/Inheritance_(object-oriented_programming)>`_).
 
-.. inheritance-diagram:: syncopy.AnalogData syncopy.SpectralData syncopy.SpikeData syncopy.EventData
-   :top-classes: BaseData
+.. inheritance-diagram:: syncopy.AnalogData syncopy.SpectralData syncopy.SpikeData syncopy.EventData syncopy.CrossSpectralData syncopy.TimeLockData
+   :top-classes: syncopy.BaseData
    :parts: 1
 
 The bottom classes in the class tree are for active use in analyses.
