@@ -156,6 +156,9 @@ class DiscreteData(BaseData, ABC):
             print("SyNCoPy core - trialid: Cannot assign `trialid` without data. " +
                   "Please assing data first")
             return
+        if (self.data.shape[0] == 0) and (trlid.shape[0] == 0):
+            self._trialid = np.array(trlid, dtype=int)
+            return
         scount = np.nanmax(self.data[:, self.dimord.index("sample")])
         try:
             array_parser(trlid, varname="trialid", dims=(self.data.shape[0],),

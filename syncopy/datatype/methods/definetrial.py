@@ -335,20 +335,13 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
 
         # Compute trial-IDs by matching data samples with provided trial-bounds
         samples = tgt.data[:, tgt.dimord.index("sample")]
-        if np.size(samples) > 0:
-            idx = np.searchsorted(samples, tgt.sampleinfo.ravel())
-            idx = idx.reshape(tgt.sampleinfo.shape)
-            
-            tgt._trialslice = [slice(st,end) for st,end in idx]
-            tgt.trialid = np.full((samples.shape), -1, dtype=int)
-            for itrl, itrl_slice in enumerate(tgt._trialslice):
-              tgt.trialid[itrl_slice] = itrl
-              
-        # no data - empty object, can happen due to a selection
-        else:
-            tgt.trialid = None
-            tgt._trialslice = None
-            tgt._trialdefinition = None
+        idx = np.searchsorted(samples, tgt.sampleinfo.ravel())
+        idx = idx.reshape(tgt.sampleinfo.shape)
+
+        tgt._trialslice = [slice(st,end) for st,end in idx]
+        tgt.trialid = np.full((samples.shape), -1, dtype=int)
+        for itrl, itrl_slice in enumerate(tgt._trialslice):
+            tgt.trialid[itrl_slice] = itrl
 
     # Write log entry
     if ref == tgt:
