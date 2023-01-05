@@ -35,6 +35,9 @@ The following classes can be instanced at the package-level (``spy.AnalogData(..
 
     syncopy.AnalogData
     syncopy.SpectralData
+    syncopy.CrossSpectralData
+    syncopy.TimeLockData
+    syncopy.SpikeData    
     syncopy.SpikeData
     syncopy.EventData
 

@@ -69,6 +69,7 @@ which gives nicely formatted output:
 
    Use `.log` to see object history
 
+
 So we see that we indeed got 50 trials with 2 channels and 1000 samples each. Note that Syncopy per default **stores and writes all data on disk**, as this allows for seamless processing of **larger than memory** datasets. The exact location and filename of a dataset in question is listed at the ``filename`` field. The standard location is the ``.spy`` directory created automatically in the user's home directory. To change this and for more details please see :ref:`setup_env`.
 
 .. hint::
@@ -235,6 +236,7 @@ To have a synthetic albeit meaningful dataset to illustrate the different method
 
 We also right away calculated the respective power spectra ``spec``.
 We can quickly have a look at a snippet of the generated signals::
+
   data.singlepanelplot(trials=0, latency=[0, 0.5])
 
 
