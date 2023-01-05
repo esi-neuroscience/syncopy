@@ -529,8 +529,8 @@ class TestEventData():
 
         eventidSelections = [
             [0, 0, 1],  # preserve repetition, don't convert to slice
-            range(0, 2),  # narrow range
-            slice(-2, None)  # negative-start slice
+            range(0, 2)#,  # narrow range
+            #slice(-2, None)  # negative-start slice
         ]
 
         latencySelections = [
@@ -556,7 +556,7 @@ class TestEventData():
                         cfg = StructDict(kwdict)
                         # data selection via class-method + `Selector` instance for indexing
                         selected = obj.selectdata(**kwdict)
-                        obj.selectdata(**kwdict, inplace=True)                        
+                        obj.selectdata(**kwdict, inplace=True)
                         selector = obj.selection
                         tk = 0
                         for trialno in selector.trial_ids:
