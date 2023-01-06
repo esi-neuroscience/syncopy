@@ -4,34 +4,20 @@
 #
 
 # Builtin/3rd party package imports
-import os
 import sys
 import traceback
 import logging
-import warnings
 from collections import OrderedDict
 
 # Local imports
 from syncopy import __tbcount__
+from syncopy.shared.log import get_logger
 import syncopy
 
 # Custom definition of bold ANSI for formatting errors/warnings in iPython/Jupyter
 ansiBold = "\033[1m"
 
 __all__ = []
-
-def _get_default_loglevel():
-    """Return the default loglevel, which is 'WARNING' unless set in the env var 'SYNCOPY_LOGLEVEL'."""
-    loglevel = os.getenv("SYNCOPY_LOGLEVEL", "WARNING")
-    numeric_level = getattr(logging, loglevel.upper(), None)
-    if not isinstance(numeric_level, int):  # An invalid string was set as the env variable, default to WARNING.
-        warnings.warn("Invalid log level set in environment variable 'SYNCOPY_LOGLEVEL', ignoring and using WARNING instead. Hint: Set one of 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'.")
-        loglevel = "WARNING"
-    return loglevel
-
-
-loggername = "syncopy"  # Since this is a library, we should not use the root logger (see Python logging docs).
-default_loglevel = _get_default_loglevel()  # The logging threshold, one of 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'.
 
 
 class SPYError(Exception):
@@ -206,7 +192,7 @@ def SPYExceptionHandler(*excargs, **exckwargs):
                                         cols.Normal if isipy else "")
 
         # Show generated message and leave (or kick-off debugging in Jupyer/iPython if %pdb is on)
-        logger = logging.getLogger(syncopy.shared.errors.loggername)
+        logger = get_logger()
         logger.error(emsg)
         if isipy:
             if ipy.call_pdb:
@@ -287,7 +273,7 @@ def SPYExceptionHandler(*excargs, **exckwargs):
 
 
     # Show generated message and get outta here
-    logger = logging.getLogger(syncopy.shared.errors.loggername)
+    logger = get_logger()
     logger.critical(emsg)
 
     # Kick-start debugging in case %pdb is enabled in Jupyter/iPython
@@ -330,7 +316,7 @@ def SPYWarning(msg, caller=None):
     if caller is None:
         caller = sys._getframe().f_back.f_code.co_name
     PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} WARNING: {msg:s}{coloroff:s}"
-    logger = logging.getLogger(syncopy.shared.errors.loggername)
+    logger = get_logger()
     logger.warning(PrintMsg.format(coloron=warnCol,
                           bold=boldEm,
                           caller=" <" + caller + ">" if len(caller) else caller,
@@ -372,7 +358,7 @@ def SPYInfo(msg, caller=None):
     if caller is None:
         caller = sys._getframe().f_back.f_code.co_name
     PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} INFO: {msg:s}{coloroff:s}"
-    logger = logging.getLogger(syncopy.shared.errors.loggername)
+    logger = get_logger()
     logger.info(PrintMsg.format(coloron=infoCol,
                           bold=boldEm,
                           caller=" <" + caller + ">" if len(caller) else caller,

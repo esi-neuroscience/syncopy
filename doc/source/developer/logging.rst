@@ -23,4 +23,4 @@ To adapt the logging behaviour of Syncopy, one can configure the logger as expla
 
 
 
-The default log level is `'WARNING'`. To change the log level, you can either use the logging API in your application code as explained above, or set the environment variable `'SYNCOPY_LOGLEVEL'` to one of the values supported by the logging module, e.g., 'CRITICAL', 'WARNING', 'INFO', or 'DEBUG'. See the `official docs <https://docs.python.org/3/library/logging.html#levels>`_ for details on the supported log levels.
+The default log level is for the Syncopy logger is `'WARNING'`. To change the log level, you can either use the logging API in your application code as explained above, or set the environment variable `'SPYLOGLEVEL'` to one of the values supported by the logging module, e.g., 'CRITICAL', 'WARNING', 'INFO', or 'DEBUG'. See the `official docs <https://docs.python.org/3/library/logging.html#levels>`_ for details on the supported log levels.

@@ -11,6 +11,8 @@ import socket
 import getpass
 import numpy as np
 from hashlib import blake2b, sha1
+import logging
+import warnings
 from importlib.metadata import version, PackageNotFoundError
 import dask.distributed as dd
 
@@ -100,6 +102,7 @@ else:
     else:
         __storage__ = os.path.join(os.path.expanduser("~"), ".spy", "tmp_storage")
 
+# Setup logging.
 if os.environ.get("SPYLOGDIR"):
     __logdir__ = os.path.abspath(os.path.expanduser(os.environ["SPYLOGDIR"]))
 else:
@@ -107,6 +110,23 @@ else:
         __logdir__ = os.path.join(csHome, ".spy", "logs")
     else:
         __logdir__ = os.path.join(os.path.expanduser("~"), ".spy", "logs")
+
+loglevel = os.getenv("SPYLOGLEVEL", "WARNING")
+numeric_level = getattr(logging, loglevel.upper(), None)
+if not isinstance(numeric_level, int):  # An invalid string was set as the env variable, default to WARNING.
+    warnings.warn("Invalid log level set in environment variable 'SPYLOGLEVEL', ignoring and using WARNING instead. Hint: Set one of 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'.")
+    loglevel = "WARNING"
+
+spy_logger = logging.getLogger('syncopy')
+spy_logger.setLevel(loglevel)
+
+# Log to per-host files in parallel code by default.
+host = socket.gethostname()
+spy_parallel_logger = logging.getLogger("syncopy_" + host)
+
+fh = logging.FileHandler(os.path.join(__logdir__, f'syncopy_{host}.log'))
+spy_parallel_logger.addHandler(fh)
+
 
 # Set upper bound for temp directory size (in GB)
 __storagelimit__ = 10
