@@ -132,7 +132,9 @@ class SPYParallelError(SPYError):
 
 def SPYExceptionHandler(*excargs, **exckwargs):
     """
-    Docstring coming soon(ish)...
+    Syncopy custom ExceptionHandler.
+
+    Prints formatted and colored messages and stack traces, and starts debugging if `%pdb` is enabled in Jupyter/iPython.
     """
 
     # Depending on the number of input arguments, we're either in Jupyter/iPython
@@ -284,7 +286,10 @@ def SPYExceptionHandler(*excargs, **exckwargs):
 
 def SPYWarning(msg, caller=None):
     """
-    Standardized Syncopy warning message
+    Log a standardized Syncopy warning message.
+
+    .. note::
+        Depending on the currently active log level, this may or may not produce any output.
 
     Parameters
     ----------
@@ -324,9 +329,12 @@ def SPYWarning(msg, caller=None):
                           coloroff=normCol))
 
 
-def SPYInfo(msg, caller=None):
+def SPYInfo(msg, caller=None, tag="INFO"):
     """
-    Standardized Syncopy info message
+    Log a standardized Syncopy info message.
+
+    .. note::
+        Depending on the currently active log level, this may or may not produce any output.
 
     Parameters
     ----------
@@ -357,7 +365,7 @@ def SPYInfo(msg, caller=None):
     # Plug together message string and print it
     if caller is None:
         caller = sys._getframe().f_back.f_code.co_name
-    PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} INFO: {msg:s}{coloroff:s}"
+    PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} {tag}: {msg:s}{coloroff:s}"
     logger = get_logger()
     logger.info(PrintMsg.format(coloron=infoCol,
                           bold=boldEm,
@@ -365,3 +373,25 @@ def SPYInfo(msg, caller=None):
                           msg=msg,
                           coloroff=normCol))
 
+def SPYDebug(msg, caller=None):
+    """
+    Log a standardized Syncopy debug message.
+
+    .. note::
+        Depending on the currently active log level, this may or may not produce any output.
+
+    Parameters
+    ----------
+    msg : str
+        Debug message to be printed
+    caller : None or str
+        Issuer of debug message. If `None`, name of calling method is
+        automatically fetched and pre-pended to `msg`.
+
+    Returns
+    -------
+    Nothing : None
+    """
+    if caller is None:
+        caller = sys._getframe().f_back.f_code.co_name
+    SPYInfo(msg, caller=caller, tag="DEBUG")
