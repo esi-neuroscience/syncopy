@@ -126,6 +126,7 @@ spy_parallel_logger = logging.getLogger("syncopy_" + host)
 
 fh = logging.FileHandler(os.path.join(__logdir__, f'syncopy_{host}.log'))
 spy_parallel_logger.addHandler(fh)
+spy_parallel_logger.setLevel(loglevel)
 
 
 # Set upper bound for temp directory size (in GB)
