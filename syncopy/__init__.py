@@ -127,7 +127,7 @@ spy_logger.setLevel(loglevel)
 host = socket.gethostname()
 spy_parallel_logger = logging.getLogger("syncopy_" + host)
 
-fh = logging.FileHandler(os.path.join(__logdir__, f'syncopy_{host}.log'))
+fh = logging.FileHandler(os.path.join(__logdir__, f'syncopy_{host}.log'))  # The default mode is 'append'.
 spy_parallel_logger.addHandler(fh)
 spy_parallel_logger.setLevel(loglevel)
 
