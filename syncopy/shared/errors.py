@@ -4,6 +4,7 @@
 #
 
 # Builtin/3rd party package imports
+import os
 import sys
 import traceback
 import logging
@@ -19,6 +20,7 @@ __all__ = []
 
 
 loggername = "syncopy"
+default_loglevel = os.getenv("SYNCOPY_LOGLEVEL", "WARNING") # The logging threshold, one of 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
 
 class SPYError(Exception):
     """
