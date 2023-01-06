@@ -7,12 +7,13 @@
 import os
 import sys
 import subprocess
-import socket
 import getpass
+import socket
 import numpy as np
 from hashlib import blake2b, sha1
 import logging
 import warnings
+import platform
 from importlib.metadata import version, PackageNotFoundError
 import dask.distributed as dd
 
@@ -120,16 +121,32 @@ if not isinstance(numeric_level, int):  # An invalid string was set as the env v
     warnings.warn("Invalid log level set in environment variable 'SPYLOGLEVEL', ignoring and using WARNING instead. Hint: Set one of 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'.")
     loglevel = "WARNING"
 
+# The logger for local/sequential stuff -- goes to terminal.
 spy_logger = logging.getLogger('syncopy')
-spy_logger.setLevel(loglevel)
+fmt = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
+sh = logging.StreamHandler()
+sh.setLevel(loglevel)
+sh.setFormatter(fmt)
+spy_logger.addHandler(sh)
 
 # Log to per-host files in parallel code by default.
-host = socket.gethostname()
+host = platform.node()
 spy_parallel_logger = logging.getLogger("syncopy_" + host)
 
-fh = logging.FileHandler(os.path.join(__logdir__, f'syncopy_{host}.log'))  # The default mode is 'append'.
+class HostnameFilter(logging.Filter):
+    hostname = platform.node()
+
+    def filter(self, record):
+        record.hostname = HostnameFilter.hostname
+        return True
+
+logfile = os.path.join(__logdir__, f'syncopy_{host}.log')
+fh = logging.FileHandler(logfile)  # The default mode is 'append'.
+fh.addFilter(HostnameFilter())
+fh.setLevel(loglevel)
+fmt_with_hostname = logging.Formatter('%(asctime)s - %(levelname)s - %(hostname)s: %(message)s')
+fh.setFormatter(fmt_with_hostname)
 spy_parallel_logger.addHandler(fh)
-spy_parallel_logger.setLevel(loglevel)
 
 
 # Set upper bound for temp directory size (in GB)
