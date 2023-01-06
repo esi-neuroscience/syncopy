@@ -1239,7 +1239,7 @@ class SessionLogger:
         # Create package-wide tmp directory if not already present
         if not os.path.exists(__storage__):
             try:
-                os.mkdirs(__storage__)
+                os.makedirs(__storage__)
             except Exception as exc:
                 err = (
                     "Syncopy core: cannot create temporary storage directory {}. "
