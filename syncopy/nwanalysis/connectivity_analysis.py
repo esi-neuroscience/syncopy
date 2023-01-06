@@ -5,6 +5,7 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+'Testing'
 
 # Syncopy imports
 from syncopy.shared.parsers import data_parser, scalar_parser
