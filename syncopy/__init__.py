@@ -111,6 +111,9 @@ else:
     else:
         __logdir__ = os.path.join(os.path.expanduser("~"), ".spy", "logs")
 
+if not os.path.exists(__logdir__):
+    os.makedirs(__logdir__, exist_ok=True)
+
 loglevel = os.getenv("SPYLOGLEVEL", "WARNING")
 numeric_level = getattr(logging, loglevel.upper(), None)
 if not isinstance(numeric_level, int):  # An invalid string was set as the env variable, default to WARNING.
