@@ -46,8 +46,8 @@ For bug reports etc. please send an email to syncopy@esi-frankfurt.de
 try:
     dd.get_client()
 except ValueError:
-    silence_file = os.path.expanduser("~/.spy_silentstartup")
-    if os.getenv("SYNCOPY_SILENTSTARTUP") is None and not os.path.isfile(silence_file):
+    silence_file = os.path.expanduser("~/.spy/silentstartup")
+    if os.getenv("SPYSILENTSTARTUP") is None and not os.path.isfile(silence_file):
         print(msg)
 
 # Set up sensible printing options for NumPy arrays
@@ -96,9 +96,17 @@ if os.environ.get("SPYTMPDIR"):
     __storage__ = os.path.abspath(os.path.expanduser(os.environ["SPYTMPDIR"]))
 else:
     if os.path.exists(csHome):
-        __storage__ = os.path.join(csHome, ".spy")
+        __storage__ = os.path.join(csHome, ".spy", "tmp_storage")
     else:
-        __storage__ = os.path.join(os.path.expanduser("~"), ".spy")
+        __storage__ = os.path.join(os.path.expanduser("~"), ".spy", "tmp_storage")
+
+if os.environ.get("SPYLOGDIR"):
+    __logdir__ = os.path.abspath(os.path.expanduser(os.environ["SPYLOGDIR"]))
+else:
+    if os.path.exists(csHome):
+        __logdir__ = os.path.join(csHome, ".spy", "logs")
+    else:
+        __logdir__ = os.path.join(os.path.expanduser("~"), ".spy", "logs")
 
 # Set upper bound for temp directory size (in GB)
 __storagelimit__ = 10
