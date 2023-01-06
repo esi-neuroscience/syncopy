@@ -46,7 +46,9 @@ For bug reports etc. please send an email to syncopy@esi-frankfurt.de
 try:
     dd.get_client()
 except ValueError:
-    print(msg)
+    silence_file = os.path.expanduser("~/.spy_silentstartup")
+    if os.getenv("SYNCOPY_SILENTSTARTUP") is None and not os.path.isfile(silence_file):
+        print(msg)
 
 # Set up sensible printing options for NumPy arrays
 np.set_printoptions(suppress=True, precision=4, linewidth=80)
