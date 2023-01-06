@@ -37,7 +37,7 @@ def csd(trl_dat,
     This is NOT the same as what is commonly referred to as
     "cross spectral density" as there is no (time) averaging!!
     Multi-tapering alone is not necessarily sufficient to get enough
-    statitstical power for a robust csd estimate. Yet for completeness
+    statistical power for a robust csd estimate. Yet for completeness
     and testing the option ``norm = True`` returns a single-trial
     coherence estimate for ``taper = "dpss"``.
 

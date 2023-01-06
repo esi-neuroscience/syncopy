@@ -17,11 +17,11 @@ import syncopy.tests.synth_data as synth_data
 from syncopy.shared.tools import StructDict
 
 
-availableFrontend_cfgs = {'freqanalysis': {'method': 'mtmconvol', 't_ftimwin': 0.1},
+availableFrontend_cfgs = {'freqanalysis': {'method': 'mtmconvol', 't_ftimwin': 0.1, 'foi': np.arange(1,60)},
                           'preprocessing': {'freq': 10, 'filter_class': 'firws', 'filter_type': 'hp'},
                           'resampledata': {'resamplefs': 125, 'lpfreq': 60},
                           'connectivityanalysis': {'method': 'coh', 'tapsmofrq': 5},
-                          'selectdata': {'trials': [1, 7, 3], 'channel': [2, 0]}
+                          'selectdata': {'trials': np.array([1, 7, 3]), 'channel': [np.int64(2), 0]}
                           }
 
 
