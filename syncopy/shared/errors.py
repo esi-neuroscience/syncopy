@@ -8,6 +8,7 @@ import os
 import sys
 import traceback
 import logging
+import warnings
 from collections import OrderedDict
 
 # Local imports
@@ -19,9 +20,19 @@ ansiBold = "\033[1m"
 
 __all__ = []
 
+def _get_default_loglevel():
+    """Return the default loglevel, which is 'WARNING' unless set in the env var 'SYNCOPY_LOGLEVEL'."""
+    loglevel = os.getenv("SYNCOPY_LOGLEVEL", "WARNING")
+    numeric_level = getattr(logging, loglevel.upper(), None)
+    if not isinstance(numeric_level, int):  # An invalid string was set as the env variable, default to WARNING.
+        warnings.warn("Invalid log level set in environment variable 'SYNCOPY_LOGLEVEL', ignoring and using WARNING instead. Hint: Set one of 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'.")
+        loglevel = "WARNING"
+    return loglevel
 
-loggername = "syncopy"
-default_loglevel = os.getenv("SYNCOPY_LOGLEVEL", "WARNING") # The logging threshold, one of 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
+
+loggername = "syncopy"  # Since this is a library, we should not use the root logger (see Python logging docs).
+default_loglevel = _get_default_loglevel()  # The logging threshold, one of 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'.
+
 
 class SPYError(Exception):
     """
