@@ -366,19 +366,20 @@ class SpikeData(DiscreteData):
     def channel(self, chan):
 
         if chan is None and self.data is not None:
-            raise SPYValueError("Cannot set `channel` to `None` with existing data.")
+            raise SPYValueError("channel labels, cannot set `channel` to `None` with existing data.")
         elif self.data is None and chan is not None:
-            raise SPYValueError("Cannot assign `channel` without data. " +
+            raise SPYValueError(f"non-empty SpikeData", "cannot assign `channel` without data. " +
                                 "Please assign data first")
         elif chan is None:
             self._channel = chan
             return
 
-        nChan = np.max(self.data[:, self.dimord.index("channel")]) + 1
-        try:
-            array_parser(chan, varname="channel", ntype="str", dims=(nChan, ))
-        except Exception as exc:
-            raise exc
+        # we need at least as many labels as there are distinct channels
+        nChan_min = np.unique(self.data[:, self.dimord.index("channel")]).size
+
+        if nChan_min > len(chan):
+            raise SPYValueError(f"at least {nChan_min} labels")
+        array_parser(chan, varname="channel", ntype="str")
 
         self._channel = chan
 
@@ -418,10 +419,8 @@ class SpikeData(DiscreteData):
             return
 
         nunit = np.unique(self.data[:, self.dimord.index("unit")]).size
-        try:
-            array_parser(unit, varname="unit", ntype="str", dims=(nunit,))
-        except Exception as exc:
-            raise exc
+        array_parser(unit, varname="unit", ntype="str", dims=(nunit,))
+
         self._unit = np.array(unit)
 
     def _get_default_unit(self):
