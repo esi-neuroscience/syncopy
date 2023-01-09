@@ -7,6 +7,7 @@
 import os
 import sys
 import subprocess
+import datetime
 import getpass
 import socket
 import numpy as np
@@ -124,10 +125,12 @@ if not isinstance(numeric_level, int):  # An invalid string was set as the env v
 # The logger for local/sequential stuff -- goes to terminal.
 spy_logger = logging.getLogger('syncopy')
 fmt = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
-sh = logging.StreamHandler()
-sh.setLevel(loglevel)
+sh = logging.StreamHandler(sys.stdout)
 sh.setFormatter(fmt)
 spy_logger.addHandler(sh)
+spy_logger.setLevel(loglevel)
+spy_logger.debug(f"Starting Syncopy session at {datetime.datetime.now().astimezone().isoformat()}.")
+spy_logger.info(f"Syncopy log level set to: {loglevel}.")
 
 # Log to per-host files in parallel code by default.
 host = platform.node()
@@ -143,7 +146,7 @@ class HostnameFilter(logging.Filter):
 logfile = os.path.join(__logdir__, f'syncopy_{host}.log')
 fh = logging.FileHandler(logfile)  # The default mode is 'append'.
 fh.addFilter(HostnameFilter())
-fh.setLevel(loglevel)
+spy_parallel_logger.setLevel(loglevel)
 fmt_with_hostname = logging.Formatter('%(asctime)s - %(levelname)s - %(hostname)s: %(message)s')
 fh.setFormatter(fmt_with_hostname)
 spy_parallel_logger.addHandler(fh)
