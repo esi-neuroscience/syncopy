@@ -330,6 +330,10 @@ def SPYWarning(msg, caller=None):
 
 
 def SPYParallelLog(msg, loglevel="INFO", caller=None):
+    """Log a message in parallel code run via slurm.
+
+    This uses the parallel logger and one file per machine.
+    """
     numeric_level = getattr(logging, loglevel.upper(), None)
     if not isinstance(numeric_level, int):  # Invalid string was set.
         raise SPYValueError(legal=f"one of: {loglevels}", varname="loglevel", actual=loglevel)

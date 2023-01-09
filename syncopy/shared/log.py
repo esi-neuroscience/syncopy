@@ -20,6 +20,7 @@ def get_logger():
     Logs to console by default. To be used in everything that runs on the local computer."""
     return logging.getLogger(loggername)
 
+
 def get_parallel_logger():
     """
     Get a logger for stuff that is run in parallel.
