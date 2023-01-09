@@ -356,9 +356,6 @@ class SpikeData(DiscreteData):
         # this comes from BaseData
         self._set_dataset_property(inData, "data")
 
-        # set the default channel labels
-        self.channel = self._get_default_channel()
-
     @property
     def channel(self):
         """ :class:`numpy.ndarray` : list of original channel names for each unit"""
@@ -373,8 +370,7 @@ class SpikeData(DiscreteData):
         elif self.data is None and chan is not None:
             raise SPYValueError("Cannot assign `channel` without data. " +
                                 "Please assign data first")
-        else:
-            # chan was None
+        elif chan is None:
             self._channel = chan
             return
 
@@ -398,29 +394,28 @@ class SpikeData(DiscreteData):
             channel_arr = np.arange(nChan + 1)
             channel_labels = np.array(["channel" + str(int(i + 1)).zfill(len(str(nChan)) + 1)
                                        for i in channel_arr])
-        else:
-            channel_labels = None
+            return channel_labels
 
-        return channel_labels
+        else:
+            return None
 
     @property
     def unit(self):
         """ :class:`numpy.ndarray(str)` : unit names"""
-        if self.data is not None and self._unit is None:
-            unitIndices = np.unique(self.data[:, self.dimord.index("unit")])
-            return np.array(["unit" + str(int(i)).zfill(len(str(unitIndices.max())))
-                             for i in unitIndices])
+
         return self._unit
 
     @unit.setter
     def unit(self, unit):
-        if unit is None:
-            self._unit = None
-            return
 
-        if self.data is None:
+        if unit is None and self.data is not None:
+            raise SPYValueError("Cannot set `unit` to `None` with existing data.")
+        elif self.data is None and unit is not None:
             raise SPYValueError("Syncopy - SpikeData - unit: Cannot assign `unit` without data. " +
                   "Please assign data first")
+        elif unit is None:
+            self._unit = None
+            return
 
         nunit = np.unique(self.data[:, self.dimord.index("unit")]).size
         try:
@@ -428,6 +423,19 @@ class SpikeData(DiscreteData):
         except Exception as exc:
             raise exc
         self._unit = np.array(unit)
+
+    def _get_default_unit(self):
+
+        """
+        Creates the default unit labels
+        """
+
+        if self.data is not None:
+            unitIndices = np.unique(self.data[:, self.dimord.index("unit")])
+            return np.array(["unit" + str(int(i)).zfill(len(str(unitIndices.max())))
+                             for i in unitIndices])
+        else:
+            return None
 
     # Helper function that extracts by-trial unit-indices
     def _get_unit(self, trials, units=None):
@@ -533,8 +541,13 @@ class SpikeData(DiscreteData):
         # use the setters, data is already attached
         if channel is not None:
             self.channel = channel
+        else:
+            self.channel = self._get_default_channel()
+
         if unit is not None:
             self.unit = unit
+        else:
+            self.unit = self._get_default_unit()
 
 
 class EventData(DiscreteData):
