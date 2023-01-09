@@ -134,6 +134,11 @@ spy_logger.info(f"Syncopy log level set to: {loglevel}.")
 
 # Log to per-host files in parallel code by default.
 # Note that this setup handles only the logger of the current host.
+parloglevel = os.getenv("SPYPARLOGLEVEL", loglevel)
+numeric_level = getattr(logging, parloglevel.upper(), None)
+if not isinstance(numeric_level, int):  # An invalid string was set as the env variable, use default.
+    warnings.warn("Invalid log level set in environment variable 'SPYPARLOGLEVEL', ignoring and using WARNING instead. Hint: Set one of 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'.")
+    parloglevel = "WARNING"
 host = platform.node()
 parallel_logger_name = "syncopy_" + host
 spy_parallel_logger = logging.getLogger(parallel_logger_name)
@@ -148,7 +153,7 @@ class HostnameFilter(logging.Filter):
 logfile = os.path.join(__logdir__, f'syncopy_{host}.log')
 fh = logging.FileHandler(logfile)  # The default mode is 'append'.
 fh.addFilter(HostnameFilter())
-spy_parallel_logger.setLevel(loglevel)
+spy_parallel_logger.setLevel(parloglevel)
 fmt_with_hostname = logging.Formatter('%(asctime)s - %(levelname)s - %(hostname)s: %(message)s')
 fh.setFormatter(fmt_with_hostname)
 spy_parallel_logger.addHandler(fh)
