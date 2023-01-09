@@ -51,6 +51,7 @@ class DiscreteData(BaseData, ABC):
 
     @data.setter
     def data(self, inData):
+        # this comes from BaseData
         self._set_dataset_property(inData, "data")
 
     def __str__(self):
@@ -335,40 +336,72 @@ class SpikeData(DiscreteData):
     _selectionKeyWords = DiscreteData._selectionKeyWords + ('channel', 'unit',)
 
     @property
+    def data(self):
+        """
+        HDF5 dataset representing discrete spike data.
+
+        Trials are concatenated along the time axis.
+        """
+
+        if getattr(self._data, "id", None) is not None:
+            if self._data.id.valid == 0:
+                lgl = "open HDF5 file"
+                act = "backing HDF5 file {} has been closed"
+                raise SPYValueError(legal=lgl, actual=act.format(self.filename),
+                                    varname="data")
+        return self._data
+
+    @data.setter
+    def data(self, inData):
+        # this comes from BaseData
+        self._set_dataset_property(inData, "data")
+
+        # set the default channel labels
+        self.channel = self._get_default_channel()
+
+    @property
     def channel(self):
         """ :class:`numpy.ndarray` : list of original channel names for each unit"""
-        # if data exists but no user-defined channel labels, create them on the fly
-        if self._channel is None and self._data is not None:
-            channelNumbers = np.unique(self.data[:, self.dimord.index("channel")])
-            return np.array(["channel" + str(int(i + 1)).zfill(len(str(channelNumbers.max() + 1)))
-                             for i in channelNumbers])
 
         return self._channel
 
     @channel.setter
     def channel(self, chan):
-        if chan is None:
-            self._channel = None
+
+        if chan is None and self.data is not None:
+            raise SPYValueError("Cannot set `channel` to `None` with existing data.")
+        elif self.data is None and chan is not None:
+            raise SPYValueError("Cannot assign `channel` without data. " +
+                                "Please assign data first")
+        else:
+            # chan was None
+            self._channel = chan
             return
-        if self.data is None:
-            raise SPYValueError("Syncopy: Cannot assign `channels` without data. " +
-                  "Please assign data first")
+
+        nChan = np.max(self.data[:, self.dimord.index("channel")]) + 1
         try:
-            array_parser(chan, varname="channel", ntype="str")
+            array_parser(chan, varname="channel", ntype="str", dims=(nChan, ))
         except Exception as exc:
             raise exc
 
-        # Remove duplicate entries from channel array but preserve original order
-        # (e.g., `[2, 0, 0, 1]` -> `[2, 0, 1`); allows for complex subset-selections
-        _, idx = np.unique(chan, return_index=True)
-        chan = np.array(chan)[np.sort(idx)]
-        nchan = np.unique(self.data[:, self.dimord.index("channel")]).size
-        if chan.size != nchan:
-            lgl = "channel label array of length {0:d}".format(nchan)
-            act = "array of length {0:d}".format(chan.size)
-            raise SPYValueError(legal=lgl, varname="channel", actual=act)
-
         self._channel = chan
+
+    def _get_default_channel(self):
+
+        """
+        Creates the default channel labels
+        """
+
+        if self.data is not None:
+            # channel entries in self.data are 0-based
+            nChan = np.max(self.data[:, self.dimord.index("channel")])
+            channel_arr = np.arange(nChan + 1)
+            channel_labels = np.array(["channel" + str(int(i + 1)).zfill(len(str(nChan)) + 1)
+                                       for i in channel_arr])
+        else:
+            channel_labels = None
+
+        return channel_labels
 
     @property
     def unit(self):
@@ -484,6 +517,9 @@ class SpikeData(DiscreteData):
 
         """
 
+        # instance attribute to allow modification
+        self._hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel", "unit")
+
         self._unit = None
         self._channel = None
 
@@ -493,12 +529,12 @@ class SpikeData(DiscreteData):
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          dimord=dimord)
-        
-        # instance attribute to allow modification
-        self._hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel",)
 
-        self.channel = channel
-        self.unit = unit
+        # use the setters, data is already attached
+        if channel is not None:
+            self.channel = channel
+        if unit is not None:
+            self.unit = unit
 
 
 class EventData(DiscreteData):
