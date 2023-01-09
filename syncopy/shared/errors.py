@@ -403,6 +403,7 @@ def SPYInfo(msg, caller=None, tag="INFO"):
     logger.info(PrintMsg.format(coloron=infoCol,
                           bold=boldEm,
                           caller=" <" + caller + ">" if len(caller) else caller,
+                          tag=tag,
                           msg=msg,
                           coloroff=normCol))
 
