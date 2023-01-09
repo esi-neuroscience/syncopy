@@ -450,6 +450,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
                "polyremoval": polyremoval,
                "pad": pad}
 
+    SPYLog(f"Running specest method '{method}'.", loglevel="DEBUG")
+
     # --------------------------------
     # 1st: Check time-frequency inputs
     # to prepare/sanitize `toi`
