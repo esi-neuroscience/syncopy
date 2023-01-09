@@ -12,6 +12,7 @@ import warnings
 
 
 loggername = "syncopy"  # Since this is a library, we should not use the root logger (see Python logging docs).
+loglevels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 
 def get_logger():
     """Get the syncopy root logger.

@@ -11,7 +11,7 @@ from collections import OrderedDict
 
 # Local imports
 from syncopy import __tbcount__
-from syncopy.shared.log import get_logger
+from syncopy.shared.log import get_logger, get_parallel_logger, loglevels
 import syncopy
 
 # Custom definition of bold ANSI for formatting errors/warnings in iPython/Jupyter
@@ -327,6 +327,18 @@ def SPYWarning(msg, caller=None):
                           caller=" <" + caller + ">" if len(caller) else caller,
                           msg=msg,
                           coloroff=normCol))
+
+
+def SPYParallelLog(msg, loglevel="INFO", caller=None):
+    numeric_level = getattr(logging, loglevel.upper(), None)
+    if not isinstance(numeric_level, int):  # Invalid string was set.
+        raise SPYValueError(legal=f"one of: {loglevels}", varname="loglevel", actual=loglevel)
+    if caller is None:
+        caller = sys._getframe().f_back.f_code.co_name
+    PrintMsg = "{caller:s} {msg:s}"
+    logger = get_parallel_logger()
+    logger.info(PrintMsg.format(caller=" <" + caller + ">" if len(caller) else caller,
+                          msg=msg))
 
 
 def SPYInfo(msg, caller=None, tag="INFO"):
