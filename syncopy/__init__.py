@@ -133,8 +133,10 @@ spy_logger.debug(f"Starting Syncopy session at {datetime.datetime.now().astimezo
 spy_logger.info(f"Syncopy log level set to: {loglevel}.")
 
 # Log to per-host files in parallel code by default.
+# Note that this setup handles only the logger of the current host.
 host = platform.node()
-spy_parallel_logger = logging.getLogger("syncopy_" + host)
+parallel_logger_name = "syncopy_" + host
+spy_parallel_logger = logging.getLogger(parallel_logger_name)
 
 class HostnameFilter(logging.Filter):
     hostname = platform.node()
@@ -150,6 +152,7 @@ spy_parallel_logger.setLevel(loglevel)
 fmt_with_hostname = logging.Formatter('%(asctime)s - %(levelname)s - %(hostname)s: %(message)s')
 fh.setFormatter(fmt_with_hostname)
 spy_parallel_logger.addHandler(fh)
+spy_parallel_logger.info(f"Syncopy parallel logger '{parallel_logger_name}' setup to log to file '{logfile}' at level {loglevel}.")
 
 
 # Set upper bound for temp directory size (in GB)
