@@ -997,7 +997,7 @@ class FooofSpy(ComputationalRoutine):
     # To attach metadata to the output of the CF
     def process_metadata(self, data, out):
 
-        SPYParallelLog("Fetching FOOOF output metadata from file '{out.filename}'.", loglevel="DEBUG")
+        SPYParallelLog(f"Fetching FOOOF output metadata from file '{out.filename}'.", loglevel="DEBUG")
 
         # General-purpose loading of metadata.
         mdata = metadata_from_hdf5_file(out.filename)
@@ -1006,13 +1006,13 @@ class FooofSpy(ComputationalRoutine):
         # made in the call to `freqanalysis`, because the mtmfft run before will have
         # consumed them. So the trial indices are always relative.
 
-        SPYParallelLog("Decoding FOOOF output metadata from HDF5 datastructures.", loglevel="DEBUG")
+        SPYParallelLog(f"Decoding FOOOF output metadata from HDF5 datastructures.", loglevel="DEBUG")
 
         # Backend-specific post-processing. May or may not be needed, depending on what
         # you need to do in the cF to fit the return values into hdf5.
         out.metadata = metadata_nest(FooofSpy.decode_metadata_fooof_alltrials_from_hdf5(mdata))
 
-        SPYParallelLog("Copying recording information to output syncopy data instance.", loglevel="DEBUG")
+        SPYParallelLog(f"Copying recording information to output syncopy data instance.", loglevel="DEBUG")
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
