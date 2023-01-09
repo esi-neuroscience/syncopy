@@ -4,19 +4,8 @@
 #
 
 # Builtin/3rd party package imports
-import numpy as np
-'Testing'
-
-# Syncopy imports
-from syncopy.shared.parsers import data_parser, scalar_parser
-from syncopy.shared.tools import get_defaults, best_match, get_frontend_cfg
-from syncopy.datatype import CrossSpectralData, AnalogData, SpectralData
-from syncopy.shared.errors import (
-    SPYValueError,
-    SPYWarning,
-    SPYInfo)
-from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
-                                             detect_parallel_client)
+from syncopy.nwanalysis.AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov, GrangerCausality
+from syncopy.nwanalysis.ST_compRoutines import CrossSpectra, CrossCovariance, SpectralDyadicProduct
 from syncopy.shared.input_processors import (
     process_taper,
     process_foi,
@@ -24,13 +13,21 @@ from syncopy.shared.input_processors import (
     check_effective_parameters,
     check_passed_kwargs
 )
-
-from syncopy.nwanalysis.ST_compRoutines import CrossSpectra, CrossCovariance, SpectralDyadicProduct
-from syncopy.nwanalysis.AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov, GrangerCausality
+from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
+                                             detect_parallel_client)
+from syncopy.shared.errors import (
+    SPYValueError,
+    SPYWarning,
+    SPYInfo)
+from syncopy.datatype import CrossSpectralData, AnalogData, SpectralData
+from syncopy.shared.tools import get_defaults, best_match, get_frontend_cfg
+from syncopy.shared.parsers import data_parser, scalar_parser
+import numpy as np
+# Syncopy imports
 
 
 availableMethods = ("coh", "corr", "granger")
-coh_outputs = {"abs", "pow", "complex", "fourier", "angle", "real", "imag"}
+coh_outputs = {"abs", "pow", "complex", "fourier", "angle", "real", "imag", "csd"}
 
 
 @unwrap_cfg
@@ -40,7 +37,6 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                          foi=None, foilim=None, pad='maxperlen',
                          polyremoval=0, tapsmofrq=None, nTaper=None,
                          taper="hann", taper_opt=None, **kwargs):
-
     """
     Perform connectivity analysis of Syncopy :class:`~syncopy.SpectralData` OR directly
     :class:`~syncopy.AnalogData` objects
@@ -202,7 +198,6 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         act = f"{data.__class__.__name__}"
         raise SPYValueError(lgl, 'data', act)
     timeAxis = data.dimord.index("time")
-
     # Get everything of interest in local namespace
     defaults = get_defaults(connectivityanalysis)
     lcls = locals()
@@ -255,7 +250,6 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # --- method specific processing ---
 
     if method == 'corr':
-
         if not isinstance(data, AnalogData):
             lgl = f"AnalogData instance as input for method {method}"
             actual = f"{data.__class__.__name__}"
@@ -309,7 +303,6 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                                                       polyremoval, log_dict, timeAxis)
         # SpectralData input
         elif isinstance(data, SpectralData):
-
             # cross-spectra need complex input spectra
             if data.data.dtype != np.complex64 and data.data.dtype != np.complex128:
                 lgl = "complex valued spectra, set `output='fourier` in spy.freqanalysis!"
@@ -335,7 +328,6 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # --- Set up of computation of trial-averaged CSDs is complete ---
 
     if method == 'coh':
-
         if output not in coh_outputs:
             lgl = f"one of {coh_outputs}"
             raise SPYValueError(lgl, varname="output", actual=output)
@@ -345,7 +337,6 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         av_compRoutine = NormalizeCrossSpectra(output=output)
 
     if method == 'granger':
-
         # spectral analysis only possible with AnalogData
         besides = ['tapsmofrq'] if isinstance(data, AnalogData) else None
         check_effective_parameters(GrangerCausality, defaults, lcls, besides=besides)
@@ -356,7 +347,6 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                                           nIter=100,
                                           cond_max=1e4
                                           )
-
 
     # -------------------------------------------------
     # Call the chosen single trial ComputationalRoutine
@@ -379,32 +369,32 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # ----------------------------------------------------------------------------------
     # Sanitize output and call the chosen ComputationalRoutine on the averaged ST output
     # ----------------------------------------------------------------------------------
-
-    out = CrossSpectralData(dimord=st_dimord)
-
-    # now take the trial average from the single trial CR as input
-    av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
-    av_compRoutine.pre_check()   # make sure we got a trial_average
-    av_compRoutine.compute(st_out, out, parallel=kwargs.get("parallel"),
-                           log_dict=log_dict)
-
-    # attach potential older cfg's from the input
-    # to support chained frontend calls..
-    out.cfg.update(data.cfg)
-    # attach frontend parameters for replay
-    out.cfg.update({'connectivityanalysis': new_cfg})
-    return out
+    if output == 'csd':
+        st_out.cfg.update(data.cfg)
+        st_out.cfg.update({'cross_spectral': new_cfg})
+        return st_out
+    else:
+        out = CrossSpectralData(dimord=st_dimord)
+        # now take the trial average from the single trial CR as input
+        av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
+        av_compRoutine.pre_check()   # make sure we got a trial_average
+        av_compRoutine.compute(st_out, out, parallel=kwargs.get("parallel"),
+                               log_dict=log_dict)
+        # attach potential older cfg's from the input
+        # to support chained frontend calls..
+        out.cfg.update(data.cfg)
+        # attach frontend parameters for replay
+        out.cfg.update({'connectivityanalysis': new_cfg})
+        return out
 
 
 def cross_spectra(data, method, nSamples,
                   foi, foilim, tapsmofrq,
                   nTaper, taper, taper_opt,
                   polyremoval, log_dict, timeAxis):
-
     '''
     Calculates the single trial cross-spectral densities from AnalogData
     '''
-
 
     # --- Basic foi sanitization ---
 
