@@ -34,7 +34,7 @@ from .fooofspy import fooofspy
 
 
 # Local imports
-from syncopy.shared.errors import SPYValueError, SPYWarning
+from syncopy.shared.errors import SPYValueError, SPYWarning, SPYParallelLog
 from syncopy.shared.tools import best_match
 from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
 from syncopy.shared.kwarg_decorators import process_io
@@ -946,6 +946,8 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
     if noCompute:
         return outShape, spectralDTypes['pow']
 
+
+
     # Call actual fooof method
     res, metadata = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output,
                       fooof_opt=method_kwargs)
@@ -995,6 +997,8 @@ class FooofSpy(ComputationalRoutine):
     # To attach metadata to the output of the CF
     def process_metadata(self, data, out):
 
+        SPYParallelLog("Fetching FOOOF output metadata from file '{out.filename}'.", loglevel="DEBUG")
+
         # General-purpose loading of metadata.
         mdata = metadata_from_hdf5_file(out.filename)
 
@@ -1002,9 +1006,13 @@ class FooofSpy(ComputationalRoutine):
         # made in the call to `freqanalysis`, because the mtmfft run before will have
         # consumed them. So the trial indices are always relative.
 
+        SPYParallelLog("Decoding FOOOF output metadata from HDF5 datastructures.", loglevel="DEBUG")
+
         # Backend-specific post-processing. May or may not be needed, depending on what
         # you need to do in the cF to fit the return values into hdf5.
         out.metadata = metadata_nest(FooofSpy.decode_metadata_fooof_alltrials_from_hdf5(mdata))
+
+        SPYParallelLog("Copying recording information to output syncopy data instance.", loglevel="DEBUG")
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -1058,6 +1066,7 @@ class FooofSpy(ComputationalRoutine):
             label, trial_idx, call_idx = decode_unique_md_label(unique_attr_label)
             if label == "n_peaks":
                 n_peaks = v
+                SPYParallelLog(f"FOOOF detected {n_peaks} peaks in data of trial {trial_idx} call {call_idx}.", loglevel="DEBUG")
                 gaussian_params_out = list()
                 peak_params_out = list()
                 start_idx = 0

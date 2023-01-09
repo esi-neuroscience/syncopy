@@ -341,7 +341,8 @@ def SPYParallelLog(msg, loglevel="INFO", caller=None):
         caller = sys._getframe().f_back.f_code.co_name
     PrintMsg = "{caller:s} {msg:s}"
     logger = get_parallel_logger()
-    logger.info(PrintMsg.format(caller=" <" + caller + ">" if len(caller) else caller,
+    logfunc = getattr(logger, loglevel.lower())
+    logfunc(PrintMsg.format(caller=" <" + caller + ">" if len(caller) else caller,
                           msg=msg))
 
 
