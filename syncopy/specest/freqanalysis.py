@@ -10,7 +10,7 @@ import numpy as np
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.tools import get_defaults, get_frontend_cfg
 from syncopy.datatype import SpectralData
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo, SPYLog
 from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
                                              detect_parallel_client)
 from syncopy.shared.tools import best_match
@@ -454,6 +454,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # 1st: Check time-frequency inputs
     # to prepare/sanitize `toi`
     # --------------------------------
+
+
 
     if method in ["mtmconvol", "wavelet", "superlet", "welch"]:
 

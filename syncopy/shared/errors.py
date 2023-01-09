@@ -345,6 +345,22 @@ def SPYParallelLog(msg, loglevel="INFO", caller=None):
     logfunc(PrintMsg.format(caller=" <" + caller + ">" if len(caller) else caller,
                           msg=msg))
 
+def SPYLog(msg, loglevel="INFO", caller=None):
+    """Log a message in seqiential code.
+
+    This uses the standard logger that logs to console by default.
+    """
+    numeric_level = getattr(logging, loglevel.upper(), None)
+    if not isinstance(numeric_level, int):  # Invalid string was set.
+        raise SPYValueError(legal=f"one of: {loglevels}", varname="loglevel", actual=loglevel)
+    if caller is None:
+        caller = sys._getframe().f_back.f_code.co_name
+    PrintMsg = "{caller:s} {msg:s}"
+    logger = get_logger()
+    logfunc = getattr(logger, loglevel.lower())
+    logfunc(PrintMsg.format(caller=" <" + caller + ">" if len(caller) else caller,
+                          msg=msg))
+
 
 def SPYInfo(msg, caller=None, tag="INFO"):
     """
