@@ -1,0 +1,4 @@
+Complete API
+=============
+
+.. automodapi:: syncopy
