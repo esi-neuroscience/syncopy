@@ -26,6 +26,8 @@ def get_parallel_logger():
     Get a logger for stuff that is run in parallel.
 
     Logs to a machine-specific file in the SPYLOGDIR by default. To be used in computational routines.
+
+    The log directory used is `syncopy.__logdir__`. It can be changed by setting the environment variable SPYLOGDIR before running an application that uses Syncopy.
     """
     host = socket.gethostname()
     return logging.getLogger(loggername + "_" + host)
