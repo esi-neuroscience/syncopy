@@ -296,7 +296,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             act = "only one trial"
             raise SPYValueError(lgl, 'data', act)
 
-        if keeptrials is not False:
+        if keeptrials is not False and method in ('coh', 'granger'):
             lgl = "False, trial averaging needed for 'coh' and 'granger'!"
             act = keeptrials
             raise SPYValueError(lgl, varname="keeptrials", actual=act)
