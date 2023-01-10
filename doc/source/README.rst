@@ -62,7 +62,7 @@ API
    :caption: API Reference
 
    User API <user/user_api>
-
+   Complete API <user/complete_api>
 
 Contact
 -------
