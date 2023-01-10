@@ -375,7 +375,7 @@ class SpikeData(DiscreteData):
         if nChan != len(chan):
             raise SPYValueError(f"exactly {nChan} channel labels")
         array_parser(chan, varname="channel", ntype="str", dims=(nChan, ))
-        self._channel = chan
+        self._channel = np.array(chan)
 
     def _default_channel_labels(self):
 
