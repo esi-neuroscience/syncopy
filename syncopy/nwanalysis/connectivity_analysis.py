@@ -26,8 +26,8 @@ import numpy as np
 # Syncopy imports
 
 
-availableMethods = ("coh", "corr", "granger")
-coh_outputs = {"abs", "pow", "complex", "fourier", "angle", "real", "imag", "csd"}
+availableMethods = ("coh", "corr", "granger", "csd")
+connectivity_outputs = {"abs", "pow", "complex", "fourier", "angle", "real", "imag"}
 
 
 @unwrap_cfg
@@ -61,6 +61,18 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         between all channel combinations
 
         * **output** : one of ('abs', 'pow', 'complex', 'angle', 'imag' or 'real')
+
+        **Spectral analysis** (input is :class:`~syncopy.AnalogData`):
+
+        * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
+        * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
+        * **nTaper** : (optional) number of orthogonal tapers for slepian tapers
+        * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
+
+    "csd" : ('Multi-) tapered cross spectral density estimate
+        Computes the normalized cross spectral densities between all channel combinations
+
+        output : complex spectrum
 
         **Spectral analysis** (input is :class:`~syncopy.AnalogData`):
 
@@ -104,7 +116,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         A non-empty Syncopy :class:`~syncopy.SpectralData` or
         :class:`~syncopy.AnalogData` object
     method : str
-        Connectivity estimation method, one of ``'coh'`, 'corr', 'granger'``
+        Connectivity estimation method, one of ``'coh'`, 'corr', 'granger', 'csd'``
     output : str
         Relevant for cross-spectral density estimation (``method='coh'``)
         Use ``'pow'`` for absolute squared coherence, ``'abs'`` for absolute value of coherence
@@ -277,8 +289,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         # hard coded as class attribute
         st_dimord = CrossCovariance.dimord
 
-    elif method in ['coh', 'granger']:
-
+    elif method in ['coh', 'granger', 'csd']:
         nTrials = len(data.trials)
         if nTrials == 1:
             lgl = "multi-trial input data, spectral connectivity measures critically depend on trial averaging!"
@@ -327,9 +338,9 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
     # --- Set up of computation of trial-averaged CSDs is complete ---
 
-    if method == 'coh':
-        if output not in coh_outputs:
-            lgl = f"one of {coh_outputs}"
+    if method in ('coh', 'csd'):
+        if output not in connectivity_outputs:
+            lgl = f"one of {connectivity_outputs}"
             raise SPYValueError(lgl, varname="output", actual=output)
         log_dict['output'] = output
 
@@ -369,7 +380,8 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # ----------------------------------------------------------------------------------
     # Sanitize output and call the chosen ComputationalRoutine on the averaged ST output
     # ----------------------------------------------------------------------------------
-    if output == 'csd':
+    if method == 'csd':
+        new_cfg.update({'output': st_out.data.dtype.name})
         st_out.cfg.update(data.cfg)
         st_out.cfg.update({'cross_spectral': new_cfg})
         return st_out
@@ -384,6 +396,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         # to support chained frontend calls..
         out.cfg.update(data.cfg)
         # attach frontend parameters for replay
+        new_cfg.update({'output': out.data.dtype.name if method != 'coh' else output})
         out.cfg.update({'connectivityanalysis': new_cfg})
         return out
 
@@ -415,8 +428,7 @@ def cross_spectra(data, method, nSamples,
             msg = "Multi-channel Granger analysis can be numerically unstable, it is recommended to have at least 10 times the number of trials compared to the number of channels. Try calculating in sub-groups of fewer channels!"
             SPYWarning(msg)
 
-    if method in ['coh', 'granger']:
-
+    if method in ['coh', 'granger', 'csd']:
         # --- set up computation of the single trial CSDs ---
 
         # Construct array of maximally attainable frequencies
