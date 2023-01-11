@@ -209,7 +209,7 @@ def itc(spec_data, **kwargs):
         raise SPYValueError(lgl, 'spec_data', act)
 
     logger = logging.getLogger("syncopy_" + platform.node())
-    logger.debug(f"Computing intertrial coherence on data chunk with shape {spec_data.shape}.")
+    logger.debug(f"Computing intertrial coherence on SpectralData instancewith shape {spec_data.data.shape}.")
 
     # takes care of remaining checks
     res = _trial_statistics(spec_data, operation='itc')
