@@ -6,6 +6,8 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+import logging
+import platform
 
 # Local imports
 # from .selectdata import _get_selection_size
@@ -74,7 +76,7 @@ def std(spy_data, dim, keeptrials=True, **kwargs):
         Must be present in the ``spy_data`` object,
         e.g. 'channel' or 'trials'
     keeptrials : bool
-        Set to ``False`` to trigger additional trial averagin
+        Set to ``False`` to trigger additional trial averaging.
         Has no effect if ``dim='trials'``.
 
     Returns
@@ -206,6 +208,9 @@ def itc(spec_data, **kwargs):
         act = "real valued spectral data"
         raise SPYValueError(lgl, 'spec_data', act)
 
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Computing intertrial coherence on data chunk with shape {spec_data.shape}.")
+
     # takes care of remaining checks
     res = _trial_statistics(spec_data, operation='itc')
 
@@ -259,6 +264,9 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
                 'operation': operation,
                 'dim': dim,
                 'keeptrials': keeptrials}
+
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Computing descriptive statistic {operation} on input from {spy_data.filename} along dimension {dim}, keeptrials={keeptrials}.")
 
     # If no active selection is present, create a "fake" all-to-all selection
     # to harmonize processing down the road (and attach `_cleanup` attribute for later removal)
