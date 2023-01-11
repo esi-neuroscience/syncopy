@@ -318,7 +318,9 @@ class DiscreteData(BaseData, ABC):
 
                 # Fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
-
+        elif self.data.size == 0:
+            # initialization with empty data not allowed
+            raise SPYValueError("non empty data set", 'data')
 
 class SpikeData(DiscreteData):
     """Spike times of multi- and/or single units
