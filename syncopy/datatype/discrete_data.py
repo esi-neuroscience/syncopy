@@ -310,17 +310,17 @@ class DiscreteData(BaseData, ABC):
         # Call initializer
         super().__init__(data=data, **kwargs)
 
-        if self.data is not None and self.data.size != 0:
+        if self.data is not None:
+
+            if self.data.size == 0:
+                # initialization with empty data not allowed
+                raise SPYValueError("non empty data set", 'data')
 
             # In case of manual data allocation (reading routine would leave a
             # mark in `cfg`), fill in missing info
             if self.sampleinfo is None:
-
                 # Fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
-        elif self.data.size == 0:
-            # initialization with empty data not allowed
-            raise SPYValueError("non empty data set", 'data')
 
 class SpikeData(DiscreteData):
     """Spike times of multi- and/or single units
