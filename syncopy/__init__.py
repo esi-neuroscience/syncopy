@@ -122,12 +122,18 @@ if not isinstance(numeric_level, int):  # An invalid string was set as the env v
     warnings.warn("Invalid log level set in environment variable 'SPYLOGLEVEL', ignoring and using WARNING instead. Hint: Set one of 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'.")
     loglevel = "WARNING"
 
-# The logger for local/sequential stuff -- goes to terminal.
+# The logger for local/sequential stuff -- goes to terminal and to a file.
 spy_logger = logging.getLogger('syncopy')
 fmt = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
 sh = logging.StreamHandler(sys.stdout)
 sh.setFormatter(fmt)
 spy_logger.addHandler(sh)
+
+logfile = os.path.join(__logdir__, f'syncopy.log')
+fh = logging.FileHandler(logfile)  # The default mode is 'append'.
+spy_logger.addHandler(fh)
+
+
 spy_logger.setLevel(loglevel)
 spy_logger.debug(f"Starting Syncopy session at {datetime.datetime.now().astimezone().isoformat()}.")
 spy_logger.info(f"Syncopy log level set to: {loglevel}.")
@@ -150,14 +156,14 @@ class HostnameFilter(logging.Filter):
         record.hostname = HostnameFilter.hostname
         return True
 
-logfile = os.path.join(__logdir__, f'syncopy_{host}.log')
-fh = logging.FileHandler(logfile)  # The default mode is 'append'.
-fh.addFilter(HostnameFilter())
+logfile_par = os.path.join(__logdir__, f'syncopy_{host}.log')
+fhp = logging.FileHandler(logfile_par)  # The default mode is 'append'.
+fhp.addFilter(HostnameFilter())
 spy_parallel_logger.setLevel(parloglevel)
 fmt_with_hostname = logging.Formatter('%(asctime)s - %(levelname)s - %(hostname)s: %(message)s')
-fh.setFormatter(fmt_with_hostname)
-spy_parallel_logger.addHandler(fh)
-spy_parallel_logger.info(f"Syncopy parallel logger '{parallel_logger_name}' setup to log to file '{logfile}' at level {loglevel}.")
+fhp.setFormatter(fmt_with_hostname)
+spy_parallel_logger.addHandler(fhp)
+spy_parallel_logger.info(f"Syncopy parallel logger '{parallel_logger_name}' setup to log to file '{logfile_par}' at level {loglevel}.")
 
 
 # Set upper bound for temp directory size (in GB)
