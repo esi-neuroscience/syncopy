@@ -5,6 +5,8 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+import logging
+import platform
 from scipy import signal
 
 # local imports
@@ -113,6 +115,9 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
 
     # Short time Fourier transforms (nTime x nTapers x nFreq x nChannels)
     ftr = np.zeros((nTime, windows.shape[0], nFreq, nChannels), dtype='complex64')
+
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Running mtmconvol on {len(windows)} windows, data chunk has {nSamples} samples and {nChannels} channels.")
 
     for taperIdx, win in enumerate(windows):
         # ftr has shape (nFreq, nChannels, nTime)
