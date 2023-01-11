@@ -27,8 +27,6 @@ E.g., if your Python script using Syncopy is `~/neuro/paperfig1.py`, you can set
    ~/neuro/paperfig1.py
 
 
-
-
 Logging code that runs locally
 -------------------------------
 
@@ -57,17 +55,21 @@ To adapt the local logging behaviour of Syncopy, one can configure the logger as
 Logging code that potentially runs remotely
 --------------------------------------------
 
-The parallel code that performs the heavy lifting on the Syncopy data (i.e., what we call `compute functions`) will be executed on remote machines (cluster nodes) when Syncopy is run in an HPC environment. Therefore,
-special handling is required for these parts of the code, and we need to log to one log file per remote machine to avoid race conditions. Here is how to log with the remote logger:
+The parallel code that performs the heavy lifting on the Syncopy data (i.e., what we call `compute functions`) will be executed on remote machines when Syncopy is run in an HPC environment. Therefore,
+special handling is required for these parts of the code, and we need to log to one log file per remote machine.
 
+Syncopy automatically configures a suitable logger named `syncopy_<host>` on each host, where `<host>` is the hostname. Each of these loggers is attached to the respective logfile `'SPYLOGDIR/syncopy_<host>.log'`, where `<host>` is the hostname, which ensures that logging works properly even if you log into the same directory on all remote machines (e.g., a home directory that is mounted on all machines via a network file system).
 
+Here is how to log with the remote logger:
 
 .. code-block:: python
 
    import syncopy
    import logging, platform
 
+   # ...
+   # In some cF or backend function:
    par_logger = logging.getLogger("syncopy_" + platform.node())
    par_logger.info("Code run on remote machine is being run.")
 
-
+This is all you need to do. If you want to configure different log levels for the remote logger and the local one, you can configure the environment variable `SPYPARLOGLEVEL` in addition to `SPYLOGLEVEL`.

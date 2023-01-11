@@ -493,7 +493,7 @@ class SpikeData(DiscreteData):
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          dimord=dimord)
-        
+
         # instance attribute to allow modification
         self._hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel",)
 
