@@ -5,6 +5,8 @@
 
 import numpy as np
 from copy import deepcopy
+import logging
+import platform
 
 # Syncopy imports
 import syncopy as spy
@@ -159,7 +161,7 @@ def spike_psth(data,
 
         # apply the updated selection
         data.selectdata(select, inplace=True)
-        
+
         # now redefine local variables
         trl_def = data.selection.trialdefinition
         sinfo = data.selection.trialdefinition[:, :2]

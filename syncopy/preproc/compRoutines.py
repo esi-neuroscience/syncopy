@@ -7,6 +7,7 @@
 # Builtin/3rd party package imports
 import numpy as np
 import scipy.signal as sci
+import logging, platform
 from inspect import signature
 
 # syncopy imports
@@ -391,6 +392,9 @@ def hilbert_cF(dat, output='abs', timeAxis=0, noCompute=False, chunkShape=None):
     if noCompute:
         return outShape, fmt
 
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Computing Hilbert transformation on data chunk with shape {dat.shape} along axis 0.")
+
     trafo = sci.hilbert(dat, axis=0)
 
     return spectralConversions[output](trafo)
@@ -472,6 +476,9 @@ def downsample_cF(dat,
         outShape = list(dat.shape)
         outShape[0] = int(np.ceil(dat.shape[0] / skipped))
         return tuple(outShape), dat.dtype
+
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Downsampling data chunk with shape {dat.shape} from samplerate {samplerate} to {new_samplerate}.")
 
     resampled = downsample(dat, samplerate, new_samplerate)
 
@@ -583,6 +590,9 @@ def resample_cF(dat,
         new_nSamples = int(np.ceil(nSamples * fs_ratio))
         return (new_nSamples, dat.shape[1]), dat.dtype
 
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Resampling data chunk with shape {dat.shape} from samplerate {samplerate} to {new_samplerate} with lpfreq={lpfreq}, order={order}.")
+
     resampled = resample(dat,
                          samplerate,
                          new_samplerate,
@@ -637,7 +647,7 @@ def detrending_cF(dat, polyremoval=None, timeAxis=0, noCompute=False, chunkShape
 
     """
     Simple cF to wire SciPy's `detrend` to our CRs,
-    supported are constant and linear detrending
+    supported are constant and linear detrending.
 
     Parameters
     ----------
@@ -687,6 +697,9 @@ def detrending_cF(dat, polyremoval=None, timeAxis=0, noCompute=False, chunkShape
     outShape = dat.shape
     if noCompute:
         return outShape, np.float32
+
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Detrending data chunk with shape {dat.shape} with polyremoval={polyremoval}.")
 
     # detrend
     if polyremoval == 0:
@@ -781,6 +794,9 @@ def standardize_cF(dat, polyremoval=None, timeAxis=0, noCompute=False, chunkShap
         dat = sci.detrend(dat, type='constant', axis=0, overwrite_data=True)
     elif polyremoval == 1:
         dat = sci.detrend(dat, type='linear', axis=0, overwrite_data=True)
+
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Standardizing data chunk with shape {dat.shape} (prior polyremoval was {polyremoval}).")
 
     # standardize
     dat = (dat - np.mean(dat, axis=0)) / np.std(dat, axis=0)
