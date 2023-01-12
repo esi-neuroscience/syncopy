@@ -213,11 +213,10 @@ class TestGranger:
 
         # test one final selection into a result
         # obtained via orignal SpectralData input
-        selections[0].pop('latency')        
+        selections[0].pop('latency')
         result_ad = cafunc(self.data, self.cfg, method='granger', select=selections[0])
         result_spec = cafunc(self.spec, method='granger', select=selections[0])
         assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=1e-3)
-
 
     def test_gr_foi(self):
 
@@ -441,7 +440,7 @@ class TestCoherence:
 
         # test one final selection into a result
         # obtained via orignal SpectralData input
-        selections[0].pop('latency')        
+        selections[0].pop('latency')
         result_ad = cafunc(self.data, self.cfg, method='coh', select=selections[0])
         result_spec = cafunc(self.spec, method='coh', select=selections[0])
         assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=1e-3)
@@ -514,6 +513,46 @@ class TestCoherence:
             else:
                 # strictly real outputs
                 assert np.all(np.imag(coh.trials[0]) == 0)
+
+
+class TestCSD:
+    nSamples = 1400
+    nChannels = 4
+    nTrials = 100
+    fs = 1000
+
+    # -- two harmonics with individual phase diffusion --
+
+    f1, f2 = 20, 40
+    # a lot of phase diffusion (1% per step) in the 20Hz band
+    s1 = synth_data.phase_diffusion(nTrials, freq=f1,
+                                    eps=.01,
+                                    nChannels=nChannels,
+                                    nSamples=nSamples)
+
+    # little diffusion in the 40Hz band
+    s2 = synth_data.phase_diffusion(nTrials, freq=f2,
+                                    eps=.001,
+                                    nChannels=nChannels,
+                                    nSamples=nSamples)
+
+    wn = synth_data.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples)
+
+    # superposition
+    data = s1 + s2 + wn
+    data.samplerate = fs
+    time_span = [-1, nSamples / fs - 1]   # -1s offset
+
+    # spectral analysis
+    cfg = spy.StructDict()
+    cfg.tapsmofrq = 1.5
+    cfg.foilim = [5, 60]
+    cfg.method = 'csd'
+
+    spec = spy.connectivityanalysis(data, cfg)
+
+    def test_data_output_type(self):
+        assert self.spec.data.dtype.name == 'complex64'
 
 
 class TestCorrelation:
@@ -715,9 +754,9 @@ def plot_corr(res, i, j, label=''):
     ax.legend()
 
 
-
 if __name__ == '__main__':
     T1 = TestGranger()
     T2 = TestCoherence()
     T3 = TestCorrelation()
     T4 = TestSpectralInput()
+    T5 = TestCSD()
