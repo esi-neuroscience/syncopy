@@ -50,7 +50,7 @@ For bug reports etc. please send an email to syncopy@esi-frankfurt.de
 try:
     dd.get_client()
 except ValueError:
-    silence_file = os.path.expanduser("~/.spy/silentstartup")
+    silence_file = os.path.join(os.path.expanduser("~"), ".spy", "silentstartup")
     if os.getenv("SPYSILENTSTARTUP") is None and not os.path.isfile(silence_file):
         print(msg)
 
