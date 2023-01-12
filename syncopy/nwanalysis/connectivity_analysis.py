@@ -70,7 +70,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
 
     "csd" : ('Multi-) tapered cross spectral density estimate
-        Computes the normalized cross spectral densities between all channel combinations
+        Computes the cross spectral estimates between all channel combinations
 
         output : complex spectrum
 
