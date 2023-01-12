@@ -131,6 +131,7 @@ spy_logger.addHandler(sh)
 
 logfile = os.path.join(__logdir__, f'syncopy.log')
 fh = logging.FileHandler(logfile)  # The default mode is 'append'.
+fh.setFormatter(fmt)
 spy_logger.addHandler(fh)
 
 
