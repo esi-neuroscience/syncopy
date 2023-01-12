@@ -80,7 +80,7 @@ class TestAnalogSelections:
             (
             {'channel': ["channel03", "channel01"],
             'latency': [0, 1],
-            'trials': np.arange(2)},                           
+            'trials': np.arange(2)},
             # these are the idx used to access the actual data
             {'channel': [2, 0],
              'latency': 2 * [slice(1, 4, 1)],
@@ -160,7 +160,7 @@ class TestSpectralSelections:
                      'latency': [1, 1.5],
                      'frequency': [25, 50]}
         res = spy.selectdata(T2.sdata, selection)
-        
+
         # pick the data by hand, dimord is: ['time', 'taper', 'freq', 'channel']
         # latency [1, 1.5] covers 1st - 2nd sample index
         # as time axis is array([1., 1.5, 2.])
@@ -180,7 +180,7 @@ class TestSpectralSelections:
         test mainly additional dimensions (taper and freq) here
         """
 
-        # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")        
+        # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")
         valid_selections = [
             (
             {'frequency': np.array([30, 60]),
@@ -200,9 +200,9 @@ class TestSpectralSelections:
              'taper': [1],
              'latency': [[1], [1]],
              'trials': [1, 2]},
-            )            
+            )
         ]
-            
+
         for selection in valid_selections:
             # instantiate Selector and check attributes
             sel_kwargs, solution = selection
@@ -218,17 +218,103 @@ class TestSpectralSelections:
             ({'frequency': '40Hz'}, SPYValueError, "'all' or `None` or float or list/array"),
             ({'frequency': 4}, SPYValueError, "all array elements to be bounded"),
             ({'frequency': slice(None)}, SPYTypeError, "expected serializable data type"),
-            ({'frequency': range(20,60)}, SPYTypeError, "expected array_like"),            
+            ({'frequency': range(20,60)}, SPYTypeError, "expected array_like"),
             ({'frequency': np.arange(20,60)}, SPYValueError, "expected array of shape"),
             ({'taper': 'taper13'}, SPYValueError, "existing names or indices"),
-            ({'taper': [18, 99]}, SPYValueError, "existing names or indices"),            
+            ({'taper': [18, 99]}, SPYValueError, "existing names or indices"),
         ]
 
         for selection in invalid_selections:
             sel_kw, error, err_str = selection
             with pytest.raises(error, match=err_str):
                 spy.selectdata(self.sdata, sel_kw)
-        
+
+class TestCrossSpectralSelections:
+
+    nChannels = 3
+    nSamples = 3  # per trial
+    nTrials = 3
+    nFreqs = 3
+    samplerate = 2.0
+
+    trldef = np.vstack([np.arange(0, nSamples * nTrials, nSamples),
+                        np.arange(0, nSamples * nTrials, nSamples) + nSamples,
+                        np.ones(nTrials) * 2]).T
+
+    # this is an array running from 1 - nChannels * nSamples * nTrials * nFreq * nTaper
+    data = np.arange(1, nChannels**2 * nSamples * nTrials * nFreqs + 1).reshape(nSamples * nTrials, nFreqs, nChannels, nChannels)
+    csd_data = spy.CrossSpectralData(data=data, samplerate=samplerate)
+    csd_data.trialdefinition = trldef
+
+    # freq labels
+    csd_data.freq = [20, 40, 60]
+
+    def test_csd_selection(self):
+
+        """
+        Create a simple selection and check that the returned data is correct
+        """
+
+        selection = {'trials': 1,
+                     'channel_i': [0, 1],
+                     'latency': [1.5, 2],
+                     'frequency': [25, 60]}
+
+        res = spy.selectdata(self.csd_data, selection)
+
+        # pick the data by hand, dimord is: ['time', 'freq', 'channel_i', 'channel_j']
+        # latency [1, 1.5] covers 2nd - 3rd sample index
+        # as time axis is array([1., 1.5, 2.])
+        # frequency covers 2nd and 3rd index (40 and 60Hz)
+
+        # pick trial
+        solution = self.csd_data.data[self.nSamples : self.nSamples * 2]
+        # pick channels, frequency and latency and re-stack
+        solution = solution[1:3, 1:3, :2, :]
+        assert np.all(solution == res.data)
+
+
+    def test_csd_valid(self):
+
+        """
+        Instantiate Selector class and check its only attributes (the idx)
+        test mainly additional dimensions (channel_i, channel_j) here
+        """
+
+        # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")
+        valid_selections = [
+            (
+            {'frequency': np.array([30, 60]),
+             'taper': [1, 0]},
+            # the 'solutions'
+            {'frequency': slice(1, 3, 1),
+             'taper': [1, 0]},
+            ),
+            # 2nd selection
+            (
+            {'frequency': 'all',
+             'taper': 'taper2',
+             'latency': [1.2, 1.7],
+             'trials': np.arange(1,3)},
+            # the 'solutions'
+            {'frequency': slice(None),
+             'taper': [1],
+             'latency': [[1], [1]],
+             'trials': [1, 2]},
+            )
+        ]
+
+        for selection in valid_selections:
+            # instantiate Selector and check attributes
+            sel_kwargs, solution = selection
+            selector_object = Selector(self.sdata, sel_kwargs)
+            for sel_kw in sel_kwargs.keys():
+                attr_name = map_sel_attr[sel_kw]
+                assert getattr(selector_object, attr_name) == solution[sel_kw]
+
+
+
 if __name__ == '__main__':
     T1 = TestAnalogSelections()
     T2 = TestSpectralSelections()
+    T3 = TestCrossSpectralSelections()
