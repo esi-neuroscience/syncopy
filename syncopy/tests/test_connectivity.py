@@ -15,7 +15,7 @@ import dask.distributed as dd
 
 import syncopy as spy
 from syncopy import AnalogData, SpectralData
-import syncopy.nwanalysis.connectivity_analysis as ca
+from syncopy.nwanalysis.connectivity_analysis import connectivity_outputs
 from syncopy import connectivityanalysis as cafunc
 import syncopy.tests.synth_data as synth_data
 import syncopy.tests.helpers as helpers
@@ -499,7 +499,7 @@ class TestCoherence:
 
     def test_coh_outputs(self):
 
-        for output in ca.coh_outputs:
+        for output in connectivity_outputs:
             coh = cafunc(self.data,
                          method='coh',
                          output=output)
