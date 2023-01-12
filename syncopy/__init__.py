@@ -173,7 +173,7 @@ def handle_exception(exc_type, exc_value, exc_traceback):
         return
     spy_parallel_logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
 
-sys.excepthook = handle_exception
+sys.excepthook = handle_exception # TODO: this may get overwritten below with SPYExceptionHandler, should log in there.
 
 
 # Set upper bound for temp directory size (in GB)
