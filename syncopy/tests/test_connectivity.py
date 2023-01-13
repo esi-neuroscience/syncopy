@@ -554,6 +554,31 @@ class TestCSD:
     def test_data_output_type(self):
         assert self.spec.data.dtype.name == 'complex64'
 
+    # @skip_low_mem
+    # def test_csd_parallel(T, testcluster=None):
+
+    #     ppl.ioff()
+    #     client = dd.Client(testcluster)
+    #     # all_tests = [attr for attr in self.__dir__()
+    #     #              if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
+
+    #     # for test in all_tests:
+    #     #     test_method = getattr(self, test)
+    #     #     test_method()
+    #     client.close()
+    #     ppl.ion()
+
+    # def test_csd_cfg(self):
+
+    #     call = lambda cfg: cafunc(self.spec, cfg)
+
+    #     run_cfg_test(call, method='csd',
+    #                  cfg=get_defaults(cafunc))
+
+    def test_csd_input(self):
+
+        assert not isinstance(self.spec, SpectralData)
+
 
 class TestCorrelation:
 
