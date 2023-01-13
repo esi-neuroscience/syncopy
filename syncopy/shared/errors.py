@@ -194,7 +194,7 @@ def SPYExceptionHandler(*excargs, **exckwargs):
                                         cols.Normal if isipy else "")
 
         # Show generated message and leave (or kick-off debugging in Jupyer/iPython if %pdb is on)
-        logger = get_logger()
+        logger = get_parallel_logger()
         logger.critical(emsg)
         if isipy:
             if ipy.call_pdb:
