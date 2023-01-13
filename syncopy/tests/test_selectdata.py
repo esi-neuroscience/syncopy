@@ -8,16 +8,12 @@ import pytest
 import numpy as np
 import inspect
 import dask.distributed as dd
-from numbers import Number
+
 
 # Local imports
-from syncopy.tests.misc import flush_local_cluster
-from syncopy.datatype import AnalogData, SpectralData
 from syncopy.datatype.base_data import Selector
-from syncopy.datatype.methods.selectdata import selectdata
-from syncopy.shared.errors import SPYError, SPYValueError, SPYTypeError
-from syncopy.shared.tools import StructDict
-from syncopy import freqanalysis
+from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.tests.misc import flush_local_cluster
 
 import syncopy as spy
 
@@ -85,7 +81,7 @@ class TestAnalogSelections:
         # pick the data by hand, latency [0, 1] covers 2nd - 4th sample index
         # as time axis is array([-0.5,  0. ,  0.5,  1. ,  1.5])
 
-        solution = self.adata.data[self.nSamples : self.nSamples * 2]
+        solution = self.adata.data[self.nSamples:self.nSamples * 2]
         solution = np.column_stack([solution[1:4, 6], solution[1:4, 2]])
 
         assert np.all(solution == res.data)
@@ -99,21 +95,21 @@ class TestAnalogSelections:
         # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")
         valid_selections = [
             (
-            {'channel': ["channel03", "channel01"],
-            'latency': [0, 1],
-            'trials': np.arange(2)},
-            # these are the idx used to access the actual data
-            {'channel': [2, 0],
-             'latency': 2 * [slice(1, 4, 1)],
-             'trials': [0, 1]}
+                {'channel': ["channel03", "channel01"],
+                 'latency': [0, 1],
+                 'trials': np.arange(2)},
+                # these are the idx used to access the actual data
+                {'channel': [2, 0],
+                 'latency': 2 * [slice(1, 4, 1)],
+                 'trials': [0, 1]}
             ),
             (
-            # 2nd selection with some repetitions
-            {'channel': [7, 3, 3],
-             'trials': [0, 1, 1]},
-            # 'solutions'
-            {'channel': [7, 3, 3],
-            'trials': [0, 1, 1]}
+                # 2nd selection with some repetitions
+                {'channel': [7, 3, 3],
+                 'trials': [0, 1, 1]},
+                # 'solutions'
+                {'channel': [7, 3, 3],
+                 'trials': [0, 1, 1]}
             )
         ]
 
@@ -197,7 +193,7 @@ class TestSpectralSelections:
         # frequency covers only 2nd index (40 Hz)
 
         # pick trial
-        solution = self.sdata.data[self.nSamples : self.nSamples * 2]
+        solution = self.sdata.data[self.nSamples:self.nSamples * 2]
         # pick channels, frequency and latency and re-stack
         solution = np.stack([solution[:2, :, [1], 1], solution[:2, :, [1], 0]], axis=-1)
 
@@ -224,7 +220,7 @@ class TestSpectralSelections:
                 {'frequency': 'all',
                  'taper': 'taper2',
                  'latency': [1.2, 1.7],
-                 'trials': np.arange(1,3)},
+                 'trials': np.arange(1, 3)},
                 # the 'solutions'
                 {'frequency': slice(None),
                  'taper': [1],
@@ -248,8 +244,8 @@ class TestSpectralSelections:
             ({'frequency': '40Hz'}, SPYValueError, "'all' or `None` or float or list/array"),
             ({'frequency': 4}, SPYValueError, "all array elements to be bounded"),
             ({'frequency': slice(None)}, SPYTypeError, "expected serializable data type"),
-            ({'frequency': range(20,60)}, SPYTypeError, "expected array_like"),
-            ({'frequency': np.arange(20,60)}, SPYValueError, "expected array of shape"),
+            ({'frequency': range(20, 60)}, SPYTypeError, "expected array_like"),
+            ({'frequency': np.arange(20, 60)}, SPYValueError, "expected array of shape"),
             ({'taper': 'taper13'}, SPYValueError, "existing names or indices"),
             ({'taper': [18, 99]}, SPYValueError, "existing names or indices"),
         ]
@@ -556,6 +552,7 @@ class TestEventSelections:
             sel_kw, error, err_str = selection
             with pytest.raises(error, match=err_str):
                 spy.selectdata(self.edata, sel_kw)
+
 
 if __name__ == '__main__':
     T1 = TestGeneral()
