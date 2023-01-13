@@ -930,7 +930,7 @@ class ComputationalRoutine(ABC):
         with h5py.File(out.filename, "r+") as h5fout:
             target = h5fout[self.outDatasetName]
 
-            for nblock in tqdm(range(self.numTrials), bar_format=self.tqdmFormat):
+            for nblock in tqdm(range(self.numTrials), bar_format=self.tqdmFormat, disable=None):
 
                 # Extract respective indexing tuples from constructed lists
                 ingrid = self.sourceLayout[nblock]

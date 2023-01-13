@@ -228,7 +228,7 @@ def load_nwb(filename, memuse=3000, container=None):
     memuse *= 1024**2
 
     # Process analog time series data and convert stuff block by block (if necessary)
-    pbar = tqdm(angSeries, position=0)
+    pbar = tqdm(angSeries, position=0, disable=None)
     for acqValue in pbar:
         # Show dataset name in progress bar label
         pbar.set_description("Loading {} from disk".format(acqValue.name))
@@ -261,7 +261,7 @@ def load_nwb(filename, memuse=3000, container=None):
         rem = int(angDset.shape[0] % nSamp)
         blockList = [nSamp] * int(angDset.shape[0] // nSamp) + [rem] * int(rem > 0)
 
-        for m, M in enumerate(tqdm(blockList, desc=pbarDesc, position=1, leave=False)):
+        for m, M in enumerate(tqdm(blockList, desc=pbarDesc, position=1, leave=False, disable=None)):
             st_samp, end_samp = m * nSamp, m * nSamp + M
             angDset[st_samp : end_samp, :] = acqValue.data[st_samp : end_samp, :]
             if acqValue.channel_conversion is not None:
