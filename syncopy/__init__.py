@@ -166,15 +166,6 @@ fhp.setFormatter(fmt_with_hostname)
 spy_parallel_logger.addHandler(fhp)
 spy_parallel_logger.info(f"Syncopy parallel logger '{parallel_logger_name}' setup to log to file '{logfile_par}' at level {loglevel}.")
 
-## Setup global handler to log uncaught exceptions:
-def handle_exception(exc_type, exc_value, exc_traceback):
-    if issubclass(exc_type, KeyboardInterrupt):
-        sys.__excepthook__(exc_type, exc_value, exc_traceback)
-        return
-    spy_parallel_logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-
-sys.excepthook = handle_exception # TODO: this may get overwritten below with SPYExceptionHandler, should log in there.
-
 
 # Set upper bound for temp directory size (in GB)
 __storagelimit__ = 10
