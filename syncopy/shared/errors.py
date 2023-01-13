@@ -275,7 +275,7 @@ def SPYExceptionHandler(*excargs, **exckwargs):
 
 
     # Show generated message and get outta here
-    logger = get_logger()
+    logger = get_parallel_logger()
     logger.critical(emsg)
 
     # Kick-start debugging in case %pdb is enabled in Jupyter/iPython
