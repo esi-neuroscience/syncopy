@@ -547,12 +547,13 @@ class TestCSD:
     cfg = spy.StructDict()
     cfg.tapsmofrq = 1.5
     cfg.foilim = [5, 60]
-    cfg.method = 'csd'
 
-    spec = spy.connectivityanalysis(data, cfg)
+    spec = spy.freqanalysis(data, cfg, output='fourier', keeptapers=True)
 
     def test_data_output_type(self):
-        assert self.spec.data.dtype.name == 'complex64'
+        cross_spec = spy.connectivityanalysis(self.spec, method='csd')
+        assert np.all(self.spec.freq == cross_spec.freq)
+        assert cross_spec.data.dtype.name == 'complex64'
 
     @skip_low_mem
     def test_csd_parallel(self, testcluster=None):
@@ -572,8 +573,7 @@ class TestCSD:
 
         call = lambda cfg: cafunc(self.spec, cfg)
 
-        run_cfg_test(call, method='csd',
-                     cfg=get_defaults(cafunc))
+        run_cfg_test(call, method='csd', cfg=get_defaults(cafunc))
 
     def test_csd_input(self):
 
@@ -729,6 +729,26 @@ class TestCorrelation:
 
         call = lambda polyremoval: self.test_corr_solution(polyremoval=polyremoval)
         helpers.run_polyremoval_test(call)
+
+
+def run_csd_cfg_test(method_call, method, cfg, positivity=True):
+
+    cfg.method = method
+    if method != 'granger':
+        cfg.frequency = [0, 70]
+    # test general tapers with
+    # additional parameters
+    cfg.taper = 'kaiser'
+    cfg.taper_opt = {'beta': 2}
+
+    cfg.output = 'abs'
+
+    result = method_call(cfg)
+
+    # check here just for finiteness and positivity
+    assert np.all(np.isfinite(result.data))
+    if positivity:
+        assert np.all(result.data[0, ...] >= -1e-10)
 
 
 def run_cfg_test(method_call, method, cfg, positivity=True):
