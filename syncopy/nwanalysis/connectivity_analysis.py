@@ -381,9 +381,9 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # Sanitize output and call the chosen ComputationalRoutine on the averaged ST output
     # ----------------------------------------------------------------------------------
     if method == 'csd':
-        new_cfg.update({'output': st_out.data.dtype.name})
+        # new_cfg.update({'output': st_out.data.dtype.name})
         st_out.cfg.update(data.cfg)
-        st_out.cfg.update({'cross_spectral': new_cfg})
+        st_out.cfg.update({'connectivityanalysis': new_cfg})
         return st_out
     else:
         out = CrossSpectralData(dimord=st_dimord)
