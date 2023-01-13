@@ -11,7 +11,6 @@ import dask.distributed as dd
 from numbers import Number
 
 # Local imports
-import syncopy.datatype as spd
 from syncopy.tests.misc import flush_local_cluster
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.datatype.base_data import Selector
@@ -23,13 +22,15 @@ from syncopy import freqanalysis
 import syncopy as spy
 
 # map selection keywords to selector attributes (holding the idx to access selected data)
-map_sel_attr = dict(trials = 'trial_ids',
-                    channel = 'channel',
-                    latency = 'time',
-                    taper = 'taper',
-                    frequency = 'freq',
-                    channel_i = 'channel_i',
-                    channel_j = 'channel_j'
+map_sel_attr = dict(trials='trial_ids',
+                    channel='channel',
+                    latency='time',
+                    taper='taper',
+                    frequency='freq',
+                    channel_i='channel_i',
+                    channel_j='channel_j',
+                    unit='unit',
+                    eventid='eventid'
                     )
 
 
@@ -41,7 +42,7 @@ class TestGeneral:
     def test_Selector_init(self):
 
         with pytest.raises(SPYTypeError, match="Wrong type of `data`"):
-            Selector(np.arange(10), latency=[0, 4])
+            Selector(np.arange(10), {'latency': [0, 4]})
 
     def test_invalid_sel_key(self):
 
@@ -75,7 +76,7 @@ class TestAnalogSelections:
     def test_ad_selection(self):
 
         """
-        Create a simple selection and check that the returned data is correct
+        Create a typical selection and check that the returned data is correct
         """
 
         selection = {'trials': 1, 'channel': [6, 2], 'latency': [0, 1]}
@@ -92,7 +93,7 @@ class TestAnalogSelections:
     def test_ad_valid(self):
 
         """
-        Instantiate Selector class and check its only attributes (the idx)
+        Instantiate Selector class and check only its attributes (the idx)
         """
 
         # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")
@@ -115,7 +116,6 @@ class TestAnalogSelections:
             'trials': [0, 1, 1]}
             )
         ]
-
 
         for selection in valid_selections:
             # instantiate Selector and check attributes
@@ -148,6 +148,16 @@ class TestAnalogSelections:
             with pytest.raises(error, match=err_str):
                 spy.selectdata(self.adata, sel_kw)
 
+    def test_ad_parallel(self, testcluster=None):
+        # collect all tests of current class and repeat them in parallel
+        client = dd.Client(testcluster)
+        all_tests = [attr for attr in self.__dir__()
+                     if (inspect.ismethod(getattr(self, attr)) and "parallel" not in attr)]
+        for test in all_tests:
+            getattr(self, test)()
+            flush_local_cluster(testcluster)
+        client.close()
+
 
 class TestSpectralSelections:
 
@@ -172,7 +182,7 @@ class TestSpectralSelections:
     def test_spectral_selection(self):
 
         """
-        Create a simple selection and check that the returned data is correct
+        Create a typical selection and check that the returned data is correct
         """
 
         selection = {'trials': 1,
@@ -196,7 +206,7 @@ class TestSpectralSelections:
     def test_spectral_valid(self):
 
         """
-        Instantiate Selector class and check its only attributes (the idx)
+        Instantiate Selector class and check only its attributes (the idx)
         test mainly additional dimensions (taper and freq) here
         """
 
@@ -273,7 +283,7 @@ class TestCrossSpectralSelections:
     def test_csd_selection(self):
 
         """
-        Create a simple selection and check that the returned data is correct
+        Create a typical selection and check that the returned data is correct
         """
 
         selection = {'trials': [1, 0],
@@ -299,7 +309,7 @@ class TestCrossSpectralSelections:
     def test_csd_valid(self):
 
         """
-        Instantiate Selector class and check its only attributes (the idx)
+        Instantiate Selector class and check only its attributes (the idx)
         test mainly additional dimensions (channel_i, channel_j) here
         """
 
@@ -391,7 +401,7 @@ class TestSpikeSelections:
         trial2 = self.spike_data.trialdefinition[2, :2]
         trial4 = self.spike_data.trialdefinition[4, :2]
 
-        # create boolean mask for trials
+        # create boolean mask for trials [2, 4]
         bm = (dat_arr[:, 0] >= trial2[0]) & (dat_arr[:, 0] <= trial2[1])
         bm = bm | (dat_arr[:, 0] >= trial4[0]) & (dat_arr[:, 0] <= trial4[1])
 
@@ -409,6 +419,143 @@ class TestSpikeSelections:
         # finally compare to selection result
         assert np.all(dat_arr[bm] == res.data[()])
 
+    def test_spike_valid(self):
+
+        """
+        Instantiate Selector class and check only its attributes, the idx
+        used by `_preview_trial` in the end
+        """
+
+        # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")
+        valid_selections = [
+            (
+                # units get apparently indexed on a per trial basis
+                {'trials': np.arange(1, 4), 'channel': ['channel03', 'channel01'], 'unit': [2, 0]},
+                {'trials': [1, 2, 3], 'channel': [2, 0], 'unit': [[], [], [1, 5]]},
+            ),
+            # 2nd selection
+            (
+                # time/latency idx can be mixed lists and slices O.0
+                # and channel 'all' selections can still be effectively subsets..
+                {'trials': [0, 4], 'latency': [0, 3], 'channel': 'all'},
+                {'trials': [0, 4], 'latency': [slice(0, 4, 1), [1]], 'channel': [1, 2, 3, 5, 9]},
+            )
+        ]
+
+        for selection in valid_selections:
+            # instantiate Selector and check attributes
+            sel_kwargs, solution = selection
+            selector_object = Selector(self.spike_data, sel_kwargs)
+            for sel_kw in sel_kwargs.keys():
+                attr_name = map_sel_attr[sel_kw]
+                assert getattr(selector_object, attr_name) == solution[sel_kw]
+
+    def test_spike_invalid(self):
+
+        # each selection test is a 3-tuple: (selection kwargs, Error, error message sub-string)
+        invalid_selections = [
+            ({'channel': ["channel33", "channel01"]}, SPYValueError, "existing names or indices"),
+            ({'channel': "my-non-existing-channel"}, SPYValueError, "existing names or indices"),
+            ({'channel': slice(None)}, SPYTypeError, "expected serializable data type"),
+            ({'unit': 99}, SPYValueError, "existing names or indices"),
+            ({'unit': slice(None)}, SPYTypeError, "expected serializable data type"),
+            ({'latency': [-1, 10]}, SPYValueError, "at least one trial covering the latency window"),
+        ]
+
+        for selection in invalid_selections:
+            sel_kw, error, err_str = selection
+            with pytest.raises(error, match=err_str):
+                spy.selectdata(self.spike_data, sel_kw)
+
+
+class TestEventSelections:
+
+    """
+    This data type probably needs some adjustments..
+    """
+
+    nSamples = 4
+    nTrials = 5
+    eIDs = [0, 111, 31]  # event ids
+    rng = np.random.default_rng(42)
+
+    trldef = np.vstack([np.arange(0, nSamples * nTrials, nSamples),
+                        np.arange(0, nSamples * nTrials, nSamples) + nSamples,
+                        np.ones(nTrials) * -1]).T
+
+    # Use a triple-trigger pattern to simulate EventData w/non-uniform trials
+    data = np.vstack([np.arange(0, nSamples * nTrials, 1),
+                      rng.choice(eIDs, size=nSamples * nTrials)]).T
+
+    edata = spy.EventData(data=data, samplerate=1, trialdefinition=trldef)
+
+    def test_event_selection(self):
+
+        # eIDs[1] = 111, a bit funny that here we need an index actually...
+        selection = {'eventid': 1, 'latency': [0, 1], 'trials': [0, 3]}
+        res = spy.selectdata(self.edata, selection)
+
+        # hand pick selection from the arrays
+        dat_arr = self.edata.data
+
+        # these are trial intervals in sample indices!
+        trial0 = self.edata.trialdefinition[0, :2]
+        trial3 = self.edata.trialdefinition[3, :2]
+
+        # create boolean mask for trials [0, 3]
+        bm = (dat_arr[:, 0] >= trial0[0]) & (dat_arr[:, 0] <= trial0[1])
+        bm = bm | (dat_arr[:, 0] >= trial3[0]) & (dat_arr[:, 0] <= trial3[1])
+
+        # add eventid eIDs[1]
+        bm = bm & (dat_arr[:, 1] == 111)
+
+        # latency [0, 1]
+        # to index all trials at once
+        time_vec = np.concatenate([t for t in self.edata.time])
+        bm = bm & ((time_vec >= 0) & (time_vec <= 1))
+
+        # finally compare to selection result
+        assert np.all(dat_arr[bm] == res.data[()])
+
+    def test_event_valid(self):
+        """
+        Instantiate Selector class and check only its attributes, the idx
+        used by `_preview_trial` in the end
+        """
+
+        # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")
+        valid_selections = [
+            (
+                # eventids get apparently indexed on a per trial basis
+                {'trials': np.arange(1, 4), 'eventid': [0, 2]},
+                {'trials': [1, 2, 3], 'eventid': [[2], slice(0, 2, 1), []]}
+            ),
+        ]
+
+        for selection in valid_selections:
+            # instantiate Selector and check attributes
+            sel_kwargs, solution = selection
+            selector_object = Selector(self.edata, sel_kwargs)
+            for sel_kw in sel_kwargs.keys():
+                attr_name = map_sel_attr[sel_kw]
+                assert getattr(selector_object, attr_name) == solution[sel_kw]
+
+    def test_event_invalid(self):
+
+        """
+        eventid seems to be only indexable ([0, 1, 2]) instead of using the actual
+        numerical values ([0, 111, 31]), this should most likely change in the future..
+        """
+        # each selection test is a 3-tuple: (selection kwargs, Error, error message sub-string)
+        invalid_selections = [
+            ({'eventid': [111, 31]}, SPYValueError, "existing names or indices"),
+            ({'eventid': '111'}, SPYValueError, "expected dtype = numeric"),
+        ]
+
+        for selection in invalid_selections:
+            sel_kw, error, err_str = selection
+            with pytest.raises(error, match=err_str):
+                spy.selectdata(self.edata, sel_kw)
 
 if __name__ == '__main__':
     T1 = TestGeneral()
@@ -416,5 +563,4 @@ if __name__ == '__main__':
     T3 = TestSpectralSelections()
     T4 = TestCrossSpectralSelections()
     T5 = TestSpikeSelections()
-
-    sdata = T5.spike_data
+    T6 = TestEventSelections()
