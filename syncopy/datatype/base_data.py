@@ -2156,7 +2156,7 @@ class Selector:
                         "channel_j",
                     ]:
                         if len(idxList) > 1:
-                            err = "Multi-channel-pair selections not supported"
+                            err = "Unordered (low to high) or non-contiguous multi-channel-pair selections not supported"
                             raise NotImplementedError(err)
                         idxList = idxList[0]
 

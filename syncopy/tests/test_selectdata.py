@@ -17,7 +17,6 @@ from syncopy.datatype import AnalogData, SpectralData
 from syncopy.datatype.base_data import Selector
 from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYError, SPYValueError, SPYTypeError
-from syncopy.tests.test_specest_fooof import _get_fooof_signal
 from syncopy.shared.tools import StructDict
 from syncopy import freqanalysis
 
@@ -28,8 +27,30 @@ map_sel_attr = dict(trials = 'trial_ids',
                     channel = 'channel',
                     latency = 'time',
                     taper = 'taper',
-                    frequency = 'freq'
+                    frequency = 'freq',
+                    channel_i = 'channel_i',
+                    channel_j = 'channel_j'
                     )
+
+
+class TestGeneral:
+
+    adata = spy.AnalogData(data=np.ones((2, 2)), samplerate=1)
+    csd_data = spy.CrossSpectralData(data=np.ones((2, 2, 2, 2)), samplerate=1)
+
+    def test_Selector_init(self):
+
+        with pytest.raises(SPYTypeError, match="Wrong type of `data`"):
+            Selector(np.arange(10), latency=[0, 4])
+
+    def test_invalid_sel_key(self):
+
+        # AnalogData has no `frequency`
+        with pytest.raises(SPYValueError, match="no `frequency` selection available"):
+            spy.selectdata(self.adata, frequency=[1, 10])
+        # CrossSpectralData has no `channel` (but channel_i, channel_j)
+        with pytest.raises(SPYValueError, match="no `channel` selection available"):
+            spy.selectdata(self.csd_data, channel=0)
 
 
 class TestAnalogSelections:
@@ -67,7 +88,6 @@ class TestAnalogSelections:
         solution = np.column_stack([solution[1:4, 6], solution[1:4, 2]])
 
         assert np.all(solution == res.data)
-
 
     def test_ad_valid(self):
 
@@ -183,23 +203,23 @@ class TestSpectralSelections:
         # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")
         valid_selections = [
             (
-            {'frequency': np.array([30, 60]),
-             'taper': [1, 0]},
-            # the 'solutions'
-            {'frequency': slice(1, 3, 1),
-             'taper': [1, 0]},
+                {'frequency': np.array([30, 60]),
+                 'taper': [1, 0]},
+                # the 'solutions'
+                {'frequency': slice(1, 3, 1),
+                 'taper': [1, 0]},
             ),
             # 2nd selection
             (
-            {'frequency': 'all',
-             'taper': 'taper2',
-             'latency': [1.2, 1.7],
-             'trials': np.arange(1,3)},
-            # the 'solutions'
-            {'frequency': slice(None),
-             'taper': [1],
-             'latency': [[1], [1]],
-             'trials': [1, 2]},
+                {'frequency': 'all',
+                 'taper': 'taper2',
+                 'latency': [1.2, 1.7],
+                 'trials': np.arange(1,3)},
+                # the 'solutions'
+                {'frequency': slice(None),
+                 'taper': [1],
+                 'latency': [[1], [1]],
+                 'trials': [1, 2]},
             )
         ]
 
@@ -262,6 +282,7 @@ class TestCrossSpectralSelections:
                      'frequency': [25, 60]}
 
         res = spy.selectdata(self.csd_data, selection)
+
         # pick the data by hand, dimord is: ['time', 'freq', 'channel_i', 'channel_j']
         # latency [1, 1.5] covers 2nd - 3rd sample index
         # as time axis is array([1., 1.5, 2.])
@@ -275,7 +296,6 @@ class TestCrossSpectralSelections:
         solution = np.concatenate([solution[1:3, 1:3, :2, :], solution[4:6, 1:3, :2, :]])
         assert np.all(solution == res.data)
 
-
     def test_csd_valid(self):
 
         """
@@ -286,23 +306,16 @@ class TestCrossSpectralSelections:
         # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")
         valid_selections = [
             (
-            {'frequency': np.array([30, 60]),
-             'taper': [1, 0]},
-            # the 'solutions'
-            {'frequency': slice(1, 3, 1),
-             'taper': [1, 0]},
+                {'channel_i': [0, 1], 'channel_j': [1, 2], 'latency': [1, 2]},
+                # the 'solutions'
+                {'channel_i': slice(0, 2, 1), 'channel_j': slice(1, 3, 1),
+                 'latency': 3 * [slice(0, 3, 1)]},
             ),
             # 2nd selection
             (
-            {'frequency': 'all',
-             'taper': 'taper2',
-             'latency': [1.2, 1.7],
-             'trials': np.arange(1,3)},
-            # the 'solutions'
-            {'frequency': slice(None),
-             'taper': [1],
-             'latency': [[1], [1]],
-             'trials': [1, 2]},
+                {'channel_i': ['channel2', 'channel3'], 'channel_j': 1},
+                # the 'solutions'
+                {'channel_i': slice(1, 3, 1), 'channel_j': 1},
             )
         ]
 
@@ -314,9 +327,94 @@ class TestCrossSpectralSelections:
                 attr_name = map_sel_attr[sel_kw]
                 assert getattr(selector_object, attr_name) == solution[sel_kw]
 
+    def test_csd_invalid(self):
+
+        # each selection test is a 3-tuple: (selection kwargs, Error, error message sub-string)
+        invalid_selections = [
+            (
+                {'channel_i': [0, 2]}, NotImplementedError,
+                r"Unordered \(low to high\) or non-contiguous multi-channel-pair selections not supported"
+            ),
+            (
+                {'channel_i': [1, 0]}, NotImplementedError,
+                r"Unordered \(low to high\) or non-contiguous multi-channel-pair selections not supported"
+            ),
+            (
+                {'channel_j': ['channel3', 'channel1']}, NotImplementedError,
+                r"Unordered \(low to high\) or non-contiguous multi-channel-pair selections not supported"
+            )
+
+        ]
+
+        for selection in invalid_selections:
+            sel_kw, error, err_str = selection
+            with pytest.raises(error, match=err_str):
+                spy.selectdata(self.csd_data, sel_kw)
+
+
+class TestSpikeSelections:
+
+    nChannels = 10
+    nTrials = 5
+    samplerate = 2.0
+    nSpikes = 20
+    T_max = 2 * nSpikes   # in samples, not seconds!
+    nSamples = T_max / nTrials
+    rng = np.random.default_rng(42)
+
+    data = np.vstack([np.sort(rng.choice(range(T_max), size=nSpikes)),
+                      rng.choice(np.arange(0, nChannels), size=nSpikes),
+                      rng.choice(nChannels // 2, size=nSpikes)]).T
+
+    trldef = np.vstack([np.arange(0, T_max, nSamples),
+                        np.arange(0, T_max, nSamples) + nSamples,
+                        np.ones(nTrials) * -2]).T
+
+    spike_data = spy.SpikeData(data=data, samplerate=1, trialdefinition=trldef)
+
+    def test_spike_selection(self):
+
+        """
+        Create a typical selection and check that the returned data is correct
+        """
+
+        selection = {'trials': [2, 4],
+                     'channel': [6, 2],
+                     'unit': [0, 3],
+                     'latency': [-1, 4]}
+        res = self.spike_data.selectdata(selection)
+
+        # hand pick selection from the arrays
+        dat_arr = self.spike_data.data
+
+        # these are trial intervals in sample indices!
+        trial2 = self.spike_data.trialdefinition[2, :2]
+        trial4 = self.spike_data.trialdefinition[4, :2]
+
+        # create boolean mask for trials
+        bm = (dat_arr[:, 0] >= trial2[0]) & (dat_arr[:, 0] <= trial2[1])
+        bm = bm | (dat_arr[:, 0] >= trial4[0]) & (dat_arr[:, 0] <= trial4[1])
+
+        # add channels [6, 2]
+        bm = bm & ((dat_arr[:, 1] == 6) | (dat_arr[:, 1] == 2))
+
+        # units [0, 3]
+        bm = bm & ((dat_arr[:, 2] == 0) | (dat_arr[:, 2] == 3))
+
+        # latency [-1, 4]
+        # to index all trials at once
+        time_vec = np.concatenate([t for t in self.spike_data.time])
+        bm = bm & ((time_vec >= -1) & (time_vec <= 4))
+
+        # finally compare to selection result
+        assert np.all(dat_arr[bm] == res.data[()])
 
 
 if __name__ == '__main__':
-    T1 = TestAnalogSelections()
-    T2 = TestSpectralSelections()
-    T3 = TestCrossSpectralSelections()
+    T1 = TestGeneral()
+    T2 = TestAnalogSelections()
+    T3 = TestSpectralSelections()
+    T4 = TestCrossSpectralSelections()
+    T5 = TestSpikeSelections()
+
+    sdata = T5.spike_data
