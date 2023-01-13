@@ -1557,7 +1557,7 @@ class Selector:
         )
 
         # We first need to know which trials are of interest here (assuming
-        # that any valid input object *must* have a `trials` attribute)
+        # that any valid input object *must* have a `trials_ids` attribute)
         self.trial_ids = (data, select)
 
         # Now set any possible selection attribute (depending on type of `data`)

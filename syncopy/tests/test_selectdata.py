@@ -58,12 +58,12 @@ class TestAnalogSelections:
         """
 
         selection = {'trials': 1, 'channel': [6, 2], 'latency': [0, 1]}
-        res = spy.selectdata(T1.adata, selection)
+        res = spy.selectdata(self.adata, selection)
 
         # pick the data by hand, latency [0, 1] covers 2nd - 4th sample index
         # as time axis is array([-0.5,  0. ,  0.5,  1. ,  1.5])
 
-        solution = T1.adata.data[self.nSamples : self.nSamples * 2]
+        solution = self.adata.data[self.nSamples : self.nSamples * 2]
         solution = np.column_stack([solution[1:4, 6], solution[1:4, 2]])
 
         assert np.all(solution == res.data)
@@ -159,7 +159,7 @@ class TestSpectralSelections:
                      'channel': [1, 0],
                      'latency': [1, 1.5],
                      'frequency': [25, 50]}
-        res = spy.selectdata(T2.sdata, selection)
+        res = spy.selectdata(self.sdata, selection)
 
         # pick the data by hand, dimord is: ['time', 'taper', 'freq', 'channel']
         # latency [1, 1.5] covers 1st - 2nd sample index
@@ -167,7 +167,7 @@ class TestSpectralSelections:
         # frequency covers only 2nd index (40 Hz)
 
         # pick trial
-        solution = T2.sdata.data[self.nSamples : self.nSamples * 2]
+        solution = self.sdata.data[self.nSamples : self.nSamples * 2]
         # pick channels, frequency and latency and re-stack
         solution = np.stack([solution[:2, :, [1], 1], solution[:2, :, [1], 0]], axis=-1)
 
@@ -229,6 +229,7 @@ class TestSpectralSelections:
             with pytest.raises(error, match=err_str):
                 spy.selectdata(self.sdata, sel_kw)
 
+
 class TestCrossSpectralSelections:
 
     nChannels = 3
@@ -255,22 +256,23 @@ class TestCrossSpectralSelections:
         Create a simple selection and check that the returned data is correct
         """
 
-        selection = {'trials': 1,
+        selection = {'trials': [1, 0],
                      'channel_i': [0, 1],
                      'latency': [1.5, 2],
                      'frequency': [25, 60]}
 
         res = spy.selectdata(self.csd_data, selection)
-
         # pick the data by hand, dimord is: ['time', 'freq', 'channel_i', 'channel_j']
         # latency [1, 1.5] covers 2nd - 3rd sample index
         # as time axis is array([1., 1.5, 2.])
         # frequency covers 2nd and 3rd index (40 and 60Hz)
 
-        # pick trial
-        solution = self.csd_data.data[self.nSamples : self.nSamples * 2]
-        # pick channels, frequency and latency and re-stack
-        solution = solution[1:3, 1:3, :2, :]
+        # pick trials
+        solution = np.concatenate([self.csd_data.data[self.nSamples: self.nSamples * 2],
+                                   self.csd_data.data[: self.nSamples]], axis=0)
+
+        # pick channels, frequency and latency
+        solution = np.concatenate([solution[1:3, 1:3, :2, :], solution[4:6, 1:3, :2, :]])
         assert np.all(solution == res.data)
 
 
@@ -307,7 +309,7 @@ class TestCrossSpectralSelections:
         for selection in valid_selections:
             # instantiate Selector and check attributes
             sel_kwargs, solution = selection
-            selector_object = Selector(self.sdata, sel_kwargs)
+            selector_object = Selector(self.csd_data, sel_kwargs)
             for sel_kw in sel_kwargs.keys():
                 attr_name = map_sel_attr[sel_kw]
                 assert getattr(selector_object, attr_name) == solution[sel_kw]
