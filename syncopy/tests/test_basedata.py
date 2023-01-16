@@ -197,7 +197,6 @@ class TestBaseData():
             data.trials[2:3]
         with pytest.raises(SPYTypeError, match='trial index'):
             data.trials[np.arange(3)]
-        return data
 
     # Test ``_gen_filename`` with `AnalogData` only - method is independent from concrete data object
     def test_filename(self):
