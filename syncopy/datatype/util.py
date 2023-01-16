@@ -6,6 +6,7 @@ import os
 import getpass
 import socket
 from datetime import datetime
+from numbers import Number
 
 # Syncopy imports
 from syncopy import __storage__, __storagelimit__, __sessionid__
@@ -29,11 +30,14 @@ class TrialIndexer(list):
         idx_list : list
             List of valid trial indices for `_get_trial`
         """
+
         self.data_object = data_object
         self.idx_list = idx_list
         self._len = len(idx_list)
 
     def __getitem__(self, trialno):
+        if not isinstance(trialno, Number):
+            raise SPYTypeError(trialno, "trial index", "single number to index a single trial")
         if trialno not in self.idx_list:
             lgl = "index of existing trials"
             raise SPYValueError(lgl, "trial index", trialno)
