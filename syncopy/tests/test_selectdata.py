@@ -376,7 +376,9 @@ class TestSpikeSelections:
                         np.arange(0, T_max, nSamples) + nSamples,
                         np.ones(nTrials) * -2]).T
 
-    spike_data = spy.SpikeData(data=data, samplerate=1, trialdefinition=trldef)
+    spike_data = spy.SpikeData(data=data,
+                               samplerate=samplerate,
+                               trialdefinition=trldef)
 
     def test_spike_selection(self):
 
