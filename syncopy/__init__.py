@@ -127,7 +127,7 @@ from .plotting import *
 from .preproc import *
 
 # Register session
-__session__ = datatype.base_data.SessionLogger()
+__session__ = datatype.util.SessionLogger()
 
 # Override default traceback (differentiate b/w Jupyter/iPython and regular Python)
 from .shared.errors import SPYExceptionHandler

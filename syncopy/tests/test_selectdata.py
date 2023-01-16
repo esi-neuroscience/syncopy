@@ -654,15 +654,14 @@ class TestSelector():
         # checks time axis
         assert len(ang.selection.trials) == 3
 
-        # test for non-existing trials, trial indices are relative here!
+        # trial indices are absolute here!
         select = {'trials': [0, 3, 5]}
         ang.selectdata(**select, inplace=True)
         assert ang.selection.trial_ids[2] == 5
-        # this returns original trial 6 (with index 5)
-        assert np.array_equal(ang.selection.trials[2], ang.trials[5])
-        # we only have 3 trials selected here, so max. relative index is 2
-        with pytest.raises(SPYValueError, match='less or equals 2'):
-            ang.selection.trials[5]
+        assert np.array_equal(ang.selection.trials[5], ang.trials[5])
+        # test access of non-selected trial fails
+        with pytest.raises(SPYValueError, match='expected index of existing trials'):
+            ang.selection.trials[1]
 
         # Fancy indexing is not allowed so far
         select = {'channel': [7, 7, 8]}
