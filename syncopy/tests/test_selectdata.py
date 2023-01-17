@@ -475,6 +475,7 @@ class TestEventSelections:
 
     nSamples = 4
     nTrials = 5
+    samplerate = 1.0
     eIDs = [0, 111, 31]  # event ids
     rng = np.random.default_rng(42)
 
@@ -486,7 +487,7 @@ class TestEventSelections:
     data = np.vstack([np.arange(0, nSamples * nTrials, 1),
                       rng.choice(eIDs, size=nSamples * nTrials)]).T
 
-    edata = spy.EventData(data=data, samplerate=1, trialdefinition=trldef)
+    edata = spy.EventData(data=data, samplerate=samplerate, trialdefinition=trldef)
 
     def test_event_selection(self):
 
