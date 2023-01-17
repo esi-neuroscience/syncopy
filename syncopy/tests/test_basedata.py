@@ -278,7 +278,7 @@ class TestBaseData():
 
             # Start w/the one operator that does not handle zeros well...
             with pytest.raises(SPYValueError) as spyval:
-                dummy / 0
+                _ = dummy / 0
                 assert "expected non-zero scalar for division" in str(spyval.value)
 
             # Go through all supported operators and try to sabotage them
@@ -374,8 +374,8 @@ class TestBaseData():
             # Difference in actual numerical data
             dummy3 = dummy.copy()
             for dsetName in dummy3._hdfFileDatasetProperties:
-                getattr(dummy3, dsetName)[0] = 2 * np.pi
-            assert dummy3 != dummy
+                getattr(dummy3, dsetName)[0, 0] = -99
+            assert dummy3.data != dummy.data
 
             del dummy, dummy3, other
 
