@@ -473,18 +473,8 @@ class TestCoherence:
                      cfg=get_defaults(cafunc))
 
     @skip_low_mem
-    def test_coh_parallel(self, testcluster=None):
-
-        ppl.ioff()
-        client = dd.Client(testcluster)
-        all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
-
-        for test in all_tests:
-            test_method = getattr(self, test)
-            test_method()
-        client.close()
-        ppl.ion()
+    def test_parallel(self):
+        check_parallel(TestCoherence())
 
     def test_coh_padding(self):
 
@@ -554,30 +544,21 @@ class TestCSD:
         cross_spec = spy.connectivityanalysis(self.spec, method='csd')
         assert np.all(self.spec.freq == cross_spec.freq)
         assert cross_spec.data.dtype.name == 'complex64'
+        assert cross_spec.data.shape != self.spec.data.shape
 
     @skip_low_mem
-    def test_csd_parallel(self, testcluster=None):
-
-        ppl.ioff()
-        client = dd.Client(testcluster)
-        all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
-
-        for test in all_tests:
-            test_method = getattr(self, test)
-            test_method()
-        client.close()
-        ppl.ion()
-
-    def test_csd_cfg(self):
-
-        call = lambda cfg: cafunc(self.spec, cfg)
-
-        run_cfg_test(call, method='csd', cfg=get_defaults(cafunc))
+    def test_parallel(self):
+        check_parallel(TestCSD())
 
     def test_csd_input(self):
+        assert isinstance(self.spec, SpectralData)
 
-        assert not isinstance(self.spec, SpectralData)
+    def test_csd_cfg(self):
+        Method = 'csd'
+        cross_spec = spy.connectivityanalysis(self.spec, method=Method)
+        assert len(cross_spec.cfg) == 2
+        assert np.all([True for cfg in zip(self.spec.cfg['freqanalysis'], cross_spec.cfg['freqanalysis']) if cfg[0] == cfg[1]])
+        assert cross_spec.cfg['connectivityanalysis'].method == Method
 
 
 class TestCorrelation:
@@ -712,18 +693,8 @@ class TestCorrelation:
                      cfg=get_defaults(cafunc))
 
     @skip_low_mem
-    def test_corr_parallel(self, testcluster=None):
-
-        ppl.ioff()
-        client = dd.Client(testcluster)
-        all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
-
-        for test in all_tests:
-            test_method = getattr(self, test)
-            test_method()
-        client.close()
-        ppl.ion()
+    def test_parallel(self):
+        check_parallel(TestCorrelation())
 
     def test_corr_polyremoval(self):
 
@@ -731,24 +702,16 @@ class TestCorrelation:
         helpers.run_polyremoval_test(call)
 
 
-def run_csd_cfg_test(method_call, method, cfg, positivity=True):
-
-    cfg.method = method
-    if method != 'granger':
-        cfg.frequency = [0, 70]
-    # test general tapers with
-    # additional parameters
-    cfg.taper = 'kaiser'
-    cfg.taper_opt = {'beta': 2}
-
-    cfg.output = 'abs'
-
-    result = method_call(cfg)
-
-    # check here just for finiteness and positivity
-    assert np.all(np.isfinite(result.data))
-    if positivity:
-        assert np.all(result.data[0, ...] >= -1e-10)
+def check_parallel(TestClass, testcluster=None):
+    ppl.ioff()
+    client = dd.Client(testcluster)
+    all_tests = [attr for attr in TestClass.__dir__()
+                 if (inspect.ismethod(getattr(TestClass, attr)) and 'parallel' not in attr)]
+    for test in all_tests:
+        test_method = getattr(TestClass, test)
+        test_method()
+    client.close()
+    ppl.ion()
 
 
 def run_cfg_test(method_call, method, cfg, positivity=True):
