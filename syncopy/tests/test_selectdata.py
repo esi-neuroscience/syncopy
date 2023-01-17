@@ -362,7 +362,7 @@ class TestSpikeSelections:
 
     nChannels = 10
     nTrials = 5
-    samplerate = 2.0
+    samplerate = 1.0
     nSpikes = 20
     T_max = 2 * nSpikes   # in samples, not seconds!
     nSamples = T_max / nTrials
