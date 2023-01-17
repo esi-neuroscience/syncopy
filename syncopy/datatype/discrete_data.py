@@ -11,7 +11,7 @@ import inspect
 
 
 # Local imports
-from .base_data import BaseData, Indexer, FauxTrial
+from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError
