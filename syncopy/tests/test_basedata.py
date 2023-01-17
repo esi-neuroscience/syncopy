@@ -61,12 +61,12 @@ class TestBaseData():
     seed = np.random.RandomState(13)
     data["SpikeData"] = np.vstack([seed.choice(nSamples, size=nSpikes),
                                    seed.choice(nChannels, size=nSpikes),
-                                   seed.choice(int(nChannels / 2), size=nSpikes)]).T
+                                   seed.choice(int(nChannels / 2), size=nSpikes)]).T.astype(int)
     trl["SpikeData"] = trl["AnalogData"]
 
     # Use a simple binary trigger pattern to simulate EventData
     data["EventData"] = np.vstack([np.arange(0, nSamples, 5),
-                                   np.zeros((int(nSamples / 5), ))]).T
+                                   np.zeros((int(nSamples / 5), ))]).T.astype(int)
     data["EventData"][1::2, 1] = 1
     trl["EventData"] = trl["AnalogData"]
 

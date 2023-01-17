@@ -35,6 +35,7 @@ on_esi = os.path.isdir('/cs/slurm/syncopy')
 skip_no_esi = pytest.mark.skipif(not on_esi, reason="ESI fs not available")
 skip_no_nwb = pytest.mark.skipif(not spy.__nwb__, reason="pynwb not installed")
 
+
 class TestSpyIO():
 
     # Allocate test-datasets for AnalogData, SpectralData, SpikeData and EventData objects
@@ -65,12 +66,12 @@ class TestSpyIO():
     seed = np.random.RandomState(13)
     data["SpikeData"] = np.vstack([seed.choice(ns, size=nd),
                                    seed.choice(nc, size=nd),
-                                   seed.choice(int(nc / 2), size=nd)]).T
+                                   seed.choice(int(nc / 2), size=nd)]).T.astype(int)
     trl["SpikeData"] = trl["AnalogData"]
 
     # Generate bogus trigger timings
     data["EventData"] = np.vstack([np.arange(0, ns, 5),
-                                   np.zeros((int(ns / 5), ))]).T
+                                   np.zeros((int(ns / 5), ))]).T.astype(int)
     data["EventData"][1::2, 1] = 1
     trl["EventData"] = trl["AnalogData"]
 
@@ -613,6 +614,7 @@ class TestNWBImporter:
 
 
 if __name__ == '__main__':
+    T0 = TestSpyIO()
     T1 = TestFTImporter()
     T2 = TestTDTImporter()
     T3 = TestNWBImporter()
