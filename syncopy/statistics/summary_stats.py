@@ -282,7 +282,6 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
         if kwargs.get('parallel'):
             msg = "Trial statistics can be only computed sequentially, ignoring `parallel` keyword"
             SPYWarning(msg)
-
         out = _trial_statistics(spy_data, operation)
 
     # any other statistic
@@ -455,8 +454,10 @@ def _trial_statistics(in_data, operation='mean'):
         act = f"got {nTrials} trials"
         raise SPYValueError(lgl, 'in_data', act)
 
+    # index 1st selected trial
+    idx0 = in_data.selection.trial_ids[0]
     # we always have at least one (all-to-all) trial selection
-    out_shape = in_data.selection.trials[0].shape
+    out_shape = in_data.selection.trials[idx0].shape
 
     # now look at the other ones
     for trl in in_data.selection.trials:

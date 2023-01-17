@@ -10,11 +10,8 @@ import time
 import sys
 import os
 from abc import ABC, abstractmethod
-from datetime import datetime
 from hashlib import blake2b
-from itertools import islice
 from functools import reduce
-from inspect import signature
 import shutil
 import numpy as np
 import h5py
@@ -22,12 +19,12 @@ import scipy as sp
 
 # Local imports
 import syncopy as spy
+from .util import TrialIndexer
 from .methods.arithmetic import _process_operator
 from .methods.selectdata import selectdata
 from .methods.show import show
 from syncopy.shared.tools import SerializableDict
 from syncopy.shared.parsers import (
-    scalar_parser,
     array_parser,
     io_parser,
     filename_parser,
@@ -744,8 +741,13 @@ class BaseData(ABC):
     def trials(self):
         """list-like array of trials"""
 
-        return Indexer(map(self._get_trial, range(self.sampleinfo.shape[0])),
-                       self.sampleinfo.shape[0]) if self.sampleinfo is not None else None
+        if self.sampleinfo is not None:
+            trial_ids = list(range(self.sampleinfo.shape[0]))
+            # this is cheap as it just initializes a list-like object
+            # with no real data and/or computation!
+            return TrialIndexer(self, trial_ids)
+        else:
+            return None
 
     @property
     def trialinfo(self):
@@ -1161,147 +1163,6 @@ class BaseData(ABC):
         self._version = __version__
 
 
-class Indexer:
-
-    __slots__ = ["_iterobj", "_iterlen"]
-
-    def __init__(self, iterobj, iterlen):
-        """
-        Make an iterable object subscriptable using itertools magic
-        """
-        self._iterobj = iterobj
-        self._iterlen = iterlen
-
-    def __iter__(self):
-        return self._iterobj
-
-    def __getitem__(self, idx):
-        if np.issubdtype(type(idx), np.number):
-            try:
-                scalar_parser(
-                    idx, varname="idx", ntype="int_like", lims=[0, self._iterlen - 1]
-                )
-            except Exception as exc:
-                raise exc
-            return next(islice(self._iterobj, idx, idx + 1))
-        elif isinstance(idx, slice):
-            start, stop = idx.start, idx.stop
-            if idx.start is None:
-                start = 0
-            if idx.stop is None:
-                stop = self._iterlen
-            index = slice(start, stop, idx.step)
-            if not (0 <= index.start < self._iterlen) or not (
-                0 < index.stop <= self._iterlen
-            ):
-                err = "value between {lb:s} and {ub:s}"
-                raise SPYValueError(
-                    err.format(lb="0", ub=str(self._iterlen)),
-                    varname="idx",
-                    actual=str(index),
-                )
-            return np.hstack(islice(self._iterobj, index.start, index.stop, index.step))
-        elif isinstance(idx, (list, np.ndarray)):
-            try:
-                array_parser(
-                    idx,
-                    varname="idx",
-                    ntype="int_like",
-                    hasnan=False,
-                    hasinf=False,
-                    lims=[0, self._iterlen],
-                    dims=1,
-                )
-            except Exception as exc:
-                raise exc
-            return np.hstack(
-                [next(islice(self._iterobj, int(ix), int(ix + 1))) for ix in idx]
-            )
-        else:
-            raise SPYTypeError(idx, varname="idx", expected="int_like or slice")
-
-    def __len__(self):
-        return self._iterlen
-
-    def __repr__(self):
-        return self.__str__()
-
-    def __str__(self):
-        return "{} element iterable".format(self._iterlen)
-
-
-class SessionLogger:
-
-    __slots__ = ["sessionfile", "_rm"]
-
-    def __init__(self):
-
-        # Create package-wide tmp directory if not already present
-        if not os.path.exists(__storage__):
-            try:
-                os.makedirs(__storage__, exist_ok=True)
-            except Exception as exc:
-                err = (
-                    "Syncopy core: cannot create temporary storage directory {}. "
-                    + "Original error message below\n{}"
-                )
-                raise IOError(err.format(__storage__, str(exc)))
-
-        # Check for upper bound of temp directory size
-        with os.scandir(__storage__) as scan:
-            st_size = 0.0
-            st_fles = 0
-            for fle in scan:
-                try:
-                    st_size += fle.stat().st_size / 1024 ** 3
-                    st_fles += 1
-                # this catches a cleanup by another process
-                except FileNotFoundError:
-                    continue
-
-            if st_size > __storagelimit__:
-                msg = (
-                    "\nSyncopy <core> WARNING: Temporary storage folder {tmpdir:s} "
-                    + "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n"
-                    + "Consider running `spy.cleanup()` to free up disk space."
-                )
-                print(msg.format(tmpdir=__storage__, nfs=st_fles, sze=st_size))
-
-        # If we made it to this point, (attempt to) write the session file
-        sess_log = "{user:s}@{host:s}: <{time:s}> started session {sess:s}"
-        self.sessionfile = os.path.join(
-            __storage__, "session_{}_log.id".format(__sessionid__)
-        )
-        try:
-            with open(self.sessionfile, "w") as fid:
-                fid.write(
-                    sess_log.format(
-                        user=getpass.getuser(),
-                        host=socket.gethostname(),
-                        time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        sess=__sessionid__,
-                    )
-                )
-        except Exception as exc:
-            err = "Syncopy core: cannot access {}. Original error message below\n{}"
-            raise IOError(err.format(self.sessionfile, str(exc)))
-
-        # Workaround to prevent Python from garbage-collecting ``os.unlink``
-        self._rm = os.unlink
-
-    def __repr__(self):
-        return self.__str__()
-
-    def __str__(self):
-        return "Session {}".format(__sessionid__)
-
-    def __del__(self):
-        try:
-            self._rm(self.sessionfile)
-        except FileNotFoundError:
-            pass
-
-
 class FauxTrial:
     """
     Stand-in mockup of NumPy arrays representing trial data
@@ -1557,7 +1418,7 @@ class Selector:
         )
 
         # We first need to know which trials are of interest here (assuming
-        # that any valid input object *must* have a `trials` attribute)
+        # that any valid input object *must* have a `trials_ids` attribute)
         self.trial_ids = (data, select)
 
         # Now set any possible selection attribute (depending on type of `data`)
@@ -1617,23 +1478,28 @@ class Selector:
                 raise SPYValueError(legal=lgl, varname=vname, actual=act)
         else:
             trials = trlList
-        self._trial_ids = list(trials) # ensure `trials` is a list cf. #180
+        self._trial_ids = list(trials)  # ensure `trials` is a list cf. #180
 
     @property
     def trials(self):
         """
-        Returns an Indexer indexing single trial arrays respecting the selection
-        Indices are RELATIVE with respect to existing trial selections:
+        Returns an iterable indexing single trial arrays respecting the selection
+        Indices are ABSOLUTE with respect to existing trial selections:
 
-        >>> selection.trials[2]
+        >>> selection.trials[11]
 
-        indexes the 3rd trial of `selection.trial_ids`
+        indexes the 11th trial of the original dataset, if and only if
+        trial number 11 is part of the selection.
 
         Selections must be "simple": ordered and without repetitions
         """
 
-        return Indexer(map(self._get_trial, self.trial_ids),
-                       len(self.trial_ids)) if self.trial_ids is not None else None
+        if self.sampleinfo is not None:
+            # this is cheap as it just initializes a list-like object
+            # with no real data and/or computations!
+            return TrialIndexer(self, self.trial_ids)
+        else:
+            return None
 
     def create_get_trial(self, data):
         """ Closure to allow emulation of BaseData._get_trial"""
@@ -2156,7 +2022,7 @@ class Selector:
                         "channel_j",
                     ]:
                         if len(idxList) > 1:
-                            err = "Multi-channel-pair selections not supported"
+                            err = "Unordered (low to high) or non-contiguous multi-channel-pair selections not supported"
                             raise NotImplementedError(err)
                         idxList = idxList[0]
 
@@ -2338,7 +2204,7 @@ class Selector:
                         attr,
                         "s" if not attr.endswith("s") else "",
                     )
-            elif isinstance(val, (list, Indexer)):
+            elif isinstance(val, (list, TrialIndexer)):
                 ppdict[attr] = "{0:d} {1:s}{2:s}, ".format(
                     len(val), attr, "s" if not attr.endswith("s") else ""
                 )

@@ -13,7 +13,6 @@ import syncopy as spy
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.tools import get_defaults, get_frontend_cfg
 from syncopy.datatype import TimeLockData
-from syncopy.datatype.base_data import Indexer
 
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo
 from syncopy.shared.kwarg_decorators import (
