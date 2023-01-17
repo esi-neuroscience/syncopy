@@ -312,6 +312,7 @@ class DiscreteData(BaseData, ABC):
                 # Fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
 
+
 class SpikeData(DiscreteData):
     """Spike times of multi- and/or single units
 
@@ -328,11 +329,17 @@ class SpikeData(DiscreteData):
     _selectionKeyWords = DiscreteData._selectionKeyWords + ('channel', 'unit',)
 
     def _compute_unique(self):
+        """
+        Use `np.unique` on whole(!) dataset to compute globally
+        available channel and unit indices only once
+        """
 
+        # after data was added via selection or loading from file
+        # this function gets re-triggered
         if self.data is None:
             return
 
-        # this is costly
+        # this is costly and loads the entire hdf5 dataset into memory!
         self.channel_idx = np.unique(self.data[:, self.dimord.index("channel")])
         self.unit_idx = np.unique(self.data[:, self.dimord.index("unit")])
 
@@ -348,24 +355,27 @@ class SpikeData(DiscreteData):
             if chan is not None:
                 raise SPYValueError(f"non-empty SpikeData", "cannot assign `channel` without data. " +
                                     "Please assign data first")
-            # empy labels for empty data is fine
+            # No labels for no data is fine
             self._channel = chan
             return
 
         # there is data
-        else:
-            if chan is None:
-                raise SPYValueError("channel labels, cannot set `channel` to `None` with existing data.")
+        elif chan is None:
+            raise SPYValueError("channel labels, cannot set `channel` to `None` with existing data.")
 
-            # we have data and new labels
-            if self.channel_idx is None:
-                self._compute_unique()
+        # if we landed here, we have data and new labels
+
+        # in case of selections and/or loading from file
+        # the constructor was called with data=None, hence
+        # we have to compute the unique indices here
+        if self.channel_idx is None:
+            self._compute_unique()
 
         # we need as many labels as there are distinct channels
         nChan = self.channel_idx.size
 
         if nChan != len(chan):
-            raise SPYValueError(f"exactly {nChan} channel labels")
+            raise SPYValueError(f"exactly {nChan} channel label(s)")
         array_parser(chan, varname="channel", ntype="str", dims=(nChan, ))
         self._channel = np.array(chan)
 
@@ -402,13 +412,14 @@ class SpikeData(DiscreteData):
             return
 
         # there is data
-        else:
-            if unit is None:
-                raise SPYValueError("unit labels, cannot set `unit` to `None` with existing data.")
+        elif unit is None:
+            raise SPYValueError("unit labels, cannot set `unit` to `None` with existing data.")
 
-            # we have data and new labels
-            if self.unit_idx is None:
-                self._compute_unique()
+        # in case of selections and/or loading from file
+        # the constructor was called with data=None, hence
+        # we have to compute this here
+        if self.unit_idx is None:
+            self._compute_unique()
 
         if unit is None and self.data is not None:
             raise SPYValueError("Cannot set `unit` to `None` with existing data.")
@@ -421,7 +432,7 @@ class SpikeData(DiscreteData):
 
         nunit = self.unit_idx.size
         if nunit != len(unit):
-            raise SPYValueError(f"exactly {nunit} unit labels")
+            raise SPYValueError(f"exactly {nunit} unit label(s)")
         array_parser(unit, varname="unit", ntype="str", dims=(nunit,))
 
         self._unit = np.array(unit)
@@ -545,17 +556,21 @@ class SpikeData(DiscreteData):
         # for fast lookup and labels
         self._compute_unique()
 
-        # use the setters to assign initial labels,
+        # constructor gets `data=None` for
+        # empty inits, selections and loading from file
+        # can't set any labels in that case
         if channel is not None:
-            # this rightfully fails for empty data
+            # setter raises exception if data=None
             self.channel = channel
-        else:
-            # sets to None if no data
+        elif data is not None:
+            # data but no given labels
             self.channel = self._default_channel_labels()
 
+        # same for unit
         if unit is not None:
+            # setter raises exception if data=None
             self.unit = unit
-        else:
+        elif data is not None:
             self.unit = self._default_unit_labels()
 
 
