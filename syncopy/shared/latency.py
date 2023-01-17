@@ -121,7 +121,7 @@ def create_trial_selection(data, window):
     # beginnings and ends of all (selected) trials in trigger-relative time in seconds
     if data.selection is not None:
         trl_starts, trl_ends = data.selection.trialintervals[:, 0], data.selection.trialintervals[:, 1]
-        trl_idx = np.arange(len(data.selection.trials))
+        trl_idx = np.array(data.selection.trial_ids)
     else:
         trl_starts, trl_ends = data.trialintervals[:, 0], data.trialintervals[:, 1]
         trl_idx = np.arange(len(data.trials))
@@ -143,7 +143,10 @@ def create_trial_selection(data, window):
     else:
         sel_ids = np.array(data.selection.trial_ids)[bmask]
         # match fitting trials with selected ones
-        fit_trl_idx = np.intersect1d(data.selection.trial_ids, sel_ids)
+        intersection = np.intersect1d(data.selection.trial_ids, sel_ids)
+        # intersect result is sorted, restore original selection order
+        fit_trl_idx = np.array(
+            [trl_id for trl_id in data.selection.trial_ids if trl_id in intersection])
         numDiscard = len(data.selection.trial_ids) - len(fit_trl_idx)
 
         if fit_trl_idx.size == 0:

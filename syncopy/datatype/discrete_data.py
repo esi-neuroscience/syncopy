@@ -11,7 +11,7 @@ import inspect
 
 
 # Local imports
-from .base_data import BaseData, Indexer, FauxTrial
+from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYError
@@ -164,16 +164,6 @@ class DiscreteData(BaseData, ABC):
         except Exception as exc:
             raise exc
         self._trialid = np.array(trlid, dtype=int)
-
-    @property
-    def trials(self):
-        """list-like([sample x (>=2)] :class:`numpy.ndarray`) : trial slices of :attr:`data` property"""
-        if self.trialid is not None:
-            valid_trls = np.unique(self.trialid[self.trialid >= 0])
-            return Indexer(map(self._get_trial, valid_trls),
-                           valid_trls.size)
-        else:
-            return None
 
     @property
     def trialtime(self):

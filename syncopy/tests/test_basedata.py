@@ -161,6 +161,43 @@ class TestBaseData():
             assert np.array_equal(dummy._t0, self.trl[dclass][:, 2])
             assert np.array_equal(dummy.trialinfo.flatten(), self.trl[dclass][:, 3])
 
+    def test_trials_property(self):
+
+        # 3 trials, trial index = data values
+        data = AnalogData([i * np.ones((2,2)) for i in range(3)], samplerate=1)
+
+        # single index access
+        assert np.all(data.trials[0] == 0)
+        assert np.all(data.trials[1] == 1)
+        assert np.all(data.trials[2] == 2)
+
+        # iterator
+        all_trials = [trl for trl in data.trials]
+        assert len(all_trials) == 3
+        assert all([np.all(all_trials[i] == i) for i in range(3)])
+
+        # selection
+        data.selectdata(trials=[0, 2], inplace=True)
+        all_selected_trials = [trl for trl in data.selection.trials]
+        assert data.selection.trial_ids == [0, 2]
+        assert len(all_selected_trials) == 2
+        assert all([np.all(data.selection.trials[i] == i) for i in data.selection.trial_ids])
+
+        # check that non-existing trials get catched
+        with pytest.raises(SPYValueError, match='existing trials'):
+            data.trials[999]
+        # selections have absolute trial indices!
+        with pytest.raises(SPYValueError, match='existing trials'):
+            data.selection.trials[1]
+
+        # check that invalid trial indexing gets catched
+        with pytest.raises(SPYTypeError, match='trial index'):
+            data.trials[range(4)]
+        with pytest.raises(SPYTypeError, match='trial index'):
+            data.trials[2:3]
+        with pytest.raises(SPYTypeError, match='trial index'):
+            data.trials[np.arange(3)]
+
     # Test ``_gen_filename`` with `AnalogData` only - method is independent from concrete data object
     def test_filename(self):
         # ensure we're salting sufficiently to create at least `numf`
