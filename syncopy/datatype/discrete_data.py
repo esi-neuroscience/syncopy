@@ -14,7 +14,7 @@ import inspect
 from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
-from syncopy.shared.errors import SPYValueError, SPYError
+from syncopy.shared.errors import SPYValueError, SPYError, SPYTypeError
 from syncopy.shared.tools import best_match
 
 __all__ = ["SpikeData", "EventData"]
@@ -51,8 +51,14 @@ class DiscreteData(BaseData, ABC):
 
     @data.setter
     def data(self, inData):
+        """ Also checks for integer type of data """
         # this comes from BaseData
         self._set_dataset_property(inData, "data")
+
+        if inData is not None:
+            # probably not the most elegant way..
+            if not 'int' in str(self.data.dtype):
+                raise SPYTypeError(self.data.dtype, 'data', "integer like")
 
     def __str__(self):
         # Get list of print-worthy attributes
@@ -332,10 +338,14 @@ class SpikeData(DiscreteData):
         """
         Use `np.unique` on whole(!) dataset to compute globally
         available channel and unit indices only once
+
+        This function gets triggered by the constructor
+        `if data is not None` or latest when channel/unit
+        labels are assigned with the respective setters.
         """
 
         # after data was added via selection or loading from file
-        # this function gets re-triggered
+        # this function gets re-triggered by the channel/unit setters!
         if self.data is None:
             return
 
@@ -445,7 +455,7 @@ class SpikeData(DiscreteData):
 
         if self.data is not None:
             unit_max = self.unit_idx.max()
-            return np.array(["unit" + str(int(i)).zfill(len(str(unit_max)))
+            return np.array(["unit" + str(int(i)).zfill(len(str(unit_max)) + 1)
                              for i in self.unit_idx])
         else:
             return None
