@@ -81,7 +81,9 @@ class TestAnalogSelections:
         # pick the data by hand, latency [0, 1] covers 2nd - 4th sample index
         # as time axis is array([-0.5,  0. ,  0.5,  1. ,  1.5])
 
+        # pick trial
         solution = self.adata.data[self.nSamples:self.nSamples * 2]
+        # pick channels and latency
         solution = np.column_stack([solution[1:4, 6], solution[1:4, 2]])
 
         assert np.all(solution == res.data)
