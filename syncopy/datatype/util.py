@@ -15,11 +15,12 @@ from syncopy.shared.errors import SPYTypeError, SPYValueError
 __all__ = ['TrialIndexer', 'SessionLogger']
 
 
-class TrialIndexer(list):
+class TrialIndexer:
 
     def __init__(self, data_object, idx_list):
         """
-        Subclass Python's list to obtain an indexable trials iterable.
+        Class to obtain an indexable trials iterable from
+        an instantiated Syncopy data class `data_object`.
         Relies on the `_get_trial` method of the
         respective `data_object`.
 
@@ -36,6 +37,7 @@ class TrialIndexer(list):
         self._len = len(idx_list)
 
     def __getitem__(self, trialno):
+        # single trial access via index operator []
         if not isinstance(trialno, Number):
             raise SPYTypeError(trialno, "trial index", "single number to index a single trial")
         if trialno not in self.idx_list:
@@ -45,7 +47,8 @@ class TrialIndexer(list):
 
     def __iter__(self):
         # this generator gets freshly created and exhausted
-        # only for iterations (iterator protocol)
+        # for each new iteration, with only 1 trial being in memory
+        # at any given time
         yield from (self[i] for i in self.idx_list)
 
     def __len__(self):
