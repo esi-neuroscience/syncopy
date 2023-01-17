@@ -455,7 +455,7 @@ class SpikeData(DiscreteData):
 
         if self.data is not None:
             unit_max = self.unit_idx.max()
-            return np.array(["unit" + str(int(i)).zfill(len(str(unit_max)) + 1)
+            return np.array(["unit" + str(int(i + 1)).zfill(len(str(unit_max)) + 1)
                              for i in self.unit_idx])
         else:
             return None
