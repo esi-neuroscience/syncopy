@@ -55,6 +55,16 @@ class TestSpikeData():
         assert isinstance(SpikeData(data=np.ones((2, 3), dtype=int), channel=['only_channel']),
                           SpikeData)
 
+        # --- invalid inits ---
+
+        # non-integer types
+        with pytest.raises(SPYTypeError, match='expected integer like'):
+            _ = SpikeData(data=np.ones((2, 3)), unit=['unit1', 'unit2'])
+
+        with pytest.raises(SPYTypeError, match='expected integer like'):
+            data = np.array([np.nan, 2, np.nan])[:, np.newaxis]
+            _ = SpikeData(data=data, unit=['unit1', 'unit2'])
+
         # data and too many labels
         with pytest.raises(SPYValueError, match='expected exactly 1 unit'):
             _ = SpikeData(data=np.ones((2, 3), dtype=int), unit=['unit1', 'unit2'])

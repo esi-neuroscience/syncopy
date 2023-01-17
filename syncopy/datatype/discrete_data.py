@@ -57,7 +57,7 @@ class DiscreteData(BaseData, ABC):
 
         if inData is not None:
             # probably not the most elegant way..
-            if not 'int' in str(self.data.dtype):
+            if 'int' not in str(self.data.dtype):
                 raise SPYTypeError(self.data.dtype, 'data', "integer like")
 
     def __str__(self):
@@ -395,15 +395,11 @@ class SpikeData(DiscreteData):
         Creates the default channel labels
         """
 
-        if self.data is not None:
-            # channel entries in self.data are 0-based
-            chan_max = self.channel_idx.max()
-            channel_labels = np.array(["channel" + str(int(i + 1)).zfill(len(str(chan_max)) + 1)
-                                       for i in self.channel_idx])
-            return channel_labels
-
-        else:
-            return None
+        # channel entries in self.data are 0-based
+        chan_max = self.channel_idx.max()
+        channel_labels = np.array(["channel" + str(int(i + 1)).zfill(len(str(chan_max)) + 1)
+                                   for i in self.channel_idx])
+        return channel_labels
 
     @property
     def unit(self):
@@ -453,12 +449,9 @@ class SpikeData(DiscreteData):
         Creates the default unit labels
         """
 
-        if self.data is not None:
-            unit_max = self.unit_idx.max()
-            return np.array(["unit" + str(int(i + 1)).zfill(len(str(unit_max)) + 1)
-                             for i in self.unit_idx])
-        else:
-            return None
+        unit_max = self.unit_idx.max()
+        return np.array(["unit" + str(int(i + 1)).zfill(len(str(unit_max)) + 1)
+                         for i in self.unit_idx])
 
     # Helper function that extracts by-trial unit-indices
     def _get_unit(self, trials, units=None):
