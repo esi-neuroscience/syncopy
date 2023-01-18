@@ -121,7 +121,7 @@ class DiscreteData(BaseData, ABC):
         """Indices of all recorded samples"""
         if self.data is None:
             return None
-        return np.unique(self.data[:, self.dimord.index("sample")])
+        return self.data[:, self.dimord.index("sample")]
 
     @property
     def samplerate(self):
@@ -162,6 +162,9 @@ class DiscreteData(BaseData, ABC):
             SPYError("SyNCoPy core - trialid: Cannot assign `trialid` without data. " +
                      "Please assign data first")
             return
+        if (self.data.shape[0] == 0) and (trlid.shape[0] == 0):
+            self._trialid = np.array(trlid, dtype=int)
+            return
         scount = np.nanmax(self.data[:, self.dimord.index("sample")])
         try:
             array_parser(trlid, varname="trialid", dims=(self.data.shape[0],),
@@ -180,7 +183,7 @@ class DiscreteData(BaseData, ABC):
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
-        return self._data[self.trialid == trialno, :]
+        return self._data[self._trialslice[trialno], :]
 
     # Helper function that spawns a `FauxTrial` object given actual trial information
     def _preview_trial(self, trialno):
