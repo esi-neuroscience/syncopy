@@ -285,10 +285,12 @@ def selectdata(data,
                   "'".join(key + "', " for key in kwargs.keys())[:-2]
             raise SPYValueError(legal=lgl, varname="selection kwargs", actual=act)
 
-    # warn the user for ineffective selection keywords, e.g. 'frequency' for AnalogData
+    # get out if unsuitable selection keywords given, e.g. 'frequency' for AnalogData
     for key, value in selectDict.items():
         if key not in expected and value is not None:
-            SPYWarning(f"No {key} selection available for {data.__class__.__name__}")
+            lgl = f"one of {data.__class__._selectionKeyWords}"
+            act = f"no `{key}` selection available for {data.__class__.__name__}"
+            raise SPYValueError(lgl, 'selection arguments', act)
 
     # now just keep going with the selection keys relevant for that particular data type
     selectDict = {key: selectDict[key] for key in data._selectionKeyWords}
