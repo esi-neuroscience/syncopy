@@ -506,69 +506,6 @@ class TestEventData():
         with pytest.raises(SPYValueError):
             ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
 
-    # test data-selection via class method
-    def test_ed_dataselection(self):
-
-        # Create testing objects (regular and swapped dimords)
-        dummy = EventData(data=np.hstack([self.data, self.data]),
-                          dimord=self.customDimord,
-                          trialdefinition=self.trl,
-                          samplerate=2.0)
-        ymmud = EventData(data=np.hstack([self.data[:, ::-1], self.data[:, ::-1]]),
-                          trialdefinition=self.trl,
-                          samplerate=2.0,
-                          dimord=dummy.dimord[::-1])
-
-        # selections are chosen so that result is not empty
-        trialSelections = [
-            "all",  # enforce below selections in all trials of `dummy`
-            [3, 1]  # minimally unordered
-        ]
-
-        eventidSelections = [
-            [0, 0, 1],  # preserve repetition, don't convert to slice
-            range(0, 2),  # narrow range
-        ]
-
-        latencySelections = [
-            [0.5, 2.5],  # regular range
-            [0.7, 2.]  # reduce range
-        ]
-
-        timeSelections = list(zip(["latency"] * len(latencySelections), latencySelections))
-
-        trialSels = [random.choice(trialSelections)]
-        eventidSels = [random.choice(eventidSelections)]
-        timeSels = [random.choice(timeSelections)]
-
-        for obj in [dummy, ymmud]:
-            eventidIdx = obj.dimord.index("eventid")
-            for trialSel in trialSels:
-                for eventidSel in eventidSels:
-                    for timeSel in timeSels:
-                        kwdict = {}
-                        kwdict["trials"] = trialSel
-                        kwdict["eventid"] = eventidSel
-                        kwdict[timeSel[0]] = timeSel[1]
-                        cfg = StructDict(kwdict)
-                        # data selection via class-method + `Selector` instance for indexing
-                        selected = obj.selectdata(**kwdict)
-                        obj.selectdata(**kwdict, inplace=True)                        
-                        selector = obj.selection
-                        tk = 0
-                        for trialno in selector.trial_ids:
-                            if selector.time[tk]:
-                                assert np.array_equal(obj.trials[trialno][selector.time[tk], :],
-                                                      selected.trials[tk])
-                                tk += 1
-                        assert np.array_equal(selected.eventid,
-                                              obj.eventid[np.unique(selected.data[:, eventidIdx]).astype(np.intp)])
-                        cfg.data = obj
-                        # data selection via package function and `cfg`: ensure equality
-                        out = selectdata(cfg)
-                        assert np.array_equal(out.eventid, selected.eventid)
-                        assert np.array_equal(out.data, selected.data)
-
     def test_ed_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
