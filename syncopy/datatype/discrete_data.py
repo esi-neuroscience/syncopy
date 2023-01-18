@@ -14,7 +14,7 @@ import inspect
 from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
-from syncopy.shared.errors import SPYValueError
+from syncopy.shared.errors import SPYValueError, SPYError, SPYTypeError
 from syncopy.shared.tools import best_match
 
 __all__ = ["SpikeData", "EventData"]
@@ -51,7 +51,13 @@ class DiscreteData(BaseData, ABC):
 
     @data.setter
     def data(self, inData):
+        """ Also checks for integer type of data """
+        # this comes from BaseData
         self._set_dataset_property(inData, "data")
+
+        if inData is not None:
+            if not np.issubdtype(self.data.dtype, np.integer):
+                raise SPYTypeError(self.data.dtype, 'data', "integer like")
 
     def __str__(self):
         # Get list of print-worthy attributes
@@ -115,9 +121,7 @@ class DiscreteData(BaseData, ABC):
         """Indices of all recorded samples"""
         if self.data is None:
             return None
-        # return self.data[:, self.dimord.index("sample")]
-        # there should be only one event per sample number?!
-        return np.unique(self.data[:, self.dimord.index("sample")])
+        return self.data[:, self.dimord.index("sample")]
 
     @property
     def samplerate(self):
@@ -155,8 +159,8 @@ class DiscreteData(BaseData, ABC):
             return
 
         if self.data is None:
-            print("SyNCoPy core - trialid: Cannot assign `trialid` without data. " +
-                  "Please assing data first")
+            SPYError("SyNCoPy core - trialid: Cannot assign `trialid` without data. " +
+                     "Please assign data first")
             return
         if (self.data.shape[0] == 0) and (trlid.shape[0] == 0):
             self._trialid = np.array(trlid, dtype=int)
@@ -307,12 +311,15 @@ class DiscreteData(BaseData, ABC):
         # Call initializer
         super().__init__(data=data, **kwargs)
 
-        if self.data is not None and self.data.size != 0:
+        if self.data is not None:
+
+            if self.data.size == 0:
+                # initialization with empty data not allowed
+                raise SPYValueError("non empty data set", 'data')
 
             # In case of manual data allocation (reading routine would leave a
             # mark in `cfg`), fill in missing info
             if self.sampleinfo is None:
-
                 # Fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
 
@@ -332,67 +339,124 @@ class SpikeData(DiscreteData):
     _stackingDimLabel = "sample"
     _selectionKeyWords = DiscreteData._selectionKeyWords + ('channel', 'unit',)
 
+    def _compute_unique_idx(self):
+        """
+        Use `np.unique` on whole(!) dataset to compute globally
+        available channel and unit indices only once
+
+        This function gets triggered by the constructor
+        `if data is not None` or latest when channel/unit
+        labels are assigned with the respective setters.
+        """
+
+        # after data was added via selection or loading from file
+        # this function gets re-triggered by the channel/unit setters!
+        if self.data is None:
+            return
+
+        # this is costly and loads the entire hdf5 dataset into memory!
+        self.channel_idx = np.unique(self.data[:, self.dimord.index("channel")])
+        self.unit_idx = np.unique(self.data[:, self.dimord.index("unit")])
+
     @property
     def channel(self):
         """ :class:`numpy.ndarray` : list of original channel names for each unit"""
-        # if data exists but no user-defined channel labels, create them on the fly
-        if self._channel is None and self._data is not None:
-            channelNumbers = np.unique(self.data[:, self.dimord.index("channel")])
-            return np.array(["channel" + str(int(i + 1)).zfill(len(str(channelNumbers.max() + 1)))
-                             for i in channelNumbers])
 
         return self._channel
 
     @channel.setter
     def channel(self, chan):
-        if chan is None:
-            self._channel = None
-            return
         if self.data is None:
-            raise SPYValueError("Syncopy: Cannot assign `channels` without data. " +
-                  "Please assign data first")
-        try:
-            array_parser(chan, varname="channel", ntype="str")
-        except Exception as exc:
-            raise exc
+            if chan is not None:
+                raise SPYValueError(f"non-empty SpikeData", "cannot assign `channel` without data. " +
+                                    "Please assign data first")
+            # No labels for no data is fine
+            self._channel = chan
+            return
 
-        # Remove duplicate entries from channel array but preserve original order
-        # (e.g., `[2, 0, 0, 1]` -> `[2, 0, 1`); allows for complex subset-selections
-        _, idx = np.unique(chan, return_index=True)
-        chan = np.array(chan)[np.sort(idx)]
-        nchan = np.unique(self.data[:, self.dimord.index("channel")]).size
-        if chan.size != nchan:
-            lgl = "channel label array of length {0:d}".format(nchan)
-            act = "array of length {0:d}".format(chan.size)
-            raise SPYValueError(legal=lgl, varname="channel", actual=act)
+        # there is data
+        elif chan is None:
+            raise SPYValueError("channel labels, cannot set `channel` to `None` with existing data.")
 
-        self._channel = chan
+        # if we landed here, we have data and new labels
+
+        # in case of selections and/or loading from file
+        # the constructor was called with data=None, hence
+        # we have to compute the unique indices here
+        if self.channel_idx is None:
+            self._compute_unique_idx()
+
+        # we need as many labels as there are distinct channels
+        nChan = self.channel_idx.size
+
+        if nChan != len(chan):
+            raise SPYValueError(f"exactly {nChan} channel label(s)")
+        array_parser(chan, varname="channel", ntype="str", dims=(nChan, ))
+        self._channel = np.array(chan)
+
+    def _default_channel_labels(self):
+
+        """
+        Creates the default channel labels
+        """
+
+        # channel entries in self.data are 0-based
+        chan_max = self.channel_idx.max()
+        channel_labels = np.array(["channel" + str(int(i + 1)).zfill(len(str(chan_max)) + 1)
+                                   for i in self.channel_idx])
+        return channel_labels
 
     @property
     def unit(self):
         """ :class:`numpy.ndarray(str)` : unit names"""
-        if self.data is not None and self._unit is None:
-            unitIndices = np.unique(self.data[:, self.dimord.index("unit")])
-            return np.array(["unit" + str(int(i)).zfill(len(str(unitIndices.max())))
-                             for i in unitIndices])
+
         return self._unit
 
     @unit.setter
     def unit(self, unit):
-        if unit is None:
+        if self.data is None:
+            if unit is not None:
+                raise SPYValueError(f"non-empty SpikeData", "cannot assign `unit` without data. " +
+                                    "Please assign data first")
+            # empy labels for empty data is fine
+            self._unit = unit
+            return
+
+        # there is data
+        elif unit is None:
+            raise SPYValueError("unit labels, cannot set `unit` to `None` with existing data.")
+
+        # in case of selections and/or loading from file
+        # the constructor was called with data=None, hence
+        # we have to compute this here
+        if self.unit_idx is None:
+            self._compute_unique_idx()
+
+        if unit is None and self.data is not None:
+            raise SPYValueError("Cannot set `unit` to `None` with existing data.")
+        elif self.data is None and unit is not None:
+            raise SPYValueError("Syncopy - SpikeData - unit: Cannot assign `unit` without data. " +
+                  "Please assign data first")
+        elif unit is None:
             self._unit = None
             return
 
-        if self.data is None:
-            raise SPYValueError("Syncopy - SpikeData - unit: Cannot assign `unit` without data. " +
-                  "Please assign data first")
+        nunit = self.unit_idx.size
+        if nunit != len(unit):
+            raise SPYValueError(f"exactly {nunit} unit label(s)")
+        array_parser(unit, varname="unit", ntype="str", dims=(nunit,))
 
-        nunit = np.unique(self.data[:, self.dimord.index("unit")]).size
-        try:
-            array_parser(unit, varname="unit", ntype="str", dims=(nunit,))
-        except Exception as exc:
-            raise exc
         self._unit = np.array(unit)
+
+    def _default_unit_labels(self):
+
+        """
+        Creates the default unit labels
+        """
+
+        unit_max = self.unit_idx.max()
+        return np.array(["unit" + str(int(i + 1)).zfill(len(str(unit_max)) + 1)
+                         for i in self.unit_idx])
 
     # Helper function that extracts by-trial unit-indices
     def _get_unit(self, trials, units=None):
@@ -481,8 +545,13 @@ class SpikeData(DiscreteData):
 
         """
 
+        # instance attribute to allow modification
+        self._hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel", "unit")
+
         self._unit = None
+        self.unit_idx = None
         self._channel = None
+        self.channel_idx = None
 
         # Call parent initializer
         super().__init__(data=data,
@@ -490,12 +559,26 @@ class SpikeData(DiscreteData):
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          dimord=dimord)
-        
-        # instance attribute to allow modification
-        self._hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel",)
 
-        self.channel = channel
-        self.unit = unit
+        # for fast lookup and labels
+        self._compute_unique_idx()
+
+        # constructor gets `data=None` for
+        # empty inits, selections and loading from file
+        # can't set any labels in that case
+        if channel is not None:
+            # setter raises exception if data=None
+            self.channel = channel
+        elif data is not None:
+            # data but no given labels
+            self.channel = self._default_channel_labels()
+
+        # same for unit
+        if unit is not None:
+            # setter raises exception if data=None
+            self.unit = unit
+        elif data is not None:
+            self.unit = self._default_unit_labels()
 
 
 class EventData(DiscreteData):
