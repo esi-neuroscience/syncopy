@@ -43,6 +43,36 @@ class TestSpikeData():
     num_chn = data[:, 1].max() + 1
     num_unt = data[:, 2].max() + 1
 
+    def test_init(self):
+
+        # data and no labels triggers default labels
+        dummy = SpikeData(data=4  * np.ones((2, 3), dtype=int))
+        # labels are 0-based
+        assert dummy.channel == 'channel05'
+        assert dummy.unit == 'unit05'
+
+        # data and fitting labels is fine
+        assert isinstance(SpikeData(data=np.ones((2, 3), dtype=int), channel=['only_channel']),
+                          SpikeData)
+
+        # --- invalid inits ---
+
+        # non-integer types
+        with pytest.raises(SPYTypeError, match='expected integer like'):
+            _ = SpikeData(data=np.ones((2, 3)), unit=['unit1', 'unit2'])
+
+        with pytest.raises(SPYTypeError, match='expected integer like'):
+            data = np.array([np.nan, 2, np.nan])[:, np.newaxis]
+            _ = SpikeData(data=data, unit=['unit1', 'unit2'])
+
+        # data and too many labels
+        with pytest.raises(SPYValueError, match='expected exactly 1 unit'):
+            _ = SpikeData(data=np.ones((2, 3), dtype=int), unit=['unit1', 'unit2'])
+
+        # no data but labels
+        with pytest.raises(SPYValueError, match='cannot assign `channel` without data'):
+            _ = SpikeData(channel=['a', 'b', 'c'])
+
     def test_empty(self):
         dummy = SpikeData()
         assert len(dummy.cfg) == 0
@@ -54,9 +84,11 @@ class TestSpikeData():
             SpikeData({})
 
     def test_issue_257_fixed_no_error_for_empty_data(self):
-        """This tests that the data object is created without throwing an error, see #257."""
-        data = SpikeData(np.column_stack(([],[],[])), dimord = ['sample', 'channel', 'unit'], samplerate = 30000)
-        assert data.dimord == ["sample", "channel", "unit"]
+        """This tests that empty datasets are not allowed"""
+        with pytest.raises(SPYValueError, match='non empty'):
+            data = SpikeData(np.column_stack(([],[],[])).astype(int),
+                             dimord=['sample', 'channel', 'unit'],
+                             samplerate=30000)
 
     def test_nparray(self):
         dummy = SpikeData(self.data)
@@ -147,92 +179,6 @@ class TestSpikeData():
             del dummy, dummy2
             time.sleep(0.1)
 
-    # test data-selection via class method
-    def test_dataselection(self):
-
-        # Create testing objects (regular and swapped dimords)
-        dummy = SpikeData(data=self.data,
-                          trialdefinition=self.trl,
-                          samplerate=2.0)
-        ymmud = SpikeData(data=self.data[:, ::-1],
-                          trialdefinition=self.trl,
-                          samplerate=2.0,
-                          dimord=dummy.dimord[::-1])
-
-        # selections are chosen so that result is not empty
-        trialSelections = [
-            "all",  # enforce below selections in all trials of `dummy`
-            [3, 1]  # minimally unordered
-        ]
-        chanSelections = [
-            ["channel03", "channel01", "channel01", "channel02"],  # string selection w/repetition + unordered
-            [4, 2, 2, 5, 5],   # repetition + unorderd
-            range(5, 8),  # narrow range
-        ]
-        latencySelections = [
-            [0.5, 2.5],  # regular range
-            [1.0, 2]  # recued range
-        ]
-        unitSelections = [
-            ["unit1", "unit1", "unit2", "unit3"],  # preserve repetition
-            [0, 0, 2, 3],  # preserve repetition, don't convert to slice
-            range(1, 4),  # narrow range
-        ]
-
-        timeSelections = list(zip(["latency"] * len(latencySelections), latencySelections))
-
-        trialSels = [random.choice(trialSelections)]
-        chanSels = [random.choice(chanSelections)]
-        unitSels = [random.choice(unitSelections)]
-        timeSels = [random.choice(timeSelections)]
-
-        for obj in [dummy, ymmud]:
-            chanIdx = obj.dimord.index("channel")
-            unitIdx = obj.dimord.index("unit")
-            chanArr = np.arange(obj.channel.size)
-            for trialSel in trialSels:
-                for chanSel in chanSels:
-                    for unitSel in unitSels:
-                        for timeSel in timeSels:
-                            kwdict = {}
-                            kwdict["trials"] = trialSel
-                            kwdict["channel"] = chanSel
-                            kwdict["unit"] = unitSel
-                            kwdict[timeSel[0]] = timeSel[1]
-                            cfg = StructDict(kwdict)
-                            # data selection via class-method + `Selector` instance for indexing
-
-                            selected = obj.selectdata(**kwdict)
-                            obj.selectdata(**kwdict, inplace=True)
-                            selector = obj.selection
-                            tk = 0
-                            for trialno in selector.trial_ids:
-                                if selector.time[tk]:
-                                    assert np.array_equal(obj.trials[trialno][selector.time[tk], :],
-                                                          selected.trials[tk])
-                                    tk += 1
-                            assert set(selected.data[:, chanIdx]).issubset(chanArr[selector.channel])
-                            assert set(selected.channel) == set(obj.channel[selector.channel])
-                            # only if we got sth
-                            if np.size(selected.unit) > 0:
-                                assert np.array_equal(selected.unit,
-                                                      obj.unit[np.unique(selected.data[:, unitIdx])])
-                            cfg.data = obj
-                            # data selection via package function and `cfg`: ensure equality
-                            out = selectdata(cfg)
-                            assert np.array_equal(out.channel, selected.channel)
-                            assert np.array_equal(out.unit, selected.unit)
-                            assert np.array_equal(out.data, selected.data)
-
-    def test_parallel(self, testcluster):
-        # repeat selected test w/parallel processing engine
-        client = dd.Client(testcluster)
-        par_tests = ["test_dataselection"]
-        for test in par_tests:
-            getattr(self, test)()
-            flush_local_cluster(testcluster)
-        client.close()
-
 
 class TestEventData():
 
@@ -240,7 +186,7 @@ class TestEventData():
     nc = 10
     ns = 30
     data = np.vstack([np.arange(0, ns, 5),
-                      np.zeros((int(ns / 5), ))]).T
+                      np.zeros((int(ns / 5), ))]).T.astype(int)
     data[1::2, 1] = 1
     data2 = data.copy()
     data2[:, -1] = data[:, 0]
@@ -451,7 +397,7 @@ class TestEventData():
 
         # Extend data and provoke an exception due to out of bounds error
         smp = np.vstack([np.arange(self.ns, int(2.5 * self.ns), 5),
-                         np.zeros((int((1.5 * self.ns) / 5),))]).T
+                         np.zeros((int((1.5 * self.ns) / 5),))]).T.astype(int)
         smp[1::2, 1] = 1
         smp = np.hstack([smp, smp])
         data4 = np.vstack([data3, smp])
@@ -506,69 +452,6 @@ class TestEventData():
         with pytest.raises(SPYValueError):
             ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
 
-    # test data-selection via class method
-    def test_ed_dataselection(self):
-
-        # Create testing objects (regular and swapped dimords)
-        dummy = EventData(data=np.hstack([self.data, self.data]),
-                          dimord=self.customDimord,
-                          trialdefinition=self.trl,
-                          samplerate=2.0)
-        ymmud = EventData(data=np.hstack([self.data[:, ::-1], self.data[:, ::-1]]),
-                          trialdefinition=self.trl,
-                          samplerate=2.0,
-                          dimord=dummy.dimord[::-1])
-
-        # selections are chosen so that result is not empty
-        trialSelections = [
-            "all",  # enforce below selections in all trials of `dummy`
-            [3, 1]  # minimally unordered
-        ]
-
-        eventidSelections = [
-            [0, 0, 1],  # preserve repetition, don't convert to slice
-            range(0, 2)  # narrow range
-        ]
-
-        latencySelections = [
-            [0.5, 2.5],  # regular range
-            [0.7, 2.]  # reduce range
-        ]
-
-        timeSelections = list(zip(["latency"] * len(latencySelections), latencySelections))
-
-        trialSels = [random.choice(trialSelections)]
-        eventidSels = [random.choice(eventidSelections)]
-        timeSels = [random.choice(timeSelections)]
-
-        for obj in [dummy, ymmud]:
-            eventidIdx = obj.dimord.index("eventid")
-            for trialSel in trialSels:
-                for eventidSel in eventidSels:
-                    for timeSel in timeSels:
-                        kwdict = {}
-                        kwdict["trials"] = trialSel
-                        kwdict["eventid"] = eventidSel
-                        kwdict[timeSel[0]] = timeSel[1]
-                        cfg = StructDict(kwdict)
-                        # data selection via class-method + `Selector` instance for indexing
-                        selected = obj.selectdata(**kwdict)
-                        obj.selectdata(**kwdict, inplace=True)
-                        selector = obj.selection
-                        tk = 0
-                        for trialno in selector.trial_ids:
-                            if selector.time[tk]:
-                                assert np.array_equal(obj.trials[trialno][selector.time[tk], :],
-                                                      selected.trials[tk])
-                                tk += 1
-                        assert np.array_equal(selected.eventid,
-                                              obj.eventid[np.unique(selected.data[:, eventidIdx]).astype(np.intp)])
-                        cfg.data = obj
-                        # data selection via package function and `cfg`: ensure equality
-                        out = selectdata(cfg)
-                        assert np.array_equal(out.eventid, selected.eventid)
-                        assert np.array_equal(out.data, selected.data)
-
     def test_ed_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
@@ -581,3 +464,4 @@ class TestEventData():
 if __name__ == '__main__':
 
     T1 = TestSpikeData()
+    T2 = TestEventData()

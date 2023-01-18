@@ -61,12 +61,12 @@ class TestBaseData():
     seed = np.random.RandomState(13)
     data["SpikeData"] = np.vstack([seed.choice(nSamples, size=nSpikes),
                                    seed.choice(nChannels, size=nSpikes),
-                                   seed.choice(int(nChannels / 2), size=nSpikes)]).T
+                                   seed.choice(int(nChannels / 2), size=nSpikes)]).T.astype(int)
     trl["SpikeData"] = trl["AnalogData"]
 
     # Use a simple binary trigger pattern to simulate EventData
     data["EventData"] = np.vstack([np.arange(0, nSamples, 5),
-                                   np.zeros((int(nSamples / 5), ))]).T
+                                   np.zeros((int(nSamples / 5), ))]).T.astype(int)
     data["EventData"][1::2, 1] = 1
     trl["EventData"] = trl["AnalogData"]
 
@@ -278,7 +278,7 @@ class TestBaseData():
 
             # Start w/the one operator that does not handle zeros well...
             with pytest.raises(SPYValueError) as spyval:
-                dummy / 0
+                _ = dummy / 0
                 assert "expected non-zero scalar for division" in str(spyval.value)
 
             # Go through all supported operators and try to sabotage them
@@ -374,8 +374,8 @@ class TestBaseData():
             # Difference in actual numerical data
             dummy3 = dummy.copy()
             for dsetName in dummy3._hdfFileDatasetProperties:
-                getattr(dummy3, dsetName)[0] = 2 * np.pi
-            assert dummy3 != dummy
+                getattr(dummy3, dsetName)[0, 0] = -99
+            assert dummy3.data != dummy.data
 
             del dummy, dummy3, other
 
