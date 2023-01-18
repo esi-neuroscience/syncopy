@@ -56,7 +56,6 @@ class DiscreteData(BaseData, ABC):
         self._set_dataset_property(inData, "data")
 
         if inData is not None:
-            # probably not the most elegant way..
             if not np.issubdtype(self.data.dtype, np.integer):
                 raise SPYTypeError(self.data.dtype, 'data', "integer like")
 
