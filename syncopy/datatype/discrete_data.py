@@ -57,7 +57,7 @@ class DiscreteData(BaseData, ABC):
 
         if inData is not None:
             # probably not the most elegant way..
-            if 'int' not in str(self.data.dtype):
+            if np.issubdtype(self.data.dtype, np.integer):
                 raise SPYTypeError(self.data.dtype, 'data', "integer like")
 
     def __str__(self):
@@ -161,7 +161,7 @@ class DiscreteData(BaseData, ABC):
 
         if self.data is None:
             SPYError("SyNCoPy core - trialid: Cannot assign `trialid` without data. " +
-                     "Please assing data first")
+                     "Please assign data first")
             return
         scount = np.nanmax(self.data[:, self.dimord.index("sample")])
         try:
@@ -334,7 +334,7 @@ class SpikeData(DiscreteData):
     _stackingDimLabel = "sample"
     _selectionKeyWords = DiscreteData._selectionKeyWords + ('channel', 'unit',)
 
-    def _compute_unique(self):
+    def _compute_unique_idx(self):
         """
         Use `np.unique` on whole(!) dataset to compute globally
         available channel and unit indices only once
@@ -379,7 +379,7 @@ class SpikeData(DiscreteData):
         # the constructor was called with data=None, hence
         # we have to compute the unique indices here
         if self.channel_idx is None:
-            self._compute_unique()
+            self._compute_unique_idx()
 
         # we need as many labels as there are distinct channels
         nChan = self.channel_idx.size
@@ -425,7 +425,7 @@ class SpikeData(DiscreteData):
         # the constructor was called with data=None, hence
         # we have to compute this here
         if self.unit_idx is None:
-            self._compute_unique()
+            self._compute_unique_idx()
 
         if unit is None and self.data is not None:
             raise SPYValueError("Cannot set `unit` to `None` with existing data.")
@@ -557,7 +557,7 @@ class SpikeData(DiscreteData):
                          dimord=dimord)
 
         # for fast lookup and labels
-        self._compute_unique()
+        self._compute_unique_idx()
 
         # constructor gets `data=None` for
         # empty inits, selections and loading from file
