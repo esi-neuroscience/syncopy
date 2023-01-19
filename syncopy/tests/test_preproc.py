@@ -22,6 +22,8 @@ from syncopy.tests import synth_data as sd
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults, best_match
 
+import syncopy as spy
+
 # Decorator to decide whether or not to run memory-intensive tests
 availMem = psutil.virtual_memory().total
 minRAM = 5
@@ -573,6 +575,17 @@ class TestStandardize:
             test_method()
         client.close()
 
+class TestICA():
+    nTrials = 2
+    nSamples = 5000
+    AData = 100 * sd.white_noise(nTrials, nSamples=nSamples) + 5
+
+    def test_preproc_ica(self):
+        cfg = get_defaults(ppfunc)
+        cfg.method = 'ica'
+        res = spy.preprocessing(self.AData, cfg)
+
+
 
 def mk_spec_ax():
 
@@ -601,3 +614,4 @@ if __name__ == '__main__':
     T2 = TestFIRWS()
     T3 = TestDetrending()
     T4 = TestStandardize()
+    T5 = TestICA()
