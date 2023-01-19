@@ -510,6 +510,7 @@ class TestCSD:
     nChannels = 4
     nTrials = 100
     fs = 1000
+    Method = 'csd'
 
     # -- two harmonics with individual phase diffusion --
 
@@ -553,12 +554,18 @@ class TestCSD:
     def test_csd_input(self):
         assert isinstance(self.spec, SpectralData)
 
-    def test_csd_cfg(self):
-        Method = 'csd'
-        cross_spec = spy.connectivityanalysis(self.spec, method=Method)
+    def test_csd_cfg_replay(self):
+        cross_spec = spy.connectivityanalysis(self.spec, method=self.Method)
         assert len(cross_spec.cfg) == 2
         assert np.all([True for cfg in zip(self.spec.cfg['freqanalysis'], cross_spec.cfg['freqanalysis']) if cfg[0] == cfg[1]])
-        assert cross_spec.cfg['connectivityanalysis'].method == Method
+        assert cross_spec.cfg['connectivityanalysis'].method == self.Method
+
+        first_cfg = cross_spec.cfg['connectivityanalysis']
+        first_res = spy.connectivityanalysis(self.spec, cfg=first_cfg)
+        replay_res = spy.connectivityanalysis(self.spec, cfg=first_res.cfg)
+
+        assert np.allclose(first_res.data[:], replay_res.data[:])
+        assert first_res.cfg == replay_res.cfg
 
 
 class TestCorrelation:
