@@ -19,17 +19,13 @@ loggername = "syncopy"  # Since this is a library, we should not use the root lo
 loglevels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 
 
-def setup_logging():
+def setup_logging(spydir=None):
 
-    # Setup logging.
-
-    # default path ONLY relevant for ESI Frankfurt
-    csHome = "/cs/home/{}".format(getpass.getuser())
     if os.environ.get("SPYLOGDIR"):
         syncopy.__logdir__ = os.path.abspath(os.path.expanduser(os.environ["SPYLOGDIR"]))
     else:
-        if os.path.exists(csHome):
-            syncopy.__logdir__ = os.path.join(csHome, ".spy", "logs")
+        if spydir is not None:
+            syncopy.__logdir__ = os.path.join(spydir, "logs")
         else:
             syncopy.__logdir__ = os.path.join(os.path.expanduser("~"), ".spy", "logs")
 

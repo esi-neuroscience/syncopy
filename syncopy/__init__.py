@@ -96,14 +96,23 @@ except ImportError:
 
 # Set package-wide temp directory
 csHome = "/cs/home/{}".format(getpass.getuser())
+if os.environ.get("SPYDIR"):
+    spydir = os.path.abspath(os.path.expanduser(os.environ["SPYDIR"]))
+    if not os.path.exists(spydir):
+        raise ValueError(f"Environment variable SPYDIR set to non-existent or unreadable directory '{spydir}'. Please unset SPYDIR or create the directory.")
+else:
+    if os.path.exists(csHome): # ESI cluster.
+        spydir = os.path.join(csHome, ".spy")
+    else:
+        spydir = os.path.abspath(os.path.join(os.path.expanduser("~"), ".spy"))
+
 if os.environ.get("SPYTMPDIR"):
     __storage__ = os.path.abspath(os.path.expanduser(os.environ["SPYTMPDIR"]))
 else:
-    if os.path.exists(csHome):
-        __storage__ = os.path.join(csHome, ".spy", "tmp_storage")
-    else:
-        __storage__ = os.path.join(os.path.expanduser("~"), ".spy", "tmp_storage")
+    __storage__ = os.path.join(spydir, "tmp_storage")
 
+if not os.path.exists(spydir):
+        os.makedirs(spydir, exist_ok=True)
 
 # Set upper bound for temp directory size (in GB)
 __storagelimit__ = 10
@@ -134,14 +143,14 @@ from .plotting import *
 from .preproc import *
 
 from .shared.log import setup_logging
-setup_logging()
+setup_logging(spydir=spydir)
 # do not spam via worker imports
 try:
     dd.get_client()
 except ValueError:
     silence_file = os.path.join(os.path.expanduser("~"), ".spy", "silentstartup")
     if os.getenv("SPYSILENTSTARTUP") is None and not os.path.isfile(silence_file):
-        print(f"Logging to log directory '{__logdir__}'.\n")  # Note the __logdir__ is set in the call to setup_logging above.
+        print(f"Logging to log directory '{__logdir__}'.\nTemporary storage directory set to '{__storage__}'.\n")  # The __logdir__ is set in the call to setup_logging above.
 
 # Register session
 __session__ = datatype.util.SessionLogger()
