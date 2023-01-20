@@ -56,8 +56,7 @@ def setup_logging(spydir=None):
             return True
 
     # The logger for local/sequential stuff -- goes to terminal and to a file.
-    logger_name = 'syncopy'
-    spy_logger = logging.getLogger(logger_name)
+    spy_logger = logging.getLogger(loggername)
     fmt_interactive = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')  # Interactive formatter: no hostname and session info (less clutter on terminal).
     fmt_with_hostname = logging.Formatter('%(asctime)s - %(levelname)s - %(hostname)s - %(session)s: %(message)s')  # Log file formatter: with hostname and session info.
     sh = logging.StreamHandler(sys.stdout)
@@ -73,7 +72,7 @@ def setup_logging(spydir=None):
 
     spy_logger.setLevel(loglevel)
     spy_logger.info(f"Starting Syncopy session at {datetime.datetime.now().astimezone().isoformat()}.")
-    spy_logger.important(f"Syncopy logger '{logger_name}' setup to log to file '{logfile}' at level {loglevel}.")
+    spy_logger.important(f"Syncopy logger '{loggername}' setup to log to file '{logfile}' at level {loglevel}.")
 
     # Log to per-host files in parallel code by default.
     # Note that this setup handles only the logger of the current host.
@@ -170,6 +169,22 @@ def get_parallel_logger():
     """
     host = socket.gethostname()
     return logging.getLogger(loggername + "_" + host)
+
+
+def set_loglevel(level, parallel_level=None):
+    """
+    Set log level for the loggers.
+
+    Parameters
+    ----------
+    level: str, one of 'DEBUG', 'IMPORTANT', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'.
+    parallel_level: optional str (same as for 'level' above) of None. If None, the log level of the sequential logger is also used for the parallel logger.
+    """
+    if parallel_level is None:
+        parallel_level = level
+    get_logger().setLevel(level)
+    get_parallel_logger().setLevel(parallel_level)
+
 
 
 def delete_all_logfiles(silent=True):
