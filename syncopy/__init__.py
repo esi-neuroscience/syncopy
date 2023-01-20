@@ -40,19 +40,23 @@ except PackageNotFoundError:
 
 # --- Greeting ---
 
+def startup_print_once(message):
+    """Print message once: do not spam message n times during all n worker imports."""
+    try:
+        dd.get_client()
+    except ValueError:
+        silence_file = os.path.join(os.path.expanduser("~"), ".spy", "silentstartup")
+        if os.getenv("SPYSILENTSTARTUP") is None and not os.path.isfile(silence_file):
+            print(message)
+
+
 msg = f"""
 Syncopy {__version__}
 
 See https://syncopy.org for the online documentation.
 For bug reports etc. please send an email to syncopy@esi-frankfurt.de
 """
-# do not spam via worker imports
-try:
-    dd.get_client()
-except ValueError:
-    silence_file = os.path.join(os.path.expanduser("~"), ".spy", "silentstartup")
-    if os.getenv("SPYSILENTSTARTUP") is None and not os.path.isfile(silence_file):
-        print(msg)
+startup_print_once(msg)
 
 # Set up sensible printing options for NumPy arrays
 np.set_printoptions(suppress=True, precision=4, linewidth=80)
@@ -127,7 +131,7 @@ __tbcount__ = 5
 # Set checksum algorithm to be used
 __checksum_algorithm__ = sha1
 
-# Fill up namespace
+# Fill namespace
 from . import (
     shared,
     io,
@@ -143,14 +147,8 @@ from .plotting import *
 from .preproc import *
 
 from .shared.log import setup_logging
-setup_logging(spydir=spydir)
-# do not spam via worker imports
-try:
-    dd.get_client()
-except ValueError:
-    silence_file = os.path.join(os.path.expanduser("~"), ".spy", "silentstartup")
-    if os.getenv("SPYSILENTSTARTUP") is None and not os.path.isfile(silence_file):
-        print(f"Logging to log directory '{__logdir__}'.\nTemporary storage directory set to '{__storage__}'.\n")  # The __logdir__ is set in the call to setup_logging above.
+setup_logging(spydir=spydir)  # Sets __logdir__.
+startup_print_once(f"Logging to log directory '{__logdir__}'.\nTemporary storage directory set to '{__storage__}'.\n")
 
 # Register session
 __session__ = datatype.util.SessionLogger()
