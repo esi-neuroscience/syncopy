@@ -19,7 +19,7 @@ loggername = "syncopy"  # Since this is a library, we should not use the root lo
 loglevels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 
 
-def setup_logging(spydir=None):
+def setup_logging(spydir=None, session=""):
     """Setup logging on module initialization (in the module root level '__init__.py' file). Should not be called elsewhere."""
 
     _addLoggingLevel('IMPORTANT', logging.INFO - 5)  # Add a new custom log level named 'IMPORTANT' between DEBUG and INFO.
@@ -49,10 +49,8 @@ def setup_logging(spydir=None):
             return True
 
     class SessionFilter(logging.Filter):
-        session = syncopy.__session__
-
         def filter(self, record):
-            record.session = self.session
+            record.session = session
             return True
 
     # The logger for local/sequential stuff -- goes to terminal and to a file.

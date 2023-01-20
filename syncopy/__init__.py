@@ -146,12 +146,13 @@ from .statistics import *
 from .plotting import *
 from .preproc import *
 
-from .shared.log import setup_logging
-setup_logging(spydir=spydir)  # Sets __logdir__.
-startup_print_once(f"Logging to log directory '{__logdir__}'.\nTemporary storage directory set to '{__storage__}'.\n")
-
 # Register session
 __session__ = datatype.util.SessionLogger()
+
+from .shared.log import setup_logging
+setup_logging(spydir=spydir, session=__session__)  # Sets __logdir__.
+startup_print_once(f"Logging to log directory '{__logdir__}'.\nTemporary storage directory set to '{__storage__}'.\n")
+
 
 # Override default traceback (differentiate b/w Jupyter/iPython and regular Python)
 from .shared.errors import SPYExceptionHandler
