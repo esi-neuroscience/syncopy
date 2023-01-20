@@ -141,7 +141,7 @@ try:
 except ValueError:
     silence_file = os.path.join(os.path.expanduser("~"), ".spy", "silentstartup")
     if os.getenv("SPYSILENTSTARTUP") is None and not os.path.isfile(silence_file):
-        print(f"logging to {__logdir__}\n")
+        print(f"Logging to log directory '{__logdir__}'.\n")  # Note the __logdir__ is set in the call to setup_logging above.
 
 # Register session
 __session__ = datatype.util.SessionLogger()
