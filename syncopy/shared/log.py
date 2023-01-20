@@ -56,7 +56,8 @@ def setup_logging(spydir=None):
             return True
 
     # The logger for local/sequential stuff -- goes to terminal and to a file.
-    spy_logger = logging.getLogger('syncopy')
+    logger_name = 'syncopy'
+    spy_logger = logging.getLogger(logger_name)
     fmt_interactive = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')  # Interactive formatter: no hostname and session info (less clutter on terminal).
     fmt_with_hostname = logging.Formatter('%(asctime)s - %(levelname)s - %(hostname)s - %(session)s: %(message)s')  # Log file formatter: with hostname and session info.
     sh = logging.StreamHandler(sys.stdout)
@@ -71,12 +72,12 @@ def setup_logging(spydir=None):
     spy_logger.addHandler(fh)
 
     spy_logger.setLevel(loglevel)
-    spy_logger.debug(f"Starting Syncopy session at {datetime.datetime.now().astimezone().isoformat()}.")
-    spy_logger.info(f"Syncopy log level set to: {loglevel}.")
+    spy_logger.info(f"Starting Syncopy session at {datetime.datetime.now().astimezone().isoformat()}.")
+    spy_logger.important(f"Syncopy logger '{logger_name}' setup to log to file '{logfile}' at level {loglevel}.")
 
     # Log to per-host files in parallel code by default.
     # Note that this setup handles only the logger of the current host.
-    parloglevel = os.getenv("SPYPARLOGLEVEL", "INFO")
+    parloglevel = os.getenv("SPYPARLOGLEVEL", "IMPORTANT")
     numeric_level = getattr(logging, parloglevel.upper(), None)
     if not isinstance(numeric_level, int):  # An invalid string was set as the env variable, use default.
         warnings.warn("Invalid log level set in environment variable 'SPYPARLOGLEVEL', ignoring and using IMPORTANT instead. Hint: Set one of 'DEBUG', 'IMPORTANT', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'.")
@@ -97,7 +98,7 @@ def setup_logging(spydir=None):
     sh.setFormatter(fmt_interactive)
 
     spy_parallel_logger.addHandler(sh)
-    spy_parallel_logger.info(f"Syncopy parallel logger '{parallel_logger_name}' setup to log to file '{logfile_par}' at level {loglevel}.")
+    spy_parallel_logger.important(f"Syncopy parallel logger '{parallel_logger_name}' setup to log to file '{logfile_par}' at level {parloglevel}.")
 
 
 # See https://stackoverflow.com/questions/2183233/how-to-add-a-custom-loglevel-to-pythons-logging-facility/35804945#35804945
