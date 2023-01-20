@@ -13,15 +13,17 @@ import warnings
 import datetime
 import platform
 import getpass
-import syncopy
 
 
 loggername = "syncopy"  # Since this is a library, we should not use the root logger (see Python logging docs).
 loglevels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 
+
 def setup_logging():
-    print("setting up logging")
+
     # Setup logging.
+
+    # default path ONLY relevant for ESI Frankfurt
     csHome = "/cs/home/{}".format(getpass.getuser())
     if os.environ.get("SPYLOGDIR"):
         syncopy.__logdir__ = os.path.abspath(os.path.expanduser(os.environ["SPYLOGDIR"]))
@@ -52,7 +54,6 @@ def setup_logging():
     fh.setFormatter(fmt)
     spy_logger.addHandler(fh)
 
-
     spy_logger.setLevel(loglevel)
     spy_logger.debug(f"Starting Syncopy session at {datetime.datetime.now().astimezone().isoformat()}.")
     spy_logger.info(f"Syncopy log level set to: {loglevel}.")
@@ -82,8 +83,9 @@ def setup_logging():
     fmt_with_hostname = logging.Formatter('%(asctime)s - %(levelname)s - %(hostname)s: %(message)s')
     fhp.setFormatter(fmt_with_hostname)
     spy_parallel_logger.addHandler(fhp)
+    sh = logging.StreamHandler(sys.stdout)
+    spy_parallel_logger.addHandler(sh)
     spy_parallel_logger.info(f"Syncopy parallel logger '{parallel_logger_name}' setup to log to file '{logfile_par}' at level {loglevel}.")
-
 
 
 def get_logger():

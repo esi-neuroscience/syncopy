@@ -135,7 +135,13 @@ from .preproc import *
 
 from .shared.log import setup_logging
 setup_logging()
-
+# do not spam via worker imports
+try:
+    dd.get_client()
+except ValueError:
+    silence_file = os.path.join(os.path.expanduser("~"), ".spy", "silentstartup")
+    if os.getenv("SPYSILENTSTARTUP") is None and not os.path.isfile(silence_file):
+        print(f"logging to {__logdir__}\n")
 
 # Register session
 __session__ = datatype.util.SessionLogger()
