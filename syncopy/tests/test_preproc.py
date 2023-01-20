@@ -576,14 +576,15 @@ class TestStandardize:
         client.close()
 
 class TestICA():
-    nTrials = 2
-    nSamples = 5000
-    AData = 100 * sd.white_noise(nTrials, nSamples=nSamples) + 5
+    n_trials = 2
+    n_samples = 5000
+    adata = 100 * sd.white_noise(n_trials, nSamples=n_samples) + 5
 
     def test_preproc_ica(self):
-        cfg = get_defaults(ppfunc)
+        cfg = get_defaults(spy.preprocessing)
         cfg.method = 'ica'
-        res = spy.preprocessing(self.AData, cfg)
+        res = spy.preprocessing(self.adata, cfg)
+        assert type(res) == spy.AnalogData
 
 
 
