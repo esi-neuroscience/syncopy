@@ -22,7 +22,7 @@ loglevels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 def setup_logging(spydir=None, session=""):
     """Setup logging on module initialization (in the module root level '__init__.py' file). Should not be called elsewhere."""
 
-    _addLoggingLevel('IMPORTANT', logging.INFO - 5)  # Add a new custom log level named 'IMPORTANT' between DEBUG and INFO.
+    _addLoggingLevel('IMPORTANT', logging.WARNING - 5)  # Add a new custom log level named 'IMPORTANT' between DEBUG and INFO (int value = 25).
 
     if os.environ.get("SPYLOGDIR"):
         syncopy.__logdir__ = os.path.abspath(os.path.expanduser(os.environ["SPYLOGDIR"]))
