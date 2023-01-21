@@ -127,6 +127,9 @@ def _addLoggingLevel(levelName, levelNum, methodName=None):
     if not methodName:
         methodName = levelName.lower()
 
+    if hasattr(logging, levelName) and hasattr(logging, methodName) and hasattr(logging.getLoggerClass(), methodName):
+        return  # Setup already complete.
+
     if hasattr(logging, levelName):
        raise AttributeError('{} already defined in logging module'.format(levelName))
     if hasattr(logging, methodName):

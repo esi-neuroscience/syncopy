@@ -17,10 +17,10 @@ class TestLogging:
         logfile = os.path.join(spy.__logdir__, "syncopy.log")
         assert os.path.isfile(logfile)
 
-    def test_default_log_level_is_warning(self):
+    def test_default_log_level_is_important(self):
 
         # Ensure the log level is at default (that user did not change SPYLOGLEVEL on test system)
-        assert os.getenv("SPYLOGLEVEL", "WARNING") == "WARNING"
+        assert os.getenv("SPYLOGLEVEL", "IMPORTANT") == "IMPORTANT"
 
         logfile = os.path.join(spy.__logdir__, "syncopy.log")
         assert os.path.isfile(logfile)
