@@ -25,7 +25,6 @@ from .methods.selectdata import selectdata
 from .methods.show import show
 from syncopy.shared.tools import SerializableDict
 from syncopy.shared.parsers import (
-    scalar_parser,
     array_parser,
     io_parser,
     filename_parser,
@@ -1489,7 +1488,7 @@ class Selector:
 
         >>> selection.trials[11]
 
-        indexes the 11th trial of the original dataset, if and only if 
+        indexes the 11th trial of the original dataset, if and only if
         trial number 11 is part of the selection.
 
         Selections must be "simple": ordered and without repetitions

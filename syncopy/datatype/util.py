@@ -3,16 +3,13 @@ Helpers and tools for Syncopy data classes
 """
 
 import os
-import getpass
-import socket
-from datetime import datetime
 from numbers import Number
 
 # Syncopy imports
 from syncopy import __storage__, __storagelimit__, __sessionid__
 from syncopy.shared.errors import SPYTypeError, SPYValueError
 
-__all__ = ['TrialIndexer', 'SessionLogger']
+__all__ = ['TrialIndexer']
 
 
 class TrialIndexer:
@@ -61,74 +58,40 @@ class TrialIndexer:
         return "{} element iterable".format(self._len)
 
 
-class SessionLogger:
+def setup_storage():
+    """
+    Create temporary storage dir and report on its size.
 
-    __slots__ = ["sessionfile", "_rm"]
+    Returns
+    -------
+    storage_size: Size of files in temporary storage directory, in GB.
+    storage_num_files: Number of files in temporary storage directory.
+    """
 
-    def __init__(self):
-
-        # Create package-wide tmp directory if not already present
-        if not os.path.exists(__storage__):
-            try:
-                os.mkdir(__storage__)
-            except Exception as exc:
-                err = (
-                    "Syncopy core: cannot create temporary storage directory {}. "
-                    + "Original error message below\n{}"
-                )
-                raise IOError(err.format(__storage__, str(exc)))
-
-        # Check for upper bound of temp directory size
-        with os.scandir(__storage__) as scan:
-            st_size = 0.0
-            st_fles = 0
-            for fle in scan:
-                try:
-                    st_size += fle.stat().st_size / 1024 ** 3
-                    st_fles += 1
-                # this catches a cleanup by another process
-                except FileNotFoundError:
-                    continue
-
-            if st_size > __storagelimit__:
-                msg = (
-                    "\nSyncopy <core> WARNING: Temporary storage folder {tmpdir:s} "
-                    + "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n"
-                    + "Consider running `spy.cleanup()` to free up disk space."
-                )
-                print(msg.format(tmpdir=__storage__, nfs=st_fles, sze=st_size))
-
-        # If we made it to this point, (attempt to) write the session file
-        sess_log = "{user:s}@{host:s}: <{time:s}> started session {sess:s}"
-        self.sessionfile = os.path.join(
-            __storage__, "session_{}_log.id".format(__sessionid__)
-        )
+    # Create package-wide tmp directory if not already present
+    if not os.path.exists(__storage__):
         try:
-            with open(self.sessionfile, "w") as fid:
-                fid.write(
-                    sess_log.format(
-                        user=getpass.getuser(),
-                        host=socket.gethostname(),
-                        time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        sess=__sessionid__,
-                    )
-                )
+            os.mkdir(__storage__)
         except Exception as exc:
-            err = "Syncopy core: cannot access {}. Original error message below\n{}"
-            raise IOError(err.format(self.sessionfile, str(exc)))
+            err = (
+                "Syncopy core: cannot create temporary storage directory {}. "
+                + "Original error message below\n{}"
+            )
+            raise IOError(err.format(__storage__, str(exc)))
 
-        # Workaround to prevent Python from garbage-collecting ``os.unlink``
-        self._rm = os.unlink
+    # Check for upper bound of temp directory size
+    with os.scandir(__storage__) as scan:
+        storage_size = 0.0
+        storage_num_files = 0
+        for fle in scan:
+            try:
+                storage_size += fle.stat().st_size / 1024 ** 3
+                storage_num_files += 1
+            # this catches a cleanup by another process
+            except FileNotFoundError:
+                continue
 
-    def __repr__(self):
-        return self.__str__()
+    return storage_size, storage_num_files
 
-    def __str__(self):
-        return "Session {}".format(__sessionid__)
 
-    def __del__(self):
-        try:
-            self._rm(self.sessionfile)
-        except FileNotFoundError:
-            pass
-    
+
