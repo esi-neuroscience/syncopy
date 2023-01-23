@@ -8,7 +8,7 @@ import platform
 
 # Local imports
 import syncopy as spy
-from syncopy.shared.log import get_logger
+from syncopy.shared.log import get_logger, get_parallel_logger
 from syncopy.shared.errors import SPYLog
 
 
@@ -23,7 +23,6 @@ class TestLogging:
         assert os.path.isfile(par_logfile)
 
     def test_default_log_level_is_important(self):
-
         # Ensure the log level is at default (that user did not change SPYLOGLEVEL on test system)
         assert os.getenv("SPYLOGLEVEL", "IMPORTANT") == "IMPORTANT"
 
@@ -45,6 +44,33 @@ class TestLogging:
 
         num_lines_after_warning = sum(1 for line in open(logfile))
         assert num_lines_after_warning > num_lines_after_info_debug
+
+    def test_default_parellel_log_level_is_important(self):
+        # Ensure the log level is at default (that user did not change SPYLOGLEVEL on test system)
+        assert os.getenv("SPYLOGLEVEL", "IMPORTANT") == "IMPORTANT"
+        assert os.getenv("SPYPARLOGLEVEL", "IMPORTANT") == "IMPORTANT"
+
+        par_logfile = os.path.join(spy.__logdir__, f"syncopy_{platform.node()}.log")
+        assert os.path.isfile(par_logfile)
+        num_lines_initial = sum(1 for line in open(par_logfile)) # The log file gets appended, so it will most likely *not* be empty.
+
+        # Log something with log level info and DEBUG, which should not affect the logfile.
+        par_logger = get_parallel_logger()
+        par_logger.info("I am adding an INFO level log entry.")
+        par_logger.debug("I am adding a IMPORTANT level log entry.")
+
+        num_lines_after_info_debug = sum(1 for line in open(par_logfile))
+
+        assert num_lines_initial == num_lines_after_info_debug
+
+        # Now log something with log level WARNING
+        par_logger.important("I am adding a IMPORTANT level log entry.")
+        par_logger.warning("This is the last warning.")
+
+        num_lines_after_warning = sum(1 for line in open(par_logfile))
+        assert num_lines_after_warning > num_lines_after_info_debug
+
+
 
 
 
