@@ -7,14 +7,10 @@
 import os
 import sys
 import subprocess
-import datetime
 import getpass
 import socket
 import numpy as np
 from hashlib import blake2b, sha1
-import logging
-import warnings
-import platform
 from importlib.metadata import version, PackageNotFoundError
 import dask.distributed as dd
 
@@ -123,7 +119,6 @@ __storagelimit__ = 10
 
 # Establish ID and log-file for current session
 __sessionid__ = blake2b(digest_size=2, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
-__sessionfile__ = os.path.join(__storage__, "session_{}.id".format(__sessionid__))
 
 # Set max. no. of lines for traceback info shown in prompt
 __tbcount__ = 5
@@ -146,12 +141,22 @@ from .statistics import *
 from .plotting import *
 from .preproc import *
 
-# Register session
-__session__ = datatype.util.SessionLogger()
+from .datatype.util import setup_storage
+storage_tmpdir_size_gb, storage_tmpdir_numfiles = setup_storage()  # Creates the storage dir if needed and computes size and number of files in there if any.
 
 from .shared.log import setup_logging
-setup_logging(spydir=spydir, session=__session__)  # Sets __logdir__.
+__logdir__ = None  # Gets set in setup_logging() call below.
+setup_logging(spydir=spydir, session=__sessionid__)  # Sets __logdir__.
 startup_print_once(f"Logging to log directory '{__logdir__}'.\nTemporary storage directory set to '{__storage__}'.\n")
+
+if storage_tmpdir_size_gb > __storagelimit__:
+            msg = (
+                "\nSyncopy <core> WARNING: Temporary storage folder {tmpdir:s} "
+                + "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n"
+                + "Consider running `spy.cleanup()` to free up disk space."
+            )
+            msg_formatted = msg.format(tmpdir=__storage__, nfs=storage_tmpdir_numfiles, sze=storage_tmpdir_size_gb)
+            startup_print_once(msg_formatted)
 
 
 # Override default traceback (differentiate b/w Jupyter/iPython and regular Python)
