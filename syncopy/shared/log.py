@@ -70,7 +70,7 @@ def setup_logging(spydir=None, session=""):
 
     spy_logger.setLevel(loglevel)
     spy_logger.info(f"Starting Syncopy session at {datetime.datetime.now().astimezone().isoformat()}.")
-    spy_logger.important(f"Syncopy logger '{loggername}' setup to log to file '{logfile}' at level {loglevel}.")
+    spy_logger.debug(f"Syncopy logger '{loggername}' setup to log to file '{logfile}' at level {loglevel}.")
 
     # Log to per-host files in parallel code by default.
     # Note that this setup handles only the logger of the current host.
@@ -95,7 +95,7 @@ def setup_logging(spydir=None, session=""):
     sh.setFormatter(fmt_interactive)
 
     spy_parallel_logger.addHandler(sh)
-    spy_parallel_logger.important(f"Syncopy parallel logger '{parallel_logger_name}' setup to log to file '{logfile_par}' at level {parloglevel}.")
+    spy_parallel_logger.debug(f"Syncopy parallel logger '{parallel_logger_name}' setup to log to file '{logfile_par}' at level {parloglevel}.")
 
 
 # See https://stackoverflow.com/questions/2183233/how-to-add-a-custom-loglevel-to-pythons-logging-facility/35804945#35804945
