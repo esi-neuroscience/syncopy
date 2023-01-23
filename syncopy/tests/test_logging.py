@@ -57,7 +57,7 @@ class TestLogging:
         # Log something with log level info and DEBUG, which should not affect the logfile.
         par_logger = get_parallel_logger()
         par_logger.info("I am adding an INFO level log entry.")
-        par_logger.debug("I am adding a IMPORTANT level log entry.")
+        par_logger.debug("I am adding a DEBUG level log entry.")
 
         num_lines_after_info_debug = sum(1 for line in open(par_logfile))
 
