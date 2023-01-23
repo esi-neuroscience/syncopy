@@ -55,8 +55,16 @@ def setup_logging(spydir=None, session=""):
 
     # The logger for local/sequential stuff -- goes to terminal and to a file.
     spy_logger = logging.getLogger(loggername)
-    fmt_interactive = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')  # Interactive formatter: no hostname and session info (less clutter on terminal).
-    fmt_with_hostname = logging.Formatter('%(asctime)s - %(levelname)s - %(hostname)s - %(session)s: %(message)s')  # Log file formatter: with hostname and session info.
+
+    datefmt_interactive = '%H:%M:%S'
+    datefmt_file = "%Y-%m-%d %H:%M:%S"
+
+    # Interactive formatter: no hostname and session info (less clutter on terminal).
+    fmt_interactive = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s', datefmt_interactive)
+    # Log file formatter: with hostname and session info.
+    fmt_with_hostname = logging.Formatter('%(asctime)s - %(levelname)s - %(hostname)s - %(session)s: %(message)s',
+                                          datefmt_file)
+
     sh = logging.StreamHandler(sys.stdout)
     sh.setFormatter(fmt_interactive)
     spy_logger.addHandler(sh)
@@ -206,5 +214,3 @@ def delete_all_logfiles(silent=True):
                 warnings.warn(f"Could not delete log file '{logfile}': {str(ex)}")
     if not silent:
         print(f"Deleted {num_deleted} log files from directory '{logdir}'.")
-
-
