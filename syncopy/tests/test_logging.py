@@ -4,6 +4,7 @@
 #
 
 import os
+import platform
 
 # Local imports
 import syncopy as spy
@@ -13,9 +14,13 @@ from syncopy.shared.errors import SPYLog
 
 class TestLogging:
 
-    def test_logfile_exists(self):
+    def test_seq_logfile_exists(self):
         logfile = os.path.join(spy.__logdir__, "syncopy.log")
         assert os.path.isfile(logfile)
+
+    def test_par_logfile_exists(self):
+        par_logfile = os.path.join(spy.__logdir__, f"syncopy_{platform.node()}.log")
+        assert os.path.isfile(par_logfile)
 
     def test_default_log_level_is_important(self):
 
