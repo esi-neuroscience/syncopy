@@ -11,7 +11,7 @@ is run by the remote workers in a high performance computing (HPC) cluster envir
 Log levels
 -----------
 
-The default log level is for the Syncopy logger is `'logging.WARNING'` (from now on referred to as `'WARNING'`). This means that you will not see any Syncopy messages below that threshold, i.e., messages printed with log levels `'DEBUG'` and `'INFO'`. To change the log level, you can either use the logging API in your application code as explained below, or set the environment variable `'SPYLOGLEVEL'` to one of the values supported by the logging module, e.g., 'CRITICAL', 'WARNING', 'INFO', or 'DEBUG'. See the `official docs of the logging module <https://docs.python.org/3/library/logging.html#levels>`_ for details on the supported log levels.
+The default log level is for the Syncopy logger is `'logging.IMPORTANT'` (from now on referred to as `'IMPORTANT'`). This means that you will not see any Syncopy messages below that threshold, i.e., messages printed with log levels `'DEBUG'` and `'INFO'`. To change the log level, you can either use the logging API in your application code as explained below, or set the environment variable `'SPYLOGLEVEL'` to one of the values supported by the logging module, e.g., 'CRITICAL', 'WARNING', 'INFO', or 'DEBUG'. See the `official docs of the logging module <https://docs.python.org/3/library/logging.html#levels>`_ for details on the supported log levels. Note that IMPORTANT is a custom log level with importance 25, i.e., between INFO and WARNING.
 
 
 Log file location
