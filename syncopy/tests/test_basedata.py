@@ -61,12 +61,12 @@ class TestBaseData():
     seed = np.random.RandomState(13)
     data["SpikeData"] = np.vstack([seed.choice(nSamples, size=nSpikes),
                                    seed.choice(nChannels, size=nSpikes),
-                                   seed.choice(int(nChannels / 2), size=nSpikes)]).T
+                                   seed.choice(int(nChannels / 2), size=nSpikes)]).T.astype(int)
     trl["SpikeData"] = trl["AnalogData"]
 
     # Use a simple binary trigger pattern to simulate EventData
     data["EventData"] = np.vstack([np.arange(0, nSamples, 5),
-                                   np.zeros((int(nSamples / 5), ))]).T
+                                   np.zeros((int(nSamples / 5), ))]).T.astype(int)
     data["EventData"][1::2, 1] = 1
     trl["EventData"] = trl["AnalogData"]
 
@@ -161,6 +161,43 @@ class TestBaseData():
             assert np.array_equal(dummy._t0, self.trl[dclass][:, 2])
             assert np.array_equal(dummy.trialinfo.flatten(), self.trl[dclass][:, 3])
 
+    def test_trials_property(self):
+
+        # 3 trials, trial index = data values
+        data = AnalogData([i * np.ones((2,2)) for i in range(3)], samplerate=1)
+
+        # single index access
+        assert np.all(data.trials[0] == 0)
+        assert np.all(data.trials[1] == 1)
+        assert np.all(data.trials[2] == 2)
+
+        # iterator
+        all_trials = [trl for trl in data.trials]
+        assert len(all_trials) == 3
+        assert all([np.all(all_trials[i] == i) for i in range(3)])
+
+        # selection
+        data.selectdata(trials=[0, 2], inplace=True)
+        all_selected_trials = [trl for trl in data.selection.trials]
+        assert data.selection.trial_ids == [0, 2]
+        assert len(all_selected_trials) == 2
+        assert all([np.all(data.selection.trials[i] == i) for i in data.selection.trial_ids])
+
+        # check that non-existing trials get catched
+        with pytest.raises(SPYValueError, match='existing trials'):
+            data.trials[999]
+        # selections have absolute trial indices!
+        with pytest.raises(SPYValueError, match='existing trials'):
+            data.selection.trials[1]
+
+        # check that invalid trial indexing gets catched
+        with pytest.raises(SPYTypeError, match='trial index'):
+            data.trials[range(4)]
+        with pytest.raises(SPYTypeError, match='trial index'):
+            data.trials[2:3]
+        with pytest.raises(SPYTypeError, match='trial index'):
+            data.trials[np.arange(3)]
+
     # Test ``_gen_filename`` with `AnalogData` only - method is independent from concrete data object
     def test_filename(self):
         # ensure we're salting sufficiently to create at least `numf`
@@ -241,7 +278,7 @@ class TestBaseData():
 
             # Start w/the one operator that does not handle zeros well...
             with pytest.raises(SPYValueError) as spyval:
-                dummy / 0
+                _ = dummy / 0
                 assert "expected non-zero scalar for division" in str(spyval.value)
 
             # Go through all supported operators and try to sabotage them
@@ -337,8 +374,8 @@ class TestBaseData():
             # Difference in actual numerical data
             dummy3 = dummy.copy()
             for dsetName in dummy3._hdfFileDatasetProperties:
-                getattr(dummy3, dsetName)[0] = 2 * np.pi
-            assert dummy3 != dummy
+                getattr(dummy3, dsetName)[0, 0] = -99
+            assert dummy3.data != dummy.data
 
             del dummy, dummy3, other
 

@@ -6,6 +6,8 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+import logging
+import platform
 
 # Local imports
 # from .selectdata import _get_selection_size
@@ -74,7 +76,7 @@ def std(spy_data, dim, keeptrials=True, **kwargs):
         Must be present in the ``spy_data`` object,
         e.g. 'channel' or 'trials'
     keeptrials : bool
-        Set to ``False`` to trigger additional trial averagin
+        Set to ``False`` to trigger additional trial averaging.
         Has no effect if ``dim='trials'``.
 
     Returns
@@ -206,6 +208,9 @@ def itc(spec_data, **kwargs):
         act = "real valued spectral data"
         raise SPYValueError(lgl, 'spec_data', act)
 
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Computing intertrial coherence on SpectralData instance with shape {spec_data.data.shape}.")
+
     # takes care of remaining checks
     res = _trial_statistics(spec_data, operation='itc')
 
@@ -260,6 +265,9 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
                 'dim': dim,
                 'keeptrials': keeptrials}
 
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Computing descriptive statistic {operation} on input from {spy_data.filename} along dimension {dim}, keeptrials={keeptrials}.")
+
     # If no active selection is present, create a "fake" all-to-all selection
     # to harmonize processing down the road (and attach `_cleanup` attribute for later removal)
     if spy_data.selection is None:
@@ -274,7 +282,6 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
         if kwargs.get('parallel'):
             msg = "Trial statistics can be only computed sequentially, ignoring `parallel` keyword"
             SPYWarning(msg)
-
         out = _trial_statistics(spy_data, operation)
 
     # any other statistic
@@ -447,8 +454,10 @@ def _trial_statistics(in_data, operation='mean'):
         act = f"got {nTrials} trials"
         raise SPYValueError(lgl, 'in_data', act)
 
+    # index 1st selected trial
+    idx0 = in_data.selection.trial_ids[0]
     # we always have at least one (all-to-all) trial selection
-    out_shape = in_data.selection.trials[0].shape
+    out_shape = in_data.selection.trials[idx0].shape
 
     # now look at the other ones
     for trl in in_data.selection.trials:

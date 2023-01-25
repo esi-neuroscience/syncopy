@@ -9,7 +9,6 @@
 # 3rd party imports
 import itertools
 import numpy as np
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 

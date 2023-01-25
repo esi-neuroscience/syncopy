@@ -11,13 +11,15 @@ import numpy as np
 import dask.distributed as dd
 
 
-# Local imports
+import syncopy as spy
 from syncopy.shared.errors import (SPYTypeError, SPYValueError,
                                    SPYError, SPYWarning, SPYInfo)
 from syncopy.shared.tools import StructDict
 from syncopy.shared.metadata import h5_add_metadata, parse_cF_returns
+
+# Local imports
 from .dask_helpers import check_slurm_available, check_workers_available
-import syncopy as spy
+from .log import get_logger
 
 __all__ = []
 
@@ -463,6 +465,8 @@ def detect_parallel_client(func):
     @functools.wraps(func)
     def parallel_client_detector(*args, **kwargs):
 
+        logger = get_logger()
+
         # Extract `parallel` keyword: if `parallel` is `False`, nothing happens
         parallel = kwargs.get("parallel")
         kill_spawn = False
@@ -478,8 +482,8 @@ def detect_parallel_client(func):
             try:
                 client = dd.get_client()
                 check_workers_available(client.cluster)
-                msg = f"..attaching to running Dask client:\n{client}"
-                SPYInfo(msg)
+                msg = f"..attaching to running Dask client:\n\t{client}"
+                logger.important(msg)
                 parallel = True
             except ValueError:
                 parallel = False
@@ -493,7 +497,7 @@ def detect_parallel_client(func):
                 client = dd.get_client()
                 check_workers_available(client.cluster)
                 msg = f"..attaching to running Dask client:\n{client}"
-                SPYInfo(msg)
+                logger.important(msg)
             except ValueError:
                 # we are on a HPC but ACME and Dask client are missing,
                 # LocalCluster still gets created
@@ -515,8 +519,8 @@ def detect_parallel_client(func):
                 dd.Client(cluster)
                 kill_spawn = True
                 msg = ("No running Dask cluster found, created a local instance:\n"
-                       f"\t {cluster.scheduler}")
-                SPYInfo(msg)
+                       f"\t{cluster.scheduler}")
+                logger.important(msg)
 
         # Add/update `parallel` to/in keyword args
         kwargs["parallel"] = parallel

@@ -8,6 +8,8 @@
 # Builtin/3rd party package imports
 import numpy as np
 from fooof import FOOOF
+import logging
+import platform
 
 # Constants
 available_fooof_out_types = ['fooof', 'fooof_aperiodic', 'fooof_peaks']
@@ -93,6 +95,9 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
 
     if in_freqs is None:
         raise ValueError('infreqs: The input frequencies are required and must not be None.')
+
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Running FOOOF backend function on data chunk with shape {data_arr.shape}.")
 
     invalid_fooof_opts = [i for i in fooof_opt.keys() if i not in available_fooof_options]
     if invalid_fooof_opts:

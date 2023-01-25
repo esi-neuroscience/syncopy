@@ -3,7 +3,7 @@ Syncopy Developer Guide
 ***********************
 
 The following information is meant for advanced users with an understanding of
-class hierarchies that want to extend and/or modify Syncopy's base functionality. 
+class hierarchies that want to extend and/or modify Syncopy's base functionality.
 
 .. toctree::
     :glob:
@@ -13,4 +13,5 @@ class hierarchies that want to extend and/or modify Syncopy's base functionality
     io
     tools
     compute_kernels
+    logging
     developer_api

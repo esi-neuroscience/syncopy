@@ -15,7 +15,7 @@ import dask.distributed as dd
 
 import syncopy as spy
 from syncopy import AnalogData, SpectralData
-import syncopy.nwanalysis.connectivity_analysis as ca
+from syncopy.nwanalysis.connectivity_analysis import connectivity_outputs
 from syncopy import connectivityanalysis as cafunc
 import syncopy.tests.synth_data as synth_data
 import syncopy.tests.helpers as helpers
@@ -213,11 +213,10 @@ class TestGranger:
 
         # test one final selection into a result
         # obtained via orignal SpectralData input
-        selections[0].pop('latency')        
+        selections[0].pop('latency')
         result_ad = cafunc(self.data, self.cfg, method='granger', select=selections[0])
         result_spec = cafunc(self.spec, method='granger', select=selections[0])
         assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=1e-3)
-
 
     def test_gr_foi(self):
 
@@ -441,7 +440,7 @@ class TestCoherence:
 
         # test one final selection into a result
         # obtained via orignal SpectralData input
-        selections[0].pop('latency')        
+        selections[0].pop('latency')
         result_ad = cafunc(self.data, self.cfg, method='coh', select=selections[0])
         result_spec = cafunc(self.spec, method='coh', select=selections[0])
         assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=1e-3)
@@ -474,18 +473,8 @@ class TestCoherence:
                      cfg=get_defaults(cafunc))
 
     @skip_low_mem
-    def test_coh_parallel(self, testcluster=None):
-
-        ppl.ioff()
-        client = dd.Client(testcluster)
-        all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
-
-        for test in all_tests:
-            test_method = getattr(self, test)
-            test_method()
-        client.close()
-        ppl.ion()
+    def test_parallel(self):
+        check_parallel(TestCoherence())
 
     def test_coh_padding(self):
 
@@ -500,7 +489,7 @@ class TestCoherence:
 
     def test_coh_outputs(self):
 
-        for output in ca.coh_outputs:
+        for output in connectivity_outputs:
             coh = cafunc(self.data,
                          method='coh',
                          output=output)
@@ -514,6 +503,69 @@ class TestCoherence:
             else:
                 # strictly real outputs
                 assert np.all(np.imag(coh.trials[0]) == 0)
+
+
+class TestCSD:
+    nSamples = 1400
+    nChannels = 4
+    nTrials = 100
+    fs = 1000
+    Method = 'csd'
+
+    # -- two harmonics with individual phase diffusion --
+
+    f1, f2 = 20, 40
+    # a lot of phase diffusion (1% per step) in the 20Hz band
+    s1 = synth_data.phase_diffusion(nTrials, freq=f1,
+                                    eps=.01,
+                                    nChannels=nChannels,
+                                    nSamples=nSamples)
+
+    # little diffusion in the 40Hz band
+    s2 = synth_data.phase_diffusion(nTrials, freq=f2,
+                                    eps=.001,
+                                    nChannels=nChannels,
+                                    nSamples=nSamples)
+
+    wn = synth_data.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples)
+
+    # superposition
+    data = s1 + s2 + wn
+    data.samplerate = fs
+    time_span = [-1, nSamples / fs - 1]   # -1s offset
+
+    # spectral analysis
+    cfg = spy.StructDict()
+    cfg.tapsmofrq = 1.5
+    cfg.foilim = [5, 60]
+
+    spec = spy.freqanalysis(data, cfg, output='fourier', keeptapers=True)
+
+    def test_data_output_type(self):
+        cross_spec = spy.connectivityanalysis(self.spec, method='csd')
+        assert np.all(self.spec.freq == cross_spec.freq)
+        assert cross_spec.data.dtype.name == 'complex64'
+        assert cross_spec.data.shape != self.spec.data.shape
+
+    @skip_low_mem
+    def test_parallel(self):
+        check_parallel(TestCSD())
+
+    def test_csd_input(self):
+        assert isinstance(self.spec, SpectralData)
+
+    def test_csd_cfg_replay(self):
+        cross_spec = spy.connectivityanalysis(self.spec, method=self.Method)
+        assert len(cross_spec.cfg) == 2
+        assert np.all([True for cfg in zip(self.spec.cfg['freqanalysis'], cross_spec.cfg['freqanalysis']) if cfg[0] == cfg[1]])
+        assert cross_spec.cfg['connectivityanalysis'].method == self.Method
+
+        first_cfg = cross_spec.cfg['connectivityanalysis']
+        first_res = spy.connectivityanalysis(self.spec, cfg=first_cfg)
+        replay_res = spy.connectivityanalysis(self.spec, cfg=first_res.cfg)
+
+        assert np.allclose(first_res.data[:], replay_res.data[:])
+        assert first_res.cfg == replay_res.cfg
 
 
 class TestCorrelation:
@@ -648,23 +700,25 @@ class TestCorrelation:
                      cfg=get_defaults(cafunc))
 
     @skip_low_mem
-    def test_corr_parallel(self, testcluster=None):
-
-        ppl.ioff()
-        client = dd.Client(testcluster)
-        all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
-
-        for test in all_tests:
-            test_method = getattr(self, test)
-            test_method()
-        client.close()
-        ppl.ion()
+    def test_parallel(self):
+        check_parallel(TestCorrelation())
 
     def test_corr_polyremoval(self):
 
         call = lambda polyremoval: self.test_corr_solution(polyremoval=polyremoval)
         helpers.run_polyremoval_test(call)
+
+
+def check_parallel(TestClass, testcluster=None):
+    ppl.ioff()
+    client = dd.Client(testcluster)
+    all_tests = [attr for attr in TestClass.__dir__()
+                 if (inspect.ismethod(getattr(TestClass, attr)) and 'parallel' not in attr)]
+    for test in all_tests:
+        test_method = getattr(TestClass, test)
+        test_method()
+    client.close()
+    ppl.ion()
 
 
 def run_cfg_test(method_call, method, cfg, positivity=True):
@@ -715,9 +769,9 @@ def plot_corr(res, i, j, label=''):
     ax.legend()
 
 
-
 if __name__ == '__main__':
     T1 = TestGranger()
     T2 = TestCoherence()
     T3 = TestCorrelation()
     T4 = TestSpectralInput()
+    T5 = TestCSD()

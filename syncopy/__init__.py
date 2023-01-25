@@ -7,8 +7,8 @@
 import os
 import sys
 import subprocess
-import socket
 import getpass
+import socket
 import numpy as np
 from hashlib import blake2b, sha1
 from importlib.metadata import version, PackageNotFoundError
@@ -36,17 +36,23 @@ except PackageNotFoundError:
 
 # --- Greeting ---
 
+def startup_print_once(message):
+    """Print message once: do not spam message n times during all n worker imports."""
+    try:
+        dd.get_client()
+    except ValueError:
+        silence_file = os.path.join(os.path.expanduser("~"), ".spy", "silentstartup")
+        if os.getenv("SPYSILENTSTARTUP") is None and not os.path.isfile(silence_file):
+            print(message)
+
+
 msg = f"""
 Syncopy {__version__}
 
 See https://syncopy.org for the online documentation.
 For bug reports etc. please send an email to syncopy@esi-frankfurt.de
 """
-# do not spam via worker imports
-try:
-    dd.get_client()
-except ValueError:
-    print(msg)
+startup_print_once(msg)
 
 # Set up sensible printing options for NumPy arrays
 np.set_printoptions(suppress=True, precision=4, linewidth=80)
@@ -90,20 +96,29 @@ except ImportError:
 
 # Set package-wide temp directory
 csHome = "/cs/home/{}".format(getpass.getuser())
+if os.environ.get("SPYDIR"):
+    spydir = os.path.abspath(os.path.expanduser(os.environ["SPYDIR"]))
+    if not os.path.exists(spydir):
+        raise ValueError(f"Environment variable SPYDIR set to non-existent or unreadable directory '{spydir}'. Please unset SPYDIR or create the directory.")
+else:
+    if os.path.exists(csHome): # ESI cluster.
+        spydir = os.path.join(csHome, ".spy")
+    else:
+        spydir = os.path.abspath(os.path.join(os.path.expanduser("~"), ".spy"))
+
 if os.environ.get("SPYTMPDIR"):
     __storage__ = os.path.abspath(os.path.expanduser(os.environ["SPYTMPDIR"]))
 else:
-    if os.path.exists(csHome):
-        __storage__ = os.path.join(csHome, ".spy")
-    else:
-        __storage__ = os.path.join(os.path.expanduser("~"), ".spy")
+    __storage__ = os.path.join(spydir, "tmp_storage")
+
+if not os.path.exists(spydir):
+        os.makedirs(spydir, exist_ok=True)
 
 # Set upper bound for temp directory size (in GB)
 __storagelimit__ = 10
 
 # Establish ID and log-file for current session
 __sessionid__ = blake2b(digest_size=2, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
-__sessionfile__ = os.path.join(__storage__, "session_{}.id".format(__sessionid__))
 
 # Set max. no. of lines for traceback info shown in prompt
 __tbcount__ = 5
@@ -111,7 +126,7 @@ __tbcount__ = 5
 # Set checksum algorithm to be used
 __checksum_algorithm__ = sha1
 
-# Fill up namespace
+# Fill namespace
 from . import (
     shared,
     io,
@@ -126,8 +141,23 @@ from .statistics import *
 from .plotting import *
 from .preproc import *
 
-# Register session
-__session__ = datatype.base_data.SessionLogger()
+from .datatype.util import setup_storage
+storage_tmpdir_size_gb, storage_tmpdir_numfiles = setup_storage()  # Creates the storage dir if needed and computes size and number of files in there if any.
+
+from .shared.log import setup_logging
+__logdir__ = None  # Gets set in setup_logging() call below.
+setup_logging(spydir=spydir, session=__sessionid__)  # Sets __logdir__.
+startup_print_once(f"Logging to log directory '{__logdir__}'.\nTemporary storage directory set to '{__storage__}'.\n")
+
+if storage_tmpdir_size_gb > __storagelimit__:
+            msg = (
+                "\nSyncopy <core> WARNING: Temporary storage folder {tmpdir:s} "
+                + "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n"
+                + "Consider running `spy.cleanup()` to free up disk space."
+            )
+            msg_formatted = msg.format(tmpdir=__storage__, nfs=storage_tmpdir_numfiles, sze=storage_tmpdir_size_gb)
+            startup_print_once(msg_formatted)
+
 
 # Override default traceback (differentiate b/w Jupyter/iPython and regular Python)
 from .shared.errors import SPYExceptionHandler

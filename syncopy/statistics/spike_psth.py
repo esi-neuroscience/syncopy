@@ -5,13 +5,14 @@
 
 import numpy as np
 from copy import deepcopy
+import logging
+import platform
 
 # Syncopy imports
 import syncopy as spy
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.tools import get_defaults, get_frontend_cfg
 from syncopy.datatype import TimeLockData
-from syncopy.datatype.base_data import Indexer
 
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo
 from syncopy.shared.kwarg_decorators import (
@@ -159,7 +160,7 @@ def spike_psth(data,
 
         # apply the updated selection
         data.selectdata(select, inplace=True)
-        
+
         # now redefine local variables
         trl_def = data.selection.trialdefinition
         sinfo = data.selection.trialdefinition[:, :2]

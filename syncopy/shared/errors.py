@@ -6,10 +6,13 @@
 # Builtin/3rd party package imports
 import sys
 import traceback
+import logging
 from collections import OrderedDict
 
 # Local imports
 from syncopy import __tbcount__
+from syncopy.shared.log import get_logger, get_parallel_logger, loglevels
+import syncopy
 
 # Custom definition of bold ANSI for formatting errors/warnings in iPython/Jupyter
 ansiBold = "\033[1m"
@@ -129,7 +132,9 @@ class SPYParallelError(SPYError):
 
 def SPYExceptionHandler(*excargs, **exckwargs):
     """
-    Docstring coming soon(ish)...
+    Syncopy custom ExceptionHandler.
+
+    Prints formatted and colored messages and stack traces, and starts debugging if `%pdb` is enabled in Jupyter/iPython.
     """
 
     # Depending on the number of input arguments, we're either in Jupyter/iPython
@@ -189,7 +194,8 @@ def SPYExceptionHandler(*excargs, **exckwargs):
                                         cols.Normal if isipy else "")
 
         # Show generated message and leave (or kick-off debugging in Jupyer/iPython if %pdb is on)
-        print(emsg)
+        logger = get_parallel_logger()
+        logger.critical(emsg)
         if isipy:
             if ipy.call_pdb:
                 ipy.InteractiveTB.debugger()
@@ -269,7 +275,8 @@ def SPYExceptionHandler(*excargs, **exckwargs):
 
 
     # Show generated message and get outta here
-    print(emsg)
+    logger = get_parallel_logger()
+    logger.critical(emsg)
 
     # Kick-start debugging in case %pdb is enabled in Jupyter/iPython
     if isipy:
@@ -279,7 +286,10 @@ def SPYExceptionHandler(*excargs, **exckwargs):
 
 def SPYWarning(msg, caller=None):
     """
-    Standardized Syncopy warning message
+    Log a standardized Syncopy warning message.
+
+    .. note::
+        Depending on the currently active log level, this may or may not produce any output.
 
     Parameters
     ----------
@@ -311,16 +321,53 @@ def SPYWarning(msg, caller=None):
     if caller is None:
         caller = sys._getframe().f_back.f_code.co_name
     PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} WARNING: {msg:s}{coloroff:s}"
-    print(PrintMsg.format(coloron=warnCol,
+    logger = get_logger()
+    logger.warning(PrintMsg.format(coloron=warnCol,
                           bold=boldEm,
                           caller=" <" + caller + ">" if len(caller) else caller,
                           msg=msg,
                           coloroff=normCol))
 
 
-def SPYInfo(msg, caller=None):
+def SPYParallelLog(msg, loglevel="INFO", caller=None):
+    """Log a message in parallel code run via slurm.
+
+    This uses the parallel logger and one file per machine.
     """
-    Standardized Syncopy info message
+    numeric_level = getattr(logging, loglevel.upper(), None)
+    if not isinstance(numeric_level, int):  # Invalid string was set.
+        raise SPYValueError(legal=f"one of: {loglevels}", varname="loglevel", actual=loglevel)
+    if caller is None:
+        caller = sys._getframe().f_back.f_code.co_name
+    PrintMsg = "{caller:s} {msg:s}"
+    logger = get_parallel_logger()
+    logfunc = getattr(logger, loglevel.lower())
+    logfunc(PrintMsg.format(caller=" <" + caller + ">" if len(caller) else caller,
+                          msg=msg))
+
+def SPYLog(msg, loglevel="INFO", caller=None):
+    """Log a message in seqiential code.
+
+    This uses the standard logger that logs to console by default.
+    """
+    numeric_level = getattr(logging, loglevel.upper(), None)
+    if not isinstance(numeric_level, int):  # Invalid string was set.
+        raise SPYValueError(legal=f"one of: {loglevels}", varname="loglevel", actual=loglevel)
+    if caller is None:
+        caller = sys._getframe().f_back.f_code.co_name
+    PrintMsg = "{caller:s} {msg:s}"
+    logger = get_logger()
+    logfunc = getattr(logger, loglevel.lower())
+    logfunc(PrintMsg.format(caller=" <" + caller + ">" if len(caller) else caller,
+                          msg=msg))
+
+
+def SPYInfo(msg, caller=None, tag="INFO"):
+    """
+    Log a standardized Syncopy info message.
+
+    .. note::
+        Depending on the currently active log level, this may or may not produce any output.
 
     Parameters
     ----------
@@ -351,10 +398,34 @@ def SPYInfo(msg, caller=None):
     # Plug together message string and print it
     if caller is None:
         caller = sys._getframe().f_back.f_code.co_name
-    PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} INFO: {msg:s}{coloroff:s}"
-    print(PrintMsg.format(coloron=infoCol,
+    PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} {tag}: {msg:s}{coloroff:s}"
+    logger = get_logger()
+    logger.info(PrintMsg.format(coloron=infoCol,
                           bold=boldEm,
                           caller=" <" + caller + ">" if len(caller) else caller,
+                          tag=tag,
                           msg=msg,
                           coloroff=normCol))
 
+def SPYDebug(msg, caller=None):
+    """
+    Log a standardized Syncopy debug message.
+
+    .. note::
+        Depending on the currently active log level, this may or may not produce any output.
+
+    Parameters
+    ----------
+    msg : str
+        Debug message to be printed
+    caller : None or str
+        Issuer of debug message. If `None`, name of calling method is
+        automatically fetched and pre-pended to `msg`.
+
+    Returns
+    -------
+    Nothing : None
+    """
+    if caller is None:
+        caller = sys._getframe().f_back.f_code.co_name
+    SPYInfo(msg, caller=caller, tag="DEBUG")
