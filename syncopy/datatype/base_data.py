@@ -2096,11 +2096,7 @@ class Selector:
                 combiOrder = np.argsort(areShuffled)[::-1]
                 combinedSelect = byTrialSelections[combiOrder[0]]
                 for combIdx in combiOrder:
-                    combinedSelect = [
-                        elem
-                        for elem in combinedSelect
-                        if elem in byTrialSelections[combIdx]
-                    ]
+                    combinedSelect = combinedSelect[np.isin(combinedSelect, byTrialSelections[combIdx])]
 
                 # Keep record of channels present in trials vs. selected channels
                 if self._dataClass == "SpikeData":
