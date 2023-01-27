@@ -2082,11 +2082,11 @@ class Selector:
             # correctly. After this step, `self.time` == `self.{unit|eventid}`
             if self._dataClass == "SpikeData":
                 chanIdx = data.dimord.index("channel")
-                wantedChannels = np.unique(data.data[:, chanIdx])[self.channel]
+                wantedChannels = data.channel_idx[self.channel]
                 chanPerTrial = []
 
             for tk, trialno in enumerate(self.trial_ids):
-                trialArr = np.arange(np.sum(data.trialid == trialno))
+                trialArr = np.arange(data._trialslice[trialno].stop - data._trialslice[trialno].start)
                 byTrialSelections = []
                 for selection in actualSelections:
                     byTrialSelections.append(trialArr[getattr(self, selection)[tk]])
@@ -2104,16 +2104,11 @@ class Selector:
 
                 # Keep record of channels present in trials vs. selected channels
                 if self._dataClass == "SpikeData":
-                    rawChanInTrial = data.data[data.trialid == trialno, chanIdx]
-                    chanTrlIdx = [
-                        ck
-                        for ck, chan in enumerate(rawChanInTrial)
-                        if chan in wantedChannels
-                    ]
-                    combinedSelect = [
-                        elem for elem in combinedSelect if elem in chanTrlIdx
-                    ]
-                    chanPerTrial.append(rawChanInTrial[combinedSelect])
+                    rawChanInTrial = data.trials[trialno][:, chanIdx]
+                    chanTrlIdx = np.flatnonzero(np.isin(rawChanInTrial, wantedChannels))
+                    isCombinedSelect = np.isin(combinedSelect, chanTrlIdx)
+                    combinedSelect = combinedSelect[isCombinedSelect]
+                    chanPerTrial.append(rawChanInTrial[isCombinedSelect])
 
                 # The usual list -> slice conversion (if possible)
                 if len(combinedSelect) > 1:
@@ -2131,9 +2126,7 @@ class Selector:
             # `self.channel` with what is actually available in selected trials
             if self._dataClass == "SpikeData":
                 availChannels = reduce(np.union1d, chanPerTrial)
-                chanSelection = [
-                    chan for chan in wantedChannels if chan in availChannels
-                ]
+                chanSelection = np.flatnonzero(np.isin(wantedChannels, availChannels))
                 if len(chanSelection) > 1:
                     selSteps = np.diff(chanSelection)
                     if selSteps.min() == selSteps.max() == 1:
