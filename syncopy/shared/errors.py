@@ -369,7 +369,7 @@ def SPYLog(msg, loglevel="INFO", caller=None):
     logfunc(PrintMsg.format(caller=" <" + caller + ">" if len(caller) else caller,
                           msg=msg))
 
-def log(msg, level="INFO", par=False, caller=None):
+def log(msg, level="IMPORTANT", par=False, caller=None):
     """
     Log a message using the Syncopy logging setup.
 
