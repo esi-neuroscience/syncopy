@@ -947,7 +947,8 @@ class BaseData(ABC):
 
     # Destructor
     def __del__(self):
-        # keep all datasets alive
+
+        # keep all datasets alive and open
         if self._persistent_hdf5:
             return
 
@@ -958,9 +959,11 @@ class BaseData(ABC):
                 try:
                     prop.file.close()
                 # can happen if the file was deleted elsewhere
-                except ValueError:
+                # or we exit un-gracefully from some undefined state
+                except (ValueError, ImportError):
                     pass
 
+        # remove from file system
         if __storage__ in self.filename and os.path.exists(self.filename):
             os.unlink(self.filename)
             shutil.rmtree(os.path.splitext(self.filename)[0], ignore_errors=True)
