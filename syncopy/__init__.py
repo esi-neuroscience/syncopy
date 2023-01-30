@@ -170,6 +170,8 @@ try:
 except:
     sys.excepthook = SPYExceptionHandler
 
+from .shared.errors import log
+
 # Manage user-exposed namespace imports
 __all__ = []
 __all__.extend(datatype.__all__)
@@ -180,5 +182,5 @@ __all__.extend(nwanalysis.__all__)
 __all__.extend(statistics.__all__)
 __all__.extend(plotting.__all__)
 __all__.extend(preproc.__all__)
-__all__.extend(shared.errors.log)
+
 
