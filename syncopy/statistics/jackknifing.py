@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# General, CR agnostic, JackKnife implementation
+# General, CR agnostic, JackKnife implementation for statistics along trials
 #
 
 import numpy as np
@@ -28,12 +28,27 @@ CR = NumpyStatDim(operation='mean', axis=axis)
 @unwrap_select
 def jackknife_cr(spy_data, CR, **kwargs):
     """
-    General meta-function to compute the jackknife estimates
-    of an arbitrary ComputationalRoutine by creating
+    General meta-function to compute the jackknife replicates
+    along trials of an arbitrary ComputationalRoutine by creating
     the full set of leave-one-out (loo) trial selections.
 
-    The resulting dataset has the same number of trials as the input,
-    with each `trial` holding one trial averaged loo result.
+    The resulting data object has the same number of trials as the input,
+    with each `trial` holding one trial averaged loo result, i.e. the
+    jackknife replicates.
+
+    Parameters
+    ----------
+    spy_data : Syncopy data object, e.g. :class:`~syncopy.AnalogData`
+
+    CR : A derived :class:`~syncopy.shared.computational_routine.ComputationalRoutine` instance
+        The computational routine computing the desired statistic to be jackknifed
+
+    Returns
+    -------
+    jack_out : Syncopy data object, e.g. :class:`~syncopy.TimeLockData`
+        The datatype will be determined by the supplied `CR`,
+        yet instead of single-trial results each trial represents
+        one trial-averaged jackknife replicate
     """
 
     if spy_data.selection is not None:
@@ -60,7 +75,6 @@ def jackknife_cr(spy_data, CR, **kwargs):
     # --- CR computations --
 
     log_dict = {}
-
 
     # manipulate existing selection
     select = spy_data.selection.select
@@ -109,9 +123,8 @@ def jackknife_cr(spy_data, CR, **kwargs):
         layout[tuple(stack_idx)] = h5py.VirtualSource(out.data)
 
         # to keep actual data alive even
-        # if loo replicates go out of scope
+        # when loo replicates go out of scope
         out._persistent_hdf5 = True
-
 
     # initialize jackknife output object of
     # same datatype as the loo replicates
@@ -123,8 +136,7 @@ def jackknife_cr(spy_data, CR, **kwargs):
         # bind to syncopy object
         jack_out.data = h5file['data']
 
-    # reopen dataset to get a
-    # healthy state of the returned object
+    # reopen dataset after I/O operation above
     jack_out._reopen()
 
     # attach properties like channel labels etc.
