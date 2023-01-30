@@ -180,3 +180,5 @@ __all__.extend(nwanalysis.__all__)
 __all__.extend(statistics.__all__)
 __all__.extend(plotting.__all__)
 __all__.extend(preproc.__all__)
+__all__.extend(shared.errors.log)
+
