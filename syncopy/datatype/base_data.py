@@ -947,24 +947,23 @@ class BaseData(ABC):
 
     # Destructor
     def __del__(self):
-        if self.filename is not None:
-            for propertyName in self._hdfFileDatasetProperties:
-                prop = getattr(self, "_" + propertyName)
+        # keep all datasets alive
+        if self._persistent_hdf5:
+            return
+
+        # close hdf5 file
+        for propertyName in self._hdfFileDatasetProperties:
+            prop = getattr(self, "_" + propertyName)
+            if prop is not None:
                 try:
-                    if isinstance(prop, h5py.Dataset):
-                        try:
-                            prop.file.close()
-                        except (IOError, ValueError, TypeError, ImportError):
-                            pass
-                        except Exception as exc:
-                            raise exc
-                    else:
-                        del prop
-                except TypeError:
-                    del prop
-            if __storage__ in self.filename and os.path.exists(self.filename):
-                os.unlink(self.filename)
-                shutil.rmtree(os.path.splitext(self.filename)[0], ignore_errors=True)
+                    prop.file.close()
+                # can happen if the file was deleted elsewhere
+                except ValueError:
+                    pass
+
+        if __storage__ in self.filename and os.path.exists(self.filename):
+            os.unlink(self.filename)
+            shutil.rmtree(os.path.splitext(self.filename)[0], ignore_errors=True)
 
     # Support for basic arithmetic operations (no in-place computations supported yet)
     def __add__(self, other):
@@ -1117,14 +1116,15 @@ class BaseData(ABC):
         self._cfg = {}
         self._info = SerializableDict()
 
+        # set to `True` to keep backing hdf5 alive
+        # when the destructor is hit
+        self._persistent_hdf5 = False
+
         # Initialize hidden attributes
         for propertyName in self._hdfFileDatasetProperties:
             setattr(self, "_" + propertyName, None)
 
         self._selector = None
-
-        # Make instantiation persistent in all subclasses
-        super().__init__()
 
         # Set mode
         self.mode = mode

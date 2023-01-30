@@ -76,7 +76,6 @@ class TestBaseData():
     # Allocation to `data` property is tested with all members of `classes`
     def test_data_alloc(self):
         with tempfile.TemporaryDirectory() as tdir:
-            fname = os.path.join(tdir, "dummy.npy")
             hname = os.path.join(tdir, "dummy.h5")
 
             for dclass in self.classes:
@@ -93,12 +92,6 @@ class TestBaseData():
                 assert dummy.mode == "r+", dummy.data.file.mode
                 del dummy
 
-                # allocation using array + filename
-                dummy = getattr(spd, dclass)(data=self.data[dclass], filename=fname)
-                assert dummy.filename == fname
-                assert np.array_equal(dummy.data, self.data[dclass])
-                del dummy
-
                 # attempt allocation using HDF5 dataset of wrong shape
                 h5f = h5py.File(hname, mode="r+")
                 del h5f["dummy"]
@@ -111,7 +104,7 @@ class TestBaseData():
                 h5f.create_dataset("dummy1", data=self.data[dclass])
                 h5f.close()
                 dset = h5py.File(hname, mode="r")["dummy1"]
-                dummy = getattr(spd, dclass)(data=dset, filename=fname)
+                dummy = getattr(spd, dclass)(data=dset, filename=hname)
 
                 # attempt data access after backing file of dataset has been closed
                 dset.file.close()
