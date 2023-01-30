@@ -21,11 +21,12 @@ from syncopy.statistics.compRoutines import NumpyStatDim
 nTrials = 4
 ad = spy.AnalogData(data=[i * np.ones((10, 4)) for i in range(nTrials)], samplerate=1)
 spec = spy.freqanalysis(ad)
-axis = ad.dimord.index('channel')
+axis = ad.dimord.index('time')
+# create CR to jackknife
 CR = NumpyStatDim(operation='mean', axis=axis)
 
 @unwrap_select
-def jacknife_cr(spy_data, CR, **kwargs):
+def jackknife_cr(spy_data, CR, **kwargs):
     """
     General meta-function to compute the jackknife estimates
     of an arbitrary ComputationalRoutine by creating
@@ -106,7 +107,11 @@ def jacknife_cr(spy_data, CR, **kwargs):
         # stack along stacking dim
         stack_idx[stack_dim] = np.s_[loo_idx * stack_step:(loo_idx + 1) * stack_step]
         layout[tuple(stack_idx)] = h5py.VirtualSource(out.data)
-        # print(out.data[()], stack_idx, '\n')
+
+        # to keep actual data alive even
+        # if loo replicates go out of scope
+        out._persistent_hdf5 = True
+
 
     # initialize jackknife output object of
     # same datatype as the loo replicates
@@ -117,7 +122,6 @@ def jacknife_cr(spy_data, CR, **kwargs):
         h5file.create_virtual_dataset('data', layout)
         # bind to syncopy object
         jack_out.data = h5file['data']
-        # print('\n\n', jack_out.data[()])
 
     # reopen dataset to get a
     # healthy state of the returned object
@@ -139,5 +143,4 @@ def jacknife_cr(spy_data, CR, **kwargs):
     else:
         spy_data.selectdata(select_backup)
 
-    print('\n\n', jack_out.data[()])
     return jack_out
