@@ -1,4 +1,6 @@
 import numpy as np
+import logging
+import platform
 from scipy.stats import iqr
 
 
@@ -61,6 +63,9 @@ def psth(trl_dat,
     samples = trl_dat[:, 0]
     channels = trl_dat[:, 1]
     units = trl_dat[:, 2]
+
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Computing peristimulus time histogram (PSTH) on data with {samples.size} samples, {channels.size} channels, {units.size} units and samplerate {samplerate}.")
 
     # get relative spike times for all events in trial
     times = _calc_time(samples, trl_start, onset, samplerate)

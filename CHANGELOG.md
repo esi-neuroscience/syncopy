@@ -6,10 +6,11 @@ All notable changes to this project will be documented in this file.
 ### NEW
 
 ### CHANGED
+- major performance improvements for DiscreteData #403 #418, #424
 
 ### Fixed
 - fix bug #394 'Copying a spy.StructDict returns a dict'.
-- serializable `.cfg` #392 
+- serializable `.cfg` #392
 
 ## [2022.12]
 

@@ -214,12 +214,15 @@ class DiscreteData(BaseData, ABC):
         syncopy.datatype.base_data.FauxTrial : class definition and further details
         syncopy.shared.computational_routine.ComputationalRoutine : Syncopy compute engine
         """
-
-        trialIdx = np.where(self.trialid == trialno)[0]
+        trlSlice = self._trialslice[trialno]
+        trialIdx = np.arange(trlSlice.start, trlSlice.stop) #np.where(self.trialid == trialno)[0]
         nCol = len(self.dimord)
-        idx = [trialIdx.tolist(), slice(0, nCol)]
+        idx = [[], slice(0, nCol)]
         if self.selection is not None: # selections are harmonized, just take `.time`
             idx[0] = trialIdx[self.selection.time[self.selection.trial_ids.index(trialno)]].tolist()
+        else:
+            idx[0] = trialIdx.tolist()
+
         shp = [len(idx[0]), nCol]
 
         return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
@@ -261,7 +264,7 @@ class DiscreteData(BaseData, ABC):
         if toilim is not None:
             allTrials = self.trialtime
             for trlno in trials:
-                trlTime = allTrials[self.trialid == trlno]
+                trlTime = allTrials[self._trialslice[trlno]]
                 _, selTime = best_match(trlTime, toilim, span=True)
                 selTime = selTime.tolist()
                 if len(selTime) > 1 and np.diff(trlTime).min() > 0:
@@ -272,11 +275,11 @@ class DiscreteData(BaseData, ABC):
         elif toi is not None:
             allTrials = self.trialtime
             for trlno in trials:
-                trlTime = allTrials[self.trialid == trlno]
+                trlTime = allTrials[self._trialslice[trlno]]
                 _, arrayIdx = best_match(trlTime, toi)
                 # squash duplicate values then readd
                 _, xdi = np.unique(trlTime[arrayIdx], return_index=True)
-                arrayIdx = arrayIdx[np.sort(xdi)]
+                arrayIdx = arrayIdx[xdi] # we assume sorted data
                 selTime = []
                 for t in arrayIdx:
                     selTime += np.where(trlTime[t] == trlTime)[0].tolist()
@@ -488,9 +491,8 @@ class SpikeData(DiscreteData):
         """
         if units is not None:
             indices = []
-            allUnits = self.data[:, self.dimord.index("unit")]
             for trlno in trials:
-                thisTrial = allUnits[self.trialid == trlno]
+                thisTrial = self.data[self._trialslice[trlno], self.dimord.index("unit")]
                 trialUnits = []
                 for unit in units:
                     trialUnits += list(np.where(thisTrial == unit)[0])
@@ -633,9 +635,8 @@ class EventData(DiscreteData):
         """
         if eventids is not None:
             indices = []
-            allEvents = self.data[:, self.dimord.index("eventid")]
             for trlno in trials:
-                thisTrial = allEvents[self.trialid == trlno]
+                thisTrial = self.data[self._trialslice[trlno], self.dimord.index("eventid")]
                 trialEvents = []
                 for event in eventids:
                     trialEvents += list(np.where(thisTrial == event)[0])

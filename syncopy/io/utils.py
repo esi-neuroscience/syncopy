@@ -235,18 +235,18 @@ def cleanup(older_than=24, interactive=True):
 
     # Delete all session-remains at once
     elif choice == "S":
-        for fls in tqdm(flsList, desc="Deleting session data..."):
+        for fls in tqdm(flsList, desc="Deleting session data...", disable=None):
             _rm_session(fls)
 
     # Deleate all dangling files at once
     elif choice == "D":
-        for dat in tqdm(dangling, desc="Deleting dangling data..."):
+        for dat in tqdm(dangling, desc="Deleting dangling data...", disable=None):
             _rm_session([dat])
 
     # Delete everything
     elif choice == "R":
         for contents in tqdm(flsList + [[dat] for dat in dangling],
-                        desc="Deleting temporary data..."):
+                        desc="Deleting temporary data...", disable=None):
             _rm_session(contents)
 
     # Don't do anything for now, continue w/dangling data

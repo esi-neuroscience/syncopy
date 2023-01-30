@@ -6,6 +6,8 @@
 # Builtin/3rd party package imports
 import numpy as np
 from scipy import signal
+import logging
+import platform
 
 # local imports
 from ._norm_spec import _norm_spec, _norm_taper
@@ -94,6 +96,9 @@ def mtmfft(data_arr,
 
     # Fourier transforms (nTapers x nFreq x nChannels)
     ftr = np.zeros((windows.shape[0], nFreq, nChannels), dtype='complex64')
+
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Running mtmfft on {len(windows)} windows, data chunk has {nSamples} samples and {nChannels} channels.")
 
     for taperIdx, win in enumerate(windows):
         win = np.tile(win, (nChannels, 1)).T
