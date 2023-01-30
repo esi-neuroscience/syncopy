@@ -9,22 +9,19 @@ from copy import deepcopy
 
 # Syncopy imports
 import syncopy as spy
+from syncopy.shared.computational_routine import propagate_properties
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo
-from syncopy.shared.kwarg_decorators import (
-    unwrap_cfg,
-    unwrap_select
-)
+from syncopy.shared.kwarg_decorators import unwrap_select
 
 from syncopy.statistics.compRoutines import NumpyStatDim
-from syncopy.statistics.psth import Rice_rule, sqrt_rule, get_chan_unit_combs
-
 
 # create test data on the fly
-ad = spy.AnalogData(data=[i * np.ones((10, 4)) for i in range(10)], samplerate=1)
+nTrials = 4
+ad = spy.AnalogData(data=[i * np.ones((10, 4)) for i in range(nTrials)], samplerate=1)
 spec = spy.freqanalysis(ad)
-axis = ad.dimord.index('time')
+axis = ad.dimord.index('channel')
 CR = NumpyStatDim(operation='mean', axis=axis)
 
 @unwrap_select
@@ -34,7 +31,7 @@ def jacknife_cr(spy_data, CR, **kwargs):
     of an arbitrary ComputationalRoutine by creating
     the full set of leave-one-out (loo) trial selections.
 
-    The resulting dataset has the same shape as the input,
+    The resulting dataset has the same number of trials as the input,
     with each `trial` holding one trial averaged loo result.
     """
 
@@ -107,10 +104,12 @@ def jacknife_cr(spy_data, CR, **kwargs):
     # to construct the jacknife result
     for loo_idx, out in enumerate(loo_outs):
         # stack along stacking dim
-        stack_idx[stack_dim] = np.s_[trl_idx * stack_step:(trl_idx + 1) * stack_step]
+        stack_idx[stack_dim] = np.s_[loo_idx * stack_step:(loo_idx + 1) * stack_step]
         layout[tuple(stack_idx)] = h5py.VirtualSource(out.data)
+        # print(out.data[()], stack_idx, '\n')
 
-    # initialize jackknife output object of same datatype
+    # initialize jackknife output object of
+    # same datatype as the loo replicates
     jack_out = loo1.__class__(dimord=spy_data.dimord)
 
     # finally create the virtual dataset
@@ -118,13 +117,27 @@ def jacknife_cr(spy_data, CR, **kwargs):
         h5file.create_virtual_dataset('data', layout)
         # bind to syncopy object
         jack_out.data = h5file['data']
+        # print('\n\n', jack_out.data[()])
 
+    # reopen dataset to get a
+    # healthy state of the returned object
+    jack_out._reopen()
+
+    # attach properties like channel labels etc.
+    propagate_properties(loo1, jack_out)
+
+    # create proper trialdefinition
+    # FIXME: not clear how to handle offsets (3rd column), set to 0 for now
+    trl_def = np.column_stack([np.arange(len(loo_outs)) * stack_step,
+                               np.arange(len(loo_outs)) * stack_step + stack_step,
+                               np.zeros(len(loo_outs))])
+    jack_out.trialdefinition = trl_def
+
+    # revert selection state of the input
     if selection_cleanup:
         spy_data.selection = None
     else:
         spy_data.selectdata(select_backup)
 
-    # reopen dataset to get a
-    # healthy state of the returned object
-    jack_out._reopen()
+    print('\n\n', jack_out.data[()])
     return jack_out
