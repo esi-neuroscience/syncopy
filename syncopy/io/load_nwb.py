@@ -197,7 +197,7 @@ def load_nwb(filename, memuse=3000, container=None):
 
         evtData = EventData(dimord=["sample","eventid","chans"], filename=filename)
         h5evt = h5py.File(evtData.filename, mode="w")
-        evtDset = h5evt.create_dataset("data", dtype=np.result_type(*ttlDtypes),
+        evtDset = h5evt.create_dataset("data", dtype=int,
                                        shape=(ttlVals[0].data.size, 3))
         # Column 1: sample indices
         # Column 2: TTL pulse values
@@ -208,8 +208,8 @@ def load_nwb(filename, memuse=3000, container=None):
             ts_resolution = ttlChans[0].timestamps__resolution
 
         evtDset[:, 0] = ((ttlChans[0].timestamps[()] - tStarts[0]) / ts_resolution).astype(np.intp)
-        evtDset[:, 1] = ttlVals[0].data[()]
-        evtDset[:, 2] = ttlChans[0].data[()]
+        evtDset[:, 1] = ttlVals[0].data[()].astype(int)
+        evtDset[:, 2] = ttlChans[0].data[()].astype(int)
         evtData.data = evtDset
         evtData.samplerate = float(1 / ts_resolution)
         if hasTrials:
