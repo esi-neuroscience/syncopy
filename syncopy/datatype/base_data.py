@@ -2102,8 +2102,10 @@ class Selector:
                 if self._dataClass == "SpikeData":
                     rawChanInTrial = data.trials[trialno][:, chanIdx]
                     chanTrlIdx = np.flatnonzero(np.isin(rawChanInTrial, wantedChannels))
-                    combinedSelect = combinedSelect[np.isin(combinedSelect, chanTrlIdx)]
-                    chanPerTrial.append(rawChanInTrial[combinedSelect])
+                    combinedSelect = combinedSelect[np.isin(combinedSelect, chanTrlIdx)].tolist()
+                    chanPerTrial.append(rawChanInTrial[combinedSelect].tolist())
+                else:
+                    combinedSelect.tolist()
 
                 # The usual list -> slice conversion (if possible)
                 if len(combinedSelect) > 1:
@@ -2121,7 +2123,7 @@ class Selector:
             # `self.channel` with what is actually available in selected trials
             if self._dataClass == "SpikeData":
                 availChannels = reduce(np.union1d, chanPerTrial)
-                chanSelection = np.flatnonzero(np.isin(wantedChannels, availChannels))
+                chanSelection = wantedChannels[np.isin(wantedChannels, availChannels)].tolist()
                 if len(chanSelection) > 1:
                     selSteps = np.diff(chanSelection)
                     if selSteps.min() == selSteps.max() == 1:
