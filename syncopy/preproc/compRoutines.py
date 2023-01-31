@@ -344,6 +344,7 @@ class Rectify(ComputationalRoutine):
         propagate_properties(data, out)
 
 
+
 @process_io
 def hilbert_cF(dat, output='abs', timeAxis=0, noCompute=False, chunkShape=None):
 
@@ -857,3 +858,23 @@ def _resampling_trl_definition(orig_trl, factor):
     trldef = np.column_stack([trl_starts, trl_ends, offsets])
 
     return trldef
+
+
+@process_io
+def ica_cF(dat, noCompute=False, chunkShape=None):
+    """Compute function for independent component analysis (ICA)."""
+    outShape = dat.shape
+    if noCompute:
+        return outShape, np.float32
+    return
+
+
+class ICA(ComputationalRoutine):
+    """Computational Routine implementation for independent component analysis (ICA)."""
+    computeFunction = staticmethod(ica_cF)
+
+    # 1st argument,the data, gets omitted
+    valid_kws = list(signature(ica_cF).parameters.keys())[1:]
+
+    def process_metadata(self, data, out):
+        propagate_properties(data, out)
