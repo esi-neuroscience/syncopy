@@ -6,6 +6,8 @@
 # Builtin/3rd party package imports
 import numpy as np
 import scipy.signal as sci_sig
+import logging
+import platform
 
 # local imports
 from ._norm_spec import _norm_spec
@@ -131,6 +133,10 @@ def stft(dat,
     if window is not None:
         # Apply window by multiplication
         dat = dat * window
+
+    logger = logging.getLogger("syncopy_" + platform.node())
+    pad_status = "with padding" if padded else "without padding"
+    logger.debug(f"Running short time Fourier transform {pad_status}, detrend={detrend} and overlap of {noverlap}.")
 
     times = np.arange(nperseg / 2, dat.shape[-1] - nperseg / 2 + 1,
                       nperseg - noverlap) / fs

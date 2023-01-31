@@ -319,7 +319,7 @@ class TestWelch():
         plt.ioff()
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
+                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr and attr.startswith('test'))]
 
         for test in all_tests:
             test_method = getattr(self, test)

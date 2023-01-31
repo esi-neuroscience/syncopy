@@ -288,7 +288,7 @@ def _read_hdf_structure(h5Group,
                                      dtype=np.float32,
                                      shape=[nTotalSamples, nChannels])
 
-    pbar = tqdm(trl_refs, desc=f"{struct_name} - loading {nTrials} trials")
+    pbar = tqdm(trl_refs, desc=f"{struct_name} - loading {nTrials} trials", disable=None)
     SampleCounter = 0   # trial stacking
 
     # one swipe per trial

@@ -5,6 +5,8 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+import logging
+import platform
 
 # Local imports
 from syncopy.specest.wavelets import cwt
@@ -36,6 +38,9 @@ def wavelet(data_arr, samplerate, scales, wavelet):
         Complex time-frequency representation of the input data.
         Shape is (len(scales),) + data_arr.shape
     """
+
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Running wavelet transform on data with shape {data_arr.shape} and samplerate {samplerate}.")
 
     spec = cwt(data_arr, wavelet=wavelet, widths=scales, dt=1 / samplerate, axis=0)
 
