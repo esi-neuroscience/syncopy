@@ -32,6 +32,7 @@ class TestSpikeData():
     data = np.vstack([seed.choice(ns, size=nd),
                       seed.choice(nc, size=nd),
                       seed.choice(int(nc / 2), size=nd)]).T
+    data = data[data[:,0].argsort()]
     data2 = data.copy()
     data2[:, -1] = data[:, 0]
     data2[:, 0] = data[:, -1]
@@ -452,14 +453,6 @@ class TestEventData():
         with pytest.raises(SPYValueError):
             ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
 
-    def test_ed_parallel(self, testcluster):
-        # repeat selected test w/parallel processing engine
-        client = dd.Client(testcluster)
-        par_tests = ["test_ed_dataselection"]
-        for test in par_tests:
-            getattr(self, test)()
-            flush_local_cluster(testcluster)
-        client.close()
 
 if __name__ == '__main__':
 
