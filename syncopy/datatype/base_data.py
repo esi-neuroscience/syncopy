@@ -2104,8 +2104,6 @@ class Selector:
                     chanTrlIdx = np.flatnonzero(np.isin(rawChanInTrial, wantedChannels))
                     combinedSelect = combinedSelect[np.isin(combinedSelect, chanTrlIdx)].tolist()
                     chanPerTrial.append(rawChanInTrial[combinedSelect].tolist())
-                else:
-                    combinedSelect.tolist()
 
                 # The usual list -> slice conversion (if possible)
                 if len(combinedSelect) > 1:
