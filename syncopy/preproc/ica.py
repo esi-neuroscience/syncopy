@@ -62,6 +62,10 @@ def runica(
     ----------
     Aapo Hyvärinen. Fast and robust fixed-point algorithms for independent component analysis.
     IEEE Transactions on Neural Networks, 10(3):626-634, 1999. doi:10.1109/72.761722.
+
+    See also
+    ---------
+    `The EEGLAB tutorial on ICA <https://eeglab.org/tutorials/06_RejectArtifacts/RunICA.html>`_
     """
     # Validate input
 
