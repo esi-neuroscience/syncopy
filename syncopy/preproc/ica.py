@@ -66,6 +66,7 @@ def runica(
     See also
     ---------
     `The EEGLAB tutorial on ICA <https://eeglab.org/tutorials/06_RejectArtifacts/RunICA.html>`_
+    sklearn.decomposition.FastICA : the FastICA implementation in `scikit-learn`
     """
     # Validate input
 

@@ -9,6 +9,7 @@ import numpy as np
 import scipy.signal as sci
 import logging, platform
 from inspect import signature
+from sklearn.decomposition import FastICA
 
 # syncopy imports
 from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
@@ -740,7 +741,6 @@ class Detrending(ComputationalRoutine):
 
 @process_io
 def standardize_cF(dat, polyremoval=None, timeAxis=0, noCompute=False, chunkShape=None):
-
     """
     Yet another simple cF to z-score ('standardize') signals:
     subtracting the mean and normalize by standard deviation.
@@ -861,12 +861,52 @@ def _resampling_trl_definition(orig_trl, factor):
 
 
 @process_io
-def fastica_cF(dat, noCompute=False, chunkShape=None):
-    """Compute function for independent component analysis (ICA)."""
+def fastica_cF(dat, timeAxis=0, noCompute=False, chunkShape=None, init_params = {'random_state':0, 'whiten':'unit-variance'}):
+    """Compute function for independent component analysis (ICA).
+
+    Parameters
+    ----------
+    dat : (N, K) :class:`numpy.ndarray`
+        Uniformly sampled multi-channel time-series data
+        The 1st dimension is interpreted as the time axis,
+        columns represent individual channels.
+        Dimensions can be transposed to `(K, N)` with the `timeAxis` parameter
+    timeAxis : int, optional
+        Index of running time axis in `dat` (0 or 1)
+    noCompute : bool
+        Preprocessing flag. If `True`, do not perform actual calculation but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+    fit_params: dict, optional
+        Parameters passed to `sklearn.decomposition.FastICA` constructor.
+
+    Returns
+    -------
+    estim_sources : (N, K) :class:`~numpy.ndarray`
+        The estimated sources
+
+    Notes
+    -----
+    This method is intended to be used as
+    :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
+    inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
+    Thus, input parameters are presumed to be forwarded from a parent metafunction.
+    Consequently, this function does **not** perform any error checking and operates
+    under the assumption that all inputs have been externally validated and cross-checked.
+    """
+
+    # Re-arrange array if necessary and get dimensional information
+    if timeAxis != 0:
+        dat = dat.T       # does not copy but creates view of `dat`
+
     outShape = dat.shape
     if noCompute:
         return outShape, np.float32
-    return
+
+    transformer = FastICA(**init_params)
+    estim_sources = transformer.fit_transform(dat)
+
+    return estim_sources
 
 
 class FastICA(ComputationalRoutine):
