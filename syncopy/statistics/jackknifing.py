@@ -18,15 +18,20 @@ from syncopy.shared.kwarg_decorators import unwrap_select
 from syncopy.statistics.compRoutines import NumpyStatDim
 
 # create test data on the fly
-nTrials = 4
-ad = spy.AnalogData(data=[i * np.ones((10, 4)) for i in range(nTrials)], samplerate=1)
-spec = spy.freqanalysis(ad)
+ad = spy.AnalogData(data=[i * np.ones((10, 3)) for i in range(4)], samplerate=1)
 dim = 'time'
 axis = ad.dimord.index(dim)
 # create CR to jackknife
 CR = NumpyStatDim(operation='mean', axis=axis)
 # use same CR for direct estimate
 mean_est = spy.mean(ad, dim=dim, keeptrials=False)
+
+# some power analysis
+nTrials = 50
+ad2 = spy.AnalogData(data=[i * np.random.randn(1000, 4) for i in range(nTrials)], samplerate=3)
+# direct estimtate
+spec = spy.freqanalysis(ad2)
+power_est = spy.mean(spec, dim='trials')
 
 @unwrap_select
 def trial_replicates(spy_data, CR, **kwargs):
@@ -36,9 +41,8 @@ def trial_replicates(spy_data, CR, **kwargs):
     the full set of leave-one-out (loo) trial selections.
 
     The CR must compute a statistic over trials, meaning its
-    individual results can be represented as a single trial.
-    Examples are connectivity measures like coherence or
-    any trial averaged quantity.
+    result is represented as a single trial. Examples are
+    connectivity measures like coherence or any trial averaged quantity.
 
     The resulting data object has the same number of trials as the input,
     with each `trial` holding one trial averaged loo result, i.e. the
@@ -94,7 +98,7 @@ def trial_replicates(spy_data, CR, **kwargs):
         spy_data.selectdata(select, inplace=True)
 
         # initialize transient output object of same datatype
-        out = spy_data.__class__(dimord=spy_data.dimord)
+        out = spy_data.__class__(dimord=spy_data.dimord, samplerate=spy_data.samplerate)
 
         # (re-)initialize supplied CR and compute a trial average
         CR.initialize(spy_data, spy_data._stackingDim,
@@ -193,7 +197,7 @@ def bias_var(replicates, estimate):
         raise SPYValueError(lgl, 'replicates', act)
 
     # 1st average the replicates which
-    # gives the jackknife estimate
+    # gives the single trial jackknife estimate
     jack_est = spy.mean(replicates, dim='trials')
 
     # compute the bias, shapes should match as both
@@ -209,7 +213,19 @@ def bias_var(replicates, estimate):
     bias = (nTrials - 1) * (jack_est - estimate)
     bias_corrected = estimate - bias
 
-    # Variance calculation, we have to construct a new
-    # data object for this and compute trial-by-trial (each replicate)
+    # Variance calculation
+    # compute sequentially into accumulator array
+    var = np.zeros(estimate.data.shape)
+    for trl in replicates.trials:
+        var += (trl - jack_est.trials[0])**2
+    # normalize
+    var /= 1 / (nTrials - 1)
 
-    return bias, bias_corrected
+    # create the syncopy data object for the variance
+    jack_var = estimate.__class__(samplerate=estimate.samplerate,
+                                  dimord=estimate.dimord)
+
+    # bind to syncopy object -> creates the hdf5 dataset
+    jack_var.data = var
+
+    return bias, bias_corrected, jack_var
