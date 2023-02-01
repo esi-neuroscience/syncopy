@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# General, CR agnostic, JackKnife implementation for statistics along trials
+# General, CR agnostic, JackKnife implementation for trial statistics
 #
 
 import numpy as np
@@ -12,7 +12,7 @@ import syncopy as spy
 from syncopy.shared.computational_routine import propagate_properties
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYError
 from syncopy.shared.kwarg_decorators import unwrap_select
 
 from syncopy.statistics.compRoutines import NumpyStatDim
@@ -21,16 +21,24 @@ from syncopy.statistics.compRoutines import NumpyStatDim
 nTrials = 4
 ad = spy.AnalogData(data=[i * np.ones((10, 4)) for i in range(nTrials)], samplerate=1)
 spec = spy.freqanalysis(ad)
-axis = ad.dimord.index('time')
+dim = 'time'
+axis = ad.dimord.index(dim)
 # create CR to jackknife
 CR = NumpyStatDim(operation='mean', axis=axis)
+# use same CR for direct estimate
+mean_est = spy.mean(ad, dim=dim, keeptrials=False)
 
 @unwrap_select
-def jackknife_cr(spy_data, CR, **kwargs):
+def trial_replicates(spy_data, CR, **kwargs):
     """
     General meta-function to compute the jackknife replicates
-    along trials of an arbitrary ComputationalRoutine by creating
+    along trials of a ComputationalRoutine `CR` by creating
     the full set of leave-one-out (loo) trial selections.
+
+    The CR must compute a statistic over trials, meaning its
+    individual results can be represented as a single trial.
+    Examples are connectivity measures like coherence or
+    any trial averaged quantity.
 
     The resulting data object has the same number of trials as the input,
     with each `trial` holding one trial averaged loo result, i.e. the
@@ -44,7 +52,7 @@ def jackknife_cr(spy_data, CR, **kwargs):
         The computational routine computing the desired statistic to be jackknifed
 
     Returns
-    -------
+    ------
     jack_out : Syncopy data object, e.g. :class:`~syncopy.TimeLockData`
         The datatype will be determined by the supplied `CR`,
         yet instead of single-trial results each trial represents
@@ -156,3 +164,52 @@ def jackknife_cr(spy_data, CR, **kwargs):
         spy_data.selectdata(select_backup)
 
     return jack_out
+
+
+def bias_var(replicates, estimate):
+    """
+    Implements the general jackknife recipe to
+    compute the bias and variance of a statiscial parameter
+    over trials from an ensemble of leave-one-out replicates
+    and the original estimate.
+
+    Parameters
+    ----------
+    replicates : Syncopy data object, e.g. :class:`~syncopy.SpectralData`
+        Each trial represents one jackknife replicate
+    estimate : Syncopy data object, e.g. :class:`~syncopy.SpectralData`
+        Must have exactly one trial representing the direct trial statistic
+        to be jackknifed
+    """
+
+    if len(estimate.trials) != 1:
+        lgl = "original trial statistic with one remaining trial"
+        act = f"{len(estimate.trials)} trials"
+        raise SPYValueError(lgl, 'estimate', act)
+
+    if len(replicates.trials) <= 1:
+        lgl = "jackknife replicates with at least 2 trials"
+        act = f"{len(replicates.trials)} trials"
+        raise SPYValueError(lgl, 'replicates', act)
+
+    # 1st average the replicates which
+    # gives the jackknife estimate
+    jack_est = spy.mean(replicates, dim='trials')
+
+    # compute the bias, shapes should match as both
+    # quantities come from the same data and
+    # got computed by the same CR
+    if jack_est.data.shape != estimate.data.shape:
+        msg = ("Got mismatching shapes for jackknife bias computation:\n"
+               f"jack: {jack_est.data.shape}, original estimate: {estimate.data.shape}"
+               )
+        raise SPYError(msg)
+
+    nTrials = len(replicates.trials)
+    bias = (nTrials - 1) * (jack_est - estimate)
+    bias_corrected = estimate - bias
+
+    # Variance calculation, we have to construct a new
+    # data object for this and compute trial-by-trial (each replicate)
+
+    return bias, bias_corrected
