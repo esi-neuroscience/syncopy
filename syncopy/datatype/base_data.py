@@ -2144,6 +2144,15 @@ class Selector:
 
             # Finally, prepare new `trialdefinition` array
             self.trialdefinition = data
+            
+            # Ensure that `self.waveform` gets selected correctly 
+            if self._dataClass == "SpikeData":
+                if data._waveform is not None:
+                    waveform = []
+                    for tk, trialno in enumerate(self.trial_ids):
+                        sel = getattr(self, "_{}".format(actualSelections[0]))[tk]
+                        waveform.append(data._waveform[data._trialslice[trialno],:][sel,:])
+                    self.waveform = np.vstack(waveform)
 
             return
 
