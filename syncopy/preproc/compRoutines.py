@@ -861,7 +861,7 @@ def _resampling_trl_definition(orig_trl, factor):
 
 
 @process_io
-def ica_cF(dat, noCompute=False, chunkShape=None):
+def fastica_cF(dat, noCompute=False, chunkShape=None):
     """Compute function for independent component analysis (ICA)."""
     outShape = dat.shape
     if noCompute:
@@ -869,12 +869,12 @@ def ica_cF(dat, noCompute=False, chunkShape=None):
     return
 
 
-class ICA(ComputationalRoutine):
+class FastICA(ComputationalRoutine):
     """Computational Routine implementation for independent component analysis (ICA)."""
-    computeFunction = staticmethod(ica_cF)
+    computeFunction = staticmethod(fastica_cF)
 
     # 1st argument,the data, gets omitted
-    valid_kws = list(signature(ica_cF).parameters.keys())[1:]
+    valid_kws = list(signature(fastica_cF).parameters.keys())[1:]
 
     def process_metadata(self, data, out):
         propagate_properties(data, out)

@@ -122,12 +122,8 @@ def preprocessing(
     # -- Basic input parsing --
 
     # Make sure our one mandatory input object can be processed
-    try:
-        data_parser(
-            data, varname="data", dataclass="AnalogData", writable=None, empty=False
-        )
-    except Exception as exc:
-        raise exc
+    data_parser(data, varname="data", dataclass="AnalogData", writable=None, empty=False)
+
     timeAxis = data.dimord.index("time")
 
     # Get everything of interest in local namespace
@@ -190,8 +186,7 @@ def preprocessing(
 
     # -- get trial info
 
-    # if a subset selection is present
-    # get sampleinfo and check for equidistancy
+    # If a subset selection is present, get sampleinfo and check for equidistancy.
     if data.selection is not None:
         sinfo = data.selection.trialdefinition[:, :2]
         # user picked discrete set of time points
@@ -229,7 +224,7 @@ def preprocessing(
         "zscore": zscore
     }
 
-    # pre-processing
+    # Pre-processing
     if zscore:
 
         std_data = AnalogData(dimord=data.dimord)
@@ -295,7 +290,7 @@ def preprocessing(
             lgl = "'" + "or '".join(opt + "' " for opt in availableWindows)
             raise SPYValueError(legal=lgl, varname="window", actual=window)
 
-        # set filter specific defaults here
+        # Set filter specific defaults here.
         if direction is None:
             direction = "onepass"
             msg = f"Setting default direction for FIR filter to '{direction}'"

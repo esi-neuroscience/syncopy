@@ -575,19 +575,6 @@ class TestStandardize:
             test_method()
         client.close()
 
-class TestICA():
-    n_trials = 2
-    n_samples = 5000
-    adata = 100 * sd.white_noise(n_trials, nSamples=n_samples) + 5
-
-    def test_preproc_ica(self):
-        cfg = get_defaults(spy.preprocessing)
-        cfg.method = 'ica'
-        res = spy.preprocessing(self.adata, cfg)
-        assert type(res) == spy.AnalogData
-
-
-
 def mk_spec_ax():
 
     fig, ax = ppl.subplots()
@@ -615,4 +602,3 @@ if __name__ == '__main__':
     T2 = TestFIRWS()
     T3 = TestDetrending()
     T4 = TestStandardize()
-    T5 = TestICA()

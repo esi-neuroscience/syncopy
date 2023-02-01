@@ -107,6 +107,8 @@ def runica(
         data, out, parallel=kwargs.get("parallel"), log_dict=log_dict
     )
 
+    out.cfg.update(data.cfg)
+    out.cfg.update({'preprocessing': new_cfg})
     return out
 
 
