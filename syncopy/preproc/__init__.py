@@ -8,4 +8,4 @@ from .resampledata import *
 
 # Populate local __all__ namespace
 # with the user-exposed frontend
-__all__ = ['preprocessing', 'resampledata']
+__all__ = ['preprocessing', 'resampledata', 'runica']
