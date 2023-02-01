@@ -213,7 +213,7 @@ def itc(spec_data, **kwargs):
 
     # takes care of remaining checks
     res = _trial_statistics(spec_data, operation='itc')
-
+    write_log(spec_data, res, kwargs, op_name='itc')
     return res
 
 
@@ -283,6 +283,11 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
             msg = "Trial statistics can be only computed sequentially, ignoring `parallel` keyword"
             SPYWarning(msg)
         out = _trial_statistics(spy_data, operation)
+
+        # we have to attach the log here as no CR is involved
+        # strip of non-sensical parameter
+        log_dict.pop('keeptrials')
+        write_log(spy_data, out, log_dict, 'trial statistics')
 
     # any other statistic
     else:
@@ -471,6 +476,25 @@ def _trial_circ_average(in_data, out_arr):
     # and return complex resultant vector
 
     return out_arr
+
+
+# -- Helpers --
+
+
+def write_log(data, out, log_dict, op_name):
+    """
+    For trial statistics without CR we
+    take care of the log here
+    """
+    # Copy log from source object and write header
+    out._log = str(data._log) + out._log
+    logHead = f"computed {op_name} with settings\n"
+    logOpts = ""
+    for k, v in log_dict.items():
+        logOpts += "\t{key:s} = {value:s}\n".format(key=k,
+                                                    value=str(v) if len(str(v)) < 80
+                                                    else str(v)[:30] + ", ..., " + str(v)[-30:])
+    out.log = logHead + logOpts
 
 
 def _attach_stat_doc(orig_doc):
