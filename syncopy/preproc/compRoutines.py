@@ -909,7 +909,7 @@ def fastica_cF(dat, timeAxis=0, noCompute=False, chunkShape=None, init_params = 
     return estim_sources
 
 
-class FastICA(ComputationalRoutine):
+class SpyFastICA(ComputationalRoutine):
     """Computational Routine implementation for independent component analysis (ICA)."""
     computeFunction = staticmethod(fastica_cF)
 

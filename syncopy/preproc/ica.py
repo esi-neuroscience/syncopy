@@ -23,7 +23,7 @@ from syncopy.shared.input_processors import (
     check_passed_kwargs,
 )
 
-from .compRoutines import FastICA
+from .compRoutines import SpyFastICA
 
 available_methods = ("fastica",)
 
@@ -101,7 +101,7 @@ def runica(
     out = AnalogData(dimord=data.dimord)
 
     if method == "fastica":
-        icaMethod = FastICA(
+        icaMethod = SpyFastICA(
             samplerate=data.samplerate,
             timeAxis=timeAxis
         )
