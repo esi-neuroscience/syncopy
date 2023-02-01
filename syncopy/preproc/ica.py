@@ -36,7 +36,7 @@ def runica(
     **kwargs,
 ):
     """
-    Preprocessing of time continuous raw data with IIR and FIR filters
+    Independent component analysis (ICA) of AnalogData objects.
 
     Parameters
     ----------
@@ -47,8 +47,8 @@ def runica(
     -------
     weights : `~syncopy.AnalogData`
         The weights
-    sphere : blah
-        The sphere
+    sphere : numpy.ndarray
+        The computed sphering matrix
 
     Examples
     --------
@@ -57,6 +57,11 @@ def runica(
     ICA with the default FastICA method:
 
     >>> weights, sphere = spy.runica(adata)
+
+    References
+    ----------
+    Aapo Hyvärinen. Fast and robust fixed-point algorithms for independent component analysis.
+    IEEE Transactions on Neural Networks, 10(3):626-634, 1999. doi:10.1109/72.761722.
     """
     # Validate input
 
