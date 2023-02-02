@@ -8,6 +8,7 @@ import numpy as np
 from abc import ABC
 from collections.abc import Iterator
 import inspect
+import h5py
 
 
 # Local imports
