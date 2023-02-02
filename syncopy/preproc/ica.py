@@ -118,7 +118,7 @@ def runica(
     )
 
     out.cfg.update(data.cfg)
-    out.cfg.update({'preprocessing': new_cfg})
+    out.cfg.update({'runica': new_cfg})
     return out
 
 
