@@ -587,7 +587,7 @@ class SpikeData(DiscreteData):
         self._waveform = None
 
         # set as instance attribute to allow modification
-        self._hdfFileDatasetProperties = ContinuousData._hdfFileDatasetProperties + ("waveform",)
+        self._hdfFileDatasetProperties = DiscreteData._hdfFileDatasetProperties + ("waveform",)
 
         # for fast lookup and labels
         self._compute_unique_idx()
