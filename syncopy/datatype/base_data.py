@@ -2103,7 +2103,7 @@ class Selector:
                     rawChanInTrial = data.trials[trialno][:, chanIdx]
                     chanTrlIdx = np.flatnonzero(np.isin(rawChanInTrial, wantedChannels))
                     combinedSelect = combinedSelect[np.isin(combinedSelect, chanTrlIdx)].tolist()
-                    chanPerTrial.append(rawChanInTrial[combinedSelect].tolist())
+                    chanPerTrial.append(rawChanInTrial[combinedSelect])
                 elif areShuffled:
                     combinedSelect = combinedSelect.tolist()
                     
